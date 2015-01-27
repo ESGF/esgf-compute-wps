@@ -10,7 +10,7 @@ class Process(WPSProcess):
     """Process initialization"""
     # init process
     WPSProcess.__init__(self,
-        identifier = os.path.split(__file__)[-1][:-3],
+        identifier = os.path.split(__file__)[-1].split(".")[0],
         title="TESTit",
         version = 0.1,
         abstract = "Just testing basic functions, adding input, checking status, etc...",
