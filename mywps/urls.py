@@ -8,5 +8,7 @@ urlpatterns = patterns('',
     # url(r'^blog/', include('blog.urls')),
 
     url(r'^admin/', include(admin.site.urls)),
-    url(r'^test/', mywps.views.wps),
+    url(r'^login/$', 'django.contrib.auth.views.login'),
+    url(r'^wps/', mywps.views.wps),
+    url(r'^status/',mywps.views.status),
 )

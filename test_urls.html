@@ -1,14 +1,18 @@
 <head>
   <body>
-    <a href="view-source:http://localhost:8000/test/?service=wps&request=getcapabilities">WPS GetCapabilities</A>
+    <a href="view-source:http://localhost:8000/wps/?service=wps&request=getcapabilities">WPS GetCapabilities</A>
     <br>
-    <a href="view-source:http://localhost:8000/test/?version=1.0.0&service=wps&request=DescribeProcess&identifier=test_process">Desribe Test Process</a>
+    <a href="view-source:http://localhost:8000/wps/?version=1.0.0&service=wps&request=DescribeProcess&identifier=test_process">Desribe Test Process</a>
     <br>
-    <a href="http://localhost:8000/test/?version=1.0.0&service=wps&request=Execute&identifier=test_process">Execute Test Process With Default Values</a>
+    <a href="http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=test_process">Execute Test Process With Default Values</a>
     <br>
-    <a href="http://localhost:8000/test/?version=1.0.0&service=wps&request=Execute&identifier=test_process&datainputs=[val=5;pauseTime=.1;pauseNumber=1;pause=True]">Execute Test Process With 1 small pause</a>
+    <a href="http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=test_process&datainputs=[val=5;pauseTime=.1;pauseNumber=1;pause=True]">Execute Test Process With 1 Small Pause</a>
     <br>
-    <a href="http://localhost:8000/test/?version=1.0.0&service=wps&request=Execute&identifier=test_process&datainputs=[val=5;pauseTime=4;pauseNumber=5;pause=True]">Execute Test Process With 5 long pauses</a>
+    <a href="http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=test_process&datainputs=[val=5;pauseTime=4;pauseNumber=5;pause=True]">Execute Test Process With 5 Long Pauses</a>
+    <br>
+    <a href="http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=test_process&datainputs=[val=5;pauseTime=8;pauseNumber=9;pause=True]">Execute Test Process With Too Many Pauses</a>
+    <br>
+    <a href="http://localhost:8000/status">Status Page</a>
   </body>
 </head>
 

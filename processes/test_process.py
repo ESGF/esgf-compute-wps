@@ -3,7 +3,6 @@ import os
 import time
 import types
 
-
 class Process(WPSProcess):
   """Main process class"""
   def __init__(self):
@@ -23,11 +22,13 @@ class Process(WPSProcess):
     self.pauseIn = self.addLiteralInput(identifier = "pause", type=bool,title = "User Input Value", default = True)
     self.textOut = self.addLiteralOutput(identifier="text", title="just some text")
   def execute(self):
-    self.status.set("Starting",0)
+    self.status.set("Starting %i, %i",0)
     self.textOut.setValue("%i * 2. = %f" % (int(self.valueIn.getValue()),int(self.valueIn.getValue())*2.))
     N = self.numberPauseIn.getValue()
     n = self.timePauseIn.getValue()
     p = self.pauseIn.getValue()
+    if N*n>60:
+        return "BAD"
     if p:
       for i in range(N):
         self.status.set("Waiting %f second for the %i time (out of %i), just because" % (n,i+1,N),100-N+i)
