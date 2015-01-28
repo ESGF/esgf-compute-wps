@@ -11,4 +11,5 @@ urlpatterns = patterns('',
     url(r'^login/$', 'django.contrib.auth.views.login'),
     url(r'^wps/', mywps.views.wps),
     url(r'^status/',mywps.views.status),
+    url(r'^clear/(\d+)',mywps.views.clear_process),
 )

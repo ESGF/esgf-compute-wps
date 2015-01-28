@@ -1,4 +1,5 @@
-from django.http import HttpResponse
+from django.http import HttpResponse,HttpRequest
+from django.shortcuts import redirect
 import sys
 import os
 import random
@@ -36,17 +37,23 @@ def status(request):
     st="""<h1>Finished Processes</h1>
     <ul>"""
     for d in done:
-        st+="<li>%s</li>" % d
+        st+="<li>%s<a href='http://%s/clear/%s'>clear</a></li>" % (d,request.get_host(),d)
     st+="</ul><h1>Runnning Processes</h1><ul>"
     for r in running:
         st+="<li>%s - %s - %s</li>" % (r[0],r[1],r[2])
     st+="</ul><h1>Failed Processes</h1><ul>"
     for f in failed:
-        st+="<li>%s - %s</li>" % (f[0],f[1])
+        st+="<li>%s -%s<a href='http://%s/clear/%s'>clear</a></li>" % (f[0],f[1],request.get_host(),f[0])
     st+="</ul>%s " % processes
 
     return HttpResponse(st)
-    
+
+def clear_process(request,id):
+    if 1:
+        os.remove("out_%i.txt" % int(id))
+        os.remove("err_%i.txt" % int(id))
+    return redirect("/status")
+
 def wps(request):
   rndm = random.randint(0,100000000000)
   out = open("out_%i.txt" % rndm, "w")
