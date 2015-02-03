@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://"
+  targetNamespace="http://.../1.0"
+version="1.0">
+
+<annotation>
+<appinfo>esgfcwt.xsd 2015-02-02</appinfo>
+<documentation>XML Schema Document for ESGW-CWT
+</documentation>
+</annotation>  
+
+<!-- Really not sure what this file should contain
+-->
+<!-- ESGF-CWT
+field types (simple content) -->
+
+<simpleType name="protocolType">
+<restriction base="string">
+  <enumeration value="opendap"/>
+  <enumeration value="filesystem"/>
+</restriction>
+</simpleType>
+
+<!--
+<complexType name="dimensionType">
+  <attribute name="id" type="string"/>
+  <attribute name="units" type="string"/>
+</complexType>
+-->
+
+<element name="url" type="string"/>
+<element name="dimensions" />
+</schema>
+

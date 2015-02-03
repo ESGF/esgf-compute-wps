@@ -17,10 +17,13 @@ class Process(WPSProcess):
         statusSupported = "true",
         )
     self.axis = self.addLiteralInput(identifier = "axes", type=str,title = "Dimensions to average over", default = '0')
-    self.dataIn = self.addComplexInput(identifier = "variable",title="variable to average",formats = [{"mimeType":"esgf/variable"},{"mimeType":"application/x-netcdf"}],maxmegabytes=50)
+    self.dataIn = self.addComplexInput(identifier = "variable",title="variable to average",formats = [{"mimeType":"application/json"}], minOccurs=1, maxOccurs=10)
+    self.domain = self.addComplexInput(identifier = "domain",title="domain over which to average",formats = [{"mimeType":"application/json","encoding":"utf-8","schema":None},])
 
   def execute(self):
     self.status.set("Starting %i, %i",0)
+    data = self.dataIn.getValue()
+    print data
     return
 
 

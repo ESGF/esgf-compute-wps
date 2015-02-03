@@ -56,12 +56,17 @@ def clear_process(request,id):
 
 def wps(request):
   rndm = random.randint(0,100000000000)
+  print "PROCESS:",rndm
   out = open("out_%i.txt" % rndm, "w")
   err = open("err_%i.txt" % rndm, "w")
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
   T.start()
-  out = open("out_%i.txt" % rndm)
-  return HttpResponse("Started Request Process id: %i" % rndm)
+  if request.META["QUERY_STRING"].find("request=Execute")>-1:
+      return HttpResponse("Staaaaaarted Request Process id: %i" % rndm)
+  else:
+      T.join()
+      out = open("out_%i.txt" % rndm)
+      return HttpResponse(out.read())
 
 def run_wps(request,out,err,rndm):
 
