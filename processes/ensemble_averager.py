@@ -4,7 +4,13 @@ import time
 import types
 import json
 import cdms2
+cdms2.setNetcdfShuffleFlag(0) ## where value is either 0 or 1
+cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
+cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 included
 import random
+# Path where output will be stored/cached
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"..","output"))
+
 
 class Process(WPSProcess):
   """Main process class"""
@@ -36,19 +42,19 @@ class Process(WPSProcess):
     out = None
     N=0
     Ntot = len(dataFiles)+1
-    for d in enumerate(dataIn):
-        self.status.set("Reading file: %s" % d["url"],float(i)/Ntot)
+    for d in dataIn:
+        fnm = str(d["url"])
+        self.status.set("Reading file: %s" % fnm,100*float(N)/Ntot)
         ## let's figure out between dap or local
-        fnm = d["url"]
         if fnm[:7].lower()=="http://":
             f=cdms2.open(fnm)
         elif fnm[:7]=="file://":
-            f=cdms2.open(fnm[7:])
+            f=cdms2.open(fnm[6:])
         else:
             # can't figure it out skipping
             continue
         N+=1
-        V=fr(d["id"])
+        V=f(d["id"])
         f.close()
         if out is None:
             out = V
@@ -56,11 +62,12 @@ class Process(WPSProcess):
             out+=V
     out/=N
     cont = True
-    self.status.set("Preparing Output" % d["url"],float(Ntot-1)/Ntot)
+    self.status.set("Preparing Output",100*float(Ntot-1)/Ntot)
     while cont:
         rndm = random.randint(0,100000000000)
-        fout = "%i.nc"
-        cont = os.path.exists(fout)
+        fout = os.path.join(BASE_DIR,"%i.nc" % rndm)
+        fjson = os.path.join(BASE_DIR,"%i.json" % rndm)
+        cont = os.path.exists(fout) or os.path.exists(fjson)
     out.id = d["id"]
     f=cdms2.open(fout,"w")
     f.write(out)
@@ -68,7 +75,10 @@ class Process(WPSProcess):
     out = {}
     out["url"] = fout
     out["id"]=d["id"]
-    self.ensemble.setValue(json.dumps(out))
+    Fjson=open(fjson,"w")
+    json.dump(out,Fjson)
+    Fjson.close()
+    self.ensemble.setValue(fjson)
     return
 
   def loadVariable(self,data):
