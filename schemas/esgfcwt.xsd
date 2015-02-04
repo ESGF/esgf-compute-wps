@@ -21,14 +21,29 @@ field types (simple content) -->
 </restriction>
 </simpleType>
 
-<!--
-<complexType name="dimensionType">
-  <attribute name="id" type="string"/>
-  <attribute name="units" type="string"/>
+<complexType name="dimensionInfo">
+  <sequence>
+    <element name="id" type="string"/>
+    <element name="start" type="string"/>
+    <element name="end" type="string"/>
+  </sequence>
 </complexType>
--->
 
-<element name="url" type="string"/>
-<element name="dimensions" />
+<complexType name="domainType">
+  <sequence nimOccurs="0" maxOccurs="unbounded">
+    <element name="dimension" type="dimensionInfo"/>
+  </sequence>
+</complexType>
+
+<complexType name="variableType">
+  <sequence>
+    <element name="url" type="string"/>
+    <element name="id" type="string"/>
+  </sequence>
+</complexType>
+
+<element name="domain" type="domainType"/>
+<element name="variable" type="variableType"/>
+
 </schema>
 

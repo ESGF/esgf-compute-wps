@@ -12,4 +12,5 @@ urlpatterns = patterns('',
     url(r'^wps/', mywps.views.wps),
     url(r'^status/',mywps.views.status),
     url(r'^clear/(\d+)',mywps.views.clear_process),
+    url(r'^view/(\d+)',mywps.views.view_process),
 )
