@@ -51,7 +51,7 @@ def status(request):
     <ul>"""
     host = request.get_host()
     for d in done:
-        st+="<li><a href='http://%s/view/%s>%s</a> <a href='http://%s/clear/%s'>clear</a></li>" % (host,d,d,host,d)
+        st+="<li><a href='http://%s/view/%s'>%s</a> <a href='http://%s/clear/%s'>clear</a></li>" % (host,d,d,host,d)
     st+="</ul><h1>Runnning Processes</h1><ul>"
     for r in running:
         st+="<li>%s - %s - %s</li>" % (r[0],r[1],r[2])
@@ -78,7 +78,6 @@ def clear_process(request,id):
 
 def wps(request):
   rndm = random.randint(0,100000000000)
-  print "PROCESS:",rndm
   out = open("out_%i.txt" % rndm, "w")
   err = open("err_%i.txt" % rndm, "w")
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))

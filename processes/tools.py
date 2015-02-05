@@ -25,7 +25,7 @@ class ESGFCWTProcess(WPSProcess):
     f.write(data)
     f.close()
     out = {}
-    out["url"] = fout
+    out["url"] = "file:/"+fout
     out["id"]=data.id
     Fjson=open(fjson,"w")
     json.dump(out,Fjson)
@@ -40,10 +40,8 @@ class ESGFCWTProcess(WPSProcess):
     if isinstance(dataFiles,str):
         dataFiles = [dataFiles,]
     for fnm in dataFiles:
-        print fnm
         f=open(fnm)
         dataIn.append(self.loadVariable(f.read()))
-    print "DataIn:",dataIn
     return dataIn
   def loadVariable(self,data):
     """loads in data, right now can only be json but i guess could have to determine between json and xml"""

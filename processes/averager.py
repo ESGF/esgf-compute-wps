@@ -23,10 +23,8 @@ class Process(ESGFCWTProcess):
 
     def execute(self):
         dataIn=self.loadData()[0]
-        print "in avg:",dataIn
         domain = self.loadDomain()
         cdms2keyargs = self.domain2cdms(domain)
-        print "KW",cdms2keyargs
         f=self.loadFileFromURL(dataIn["url"])
         data = f(dataIn["id"],**cdms2keyargs)
         dims = "".join(["(%s)" % x for x in cdms2keyargs.keys()])
