@@ -22,13 +22,15 @@ class Process(ESGFCWTProcess):
         self.average = self.addComplexOutput(identifier='average', title='averaged variable', formats=[{'mimeType': 'text/json'}])
 
     def execute(self):
-        self.status.set('Starting', 0)
         dataIn=self.loadData()[0]
+        print "in avg:",dataIn
         domain = self.loadDomain()
         cdms2keyargs = self.domain2cdms(domain)
-        f=cdms2.open(dataIn["url"])
+        print "KW",cdms2keyargs
+        f=self.loadFileFromURL(dataIn["url"])
         data = f(dataIn["id"],**cdms2keyargs)
-        dims = "".join(["(s)" % x for x in cdms2keyargs.keys()])
+        dims = "".join(["(%s)" % x for x in cdms2keyargs.keys()])
         data = cdutil.averager(data,axis=dims)
+        data.id=dataIn["id"]
         self.saveVariable(data,self.average,"json")
         return

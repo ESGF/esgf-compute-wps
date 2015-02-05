@@ -27,7 +27,6 @@ class Process(ESGFCWTProcess):
     self.ensemble = self.addComplexOutput(identifier = "ensemble",title="ensemble average",formats = [{"mimeType":"text/json"}])
 
   def execute(self):
-    self.status.set("Starting %i, %i" % (0,0),0)
     ## Ok now loop thru models
     # Not tring to regrid it's an ensmeble over same model for this basic demo
     # When node manager is in place we code add code to see load balance and maybe spwan new request to avergae on different nodes, or whatever
@@ -38,13 +37,8 @@ class Process(ESGFCWTProcess):
     for d in dataIn:
         fnm = str(d["url"])
         self.status.set("Reading file: %s" % fnm,100*float(N)/Ntot)
-        ## let's figure out between dap or local
-        if fnm[:7].lower()=="http://":
-            f=cdms2.open(fnm)
-        elif fnm[:7]=="file://":
-            f=cdms2.open(fnm[6:])
-        else:
-            # can't figure it out skipping
+        f = self.loadFileFromURL(d["url"])
+        if f is None:
             continue
         N+=1
         V=f(d["id"])

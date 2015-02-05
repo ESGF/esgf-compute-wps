@@ -37,10 +37,13 @@ class ESGFCWTProcess(WPSProcess):
           origin = self.dataIn
     dataFiles = origin.getValue()
     dataIn = []
+    if isinstance(dataFiles,str):
+        dataFiles = [dataFiles,]
     for fnm in dataFiles:
         print fnm
         f=open(fnm)
         dataIn.append(self.loadVariable(f.read()))
+    print "DataIn:",dataIn
     return dataIn
   def loadVariable(self,data):
     """loads in data, right now can only be json but i guess could have to determine between json and xml"""
@@ -57,11 +60,24 @@ class ESGFCWTProcess(WPSProcess):
           if k in ["id","version"]:
               continue
           system = v.get("system","value").lower()
+          if isinstance(v["start"],unicode):
+              v["start"] = str(v["start"])
+          if isinstance(v["end"],unicode):
+              v["end"] = str(v["end"])
           if system == "value":
-              kargs[k]=(v["start"],v["end"])
+              kargs[str(k)]=(v["start"],v["end"])
           elif system == "index":
-              kargs[k] = slice(v["start"],v["end"])
+              kargs[str(k)] = slice(v["start"],v["end"])
       return kargs
 
-
+  def loadFileFromURL(self,url):
+    ## let's figure out between dap or local
+    if url[:7].lower()=="http://":
+        f=cdms2.open(str(url))
+    elif url[:7]=="file://":
+        f=cdms2.open(str(url[6:]))
+    else:
+        # can't figure it out skipping
+        f=None
+    return f
 
