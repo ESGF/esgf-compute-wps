@@ -16,7 +16,9 @@
     <br>
     <a href="http://localhost:8000/status">Status Page</a>
     <br>
-    <a href='http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=ensemble_averager&datainputs=[domain={"longitude": {"start": -180.0, "end": 180.0}, "time": {"start": "1980", "end": "1982"}};variable={"url":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"};variable={"url":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"}]'>Execute Averager Over One Local File</a>
+    <a href='http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=ensemble_averager&datainputs=[variable={"url":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"};variable={"url":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"}]'>Execute Ensemble Averager Over Local File</a>
+    <br>
+    <a href='http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=averager&datainputs=[domain={"longitude": {"start": -180.0, "end": 180.0}, "time": {"start": "1980", "end": "1982"}};variable={"url":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"}]'>Execute Averager On Local File</a>
   </body>
 </head>
 
