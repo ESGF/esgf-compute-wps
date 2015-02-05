@@ -12,6 +12,8 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"..","output")
 
 class ESGFCWTProcess(WPSProcess):
   """Main process class"""
+  def __init__(self):
+      pass
   def saveVariable(self,data,dest,type="json"):
     cont = True
     while cont:
@@ -30,18 +32,23 @@ class ESGFCWTProcess(WPSProcess):
     Fjson.close()
     dest.setValue(fjson)
 
-  def loadData(self):
-    dataFiles = self.dataIn.getValue()
+  def loadData(self,origin=None):
+    if origin is None:
+          origin = self.dataIn
+    dataFiles = origin.getValue()
     dataIn = []
     for fnm in dataFiles:
+        print fnm
         f=open(fnm)
         dataIn.append(self.loadVariable(f.read()))
     return dataIn
   def loadVariable(self,data):
     """loads in data, right now can only be json but i guess could have to determine between json and xml"""
     return json.loads(data)
-  def  loadDomain():
-      domain = self.domain.getValue()
+  def  loadDomain(self,origin=None):
+      if origin is None:
+          origin = self.domain
+      domain = origin.getValue()
       f=open(domain)
       return json.loads(f.read())
   def domain2cdms(self,domain):
