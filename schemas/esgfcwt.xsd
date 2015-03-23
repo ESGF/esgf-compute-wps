@@ -26,10 +26,12 @@ field types (simple content) -->
     <element name="id" type="string"/>
     <element name="start" type="string"/>
     <element name="end" type="string"/>
+    <element name="system" type="string"/>
   </sequence>
 </complexType>
 
 <complexType name="domainType">
+  <element name="id" type="string"/>
   <sequence nimOccurs="0" maxOccurs="unbounded">
     <element name="dimension" type="dimensionInfo"/>
   </sequence>
@@ -37,8 +39,9 @@ field types (simple content) -->
 
 <complexType name="variableType">
   <sequence>
-    <element name="url" type="string"/>
+    <element name="uri" type="string"/>
     <element name="id" type="string"/>
+    <element name="domain" type="domainType"/>
   </sequence>
 </complexType>
 
