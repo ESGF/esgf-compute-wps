@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>OpenLayers Example</title>
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <link rel="stylesheet" href="./css/ol.css" type="text/css">
+	<link rel="stylesheet" href="./css/layout.css" type="text/css">
+    <link rel="stylesheet" href="./TimeseriesPlot/rickshaw.css" type="text/css">
+    <link rel="stylesheet" href="./TimeseriesPlot/timeseries.css" type="text/css">
+    <link rel="stylesheet" href="./css/bootstrap.css" type="text/css"> 
+    <link rel="stylesheet" href="./css/bootstrap-responsive.css" type="text/css"> 
+    <script src="http://openlayers.org/api/OpenLayers.js"></script>
+    <script type="text/javascript" src="d3.min.js"></script>
+    <script type="text/javascript" src="./TimeseriesPlot/rickshaw.js"></script>
+   	<script src="CDS.js"></script> 
+   	<script src="./TimeseriesPlot/timeseries.js"></script> 
+    </head>
+    <body>
+      <div class="row-fluid">
+        <div class="span12">
+          <div id="map" class="map"></div>
+        </div>
+      </div>
+      <hr>
+	  <div id="timeseries-1"></div>
+      <script defer="defer" type="text/javascript">
+      	function json_replacer( key, value ) { return value; }
+      	var	tags = { chart: "chart", yaxis: "yaxis"	 };
+        var map = new OpenLayers.Map('map');
+        var variables = [
+        	{ url: "file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml", id: "uwnd" },
+        	{ url: "file://Users/tpmaxwel/Data/MERRA_hourly_2D_precip/MERRA_hourly_precip.xml", id: "uwnd" }        
+        ];
+        var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
+        map.addLayer(wms);  
+        OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {                
+                defaultHandlerOptions: { 'single': true, 'double': false, 'pixelTolerance': 0, 'stopSingle': false, 'stopDouble': false },
+                initialize: function(options) {
+                    this.handlerOptions = OpenLayers.Util.extend( {}, this.defaultHandlerOptions );
+                    OpenLayers.Control.prototype.initialize.apply(  this, arguments  ); 
+                    this.handler = new OpenLayers.Handler.Click( this, {  'click': this.trigger }, this.handlerOptions );
+                }, 
+                trigger: function(e) {
+                    var lonlat = map.getLonLatFromPixel(e.xy);
+                    console.log(" @@@ Execute:");
+                    var domain_json = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat, level: 1000.0 }, json_replacer ); 
+                    console.log( domain_json );
+                    var variable_json = JSON.stringify( variables[1], json_replacer );                
+                    console.log( variable_json );
+					CDS.wps.execute({
+							url: 'http://localhost/cgi-bin/wps',
+							process: "timeseries",					        
+					        inputs: {
+					            domain: domain_json,
+					            variable: variable_json
+					        },
+					        success: function(output) {
+					        	console.log('Plotting jason:');
+					        	tseries = output.responseText; 
+					            console.log( tseries );
+					            tseries_obj = JSON.parse( tseries );		
+								timeseries.plot( "timeseries-1", tseries_obj );   
+					        }
+					    });
+                }
+            });
+        var click = new OpenLayers.Control.Click();
+        map.addControl(click);
+        map.zoomToMaxExtent();
+        click.activate();
+      </script>
+
+</body>
+</html>

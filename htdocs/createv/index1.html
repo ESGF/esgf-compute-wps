@@ -1,0 +1,57 @@
+<html>
+<head>
+  <title>OpenLayers Example</title>
+    <script src="http://openlayers.org/api/OpenLayers.js"></script>
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <link rel="stylesheet" href="./css/ol.css" type="text/css">
+    <link rel="stylesheet" href="./css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="./css/layout.css" type="text/css">
+    <link rel="stylesheet" href="./css/bootstrap-responsive.css" type="text/css">
+    </head>
+    <body>
+      <div class="row-fluid">
+        <div class="span12">
+          <div id="map" class="map"></div>
+        </div>
+      </div>
+      <script defer="defer" type="text/javascript">
+      	function json_replacer( key, value ) { return value; }
+        var map = new OpenLayers.Map('map');
+        var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
+        map.addLayer(wms); 
+        client = new OpenLayers.WPSClient( { servers: { opengeo: 'http://localhost/cgi-bin/wps' } } );   
+        OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {                
+                defaultHandlerOptions: { 'single': true, 'double': false, 'pixelTolerance': 0, 'stopSingle': false, 'stopDouble': false },
+                initialize: function(options) {
+                    this.handlerOptions = OpenLayers.Util.extend( {}, this.defaultHandlerOptions );
+                    OpenLayers.Control.prototype.initialize.apply(  this, arguments  ); 
+                    this.handler = new OpenLayers.Handler.Click( this, {  'click': this.trigger }, this.handlerOptions );
+                }, 
+                trigger: function(e) {
+                    var lonlat = map.getLonLatFromPixel(e.xy);
+                    var wps_process = client.getProcess(  "opengeo", "timeseries" );
+                    wps_process.describe( { callback: function( description ) { console.log( description ); } } );
+                    console.log(" @@@ Execute:");
+                    var domain_json = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat, level: 1000.0 }, json_replacer ); 
+                    console.log( domain_json );
+                    var variable_json = JSON.stringify(  { url: "file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml", id: "uwnd" }, json_replacer );                
+                    console.log( variable_json );
+					wps_process.execute({					        
+					        inputs: {
+					            domain: domain_json,
+					            variable: variable_json
+					        },
+					        success: function(output) {
+					            var t = 1;
+					        }
+					    });
+                }
+            });
+        var click = new OpenLayers.Control.Click();
+        map.addControl(click);
+        map.zoomToMaxExtent();
+        click.activate();
+      </script>
+
+</body>
+</html>
