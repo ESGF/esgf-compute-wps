@@ -1,7 +1,6 @@
 #!/bin/bash
 
-export PYWPS_CFG=/Users/thomas/Development/web/WPS/wps_cwt/wps_cds.cfg
-#export PYWPS_PROCESSES=/Developer/Projects/EclipseWorkspace/WPS/wps_cwt/processes/
+export PYWPS_CFG=/Developer/Web/WPS/wps_cwt/wps_cds.cfg
 
-/Users/thomas/Development/web/WPS/PyWPS/wps.py
-#/Developer/Projects/EclipseWorkspace/WPS/wps_cwt/mywps/wps.py
+/Developer/Web/WPS/PyWPS/wps.py
+
