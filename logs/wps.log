@@ -1,0 +1,138 @@
+  PyWPS [2015-04-02 14:10:14,601] DEBUG: Could not import magic module
+PyWPS [2015-04-02 14:10:14,604] DEBUG: {'responseform': {'rawdataoutput': {}, 'responsedocument': {}}, 'service': 'wps', 'language': 'en-CA', 'request': 'execute', 'version': u'1.0.0', 'datainputs': [{'identifier': u'domain', 'value': u'{"longitude":65.3,"latitude":10.5,"level":100.0}'}, {'identifier': u'variable', 'value': u'{"url":"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml","id":"uwnd"}'}], 'identifier': [u'timeseries']}
+PyWPS [2015-04-02 14:10:14,610] INFO: MapScript could not be loaded, mapserver not supported: No module named mapscript
+PyWPS [2015-04-02 14:10:14,610] INFO: osgeo package could not be loaded, mapserver not supported: No module named osgeo
+PyWPS [2015-04-02 14:10:14,615] INFO: Setting PYWPS_PROCESSES from configuration file to /Users/thomas/Development/web/WPS/wps_cwt/processes
+PyWPS [2015-04-02 14:10:14,739] INFO: Following processes are imported: [None, 'averager', None, 'ensemble_averager', 'test_process', None, 'timeseries']
+PyWPS [2015-04-02 14:10:14,744] INFO: Status [processpaused]: Getting input variable of process timeseries
+PyWPS [2015-04-02 14:10:14,744] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-02 14:10:14,744] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-02 14:10:14,744] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-02 14:10:14,745] DEBUG: Missing ComplexDataInput mimeType in: variable, adopting default mimeType (first in formats list)
+PyWPS [2015-04-02 14:10:14,745] DEBUG: Adding schema: None
+PyWPS [2015-04-02 14:10:14,745] DEBUG: Adding encoding: None
+PyWPS [2015-04-02 14:10:14,746] INFO: Status [processpaused]: Getting input domain of process timeseries
+PyWPS [2015-04-02 14:10:14,746] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-02 14:10:14,746] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-02 14:10:14,746] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-02 14:10:14,746] DEBUG: Missing ComplexDataInput mimeType in: domain, adopting default mimeType (first in formats list)
+PyWPS [2015-04-02 14:10:14,747] DEBUG: Adding schema: None
+PyWPS [2015-04-02 14:10:14,747] DEBUG: Adding encoding: utf-8
+PyWPS [2015-04-02 14:10:14,748] INFO: Status [processstarted][0.0]: Process timeseries started
+PyWPS [2015-04-02 14:10:14,752] INFO: Status [processfailed]: Failed\ to\ execute\ WPS\ process\ \[timeseries\]\:\ \[Errno\ 2\]\ No\ such\ file\ or\ directory\:\ \'\/Users\/tpmaxwel\/Data\/AConaty\/comp\-ECMWF\/geos5\.xml\'
+Traceback (most recent call last):
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 652, in executeProcess
+    processError = self.process.execute()
+  File "/Users/thomas/Development/web/WPS/wps_cwt/processes/timeseries.py", line 48, in execute
+    dataset=self.loadFileFromURL(dataIn["url"])
+  File "/Users/thomas/Development/web/WPS/wps_cwt/processes/tools.py", line 90, in loadFileFromURL
+    f=cdms2.open(str(url[6:]))
+  File "/Users/thomas/Development/uvcdat/master/build/install/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/cdms2/dataset.py", line 218, in openDataset
+    datanode = load(path)
+  File "/Users/thomas/Development/uvcdat/master/build/install/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/cdms2/dataset.py", line 162, in load
+    fd = open(path)
+IOError: [Errno 2] No such file or directory: '/Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml'
+Traceback (most recent call last):
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 391, in __init__
+    self.executeProcess()
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 672, in executeProcess
+    (self.process.identifier,e))
+NoApplicableCode: <?xml version="1.0" encoding="utf-8"?>
+<ExceptionReport version="1.0.0" xmlns="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsExceptionReport.xsd">
+	<Exception exceptionCode="NoApplicableCode">
+		<ExceptionText>&quot;Failed to execute WPS process [timeseries]: [Errno 2] No such file or directory: '/Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml'&quot;</ExceptionText>
+	</Exception>
+</ExceptionReport>
+
+PyWPS [2015-04-02 14:18:59,919] DEBUG: Could not import magic module
+PyWPS [2015-04-02 14:18:59,922] DEBUG: {'responseform': {'rawdataoutput': {}, 'responsedocument': {}}, 'service': 'wps', 'language': 'en-CA', 'request': 'execute', 'version': u'1.0.0', 'datainputs': [{'identifier': u'domain', 'value': u'{"longitude":65.3,"latitude":10.5,"level":100.0}'}, {'identifier': u'variable', 'value': u'{"url":"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml","id":"uwnd"}'}], 'identifier': [u'timeseries']}
+PyWPS [2015-04-02 14:18:59,928] INFO: MapScript could not be loaded, mapserver not supported: No module named mapscript
+PyWPS [2015-04-02 14:18:59,928] INFO: osgeo package could not be loaded, mapserver not supported: No module named osgeo
+PyWPS [2015-04-02 14:18:59,933] INFO: Setting PYWPS_PROCESSES from configuration file to /Users/thomas/Development/web/WPS/wps_cwt/processes
+PyWPS [2015-04-02 14:19:00,058] INFO: Following processes are imported: [None, 'averager', None, 'ensemble_averager', 'test_process', None, 'timeseries']
+PyWPS [2015-04-02 14:19:00,062] INFO: Status [processpaused]: Getting input variable of process timeseries
+PyWPS [2015-04-02 14:19:00,062] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-02 14:19:00,062] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-02 14:19:00,062] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-02 14:19:00,063] DEBUG: Missing ComplexDataInput mimeType in: variable, adopting default mimeType (first in formats list)
+PyWPS [2015-04-02 14:19:00,063] DEBUG: Adding schema: None
+PyWPS [2015-04-02 14:19:00,063] DEBUG: Adding encoding: None
+PyWPS [2015-04-02 14:19:00,064] INFO: Status [processpaused]: Getting input domain of process timeseries
+PyWPS [2015-04-02 14:19:00,064] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-02 14:19:00,064] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-02 14:19:00,064] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-02 14:19:00,064] DEBUG: Missing ComplexDataInput mimeType in: domain, adopting default mimeType (first in formats list)
+PyWPS [2015-04-02 14:19:00,064] DEBUG: Adding schema: None
+PyWPS [2015-04-02 14:19:00,064] DEBUG: Adding encoding: utf-8
+PyWPS [2015-04-02 14:19:00,065] INFO: Status [processstarted][0.0]: Process timeseries started
+PyWPS [2015-04-02 14:19:00,068] INFO: Status [processfailed]: Failed\ to\ execute\ WPS\ process\ \[timeseries\]\:\ \[Errno\ 2\]\ No\ such\ file\ or\ directory\:\ \'\/Users\/tpmaxwel\/Data\/AConaty\/comp\-ECMWF\/geos5\.xml\'
+Traceback (most recent call last):
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 652, in executeProcess
+    processError = self.process.execute()
+  File "/Users/thomas/Development/web/WPS/wps_cwt/processes/timeseries.py", line 48, in execute
+    dataset=self.loadFileFromURL(dataIn["url"])
+  File "/Users/thomas/Development/web/WPS/wps_cwt/processes/tools.py", line 90, in loadFileFromURL
+    f=cdms2.open(str(url[6:]))
+  File "/Users/thomas/Development/uvcdat/master/build/install/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/cdms2/dataset.py", line 218, in openDataset
+    datanode = load(path)
+  File "/Users/thomas/Development/uvcdat/master/build/install/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/cdms2/dataset.py", line 162, in load
+    fd = open(path)
+IOError: [Errno 2] No such file or directory: '/Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml'
+Traceback (most recent call last):
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 391, in __init__
+    self.executeProcess()
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 672, in executeProcess
+    (self.process.identifier,e))
+NoApplicableCode: <?xml version="1.0" encoding="utf-8"?>
+<ExceptionReport version="1.0.0" xmlns="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsExceptionReport.xsd">
+	<Exception exceptionCode="NoApplicableCode">
+		<ExceptionText>&quot;Failed to execute WPS process [timeseries]: [Errno 2] No such file or directory: '/Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml'&quot;</ExceptionText>
+	</Exception>
+</ExceptionReport>
+
+PyWPS [2015-04-02 14:20:06,945] DEBUG: Could not import magic module
+PyWPS [2015-04-02 14:20:06,948] DEBUG: {'responseform': {'rawdataoutput': {}, 'responsedocument': {}}, 'service': 'wps', 'language': 'en-CA', 'request': 'execute', 'version': u'1.0.0', 'datainputs': [{'identifier': u'domain', 'value': u'{"longitude":65.3,"latitude":10.5,"level":100.0}'}, {'identifier': u'variable', 'value': u'{"url":"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml","id":"uwnd"}'}], 'identifier': [u'timeseries']}
+PyWPS [2015-04-02 14:20:06,954] INFO: MapScript could not be loaded, mapserver not supported: No module named mapscript
+PyWPS [2015-04-02 14:20:06,954] INFO: osgeo package could not be loaded, mapserver not supported: No module named osgeo
+PyWPS [2015-04-02 14:20:06,959] INFO: Setting PYWPS_PROCESSES from configuration file to /Users/thomas/Development/web/WPS/wps_cwt/processes
+PyWPS [2015-04-02 14:20:07,085] INFO: Following processes are imported: [None, 'averager', None, 'ensemble_averager', 'test_process', None, 'timeseries']
+PyWPS [2015-04-02 14:20:07,089] INFO: Status [processpaused]: Getting input variable of process timeseries
+PyWPS [2015-04-02 14:20:07,089] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-02 14:20:07,089] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-02 14:20:07,089] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-02 14:20:07,090] DEBUG: Missing ComplexDataInput mimeType in: variable, adopting default mimeType (first in formats list)
+PyWPS [2015-04-02 14:20:07,090] DEBUG: Adding schema: None
+PyWPS [2015-04-02 14:20:07,090] DEBUG: Adding encoding: None
+PyWPS [2015-04-02 14:20:07,091] INFO: Status [processpaused]: Getting input domain of process timeseries
+PyWPS [2015-04-02 14:20:07,091] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-02 14:20:07,091] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-02 14:20:07,091] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-02 14:20:07,091] DEBUG: Missing ComplexDataInput mimeType in: domain, adopting default mimeType (first in formats list)
+PyWPS [2015-04-02 14:20:07,091] DEBUG: Adding schema: None
+PyWPS [2015-04-02 14:20:07,091] DEBUG: Adding encoding: utf-8
+PyWPS [2015-04-02 14:20:07,092] INFO: Status [processstarted][0.0]: Process timeseries started
+PyWPS [2015-04-02 14:20:07,095] INFO: Status [processfailed]: Failed\ to\ execute\ WPS\ process\ \[timeseries\]\:\ \[Errno\ 2\]\ No\ such\ file\ or\ directory\:\ \'\/Users\/tpmaxwel\/Data\/AConaty\/comp\-ECMWF\/geos5\.xml\'
+Traceback (most recent call last):
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 652, in executeProcess
+    processError = self.process.execute()
+  File "/Users/thomas/Development/web/WPS/wps_cwt/processes/timeseries.py", line 48, in execute
+    dataset=self.loadFileFromURL(dataIn["url"])
+  File "/Users/thomas/Development/web/WPS/wps_cwt/processes/tools.py", line 90, in loadFileFromURL
+    f=cdms2.open(str(url[6:]))
+  File "/Users/thomas/Development/uvcdat/master/build/install/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/cdms2/dataset.py", line 218, in openDataset
+    datanode = load(path)
+  File "/Users/thomas/Development/uvcdat/master/build/install/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/cdms2/dataset.py", line 162, in load
+    fd = open(path)
+IOError: [Errno 2] No such file or directory: '/Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml'
+Traceback (most recent call last):
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 391, in __init__
+    self.executeProcess()
+  File "/Users/thomas/Development/web/WPS/PyWPS/pywps/Wps/Execute/__init__.py", line 672, in executeProcess
+    (self.process.identifier,e))
+NoApplicableCode: <?xml version="1.0" encoding="utf-8"?>
+<ExceptionReport version="1.0.0" xmlns="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsExceptionReport.xsd">
+	<Exception exceptionCode="NoApplicableCode">
+		<ExceptionText>&quot;Failed to execute WPS process [timeseries]: [Errno 2] No such file or directory: '/Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml'&quot;</ExceptionText>
+	</Exception>
+</ExceptionReport>
+
