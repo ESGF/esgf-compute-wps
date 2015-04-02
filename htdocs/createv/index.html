@@ -28,8 +28,7 @@
       	var	tags = { chart: "chart", yaxis: "yaxis"	 };
         var map = new OpenLayers.Map('map');
         var variables = [
-        	{ url: "file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml", id: "uwnd" },
-        	{ url: "file://Users/tpmaxwel/Data/MERRA_hourly_2D_precip/MERRA_hourly_precip.xml", id: "uwnd" }        
+        	{ url: "file://Developer/Web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },     
         ];
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
         map.addLayer(wms);  
@@ -45,10 +44,10 @@
                     console.log(" @@@ Execute:");
                     var domain_json = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat, level: 1000.0 }, json_replacer ); 
                     console.log( domain_json );
-                    var variable_json = JSON.stringify( variables[1], json_replacer );                
+                    var variable_json = JSON.stringify( variables[0], json_replacer );                
                     console.log( variable_json );
 					CDS.wps.execute({
-							url: 'http://localhost/cgi-bin/wps',
+							url: 'http://localhost:8000/cgi-bin/wps',
 							process: "timeseries",					        
 					        inputs: {
 					            domain: domain_json,
