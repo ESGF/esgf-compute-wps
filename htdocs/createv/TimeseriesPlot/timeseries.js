@@ -1,4 +1,8 @@
 
+function isNumeric(val) {
+    return Number(parseFloat(val))==val;
+}
+
 var timeseries = {
 
 	plot: function( elem_id, tseries ) {
@@ -22,14 +26,16 @@ var timeseries = {
 		else if ( tunit.indexOf( 'year' ) >= 0 )  conversion_factor = 60*60*24*365; 
 		
 		for (i = _i = 0; _i < input_data.length; i = ++_i) {
-		  rs_data.push( { x: time_axis._data_[i]*conversion_factor, y: input_data[i] } );
-/*		  rs_data.push( { x: (i * tseries.timeInterval) + timeBase, y: input_data[i] } );  */
-         }  
+			if (  input_data[i] != null ) {
+		  	     rs_data.push( { x: time_axis._data_[i]*conversion_factor, y: input_data[i] } );
+/*		        rs_data.push( { x: (i * tseries.timeInterval) + timeBase, y: input_data[i] } );  */
+			}
 			
+         }  
 		var min = Number.MAX_VALUE;
 		var max = Number.MIN_VALUE;
-		for (_l = 0, _len2 = input_data.length; _l < _len2; _l++) {
-		    value = input_data[_l];
+		for (_l = 0, _len2 = rs_data.length; _l < _len2; _l++) {
+		    value = rs_data[_l].y;
 		    min = Math.min(min, value);
 		    max = Math.max(max, value);
 		}

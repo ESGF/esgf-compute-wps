@@ -49,10 +49,11 @@ class Process(ESGFCWTProcess):
         logging.debug( " $$$ Data Request: '%s', '%s', '%s' ", dataIn["url"], dataIn["id"], str( cdms2keyargs ) )
         variable = dataset[dataIn["id"]]
         result_variable = variable(**cdms2keyargs)
+        result_data = result_variable.squeeze().tolist( numpy.nan )
         time_axis = result_variable.getTime()
         result_obj = {}
-        result_obj['data'] = result_variable.data.squeeze().tolist()
-        result_obj['variable'] = record_attributes( result_variable, [ 'long_name', 'name', 'units', 'fmissing_value' ], { 'id': dataIn["id"] } )
+        result_obj['data'] = result_data
+        result_obj['variable'] = record_attributes( result_variable, [ 'long_name', 'name', 'units' ], { 'id': dataIn["id"] } )
         result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
         if time_axis is not None:
             result_obj['time'] = record_attributes( time_axis, [ 'units', 'calendar', '_data_' ] )
@@ -61,8 +62,9 @@ class Process(ESGFCWTProcess):
         return
 
 if __name__ == "__main__":
-    dataset = cdms2.open( '/Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml' )
-    variable = dataset['uwnd']
-    result_variable0 = variable( latitude = 59.0, longitude= 103.0, level= 1000.0 )
-    result_variable1 = variable( latitude = 60.0, longitude= 103.0, level= 1000.0 )
-    result_variable2 = variable( latitude = 59.765625, longitude= 103.0, level= 1000.0 )
+    dataset = cdms2.open( '/Developer/Web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml' )
+    variable = dataset['t']
+    result_variable = variable( latitude = ( 59.0,59.0,"cob"), longitude= (103.0,103.0,"cob") )
+    result_data = result_variable.squeeze().tolist( numpy.nan )
+    result_json = json.dumps( result_data )
+    print " "

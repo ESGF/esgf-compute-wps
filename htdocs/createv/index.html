@@ -26,6 +26,7 @@
       <script defer="defer" type="text/javascript">
       	function json_replacer( key, value ) { return value; }
       	var	tags = { chart: "chart", yaxis: "yaxis"	 };
+      	var debug = false;
         var map = new OpenLayers.Map('map');
         var variables = [
         	{ url: "file://Developer/Web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },     
@@ -41,11 +42,13 @@
                 }, 
                 trigger: function(e) {
                     var lonlat = map.getLonLatFromPixel(e.xy);
-                    console.log(" @@@ Execute:");
-                    var domain_json = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat, level: 1000.0 }, json_replacer ); 
-                    console.log( domain_json );
-                    var variable_json = JSON.stringify( variables[0], json_replacer );                
-                    console.log( variable_json );
+                    var domain_json   = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat, level: 1000.0 }, json_replacer ); 
+                    var variable_json = JSON.stringify( variables[0], json_replacer );     
+                               
+                    if ( debug ) { 
+                    	console.log( " @@@ Execute\nDomain:\n " + domain_json );
+                    	console.log( " Variable:\n " + variable_json ); 
+                    }
 					CDS.wps.execute({
 							url: 'http://localhost:8000/cgi-bin/wps',
 							process: "timeseries",					        
@@ -54,11 +57,11 @@
 					            variable: variable_json
 					        },
 					        success: function(output) {
-					        	console.log('Plotting jason:');
 					        	tseries = output.responseText; 
-					            console.log( tseries );
-					            tseries_obj = JSON.parse( tseries );		
-								timeseries.plot( "timeseries-1", tseries_obj );   
+					            tseries_obj = JSON.parse( tseries.replace(/\bNaN\b/g, "null") );		
+								timeseries.plot( "timeseries-1", tseries_obj ); 
+								  
+					            if ( debug ) { console.log( 'Plotting jason:\n' + tseries ); }
 					        }
 					    });
                 }
