@@ -29,7 +29,7 @@
       	var debug = false;
         var map = new OpenLayers.Map('map');
         var variables = [
-        	{ url: "file://Developer/Web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },     
+        	{ url: "file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },     
         ];
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
         map.addLayer(wms);  

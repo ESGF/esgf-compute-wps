@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PYWPS_CFG=/Developer/Web/WPS/wps_cwt/wps_cds.cfg
+export PYWPS_CFG=/usr/local/cds/web/WPS/wps_cwt/wps_cds.cfg
 
-/Developer/Web/WPS/PyWPS/wps.py
+/usr/local/cds/web/WPS/PyWPS/wps.py
 
