@@ -29,8 +29,10 @@
       	var debug = false;
         var map = new OpenLayers.Map('map');
         var variables = [
-        	{ url: "file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc", id: "t" },     
+        	{ url: "file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc",  id: "t" },     
+        	{ url: "file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },     
         ];
+        var variable_index = 1;
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
         map.addLayer(wms);  
         OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {                
@@ -43,7 +45,7 @@
                 trigger: function(e) {
                     var lonlat = map.getLonLatFromPixel(e.xy);
                     var domain_json   = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat, level: 1000.0 }, json_replacer ); 
-                    var variable_json = JSON.stringify( variables[0], json_replacer );     
+                    var variable_json = JSON.stringify( variables[ variable_index ], json_replacer );     
                                
                     if ( debug ) { 
                     	console.log( " @@@ Execute\nDomain:\n " + domain_json );

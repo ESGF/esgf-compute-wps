@@ -2302,3 +2302,118 @@ PyWPS [2015-04-03 16:19:54,230] DEBUG: Adding encoding: utf-8
 PyWPS [2015-04-03 16:19:54,231] INFO: Status [processstarted][0.0]: Process timeseries started
 PyWPS [2015-04-03 16:19:54,236] DEBUG:  $$$ Data Request: 'file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc', 't', '{'latitude': (39.375, 39.375, 'cob'), 'longitude': (-34.453125, -34.453125, 'cob'), 'level': (1000, 1000, 'cob')}' 
 PyWPS [2015-04-03 16:19:54,264] INFO: Status [processsucceeded]: PyWPS Process timeseries successfully calculated
+PyWPS [2015-04-03 16:28:41,979] DEBUG: Could not import magic module
+PyWPS [2015-04-03 16:28:41,987] DEBUG: {'responseform': {'rawdataoutput': {u'result': {'mimetype': '', 'schema': '', 'uom': '', 'encoding': ''}}, 'responsedocument': {}}, 'service': 'wps', 'language': 'en-CA', 'request': 'execute', 'version': u'1.0.0', 'datainputs': [{'identifier': u'domain', 'value': u'{"longitude":-122.34375,"latitude":-4.921875,"level":1000}'}, {'identifier': u'variable', 'value': u'{"url":"file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml","id":"t"}'}], 'identifier': [u'timeseries']}
+PyWPS [2015-04-03 16:28:42,005] INFO: MapScript could not be loaded, mapserver not supported: No module named mapscript
+PyWPS [2015-04-03 16:28:42,005] INFO: osgeo package could not be loaded, mapserver not supported: No module named osgeo
+PyWPS [2015-04-03 16:28:42,011] INFO: Setting PYWPS_PROCESSES from configuration file to /usr/local/cds/web/WPS/wps_cwt/processes
+PyWPS [2015-04-03 16:28:42,156] INFO: Following processes are imported: [None, 'averager', None, 'ensemble_averager', 'test_process', None, 'timeseries']
+PyWPS [2015-04-03 16:28:42,160] INFO: Status [processpaused]: Getting input variable of process timeseries
+PyWPS [2015-04-03 16:28:42,161] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:42,161] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:42,161] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:42,161] DEBUG: Missing ComplexDataInput mimeType in: variable, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:42,161] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:42,161] DEBUG: Adding encoding: None
+PyWPS [2015-04-03 16:28:42,163] INFO: Status [processpaused]: Getting input domain of process timeseries
+PyWPS [2015-04-03 16:28:42,163] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:42,163] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:42,163] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:42,163] DEBUG: Missing ComplexDataInput mimeType in: domain, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:42,163] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:42,163] DEBUG: Adding encoding: utf-8
+PyWPS [2015-04-03 16:28:42,165] INFO: Status [processstarted][0.0]: Process timeseries started
+PyWPS [2015-04-03 16:28:42,170] DEBUG:  $$$ Data Request: 'file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml', 't', '{'latitude': (-4.921875, -4.921875, 'cob'), 'longitude': (-122.34375, -122.34375, 'cob'), 'level': (1000, 1000, 'cob')}' 
+PyWPS [2015-04-03 16:28:42,369] INFO: Status [processsucceeded]: PyWPS Process timeseries successfully calculated
+PyWPS [2015-04-03 16:28:43,851] DEBUG: Could not import magic module
+PyWPS [2015-04-03 16:28:43,860] DEBUG: {'responseform': {'rawdataoutput': {u'result': {'mimetype': '', 'schema': '', 'uom': '', 'encoding': ''}}, 'responsedocument': {}}, 'service': 'wps', 'language': 'en-CA', 'request': 'execute', 'version': u'1.0.0', 'datainputs': [{'identifier': u'domain', 'value': u'{"longitude":-112.5,"latitude":-50.625,"level":1000}'}, {'identifier': u'variable', 'value': u'{"url":"file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml","id":"t"}'}], 'identifier': [u'timeseries']}
+PyWPS [2015-04-03 16:28:43,877] INFO: MapScript could not be loaded, mapserver not supported: No module named mapscript
+PyWPS [2015-04-03 16:28:43,877] INFO: osgeo package could not be loaded, mapserver not supported: No module named osgeo
+PyWPS [2015-04-03 16:28:43,883] INFO: Setting PYWPS_PROCESSES from configuration file to /usr/local/cds/web/WPS/wps_cwt/processes
+PyWPS [2015-04-03 16:28:44,027] INFO: Following processes are imported: [None, 'averager', None, 'ensemble_averager', 'test_process', None, 'timeseries']
+PyWPS [2015-04-03 16:28:44,031] INFO: Status [processpaused]: Getting input variable of process timeseries
+PyWPS [2015-04-03 16:28:44,031] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:44,032] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:44,032] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:44,032] DEBUG: Missing ComplexDataInput mimeType in: variable, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:44,032] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:44,032] DEBUG: Adding encoding: None
+PyWPS [2015-04-03 16:28:44,034] INFO: Status [processpaused]: Getting input domain of process timeseries
+PyWPS [2015-04-03 16:28:44,034] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:44,034] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:44,034] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:44,034] DEBUG: Missing ComplexDataInput mimeType in: domain, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:44,034] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:44,034] DEBUG: Adding encoding: utf-8
+PyWPS [2015-04-03 16:28:44,036] INFO: Status [processstarted][0.0]: Process timeseries started
+PyWPS [2015-04-03 16:28:44,042] DEBUG:  $$$ Data Request: 'file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml', 't', '{'latitude': (-50.625, -50.625, 'cob'), 'longitude': (-112.5, -112.5, 'cob'), 'level': (1000, 1000, 'cob')}' 
+PyWPS [2015-04-03 16:28:44,238] INFO: Status [processsucceeded]: PyWPS Process timeseries successfully calculated
+PyWPS [2015-04-03 16:28:45,774] DEBUG: Could not import magic module
+PyWPS [2015-04-03 16:28:45,782] DEBUG: {'responseform': {'rawdataoutput': {u'result': {'mimetype': '', 'schema': '', 'uom': '', 'encoding': ''}}, 'responsedocument': {}}, 'service': 'wps', 'language': 'en-CA', 'request': 'execute', 'version': u'1.0.0', 'datainputs': [{'identifier': u'domain', 'value': u'{"longitude":-7.734375,"latitude":-42.890625,"level":1000}'}, {'identifier': u'variable', 'value': u'{"url":"file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml","id":"t"}'}], 'identifier': [u'timeseries']}
+PyWPS [2015-04-03 16:28:45,800] INFO: MapScript could not be loaded, mapserver not supported: No module named mapscript
+PyWPS [2015-04-03 16:28:45,800] INFO: osgeo package could not be loaded, mapserver not supported: No module named osgeo
+PyWPS [2015-04-03 16:28:45,805] INFO: Setting PYWPS_PROCESSES from configuration file to /usr/local/cds/web/WPS/wps_cwt/processes
+PyWPS [2015-04-03 16:28:45,951] INFO: Following processes are imported: [None, 'averager', None, 'ensemble_averager', 'test_process', None, 'timeseries']
+PyWPS [2015-04-03 16:28:45,955] INFO: Status [processpaused]: Getting input variable of process timeseries
+PyWPS [2015-04-03 16:28:45,955] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:45,955] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:45,955] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:45,955] DEBUG: Missing ComplexDataInput mimeType in: variable, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:45,955] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:45,955] DEBUG: Adding encoding: None
+PyWPS [2015-04-03 16:28:45,957] INFO: Status [processpaused]: Getting input domain of process timeseries
+PyWPS [2015-04-03 16:28:45,957] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:45,957] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:45,957] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:45,957] DEBUG: Missing ComplexDataInput mimeType in: domain, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:45,957] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:45,957] DEBUG: Adding encoding: utf-8
+PyWPS [2015-04-03 16:28:45,959] INFO: Status [processstarted][0.0]: Process timeseries started
+PyWPS [2015-04-03 16:28:45,964] DEBUG:  $$$ Data Request: 'file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml', 't', '{'latitude': (-42.890625, -42.890625, 'cob'), 'longitude': (-7.734375, -7.734375, 'cob'), 'level': (1000, 1000, 'cob')}' 
+PyWPS [2015-04-03 16:28:46,165] INFO: Status [processsucceeded]: PyWPS Process timeseries successfully calculated
+PyWPS [2015-04-03 16:28:47,899] DEBUG: Could not import magic module
+PyWPS [2015-04-03 16:28:47,908] DEBUG: {'responseform': {'rawdataoutput': {u'result': {'mimetype': '', 'schema': '', 'uom': '', 'encoding': ''}}, 'responsedocument': {}}, 'service': 'wps', 'language': 'en-CA', 'request': 'execute', 'version': u'1.0.0', 'datainputs': [{'identifier': u'domain', 'value': u'{"longitude":-37.96875,"latitude":18.28125,"level":1000}'}, {'identifier': u'variable', 'value': u'{"url":"file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml","id":"t"}'}], 'identifier': [u'timeseries']}
+PyWPS [2015-04-03 16:28:47,926] INFO: MapScript could not be loaded, mapserver not supported: No module named mapscript
+PyWPS [2015-04-03 16:28:47,926] INFO: osgeo package could not be loaded, mapserver not supported: No module named osgeo
+PyWPS [2015-04-03 16:28:47,932] INFO: Setting PYWPS_PROCESSES from configuration file to /usr/local/cds/web/WPS/wps_cwt/processes
+PyWPS [2015-04-03 16:28:48,077] INFO: Following processes are imported: [None, 'averager', None, 'ensemble_averager', 'test_process', None, 'timeseries']
+PyWPS [2015-04-03 16:28:48,081] INFO: Status [processpaused]: Getting input variable of process timeseries
+PyWPS [2015-04-03 16:28:48,081] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:48,081] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:48,081] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:48,082] DEBUG: Missing ComplexDataInput mimeType in: variable, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:48,082] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:48,082] DEBUG: Adding encoding: None
+PyWPS [2015-04-03 16:28:48,083] INFO: Status [processpaused]: Getting input domain of process timeseries
+PyWPS [2015-04-03 16:28:48,083] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:48,083] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:48,083] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:48,084] DEBUG: Missing ComplexDataInput mimeType in: domain, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:48,084] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:48,084] DEBUG: Adding encoding: utf-8
+PyWPS [2015-04-03 16:28:48,085] INFO: Status [processstarted][0.0]: Process timeseries started
+PyWPS [2015-04-03 16:28:48,091] DEBUG:  $$$ Data Request: 'file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml', 't', '{'latitude': (18.28125, 18.28125, 'cob'), 'longitude': (-37.96875, -37.96875, 'cob'), 'level': (1000, 1000, 'cob')}' 
+PyWPS [2015-04-03 16:28:48,292] INFO: Status [processsucceeded]: PyWPS Process timeseries successfully calculated
+PyWPS [2015-04-03 16:28:49,973] DEBUG: Could not import magic module
+PyWPS [2015-04-03 16:28:49,981] DEBUG: {'responseform': {'rawdataoutput': {u'result': {'mimetype': '', 'schema': '', 'uom': '', 'encoding': ''}}, 'responsedocument': {}}, 'service': 'wps', 'language': 'en-CA', 'request': 'execute', 'version': u'1.0.0', 'datainputs': [{'identifier': u'domain', 'value': u'{"longitude":72.421875,"latitude":-29.53125,"level":1000}'}, {'identifier': u'variable', 'value': u'{"url":"file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml","id":"t"}'}], 'identifier': [u'timeseries']}
+PyWPS [2015-04-03 16:28:49,999] INFO: MapScript could not be loaded, mapserver not supported: No module named mapscript
+PyWPS [2015-04-03 16:28:49,999] INFO: osgeo package could not be loaded, mapserver not supported: No module named osgeo
+PyWPS [2015-04-03 16:28:50,004] INFO: Setting PYWPS_PROCESSES from configuration file to /usr/local/cds/web/WPS/wps_cwt/processes
+PyWPS [2015-04-03 16:28:50,149] INFO: Following processes are imported: [None, 'averager', None, 'ensemble_averager', 'test_process', None, 'timeseries']
+PyWPS [2015-04-03 16:28:50,153] INFO: Status [processpaused]: Getting input variable of process timeseries
+PyWPS [2015-04-03 16:28:50,153] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:50,153] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:50,153] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:50,154] DEBUG: Missing ComplexDataInput mimeType in: variable, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:50,154] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:50,154] DEBUG: Adding encoding: None
+PyWPS [2015-04-03 16:28:50,155] INFO: Status [processpaused]: Getting input domain of process timeseries
+PyWPS [2015-04-03 16:28:50,155] DEBUG: input define by user didnt contain mimetype
+PyWPS [2015-04-03 16:28:50,155] DEBUG: input define by user didnt contain schema
+PyWPS [2015-04-03 16:28:50,155] DEBUG: input define by user didnt contain encoding
+PyWPS [2015-04-03 16:28:50,156] DEBUG: Missing ComplexDataInput mimeType in: domain, adopting default mimeType (first in formats list)
+PyWPS [2015-04-03 16:28:50,156] DEBUG: Adding schema: None
+PyWPS [2015-04-03 16:28:50,156] DEBUG: Adding encoding: utf-8
+PyWPS [2015-04-03 16:28:50,157] INFO: Status [processstarted][0.0]: Process timeseries started
+PyWPS [2015-04-03 16:28:50,163] DEBUG:  $$$ Data Request: 'file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml', 't', '{'latitude': (-29.53125, -29.53125, 'cob'), 'longitude': (72.421875, 72.421875, 'cob'), 'level': (1000, 1000, 'cob')}' 
+PyWPS [2015-04-03 16:28:50,363] INFO: Status [processsucceeded]: PyWPS Process timeseries successfully calculated
