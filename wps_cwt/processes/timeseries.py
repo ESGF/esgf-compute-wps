@@ -62,9 +62,13 @@ class Process(ESGFCWTProcess):
         return
 
 if __name__ == "__main__":
-    dataset = cdms2.open( '/Developer/Web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml' )
-    variable = dataset['t']
-    result_variable = variable( latitude = ( 59.0,59.0,"cob"), longitude= (103.0,103.0,"cob") )
-    result_data = result_variable.squeeze().tolist( numpy.nan )
-    result_json = json.dumps( result_data )
-    print " "
+    dataset = cdms2.open( '/usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml' )
+    t = dataset('t')
+    merged_dataset = cdms2.open( '/usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc', 'w' )
+    merged_dataset.write( t )
+    merged_dataset.close()
+    dataset.close()
+#    result_variable = variable( latitude = ( 59.0,59.0,"cob"), longitude= (103.0,103.0,"cob") )
+#    result_data = result_variable.squeeze().tolist( numpy.nan )
+#    result_json = json.dumps( result_data )
+#    print " "
