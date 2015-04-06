@@ -40,23 +40,38 @@ class Process(ESGFCWTProcess):
 #        self.download = self.addLiteralInput(identifier='download', type=bool, title='download output', default=False)
         self.dataIn = self.addComplexInput(identifier='variable', title='variable to average', formats=[{'mimeType': 'text/json'}], minOccurs=1, maxOccurs=1)
         self.result = self.addLiteralOutput( identifier='result', title='timeseries data', type=types.StringType )
+        self.dataCache = {}
+        self.cacheVariableData = True
 
     def execute(self):
         dataIn=self.loadData()[0]
         location = self.loadDomain()
         cdms2keyargs = self.domain2cdms(location)
-        dataset=self.loadFileFromURL(dataIn["url"])
-        logging.debug( " $$$ Data Request: '%s', '%s', '%s' ", dataIn["url"], dataIn["id"], str( cdms2keyargs ) )
-        variable = dataset[dataIn["id"]]
+        url = dataIn["url"]
+        id = dataIn["id"]
+        var_cache_id =  ":".join(url,id)
+        dataset = self.loadFileFromURL( url )
+        logging.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
+
+        variable = self.dataCache.get( var_cache_id, None )
+        if variable is None:
+            if self.cacheVariableData:
+                variable = dataset( id )
+                self.dataCache[ var_cache_id ] = variable
+            else:
+                variable = dataset[ id ]
+
         result_variable = variable(**cdms2keyargs)
         result_data = result_variable.squeeze().tolist( numpy.nan )
         time_axis = result_variable.getTime()
+
         result_obj = {}
-        result_obj['data'] = result_data
-        result_obj['variable'] = record_attributes( result_variable, [ 'long_name', 'name', 'units' ], { 'id': dataIn["id"] } )
+
+        result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': dataIn["id"] } )
         result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
         if time_axis is not None:
             result_obj['time'] = record_attributes( time_axis, [ 'units', 'calendar', '_data_' ] )
+        result_obj['data'] = result_data
         result_json = json.dumps( result_obj )
         self.result.setValue( result_json )
         return
