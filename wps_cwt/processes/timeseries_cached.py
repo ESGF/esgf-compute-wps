@@ -47,9 +47,8 @@ class Process(ESGFCWTProcess):
         cdms2keyargs = self.domain2cdms(location)
         url = dataIn["url"]
         id = dataIn["id"]
-        var_cache_id =  ":".join([url,id])
         dataset = self.loadFileFromURL( url )
-        logging.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
+        logging.debug( " $$$ Data Request: '%s', '%s' ", url, str( cdms2keyargs ) )
 
         variable = dataset[ id ]
         result_variable = variable(**cdms2keyargs)
