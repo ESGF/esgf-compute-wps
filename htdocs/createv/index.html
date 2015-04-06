@@ -62,12 +62,9 @@
 					        success: function(output) {
 					        	tseries = output.responseText; 
 					        	
-					        	if ( debug ) {  console.timeEnd("WPS Execute"); console.time("JSON.parse"); }
+					        	if ( debug ) {  console.timeEnd("WPS Execute"); console.time("Plot"); }
 					        	
-					            tseries_obj = JSON.parse( tseries.replace(/\bNaN\b/g, "null") );
-					            
-					            if ( debug ) {  console.timeEnd("JSON.parse");  console.time("Plot"); }		
-					            
+					            tseries_obj = JSON.parse( tseries.replace(/\bNaN\b/g, "null") );				            	
 								timeseries.plot( "timeseries-1", tseries_obj ); 
 								  
 					            if ( debug ) {  console.timeEnd("Plot"); console.log( 'Plotting jason:\n' + tseries );  }
