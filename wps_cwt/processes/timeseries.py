@@ -41,7 +41,7 @@ class Process(ESGFCWTProcess):
         self.dataIn = self.addComplexInput(identifier='variable', title='variable to average', formats=[{'mimeType': 'text/json'}], minOccurs=1, maxOccurs=1)
         self.result = self.addLiteralOutput( identifier='result', title='timeseries data', type=types.StringType )
         self.dataCache = {}
-        self.cacheVariableData = True
+        self.cacheVariableData = False
 
     def execute(self):
         dataIn=self.loadData()[0]
@@ -49,7 +49,7 @@ class Process(ESGFCWTProcess):
         cdms2keyargs = self.domain2cdms(location)
         url = dataIn["url"]
         id = dataIn["id"]
-        var_cache_id =  ":".join(url,id)
+        var_cache_id =  ":".join( [url,id] )
         dataset = self.loadFileFromURL( url )
         logging.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
 
