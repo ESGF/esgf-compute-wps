@@ -44,6 +44,7 @@ class Process(ESGFCWTProcess):
         self.cacheVariableData = False
 
     def execute(self):
+        start_time = time.time()
         dataIn=self.loadData()[0]
         location = self.loadDomain()
         cdms2keyargs = self.domain2cdms(location)
@@ -61,9 +62,12 @@ class Process(ESGFCWTProcess):
             else:
                 variable = dataset[ id ]
 
+        read_start_time = time.time()
         result_variable = variable(**cdms2keyargs)
+        read_end_time = time.time()
         result_data = result_variable.squeeze().tolist( numpy.nan )
         time_axis = result_variable.getTime()
+        massage_end_time = time.time()
 
         result_obj = {}
 
@@ -72,6 +76,9 @@ class Process(ESGFCWTProcess):
         if time_axis is not None:
             result_obj['time'] = record_attributes( time_axis, [ 'units', 'calendar', '_data_' ] )
         result_obj['data'] = result_data
+        end_time = time.time()
+        result_obj['timings'] = [ (end_time-start_time), (read_end_time-read_start_time),(read_end_time-massage_end_time) ]
+                
         result_json = json.dumps( result_obj )
         self.result.setValue( result_json )
         return
