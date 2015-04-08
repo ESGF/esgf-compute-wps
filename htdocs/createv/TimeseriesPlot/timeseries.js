@@ -15,6 +15,9 @@ var timeseries = {
 		var input_data = tseries.data;
 		var variable = tseries.variable; 
 		var time_axis = tseries.time; 
+		var time_data = time_axis.data;
+		var t0 = time_axis.t0;
+		var dt = time_axis.dt;
 		var rs_data = [];
 		var tunit = time_axis.units.split(" ")[0]; 
 		var conversion_factor = 1;	
@@ -27,11 +30,10 @@ var timeseries = {
 		
 		for (i = _i = 0; _i < input_data.length; i = ++_i) {
 			if (  input_data[i] != null ) {
-		  	     rs_data.push( { x: time_axis._data_[i]*conversion_factor, y: input_data[i] } );
-/*		        rs_data.push( { x: (i * tseries.timeInterval) + timeBase, y: input_data[i] } );  */
+				time_value = (time_data == undefined) ? (t0 + dt*i) : time_data[i];
+		  	    rs_data.push( { x: time_value*conversion_factor, y: input_data[i] } );
 			}
-			
-         }  
+        }  
 		var min = Number.MAX_VALUE;
 		var max = Number.MIN_VALUE;
 		for (_l = 0, _len2 = rs_data.length; _l < _len2; _l++) {

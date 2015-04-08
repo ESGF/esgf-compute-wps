@@ -66,7 +66,7 @@
 					        	
 					            tseries_obj = JSON.parse( tseries.replace(/\bNaN\b/g, "null") );				            	
 								timeseries.plot( "timeseries-1", tseries_obj ); 
-								var timings = tseries.timings;
+								var timings = tseries_obj.timings;
 								  
 					            if ( debug ) {  console.timeEnd("Plot"); console.log( 'Serverside timings: ' + timings ); console.log( 'Plotting jason:\n' + tseries );  }
 					        }

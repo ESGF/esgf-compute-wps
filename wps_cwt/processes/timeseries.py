@@ -1,6 +1,6 @@
 from pywps.Process import WPSProcess
 import os
-import logging
+import logging, time
 import json, types
 import cdms2
 import numpy
@@ -11,6 +11,7 @@ cdms2.setNetcdfDeflateLevelFlag(0)
 import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 from tools import ESGFCWTProcess
+DataCache = {}
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
@@ -34,13 +35,13 @@ def record_attributes( var, attr_name_list, additional_attributes = {} ):
 
 class Process(ESGFCWTProcess):
     def __init__(self):
+        self.init_time = time.time()
         """Process initialization"""
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='timeseries', version=0.1, abstract='Extract a timeseries at a spatial location', storeSupported='true', statusSupported='true')
         self.domain = self.addComplexInput(identifier='domain', title='spatial location of timeseries', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
 #        self.download = self.addLiteralInput(identifier='download', type=bool, title='download output', default=False)
-        self.dataIn = self.addComplexInput(identifier='variable', title='variable to average', formats=[{'mimeType': 'text/json'}], minOccurs=1, maxOccurs=1)
+        self.dataIn = self.addComplexInput(identifier='variable', title='variable to average', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=1, maxOccurs=1)
         self.result = self.addLiteralOutput( identifier='result', title='timeseries data', type=types.StringType )
-        self.dataCache = {}
         self.cacheVariableData = False
 
     def execute(self):
@@ -54,38 +55,64 @@ class Process(ESGFCWTProcess):
         dataset = self.loadFileFromURL( url )
         logging.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
 
-        variable = self.dataCache.get( var_cache_id, None )
+        variable = DataCache.get( var_cache_id, None )
         if variable is None:
             if self.cacheVariableData:
                 variable = dataset( id )
-                self.dataCache[ var_cache_id ] = variable
+                DataCache[ var_cache_id ] = variable
             else:
                 variable = dataset[ id ]
+        else:
+            logging.debug( " $$$ Using cached variable data for %s", var_cache_id )
 
         read_start_time = time.time()
         result_variable = variable(**cdms2keyargs)
-        read_end_time = time.time()
         result_data = result_variable.squeeze().tolist( numpy.nan )
         time_axis = result_variable.getTime()
-        massage_end_time = time.time()
+        read_end_time = time.time()
 
         result_obj = {}
 
         result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': dataIn["id"] } )
         result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
         if time_axis is not None:
-            result_obj['time'] = record_attributes( time_axis, [ 'units', 'calendar', '_data_' ] )
+            time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
+            time_data = time_axis.getValue().tolist()
+            isLinear = True
+            if isLinear:
+                time_obj['t0'] = time_data[0]
+                time_obj['dt'] = time_data[1] - time_data[0]
+            else:
+                time_obj['data'] = time_data
+            result_obj['time'] = time_obj
         result_obj['data'] = result_data
         end_time = time.time()
-        result_obj['timings'] = [ (end_time-start_time), (read_end_time-read_start_time),(read_end_time-massage_end_time) ]
+        result_obj['timings'] = [ (end_time-start_time), (read_end_time-read_start_time), (start_time - self.init_time) ]
                 
         result_json = json.dumps( result_obj )
         self.result.setValue( result_json )
+        final_end_time = time.time()
+        logging.debug( " $$$ Execution time: %f (with init: %f) sec", (final_end_time-start_time), (final_end_time-self.init_time) )
+        
         return
 
 if __name__ == "__main__":
     dataset = cdms2.open( '/usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml' )
     t = dataset('t')
+    result_obj = {}
+    time_axis = t.getTime()
+    
+    time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
+    time_data = time_axis.getValue().tolist()
+    isLinear = True
+    if isLinear:
+        time_obj['t0'] = time_data[0]
+        time_obj['dt'] = time_data[1] - time_data[0]
+    else:
+        time_obj['data'] = time_data
+     
+    result_obj['time'] = time_obj           
+    result_json = json.dumps( result_obj )
     merged_dataset = cdms2.open( '/usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc', 'w' )
     merged_dataset.write( t )
     merged_dataset.close()

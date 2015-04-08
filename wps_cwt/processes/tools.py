@@ -7,7 +7,10 @@ cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 included
 import random
 # Path where output will be stored/cached
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"..","output"))
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
+OutputDir = 'wpsoutputs'
+OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
 
 
 class ESGFCWTProcess(WPSProcess):
@@ -92,4 +95,13 @@ class ESGFCWTProcess(WPSProcess):
         # can't figure it out skipping
         f=None
     return f
+
+        # self.envs = {
+        #         "path":"PATH",
+        #         "addonPath":"GRASS_ADDON_PATH",
+        #         "version":"GRASS_VERSION",
+        #         "gui":"GRASS_GUI",
+        #         "gisbase": "GISBASE",
+        #         "ldLibraryPath": "LD_LIBRARY_PATH"
+        # }
 
