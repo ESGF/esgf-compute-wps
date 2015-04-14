@@ -8,6 +8,7 @@ import pywps
 import glob
 import threading
 import subprocess
+import logging
 
 def process_status(nm):
     f=open(nm)
@@ -80,9 +81,10 @@ def wps(request):
   rndm = random.randint(0,100000000000)
   out = open("out_%i.txt" % rndm, "w")
   err = open("err_%i.txt" % rndm, "w")
+  async_exec = True
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
   T.start()
-  if request.META["QUERY_STRING"].find("request=Execute")>-1:
+  if async_exec and request.META["QUERY_STRING"].find("request=Execute")>-1:
       return HttpResponse("Started Request Process id: <a href='%s/view/%i'>%i</a>" % (request.get_host(),rndm,rndm))
   else:
       T.join()
@@ -94,8 +96,14 @@ def wps(request):
       return HttpResponse(st)
 
 def run_wps(request,out,err,rndm):
-
   inputQuery = request.META["QUERY_STRING"]
+  P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
+  P.wait()
+  out.close()
+  err.close()
+  
+if __name__ == "__main__":
+  inputQuery = "version=1.0.0&service=wps&request=DescribeProcess&identifier=timeseries"
   P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
   P.wait()
   out.close()

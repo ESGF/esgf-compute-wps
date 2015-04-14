@@ -1,10 +1,60 @@
 
-function isNumeric(val) {
+var timerId = undefined;
+
+var isNumeric = function(val) {
     return Number(parseFloat(val))==val;
-}
+};
 
+var extractHREF = function(val) {
+    var index = val.indexOf("href='");
+    if (index == -1) { return undefined; }
+    var subval = val.substr( index+6 );
+    index = subval.indexOf("'");
+    if (index == -1) { return undefined; }
+    return "http://" + subval.substr( 0, index );
+};
+
+var HttpClient = function() {
+    this.get = function(aUrl, aCallback) {
+        var anHttpRequest = new XMLHttpRequest();
+        anHttpRequest.onreadystatechange = function() { 
+            if (anHttpRequest.readyState == 4 && anHttpRequest.status == 200)
+                aCallback(anHttpRequest.responseText);
+        };
+        anHttpRequest.open( "GET", aUrl, true );            
+        anHttpRequest.send( null );
+    };
+};
+
+var processPlotRequest = function( response ) {
+	var  lines= response.split("\n");
+	var response_json = '';
+	for( var i = 0; i<lines.length; i++ ){
+		line = lines[i];
+		var iloc = line.indexOf("Content-Type:");
+		if ( ( line.length > 0 ) && ( iloc == -1 ) ) {
+		   response_json = response_json + line;	
+		}
+	}
+	if ( response_json.length > 0 ) { 
+		clearInterval( timerId ); 
+		console.log( "Got response: " + response_json ); 
+		var tseries_json = response_json.replace(/\bNaN\b/g, "null");
+		var tseries_obj = JSON.parse( tseries_json );				            	
+		timeseries.plot( timeseries.elem, tseries_obj ); 	
+	};
+};
+				        	
 var timeseries = {
-
+	
+	plotHREF: function( elem_id, responseText ) {
+		var href = extractHREF( responseText );
+		console.log( "plotHREF: Got href: " + href ); 		
+		var fetcher = new HttpClient();
+		this.elem = elem_id;
+		timerId = setInterval( function() { fetcher.get( href, processPlotRequest ); }, 3000 ); 	
+	},
+	
 	plot: function( elem_id, tseries ) {
 		var ts_elem = d3.select("#"+elem_id);
 		var obsolete_elems = ts_elem.selectAll("div");

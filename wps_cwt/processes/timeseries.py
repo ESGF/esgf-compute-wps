@@ -12,6 +12,9 @@ import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 from tools import ESGFCWTProcess
 DataCache = {}
+#wpsLog = logging.getLogger('wps')
+#wpsLog.setLevel(logging.DEBUG)
+#wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'wps.log') ) ) )
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
@@ -36,7 +39,7 @@ def record_attributes( var, attr_name_list, additional_attributes = {} ):
 class Process(ESGFCWTProcess):
     def __init__(self):
         self.init_time = time.time()
-        """Process initialization"""
+        logging.debug("Timeseries Process initialization")
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='timeseries', version=0.1, abstract='Extract a timeseries at a spatial location', storeSupported='true', statusSupported='true')
         self.domain = self.addComplexInput(identifier='domain', title='spatial location of timeseries', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
 #        self.download = self.addLiteralInput(identifier='download', type=bool, title='download output', default=False)
@@ -45,6 +48,7 @@ class Process(ESGFCWTProcess):
         self.cacheVariableData = False
 
     def execute(self):
+        logging.debug('%%%%%%%TTTTTTTTTTTTTTTTTTT%%%%%%%%')
         start_time = time.time()
         dataIn=self.loadData()[0]
         location = self.loadDomain()
@@ -97,6 +101,7 @@ class Process(ESGFCWTProcess):
         return
 
 if __name__ == "__main__":
+ 
     dataset = cdms2.open( '/usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml' )
     t = dataset('t')
     result_obj = {}

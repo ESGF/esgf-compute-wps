@@ -32,13 +32,14 @@ def setEnvVariable( key, env_var ):
     try:
         value = config.getConfigValue( "cds", key )
         os.environ[ env_var ] = value
-        if env_var == 'PYTHONPATH':
-            for path in value.split(':'):
-                sys.path.append(path)
-                logging.info("Adding %s to sys.path" % ( path ) )
-        else:
-            setEnv( env_var, value )
-            logging.info("CDS environment variable %s set to %s" % ( env_var, value ) )
+        setEnv( env_var, value )
+        logging.info("CDS environment variable %s set to %s" % ( env_var, value ) )
+        for identifier in [ 'path', 'library' ]:
+            if identifier in env_var.lower():
+                for path in value.split(':'):
+                    if path not in sys.path:
+                        sys.path.append(path)
+                        logging.info("Adding %s to sys.path" % ( path ) )
     except:
         logging.info("Error setting CDS environment variable %s" % ( env_var ) )
         

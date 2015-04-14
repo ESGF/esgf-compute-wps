@@ -32,7 +32,6 @@
         	{ url: "file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc",  id: "t" },     
         	{ url: "file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },     
         ];
-        var apache_server = 'http://localhost:8001/cgi-bin/wps/'
         var django_server = 'http://localhost:8000/wps/'
         var variable_index = 1;
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
@@ -55,22 +54,15 @@
                     	console.time("WPS Execute");
                     }
 					CDS.wps.execute({
-							url: apache_server,
+							url: django_server,
 							process: "timeseries",					        
 					        inputs: {
 					            domain: domain_json,
 					            variable: variable_json
 					        },
-					        success: function(output) {
-					        	tseries = output.responseText; 
-					        	
-					        	if ( debug ) {  console.timeEnd("WPS Execute"); console.time("Plot"); }
-					        	
-					            tseries_obj = JSON.parse( tseries.replace(/\bNaN\b/g, "null") );				            	
-								timeseries.plot( "timeseries-1", tseries_obj ); 
-								var timings = tseries_obj.timings;
-								  
-					            if ( debug ) {  console.timeEnd("Plot"); console.log( 'Serverside timings: ' + timings ); console.log( 'Plotting jason:\n' + tseries );  }
+					        success: function(output) { 
+					        	timeseries.plotHREF( "timeseries-1", output.responseText );					        	
+					        	console.log( "WPS response: " + output.responseText ); 					  
 					        }
 					    });
                 }
