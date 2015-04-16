@@ -18,10 +18,9 @@ CDS.wps = {
 	           request: "Execute",
 	           rawDataOutput: "result",
 	           identifier: args.process,
-	           datainputs: inputs,
+	           datainputs: inputs
 	        },
-	        success: args.success,
- 
+	        success: args.success
     	} );
     	console.log( request );
     },

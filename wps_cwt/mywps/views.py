@@ -80,14 +80,32 @@ def clear_process(request,id):
     os.remove("err_%i.txt" % int(id))
     return redirect("/status")
 
+def getRequestParms( request ):
+  parmMap = { 'embedded': False, 'execute':False }
+  queryStr = request.META["QUERY_STRING"]
+  for requestParm in queryStr.split('&'):
+      rParmElems = requestParm.split('=')
+      param = rParmElems[0].strip().lower()
+      paramVal = rParmElems[1].strip().lower()
+      if ( param == 'datainputs'):
+        sIndex = paramVal.find('embedded')
+        if sIndex > 0:
+            arg_value = paramVal[sIndex+9:sIndex+17]
+            if ( arg_value.find( 'true' ) >= 0 ):
+                parmMap['embedded']  = True
+      if ( param == 'request' ) and ( paramVal == 'execute' ): parmMap['execute']  = True
+  return parmMap
+
 def wps(request):
   rndm = random.randint(0,100000000000)
   out = open("out_%i.txt" % rndm, "w")
   err = open("err_%i.txt" % rndm, "w")
-  async_exec = True
+  if enable_debug: pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+  requestParams = getRequestParms(request)
+
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
   T.start()
-  if async_exec and request.META["QUERY_STRING"].find("request=Execute")>-1:
+  if not requestParams['enbedded'] and requestParams['execute']:
       return HttpResponse("Started Request Process id: <a href='%s/view/%i'>%i</a>" % (request.get_host(),rndm,rndm))
   else:
       T.join()
@@ -99,7 +117,6 @@ def wps(request):
       return HttpResponse(st)
 
 def run_wps(request,out,err,rndm):
-  if enable_debug: pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
   inputQuery = request.META["QUERY_STRING"]
   P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
   P.wait()

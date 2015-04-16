@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="./css/bootstrap-responsive.css" type="text/css"> 
     <script src="http://openlayers.org/api/OpenLayers.js"></script>
     <script type="text/javascript" src="d3.min.js"></script>
-    <script type="text/javascript" src="./TimeseriesPlot/rickshaw.js"></script>
+    <script type="text/javascript" src="TimeseriesPlot/rickshaw.js"></script>
+    <script type="text/javascript" src="WPSResponseManager.js"></script>
    	<script src="CDS.js"></script> 
    	<script src="./TimeseriesPlot/timeseries.js"></script> 
     </head>
@@ -22,7 +23,7 @@
         </div>
       </div>
       <hr>
-	  <div id="timeseries-1"></div>
+	  <div id="timeseries-elem"></div>
       <script defer="defer" type="text/javascript">
       	function json_replacer( key, value ) { return value; }
       	var	tags = { chart: "chart", yaxis: "yaxis"	 };
@@ -32,8 +33,9 @@
         	{ url: "file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc",  id: "t" },     
         	{ url: "file://usr/local/cds/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },     
         ];
-        var django_server = 'http://localhost:8000/wps/'
+        var django_server = 'http://localhost:8000/wps/';
         var variable_index = 1;
+        var embedded = true;
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
         map.addLayer(wms);  
         OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {                
@@ -55,14 +57,17 @@
                     }
 					CDS.wps.execute({
 							url: django_server,
-							process: "timeseries",					        
+							process: "timeseries",
 					        inputs: {
 					            domain: domain_json,
-					            variable: variable_json
+					            variable: variable_json,
+                                embedded: embedded
 					        },
 					        success: function(output) { 
-					        	timeseries.plotHREF( "timeseries-1", output.responseText );					        	
-					        	console.log( "WPS response: " + output.responseText ); 					  
+					        	wpsResponseManager.process( output.responseText, embedded, 
+					        		function( responseJson ) {
+					        			timeseries.plot( "timeseries-elem", responseJson );
+					        		} );
 					        }
 					    });
                 }
