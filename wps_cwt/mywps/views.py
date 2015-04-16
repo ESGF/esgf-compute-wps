@@ -9,6 +9,9 @@ import glob
 import threading
 import subprocess
 import logging
+enable_debug=False
+if enable_debug:
+    import pydevd
 
 def process_status(nm):
     f=open(nm)
@@ -96,6 +99,7 @@ def wps(request):
       return HttpResponse(st)
 
 def run_wps(request,out,err,rndm):
+  if enable_debug: pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
   inputQuery = request.META["QUERY_STRING"]
   P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
   P.wait()
