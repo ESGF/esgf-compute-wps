@@ -100,7 +100,7 @@ LOGGING = {
             'level':'DEBUG',
             'class':'django.utils.log.NullHandler',
         },
-        'logfile': {
+        'dj_logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
             'filename': "/usr/local/cds/web/WPS/logs/django.log",
@@ -116,7 +116,7 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers':[ 'logfile' ],
+            'handlers':[ 'dj_logfile' ],
             'propagate': True,
             'level':'DEBUG',
         },

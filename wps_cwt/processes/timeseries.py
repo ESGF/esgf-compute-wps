@@ -10,7 +10,7 @@ cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-from tools import ESGFCWTProcess
+from tools import ESGFCWTProcess, wpsLog
 DataCache = {}
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
@@ -45,7 +45,6 @@ class Process(ESGFCWTProcess):
         self.cacheVariableData = False
 
     def execute(self):
-        wpsLog.debug('%%%%%%%TTTTTTTTTTTTTTTTTTT%%%%%%%%')
         start_time = time.time()
         dataIn=self.loadData()[0]
         location = self.loadDomain()
