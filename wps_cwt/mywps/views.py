@@ -105,7 +105,7 @@ def wps(request):
 
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
   T.start()
-  if not requestParams['enbedded'] and requestParams['execute']:
+  if not requestParams['embedded'] and requestParams['execute']:
       return HttpResponse("Started Request Process id: <a href='%s/view/%i'>%i</a>" % (request.get_host(),rndm,rndm))
   else:
       T.join()

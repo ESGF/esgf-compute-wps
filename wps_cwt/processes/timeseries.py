@@ -1,6 +1,6 @@
 from pywps.Process import WPSProcess
 import os
-import logging, time
+import time
 import json, types
 import cdms2
 import numpy
@@ -12,9 +12,6 @@ import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 from tools import ESGFCWTProcess
 DataCache = {}
-#wpsLog = logging.getLogger('wps')
-#wpsLog.setLevel(logging.DEBUG)
-#wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'wps.log') ) ) )
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
@@ -39,7 +36,7 @@ def record_attributes( var, attr_name_list, additional_attributes = {} ):
 class Process(ESGFCWTProcess):
     def __init__(self):
         self.init_time = time.time()
-        logging.debug("Timeseries Process initialization")
+        wpsLog.debug("Timeseries Process initialization")
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='timeseries', version=0.1, abstract='Extract a timeseries at a spatial location', storeSupported='true', statusSupported='true')
         self.domain = self.addComplexInput(identifier='domain', title='spatial location of timeseries', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
 #        self.download = self.addLiteralInput(identifier='download', type=bool, title='download output', default=False)
@@ -48,7 +45,7 @@ class Process(ESGFCWTProcess):
         self.cacheVariableData = False
 
     def execute(self):
-        logging.debug('%%%%%%%TTTTTTTTTTTTTTTTTTT%%%%%%%%')
+        wpsLog.debug('%%%%%%%TTTTTTTTTTTTTTTTTTT%%%%%%%%')
         start_time = time.time()
         dataIn=self.loadData()[0]
         location = self.loadDomain()
@@ -57,7 +54,7 @@ class Process(ESGFCWTProcess):
         id = dataIn["id"]
         var_cache_id =  ":".join( [url,id] )
         dataset = self.loadFileFromURL( url )
-        logging.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
+        wpsLog.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
 
         variable = DataCache.get( var_cache_id, None )
         if variable is None:
@@ -67,7 +64,7 @@ class Process(ESGFCWTProcess):
             else:
                 variable = dataset[ id ]
         else:
-            logging.debug( " $$$ Using cached variable data for %s", var_cache_id )
+            wpsLog.debug( " $$$ Using cached variable data for %s", var_cache_id )
 
         read_start_time = time.time()
         result_variable = variable(**cdms2keyargs)
@@ -96,7 +93,7 @@ class Process(ESGFCWTProcess):
         result_json = json.dumps( result_obj )
         self.result.setValue( result_json )
         final_end_time = time.time()
-        logging.debug( " $$$ Execution time: %f (with init: %f) sec", (final_end_time-start_time), (final_end_time-self.init_time) )
+        wpsLog.debug( " $$$ Execution time: %f (with init: %f) sec", (final_end_time-start_time), (final_end_time-self.init_time) )
         
         return
 

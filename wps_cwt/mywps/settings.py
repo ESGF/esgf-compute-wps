@@ -103,7 +103,7 @@ LOGGING = {
         'logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': "/usr/local/cds/web/WPS/logs/wps.log",
+            'filename': "/usr/local/cds/web/WPS/logs/django.log",
             'maxBytes': 50000,
             'backupCount': 2,
             'formatter': 'standard',
@@ -119,10 +119,6 @@ LOGGING = {
             'handlers':[ 'logfile' ],
             'propagate': True,
             'level':'DEBUG',
-        },
-        'mywps': {
-            'handlers': ['console', 'logfile'],
-            'level': 'DEBUG',
         },
     }
 }

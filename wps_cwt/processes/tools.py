@@ -1,6 +1,6 @@
 from pywps.Process import WPSProcess
 import os
-import json
+import logging, json
 import cdms2
 cdms2.setNetcdfShuffleFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
@@ -11,7 +11,9 @@ import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 OutputDir = 'wpsoutputs'
 OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
-
+wpsLog = logging.getLogger('wps')
+wpsLog.setLevel(logging.DEBUG)
+wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
 
 class ESGFCWTProcess(WPSProcess):
   """Main process class"""
