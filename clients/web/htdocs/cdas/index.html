@@ -33,9 +33,10 @@
         var variables = [
         	{ url: "file://usr/local/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc",  id: "t" },
         	{ url: "file://usr/local/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },
+            { url: "file://usr/local/web/data/MERRA/u750/merra_u750.xml", id: "u" }
         ];
         var django_server = 'http://localhost:8000/wps/';
-        var variable_index = 1;
+        var variable_index = 2;
         var embedded = true;
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
         map.addLayer(wms);  
@@ -48,8 +49,9 @@
                 }, 
                 trigger: function(e) {
                     var lonlat = map.getLonLatFromPixel(e.xy);
-                    var domain_json   = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat, level: 1000.0 }, json_replacer ); 
-                    var variable_json = JSON.stringify( variables[ variable_index ], json_replacer );     
+                    var domain_json   = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat }, json_replacer );
+                    var variable_json = JSON.stringify( variables[ variable_index ], json_replacer );
+                    var operation_json = JSON.stringify( { bounds:'DJF', type:'climatology' }, json_replacer );
                                
                     if ( debug ) { 
                     	console.log( " @@@ Execute\nDomain:\n " + domain_json );
@@ -62,6 +64,7 @@
 					        inputs: {
 					            domain: domain_json,
 					            variable: variable_json,
+                                operation: operation_json,
                                 embedded: embedded
 					        },
 					        success: function(output) { 

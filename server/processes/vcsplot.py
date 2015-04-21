@@ -2,14 +2,14 @@ from pywps.Process import WPSProcess
 import os
 import logging, time
 import json, types
-from tools import ESGFCWTProcess
+from cdasProcess import CDASProcess
 # env = { 'uvcdatSetupPath':"UVCDAT_SETUP_PATH", 'ldLibraryPath':"LD_LIBRARY_PATH", 'pythonPath':"PYTHONPATH", 'dyldFallbackLibraryPath':'DYLD_FALLBACK_LIBRARY_PATH' }
 # importEnvironment( env )
 
 # Test arguments for run configuration:
 # version=1.0.0&service=wps&request=Execute&RawDataOutput=result&identifier=timeseries&datainputs=[domain={\"longitude\":10.0,\"latitude\":10.0,\"level\":1000.0};variable={\"url\":\"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml\",\"id\":\"uwnd\"}]
 
-class Process(ESGFCWTProcess):
+class Process(CDASProcess):
     def __init__(self):
         """Process initialization"""
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='vcs plot', version=0.1, abstract='Generate a plot using vcs', storeSupported='true', statusSupported='true')

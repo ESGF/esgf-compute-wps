@@ -10,7 +10,7 @@ cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-from tools import ESGFCWTProcess
+from cdasProcess import CDASProcess
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
@@ -32,7 +32,7 @@ def record_attributes( var, attr_name_list, additional_attributes = {} ):
 # Test arguments for run configuration:
 # version=1.0.0&service=wps&request=Execute&RawDataOutput=result&identifier=timeseries&datainputs=[domain={\"longitude\":10.0,\"latitude\":10.0,\"level\":1000.0};variable={\"url\":\"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml\",\"id\":\"uwnd\"}]
 
-class Process(ESGFCWTProcess):
+class Process(CDASProcess):
     def __init__(self):
         """Process initialization"""
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='timeseries', version=0.1, abstract='Extract a timeseries at a spatial location', storeSupported='true', statusSupported='true')

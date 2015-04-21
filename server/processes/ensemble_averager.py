@@ -8,9 +8,9 @@ cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 i
 import random
 # Path where output will be stored/cached
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"..","output"))
-from tools import ESGFCWTProcess
+from cdasProcess import CDASProcess
 
-class Process(ESGFCWTProcess):
+class Process(CDASProcess):
   """Main process class"""
   def __init__(self):
     """Process initialization"""
