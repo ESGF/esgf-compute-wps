@@ -21,7 +21,7 @@ class Process(CDASProcess):
         domain = self.loadDomain()
         operation = self.loadOperation()
 
-        wpsLog.debug( " $$$ Timeseries Process: DataIn='%s', CDMS2keyargs='%s', Operation='%s' ", str(dataIn), str( cdms2keyargs ), str( operation ) )
+        wpsLog.debug( " $$$ Timeseries Process: DataIn='%s', Domain='%s', Operation='%s' ", str(dataIn), str( domain ), str( operation ) )
 
         processor = TimeseriesAnalytics( dataIn[0])
         result = processor.execute( operation, domain )

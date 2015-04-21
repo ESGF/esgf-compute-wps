@@ -51,7 +51,7 @@
                     var lonlat = map.getLonLatFromPixel(e.xy);
                     var domain_json   = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat }, json_replacer );
                     var variable_json = JSON.stringify( variables[ variable_index ], json_replacer );
-                    var operation_json = JSON.stringify( { bounds:'DJF', type:'climatology' }, json_replacer );
+                    var operation_json = JSON.stringify( { bounds: 'annualcycle', type: 'departures' }, json_replacer );
                                
                     if ( debug ) { 
                     	console.log( " @@@ Execute\nDomain:\n " + domain_json );

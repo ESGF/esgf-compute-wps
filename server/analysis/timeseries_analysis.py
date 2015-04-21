@@ -53,7 +53,7 @@ class TimeseriesAnalytics( DataAnalytics ):
             process_start_time = time.time()
             result_variable = self.applyOperation( subsetted_variable, operation )
             result_data = result_variable.squeeze().tolist( numpy.nan )
-            time_axis = variable.getTime()
+            time_axis = result_variable.getTime()
             process_end_time = time.time()
             wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
@@ -63,11 +63,10 @@ class TimeseriesAnalytics( DataAnalytics ):
             if time_axis is not None:
                 time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
                 time_data = time_axis.getValue().tolist()
-                isLinear = True
-                if isLinear:
+                try:
                     time_obj['t0'] = time_data[0]
                     time_obj['dt'] = time_data[1] - time_data[0]
-                else:
+                except Exception, err:
                     time_obj['data'] = time_data
                 result_obj['time'] = time_obj
             result_obj['data'] = result_data
@@ -121,9 +120,9 @@ if __name__ == "__main__":
     wpsLog.setLevel(logging.DEBUG)
     pp = pprint.PrettyPrinter(indent=4)
 
-    variable = { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' }
-    domain = { 'latitude': -18.28125, 'longitude': -134.6484375 }
-    operation = { 'type': 'climatology', 'bounds': 'DJF' }
+    variable  = { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' }
+    domain    = { 'latitude': -18.2, 'longitude': -134.6 }
+    operation = { 'type': 'departures', 'bounds': 'annualcycle' }
 
     processor = TimeseriesAnalytics( variable )
     result = processor.execute( operation, domain )
