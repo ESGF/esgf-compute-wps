@@ -32,6 +32,13 @@ class TimeseriesAnalytics( DataAnalytics ):
     def __init__( self, variable ):
         self.variable = variable
 
+    def compress( self, variable, precision=4 ):
+        maxval = variable.max()
+        minval = variable.min()
+        scale = ( pow(10,precision) - 0.01 ) / ( maxval - minval )
+        scaled_variable = ( variable - minval ) * scale
+        return { 'range': [ minval, maxval ], 'data': scaled_variable.tolist( numpy.nan ) }
+
     def execute( self, operation, domain ):
         result_obj = {}
         try:
@@ -120,11 +127,12 @@ if __name__ == "__main__":
     wpsLog.setLevel(logging.DEBUG)
     pp = pprint.PrettyPrinter(indent=4)
 
-    variable  = { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' }
+    variable1  = { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' }
+    variable2  = { 'url': 'file://usr/local/web/data/MERRA/MERRA100.xml', 'id': 't' }
     domain    = { 'latitude': -18.2, 'longitude': -134.6 }
     operation = { 'type': 'departures', 'bounds': 'annualcycle' }
 
-    processor = TimeseriesAnalytics( variable )
+    processor = TimeseriesAnalytics( variable2 )
     result = processor.execute( operation, domain )
     print "\n ---------- Result: ---------- "
     pp.pprint(result)
