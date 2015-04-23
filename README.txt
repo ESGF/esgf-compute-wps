@@ -9,8 +9,10 @@ Package installation:
   >> sudo chown <username> /usr/local/web
   >> cd /usr/local/web
   >> git checkout git@github.com:ThomasMaxwell/CDS-WPS-AaaS.git WPCDAS
-  >> chmod -R a+rX ./WPCDAS
-  >> chmod -R a+w ./WPCDAS/server/logs
+  >> chmod -R a+rX WPCDAS
+  >> chmod -R a+w WPCDAS/server/logs
+  >> cd WPCDAS
+  >> tar xzf sample_data.tar.gz
 
 WPS Server Requirements:
 
