@@ -17,14 +17,18 @@ class Process(CDASProcess):
         self.cacheVariableData = False
 
     def execute(self):
-        dataIn=self.loadData()
-        domain = self.loadDomain()
-        operation = self.loadOperation()
+        try:
+            dataIn=self.loadData()
+            domain = self.loadDomain()
+            operation = self.loadOperation()
 
-        wpsLog.debug( " $$$ Timeseries Process: DataIn='%s', Domain='%s', Operation='%s' ", str(dataIn), str( domain ), str( operation ) )
+            wpsLog.debug( " $$$ Timeseries Process: DataIn='%s', Domain='%s', Operation='%s' ", str(dataIn), str( domain ), str( operation ) )
 
-        processor = TimeseriesAnalytics( dataIn[0])
-        result = processor.execute( operation, domain )
-        result_json = json.dumps( result )
-        self.result.setValue( result_json )
+            processor = TimeseriesAnalytics( dataIn[0])
+            result = processor.execute( operation, domain )
+            result_json = json.dumps( result )
+            self.result.setValue( result_json )
+        except Exception, err:
+             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
+             self.result.setValue( '' )
 

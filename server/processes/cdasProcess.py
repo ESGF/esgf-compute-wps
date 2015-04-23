@@ -51,6 +51,7 @@ class CDASProcess(WPSProcess):
             origin = self.operation
         if origin is None: return None
         opStr = origin.getValue()
+        if not opStr: return None
         f=open(opStr)
         return json.loads(f.read())
 

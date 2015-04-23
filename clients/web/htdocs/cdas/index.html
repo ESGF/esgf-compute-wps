@@ -30,13 +30,9 @@
       	var	tags = { chart: "chart", yaxis: "yaxis"	 };
       	var debug = true;
         var map = new OpenLayers.Map('map');
-        var variables = [
-        	{ url: "file://usr/local/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc",  id: "t" },
-        	{ url: "file://usr/local/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },
-            { url: "file://usr/local/web/data/MERRA/u750/merra_u750.xml", id: "u" }
-        ];
+        var variables = [  { url: "file://usr/local/web/WPCDAS/data/TestData.nc",  id: "t" },  ];
         var django_server = 'http://localhost:8000/wps/';
-        var variable_index = 2;
+        var variable_index = 0;
         var embedded = true;
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
         map.addLayer(wms);  
@@ -51,7 +47,6 @@
                     var lonlat = map.getLonLatFromPixel(e.xy);
                     var domain_json   = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat }, json_replacer );
                     var variable_json = JSON.stringify( variables[ variable_index ], json_replacer );
-                    var operation_json = JSON.stringify( { bounds: 'annualcycle', type: 'departures' }, json_replacer );
                                
                     if ( debug ) { 
                     	console.log( " @@@ Execute\nDomain:\n " + domain_json );
@@ -64,7 +59,6 @@
 					        inputs: {
 					            domain: domain_json,
 					            variable: variable_json,
-                                operation: operation_json,
                                 embedded: embedded
 					        },
 					        success: function(output) { 
