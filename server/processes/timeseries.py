@@ -20,6 +20,7 @@ class Process(CDASProcess):
         try:
             dataIn=self.loadData()
             domain = self.loadDomain()
+#            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             operation = self.loadOperation()
 
             wpsLog.debug( " $$$ Timeseries Process: DataIn='%s', Domain='%s', Operation='%s' ", str(dataIn), str( domain ), str( operation ) )
