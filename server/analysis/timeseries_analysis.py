@@ -2,6 +2,7 @@ import os, traceback, sys
 import time, pydevd
 import cdms2, logging, pprint
 import numpy
+import numpy.ma as ma
 import cdutil
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
@@ -59,12 +60,12 @@ class TimeseriesAnalytics( DataAnalytics ):
 
             process_start_time = time.time()
             result_variable = self.applyOperation( subsetted_variable, operation )
-            result_data = result_variable.squeeze().tolist( numpy.nan )
-            time_axis = result_variable.getTime()
             process_end_time = time.time()
             wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
+            result_data = result_variable.squeeze().tolist( numpy.nan )
+            time_axis = result_variable.getTime()
             result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
             result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
             if time_axis is not None:
@@ -86,22 +87,30 @@ class TimeseriesAnalytics( DataAnalytics ):
         return result_obj
 
     def applyOperation( self, input_variable, operation ):
-        self.setTimeBounds( input_variable )
         result = None
-        operator = None
-        if operation is not None:
-            type   = operation.get('type','').lower()
-            bounds = operation.get('bounds','').lower()
-            if   bounds == 'djf': operator = cdutil.DJF
-            elif bounds == 'mam': operator = cdutil.MAM
-            elif bounds == 'jja': operator = cdutil.JJA
-            elif bounds == 'son': operator = cdutil.SON
-            elif bounds == 'year':          operator = cdutil.YEAR
-            elif bounds == 'annualcycle':   operator = cdutil.ANNUALCYCLE
-            elif bounds == 'seasonalcycle': operator = cdutil.SEASONALCYCLE
-            if operator <> None:
-                if   type == 'departures':    result = operator.departures( input_variable )
-                elif type == 'climatology':   result = operator.climatology( input_variable )
+        try:
+            self.setTimeBounds( input_variable )
+            operator = None
+            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+            if operation is not None:
+                type   = operation.get('type','').lower()
+                bounds = operation.get('bounds','').lower()
+                if not bounds:
+                    if   type == 'departures':  result = ma.anomalies( input_variable )
+                    elif type == 'climatology': result = ma.average( input_variable )
+                else:
+                    if bounds == 'djf': operator = cdutil.DJF
+                    elif bounds == 'mam': operator = cdutil.MAM
+                    elif bounds == 'jja': operator = cdutil.JJA
+                    elif bounds == 'son': operator = cdutil.SON
+                    elif bounds == 'year':          operator = cdutil.YEAR
+                    elif bounds == 'annualcycle':   operator = cdutil.ANNUALCYCLE
+                    elif bounds == 'seasonalcycle': operator = cdutil.SEASONALCYCLE
+                    if operator <> None:
+                        if   type == 'departures':    result = operator.departures( input_variable )
+                        elif type == 'climatology':   result = operator.climatology( input_variable )
+        except Exception, err:
+            wpsLog.debug( "Exception applying Operation '%s':\n %s" % ( str(operation), traceback.format_exc() ) )
         return input_variable if result is None else result
 
     def setTimeBounds( self, var ):
@@ -113,6 +122,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                     values = time_axis.getValue()
                     freq = 24/( values[1]-values[0] )
                     cdutil.setTimeBoundsDaily( time_axis, freq )
+#                    cdutil.setTimeBoundsDaily( time_axis )
                 elif time_unit == 'days':
                     cdutil.setTimeBoundsDaily( time_axis )
                 elif time_unit == 'months':
