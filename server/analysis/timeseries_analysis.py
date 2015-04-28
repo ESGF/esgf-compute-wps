@@ -59,13 +59,11 @@ class TimeseriesAnalytics( DataAnalytics ):
             wpsLog.debug( " $$$ DATA READ Complete: " + str( (read_end_time-read_start_time) ) )
 
             process_start_time = time.time()
-            result_variable = self.applyOperation( subsetted_variable, operation )
+            ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
             process_end_time = time.time()
             wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
-            result_data = result_variable.squeeze().tolist( numpy.nan )
-            time_axis = result_variable.getTime()
             result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
             result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
             if time_axis is not None:
@@ -91,13 +89,24 @@ class TimeseriesAnalytics( DataAnalytics ):
         try:
             self.setTimeBounds( input_variable )
             operator = None
-            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+#            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             if operation is not None:
-                type   = operation.get('type','').lower()
+                type = operation.get('type','').lower()
                 bounds = operation.get('bounds','').lower()
+                op_start_time = time.clock() # time.time()
                 if not bounds:
-                    if   type == 'departures':  result = ma.anomalies( input_variable )
-                    elif type == 'climatology': result = ma.average( input_variable )
+                    if type == 'departures':
+                        ave = cdutil.averager( input_variable, axis='t', weights='equal' )
+                        result = input_variable - ave
+                    elif type == 'climatology':
+                        result = cdutil.averager( input_variable, axis='t', weights='equal' )
+                    time_axis = input_variable.getTime()
+                elif bounds == 'np':
+                    if   type == 'departures':
+                        result = ma.anomalies( input_variable ).squeeze()
+                    elif type == 'climatology':
+                        result = ma.average( input_variable ).squeeze()
+                    time_axis = input_variable.getTime()
                 else:
                     if bounds == 'djf': operator = cdutil.DJF
                     elif bounds == 'mam': operator = cdutil.MAM
@@ -107,11 +116,20 @@ class TimeseriesAnalytics( DataAnalytics ):
                     elif bounds == 'annualcycle':   operator = cdutil.ANNUALCYCLE
                     elif bounds == 'seasonalcycle': operator = cdutil.SEASONALCYCLE
                     if operator <> None:
-                        if   type == 'departures':    result = operator.departures( input_variable )
-                        elif type == 'climatology':   result = operator.climatology( input_variable )
+                        if   type == 'departures':    result = operator.departures( input_variable ).squeeze()
+                        elif type == 'climatology':   result = operator.climatology( input_variable ).squeeze()
+                    time_axis = result.getTime()
+                op_end_time = time.clock() # time.time()
+                wpsLog.debug( " ---> Base Operation Time: %.5f" % (op_end_time-op_start_time) )
+
+            if isinstance( result, float ):
+                result_data = [ result ]
+            else:
+                result_data = result.tolist( numpy.nan ) if result is not None else None
         except Exception, err:
             wpsLog.debug( "Exception applying Operation '%s':\n %s" % ( str(operation), traceback.format_exc() ) )
-        return input_variable if result is None else result
+            return ( None, None )
+        return (input_variable, input_variable.getTime()) if result is None else ( result_data, time_axis )
 
     def setTimeBounds( self, var ):
         time_axis = var.getTime()
@@ -137,12 +155,21 @@ if __name__ == "__main__":
     wpsLog.setLevel(logging.DEBUG)
     pp = pprint.PrettyPrinter(indent=4)
 
-    variable1  = { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' }
-    variable2  = { 'url': 'file://usr/local/web/data/MERRA/MERRA100.xml', 'id': 't' }
+    variables = [ { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' },
+                  { 'url': 'file://usr/local/web/data/MERRA/MERRA100.xml', 'id': 't' },
+                  { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.nc', 'id': 'u' },
+                  { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc', 'id': 'u' }  ]
+    var_index = 2
     domain    = { 'latitude': -18.2, 'longitude': -134.6 }
-    operation = { 'type': 'departures', 'bounds': 'annualcycle' }
+    operations = [ { 'type': 'departures', 'bounds': 'annualcycle' },
+                   { 'type': 'departures', 'bounds': '' },
+                   { 'type': 'climatology', 'bounds': 'annualcycle' },
+                   { 'type': 'climatology', 'bounds': '' },
+                   { 'type': 'departures', 'bounds': 'np' },
+                   { 'type': 'climatology', 'bounds': 'np' } ]
+    operation_index = 3
 
-    processor = TimeseriesAnalytics( variable2 )
-    result = processor.execute( operation, domain )
+    processor = TimeseriesAnalytics( variables[var_index] )
+    result = processor.execute( operations[operation_index], domain )
     print "\n ---------- Result: ---------- "
     pp.pprint(result)
