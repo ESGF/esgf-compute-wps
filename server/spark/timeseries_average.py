@@ -3,7 +3,7 @@ from pyspark import SparkContext
 
 inputSpec = {'url': '/usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u', 'start': 1979}
 location = {'latitude': -40.0, 'longitude': 50.0}
-num_years = 6
+num_years = 3
 
 def loadPartition( partition_index ):
     f=cdms2.open( inputSpec['url'] )

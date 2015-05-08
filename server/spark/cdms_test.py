@@ -14,7 +14,8 @@ def setClassPath():
 def getLogger( name, level=logging.DEBUG ):
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    logger.addHandler( logging.FileHandler( '/usr/local/web/WPCDAS/server/logs/%s.log' % name ) )
+    if len( logger.handlers ) == 0:
+        logger.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', '%s.log' % name ) ) ) )
     return logger
 
 cdms2.setNetcdfShuffleFlag(0)
@@ -28,36 +29,49 @@ wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.di
 pp = pprint.PrettyPrinter(indent=4)
 
 dsets = [   { 'url': '/usr/local/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml', 'id': 't' },
-            { 'url': '/usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' },
+            { 'url': '/usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u', 'start': 1979 },
             { 'url': '/usr/local/web/data/MERRA/u750/merra_u750.nc', 'id': 'u' },
             { 'url': '/usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc', 'id': 'u' }  ]
-var_index = 0
+var_index = 1
 
-def compute_anomaly(x) :
-    return np.ma.anomalies(x)
+location = {'latitude': -40.0, 'longitude': 50.0}
+num_months = 12
+inputSpec = dsets[var_index]
+
+def loadPartition( partition_index ):
+    tN0 = time.time()
+    f=cdms2.open( inputSpec['url'] )
+    variable = f[ inputSpec['id'] ]
+    data_start_year = inputSpec['start']
+    start_year = data_start_year + partition_index / 12
+    start_month = (partition_index % 12) + 1
+    end_year = data_start_year + (partition_index + 1) / 12
+    end_month = ( (partition_index + 1) % 12 ) + 1
+    rdd_data = variable( time=( '%d-%d'%(start_year,start_month), '%d-%d'%(end_year,end_month), 'co') )
+    tN1 = time.time()
+    print "NetCDF load in %.4f sec" % ( tN1-tN0 )
+    return rdd_data
+
+def timeseries_average( data_slice ):
+#    logger = getLogger( "log-map" )
+    lat, lon = location['latitude'], location['longitude']
+    timeseries = data_slice(latitude=(lat, lat, "cob"), longitude=(lon, lon, "cob"))
+    result =  cdutil.averager( timeseries, axis='t', weights='equal' ).squeeze().tolist()
+#    if logger: logger.debug( "Result = %s", str(result) )
+    return result
 
 if __name__ == "__main__":
-    setClassPath()
-    dset = dsets[ var_index ]
-
-    f=cdms2.open( dset['url'] )
-    variable = f[ dset['id'] ]
-
-    val = variable
-    data_string = pickle.dumps(val)
-    new_val = pickle.loads(data_string)
-
-    diff = new_val - val
-    print "\n ---------- Serialize error: ---------- "
-    pp.pprint( diff )
-
-    # read_start_time = time.time()
-    # timeseries = variable( latitude = ( -40.0, -40.0, "cob"), longitude= (50.0, 50.0, "cob") ).squeeze()
-    # read_end_time = time.time()
-    # wpsLog.debug( " $$$ DATA READ Complete: " + str( (read_end_time-read_start_time) ) )
-    #
-    # result = compute_anomaly( timeseries )
-    #
-    # print "\n ---------- Input: ---------- "
-    # pp.pprint(result)
+    do_pickle = True
+    t0 = time.time()
+    rdd = loadPartition( 0 )
+    if do_pickle:
+        rdds = pickle.dumps( rdd.getValue() )
+        tp0 = time.time()
+        test = pickle.loads(rdds)
+        tp1 = time.time()
+        print "Pickle load in %.4f sec" % ( tp1-tp0 )
+    ave = timeseries_average( rdd )
+    t1 = time.time()
+    print "Result: %s " % str(ave)
+    print "Done in %.4f sec" % ( t1-t0 )
 
