@@ -15,15 +15,15 @@ app.conf.update(
     CELERY_RESULT_SERIALIZER='json',
 )
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.createDomain')
 def createDomain( domainSpec ):
     return createDomain.createDomain( domainSpec )
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.removeDomain')
 def removeDomain( domainId ):
     removeDomain.removeDomain(domainId)
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.addVariable')
 def addVariable( domainId, varSpec ):
     d = addVariable.getDomain( domainId )
     if d is not None:
@@ -34,12 +34,12 @@ def addVariable( domainId, varSpec ):
     else:
         task_error( "Missing domain '%s'" % ( domainId ) )
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.removeVariable')
 def removeVariable( domainId, varId ):
     d = removeVariable.getDomain( domainId )
     d.remove_variable( varId )
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.timeseries')
 def timeseries( domainId, varId, region, op ):
     d = timeseries.getDomain( domainId )
     if d is not None:

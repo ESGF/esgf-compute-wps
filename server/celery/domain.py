@@ -4,6 +4,7 @@ from celery import Task
 
 class DomainBasedTask(Task):
 
+    abstract = True
     _DomainCache = {}
 
     def __init__(self):
