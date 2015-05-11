@@ -12,11 +12,13 @@ def task_error( msg ):
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',
     CELERY_ACCEPT_CONTENT=['json','pickle'],  # Ignore other content
-    CELERY_RESULT_SERIALIZER='json',
+    CELERY_RESULT_SERIALIZER='pickle',
 )
 
 @app.task(base=DomainBasedTask)
-def createDomain( domainSpec ):
+def createDomain( pIndex, domainSpec ):
+    logger.debug( 'app.task: createDomain[%d]: %s ' % (pIndex, str(domainSpec) ))
+    domainSpec['pIndex'] = pIndex
     return createDomain.createDomain( domainSpec )
 
 @app.task(base=DomainBasedTask)
@@ -25,14 +27,17 @@ def removeDomain( domainId ):
 
 @app.task(base=DomainBasedTask)
 def addVariable( domainId, varSpec ):
+    logger.debug( 'app.task: addVariable[%s]: %s ' % (domainId, str(varSpec) ))
     d = addVariable.getDomain( domainId )
     if d is not None:
         f=cdms2.open( varSpec['dset'] )
         varId = varSpec['id']
-        variable = f( varId )
-        d.add_variable( varId, variable )
+        variable = f[ varId ]
+        d.add_variable( varId, variable, **varSpec )
+        return varId
     else:
         task_error( "Missing domain '%s'" % ( domainId ) )
+        return None
 
 @app.task(base=DomainBasedTask)
 def removeVariable( domainId, varId ):
@@ -40,8 +45,8 @@ def removeVariable( domainId, varId ):
     d.remove_variable( varId )
 
 @app.task(base=DomainBasedTask)
-def timeseries( domainId, varId, region, op ):
-    d = timeseries.getDomain( domainId )
+def computeTimeseries( domainId, varId, region, op ):
+    d = computeTimeseries.getDomain( domainId )
     if d is not None:
         variable = d.variables.get( varId, None )
         if variable is not None:
