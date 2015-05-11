@@ -15,17 +15,17 @@ app.conf.update(
     CELERY_RESULT_SERIALIZER='pickle',
 )
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.createDomain')
 def createDomain( pIndex, domainSpec ):
     logger.debug( 'app.task: createDomain[%d]: %s ' % (pIndex, str(domainSpec) ))
     domainSpec['pIndex'] = pIndex
     return createDomain.createDomain( domainSpec )
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.removeDomain')
 def removeDomain( domainId ):
     removeDomain.removeDomain(domainId)
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.addVariable')
 def addVariable( domainId, varSpec ):
     logger.debug( 'app.task: addVariable[%s]: %s ' % (domainId, str(varSpec) ))
     d = addVariable.getDomain( domainId )
@@ -39,12 +39,12 @@ def addVariable( domainId, varSpec ):
         task_error( "Missing domain '%s'" % ( domainId ) )
         return None
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.removeVariable')
 def removeVariable( domainId, varId ):
     d = removeVariable.getDomain( domainId )
     d.remove_variable( varId )
 
-@app.task(base=DomainBasedTask)
+@app.task(base=DomainBasedTask,name='tasks.timeseries')
 def computeTimeseries( domainId, varId, region, op ):
     d = computeTimeseries.getDomain( domainId )
     if d is not None:
