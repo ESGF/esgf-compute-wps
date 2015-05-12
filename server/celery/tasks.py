@@ -62,4 +62,8 @@ def computeTimeseries( domainId, varId, region, op ):
         task_error( "Missing domain '%s'" % ( domainId ) )
         return []
 
+@app.task(base=DomainBasedTask,name='tasks.mergeResults')
+def mergeResults( result_list ):
+    return result_list
+
 
