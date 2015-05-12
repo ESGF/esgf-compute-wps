@@ -18,8 +18,8 @@ app.conf.update(
 @app.task(base=DomainBasedTask,name='tasks.createDomain')
 def createDomain( pIndex, domainSpec ):
     logger.debug( 'app.task: createDomain[%d]: %s ' % (pIndex, str(domainSpec) ))
-    domainSpec['pIndex'] = pIndex
-    return createDomain.createDomain( domainSpec )
+    logger.debug( 'Task: %s ' % ( app.current_task.__class__.__name__ ))
+    return createDomain.createDomain( pIndex, domainSpec )
 
 @app.task(base=DomainBasedTask,name='tasks.removeDomain')
 def removeDomain( domainId ):
