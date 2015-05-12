@@ -9,9 +9,11 @@ nMonths = 24
 nProc = 24
 partitionSize = nMonths/nProc
 
-varId = 'u'
+varId0 = 'u'
+varId1 = 'tas'
 domainSpec = { 'id': 'merra_u750', 'time': { 'start': '1979-1', 'step': partitionSize } }
-varSpec = {'dset': '/usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc', 'id': varId }
+varSpec0 = {'dset': '/usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc', 'id': varId0 }
+varSpec1 = {'dset': '/usr/local/scratch/glpotter/data/TEST_data/tas_Amon_reanalysis_IFS-Cy31r2_197901-201312.nc', 'id': varId1 }
 location0 = {'latitude': -40.0, 'longitude': 50.0}
 location1 = {'latitude': -40.0, 'longitude': 70.0}
 op = ''
