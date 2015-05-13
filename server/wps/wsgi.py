@@ -1,5 +1,5 @@
 """
-WSGI config for mywps project.
+WSGI config for wps project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

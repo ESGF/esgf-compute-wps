@@ -1,16 +1,17 @@
 from django.conf.urls import patterns, include, url
 from django.contrib import admin
-import mywps.views
+
+import views
 
 urlpatterns = patterns('',
     # Examples:
-    # url(r'^$', 'mywps.views.home', name='home'),
+    # url(r'^$', 'wps.views.home', name='home'),
     # url(r'^blog/', include('blog.urls')),
 
     url(r'^admin/', include(admin.site.urls)),
     url(r'^login/$', 'django.contrib.auth.views.login'),
-    url(r'^wps/', mywps.views.wps),
-    url(r'^status/',mywps.views.status),
-    url(r'^clear/(\d+)',mywps.views.clear_process),
-    url(r'^view/(\d+)',mywps.views.view_process),
+    url(r'^wps/', views.wps),
+    url(r'^status/',views.status),
+    url(r'^clear/(\d+)',views.clear_process),
+    url(r'^view/(\d+)',views.view_process),
 )
