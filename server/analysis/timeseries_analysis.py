@@ -94,6 +94,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                 type = operation.get('type','').lower()
                 bounds = operation.get('bounds','').lower()
                 op_start_time = time.clock() # time.time()
+                wpsLog.debug( "applyOperation: %s " % str( [operation, type, bounds ] ) )
                 if not bounds:
                     if type == 'departures':
                         ave = cdutil.averager( input_variable, axis='t', weights='equal' )

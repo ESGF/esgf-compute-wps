@@ -1,14 +1,13 @@
   WPCDAS:  Web Processing Climate Data Analysis Services
 
 WPS API leveraging UVCDAT for server-side climate data analytics with clients for web, python, etc.
-The inital version of the WPS server was based on code developed by Charles Doutriaux, LLNL.
 
 Package installation:
 
   >> sudo mkdir /usr/local/web
   >> sudo chown <username> /usr/local/web
-  >> cd /usr/local/web
-  >> git checkout git@github.com:ThomasMaxwell/CDS-WPS-AaaS.git WPCDAS
+  >> cd /usr/local/web 
+  >> git clone git@github.com:ESGF/wps_cwt.git WPCDAS
   >> chmod -R a+rX WPCDAS
   >> chmod -R a+w WPCDAS/server/logs
   >> cd WPCDAS
@@ -20,9 +19,10 @@ WPS Server Requirements:
 
     Once UVCDAT is installed the following packages should be installed using UVCDAT's python:
 
-    lxml:    http://lxml.de/
-    Django:  https://www.djangoproject.com/
-    django-corsheaders:  https://github.com/OttoYiu/django-cors-headers
+    PyWPS:   http://pywps.wald.intevation.org/documentation/installation.html
+    lxml:    http://lxml.de/    ( pip install lxml )
+    Django:  https://www.djangoproject.com/   ( pip install Django==1.8.1 )
+    django-corsheaders:  https://github.com/OttoYiu/django-cors-headers   ( pip install django-cors-headers )
 
 
 Client Requirements:

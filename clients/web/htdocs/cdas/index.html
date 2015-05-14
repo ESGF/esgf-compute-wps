@@ -14,8 +14,8 @@
     <script type="text/javascript" src="TimeseriesPlot/rickshaw.js"></script>
     <script type="text/javascript" src="WPSResponseManager.js"></script>
     <script type="text/javascript" src="jquery-2.1.3.js"></script>
-   	<script src="CDS.js"></script> 
-   	<script src="./TimeseriesPlot/timeseries.js"></script> 
+   	<script src="CDS.js"></script>
+   	<script src="./TimeseriesPlot/timeseries.js"></script>
     </head>
     <body>
       <div class="row-fluid">
@@ -35,22 +35,21 @@
         var variable_index = 0;
         var embedded = true;
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
-        map.addLayer(wms);  
-        OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {                
+        OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {
                 defaultHandlerOptions: { 'single': true, 'double': false, 'pixelTolerance': 0, 'stopSingle': false, 'stopDouble': false },
                 initialize: function(options) {
                     this.handlerOptions = OpenLayers.Util.extend( {}, this.defaultHandlerOptions );
-                    OpenLayers.Control.prototype.initialize.apply(  this, arguments  ); 
+                    OpenLayers.Control.prototype.initialize.apply(  this, arguments  );
                     this.handler = new OpenLayers.Handler.Click( this, {  'click': this.trigger }, this.handlerOptions );
-                }, 
+                },
                 trigger: function(e) {
                     var lonlat = map.getLonLatFromPixel(e.xy);
                     var domain_json   = JSON.stringify( { longitude: lonlat.lon, latitude: lonlat.lat }, json_replacer );
                     var variable_json = JSON.stringify( variables[ variable_index ], json_replacer );
-                               
-                    if ( debug ) { 
+
+                    if ( debug ) {
                     	console.log( " @@@ Execute\nDomain:\n " + domain_json );
-                    	console.log( " Variable:\n " + variable_json ); 
+                    	console.log( " Variable:\n " + variable_json );
                     	console.time("WPS Execute");
                     }
 					CDS.wps.execute({
@@ -61,8 +60,8 @@
 					            variable: variable_json,
                                 embedded: embedded
 					        },
-					        success: function(output) { 
-					        	wpsResponseManager.process( output.responseText, embedded, 
+					        success: function(output) {
+					        	wpsResponseManager.process( output.responseText, embedded,
 					        		function( responseJson ) {
 					        			timeseries.plot( "timeseries-elem", responseJson );
 					        		} );
@@ -70,10 +69,12 @@
 					    });
                 }
             });
+        map.addLayer(wms);
         var click = new OpenLayers.Control.Click();
         map.addControl(click);
         map.zoomToMaxExtent();
         click.activate();
+
       </script>
 
 </body>
