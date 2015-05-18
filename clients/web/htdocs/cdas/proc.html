@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>OpenLayers Example</title>
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <link rel="stylesheet" href="./css/ol.css" type="text/css">
+	<link rel="stylesheet" href="./css/layout.css" type="text/css">
+    <link rel="stylesheet" href="./TimeseriesPlot/rickshaw.css" type="text/css">
+    <link rel="stylesheet" href="./TimeseriesPlot/timeseries.css" type="text/css">
+    <link rel="stylesheet" href="./css/bootstrap.css" type="text/css"> 
+    <link rel="stylesheet" href="./css/bootstrap-responsive.css" type="text/css"> 
+    <script src="http://openlayers.org/api/OpenLayers.js"></script>
+    <script type="text/javascript" src="d3.min.js"></script>
+    <script type="text/javascript" src="TimeseriesPlot/rickshaw.js"></script>
+    <script type="text/javascript" src="WPSResponseManager.js"></script>
+    <script type="text/javascript" src="jquery-2.1.3.js"></script>
+   	<script src="CDS.js"></script> 
+   	<script src="./TimeseriesPlot/timeseries.js"></script> 
+    </head>
+    <body>
+      <div class="row-fluid">
+        <div class="span12">
+          <div id="map" class="map"></div>
+        </div>
+      </div>
+      <hr>
+	  <div id="timeseries-elem"></div>
+      <script defer="defer" type="text/javascript">
+      	function json_replacer( key, value ) { return value; }
+        function serialize( object ) { return ( object ) ? JSON.stringify( object, json_replacer ) : ''; }
+      	var	tags = { chart: "chart", yaxis: "yaxis"	 };
+      	var debug = true;
+        var map = new OpenLayers.Map('map');
+        var variables = [
+            { url: "file://usr/local/web/WPCDAS/data/TestData.nc",  id: "t" },
+        	{ url: "file://usr/local/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.nc",  id: "t" },
+        	{ url: "file://usr/local/web/data/MERRA/Temp2D/MERRA_3Hr_Temp.xml", id: "t" },
+            { url: "file://usr/local/web/data/MERRA/u750/merra_u750.xml", id: "u" },
+            { url: "file://usr/local/web/data/MERRA/u750/merra_u750.nc", id: "u" },
+            { url: "file://usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc", id: "u" }
+        ];
+        var operations = [
+                  undefined,
+                { bounds: 'annualcycle', type: 'departures' },
+                { bounds: 'annualcycle', type: 'climatology' },
+                { bounds: '', type: 'departures' }
+        ];
+        var django_server = 'http://localhost:8000/wps/';
+        var variable_index = 5;
+        var operation_index = 3;
+        var embedded = true;
+        var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );
+        map.addLayer(wms);  
+        OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {                
+                defaultHandlerOptions: { 'single': true, 'double': false, 'pixelTolerance': 0, 'stopSingle': false, 'stopDouble': false },
+                initialize: function(options) {
+                    this.handlerOptions = OpenLayers.Util.extend( {}, this.defaultHandlerOptions );
+                    OpenLayers.Control.prototype.initialize.apply(  this, arguments  ); 
+                    this.handler = new OpenLayers.Handler.Click( this, {  'click': this.trigger }, this.handlerOptions );
+                }, 
+                trigger: function(e) {
+                    var lonlat = map.getLonLatFromPixel(e.xy);
+                    var domain_json   = serialize( { longitude: lonlat.lon, latitude: lonlat.lat } );
+                    var variable_json = serialize( variables[ variable_index ] );
+                    var operation_json = serialize( operations[ operation_index ] );
+
+                    if ( debug ) { 
+                    	console.log( " @@@ Execute\nDomain:\n " + domain_json );
+                    	console.log( " Variable:\n " + variable_json ); 
+                    	console.time("WPS Execute");
+                    }
+					CDS.wps.execute({
+							url: django_server,
+							process: "timeseries",
+					        inputs: {
+					            domain: domain_json,
+					            variable: variable_json,
+                                operation: operation_json,
+                                embedded: embedded
+					        },
+					        success: function(output) { 
+					        	wpsResponseManager.process( output.responseText, embedded, 
+					        		function( responseJson ) {
+					        			timeseries.plot( "timeseries-elem", responseJson );
+					        		} );
+					        }
+					    });
+                }
+            });
+        var click = new OpenLayers.Control.Click();
+        map.addControl(click);
+        map.zoomToMaxExtent();
+        click.activate();
+      </script>
+
+</body>
+</html>
