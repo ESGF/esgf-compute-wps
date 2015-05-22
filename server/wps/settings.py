@@ -26,6 +26,7 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
+COMPUTE_ENGINE = 'serial'
 
 # Application definition
 

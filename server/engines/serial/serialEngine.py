@@ -1,4 +1,4 @@
-from pywps.Process import WPSProcess
+from server.engines import Engine
 import os,numpy,sys
 import logging, json
 import cdms2, pydevd
@@ -17,20 +17,20 @@ wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
 wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
 
-def loadValue( wpsInput ):
-    valueHandle = wpsInput.getValue()
-    if valueHandle:
-        f=open(valueHandle)
-        return f.read()
-    return ""
-
-class CDASProcess(WPSProcess):
+class SerialEngine(Engine):
     """Main process class"""
     def __init__(self):
+        super(SerialEngine, self).__init__()
         self.operation = None
-        self.dataIn = None
+        self.data = None
         self.domain = None
         self.result = None
+
+    def execute( self, data, domain, operation ):
+        self.data = json.loads( data )
+        self.domain = json.loads( domain )
+        self.operation = json.loads( operation )
+#       pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
     def saveVariable(self,data,dest,type="json"):
         cont = True
@@ -53,48 +53,12 @@ class CDASProcess(WPSProcess):
     def breakpoint(self):
         pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
-    def loadOperation(self,origin=None):
-        if origin is None:
-            origin = self.operation
-        if origin is None: return None
-        opStr = origin.getValue()
-        if opStr:
-            op_json = open(opStr).read().strip()
-            if op_json: return json.loads(op_json)
-        return None
-
-    def loadData(self,origin=None):
-        if origin is None:
-            origin = self.dataIn
-        if origin is None: return None
-        dataFiles = origin.getValue()
-        dataIn = []
-        if isinstance(dataFiles,str):
-            dataFiles = [dataFiles,]
-        for fnm in dataFiles:
-            f=open(fnm)
-            dataIn.append(self.loadVariable(f.read()))
-        return dataIn
-
-    def loadVariable(self,data):
-        """loads in data, right now can only be json but i guess could have to determine between json and xml"""
-        return json.loads(data)
-
-    def  loadDomain(self,origin=None):
-        if origin is None:
-            origin = self.domain
-        if origin is None: return None
-        domain = origin.getValue()
-        f=open(domain)
-        return json.loads(f.read())
-
     def location2cdms(self,domain):
         kargs = {}
         for k,v in domain.iteritems():
             if k not in ["id","version"]:
                 kargs[str(k)] = float( str(v) )
         return kargs
-
 
 def setEnv( key, value = None ):
     current_value = os.getenv( key )

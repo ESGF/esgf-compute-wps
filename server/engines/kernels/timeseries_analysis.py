@@ -1,15 +1,21 @@
-import os, traceback, sys
-import time, pydevd
-import cdms2, logging, pprint
+import os
+import traceback
+import sys
+import time
+import logging
+import pprint
+
+import cdms2
 import numpy
 import numpy.ma as ma
 import cdutil
+
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 wpsLog = logging.getLogger('wps')
-from cda import DataAnalytics
+from server.engines.analysis.cda import DataAnalytics
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}

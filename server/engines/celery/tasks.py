@@ -1,7 +1,11 @@
-from celery import Celery
-import cdms2, cdutil, sys
-from domain import DomainBasedTask
 import logging
+
+from celery import Celery
+import cdms2
+import cdutil
+
+from server.engines.celery.domain import DomainBasedTask
+
 logger = logging.getLogger('celery.task')
 
 app = Celery( 'tasks', broker='amqp://guest@localhost//', backend='amqp' )

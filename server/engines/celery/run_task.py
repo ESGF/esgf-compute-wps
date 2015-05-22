@@ -1,7 +1,8 @@
-from tasks import computeTimeseries, createDomain, addVariable, mergeResults
+from celery import group
+
+from server.engines.celery.tasks import computeTimeseries, createDomain, addVariable
 from utilities import Profiler
-from celery import group, chord
-import copy
+
 profiler = Profiler()
 profiler.mark()
 

@@ -2,7 +2,7 @@
 # or MASTER=local[4] pyspark
 
 from pyspark import SparkContext
-from utilities import Profiler
+from server.engines.spark.utilities import Profiler
 
 
 profiler = Profiler()
