@@ -16,17 +16,16 @@ import time
 def compute( value ):
     return value * 2
 
-def run_comp_test():
-    partitions = sc.parallelize( range(8) )
-    part = partitions.collect()
+def run_comp_test( num_procs, start=0 ):
     t0 = time.time()
-    import cdutil, cdms2
+    partitions = sc.parallelize( range( start, start+num_procs) )
+    part = partitions.collect()
     result = partitions.map(compute).collect()
     t1 = time.time()
     print " Result = %s, time = %.3f " % ( str( result ), (t1-t0) )
     return result
 
-run_comp_test()
+run_comp_test(4,1)
 
 
 
