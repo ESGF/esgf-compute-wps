@@ -15,7 +15,7 @@ cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 wpsLog = logging.getLogger('wps')
-from server.engines.analysis.cda import DataAnalytics
+from engines.kernels.cda import DataAnalytics
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}

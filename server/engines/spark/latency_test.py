@@ -1,31 +1,22 @@
-# Run using 'MASTER=local[4] spark-submit ./latency_test.py'
-# or MASTER=local[4] pyspark
-
 from pyspark import SparkContext
-from server.engines.spark.utilities import Profiler
-
-
-profiler = Profiler()
-num_procs = 4
-
-
-sc = SparkContext('local[%d]' % num_procs, "latencyTest")
-
 import time
 
-def compute( value ):
-    return value * 2
+sc = SparkContext()
 
-def run_comp_test( num_procs, start=0 ):
+num_procs = 4
+start = 1
+partitions = sc.parallelize( range( start, start+num_procs) )
+
+def run_comp_test( taskindex=0 ):
+    def compute( value ): return value * taskindex
     t0 = time.time()
-    partitions = sc.parallelize( range( start, start+num_procs) )
-    part = partitions.collect()
     result = partitions.map(compute).collect()
     t1 = time.time()
-    print " Result = %s, time = %.3f " % ( str( result ), (t1-t0) )
+    print " Result-%d = %s, time = %.3f " % ( taskindex, str( result ), (t1-t0) )
     return result
 
-run_comp_test(4,1)
+for taskindex in range(5):
+   run_comp_test(taskindex)
 
 
 

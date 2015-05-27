@@ -12,10 +12,8 @@ cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 i
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 OutputDir = 'wpsoutputs'
-OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
-wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
+# OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
+wpsLog = logging.getLogger( 'wps' )
 
 def loadValue( wpsInput ):
     valueHandle = wpsInput.getValue()
@@ -26,11 +24,8 @@ def loadValue( wpsInput ):
 
 class CDASProcess(WPSProcess):
     """Main process class"""
-    def __init__(self):
-        self.operation = None
-        self.dataIn = None
-        self.domain = None
-        self.result = None
+    def __init__( self, **kwargs ):
+        WPSProcess( **kwargs )
 
     def saveVariable(self,data,dest,type="json"):
         cont = True

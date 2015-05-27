@@ -1,9 +1,9 @@
-from .. import ComputeEngine
+from engines.registry import Engine
 
-class CeleryEngine( ComputeEngine.Base ):
+class CeleryEngine( Engine ):
 
     def __init__( self ):
-        super(CeleryEngine, self).__init__()
+        Engine.__init__(self)
 
     def execute( self, operation, domain ):
         pass

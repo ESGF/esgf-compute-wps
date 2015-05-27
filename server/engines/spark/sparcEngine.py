@@ -1,9 +1,9 @@
-from .. import ComputeEngine
+from engines.registry import Engine
 
-class SparcEngine( ComputeEngine.Base ):
+class SparcEngine( Engine ):
 
     def __init__( self ):
-        super(SparcEngine, self).__init__()
+        Engine.__init__(self)
 
     def execute( self, operation, domain ):
         pass

@@ -1,10 +1,15 @@
-from server.engines import Engine
+from engines.registry import Engine
+from engines.kernels.timeseries_analysis import TimeseriesAnalytics
 import os,numpy,sys
 import logging, json
 import cdms2, pydevd
 import random
 from pywps import config
-# Path where output will be stored/cached
+wpsLog = logging.getLogger('wps')
+wpsLog.setLevel(logging.DEBUG)
+if len( wpsLog.handlers ) == 0:
+    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log' ) )))
+
 
 cdms2.setNetcdfShuffleFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
@@ -12,24 +17,23 @@ cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 i
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 OutputDir = 'wpsoutputs'
-OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
-wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
+# OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
 
 class SerialEngine(Engine):
     """Main process class"""
     def __init__(self):
-        super(SerialEngine, self).__init__()
+        Engine.__init__(self)
         self.operation = None
         self.data = None
         self.domain = None
-        self.result = None
 
     def execute( self, data, domain, operation ):
         self.data = json.loads( data )
         self.domain = json.loads( domain )
         self.operation = json.loads( operation )
+        kernel = TimeseriesAnalytics(self.data)
+        return kernel.execute( self.operation, self.domain )
+
 #       pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
     def saveVariable(self,data,dest,type="json"):
@@ -72,9 +76,9 @@ def updateEnv( envs ):
         try:
             value = config.getConfigValue("cds",key)
             setEnv( envs[key], value )
-            logging.info("CDS environment variable %s set to %s" % ( key, value ) )
+            wpsLog.info("CDS environment variable %s set to %s" % ( key, value ) )
         except :
-            logging.info("Error setting CDS environment variable %s to %s" % ( key, envs[key]) )
+            wpsLog.info("Error setting CDS environment variable %s to %s" % ( key, envs[key]) )
             pass
 
 def importEnvironmentVariable( env_var ):
@@ -84,28 +88,28 @@ def importEnvironmentVariable( env_var ):
         value = os.getenv( env_var )
     if value <> None:
         os.environ[ env_var ] = value
-        logging.info("CDS environment variable %s set to %s" % ( env_var, value ) )
+        wpsLog.info("CDS environment variable %s set to %s" % ( env_var, value ) )
 
 def setEnvVariable( key, env_var ):
     try:
         value = config.getConfigValue( "cds", key )
         os.environ[ env_var ] = value
         setEnv( env_var, value )
-        logging.info("CDS environment variable %s set to %s" % ( env_var, value ) )
+        wpsLog.info("CDS environment variable %s set to %s" % ( env_var, value ) )
         for identifier in [ 'path', 'library' ]:
             if identifier in env_var.lower():
                 for path in value.split(':'):
                     if path not in sys.path:
                         sys.path.append(path)
-                        logging.info("Adding %s to sys.path" % ( path ) )
+                        wpsLog.info("Adding %s to sys.path" % ( path ) )
     except:
-        logging.info("Error setting CDS environment variable %s" % ( env_var ) )
+        wpsLog.info("Error setting CDS environment variable %s" % ( env_var ) )
 
 
 def importEnvironment( env_vars ):
     for key in env_vars.keys():
         setEnvVariable( key, env_vars[key] )
-    logging.debug( " *** Current Environment: %s " % str( os.environ ) )
+    wpsLog.debug( " *** Current Environment: %s " % str( os.environ ) )
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
