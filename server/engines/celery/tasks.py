@@ -1,17 +1,22 @@
-import logging
+import logging, os
 from engines.kernels.timeseries_analysis import TimeseriesAnalytics
 from celery import Celery
 import cdms2, json
 import cdutil
-
 from base_task import DomainBasedTask
-
 logger = logging.getLogger('celery.task')
+wpsLog = logging.getLogger('wps')
+wpsLog.setLevel(logging.DEBUG)
+if len( wpsLog.handlers ) == 0:
+    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'wps.log' ) )))
 
 app = Celery( 'tasks', broker='amqp://guest@localhost//', backend='amqp' )
 
 def task_error( msg ):
     logger.error( msg )
+
+def getOperationHandler( operation ):
+    return "spark"
 
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',
@@ -77,11 +82,20 @@ def simpleTest( input_list ):
 
 @app.task(base=DomainBasedTask,name='tasks.submitTask')
 def submitTask( data, region, operation ):
+    wpsLog.debug( "<<<<<Spark>>>>>--> Task: data='%s' region='%s' operation='%s' " % ( str(data), str(region), str(operation) ))
     data = json.loads( data )
     region = json.loads( region )
     operation = json.loads( operation )
-    kernel = TimeseriesAnalytics( data )
-    return kernel.execute( operation, region )
+    handler = getOperationHandler( operation )
+    if handler == "local":
+        kernel = TimeseriesAnalytics( data )
+        return kernel.execute( operation, region )
+    elif handler == "celery":
+        pass
+    elif handler == "spark":
+        from engines.celery.spark.tasks import submitSparkTask
+        result = submitSparkTask( data, region, operation  )
+        return result
 
 
 

@@ -15,16 +15,16 @@ def getLogger( name, level=logging.DEBUG ):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     if len( logger.handlers ) == 0:
-        logger.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '../', 'logs', '%s.log' % name ) ) ) )
+        logger.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '../..//', 'logs', '%s.log' % name ) ) ) )
     return logger
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../', 'output'))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..//', 'output'))
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
-wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '../', 'logs', 'spark.log') ) ) )
+wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '../..//', 'logs', 'spark.log') ) ) )
 
 pp = pprint.PrettyPrinter(indent=4)
 

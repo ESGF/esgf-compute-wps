@@ -1,5 +1,5 @@
 from pywps.Process import WPSProcess
-import os
+import os, time
 import logging
 import json, types, traceback
 from cdasProcess import CDASProcess, loadValue
@@ -23,14 +23,15 @@ class Process(CDASProcess):
             region = loadValue( self.region )
             operation = loadValue( self.operation )
             wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s' " % ( str( data ), str( region ), str( operation ) ) )
-
+            t0 = time.time()
             engine = engineRegistry.getComputeEngine( settings.COMPUTE_ENGINE )
             result =  engine.execute( data, region, operation )
             result_json = json.dumps( result )
-            wpsLog.debug( " $$$ CDAS Process: Result='%s' " %  str( result_json ) )
+            t1 = time.time()
+            wpsLog.debug( " $$$ CDAS Process (response time: %.3f sec): Result='%s' " %  ( (t1-t0), str( result_json )) )
             self.result.setValue( result_json )
         except Exception, err:
-             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
+             wpsLog.debug( "Exception executing CDAS process:\n " + traceback.format_exc() )
              self.result.setValue( '' )
 
 

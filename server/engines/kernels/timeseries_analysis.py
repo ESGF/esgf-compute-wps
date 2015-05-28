@@ -15,6 +15,9 @@ cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 wpsLog = logging.getLogger('wps')
+wpsLog.setLevel(logging.DEBUG)
+if len( wpsLog.handlers ) == 0:
+    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'wps.log' ) )))
 from engines.kernels.cda import DataAnalytics
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
@@ -52,13 +55,19 @@ class TimeseriesAnalytics( DataAnalytics ):
             start_time = time.time()
             cdms2keyargs = self.domain2cdms(domain)
             self.operation = operation
-            url = self.variable["url"]
-            id = self.variable["id"]
-            var_cache_id =  ":".join( [url,id] )
-            dataset = self.loadFileFromURL( url )
-            wpsLog.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
-            variable = dataset[ id ]
-            wpsLog.debug( " $$$ Starting DATA READ" )
+            url = self.variable.get( "url", None )
+            if url:
+                id = self.variable["id"]
+                var_cache_id =  ":".join( [url,id] )
+                dataset = self.loadFileFromURL( url )
+                wpsLog.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
+                variable = dataset[ id ]
+                result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
+                result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
+            else:
+                variable = self.variable["data"]
+                result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
+
             read_start_time = time.time()
             subsetted_variable = variable(**cdms2keyargs)
             read_end_time = time.time()
@@ -70,8 +79,6 @@ class TimeseriesAnalytics( DataAnalytics ):
             wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
-            result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
-            result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
             if time_axis is not None:
                 time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
                 time_data = time_axis.getValue().tolist()
@@ -83,9 +90,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                 result_obj['time'] = time_obj
             result_obj['data'] = result_data
             end_time = time.time()
-            timings = [ (end_time-start_time), (read_end_time-read_start_time), (process_end_time-process_start_time) ]
-            result_obj['timings'] = timings
-            wpsLog.debug( " $$$ Execution complete, total time: %.2f sec\n -------------- Result : \n %s ", timings[0],  str(result_obj) )
+            wpsLog.debug( " $$$ Execution complete, total time: %.2f sec", (end_time-start_time) )
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
         return result_obj
