@@ -23,9 +23,6 @@ def loadValue( wpsInput ):
     return ""
 
 class CDASProcess(WPSProcess):
-    """Main process class"""
-    def __init__( self, **kwargs ):
-        WPSProcess( **kwargs )
 
     def saveVariable(self,data,dest,type="json"):
         cont = True

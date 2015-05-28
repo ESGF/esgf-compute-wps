@@ -1,10 +1,10 @@
 import logging
-
+from engines.kernels.timeseries_analysis import TimeseriesAnalytics
 from celery import Celery
-import cdms2
+import cdms2, json
 import cdutil
 
-from server.engines.celery.domain import DomainBasedTask
+from base_task import DomainBasedTask
 
 logger = logging.getLogger('celery.task')
 
@@ -70,5 +70,24 @@ def computeTimeseries( domainId, varId, region, op ):
 @app.task(base=DomainBasedTask,name='tasks.mergeResults')
 def mergeResults( result_list ):
     return result_list
+
+@app.task(base=DomainBasedTask,name='tasks.simpleTest')
+def simpleTest( input_list ):
+    return [ int(v)*3 for v in input_list ]
+
+@app.task(base=DomainBasedTask,name='tasks.submitTask')
+def submitTask( data, region, operation ):
+    data = json.loads( data )
+    region = json.loads( region )
+    operation = json.loads( operation )
+    kernel = TimeseriesAnalytics( data )
+    return kernel.execute( operation, region )
+
+
+
+
+
+
+
 
 

@@ -1,7 +1,9 @@
-import logging
-logger = logging.getLogger('celery.task')
-from celery import Task
+import logging, os
 import cdtime
+wpsLog = logging.getLogger('wps')
+wpsLog.setLevel(logging.DEBUG)
+if len( wpsLog.handlers ) == 0:
+    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log' ) )))
 
 def get_cdtime_units( unit_spec ):
     us =  unit_spec.lower()
@@ -13,40 +15,33 @@ def get_cdtime_units( unit_spec ):
     if us.startswith('mon'): return cdtime.Month
     if us.startswith('y'): return cdtime.Year
 
-class DomainBasedTask(Task):
-
-    abstract = True
-    _DomainCache = {}
+class DomainRegistry:
 
     def __init__(self):
-        pass
+        self._registry = {}
 
-    @classmethod
-    def createDomain(cls, partIndex, domainSpec ):
+    def createDomain(self, partIndex, domainSpec ):
         domain = Domain( domainSpec )
-        id = cls.generateDomainId( domainSpec )
-        cls._DomainCache[ id ] = domain
-        logger.info( "Create domain '%s', Domain Cache: %s " % ( id, str( cls._DomainCache ) ) )
+        id = self.generateDomainId( domainSpec )
+        self._registry[ id ] = domain
+        wpsLog.info( "Create domain '%s', Domain Cache: %s " % ( id, str( self._registry ) ) )
         return id
 
     def __repr__(self):
-        return "DomainBasedTask ( Cache: %s )" % str( self._DomainCache )
+        return "DomainBasedTask ( Cache: %s )" % str( self._registry )
 
-    @classmethod
-    def generateDomainId(cls, domainSpec ):
+    def generateDomainId(self, domainSpec ):
         return domainSpec['id']
 
-    @classmethod
-    def getDomain(cls, domainId ):
-        logger.info( "Get domain '%s', Domain Cache: %s " % ( domainId, str( cls._DomainCache ) ) )
-        return cls._DomainCache.get( domainId, None )
+    def getDomain(self, domainId ):
+        wpsLog.info( "Get domain '%s', Domain Cache: %s " % ( domainId, str( self._registry ) ) )
+        return self._registry.get( domainId, None )
 
-    @classmethod
-    def removeDomain( cls, domainId ):
+    def removeDomain( self, domainId ):
         try:
-            del cls._DomainCache[domainId]
+            del self._registry[domainId]
         except KeyError:
-            logger.error( "Attempt to delete non-existent domain: %s" % ( domainId ) )
+            wpsLog.error( "Attempt to delete non-existent domain: %s" % ( domainId ) )
 
 
 class Domain(object):
@@ -58,7 +53,7 @@ class Domain(object):
         self.time = spec.get( 'time', None )
         self.grid = spec.get( 'grid', None )
         self.variables = {}
-        logger.info( 'Create Domain[%d]: spec: %s' % (self.pIndex, str(spec) ) )
+        wpsLog.info( 'Create Domain[%d]: spec: %s' % (self.pIndex, str(spec) ) )
 
     def __repr__(self):
         return "Domain[%s] { roi: %s, grid: %s, time: %s } ( Variables: %s )" % ( self.id, self.roi, self.grid, self.time, self.variables.keys() )
@@ -71,7 +66,7 @@ class Domain(object):
             data_start_ct = cdtime.comptime( *[int(tok) for tok in data_start]  )
             partition_start_ct = data_start_ct.add( self.pIndex*part_time_step, part_time_units )
             partition_end_ct = partition_start_ct.add( part_time_step, part_time_units )
-            logger.info( 'Domain[%d]: addVariable: %s -> %s' % (self.pIndex, str(partition_start_ct), str(partition_end_ct) ))
+            wpsLog.info( 'Domain[%d]: addVariable: %s -> %s' % (self.pIndex, str(partition_start_ct), str(partition_end_ct) ))
             part_variable = variable( time=( partition_start_ct, partition_end_ct, 'co') )
             self.variables[varId] = part_variable
 
@@ -79,4 +74,11 @@ class Domain(object):
         try:
             del self.variables[varId]
         except KeyError:
-            logger.error( "Attempt to delete non-existent variable '%s' in domain '%s'" % ( varId, self.id ) )
+            wpsLog.error( "Attempt to delete non-existent variable '%s' in domain '%s'" % ( varId, self.id ) )
+
+
+
+domainRegistry = DomainRegistry()
+
+
+

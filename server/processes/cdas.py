@@ -4,13 +4,14 @@ import logging
 import json, types, traceback
 from cdasProcess import CDASProcess, loadValue
 from engines.registry import engineRegistry
+from django.conf import settings
 wpsLog = logging.getLogger( 'wps' )
 
 class Process(CDASProcess):
     def __init__(self):
         """Process initialization"""
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='timeseries', version=0.1, abstract='Extract a timeseries at a spatial location', storeSupported='true', statusSupported='true')
-        self.domain = self.addComplexInput(identifier='domain', title='spatial location of timeseries', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
+        self.region = self.addComplexInput(identifier='region', title='spatial location of timeseries', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
 #        self.download = self.addLiteralInput(identifier='download', type=bool, title='download output', default=False)
         self.data = self.addComplexInput(identifier='variables', title='variable to process', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=1, maxOccurs=1)
         self.operation = self.addComplexInput(identifier='operation', title='analysis operation', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=0, maxOccurs=1)
@@ -19,13 +20,14 @@ class Process(CDASProcess):
     def execute(self):
         try:
             data = loadValue( self.data )
-            domain = loadValue( self.domain )
+            region = loadValue( self.region )
             operation = loadValue( self.operation )
-            wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s' ", str( data ), str( domain ), str( operation ) )
+            wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s' " % ( str( data ), str( region ), str( operation ) ) )
 
-            engine = engineRegistry.getComputeEngine()
-            result =  engine.execute( data, domain, operation )
+            engine = engineRegistry.getComputeEngine( settings.COMPUTE_ENGINE )
+            result =  engine.execute( data, region, operation )
             result_json = json.dumps( result )
+            wpsLog.debug( " $$$ CDAS Process: Result='%s' " %  str( result_json ) )
             self.result.setValue( result_json )
         except Exception, err:
              wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )

@@ -10,7 +10,6 @@ wpsLog.setLevel(logging.DEBUG)
 if len( wpsLog.handlers ) == 0:
     wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log' ) )))
 
-
 cdms2.setNetcdfShuffleFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 included
@@ -25,14 +24,14 @@ class SerialEngine(Engine):
         Engine.__init__(self)
         self.operation = None
         self.data = None
-        self.domain = None
+        self.region = None
 
-    def execute( self, data, domain, operation ):
+    def execute( self, data, region, operation ):
         self.data = json.loads( data )
-        self.domain = json.loads( domain )
+        self.region = json.loads( region )
         self.operation = json.loads( operation )
         kernel = TimeseriesAnalytics(self.data)
-        return kernel.execute( self.operation, self.domain )
+        return kernel.execute( self.operation, self.region )
 
 #       pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
@@ -57,9 +56,9 @@ class SerialEngine(Engine):
     def breakpoint(self):
         pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
-    def location2cdms(self,domain):
+    def location2cdms(self,region):
         kargs = {}
-        for k,v in domain.iteritems():
+        for k,v in region.iteritems():
             if k not in ["id","version"]:
                 kargs[str(k)] = float( str(v) )
         return kargs

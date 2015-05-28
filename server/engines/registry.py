@@ -1,5 +1,4 @@
 import logging, os, importlib
-from django.conf import settings
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
 if len( wpsLog.handlers ) == 0:
@@ -22,7 +21,7 @@ class ComputeEngineRegistry:
             except Exception, err:
                 wpsLog.warning( "Error Registering compute engine '%s': %s" % ( modulename, str(err) ) )
 
-    def getComputeEngine( self, key = settings.COMPUTE_ENGINE ):
+    def getComputeEngine( self, key  ):
         wpsLog.info( "Using compute engine '%s'" % key )
         constructor = self._registry.get( key, None )
         return constructor()
@@ -32,7 +31,7 @@ class Engine:
     def __init__( self ):
         pass
 
-    def execute( self, data, domain, operation ):
+    def execute( self, data, region, operation ):
         pass
 
 

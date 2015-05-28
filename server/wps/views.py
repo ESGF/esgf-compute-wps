@@ -14,7 +14,7 @@ if enable_debug:
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
 if len( wpsLog.handlers ) == 0:
-    wpsLog.addHandler( logging.FileHandler( '/usr/local/web/WPCDAS/server/logs/wps.log' ) ) # os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log' ) )))
+    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log' ) ) ) )
 
 class TestRequest:
     def __init__(self, request_str ):
@@ -90,7 +90,6 @@ def clear_process(request,id):
 def getRequestParms( request ):
   parmMap = { 'embedded': False, 'execute':False }
   queryStr = request.META["QUERY_STRING"]
-  wpsLog.info( "-------------------->>> queryStr: %s" % str( queryStr ) )
   for requestParm in queryStr.split('&'):
       rParmElems = requestParm.split('=')
       param = rParmElems[0].strip().lower()
@@ -108,7 +107,6 @@ def wps(request):
 
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
   T.start()
-  wpsLog.info( "@@@@@@ RequestParams: %s" % str(requestParams) )
   if not requestParams['embedded'] and requestParams['execute']:
       return HttpResponse("Started Request Process id: <a href='http://%s/view/%i'>%i</a>" % (request.get_host(),rndm,rndm))
   else:
