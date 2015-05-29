@@ -9,16 +9,8 @@ import cdms2
 import numpy
 import numpy.ma as ma
 import cdutil
-
-cdms2.setNetcdfShuffleFlag(0)
-cdms2.setNetcdfDeflateFlag(0)
-cdms2.setNetcdfDeflateLevelFlag(0)
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-if len( wpsLog.handlers ) == 0:
-    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'wps.log' ) )))
-from engines.kernels.cda import DataAnalytics
+from cda import DataAnalytics
+from engines.utilities import get_json_arg, wpsLog
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
@@ -39,8 +31,8 @@ def record_attributes( var, attr_name_list, additional_attributes = {} ):
 
 class TimeseriesAnalytics( DataAnalytics ):
 
-    def __init__( self, variable ):
-        self.variable = variable
+    def __init__( self, operation ):
+        DataAnalytics.__init__( self, operation )
 
     def compress( self, variable, precision=4 ):
         maxval = variable.max()
@@ -49,15 +41,16 @@ class TimeseriesAnalytics( DataAnalytics ):
         scaled_variable = ( variable - minval ) * scale
         return { 'range': [ minval, maxval ], 'data': scaled_variable.tolist( numpy.nan ) }
 
-    def execute( self, operation, domain ):
+    def run( self, run_args ):
+        data = get_json_arg( 'data', run_args )
+        region = get_json_arg( 'region', run_args )
         result_obj = {}
         try:
             start_time = time.time()
-            cdms2keyargs = self.domain2cdms(domain)
-            self.operation = operation
-            url = self.variable.get( "url", None )
+            cdms2keyargs = self.region2cdms( region )
+            url = data.get( "url", None )
             if url:
-                id = self.variable["id"]
+                id = data["id"]
                 var_cache_id =  ":".join( [url,id] )
                 dataset = self.loadFileFromURL( url )
                 wpsLog.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
@@ -65,7 +58,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                 result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
                 result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
             else:
-                variable = self.variable["data"]
+                variable = data["data"]
                 result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
 
             read_start_time = time.time()
@@ -74,7 +67,7 @@ class TimeseriesAnalytics( DataAnalytics ):
             wpsLog.debug( " $$$ DATA READ Complete: " + str( (read_end_time-read_start_time) ) )
 
             process_start_time = time.time()
-            ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
+            ( result_data, time_axis ) = self.applyOperation( subsetted_variable, self.operation )
             process_end_time = time.time()
             wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
@@ -184,7 +177,7 @@ if __name__ == "__main__":
                   { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc', 'id': 'u' },
                   { 'url': 'file://usr/local/web/WPCDAS/data/TestData.nc', 'id': 't' } ]
     var_index = 4
-    domain    = { 'latitude': -18.2, 'longitude': -134.6 }
+    region    = { 'latitude': -18.2, 'longitude': -134.6 }
     operations = [ { 'type': 'departures', 'bounds': 'annualcycle' },
                    { 'type': 'departures', 'bounds': '' },
                    { 'type': 'climatology', 'bounds': 'annualcycle' },
@@ -194,7 +187,7 @@ if __name__ == "__main__":
                    { 'type': '', 'bounds': '' } ]
     operation_index = 6
 
-    processor = TimeseriesAnalytics( variables[var_index] )
-    result = processor.execute( operations[operation_index], domain )
+    processor = TimeseriesAnalytics( operations[operation_index]  )
+    result = processor.execute( { 'data':variables[var_index], 'region': region } )
     print "\n ---------- Result: ---------- "
     pp.pprint(result)

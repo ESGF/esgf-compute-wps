@@ -25,7 +25,7 @@ class Process(CDASProcess):
             wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s' " % ( str( data ), str( region ), str( operation ) ) )
             t0 = time.time()
             engine = engineRegistry.getComputeEngine( settings.COMPUTE_ENGINE )
-            result =  engine.execute( data, region, operation )
+            result =  engine.execute( settings.STAGING, { 'data':data, 'region':region, 'operation':operation } )
             result_json = json.dumps( result )
             t1 = time.time()
             wpsLog.debug( " $$$ CDAS Process (response time: %.3f sec): Result='%s' " %  ( (t1-t0), str( result_json )) )

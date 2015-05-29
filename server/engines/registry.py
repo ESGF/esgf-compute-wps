@@ -1,8 +1,5 @@
-import logging, os, importlib
-wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-if len( wpsLog.handlers ) == 0:
-    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log' ) )))
+import logging, os, importlib, json, traceback
+from engines.utilities import *
 
 class ComputeEngineRegistry:
 
@@ -10,16 +7,16 @@ class ComputeEngineRegistry:
         self._registry = {}
         dir = os.path.dirname(__file__)
         subdirs = [ o for o in os.listdir(dir) if os.path.isdir(os.path.join(dir,o)) ]
-        wpsLog.info( "Registering compute engines from list: %s" % str(subdirs) )
 
         for modulename in subdirs:
             try:
                 module = importlib.import_module("."+modulename,'engines')
-                constructor = module.getConstructor()
-                self._registry[modulename] = constructor
-                wpsLog.info( "Registering compute engine '%s'" % modulename )
-            except Exception, err:
-                wpsLog.warning( "Error Registering compute engine '%s': %s" % ( modulename, str(err) ) )
+                if hasattr( module, 'getConstructor' ):
+                    constructor = module.getConstructor()
+                    self._registry[modulename] = constructor
+                    wpsLog.debug( "Registering compute engine '%s'" % modulename )
+            except Exception:
+                wpsLog.warning( "\n --------------- Error Registering compute engine '%s' --------------- \n %s" % ( modulename, traceback.format_exc() ) )
 
     def getComputeEngine( self, key  ):
         wpsLog.info( "Using compute engine '%s'" % key )
@@ -28,11 +25,19 @@ class ComputeEngineRegistry:
 
 class Engine:
 
-    def __init__( self ):
-        pass
+    def execute( self, staging, run_args ):
+        if staging == 'local':
+            return self.run( run_args )
+        elif staging == 'celery':
+            from engines.celery.tasks import submitTask
+            task = submitTask.delay( run_args )
+            result = task.get()
+            return result
+        else:
+            raise Exception( "Unrecognized staging configuration: %s" % staging )
 
-    def execute( self, data, region, operation ):
-        pass
+    def run(self, run_args ):
+        raise Exception( "Attempt to execute virtual Engine base class" )
 
 
 engineRegistry = ComputeEngineRegistry()

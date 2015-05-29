@@ -5,10 +5,7 @@ import cdms2, json
 import cdutil
 from base_task import DomainBasedTask
 logger = logging.getLogger('celery.task')
-wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-if len( wpsLog.handlers ) == 0:
-    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'wps.log' ) )))
+from engines.utilities import *
 
 app = Celery( 'tasks', broker='amqp://guest@localhost//', backend='amqp' )
 
@@ -81,7 +78,7 @@ def simpleTest( input_list ):
     return [ int(v)*3 for v in input_list ]
 
 @app.task(base=DomainBasedTask,name='tasks.submitTask')
-def submitTask( data, region, operation ):
+def submitTask( run_args ):
     wpsLog.debug( "<<<<<Spark>>>>>--> Task: data='%s' region='%s' operation='%s' " % ( str(data), str(region), str(operation) ))
     data = json.loads( data )
     region = json.loads( region )

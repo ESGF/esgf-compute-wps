@@ -1,5 +1,6 @@
 from engines.registry import Engine
 from tasks import submitTask, createDomain
+from engines.utilities import *
 import json
 
 class CeleryEngine( Engine ):

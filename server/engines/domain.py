@@ -1,9 +1,6 @@
 import logging, os
 import cdtime
-wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-if len( wpsLog.handlers ) == 0:
-    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log' ) )))
+from engines.utilities import *
 
 def get_cdtime_units( unit_spec ):
     us =  unit_spec.lower()

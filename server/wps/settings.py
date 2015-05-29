@@ -26,8 +26,11 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
-COMPUTE_ENGINE = 'celery'
-#COMPUTE_ENGINE = 'serial'
+STAGING = 'local'
+#STAGING = 'celery'
+
+#COMPUTE_ENGINE = 'celery'
+COMPUTE_ENGINE = 'serial'
 
 # Application definition
 
