@@ -21,15 +21,19 @@ class ComputeEngineRegistry:
     def getComputeEngine( self, key  ):
         wpsLog.info( "Using compute engine '%s'" % key )
         constructor = self._registry.get( key, None )
-        return constructor()
+        return constructor(key)
 
 class Engine:
+
+    def __init__( self, id ):
+        self.id = id
 
     def execute( self, staging, run_args ):
         if staging == 'local':
             return self.run( run_args )
         elif staging == 'celery':
             from engines.celery.tasks import submitTask
+            run_args['engine'] = self.id
             task = submitTask.delay( run_args )
             result = task.get()
             return result

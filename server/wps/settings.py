@@ -26,11 +26,11 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
-STAGING = 'local'
-#STAGING = 'celery'
+CDAS_STAGING = 'local'
+#CDAS_STAGING = 'celery'
 
-#COMPUTE_ENGINE = 'celery'
-COMPUTE_ENGINE = 'serial'
+CDAS_COMPUTE_ENGINE = 'celery'
+#CDAS_COMPUTE_ENGINE = 'serial'
 
 # Application definition
 

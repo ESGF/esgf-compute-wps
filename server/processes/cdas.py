@@ -4,7 +4,7 @@ import logging
 import json, types, traceback
 from cdasProcess import CDASProcess, loadValue
 from engines.registry import engineRegistry
-from django.conf import settings
+from wps import settings
 wpsLog = logging.getLogger( 'wps' )
 
 class Process(CDASProcess):
@@ -24,8 +24,8 @@ class Process(CDASProcess):
             operation = loadValue( self.operation )
             wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s' " % ( str( data ), str( region ), str( operation ) ) )
             t0 = time.time()
-            engine = engineRegistry.getComputeEngine( settings.COMPUTE_ENGINE )
-            result =  engine.execute( settings.STAGING, { 'data':data, 'region':region, 'operation':operation } )
+            engine = engineRegistry.getComputeEngine( settings.CDAS_COMPUTE_ENGINE )
+            result =  engine.execute( settings.CDAS_STAGING, { 'data':data, 'region':region, 'operation':operation } )
             result_json = json.dumps( result )
             t1 = time.time()
             wpsLog.debug( " $$$ CDAS Process (response time: %.3f sec): Result='%s' " %  ( (t1-t0), str( result_json )) )

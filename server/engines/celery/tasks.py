@@ -1,19 +1,12 @@
 import logging, os
-from engines.kernels.timeseries_analysis import TimeseriesAnalytics
+from engines.registry import engineRegistry
 from celery import Celery
 import cdms2, json
 import cdutil
 from base_task import DomainBasedTask
-logger = logging.getLogger('celery.task')
 from engines.utilities import *
 
 app = Celery( 'tasks', broker='amqp://guest@localhost//', backend='amqp' )
-
-def task_error( msg ):
-    logger.error( msg )
-
-def getOperationHandler( operation ):
-    return "spark"
 
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',
@@ -24,8 +17,8 @@ app.conf.update(
 @app.task(base=DomainBasedTask,name='tasks.createDomain')
 def createDomain( pIndex, domainSpec ):
     domainSpec['pIndex'] = pIndex
-    logger.debug( 'app.task: createDomain[%d]: %s ' % (pIndex, str(domainSpec) ))
-    logger.debug( 'Task: %s ' % ( app.current_task.__class__.__name__ ))
+    wpsLog.debug( 'app.task: createDomain[%d]: %s ' % (pIndex, str(domainSpec) ))
+    wpsLog.debug( 'Task: %s ' % ( app.current_task.__class__.__name__ ))
     return createDomain.createDomain( pIndex, domainSpec )
 
 @app.task(base=DomainBasedTask,name='tasks.removeDomain')
@@ -34,7 +27,7 @@ def removeDomain( domainId ):
 
 @app.task(base=DomainBasedTask,name='tasks.addVariable')
 def addVariable( domainId, varSpec ):
-    logger.debug( 'app.task: addVariable[%s]: %s ' % (domainId, str(varSpec) ))
+    wpsLog.debug( 'app.task: addVariable[%s]: %s ' % (domainId, str(varSpec) ))
     d = addVariable.getDomain( domainId )
     if d is not None:
         f=cdms2.open( varSpec['dset'] )
@@ -43,7 +36,7 @@ def addVariable( domainId, varSpec ):
         d.add_variable( varId, variable, **varSpec )
         return varId
     else:
-        task_error( "Missing domain '%s'" % ( domainId ) )
+        wpsLog.error( "Missing domain '%s'" % ( domainId ) )
         return None
 
 @app.task(base=DomainBasedTask,name='tasks.removeVariable')
@@ -64,9 +57,9 @@ def computeTimeseries( domainId, varId, region, op ):
             else:
                 return timeseries.squeeze().tolist()
         else:
-             task_error( "Missing variable '%s' in domain '%s'" % (  varId, domainId ) )
+             wpsLog.error( "Missing variable '%s' in domain '%s'" % (  varId, domainId ) )
     else:
-        task_error( "Missing domain '%s'" % ( domainId ) )
+        wpsLog.error( "Missing domain '%s'" % ( domainId ) )
         return []
 
 @app.task(base=DomainBasedTask,name='tasks.mergeResults')
@@ -79,20 +72,9 @@ def simpleTest( input_list ):
 
 @app.task(base=DomainBasedTask,name='tasks.submitTask')
 def submitTask( run_args ):
-    wpsLog.debug( "<<<<<Spark>>>>>--> Task: data='%s' region='%s' operation='%s' " % ( str(data), str(region), str(operation) ))
-    data = json.loads( data )
-    region = json.loads( region )
-    operation = json.loads( operation )
-    handler = getOperationHandler( operation )
-    if handler == "local":
-        kernel = TimeseriesAnalytics( data )
-        return kernel.execute( operation, region )
-    elif handler == "celery":
-        pass
-    elif handler == "spark":
-        from engines.celery.spark.tasks import submitSparkTask
-        result = submitSparkTask( data, region, operation  )
-        return result
+    engine = engineRegistry.getComputeEngine( run_args['engine'] )
+    result =  engine.execute( 'local', run_args )
+    return result
 
 
 
