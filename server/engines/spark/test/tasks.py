@@ -5,7 +5,7 @@ num_parts = 1
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
 if len( wpsLog.handlers ) == 0:
-    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '../celery', '..', 'logs', 'wps.log' ) )))
+    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '../../../celery', '..', 'logs', 'wps.log' ) )))
 
 sc = SparkContext('local[%d]' % num_parts, "cdaSpark")
 partitions = sc.parallelize( range(num_parts) )
