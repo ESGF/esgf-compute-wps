@@ -1,4 +1,4 @@
-from pywps.Process import WPSProcess
+#from pywps.Process import WPSProcess
 import os
 import json
 import cdms2
@@ -8,7 +8,7 @@ cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-from cdasProcess import CDASProcess
+#from cdasProcess import CDASProcess
 
 # Test arguments for run configuration:
 # version=1.0.0&service=wps&request=Execute&identifier=averager&datainputs=[domain={\"longitude\":{\"start\":-180.0,\"end\":180.0}};variable={\"url\":\"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml\",\"id\":\"uwnd\"}]
@@ -22,7 +22,7 @@ def saveVariable(data,fout,type="json"):
 
 
 
-def loadData(self, dataFiles):
+def loadData(dataFiles):
 
     dataIn = []
     if isinstance(dataFiles,str):
@@ -113,6 +113,8 @@ def record_attributes( var, attr_name_list, additional_attributes = {} ):
         mdata[attr_name] = additional_attributes[attr_name]
     return mdata
 
+
+print "Script started with", sys.args[1:]
 
 dataIn= loadData(sys.argv[2])[0]
                 

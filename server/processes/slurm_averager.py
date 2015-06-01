@@ -25,6 +25,8 @@ class Process(WPSProcess):
 
         cont = True
 
+        rndm = 0
+
         while cont:
             rndm = random.randint(0,100000000000)
             fout = os.path.join(BASE_DIR,"%i.nc" % rndm)
@@ -36,7 +38,7 @@ class Process(WPSProcess):
         domain = self.domain.getValue()
         dataIn = self.dataIn.getValue()
 
-        system("srun python avg_tester.py " + domain + " " + dataIn + " " + fout)
+        system("srun -o " + rndm  + ".log python avg_tester.py " + domain + " " + dataIn + " " + fout)
         out = {}
         out["url"] = "file:/"+fout
         out["id"]=data.id
