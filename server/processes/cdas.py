@@ -3,7 +3,7 @@ import os, time
 import logging
 import json, types, traceback
 from cdasProcess import CDASProcess, loadValue
-from engines.registry import engineRegistry
+from staging.registry import stagingRegistry
 from wps import settings
 wpsLog = logging.getLogger( 'wps' )
 
@@ -24,8 +24,12 @@ class Process(CDASProcess):
             operation = loadValue( self.operation )
             wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s' " % ( str( data ), str( region ), str( operation ) ) )
             t0 = time.time()
-            engine = engineRegistry.getComputeEngine( settings.CDAS_COMPUTE_ENGINE )
-            result =  engine.execute( settings.CDAS_STAGING, { 'data':data, 'region':region, 'operation':operation } )
+            handler = stagingRegistry.getHandler( settings.CDAS_STAGING  )
+            if handler is None:
+                wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
+                handler = stagingRegistry.getHandler( 'local' )
+            wpsLog.debug( " Running handler %s with engine %s. " % ( settings.CDAS_STAGING, settings.CDAS_COMPUTE_ENGINE ) )
+            result =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': settings.CDAS_COMPUTE_ENGINE } )
             result_json = json.dumps( result )
             t1 = time.time()
             wpsLog.debug( " $$$ CDAS Process (response time: %.3f sec): Result='%s' " %  ( (t1-t0), str( result_json )) )

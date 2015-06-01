@@ -1,5 +1,4 @@
 import logging, os
-from engines.registry import engineRegistry
 from celery import Celery
 import cdms2, json
 import cdutil
@@ -62,6 +61,24 @@ def computeTimeseries( domainId, varId, region, op ):
         wpsLog.error( "Missing domain '%s'" % ( domainId ) )
         return []
 
+@app.task(base=DomainBasedTask,name='tasks.execute')
+def execute( domainId, varId, region, op ):
+    d = computeTimeseries.getDomain( domainId )
+    if d is not None:
+        variable = d.variables.get( varId, None )
+        if variable is not None:
+            lat, lon = region['latitude'], region['longitude']
+            timeseries = variable(latitude=(lat, lat, "cob"), longitude=(lon, lon, "cob"))
+            if op == 'average':
+                return cdutil.averager( timeseries, axis='t', weights='equal' ).squeeze().tolist()
+            else:
+                return timeseries.squeeze().tolist()
+        else:
+             wpsLog.error( "Missing variable '%s' in domain '%s'" % (  varId, domainId ) )
+    else:
+        wpsLog.error( "Missing domain '%s'" % ( domainId ) )
+        return []
+
 @app.task(base=DomainBasedTask,name='tasks.mergeResults')
 def mergeResults( result_list ):
     return result_list
@@ -70,11 +87,6 @@ def mergeResults( result_list ):
 def simpleTest( input_list ):
     return [ int(v)*3 for v in input_list ]
 
-@app.task(base=DomainBasedTask,name='tasks.submitTask')
-def submitTask( run_args ):
-    engine = engineRegistry.getComputeEngine( run_args['engine'] )
-    result =  engine.execute( 'local', run_args )
-    return result
 
 
 
