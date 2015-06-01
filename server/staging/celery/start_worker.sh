@@ -7,3 +7,4 @@ else
   else
     celery -A staging.celery.manager worker --loglevel=debug  --concurrency 1 -n worker.manager &
   fi
+
