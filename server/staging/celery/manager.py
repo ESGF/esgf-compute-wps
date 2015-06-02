@@ -1,8 +1,9 @@
 from base_task import StagingTask
 from engines.utilities import wpsLog
+from wps import settings
 from celery import Celery
 
-app = Celery( 'manager', broker='amqp://guest@localhost//', backend='amqp' )
+app = Celery( 'manager', broker=settings.CDAS_CELERY_BROKER, backend=settings.CDAS_CELERY_BACKEND  )
 
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',

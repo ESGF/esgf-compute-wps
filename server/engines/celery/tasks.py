@@ -2,10 +2,12 @@ import logging, os
 from celery import Celery
 import cdms2, json
 import cdutil
+from wps import settings
 from base_task import DomainBasedTask
+from engines.kernels.manager import kernelMgr
 from engines.utilities import *
 
-app = Celery( 'tasks', broker='amqp://guest@localhost//', backend='amqp' )
+app = Celery( 'tasks', broker=settings.CDAS_CELERY_BROKER, backend=settings.CDAS_CELERY_BACKEND )
 
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',
@@ -62,7 +64,12 @@ def computeTimeseries( domainId, varId, region, op ):
         return []
 
 @app.task(base=DomainBasedTask,name='tasks.execute')
-def execute( domainId, varId, region, op ):
+def execute( run_args ):
+    result = kernelMgr.run( run_args )
+    return result
+
+@app.task(base=DomainBasedTask,name='tasks.execute_d')
+def execute_d( domainId, varId, region, op ):
     d = computeTimeseries.getDomain( domainId )
     if d is not None:
         variable = d.variables.get( varId, None )
