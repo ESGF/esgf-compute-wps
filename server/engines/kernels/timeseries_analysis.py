@@ -48,8 +48,9 @@ class TimeseriesAnalytics( DataAnalytics ):
         try:
             start_time = time.time()
             cdms2keyargs = self.region2cdms( region )
-            url = data.get( "url", None )
-            if url:
+            variable = run_args.get( "dataSlice", None )
+            if variable is None:
+                url = data["url"]
                 id = data["id"]
                 var_cache_id =  ":".join( [url,id] )
                 dataset = self.loadFileFromURL( url )
@@ -58,7 +59,6 @@ class TimeseriesAnalytics( DataAnalytics ):
                 result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
                 result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
             else:
-                variable = data["data"]
                 result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
 
             read_start_time = time.time()

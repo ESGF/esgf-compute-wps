@@ -8,7 +8,7 @@ if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.
 
 def get_json_arg( id, args ):
     json_arg = args.get( id, None )
-    return json.loads( json_arg ) if json_arg else ""
+    return "" if json_arg is None else json.loads( json_arg )
 
 class Profiler(object):
 
