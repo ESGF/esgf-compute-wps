@@ -23,6 +23,8 @@ class Process(WPSProcess):
     
     def execute(self):
 
+        print "Running execute"
+
         cont = True
 
         rndm = 0
@@ -38,7 +40,11 @@ class Process(WPSProcess):
         domain = self.domain.getValue()
         dataIn = self.dataIn.getValue()
 
-        system("srun -o " + rndm  + ".log python avg_tester.py " + domain + " " + dataIn + " " + fout)
+#        system("srun -o " + rndm  + ".log python avg_tester.py " + domain + " " + dataIn + " " + fout)
+
+        system("srun -o " + rndm  + ".log pwd")
+        system("srun -o " + rndm  + ".log whoami")
+
         out = {}
         out["url"] = "file:/"+fout
         out["id"]=data.id
