@@ -1,5 +1,5 @@
 from staging import StagingMethod
-from engines.registry import engineRegistry
+from engines import engineRegistry
 from engines.utilities import wpsLog
 
 class StagingHandler(StagingMethod):
@@ -9,6 +9,6 @@ class StagingHandler(StagingMethod):
         if engine_id is None:
             engine_id = 'serial'
             wpsLog.warning( "Compute Engine not confgured, running serially.")
-        engine = engineRegistry.getComputeEngine( engine_id )
+        engine = engineRegistry.getInstance( engine_id )
         result =  engine.execute( run_args )
         return result

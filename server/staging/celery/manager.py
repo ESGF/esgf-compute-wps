@@ -14,7 +14,7 @@ app.conf.update(
 @app.task(base=StagingTask,name='manager.submitTask')
 def submitTask( run_args ):
     engine_id = run_args['engine']
-    engine = submitTask.engines.getComputeEngine( engine_id )
+    engine = submitTask.engines.getInstance( engine_id )
     wpsLog.info( " Celery submit task, args = '%s', engine = %s (%s)" % ( str( run_args ), engine_id, type(engine) ) )
     result =  engine.execute( run_args )
     return result

@@ -1,5 +1,5 @@
 from celery import Task
-from engines.registry import engineRegistry
+from engines import engineRegistry
 
 class StagingTask(Task):
     abstract = True
