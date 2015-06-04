@@ -2,28 +2,51 @@ from pywps.Process import WPSProcess
 
 import os
 import json
+import random
 
-from subprocess import system
+import logging
+
+from subprocess import call 
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
+
+wpsLog = logging.getLogger('wps')
+wpsLog.setLevel(logging.DEBUG)
+wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
+
 
 class Process(WPSProcess):
 
     def __init__(self):
-                
-       """Process initialization"""
-        WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='averager', version=0.1, abstract='Average a variable over a (many) dimension', storeSupported='true', statusSupported='true')
+        
+        """Process initialization"""
+        WPSProcess.__init__(self, 
+                            identifier=os.path.split(__file__)[-1].split('.')[0], 
+                            title='slurm_averager', 
+                            version=1.0, abstract='Slurm Average a variable over a (many) dimension', 
+                            storeSupported=True, 
+                            statusSupported=True)
         self.domain = self.addComplexInput(identifier='domain', title='domain over which to average', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
         self.download = self.addLiteralInput(identifier='download', type=bool, title='download output', default=False)
         self.dataIn = self.addComplexInput(identifier='variable', title='variable to average', formats=[{'mimeType': 'text/json'}], minOccurs=1, maxOccurs=1)
         self.average = self.addComplexOutput(identifier='average', title='averaged variable', formats=[{'mimeType': 'text/json'}])
+        self.operation = self.addLiteralInput(identifier='operation', type=str, title='download output', default="FooBar")
+        self.result = None
 
 
-
+    def loadOperation(self,origin=None):
+        if origin is None:
+            origin = self.operation
+        if origin is None: return None
+        opStr = origin.getValue()
+        if opStr:
+            op_json = open(opStr).read().strip()
+            if op_json: return json.loads(op_json)
+        return None
 
 
     
     def execute(self):
-
-        print "Running execute"
 
         cont = True
 
@@ -36,20 +59,34 @@ class Process(WPSProcess):
             cont = os.path.exists(fout) or os.path.exists(fjson)
 
 
+        wpsLog.info("WPS at %s", os.getcwd())
 
-        domain = self.domain.getValue()
-        dataIn = self.dataIn.getValue()
+            
+        f= open(self.domain.getValue())
+        domain = f.read()
+        f = open( self.dataIn.getValue())
+        dataIn = f.read()
 
-#        system("srun -o " + rndm  + ".log python avg_tester.py " + domain + " " + dataIn + " " + fout)
+#        wpsLog.info( "SLURM Working at %s" , BASE_DIR )
 
-        system("srun -o " + rndm  + ".log pwd")
-        system("srun -o " + rndm  + ".log whoami")
+        call("srun -o " + BASE_DIR + "/" + str(rndm)+".log -D " + BASE_DIR + "/../analysis python avg_tester.py " + domain + " " + dataIn + " " + fout, shell=True)
+        
+
+        
+   #     self.cmd(["/usr/bin/srun", "-o " + BASE_DIR + "/" + str(rndm)  + ".log pwd")
+
+#        self.cmd(["/usr/bin/srun", "-D "+BASE_DIR+" -o " + BASE_DIR + "/" + str(rndm)  + ".log whoami"])
+
+#        call("/usr/bin/srun -D "+BASE_DIR+" -o " + BASE_DIR + "/" + str(rndm)  + ".log whoami", shell=True)
+
+        
 
         out = {}
         out["url"] = "file:/"+fout
-        out["id"]=data.id
+        out["id"]=self.dataIn["id"]
         Fjson=open(fjson,"w")
         json.dump(out,Fjson)
         Fjson.close()
 
         self.average.setValue(fjson)
+        return
