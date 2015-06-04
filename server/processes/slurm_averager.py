@@ -83,7 +83,7 @@ class Process(WPSProcess):
 
         out = {}
         out["url"] = "file:/"+fout
-        out["id"]=self.dataIn["id"]
+        out["id"]="variable"
         Fjson=open(fjson,"w")
         json.dump(out,Fjson)
         Fjson.close()

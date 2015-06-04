@@ -38,8 +38,8 @@ def loadVariable(data):
 
 def  loadDomain(domain):
 
-    f=open(domain)
-    return json.loads(f.read())
+
+    return json.loads(domain)
 
 def location2cdms(domain):
     kargs = {}
@@ -122,7 +122,7 @@ domain = loadDomain(sys.argv[1])
 
 cdms2keyargs = domain2cdms(domain)
 
-f=loadFileFromURL(dataIn["url"])
+f=cdms2.open(dataIn["url"])
 
 data = f(dataIn["id"],**cdms2keyargs)
 dims = "".join(["(%s)" % x for x in cdms2keyargs.keys()])
