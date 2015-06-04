@@ -1,16 +1,16 @@
-import os
 import traceback
 import sys
 import time
 import logging
 import pprint
 
-import cdms2
 import numpy
 import numpy.ma as ma
 import cdutil
+
 from cda import DataAnalytics
-from engines.utilities import get_json_arg, wpsLog
+from modules.utilities import get_json_arg, wpsLog
+
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}

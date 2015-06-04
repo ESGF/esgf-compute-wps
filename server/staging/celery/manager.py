@@ -1,5 +1,5 @@
 from base_task import StagingTask
-from engines.utilities import wpsLog
+from modules.utilities import wpsLog
 from wps import settings
 from celery import Celery
 

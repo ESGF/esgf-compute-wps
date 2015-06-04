@@ -1,11 +1,12 @@
-import logging, os
-from celery import Celery
-import cdms2, json
+import cdms2
 import cdutil
+
+from celery import Celery
 from wps import settings
 from base_task import DomainBasedTask
 from engines.kernels.manager import kernelMgr
-from engines.utilities import *
+from modules.utilities import *
+
 
 app = Celery( 'tasks', broker=settings.CDAS_CELERY_BROKER, backend=settings.CDAS_CELERY_BACKEND )
 

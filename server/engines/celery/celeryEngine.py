@@ -1,8 +1,8 @@
-from engines.registry import Engine
-from tasks import execute, createDomain
-from engines.utilities import *
+from modules import Executable
+from tasks import execute
+from modules.utilities import *
 
-class CeleryEngine( Engine ):
+class CeleryEngine( Executable ):
 
     def execute( self, run_args ):
         wpsLog.info( "Executing Celery engine, args: %s" % ( run_args ) )

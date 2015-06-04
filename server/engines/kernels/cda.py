@@ -1,10 +1,15 @@
-import os, pydevd, json
-import cdms2,  random
+import os
+import json
+import random
+
+import pydevd
+import cdms2
+
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-from engines.utilities import wpsLog
+
 
 class DataAnalytics:
 

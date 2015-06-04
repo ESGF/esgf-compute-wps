@@ -1,8 +1,8 @@
-from staging import StagingMethod
+from modules import Executable
 from engines import engineRegistry
-from engines.utilities import wpsLog
+from modules.utilities import wpsLog
 
-class StagingHandler(StagingMethod):
+class StagingHandler(Executable):
 
     def execute( self, run_args ):
         engine_id = run_args.get( 'engine', None )

@@ -1,10 +1,10 @@
 import logging, time, os, json
 
-LogDir = os.path.abspath( os.path.join( os.path.dirname(__file__), '..', 'logs' ) )
+LogDir = os.path.abspath( os.path.join( os.path.dirname(__file__), '../', 'logs' ) )
 DefaultLogLevel = logging.DEBUG
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(DefaultLogLevel)
-if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.join( LogDir, 'wps.log' ) ) )
+if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.join( LogDir, 'wps.log') ) )
 
 def get_json_arg( id, args ):
     json_arg = args.get( id, None )

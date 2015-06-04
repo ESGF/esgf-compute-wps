@@ -1,7 +1,7 @@
-from staging import StagingMethod
-from engines.utilities import wpsLog
+from modules import Executable
+from modules.utilities import wpsLog
 
-class StagingHandler(StagingMethod):
+class StagingHandler(Executable):
 
     def execute( self, run_args ):
         from staging.celery.manager import submitTask

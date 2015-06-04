@@ -1,9 +1,9 @@
-from engines.registry import Engine
+from modules import Executable
 from engines.kernels.manager import kernelMgr
-from engines.utilities import *
+from modules.utilities import *
 
-from engines.utilities import wpsLog
-num_parts = 2
+from modules.utilities import wpsLog
+num_parts = 1
 
 def cleanup_url( url ):
     if url.startswith('file://'): url = url[6:]
@@ -16,7 +16,7 @@ def generate_kernel_args( dataSlice, run_args ):
 def getSparkLogger():
     pass
 
-class SparkEngine(Engine):
+class SparkEngine(Executable):
     sc = None
     partitions = None
     logger = None
