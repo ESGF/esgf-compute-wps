@@ -1,17 +1,42 @@
 #from pywps.Process import WPSProcess
-import os
+import sys, os
 import json
+
+
+
+
 import cdms2
+
 import cdutil
+
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
+
 import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
+
 #from cdasProcess import CDASProcess
 
 # Test arguments for run configuration:
 # version=1.0.0&service=wps&request=Execute&identifier=averager&datainputs=[domain={\"longitude\":{\"start\":-180.0,\"end\":180.0}};variable={\"url\":\"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml\",\"id\":\"uwnd\"}]
+
+def domain2cdms(domain):
+      kargs = {}
+      for k,v in domain.iteritems():
+          if k in ["id","version"]:
+              continue
+          system = v.get("system","value").lower()
+          if isinstance(v["start"],unicode):
+              v["start"] = str(v["start"])
+          if isinstance(v["end"],unicode):
+              v["end"] = str(v["end"])
+          if system == "value":
+              kargs[str(k)]=(v["start"],v["end"])
+          elif system == "index":
+              kargs[str(k)] = slice(v["start"],v["end"])
+      return kargs
+
 
 def saveVariable(data,fout,type="json"):
 
@@ -20,9 +45,8 @@ def saveVariable(data,fout,type="json"):
     f.write(data)
     f.close()
 
-
-
 def loadData(dataFiles):
+
 
     dataIn = []
     if isinstance(dataFiles,str):
@@ -32,14 +56,18 @@ def loadData(dataFiles):
         dataIn.append(loadVariable(f.read()))
     return dataIn
 
+
+
+
 def loadVariable(data):
     """loads in data, right now can only be json but i guess could have to determine between json and xml"""
     return json.loads(data)
 
 def  loadDomain(domain):
+    
+    f=open(domain)
+    return json.loads(f.read())
 
-
-    return json.loads(domain)
 
 def location2cdms(domain):
     kargs = {}
@@ -114,7 +142,8 @@ def record_attributes( var, attr_name_list, additional_attributes = {} ):
     return mdata
 
 
-print "Script started with", sys.args[1:]
+
+print "Script started with", sys.argv[1:]
 
 dataIn= loadData(sys.argv[2])[0]
                 
@@ -126,6 +155,9 @@ f=cdms2.open(dataIn["url"])
 
 data = f(dataIn["id"],**cdms2keyargs)
 dims = "".join(["(%s)" % x for x in cdms2keyargs.keys()])
+
+print dims
+
 data = cdutil.averager(data,axis=dims)
 data.id=dataIn["id"]
 

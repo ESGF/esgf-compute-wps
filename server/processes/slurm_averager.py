@@ -59,17 +59,19 @@ class Process(WPSProcess):
             cont = os.path.exists(fout) or os.path.exists(fjson)
 
 
-        wpsLog.info("WPS at %s", os.getcwd())
+#        wpsLog.info("WPS at %s", os.getcwd())
 
             
-        f= open(self.domain.getValue())
-        domain = f.read()
-        f = open( self.dataIn.getValue())
-        dataIn = f.read()
+        domain = self.domain.getValue()
+
+        dataIn = self.dataIn.getValue()
 
 #        wpsLog.info( "SLURM Working at %s" , BASE_DIR )
+#        if  call("srun -o " + BASE_DIR + "/" + str(rndm)+".log -D " + BASE_DIR + "/../analysis python avg_tester.py " + domain + " " + dataIn + " " + fout, shell=True) > 0:
+#        if  call("srun -w greyworm1 -o " + BASE_DIR + "/" + str(rndm)+".log -D " + BASE_DIR + "/../analysis sh run_job.sh avg_tester.py " + domain + " " + dataIn + " " + fout, shell=True) > 0:
+        if  call("time srun -w greyworm1 -o " + BASE_DIR + "/" + str(rndm)+".log sh "+ BASE_DIR + "/../analysis/run_job.sh " + BASE_DIR + "/../analysis/avg_tester.py " + domain + " " + dataIn + " " + fout, shell=True) > 0:
 
-        call("srun -o " + BASE_DIR + "/" + str(rndm)+".log -D " + BASE_DIR + "/../analysis python avg_tester.py " + domain + " " + dataIn + " " + fout, shell=True)
+            return "Slurm returned an error!"
         
 
         
@@ -79,7 +81,15 @@ class Process(WPSProcess):
 
 #        call("/usr/bin/srun -D "+BASE_DIR+" -o " + BASE_DIR + "/" + str(rndm)  + ".log whoami", shell=True)
 
+        sz = 0
+        try:
+            sz = os.stat(fout).st_size
+        except:
+            return "Couldn't open output file!"
         
+        if sz == 0:
+            return "Output file empty!"
+                
 
         out = {}
         out["url"] = "file:/"+fout
