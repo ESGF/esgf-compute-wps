@@ -25,7 +25,7 @@ def execute(data_str, domain_str, res_str):
         fnm = str(d["url"])
 # TODO figure out status updates
 #        self.status.set("Reading file: %s" % fnm,100*float(N)/Ntot)
-
+        f = loadFileFromURL(d["url"])
         if f is None:
             continue
         N+=1
@@ -39,5 +39,5 @@ def execute(data_str, domain_str, res_str):
     out.id = d["id"]
     cont = True
 
-    saveVariable(out,res_str,"json")
+    saveVariable(out,res_str)
 

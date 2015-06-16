@@ -3,7 +3,7 @@
 import os, traceback, sys, numpy
 
 import cdms2, logging
-
+import json
 
 
 cdms2.setNetcdfShuffleFlag(0)
@@ -12,12 +12,11 @@ cdms2.setNetcdfDeflateLevelFlag(0)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..', 'output'))
 slurmLog = logging.getLogger('slurm_proc')
 slurmLog.setLevel(logging.DEBUG)
-slurmLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '../..', 'logs', 'slurm_proc.log') ) ) )
+slurmLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'slurm_proc.log') ) ) )
 
 
 
-
-def domain2cdms(self,domain):
+def domain2cdms(domain):
     kargs = {}
     for k,v in domain.iteritems():
             if k in ["id","version"]:
@@ -36,12 +35,15 @@ def domain2cdms(self,domain):
                     kargs[str(k)] = slice(v["start"],v["end"])
     return kargs
     
-def loadFileFromURL(self,url):
+def loadFileFromURL(url):
         ## let's figure out between dap or local
         if url[:7].lower()=="http://":
             f=cdms2.open(str(url))
         elif url[:7]=="file://":
-            f=cdms2.open(str(url[6:]))
+
+            urlst = str(url[6:])
+            print "   String is    ", urlst 
+            f=cdms2.open(urlst)
         else:
             # can't figure it out skipping
             f=None
@@ -57,9 +59,6 @@ def loadFileFromURL(self,url):
         # }
 
 
-OutputDir = 'wpsoutputs'
-OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
-
 wpsLog = logging.getLogger('wps')
 
 
@@ -71,19 +70,21 @@ def saveVariable(data,fout):
     f.write(data)
     f.close()
 
-def breakpoint(self):
+def breakpoint():
     pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
 
 def loadData(dataFiles):
 
-        f = open(dataFiles) 
+    f = open(dataFiles) 
+    
+    data_tmp=f.read()
+    print data_tmp
+    dataIn = json.loads(data_tmp)
+    f.close()
+    return dataIn
 
-        dataIn = json.loads(f.read())
-        f.close()
-
-
-    def loadVariable(self,data):
+def loadVariable(data):
         """loads in data, right now can only be json but i guess could have to determine between json and xml"""
         return json.loads(data)
 

@@ -25,7 +25,7 @@ from util import *
 
 def execute(data_str, domain_str, res_str):
 
-      dataIn= loadData(data_str)[0]
+      dataIn= loadData(data_str)
                 
       domain = loadDomain(domain_str)
 
@@ -39,5 +39,5 @@ def execute(data_str, domain_str, res_str):
       data = cdutil.averager(data,axis=dims)
       data.id=dataIn["id"]
 
-      saveVariable(data, res_str, "json")
+      saveVariable(data, res_str)
 

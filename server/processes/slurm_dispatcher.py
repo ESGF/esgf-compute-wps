@@ -24,7 +24,7 @@ class Process(WPSProcess):
         WPSProcess.__init__(self, 
                             identifier=os.path.split(__file__)[-1].split('.')[0], 
                             title='slurm_dispatcher', 
-                            version=0.2.1, abstract='Pass esgf compute operation to slurm for processing on cluster', 
+                            version='0.2.1', abstract='Pass esgf compute operation to slurm for processing on cluster',
                             storeSupported=True, 
                             statusSupported=True)
         # this will be operation specific
@@ -58,10 +58,9 @@ class Process(WPSProcess):
         dataIn = self.dataIn.getValue()
         region = self.region.getValue()
 
-#        wpsLog.info( "SLURM Working at %s" , BASE_DIR )
-#        if  call("srun -o " + BASE_DIR + "/" + str(rndm)+".log -D " + BASE_DIR + "/../analysis python avg_tester.py " + domain + " " + dataIn + " " + fout, shell=True) > 0:
-#        if  call("srun -w greyworm1 -o " + BASE_DIR + "/" + str(rndm)+".log -D " + BASE_DIR + "/../analysis sh run_job.sh avg_tester.py " + domain + " " + dataIn + " " + fout, shell=True) > 0:
-        if  call("time srun -o " + BASE_DIR + "/" + str(rndm)+".log sh "+ BASE_DIR + "/../analysis/run_job.sh " + BASE_DIR + "/../analysis/slurm_job.py " + operation + " " + dataIn + " " + region + " "  + fout, shell=True) > 0:
+
+#        wpsLog.info("time srun -o " + BASE_DIR + "/" + str(rndm)+".log sh "+ BASE_DIR + "/../analysis/run_job.sh " + BASE_DIR + "/../analysis/slurm_job.py " + operation + " " + dataIn + " " + region + " %s", fout)
+        if  call("time srun -o " + BASE_DIR + "/" + str(rndm)+".log sh "+ BASE_DIR + "/../slurm_ops/run_job.sh " + BASE_DIR + "/../slurm_ops/slurm_job.py " + operation + " " + dataIn + " " + region + " "  + fout, shell=True) > 0:
 
             return "Slurm returned an error!"
         
