@@ -19,6 +19,16 @@
     <a href='http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=ensemble_averager&datainputs=[variable={"url":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"};variable={"url":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"}]'>Execute Ensemble Averager Over Local File</a>
     <br>
     <a href='http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=averager&datainputs=[domain={"longitude": {"start": -180.0, "end": 180.0}, "time": {"start": "1980", "end": "1982"}};variable={"url":"file://lgm/uvcdat/2015-01-26/sample_data/tas_dnm-95a.xml","id":"tas"}]'>Execute Averager On Local File</a>
+<br>
+
+
+    <a href='http://aims2:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_averager&datainputs=[domain={"longitude":{"start":-180.0,"end":180.0}};variable={"url":"/opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"}]'>Execute Averager Using SLURM</a>
+<br>
+    <a href='http://aims2:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_dispatcher&datainputs=[region={"longitude":{"start":-180.0,"end":180.0}};data={"url":"file://opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"};operation=averager]'>Dispatch Averager Using SLURM</a>
+<br>
+    <a href='http://localhost:8000/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_dispatcher&datainputs=[data=[{"url":"file://opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"},{"url":"file://opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r2i1p1.xml","id":"ts"},{"url":"file://opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r3i1p1.xml","id":"ts"}];region={"foo":"bar"};operation=ensemble_averager]'>Dispatch Ensemble Averager Using Slurm</a>
+    <br>
+
   </body>
 </head>
 
