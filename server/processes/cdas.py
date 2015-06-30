@@ -10,10 +10,10 @@ wpsLog = logging.getLogger( 'wps' )
 class Process(CDASProcess):
     def __init__(self):
         """Process initialization"""
-        WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='timeseries', version=0.1, abstract='Extract a timeseries at a spatial location', storeSupported='true', statusSupported='true')
+        WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='CDAS', version=0.1, abstract='Climate Data Analytic Services', storeSupported='true', statusSupported='true')
         self.region = self.addComplexInput(identifier='region', title='spatial location of timeseries', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
 #        self.download = self.addLiteralInput(identifier='download', type=bool, title='download output', default=False)
-        self.data = self.addComplexInput(identifier='variables', title='variable to process', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=1, maxOccurs=1)
+        self.data = self.addComplexInput(identifier='data', title='variables to process', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=1, maxOccurs=1)
         self.operation = self.addComplexInput(identifier='operation', title='analysis operation', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=0, maxOccurs=1)
         self.result = self.addLiteralOutput( identifier='result', title='timeseries data', type=types.StringType )
 
@@ -28,16 +28,13 @@ class Process(CDASProcess):
             if handler is None:
                 wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
                 handler = stagingRegistry.getInstance( 'local' )
-            wpsLog.debug( " Running handler %s with engine %s. " % ( settings.CDAS_STAGING, settings.CDAS_COMPUTE_ENGINE ) )
-            result =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': settings.CDAS_COMPUTE_ENGINE } )
-            result_json = json.dumps( result )
-            t1 = time.time()
-            wpsLog.debug( " $$$ CDAS Process (response time: %.3f sec): Result='%s' " %  ( (t1-t0), str( result_json )) )
-            self.result.setValue( result_json )
+            result_obj =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': settings.CDAS_COMPUTE_ENGINE } )
+            self.result.setValue( json.dumps( result_obj ) )
         except Exception, err:
              wpsLog.debug( "Exception executing CDAS process:\n " + traceback.format_exc() )
              self.result.setValue( '' )
 
+        wpsLog.debug( " $$$*** CDAS Process (response time: %.3f sec): Result='%s' " %  ( (time.time()-t0), self.result.value ) )
 
 
 

@@ -26,12 +26,12 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
-#CDAS_STAGING = 'local'
-CDAS_STAGING = 'celery'
+CDAS_STAGING = 'local'
+#CDAS_STAGING = 'celery'
 
 #CDAS_COMPUTE_ENGINE = 'celery'
-CDAS_COMPUTE_ENGINE = 'spark'
-#CDAS_COMPUTE_ENGINE = 'serial'
+#CDAS_COMPUTE_ENGINE = 'spark'
+CDAS_COMPUTE_ENGINE = 'serial'
 
 CDAS_CELERY_BROKER = 'amqp://guest@localhost//'
 CDAS_CELERY_BACKEND = 'amqp'
