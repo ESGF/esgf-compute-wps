@@ -18,6 +18,7 @@ if len( wpsLog.handlers ) == 0:
 
 class TestRequest:
     def __init__(self, request_str ):
+        self.META = {}
         self.META["QUERY_STRING"] = request_str
 
 def process_status(nm):
@@ -132,7 +133,7 @@ if __name__ == "__main__":
     os.environ.setdefault("PYWPS_CFG", os.path.join( project_dir, "wps.cfg" ) )
     os.environ.setdefault("DOCUMENT_ROOT", os.path.join( project_dir, "wps") )
 
-    testRequest = TestRequest('service=WPS&version=1.0.0&request=Execute&rawDataOutput=result&identifier=cdas&datainputs=%5Bdomain%3D%7B%22longitude%22%3A-130.4296875%2C%22latitude%22%3A-28.828125%7D%3Bvariables%3D%7B%22url%22%3A%22file%3A%2F%2Fusr%2Flocal%2Fweb%2Fdata%2FMERRA%2FTemp2D%2FMERRA_3Hr_Temp.xml%22%2C%22id%22%3A%22t%22%7D%3Boperation%3D%7B%22bounds%22%3A%22DJF%22%2C%22type%22%3A%22climatology%22%7D%3Bembedded%3Dtrue%3B')
+    testRequest = TestRequest('version=1.0.0&service=wps&request=getcapabilities')
     run_wps( testRequest, sys.stdout, sys.stderr, 0)
 
 #DJANGO_SETTINGS_MODULE wps.settings
