@@ -1,15 +1,12 @@
 import os
 import json
 import random
-
-import pydevd
 import cdms2
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-
 
 class DataAnalytics:
 
@@ -82,6 +79,9 @@ class DataAnalytics:
         dest.setValue(fjson)
 
     def breakpoint(self):
-        pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+        try:
+            import pydevd
+            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+        except: pass
 
 
