@@ -103,7 +103,9 @@ def wps(request):
   rndm = random.randint(0,100000000000)
   out = open("out_%i.txt" % rndm, "w")
   err = open("err_%i.txt" % rndm, "w")
-  if enable_debug: pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+  if enable_debug:
+      import pydevd
+      pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
   requestParams = getRequestParms(request)
 
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))

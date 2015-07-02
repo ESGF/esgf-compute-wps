@@ -1,7 +1,7 @@
 from pywps.Process import WPSProcess
 import os,numpy,sys
 import logging, json
-import cdms2, pydevd
+import cdms2
 import random
 from pywps import config
 # Path where output will be stored/cached
@@ -43,7 +43,11 @@ class CDASProcess(WPSProcess):
         dest.setValue(fjson)
 
     def breakpoint(self):
-        pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+        try:
+            import pydevd
+            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+        except:
+            pass
 
     def loadOperation(self,origin=None):
         if origin is None:
