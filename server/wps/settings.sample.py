@@ -113,7 +113,7 @@ LOGGING = {
         'dj_logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': "/usr/local/web/WPCDAS/server/logs/django.log",
+            'filename': "/att/nobackup/tpmaxwel//WPCDAS/server/logs/django.log",
             'maxBytes': 50000,
             'backupCount': 2,
             'formatter': 'standard',
