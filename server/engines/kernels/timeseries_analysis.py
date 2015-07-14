@@ -178,16 +178,16 @@ if __name__ == "__main__":
                   { 'url': 'file://usr/local/web/WPCDAS/data/TestData.nc', 'id': 't' } ]
     var_index = 4
     region    = { 'latitude': -18.2, 'longitude': -134.6 }
-    operations = [ { 'type': 'departures', 'bounds': 'annualcycle' },
+    operations = [ { 'type': '', 'bounds': 'annualcycle' },
                    { 'type': 'departures', 'bounds': '' },
                    { 'type': 'climatology', 'bounds': 'annualcycle' },
                    { 'type': 'climatology', 'bounds': '' },
                    { 'type': 'departures', 'bounds': 'np' },
                    { 'type': 'climatology', 'bounds': 'np' },
                    { 'type': '', 'bounds': '' } ]
-    operation_index = 6
+    operation_index = 0
 
     processor = TimeseriesAnalytics( operations[operation_index]  )
-    result = processor.execute( { 'data':variables[var_index], 'region': region } )
+    result = processor.run( { 'data':variables[var_index], 'region': region } )
     print "\n ---------- Result: ---------- "
     pp.pprint(result)
