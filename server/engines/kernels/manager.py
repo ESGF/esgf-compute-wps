@@ -17,9 +17,9 @@ class KernelManager:
             raise Exception( "No compute kernel found for operation %s" % str(operation) )
 
     def getKernel( self, operation ):
-        if operation.kernel == 'time':
-            from timeseries_analysis import TimeseriesAnalytics
-            return TimeseriesAnalytics( operation )
+#        if operation.kernel == 'time':
+        from timeseries_analysis import TimeseriesAnalytics
+        return TimeseriesAnalytics( operation )
 
     def processOperations( self, operations_spec ):
         op_spec_list = operations_spec.split(';')
