@@ -9,7 +9,7 @@ import numpy.ma as ma
 import cdutil
 
 from cda import DataAnalytics
-from modules.utilities import get_json_arg, wpsLog
+from modules.utilities import get_json_arg, convert_json_str, wpsLog
 
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
@@ -117,13 +117,20 @@ class TimeseriesAnalytics( DataAnalytics ):
                         result = input_variable
                     time_axis = input_variable.getTime()
                 else:
-                    if bounds == 'djf': operator = cdutil.DJF
-                    elif bounds == 'mam': operator = cdutil.MAM
-                    elif bounds == 'jja': operator = cdutil.JJA
-                    elif bounds == 'son': operator = cdutil.SON
-                    elif bounds == 'year':          operator = cdutil.YEAR
-                    elif bounds == 'annualcycle':   operator = cdutil.ANNUALCYCLE
-                    elif bounds == 'seasonalcycle': operator = cdutil.SEASONALCYCLE
+                    if bounds == 'djf':
+                        operator = cdutil.DJF
+                    elif bounds == 'mam':
+                        operator = cdutil.MAM
+                    elif bounds == 'jja':
+                        operator = cdutil.JJA
+                    elif bounds == 'son':
+                        operator = cdutil.SON
+                    elif bounds == 'year':
+                        operator = cdutil.YEAR
+                    elif bounds == 'annualcycle':
+                        operator = cdutil.ANNUALCYCLE
+                    elif bounds == 'seasonalcycle':
+                        operator = cdutil.SEASONALCYCLE
                     if operator <> None:
                         if   type == 'departures':    result = operator.departures( input_variable ).squeeze()
                         elif type == 'climatology':   result = operator.climatology( input_variable ).squeeze()
@@ -175,19 +182,21 @@ if __name__ == "__main__":
                   { 'url': 'file://usr/local/web/data/MERRA/MERRA100.xml', 'id': 't' },
                   { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.nc', 'id': 'u' },
                   { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc', 'id': 'u' },
-                  { 'url': 'file://usr/local/web/WPCDAS/data/TestData.nc', 'id': 't' } ]
-    var_index = 4
+                  { 'url': 'file://usr/local/web/WPCDAS/data/TestData.nc', 'id': 't' },
+                  { 'url': 'file://usr/local/web/WPCDAS/data/atmos_ua.nc', 'id': 'ua' } ]
+    var_index = 5
     region    = { 'latitude': -18.2, 'longitude': -134.6 }
-    operations = [ { 'type': '', 'bounds': 'annualcycle' },
-                   { 'type': 'departures', 'bounds': '' },
+    operations = [ '{"kernel":"time", "type":"climatology", "bounds":"annualcycle"}',
+                   '{"kernel":"time", "type":"departures",  "bounds":"np"}',
                    { 'type': 'climatology', 'bounds': 'annualcycle' },
+                   { 'type': 'departures', 'bounds': '' },
                    { 'type': 'climatology', 'bounds': '' },
                    { 'type': 'departures', 'bounds': 'np' },
                    { 'type': 'climatology', 'bounds': 'np' },
                    { 'type': '', 'bounds': '' } ]
     operation_index = 0
 
-    processor = TimeseriesAnalytics( operations[operation_index]  )
+    processor = TimeseriesAnalytics( convert_json_str( operations[operation_index] )  )
     result = processor.run( { 'data':variables[var_index], 'region': region } )
     print "\n ---------- Result: ---------- "
     pp.pprint(result)

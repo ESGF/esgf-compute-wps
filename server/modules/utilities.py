@@ -9,12 +9,14 @@ if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.
 def get_json_arg( id, args ):
         json_arg = args.get( id, None )
         if json_arg is not None:
-            if isinstance(json_arg, basestring):
-                try:
-                    return json.loads( json_arg )
-                except:
-                    wpsLog.error( "Can't recognize json '%s' from args: '%s" % ( str(json_arg), str(args) ) )
+            try:
+                return convert_json_str( json_arg )
+            except:
+                wpsLog.error( "Can't recognize json '%s' from args: '%s" % ( str(json_arg), str(args) ) )
         return "" if json_arg is None else json_arg
+
+def convert_json_str( json_arg ):
+    return json.loads( json_arg ) if isinstance(json_arg, basestring) else json_arg
 
 class Profiler(object):
 
