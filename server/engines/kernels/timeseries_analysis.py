@@ -6,7 +6,7 @@ import pprint
 
 import numpy
 import numpy.ma as ma
-import cdutil
+import cdutil, cdms2
 
 from cda import DataAnalytics
 from modules.utilities import get_json_arg, convert_json_str, wpsLog
@@ -93,6 +93,7 @@ class TimeseriesAnalytics( DataAnalytics ):
         try:
             self.setTimeBounds( input_variable )
             operator = None
+            time_axis = None
 #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             wpsLog.debug( " $$$ ApplyOperation: %s " % str( operation ) )
             if operation is not None:
@@ -132,10 +133,20 @@ class TimeseriesAnalytics( DataAnalytics ):
                     elif bounds == 'seasonalcycle':
                         operator = cdutil.SEASONALCYCLE
                     if operator <> None:
-                        if   type == 'departures':    result = operator.departures( input_variable ).squeeze()
-                        elif type == 'climatology':   result = operator.climatology( input_variable ).squeeze()
-                        else:                         result = operator( input_variable ).squeeze()
-                    time_axis = result.getTime()
+                        if   type == 'departures':
+                            result = operator.departures( input_variable ).squeeze()
+                        elif type == 'climatology':
+                            result = operator.climatology( input_variable ).squeeze()
+                            if bounds == 'annualcycle':
+                                time_axis = cdms2.createAxis( range( len(result) ) )
+                                time_axis.units = "months"
+                            elif bounds == 'seasonalcycle':
+                                time_axis = cdms2.createAxis( range( len(result) ) )
+                                time_axis.units = "seasons"
+                        else:
+                            result = operator( input_variable ).squeeze()
+                    if time_axis is None:
+                        time_axis = result.getTime()
                 op_end_time = time.clock() # time.time()
                 wpsLog.debug( " ---> Base Operation Time: %.5f" % (op_end_time-op_start_time) )
             else:
@@ -148,11 +159,20 @@ class TimeseriesAnalytics( DataAnalytics ):
                 if result.__class__.__name__ == 'TransientVariable':
                     result = ma.masked_equal( result.squeeze().getValue(), input_variable.getMissing() )
                 result_data = result.tolist( numpy.nan )
-            else: result_data = None
+            else:
+                result_data = None
+                time_axis = input_variable.getTime()
         except Exception, err:
             wpsLog.debug( "Exception applying Operation '%s':\n %s" % ( str(operation), traceback.format_exc() ) )
             return ( None, None )
-        return (input_variable, input_variable.getTime()) if result is None else ( result_data, time_axis )
+
+        if time_axis is not None:
+            units = time_axis.units.split()
+            if( len(units) == 3 ) and ( units[1] == 'since' ):
+                newunits = "%s since 1970-1-1" % units[0]
+                time_axis.toRelativeTime(newunits)
+        rv = input_variable if result is None else result_data
+        return ( rv, time_axis )
 
     def setTimeBounds( self, var ):
         time_axis = var.getTime()
