@@ -4,7 +4,7 @@ import time
 import logging
 import pprint
 
-import numpy
+import numpy, math
 import numpy.ma as ma
 import cdutil, cdms2
 
@@ -62,7 +62,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                 result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
 
             read_start_time = time.time()
-            subsetted_variable = variable(**cdms2keyargs)
+            subsetted_variable = numpy.ma.fix_invalid( variable(**cdms2keyargs) )
             read_end_time = time.time()
             wpsLog.debug( " $$$ DATA READ Complete: " + str( (read_end_time-read_start_time) ) )
 
@@ -149,6 +149,10 @@ class TimeseriesAnalytics( DataAnalytics ):
                         time_axis = result.getTime()
                 op_end_time = time.clock() # time.time()
                 wpsLog.debug( " ---> Base Operation Time: %.5f" % (op_end_time-op_start_time) )
+                if math.isnan( result[0] ):
+                    pp = pprint.PrettyPrinter(indent=4)
+                    print "\n ---------- NaN in Result, Input: ---------- "
+                    print str( input_variable.data )
             else:
                 result = input_variable
                 time_axis = input_variable.getTime()
@@ -205,7 +209,8 @@ if __name__ == "__main__":
                   { 'url': 'file://usr/local/web/WPCDAS/data/TestData.nc', 'id': 't' },
                   { 'url': 'file://usr/local/web/WPCDAS/data/atmos_ua.nc', 'id': 'ua' } ]
     var_index = 5
-    region    = { 'latitude': -18.2, 'longitude': -134.6 }
+    region    = { "longitude":-24.20, "latitude":58.45 }
+
     operations = [ '{"kernel":"time", "type":"climatology", "bounds":"annualcycle"}',
                    '{"kernel":"time", "type":"departures",  "bounds":"np"}',
                    { 'type': 'climatology', 'bounds': 'annualcycle' },
@@ -214,7 +219,7 @@ if __name__ == "__main__":
                    { 'type': 'departures', 'bounds': 'np' },
                    { 'type': 'climatology', 'bounds': 'np' },
                    { 'type': '', 'bounds': '' } ]
-    operation_index = 0
+    operation_index = 1
 
     processor = TimeseriesAnalytics( convert_json_str( operations[operation_index] )  )
     result = processor.run( { 'data':variables[var_index], 'region': region } )
