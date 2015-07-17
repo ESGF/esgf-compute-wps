@@ -43,7 +43,7 @@ class DataAnalytics:
         return kargs
 
     def loadFileFromCollection( self, collection, id=None ):
-        collectionManager = CollectionManager.getInstance( settings.APPLICATION )
+        collectionManager = CollectionManager.getInstance( settings.CDAS_APPLICATION )
         url = collectionManager.getURL( collection, id )
         wpsLog.debug( "loadFileFromCollection: '%s' '%s': %s " % ( collection, id, url ) )
         return self.loadFileFromURL( url )

@@ -26,6 +26,8 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
+CDAS_APPLICATION = 'CreateV'
+
 CDAS_STAGING = 'local'
 #CDAS_STAGING = 'celery'
 
