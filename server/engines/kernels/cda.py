@@ -2,6 +2,9 @@ import os
 import json
 import random
 import cdms2
+from data_collections import CollectionManager
+from wps import settings
+from modules.utilities import wpsLog
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
@@ -38,6 +41,12 @@ class DataAnalytics:
                 elif system == "index":
                     kargs[str(k)] = slice(v["start"],v["end"])
         return kargs
+
+    def loadFileFromCollection( self, collection, id=None ):
+        collectionManager = CollectionManager.getInstance( settings.APPLICATION )
+        url = collectionManager.getURL( collection, id )
+        wpsLog.debug( "loadFileFromCollection: '%s' '%s': %s " % ( collection, id, url ) )
+        return self.loadFileFromURL( url )
 
     def loadFileFromURL(self,url):
         ## let's figure out between dap or local
@@ -78,10 +87,15 @@ class DataAnalytics:
         Fjson.close()
         dest.setValue(fjson)
 
-    def breakpoint(self):
-        try:
-            import pydevd
-            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
-        except: pass
+    # def breakpoint(self):
+    #     try:
+    #         import pydevd
+    #         pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+    #     except: pass
 
 
+if __name__ == "__main__":
+    da = DataAnalytics('')
+    id = 'clt'
+    ds = da.loadFileFromCollection( 'MERRA/mon/atmos', id )
+    v = ds[id]

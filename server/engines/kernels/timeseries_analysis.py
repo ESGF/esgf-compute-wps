@@ -50,10 +50,19 @@ class TimeseriesAnalytics( DataAnalytics ):
             cdms2keyargs = self.region2cdms( region )
             variable = run_args.get( "dataSlice", None )
             if variable is None:
-                url = data["url"]
                 id = data["id"]
-                var_cache_id =  ":".join( [url,id] )
-                dataset = self.loadFileFromURL( url )
+                url = data.get("url",None)
+                if url is not None:
+                    var_cache_id =  ":".join( [url,id] )
+                    dataset = self.loadFileFromURL( url )
+                else:
+                    collection = data.get("collection",None)
+                    if collection is not None:
+                        var_cache_id =  ":".join( [collection,id] )
+                        dataset = self.loadFileFromCollection( collection, id )
+                    else:
+                        wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( run_args ) )
+                        return None
                 wpsLog.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
                 variable = dataset[ id ]
                 result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
@@ -202,13 +211,14 @@ if __name__ == "__main__":
     wpsLog.setLevel(logging.DEBUG)
     pp = pprint.PrettyPrinter(indent=4)
 
-    variables = [ { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' },
+    variables = [ { 'collection': 'MERRA/mon/atmos', 'id': 'clt' },
+                  { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' },
                   { 'url': 'file://usr/local/web/data/MERRA/MERRA100.xml', 'id': 't' },
                   { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.nc', 'id': 'u' },
                   { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc', 'id': 'u' },
                   { 'url': 'file://usr/local/web/WPCDAS/data/TestData.nc', 'id': 't' },
                   { 'url': 'file://usr/local/web/WPCDAS/data/atmos_ua.nc', 'id': 'ua' } ]
-    var_index = 5
+    var_index = 0
     region    = { "longitude":-24.20, "latitude":58.45 }
 
     operations = [ '{"kernel":"time", "type":"climatology", "bounds":"annualcycle"}',
