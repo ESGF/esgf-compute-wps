@@ -22,7 +22,7 @@ class Process(CDASProcess):
             data = loadValue( self.data )
             region = loadValue( self.region )
             operation = loadValue( self.operation )
-            wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s' " % ( str( data ), str( region ), str( operation ) ) )
+            wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s', Time=%.3f " % ( str( data ), str( region ), str( operation ), time.time() ) )
             t0 = time.time()
             handler = stagingRegistry.getInstance( settings.CDAS_STAGING  )
             if handler is None:

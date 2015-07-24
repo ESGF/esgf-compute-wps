@@ -42,6 +42,7 @@ class TimeseriesAnalytics( DataAnalytics ):
         return { 'range': [ minval, maxval ], 'data': scaled_variable.tolist( numpy.nan ) }
 
     def run( self, run_args ):
+        wpsLog.debug( " TimeseriesAnalytics RUN, time = %.3f " % time.time() )
         data = get_json_arg( 'data', run_args )
         region = get_json_arg( 'region', run_args )
         result_obj = {}
