@@ -93,7 +93,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                 result_obj['time'] = time_obj
             result_obj['data'] = result_data
             end_time = time.time()
-            wpsLog.debug( " $$$ Execution complete, total time: %.2f sec", (end_time-start_time) )
+            wpsLog.debug( " $$$ Execution complete, total time: %.2f sec [%.2f]", (end_time-start_time), end_time )
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
         return result_obj
