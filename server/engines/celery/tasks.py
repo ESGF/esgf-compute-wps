@@ -2,13 +2,13 @@ import cdms2
 import cdutil
 
 from celery import Celery
-from wps import settings
+from modules import configuration
 from base_task import DomainBasedTask
 from engines.kernels.manager import kernelMgr
 from modules.utilities import *
 
 
-app = Celery( 'tasks', broker=settings.CDAS_CELERY_BROKER, backend=settings.CDAS_CELERY_BACKEND )
+app = Celery( 'tasks', broker=configuration.CDAS_CELERY_BROKER, backend=configuration.CDAS_CELERY_BACKEND )
 
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',
@@ -46,46 +46,10 @@ def removeVariable( domainId, varId ):
     d = removeVariable.getDomain( domainId )
     d.remove_variable( varId )
 
-@app.task(base=DomainBasedTask,name='tasks.timeseries')
-def computeTimeseries( domainId, varId, region, op ):
-    d = computeTimeseries.getDomain( domainId )
-    if d is not None:
-        variable = d.variables.get( varId, None )
-        if variable is not None:
-            lat, lon = region['latitude'], region['longitude']
-            timeseries = variable(latitude=(lat, lat, "cob"), longitude=(lon, lon, "cob"))
-            if op == 'average':
-                return cdutil.averager( timeseries, axis='t', weights='equal' ).squeeze().tolist()
-            else:
-                return timeseries.squeeze().tolist()
-        else:
-             wpsLog.error( "Missing variable '%s' in domain '%s'" % (  varId, domainId ) )
-    else:
-        wpsLog.error( "Missing domain '%s'" % ( domainId ) )
-        return []
-
 @app.task(base=DomainBasedTask,name='tasks.execute')
 def execute( run_args ):
     result = kernelMgr.run( run_args )
     return result
-
-@app.task(base=DomainBasedTask,name='tasks.execute_d')
-def execute_d( domainId, varId, region, op ):
-    d = computeTimeseries.getDomain( domainId )
-    if d is not None:
-        variable = d.variables.get( varId, None )
-        if variable is not None:
-            lat, lon = region['latitude'], region['longitude']
-            timeseries = variable(latitude=(lat, lat, "cob"), longitude=(lon, lon, "cob"))
-            if op == 'average':
-                return cdutil.averager( timeseries, axis='t', weights='equal' ).squeeze().tolist()
-            else:
-                return timeseries.squeeze().tolist()
-        else:
-             wpsLog.error( "Missing variable '%s' in domain '%s'" % (  varId, domainId ) )
-    else:
-        wpsLog.error( "Missing domain '%s'" % ( domainId ) )
-        return []
 
 @app.task(base=DomainBasedTask,name='tasks.mergeResults')
 def mergeResults( result_list ):
@@ -96,6 +60,44 @@ def simpleTest( input_list ):
     return [ int(v)*3 for v in input_list ]
 
 
+
+
+#
+# @app.task(base=DomainBasedTask,name='tasks.timeseries')
+# def computeTimeseries( domainId, varId, region, op ):
+#     d = computeTimeseries.getDomain( domainId )
+#     if d is not None:
+#         variable = d.variables.get( varId, None )
+#         if variable is not None:
+#             lat, lon = region['latitude'], region['longitude']
+#             timeseries = variable(latitude=(lat, lat, "cob"), longitude=(lon, lon, "cob"))
+#             if op == 'average':
+#                 return cdutil.averager( timeseries, axis='t', weights='equal' ).squeeze().tolist()
+#             else:
+#                 return timeseries.squeeze().tolist()
+#         else:
+#              wpsLog.error( "Missing variable '%s' in domain '%s'" % (  varId, domainId ) )
+#     else:
+#         wpsLog.error( "Missing domain '%s'" % ( domainId ) )
+#         return []
+#
+# @app.task(base=DomainBasedTask,name='tasks.execute_d')
+# def execute_d( domainId, varId, region, op ):
+#     d = computeTimeseries.getDomain( domainId )
+#     if d is not None:
+#         variable = d.variables.get( varId, None )
+#         if variable is not None:
+#             lat, lon = region['latitude'], region['longitude']
+#             timeseries = variable(latitude=(lat, lat, "cob"), longitude=(lon, lon, "cob"))
+#             if op == 'average':
+#                 return cdutil.averager( timeseries, axis='t', weights='equal' ).squeeze().tolist()
+#             else:
+#                 return timeseries.squeeze().tolist()
+#         else:
+#              wpsLog.error( "Missing variable '%s' in domain '%s'" % (  varId, domainId ) )
+#     else:
+#         wpsLog.error( "Missing domain '%s'" % ( domainId ) )
+#         return []
 
 
 

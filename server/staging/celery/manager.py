@@ -1,9 +1,9 @@
 from base_task import StagingTask
 from modules.utilities import wpsLog
-from wps import settings
+from modules import configuration
 from celery import Celery
 
-app = Celery( 'manager', broker=settings.CDAS_CELERY_BROKER, backend=settings.CDAS_CELERY_BACKEND  )
+app = Celery( 'manager', broker=configuration.CDAS_CELERY_BROKER, backend=configuration.CDAS_CELERY_BACKEND  )
 
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',

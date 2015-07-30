@@ -4,7 +4,8 @@ import logging
 import json, types, traceback
 from cdasProcess import CDASProcess, loadValue
 from staging import stagingRegistry
-from wps import settings
+from modules import configuration
+
 wpsLog = logging.getLogger( 'wps' )
 
 class Process(CDASProcess):
@@ -19,16 +20,20 @@ class Process(CDASProcess):
 
     def execute(self):
         try:
+            wpsLog.debug( "  -------------- Execution stack:  -------------- ")
+            wpsLog.debug( traceback.format_stack() )
+            wpsLog.debug( "  -------------- ________________  -------------- ")
+
             data = loadValue( self.data )
             region = loadValue( self.region )
             operation = loadValue( self.operation )
-            wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s', Time=%.3f " % ( str( data ), str( region ), str( operation ), time.time() ) )
+            wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s', ---> Time=%.3f " % ( str( data ), str( region ), str( operation ), time.time() ) )
             t0 = time.time()
-            handler = stagingRegistry.getInstance( settings.CDAS_STAGING  )
+            handler = stagingRegistry.getInstance( configuration.CDAS_STAGING  )
             if handler is None:
                 wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
                 handler = stagingRegistry.getInstance( 'local' )
-            result_obj =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': settings.CDAS_COMPUTE_ENGINE } )
+            result_obj =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': configuration.CDAS_COMPUTE_ENGINE } )
             self.result.setValue( json.dumps( result_obj ) )
         except Exception, err:
              wpsLog.debug( "Exception executing CDAS process:\n " + traceback.format_exc() )

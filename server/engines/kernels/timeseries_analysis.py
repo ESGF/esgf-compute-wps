@@ -9,30 +9,13 @@ import numpy.ma as ma
 import cdutil, cdms2
 
 from cda import DataAnalytics
-from modules.utilities import get_json_arg, convert_json_str, wpsLog
-
-
-def record_attributes( var, attr_name_list, additional_attributes = {} ):
-    mdata = {}
-    for attr_name in attr_name_list:
-        if attr_name == '_data_' and hasattr(var,"getValue"):
-            attr_val =  var.getValue()
-        else:
-            attr_val = var.__dict__.get(attr_name,None)
-        if attr_val is None:
-            attr_val = var.attributes.get(attr_name,None)
-        if attr_val is not None:
-            if isinstance( attr_val, numpy.ndarray ):
-                attr_val = attr_val.tolist()
-            mdata[attr_name] = attr_val
-    for attr_name in additional_attributes:
-        mdata[attr_name] = additional_attributes[attr_name]
-    return mdata
+from modules.utilities import get_json_arg, convert_json_str, record_attributes, wpsLog
+from datacache.manager import dataManager
 
 class TimeseriesAnalytics( DataAnalytics ):
 
-    def __init__( self, operation ):
-        DataAnalytics.__init__( self, operation )
+    def __init__( self, operation, **args ):
+        DataAnalytics.__init__( self, operation, **args  )
 
     def compress( self, variable, precision=4 ):
         maxval = variable.max()
@@ -49,28 +32,9 @@ class TimeseriesAnalytics( DataAnalytics ):
         try:
             start_time = time.time()
             cdms2keyargs = self.region2cdms( region )
-            variable = run_args.get( "dataSlice", None )
-            if variable is None:
-                id = data["id"]
-                url = data.get("url",None)
-                if url is not None:
-                    var_cache_id =  ":".join( [url,id] )
-                    dataset = self.loadFileFromURL( url )
-                else:
-                    collection = data.get("collection",None)
-                    if collection is not None:
-                        var_cache_id =  ":".join( [collection,id] )
-                        dataset = self.loadFileFromCollection( collection, id )
-                    else:
-                        wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( run_args ) )
-                        return None
-                wpsLog.debug( " $$$ Data Request: '%s', '%s' ", var_cache_id, str( cdms2keyargs ) )
-                variable = dataset[ id ]
-                result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
-                result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
-            else:
-                result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
-
+            vardata = run_args.get( "dataSlice", None )
+            if vardata is not None: data['variable'] = vardata
+            variable, result_obj = dataManager.loadVariable( cache=self.use_cache, **data )
             read_start_time = time.time()
             subsetted_variable = numpy.ma.fix_invalid( variable(**cdms2keyargs) )
             read_end_time = time.time()
@@ -207,32 +171,3 @@ class TimeseriesAnalytics( DataAnalytics ):
             except Exception, err:
                 wpsLog.debug( "Exception in setTimeBounds:\n " + traceback.format_exc() )
 
-if __name__ == "__main__":
-    wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
-    wpsLog.setLevel(logging.DEBUG)
-    pp = pprint.PrettyPrinter(indent=4)
-
-    variables = [ { 'collection': 'MERRA/mon/atmos', 'id': 'clt' },
-                  { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.xml', 'id': 'u' },
-                  { 'url': 'file://usr/local/web/data/MERRA/MERRA100.xml', 'id': 't' },
-                  { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750.nc', 'id': 'u' },
-                  { 'url': 'file://usr/local/web/data/MERRA/u750/merra_u750_1979_1982.nc', 'id': 'u' },
-                  { 'url': 'file://usr/local/web/WPCDAS/data/TestData.nc', 'id': 't' },
-                  { 'url': 'file://usr/local/web/WPCDAS/data/atmos_ua.nc', 'id': 'ua' } ]
-    var_index = 0
-    region    = { "longitude":-24.20, "latitude":58.45 }
-
-    operations = [ '{"kernel":"time", "type":"climatology", "bounds":"annualcycle"}',
-                   '{"kernel":"time", "type":"departures",  "bounds":"np"}',
-                   { 'type': 'climatology', 'bounds': 'annualcycle' },
-                   { 'type': 'departures', 'bounds': '' },
-                   { 'type': 'climatology', 'bounds': '' },
-                   { 'type': 'departures', 'bounds': 'np' },
-                   { 'type': 'climatology', 'bounds': 'np' },
-                   { 'type': '', 'bounds': '' } ]
-    operation_index = 1
-
-    processor = TimeseriesAnalytics( convert_json_str( operations[operation_index] )  )
-    result = processor.run( { 'data':variables[var_index], 'region': region } )
-    print "\n ---------- Result: ---------- "
-    pp.pprint(result)

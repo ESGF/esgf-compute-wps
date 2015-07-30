@@ -18,8 +18,8 @@ class ModuleRegistry:
                     constructor = module.getConstructor()
                     self._registry[modulename] = constructor
                     wpsLog.debug( "Registering %s '%s'" % ( self.name, modulename ) )
-            except Exception:
-                wpsLog.warning( "\n --------------- Error Registering %s '%s' --------------- \n %s" % ( self.name, modulename, traceback.format_exc() ) )
+            except Exception, err:
+                wpsLog.warning( "\n --------------- Error Registering %s '%s' --------------- \n %s\n%s" % ( self.name, modulename, str(err), traceback.format_exc() ) )
 
     def getInstance( self, key  ):
         constructor = self._registry.get( key, None )

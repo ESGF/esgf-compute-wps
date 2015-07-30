@@ -2,9 +2,7 @@ import os
 import json
 import random
 import cdms2
-from data_collections import CollectionManager
-from wps import settings
-from modules.utilities import wpsLog
+from modules.utilities import wpsLog, getConfigSetting
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
@@ -13,8 +11,9 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output
 
 class DataAnalytics:
 
-    def __init__( self, operation ):
+    def __init__( self, operation, **args  ):
         self.operation = operation
+        self.use_cache = args.get( 'cache', False )
 
     def location2cdms(self,region):
         kargs = {}
@@ -41,23 +40,6 @@ class DataAnalytics:
                 elif system == "index":
                     kargs[str(k)] = slice(v["start"],v["end"])
         return kargs
-
-    def loadFileFromCollection( self, collection, id=None ):
-        collectionManager = CollectionManager.getInstance( settings.CDAS_APPLICATION )
-        url = collectionManager.getURL( collection, id )
-        wpsLog.debug( "loadFileFromCollection: '%s' '%s': %s " % ( collection, id, url ) )
-        return self.loadFileFromURL( url )
-
-    def loadFileFromURL(self,url):
-        ## let's figure out between dap or local
-        if url[:7].lower()=="http://":
-            f=cdms2.open(str(url))
-        elif url[:7]=="file://":
-            f=cdms2.open(str(url[6:]))
-        else:
-            # can't figure it out skipping
-            f=None
-        return f
 
         # self.envs = {
         #         "path":"PATH",
