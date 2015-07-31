@@ -1,10 +1,13 @@
 from modules.utilities import  wpsLog, record_attributes, getConfigSetting
 from data_collections import CollectionManager
+from decomposition.manager import decompositionManager
+import numpy
+
 import cdms2, time
 
 def load_variable_region( dataset, name, cache_region=None ):   # TODO
     t0 = time.time()
-    rv = dataset(name)
+    rv = numpy.ma.fix_invalid( dataset(name) if cache_region == None else dataset( name, **cache_region ) )
     t1 = time.time()
     wpsLog.debug( " $$$ Variable %s%s loaded --> TIME: %.2f " %  ( id, str(rv.shape), (t1-t0) ) )
     return rv
@@ -68,7 +71,7 @@ class DataManager:
         data_specs = {}
         id =  args.get( 'id', None )
         use_cache =  args.get( 'cache', False )
-        cache_region = args.get( 'region', None )
+        global_region = args.get( 'region', None )
         variable = args.get('variable',None)
         if variable is None:
             url = args.get('url',None)
@@ -96,6 +99,8 @@ class DataManager:
                     return None
 
             if variable is None:
+                decomp_strategy = decompositionManager.getStrategy( global_region )
+                cache_region = decomp_strategy.getNodeRegion( global_region )
                 variable = load_variable_region( dataset, id, cache_region ) if use_cache else dataset[id]
                 data_specs['region'] = cache_region
                 data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )

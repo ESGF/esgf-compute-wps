@@ -9,7 +9,7 @@ import numpy.ma as ma
 import cdutil, cdms2
 
 from cda import DataAnalytics
-from modules.utilities import get_json_arg, convert_json_str, record_attributes, wpsLog
+from modules.utilities import *
 from datacache.manager import dataManager
 
 class TimeseriesAnalytics( DataAnalytics ):
@@ -31,7 +31,7 @@ class TimeseriesAnalytics( DataAnalytics ):
         result_obj = {}
         try:
             start_time = time.time()
-            cdms2keyargs = self.region2cdms( region )
+            cdms2keyargs = region2cdms( region )
             vardata = run_args.get( "dataSlice", None )
             if vardata is not None: data['variable'] = vardata
             variable, result_obj = dataManager.loadVariable( cache=self.use_cache, **data )

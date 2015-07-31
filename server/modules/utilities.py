@@ -66,4 +66,30 @@ def getConfigSetting( id ):
     from modules import configuration
     return getattr( configuration, id )
 
+def location2cdms(region):
+    kargs = {}
+    for k,v in region.iteritems():
+        if k not in ["id","version"]:
+            kargs[str(k)] = float( str(v) )
+    return kargs
+
+def region2cdms(region):
+    kargs = {}
+    for k,v in region.iteritems():
+        if k in ["id","version"]:
+            continue
+        if isinstance( v, float ) or isinstance( v, int ):
+            kargs[str(k)] = (v,v,"cob")
+        else:
+            system = v.get("system","value").lower()
+            if isinstance(v["start"],unicode):
+                v["start"] = str(v["start"])
+            if isinstance(v["end"],unicode):
+                v["end"] = str(v["end"])
+            if system == "value":
+                kargs[str(k)]=(v["start"],v["end"])
+            elif system == "index":
+                kargs[str(k)] = slice(v["start"],v["end"])
+    return kargs
+
 
