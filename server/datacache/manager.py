@@ -83,6 +83,7 @@ class DataManager:
                 else:
                     variable = cached_variable.data
                     data_specs['dataset']  = cached_variable.specs
+                data_specs['cache_id']  = var_cache_id
             else:
                 collection = args.get('collection',None)
                 if collection is not None:
@@ -94,9 +95,10 @@ class DataManager:
                     else:
                         variable = cached_variable.data
                         data_specs['dataset']  = cached_variable.specs.get( 'dataset', None )
+                    data_specs['cache_id']  = var_cache_id
                 else:
                     wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( args ) )
-                    return None
+                    return None, data_specs
 
             if variable is None:
                 decomp_strategy = decompositionManager.getStrategy( global_region )

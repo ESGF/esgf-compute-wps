@@ -1,4 +1,5 @@
 from modules.utilities import wpsLog
+from modules import configuration
 import cdms2
 
 class CollectionManager:
@@ -29,11 +30,11 @@ class CollectionManager:
         if server_type in [ 'dods', ]:
             return "%s/%s.ncml" % ( collection_base_url, var_id )
 
-cm = CollectionManager.getInstance('CreateV')
-cm.addCollectionRecord('MERRA/mon/atmos',       [ 'dods', 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos' ] )
-cm.addCollectionRecord('CFSR/mon/atmos',        [ 'dods', 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/CFSR/mon/atmos' ] )
-cm.addCollectionRecord('ECMWF/mon/atmos',       [ 'dods', 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/ECMWF/mon/atmos' ] )
+cm = CollectionManager.getInstance( configuration.CDAS_APPLICATION )
 
+collections = configuration.CDAS_COLLECTIONS
+for collection_spec in collections:
+    cm.addCollectionRecord( collection_spec[0], collection_spec[1] )
 
 if __name__ == "__main__":
     collection_name = 'MERRA/mon/atmos'

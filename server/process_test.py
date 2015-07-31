@@ -19,6 +19,7 @@ if __name__ == "__main__":
     var_index = 0
     region1    = { "longitude":-24.20, "latitude":58.45 }
     region2    = { "longitude":-30.20, "latitude":67.45 }
+    cache_region    = { "longitude": [ -60.0, 0.0 ], "latitude": [ 30.0, 90.0 ] }
 
     operations = [ '{"kernel":"time", "type":"climatology", "bounds":"annualcycle"}',
                    '{"kernel":"time", "type":"departures",  "bounds":"np"}',
@@ -30,16 +31,25 @@ if __name__ == "__main__":
                    { 'type': '', 'bounds': '' } ]
     operation_index = 1
 
-    processor = TimeseriesAnalytics( convert_json_str( operations[operation_index] ), cache=False )
+    processor = TimeseriesAnalytics( cache=True )
+
     t0 = time.time()
-    result = processor.run( { 'data':variables[var_index], 'region': region1 } )
+    result = processor.run( { 'data':variables[var_index], 'region': cache_region } )
+    t1 = time.time()
+    print "\n\n ------ Cache execution TIME: %.2f -------- \n\n" % ( t1-t0 )
+    print "\n ---------- Result: ---------- "
+    pp.pprint(result)
+
+
+    t0 = time.time()
+    result = processor.run( { 'data':variables[var_index], 'region': region1, 'operation':operations[operation_index]} )
     t1 = time.time()
     print "\n\n ------ First execution TIME: %.2f -------- \n\n" % ( t1-t0 )
     print "\n ---------- Result: ---------- "
     pp.pprint(result)
 
     t0 = time.time()
-    result = processor.run( { 'data':variables[var_index], 'region': region2 } )
+    result = processor.run( { 'data':variables[var_index], 'region': region2, 'operation':operations[operation_index] } )
     t1 = time.time()
     print "\n\n ------ Second execution TIME: %.2f -------- \n\n" % ( t1-t0 )
     print "\n ---------- Result: ---------- "

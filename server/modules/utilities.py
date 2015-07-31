@@ -80,6 +80,8 @@ def region2cdms(region):
             continue
         if isinstance( v, float ) or isinstance( v, int ):
             kargs[str(k)] = (v,v,"cob")
+        elif isinstance( v, list ) or isinstance( v, tuple ):
+            kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" )
         else:
             system = v.get("system","value").lower()
             if isinstance(v["start"],unicode):

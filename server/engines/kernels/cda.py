@@ -11,8 +11,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output
 
 class DataAnalytics:
 
-    def __init__( self, operation, **args  ):
-        self.operation = operation
+    def __init__( self,  **args  ):
         self.use_cache = args.get( 'cache', False )
 
         # self.envs = {

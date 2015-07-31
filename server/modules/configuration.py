@@ -17,4 +17,10 @@ CDAS_CELERY_BROKER = 'amqp://guest@localhost//'
 CDAS_CELERY_BACKEND = 'amqp'
 # Application definition
 
+CDAS_COLLECTIONS = [ ('MERRA/mon/atmos',       [ 'dods', 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos' ] ),
+                     ('CFSR/mon/atmos',        [ 'dods', 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/CFSR/mon/atmos' ] ),
+                     ('ECMWF/mon/atmos',       [ 'dods', 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/ECMWF/mon/atmos' ] ),
+                   ]
+
+
 
