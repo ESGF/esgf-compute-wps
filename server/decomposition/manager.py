@@ -19,8 +19,7 @@ class DecompositionManager:
         for name, cls in strategies.__dict__.items():
             try:
                 if ( strategies.DecompositionStrategy in cls.__bases__ ):
-                    strategy_instance = cls()
-                    self.strategies[ strategy_instance.name ] = strategy_instance
+                    self.strategies[ cls.ID ] = cls()
             except: pass
         pass
 

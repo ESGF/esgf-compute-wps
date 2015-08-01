@@ -3,8 +3,8 @@ from modules.utilities import *
 
 class DecompositionStrategy:
 
-    def __init__( self, name ):
-        self.name = name
+    def __init__( self, **args ):
+        pass
 
     def getNodeRegion( self, region, inode, num_nodes ):
         return region
@@ -12,8 +12,10 @@ class DecompositionStrategy:
 
 class SpaceStrategy( DecompositionStrategy ):
 
-    def __init__( self ):
-        DecompositionStrategy.__init__( self, 'space' )
+    ID = 'space.lon'
+
+    def __init__( self, **args ):
+        DecompositionStrategy.__init__( self, **args )
 
     def getNodeRegion( self, global_region, inode=0, num_nodes=configuration.CDAS_DEFAULT_NUM_NODES ):
         if global_region == None: return None
