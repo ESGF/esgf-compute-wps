@@ -6,7 +6,7 @@ class DecompositionStrategy:
     def __init__( self, **args ):
         pass
 
-    def getNodeRegion( self, region, inode, num_nodes ):
+    def getNodeRegion( self, global_region, inode, num_nodes ):
         return region
 
 
