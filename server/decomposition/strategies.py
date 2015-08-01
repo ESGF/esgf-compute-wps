@@ -7,7 +7,7 @@ class DecompositionStrategy:
         pass
 
     def getNodeRegion( self, global_region, inode, num_nodes ):
-        return region
+        return global_region
 
 
 class SpaceStrategy( DecompositionStrategy ):
