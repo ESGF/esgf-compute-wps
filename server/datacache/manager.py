@@ -101,8 +101,7 @@ class DataManager:
                     return None, data_specs
 
             if variable is None:
-                decomp_strategy = decompositionManager.getStrategy( global_region )
-                cache_region = decomp_strategy.getNodeRegion( global_region )
+                cache_region = decompositionManager.getNodeRegion( global_region )
                 variable = load_variable_region( dataset, id, cache_region ) if use_cache else dataset[id]
                 data_specs['region'] = cache_region
                 data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
