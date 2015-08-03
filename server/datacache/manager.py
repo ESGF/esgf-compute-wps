@@ -1,5 +1,6 @@
 from modules.utilities import  wpsLog, record_attributes, getConfigSetting
 from data_collections import CollectionManager
+from domains import Domain
 from decomposition.manager import decompositionManager
 import numpy
 
@@ -18,14 +19,24 @@ class CachedVariable:
         self.id = args.get('id',None)
         self.type = args.get('type',None)
         self.specs = args.get('specs',None)
-        self.data = args.get('data',None)
-        self.operation = args.get('operation',None)
-        self.region = args.get('region',None)
         self.specs = args
+        self.domains = []
+
+    def addDomain(self, region, data ):
+        self.domains.append( Domain( region, data ) )
 
     def getSpec( self, name ):
         return self.specs.get( name, None )
 
+    def findDomain( self, search_region  ):
+        new_domain = Domain( search_region )
+        overlap_list = [ ]
+        for cache_domain in self.domains:
+            overlap_status = cache_domain.overlap( new_domain )
+            if overlap_status == Domain.CONTAINED: return Domain.CONTAINED, cache_domain
+            elif overlap_status == Domain.OVERLAP: overlap_list.append( cache_domain )
+        if len( overlap_list ) == 0: return Domain.OVERLAP, overlap_list
+        else: return Domain.DISJOINT, []
 
 class CacheManager:
     RESULT = 1
@@ -40,12 +51,19 @@ class CacheManager:
         var_type = cls.modifiers.get( variable_name[0], None )
         return ( var_type, variable_name if ( var_type == None ) else variable_name[1:] )
 
-    def getVariable( self, cache_id ):
-        return self._cache.get( cache_id, None )
+    def getVariable( self, cache_id, new_region ):
+        cached_cvar = self._cache.get( cache_id, None )
+        if cached_cvar is None: return Domain.DISJOINT, []
+        return cached_cvar.findDomain( new_region )
 
-    def addVariable( self, cache_id, data, specs, operation=None ):
-#        var_type, var_id = self.getModifiers( cache_id )
-        self._cache[ cache_id ] = CachedVariable( type=type, id=cache_id, data=data, specs=specs, operation=operation )
+    def addVariable( self, cache_id, data, specs ):
+        cached_cvar = self._cache.get( cache_id, None )
+        if cached_cvar is None:
+            var_type, var_id = self.getModifiers( cache_id )
+            cached_cvar = CachedVariable( type=var_type, id=cache_id, specs=specs )
+            self._cache[ cache_id ] = cached_cvar
+        region = specs.get( 'region', {} )
+        cached_cvar.addDomain( region, data )
 
     def getResults(self):
         return self.filterVariables( { 'type': CachedVariable.RESULT } )
@@ -77,24 +95,24 @@ class DataManager:
             url = args.get('url',None)
             if url is not None:
                 var_cache_id =  ":".join( [url,id] )
-                cached_variable = self.cacheManager.getVariable( var_cache_id )
-                if cached_variable is None:
+                status, domain = self.cacheManager.getVariable( var_cache_id, global_region )
+                if status is not Domain.CONTAINED:
                     dataset = self.loadFileFromURL( url )
                 else:
-                    variable = cached_variable.data
-                    data_specs['dataset']  = cached_variable.specs
+                    variable = domain.data
+                    data_specs['dataset']  = domain.spec
                 data_specs['cache_id']  = var_cache_id
             else:
                 collection = args.get('collection',None)
                 if collection is not None:
                     var_cache_id =  ":".join( [collection,id] )
-                    cached_variable = self.cacheManager.getVariable( var_cache_id )
-                    if cached_variable is None:
+                    status, domain = self.cacheManager.getVariable( var_cache_id, global_region )
+                    if status is not Domain.CONTAINED:
                         dataset = self.loadFileFromCollection( collection, id )
                         data_specs['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
                     else:
-                        variable = cached_variable.data
-                        data_specs['dataset']  = cached_variable.specs.get( 'dataset', None )
+                        variable = domain.data
+                        data_specs['dataset']  = domain.spec.get( 'dataset', None )
                     data_specs['cache_id']  = var_cache_id
                 else:
                     wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( args ) )

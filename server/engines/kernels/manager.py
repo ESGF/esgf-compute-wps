@@ -16,7 +16,7 @@ class KernelManager:
     def getKernel( self, operation ):
         if operation.get('kernel','base') == 'time':
             from timeseries_analysis import TimeseriesAnalytics
-            return TimeseriesAnalytics( operation )
+            return TimeseriesAnalytics()
 
     def processOperations( self, operations_spec ):
         op_spec_list = operations_spec.split(';')

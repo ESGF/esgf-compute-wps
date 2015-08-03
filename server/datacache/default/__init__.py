@@ -1,4 +1,4 @@
-from cacheManager import CacheManager
+from cacheManager import DefaultCacheManager
 
 def getConstructor():
-    return CacheManager
+    return DefaultCacheManager

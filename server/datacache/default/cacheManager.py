@@ -1,7 +1,7 @@
 from .. import manager
 
-class CacheManager( manager.CacheManagerBase ):
+class DefaultCacheManager( manager.CacheManager ):
 
    def __init__( self, id ):
-       manager.CacheManagerBase.__init__( self, id )
+       manager.CacheManager.__init__( self, id )
 
