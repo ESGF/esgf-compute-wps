@@ -6,11 +6,26 @@ class Domain:
     CONTAINED = 1
     OVERLAP = 2
 
-    def __init__( self, domain_spec, data=None ):
-        self.spec = domain_spec
+    PENDING = 0
+    COMPLETE = 1
+
+    def __init__( self, domain_spec=None, data=None ):
+        self.spec = domain_spec if domain_spec else {}
         self.axes = {}
         self.process_spec()
         self.data = data
+        self.cache_queue = None
+        self.cache_request_status = None
+
+    def cacheRequestSubmitted( self, cache_queue ):
+        self.cache_queue = cache_queue
+        self.cache_request_status = Domain.PENDING
+
+    def cacheRequestComplete( self ):
+        self.cache_request_status = Domain.COMPLETE
+
+    def getCacheStatus(self):
+        return self.cache_queue, self.cache_request_status
 
     def getAxisRange( self, axis_name ):
         return self.axes.get( axis_name, None )
@@ -49,17 +64,19 @@ class Domain:
         else:
             return ( cached_axis_range[1] - new_axis_range[0] ) / ( cached_axis_range[1] - cached_axis_range[0] )
 
-
-
-
-
-
-
 class DomainManager:
 
     def __init__( self ):
         self.domains = {}
 
+    def addDomain(self, new_domain ):
+        self.domains.append( new_domain )
 
-
-domainManager = DomainManager()
+    def findDomain( self, new_domain  ):
+        overlap_list = [ ]
+        for cache_domain in self.domains:
+            overlap_status = cache_domain.overlap( new_domain )
+            if overlap_status == Domain.CONTAINED: return Domain.CONTAINED, cache_domain
+            elif overlap_status == Domain.OVERLAP: overlap_list.append( cache_domain )
+        if len( overlap_list ) == 0: return Domain.OVERLAP, overlap_list
+        else: return Domain.DISJOINT, []

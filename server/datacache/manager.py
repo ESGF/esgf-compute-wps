@@ -1,6 +1,6 @@
 from modules.utilities import  wpsLog, record_attributes, getConfigSetting
 from data_collections import CollectionManager
-from domains import Domain
+from domains import *
 from decomposition.manager import decompositionManager
 import numpy
 
@@ -20,23 +20,20 @@ class CachedVariable:
         self.type = args.get('type',None)
         self.specs = args.get('specs',None)
         self.specs = args
-        self.domains = []
+        self.domainManager = DomainManager()
 
-    def addDomain(self, region, data ):
-        self.domains.append( Domain( region, data ) )
+    def addDomain(self, region, **args ):
+        data = args.get( 'data', None )
+        domain = Domain( region, data )
+        request_queue = args.get( 'queue', None )
+        if request_queue: domain.cacheRequestSubmitted( request_queue )
+        self.domainManager.addDomain( domain )
 
     def getSpec( self, name ):
         return self.specs.get( name, None )
 
     def findDomain( self, search_region  ):
-        new_domain = Domain( search_region )
-        overlap_list = [ ]
-        for cache_domain in self.domains:
-            overlap_status = cache_domain.overlap( new_domain )
-            if overlap_status == Domain.CONTAINED: return Domain.CONTAINED, cache_domain
-            elif overlap_status == Domain.OVERLAP: overlap_list.append( cache_domain )
-        if len( overlap_list ) == 0: return Domain.OVERLAP, overlap_list
-        else: return Domain.DISJOINT, []
+        return self.domainManager.findDomain( Domain( search_region ) )
 
 class CacheManager:
     RESULT = 1
@@ -63,7 +60,7 @@ class CacheManager:
             cached_cvar = CachedVariable( type=var_type, id=cache_id, specs=specs )
             self._cache[ cache_id ] = cached_cvar
         region = specs.get( 'region', {} )
-        cached_cvar.addDomain( region, data )
+        cached_cvar.addDomain( region, data=data )
 
     def getResults(self):
         return self.filterVariables( { 'type': CachedVariable.RESULT } )
@@ -122,8 +119,8 @@ class DataManager:
                 cache_region = decompositionManager.getNodeRegion( global_region )
                 variable = load_variable_region( dataset, id, cache_region ) if use_cache else dataset[id]
                 data_specs['region'] = cache_region
-                data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
                 if use_cache: self.cacheManager.addVariable( var_cache_id, variable, data_specs )
+            data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
         else:
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
 

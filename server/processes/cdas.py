@@ -20,9 +20,9 @@ class Process(CDASProcess):
 
     def execute(self):
         try:
-            wpsLog.debug( "  -------------- Execution stack:  -------------- ")
-            wpsLog.debug( traceback.format_stack() )
-            wpsLog.debug( "  -------------- ________________  -------------- ")
+            # wpsLog.debug( "  -------------- Execution stack:  -------------- ")
+            # wpsLog.debug( traceback.format_stack() )
+            # wpsLog.debug( "  -------------- ________________  -------------- ")
 
             data = loadValue( self.data )
             region = loadValue( self.region )
