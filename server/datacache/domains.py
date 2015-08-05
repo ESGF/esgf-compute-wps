@@ -67,7 +67,7 @@ class Domain:
 class DomainManager:
 
     def __init__( self ):
-        self.domains = {}
+        self.domains = []
 
     def addDomain(self, new_domain ):
         self.domains.append( new_domain )

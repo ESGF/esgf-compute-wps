@@ -5,7 +5,10 @@ from celery import Celery
 from modules import configuration
 from base_task import DomainBasedTask
 from engines.kernels.manager import kernelMgr
+from billiard import current_process
 from modules.utilities import *
+from celery.utils.log import get_task_logger
+logger = get_task_logger('cdas')
 
 app = Celery( 'tasks', broker=configuration.CDAS_CELERY_BROKER, backend=configuration.CDAS_CELERY_BACKEND )
 
@@ -17,6 +20,8 @@ app.conf.update(
 
 @app.task(base=DomainBasedTask,name='tasks.execute')
 def execute( run_args ):
+    p = current_process()
+    logger.debug( "Init args: %s " % str(p.initargs) )
     result = kernelMgr.run( run_args )
     return result
 

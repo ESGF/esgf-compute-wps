@@ -29,48 +29,36 @@ class TimeseriesAnalytics( DataAnalytics ):
         data = get_json_arg( 'data', run_args )
         region = get_json_arg( 'region', run_args )
         operation = get_json_arg( 'operation', run_args )
-        use_cache = run_args.get( 'cache', self.use_cache )
         result_obj = {}
         try:
-            if not operation:
-                read_start_time = time.time()
-                cdms2keyargs = region2cdms( region )
-                vardata = run_args.get( "dataSlice", None )
-                if vardata is not None: data['variable'] = vardata
-                data['region'] = cdms2keyargs
-                variable, result_obj = dataManager.loadVariable( cache=True, **data )
-                read_end_time = time.time()
-                wpsLog.debug( " $$$ DATA CACHE Complete: " + str( (read_end_time-read_start_time) ) )
+            start_time = time.time()
+            cdms2keyargs = region2cdms( region )
+            vardata = run_args.get( "dataSlice", None )
+            if vardata is not None: data['variable'] = vardata
+            variable, result_obj = dataManager.loadVariable( cache=False, **data )
+            read_start_time = time.time()
+            subsetted_variable = numpy.ma.fix_invalid( variable(**cdms2keyargs) )
+            read_end_time = time.time()
+            wpsLog.debug( " $$$ DATA READ Complete: " + str( (read_end_time-read_start_time) ) )
 
-            else:
-                start_time = time.time()
-                cdms2keyargs = region2cdms( region )
-                vardata = run_args.get( "dataSlice", None )
-                if vardata is not None: data['variable'] = vardata
-                variable, result_obj = dataManager.loadVariable( cache=use_cache, **data )
-                read_start_time = time.time()
-                subsetted_variable = numpy.ma.fix_invalid( variable(**cdms2keyargs) )
-                read_end_time = time.time()
-                wpsLog.debug( " $$$ DATA READ Complete: " + str( (read_end_time-read_start_time) ) )
+            process_start_time = time.time()
+            ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
+            process_end_time = time.time()
+            wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
+            #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
-                process_start_time = time.time()
-                ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
-                process_end_time = time.time()
-                wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
-                #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
-
-                if time_axis is not None:
-                    time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
-                    time_data = time_axis.getValue().tolist()
-                    try:
-                        time_obj['t0'] = time_data[0]
-                        time_obj['dt'] = time_data[1] - time_data[0]
-                    except Exception, err:
-                        time_obj['data'] = time_data
-                    result_obj['time'] = time_obj
-                result_obj['data'] = result_data
-                end_time = time.time()
-                wpsLog.debug( " $$$ Execution complete, total time: %.2f sec [%.2f]", (end_time-start_time), end_time )
+            if time_axis is not None:
+                time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
+                time_data = time_axis.getValue().tolist()
+                try:
+                    time_obj['t0'] = time_data[0]
+                    time_obj['dt'] = time_data[1] - time_data[0]
+                except Exception, err:
+                    time_obj['data'] = time_data
+                result_obj['time'] = time_obj
+            result_obj['data'] = result_data
+            end_time = time.time()
+            wpsLog.debug( " $$$ Execution complete, total time: %.2f sec [%.2f]", (end_time-start_time), end_time )
 
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )

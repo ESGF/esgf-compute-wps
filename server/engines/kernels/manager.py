@@ -14,6 +14,9 @@ class KernelManager:
             raise Exception( "No compute kernel found for operation %s" % str(operation) )
 
     def getKernel( self, operation ):
+        if not operation:
+            from cda import DataAnalytics
+            return DataAnalytics()
         if operation.get('kernel','base') == 'time':
             from timeseries_analysis import TimeseriesAnalytics
             return TimeseriesAnalytics()

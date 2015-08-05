@@ -1,8 +1,9 @@
 import os
 import json
-import random
+import random, traceback
 import cdms2
-from modules.utilities import wpsLog, getConfigSetting
+from modules.utilities import *
+from datacache.manager import dataManager
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
@@ -23,6 +24,30 @@ class DataAnalytics:
         #         "ldLibraryPath": "LD_LIBRARY_PATH"
         # }
 
+
+    def run( self, run_args ):
+        wpsLog.debug( " DataAnalytics RUN, time = %.3f " % time.time() )
+        data = get_json_arg( 'data', run_args )
+        region = get_json_arg( 'region', run_args )
+        operation = get_json_arg( 'operation', run_args )
+        result_obj = {}
+        try:
+            if operation:
+                raise Exception( "Error, processing operation with undefined kernel: " + operation )
+            else:
+                read_start_time = time.time()
+                vardata = run_args.get( "dataSlice", None )
+                if vardata is not None: data['variable'] = vardata
+                if region:
+                    cdms2keyargs = region2cdms( region )
+                    data['region'] = cdms2keyargs
+                variable, result_obj = dataManager.loadVariable( cache=True, **data )
+                read_end_time = time.time()
+                wpsLog.debug( " $$$ DATA CACHE Complete: " + str( (read_end_time-read_start_time) ) )
+
+        except Exception, err:
+            wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
+        return result_obj
 
     def saveVariable(self,data,dest,type="json"):
         cont = True

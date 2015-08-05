@@ -10,7 +10,7 @@ def load_variable_region( dataset, name, cache_region=None ):   # TODO
     t0 = time.time()
     rv = numpy.ma.fix_invalid( dataset(name) if cache_region == None else dataset( name, **cache_region ) )
     t1 = time.time()
-    wpsLog.debug( " $$$ Variable %s%s loaded --> TIME: %.2f " %  ( id, str(rv.shape), (t1-t0) ) )
+    wpsLog.debug( " $$$ Variable '%s' %s loaded from dataset '%s' (cache region: %s)--> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, str(cache_region), (t1-t0) ) )
     return rv
 
 class CachedVariable:
@@ -88,6 +88,7 @@ class DataManager:
         use_cache =  args.get( 'cache', False )
         global_region = args.get( 'region', None )
         variable = args.get('variable',None)
+        wpsLog.debug( " $$$ DataManager:LoadVariable %s" %  str( args ) )
         if variable is None:
             url = args.get('url',None)
             if url is not None:
