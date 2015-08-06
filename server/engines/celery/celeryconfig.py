@@ -1,3 +1,4 @@
+from kombu import Queue
 ## Broker settings.
 BROKER_URL = 'amqp://guest@localhost//'
 
@@ -8,5 +9,7 @@ CELERY_IMPORTS = ( 'engines.celery.tasks', )
 CELERY_RESULT_BACKEND = 'amqp'
 
 CELERYD_PREFETCH_MULTIPLIER =  1
+
+CELERY_WORKER_DIRECT = 1
 
 # CELERY_ANNOTATIONS = {'tasks.add': {'rate_limit': '10/s'}}

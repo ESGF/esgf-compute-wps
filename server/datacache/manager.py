@@ -88,7 +88,8 @@ class DataManager:
         use_cache =  args.get( 'cache', False )
         global_region = args.get( 'region', None )
         variable = args.get('variable',None)
-        wpsLog.debug( " $$$ DataManager:LoadVariable %s" %  str( args ) )
+        t0 = time.time()
+        wpsLog.debug( " #@@ DataManager:LoadVariable %s (time = %.2f)" %  ( str( args ), t0 ) )
         if variable is None:
             url = args.get('url',None)
             if url is not None:
@@ -127,6 +128,8 @@ class DataManager:
 
         if (variable is not None) and use_cache:
             self.cacheManager.addVariable( var_cache_id, variable, data_specs )
+        t1 = time.time()
+        wpsLog.debug( " #@@ DataManager:FinishedLoadVariable %s (time = %.2f, dt = %.2f)" %  ( str( data_specs ), t1, (t1-t0) ) )
         return variable, data_specs
 
     def loadFileFromCollection( self, collection, id=None ):

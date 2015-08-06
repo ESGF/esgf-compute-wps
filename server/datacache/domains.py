@@ -17,12 +17,13 @@ class Domain:
         self.cache_queue = None
         self.cache_request_status = None
 
-    def cacheRequestSubmitted( self, cache_queue ):
+    def cacheRequestSubmitted( self, cache_queue = None ):
         self.cache_queue = cache_queue
         self.cache_request_status = Domain.PENDING
 
-    def cacheRequestComplete( self ):
+    def cacheRequestComplete( self, cache_queue = None  ):
         self.cache_request_status = Domain.COMPLETE
+        self.cache_queue = cache_queue
 
     def getCacheStatus(self):
         return self.cache_queue, self.cache_request_status

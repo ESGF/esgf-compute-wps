@@ -10,6 +10,9 @@ from modules.utilities import *
 from celery.utils.log import get_task_logger
 logger = get_task_logger('cdas')
 
+def getWorkerName():
+    return current_process().initargs[1]
+
 app = Celery( 'tasks', broker=configuration.CDAS_CELERY_BROKER, backend=configuration.CDAS_CELERY_BACKEND )
 
 app.conf.update(
@@ -20,17 +23,17 @@ app.conf.update(
 
 @app.task(base=DomainBasedTask,name='tasks.execute')
 def execute( run_args ):
-    p = current_process()
-    logger.debug( "Init args: %s " % str(p.initargs) )
+    worker = getWorkerName()
     result = kernelMgr.run( run_args )
+    result['worker'] = worker
     return result
 
-@app.task(base=DomainBasedTask,name='tasks.mergeResults')
-def mergeResults( result_list ):
-    return result_list
-
-@app.task(base=DomainBasedTask,name='tasks.simpleTest')
-def simpleTest( input_list ):
-    return [ int(v)*3 for v in input_list ]
-
+# @app.task(base=DomainBasedTask,name='tasks.mergeResults')
+# def mergeResults( result_list ):
+#     return result_list
+#
+# @app.task(base=DomainBasedTask,name='tasks.simpleTest')
+# def simpleTest( input_list ):
+#     return [ int(v)*3 for v in input_list ]
+#
 
