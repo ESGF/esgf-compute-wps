@@ -3,35 +3,60 @@ from tasks import execute
 from modules.utilities import *
 from datacache.manager import CachedVariable
 from datacache.domains import Domain
-import celery
+import celery, pickle, os
 
 
 class CeleryEngine( Executable ):
 
-    CachedVariables = {}
-    WorkerQueueIndex = 0
-    PendingTasks = {}
-
     def __init__( self, id ):
         Executable.__init__( self, id )
         self.worker_specs = None
+        self.cachedVariables = {}
+        self.workerQueueIndex = 0
+        self.pendingTasks = {}
+        self.cacheFile = os.path.expanduser( "~/.cdas_celery_engine_cache")
+        self.restore()
+
+    def restore(self):
+        try:
+            f = open( self.cacheFile )
+            [ self.cachedVariables, self.workerQueueIndex, self.pendingTasks ] = pickle.load(f)
+        except IOError, err:
+            wpsLog.error( " Error reading cache file '%s': %s" % ( self.cacheFile, str(err) ) )
+        except EOFError:
+            wpsLog.warning( " Empty cache file '%s'" % ( self.cacheFile  ) )
+
+    def cache(self):
+        try:
+            f = open( self.cacheFile, 'w' )
+            pickle.dump( [ self.cachedVariables, self.workerQueueIndex, self.pendingTasks ], f )
+        except IOError, err:
+            wpsLog.error( " Error writing to cache file '%s': %s" % ( self.cacheFile, str(err) ) )
 
     def processPendingTasks(self):
+        wpsLog.info( " ***** processPendingTasks: %s" % str( self.pendingTasks.keys() ) )
         completed_requests = []
-        for cache_request,cached_domain in self.PendingTask.items():
+        do_cache = False
+        for cache_request,cached_domain in self.pendingTasks.items():
             if cache_request.ready():
                 result = cache_request.get()
-                cached_domain.cacheRequestComplete( result['worker'] )
+                worker = result['worker']
+                cached_domain.cacheRequestComplete( worker )
                 completed_requests.append( cache_request )
+                wpsLog.info( " ***** process Completed Task: worker = %s, cache_request = %s " % ( worker, str(cache_request) ) )
         for completed_request in completed_requests:
-            del self.PendingTask[ completed_request ]
+            del self.pendingTasks[ completed_request ]
+            do_cache = True
+        if do_cache: self.cache()
 
     def updateWorkerSpecs(self):
         if self.worker_specs is None:
             self.worker_specs = celery.current_app.control.inspect().stats()
+        if self.worker_specs == None:
+            wpsLog.error( "ERROR: Must start up celery workers!" )
 
     def findCachedDomain(self, var_cache_id, region, var_specs ):
-        cached_var = self.CachedVariables.setdefault( var_cache_id, CachedVariable( id=var_cache_id, specs=var_specs) )
+        cached_var = self.cachedVariables.setdefault( var_cache_id, CachedVariable( id=var_cache_id, specs=var_specs) )
         if ( cached_var is not None ):
             overlap,domain = cached_var.findDomain( region )
             if overlap == Domain.CONTAINED: return cached_var, domain
@@ -39,13 +64,14 @@ class CeleryEngine( Executable ):
 
     def getNextWorker( self ):
         workers = self.worker_specs.keys()
-        worker_addr = workers[ self.WorkerQueueIndex % len(workers) ]
-        self.WorkerQueueIndex = self.WorkerQueueIndex + 1
+        worker_addr = workers[ self.workerQueueIndex % len(workers) ]
+        self.WorkerQueueIndex = self.workerQueueIndex + 1
         return worker_addr    # .split('@')[1]
 
     def execute( self, run_args ):
         debug = True
         self.updateWorkerSpecs()
+        self.processPendingTasks()
         designated_worker = None
         wpsLog.info( " ***** Executing Celery engine, args: %s" % ( run_args ) )
         var_mdata = get_json_arg( 'data', run_args )
@@ -58,12 +84,18 @@ class CeleryEngine( Executable ):
         if var_cache_id <> ":":
             cached_var,cached_domain = self.findCachedDomain( var_cache_id, region, run_args )
             if cached_domain is None:
-                cache_op_args = { 'data':var_mdata } if operation else { 'region':region, 'data':var_mdata }
+                if operation:
+                    cache_op_args = { 'data':var_mdata }
+                    cache_region = None
+                else:
+                    cache_op_args = { 'region':region, 'data':var_mdata }
+                    cache_region = region
                 cache_worker = self.getNextWorker()
                 if debug: print( " ***** Caching data to worker %s " %  cache_worker )
                 cache_request = execute.apply_async( (cache_op_args,), exchange='C.dq', routing_key=cache_worker )
-                cached_domain = cached_var.addDomain( region )
-                self.PendingTasks[ cache_request ] = cached_domain
+                cached_domain = cached_var.addDomain( cache_region )
+                self.pendingTasks[ cache_request ] = cached_domain
+                self.cache()
             else:
                 worker_id, cache_request_status = cached_domain.getCacheStatus()
                 if cache_request_status == Domain.COMPLETE:
@@ -76,7 +108,7 @@ class CeleryEngine( Executable ):
             if designated_worker is None:
                 task = execute.delay( run_args )
             else:
-                task = execute.apply_async( [ run_args ], queue=designated_worker )
+                task = execute.apply_async( (run_args,), exchange='C.dq', routing_key=designated_worker )
 
             if debug: print( " ***** Sending operation to worker %s, args: %s " %  ( str(designated_worker), str(run_args) ) )
 
@@ -110,7 +142,6 @@ if __name__ == "__main__":
 
     op_annual_cycle =  {"kernel":"time", "type":"climatology", "bounds":"annualcycle"}
     op_departures =  {"kernel":"time", "type":"departures",  "bounds":"np"}
-
 
     engine = CeleryEngine('celery')
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 
-celery -A engines.celery.tasks worker -E --loglevel=debug --logfile=/usr/local/web/WPCDAS/server/logs/worker0.log -Q worker0,celery --config=engines.celery.celeryconfig -c 1 -n worker0.%h &
+celery -A engines.celery.tasks worker --loglevel=debug --logfile=/usr/local/web/WPCDAS/server/logs/worker0.log --config=engines.celery.celeryconfig -c 1 -n worker0.%h &
 echo "Started celery worker0"
-celery -A engines.celery.tasks worker -E --loglevel=debug --logfile=/usr/local/web/WPCDAS/server/logs/worker1.log -Q worker1,celery --config=engines.celery.celeryconfig -c 1 -n worker1.%h &
+celery -A engines.celery.tasks worker --loglevel=debug --logfile=/usr/local/web/WPCDAS/server/logs/worker1.log --config=engines.celery.celeryconfig -c 1 -n worker1.%h &
 echo "Started celery worker1"
-celery -A engines.celery.tasks flower &
-echo "Started admin web server"
+#celery -A engines.celery.tasks flower &
+#echo "Started admin web server"
 
 #celery -A engines.celery.tasks worker -Q wq0,celery --loglevel=debug --concurrency 1 -n worker0.%h &
 #celery -A engines.celery.tasks worker -Q wq1 --loglevel=debug --concurrency 1 -n worker1.%h &

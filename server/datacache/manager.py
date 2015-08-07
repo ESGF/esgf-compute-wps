@@ -7,6 +7,7 @@ import numpy
 import cdms2, time
 
 def load_variable_region( dataset, name, cache_region=None ):   # TODO
+    wpsLog.debug( " $$$ Loading Variable '%s'  " %  name )
     t0 = time.time()
     rv = numpy.ma.fix_invalid( dataset(name) if cache_region == None else dataset( name, **cache_region ) )
     t1 = time.time()
@@ -28,6 +29,7 @@ class CachedVariable:
         request_queue = args.get( 'queue', None )
         if request_queue: domain.cacheRequestSubmitted( request_queue )
         self.domainManager.addDomain( domain )
+        return domain
 
     def getSpec( self, name ):
         return self.specs.get( name, None )
@@ -137,6 +139,7 @@ class DataManager:
         url = collectionManager.getURL( collection, id )
         wpsLog.debug( "loadFileFromCollection: '%s' '%s': %s " % ( collection, id, url ) )
         return self.loadFileFromURL( url )
+        wpsLog.debug( "Done loadFileFromCollection!" )
 
     def loadFileFromURL(self,url):
         ## let's figure out between dap or local
