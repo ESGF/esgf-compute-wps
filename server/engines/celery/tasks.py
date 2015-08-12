@@ -32,8 +32,8 @@ def execute( run_args ):
 # def mergeResults( result_list ):
 #     return result_list
 #
-# @app.task(base=DomainBasedTask,name='tasks.simpleTest')
-# def simpleTest( input_list ):
-#     return [ int(v)*3 for v in input_list ]
-#
+@app.task(base=DomainBasedTask,name='tasks.simpleTest')
+def simpleTest( input_list ):
+     return [ int(v)*3 for v in input_list ]
+
 

@@ -1,5 +1,5 @@
 from modules import Executable
-from tasks import execute
+from tasks import execute, simpleTest
 from modules.utilities import *
 from datacache.manager import CachedVariable
 from datacache.status_cache import  StatusCacheManager
@@ -7,7 +7,7 @@ from datacache.domains import Domain
 import celery, pickle, os, traceback
 cLog = logging.getLogger('celery-debug')
 cLog.setLevel(logging.DEBUG)
-cLog.addHandler( logging.FileHandler( os.path.expanduser( "~/.celery-debug") ) )
+if len( cLog.handlers ) == 0: cLog.addHandler( logging.FileHandler( os.path.expanduser( "~/.celery-debug") ) )
 
 StatusCache = StatusCacheManager()
 
@@ -72,7 +72,7 @@ class CeleryEngine( Executable ):
         self.WorkerQueueIndex = self.workerQueueIndex + 1
         return worker_addr    # .split('@')[1]
 
-    def execute( self, run_args, debug=False ):
+    def execute( self, run_args ):
         try:
             t0 = time.time()
             self.updateWorkerSpecs()
@@ -103,7 +103,7 @@ class CeleryEngine( Executable ):
                     self.pendingTasks[ cache_request ] = cached_domain
                     self.cache()
                     tc1 = time.time()
-                    cLog.debug( " ***** Caching data to worker ([%.2f,%.2f,%.2f] dt = %.3f) %s " %  ( tc0, tc01, tc1, (tc1-tc0), cache_worker) )
+                    cLog.debug( " ***** Caching data [tid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_request.id, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
                 else:
                     worker_id, cache_request_status = cached_domain.getCacheStatus()
                     if cache_request_status == Domain.COMPLETE:
@@ -120,21 +120,24 @@ class CeleryEngine( Executable ):
                 else:
                     task = execute.apply_async( (run_args,), exchange='C.dq', routing_key=designated_worker )
 
-                cLog.debug( " ***** Sending operation [tid:%s] to worker (t = %.2f, dt0 = %.3f) %s, args: %s " %  ( task.id, t2, t2-t0, str(designated_worker), str(run_args) ) )
+                op_domain = cached_var.addDomain( region )
+                self.pendingTasks[ task ] = op_domain
+                self.cache()
 
-                if debug:
-                    time.sleep(1.0)
-                    celery_inspect = celery.current_app.control.inspect()
-                    print( "Celery execution stats:\n " )
-                    pp.pprint( celery_inspect.stats() )
-                    print( "Active tasks:\n " )
-                    pp.pprint( celery_inspect.active() )
-                    print( "Reserved tasks:\n " )
-                    pp.pprint( celery_inspect.reserved() )
+                cLog.debug( " ***** Sending operation [tid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): args= %s " %  ( task.id, str(designated_worker), t2, t2-t0, str(run_args) ) )
+
+                # time.sleep(1.0)
+                # celery_inspect = celery.current_app.control.inspect()
+                # print( "Celery execution stats:\n " )
+                # pp.pprint( celery_inspect.stats() )
+                # print( "Active tasks:\n " )
+                # pp.pprint( celery_inspect.active() )
+                # print( "Reserved tasks:\n " )
+                # pp.pprint( celery_inspect.reserved() )
 
                 result = task.get()
                 t1 = time.time()
-                cLog.debug( " ***** Retrieved result [tid:%s] from worker (t = %.2f, dt1 = %.3f) %s " %  ( task.id, t1, t1-t2, result['worker'] ) )
+                cLog.debug( " ***** Retrieved result [tid:%s] from worker '%s' (t = %.2f, dt1 = %.3f)" %  ( task.id, result['worker'], t1, t1-t2 ) )
                 return result
         except Exception, err:
             wpsLog.error(" Error running celery engine: %s\n %s " % ( str(err), traceback.format_exc()  ) )
@@ -148,6 +151,7 @@ if __name__ == "__main__":
     wpsLog.setLevel(logging.DEBUG)
     pp = pprint.PrettyPrinter(indent=4)
     test_cache = False
+    simple_test = False
 
     variable =  { 'collection': 'MERRA/mon/atmos', 'id': 'clt' }
 
@@ -160,16 +164,37 @@ if __name__ == "__main__":
 
     engine = CeleryEngine('celery')
 
-    if test_cache:
+    if simple_test:
         engine.updateWorkerSpecs()
         cache_worker = engine.getNextWorker()
-        print( " ***** Caching data to worker %s " %  cache_worker )
-        cache_op_args = { 'data': variable }
-        task = execute.apply_async( (cache_op_args,True), exchange='C.dq', routing_key=cache_worker )
+        args = [ 1,2,3]
+        ts0 = time.time()
+        task = simpleTest.apply_async( (args,),  exchange='C.dq', routing_key=cache_worker )
         result = task.get()
+        ts1 = time.time()
+        print( " ***** Simple test using worker %s, time = %.3f " %  ( cache_worker, (ts1-ts0) ) )
     else:
-        run_args = { 'data': variable, 'region':region1, 'operation': op_departures }
-        result = engine.execute( run_args, True )
+        if test_cache:
+            engine.updateWorkerSpecs()
+            cache_worker = engine.getNextWorker()
+            print( " ***** Caching data to worker %s " %  cache_worker )
+            cache_op_args = { 'data': variable }
+            task = execute.apply_async( (cache_op_args,True), exchange='C.dq', routing_key=cache_worker )
+            result = task.get()
+            print "\n ---------- Result(cache): ---------- "
+            pp.pprint(result)
+        else:
+            t0 = time.time()
+            run_args1 = { 'data': variable, 'region':region1, 'operation': op_departures }
+            result1 = engine.execute( run_args1 )
 
-    print "\n ---------- Result: ---------- "
-    pp.pprint(result)
+            print "\n ---------- Result (departures): ---------- "
+            pp.pprint(result1)
+            t1 = time.time()
+            run_args2 = { 'data': variable, 'region':region1, 'operation': op_annual_cycle }
+            result2 = engine.execute( run_args2 )
+
+            print "\n ---------- Result(annual cycle): ---------- "
+            pp.pprint(result2)
+            t2 = time.time()
+            print "\n Operations Complete, dt0 = %.2f, dt1 = %.2f, dt = %.2f  " % ( t1-t0, t2-t1, t2-t0 )

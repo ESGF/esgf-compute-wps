@@ -1,4 +1,4 @@
-from modules.utilities import  wpsLog, record_attributes, getConfigSetting
+from modules.utilities import  *
 from data_collections import CollectionManager
 from domains import *
 from decomposition.manager import decompositionManager
@@ -6,12 +6,12 @@ import numpy
 
 import cdms2, time
 
-def load_variable_region( dataset, name, cache_region=None ):   # TODO
-    wpsLog.debug( " $$$ Loading Variable '%s'  " %  name )
+def load_variable_region( dataset, name, cdms2_cache_args=None ):   # TODO
+    wpsLog.debug( " $$$ Loading Variable '%s', region: '%s'  " %  ( name, cdms2_cache_args ) )
     t0 = time.time()
-    rv = numpy.ma.fix_invalid( dataset(name) if cache_region == None else dataset( name, **cache_region ) )
+    rv = numpy.ma.fix_invalid( dataset( name, **cdms2_cache_args ) )
     t1 = time.time()
-    wpsLog.debug( " $$$ Variable '%s' %s loaded from dataset '%s' (cache region: %s)--> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, str(cache_region), (t1-t0) ) )
+    wpsLog.debug( " $$$ Variable '%s' %s loaded from dataset '%s' --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, (t1-t0) ) )
     return rv
 
 class CachedVariable:
@@ -81,22 +81,35 @@ class CacheManager:
 
 class DataManager:
 
+    CACHE_NONE = 0
+    CACHE_OP = 1
+    CACHE_REGION = 2
+
     def __init__( self ):
         self.cacheManager = CacheManager( 'default' )
 
-    def loadVariable( self, **args ):
+    @classmethod
+    def getCacheType( cls, use_cache, operation ):
+        if not use_cache: return cls.CACHE_NONE
+        return cls.CACHE_REGION if operation is None else cls.CACHE_OP
+
+    def loadVariable( self, **run_args ):
+        data = get_json_arg( 'data', run_args )
+        region = get_json_arg( 'region', run_args )
+        operation = get_json_arg( 'operation', run_args )
+        use_cache =  get_json_arg( 'cache', run_args, True )
+        cache_type = self.getCacheType( use_cache, operation )
+
         data_specs = {}
-        id =  args.get( 'id', None )
-        use_cache =  args.get( 'cache', False )
-        global_region = args.get( 'region', None )
-        variable = args.get('variable',None)
+        id =  data.get( 'id', None )
+        variable = data.get('variable',None)
         t0 = time.time()
-        wpsLog.debug( " #@@ DataManager:LoadVariable %s (time = %.2f)" %  ( str( args ), t0 ) )
+        wpsLog.debug( " #@@ DataManager:LoadVariable %s (time = %.2f)" %  ( str( data ), t0 ) )
         if variable is None:
-            url = args.get('url',None)
+            url = data.get('url',None)
             if url is not None:
                 var_cache_id =  ":".join( [url,id] )
-                status, domain = self.cacheManager.getVariable( var_cache_id, global_region )
+                status, domain = self.cacheManager.getVariable( var_cache_id, region )
                 if status is not Domain.CONTAINED:
                     dataset = self.loadFileFromURL( url )
                 else:
@@ -104,10 +117,10 @@ class DataManager:
                     data_specs['dataset']  = domain.spec
                 data_specs['cache_id']  = var_cache_id
             else:
-                collection = args.get('collection',None)
+                collection = data.get('collection',None)
                 if collection is not None:
                     var_cache_id =  ":".join( [collection,id] )
-                    status, domain = self.cacheManager.getVariable( var_cache_id, global_region )
+                    status, domain = self.cacheManager.getVariable( var_cache_id, region )
                     if status is not Domain.CONTAINED:
                         dataset = self.loadFileFromCollection( collection, id )
                         data_specs['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
@@ -116,19 +129,23 @@ class DataManager:
                         data_specs['dataset']  = domain.spec.get( 'dataset', None )
                     data_specs['cache_id']  = var_cache_id
                 else:
-                    wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( args ) )
+                    wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( data ) )
                     return None, data_specs
 
-            if variable is None:
-                cache_region = decompositionManager.getNodeRegion( global_region )
-                variable = load_variable_region( dataset, id, cache_region ) if use_cache else dataset[id]
-                data_specs['region'] = cache_region
-                if use_cache: self.cacheManager.addVariable( var_cache_id, variable, data_specs )
+            if (variable is None):
+                if (cache_type == self.CACHE_NONE):
+                    variable = dataset[id]
+                    data_specs['region'] = region
+                else:
+                    cache_region = decompositionManager.getNodeRegion( region ) if (cache_type == self.CACHE_REGION) else region2cdms(region);
+                    variable = load_variable_region( dataset, id, cache_region )
+                    data_specs['region'] = cache_region
+
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
         else:
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
 
-        if (variable is not None) and use_cache:
+        if (variable is not None) and (cache_type <> self.CACHE_NONE):
             self.cacheManager.addVariable( var_cache_id, variable, data_specs )
         t1 = time.time()
         wpsLog.debug( " #@@ DataManager:FinishedLoadVariable %s (time = %.2f, dt = %.2f)" %  ( str( data_specs ), t1, (t1-t0) ) )

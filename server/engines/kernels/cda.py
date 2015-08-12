@@ -28,7 +28,6 @@ class DataAnalytics:
     def run( self, run_args ):
         wpsLog.debug( " DataAnalytics RUN, time = %.3f " % time.time() )
         data = get_json_arg( 'data', run_args )
-        region = get_json_arg( 'region', run_args )
         operation = get_json_arg( 'operation', run_args )
         result_obj = {}
         try:
@@ -38,10 +37,7 @@ class DataAnalytics:
                 read_start_time = time.time()
                 vardata = run_args.get( "dataSlice", None )
                 if vardata is not None: data['variable'] = vardata
-                if region:
-                    cdms2keyargs = region2cdms( region )
-                    data['region'] = cdms2keyargs
-                variable, result_obj = dataManager.loadVariable( cache=True, **data )
+                variable, result_obj = dataManager.loadVariable( **run_args )
                 read_end_time = time.time()
                 wpsLog.debug( " $$$ DATA CACHE Complete: " + str( (read_end_time-read_start_time) ) )
 

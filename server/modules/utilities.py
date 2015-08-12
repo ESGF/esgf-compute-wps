@@ -6,14 +6,14 @@ wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(DefaultLogLevel)
 if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.join( LogDir, 'wps.log') ) )
 
-def get_json_arg( id, args ):
+def get_json_arg( id, args, default="" ):
         json_arg = args.get( id, None )
         if json_arg is not None:
             try:
                 return convert_json_str( json_arg )
             except:
                 wpsLog.error( "Can't recognize json '%s' from args: '%s" % ( str(json_arg), str(args) ) )
-        return "" if json_arg is None else json_arg
+        return default if json_arg is None else json_arg
 
 def convert_json_str( json_arg ):
     return json.loads( json_arg ) if isinstance(json_arg, basestring) else json_arg
@@ -75,23 +75,24 @@ def location2cdms(region):
 
 def region2cdms(region):
     kargs = {}
-    for k,v in region.iteritems():
-        if k in ["id","version"]:
-            continue
-        if isinstance( v, float ) or isinstance( v, int ):
-            kargs[str(k)] = (v,v,"cob")
-        elif isinstance( v, list ) or isinstance( v, tuple ):
-            kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" )
-        else:
-            system = v.get("system","value").lower()
-            if isinstance(v["start"],unicode):
-                v["start"] = str(v["start"])
-            if isinstance(v["end"],unicode):
-                v["end"] = str(v["end"])
-            if system == "value":
-                kargs[str(k)]=(v["start"],v["end"])
-            elif system == "index":
-                kargs[str(k)] = slice(v["start"],v["end"])
+    if region:
+        for k,v in region.iteritems():
+            if k in ["id","version"]:
+                continue
+            if isinstance( v, float ) or isinstance( v, int ):
+                kargs[str(k)] = (v,v,"cob")
+            elif isinstance( v, list ) or isinstance( v, tuple ):
+                kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" )
+            else:
+                system = v.get("system","value").lower()
+                if isinstance(v["start"],unicode):
+                    v["start"] = str(v["start"])
+                if isinstance(v["end"],unicode):
+                    v["end"] = str(v["end"])
+                if system == "value":
+                    kargs[str(k)]=(v["start"],v["end"])
+                elif system == "index":
+                    kargs[str(k)] = slice(v["start"],v["end"])
     return kargs
 
 

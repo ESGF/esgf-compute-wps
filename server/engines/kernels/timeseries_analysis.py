@@ -35,7 +35,7 @@ class TimeseriesAnalytics( DataAnalytics ):
             cdms2keyargs = region2cdms( region )
             vardata = run_args.get( "dataSlice", None )
             if vardata is not None: data['variable'] = vardata
-            variable, result_obj = dataManager.loadVariable( cache=False, **data )
+            variable, result_obj = dataManager.loadVariable( **run_args )
             read_start_time = time.time()
             subsetted_variable = numpy.ma.fix_invalid( variable(**cdms2keyargs) )
             read_end_time = time.time()
