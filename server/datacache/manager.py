@@ -16,12 +16,21 @@ def load_variable_region( dataset, name, cdms2_cache_args=None ):   # TODO
 
 class CachedVariable:
 
+    CACHE_NONE = 0
+    CACHE_OP = 1
+    CACHE_REGION = 2
+
     def __init__(self, **args ):
         self.id = args.get('id',None)
         self.type = args.get('type',None)
         self.specs = args.get('specs',None)
         self.specs = args
         self.domainManager = DomainManager()
+
+    @classmethod
+    def getCacheType( cls, use_cache, operation ):
+        if not use_cache: return cls.CACHE_NONE
+        return cls.CACHE_REGION if operation is None else cls.CACHE_OP
 
     def addDomain(self, region, **args ):
         data = args.get( 'data', None )
@@ -30,6 +39,9 @@ class CachedVariable:
         if request_queue: domain.cacheRequestSubmitted( request_queue )
         self.domainManager.addDomain( domain )
         return domain
+
+    def cacheType(self):
+        return self.specs.get( 'cache_type', None )
 
     def getSpec( self, name ):
         return self.specs.get( name, None )
@@ -81,24 +93,16 @@ class CacheManager:
 
 class DataManager:
 
-    CACHE_NONE = 0
-    CACHE_OP = 1
-    CACHE_REGION = 2
-
     def __init__( self ):
         self.cacheManager = CacheManager( 'default' )
 
-    @classmethod
-    def getCacheType( cls, use_cache, operation ):
-        if not use_cache: return cls.CACHE_NONE
-        return cls.CACHE_REGION if operation is None else cls.CACHE_OP
 
     def loadVariable( self, **run_args ):
         data = get_json_arg( 'data', run_args )
         region = get_json_arg( 'region', run_args )
         operation = get_json_arg( 'operation', run_args )
         use_cache =  get_json_arg( 'cache', run_args, True )
-        cache_type = self.getCacheType( use_cache, operation )
+        cache_type = CachedVariable.getCacheType( use_cache, operation )
 
         data_specs = {}
         id =  data.get( 'id', None )
@@ -133,11 +137,11 @@ class DataManager:
                     return None, data_specs
 
             if (variable is None):
-                if (cache_type == self.CACHE_NONE):
+                if (cache_type == CachedVariable.CACHE_NONE):
                     variable = dataset[id]
                     data_specs['region'] = region
                 else:
-                    cache_region = decompositionManager.getNodeRegion( region ) if (cache_type == self.CACHE_REGION) else region2cdms(region);
+                    cache_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region2cdms(region);
                     variable = load_variable_region( dataset, id, cache_region )
                     data_specs['region'] = cache_region
 
@@ -145,7 +149,8 @@ class DataManager:
         else:
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
 
-        if (variable is not None) and (cache_type <> self.CACHE_NONE):
+        if (variable is not None) and (cache_type <> CachedVariable.CACHE_NONE):
+            data_specs['cache_type'] = cache_type
             self.cacheManager.addVariable( var_cache_id, variable, data_specs )
         t1 = time.time()
         wpsLog.debug( " #@@ DataManager:FinishedLoadVariable %s (time = %.2f, dt = %.2f)" %  ( str( data_specs ), t1, (t1-t0) ) )

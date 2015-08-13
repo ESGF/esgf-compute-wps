@@ -8,7 +8,7 @@ CELERY_IMPORTS = ( 'engines.celery.tasks', )
 ## Using the database to store task state and results.
 CELERY_RESULT_BACKEND = 'amqp'
 
-CELERYD_PREFETCH_MULTIPLIER =  1
+CELERYD_PREFETCH_MULTIPLIER =  4
 
 CELERY_WORKER_DIRECT = 1
 
