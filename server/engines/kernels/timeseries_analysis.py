@@ -10,7 +10,6 @@ import cdutil, cdms2
 
 from cda import DataAnalytics
 from modules.utilities import *
-from datacache.manager import dataManager
 
 class TimeseriesAnalytics( DataAnalytics ):
 
@@ -24,27 +23,13 @@ class TimeseriesAnalytics( DataAnalytics ):
         scaled_variable = ( variable - minval ) * scale
         return { 'range': [ minval, maxval ], 'data': scaled_variable.tolist( numpy.nan ) }
 
-    def run( self, run_args ):
+    def run( self, data, region, operation ):
         wpsLog.debug( " TimeseriesAnalytics RUN, time = %.3f " % time.time() )
-        data = get_json_arg( 'data', run_args )
-        region = get_json_arg( 'region', run_args )
-        operation = get_json_arg( 'operation', run_args )
-        result_obj = {}
+        result_obj = data['result']
         try:
             start_time = time.time()
-            cdms2keyargs = region2cdms( region )
-            vardata = run_args.get( "dataSlice", None )
-            if vardata is not None: data['variable'] = vardata
-            variable, result_obj = dataManager.loadVariable( **run_args )
-            read_start_time = time.time()
-            subsetted_variable = numpy.ma.fix_invalid( variable(**cdms2keyargs) )
-            read_end_time = time.time()
-            wpsLog.debug( " $$$ DATA READ Complete: " + str( (read_end_time-read_start_time) ) )
-
-            process_start_time = time.time()
+            [ subsetted_variable ] = data['variables']
             ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
-            process_end_time = time.time()
-            wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
             if time_axis is not None:

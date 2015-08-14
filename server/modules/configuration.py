@@ -13,8 +13,7 @@ CDAS_COMPUTE_ENGINE = 'celery'
 
 CDAS_DATA_CACHE = 'default'
 
-CDAS_CELERY_BROKER = 'amqp://guest@localhost//'
-CDAS_CELERY_BACKEND = 'amqp'
+CDAS_CELERY_BACKEND = 'redis'
 # Application definition
 
 CDAS_COLLECTIONS = [ ('MERRA/mon/atmos',       [ 'dods', 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos' ] ),

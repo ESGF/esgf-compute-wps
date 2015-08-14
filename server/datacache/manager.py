@@ -97,13 +97,7 @@ class DataManager:
         self.cacheManager = CacheManager( 'default' )
 
 
-    def loadVariable( self, **run_args ):
-        data = get_json_arg( 'data', run_args )
-        region = get_json_arg( 'region', run_args )
-        operation = get_json_arg( 'operation', run_args )
-        use_cache =  get_json_arg( 'cache', run_args, True )
-        cache_type = CachedVariable.getCacheType( use_cache, operation )
-
+    def loadVariable( self, data, region, cache_type ):
         data_specs = {}
         id =  data.get( 'id', None )
         variable = data.get('variable',None)
@@ -131,6 +125,7 @@ class DataManager:
                     else:
                         variable = domain.data
                         data_specs['dataset']  = domain.spec.get( 'dataset', None )
+                        data_specs['region'] = domain.getRegion()
                     data_specs['cache_id']  = var_cache_id
                 else:
                     wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( data ) )
@@ -141,9 +136,9 @@ class DataManager:
                     variable = dataset[id]
                     data_specs['region'] = region
                 else:
-                    cache_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region2cdms(region);
-                    variable = load_variable_region( dataset, id, cache_region )
-                    data_specs['region'] = cache_region
+                    load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
+                    variable = load_variable_region( dataset, id, load_region.toCDMS() )
+                    data_specs['region'] = load_region
 
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
         else:

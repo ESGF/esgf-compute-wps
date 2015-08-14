@@ -2,7 +2,7 @@ import cdms2
 import cdutil
 
 from celery import Celery
-from modules import configuration
+from engines.celery import celeryconfig
 from base_task import DomainBasedTask
 from engines.kernels.manager import kernelMgr
 from billiard import current_process
@@ -13,7 +13,7 @@ logger = get_task_logger('cdas')
 def getWorkerName():
     return current_process().initargs[1]
 
-app = Celery( 'tasks', broker=configuration.CDAS_CELERY_BROKER, backend=configuration.CDAS_CELERY_BACKEND )
+app = Celery( 'tasks', broker=celeryconfig.BROKER_URL, backend=celeryconfig.CELERY_RESULT_BACKEND )
 
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',
@@ -25,7 +25,7 @@ app.conf.update(
 def execute( run_args ):
     worker = getWorkerName()
     result = kernelMgr.run( run_args )
-    result['worker'] = worker
+    if result: result['worker'] = worker
     return result
 
 # @app.task(base=DomainBasedTask,name='tasks.mergeResults')

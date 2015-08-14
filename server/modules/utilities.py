@@ -8,15 +8,14 @@ if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.
 
 def get_json_arg( id, args, default="" ):
         json_arg = args.get( id, None )
-        if json_arg is not None:
-            try:
-                return convert_json_str( json_arg )
-            except:
-                wpsLog.error( "Can't recognize json '%s' from args: '%s" % ( str(json_arg), str(args) ) )
+        if json_arg is not None: return convert_json_str( json_arg )
         return default if json_arg is None else json_arg
 
 def convert_json_str( json_arg ):
-    return json.loads( json_arg ) if isinstance(json_arg, basestring) else json_arg
+    try:
+        return json.loads( json_arg ) if isinstance(json_arg, basestring) else json_arg
+    except:
+        wpsLog.error( "Can't recognize json '%s' " % ( str(json_arg) ) )
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
@@ -73,14 +72,15 @@ def location2cdms(region):
             kargs[str(k)] = float( str(v) )
     return kargs
 
-def region2cdms(region):
+def region2cdms( region, **args ):
     kargs = {}
     if region:
         for k,v in region.iteritems():
             if k in ["id","version"]:
                 continue
             if isinstance( v, float ) or isinstance( v, int ):
-                kargs[str(k)] = (v,v,"cob")
+                buffer = args.get('buffer',False)
+                kargs[str(k)] = (v-0.0001,v+0.0001,"cob") if buffer else (v,v,"cob")
             elif isinstance( v, list ) or isinstance( v, tuple ):
                 kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" )
             else:

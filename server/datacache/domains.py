@@ -1,6 +1,91 @@
+from modules.utilities import  convert_json_str, wpsLog
 
+class Region:
 
-class Domain:
+    def __init__( self, region_spec={} ):
+        self.spec = convert_json_str( region_spec ) if isinstance( region_spec, basestring ) else region_spec
+        self.axes = {}
+        self.tolerance=0.001
+        self.process_spec()
+
+    @classmethod
+    def regularize( cls, values ):
+        if hasattr( values, '__iter__' ):
+            if isinstance( values, dict ):
+                try:
+                    rv = [ values['start'], values['end'] ]
+                except KeyError:
+                    wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
+            else:
+                rv = [ float(v) for v in values ]
+        elif isinstance( values, float ) or isinstance( values, int ):
+            rv = [ float(values) ]
+        else:
+            wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
+            rv = values
+        return rv
+
+    def items(self):
+        return self.axes.items()
+
+    def __getitem__(self, item):
+        return self.axes.get( item, None )
+
+    def __setitem__(self, key, value):
+        self.axes[ key ] = value
+
+    def getAxisRange( self, axis_name ):
+        return self.axes.get( axis_name, None )
+
+    def get(self, key, default_val=None ):
+        return self.spec.get( key, default_val )
+
+    def process_spec(self):
+        if self.spec is None: self.spec = {}
+        for spec_item in self.spec.items():
+            key = spec_item[0].lower()
+            v = self.regularize( spec_item[1] )
+            if key.startswith('lat'):
+                self.axes['lat'] = v
+            elif key.startswith('lon'):
+                self.axes['lon'] = v
+            elif key.startswith('lev'):
+                self.axes['lev'] = v
+            elif key.startswith('time'):
+                self.axes['time'] = v
+            elif key.startswith('grid'):
+                self.axes['grid'] = v
+
+    def __eq__(self, reqion1 ):
+        for k0,r0 in self.axes.iteritems():
+            r1 = reqion1.getAxisRange( k0 )
+            if not r1: return False
+            if  ( len(r0) <> len(r1) ): return False
+            for x0, x1 in zip(r0, r1):
+                if ( abs(x1-x0) > self.tolerance ): return False
+        return True
+
+    def __ne__(self, reqion1 ):
+        return not self.__eq__( reqion1 )
+
+    def toCDMS( self, **args ):
+        kargs = {}
+        for k,v in self.axes.iteritems():
+            if isinstance( v, list ) or isinstance( v, tuple ):
+                kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
+            # elif isinstance( v, dict ):
+            #     system = v.get("system","value").lower()
+            #     if isinstance(v["start"],unicode):
+            #         v["start"] = str(v["start"])
+            #     if isinstance(v["end"],unicode):
+            #         v["end"] = str(v["end"])
+            #     if system == "value":
+            #         kargs[str(k)]=(v["start"],v["end"])
+            #     elif system == "index":
+            #         kargs[str(k)] = slice(v["start"],v["end"])
+        return kargs
+
+class Domain(Region):
 
     DISJOINT = 0
     CONTAINED = 1
@@ -10,12 +95,13 @@ class Domain:
     COMPLETE = 1
 
     def __init__( self, domain_spec=None, data=None ):
-        self.spec = domain_spec if domain_spec else {}
-        self.axes = {}
-        self.process_spec()
+        Region.__init__( self, domain_spec )
         self.data = data
         self.cache_queue = None
         self.cache_request_status = None
+
+    def getRegion(self):
+        return Region( self.spec )
 
     def getSize(self):
         axes = [ 'lat', 'lon' ]
@@ -26,9 +112,10 @@ class Domain:
             if cached_axis_range is None:
                 sizes[ iAxis ] = bounds[ iAxis ]
             elif isinstance( cached_axis_range, (list, tuple) ):
-                sizes[ iAxis ] = cached_axis_range[1] - cached_axis_range[0]
-            elif isinstance( cached_axis_range, float ):
-                sizes[ iAxis ] = 0.0
+                if (len( cached_axis_range ) == 1):
+                    sizes[ iAxis ] = 0.0
+                else:
+                    sizes[ iAxis ] = cached_axis_range[1] - cached_axis_range[0]
         return sizes[ 0 ] * sizes[ 1 ]
 
     def cacheRequestSubmitted( self, cache_queue = None ):
@@ -41,23 +128,6 @@ class Domain:
 
     def getCacheStatus(self):
         return self.cache_queue, self.cache_request_status
-
-    def getAxisRange( self, axis_name ):
-        return self.axes.get( axis_name, None )
-
-    def process_spec(self):
-        for spec_item in self.spec.items():
-            key = spec_item[0].lower()
-            if key.startswith('lat'):
-                self.axes['lat'] = spec_item[1]
-            elif key.startswith('lon'):
-                self.axes['lon'] = spec_item[1]
-            elif key.startswith('lev'):
-                self.axes['lev'] = spec_item[1]
-            elif key.startswith('time'):
-                self.axes['time'] = spec_item[1]
-            elif key.startswith('grid'):
-                self.axes['grid'] = spec_item[1]
 
     def overlap(self, new_domain ):  # self = cached domain
         for grid_axis in [ 'lat', 'lon', 'lev' ]:
@@ -72,8 +142,8 @@ class Domain:
         return self.CONTAINED
 
     def compare_axes(self, axis_label, cached_axis_range, new_axis_range ):
-        if isinstance( new_axis_range, float ):
-            if isinstance( cached_axis_range, float  ):
+        if len( new_axis_range ) == 1:
+            if len( cached_axis_range ) == 1:
                 return 1.0 if cached_axis_range == new_axis_range else 0.0
             else:
                 return 1.0 if (( new_axis_range >= cached_axis_range[0] ) and ( new_axis_range <= cached_axis_range[1] )) else 0.0
