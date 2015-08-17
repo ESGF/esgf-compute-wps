@@ -59,11 +59,11 @@ class CeleryEngine( Executable ):
                 if cache_request.status == 'FAILURE':
                     cLog.debug( "Task %s(%s) Failed:\n>> '%s'  \n>> %s " % ( cache_request.task_name, cache_request.id, cache_request.result,  cache_request.traceback ) )
                 else:
-                    result = cache_request.get()
-                    if result is None:
+                    results = cache_request.get()
+                    if not results:
                         cLog.debug( " ***** Empty cache_request for task '%s', status = '%s':\n %s " % ( cache_request.id, cache_request.status, str(cache_request) ) )
                     else:
-                        worker = result['worker']
+                        worker = results[0]['worker']
                         cached_domain.cacheRequestComplete( worker )
                         completed_requests.append( cache_request )
                         self.setWorkerStatus( worker, self.WSTAT_FREE )
@@ -118,39 +118,42 @@ class CeleryEngine( Executable ):
             self.processPendingTasks()
             designated_worker = None
             cLog.debug( " ***** Executing Celery engine (t=%.2f), args: %s" % ( t0, run_args ) )
-            var_mdata = get_json_arg( 'data', run_args )
+            dset_mdata = get_json_arg( 'data', run_args )
             region = get_json_arg( 'region', run_args )
             operation = get_json_arg( 'operation', run_args )
-            id = var_mdata.get('id','')
-            collection = var_mdata.get('collection',None)
-            url = var_mdata.get('url','')
-            var_cache_id = ":".join( [collection,id] ) if (collection is not None) else ":".join( [url,id] )
-            if var_cache_id <> ":":
-                cached_var,cached_domain = self.findCachedDomain( var_cache_id, region, run_args )
-                if cached_domain is None:
-                    if operation:
-                        cache_op_args = { 'data':var_mdata }
-                        cache_region = None
+            if not isinstance( dset_mdata, (list, tuple) ):  dset_mdata = [ dset_mdata ]
+
+            for var_mdata in dset_mdata:
+                id = var_mdata.get('id','')
+                collection = var_mdata.get('collection',None)
+                url = var_mdata.get('url','')
+                var_cache_id = ":".join( [collection,id] ) if (collection is not None) else ":".join( [url,id] )
+                if var_cache_id <> ":":
+                    cached_var,cached_domain = self.findCachedDomain( var_cache_id, region, run_args )
+                    if cached_domain is None:
+                        if operation:
+                            cache_op_args = { 'data':var_mdata }
+                            cache_region = None
+                        else:
+                            cache_op_args = { 'region':region, 'data':var_mdata }
+                            cache_region = region
+                        tc0 = time.time()
+                        cache_worker = self.getNextWorker()
+                        cache_request = execute.apply_async( (cache_op_args,), exchange='C.dq', routing_key=cache_worker )
+                        tc01 = time.time()
+                        self.setWorkerStatus( cache_worker, self.WSTAT_CACHE )
+                        cached_domain = cached_var.addDomain( cache_region )
+                        self.pendingTasks[ cache_request ] = cached_domain
+                        self.cache()
+                        tc1 = time.time()
+                        cLog.debug( " ***** Caching data [tid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_request.id, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
                     else:
-                        cache_op_args = { 'region':region, 'data':var_mdata }
-                        cache_region = region
-                    tc0 = time.time()
-                    cache_worker = self.getNextWorker()
-                    cache_request = execute.apply_async( (cache_op_args,), exchange='C.dq', routing_key=cache_worker )
-                    tc01 = time.time()
-                    self.setWorkerStatus( cache_worker, self.WSTAT_CACHE )
-                    cached_domain = cached_var.addDomain( cache_region )
-                    self.pendingTasks[ cache_request ] = cached_domain
-                    self.cache()
-                    tc1 = time.time()
-                    cLog.debug( " ***** Caching data [tid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_request.id, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
-                else:
-                    worker_id, cache_request_status = cached_domain.getCacheStatus()
-                    if (cache_request_status == Domain.COMPLETE) or ( cached_var.cacheType() == CachedVariable.CACHE_OP ):
-                        designated_worker = worker_id
-                        cLog.debug( " ***** Found cached data on worker %s " %  worker_id )
-                    else:
-                        cLog.debug( " ***** Found cache op on worker %s, data not ready " %  worker_id )
+                        worker_id, cache_request_status = cached_domain.getCacheStatus()
+                        if (cache_request_status == Domain.COMPLETE) or ( cached_var.cacheType() == CachedVariable.CACHE_OP ):
+                            designated_worker = worker_id
+                            cLog.debug( " ***** Found cached data on worker %s " %  worker_id )
+                        else:
+                            cLog.debug( " ***** Found cache op on worker %s, data not ready " %  worker_id )
 
             if operation:
                 t2 = time.time()
@@ -172,7 +175,7 @@ class CeleryEngine( Executable ):
 
                 result = task.get()
                 t1 = time.time()
-                cLog.debug( " ***** Retrieved result [tid:%s] from worker '%s' (t = %.2f, dt1 = %.3f)" %  ( task.id, result['worker'], t1, t1-t2 ) )
+                cLog.debug( " ***** Retrieved result [tid:%s] from worker '%s' (t = %.2f, dt1 = %.3f)" %  ( task.id, result[0]['worker'], t1, t1-t2 ) )
                 return result
 
             else:

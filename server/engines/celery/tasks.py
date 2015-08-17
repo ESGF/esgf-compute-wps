@@ -2,7 +2,7 @@ import cdms2
 import cdutil
 
 from celery import Celery
-from engines.celery import celeryconfig
+import celeryconfig
 from base_task import DomainBasedTask
 from engines.kernels.manager import kernelMgr
 from billiard import current_process
@@ -24,9 +24,9 @@ app.conf.update(
 @app.task(base=DomainBasedTask,name='tasks.execute')
 def execute( run_args ):
     worker = getWorkerName()
-    result = kernelMgr.run( run_args )
-    if result: result['worker'] = worker
-    return result
+    results = kernelMgr.run( run_args )
+    if results: results[0]['worker'] = worker
+    return results
 
 # @app.task(base=DomainBasedTask,name='tasks.mergeResults')
 # def mergeResults( result_list ):

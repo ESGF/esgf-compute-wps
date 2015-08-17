@@ -17,6 +17,12 @@ def convert_json_str( json_arg ):
     except:
         wpsLog.error( "Can't recognize json '%s' " % ( str(json_arg) ) )
 
+def dump_json_str( obj ):
+    try:
+        return json.dumps( obj ) if not isinstance(obj, basestring) else obj
+    except:
+        wpsLog.error( "Can't serialize object '%s' " % ( str(obj) ) )
+
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
     for attr_name in attr_name_list:

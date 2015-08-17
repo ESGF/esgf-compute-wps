@@ -1,12 +1,17 @@
-from modules.utilities import  convert_json_str, wpsLog
+from modules.utilities import  *
 
 class Region:
 
     def __init__( self, region_spec={} ):
-        self.spec = convert_json_str( region_spec ) if isinstance( region_spec, basestring ) else region_spec
+        self.spec = convert_json_str( region_spec ) if isinstance( region_spec, basestring ) else region_spec.spec if isinstance( region_spec, Region ) else region_spec
         self.axes = {}
         self.tolerance=0.001
         self.process_spec()
+
+    def __repr__(self):
+        return dump_json_str(self.spec)
+
+    __str__ = __repr__
 
     @classmethod
     def regularize( cls, values ):

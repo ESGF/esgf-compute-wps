@@ -25,19 +25,15 @@ class DataAnalytics:
         # }
 
 
-    def run( self, run_args ):
+    def run( self, data, region, operation ):
         wpsLog.debug( " DataAnalytics RUN, time = %.3f " % time.time() )
-        data = get_json_arg( 'data', run_args )
-        operation = get_json_arg( 'operation', run_args )
         result_obj = {}
         try:
             if operation:
                 raise Exception( "Error, processing operation with undefined kernel: " + operation )
             else:
                 read_start_time = time.time()
-                vardata = run_args.get( "dataSlice", None )
-                if vardata is not None: data['variable'] = vardata
-                variable, result_obj = dataManager.loadVariable( **run_args )
+                variable, result_obj = dataManager.loadVariable( data, region, cache_type )
                 read_end_time = time.time()
                 wpsLog.debug( " $$$ DATA CACHE Complete: " + str( (read_end_time-read_start_time) ) )
 

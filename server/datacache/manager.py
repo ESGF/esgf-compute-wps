@@ -125,7 +125,7 @@ class DataManager:
                     else:
                         variable = domain.data
                         data_specs['dataset']  = domain.spec.get( 'dataset', None )
-                        data_specs['region'] = domain.getRegion()
+                        data_specs['region'] = str(domain.getRegion())
                     data_specs['cache_id']  = var_cache_id
                 else:
                     wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( data ) )
@@ -134,11 +134,11 @@ class DataManager:
             if (variable is None):
                 if (cache_type == CachedVariable.CACHE_NONE):
                     variable = dataset[id]
-                    data_specs['region'] = region
+                    data_specs['region'] = str(region)
                 else:
                     load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
                     variable = load_variable_region( dataset, id, load_region.toCDMS() )
-                    data_specs['region'] = load_region
+                    data_specs['region'] = str(load_region)
 
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
         else:

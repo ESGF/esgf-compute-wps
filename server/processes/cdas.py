@@ -34,12 +34,13 @@ class Process(CDASProcess):
                 wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
                 handler = stagingRegistry.getInstance( 'local' )
             result_obj =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': configuration.CDAS_COMPUTE_ENGINE } )
-            self.result.setValue( json.dumps( result_obj ) )
+            wpsLog.debug( " $$$*** CDAS Process (response time: %.3f sec):\n Result='%s' " %  ( (time.time()-t0), str(result_obj) ) )
+            result_json = json.dumps( result_obj )
+            self.result.setValue( result_json )
         except Exception, err:
              wpsLog.debug( "Exception executing CDAS process:\n " + traceback.format_exc() )
              self.result.setValue( '' )
 
-        wpsLog.debug( " $$$*** CDAS Process (response time: %.3f sec): Result='%s' " %  ( (time.time()-t0), self.result.value ) )
 
 
 

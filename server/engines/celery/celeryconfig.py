@@ -1,4 +1,3 @@
-from kombu import Queue
 from modules.configuration import CDAS_CELERY_BACKEND
 ## Broker settings.
 

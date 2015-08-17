@@ -23,31 +23,36 @@ class TimeseriesAnalytics( DataAnalytics ):
         scaled_variable = ( variable - minval ) * scale
         return { 'range': [ minval, maxval ], 'data': scaled_variable.tolist( numpy.nan ) }
 
-    def run( self, data, region, operation ):
+    def run( self, data, region, operations ):
         wpsLog.debug( " TimeseriesAnalytics RUN, time = %.3f " % time.time() )
-        result_obj = data['result']
+        if not isinstance(operations, (list, tuple)): operations = [ operations ]
+        results = []
         try:
-            start_time = time.time()
             [ subsetted_variable ] = data['variables']
-            ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
-            #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+            for operation in operations:
+                start_time = time.time()
+                result_obj = dict( data['result'] )
+                ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
+                #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
-            if time_axis is not None:
-                time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
-                time_data = time_axis.getValue().tolist()
-                try:
-                    time_obj['t0'] = time_data[0]
-                    time_obj['dt'] = time_data[1] - time_data[0]
-                except Exception, err:
-                    time_obj['data'] = time_data
-                result_obj['time'] = time_obj
-            result_obj['data'] = result_data
-            end_time = time.time()
-            wpsLog.debug( " $$$ Execution complete, total time: %.2f sec [%.2f]", (end_time-start_time), end_time )
+                if time_axis is not None:
+                    time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
+                    time_data = time_axis.getValue().tolist()
+                    try:
+                        time_obj['t0'] = time_data[0]
+                        time_obj['dt'] = time_data[1] - time_data[0]
+                    except Exception, err:
+                        time_obj['data'] = time_data
+                    result_obj['time'] = time_obj
+                result_obj['data'] = result_data
+                results.append( result_obj )
+                end_time = time.time()
+                wpsLog.debug( " $$$ Execution complete, total time: %.2f sec [%.2f]", (end_time-start_time), end_time )
 
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
-        return result_obj
+
+        return results
 
     def applyOperation( self, input_variable, operation ):
         result = None
@@ -56,7 +61,7 @@ class TimeseriesAnalytics( DataAnalytics ):
             operator = None
             time_axis = None
 #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
-            wpsLog.debug( " $$$ ApplyOperation: %s " % str( operation ) )
+            wpsLog.debug( " $$$ ApplyOperation: %s to variable shape %s" % ( str( operation ), str(input_variable.shape) ) )
             if operation is not None:
                 type = operation.get('type','').lower()
                 bounds = operation.get('bounds','').lower()
@@ -109,11 +114,11 @@ class TimeseriesAnalytics( DataAnalytics ):
                     if time_axis is None:
                         time_axis = result.getTime()
                 op_end_time = time.clock() # time.time()
-                wpsLog.debug( " ---> Base Operation Time: %.5f" % (op_end_time-op_start_time) )
-                if math.isnan( result[0] ):
-                    pp = pprint.PrettyPrinter(indent=4)
-                    print "\n ---------- NaN in Result, Input: ---------- "
-                    print str( input_variable.data )
+                wpsLog.debug( " ---> Base Operation Time: %.5f, result = %s " % ( op_end_time-op_start_time, str(result) ) )
+                # if math.isnan( result[0] ):
+                #     pp = pprint.PrettyPrinter(indent=4)
+                #     print "\n ---------- NaN in Result, Input: ---------- "
+                #     print str( input_variable.data )
             else:
                 result = input_variable
                 time_axis = input_variable.getTime()

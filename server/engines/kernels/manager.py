@@ -15,7 +15,7 @@ class KernelManager:
         use_cache =  get_json_arg( 'cache', run_args, True )
         cache_type = CachedVariable.getCacheType( use_cache, operation )
         variable, result_obj = dataManager.loadVariable( data, region, cache_type )
-        cached_region = result_obj['region']
+        cached_region = Region( result_obj['region'] )
         if cached_region <> region:
             variable = numpy.ma.fix_invalid( variable( **region.getCDMS() ) )
         data['variables'] = [ variable ]
@@ -28,16 +28,18 @@ class KernelManager:
         data, region, operation = self.getKernelInputs( run_args )
         kernel = self.getKernel( operation )
         if kernel:
-            result = kernel.run( data, region, operation )
-            return result
+            return kernel.run( data, region, operation )
+        else:
+            return [ data['result'] ]
 
     def getKernel( self, operation ):
         if operation:
-            if operation.get('kernel','base') == 'time':
+            op0 = operation[0]
+            if op0.get('kernel','base') == 'time':
                 from timeseries_analysis import TimeseriesAnalytics
                 return TimeseriesAnalytics()
             else:
-                raise Exception( "No compute kernel found for operation %s" % str(operation) )
+                raise Exception( "No compute kernel found for operations %s" % str(operation) )
 
     def processOperations( self, operations_spec ):
         op_spec_list = operations_spec.split(';')
