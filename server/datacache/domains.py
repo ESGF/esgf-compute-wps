@@ -8,10 +8,8 @@ class Region:
         self.tolerance=0.001
         self.process_spec()
 
-    def __repr__(self):
+    def __str__( self ):
         return dump_json_str(self.spec)
-
-    __str__ = __repr__
 
     @classmethod
     def regularize( cls, values ):
@@ -149,10 +147,10 @@ class Domain(Region):
     def compare_axes(self, axis_label, cached_axis_range, new_axis_range ):
         if len( new_axis_range ) == 1:
             if len( cached_axis_range ) == 1:
-                return 1.0 if cached_axis_range == new_axis_range else 0.0
+                return 1.0 if cached_axis_range[0] == new_axis_range[0] else 0.0
             else:
-                return 1.0 if (( new_axis_range >= cached_axis_range[0] ) and ( new_axis_range <= cached_axis_range[1] )) else 0.0
-        elif isinstance( cached_axis_range, float ):
+                return 1.0 if (( new_axis_range[0] >= cached_axis_range[0] ) and ( new_axis_range[0] <= cached_axis_range[1] )) else 0.0
+        elif len( cached_axis_range ) == 1:
             return 0.0
 
         if (new_axis_range[0] <= cached_axis_range[0]):

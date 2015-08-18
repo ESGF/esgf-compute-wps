@@ -114,7 +114,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                     if time_axis is None:
                         time_axis = result.getTime()
                 op_end_time = time.clock() # time.time()
-                wpsLog.debug( " ---> Base Operation Time: %.5f, result = %s " % ( op_end_time-op_start_time, str(result) ) )
+                wpsLog.debug( " ---> Base Operation Time: %.5f, result shape = %s " % ( op_end_time-op_start_time, str(result.shape) ) )
                 # if math.isnan( result[0] ):
                 #     pp = pprint.PrettyPrinter(indent=4)
                 #     print "\n ---------- NaN in Result, Input: ---------- "

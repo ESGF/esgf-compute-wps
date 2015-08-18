@@ -102,7 +102,7 @@ class DataManager:
         id =  data.get( 'id', None )
         variable = data.get('variable',None)
         t0 = time.time()
-        wpsLog.debug( " #@@ DataManager:LoadVariable %s (time = %.2f)" %  ( str( data ), t0 ) )
+        wpsLog.debug( " #@@ DataManager:LoadVariable %s (time = %.2f), region = [%s], cache_type = %d" %  ( str( data ), t0, str(region), cache_type ) )
         if variable is None:
             url = data.get('url',None)
             if url is not None:

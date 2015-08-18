@@ -2,7 +2,7 @@ from modules.utilities import *
 from modules import configuration
 from datacache.manager import dataManager, CachedVariable
 from datacache.domains import Region
-import time
+import time, sys
 
 class KernelManager:
 
@@ -17,7 +17,7 @@ class KernelManager:
         variable, result_obj = dataManager.loadVariable( data, region, cache_type )
         cached_region = Region( result_obj['region'] )
         if cached_region <> region:
-            variable = numpy.ma.fix_invalid( variable( **region.getCDMS() ) )
+            variable = numpy.ma.fix_invalid( variable( **region.toCDMS() ) )
         data['variables'] = [ variable ]
         data['result'] = result_obj
         read_end_time = time.time()
@@ -25,12 +25,16 @@ class KernelManager:
         return data, region, operation
 
     def run( self, run_args ):
+        wpsLog.debug( " $$$ Kernel Manager Execution: run args = %s " % str(run_args) )
+        start_time = time.time()
         data, region, operation = self.getKernelInputs( run_args )
         kernel = self.getKernel( operation )
-        if kernel:
-            return kernel.run( data, region, operation )
-        else:
-            return [ data['result'] ]
+        result =  kernel.run( data, region, operation ) if kernel else [ data['result'] ]
+        end_time = time.time()
+        wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
+        return result
+
+
 
     def getKernel( self, operation ):
         if operation:
@@ -66,3 +70,13 @@ class KernelManager:
 
 
 kernelMgr = KernelManager()
+
+if __name__ == "__main__":
+    wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
+    wpsLog.setLevel(logging.DEBUG)
+
+    run_args = {'data': {'id': 'hur', 'collection': 'MERRA/mon/atmos'}, 'region': { "longitude": [ -60.0, 0.0 ], "latitude": [ 30.0, 90.0 ] } }
+    kernelMgr.run( run_args )
+
+    run_args = { 'engine': 'celery', 'region': '{"longitude":-33.4625,"latitude":46.0625,"level":100000}', 'data': '{"collection":"MERRA/mon/atmos","id":"hur"}', 'operation': '[{"kernel":"time", "type":"departures",  "bounds":"np"}, {"kernel":"time", "type":"climatology", "bounds":"annualcycle"}]'}
+    kernelMgr.run( run_args )
