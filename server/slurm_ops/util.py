@@ -71,6 +71,7 @@ def saveVariable(data,fout):
     f.close()
 
 def breakpoint():
+    import pydevd
     pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
 
