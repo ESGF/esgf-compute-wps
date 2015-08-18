@@ -9,6 +9,9 @@ import glob
 import threading
 import subprocess
 from processes.cdasProcess import wpsLog
+from django import template
+from django.template.loader import get_template
+
 enable_debug=False
 if enable_debug:
     import pydevd
@@ -69,6 +72,11 @@ def status(request):
     st+="</ul>%s " % processes
 
     return HttpResponse(st)
+
+def view_main(request):
+    t = get_template("test_urls.html")
+    html = t.render()
+    return HttpResponse(html)
 
 def view_process(request,id):
     nm = "out_%s.txt" % id
