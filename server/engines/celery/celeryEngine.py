@@ -3,7 +3,7 @@ from tasks import execute, simpleTest
 from modules.utilities import *
 from datacache.manager import CachedVariable
 from datacache.status_cache import  StatusCacheManager
-from datacache.domains import Domain
+from datacache.domains import Domain, Region
 import celery, pickle, os, traceback
 cLog = logging.getLogger('celery-debug')
 cLog.setLevel(logging.DEBUG)
@@ -119,7 +119,7 @@ class CeleryEngine( Executable ):
             designated_worker = None
             cLog.debug( " ***** Executing Celery engine (t=%.2f), args: %s" % ( t0, run_args ) )
             dset_mdata = get_json_arg( 'data', run_args )
-            region = get_json_arg( 'region', run_args )
+            op_region = Region( get_json_arg( 'region', run_args ) )
             operation = get_json_arg( 'operation', run_args )
             if not isinstance( dset_mdata, (list, tuple) ):  dset_mdata = [ dset_mdata ]
 
@@ -129,14 +129,15 @@ class CeleryEngine( Executable ):
                 url = var_mdata.get('url','')
                 var_cache_id = ":".join( [collection,id] ) if (collection is not None) else ":".join( [url,id] )
                 if var_cache_id <> ":":
-                    cached_var,cached_domain = self.findCachedDomain( var_cache_id, region, run_args )
+                    cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, run_args )
                     if cached_domain is None:
                         if operation:
-                            cache_op_args = { 'data':var_mdata }
-                            cache_region = None
-                        else:
+                            region = { 'level': op_region.getAxisRange('lev') }
                             cache_op_args = { 'region':region, 'data':var_mdata }
                             cache_region = region
+                        else:
+                            cache_op_args = { 'region':op_region.specs, 'data':var_mdata }
+                            cache_region = op_region
                         tc0 = time.time()
                         cache_worker = self.getNextWorker()
                         cache_request = execute.apply_async( (cache_op_args,), exchange='C.dq', routing_key=cache_worker )
@@ -164,7 +165,7 @@ class CeleryEngine( Executable ):
                 task = execute.apply_async( (run_args,), exchange='C.dq', routing_key=designated_worker )
 
                 self.setWorkerStatus( designated_worker, self.WSTAT_OP )
-                op_domain = cached_var.addDomain( region )
+                op_domain = cached_var.addDomain( op_region )
                 self.pendingTasks[ task ] = op_domain
                 self.cache()
 
@@ -206,10 +207,8 @@ def run_test():
 
     variable =  { 'collection': 'MERRA/mon/atmos', 'id': 'clt' }
 
-    region1    = { "longitude":-24.20, "latitude":58.45 }
-    region2    = { "longitude":-30.20, "latitude":67.45 }
-    cache_region    = { "longitude": [ -60.0, 0.0 ], "latitude": [ 30.0, 90.0 ] }
-
+    region1    = { "longitude":-24.20, "latitude":58.45, "level": 10000.0 }
+    region2    = { "longitude":-30.20, "latitude":67.45, "level": 8500.0 }
     op_annual_cycle =  {"kernel":"time", "type":"climatology", "bounds":"annualcycle"}
     op_departures =  {"kernel":"time", "type":"departures",  "bounds":"np"}
 
@@ -238,7 +237,7 @@ def run_test():
             run_async = True
             if run_async:
                 t0 = time.time()
-                run_args1 = { 'data': variable, 'region':region2, 'operation': op_departures }
+                run_args1 = { 'data': variable, 'region':region1, 'operation': op_departures }
                 task1 = engine.execute( run_args1, async=True )
 
                 run_args2 = { 'data': variable, 'region':region2, 'operation': op_annual_cycle }

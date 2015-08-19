@@ -60,6 +60,7 @@ class Region:
                 self.axes['grid'] = v
 
     def __eq__(self, reqion1 ):
+        if reqion1 is None: return False
         for k0,r0 in self.axes.iteritems():
             r1 = reqion1.getAxisRange( k0 )
             if not r1: return False

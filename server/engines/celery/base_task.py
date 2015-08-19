@@ -9,9 +9,9 @@ class DomainBasedTask(Task):
     def __init__(self):
         Task.__init__(self)
 
-    def on_success(self, retval, task_id, args, kwargs):
-        logger.debug( " !!!!!!!!! Task %s SUCCESSSSSSSSS, rv: %s " % ( task_id, str(retval) ) )
- #       self.processPendingTask( task_id, retval )
+ #    def on_success(self, retval, task_id, args, kwargs):
+ #        logger.debug( " !!!!!!!!! Task %s SUCCESSSSSSSSS, rv: %s " % ( task_id, str(retval) ) )
+ # #       self.processPendingTask( task_id, retval )
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logger.error( " Task %s failure, Error: %s " % ( task_id, str(einfo) ) )

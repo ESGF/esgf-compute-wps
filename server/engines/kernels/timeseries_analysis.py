@@ -46,8 +46,9 @@ class TimeseriesAnalytics( DataAnalytics ):
                     result_obj['time'] = time_obj
                 result_obj['data'] = result_data
                 results.append( result_obj )
-                end_time = time.time()
-                wpsLog.debug( " $$$ Execution complete, total time: %.2f sec [%.2f]", (end_time-start_time), end_time )
+
+            end_time = time.time()
+            wpsLog.debug( " $$$ Execution complete, total time: %.2f sec [%.2f]", (end_time-start_time), end_time )
 
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
@@ -56,12 +57,13 @@ class TimeseriesAnalytics( DataAnalytics ):
 
     def applyOperation( self, input_variable, operation ):
         result = None
+        rshape = None
+        t0 = time.time()
         try:
             self.setTimeBounds( input_variable )
             operator = None
             time_axis = None
 #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
-            wpsLog.debug( " $$$ ApplyOperation: %s to variable shape %s" % ( str( operation ), str(input_variable.shape) ) )
             if operation is not None:
                 type = operation.get('type','').lower()
                 bounds = operation.get('bounds','').lower()
@@ -125,13 +127,16 @@ class TimeseriesAnalytics( DataAnalytics ):
 
             if isinstance( result, float ):
                 result_data = [ result ]
+                rshape = [ 1 ]
             elif result is not None:
                 if result.__class__.__name__ == 'TransientVariable':
                     result = ma.masked_equal( result.squeeze().getValue(), input_variable.getMissing() )
                 result_data = result.tolist( numpy.nan )
+                rshape = result.shape
             else:
                 result_data = None
                 time_axis = input_variable.getTime()
+                rshape = "None"
         except Exception, err:
             wpsLog.debug( "Exception applying Operation '%s':\n %s" % ( str(operation), traceback.format_exc() ) )
             return ( None, None )
@@ -142,6 +147,8 @@ class TimeseriesAnalytics( DataAnalytics ):
                 newunits = "%s since 1970-1-1" % units[0]
                 time_axis.toRelativeTime(newunits)
         rv = input_variable if result is None else result_data
+        t1 = time.time()
+        wpsLog.debug( " $$$ Applied Operation: %s to variable shape %s in time %.2f, result shape = %s" % ( str( operation ), str(input_variable.shape), (t1-t0), rshape ) )
         return ( rv, time_axis )
 
     def setTimeBounds( self, var ):

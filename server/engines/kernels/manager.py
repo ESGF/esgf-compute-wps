@@ -11,6 +11,7 @@ class KernelManager:
         data = get_json_arg( 'data', run_args )
         region = Region( run_args.get('region', None ) )
         operation = get_json_arg( 'operation', run_args )
+        if isinstance( operation, basestring ): operation = operation.strip()
         read_start_time = time.time()
         use_cache =  get_json_arg( 'cache', run_args, True )
         cache_type = CachedVariable.getCacheType( use_cache, operation )
@@ -37,6 +38,7 @@ class KernelManager:
 
 
     def getKernel( self, operation ):
+        wpsLog.debug( " $$$ Get Kernel for op <%s> " % str(operation) )
         if operation:
             op0 = operation[0]
             if op0.get('kernel','base') == 'time':
@@ -75,8 +77,15 @@ if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
     wpsLog.setLevel(logging.DEBUG)
 
-    run_args = {'data': {'id': 'hur', 'collection': 'MERRA/mon/atmos'}, 'region': { "longitude": [ -60.0, 0.0 ], "latitude": [ 30.0, 90.0 ] } }
+    run_args =  {   'data': {'id': 'hur', 'collection': 'MERRA/mon/atmos'},
+                    'region': {'level': [100000.0]},
+                }
     kernelMgr.run( run_args )
 
-    run_args = { 'engine': 'celery', 'region': '{"longitude":-33.4625,"latitude":46.0625,"level":100000}', 'data': '{"collection":"MERRA/mon/atmos","id":"hur"}', 'operation': '[{"kernel":"time", "type":"departures",  "bounds":"np"}, {"kernel":"time", "type":"climatology", "bounds":"annualcycle"}]'}
+    run_args =  { 'engine': 'celery',
+                  'region': '{"longitude": -137.09327695888, "latitude": 35.487604770915, "level": 85000}',
+                  'data': '{"collection": "MERRA/mon/atmos", "id": "hur"}',
+                  'operation': '[  {"kernel": "time", "type": "departures",  "bounds":"np"}, '
+                                  '{"kernel":"time", "type":"climatology", "bounds":"annualcycle"} ]'
+                }
     kernelMgr.run( run_args )

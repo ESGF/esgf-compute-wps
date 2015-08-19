@@ -6,10 +6,10 @@ wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(DefaultLogLevel)
 if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.join( LogDir, 'wps.log') ) )
 
-def get_json_arg( id, args, default="" ):
+def get_json_arg( id, args, default=None ):
         json_arg = args.get( id, None )
         if json_arg is not None: return convert_json_str( json_arg )
-        return default if json_arg is None else json_arg
+        return default if json_arg is None else str(json_arg)
 
 def convert_json_str( json_arg ):
     try:

@@ -6,12 +6,18 @@ import numpy
 
 import cdms2, time
 
-def load_variable_region( dataset, name, cdms2_cache_args=None ):   # TODO
-    wpsLog.debug( " $$$ Loading Variable '%s', region: '%s'  " %  ( name, cdms2_cache_args ) )
+def load_variable_region( dataset, name, cdms2_cache_args=None ):
     t0 = time.time()
     rv = numpy.ma.fix_invalid( dataset( name, **cdms2_cache_args ) )
     t1 = time.time()
     wpsLog.debug( " $$$ Variable '%s' %s loaded from dataset '%s' --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, (t1-t0) ) )
+    return rv
+
+def subset_variable_region( variable, cdms2_cache_args=None ):
+    t0 = time.time()
+    rv = numpy.ma.fix_invalid( variable( **cdms2_cache_args ) )
+    t1 = time.time()
+    wpsLog.debug( " $$$ Variable '%s' subsetted (%s -> %s): TIME: %.2f " %  ( variable.id, str(variable.shape), str(rv.shape), (t1-t0) ) )
     return rv
 
 class CachedVariable:
@@ -140,6 +146,10 @@ class DataManager:
                     variable = load_variable_region( dataset, id, load_region.toCDMS() )
                     data_specs['region'] = str(load_region)
 
+            elif (cache_type == CachedVariable.CACHE_OP) and (region is not None):
+                variable = subset_variable_region( variable, region.toCDMS() )
+                data_specs['region'] = str(region)
+
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
         else:
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
@@ -148,7 +158,7 @@ class DataManager:
             data_specs['cache_type'] = cache_type
             self.cacheManager.addVariable( var_cache_id, variable, data_specs )
         t1 = time.time()
-        wpsLog.debug( " #@@ DataManager:FinishedLoadVariable %s (time = %.2f, dt = %.2f)" %  ( str( data_specs ), t1, (t1-t0) ) )
+        wpsLog.debug( " #@@ DataManager:FinishedLoadVariable %s (time = %.2f, dt = %.2f), shape = %s" %  ( str( data_specs ), t1, (t1-t0), str(variable.shape) ) )
         return variable, data_specs
 
     def loadFileFromCollection( self, collection, id=None ):

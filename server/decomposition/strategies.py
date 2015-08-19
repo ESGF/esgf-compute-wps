@@ -19,6 +19,7 @@ class SpaceStrategy( DecompositionStrategy ):
         DecompositionStrategy.__init__( self, **args )
 
     def getNodeRegion( self, global_region, inode=0, num_nodes=configuration.CDAS_DEFAULT_NUM_NODES ):
+        return global_region
         if global_region == None: return None
         node_region = global_region
         for dim_name, range_val in global_region.items():
