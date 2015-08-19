@@ -110,6 +110,7 @@ def getRequestParms( request ):
   return parmMap
 
 def wps(request):
+  print "DO WE EVEN COME HERE",os.getcwd()
   rndm = random.randint(0,100000000000)
   out = open("out_%i.txt" % rndm, "w")
   err = open("err_%i.txt" % rndm, "w")
@@ -123,17 +124,21 @@ def wps(request):
   else:
       T.join()
       out = open("out_%i.txt" % rndm)
+      print "READING IN:",out
       st = out.read()
       out.close()
-      os.remove("out_%i.txt" % rndm)
-      os.remove("err_%i.txt" % rndm)
+      #os.remove("out_%i.txt" % rndm)
+      #os.remove("err_%i.txt" % rndm)
       return HttpResponse(st)
 
 def run_wps(request,out,err,rndm):
   inputQuery = request.META["QUERY_STRING"]
+  print "QUERY:",inputQuery,rndm,out,err
   P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
   P.wait()
+  print "Colsing:",out
   out.close()
+  print "Colsing:",err
   err.close()
   
 if __name__ == "__main__":

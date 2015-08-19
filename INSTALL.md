@@ -147,7 +147,36 @@ Change the path to your logs
 ```
 python manage.py runserver
 ```
+point your browser to the [Home Page](http://localhost:8000/)
 
+## Step 7: Deploy in Apache
+
+### Intro
+
+More detailed info can be found [here](https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/modwsgi/)
+
+### edit conf file
+
+```
+vi /usr/local/wps_cwt/apache/2.4.16/conf/httpd.conf
+```
+
+add the following (adapted to your path)
+
+```
+# Mod_wsgi for Django
+WSGIScriptAlias / /export/doutriaux1/git/wps_wsgi/server/wps/wsgi.py
+WSGIPythonPath /export/doutriaux1/git/wps_wsgi/server/wps
+
+<Directory /export/doutriaux1/git/wps_wsgi/server/wps
+<Files wsgi.py>
+Require all granted
+</Files>
+</Directory>
+
+WSGIDaemonProcess aims2.llnl.gov python-path=/export/doutriaux1/git/wps_wsgi/server/wps
+WSGIProcessGroup aims2.llnl.gov
+```
 
 
 
