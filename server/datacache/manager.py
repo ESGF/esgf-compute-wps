@@ -14,10 +14,11 @@ def load_variable_region( dataset, name, cdms2_cache_args=None ):
     return rv
 
 def subset_variable_region( variable, cdms2_cache_args=None ):
+    wpsLog.debug( " $$$ Subsetting Variable '%s' (%s): args='%s' " %  ( variable.id, str(variable.shape), str(cdms2_cache_args) ) )
     t0 = time.time()
     rv = numpy.ma.fix_invalid( variable( **cdms2_cache_args ) )
     t1 = time.time()
-    wpsLog.debug( " $$$ Variable '%s' subsetted (%s -> %s): TIME: %.2f " %  ( variable.id, str(variable.shape), str(rv.shape), (t1-t0) ) )
+    wpsLog.debug( "    ---->>> Subset-> %s: TIME: %.2f " %  ( str(rv.shape), (t1-t0) ) )
     return rv
 
 class CachedVariable:

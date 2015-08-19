@@ -24,7 +24,6 @@ class TimeseriesAnalytics( DataAnalytics ):
         return { 'range': [ minval, maxval ], 'data': scaled_variable.tolist( numpy.nan ) }
 
     def run( self, data, region, operations ):
-        wpsLog.debug( " TimeseriesAnalytics RUN, time = %.3f " % time.time() )
         if not isinstance(operations, (list, tuple)): operations = [ operations ]
         results = []
         try:
@@ -48,7 +47,6 @@ class TimeseriesAnalytics( DataAnalytics ):
                 results.append( result_obj )
 
             end_time = time.time()
-            wpsLog.debug( " $$$ Execution complete, total time: %.2f sec [%.2f]", (end_time-start_time), end_time )
 
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
@@ -116,7 +114,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                     if time_axis is None:
                         time_axis = result.getTime()
                 op_end_time = time.clock() # time.time()
-                wpsLog.debug( " ---> Base Operation Time: %.5f, result shape = %s " % ( op_end_time-op_start_time, str(result.shape) ) )
+                wpsLog.debug( " ---> Analysis Operation Computation Time: %.5f, result shape = %s " % ( op_end_time-op_start_time, str(result.shape) ) )
                 # if math.isnan( result[0] ):
                 #     pp = pprint.PrettyPrinter(indent=4)
                 #     print "\n ---------- NaN in Result, Input: ---------- "

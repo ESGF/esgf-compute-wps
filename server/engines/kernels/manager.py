@@ -38,7 +38,6 @@ class KernelManager:
 
 
     def getKernel( self, operation ):
-        wpsLog.debug( " $$$ Get Kernel for op <%s> " % str(operation) )
         if operation:
             op0 = operation[0]
             if op0.get('kernel','base') == 'time':

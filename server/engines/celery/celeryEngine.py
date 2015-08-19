@@ -32,6 +32,9 @@ class CeleryEngine( Executable ):
         else:
             wspec['status'] = status
             wspec['tstamp'] = time.time()
+        if status == self.WSTAT_CACHE:
+            wspec['csize'] = wspec.get('csize', 0 ) + 1
+
 
     def getWorkerStatus( self, wid ):
         wspec = self.worker_specs.get( wid, None )
@@ -40,6 +43,21 @@ class CeleryEngine( Executable ):
             return None
         else:
             return wspec.get('status', self.WSTAT_FREE )
+
+    # def updateWorkerCacheSize( self, wid, additional_cache_size ):
+    #     wspec = self.worker_specs.get( wid, None )
+    #     if ( wspec is None ):
+    #         cLog.error( "Unrecognized worker ID in 'updateWorkerCacheSize': %s" % ( wid ) )
+    #     else:
+    #         wspec['csize'] = wspec.get('csize', 0 ) + additional_cache_size
+    #
+    # def getWorkerCacheSize( self, wid ):
+    #     wspec = self.worker_specs.get( wid, None )
+    #     if ( wspec is None ):
+    #         cLog.error( "Unrecognized worker ID in 'getWorkerCacheSize': %s" % ( wid ) )
+    #         return None
+    #     else:
+    #         return wspec.get('csize', 0 )
 
     def restore(self):
         cache_data = self.statusCache.restore( 'cdas_celery_engine_cache' )
@@ -96,18 +114,23 @@ class CeleryEngine( Executable ):
         mdbg = False
         if mdbg: cLog.debug( "  %%%%%%%%%%%%%%%% GetNextWorker: ")
         operational_worker = None
+        free_worker = None
         op_worker_tstamp = float('Inf')
+        free_worker_cache_size = float('Inf')
         for worker, wspec in self.worker_specs.items():
             wstatus =  wspec.get('status', self.WSTAT_FREE )
             if mdbg: cLog.debug( "  >>-----> Worker: '%s', status: %d " % ( worker, wstatus) )
             if wstatus == self.WSTAT_FREE:
-                return worker
+                cache_size =  wspec.get( 'csize', 0 )
+                if(cache_size < free_worker_cache_size):
+                   free_worker =  worker
+                   free_worker_cache_size = cache_size
             elif wstatus == self.WSTAT_OP:
                 ts = wspec['tstamp']
                 if(ts < op_worker_tstamp):
                    operational_worker =  worker
                    op_worker_tstamp = ts
-        return operational_worker
+        return free_worker if free_worker is not None else operational_worker
 
     def execute( self, run_args, **args ):
         try:
