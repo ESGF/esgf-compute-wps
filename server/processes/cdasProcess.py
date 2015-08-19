@@ -12,11 +12,16 @@ cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 i
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 OutputDir = 'wpsoutputs'
-OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
+try:  # Apache chokes on this
+    OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
+except:
+    OutputPath = "/tmp"
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
-wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
-
+try:  # Apache chokes on this
+    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
+except:
+    pass
 class CDASProcess(WPSProcess):
     """Main process class"""
     def __init__(self):

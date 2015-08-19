@@ -149,7 +149,7 @@ python manage.py runserver
 ```
 point your browser to the [Home Page](http://localhost:8000/)
 
-## Step 7: Deploy in Apache
+## Step 7: Deploy in Apache (For production)
 
 ### Intro
 
@@ -165,17 +165,18 @@ add the following (adapted to your path)
 
 ```
 # Mod_wsgi for Django
-WSGIScriptAlias / /export/doutriaux1/git/wps_wsgi/server/wps/wsgi.py
-WSGIPythonPath /export/doutriaux1/git/wps_wsgi/server/wps
+WSGIScriptAlias / /export/doutriaux1/git/wps_cwt/server/wsgi.py
+WSGIPythonPath /export/doutriaux1/git/wps_cwt/server
 
-<Directory /export/doutriaux1/git/wps_wsgi/server/wps
+<Directory /export/doutriaux1/git/wps_cwt/server>
 <Files wsgi.py>
 Require all granted
 </Files>
 </Directory>
 
-WSGIDaemonProcess aims2.llnl.gov python-path=/export/doutriaux1/git/wps_wsgi/server/wps
+WSGIDaemonProcess aims2.llnl.gov python-path=/export/doutriaux1/git/wps_cwt/server
 WSGIProcessGroup aims2.llnl.gov
+
 ```
 
 
