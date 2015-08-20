@@ -1,5 +1,5 @@
 from modules import Executable
-from engines.kernels.manager import kernelMgr
+from kernels.manager import kernelMgr
 from modules.utilities import *
 
 from modules.utilities import wpsLog

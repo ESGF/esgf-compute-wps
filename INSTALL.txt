@@ -34,7 +34,7 @@ Run flask:
    >> cd /usr/local/web/WPCDAS/server/flask
    >> python manage.py
 
-   CDAS will now be receiving GET requests at http://localhost:5000/wps
+   CDAS will now be receiving GET requests at http://localhost:5000/cdas
 
 
 Using the celery compute and staging engine:

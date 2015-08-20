@@ -20,7 +20,7 @@ def get_request_datainputs():
     return inputs
 
 
-@app.route("/wps/")
+@app.route("/cdas/")
 def cdas():
     task_run_args = get_request_datainputs()
 

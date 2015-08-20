@@ -1,13 +1,11 @@
-import cdms2
-import cdutil
-
 from celery import Celery
+from billiard import current_process
+from celery.utils.log import get_task_logger
+
 import celeryconfig
 from base_task import DomainBasedTask
-from engines.kernels.manager import kernelMgr
-from billiard import current_process
-from modules.utilities import *
-from celery.utils.log import get_task_logger
+from kernels.manager import kernelMgr
+
 logger = get_task_logger('cdas')
 
 def getWorkerName():

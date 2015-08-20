@@ -1,6 +1,8 @@
+import logging
+import os
+
 from pyspark import SparkContext
-import cdms2, logging, os
-from engines.kernels.timeseries_analysis import TimeseriesAnalytics
+
 num_parts = 1
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
