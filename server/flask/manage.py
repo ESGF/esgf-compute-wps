@@ -21,7 +21,7 @@ def get_request_datainputs():
 
 
 @app.route("/wps/")
-def hello():
+def cdas():
     task_run_args = get_request_datainputs()
 
     data = task_run_args['data']
@@ -33,7 +33,7 @@ def hello():
     if handler is None:
         wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
         handler = stagingRegistry.getInstance( 'local' )
-    result_obj =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': 'celery' } )
+    result_obj =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': configuration.CDAS_COMPUTE_ENGINE } )
     wpsLog.debug( " $$$*** CDAS Process (response time: %.3f sec):\n Result='%s' " %  ( (time.time()-t0), str(result_obj) ) )
     result_json = json.dumps( result_obj )
 

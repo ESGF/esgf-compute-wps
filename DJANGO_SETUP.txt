@@ -7,7 +7,7 @@ Package installation:
   >> sudo mkdir /usr/local/web
   >> sudo chown <username> /usr/local/web
   >> cd /usr/local/web 
-  >> git clone git@github.com:ESGF/wps_cwt.git WPCDAS
+  >> git clone git@github.com:nasa-nccs-cds/cdas.git 
   >> chmod -R a+rX WPCDAS
   >> chmod -R a+w WPCDAS/server/logs
   >> cd WPCDAS

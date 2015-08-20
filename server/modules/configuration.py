@@ -1,10 +1,10 @@
 CDAS_APPLICATION = 'CreateV'
 
-CDAS_STAGING = 'local'
-
 CDAS_DEFAULT_DECOMP_STRATEGY = 'space.lon'
 
 CDAS_DEFAULT_NUM_NODES = 1
+
+CDAS_STAGING = 'local'
 #CDAS_STAGING = 'celery'
 
 CDAS_COMPUTE_ENGINE = 'celery'
