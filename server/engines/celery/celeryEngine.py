@@ -3,6 +3,7 @@ from tasks import execute, simpleTest
 from modules.utilities import *
 from datacache.manager import CachedVariable
 from datacache.status_cache import  StatusCacheManager
+from tasks.manager import TaskRequest
 from datacache.domains import Domain, Region
 import celery, pickle, os, traceback
 cLog = logging.getLogger('celery-debug')
@@ -132,7 +133,7 @@ class CeleryEngine( Executable ):
                    op_worker_tstamp = ts
         return free_worker if free_worker is not None else operational_worker
 
-    def execute( self, tesk_request, run_args, **celery_args ):
+    def execute( self, task_request, run_args, **celery_args ):
         try:
             t0 = time.time()
             async = celery_args.get( 'async', False )
@@ -141,10 +142,9 @@ class CeleryEngine( Executable ):
             self.processPendingTasks()
             designated_worker = None
             cLog.debug( " ***** Executing Celery engine (t=%.2f), args: %s" % ( t0, run_args ) )
-            dset_mdata = get_json_arg( 'data', run_args )
-            op_region = Region( get_json_arg( 'region', run_args ) )
-            operation = get_json_arg( 'operation', run_args )
-            if not isinstance( dset_mdata, (list, tuple) ):  dset_mdata = [ dset_mdata ]
+            dset_mdata = task_request.data
+            op_region = Region( task_request.region )
+            operation = task_request.operation
 
             for var_mdata in dset_mdata:
                 id = var_mdata.get('id','')
@@ -162,8 +162,9 @@ class CeleryEngine( Executable ):
                             cache_op_args = { 'region':op_region.specs, 'data':var_mdata }
                             cache_region = op_region
                         tc0 = time.time()
+                        cache_task_request = TaskRequest( task=cache_op_args)
                         cache_worker = self.getNextWorker()
-                        cache_request = execute.apply_async( (cache_op_args,), exchange='C.dq', routing_key=cache_worker )
+                        cache_request = execute.apply_async( (cache_task_request,), exchange='C.dq', routing_key=cache_worker )
                         tc01 = time.time()
                         self.setWorkerStatus( cache_worker, self.WSTAT_CACHE )
                         cached_domain = cached_var.addDomain( cache_region )
@@ -185,7 +186,7 @@ class CeleryEngine( Executable ):
                 if designated_worker is None:
                     designated_worker = self.getNextWorker()
 
-                task = execute.apply_async( (run_args,), exchange='C.dq', routing_key=designated_worker )
+                task = execute.apply_async( (task_request, run_args,), exchange='C.dq', routing_key=designated_worker )
 
                 self.setWorkerStatus( designated_worker, self.WSTAT_OP )
                 op_domain = cached_var.addDomain( op_region )
