@@ -132,10 +132,10 @@ class CeleryEngine( Executable ):
                    op_worker_tstamp = ts
         return free_worker if free_worker is not None else operational_worker
 
-    def execute( self, run_args, **args ):
+    def execute( self, tesk_request, run_args, **celery_args ):
         try:
             t0 = time.time()
-            async = args.get( 'async', False )
+            async = celery_args.get( 'async', False )
             cache_request = None
             self.updateWorkerSpecs()
             self.processPendingTasks()

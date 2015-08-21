@@ -37,7 +37,7 @@ class SparkEngine(Executable):
             if len( cls.logger.handlers ) == 0:
                 cls.logger.addHandler( logging.FileHandler( os.path.join( LogDir, 'spark.log' ) ) )
 
-    def execute( self, run_args ):
+    def execute( self, task_request, run_args ):
         SparkEngine.initContext()
         wpsLog.info( "Executing Spark engine, args: %s" % ( run_args ) )
         data = get_json_arg( 'data', run_args )

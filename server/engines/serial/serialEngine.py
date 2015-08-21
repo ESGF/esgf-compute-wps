@@ -4,6 +4,6 @@ from engines.kernels.manager import kernelMgr
 
 class SerialEngine(Executable):
 
-    def execute( self, run_args ):
-        result = kernelMgr.run( run_args )
+    def execute( self, task_request, run_args ):
+        result = kernelMgr.run( task_request, run_args )
         return result
