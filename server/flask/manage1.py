@@ -1,5 +1,5 @@
 import flask, logging, sys, json
-from tasks.manager import taskManager
+from request.manager import taskManager
 from flask.ext.cors import CORS
 app = flask.Flask(__name__)
 CORS(app)

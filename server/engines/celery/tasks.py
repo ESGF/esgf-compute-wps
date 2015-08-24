@@ -5,6 +5,7 @@ from celery.utils.log import get_task_logger
 import celeryconfig
 from base_task import DomainBasedTask
 from kernels.manager import kernelMgr
+from request.manager import TaskRequest
 
 logger = get_task_logger('cdas')
 
@@ -20,9 +21,9 @@ app.conf.update(
 )
 
 @app.task(base=DomainBasedTask,name='tasks.execute')
-def execute( run_args ):
+def execute( task_request_args ):
     worker = getWorkerName()
-    results = kernelMgr.run( run_args )
+    results = kernelMgr.run( TaskRequest(task=task_request_args) )
     if results: results[0]['worker'] = worker
     return results
 

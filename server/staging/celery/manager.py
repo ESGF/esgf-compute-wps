@@ -13,11 +13,11 @@ app.conf.update(
 )
 
 @app.task(base=StagingTask,name='manager.submitTask')
-def submitTask( tesk_request, run_args ):
-    engine_id = run_args['engine']
+def submitTask( tesk_request ):
+    engine_id = tesk_request['engine']
     engine = submitTask.engines.getInstance( engine_id )
-    wpsLog.info( " Celery submit task, args = '%s', engine = %s (%s)" % ( str( run_args ), engine_id, type(engine) ) )
-    result =  engine.execute( tesk_request, run_args )
+    wpsLog.info( " Celery submit task, args = '%s', engine = %s (%s)" % ( str( tesk_request ), engine_id, type(engine) ) )
+    result =  engine.execute( tesk_request )
     return result
 
 

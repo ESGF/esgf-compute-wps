@@ -3,9 +3,9 @@ from modules.utilities import wpsLog
 
 class StagingHandler(Executable):
 
-    def execute( self, tesk_request, run_args ):
+    def execute( self, tesk_request ):
         from staging.celery.manager import submitTask
-        wpsLog.info( " Celery staging task, args = '%s' " % ( str( run_args ) ) )
-        task = submitTask.delay( tesk_request, run_args )
+        wpsLog.info( " Celery staging task, args = '%s' " % ( str( tesk_request ) ) )
+        task = submitTask.delay( tesk_request )
         result = task.get()
         return result

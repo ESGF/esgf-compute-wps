@@ -3,9 +3,11 @@ from tasks import execute, simpleTest
 from modules.utilities import *
 from datacache.manager import CachedVariable
 from datacache.status_cache import  StatusCacheManager
-from tasks.manager import TaskRequest
+from request.manager import TaskRequest
 from datacache.domains import Domain, Region
+from request.manager import TaskRequest
 import celery, pickle, os, traceback
+import sys, pprint
 cLog = logging.getLogger('celery-debug')
 cLog.setLevel(logging.DEBUG)
 if len( cLog.handlers ) == 0: cLog.addHandler( logging.FileHandler( os.path.expanduser( "~/.celery-debug") ) )
@@ -133,7 +135,7 @@ class CeleryEngine( Executable ):
                    op_worker_tstamp = ts
         return free_worker if free_worker is not None else operational_worker
 
-    def execute( self, task_request, run_args, **celery_args ):
+    def execute( self, task_request, **celery_args ):
         try:
             t0 = time.time()
             async = celery_args.get( 'async', False )
@@ -141,7 +143,7 @@ class CeleryEngine( Executable ):
             self.updateWorkerSpecs()
             self.processPendingTasks()
             designated_worker = None
-            cLog.debug( " ***** Executing Celery engine (t=%.2f), args: %s" % ( t0, run_args ) )
+            cLog.debug( " ***** Executing Celery engine (t=%.2f), request: %s" % ( t0, str(task_request) ) )
             dset_mdata = task_request.data
             op_region = Region( task_request.region )
             operation = task_request.operation
@@ -152,7 +154,7 @@ class CeleryEngine( Executable ):
                 url = var_mdata.get('url','')
                 var_cache_id = ":".join( [collection,id] ) if (collection is not None) else ":".join( [url,id] )
                 if var_cache_id <> ":":
-                    cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, run_args )
+                    cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, task_request )
                     if cached_domain is None:
                         if operation:
                             region = { 'level': op_region.getAxisRange('lev') }
@@ -164,7 +166,7 @@ class CeleryEngine( Executable ):
                         tc0 = time.time()
                         cache_task_request = TaskRequest( task=cache_op_args)
                         cache_worker = self.getNextWorker()
-                        cache_request = execute.apply_async( (cache_task_request,), exchange='C.dq', routing_key=cache_worker )
+                        cache_request = execute.apply_async( (cache_task_request.task,), exchange='C.dq', routing_key=cache_worker )
                         tc01 = time.time()
                         self.setWorkerStatus( cache_worker, self.WSTAT_CACHE )
                         cached_domain = cached_var.addDomain( cache_region )
@@ -186,14 +188,14 @@ class CeleryEngine( Executable ):
                 if designated_worker is None:
                     designated_worker = self.getNextWorker()
 
-                task = execute.apply_async( (task_request, run_args,), exchange='C.dq', routing_key=designated_worker )
+                task = execute.apply_async( (task_request.task,), exchange='C.dq', routing_key=designated_worker )
 
                 self.setWorkerStatus( designated_worker, self.WSTAT_OP )
                 op_domain = cached_var.addDomain( op_region )
                 self.pendingTasks[ task ] = op_domain
                 self.cache()
 
-                cLog.debug( " ***** Sending operation [tid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): args= %s " %  ( task.id, str(designated_worker), t2, t2-t0, str(run_args) ) )
+                cLog.debug( " ***** Sending operation [tid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): request= %s " %  ( task.id, str(designated_worker), t2, t2-t0, str(task_request) ) )
 
                 if async: return task
 
@@ -212,6 +214,7 @@ class CeleryEngine( Executable ):
 
 
     def inspect(self):
+        pp = pprint.PrettyPrinter(indent=4)
         celery_inspect = celery.current_app.control.inspect()
         print( "Celery execution stats:\n " )
         pp.pprint( celery_inspect.stats() )
@@ -222,19 +225,18 @@ class CeleryEngine( Executable ):
 
 
 def run_test():
-    import sys, pprint
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
     wpsLog.setLevel(logging.DEBUG)
     pp = pprint.PrettyPrinter(indent=4)
     test_cache = False
     simple_test = False
 
-    variable =  { 'collection': 'MERRA/mon/atmos', 'id': 'clt' }
+    variable =   { 'collection': 'MERRA/mon/atmos', 'id': 'clt' }
 
     region1    = { "longitude":-24.20, "latitude":58.45, "level": 10000.0 }
     region2    = { "longitude":-30.20, "latitude":67.45, "level": 8500.0 }
-    op_annual_cycle =  {"kernel":"time", "type":"climatology", "bounds":"annualcycle"}
-    op_departures =  {"kernel":"time", "type":"departures",  "bounds":"np"}
+    op_annual_cycle =   {"kernel":"time", "type":"climatology", "bounds":"annualcycle"}
+    op_departures =   {"kernel":"time", "type":"departures",  "bounds":"np"}
 
     engine = CeleryEngine('celery')
 
@@ -261,11 +263,11 @@ def run_test():
             run_async = True
             if run_async:
                 t0 = time.time()
-                run_args1 = { 'data': variable, 'region':region1, 'operation': op_departures }
-                task1 = engine.execute( run_args1, async=True )
+                request = TaskRequest( task={ 'data': variable, 'region':region1, 'operation': op_departures } )
+                task1 = engine.execute( request, async=True )
 
-                run_args2 = { 'data': variable, 'region':region2, 'operation': op_annual_cycle }
-                task2 = engine.execute( run_args2, async=True )
+                request = TaskRequest( task={ 'data': variable, 'region':region2, 'operation': op_annual_cycle } )
+                task2 = engine.execute( request, async=True )
 
                 t1 = time.time()
 
@@ -281,15 +283,15 @@ def run_test():
                 print "\n Operations Complete, dt0 = %.2f, dt1 = %.2f, , dt2 = %.2f, dt = %.2f  " % ( t1-t0, t2-t1, t3-t2, t3-t0 )
             else:
                 t0 = time.time()
-                run_args1 = { 'data': variable, 'region':region1, 'operation': op_departures }
-                result1 = engine.execute( run_args1 )
+                request = TaskRequest( task={ 'data': variable, 'region':region1, 'operation': op_departures } )
+                result1 = engine.execute( request )
 
                 print "\n ---------- Result (departures): ---------- "
                 pp.pprint(result1)
                 t1 = time.time()
 
-                run_args2 = { 'data': variable, 'region':region1, 'operation': op_annual_cycle }
-                result2 = engine.execute( run_args2 )
+                request = TaskRequest( task={ 'data': variable, 'region':region1, 'operation': op_annual_cycle } )
+                result2 = engine.execute( request )
 
                 print "\n ---------- Result(annual cycle): ---------- "
                 pp.pprint(result2)

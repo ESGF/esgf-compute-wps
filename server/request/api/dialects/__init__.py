@@ -1,9 +1,8 @@
-from ..manager import apiManager
 
 class WPSDialect:
 
     def __init__(self,id):
-        apiManager.addDialect(id,self)
+        self.id = id
 
     def getTaskRequestData( self, request_parameters ):
         pass
