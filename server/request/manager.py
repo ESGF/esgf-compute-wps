@@ -3,13 +3,13 @@ from staging import stagingRegistry
 from modules import configuration
 from modules.utilities import wpsLog
 from request.api.manager import apiManager
-
+from datacache.domains import RegionContainer
+from kernels.cda import OperationContainer, DatasetContainer
 
 class TaskManager:
 
     def __init__(self):
         pass
-
 
     def processRequest( self, request_parameters ):
         task_request = TaskRequest( request=request_parameters )
@@ -36,23 +36,21 @@ class TaskRequest:
         task_parameters = args.get( 'task', None )
         if task_parameters:
             self.task = task_parameters
-        self.task['config'] = {}
+        self.task['config'] = { 'cache' : True }
 
     def __str__(self): return "TR-%s" % str(self.task)
 
     @property
     def data(self):
-        dset_mdata = self.task.get('data', None)
-        if not isinstance( dset_mdata, (list, tuple) ):  dset_mdata = [ dset_mdata ]
-        return dset_mdata
+        return DatasetContainer( self.task.get('data', None) )
 
     @property
     def region(self):
-        return self.task.get('region', None)
+        return RegionContainer( self.task.get('region', None) )
 
     @property
     def operation(self):
-        return self.task.get('operation', None)
+        return OperationContainer( self.task.get('operation', None) )
 
     @property
     def configuration(self):
@@ -63,8 +61,6 @@ class TaskRequest:
     def __setitem__(self, key, value ): self.configuration[key] = value
 
 taskManager = TaskManager()
-
-
 
 
 

@@ -9,22 +9,21 @@ class KernelManager:
 
     def getKernelInputs( self, task_request ):
         read_start_time = time.time()
-        data = task_request.data[0]
-        region = Region( task_request.region )
-        operation = task_request.operation
-        if isinstance( operation, basestring ): operation = operation.strip()
+        data = task_request.data.value
+        regions = task_request.region.value
+        operations =  task_request.operation.value
         read_start_time = time.time()
         use_cache =  task_request['cache']
-        cache_type = CachedVariable.getCacheType( use_cache, operation )
-        variable, result_obj = dataManager.loadVariable( data, region, cache_type )
+        cache_type = CachedVariable.getCacheType( use_cache, operations )
+        variable, result_obj = dataManager.loadVariable( data, regions, cache_type )
         cached_region = Region( result_obj['region'] )
-        if cached_region <> region:
-            variable = numpy.ma.fix_invalid( variable( **region.toCDMS() ) )
+        if cached_region <> regions:
+            variable = numpy.ma.fix_invalid( variable( **regions.toCDMS(axes=[Region.LATITUDE,Region.LONGITUDE]) ) )
         data['variables'] = [ variable ]
         data['result'] = result_obj
         read_end_time = time.time()
-        wpsLog.debug( " $$$ DATA READ Complete (domain = %s): %s " % ( str(region), str(read_end_time-read_start_time) ) )
-        return data, region, operation
+        wpsLog.debug( " $$$ DATA READ Complete (domain = %s): %s " % ( str(regions), str(read_end_time-read_start_time) ) )
+        return data, regions, operations
 
     def run( self, task_request ):
         wpsLog.debug( " $$$ Kernel Manager Execution: request = %s " % str(task_request) )
@@ -36,12 +35,9 @@ class KernelManager:
         wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
         return result
 
-
-
     def getKernel( self, operation ):
         if operation:
-            op0 = operation[0]
-            if op0.get('kernel','base') == 'time':
+            if operation.get('kernel','base') == 'time':
                 from kernels.timeseries_analysis import TimeseriesAnalytics
                 return TimeseriesAnalytics()
             else:
@@ -68,15 +64,12 @@ class KernelManager:
         return results
 
 
-
-
-
 kernelMgr = KernelManager()
 
 if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
     wpsLog.setLevel(logging.DEBUG)
-    pre_cache = False
+    pre_cache = True
 
     if pre_cache:
         cache_args =  {   'data': {'id': 'hur', 'collection': 'MERRA/mon/atmos'},  'region': {'level': [100000.0]},  }

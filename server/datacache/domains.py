@@ -1,15 +1,21 @@
 from modules.utilities import  *
+from modules.containers import  *
 
-class Region:
+class RegionContainer(JSONObjectContainer):
+
+    def newObject( self, spec ):
+        return Region(spec)
+
+class Region(JSONObject):
+
+    LEVEL = 'lev'
+    LATITUDE = 'lat'
+    LONGITUDE = 'lon'
+    TIME = 'time'
 
     def __init__( self, region_spec={} ):
-        self.spec = convert_json_str( region_spec ) if isinstance( region_spec, basestring ) else region_spec.spec if isinstance( region_spec, Region ) else region_spec
-        self.axes = {}
         self.tolerance=0.001
-        self.process_spec()
-
-    def __str__( self ):
-        return dump_json_str(self.spec)
+        JSONObject.__init__( self, region_spec )
 
     @classmethod
     def regularize( cls, values ):
@@ -28,20 +34,8 @@ class Region:
             rv = values
         return rv
 
-    def items(self):
-        return self.axes.items()
-
-    def __getitem__(self, item):
-        return self.axes.get( item, None )
-
-    def __setitem__(self, key, value):
-        self.axes[ key ] = value
-
     def getAxisRange( self, axis_name ):
-        return self.axes.get( axis_name, None )
-
-    def get(self, key, default_val=None ):
-        return self.spec.get( key, default_val )
+        return self.getItem( axis_name )
 
     def process_spec(self):
         if self.spec is None: self.spec = {}
@@ -49,19 +43,19 @@ class Region:
             key = spec_item[0].lower()
             v = self.regularize( spec_item[1] )
             if key.startswith('lat'):
-                self.axes['lat'] = v
+                self[Region.LATITUDE] = v
             elif key.startswith('lon'):
-                self.axes['lon'] = v
+                self[Region.LONGITUDE] = v
             elif key.startswith('lev'):
-                self.axes['lev'] = v
+                self[Region.LEVEL] = v
             elif key.startswith('time'):
-                self.axes['time'] = v
+                self[Region.TIME] = v
             elif key.startswith('grid'):
-                self.axes['grid'] = v
+                self['grid'] = v
 
     def __eq__(self, reqion1 ):
         if reqion1 is None: return False
-        for k0,r0 in self.axes.iteritems():
+        for k0,r0 in self.iteritems():
             r1 = reqion1.getAxisRange( k0 )
             if not r1: return False
             if  ( len(r0) <> len(r1) ): return False
@@ -73,10 +67,12 @@ class Region:
         return not self.__eq__( reqion1 )
 
     def toCDMS( self, **args ):
+        active_axes = args.get('axes',None)
         kargs = {}
-        for k,v in self.axes.iteritems():
-            if isinstance( v, list ) or isinstance( v, tuple ):
-                kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
+        for k,v in self.iteritems():
+            if not active_axes or k in active_axes:
+                if isinstance( v, list ) or isinstance( v, tuple ):
+                    kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
             # elif isinstance( v, dict ):
             #     system = v.get("system","value").lower()
             #     if isinstance(v["start"],unicode):
@@ -108,10 +104,10 @@ class Domain(Region):
         return Region( self.spec )
 
     def getSize(self):
-        axes = [ 'lat', 'lon' ]
+        features = [ 'lat', 'lon' ]
         sizes = [ float('Inf'), float('Inf') ]
         bounds = [ 180.0, 360.0]
-        for iAxis, axis in enumerate( axes ):
+        for iAxis, axis in enumerate( features ):
             cached_axis_range = self.getAxisRange( axis )
             if cached_axis_range is None:
                 sizes[ iAxis ] = bounds[ iAxis ]

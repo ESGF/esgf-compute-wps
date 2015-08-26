@@ -144,9 +144,9 @@ class CeleryEngine( Executable ):
             self.processPendingTasks()
             designated_worker = None
             cLog.debug( " ***** Executing Celery engine (t=%.2f), request: %s" % ( t0, str(task_request) ) )
-            dset_mdata = task_request.data
-            op_region = Region( task_request.region )
-            operation = task_request.operation
+            dset_mdata = task_request.data.values
+            op_region = task_request.region.value
+            operation = task_request.operation.values
 
             for var_mdata in dset_mdata:
                 id = var_mdata.get('id','')
@@ -157,11 +157,11 @@ class CeleryEngine( Executable ):
                     cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, task_request )
                     if cached_domain is None:
                         if operation:
-                            region = { 'level': op_region.getAxisRange('lev') }
-                            cache_op_args = { 'region':region, 'data':var_mdata }
+                            region = Region( { 'level': op_region.getAxisRange('lev') } )
+                            cache_op_args = { 'region':region.spec, 'data':var_mdata.spec }
                             cache_region = region
                         else:
-                            cache_op_args = { 'region':op_region.specs, 'data':var_mdata }
+                            cache_op_args = { 'region':op_region.spec, 'data':var_mdata.spec }
                             cache_region = op_region
                         tc0 = time.time()
                         cache_task_request = TaskRequest( task=cache_op_args)

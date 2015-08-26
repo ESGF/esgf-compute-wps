@@ -1,6 +1,6 @@
-from modules.utilities import wpsLog
 from modules import configuration
 import cdms2
+from modules.utilities import  *
 
 class CollectionManager:
     CollectionManagers = {}
