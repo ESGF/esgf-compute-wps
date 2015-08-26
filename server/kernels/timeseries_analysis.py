@@ -85,6 +85,8 @@ class TimeseriesAnalytics( DataAnalytics ):
                         result = input_variable - ave
                     elif type == 'climatology':
                         result = cdutil.averager( input_variable, axis='t', weights='equal' )
+                    elif type == 'value':
+                        result =  input_variable
                     else:
                         result = input_variable
                     time_axis = input_variable.getTime()
@@ -131,7 +133,6 @@ class TimeseriesAnalytics( DataAnalytics ):
                     if time_axis is None:
                         time_axis = result.getTime()
                 op_end_time = time.clock() # time.time()
-                wpsLog.debug( " ---> Analysis Operation Computation Time: %.5f, result shape = %s " % ( op_end_time-op_start_time, str(result.shape) ) )
                 # if math.isnan( result[0] ):
                 #     pp = pprint.PrettyPrinter(indent=4)
                 #     print "\n ---------- NaN in Result, Input: ---------- "
@@ -188,6 +189,8 @@ class TimeseriesAnalytics( DataAnalytics ):
 
 if __name__ == "__main__":
     from manager import kernelMgr
+    from request.manager import TaskRequest
+
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
     wpsLog.setLevel(logging.DEBUG)
 
@@ -198,6 +201,6 @@ if __name__ == "__main__":
  #                 'operation': '[  {"kernel": "time", "type": "annualcycle",  "bounds":"np"} ] '
                 }
 
-    kernelMgr.run( run_args )
+    kernelMgr.run( TaskRequest( request=run_args ) )
 
 

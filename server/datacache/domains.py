@@ -13,45 +13,48 @@ class Region(JSONObject):
     LONGITUDE = 'lon'
     TIME = 'time'
 
-    def __init__( self, region_spec={} ):
+    AXIS_LIST = [ LATITUDE, LONGITUDE, LEVEL, TIME, ]
+
+    def __init__( self, region_spec={}, **args ):
         self.tolerance=0.001
-        JSONObject.__init__( self, region_spec )
+        JSONObject.__init__( self, region_spec, **args )
 
     @classmethod
-    def regularize( cls, values ):
-        if hasattr( values, '__iter__' ):
-            if isinstance( values, dict ):
-                try:
-                    rv = [ values['start'], values['end'] ]
-                except KeyError:
-                    wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
-            else:
-                rv = [ float(v) for v in values ]
-        elif isinstance( values, float ) or isinstance( values, int ):
-            rv = [ float(values) ]
+    def regularize( cls, axis, values ):
+        if axis == Region.TIME:
+            return values if hasattr( values, '__iter__' ) else [ values ]
         else:
-            wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
-            rv = values
-        return rv
+            if hasattr( values, '__iter__' ):
+                if isinstance( values, dict ):
+                    try:
+                        rv = [ values['start'], values['end'] ]
+                    except KeyError:
+                        wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
+                else:
+                    rv = [ float(v) for v in values ]
+            elif isinstance( values, float ) or isinstance( values, int ):
+                rv = [ float(values) ]
+            else:
+                wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
+                rv = values
+            return rv
 
     def getAxisRange( self, axis_name ):
         return self.getItem( axis_name )
 
-    def process_spec(self):
+    def process_spec(self, **args):
+        axes = args.get('axes',None)
         if self.spec is None: self.spec = {}
         for spec_item in self.spec.items():
             key = spec_item[0].lower()
-            v = self.regularize( spec_item[1] )
-            if key.startswith('lat'):
-                self[Region.LATITUDE] = v
-            elif key.startswith('lon'):
-                self[Region.LONGITUDE] = v
-            elif key.startswith('lev'):
-                self[Region.LEVEL] = v
-            elif key.startswith('time'):
-                self[Region.TIME] = v
-            elif key.startswith('grid'):
+            v = self.regularize( key, spec_item[1] )
+            if key.startswith('grid'):
                 self['grid'] = v
+            else:
+                for axis in self.AXIS_LIST:
+                    if key.startswith(axis):
+                        if not axes or axis in axes:
+                            self[axis] = v
 
     def __eq__(self, reqion1 ):
         if reqion1 is None: return False
@@ -59,8 +62,12 @@ class Region(JSONObject):
             r1 = reqion1.getAxisRange( k0 )
             if not r1: return False
             if  ( len(r0) <> len(r1) ): return False
-            for x0, x1 in zip(r0, r1):
-                if ( abs(x1-x0) > self.tolerance ): return False
+            if k0 == self.TIME:
+                for x0, x1 in zip(r0, r1):
+                    if x0 <> x1: return False
+            else:
+                for x0, x1 in zip(r0, r1):
+                    if ( abs(x1-x0) > self.tolerance ): return False
         return True
 
     def __ne__(self, reqion1 ):

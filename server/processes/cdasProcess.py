@@ -65,7 +65,7 @@ class CDASProcess(WPSProcess):
         if origin is None: return None
         dataFiles = origin.getValue()
         dataIn = []
-        if isinstance(dataFiles,str):
+        if isinstance(dataFiles,basestring):
             dataFiles = [dataFiles,]
         for fnm in dataFiles:
             f=open(fnm)

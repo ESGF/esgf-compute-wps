@@ -18,7 +18,7 @@ class KernelManager:
         variable, result_obj = dataManager.loadVariable( data, regions, cache_type )
         cached_region = Region( result_obj['region'] )
         if cached_region <> regions:
-            variable = numpy.ma.fix_invalid( variable( **regions.toCDMS(axes=[Region.LATITUDE,Region.LONGITUDE]) ) )
+            variable = numpy.ma.fix_invalid( variable( **regions.toCDMS() ) )
         data['variables'] = [ variable ]
         data['result'] = result_obj
         read_end_time = time.time()
@@ -69,7 +69,7 @@ kernelMgr = KernelManager()
 if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
     wpsLog.setLevel(logging.DEBUG)
-    pre_cache = True
+    pre_cache = False
 
     if pre_cache:
         cache_args =  {   'data': {'id': 'hur', 'collection': 'MERRA/mon/atmos'},  'region': {'level': [100000.0]},  }
@@ -80,4 +80,8 @@ if __name__ == "__main__":
                   'operation': '[  {"kernel": "time", "type": "departures",  "bounds":"np"}, '
                                   '{"kernel":"time", "type":"climatology", "bounds":"annualcycle"} ]'  }
 
-    kernelMgr.run(  TaskRequest( request=task_args ) )
+    val_task_args =  {  'region': '{"longitude": -137.09327695888, "latitude": 35.487604770915, "level": 85000, "time": "1979-1-16 12:0:0.0" }',
+                        'data': '{"collection": "MERRA/mon/atmos", "id": "hur"}',
+                        'operation': '{ "kernel": "time", "type": "value" }'  }
+
+    kernelMgr.run(  TaskRequest( request=val_task_args ) )

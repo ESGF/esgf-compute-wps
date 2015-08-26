@@ -144,7 +144,7 @@ class DataManager:
                     data_specs['region'] = str(region)
                 else:
                     load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
-                    variable = load_variable_region( dataset, id, load_region.toCDMS() )
+                    variable = load_variable_region( dataset, id, load_region.toCDMS(axes=[Region.LATITUDE,Region.LONGITUDE,Region.LEVEL]) )
                     data_specs['region'] = str(load_region)
 
             elif (cache_type == CachedVariable.CACHE_OP) and (region is not None):

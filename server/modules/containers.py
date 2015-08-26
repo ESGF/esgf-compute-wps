@@ -3,14 +3,14 @@ from utilities import  *
 
 class JSONObject:
 
-    def __init__( self, spec={} ):
+    def __init__( self, spec={}, **args ):
         if isinstance( spec, JSONObject ): spec = spec.spec
         self.spec = convert_json_str( spec )
         self.items = {}
         assert isinstance( self.spec, dict ), "Error, unrecognized JSONObject spec: %s " % str( spec)
-        self.process_spec( )
+        self.process_spec( **args )
 
-    def process_spec( self ):
+    def process_spec( self, **args ):
         self.items = dict( self.spec )
 
     def __str__( self ):
