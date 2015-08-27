@@ -10,20 +10,20 @@ class KernelManager:
     def getKernelInputs( self, task_request ):
         read_start_time = time.time()
         data = task_request.data.value
-        regions = task_request.region.value
-        operations =  task_request.operation.value
+        region = task_request.region.value
+        operation =  task_request.operation.value
         read_start_time = time.time()
         use_cache =  task_request['cache']
-        cache_type = CachedVariable.getCacheType( use_cache, operations )
-        variable, result_obj = dataManager.loadVariable( data, regions, cache_type )
+        cache_type = CachedVariable.getCacheType( use_cache, operation )
+        variable, result_obj = dataManager.loadVariable( data, region, cache_type )
         cached_region = Region( result_obj['region'] )
-        if cached_region <> regions:
-            variable = numpy.ma.fix_invalid( variable( **regions.toCDMS() ) )
+        if cached_region <> region:
+            variable = numpy.ma.fix_invalid( variable( **region.toCDMS() ) )
         data['variables'] = [ variable ]
         data['result'] = result_obj
         read_end_time = time.time()
-        wpsLog.debug( " $$$ DATA READ Complete (domain = %s): %s " % ( str(regions), str(read_end_time-read_start_time) ) )
-        return data, regions, operations
+        wpsLog.debug( " $$$ DATA READ Complete (domain = %s): %s " % ( str(region), str(read_end_time-read_start_time) ) )
+        return data, region, operation
 
     def run( self, task_request ):
         wpsLog.debug( " $$$ Kernel Manager Execution: request = %s " % str(task_request) )

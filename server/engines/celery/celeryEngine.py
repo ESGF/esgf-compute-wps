@@ -156,13 +156,9 @@ class CeleryEngine( Executable ):
                 if var_cache_id <> ":":
                     cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, task_request )
                     if cached_domain is None:
-                        if operation:
-                            region = Region( { 'level': op_region.getAxisRange('lev') } )
-                            cache_op_args = { 'region':region.spec, 'data':var_mdata.spec }
-                            cache_region = region
-                        else:
-                            cache_op_args = { 'region':op_region.spec, 'data':var_mdata.spec }
-                            cache_region = op_region
+                        cache_axis_list = [Region.LEVEL] if operation else [Region.LEVEL, Region.LATITUDE, Region.LONGITUDE]
+                        cache_region = Region( op_region, axes=cache_axis_list )
+                        cache_op_args = { 'region':cache_region.spec, 'data':var_mdata.spec }
                         tc0 = time.time()
                         cache_task_request = TaskRequest( task=cache_op_args)
                         cache_worker = self.getNextWorker()

@@ -16,6 +16,9 @@ class JSONObject:
     def __str__( self ):
         return dump_json_str(self.items)
 
+    def __len__( self ):
+        return len( self.items )
+
     def get(self, key, default_val=None ):
         return self.items.get( key, default_val )
 

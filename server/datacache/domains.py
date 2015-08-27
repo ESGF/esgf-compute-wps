@@ -58,6 +58,7 @@ class Region(JSONObject):
 
     def __eq__(self, reqion1 ):
         if reqion1 is None: return False
+        if len( self ) <> len( reqion1 ): return False
         for k0,r0 in self.iteritems():
             r1 = reqion1.getAxisRange( k0 )
             if not r1: return False
@@ -79,7 +80,10 @@ class Region(JSONObject):
         for k,v in self.iteritems():
             if not active_axes or k in active_axes:
                 if isinstance( v, list ) or isinstance( v, tuple ):
-                    kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
+                    if k == 'time':
+                        kargs[str(k)] = ( str(v[0]), str(v[1]), "cob" ) if ( len( v ) > 1 ) else ( str(v[0]), str(v[0]), "cob" )
+                    else:
+                        kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
             # elif isinstance( v, dict ):
             #     system = v.get("system","value").lower()
             #     if isinstance(v["start"],unicode):
