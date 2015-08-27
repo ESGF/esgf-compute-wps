@@ -1,4 +1,4 @@
-from modules import Executable
+from modules.module import Executable
 from modules.utilities import wpsLog
 
 class StagingHandler(Executable):

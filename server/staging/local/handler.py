@@ -1,4 +1,4 @@
-from modules import Executable
+from modules.module import Executable
 from engines import engineRegistry
 from modules.utilities import wpsLog
 

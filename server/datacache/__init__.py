@@ -1,4 +1,4 @@
-from modules import ModuleRegistry
+from modules.registry import ModuleRegistry
 import os
 
 directory = os.path.dirname(__file__)

@@ -1,4 +1,5 @@
 from . import WPSDialect
+from modules.utilities import wpsLog
 import json
 
 class CDASDialect( WPSDialect ):
@@ -6,27 +7,26 @@ class CDASDialect( WPSDialect ):
     def __init__(self):
         WPSDialect.__init__(self,'cdas')
 
-    def getTaskRequestData( self, request_parameters ):
+    def getTaskRequestData( self, request_params ):
         task_parameters = {}
-        inputs_str = request_parameters.get('datainputs',None)
+        request = dict( request_params )
+        inputs_str = request.get('datainputs',None)
+        wpsLog.debug( ">>>> REQUEST datainputs: %s" % str(inputs_str) )
         if inputs_str:
             lines = inputs_str.split(';')
             for line in lines:
                 items = line.split('=')
                 if len( items ) > 1:
-                    parameter = json.loads( items[1] )
-                    if isinstance( parameter, dict ): parameter = [ parameter ]
-                    task_parameters[ str(items[0]).strip(" []") ]
-            del request_parameters[ 'datainputs' ]
+                    task_parameters[ str(items[0]).strip(" []") ] = json.loads( items[1] )
+            del request[ 'datainputs' ]
         for key in [ 'data', 'region', 'operation' ]:
-            parameter = request_parameters.get(key,None)
+            parameter = request.get(key,None)
             if parameter:
                 if isinstance(parameter, basestring):
                     parameter = json.loads( parameter )
-                if isinstance( parameter, dict ): parameter = [ parameter ]
                 task_parameters[ key ] = parameter
-                del request_parameters[key]
-        for item in request_parameters.items():
+                del request[key]
+        for item in request.items():
             task_parameters[ item[0] ] = item[1]
 
         return task_parameters

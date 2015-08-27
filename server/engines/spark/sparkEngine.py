@@ -1,4 +1,4 @@
-from modules import Executable
+from modules.module import Executable
 from kernels.manager import kernelMgr
 from modules.utilities import *
 

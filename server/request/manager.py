@@ -13,7 +13,7 @@ class TaskManager:
 
     def processRequest( self, request_parameters ):
         task_request = TaskRequest( request=request_parameters )
-        wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s', ---> Time=%.3f " % ( str( data ), str( region ), str( operation ), time.time() ) )
+        wpsLog.debug( " $$$ CDAS Process Request[T=%.3f]: %s " % ( time.time(), str( request_parameters ) ) )
         t0 = time.time()
         handler = stagingRegistry.getInstance( configuration.CDAS_STAGING  )
         if handler is None:

@@ -1,4 +1,4 @@
-from modules import Executable
+from modules.module import Executable
 from tasks import execute, simpleTest
 from modules.utilities import *
 from datacache.manager import CachedVariable
