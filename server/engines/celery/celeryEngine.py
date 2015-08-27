@@ -3,7 +3,6 @@ from tasks import execute, simpleTest
 from modules.utilities import *
 from datacache.manager import CachedVariable
 from datacache.status_cache import  StatusCacheManager
-from request.manager import TaskRequest
 from datacache.domains import Domain, Region
 from request.manager import TaskRequest
 import celery, pickle, os, traceback
@@ -221,6 +220,7 @@ class CeleryEngine( Executable ):
 
 
 def run_test():
+    from request.manager import TaskRequest
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
     wpsLog.setLevel(logging.DEBUG)
     pp = pprint.PrettyPrinter(indent=4)

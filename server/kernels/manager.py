@@ -18,7 +18,10 @@ class KernelManager:
         variable, result_obj = dataManager.loadVariable( data, region, cache_type )
         cached_region = Region( result_obj['region'] )
         if cached_region <> region:
-            variable = numpy.ma.fix_invalid( variable( **region.toCDMS() ) )
+            subset_args = region.toCDMS()
+            subset_var = numpy.ma.fix_invalid( variable( **subset_args ) )
+#            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))
+            variable = subset_var
         data['variables'] = [ variable ]
         data['result'] = result_obj
         read_end_time = time.time()
