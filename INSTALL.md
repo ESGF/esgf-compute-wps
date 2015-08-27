@@ -141,6 +141,21 @@ DEBUG = False
 TEMPLATE_DEBUG = False
 ```
 
+Change the path to your templates (full path required by apache)
+```python
+# Templates
+TEMPLATE_DIRS = (
+        '/export/doutriaux1/git/wps_cwt/server/templates',
+                )
+```
+
+The following is needed so your wps process know where to write temporary files
+
+```python
+# Where to write temp files
+PROCESS_TEMPORARY_FILES = "/tmp"
+```
+
 Change the path to your logs
 
 ```python

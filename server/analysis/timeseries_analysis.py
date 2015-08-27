@@ -1,5 +1,5 @@
 import os, traceback, sys
-import time, pydevd
+import time
 import cdms2, logging, pprint
 import numpy
 import numpy.ma as ma
@@ -62,7 +62,6 @@ class TimeseriesAnalytics( DataAnalytics ):
             ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
             process_end_time = time.time()
             wpsLog.debug( " $$$ DATA PROCESSING Complete: " + str( (process_end_time-process_start_time) ) )
-            #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
 
             result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
             result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
@@ -89,7 +88,6 @@ class TimeseriesAnalytics( DataAnalytics ):
         try:
             self.setTimeBounds( input_variable )
             operator = None
-#            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             wpsLog.debug( " $$$ ApplyOperation: %s " % str( operation ) )
             if operation is not None:
                 type = operation.get('type','').lower()

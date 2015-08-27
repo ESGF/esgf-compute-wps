@@ -11,6 +11,8 @@ import subprocess
 from processes.cdasProcess import wpsLog
 from django import template
 from django.template.loader import get_template
+import settings
+
 
 enable_debug=False
 if enable_debug:
@@ -79,7 +81,7 @@ def view_main(request):
     return HttpResponse(html)
 
 def view_process(request,id):
-    nm = "out_%s.txt" % id
+    nm = os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%s.txt" % id)
     if os.path.exists(nm):
         f=open(nm)
         msg = f.read()
@@ -88,8 +90,8 @@ def view_process(request,id):
     return HttpResponse(msg)
 
 def clear_process(request,id):
-    os.remove("out_%i.txt" % int(id))
-    os.remove("err_%i.txt" % int(id))
+    os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % int(id)))
+    os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % int(id)))
     return redirect("/status")
 
 def getRequestParms( request ):
@@ -112,8 +114,8 @@ def getRequestParms( request ):
 def wps(request):
   print "DO WE EVEN COME HERE",os.getcwd()
   rndm = random.randint(0,100000000000)
-  out = open("out_%i.txt" % rndm, "w")
-  err = open("err_%i.txt" % rndm, "w")
+  out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm), "w")
+  err = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % rndm), "w")
   if enable_debug: pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
   requestParams = getRequestParms(request)
 
@@ -123,12 +125,10 @@ def wps(request):
       return HttpResponse("Started Request Process id: <a href='http://%s/view/%i'>%i</a>" % (request.get_host(),rndm,rndm))
   else:
       T.join()
-      out = open("out_%i.txt" % rndm)
+      out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm))
       print "READING IN:",out
       st = out.read()
       out.close()
-      #os.remove("out_%i.txt" % rndm)
-      #os.remove("err_%i.txt" % rndm)
       return HttpResponse(st)
 
 def run_wps(request,out,err,rndm):
