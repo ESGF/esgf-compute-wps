@@ -159,7 +159,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                 time_axis.toRelativeTime(newunits)
         rv = input_variable if result is None else result_data
         t1 = time.time()
-        wpsLog.debug( " $$$ Applied Operation: %s to variable shape %s in time %.4f, result shape = %s, result = %s" % ( str( operation ), str(input_variable.shape), (t1-t0), rshape, str(rv)  ) )
+        wpsLog.debug( " $$$ Applied Operation: %s to variable shape %s in time %.4f, result shape = %s" % ( str( operation ), str(input_variable.shape), (t1-t0), rshape  ) )
         return ( rv, time_axis )
 
     def setTimeBounds( self, var ):

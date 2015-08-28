@@ -19,7 +19,7 @@ class TaskManager:
         task_request['engine'] = configuration.CDAS_COMPUTE_ENGINE
         result_obj =  handler.execute( task_request )
         result_json = json.dumps( result_obj )
-        wpsLog.debug( " $$$*** CDAS Process (response time: %.3f sec):\n Result='%s' " %  ( (time.time()-t0), result_json ) )
+        wpsLog.debug( " $$$*** CDAS Processed Request (total response time: %.3f sec) " %  ( (time.time()-t0) ) )
         return result_json
 
 class TaskRequest:
