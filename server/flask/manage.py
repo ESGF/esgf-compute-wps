@@ -9,7 +9,9 @@ app.logger.setLevel(logging.DEBUG)
 
 @app.route("/cdas/")
 def cdas():
-    response = taskManager.processRequest( dict(flask.request.args) )
+    request_parms = dict(flask.request.args)
+    wpsLog.debug( "FLASK request_parms: %s" % str(request_parms))
+    response = taskManager.processRequest( request_parms )
     return response
 
     #    resp = flask.make_response( json.dumps(result), 200 )

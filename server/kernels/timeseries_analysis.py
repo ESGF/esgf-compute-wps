@@ -36,35 +36,30 @@ class TimeseriesAnalytics( DataAnalytics ):
         wpsLog.debug( "Computed annual cycle, time = %.4f, result:\n %s" % ( (t1-t0), str(acycle) ) )
         return ma.array(acycle)
 
-    def run( self, data, region, operations ):
-        if not isinstance(operations, (list, tuple)): operations = [ operations ]
-        results = []
+    def run( self, data, region, operation ):
         try:
             [ subsetted_variable ] = data['variables']
-            for operation in operations:
-                start_time = time.time()
-                result_obj = dict( data['result'] )
-                ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
-                #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
-
-                if time_axis is not None:
-                    time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
-                    time_data = time_axis.getValue().tolist()
-                    try:
-                        time_obj['t0'] = time_data[0]
-                        time_obj['dt'] = time_data[1] - time_data[0]
-                    except Exception, err:
-                        time_obj['data'] = time_data
-                    result_obj['time'] = time_obj
-                result_obj['data'] = result_data
-                results.append( result_obj )
-
+            start_time = time.time()
+            result_obj = dict( data['result'] )
+            ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
+            #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+            if time_axis is not None:
+                time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
+                time_data = time_axis.getValue().tolist()
+                try:
+                    time_obj['t0'] = time_data[0]
+                    time_obj['dt'] = time_data[1] - time_data[0]
+                except Exception, err:
+                    time_obj['data'] = time_data
+                result_obj['time'] = time_obj
+            result_obj['data'] = result_data
             end_time = time.time()
+            wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(region), (end_time-start_time) ) )
 
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
 
-        return results
+        return result_obj
 
     def applyOperation( self, input_variable, operation ):
         result = None

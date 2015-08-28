@@ -13,7 +13,7 @@ class Region(JSONObject):
     LONGITUDE = 'lon'
     TIME = 'time'
 
-    AXIS_LIST = [ LATITUDE, LONGITUDE, LEVEL, TIME, ]
+    AXIS_LIST = { 'y' : LATITUDE, 'x' : LONGITUDE, 'z' : LEVEL, 't' : TIME }
 
     def __init__( self, region_spec={}, **args ):
         self.tolerance=0.001
@@ -32,11 +32,12 @@ class Region(JSONObject):
                         wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
                 else:
                     rv = [ float(v) for v in values ]
-            elif isinstance( values, float ) or isinstance( values, int ):
-                rv = [ float(values) ]
             else:
-                wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
-                rv = values
+                try:
+                    rv = [ float(values) ]
+                except Exception, err:
+                    wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
+                    rv = values
             return rv
 
     def getAxisRange( self, axis_name ):
@@ -44,6 +45,8 @@ class Region(JSONObject):
 
     def process_spec(self, **args):
         axes = args.get('axes',None)
+        slice = args.get('slice',None)
+        if slice: axes = [ item[1] if item[0] not in slice else None for item in self.AXIS_LIST.iteritems() ]
         if self.spec is None: self.spec = {}
         for spec_item in self.spec.items():
             key = spec_item[0].lower()
@@ -51,7 +54,7 @@ class Region(JSONObject):
             if key.startswith('grid'):
                 self['grid'] = v
             else:
-                for axis in self.AXIS_LIST:
+                for axis in self.AXIS_LIST.itervalues():
                     if key.startswith(axis):
                         if not axes or axis in axes:
                             self[axis] = v

@@ -7,14 +7,15 @@ from request.manager import TaskRequest
 
 class KernelManager:
 
-    def getKernelInputs( self, task_request ):
+    def getKernelInputs( self, operation, request ):
         read_start_time = time.time()
-        data = task_request.data.value
-        region = task_request.region.value
-        operation =  task_request.operation.value
-        read_start_time = time.time()
-        use_cache =  task_request['cache']
+        use_cache =  request['cache']
+        data = request.data.value
+        region = request.region.value
         cache_type = CachedVariable.getCacheType( use_cache, operation )
+        if cache_type == CachedVariable.CACHE_OP:
+            dslice = operation.get('slice',None)
+            if dslice: region = Region( region, slice=dslice )
         variable, result_obj = dataManager.loadVariable( data, region, cache_type )
         cached_region = Region( result_obj['region'] )
         if cached_region <> region:
@@ -26,17 +27,21 @@ class KernelManager:
         data['result'] = result_obj
         read_end_time = time.time()
         wpsLog.debug( " $$$ DATA READ Complete (domain = %s): %s " % ( str(region), str(read_end_time-read_start_time) ) )
-        return data, region, operation
+        return data, region
 
     def run( self, task_request ):
         wpsLog.debug( " $$$ Kernel Manager Execution: request = %s " % str(task_request) )
         start_time = time.time()
-        data, region, operation = self.getKernelInputs( task_request )
-        kernel = self.getKernel( operation )
-        result =  kernel.run( data, region, operation ) if kernel else [ data['result'] ]
+        operations =  task_request.operations
+        results = []
+        for operation in operations.values:
+            data, region = self.getKernelInputs( operation, task_request )
+            kernel = self.getKernel( operation )
+            result = kernel.run( data, region, operation ) if kernel else [ data['result'] ]
+            results.append( result )
         end_time = time.time()
         wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
-        return result
+        return results
 
     def getKernel( self, operation ):
         if operation:
@@ -45,27 +50,6 @@ class KernelManager:
                 return TimeseriesAnalytics()
             else:
                 raise Exception( "No compute kernel found for operations %s" % str(operation) )
-
-    def processOperations( self, operations_spec ):
-        op_spec_list = operations_spec.split(';')
-        for op_spec in op_spec_list:
-            op_spec_toks = op_spec.split('=')
-            if len( op_spec_toks ) == 2:
-                dataManager.addCachedVariable( op_spec_toks[0].strip(), op_spec_toks[1].strip() )
-            else:
-                pass # TODO: utility cmds
-
-        result_variables = self.data_cache.getResults()
-        results = {}
-        for result_variable in result_variables:
-            kernel = self.getKernel( result_variable.operation )
-            if kernel:
-                result = kernel.run( result_variable.operation )
-                results[ result_variable.id ] = result
-            else:
-                raise Exception( "No compute kernel found for operation %s" % str( result_variable.operation ) )
-        return results
-
 
 kernelMgr = KernelManager()
 
@@ -87,4 +71,5 @@ if __name__ == "__main__":
                         'data': '{"collection": "MERRA/mon/atmos", "id": "hur"}',
                         'operation': '{ "kernel": "time", "type": "value" }'  }
 
-    kernelMgr.run(  TaskRequest( request=val_task_args ) )
+    test_task_args =  {u'embedded': [u'true'], u'service': [u'WPS'], u'rawDataOutput': [u'result'], u'config': {'cache': True}, u'region': {u'latitude': -4.710426330566406, u'time': u'2010-01-16T12:00:00', u'longitude': -125.875, u'level': 100000}, u'request': [u'Execute'], u'version': [u'1.0.0'], u'operation': [{u'kernel': u'time', u'slice': u't', u'type': u'departures', u'bounds': u'np'}, {u'kernel': u'time', u'slice': u't', u'type': u'climatology', u'bounds': u'annualcycle'}, {u'kernel': u'time', u'type': u'value'}], u'identifier': [u'cdas'], u'data': {u'id': u'hur', u'collection': u'MERRA/mon/atmos'}}
+    kernelMgr.run(  TaskRequest( request=test_task_args ) )

@@ -1,5 +1,5 @@
 from . import WPSDialect
-from modules.utilities import wpsLog
+from modules.utilities import wpsLog, convert_json_str
 import json
 
 class CDASDialect( WPSDialect ):
@@ -10,14 +10,19 @@ class CDASDialect( WPSDialect ):
     def getTaskRequestData( self, request_params ):
         task_parameters = {}
         request = dict( request_params )
-        inputs_str = request.get('datainputs',None)
-        wpsLog.debug( ">>>> REQUEST datainputs: %s" % str(inputs_str) )
-        if inputs_str:
-            lines = inputs_str.split(';')
-            for line in lines:
-                items = line.split('=')
-                if len( items ) > 1:
-                    task_parameters[ str(items[0]).strip(" []") ] = json.loads( items[1] )
+        inputs = request.get('datainputs',None)
+        wpsLog.debug( ">>>> REQUEST datainputs: %s" % str(inputs) )
+        if inputs:
+            if isinstance( inputs, dict ):
+                task_parameters.update( inputs )
+            elif isinstance( inputs, list ):
+                for item in inputs:
+                    if isinstance( item, list ):
+                        task_parameters[ str(item[0]) ] = convert_json_str( item[1] )
+                    elif isinstance( item, basestring ):
+                        self.parseDatainputsStr( item, task_parameters )
+            else:
+                self.parseDatainputsStr(self, inputs, task_parameters )
             del request[ 'datainputs' ]
         for key in [ 'data', 'region', 'operation' ]:
             parameter = request.get(key,None)
@@ -30,3 +35,11 @@ class CDASDialect( WPSDialect ):
             task_parameters[ item[0] ] = item[1]
 
         return task_parameters
+
+
+    def parseDatainputsStr(self, inputs, task_parameters ):
+        lines = inputs.split(';')
+        for line in lines:
+            items = line.split('=')
+            if len( items ) > 1:
+                task_parameters[ str(items[0]).strip(" []") ] = json.loads( items[1] )

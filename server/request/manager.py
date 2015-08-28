@@ -1,10 +1,5 @@
 import sys, json, time
-from staging import stagingRegistry
-from modules import configuration
 from modules.utilities import wpsLog
-from request.api.manager import apiManager
-from datacache.domains import RegionContainer
-from kernels.cda import OperationContainer, DatasetContainer
 
 class TaskManager:
 
@@ -12,6 +7,8 @@ class TaskManager:
         pass
 
     def processRequest( self, request_parameters ):
+        from modules import configuration
+        from staging import stagingRegistry
         task_request = TaskRequest( request=request_parameters )
         wpsLog.debug( " $$$ CDAS Process Request[T=%.3f]: %s " % ( time.time(), str( request_parameters ) ) )
         t0 = time.time()
@@ -28,6 +25,7 @@ class TaskManager:
 class TaskRequest:
 
     def __init__( self, **args  ):
+        from request.api.manager import apiManager
         self.task = {}
         request_parameters = args.get( 'request', None )
         if request_parameters:
@@ -42,14 +40,17 @@ class TaskRequest:
 
     @property
     def data(self):
+        from kernels.cda import DatasetContainer
         return DatasetContainer( self.task.get('data', None) )
 
     @property
     def region(self):
+        from datacache.domains import RegionContainer
         return RegionContainer( self.task.get('region', None) )
 
     @property
-    def operation(self):
+    def operations(self):
+        from kernels.cda import OperationContainer
         return OperationContainer( self.task.get('operation', None) )
 
     @property

@@ -145,7 +145,7 @@ class CeleryEngine( Executable ):
             cLog.debug( " ***** Executing Celery engine (t=%.2f), request: %s" % ( t0, str(task_request) ) )
             dset_mdata = task_request.data.values
             op_region = task_request.region.value
-            operation = task_request.operation.values
+            operation = task_request.operations.values
 
             for var_mdata in dset_mdata:
                 id = var_mdata.get('id','')
