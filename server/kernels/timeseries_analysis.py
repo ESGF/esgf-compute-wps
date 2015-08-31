@@ -8,13 +8,15 @@ import cdms2, sys
 from kernels.cda import DataAnalytics
 from modules.utilities import *
 
-def get_one_month_subset( input_data, month_index, month_index_array ):
-    im_mask = month_index_array <> month_index
+def get_subset( input_data, subset_index, subset_index_array ):
+    im_mask = subset_index_array <> subset_index
     if input_data.ndim > 1:
         im_mask = np.tile( im_mask, input_data.shape[1:] )
     return ma.masked_array( input_data, mask = im_mask )
 
 class TimeseriesAnalytics( DataAnalytics ):
+
+    season_def_array = [ 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 0]
 
     def __init__( self, **args ):
         DataAnalytics.__init__( self, **args  )
@@ -31,9 +33,19 @@ class TimeseriesAnalytics( DataAnalytics ):
         time_vals = input_variable.getTime().asComponentTime()
         month_index_array = np.array( [  tv.month for tv in time_vals ] )
         squeezed_input = input_variable.squeeze()
-        acycle = [ ma.average( get_one_month_subset( squeezed_input, month_index, month_index_array ) ) for month_index in range(1,13) ]
+        acycle = [ ma.average( get_subset( squeezed_input, month_index, month_index_array ) ) for month_index in range(1,13) ]
         t1 = time.time()
         wpsLog.debug( "Computed annual cycle, time = %.4f, result:\n %s" % ( (t1-t0), str(acycle) ) )
+        return ma.array(acycle)
+
+    def seasonal_cycle( self, input_variable ):
+        t0 = time.time()
+        time_vals = input_variable.getTime().asComponentTime()
+        season_index_array = np.array( [  self.season_def_array[tv.month] for tv in time_vals ] )
+        squeezed_input = input_variable.squeeze()
+        acycle = [ ma.average( get_subset( squeezed_input, season_index, season_index_array ) ) for season_index in range(0,4) ]
+        t1 = time.time()
+        wpsLog.debug( "Computed seasonal cycle, time = %.4f, result:\n %s" % ( (t1-t0), str(acycle) ) )
         return ma.array(acycle)
 
     def run( self, data, region, operation ):

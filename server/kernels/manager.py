@@ -30,14 +30,15 @@ class KernelManager:
         return data, region
 
     def run( self, task_request ):
-        wpsLog.debug( " $$$ Kernel Manager Execution: request = %s " % str(task_request) )
+        wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )
         start_time = time.time()
         operations =  task_request.operations
         results = []
-        for operation in operations.values:
+        operations_list = [None] if (operations.value is None) else operations.values
+        for operation in operations_list:
             data, region = self.getKernelInputs( operation, task_request )
             kernel = self.getKernel( operation )
-            result = kernel.run( data, region, operation ) if kernel else [ data['result'] ]
+            result = kernel.run( data, region, operation ) if kernel else { 'result': data['result'] }
             results.append( result )
         end_time = time.time()
         wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
@@ -71,6 +72,6 @@ if __name__ == "__main__":
                         'data': '{"collection": "MERRA/mon/atmos", "id": "hur"}',
                         'operation': '{ "kernel": "time", "type": "value" }'  }
 
-    test_task_args =  {u'embedded': [u'true'], u'service': [u'WPS'], u'rawDataOutput': [u'result'], u'config': {'cache': True}, u'region': {u'latitude': -4.710426330566406, u'time': u'2010-01-16T12:00:00', u'longitude': -125.875, u'level': 100000}, u'request': [u'Execute'], u'version': [u'1.0.0'], u'operation': [{u'kernel': u'time', u'slice': u't', u'type': u'departures', u'bounds': u'np'}, {u'kernel': u'time', u'slice': u't', u'type': u'climatology', u'bounds': u'annualcycle'}, {u'kernel': u'time', u'type': u'value'}], u'identifier': [u'cdas'], u'data': {u'id': u'hur', u'collection': u'MERRA/mon/atmos'}}
-
-    kernelMgr.run(  TaskRequest( request=task_args ) )
+    test_task_args1 =  {u'embedded': [u'true'], u'service': [u'WPS'], u'rawDataOutput': [u'result'], u'config': {'cache': True}, u'region': {u'latitude': -4.710426330566406, u'time': u'2010-01-16T12:00:00', u'longitude': -125.875, u'level': 100000}, u'request': [u'Execute'], u'version': [u'1.0.0'], u'operation': [{u'kernel': u'time', u'slice': u't', u'type': u'departures', u'bounds': u'np'}, {u'kernel': u'time', u'slice': u't', u'type': u'climatology', u'bounds': u'annualcycle'}, {u'kernel': u'time', u'type': u'value'}], u'identifier': [u'cdas'], u'data': {u'id': u'hur', u'collection': u'MERRA/mon/atmos'}}
+    test_task_args = { 'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'], 'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","id":"hur"};]']}
+    kernelMgr.run(  TaskRequest( request=test_task_args ) )

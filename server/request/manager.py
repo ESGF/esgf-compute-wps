@@ -10,7 +10,7 @@ class TaskManager:
         from modules import configuration
         from staging import stagingRegistry
         task_request = TaskRequest( request=request_parameters )
-        wpsLog.debug( " $$$ CDAS Process Request[T=%.3f]: %s " % ( time.time(), str( request_parameters ) ) )
+        wpsLog.debug( "---"*50 + "\n $$$ CDAS Process NEW Request[T=%.3f]: %s \n" % ( time.time(), str( request_parameters ) ) + "---"*50 )
         t0 = time.time()
         handler = stagingRegistry.getInstance( configuration.CDAS_STAGING  )
         if handler is None:

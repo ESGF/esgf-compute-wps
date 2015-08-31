@@ -15,5 +15,6 @@ region = {"level":"100000"}
 operation = [{"kernel":"time","type":"departures","bounds":"np"},{"kernel":"time","type":"climatology","bounds":"annualcycle"}]
 
 request = { 'datainputs': { 'data':data, 'region':region, 'operation':operation } }
-response = taskManager.processRequest( request )
+cache_request = { 'datainputs': { 'data':data, 'region':region, 'operation':'' } }
+response = taskManager.processRequest( cache_request )
 print response
