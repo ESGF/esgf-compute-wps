@@ -148,9 +148,11 @@ class DataManager:
                     variable = load_variable_region( dataset, id, cache_region.toCDMS() )
                     data_specs['region'] = str(cache_region)
 
-            elif (cache_type == CachedVariable.CACHE_OP) and (region is not None):
-                variable = subset_variable_region( variable, region.toCDMS() )
-                data_specs['region'] = str(region)
+            else:
+                wpsLog.debug( ">>----------------->>> Loading data from cache, cached region= %s" % data_specs['region'] )
+                if (cache_type == CachedVariable.CACHE_OP) and (region is not None):
+                    variable = subset_variable_region( variable, region.toCDMS() )
+                    data_specs['region'] = str(region)
 
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
         else:

@@ -72,4 +72,5 @@ if __name__ == "__main__":
                         'operation': '{ "kernel": "time", "type": "value" }'  }
 
     test_task_args =  {u'embedded': [u'true'], u'service': [u'WPS'], u'rawDataOutput': [u'result'], u'config': {'cache': True}, u'region': {u'latitude': -4.710426330566406, u'time': u'2010-01-16T12:00:00', u'longitude': -125.875, u'level': 100000}, u'request': [u'Execute'], u'version': [u'1.0.0'], u'operation': [{u'kernel': u'time', u'slice': u't', u'type': u'departures', u'bounds': u'np'}, {u'kernel': u'time', u'slice': u't', u'type': u'climatology', u'bounds': u'annualcycle'}, {u'kernel': u'time', u'type': u'value'}], u'identifier': [u'cdas'], u'data': {u'id': u'hur', u'collection': u'MERRA/mon/atmos'}}
-    kernelMgr.run(  TaskRequest( request=test_task_args ) )
+
+    kernelMgr.run(  TaskRequest( request=task_args ) )

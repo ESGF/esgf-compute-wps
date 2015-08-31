@@ -3,8 +3,7 @@ import os, time
 import logging
 import json, types, traceback
 from cdasProcess import CDASProcess, loadValue
-from staging import stagingRegistry
-from modules import configuration
+from request.manager import taskManager
 
 wpsLog = logging.getLogger( 'wps' )
 
@@ -27,19 +26,37 @@ class Process(CDASProcess):
             data = loadValue( self.data )
             region = loadValue( self.region )
             operation = loadValue( self.operation )
-            wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s', ---> Time=%.3f " % ( str( data ), str( region ), str( operation ), time.time() ) )
-            t0 = time.time()
-            handler = stagingRegistry.getInstance( configuration.CDAS_STAGING  )
-            if handler is None:
-                wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
-                handler = stagingRegistry.getInstance( 'local' )
-            result_obj =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': configuration.CDAS_COMPUTE_ENGINE } )
-            wpsLog.debug( " $$$*** CDAS Process (response time: %.3f sec):\n Result='%s' " %  ( (time.time()-t0), str(result_obj) ) )
-            result_json = json.dumps( result_obj )
-            self.result.setValue( result_json )
+            request = { 'datainputs': { 'data':data, 'region':region, 'operation':operation } }
+            wpsLog.debug( " $$$ CDAS Django-WPS Process,  Request: %s, Operation: %s " % ( str( request ), str(operation) ) )
+            response = taskManager.processRequest( request )
+            self.result.setValue( response )
         except Exception, err:
              wpsLog.debug( "Exception executing CDAS process:\n " + traceback.format_exc() )
              self.result.setValue( '' )
+
+
+    # def execute1(self):
+    #     try:
+    #         # wpsLog.debug( "  -------------- Execution stack:  -------------- ")
+    #         # wpsLog.debug( traceback.format_stack() )
+    #         # wpsLog.debug( "  -------------- ________________  -------------- ")
+    #
+    #         data = loadValue( self.data )
+    #         region = loadValue( self.region )
+    #         operation = loadValue( self.operation )
+    #         wpsLog.debug( " $$$ CDAS Process: DataIn='%s', Domain='%s', Operation='%s', ---> Time=%.3f " % ( str( data ), str( region ), str( operation ), time.time() ) )
+    #         t0 = time.time()
+    #         handler = stagingRegistry.getInstance( configuration.CDAS_STAGING  )
+    #         if handler is None:
+    #             wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
+    #             handler = stagingRegistry.getInstance( 'local' )
+    #         result_obj =  handler.execute( { 'data':data, 'region':region, 'operation':operation, 'engine': configuration.CDAS_COMPUTE_ENGINE } )
+    #         wpsLog.debug( " $$$*** CDAS Process (response time: %.3f sec):\n Result='%s' " %  ( (time.time()-t0), str(result_obj) ) )
+    #         result_json = json.dumps( result_obj )
+    #         self.result.setValue( result_json )
+    #     except Exception, err:
+    #          wpsLog.debug( "Exception executing CDAS process:\n " + traceback.format_exc() )
+    #          self.result.setValue( '' )
 
 
 
@@ -64,28 +81,4 @@ class Process(CDASProcess):
 # Test arguments for run configuration:
 # version=1.0.0&service=wps&request=Execute&RawDataOutput=result&identifier=timeseries&datainputs=[domain={\"longitude\":10.0,\"latitude\":10.0,\"level\":1000.0};variable={\"url\":\"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml\",\"id\":\"uwnd\"}]
 
-    # def execute(self):
-    #     dataIn=self.loadData()[0]
-    #     location = self.loadDomain()
-    #     cdms2keyargs = self.domain2cdms(location)
-    #     url = dataIn["url"]
-    #     id = dataIn["id"]
-    #     dataset = self.loadFileFromURL( url )
-    #     logging.debug( " $$$ Data Request: '%s', '%s' ", url, str( cdms2keyargs ) )
-    #
-    #     variable = dataset[ id ]
-    #     result_variable = variable(**cdms2keyargs)
-    #     result_data = result_variable.squeeze().tolist( numpy.nan )
-    #     time_axis = result_variable.getTime()
-    #
-    #     result_obj = {}
-    #
-    #     result_obj['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': dataIn["id"] } )
-    #     result_obj['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
-    #     if time_axis is not None:
-    #         result_obj['time'] = record_attributes( time_axis, [ 'units', 'calendar', '_data_' ] )
-    #     result_obj['data'] = result_data
-    #     result_json = json.dumps( result_obj )
-    #     self.result.setValue( result_json )
-    #     return
 
