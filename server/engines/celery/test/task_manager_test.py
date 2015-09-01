@@ -7,9 +7,6 @@ request1 = {'version': [u'1.0.0'],
            'request': [u'Execute'],
            'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","id":"hur"};operation=[{"kernel":"time","type":"departures","bounds":"np"},{"kernel":"time","type":"climatology","bounds":"annualcycle"}]' ] };
 
-
-
-
 data = {"collection":"MERRA/mon/atmos","id":"hur"};
 region = {"level":"100000"}
 operation = [{"kernel":"time","type":"departures","bounds":"np"},{"kernel":"time","type":"climatology","bounds":"annualcycle"}]
