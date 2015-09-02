@@ -52,7 +52,7 @@ class TimeseriesAnalytics( DataAnalytics ):
         try:
             [ subsetted_variable ] = data['variables']
             start_time = time.time()
-            result_obj = dict( data['result'] )
+            result_obj = dict( data.get('result', {} ) )
             ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             if time_axis is not None:

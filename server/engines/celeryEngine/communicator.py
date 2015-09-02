@@ -13,8 +13,10 @@ class CeleryTaskMonitor(TaskMonitor):
     def ready(self):
         return self.task.ready()
 
-    def result(self):
-        return self.task.get()
+    def result( self, **args ):
+        result = self.task.get()
+        result.update( args )
+        return result
 
     def taskName(self):
         return self.task.task_name

@@ -18,7 +18,7 @@ class TaskMonitor:
     def ready(self):
         raise Exception( 'Error: ready method not implemented in TaskMonitor')
 
-    def result(self):
+    def result(self,**args):
         raise Exception( 'Error: result method not implemented in TaskMonitor')
 
 class ComputeEngineCommunicator:

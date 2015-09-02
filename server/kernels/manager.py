@@ -1,4 +1,4 @@
-import sys
+import sys, traceback
 
 from modules.utilities import *
 from datacache.manager import dataManager, CachedVariable
@@ -30,18 +30,25 @@ class KernelManager:
         return data, region
 
     def run( self, task_request ):
+        results = []
         wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )
         start_time = time.time()
-        operations =  task_request.operations
-        results = []
-        operations_list = [None] if (operations.value is None) else operations.values
-        for operation in operations_list:
-            data, region = self.getKernelInputs( operation, task_request )
-            kernel = self.getKernel( operation )
-            result = kernel.run( data, region, operation ) if kernel else { 'result': data['result'] }
+        try:
+            operations =  task_request.operations
+            operations_list = [None] if (operations.value is None) else operations.values
+            for operation in operations_list:
+                data, region = self.getKernelInputs( operation, task_request )
+                kernel = self.getKernel( operation )
+                result = kernel.run( data, region, operation ) if kernel else { 'result': data['result'] }
+                results.append( result )
+            end_time = time.time()
+            wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
+        except Exception, err:
+            wpsLog.debug( " Error executing kernel: %s " % str(err) )
+            wpsLog.debug( traceback.format_exc() )
+            result = data.get('result', {} )
+            result['error'] = str(err)
             results.append( result )
-        end_time = time.time()
-        wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
         return results
 
     def getKernel( self, operation ):

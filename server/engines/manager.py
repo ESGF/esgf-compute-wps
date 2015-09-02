@@ -65,6 +65,7 @@ class ComputeEngine( Executable ):
             t0 = time.time()
             async = compute_args.get( 'async', False )
             cache_request = None
+            execution_record = {}
             self.communicator.updateWorkerStats()
             self.processPendingTasks()
             designated_worker = None
@@ -88,6 +89,7 @@ class ComputeEngine( Executable ):
                         cache_task_request = TaskRequest( task=cache_op_args)
                         cache_worker = self.communicator.getNextWorker()
                         cache_request = self.communicator.submitTask( cache_task_request, cache_worker )
+       #                 execution_record['cache'] = cache_region
                         tc01 = time.time()
                         cached_domain = cached_var.addDomain( cache_region )
                         self.pendingTasks[ cache_request ] = cached_domain
@@ -107,6 +109,8 @@ class ComputeEngine( Executable ):
 
                 if designated_worker is None:
                     designated_worker = self.communicator.getNextWorker()
+                else:
+                    execution_record['designated_worker'] = True
 
                 task_monitor = self.communicator.submitTask( task_request, designated_worker )
                 op_domain = cached_var.addDomain( op_region )
@@ -116,7 +120,7 @@ class ComputeEngine( Executable ):
                 wpsLog.debug( " ***** Sending operation [tid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): request= %s " %  ( task_monitor.id, str(designated_worker), t2, t2-t0, str(task_request) ) )
                 if async: return task_monitor
 
-                result = task_monitor.result()
+                result = task_monitor.result(exerec=execution_record)
                 t1 = time.time()
                 wpsLog.debug( " ***** Retrieved result [tid:%s] from worker '%s' (t = %.2f, dt1 = %.3f)" %  ( task_monitor.id, result[0]['worker'], t1, t1-t2 ) )
                 return result
