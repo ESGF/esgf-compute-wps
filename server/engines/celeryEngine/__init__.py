@@ -1,4 +1,4 @@
-from celeryEngine import CeleryEngine
+from tasks import CeleryEngine
 
 def getConstructor():
     return CeleryEngine

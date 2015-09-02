@@ -53,6 +53,9 @@ class TaskRequest:
         from kernels.cda import OperationContainer
         return OperationContainer( self.task.get('operation', None) )
 
+    def isCacheOp(self):
+        return ( self.operations().value == None )
+
     @property
     def configuration(self):
         return self.task.get('config', None)

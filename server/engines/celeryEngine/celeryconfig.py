@@ -14,7 +14,7 @@ elif CDAS_CELERY_BACKEND == 'redis':
     CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
 # List of modules to import when celery starts.
-CELERY_IMPORTS = ( 'engines.celery.tasks', )
+CELERY_IMPORTS = ( 'engines.celeryEngine.tasks', )
 
 CELERYD_PREFETCH_MULTIPLIER =  4
 
