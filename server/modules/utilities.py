@@ -28,8 +28,8 @@ class ExecutionRecord:
     def __init__( self ):
         self.clear()
 
-    def addRecs( self, **args ):
-        self.rec.update( args )
+    def addRecs( self, **kwargs ):
+        self.rec.update( kwargs )
 
     def clear(self):
         self.rec = {}

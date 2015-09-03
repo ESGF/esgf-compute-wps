@@ -1,6 +1,7 @@
 import unittest, json
 from request.manager import TaskRequest
 from engines import engineRegistry
+from datacache.domains import Domain, Region
 from modules.configuration import MERRA_TEST_VARIABLES, CDAS_COMPUTE_ENGINE
 
 class EngineTests(unittest.TestCase):
@@ -10,6 +11,7 @@ class EngineTests(unittest.TestCase):
         self.test_time = '2010-01-16T12:00:00'
         self.def_task_args =  { 'region': self.getRegion(), 'data': self.getData() }
         self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE )
+        self.cache_region = { "level": 85000 }
 
     def tearDown(self):
         pass
@@ -45,34 +47,38 @@ class EngineTests(unittest.TestCase):
             self.fail(str(results))
         return results[index]['exerec']
 
-    def test_cache(self):
-        cache_region = { "level": 85000 }
-        result = self.engine.execute( TaskRequest( task={ 'region': cache_region, 'data': self.getData() } ) )
-        exerec = self.getResultStats( result )
-        self.assertEqual( exerec['cache_add'], cache_region )
+    def assertStatusEquals(self, result, **kwargs ):
+        status = self.getResultStats( result )
+        for item in kwargs.iteritems():
+            self.assertEqual( status[item[0]], item[1] )
 
-    def xtest_departures(self):
+    def test01_cache(self):
+        result = self.engine.execute( TaskRequest( task={ 'region': self.cache_region, 'data': self.getData() } ) )
+        self.assertStatusEquals( result, cache_add=self.cache_region )
+
+    def test02_departures(self):
         test_result = [-1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375, -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375]
         task_args = self.getTaskArgs( op=self.getOp( "time", "departures", "np", 't' ) )
         result = self.engine.execute( TaskRequest( task=task_args ) )
         result_data = self.getResultData( result )
         self.assertAlmostEqual( test_result, result_data[0:len(test_result)] )
+        self.assertStatusEquals( result, cache_found=Domain.COMPLETE, cache_found_domain=self.cache_region,  designated=True )
 
-    def xtest_annual_cycle(self):
+    def test03_annual_cycle(self):
         test_result = [48.07984754774306, 49.218166775173614, 49.36114501953125, 46.40715196397569, 46.3406982421875, 44.37486775716146, 46.54383680555556, 48.780619303385414, 46.378028021918404, 46.693325466579864, 48.840003119574654, 46.627953423394096]
         task_args = self.getTaskArgs( op=self.getOp( "time", "climatology", "annualcycle", 't' ) )
         result = self.engine.execute( TaskRequest( task=task_args ) )
         result_data = self.getResultData( result )
         self.assertAlmostEqual( test_result, result_data[0:len(test_result)] )
 
-    def xtest_value_retreval(self):
+    def test04_value_retreval(self):
         test_result = 59.765625
         task_args = self.getTaskArgs( op=self.getOp( "time", "value" ) )
         result = self.engine.execute( TaskRequest( task=task_args ) )
         result_data = self.getResultData( result )
         self.assertAlmostEqual( test_result, result_data )
 
-    def xtest_multitask(self):
+    def test05_multitask(self):
         test_results = [ [-1.405364990234375, -1.258880615234375, 0.840728759765625 ], [48.07984754774306, 49.218166775173614, 49.36114501953125], 59.765625 ]
         op_list = self.getOps( [ ( "time", "departures", "np", 't' ) , ( "time", "climatology", "annualcycle", 't' ), ( "time", "value" ) ] )
         task_args = self.getTaskArgs( op=op_list )
@@ -85,4 +91,7 @@ class EngineTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    test_runner = unittest.TextTestRunner(verbosity=2)
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase( EngineTests )
+    test_runner.run( suite )
+
