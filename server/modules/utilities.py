@@ -23,6 +23,35 @@ def dump_json_str( obj ):
     except:
         wpsLog.error( "Can't serialize object '%s' " % ( str(obj) ) )
 
+class ExecutionRecord:
+
+    def __init__( self ):
+        self.clear()
+
+    def addRecs( self, **args ):
+        self.rec.update( args )
+
+    def clear(self):
+        self.rec = {}
+
+    def toJson(self):
+        return json.dumps( self.rec )
+
+    def __str__(self):
+        return str( self.rec )
+
+    def items(self):
+        return self.rec.items()
+
+    def iteritems(self):
+        return self.rec.iteritems()
+
+    def __getitem__(self, item):
+        return self.rec.get( item, None )
+
+    def __setitem__(self, key, value):
+        self.rec[ key ] = value
+
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
     for attr_name in attr_name_list:

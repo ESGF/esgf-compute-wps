@@ -8,14 +8,21 @@ import traceback
 
 StatusCache = StatusCacheManager()
 
+executionRecord = ExecutionRecord()
+
 class ComputeEngine( Executable ):
 
-    def __init__( self, id ):
+    def __init__( self, id, **args ):
         Executable.__init__( self, id )
-        self.communicator = None
+        self.communicator = self.getCommunicator()
         self.cachedVariables = {}
         self.pendingTasks = {}
         self.statusCache = StatusCacheManager()
+        self.restore_specs = args.get('restore',False)
+        if self.restore_specs: self.restore()
+
+    def getCommunicator(self):
+        return None
 
     def restore(self):
         cache_data = self.statusCache.restore( 'cdas_compute_engine_cache' )
@@ -47,7 +54,7 @@ class ComputeEngine( Executable ):
         for completed_request in completed_requests:
             del self.pendingTasks[ completed_request ]
             do_cache = True
-        if do_cache: self.cache()
+        if do_cache and self.restore_specs: self.cache()
         t1 = time.time()
         wpsLog.debug( " ***** processPendingTasks[ dt = %0.3f ]: %s" %  ( t1-t0, pTasks ) )
 
@@ -64,8 +71,8 @@ class ComputeEngine( Executable ):
         try:
             t0 = time.time()
             async = compute_args.get( 'async', False )
-            cache_request = None
-            execution_record = {}
+            cache_task_request = None
+            cache_task_monitor = None
             self.communicator.updateWorkerStats()
             self.processPendingTasks()
             designated_worker = None
@@ -88,16 +95,17 @@ class ComputeEngine( Executable ):
                         tc0 = time.time()
                         cache_task_request = TaskRequest( task=cache_op_args)
                         cache_worker = self.communicator.getNextWorker()
-                        cache_request = self.communicator.submitTask( cache_task_request, cache_worker )
-       #                 execution_record['cache'] = cache_region
+                        cache_task_monitor = self.communicator.submitTask( cache_task_request, cache_worker )
+                        executionRecord.addRecs( cache_add=cache_region.spec, cache_add_worker = cache_worker )
                         tc01 = time.time()
                         cached_domain = cached_var.addDomain( cache_region )
-                        self.pendingTasks[ cache_request ] = cached_domain
-                        self.cache()
+                        self.pendingTasks[ cache_task_monitor ] = cached_domain
+                        if self.restore_specs: self.cache()
                         tc1 = time.time()
-                        wpsLog.debug( " ***** Caching data [tid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_request.id, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
+                        wpsLog.debug( " ***** Caching data [tid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_task_monitor.id, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
                     else:
                         worker_id, cache_request_status = cached_domain.getCacheStatus()
+                        executionRecord.addRecs( cache_found = cache_request_status, cache_found_domain = cached_domain.spec, cache_found_worker = worker_id )
                         if (cache_request_status == Domain.COMPLETE) or ( cached_var.cacheType() == CachedVariable.CACHE_OP ):
                             designated_worker = worker_id
                             wpsLog.debug( " ***** Found cached data on worker %s " %  worker_id )
@@ -110,27 +118,33 @@ class ComputeEngine( Executable ):
                 if designated_worker is None:
                     designated_worker = self.communicator.getNextWorker()
                 else:
-                    execution_record['designated_worker'] = True
+                    executionRecord.addRecs( 'designated', True, 'designated_worker', designated_worker )
 
                 task_monitor = self.communicator.submitTask( task_request, designated_worker )
                 op_domain = cached_var.addDomain( op_region )
                 self.pendingTasks[ task_monitor ] = op_domain
-                self.cache()
+                if self.restore_specs: self.cache()
+                task_monitor.addStats(exerec=executionRecord)
 
                 wpsLog.debug( " ***** Sending operation [tid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): request= %s " %  ( task_monitor.id, str(designated_worker), t2, t2-t0, str(task_request) ) )
                 if async: return task_monitor
 
-                result = task_monitor.result(exerec=execution_record)
+                result = task_monitor.result()
                 t1 = time.time()
                 wpsLog.debug( " ***** Retrieved result [tid:%s] from worker '%s' (t = %.2f, dt1 = %.3f)" %  ( task_monitor.id, result[0]['worker'], t1, t1-t2 ) )
                 return result
 
             else:
-                if async: return cache_request
+                if async: return cache_task_request
+                else:
+                    if cache_task_monitor is not None:
+                        result = cache_task_monitor.result(exerec=executionRecord)
+                        return result
+                    else:
+                        return [ { 'exerec': executionRecord } ]
 
         except Exception, err:
             wpsLog.error(" Error running compute engine: %s\n %s " % ( str(err), traceback.format_exc()  ) )
             return err
-
 
 

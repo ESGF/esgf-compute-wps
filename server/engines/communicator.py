@@ -21,6 +21,10 @@ class TaskMonitor:
     def result(self,**args):
         raise Exception( 'Error: result method not implemented in TaskMonitor')
 
+    def addStats(self,**args):
+        raise Exception( 'Error: addStats method not implemented in TaskMonitor')
+
+
 class ComputeEngineCommunicator:
 
     WS_FREE = 1

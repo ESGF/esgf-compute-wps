@@ -42,12 +42,7 @@ from communicator import CeleryCommunicator
 
 class CeleryEngine( ComputeEngine ):
 
-    def __init__( self, id ):
-        ComputeEngine.__init__( self, id )
-        self.communicator = CeleryCommunicator()
-        self.restore()
-
-
-
+    def getCommunicator( self ):
+        return  CeleryCommunicator()
 
 

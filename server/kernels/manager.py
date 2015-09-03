@@ -4,6 +4,7 @@ from modules.utilities import *
 from datacache.manager import dataManager, CachedVariable
 from datacache.domains import Region
 from request.manager import TaskRequest
+executionRecord = ExecutionRecord()
 
 class KernelManager:
 
@@ -18,7 +19,7 @@ class KernelManager:
             if dslice: region = Region( region, slice=dslice )
         variable, result_obj = dataManager.loadVariable( data, region, cache_type )
         cached_region = Region( result_obj['region'] )
-        if cached_region <> region:
+        if (region is not None) and (cached_region <> region):
             subset_args = region.toCDMS()
             subset_var = numpy.ma.fix_invalid( variable( **subset_args ) )
 #            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))

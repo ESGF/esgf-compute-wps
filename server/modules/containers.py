@@ -5,7 +5,7 @@ class JSONObject:
 
     def __init__( self, spec={}, **args ):
         if isinstance( spec, JSONObject ): spec = spec.spec
-        self.spec = convert_json_str( spec )
+        self.spec = {} if (spec is None) else convert_json_str( spec )
         self.items = {}
         assert isinstance( self.spec, dict ), "Error, unrecognized JSONObject spec: %s " % str( spec)
         self.process_spec( **args )
