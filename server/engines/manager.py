@@ -123,7 +123,7 @@ class ComputeEngine( Executable ):
                 op_domain = cached_var.addDomain( op_region )
                 self.pendingTasks[ task_monitor ] = op_domain
                 self.cache()
-                task_monitor.addStats(exerec=executionRecord)
+                task_monitor.addStats( exerec=executionRecord.toJson() )
 
                 wpsLog.debug( " ***** Sending operation [tid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): request= %s " %  ( task_monitor.id, str(designated_worker), t2, t2-t0, str(task_request) ) )
                 if async: return task_monitor
@@ -137,10 +137,10 @@ class ComputeEngine( Executable ):
                 if async: return cache_task_request
                 else:
                     if cache_task_monitor is not None:
-                        result = cache_task_monitor.result(exerec=executionRecord)
+                        result = cache_task_monitor.result( exerec=executionRecord.toJson() )
                         return result
                     else:
-                        return [ { 'exerec': executionRecord } ]
+                        return [ { 'exerec': executionRecord.toJson() } ]
 
         except Exception, err:
             wpsLog.error(" Error running compute engine: %s\n %s " % ( str(err), traceback.format_exc()  ) )
