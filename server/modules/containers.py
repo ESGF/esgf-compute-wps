@@ -4,11 +4,14 @@ from utilities import  *
 class JSONObject:
 
     def __init__( self, spec={}, **args ):
+        self.items = {}
+        self.load_spec( spec )
+        self.process_spec( **args )
+
+    def load_spec( self, spec ):
         if isinstance( spec, JSONObject ): spec = spec.spec
         self.spec = {} if (spec is None) else convert_json_str( spec )
-        self.items = {}
         assert isinstance( self.spec, dict ), "Error, unrecognized JSONObject spec: %s " % str( spec)
-        self.process_spec( **args )
 
     def process_spec( self, **args ):
         self.items = dict( self.spec )

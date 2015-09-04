@@ -83,26 +83,26 @@ class TimeseriesAnalytics( DataAnalytics ):
             time_axis = None
 #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             if operation is not None:
-                type = operation.get('type','').lower()
+                method = operation.get('method','').lower()
                 bounds = operation.get('bounds','').lower()
                 op_start_time = time.clock() # time.time()
                 if not bounds:
-                    if type == 'departures':
+                    if method == 'departures':
                         ave = cdutil.averager( input_variable, axis='t', weights='equal' )
                         result = input_variable - ave
-                    elif type == 'climatology':
+                    elif method == 'climatology':
                         result = cdutil.averager( input_variable, axis='t', weights='equal' )
-                    elif type == 'value':
+                    elif method == 'value':
                         result =  input_variable
                     else:
                         result = input_variable
                     time_axis = input_variable.getTime()
                 elif bounds == 'np':
-                    if   type == 'departures':
+                    if   method == 'departures':
                         result = ma.anomalies( input_variable ).squeeze()
-                    elif type == 'climatology':
+                    elif method == 'climatology':
                         result = ma.average( input_variable ).squeeze()
-                    elif type == 'annualcycle':
+                    elif method == 'annualcycle':
                         result = self.annual_cycle( input_variable )
                     else:
                         result = input_variable
@@ -123,9 +123,9 @@ class TimeseriesAnalytics( DataAnalytics ):
                     elif bounds == 'seasonalcycle':
                         operator = cdutil.SEASONALCYCLE
                     if operator <> None:
-                        if   type == 'departures':
+                        if   method == 'departures':
                             result = operator.departures( input_variable ).squeeze()
-                        elif type == 'climatology':
+                        elif method == 'climatology':
                             if bounds == 'annualcycle':
                                 result = self.annual_cycle( input_variable )
 #                                result = operator.climatology( input_variable ).squeeze()
@@ -203,9 +203,9 @@ if __name__ == "__main__":
 
     run_args =  { 'region': '{"longitude": -137.09327695888, "latitude": 35.487604770915, "level": 85000 }',   # ,
                   'data': '{"collection": "MERRA/mon/atmos", "id": "hur"}',
-#                  'operation': '[  {"kernel": "time", "type": "departures", "bounds":"np" } ] '
-                  'operation': '[  {"kernel": "time", "type": "climatology",  "bounds":"annualcycle"} ] '
- #                 'operation': '[  {"kernel": "time", "type": "annualcycle",  "bounds":"np"} ] '
+#                  'operation': '[  {"kernel": "time", "method": "departures", "bounds":"np" } ] '
+                  'operation': '[  {"kernel": "time", "method": "climatology",  "bounds":"annualcycle"} ] '
+ #                 'operation': '[  {"kernel": "time", "method": "annualcycle",  "bounds":"np"} ] '
                 }
 
     kernelMgr.run( TaskRequest( request=run_args ) )

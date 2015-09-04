@@ -48,9 +48,16 @@ class OperationContainer(JSONObjectContainer):
 
 class Operation(JSONObject):
 
-    def __init__( self, operation_spec={} ):
-        self.tolerance=0.001
-        JSONObject.__init__( self, operation_spec )
+    def load_spec( self, spec ):
+        self.spec = spec
+
+    def process_spec( self, **args ):
+        toks = self.spec.split('()')
+        args = toks[1].split(',')
+        task = toks[0].split('.')
+        self.items = { 'kernel': task[0], 'method': task[1], 'input': args[0] }
+        if len(args>1): self.items['slice'] = args[2]
+        if len(args>2): self.items['bounds'] = args[1]
 
 class DataAnalytics:
 
