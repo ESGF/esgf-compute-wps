@@ -1,10 +1,10 @@
-import unittest, json
+import json, sys
 from request.manager import TaskRequest
 from engines import engineRegistry
 from datacache.domains import Domain, Region
 from modules.configuration import MERRA_TEST_VARIABLES, CDAS_COMPUTE_ENGINE
 
-class EngineTests(unittest.TestCase):
+class EngineTests:
 
     def setUp(self):
         self.test_point = [ -137.0, 35.0, 85000 ]
@@ -15,6 +15,9 @@ class EngineTests(unittest.TestCase):
 
     def tearDown(self):
         pass
+
+    def fail(self,msg):
+        print>>sys.stderr, msg
 
     def getRegion(self):
         return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (self.test_point[0],self.test_point[1],self.test_point[2],self.test_time)
@@ -93,7 +96,8 @@ class EngineTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    test_runner = unittest.TextTestRunner(verbosity=2)
-    suite = unittest.defaultTestLoader.loadTestsFromTestCase( EngineTests )
-    test_runner.run( suite )
+    engineTests = EngineTests()
+    engineTests.setUp()
+    engineTests.test01_cache()
+
 

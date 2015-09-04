@@ -34,13 +34,20 @@ class JSONObject:
     def __setitem__(self, key, value):
         self.items[ key ] = value
 
-    def getItem( self, feature_name ):
-        return self.items.get( feature_name, None )
+    def getItem( self, item_name ):
+        return self.items.get( item_name, None )
+
+    def getSpec(self, spec_name ):
+        return self.spec.get( spec_name, None )
+
+    def specs(self):
+        return self.spec.items()
 
 class JSONObjectContainer:
 
     def __init__( self, spec=None ):
         if isinstance( spec, JSONObjectContainer ): spec = spec.spec
+        else: self.spec = spec
         self._objects = []
         self.process_spec( spec )
 

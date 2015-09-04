@@ -57,8 +57,8 @@ class ComputeEngine( Executable ):
         wpsLog.debug( " ***** processPendingTasks[ dt = %0.3f ]: %s" %  ( t1-t0, pTasks ) )
 
 
-    def findCachedDomain(self, var_cache_id, region, var_specs ):
-        cached_var = self.cachedVariables.setdefault( var_cache_id, CachedVariable( id=var_cache_id, specs=var_specs) )
+    def findCachedDomain(self, var_cache_id, region, dataset ):
+        cached_var = self.cachedVariables.setdefault( var_cache_id, CachedVariable( id=var_cache_id, dataset=dataset) )
         if ( cached_var is not None ):
             overlap,domain = cached_var.findDomain( region )
             if overlap == Domain.CONTAINED: return cached_var, domain
@@ -76,21 +76,21 @@ class ComputeEngine( Executable ):
             self.processPendingTasks()
             designated_worker = None
             wpsLog.debug( " ***** Executing compute engine (t=%.2f), request: %s" % ( t0, str(task_request) ) )
-            dset_mdata = task_request.data.values
+            datasets = task_request.data.values
             op_region = task_request.region.value
             operation = task_request.operations.values
 
-            for var_mdata in dset_mdata:
-                id = var_mdata.get('id','')
-                collection = var_mdata.get('collection',None)
-                url = var_mdata.get('url','')
+            for dataset in datasets:
+                id = dataset.get('id','')
+                collection = dataset.get('collection',None)
+                url = dataset.get('url','')
                 var_cache_id = ":".join( [collection,id] ) if (collection is not None) else ":".join( [url,id] )
                 if var_cache_id <> ":":
-                    cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, task_request )
+                    cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, dataset )
                     if cached_domain is None:
                         cache_axis_list = [Region.LEVEL] if operation else [Region.LEVEL, Region.LATITUDE, Region.LONGITUDE]
                         cache_region = Region( op_region, axes=cache_axis_list )
-                        cache_op_args = { 'region':cache_region.spec, 'data':var_mdata.spec }
+                        cache_op_args = { 'region':cache_region.spec, 'data':str(dataset) }
                         tc0 = time.time()
                         cache_task_request = TaskRequest( task=cache_op_args)
                         cache_worker = self.communicator.getNextWorker()

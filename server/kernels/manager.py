@@ -34,6 +34,7 @@ class KernelManager:
         results = []
         wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )
         start_time = time.time()
+        data = {}
         try:
             operations =  task_request.operations
             operations_list = [None] if (operations.value is None) else operations.values

@@ -30,7 +30,7 @@ class CachedVariable:
     def __init__(self, **args ):
         self.id = args.get('id',None)
         self.type = args.get('type',None)
-        self.specs = args.get('specs',None)
+        self.dataset = args.get('dataset',None)
         self.specs = args
         self.domainManager = DomainManager()
 
@@ -106,14 +106,14 @@ class DataManager:
 
     def loadVariable( self, data, region, cache_type ):
         data_specs = {}
-        id =  data.get( 'id', None )
+        name =  data.get( 'name', None ); id
         variable = data.get('variable',None)
         t0 = time.time()
         wpsLog.debug( " #@@ DataManager:LoadVariable %s (time = %.2f), region = [%s], cache_type = %d" %  ( str( data ), t0, str(region), cache_type ) )
         if variable is None:
             url = data.get('url',None)
             if url is not None:
-                var_cache_id =  ":".join( [url,id] )
+                var_cache_id =  ":".join( [url,name] )
                 status, domain = self.cacheManager.getVariable( var_cache_id, region )
                 if status is not Domain.CONTAINED:
                     dataset = self.loadFileFromURL( url )
@@ -124,11 +124,11 @@ class DataManager:
             else:
                 collection = data.get('collection',None)
                 if collection is not None:
-                    var_cache_id =  ":".join( [collection,id] )
+                    var_cache_id =  ":".join( [collection,name] )
                     status, domain = self.cacheManager.getVariable( var_cache_id, region )
                     if status is not Domain.CONTAINED:
-                        dataset = self.loadFileFromCollection( collection, id )
-                        data_specs['dataset'] = record_attributes( dataset, [ 'id', 'uri' ])
+                        dataset = self.loadFileFromCollection( collection, name )
+                        data_specs['dataset'] = record_attributes( dataset, [ 'name', 'id', 'uri' ])
                     else:
                         variable = domain.data
                         data_specs['dataset']  = domain.spec.get( 'dataset', None )
@@ -140,12 +140,12 @@ class DataManager:
 
             if (variable is None):
                 if (cache_type == CachedVariable.CACHE_NONE):
-                    variable = dataset[id]
+                    variable = dataset[name]
                     data_specs['region'] = str(region)
                 else:
                     load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
                     cache_region = Region( load_region, axes=[ Region.LATITUDE, Region.LONGITUDE, Region.LEVEL ] )
-                    variable = load_variable_region( dataset, id, cache_region.toCDMS() )
+                    variable = load_variable_region( dataset, name, cache_region.toCDMS() )
                     data_specs['region'] = str(cache_region)
 
             else:
