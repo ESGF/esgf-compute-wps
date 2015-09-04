@@ -25,8 +25,14 @@ def dump_json_str( obj ):
 
 class ExecutionRecord:
 
-    def __init__( self ):
-        self.clear()
+    def __init__( self, stats = None ):
+        if stats is None: self.clear()
+        elif isinstance( stats, dict ):
+            self.rec = stats
+        elif isinstance( stats, basestring ):
+            self.rec = json.loads(stats)
+        else:
+            raise Exception( "Unrecognized stats in ExecutionRecord: %s" % str(stats) )
 
     def addRecs( self, **kwargs ):
         self.rec.update( kwargs )

@@ -43,9 +43,10 @@ class EngineTests(unittest.TestCase):
         return results[index]['data']
 
     def getResultStats( self, results, index=0 ):
+        from modules.utilities import ExecutionRecord
         if isinstance( results, Exception ):
             self.fail(str(results))
-        return results[index]['exerec']
+        return ExecutionRecord( results[index]['exerec'] )
 
     def assertStatusEquals(self, result, **kwargs ):
         status = self.getResultStats( result )
