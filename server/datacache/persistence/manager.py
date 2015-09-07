@@ -11,11 +11,11 @@ class DataPersistenceManager:
         self.engine = getDataPersistenceEngine()
 
     def store(self, data, **args ):
-        id = self.get_data_storage_id( **args )
-        self.engine.store( id, data )
-        return id
+        dsid = self.get_data_storage_id( **args )
+        self.engine.store( data, dsid )
+        return dsid
 
-    def get_data_storage_id( **args ):
+    def get_data_storage_id( self, **args ):
         return 'id'
 
     def load(self, id, **args ):
@@ -23,4 +23,4 @@ class DataPersistenceManager:
         return data
 
 
-persistenceManager = DataPersistenceManager
+persistenceManager = DataPersistenceManager()

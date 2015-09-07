@@ -2,7 +2,7 @@ from modules.utilities import  *
 from data_collections import CollectionManager
 from domains import *
 from decomposition.manager import decompositionManager
-import numpy
+import numpy, sys
 
 import cdms2, time
 
@@ -184,6 +184,26 @@ class DataManager:
         return f
 
 dataManager = DataManager()
+
+
+if __name__ == "__main__":
+    wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
+    wpsLog.setLevel(logging.DEBUG)
+
+    from modules.configuration import MERRA_TEST_VARIABLES
+    test_point = [ -137.0, 35.0, 85000 ]
+    test_time = '2010-01-16T12:00:00'
+    collection = MERRA_TEST_VARIABLES["collection"]
+    varname = MERRA_TEST_VARIABLES["vars"][0]
+
+    cache_type = CachedVariable.getCacheType( True, None )
+    region =  { "level":test_point[2] }
+    data = { 'name': varname, 'collection': collection }
+    variable, result_obj = dataManager.loadVariable( data, region, cache_type )
+    cached_data = dataManager.cacheManager.getVariable( result_obj['cache_id'], region )
+    cached_domain = cached_data[1]
+    cache_id = cached_domain.persist()
+    cached_domain.load_persisted_data()
 
 
 

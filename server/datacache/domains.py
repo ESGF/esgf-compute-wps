@@ -127,8 +127,9 @@ class Domain(Region):
         if self.cache_state == self.IN_MEMORY:
             self.persist_id = persistenceManager.store( self.data, id=self.persist_id )
             if self.persist_id is not None:
-                self.cache_state == self.PERSISTED
+                self.cache_state = self.PERSISTED
                 self.data = None
+            return self.persist_id
 
     def load_persisted_data(self):
         if self.cache_state == self.PERSISTED:

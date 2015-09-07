@@ -21,18 +21,18 @@ class DataPersistenceEngine( DataPersistenceEngineBase ):
     def store(self, data, id, **args ):
         file_path = self.get_file_path( id, **args )
         t0 = time.time()
-        rv = data.tofile(file_path)
+        npdata = data.data
+        npdata.tofile(file_path)
         t1 = time.time()
-        wpsLog.debug( " Data persisted in %.3f " % (t1-t0))
-        return rv
-
+        wpsLog.debug( " Data %s persisted in %.3f " % ( str(data.shape), (t1-t0) ) )
+        return id
 
     def load(self, id, **args ):
         file_path = self.get_file_path( id, **args )
         t0 = time.time()
-        data = ma.fromfile(file_path)
+        data = np.fromfile(file_path)
         t1 = time.time()
-        wpsLog.debug( " Data loaded in %.3f " % (t1-t0))
+        wpsLog.debug( " Data %s loaded in %.3f " % ( str(data.shape), (t1-t0)) )
         return data
 
     def get_file_path( self, id ):
