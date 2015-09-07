@@ -64,23 +64,63 @@ class KernelManager:
 kernelMgr = KernelManager()
 
 if __name__ == "__main__":
-    wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
+    wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
-    pre_cache = False
 
-    if pre_cache:
-        cache_args =  {   'data': {'id': 'hur', 'collection': 'MERRA/mon/atmos'},  'region': {'level': [100000.0]},  }
-        kernelMgr.run( TaskRequest( task=cache_args ) )
+    from request.manager import TaskRequest
+    from manager import kernelMgr
+    from modules.configuration import MERRA_TEST_VARIABLES
+    import pprint
 
-    task_args =  { 'region': '{"longitude": -137.09327695888, "latitude": 35.487604770915, "level": 85000}',
-                  'data': '{"collection": "MERRA/mon/atmos", "id": "hur"}',
-                  'operation': '[  {"kernel": "time", "type": "departures",  "bounds":"np"}, '
-                                  '{"kernel":"time", "type":"climatology", "bounds":"annualcycle"} ]'  }
+    pp = pprint.PrettyPrinter(indent=4)
+    test_point = [ -137.0, 35.0, 85000 ]
+    test_time = '2010-01-16T12:00:00'
+    operations = [ "time.departures(v0,t)", "time.climatology(v0,t,annualcycle)", "time.value(v0)" ]
 
-    val_task_args =  {  'region': '{"longitude": -137.09327695888, "latitude": 35.487604770915, "level": 85000, "time": "1979-1-16 12:0:0.0" }',
-                        'data': '{"collection": "MERRA/mon/atmos", "id": "hur"}',
-                        'operation': '{ "kernel": "time", "type": "value" }'  }
+    def getRegion():
+        return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point[0],test_point[1],test_point[2],test_time)
 
-    test_task_args1 =  {u'embedded': [u'true'], u'service': [u'WPS'], u'rawDataOutput': [u'result'], u'config': {'cache': True}, u'region': {u'latitude': -4.710426330566406, u'time': u'2010-01-16T12:00:00', u'longitude': -125.875, u'level': 100000}, u'request': [u'Execute'], u'version': [u'1.0.0'], u'operation': [{u'kernel': u'time', u'slice': u't', u'type': u'departures', u'bounds': u'np'}, {u'kernel': u'time', u'slice': u't', u'type': u'climatology', u'bounds': u'annualcycle'}, {u'kernel': u'time', u'type': u'value'}], u'identifier': [u'cdas'], u'data': {u'id': u'hur', u'collection': u'MERRA/mon/atmos'}}
-    test_task_args = { 'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'], 'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","id":"hur"};]']}
-    kernelMgr.run(  TaskRequest( request=test_task_args ) )
+    def getData( vars=[0]):
+        var_list = ','.join( [ ( '"v%d:%s"' % ( ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
+        data = '{"%s":[%s]}' % ( MERRA_TEST_VARIABLES["collection"], var_list )
+        return data
+
+
+    def getTaskArgs( op ):
+        task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op) }
+        return task_args
+
+    def test_cache():
+        result = kernelMgr.run( TaskRequest( request={ 'region': { "level": 85000 }, 'data': getData() } ) )
+        result_stats = result[0]['result']
+        pp.pprint(result_stats)
+
+    def test_departures():
+        test_result = [-1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375, -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375]
+        task_args = getTaskArgs( op=[operations[ 1 ]] )
+        result = kernelMgr.run( TaskRequest( request=task_args ) )
+        result_data = result[0]['data']
+        pp.pprint(result_data)
+
+    def test_annual_cycle():
+        task_args = getTaskArgs( op=[operations[ 2 ]] )
+        result = kernelMgr.run( TaskRequest( request=task_args ) )
+        result_data = result[0]['data']
+        pp.pprint(result_data)
+
+    def test_value_retreval():
+        task_args = getTaskArgs( op=[operations[ 3 ]] )
+        result = kernelMgr.run( TaskRequest( request=task_args ) )
+        result_data = result[0]['data']
+        pp.pprint(result_data)
+
+
+    def test_multitask():
+        task_args = getTaskArgs( op=operations )
+        results = kernelMgr.run( TaskRequest( request=task_args ) )
+        for ir, result in enumerate(results):
+            result_data = result['data']
+            pp.pprint(result_data)
+
+    test_departures()
+

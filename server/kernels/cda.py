@@ -49,15 +49,15 @@ class OperationContainer(JSONObjectContainer):
 class Operation(JSONObject):
 
     def load_spec( self, spec ):
-        self.spec = spec
+        self.spec = str(spec)
 
     def process_spec( self, **args ):
-        toks = self.spec.split('()')
-        args = toks[1].split(',')
+        toks = self.spec.split('(')
+        fn_args = toks[1].strip(')').split(',')
         task = toks[0].split('.')
-        self.items = { 'kernel': task[0], 'method': task[1], 'input': args[0] }
-        if len(args>1): self.items['slice'] = args[2]
-        if len(args>2): self.items['bounds'] = args[1]
+        self.items = { 'kernel': task[0], 'method': task[1], 'input': fn_args[0] }
+        if len(fn_args)>1: self.items['slice']  = fn_args[1]
+        if len(fn_args)>2: self.items['bounds'] = fn_args[2]
 
 class DataAnalytics:
 
