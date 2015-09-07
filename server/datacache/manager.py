@@ -118,7 +118,7 @@ class DataManager:
                 if status is not Domain.CONTAINED:
                     dataset = self.loadFileFromURL( url )
                 else:
-                    variable = domain.data
+                    variable = domain.getVariable()
                     data_specs['dataset']  = domain.spec
                 data_specs['cache_id']  = var_cache_id
             else:
@@ -130,7 +130,7 @@ class DataManager:
                         dataset = self.loadFileFromCollection( collection, name )
                         data_specs['dataset'] = record_attributes( dataset, [ 'name', 'id', 'uri' ])
                     else:
-                        variable = domain.data
+                        variable = domain.getVariable()
                         data_specs['dataset']  = domain.spec.get( 'dataset', None )
                         data_specs['region'] = str(domain.getRegion())
                     data_specs['cache_id']  = var_cache_id

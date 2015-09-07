@@ -122,5 +122,5 @@ if __name__ == "__main__":
             result_data = result['data']
             pp.pprint(result_data)
 
-    test_departures()
+    test_cache()
 

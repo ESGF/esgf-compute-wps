@@ -1,5 +1,6 @@
 from modules.utilities import  *
 from modules.containers import  *
+from datacache.persistence.manager import persistenceManager
 
 class RegionContainer(JSONObjectContainer):
 
@@ -108,14 +109,36 @@ class Domain(Region):
     PENDING = 0
     COMPLETE = 1
 
+    IN_MEMORY = 0
+    PERSISTED = 1
+
     def __init__( self, domain_spec=None, data=None ):
         Region.__init__( self, domain_spec )
-        self.data = data
+        self.data = data                            # TransientVariable
+        self.cache_state = self.IN_MEMORY
+        self.persist_id = None
         self.cache_queue = None
         self.cache_request_status = None
 
     def getRegion(self):
         return Region( self.spec )
+
+    def persist(self):
+        if self.cache_state == self.IN_MEMORY:
+            self.persist_id = persistenceManager.store( self.data, id=self.persist_id )
+            if self.persist_id is not None:
+                self.cache_state == self.PERSISTED
+                self.data = None
+
+    def load_persisted_data(self):
+        if self.cache_state == self.PERSISTED:
+            self.data = persistenceManager.load( self.persist_id )
+            if self.data is not None:
+                self.cache_state == self.IN_MEMORY
+
+    def getVariable(self):
+        self.load_persisted_data()
+        return self.data
 
     def getSize(self):
         features = [ 'lat', 'lon' ]
