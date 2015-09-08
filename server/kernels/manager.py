@@ -95,6 +95,11 @@ if __name__ == "__main__":
         result_stats = result[0]['result']
         pp.pprint(result_stats)
 
+    def test_1():
+        result = kernelMgr.run( TaskRequest( request={'config': {'cache': True}, 'region': {'level': 85000}, 'data': '{"name": "hur", "collection": "MERRA/mon/atmos", "id": "v0"}'} ) )
+        result_stats = result[0]['result']
+        pp.pprint(result_stats)
+
     def test_departures():
         test_result = [-1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375, -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375]
         task_args = getTaskArgs( op=[operations[ 1 ]] )
@@ -122,5 +127,5 @@ if __name__ == "__main__":
             result_data = result['data']
             pp.pprint(result_data)
 
-    test_cache()
+    test_1()
 

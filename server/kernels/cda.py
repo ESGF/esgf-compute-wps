@@ -17,19 +17,23 @@ class DatasetContainer(JSONObjectContainer):
         if spec:
             spec = convert_json_str( spec )
             if isinstance( spec, dict ):
-                keys = []
-                for item in spec.iteritems():
-                    collection = item[0]
-                    varlist = item[1]
-                    for var_spec in varlist:
-                        tokens = var_spec.split(':')
-                        varid = tokens[0]
-                        varname = tokens[-1]
-                        if varid in keys:
-                            raise Exception( "Error, Duplicate variable id in request data inputs: %s." % varid )
-                        object_spec = { 'collection':collection, 'name':varname, 'id':varid }
-                        self._objects.append( self.newObject( object_spec) )
-                        keys.append( varid )
+                if 'name' in spec.keys():
+                    self._objects.append( self.newObject( spec) )
+                else:
+                    keys = []
+                    for item in spec.iteritems():
+                        collection = item[0]
+                        varlist = item[1]
+                        if isinstance(varlist,basestring): varlist = [ varlist ]
+                        for var_spec in varlist:
+                            tokens = var_spec.split(':')
+                            varid = tokens[0]
+                            varname = tokens[-1]
+                            if varid in keys:
+                                raise Exception( "Error, Duplicate variable id in request data inputs: %s." % varid )
+                            object_spec = { 'collection':collection, 'name':varname, 'id':varid }
+                            self._objects.append( self.newObject( object_spec) )
+                            keys.append( varid )
             else:
                 raise Exception( "Unrecognized DatasetContainer spec: " + str(spec) )
 

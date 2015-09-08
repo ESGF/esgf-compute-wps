@@ -146,4 +146,3 @@ class ComputeEngine( Executable ):
             wpsLog.error(" Error running compute engine: %s\n %s " % ( str(err), traceback.format_exc()  ) )
             return err
 
-
