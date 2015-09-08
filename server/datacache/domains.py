@@ -125,7 +125,7 @@ class Domain(Region):
 
     def persist(self):
         if self.cache_state == self.IN_MEMORY:
-            self.persist_id = persistenceManager.store( self.data, id=self.persist_id )
+            self.persist_id = persistenceManager.store( self.data.data, pid='_'.join( [ self.data.id, str(int(time.time())) ] ) )
             if self.persist_id is not None:
                 self.cache_state = self.PERSISTED
                 self.data = None
@@ -136,6 +136,7 @@ class Domain(Region):
             self.data = persistenceManager.load( self.persist_id )
             if self.data is not None:
                 self.cache_state == self.IN_MEMORY
+        return self.data
 
     def getVariable(self):
         self.load_persisted_data()
