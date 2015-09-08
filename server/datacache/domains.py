@@ -2,6 +2,13 @@ from modules.utilities import  *
 from modules.containers import  *
 from datacache.persistence.manager import persistenceManager
 
+def filter_attributes( attr, keys ):
+    rv = {}
+    for key in keys:
+        if key in attr.keys():
+            rv[key] = attr[key]
+    return rv
+
 class RegionContainer(JSONObjectContainer):
 
     def newObject( self, spec ):
@@ -112,20 +119,42 @@ class Domain(Region):
     IN_MEMORY = 0
     PERSISTED = 1
 
-    def __init__( self, domain_spec=None, data=None ):
+    def __init__( self, domain_spec=None, tvar=None ):
         Region.__init__( self, domain_spec )
-        self.data = data                            # TransientVariable
+        self._variable = None
         self.cache_state = self.IN_MEMORY
         self.persist_id = None
         self.cache_queue = None
         self.cache_request_status = None
+        self.setVariable( tvar )                   # TransientVariable
+
+    def getData(self):
+        v = self.getVariable()
+        return None if v is None else v.data
+
+    def setData( self, data ):
+        import cdms2
+        self._variable = cdms2.createVariable( self.getData(), fill_value=self.fill_value, grid=self.grid, axes=self.domain, id=self.id, dtype=self.dtype, attributes=self.attributes )
+
+    def getVariable(self):
+        self.load_persisted_data()
+        return self._variable
+
+    def setVariable( self, tvar ):
+        self._variable = tvar
+        self.fill_value = tvar.fill_value
+        self.attributes = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
+        self.domain = tvar.getDomain()
+        self.grid = tvar.getGrid()
+        self.id = tvar.id
+        self.dtype = tvar.dtype
 
     def getRegion(self):
         return Region( self.spec )
 
     def persist(self):
         if self.cache_state == self.IN_MEMORY:
-            self.persist_id = persistenceManager.store( self.data.data, pid='_'.join( [ self.data.id, str(int(time.time())) ] ) )
+            self.persist_id = persistenceManager.store( self.getData(), pid='_'.join( [ self.id, str(int(time.time())) ] ) )
             if self.persist_id is not None:
                 self.cache_state = self.PERSISTED
                 self.data = None
@@ -133,14 +162,10 @@ class Domain(Region):
 
     def load_persisted_data(self):
         if self.cache_state == self.PERSISTED:
-            self.data = persistenceManager.load( self.persist_id )
-            if self.data is not None:
+            restored_data = persistenceManager.load( self.persist_id )
+            if restored_data is not None:
+                self.data = restored_data
                 self.cache_state == self.IN_MEMORY
-        return self.data
-
-    def getVariable(self):
-        self.load_persisted_data()
-        return self.data
 
     def getSize(self):
         features = [ 'lat', 'lon' ]
