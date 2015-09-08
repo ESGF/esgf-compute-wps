@@ -30,6 +30,9 @@ class KernelManager:
         wpsLog.debug( " $$$ DATA READ Complete (domain = %s): %s " % ( str(region), str(read_end_time-read_start_time) ) )
         return data, region
 
+    def persist( self, scope ):
+        dataManager.persist( scope )
+
     def run( self, task_request ):
         results = []
         wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )

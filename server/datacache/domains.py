@@ -141,30 +141,32 @@ class Domain(Region):
         return self._variable
 
     def setVariable( self, tvar ):
-        self._variable = tvar
-        self.fill_value = tvar.fill_value
-        self.attributes = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
-        self.domain = tvar.getDomain()
-        self.grid = tvar.getGrid()
-        self.id = tvar.id
-        self.dtype = tvar.dtype
+        if tvar is not None:
+            self._variable = tvar
+            self.fill_value = tvar.fill_value
+            self.attributes = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
+            self.domain = tvar.getDomain()
+            self.grid = tvar.getGrid()
+            self.id = tvar.id
+            self.dtype = tvar.dtype
 
     def getRegion(self):
         return Region( self.spec )
 
-    def persist(self):
+    def persist(self,**args):
         if self.cache_state == self.IN_MEMORY:
-            self.persist_id = persistenceManager.store( self.getData(), pid='_'.join( [ self.id, str(int(time.time())) ] ) )
+            pid = args.get( 'cid', self.id )
+            self.persist_id = persistenceManager.store( self.getData(), pid='_'.join( [ pid, str(int(time.time())) ] ) )
             if self.persist_id is not None:
                 self.cache_state = self.PERSISTED
-                self.data = None
+                self._variable = None
             return self.persist_id
 
     def load_persisted_data(self):
         if self.cache_state == self.PERSISTED:
             restored_data = persistenceManager.load( self.persist_id )
             if restored_data is not None:
-                self.data = restored_data
+                self.setData( restored_data )
                 self.cache_state == self.IN_MEMORY
 
     def getSize(self):
@@ -225,6 +227,12 @@ class DomainManager:
 
     def __init__( self ):
         self.domains = []
+
+    def persist( self, **args ):
+        scope = args.get( 'scope', 'all' )
+        if scope=='all':
+            for domain in self.domains:
+                domain.persist(**args)
 
     def addDomain(self, new_domain ):
         self.domains.append( new_domain )
