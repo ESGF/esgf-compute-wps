@@ -66,14 +66,28 @@ class DataPersistenceEngine( DataPersistenceEngineBase ):
 
 
 if __name__ == "__main__":
-    import pprint
+    import pprint, cdms2, sys
+    from datacache.data_collections import CollectionManager
+    from modules.configuration import MERRA_TEST_VARIABLES
+    wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
+    wpsLog.setLevel(logging.DEBUG)
     pp = pprint.PrettyPrinter(indent=4)
     test_array = np.array( range(0,1000), np.int32)
     pid = 'test1'
 
+    collection = MERRA_TEST_VARIABLES["collection"]
+    id = MERRA_TEST_VARIABLES["vars"][0]
+    cm = CollectionManager.getInstance('CreateV')
+    url = cm.getURL( collection, id )
+    d = cdms2.open( url )
+    v = d[ id ]
+
+    data = v( level=10000.0 )
+    pp.pprint( data )
+
     engine = DataPersistenceEngine()
 
-    engine.store( test_array, pid )
+    engine.store( data.data, pid )
 
     result = engine.load( pid )
 
