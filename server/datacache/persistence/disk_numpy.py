@@ -64,7 +64,6 @@ class DataPersistenceEngine( DataPersistenceEngineBase ):
         assert (prec is not None), "Error, undefined persistence id: %s" % pid
         return prec.load()
 
-
 if __name__ == "__main__":
     import pprint, cdms2, sys
     from datacache.data_collections import CollectionManager

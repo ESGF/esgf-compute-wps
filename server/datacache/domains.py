@@ -134,7 +134,7 @@ class Domain(Region):
 
     def setData( self, data ):
         import cdms2
-        self._variable = cdms2.createVariable( self.getData(), fill_value=self.fill_value, grid=self.grid, axes=self.domain, id=self.id, dtype=self.dtype, attributes=self.attributes )
+        self._variable = cdms2.createVariable( data, fill_value=self.fill_value, grid=self.grid, axes=self.axes, id=self.id, dtype=self.dtype, attributes=self.attributes )
 
     def getVariable(self):
         self.load_persisted_data()
@@ -149,6 +149,7 @@ class Domain(Region):
             self.grid = tvar.getGrid()
             self.id = tvar.id
             self.dtype = tvar.dtype
+            self.axes = [ d[0] for d in self.domain ]
 
     def getRegion(self):
         return Region( self.spec )
@@ -167,7 +168,7 @@ class Domain(Region):
             restored_data = persistenceManager.load( self.persist_id )
             if restored_data is not None:
                 self.setData( restored_data )
-                self.cache_state == self.IN_MEMORY
+                self.cache_state = self.IN_MEMORY
 
     def getSize(self):
         features = [ 'lat', 'lon' ]

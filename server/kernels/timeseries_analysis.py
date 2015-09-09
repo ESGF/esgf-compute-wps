@@ -88,8 +88,7 @@ class TimeseriesAnalytics( DataAnalytics ):
                 op_start_time = time.clock() # time.time()
                 if not bounds:
                     if method == 'departures':
-                        ave = cdutil.averager( input_variable, axis='t', weights='equal' )
-                        result = input_variable - ave
+                        result = ma.anomalies( input_variable ).squeeze()
                     elif method == 'climatology':
                         result = cdutil.averager( input_variable, axis='t', weights='equal' )
                     elif method == 'value':

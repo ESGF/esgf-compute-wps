@@ -53,8 +53,10 @@ class EngineTests(unittest.TestCase):
         result = self.engine.execute( TaskRequest( request={ 'region': self.cache_region, 'data': self.getData() } ) )
         self.assertStatusEquals( result, cache_add=self.cache_region )
 
-    def xtest02_departures(self):
-        test_result = [-1.4053638599537024,  -1.2588794849537024, 0.8407298900462976, 2.8915111400462976, -18.592863859953702, -11.854582609953702, -3.2120044849537024, -5.311613859953702, 5.332917390046298, -1.6983326099537024]
+    def test02_departures(self):
+        test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,
+                        -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375,
+                          8.750885009765625, 11.778228759765625, 12.852447509765625 ]
         task_args = self.getTaskArgs( op=self.getOp( 0 ) )
         result = self.engine.execute( TaskRequest( request=task_args ) )
         result_data = self.getResultData( result )
@@ -77,7 +79,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual( test_result, result_data )
 
     def test05_multitask(self):
-        test_results = [ [-1.4053638599537024,  -1.2588794849537024, 0.8407298900462976 ], [48.07984754774306, 49.218166775173614, 49.36114501953125], 59.765625 ]
+        test_results = [ [ -1.405364990234375, -1.258880615234375, 0.840728759765625 ], [48.07984754774306, 49.218166775173614, 49.36114501953125], 59.765625 ]
         task_args = self.getTaskArgs( op=self.operations )
         results = self.engine.execute( TaskRequest( request=task_args ) )
         for ir, result in enumerate(results):

@@ -16,7 +16,9 @@ class DataPersistenceManager:
         return pid
 
     def get_data_storage_id( self, **args ):
-        return args.get('pid')
+        import re
+        pid = args.get('pid')
+        return re.sub("[/:]","_",pid)
 
     def load(self, id, **args ):
         data = self.engine.load( id )
