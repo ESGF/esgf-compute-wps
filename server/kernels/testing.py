@@ -17,8 +17,8 @@ class KernelTests(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def getRegion(self):
-        return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (self.test_point[0],self.test_point[1],self.test_point[2],self.test_time)
+    def getRegion(self, ipt=0 ):
+        return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (self.test_point[0]+5*ipt,self.test_point[1]-5*ipt,self.test_point[2],self.test_time)
 
     def getData(self, vars=[0]):
         var_list = ','.join( [ ( '"v%d:%s"' % ( ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
@@ -33,8 +33,8 @@ class KernelTests(unittest.TestCase):
             print>>sys.stderr, result_data["error"]
         return result_data.get('data',[])
 
-    def getTaskArgs(self, op ):
-        task_args = dict( self.def_task_args )
+    def getTaskArgs(self, op, ipt=0 ):
+        task_args = { 'region': self.getRegion(ipt), 'data': self.getData() }
         task_args['operation'] = op
         return task_args
 
@@ -54,18 +54,18 @@ class KernelTests(unittest.TestCase):
         self.assertEqual( test_result, result_data[0:len(test_result)] )
 
     def test03_annual_cycle(self):
-        test_result = [48.07984754774306, 49.218166775173614, 49.36114501953125, 46.40715196397569, 46.3406982421875,
-                       44.37486775716146, 46.54383680555556, 48.780619303385414, 46.378028021918404, 46.693325466579864,
-                       48.840003119574654, 46.627953423394096]
-        task_args = self.getTaskArgs( op=self.getOp( 1 ) )
-        kernelMgr.persist('all')
+        test_result = [38.20164659288194, 40.60203721788194, 39.744038899739586, 37.738803439670136,
+                       34.758260091145836, 32.372643364800346, 33.70814344618056, 35.980190700954864,
+                       37.239708794487846, 38.93236626519097, 39.45347425672743, 35.83015611436632]
+        task_args = self.getTaskArgs( self.getOp( 1 ), 1 )
+        kernelMgr.persist()
         result = kernelMgr.run( TaskRequest( request=task_args ) )
         result_data = self.getResultData(result[0])
         self.assertEqual( test_result, result_data[0:len(test_result)] )
 
     def test04_value_retreval(self):
-        test_result = 59.765625
-        task_args = self.getTaskArgs( op=self.getOp( 2 ) )
+        test_result = 28.41796875
+        task_args = self.getTaskArgs( self.getOp( 2 ), 2 )
         result = kernelMgr.run( TaskRequest( request=task_args ) )
         result_data = self.getResultData(result[0])
         self.assertEqual( test_result, result_data )

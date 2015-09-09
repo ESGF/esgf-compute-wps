@@ -157,7 +157,8 @@ class Domain(Region):
     def persist(self,**args):
         if self.cache_state == self.IN_MEMORY:
             pid = args.get( 'cid', self.id )
-            self.persist_id = persistenceManager.store( self.getData(), pid='_'.join( [ pid, str(int(time.time())) ] ) )
+            data = self.getData()
+            self.persist_id = persistenceManager.store( data, pid='_'.join( [ pid, str(int(time.time())) ] ) )
             if self.persist_id is not None:
                 self.cache_state = self.PERSISTED
                 self._variable = None

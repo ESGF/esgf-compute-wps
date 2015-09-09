@@ -34,8 +34,10 @@ class CachedVariable:
         self.specs = args
         self.domainManager = DomainManager()
 
-    def persist( self, scope='all' ):
-        self.domainManager.persist( scope=scope, cid=self.id )
+    def persist( self, **args ):
+        kwargs = { 'cid': self.id }
+        kwargs.update( args )
+        self.domainManager.persist( **kwargs )
 
     @classmethod
     def getCacheType( cls, use_cache, operation ):
@@ -67,10 +69,9 @@ class CacheManager:
         self._cache = {}
         self.name = name
 
-    def persist( self, scope='all' ):
-        if scope == 'all':
-            for cached_cvar in self._cache.values():
-               cached_cvar.persist(scope)
+    def persist( self, **args ):
+        for cached_cvar in self._cache.values():
+            cached_cvar.persist(**args)
 
     @classmethod
     def getModifiers( cls, variable_name ):
@@ -111,8 +112,8 @@ class DataManager:
     def __init__( self ):
         self.cacheManager = CacheManager( 'default' )
 
-    def persist( self, scope='all' ):
-        self.cacheManager.persist( scope )
+    def persist( self, **args ):
+        self.cacheManager.persist( **args )
 
     def loadVariable( self, data, region, cache_type ):
         data_specs = {}
