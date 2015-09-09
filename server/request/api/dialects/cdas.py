@@ -1,4 +1,4 @@
-from . import WPSDialect
+from request.api.dialects import WPSDialect
 from modules.utilities import wpsLog, convert_json_str
 import json
 
@@ -43,3 +43,11 @@ class CDASDialect( WPSDialect ):
             items = line.split('=')
             if len( items ) > 1:
                 task_parameters[ str(items[0]).strip(" []") ] = json.loads( items[1] )
+
+
+if __name__ == "__main__":
+
+    cd = CDASDialect()
+    request = { 'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","id":"hur"};]'] }
+    result = cd.getTaskRequestData( request )
+    print result

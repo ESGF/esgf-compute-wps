@@ -17,7 +17,7 @@ class DatasetContainer(JSONObjectContainer):
         if spec:
             spec = convert_json_str( spec )
             if isinstance( spec, dict ):
-                if 'name' in spec.keys():
+                if ('name' in spec.keys()) or ('id' in spec.keys()) or ('collection' in spec.keys()):
                     self._objects.append( self.newObject( spec) )
                 else:
                     keys = []

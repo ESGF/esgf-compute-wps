@@ -4,8 +4,8 @@ from modules.utilities import wpsLog
 from flask.ext.cors import CORS
 app = flask.Flask(__name__)
 CORS(app)
-app.logger.addHandler( logging.StreamHandler(sys.stdout) )
-app.logger.setLevel(logging.DEBUG)
+#app.logger.addHandler( logging.StreamHandler(sys.stdout) )
+#app.logger.setLevel(logging.DEBUG)
 
 @app.route("/cdas/")
 def cdas():

@@ -75,16 +75,16 @@ class ComputeEngine( Executable ):
             self.communicator.updateWorkerStats()
             self.processPendingTasks()
             designated_worker = None
-            wpsLog.debug( " ***** Executing compute engine (t=%.2f), request: %s" % ( t0, str(task_request) ) )
             datasets = task_request.data.values
             op_region = task_request.region.value
             operation = task_request.operations.values
+            wpsLog.debug( " ***** Executing compute engine (t=%.2f), request: %s" % ( t0, str(task_request) ) )
 
             for dataset in datasets:
-                id = dataset.get('id','')
+                dsid = dataset.get('id','')
                 collection = dataset.get('collection',None)
                 url = dataset.get('url','')
-                var_cache_id = ":".join( [collection,id] ) if (collection is not None) else ":".join( [url,id] )
+                var_cache_id = ":".join( [collection,dsid] ) if (collection is not None) else ":".join( [url,dsid] )
                 if var_cache_id <> ":":
                     cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, dataset )
                     if cached_domain is None:

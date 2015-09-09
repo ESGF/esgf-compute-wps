@@ -37,11 +37,13 @@ class TaskRequest:
         self.task = {}
         request_parameters = args.get( 'request', None )
         if request_parameters:
+            wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: request = %s \n" % str(request_parameters) )
             dialect = apiManager.getDialect( request_parameters )
             self.task = dialect.getTaskRequestData( request_parameters )
         task_parameters = args.get( 'task', None )
         if task_parameters:
             self.task = task_parameters
+            wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: task = %s \n" % str(task_parameters) )
         self.task['config'] = { 'cache' : True }
 
     def __str__(self): return "TR-%s" % str(self.task)
@@ -78,5 +80,6 @@ class TaskRequest:
 taskManager = TaskManager()
 
 
-
-
+if __name__ == "__main__":
+    request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'], 'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","id":"hur"};]']}
+    response = taskManager.processRequest( request_parms )
