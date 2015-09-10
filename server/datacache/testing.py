@@ -1,7 +1,10 @@
 import unittest, cdms2, logging, sys
 from modules.utilities import wpsLog
-wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
-wpsLog.setLevel(logging.DEBUG)
+verbose = False
+
+if verbose:
+    wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
+    wpsLog.setLevel(logging.DEBUG)
 
 def getVariable( ivar, cache_level ):
     from modules.configuration import MERRA_TEST_VARIABLES

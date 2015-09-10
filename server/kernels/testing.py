@@ -3,8 +3,11 @@ from request.manager import TaskRequest
 from manager import kernelMgr
 from modules.configuration import MERRA_TEST_VARIABLES
 from modules.utilities import wpsLog
-wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
-wpsLog.setLevel(logging.DEBUG)
+verbose = False
+
+if verbose:
+    wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
+    wpsLog.setLevel(logging.DEBUG)
 
 class KernelTests(unittest.TestCase):
 
