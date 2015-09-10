@@ -37,11 +37,22 @@ for collection_spec in collections:
     cm.addCollectionRecord( collection_spec[0], collection_spec[1] )
 
 if __name__ == "__main__":
-    collection_name = 'MERRA/mon/atmos'
-    id = 'clt'
-    cm = CollectionManager.getInstance('CreateV')
-    url = cm.getURL( collection_name, id )
-    d = cdms2.open( url )
-    v = d[ id ]
-    print url, v.shape
+    from modules.configuration import CDAS_PERSISTENCE_DIRECTORY
+    import os, numpy
+    cache_dir = os.path.expanduser( CDAS_PERSISTENCE_DIRECTORY )
+    cached_files = [ os.path.join(cache_dir,f) for f in os.listdir(cache_dir) if os.path.isfile(os.path.join(cache_dir,f)) ]
 
+    max_load_time = 0.0
+    max_file = None
+    for cached_file in cached_files:
+        t0 = time.time()
+        data = numpy.fromfile( cached_file, dtype=numpy.float32 )
+        t1 = time.time()
+        load_time = t1-t0
+        print "Loaded file %s in %.3f" % ( cached_file, load_time )
+        if load_time > max_load_time:
+            max_load_time = load_time
+            max_file = cached_file
+
+    print "--- "*20
+    print "MAX Load time: file %s in %.3f" % ( max_file, max_load_time )
