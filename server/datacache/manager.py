@@ -117,7 +117,7 @@ class DataManager:
 
     def loadVariable( self, data, region, cache_type ):
         data_specs = {}
-        name =  data.get( 'name', None ); id
+        name =  data.get( 'name', None );
         variable = data.get('variable',None)
         t0 = time.time()
         wpsLog.debug( " #@@ DataManager:LoadVariable %s (time = %.2f), region = [%s], cache_type = %d" %  ( str( data ), t0, str(region), cache_type ) )
@@ -165,7 +165,7 @@ class DataManager:
                     variable = subset_variable_region( variable, region.toCDMS() )
                     data_specs['region'] = str(region)
 
-            data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ], { 'id': id } )
+            data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ] )
         else:
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
 

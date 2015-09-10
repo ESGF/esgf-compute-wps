@@ -47,7 +47,7 @@ class KernelManager:
                 result = kernel.run( data, region, operation ) if kernel else { 'result': data['result'] }
                 results.append( result )
             end_time = time.time()
-            wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
+            wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f, results = %s " % ((end_time-start_time), str(results) ) )
         except Exception, err:
             wpsLog.debug( " Error executing kernel: %s " % str(err) )
             wpsLog.debug( traceback.format_exc() )
