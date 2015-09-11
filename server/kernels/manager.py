@@ -16,11 +16,17 @@ class KernelManager:
         if cache_type == CachedVariable.CACHE_OP:
             dslice = operation.get('slice',None)
             if dslice: region = Region( region, slice=dslice )
-        input_ids = operation["inputs"]
         variables = []
         data_specs = []
-        for inputID in input_ids:
-            data = request.data.getValue( inputID )
+        if operation is not None:
+            input_dataset = []
+            input_ids = operation["inputs"]
+            for inputID in input_ids:
+                input_dataset.append( request.data.getValue( inputID ) )
+        else:
+            input_dataset = request.data.values
+
+        for data in input_dataset:
             if data is not None:
                 variable, data_spec = dataManager.loadVariable( data, region, cache_type )
                 cached_region = Region( data_spec['region'] )
@@ -136,14 +142,18 @@ if __name__ == "__main__":
             result_data = result['data']
             pp.pprint(result_data)
 
+    def test_api_cache():
+        request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
+        request_parameters['datainputs'] = [u'region={"level":"100000"};data={ "MERRA/mon/atmos":["v0:hur"]}']
+        results = kernelMgr.run( TaskRequest( request=request_parameters ) )
+        pp.pprint(results)
+
     def test_api():
         request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
-        request_parameters['datainputs'] = [u'[region={"longitude":-142.5,"latitude":-15.635426330566418,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur", "v1:clt" ] };operation=["time.departures(v0,v1,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)","time.value(v0)"];]']
+        request_parameters['datainputs'] = [u'[region={"longitude":-108.3,"latitude":-23.71042633056642,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["time.departures(v0,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)","time.value(v0)"]']
         results = kernelMgr.run( TaskRequest( request=request_parameters ) )
-        for result in results:
-            print " ]***********[ " * 12
-            result_data = result['data']
-            pp.pprint(result_data)
+        result_data = results[1]['data']
+        pp.pprint(result_data)
 
-    test_api()
+    test_api_cache()
 

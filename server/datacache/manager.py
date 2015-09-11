@@ -80,6 +80,7 @@ class CacheManager:
 
     def getVariable( self, cache_id, new_region ):
         cached_cvar = self._cache.get( cache_id, None )
+        wpsLog.debug( "Searching for cache_id '%s', cache keys = %s, Found = %s" % ( cache_id, str(self._cache.keys()), (cached_cvar is not None) ) )
         if cached_cvar is None: return Domain.DISJOINT, []
         return cached_cvar.findDomain( new_region )
 
