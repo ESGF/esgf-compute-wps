@@ -48,12 +48,11 @@ class TimeseriesAnalytics( DataAnalytics ):
         wpsLog.debug( "Computed seasonal cycle, time = %.4f, result:\n %s" % ( (t1-t0), str(acycle) ) )
         return ma.array(acycle)
 
-    def run( self, data, region, operation ):
+    def run( self, subsetted_variables, metadata_recs, region, operation ):
         try:
-            [ subsetted_variable ] = data['variables']
             start_time = time.time()
-            result_obj = dict( data.get('result', {} ) )
-            ( result_data, time_axis ) = self.applyOperation( subsetted_variable, operation )
+            result_obj = metadata_recs[0]
+            ( result_data, time_axis ) = self.applyOperation( subsetted_variables, operation )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             if time_axis is not None:
                 time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
@@ -73,10 +72,11 @@ class TimeseriesAnalytics( DataAnalytics ):
 
         return result_obj
 
-    def applyOperation( self, input_variable, operation ):
+    def applyOperation( self, input_variables, operation ):
         result = None
         rshape = None
         t0 = time.time()
+        input_variable = input_variables[0]
         try:
             self.setTimeBounds( input_variable )
             operator = None

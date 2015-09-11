@@ -1,5 +1,3 @@
-from engines.manager import ComputeEngine
-from communicator import MultiprocCommunicator
 from multiprocessing import Process, Pipe
 from kernels.manager import kernelMgr
 from request.manager import TaskRequest
@@ -41,10 +39,5 @@ class WorkerManager:
             local_comm.close()
             worker_process.terminate()
         self.workers = {}
-
-class MultiprocEngine( ComputeEngine ):
-
-    def getCommunicator( self ):
-        return  MultiprocCommunicator()
 
 worker_manager = WorkerManager()

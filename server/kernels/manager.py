@@ -11,24 +11,30 @@ class KernelManager:
     def getKernelInputs( self, operation, request ):
         read_start_time = time.time()
         use_cache =  request['cache']
-        data = request.data.value
         region = request.region.value
         cache_type = CachedVariable.getCacheType( use_cache, operation )
         if cache_type == CachedVariable.CACHE_OP:
             dslice = operation.get('slice',None)
             if dslice: region = Region( region, slice=dslice )
-        variable, result_obj = dataManager.loadVariable( data, region, cache_type )
-        cached_region = Region( result_obj['region'] )
-        if (region is not None) and (cached_region <> region):
-            subset_args = region.toCDMS()
-            subset_var = numpy.ma.fix_invalid( variable( **subset_args ) )
-#            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))
-            variable = subset_var
-        data['variables'] = [ variable ]
-        data['result'] = result_obj
+        input_ids = operation["inputs"]
+        variables = []
+        data_specs = []
+        for inputID in input_ids:
+            data = request.data.getValue( inputID )
+            if data is not None:
+                variable, data_spec = dataManager.loadVariable( data, region, cache_type )
+                cached_region = Region( data_spec['region'] )
+                if (region is not None) and (cached_region <> region):
+                    subset_args = region.toCDMS()
+                    variable = numpy.ma.fix_invalid( variable( **subset_args ) )
+        #            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))
+                variables.append( variable )
+                data_specs.append( data_spec )
+            else:
+                raise Exception( "Can't find data matching operation input '%s'", inputID)
         read_end_time = time.time()
         wpsLog.debug( " $$$ DATA READ Complete (domain = %s): %s " % ( str(region), str(read_end_time-read_start_time) ) )
-        return data, region
+        return variables, data_specs, region
 
     def persist( self, **args ):
         dataManager.persist( **args )
@@ -42,12 +48,12 @@ class KernelManager:
             operations =  task_request.operations
             operations_list = [None] if (operations.value is None) else operations.values
             for operation in operations_list:
-                data, region = self.getKernelInputs( operation, task_request )
+                variables, metadata_recs, region = self.getKernelInputs( operation, task_request )
                 kernel = self.getKernel( operation )
-                result = kernel.run( data, region, operation ) if kernel else { 'result': data['result'] }
+                result = kernel.run( variables, metadata_recs, region, operation ) if kernel else { 'result': metadata_recs }
                 results.append( result )
             end_time = time.time()
-            wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f, results = %s " % ((end_time-start_time), str(results) ) )
+            wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
         except Exception, err:
             wpsLog.debug( " Error executing kernel: %s " % str(err) )
             wpsLog.debug( traceback.format_exc() )
@@ -130,5 +136,14 @@ if __name__ == "__main__":
             result_data = result['data']
             pp.pprint(result_data)
 
-    test_1()
+    def test_api():
+        request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
+        request_parameters['datainputs'] = [u'[region={"longitude":-142.5,"latitude":-15.635426330566418,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur", "v1:clt" ] };operation=["time.departures(v0,v1,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)","time.value(v0)"];]']
+        results = kernelMgr.run( TaskRequest( request=request_parameters ) )
+        for result in results:
+            print " ]***********[ " * 12
+            result_data = result['data']
+            pp.pprint(result_data)
+
+    test_api()
 

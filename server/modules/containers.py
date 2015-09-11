@@ -13,6 +13,10 @@ class JSONObject:
         self.spec = {} if (spec is None) else convert_json_str( spec )
         assert isinstance( self.spec, dict ), "Error, unrecognized JSONObject spec: %s " % str( spec)
 
+    @property
+    def id(self):
+        return self.items.get( "id", None )
+
     def process_spec( self, **args ):
         self.items = dict( self.spec )
 
@@ -75,3 +79,8 @@ class JSONObjectContainer:
     @property
     def values(self):
         return self._objects
+
+    def getValue( self, id ):
+        for obj in self._objects:
+            if obj.id == id:
+                return obj

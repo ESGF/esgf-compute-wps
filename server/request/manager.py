@@ -82,6 +82,12 @@ taskManager = TaskManager()
 
 
 if __name__ == "__main__":
-    request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'], 'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","name":"hur"};]']}
-    response = taskManager.processRequest( request_parms )
-    print response
+#    request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'], 'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","name":"hur"};]']}
+#    response = taskManager.processRequest( request_parms )
+#    print response
+
+    request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
+    request_parameters['datainputs'] = [u'[region={"longitude":-142.5,"latitude":-15.635426330566418,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur", "v1:clt" ] };operation=["time.departures(v0,v1,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)","time.value(v0)"];]']
+    task_request = TaskRequest( request=request_parameters )
+    data = task_request.data
+    operations = task_request.operations

@@ -1,4 +1,4 @@
-from tasks import MultiprocEngine
+from engine import MultiprocEngine
 
 def getConstructor():
     return MultiprocEngine

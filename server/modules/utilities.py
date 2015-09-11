@@ -137,3 +137,20 @@ def region2cdms( region, **args ):
     return kargs
 
 
+class DebugLogger:
+
+    def __init__( self, name ):
+        from configuration import CDAS_PERSISTENCE_DIRECTORY
+        self._filepath = os.path.expanduser( os.path.join( CDAS_PERSISTENCE_DIRECTORY, name + ".log") )
+        self.create_log_file(True)
+
+    def create_log_file(self, refresh):
+        if refresh or not os.path.exists(self._filepath):
+            self._file = open( self._filepath, 'w')
+
+    def log( self, msg ):
+        t0 = time.time()
+        self.create_log_file(False)
+        self._file.write( "T[%6.2f]: %s\n" % ( t0 % 1000.0, msg ) )
+        self._file.flush()
+        return t0

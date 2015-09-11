@@ -59,9 +59,15 @@ class Operation(JSONObject):
         toks = self.spec.split('(')
         fn_args = toks[1].strip(')').split(',')
         task = toks[0].split('.')
-        self.items = { 'kernel': task[0], 'method': task[1], 'input': fn_args[0] }
-        if len(fn_args)>1: self.items['slice']  = fn_args[1]
-        if len(fn_args)>2: self.items['bounds'] = fn_args[2]
+        self.items = { 'kernel': task[0], 'method': task[1] }
+        inputs = []
+        for fn_arg in fn_args:
+            if ':' in fn_arg:
+                arg_items = fn_arg.split(':')
+                self.items[ arg_items[0] ]  = arg_items[1]
+            else:
+                inputs.append( fn_arg )
+        self.items[ 'inputs' ]  = inputs
 
 class DataAnalytics:
 

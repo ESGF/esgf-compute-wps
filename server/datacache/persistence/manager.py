@@ -44,12 +44,15 @@ if __name__ == "__main__":
         t0 = time.time()
         rv = dset( id, **subset_args )  #, latitude=[self.cache_lat,self.cache_lat,'cob'] )
         t1 = time.time()
-        print "Loaded subset '%s' in %.2f " % ( t1 - t0 )
+        print "Loaded subset %s in %.2f " % ( subset_args, ( t1 - t0 ) )
+        return rv
 
     CacheLevel = 10000.0
-    TestVariable = getVariable( 0, level = CacheLevel )
+    domains = [ { 'level': CacheLevel }, {} ]
+    iDom = 1
+    TestVariable = getVariable( 0, **domains[iDom] )
     data_chunk = TestVariable.data
-    domain = Domain( { 'level': CacheLevel }, TestVariable )  # , 'latitude': self.cache_lat
+    domain = Domain( domains[iDom], TestVariable )  # , 'latitude': self.cache_lat
     t0 = time.time()
     domain.persist()
     t1 = time.time()
