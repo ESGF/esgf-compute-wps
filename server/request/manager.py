@@ -24,7 +24,7 @@ class TaskManager:
         if handler is None:
             wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
             handler = stagingRegistry.getInstance( 'local' )
-        task_request['engine'] = configuration.CDAS_COMPUTE_ENGINE
+        task_request['engine'] = configuration.CDAS_COMPUTE_ENGINE + "Engine"
         result_obj =  handler.execute( task_request )
         result_json = self.getJsonResult( result_obj )
         wpsLog.debug( " $$$*** CDAS Processed Request (total response time: %.3f sec) " %  ( (time.time()-t0) ) )
@@ -80,14 +80,25 @@ class TaskRequest:
 taskManager = TaskManager()
 
 
+def test01():
+    request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
+    request_parms['datainputs'] = [u'[region={"longitude":-44.17499999999998,"latitude":28.0645809173584,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["time.departures(v0,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)"];]']
+    response_json = taskManager.processRequest( request_parms )
+    responses = json.loads(response_json)
+    print "Responses:"
+    for iR, result in enumerate(responses):
+#        response_data = result['data']
+        print result
+    print "Done!"
 
-if __name__ == "__main__":
+def test02():
 #    request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'], 'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","name":"hur"};]']}
 #    response = taskManager.processRequest( request_parms )
-#    print response
-
     request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
     request_parameters['datainputs'] = [u'[region={"longitude":-142.5,"latitude":-15.635426330566418,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur", "v1:clt" ] };operation=["time.departures(v0,v1,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)","time.value(v0)"];]']
     task_request = TaskRequest( request=request_parameters )
     data = task_request.data
     operations = task_request.operations
+
+if __name__ == "__main__":
+    test01()

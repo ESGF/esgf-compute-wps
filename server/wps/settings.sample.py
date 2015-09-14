@@ -33,6 +33,7 @@ CDAS_STAGING = 'local'
 
 #CDAS_COMPUTE_ENGINE = 'celery'
 #CDAS_COMPUTE_ENGINE = 'spark'
+#CDAS_COMPUTE_ENGINE = 'multiproc'
 CDAS_COMPUTE_ENGINE = 'serial'
 
 CDAS_DATA_CACHE = 'default'

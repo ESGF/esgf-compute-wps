@@ -55,9 +55,9 @@ class TimeseriesAnalytics( DataAnalytics ):
             ( result_data, time_axis ) = self.applyOperation( subsetted_variables, operation )
             #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             if time_axis is not None:
-                time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
-                time_data = time_axis.getValue().tolist()
                 try:
+                    time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
+                    time_data = time_axis.getValue().tolist()
                     time_obj['t0'] = time_data[0]
                     time_obj['dt'] = time_data[1] - time_data[0]
                 except Exception, err:

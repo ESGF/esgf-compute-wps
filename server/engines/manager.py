@@ -98,6 +98,7 @@ class ComputeEngine( Executable ):
                         executionRecord.addRecs( cache_add=cache_region.spec, cache_add_worker = cache_worker )
                         tc01 = time.time()
                         cached_domain = cached_var.addDomain( cache_region )
+                        cache_result = cache_task_monitor.result()
                         self.pendingTasks[ cache_task_monitor ] = cached_domain
                         self.cache()
                         tc1 = time.time()
@@ -130,7 +131,7 @@ class ComputeEngine( Executable ):
 
                 result = task_monitor.result()
                 t1 = time.time()
-                wpsLog.debug( " ***** Retrieved result [tid:%s] from worker '%s' (t = %.2f, dt1 = %.3f)" %  ( task_monitor.id, result[0]['worker'], t1, t1-t2 ) )
+                wpsLog.debug( " ***** Retrieved result [tid:%s] from worker '%s' (t = %.2f, dt1 = %.3f):\n%s" %  ( task_monitor.id, result[0]['worker'], t1, t1-t2, str(result) ) )
                 return result
 
             else:

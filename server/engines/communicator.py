@@ -37,16 +37,13 @@ class ComputeEngineCommunicator:
     def submitTaskImpl( self, task_request, worker ):
         raise Exception( 'Error: submitTask method not implemented in engine communicator')
 
-    def getWorkerStatsImpl(self):
-        raise Exception( 'Error: getWorkerStats method not implemented in engine communicator')
-
     def submitTask( self, task_request, worker ):
         self.submitTask( task_request, worker )
         if task_request.isCacheOp():    self.setWorkerState( worker, self.WS_CACHE )
         else:                           self.setWorkerState( worker, self.WS_OP )
 
     def getWorkerStats(self):
-        return self.getWorkerStatsImpl()
+        return {}
 
     def setWorkerState( self, wid, state ):
         wstat = self.worker_stats.get( wid, None )
@@ -73,9 +70,8 @@ class ComputeEngineCommunicator:
         t0 = time.time()
         if len( self.worker_stats ) == 0:
             self.worker_stats = self.getWorkerStats()
-        if self.worker_stats == None:
+        if len( self.worker_stats ) == 0:
             wpsLog.error( "ERROR: Must start up workers!" )
-            self.worker_stats = {}
         t1 = time.time()
         wpsLog.debug( " ***** updateWorkerStats[ dt = %0.3f ], workers: %s" %  ( t1-t0, str(self.worker_stats.keys()) ) )
 
@@ -116,3 +112,19 @@ class ComputeEngineCommunicator:
     #         return None
     #     else:
     #         return wstat.get('csize', 0 )
+
+    @staticmethod
+    def kill_all_zombies():
+    #                                              Cleanup abandoned processes
+        import subprocess, signal
+        proc_specs = subprocess.check_output('ps').split('\n')
+        for proc_spec in proc_specs:
+            if ('pydev' in proc_spec) or ('utrunner' in proc_spec):
+                pid = int( proc_spec.split()[0] )
+                if pid <> os.getpid():
+                    os.kill( pid, signal.SIGKILL )
+                    print "Killing proc: ", proc_spec
+
+
+if __name__ == '__main__':
+    ComputeEngineCommunicator.kill_all_zombies()

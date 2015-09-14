@@ -36,7 +36,7 @@ collections = configuration.CDAS_COLLECTIONS
 for collection_spec in collections:
     cm.addCollectionRecord( collection_spec[0], collection_spec[1] )
 
-if __name__ == "__main__":
+def cache_load_test():
     from modules.configuration import CDAS_PERSISTENCE_DIRECTORY
     import os, numpy
     cache_dir = os.path.expanduser( CDAS_PERSISTENCE_DIRECTORY )
@@ -56,3 +56,25 @@ if __name__ == "__main__":
 
     print "--- "*20
     print "MAX Load time: file %s in %.3f" % ( max_file, max_load_time )
+
+if __name__ == "__main__":
+#    from testing import getVariable
+#    CacheLevel = 10000.0
+#    TestVariable = getVariable( 0, CacheLevel )
+#    data = TestVariable.data
+
+    import os, numpy, numpy.ma as ma
+    cached_file = os.path.expanduser( '~/.cdas/testing/MERRA_mon_atmos_hur' )
+    data = numpy.fromfile( cached_file, dtype=numpy.float32 ).reshape( (432, 144, 288) )
+    FillVal = 1.00000002e+20
+    mdata = ma.masked_greater( data, 0.90000002e+20 )
+    t0 = time.time()
+    a = ma.average(data,0)
+    t1 = time.time()
+    print "Result computed in %.2f, shape = %s, sample=%s" % ( (t1-t0), str(a.shape), a.flatten()[0:10])
+
+
+
+
+
+

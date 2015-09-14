@@ -155,5 +155,12 @@ if __name__ == "__main__":
         result_data = results[1]['data']
         pp.pprint(result_data)
 
-    test_api_cache()
+     # def test_multiproc():
+     #    request_parameters = {'embedded': [u'true'], 'service': [u'WPS'], 'rawDataOutput': [u'result'], 'data': {u'MERRA/mon/atmos': [u'v0:hur']}, 'region': {u'latitude': 28.0645809173584, u'level': 100000, u'longitude': -44.17499999999998, u'time': u'2010-01-16T12:00:00'}, 'request': [u'Execute'], 'version': [u'1.0.0'], 'operation': [u'time.departures(v0,slice:t)', u'time.climatology(v0,slice:t,bounds:annualcycle)'], 'identifier': [u'cdas'], 'config': {'cache': True}}
+     #    request_parameters['datainputs'] = [u'[region={"longitude":-108.3,"latitude":-23.71042633056642,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["time.departures(v0,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)","time.value(v0)"]']
+     #    results = kernelMgr.run( TaskRequest( request=request_parameters ) )
+     #    result_data = results[1]['data']
+     #    pp.pprint(result_data)
+
+    test_api()
 

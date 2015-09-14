@@ -10,7 +10,7 @@ class EngineTests:
         self.test_point = [ -137.0, 35.0, 85000 ]
         self.test_time = '2010-01-16T12:00:00'
         self.def_task_args =  { 'region': self.getRegion(), 'data': self.getData() }
-        self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE )
+        self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine"  )
         self.cache_region = { "level": 85000 }
 
     def tearDown(self):
