@@ -1,5 +1,7 @@
 <head>
   <body>
+    Hello
+
     <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=getcapabilities">WPS GetCapabilities</A>
     <br>
     <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=DescribeProcess&identifier=test_process">Describe Test Process</a>
@@ -22,11 +24,10 @@
 <br>
 
 
-    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_averager&datainputs=[domain={"longitude":{"start":-180.0,"end":180.0}};variable={"url":"/opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"}]'>Execute Averager Using SLURM</a>
 <br>
-    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_dispatcher&datainputs=[region={"longitude":{"start":-180.0,"end":180.0}};data={"url":"file://opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"};operation=averager]'>Dispatch Averager Using SLURM</a>
+    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_dispatcher&datainputs=[region={"longitude":{"start":-180.0,"end":180.0}};data={"url":"file://opt/nfs/cwt/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"};operation=averager]'>Dispatch Averager Using SLURM</a>
 <br>
-    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_dispatcher&datainputs=[data=[{"url":"file://opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"},{"url":"file://opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r2i1p1.xml","id":"ts"},{"url":"file://opt/nfs/ames4/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r3i1p1.xml","id":"ts"}];region={"foo":"bar"};operation=ensemble_averager]'>Dispatch Ensemble Averager Using Slurm</a>
+    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_dispatcher&datainputs=[data=[{"url":"file://opt/nfs/cwt/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"},{"url":"file://opt/nfs/cwt/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r2i1p1.xml","id":"ts"},{"url":"file://opt/nfs/cwt/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r3i1p1.xml","id":"ts"}];region={"foo":"bar"};operation=ensemble_averager]'>Dispatch Ensemble Averager Using Slurm</a>
     <br>
 
   </body>
