@@ -29,7 +29,8 @@ class MultiprocTaskMonitor(TaskMonitor):
                 self.push_response( response )
             else:
                 task_monitor = self.get_monitor( rid )
-                task_monitor.push_response( response )
+                if task_monitor is not None:
+                    task_monitor.push_response( response )
 
     def response(self, **args):
         self.addStats( **args )

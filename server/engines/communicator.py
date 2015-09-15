@@ -14,7 +14,7 @@ class TaskMonitor:
 
     @classmethod
     def get_monitor( cls, rid ):
-        return cls.get( rid, None )
+        return cls.Monitors.get( rid, None )
 
     def status(self):
         raise Exception( 'Error: status method not implemented in TaskMonitor')
