@@ -146,7 +146,7 @@ class ComputeEngine( Executable ):
 
                 result = task_monitor.result()
                 t1 = time.time()
-                wpsLog.debug( " ***** Retrieved result [rid:%s] from worker '%s' (t = %.2f, dt1 = %.3f):\n%s" %  ( task_monitor.rid, designated_worker, t1, t1-t2, str(result) ) )
+                wpsLog.debug( " ***** Retrieved result [rid:%s] from worker '%s' (t = %.2f, dt1 = %.3f)" %  ( task_monitor.rid, designated_worker, t1, t1-t2 ) )
                 return result
 
             else:

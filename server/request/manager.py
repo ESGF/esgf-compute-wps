@@ -109,5 +109,19 @@ def test02():
     data = task_request.data
     operations = task_request.operations
 
+def test03():
+    request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
+    request_parameters['datainputs'] = [u'[region={"level":100000};data={"MERRA/mon/atmos":["v0:hur"]};"];]']
+    response_json = taskManager.processRequest( request_parameters )
+
+    request_parameters['datainputs'] =[u'[region={"longitude":-44.17499999999998,"latitude":28.0645809173584,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["time.departures(v0,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)"];]']
+    response_json = taskManager.processRequest( request_parameters )
+    responses = json.loads(response_json)
+    print "Responses:"
+    for iR, result in enumerate(responses):
+#        response_data = result['data']
+        print result
+    print "Done!"
+
 if __name__ == "__main__":
-    test01()
+    test03()

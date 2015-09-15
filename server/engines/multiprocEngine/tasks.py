@@ -1,6 +1,7 @@
 from multiprocessing import Process, Pipe
 from kernels.manager import kernelMgr
 from request.manager import TaskRequest
+from modules import configuration
 from modules.utilities import *
 import cPickle
 
@@ -15,6 +16,7 @@ class WorkerManager:
 
     def __init__(self):
         self.workers = {}
+        self.startup( configuration.CDAS_NUM_WORKERS )
 
     def  __del__(self):
         self.shutdown()
@@ -41,6 +43,7 @@ class WorkerManager:
         wpsLog.debug( "WorkerManager--> receiving response from [%s]: %s" % ( wid, str(response) ) )
 
     def shutdown(self):
+        wpsLog.debug( "^^^^^^^^^^^^^^^^^ WorkerManager--> shutting down workers! " )
         for ( local_comm, worker_process ) in self.workers.values():
             local_comm.send_bytes( 'exit' )
             local_comm.close()

@@ -70,10 +70,6 @@ class MultiprocCommunicator( ComputeEngineCommunicator ):
     def __init__( self ):
         from modules import configuration
         ComputeEngineCommunicator.__init__( self )
-        worker_manager.startup( configuration.CDAS_NUM_WORKERS )
-
-    def __del__(self):
-        worker_manager.shutdown()
 
     def submitTaskImpl( self, task_request, worker ):
         rid = self.new_request_id()
