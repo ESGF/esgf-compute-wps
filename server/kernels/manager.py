@@ -46,7 +46,10 @@ class KernelManager:
         dataManager.persist( **args )
 
     def run( self, task_request ):
+        response = {}
+        response['rid'] = task_request.rid
         results = []
+        response['results'] = results
         wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )
         start_time = time.time()
         data = {}
@@ -59,14 +62,12 @@ class KernelManager:
                 result = kernel.run( variables, metadata_recs, region, operation ) if kernel else { 'result': metadata_recs }
                 results.append( result )
             end_time = time.time()
-            wpsLog.debug( " $$$ Kernel Execution Complete, total time = %.2f " % (end_time-start_time) )
+            wpsLog.debug( " $$$ Kernel Execution Complete, ` time = %.2f " % (end_time-start_time) )
         except Exception, err:
             wpsLog.debug( " Error executing kernel: %s " % str(err) )
             wpsLog.debug( traceback.format_exc() )
-            result = data.get('result', {} )
-            result['error'] = str(err)
-            results.append( result )
-        return results
+            response['error'] = str(err)
+        return response
 
     def getKernel( self, operation ):
         if operation:

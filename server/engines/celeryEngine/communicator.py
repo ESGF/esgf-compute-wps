@@ -3,8 +3,8 @@ from tasks import execute
 
 class CeleryTaskMonitor(TaskMonitor):
 
-    def __init__( self, id, **args ):
-        TaskMonitor. __init__( self, id, **args )
+    def __init__( self, rid, **args ):
+        TaskMonitor. __init__( self, rid, **args )
         self.task = args.get('task',None)
         self.stats = {}
 
@@ -16,7 +16,8 @@ class CeleryTaskMonitor(TaskMonitor):
 
     def result( self, **args ):
         self.addStats( **args )
-        results = self.task.get()
+        response = self.task.get()
+        results = response['results']
         if len( self.stats ):
             for result in results: result.update( self.stats )
         return results
@@ -33,7 +34,7 @@ class CeleryCommunicator( ComputeEngineCommunicator ):
         ComputeEngineCommunicator.__init__( self )
 
 
-    def submitTask( self, task_request, worker ):
+    def submitTaskImpl( self, task_request, worker ):
         task = execute.apply_async( (task_request.task,), exchange='C.dq', routing_key=worker )
         return CeleryTaskMonitor( task.id, task=task )
 

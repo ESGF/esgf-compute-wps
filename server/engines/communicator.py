@@ -2,12 +2,19 @@ from modules.utilities import *
 
 class TaskMonitor:
 
-    def __init__( self, id, **kwargs ):
-        self._id = id
+    Monitors = {}
+
+    def __init__( self, rid, **kwargs ):
+        self._request_id = rid
+        self.Monitors[rid] = self
 
     @property
-    def id(self):
-        return self._id
+    def rid(self):
+        return self._request_id
+
+    @classmethod
+    def get_monitor( cls, rid ):
+        return cls.get( rid, None )
 
     def status(self):
         raise Exception( 'Error: status method not implemented in TaskMonitor')
@@ -38,9 +45,10 @@ class ComputeEngineCommunicator:
         raise Exception( 'Error: submitTask method not implemented in engine communicator')
 
     def submitTask( self, task_request, worker ):
-        self.submitTask( task_request, worker )
+        task_monitor = self.submitTaskImpl( task_request, worker )
         if task_request.isCacheOp():    self.setWorkerState( worker, self.WS_CACHE )
         else:                           self.setWorkerState( worker, self.WS_OP )
+        return task_monitor
 
     def getWorkerStats(self):
         return {}

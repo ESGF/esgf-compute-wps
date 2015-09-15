@@ -41,12 +41,21 @@ class TaskRequest:
             dialect = apiManager.getDialect( request_parameters )
             self.task = dialect.getTaskRequestData( request_parameters )
         task_parameters = args.get( 'task', None )
+        self._request_id = None
         if task_parameters:
             self.task = task_parameters
             wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: task = %s \n" % str(task_parameters) )
         self.task['config'] = { 'cache' : True }
 
     def __str__(self): return "TR-%s" % str(self.task)
+
+    @property
+    def rid(self):
+        return self._request_id
+
+    @rid.setter
+    def rid(self, value):
+        self._request_id = value
 
     @property
     def data(self):
@@ -64,7 +73,7 @@ class TaskRequest:
         return OperationContainer( self.task.get('operation', None) )
 
     def isCacheOp(self):
-        return ( self.operations().value == None )
+        return ( self.operations.value == None )
 
     @property
     def configuration(self):

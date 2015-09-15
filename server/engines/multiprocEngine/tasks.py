@@ -8,7 +8,7 @@ def worker_exe( wid, comm ):
     while True:
         task_request_args =  cPickle.loads( comm.recv_bytes() )
         results = kernelMgr.run( TaskRequest(task=task_request_args) )
-        if results: results[0]['worker'] = wid
+        if results: results['worker'] = wid
         comm.send_bytes( cPickle.dumps(results) )
 
 class WorkerManager:
@@ -24,7 +24,7 @@ class WorkerManager:
             for iworker in range( nworkers ):
                 wid = "W-%d" % iworker
                 local_comm, remote_comm = Pipe()
-                worker_process = Process(target=worker_exe, args=(wid,remote_comm))
+                worker_process = Process(target=worker_exe, name=wid, args=(wid,remote_comm))
                 self.workers[wid] = ( local_comm, worker_process )
                 worker_process.start()
                 wpsLog.debug( "Started worker %s: process %s[%s]" % ( wid, worker_process.name, str(worker_process.pid) ) )
