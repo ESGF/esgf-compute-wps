@@ -31,10 +31,10 @@ class KernelTests(unittest.TestCase):
     def getOp(self, op_index ):
         return [ self.operations[ op_index ] ]
 
-    def getResultData(self, result_data ):
-        if "error" in result_data:
-            print>>sys.stderr, result_data["error"]
-        return result_data.get('data',[])
+    def getResults( self, response ):
+        error = response.get( 'error', None )
+        if error: raise Exception( error )
+        return response['results']
 
     def getTaskArgs(self, op, ipt=0 ):
         task_args = { 'region': self.getRegion(ipt), 'data': self.getData() }
@@ -43,8 +43,8 @@ class KernelTests(unittest.TestCase):
 
     def test01_cache(self):
         cache_level = 85000.0
-        result = kernelMgr.run( TaskRequest( request={ 'region': { "level": cache_level }, 'data': self.getData() } ) )
-        result_stats = result[0]['result']
+        results = self.getResults( kernelMgr.run( TaskRequest( request={ 'region': { "level": cache_level }, 'data': self.getData() } ) ) )
+        result_stats = results[0]['result'][0]
         self.assertEqual( json.loads(result_stats['region']), { "lev": [cache_level] } )
 
     def test02_departures(self):
@@ -52,8 +52,8 @@ class KernelTests(unittest.TestCase):
                         -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375,
                           8.750885009765625, 11.778228759765625, 12.852447509765625 ]
         task_args = self.getTaskArgs( op=self.getOp( 0 ) )
-        result = kernelMgr.run( TaskRequest( request=task_args ) )
-        result_data = self.getResultData(result[0])
+        results = self.getResults( kernelMgr.run( TaskRequest( request=task_args ) ) )
+        result_data = results[0].get('data',[])
         self.assertEqual( test_result, result_data[0:len(test_result)] )
 
     def test03_annual_cycle(self):
@@ -62,23 +62,23 @@ class KernelTests(unittest.TestCase):
                        37.239708794487846, 38.93236626519097, 39.45347425672743, 35.83015611436632]
         task_args = self.getTaskArgs( self.getOp( 1 ), 1 )
         kernelMgr.persist()
-        result = kernelMgr.run( TaskRequest( request=task_args ) )
-        result_data = self.getResultData(result[0])
+        results = self.getResults( kernelMgr.run( TaskRequest( request=task_args ) ) )
+        result_data = results[0].get('data',[])
         self.assertEqual( test_result, result_data[0:len(test_result)] )
 
     def test04_value_retreval(self):
         test_result = 28.41796875
         task_args = self.getTaskArgs( self.getOp( 2 ), 2 )
-        result = kernelMgr.run( TaskRequest( request=task_args ) )
-        result_data = self.getResultData(result[0])
+        results =  self.getResults( kernelMgr.run( TaskRequest( request=task_args ) ) )
+        result_data = results[0].get('data',[])
         self.assertEqual( test_result, result_data )
 
     def test05_multitask(self):
         test_results = [ [ -1.405364990234375, -1.258880615234375, 0.840728759765625 ], [ 48.07984754774306, 49.218166775173614, 49.36114501953125 ], 59.765625 ]
         task_args = self.getTaskArgs( op=self.operations )
-        results = kernelMgr.run( TaskRequest( request=task_args ) )
+        results = self.getResults( kernelMgr.run( TaskRequest( request=task_args ) ) )
         for ir, result in enumerate(results):
-            result_data = self.getResultData(result)
+            result_data = result.get('data',[])
             test_result = test_results[ir]
             if hasattr( test_result, '__iter__' ):  self.assertEqual( test_result, result_data[0:len(test_result)] )
             else:                                   self.assertEqual( test_result, result_data )
