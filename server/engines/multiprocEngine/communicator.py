@@ -25,7 +25,7 @@ class MultiprocTaskMonitor(TaskMonitor):
         while self.comm.poll():
             response = self.recv()
             rid = response['rid']
-            if rid == self._rid:
+            if rid == self._request_id:
                 self.push_response( response )
             else:
                 task_monitor = self.get_monitor( rid )
