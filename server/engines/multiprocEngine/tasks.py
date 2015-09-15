@@ -43,7 +43,6 @@ class WorkerManager:
         wpsLog.debug( "WorkerManager--> receiving response from [%s]: %s" % ( wid, str(response) ) )
 
     def shutdown(self):
-        wpsLog.debug( "^^^^^^^^^^^^^^^^^ WorkerManager--> shutting down workers! " )
         for ( local_comm, worker_process ) in self.workers.values():
             local_comm.send_bytes( 'exit' )
             local_comm.close()
