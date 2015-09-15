@@ -14,9 +14,13 @@ class CeleryTaskMonitor(TaskMonitor):
     def ready(self):
         return self.task.ready()
 
-    def result( self, **args ):
+    def response(self, **args):
         self.addStats( **args )
-        response = self.task.get()
+        return self.task.get()
+
+
+    def result( self, **args ):
+        response = self.response( **args )
         results = response['results']
         if len( self.stats ):
             for result in results: result.update( self.stats )

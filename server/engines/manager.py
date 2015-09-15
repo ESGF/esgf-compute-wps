@@ -53,7 +53,7 @@ class ComputeEngine( Executable ):
         for task_monitor,cached_domain in self.pendingTasks.items():
             if task_monitor.ready():
                 if task_monitor.status() == 'FAILURE':
-                    wpsLog.debug( "Task %s(%s) Failed:\n>> '%s' " % ( task_monitor.taskName(), task_monitor.id, str(task_monitor) ) )
+                    wpsLog.debug( "Task %s(%s) Failed:\n>> '%s' " % ( task_monitor.taskName(), task_monitor.rid, str(task_monitor) ) )
                 else:
                     response = task_monitor.response()
                     if not response:

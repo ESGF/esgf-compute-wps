@@ -33,9 +33,9 @@ from request.manager import TaskRequest
 @app.task(base=DomainBasedTask,name='tasks.execute')
 def execute( task_request_args ):
     worker = getWorkerName()
-    results = kernelMgr.run( TaskRequest(task=task_request_args) )
-    if results: results[0]['worker'] = worker
-    return results
+    response = kernelMgr.run( TaskRequest(task=task_request_args) )
+    response['worker'] = worker
+    return response
 
 from engines.manager import ComputeEngine
 from communicator import CeleryCommunicator
