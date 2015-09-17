@@ -41,7 +41,6 @@ class TaskRequest:
             dialect = apiManager.getDialect( request_parameters )
             self.task = dialect.getTaskRequestData( request_parameters )
         task_parameters = args.get( 'task', None )
-        self._request_id = None
         if task_parameters:
             self.task = task_parameters
             wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: task = %s \n" % str(task_parameters) )
@@ -49,6 +48,7 @@ class TaskRequest:
         config_args = { 'cache' : True }
         if utility: config_args['utility'] = utility
         self.task['config'] = config_args
+        self._request_id = self.task.get( 'rid', None )
 
     def __str__(self): return "TR-%s" % str(self.task)
 
@@ -59,6 +59,7 @@ class TaskRequest:
     @rid.setter
     def rid(self, value):
         self._request_id = value
+        self.task['rid'] = value
 
     @property
     def data(self):

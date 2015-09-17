@@ -52,28 +52,28 @@ class KernelManager:
         response['results'] = results
         wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )
         start_time = time.time()
-        data = {}
         utility = task_request['utility']
         if utility is not None:
             if utility == 'worker.cache':
-                return dataManager.stats( rid=task_request.rid )
+                response['stats'] = dataManager.stats( rid=task_request.rid )
+                wpsLog.debug( "\n *---worker.cache---* Utility request: %s\n" % str( response['stats'] ) )
             else:
                 wpsLog.debug( " Unrecognized utility command: %s " % str(utility) )
-
-        try:
-            operations =  task_request.operations
-            operations_list = [None] if (operations.value is None) else operations.values
-            for operation in operations_list:
-                variables, metadata_recs, region = self.getKernelInputs( operation, task_request )
-                kernel = self.getKernel( operation )
-                result = kernel.run( variables, metadata_recs, region, operation ) if kernel else { 'result': metadata_recs }
-                results.append( result )
-            end_time = time.time()
-            wpsLog.debug( " $$$ Kernel Execution Complete, ` time = %.2f " % (end_time-start_time) )
-        except Exception, err:
-            wpsLog.debug( " Error executing kernel: %s " % str(err) )
-            wpsLog.debug( traceback.format_exc() )
-            response['error'] = str(err)
+        else:
+            try:
+                operations =  task_request.operations
+                operations_list = [None] if (operations.value is None) else operations.values
+                for operation in operations_list:
+                    variables, metadata_recs, region = self.getKernelInputs( operation, task_request )
+                    kernel = self.getKernel( operation )
+                    result = kernel.run( variables, metadata_recs, region, operation ) if kernel else { 'result': metadata_recs }
+                    results.append( result )
+                end_time = time.time()
+                wpsLog.debug( " $$$ Kernel Execution Complete, ` time = %.2f " % (end_time-start_time) )
+            except Exception, err:
+                wpsLog.debug( " Error executing kernel: %s " % str(err) )
+                wpsLog.debug( traceback.format_exc() )
+                response['error'] = str(err)
         return response
 
     def getKernel( self, operation ):
