@@ -1,7 +1,7 @@
 from modules.module import Executable
 from modules.utilities import *
 from datacache.manager import CachedVariable
-from datacache.status_cache import  StatusCacheManager
+from datacache.status_cache import  StatusShelveMgr
 from datacache.domains import Domain, Region
 from request.manager import TaskRequest
 import traceback
@@ -10,12 +10,11 @@ executionRecord = ExecutionRecord()
 
 class ComputeEngine( Executable ):
 
-    statusCache = StatusCacheManager()
+    statusCache = StatusShelveMgr( 'cdas_compute_engine_cache' )
 
     def __init__( self, id, **args ):
         Executable.__init__( self, id )
         self.communicator = self.getCommunicator()
-        self.cachedVariables = {}
         self.pendingTasks = {}
         self.restore()
 
@@ -23,12 +22,14 @@ class ComputeEngine( Executable ):
         return None
 
     def restore(self):
-        cache_data = self.statusCache.restore( 'cdas_compute_engine_cache' )
-        if cache_data:
-            [ self.communicator.worker_stats, self.cachedVariables,  self.pendingTasks ] = cache_data
+        self.communicator.worker_stats = self.statusCache.get('worker_stats',{})
+        self.cachedVariables = self.statusCache.get('cachedVariables',{})
+#        self.pendingTasks = self.statusCache.get('pendingTasks',{})
 
     def cache(self):
-        self.statusCache.cache( 'cdas_compute_engine_cache', [ self.communicator.worker_stats, self.cachedVariables, self.pendingTasks ] )
+        self.statusCache['worker_stats'] = self.communicator.worker_stats
+        self.statusCache['cachedVariables'] = self.cachedVariables
+#        self.statusCache['pendingTasks'] = self.pendingTasks
 
     def processCacheTask(self, cache_task_monitor, cached_domain, **args ):
         response = cache_task_monitor.response( **args )
@@ -79,6 +80,11 @@ class ComputeEngine( Executable ):
             if overlap == Domain.CONTAINED: return cached_var, domain
         return cached_var, None
 
+    def  getWorkerCacheStats(self):
+        cache_task_request = TaskRequest( utility='worker.cache' )
+        cache_task_monitor = self.communicator.submitTask( cache_task_request, "*" )
+        workerCacheStats = cache_task_monitor.response()
+        return workerCacheStats
 
     def execute( self, task_request, **compute_args ):
         try:

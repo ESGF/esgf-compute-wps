@@ -116,13 +116,9 @@ class Domain(Region):
     PENDING = 0
     COMPLETE = 1
 
-    IN_MEMORY = 0
-    PERSISTED = 1
-
     def __init__( self, domain_spec=None, tvar=None ):
         Region.__init__( self, domain_spec )
         self._variable = None
-        self.cache_state = self.IN_MEMORY
         self.persist_id = None
         self.cache_queue = None
         self.cache_request_status = None
@@ -137,7 +133,8 @@ class Domain(Region):
         self._variable = cdms2.createVariable( data, fill_value=self.fill_value, grid=self.grid, axes=self.axes, id=self.id, dtype=self.dtype, attributes=self.attributes )
 
     def getVariable(self):
-        self.load_persisted_data()
+        if self._variable is None:
+            self.load_persisted_data()
         return self._variable
 
     def setVariable( self, tvar ):
@@ -155,21 +152,29 @@ class Domain(Region):
         return Region( self.spec )
 
     def persist(self,**args):
-        if self.cache_state == self.IN_MEMORY:
-            pid = args.get( 'cid', self.id )
+        pid = args.get( 'cid', self.id )
+        if not persistenceManager.is_stored( pid ):
             data = self.getData()
             self.persist_id = persistenceManager.store( data, pid='_'.join( [ pid, str(int(time.time())) ] ) )
-            if self.persist_id is not None:
-                self.cache_state = self.PERSISTED
-                self._variable = None
-            return self.persist_id
+        flush = args.get('flush',False)
+        if flush and (self.persist_id is not None):
+            self._variable = None
+        return self.persist_id
 
-    def load_persisted_data(self):
-        if self.cache_state == self.PERSISTED:
-            restored_data = persistenceManager.load( self.persist_id )
-            if restored_data is not None:
-                self.setData( restored_data )
-                self.cache_state = self.IN_MEMORY
+    def stats(self,**args):
+        cid = args.get( 'cid', self.id )
+        rid = args.get( 'rid', self.id )
+        inMemory = ( self._variable is not None )
+        persisted = (self.persist_id is not None) and persistenceManager.is_stored( self.persist_id )
+        return ( self.id, cid, rid, inMemory, persisted, self.items )
+
+    def load_persisted_data(self,**args):
+        restore = args.get('restore',False)
+        if restore or (self._variable == None):
+            if persistenceManager.is_stored( self.persist_id ):
+                restored_data = persistenceManager.load( self.persist_id )
+                if restored_data is not None:
+                    self.setData( restored_data )
 
     def getSize(self):
         features = [ 'lat', 'lon' ]
@@ -235,6 +240,13 @@ class DomainManager:
         if scope=='all':
             for domain in self.domains:
                 domain.persist(**args)
+
+
+    def stats( self, **args ):
+        domains = []
+        for domain in self.domains:
+           domains.append( domain.stats(**args) )
+        return domains
 
     def addDomain(self, new_domain ):
         self.domains.append( new_domain )

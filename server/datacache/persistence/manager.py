@@ -24,6 +24,8 @@ class DataPersistenceManager:
         data = self.engine.load( id )
         return data
 
+    def is_stored(self, id, **args ):
+        return self.engine.is_stored( id )
 
 persistenceManager = DataPersistenceManager()
 

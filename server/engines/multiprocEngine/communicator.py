@@ -7,7 +7,8 @@ class MultiprocTaskMonitor(TaskMonitor):
 
     def __init__( self, rid, **args ):
         TaskMonitor. __init__( self, rid, **args )
-        self.comm = args.get('comm',None)
+        self.comms = args.get( 'comms', [] )
+        self.wait_list = list(self.comms)
         self.stats = {}
         self.responses = LifoQueue()
 
@@ -22,24 +23,31 @@ class MultiprocTaskMonitor(TaskMonitor):
         return not self.responses.empty()
 
     def flush_incoming(self):
-        while self.comm.poll():
-            response = self.recv()
-            rid = response['rid']
-            if rid == self._request_id:
-                self.push_response( response )
-            else:
-                task_monitor = self.get_monitor( rid )
-                if task_monitor is not None:
-                    task_monitor.push_response( response )
+        for comm in self.comms:
+            while comm.poll():
+                response = cPickle.loads( comm.recv_bytes() )
+                rid = response['rid']
+                if rid == self._request_id:
+                    self.push_response( response )
+                    self.wait_list.remove(comm)
+                else:
+                    task_monitor = self.get_monitor( rid )
+                    if task_monitor is not None:
+                        task_monitor.push_response( response )
 
     def response(self, **args):
         self.addStats( **args )
-        self.flush_incoming()
-        if not self.responses.empty():
-            response = self.responses.get()
-        else:
-            response = self.recv()
-        return response
+        if len( self.comms ) > 1:
+            while len(self.wait_list) > 0:
+                self.flush_incoming()
+            return self.responses
+        elif len( self.comms ) == 1:
+            self.flush_incoming()
+            if not self.responses.empty():
+                response = self.responses.get()
+            else:
+                response = cPickle.loads( self.comms[0].recv_bytes() )
+            return response
 
     def result( self, **args ):
         response = self.response( **args )
@@ -53,11 +61,6 @@ class MultiprocTaskMonitor(TaskMonitor):
 
     def addStats(self,**args):
         self.stats.update( args )
-
-    def recv( self ):
-        msg = self.comm.recv_bytes()
-        response = cPickle.loads(msg)
-        return response
 
 class MultiprocCommunicator( ComputeEngineCommunicator ):
 
@@ -75,8 +78,10 @@ class MultiprocCommunicator( ComputeEngineCommunicator ):
     def submitTaskImpl( self, task_request, worker ):
         rid = self.new_request_id()
         task_request.rid = rid
-        comm = worker_manager.send( task_request.task, worker )
-        return MultiprocTaskMonitor( rid, comm=comm )
+        if worker == "*":                   comms = worker_manager.broadcast( task_request.task )
+        elif isinstance( worker, list ):    comms = worker_manager.broadcast( task_request.task, worker  )
+        else:                               comms = [ worker_manager.send( task_request.task, worker ) ]
+        return MultiprocTaskMonitor( rid, comms=comms )
 
     def getWorkerStats(self):
        return worker_manager.getProcessStats()

@@ -53,15 +53,22 @@ class ComputeEngineCommunicator:
     def getWorkerStats(self):
         return {}
 
-    def setWorkerState( self, wid, state ):
-        wstat = self.worker_stats.get( wid, None )
-        if ( wstat is None ):
-            wpsLog.error( "Unrecognized worker ID in 'setWorkerState[%d]': %s" % ( state, wid ) )
+    def setWorkerState( self, widspec, state ):
+        if widspec == "*":
+            workers = self.worker_stats.keys()
+        elif isinstance( widspec, list ):
+            workers = widspec
         else:
-            wstat['state'] = state
-            wstat['tstamp'] = time.time()
-        if state == self.WS_CACHE:
-            wstat['csize'] = wstat.get('csize', 0 ) + 1
+            workers = [ widspec ]
+        for wid in workers:
+            wstat = self.worker_stats.get( wid, None )
+            if ( wstat is None ):
+                wpsLog.error( "Unrecognized worker ID in 'setWorkerState[%d]': %s" % ( state, wid ) )
+            else:
+                wstat['state'] = state
+                wstat['tstamp'] = time.time()
+            if state == self.WS_CACHE:
+                wstat['csize'] = wstat.get('csize', 0 ) + 1
 
     def clearWorkerState( self, worker ):
         self.setWorkerState( worker, self.WS_FREE )
@@ -76,13 +83,12 @@ class ComputeEngineCommunicator:
 
     def updateWorkerStats(self):
         t0 = time.time()
-        if len( self.worker_stats ) == 0:
+        if not self.worker_stats:
             self.worker_stats = self.getWorkerStats()
         if len( self.worker_stats ) == 0:
             wpsLog.error( "ERROR: Must start up workers!" )
         t1 = time.time()
         wpsLog.debug( " ***** updateWorkerStats[ dt = %0.3f ], workers: %s" %  ( t1-t0, str(self.worker_stats.keys()) ) )
-
 
     def getNextWorker( self ):
         mdbg = False

@@ -12,4 +12,7 @@ class DataPersistenceEngineBase:
     def load(self, id, **args ):
         wpsLog.error( " DataPersistenceEngine not implemented- no persisted data available" )
 
+    def is_stored(self, id ):
+        wpsLog.error( " DataPersistenceEngine not implemented- no info available" )
+
 

@@ -2,7 +2,7 @@ from modules.module import Executable
 from tasks import execute, simpleTest
 from modules.utilities import *
 from datacache.manager import CachedVariable
-from datacache.status_cache import  StatusCacheManager
+from datacache.status_cache import  StatusShelveMgr
 from datacache.domains import Domain, Region
 from request.manager import TaskRequest
 import celery, pickle, os, traceback
@@ -10,8 +10,6 @@ import sys, pprint
 cLog = logging.getLogger('celery-debug')
 cLog.setLevel(logging.DEBUG)
 if len( cLog.handlers ) == 0: cLog.addHandler( logging.FileHandler( os.path.expanduser( "~/.celery-debug") ) )
-
-StatusCache = StatusCacheManager()
 
 class CeleryEngine( Executable ):
 
@@ -24,7 +22,7 @@ class CeleryEngine( Executable ):
         self.worker_specs = {}
         self.cachedVariables = {}
         self.pendingTasks = {}
-        self.statusCache = StatusCacheManager()
+        self.statusCache = StatusShelveMgr( 'cdas_celery_engine_cache' )
         self.restore()
 
     def setWorkerStatus( self, wid, status ):
@@ -62,12 +60,13 @@ class CeleryEngine( Executable ):
     #         return wspec.get('csize', 0 )
 
     def restore(self):
-        cache_data = self.statusCache.restore( 'cdas_celery_engine_cache' )
-        if cache_data:
-            [ self.worker_specs, self.cachedVariables,  self.pendingTasks ] = cache_data
+        self.worker_specs = self.statusCache['worker_specs']
+        self.cachedVariables = self.statusCache['cachedVariables']
+
 
     def cache(self):
-        self.statusCache.cache( 'cdas_celery_engine_cache', [ self.worker_specs, self.cachedVariables, self.pendingTasks ] )
+        self.statusCache['worker_specs'] = self.worker_specs
+        self.statusCache['cachedVariables'] = self.cachedVariables
 
     def processPendingTasks(self):
         pTasks = str( self.pendingTasks.keys() )

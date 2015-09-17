@@ -39,6 +39,11 @@ class CachedVariable:
         kwargs.update( args )
         self.domainManager.persist( **kwargs )
 
+    def stats( self, **args ):
+        kwargs = { 'cid': self.id }
+        kwargs.update( args )
+        return self.domainManager.stats( **kwargs )
+
     @classmethod
     def getCacheType( cls, use_cache, operation ):
         if not use_cache: return cls.CACHE_NONE
@@ -72,6 +77,12 @@ class CacheManager:
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
             cached_cvar.persist(**args)
+
+    def stats( self, **args ):
+        cache_stats = []
+        for cached_cvar in self._cache.values():
+            cache_stats.append( cached_cvar.stats(**args) )
+        return cache_stats
 
     @classmethod
     def getModifiers( cls, variable_name ):
@@ -115,6 +126,9 @@ class DataManager:
 
     def persist( self, **args ):
         self.cacheManager.persist( **args )
+
+    def stats( self, **args ):
+        return self.cacheManager.stats( **args )
 
     def loadVariable( self, data, region, cache_type ):
         data_specs = {}

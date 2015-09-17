@@ -53,6 +53,13 @@ class KernelManager:
         wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )
         start_time = time.time()
         data = {}
+        utility = task_request['utility']
+        if utility is not None:
+            if utility == 'worker.cache':
+                return dataManager.stats( rid=task_request.rid )
+            else:
+                wpsLog.debug( " Unrecognized utility command: %s " % str(utility) )
+
         try:
             operations =  task_request.operations
             operations_list = [None] if (operations.value is None) else operations.values

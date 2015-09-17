@@ -31,6 +31,14 @@ class WorkerManager:
                 worker_process.start()
                 wpsLog.debug( "Started worker %s: process %s[%s]" % ( wid, worker_process.name, str(worker_process.pid) ) )
 
+    def broadcast( self, msg, worker_list = None ):
+        comms = []
+        for wid, ( local_comm, worker_process ) in self.workers.items():
+            if ( worker_list is None ) or (wid in worker_list):
+                local_comm.send_bytes( cPickle.dumps(msg) )
+                comms.append( local_comm )
+        return comms
+
     def send( self, msg, wid ):
         ( local_comm, worker_process ) = self.workers[wid]
         local_comm.send_bytes( cPickle.dumps(msg) )
@@ -44,9 +52,11 @@ class WorkerManager:
 
     def shutdown(self):
         for ( local_comm, worker_process ) in self.workers.values():
-            local_comm.send_bytes( 'exit' )
-            local_comm.close()
-            worker_process.terminate()
+            try:
+                local_comm.send_bytes( 'exit' )
+                local_comm.close()
+                worker_process.terminate()
+            except: pass
         self.workers = {}
 
     def getProcessStats(self):

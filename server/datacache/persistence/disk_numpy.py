@@ -34,6 +34,9 @@ class PersistenceRecord:
     def file(self):
         return self._file
 
+    def is_stored(self):
+        return os.path.isfile( self._file )
+
     def store( self, data ):
         self._dtype = data.dtype
         self._shape = data.shape
@@ -63,6 +66,10 @@ class DataPersistenceEngine( DataPersistenceEngineBase ):
         prec = self.precs.get( pid, None )
         assert (prec is not None), "Error, undefined persistence id: %s" % pid
         return prec.load()
+
+    def is_stored(self, pid ):
+        prec = self.precs.get( pid, None )
+        return prec.is_stored() if prec else False
 
 if __name__ == "__main__":
     import pprint, cdms2, sys

@@ -10,9 +10,6 @@ CDAS_DEFAULT_NUM_NODES = 1
 CDAS_STAGING = 'local'
 #CDAS_STAGING = 'celery'
 
-# Should be 'memory' for Flask and 'disk' for pyWPS/Django
-CDAS_STATUS_CACHE_METHOD = 'memory'
-
 #CDAS_COMPUTE_ENGINE = 'celery'
 CDAS_COMPUTE_ENGINE = 'multiproc'
 #CDAS_COMPUTE_ENGINE = 'spark'

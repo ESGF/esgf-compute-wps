@@ -1,47 +1,108 @@
-import os, pickle
+import os, cPickle, shelve
 from modules.utilities import *
-from modules.configuration import CDAS_STATUS_CACHE_METHOD
 
-class StatusCacheManager:
+class PersistentStatusManager:
 
-    def __init__( self, **args ):
+    def __init__( self, cache_name, **args ):
+        self._extension = ""
+        self.cache_name = cache_name
+        self.cacheDir = args.get( 'cache_dir', os.path.expanduser( "~/.cdas_cache") )
+        if not os.path.exists( self.cacheDir ):
+            try:
+                os.makedirs( self.cacheDir )
+            except OSError, err:
+                if not os.path.exists( self.cacheDir ):
+                    wpsLog.error( "Failed to create cache dir: %s ", str( err ) )
+                    self.cacheDir = None
+        self.restore()
+
+    def getCacheFilePath( self ):
+        return os.path.join( self.cacheDir, self.cache_name + self._extension ) if self.cacheDir else "UNDEF"
+
+    def restore(self):
+        pass
+
+    def __getitem__(self, key):
+        pass
+
+    def get(self, key, defval ):
+        pass
+
+    def __setitem__(self, key, value):
+        pass
+
+    def valid_entry( self, value ):
+        try:
+            test = cPickle.dumps(value)
+            return True
+        except (cPickle.PicklingError, TypeError) as err:
+            wpsLog.error( " \n **** Error, attempt to cache an unpicklable object: %s **** \n%s\n" % ( str(value), str(err) ) )
+            return False
+
+class StatusPickleMgr(PersistentStatusManager):
+
+    def __init__( self, cache_name, **args ):
+        self._extension = ".pkl"
         self._cache_data = {}
-        if CDAS_STATUS_CACHE_METHOD == 'disk':
-            self.cacheDir = args.get( 'cache_dir', os.path.expanduser( "~/.cdas_cache") )
-            if not os.path.exists( self.cacheDir ):
-                try:
-                    os.makedirs( self.cacheDir )
-                except OSError, err:
-                    if not os.path.exists( self.cacheDir ):
-                        wpsLog.error( "Failed to create cache dir: %s ", str( err ) )
-                        self.cacheDir = None
+        PersistentStatusManager.__init__(self, cache_name, **args)
 
-    def getCacheFilePath( self, cache_key ):
-        if CDAS_STATUS_CACHE_METHOD == 'disk':
-            return os.path.join( self.cacheDir, cache_key + ".pkl" ) if self.cacheDir else "UNDEF"
-        else: return None
+    def __getitem__(self, key):
+        return self._cache_data.get( key, None )
 
-    def restore(self, cache_key):
-        if CDAS_STATUS_CACHE_METHOD == 'memory':
-            return self._cache_data.get( cache_key, None )
-        elif CDAS_STATUS_CACHE_METHOD == 'disk':
-            try:
-                cacheFile = self.getCacheFilePath( cache_key )
+    def get(self, key, defval ):
+        return self._cache_data.get( key, defval )
+
+    def __setitem__(self, key, value):
+        if self.valid_entry(value):
+            self._cache_data[ key ] = value
+            self.save()
+
+    def restore(self ):
+        try:
+            cacheFile = self.getCacheFilePath()
+            if os.path.isfile(cacheFile):
                 with open( cacheFile ) as cache_file:
-                    return pickle.load( cache_file )
-            except IOError, err:
-                wpsLog.error( " Error reading cache file '%s': %s" % ( cacheFile, str(err) ) )
-            except EOFError:
-                wpsLog.warning( " Empty cache file '%s'" % ( cacheFile  ) )
+                    self._cache_data = cPickle.load( cache_file )
+        except IOError, err:
+            wpsLog.error( " Error reading cache file '%s': %s" % ( cacheFile, str(err) ) )
+        except EOFError:
+            wpsLog.warning( " Empty cache file '%s'" % ( cacheFile  ) )
 
-    def cache( self, cache_key, status_data ):
-        if CDAS_STATUS_CACHE_METHOD == 'memory':
-            self._cache_data[cache_key] = status_data
-        elif CDAS_STATUS_CACHE_METHOD == 'disk':
-            try:
-                cacheFile = self.getCacheFilePath( cache_key )
-                with open( cacheFile, 'w' ) as cache_file:
-                    pickle.dump( status_data, cache_file )
-            except IOError, err:
-                wpsLog.error( " Error writing to cache file '%s': %s" % ( cacheFile, str(err) ) )
+    def save( self ):
+        try:
+            cacheFile = self.getCacheFilePath( )
+            with open( cacheFile, 'w' ) as cache_file:
+                cPickle.dump( self._cache_data, cache_file )
+        except IOError, err:
+            wpsLog.error( " Error writing to cache file '%s': %s" % ( cacheFile, str(err) ) )
+
+
+class StatusShelveMgr(PersistentStatusManager):
+
+    def __init__( self, cache_name, **args ):
+        self._extension = ""
+        self._cache_data = {}
+        PersistentStatusManager.__init__( self, cache_name, **args )
+
+    def __getitem__(self, key):
+        return self._cache_data.get( key, None )
+
+    def get(self, key, defval ):
+        return self._cache_data.get( key, defval )
+
+
+    def __setitem__(self, key, value):
+        if self.valid_entry(value):
+            self._cache_data[ key ] = value
+
+
+
+if __name__ == "__main__":
+
+    import shelve
+
+    filename = os.path.expanduser( "~/.cdas_cache/test_shelve")
+    d = shelve.open(filename)
+    print d.get('test', None)
+
 

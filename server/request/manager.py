@@ -45,7 +45,10 @@ class TaskRequest:
         if task_parameters:
             self.task = task_parameters
             wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: task = %s \n" % str(task_parameters) )
-        self.task['config'] = { 'cache' : True }
+        utility = args.get( 'utility', None )
+        config_args = { 'cache' : True }
+        if utility: config_args['utility'] = utility
+        self.task['config'] = config_args
 
     def __str__(self): return "TR-%s" % str(self.task)
 
@@ -101,13 +104,15 @@ def test01():
     print "Done!"
 
 def test02():
-#    request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'], 'datainputs': [u'[region={"level":"100000"};data={"collection":"MERRA/mon/atmos","name":"hur"};]']}
-#    response = taskManager.processRequest( request_parms )
     request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
     request_parameters['datainputs'] = [u'[region={"longitude":-142.5,"latitude":-15.635426330566418,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur", "v1:clt" ] };operation=["time.departures(v0,v1,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)","time.value(v0)"];]']
-    task_request = TaskRequest( request=request_parameters )
-    data = task_request.data
-    operations = task_request.operations
+    response_json = taskManager.processRequest( request_parameters )
+    responses = json.loads(response_json)
+    print "Responses:"
+    for iR, result in enumerate(responses):
+#        response_data = result['data']
+        print result
+    print "Done!"
 
 def test03():
     request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
@@ -124,4 +129,4 @@ def test03():
     print "Done!"
 
 if __name__ == "__main__":
-    test03()
+    test02()
