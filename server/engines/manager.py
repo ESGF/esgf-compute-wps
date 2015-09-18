@@ -1,7 +1,6 @@
 from modules.module import Executable
 from modules.utilities import *
 from datacache.manager import CachedVariable
-from datacache.status_cache import  StatusShelveMgr
 from datacache.domains import Domain, Region
 from request.manager import TaskRequest
 import traceback
@@ -9,8 +8,6 @@ import traceback
 executionRecord = ExecutionRecord()
 
 class ComputeEngine( Executable ):
-
-    statusCache = StatusShelveMgr( 'cdas_compute_engine_cache' )
 
     def __init__( self, id, **args ):
         Executable.__init__( self, id )

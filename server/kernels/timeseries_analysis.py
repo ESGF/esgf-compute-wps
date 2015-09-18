@@ -4,8 +4,6 @@ import numpy.ma as ma
 import numpy as np
 import cdutil
 import cdms2, sys
-
-from kernels.cda import DataAnalytics
 from modules.utilities import *
 
 def get_subset( input_data, subset_index, subset_index_array ):
@@ -14,12 +12,12 @@ def get_subset( input_data, subset_index, subset_index_array ):
         im_mask = np.tile( im_mask, input_data.shape[1:] )
     return ma.masked_array( input_data, mask = im_mask )
 
-class TimeseriesAnalytics( DataAnalytics ):
+class TimeseriesAnalytics:
 
     season_def_array = [ 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 0]
 
     def __init__( self, **args ):
-        DataAnalytics.__init__( self, **args  )
+        self.use_cache = args.get( 'cache', True )
 
     def compress( self, variable, precision=4 ):
         maxval = variable.max()

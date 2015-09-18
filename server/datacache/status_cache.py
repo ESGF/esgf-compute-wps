@@ -14,13 +14,9 @@ class PersistentStatusManager:
                 if not os.path.exists( self.cacheDir ):
                     wpsLog.error( "Failed to create cache dir: %s ", str( err ) )
                     self.cacheDir = None
-        self.restore()
 
     def getCacheFilePath( self ):
         return os.path.join( self.cacheDir, self.cache_name + self._extension ) if self.cacheDir else "UNDEF"
-
-    def restore(self):
-        pass
 
     def __getitem__(self, key):
         pass
@@ -42,9 +38,10 @@ class PersistentStatusManager:
 class StatusPickleMgr(PersistentStatusManager):
 
     def __init__( self, cache_name, **args ):
+        PersistentStatusManager.__init__(self, cache_name, **args)
         self._extension = ".pkl"
         self._cache_data = {}
-        PersistentStatusManager.__init__(self, cache_name, **args)
+        self.restore()
 
     def __getitem__(self, key):
         return self._cache_data.get( key, None )
@@ -80,9 +77,9 @@ class StatusPickleMgr(PersistentStatusManager):
 class StatusShelveMgr(PersistentStatusManager):
 
     def __init__( self, cache_name, **args ):
-        self._extension = ""
-        self._cache_data = {}
         PersistentStatusManager.__init__( self, cache_name, **args )
+        self._extension = ""
+        self._cache_data = shelve.open( self.getCacheFilePath() )
 
     def __getitem__(self, key):
         return self._cache_data.get( key, None )

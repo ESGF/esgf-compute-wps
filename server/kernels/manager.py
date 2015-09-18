@@ -1,12 +1,17 @@
 import sys, traceback
 
 from modules.utilities import *
-from datacache.manager import dataManager, CachedVariable
+from datacache.manager import DataManager, CachedVariable
 from datacache.domains import Region
-from request.manager import TaskRequest
 executionRecord = ExecutionRecord()
 
 class KernelManager:
+
+    def __init__(self, wid ):
+        self.dataManager = DataManager( wid )
+
+    def persistStats( self, **args ):
+        self.dataManager.persistStats( **args )
 
     def getKernelInputs( self, operation, request ):
         read_start_time = time.time()
@@ -28,7 +33,7 @@ class KernelManager:
 
         for data in input_dataset:
             if data is not None:
-                variable, data_spec = dataManager.loadVariable( data, region, cache_type )
+                variable, data_spec = self.dataManager.loadVariable( data, region, cache_type )
                 cached_region = Region( data_spec['region'] )
                 if (region is not None) and (cached_region <> region):
                     subset_args = region.toCDMS()
@@ -43,11 +48,12 @@ class KernelManager:
         return variables, data_specs, region
 
     def persist( self, **args ):
-        dataManager.persist( **args )
+        self.dataManager.persist( **args )
 
     def run( self, task_request ):
         response = {}
         response['rid'] = task_request.rid
+        response['wid'] = self.dataManager.getName()
         results = []
         response['results'] = results
         wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )
@@ -55,7 +61,7 @@ class KernelManager:
         utility = task_request['utility']
         if utility is not None:
             if utility == 'worker.cache':
-                response['stats'] = dataManager.stats( rid=task_request.rid )
+                response['stats'] = self.dataManager.stats()
                 wpsLog.debug( "\n *---worker.cache---* Utility request: %s\n" % str( response['stats'] ) )
             else:
                 wpsLog.debug( " Unrecognized utility command: %s " % str(utility) )
@@ -84,21 +90,19 @@ class KernelManager:
             else:
                 raise Exception( "No compute kernel found for operations %s" % str(operation) )
 
-kernelMgr = KernelManager()
-
 if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
 
     from request.manager import TaskRequest
-    from manager import kernelMgr
     from modules.configuration import MERRA_TEST_VARIABLES
     import pprint
 
+    kernelMgr = KernelManager('W-1')
     pp = pprint.PrettyPrinter(indent=4)
     test_point = [ -137.0, 35.0, 85000 ]
     test_time = '2010-01-16T12:00:00'
-    operations = [ "time.departures(v0,t)", "time.climatology(v0,t,annualcycle)", "time.value(v0)" ]
+    operations = [ "time.departures(v0,slice:t)", "time.climatology(v0,slice:t,bounds:annualcycle)", "time.value(v0)" ]
 
     def getRegion():
         return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point[0],test_point[1],test_point[2],test_time)
@@ -124,43 +128,42 @@ if __name__ == "__main__":
         pp.pprint(result_stats)
 
     def test_departures():
-        test_result = [-1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375, -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375]
-        task_args = getTaskArgs( op=[operations[ 1 ]] )
-        result = kernelMgr.run( TaskRequest( request=task_args ) )
-        result_data = result[0]['data']
+        task_args = getTaskArgs( op=[operations[ 0 ]] )
+        response = kernelMgr.run( TaskRequest( request=task_args ) )
+        result_data = response['results'][0]['data']
         pp.pprint(result_data)
 
     def test_annual_cycle():
-        task_args = getTaskArgs( op=[operations[ 2 ]] )
-        result = kernelMgr.run( TaskRequest( request=task_args ) )
-        result_data = result[0]['data']
+        task_args = getTaskArgs( op=[operations[ 1 ]] )
+        response = kernelMgr.run( TaskRequest( request=task_args ) )
+        result_data = response['results'][0]['data']
         pp.pprint(result_data)
 
     def test_value_retreval():
-        task_args = getTaskArgs( op=[operations[ 3 ]] )
-        result = kernelMgr.run( TaskRequest( request=task_args ) )
-        result_data = result[0]['data']
+        task_args = getTaskArgs( op=[operations[ 2 ]] )
+        response = kernelMgr.run( TaskRequest( request=task_args ) )
+        result_data = response['results'][0]['data']
         pp.pprint(result_data)
 
 
     def test_multitask():
         task_args = getTaskArgs( op=operations )
-        results = kernelMgr.run( TaskRequest( request=task_args ) )
-        for ir, result in enumerate(results):
+        response = kernelMgr.run( TaskRequest( request=task_args ) )
+        for ir, result in enumerate(response['results']):
             result_data = result['data']
             pp.pprint(result_data)
 
     def test_api_cache():
         request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
         request_parameters['datainputs'] = [u'region={"level":"100000"};data={ "MERRA/mon/atmos":["v0:hur"]}']
-        results = kernelMgr.run( TaskRequest( request=request_parameters ) )
-        pp.pprint(results)
+        response = kernelMgr.run( TaskRequest( request=request_parameters ) )
+        pp.pprint(response)
 
     def test_api():
         request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
         request_parameters['datainputs'] = [u'[region={"longitude":-108.3,"latitude":-23.71042633056642,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["time.departures(v0,slice:t)","time.climatology(v0,slice:t,bounds:annualcycle)","time.value(v0)"]']
-        results = kernelMgr.run( TaskRequest( request=request_parameters ) )
-        result_data = results[1]['data']
+        response = kernelMgr.run( TaskRequest( request=request_parameters ) )
+        result_data = response['results'][1]['data']
         pp.pprint(result_data)
 
      # def test_multiproc():
@@ -170,5 +173,6 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_api()
+    test_departures()
+    kernelMgr.persistStats()
 

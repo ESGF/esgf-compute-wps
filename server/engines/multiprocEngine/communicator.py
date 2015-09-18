@@ -26,6 +26,7 @@ class MultiprocTaskMonitor(TaskMonitor):
         for comm in self.comms:
             while comm.poll():
                 response = cPickle.loads( comm.recv_bytes() )
+                print " flush_incoming, response: ", str( response )
                 rid = response['rid']
                 if rid == self._request_id:
                     self.push_response( response )
@@ -77,7 +78,7 @@ class MultiprocCommunicator( ComputeEngineCommunicator ):
 
     def submitTaskImpl( self, task_request, worker ):
         rid = self.new_request_id()
-        task_request.rid = rid
+        task_request.setRequestId(rid)
         if worker == "*":                   comms = worker_manager.broadcast( task_request.task )
         elif isinstance( worker, list ):    comms = worker_manager.broadcast( task_request.task, worker  )
         else:                               comms = [ worker_manager.send( task_request.task, worker ) ]

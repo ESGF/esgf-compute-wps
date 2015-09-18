@@ -88,7 +88,7 @@ class EngineTests(unittest.TestCase):
             if hasattr( test_result, '__iter__' ):  self.assertEqual( test_result, result_data[0:len(test_result)] )
             else:                                   self.assertEqual( test_result, result_data )
 
-    def test06_stats(self):
+    def xtest06_stats(self):
         results = self.engine.getWorkerCacheStats()
         print results
 

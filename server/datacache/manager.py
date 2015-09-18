@@ -2,6 +2,7 @@ from modules.utilities import  *
 from data_collections import CollectionManager
 from domains import *
 from decomposition.manager import decompositionManager
+from datacache.status_cache import  StatusShelveMgr
 import numpy, sys
 
 import cdms2, time
@@ -57,6 +58,11 @@ class CachedVariable:
         self.domainManager.addDomain( domain )
         return domain
 
+    def addCachedDomain( self, region_stats ):
+        domain = Domain( region_stats['region'], stat=region_stats )
+        self.domainManager.addDomain( domain )
+        return domain
+
     def cacheType(self):
         return self.specs.get( 'cache_type', None )
 
@@ -73,16 +79,37 @@ class CacheManager:
     def __init__( self, name ):
         self._cache = {}
         self.name = name
+        self.statusCache = StatusShelveMgr( '.'.join( [ 'stats_cache', name ] ) )
+        self.loadStats()
+
+    def __del__(self):
+        self.persist()
 
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
             cached_cvar.persist(**args)
+        self.persistStats( **args )
 
     def stats( self, **args ):
         cache_stats = []
         for cached_cvar in self._cache.values():
             cache_stats.append( cached_cvar.stats(**args) )
         return cache_stats
+
+    def loadStats( self, **args ):
+        stats = self.statusCache['stats']
+        if stats:
+            for var_stats in stats:
+                for region_stats in var_stats:
+                    cache_id = region_stats.get('cid',None)
+                    cached_cvar = self._cache.get( cache_id, None )
+                    if cached_cvar is None:
+                        cached_cvar = CachedVariable(  id=cache_id, stats=region_stats )
+                        self._cache[ cache_id ] = cached_cvar
+                    cached_cvar.addCachedDomain( region_stats )
+
+    def persistStats( self, **args ):
+        self.statusCache['stats'] = self.stats()
 
     @classmethod
     def getModifiers( cls, variable_name ):
@@ -121,11 +148,17 @@ class CacheManager:
 
 class DataManager:
 
-    def __init__( self ):
-        self.cacheManager = CacheManager( 'default' )
+    def __init__( self, name, **args ):
+        self.cacheManager = CacheManager( name, **args )
+
+    def getName(self):
+        return self.cacheManager.name
 
     def persist( self, **args ):
         self.cacheManager.persist( **args )
+
+    def persistStats( self, **args ):
+        self.cacheManager.persistStats( **args )
 
     def stats( self, **args ):
         return self.cacheManager.stats( **args )
@@ -208,9 +241,6 @@ class DataManager:
             # can't figure it out skipping
             f=None
         return f
-
-dataManager = DataManager()
-
 
 if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )

@@ -4,7 +4,6 @@ import random, traceback
 import cdms2
 from modules.utilities import *
 from modules.containers import *
-from datacache.manager import dataManager
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)

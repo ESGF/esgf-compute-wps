@@ -44,22 +44,23 @@ class TaskRequest:
         if task_parameters:
             self.task = task_parameters
             wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: task = %s \n" % str(task_parameters) )
+        config_args = self.task.setdefault( 'config', {} )
+        cache_val = config_args.setdefault( 'cache', True )
         utility = args.get( 'utility', None )
-        config_args = { 'cache' : True }
         if utility: config_args['utility'] = utility
-        self.task['config'] = config_args
-        self._request_id = self.task.get( 'rid', None )
 
     def __str__(self): return "TR-%s" % str(self.task)
 
     @property
     def rid(self):
-        return self._request_id
+        return self.task.get( 'rid', None )
 
-    @rid.setter
-    def rid(self, value):
-        self._request_id = value
+    def setRequestId( self, value ):
         self.task['rid'] = value
+
+    @property
+    def wid(self):
+        return self.task.get( 'wid', None )
 
     @property
     def data(self):
@@ -129,5 +130,10 @@ def test03():
         print result
     print "Done!"
 
+def test04():
+    task_request_args = {'config': {'cache': True, 'utility': 'worker.cache'}}
+    tr = TaskRequest(task=task_request_args)
+    print tr.task
+
 if __name__ == "__main__":
-    test02()
+    test04()

@@ -27,8 +27,10 @@ class DomainBasedTask(celery.Task):
         wpsLog.error( " Task %s failure, Error: %s " % ( task_id, str(einfo) ) )
 
 
-from kernels.manager import kernelMgr
+from kernels.manager import KernelManager
 from request.manager import TaskRequest
+
+kernelMgr = KernelManager( getWorkerName() )
 
 @app.task(base=DomainBasedTask,name='tasks.execute')
 def execute( task_request_args ):

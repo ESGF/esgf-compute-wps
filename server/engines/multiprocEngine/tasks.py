@@ -1,15 +1,16 @@
 from multiprocessing import Process, Pipe
-from kernels.manager import kernelMgr
+from kernels.manager import KernelManager
 from request.manager import TaskRequest
 from modules import configuration
 from modules.utilities import *
 import cPickle
 
 def worker_exe( wid, comm ):
+    kernelMgr = KernelManager( wid )
     while True:
         task_request_args =  cPickle.loads( comm.recv_bytes() )
+     #   wpsLog.debug( "\n ---- MULTIPROC[%s] ---> task_request_args: %s -----\n" % ( wid, str( task_request_args ) ) )
         results = kernelMgr.run( TaskRequest(task=task_request_args) )
-        if results: results['worker'] = wid
         comm.send_bytes( cPickle.dumps(results) )
 
 class WorkerManager:
