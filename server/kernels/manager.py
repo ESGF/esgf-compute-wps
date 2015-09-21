@@ -174,5 +174,4 @@ if __name__ == "__main__":
      #    pp.pprint(result_data)
 
     test_departures()
-    kernelMgr.persistStats()
 

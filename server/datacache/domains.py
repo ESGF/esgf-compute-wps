@@ -107,16 +107,16 @@ class Region(JSONObject):
             #         kargs[str(k)] = slice(v["start"],v["end"])
         return kargs
 
-class DomainStats:
-
-    def __init__( self ):
-        self.fill_value = None
-        self.attributes = None
-        self.domain = None
-        self.grid = None
-        self.id = None
-        self.dtype = None
-        self.axes = None
+# class DomainStats:
+#
+#     def __init__( self ):
+#         self.fill_value = None
+#         self.attributes = None
+#         self.domain = None
+#         self.grid = None
+#         self.id = None
+#         self.dtype = None
+#         self.axes = None
 
 class Domain(Region):
 
@@ -127,14 +127,17 @@ class Domain(Region):
     PENDING = 0
     COMPLETE = 1
 
-    def __init__( self, domain_spec=None, tvar=None, **args ):
-        self.stat = args.get('stat',{})
+    def __init__( self, domain_spec=None,  **args ):
+        self.stat = args.get( 'dstat', { 'persist_id':None } )
         Region.__init__( self, domain_spec )
         self._variable = None
-        self.stat['persist_id'] = None
+        self.vstat = args.get('vstat', None )
         self.cache_queue = None
         self.cache_request_status = None
-        self.setVariable( tvar )                   # TransientVariable
+        self.setVariable( args.get('tvar', None ) )                   # TransientVariable
+        pid = self.stat['persist_id']
+        if pid:
+            persistenceManager.update( pid, self.stat['shape'] )
 
     def getData(self):
         v = self.getVariable()
@@ -142,7 +145,7 @@ class Domain(Region):
 
     def setData( self, data ):
         import cdms2
-        self._variable = cdms2.createVariable( data, fill_value=self.stat['fill_value'], grid=self.stat['grid'], axes=self.stat['axes'], id=self.stat['id'], dtype=self.stat['dtype'], attributes=self.stat['attributes'] )
+        self._variable = cdms2.createVariable( data, fill_value=self.vstat['fill_value'], grid=self.vstat['grid'], axes=self.vstat['axes'], id=self.vstat['id'], dtype=self.vstat['dtype'], attributes=self.vstat['attributes'] )
 
     def getVariable(self):
         if self._variable is None:
@@ -150,33 +153,27 @@ class Domain(Region):
         return self._variable
 
     def setVariable( self, tvar ):
-        if tvar is not None:
-            self._variable = tvar
-            self.stat['fill_value'] = tvar.fill_value
-            self.stat['attributes'] = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
-            self.stat['domain'] = tvar.getDomain()
-            self.stat['grid'] = tvar.getGrid()
-            self.stat['id'] = tvar.id
-            self.stat['dtype'] = tvar.dtype
-            self.stat['axes'] = [ d[0] for d in self.stat['domain'] ]
+        self._variable = tvar
 
     def getRegion(self):
         return Region( self.spec )
 
     def persist(self,**args):
-        pid = args.get( 'cid', self.stat['id'] )
-        if not persistenceManager.is_stored( pid ):
-            data = self.getData()
-            pid = persistenceManager.store( data, pid='_'.join( [ pid, str(int(time.time())) ] ) )
-        flush = args.get('flush',False)
-        self.stat['persist_id'] = pid
-        if flush and (pid is not None):
-            self._variable = None
+        pid = args.get( 'cid', self.stat.get('cid',None) )
+        if pid:
+            if not persistenceManager.is_stored( pid ):
+                data = self.getData()
+                pid = persistenceManager.store( data, pid='_'.join( [ pid, str(int(time.time())) ] ) )
+            flush = args.get('flush',False)
+            self.stat['persist_id'] = pid
+            self.stat['shape'] = list(data.shape)
+            if flush and (pid is not None):
+                self._variable = None
         return pid
 
     def stats(self,**args):
-        self.stat['cid'] = args.get( 'cid', self.stat['id'] )
-        self.stat['rid'] = args.get( 'rid', self.stat['id'] )
+        self.stat['cid'] = args.get( 'cid', self.vstat['id'] )
+        self.stat['rid'] = args.get( 'rid', self.vstat['id'] )
         self.stat['inMemory'] = ( self._variable is not None )
         pid = self.stat['persist_id']
         self.stat['persisted'] = ( pid is not None) and persistenceManager.is_stored( pid )

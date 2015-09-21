@@ -33,7 +33,18 @@ class CachedVariable:
         self.type = args.get('type',None)
         self.dataset = args.get('dataset',None)
         self.specs = args
+        self.stat = args.get('vstat',{})
         self.domainManager = DomainManager()
+
+    def updateStats(self,tvar):
+        self.stat['fill_value'] = tvar.fill_value
+        self.stat['attributes'] = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
+        self.stat['grid'] = tvar.getGrid()
+        self.stat['id'] = tvar.id
+        self.stat['cid'] = self.id
+        self.stat['dtype'] = tvar.dtype
+        cdms_domain = tvar.getDomain()
+        self.stat['axes'] = [ d[0] for d in cdms_domain ]
 
     def persist( self, **args ):
         kwargs = { 'cid': self.id }
@@ -43,7 +54,9 @@ class CachedVariable:
     def stats( self, **args ):
         kwargs = { 'cid': self.id }
         kwargs.update( args )
-        return self.domainManager.stats( **kwargs )
+        vstat = dict(self.stat)
+        vstat['domains'] = self.domainManager.stats( **kwargs )
+        return vstat
 
     @classmethod
     def getCacheType( cls, use_cache, operation ):
@@ -52,14 +65,14 @@ class CachedVariable:
 
     def addDomain(self, region, **args ):
         data = args.get( 'data', None )
-        domain = Domain( region, data )
+        domain = Domain( region, tvar=data, vstat=self.stat )
         request_queue = args.get( 'queue', None )
         if request_queue: domain.cacheRequestSubmitted( request_queue )
         self.domainManager.addDomain( domain )
         return domain
 
-    def addCachedDomain( self, region_stats ):
-        domain = Domain( region_stats['region'], stat=region_stats )
+    def addCachedDomain( self, domain_spec, **args ):
+        domain = Domain( domain_spec, **args  )
         self.domainManager.addDomain( domain )
         return domain
 
@@ -78,6 +91,7 @@ class CacheManager:
 
     def __init__( self, name ):
         self._cache = {}
+        self.stat = {}
         self.name = name
         self.statusCache = StatusShelveMgr( '.'.join( [ 'stats_cache', name ] ) )
         self.loadStats()
@@ -100,13 +114,14 @@ class CacheManager:
         stats = self.statusCache['stats']
         if stats:
             for var_stats in stats:
-                for region_stats in var_stats:
-                    cache_id = region_stats.get('cid',None)
-                    cached_cvar = self._cache.get( cache_id, None )
-                    if cached_cvar is None:
-                        cached_cvar = CachedVariable(  id=cache_id, stats=region_stats )
-                        self._cache[ cache_id ] = cached_cvar
-                    cached_cvar.addCachedDomain( region_stats )
+                cache_id = var_stats.get('cid',None)
+                cached_cvar = self._cache.get( cache_id, None )
+                if cached_cvar is None:
+                    cached_cvar = CachedVariable(  id=cache_id, vstat=var_stats )
+                    self._cache[ cache_id ] = cached_cvar
+                domain_stats = var_stats['domains']
+                for domain_stat in domain_stats:
+                    cached_cvar.addCachedDomain( domain_stat['region'], dstat=domain_stat, vstat=var_stats )
 
     def persistStats( self, **args ):
         self.statusCache['stats'] = self.stats()
@@ -127,9 +142,11 @@ class CacheManager:
         if cached_cvar is None:
             var_type, var_id = self.getModifiers( cache_id )
             cached_cvar = CachedVariable( type=var_type, id=cache_id, specs=specs )
+            cached_cvar.updateStats( data )
             self._cache[ cache_id ] = cached_cvar
         region = specs.get( 'region', {} )
         cached_cvar.addDomain( region, data=data )
+
 
     def getResults(self):
         return self.filterVariables( { 'type': CachedVariable.RESULT } )

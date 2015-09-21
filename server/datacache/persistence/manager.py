@@ -1,4 +1,5 @@
 from modules import configuration
+import re
 
 def getDataPersistenceEngine():
     if configuration.CDAS_DATA_PERSISTENCE_ENGINE == 'disk.numpy':
@@ -16,13 +17,15 @@ class DataPersistenceManager:
         return pid
 
     def get_data_storage_id( self, **args ):
-        import re
         pid = args.get('pid')
         return re.sub("[/:]","_",pid)
 
     def load(self, id, **args ):
         data = self.engine.load( id )
         return data
+
+    def update(self, pid, shape ):
+        self.engine.update( pid, shape )
 
     def is_stored(self, id, **args ):
         return self.engine.is_stored( id )

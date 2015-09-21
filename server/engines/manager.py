@@ -111,7 +111,7 @@ class ComputeEngine( Executable ):
                         cache_region = Region( op_region, axes=cache_axis_list )
                         cache_op_args = { 'region':cache_region.spec, 'data':str(dataset) }
                         tc0 = time.time()
-                        cache_task_request = TaskRequest( task=cache_op_args)
+                        cache_task_request = TaskRequest( task=cache_op_args )
                         cache_worker = self.communicator.getNextWorker()
                         cache_task_monitor = self.communicator.submitTask( cache_task_request, cache_worker )
                         executionRecord.addRecs( cache_add=cache_region.spec, cache_add_worker = cache_worker )

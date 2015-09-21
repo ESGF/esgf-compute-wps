@@ -11,7 +11,7 @@ class PersistenceRecord:
     @classmethod
     def update_directory(cls):
         if cls.PersistenceDirectory is None:
-            cls.PersistenceDirectory = os.path.expanduser( configuration.CDAS_PERSISTENCE_DIRECTORY )
+            cls.PersistenceDirectory = os.path.join( os.path.expanduser( configuration.CDAS_PERSISTENCE_DIRECTORY ), 'data' )
             if not os.path.exists(cls.PersistenceDirectory):
                 os.makedirs(cls.PersistenceDirectory)
 
@@ -19,8 +19,8 @@ class PersistenceRecord:
         self._id = pid
         self.update_directory()
         self._file = os.path.join(self.PersistenceDirectory,pid)
-        self._dtype = None
-        self._shape = None
+        self._dtype = args.get( 'dtype', numpy.float32 )
+        self._shape = args.get( 'shape', None )
 
     @property
     def id(self):
@@ -57,6 +57,9 @@ class DataPersistenceEngine( DataPersistenceEngineBase ):
 
     def __init__(self, **args ):
         self.precs = { }
+
+    def update(self, pid, shape ):
+        self.precs[pid] = PersistenceRecord( pid, shape=shape )
 
     def store(self, data, pid, **args ):
         prec = self.precs.setdefault( pid, PersistenceRecord(pid) )

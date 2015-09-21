@@ -1,22 +1,24 @@
 import os, cPickle, shelve
 from modules.utilities import *
+from modules import configuration
 
 class PersistentStatusManager:
 
     def __init__( self, cache_name, **args ):
-        self._extension = ""
         self.cache_name = cache_name
-        self.cacheDir = args.get( 'cache_dir', os.path.expanduser( "~/.cdas_cache") )
-        if not os.path.exists( self.cacheDir ):
+        self.cacheDir = os.path.expanduser( args.get( 'cache_dir', configuration.CDAS_PERSISTENCE_DIRECTORY ) )
+        if not os.path.exists(self.cacheDir ):
             try:
                 os.makedirs( self.cacheDir )
             except OSError, err:
-                if not os.path.exists( self.cacheDir ):
+                if not os.path.exists(  self.cacheDir ):
                     wpsLog.error( "Failed to create cache dir: %s ", str( err ) )
                     self.cacheDir = None
 
-    def getCacheFilePath( self ):
-        return os.path.join( self.cacheDir, self.cache_name + self._extension ) if self.cacheDir else "UNDEF"
+    def getCacheFilePath( self, exension=None ):
+        cache_file = os.path.join( self.cacheDir,  self.cache_name  )
+        if exension: cache_file = '.'.join(cache_file,exension)
+        return cache_file
 
     def __getitem__(self, key):
         pass
@@ -56,7 +58,7 @@ class StatusPickleMgr(PersistentStatusManager):
 
     def restore(self ):
         try:
-            cacheFile = self.getCacheFilePath()
+            cacheFile = self.getCacheFilePath( "pkl" )
             if os.path.isfile(cacheFile):
                 with open( cacheFile ) as cache_file:
                     self._cache_data = cPickle.load( cache_file )
@@ -67,7 +69,7 @@ class StatusPickleMgr(PersistentStatusManager):
 
     def save( self ):
         try:
-            cacheFile = self.getCacheFilePath( )
+            cacheFile = self.getCacheFilePath( "pkl" )
             with open( cacheFile, 'w' ) as cache_file:
                 cPickle.dump( self._cache_data, cache_file )
         except IOError, err:
@@ -78,8 +80,8 @@ class StatusShelveMgr(PersistentStatusManager):
 
     def __init__( self, cache_name, **args ):
         PersistentStatusManager.__init__( self, cache_name, **args )
-        self._extension = ""
-        self._cache_data = shelve.open( self.getCacheFilePath() )
+        cfp = self.getCacheFilePath()
+        self._cache_data = shelve.open( cfp )
 
     def __getitem__(self, key):
         return self._cache_data.get( key, None )
