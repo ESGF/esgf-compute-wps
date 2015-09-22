@@ -1,6 +1,6 @@
 import unittest, json, sys, logging
 from request.manager import TaskRequest
-from manager import kernelMgr
+from manager import KernelManager
 from modules.configuration import MERRA_TEST_VARIABLES
 from modules.utilities import wpsLog
 verbose = False
@@ -8,6 +8,8 @@ verbose = False
 if verbose:
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
+
+kernelMgr = KernelManager('W-1')
 
 class KernelTests(unittest.TestCase):
 
@@ -41,13 +43,13 @@ class KernelTests(unittest.TestCase):
         task_args['operation'] = op
         return task_args
 
-    def test01_cache(self):
+    def xtest01_cache(self):
         cache_level = 85000.0
         results = self.getResults( kernelMgr.run( TaskRequest( request={ 'region': { "level": cache_level }, 'data': self.getData() } ) ) )
         result_stats = results[0]['result'][0]
         self.assertEqual( json.loads(result_stats['region']), { "lev": [cache_level] } )
 
-    def test02_departures(self):
+    def xtest02_departures(self):
         test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,
                         -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375,
                           8.750885009765625, 11.778228759765625, 12.852447509765625 ]

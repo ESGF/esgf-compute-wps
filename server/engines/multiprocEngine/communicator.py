@@ -1,6 +1,6 @@
 from engines.communicator import ComputeEngineCommunicator, TaskMonitor
 from tasks import worker_manager
-from Queue import LifoQueue
+from collections import deque
 import cPickle
 
 class MultiprocTaskMonitor(TaskMonitor):
@@ -10,17 +10,20 @@ class MultiprocTaskMonitor(TaskMonitor):
         self.comms = args.get( 'comms', [] )
         self.wait_list = list(self.comms)
         self.stats = {}
-        self.responses = LifoQueue()
+        self.responses = deque()
 
     def push_response(self,response):
-        self.responses.put_nowait( response )
+        self.responses.appendleft( response )
 
     def status(self):
         return self.comm.status()
 
+    def empty(self):
+        return ( len( self.responses ) == 0 )
+
     def ready(self):
         self.flush_incoming()
-        return not self.responses.empty()
+        return not self.empty()
 
     def flush_incoming(self):
         for comm in self.comms:
@@ -44,8 +47,8 @@ class MultiprocTaskMonitor(TaskMonitor):
             return self.responses
         elif len( self.comms ) == 1:
             self.flush_incoming()
-            if not self.responses.empty():
-                response = self.responses.get()
+            if not self.empty():
+                response = self.responses.pop()
             else:
                 response = cPickle.loads( self.comms[0].recv_bytes() )
             return response

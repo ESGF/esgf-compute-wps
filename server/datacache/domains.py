@@ -133,8 +133,6 @@ class Domain(Region):
         Region.__init__( self, domain_spec )
         self._variable = None
         self.vstat = args.get('vstat', None )
-        self.cache_queue = None
-        self.cache_request_status = None
         self.setVariable( args.get('tvar', None ) )                   # TransientVariable
 
     def getPersistId(self):
@@ -204,15 +202,15 @@ class Domain(Region):
         return sizes[ 0 ] * sizes[ 1 ]
 
     def cacheRequestSubmitted( self, cache_queue = None ):
-        self.cache_queue = cache_queue
-        self.cache_request_status = Domain.PENDING
+        self.stat['cache_queue'] = cache_queue
+        self.stat['cache_request_status'] = Domain.PENDING
 
     def cacheRequestComplete( self, cache_queue = None  ):
-        self.cache_request_status = Domain.COMPLETE
-        self.cache_queue = cache_queue
+        self.stat['cache_request_status'] = Domain.COMPLETE
+        self.stat['cache_queue'] = cache_queue
 
     def getCacheStatus(self):
-        return self.cache_queue, self.cache_request_status
+        return self.stat.get('cache_queue',None), self.stat.get('cache_request_status',None)
 
     def overlap(self, new_domain ):  # self = cached domain
         for grid_axis in [ 'lat', 'lon', 'lev' ]:

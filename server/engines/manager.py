@@ -13,19 +13,21 @@ class ComputeEngine( Executable ):
         Executable.__init__( self, id )
         self.communicator = self.getCommunicator()
         self.pendingTasks = {}
+        self.cachedVariables = {}
         self.restore()
 
     def getCommunicator(self):
         return None
 
     def restore(self):
-        self.communicator.worker_stats = self.statusCache.get('worker_stats',{})
-        self.cachedVariables = self.statusCache.get('cachedVariables',{})
+        self.communicator.worker_stats = self.communicator.getWorkerStats()
+        self.loadStats()
 #        self.pendingTasks = self.statusCache.get('pendingTasks',{})
 
     def cache(self):
-        self.statusCache['worker_stats'] = self.communicator.worker_stats
-        self.statusCache['cachedVariables'] = self.cachedVariables
+        pass
+#        self.statusCache['worker_stats'] = self.communicator.worker_stats
+#        self.statusCache['cachedVariables'] = self.cachedVariables
 #        self.statusCache['pendingTasks'] = self.pendingTasks
 
     def processCacheTask(self, cache_task_monitor, cached_domain, **args ):
@@ -33,7 +35,7 @@ class ComputeEngine( Executable ):
         if not response:
             wpsLog.debug( " ***** Empty cache_request for task '%s', status = '%s':\n %s " % ( cache_task_monitor.id, cache_task_monitor.status(), str(cache_task_monitor) ) )
         else:
-            worker = response['worker']
+            worker = response['wid']
             cached_domain.cacheRequestComplete( worker )
             self.communicator.clearWorkerState( worker )
             del self.pendingTasks[ cache_task_monitor ]
@@ -69,12 +71,28 @@ class ComputeEngine( Executable ):
         t1 = time.time()
         wpsLog.debug( " ***** processPendingTasks[ dt = %0.3f ]: %s" %  ( t1-t0, pTasks ) )
 
+    def loadStats( self ):
+        worker_stats = self.getWorkerCacheStats()
+        for worker_stat in worker_stats:
+            wid = worker_stat['wid']
+            cache_stats = worker_stat['stats']
+            for var_stats in cache_stats:
+                cache_id = var_stats.get('cid',None)
+                cached_cvar = self.cachedVariables.get( cache_id, None )
+                if cached_cvar is None:
+                    cached_cvar = CachedVariable(  id=cache_id, vstat=var_stats )
+                    self.cachedVariables[ cache_id ] = cached_cvar
+                domain_stats = var_stats['domains']
+                for domain_stat in domain_stats:
+                    cached_cvar.addCachedDomain( domain_stat['region'], dstat=domain_stat, vstat=var_stats )
 
     def findCachedDomain(self, var_cache_id, region, dataset ):
-        cached_var = self.cachedVariables.setdefault( var_cache_id, CachedVariable( id=var_cache_id, dataset=dataset) )
-        if ( cached_var is not None ):
-            overlap,domain = cached_var.findDomain( region )
-            if overlap == Domain.CONTAINED: return cached_var, domain
+        cached_var = self.cachedVariables.get( var_cache_id, None )
+        if cached_var == None:
+            cached_var =  CachedVariable( id=var_cache_id, dataset=dataset)
+            self.cachedVariables[ var_cache_id ] = cached_var
+        overlap,domain = cached_var.findDomain( region )
+        if overlap == Domain.CONTAINED: return cached_var, domain
         return cached_var, None
 
     def  getWorkerCacheStats(self):
@@ -100,7 +118,7 @@ class ComputeEngine( Executable ):
             wpsLog.debug( " ***** Executing compute engine (t=%.2f), request: %s" % ( t0, str(task_request) ) )
 
             for dataset in datasets:
-                dsid = dataset.get('id','')
+                dsid = dataset.get('name','')
                 collection = dataset.get('collection',None)
                 url = dataset.get('url','')
                 var_cache_id = ":".join( [collection,dsid] ) if (collection is not None) else ":".join( [url,dsid] )
