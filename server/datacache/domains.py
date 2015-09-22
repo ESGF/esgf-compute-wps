@@ -137,6 +137,9 @@ class Domain(Region):
         self.cache_request_status = None
         self.setVariable( args.get('tvar', None ) )                   # TransientVariable
 
+    def getPersistId(self):
+        return self.stat.get( 'persist_id', None )
+
     def getData(self):
         v = self.getVariable()
         return None if v is None else v.data
@@ -159,7 +162,7 @@ class Domain(Region):
     def persist(self,**args):
         if not self.stat.get('persist_id',None):
             cid = args.get( 'cid', self.stat.get('cid',None) )
-            if cid:  self.stat['persist_id'] = '_'.join([ re.sub("[/:]","_",cid), str(int(10*time.time())%10000000)])
+            if cid:  self.stat['persist_id'] = '_'.join([ re.sub("[/:]","_",cid), str(int(10*time.time()))])
         if not persistenceManager.is_stored( self.stat ):
             data = self.getData()
             persistenceManager.store( data, self.stat )
@@ -273,7 +276,7 @@ class DomainManager:
             return Domain.CONTAINED, self.findSmallestDomain( contained_list )
         if len( overlap_list ) > 0:
             return Domain.OVERLAP, overlap_list
-        else: return Domain.DISJOINT, []
+        else: return Domain.DISJOINT, None
 
     def findSmallestDomain(self, domain_list ):
         if len( domain_list ) == 1:

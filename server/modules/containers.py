@@ -17,6 +17,11 @@ class JSONObject:
     def id(self):
         return self.items.get( "id", None )
 
+    def equals( self, region ):
+        for (key,value) in self.items.iteritems():
+            if region.get(key) <> value: return False
+        return True
+
     def process_spec( self, **args ):
         self.items = dict( self.spec )
 

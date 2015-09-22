@@ -134,7 +134,7 @@ class CacheManager:
     def getVariable( self, cache_id, new_region ):
         cached_cvar = self._cache.get( cache_id, None )
         wpsLog.debug( "Searching for cache_id '%s', cache keys = %s, Found = %s" % ( cache_id, str(self._cache.keys()), (cached_cvar is not None) ) )
-        if cached_cvar is None: return Domain.DISJOINT, []
+        if cached_cvar is None: return Domain.DISJOINT, None
         return cached_cvar.findDomain( new_region )
 
     def addVariable( self, cache_id, data, specs ):
@@ -182,6 +182,8 @@ class DataManager:
 
     def loadVariable( self, data, region, cache_type ):
         data_specs = {}
+        domain = None
+        cache_region = region
         name =  data.get( 'name', None );
         variable = data.get('variable',None)
         t0 = time.time()
@@ -236,7 +238,8 @@ class DataManager:
 
         if (variable is not None) and (cache_type <> CachedVariable.CACHE_NONE):
             data_specs['cache_type'] = cache_type
-            self.cacheManager.addVariable( var_cache_id, variable, data_specs )
+            if (domain is None) or not domain.equals( cache_region):
+                self.cacheManager.addVariable( var_cache_id, variable, data_specs )
         t1 = time.time()
         wpsLog.debug( " #@@ DataManager:FinishedLoadVariable %s (time = %.2f, dt = %.2f), shape = %s" %  ( str( data_specs ), t1, (t1-t0), str(variable.shape) ) )
         return variable, data_specs
