@@ -1,6 +1,7 @@
 from modules.utilities import  *
 from modules.containers import  *
 from datacache.persistence.manager import persistenceManager
+import re
 
 def filter_attributes( attr, keys ):
     rv = {}
@@ -135,9 +136,6 @@ class Domain(Region):
         self.cache_queue = None
         self.cache_request_status = None
         self.setVariable( args.get('tvar', None ) )                   # TransientVariable
-        pid = self.stat['persist_id']
-        if pid:
-            persistenceManager.update( pid, self.stat['shape'] )
 
     def getData(self):
         v = self.getVariable()
@@ -159,33 +157,31 @@ class Domain(Region):
         return Region( self.spec )
 
     def persist(self,**args):
-        pid = args.get( 'cid', self.stat.get('cid',None) )
-        if pid:
-            if not persistenceManager.is_stored( pid ):
-                data = self.getData()
-                pid = persistenceManager.store( data, pid='_'.join( [ pid, str(int(time.time())) ] ) )
-            flush = args.get('flush',False)
-            self.stat['persist_id'] = pid
+        if not self.stat.get('persist_id',None):
+            cid = args.get( 'cid', self.stat.get('cid',None) )
+            if cid:  self.stat['persist_id'] = '_'.join([ re.sub("[/:]","_",cid), str(int(10*time.time())%10000000)])
+        if not persistenceManager.is_stored( self.stat ):
+            data = self.getData()
+            persistenceManager.store( data, self.stat )
             self.stat['shape'] = list(data.shape)
-            if flush and (pid is not None):
-                self._variable = None
-        return pid
+            self.stat['dtype'] = data.dtype
+        flush = args.get('flush',False)
+        if flush and self.stat['persist_id']:
+            self._variable = None
 
     def stats(self,**args):
         self.stat['cid'] = args.get( 'cid', self.vstat['id'] )
         self.stat['rid'] = args.get( 'rid', self.vstat['id'] )
         self.stat['inMemory'] = ( self._variable is not None )
-        pid = self.stat['persist_id']
-        self.stat['persisted'] = ( pid is not None) and persistenceManager.is_stored( pid )
+        self.stat['persisted'] = persistenceManager.is_stored( self.stat )
         self.stat['region'] = self.spec
         return self.stat
 
     def load_persisted_data(self,**args):
         restore = args.get('restore',False)
         if restore or (self._variable == None):
-            pid = self.stat['persist_id']
-            if persistenceManager.is_stored( pid ):
-                restored_data = persistenceManager.load( pid )
+            if persistenceManager.is_stored( self.stat ):
+                restored_data = persistenceManager.load( self.stat )
                 if restored_data is not None:
                     self.setData( restored_data )
 

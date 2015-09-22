@@ -1,36 +1,11 @@
 from modules import configuration
-import re
 
 def getDataPersistenceEngine():
     if configuration.CDAS_DATA_PERSISTENCE_ENGINE == 'disk.numpy':
         from disk_numpy import DataPersistenceEngine
         return DataPersistenceEngine()
 
-class DataPersistenceManager:
-
-    def __init__(self, **args ):
-        self.engine = getDataPersistenceEngine()
-
-    def store(self, data, **args ):
-        pid = self.get_data_storage_id( **args )
-        self.engine.store( data, pid )
-        return pid
-
-    def get_data_storage_id( self, **args ):
-        pid = args.get('pid')
-        return re.sub("[/:]","_",pid)
-
-    def load(self, id, **args ):
-        data = self.engine.load( id )
-        return data
-
-    def update(self, pid, shape ):
-        self.engine.update( pid, shape )
-
-    def is_stored(self, id, **args ):
-        return self.engine.is_stored( id )
-
-persistenceManager = DataPersistenceManager()
+persistenceManager = getDataPersistenceEngine()
 
 
 if __name__ == "__main__":

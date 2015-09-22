@@ -27,15 +27,15 @@ class PersistenceTests(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test01_persist_mgr_cache(self):
-        from datacache.persistence.manager import persistenceManager
-        data_chunk = TestVariable.data
-        pid = persistenceManager.store( data_chunk, pid='testing' )
-        result = persistenceManager.load( pid )
-        self.assertEqual( data_chunk.shape, result.shape )
-        sample0 = data_chunk.flatten()[0:5].tolist()
-        sample1 = result.flatten()[0:5].tolist()
-        self.assertEqual( sample0, sample1 )
+    # def test01_persist_mgr_cache(self):
+    #     from datacache.persistence.manager import persistenceManager
+    #     data_chunk = TestVariable.data
+    #     pid = persistenceManager.store( data_chunk, pid='testing' )
+    #     result = persistenceManager.load( pid )
+    #     self.assertEqual( data_chunk.shape, result.shape )
+    #     sample0 = data_chunk.flatten()[0:5].tolist()
+    #     sample1 = result.flatten()[0:5].tolist()
+    #     self.assertEqual( sample0, sample1 )
 
     def test02_domain_cache(self):
         from datacache.domains import Domain

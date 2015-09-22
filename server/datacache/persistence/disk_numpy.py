@@ -4,7 +4,7 @@ from modules.utilities import  *
 import os, time
 import numpy as np
 
-class PersistenceRecord:
+class DataPersistenceEngine( DataPersistenceEngineBase ):
 
     PersistenceDirectory = None
 
@@ -15,64 +15,39 @@ class PersistenceRecord:
             if not os.path.exists(cls.PersistenceDirectory):
                 os.makedirs(cls.PersistenceDirectory)
 
-    def __init__(self, pid, **args ):
-        self._id = pid
-        self.update_directory()
-        self._file = os.path.join(self.PersistenceDirectory,pid)
-        self._dtype = args.get( 'dtype', numpy.float32 )
-        self._shape = args.get( 'shape', None )
-
-    @property
-    def id(self):
-        return self._id
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @property
-    def file(self):
-        return self._file
-
-    def is_stored(self):
-        return os.path.isfile( self._file )
-
-    def store( self, data ):
-        self._dtype = data.dtype
-        self._shape = data.shape
-        t0 = time.time()
-        data.tofile(self._file)
-        t1 = time.time()
-        wpsLog.debug( " Data %s persisted in %.3f " % ( str(data.shape), (t1-t0) ) )
-
-    def load(self, **args ):
-        t0 = time.time()
-        data = np.fromfile( self._file, dtype=self._dtype )
-        t1 = time.time()
-        rv = data.reshape( self._shape )
-        wpsLog.debug( " Data %s loaded in %.3f " % ( str(rv.shape), (t1-t0)) )
-        return rv
-
-class DataPersistenceEngine( DataPersistenceEngineBase ):
-
     def __init__(self, **args ):
-        self.precs = { }
+        self.update_directory()
 
-    def update(self, pid, shape ):
-        self.precs[pid] = PersistenceRecord( pid, shape=shape )
+    def store(self, data, stat, **args ):
+        pid = stat['persist_id']
+        persisted = stat.get('persisted',False)
+        if pid and not persisted and (data is not None):
+            file = os.path.join(self.PersistenceDirectory,pid)
+            t0 = time.time()
+            data.tofile( file )
+            t1 = time.time()
+            wpsLog.debug( " Data %s persisted in %.3f " % ( str(data.shape), (t1-t0) ) )
 
-    def store(self, data, pid, **args ):
-        prec = self.precs.setdefault( pid, PersistenceRecord(pid) )
-        prec.store( data )
 
-    def load(self, pid, **args ):
-        prec = self.precs.get( pid, None )
-        assert (prec is not None), "Error, undefined persistence id: %s" % pid
-        return prec.load()
+    def load( self, stat, **args ):
+        pid = stat['persist_id']
+        if pid:
+            dtype = stat.get('dtype',np.float32)
+            shape = stat['shape']
+            file = os.path.join(self.PersistenceDirectory,pid)
+            t0 = time.time()
+            data = np.fromfile( file, dtype=dtype )
+            t1 = time.time()
+            rv = data.reshape( shape )
+            wpsLog.debug( " Data %s loaded in %.3f " % ( str(rv.shape), (t1-t0)) )
+            return rv
 
-    def is_stored(self, pid ):
-        prec = self.precs.get( pid, None )
-        return prec.is_stored() if prec else False
+    def is_stored( self, stat ):
+        pid = stat.get('persist_id',None)
+        if not pid: return False
+        file = os.path.join(self.PersistenceDirectory,pid)
+        return os.path.isfile( file )
+
 
 if __name__ == "__main__":
     import pprint, cdms2, sys
