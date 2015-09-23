@@ -29,7 +29,6 @@ class MultiprocTaskMonitor(TaskMonitor):
         for comm in self.comms:
             while comm.poll():
                 response = cPickle.loads( comm.recv_bytes() )
-                print " flush_incoming, response: ", str( response )
                 rid = response['rid']
                 if rid == self._request_id:
                     self.push_response( response )

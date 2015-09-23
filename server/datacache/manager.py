@@ -112,7 +112,7 @@ class CacheManager:
 
     def loadStats( self, **args ):
         stats = self.statusCache['stats']
-        wpsLog.debug( "\n ***-------> Load Stats: %s\n" % stats )
+     #   wpsLog.debug( "\n ***-------> Load Stats: %s\n" % stats )
         if stats:
             for var_stats in stats:
                 cache_id = var_stats.get('cid',None)
@@ -126,8 +126,7 @@ class CacheManager:
 
     def persistStats( self, **args ):
         stats = self.stats( **args )
-        callloc = args.get('loc',"")
-        wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( callloc, stats ) )
+     #   wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( args.get('loc',""), stats ) )
         self.statusCache['stats'] = stats
 
     @classmethod

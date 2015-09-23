@@ -62,7 +62,7 @@ class KernelManager:
         if utility is not None:
             if utility == 'worker.cache':
                 response['stats'] = self.dataManager.stats()
-                wpsLog.debug( "\n *---worker.cache---* Utility request: %s\n" % str( response['stats'] ) )
+            #    wpsLog.debug( "\n *---worker.cache---* Utility request: %s\n" % str( response['stats'] ) )
             else:
                 wpsLog.debug( " Unrecognized utility command: %s " % str(utility) )
         else:
