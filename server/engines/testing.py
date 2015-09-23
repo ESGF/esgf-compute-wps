@@ -50,7 +50,9 @@ class EngineTests(unittest.TestCase):
             self.assertEqual( status[item[0]], item[1] )
 
     def test01_cache(self):
-        result = self.engine.execute( TaskRequest( request={ 'region': self.cache_region, 'data': self.getData() } ) )
+        cache_request = { 'region': self.cache_region, 'data': self.getData() }
+        util_result = self.engine.execute( TaskRequest( request=cache_request, utility='domain.uncache' ) )
+        result      = self.engine.execute( TaskRequest( request=cache_request ) )
         self.assertStatusEquals( result, cache_add=self.cache_region )
 
     def test02_departures(self):

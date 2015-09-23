@@ -104,6 +104,9 @@ class CacheManager:
             cached_cvar.persist(**args)
         self.persistStats( **args )
 
+    def uncache( self, data, region ):
+        pass     # TODO:  Implement me!
+
     def stats( self, **args ):
         cache_stats = []
         for cached_cvar in self._cache.values():
@@ -179,6 +182,9 @@ class DataManager:
 
     def persistStats( self, **args ):
         self.cacheManager.persistStats( **args )
+
+    def uncache( self, data, region ):
+        self.cacheManager.uncache( data, region )
 
     def stats( self, **args ):
         return self.cacheManager.stats( **args )

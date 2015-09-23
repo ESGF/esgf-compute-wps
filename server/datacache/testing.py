@@ -37,7 +37,7 @@ class PersistenceTests(unittest.TestCase):
     #     sample1 = result.flatten()[0:5].tolist()
     #     self.assertEqual( sample0, sample1 )
 
-    def test02_domain_cache(self):
+    def xtest02_domain_cache(self):
         from datacache.domains import Domain
         data_chunk = TestVariable.data
         domain = Domain( { 'level': CacheLevel }, TestVariable )  # , 'latitude': self.cache_lat

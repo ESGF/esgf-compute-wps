@@ -63,6 +63,9 @@ class KernelManager:
             if utility == 'worker.cache':
                 response['stats'] = self.dataManager.stats()
             #    wpsLog.debug( "\n *---worker.cache---* Utility request: %s\n" % str( response['stats'] ) )
+
+            elif utility=='domain.uncache':
+                response['uncache'] = self.dataManager.uncache( task_request.data.value, task_request.region.value )
             else:
                 wpsLog.debug( " Unrecognized utility command: %s " % str(utility) )
         else:
