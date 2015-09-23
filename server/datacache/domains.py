@@ -134,9 +134,13 @@ class Domain(Region):
         self._variable = None
         self.vstat = args.get('vstat', None )
         self.setVariable( args.get('tvar', None ) )                   # TransientVariable
+        self.cache_request_status = Domain.COMPLETE if self.isCached() else None
 
     def getPersistId(self):
         return self.stat.get( 'persist_id', None )
+
+    def isCached(self):
+        return self.stat.get( 'persist_id', None ) or self.stat.get( 'inMemory', False )
 
     def getData(self):
         v = self.getVariable()
@@ -173,6 +177,10 @@ class Domain(Region):
     def stats(self,**args):
         self.stat['cid'] = args.get( 'cid', self.vstat['id'] )
         self.stat['rid'] = args.get( 'rid', self.vstat['id'] )
+        wid = args.get( 'wid', None )
+        if wid:
+            self.stat['wid'] = wid
+            self.stat['cache_queue'] = wid
         self.stat['inMemory'] = ( self._variable is not None )
         self.stat['persisted'] = persistenceManager.is_stored( self.stat )
         self.stat['region'] = self.spec
@@ -202,15 +210,15 @@ class Domain(Region):
         return sizes[ 0 ] * sizes[ 1 ]
 
     def cacheRequestSubmitted( self, cache_queue = None ):
-        self.stat['cache_queue'] = cache_queue
-        self.stat['cache_request_status'] = Domain.PENDING
+        if cache_queue: self.stat['cache_queue'] = cache_queue
+        self.cache_request_status = Domain.PENDING
 
     def cacheRequestComplete( self, cache_queue = None  ):
-        self.stat['cache_request_status'] = Domain.COMPLETE
-        self.stat['cache_queue'] = cache_queue
+        self.cache_request_status = Domain.COMPLETE
+        if cache_queue: self.stat['cache_queue'] = cache_queue
 
     def getCacheStatus(self):
-        return self.stat.get('cache_queue',None), self.stat.get('cache_request_status',None)
+        return self.stat.get('cache_queue',None), self.cache_request_status
 
     def overlap(self, new_domain ):  # self = cached domain
         for grid_axis in [ 'lat', 'lon', 'lev' ]:

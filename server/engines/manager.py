@@ -22,13 +22,6 @@ class ComputeEngine( Executable ):
     def restore(self):
         self.communicator.worker_stats = self.communicator.getWorkerStats()
         self.loadStats()
-#        self.pendingTasks = self.statusCache.get('pendingTasks',{})
-
-    def cache(self):
-        pass
-#        self.statusCache['worker_stats'] = self.communicator.worker_stats
-#        self.statusCache['cachedVariables'] = self.cachedVariables
-#        self.statusCache['pendingTasks'] = self.pendingTasks
 
     def processCacheTask(self, cache_task_monitor, cached_domain, **args ):
         response = cache_task_monitor.response( **args )
@@ -39,7 +32,6 @@ class ComputeEngine( Executable ):
             cached_domain.cacheRequestComplete( worker )
             self.communicator.clearWorkerState( worker )
             del self.pendingTasks[ cache_task_monitor ]
-            self.cache()
             wpsLog.debug( " ***** process Completed Task: worker = %s, cache_request = %s " % ( worker, str(cache_task_monitor) ) )
         results = response['results']
         for result in results: result.update( args )
@@ -66,8 +58,6 @@ class ComputeEngine( Executable ):
                         wpsLog.debug( " ***** process Completed Task: worker = %s, cache_request = %s " % ( worker, str(task_monitor) ) )
         for completed_request in completed_requests:
             del self.pendingTasks[ completed_request ]
-            do_cache = True
-        if do_cache: self.cache()
         t1 = time.time()
         wpsLog.debug( " ***** processPendingTasks[ dt = %0.3f ]: %s" %  ( t1-t0, pTasks ) )
 
@@ -136,7 +126,6 @@ class ComputeEngine( Executable ):
                         tc01 = time.time()
                         cached_domain = cached_var.addDomain( cache_region )
                         self.pendingTasks[ cache_task_monitor ] = cached_domain
-                        self.cache()
                         tc1 = time.time()
                         wpsLog.debug( " ***** Caching data [rid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_task_monitor.rid, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
                     else:
@@ -159,7 +148,6 @@ class ComputeEngine( Executable ):
                 task_monitor = self.communicator.submitTask( task_request, designated_worker )
                 op_domain = cached_var.addDomain( op_region )
                 self.pendingTasks[ task_monitor ] = op_domain
-                self.cache()
                 task_monitor.addStats( exerec=executionRecord.toJson() )
 
                 wpsLog.debug( " ***** Sending operation [rid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): request= %s " %  ( task_monitor.rid, str(designated_worker), t2, t2-t0, str(task_request) ) )

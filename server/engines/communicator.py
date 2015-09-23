@@ -42,7 +42,7 @@ class ComputeEngineCommunicator:
         self.worker_stats = {}
 
     def submitTaskImpl( self, task_request, worker ):
-        raise Exception( 'Error: submitTask method not implemented in engine communicator')
+        raise Exception( 'Error: submitTask method not implemented in engine communicator' )
 
     def submitTask( self, task_request, worker ):
         task_monitor = self.submitTaskImpl( task_request, worker )

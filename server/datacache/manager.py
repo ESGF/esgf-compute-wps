@@ -97,7 +97,7 @@ class CacheManager:
         self.loadStats()
 
     def __del__(self):
-        self.persist()
+        self.persist(loc='del')
 
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
@@ -112,6 +112,7 @@ class CacheManager:
 
     def loadStats( self, **args ):
         stats = self.statusCache['stats']
+        wpsLog.debug( "\n ***-------> Load Stats: %s\n" % stats )
         if stats:
             for var_stats in stats:
                 cache_id = var_stats.get('cid',None)
@@ -124,7 +125,10 @@ class CacheManager:
                     cached_cvar.addCachedDomain( domain_stat['region'], dstat=domain_stat, vstat=var_stats )
 
     def persistStats( self, **args ):
-        self.statusCache['stats'] = self.stats()
+        stats = self.stats( **args )
+        callloc = args.get('loc',"")
+        wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( callloc, stats ) )
+        self.statusCache['stats'] = stats
 
     @classmethod
     def getModifiers( cls, variable_name ):

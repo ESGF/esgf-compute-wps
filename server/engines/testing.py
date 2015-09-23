@@ -12,7 +12,7 @@ class EngineTests(unittest.TestCase):
         self.operations = [ "time.departures(v0,slice:t)", "time.climatology(v0,slice:t,bounds:annualcycle)", "time.value(v0)" ]
         self.def_task_args =  { 'region': self.getRegion(), 'data': self.getData() }
         self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
-        self.cache_region = { "level": 85000 }
+        self.cache_region = { "lev": [ 85000.0, ] }
 
     def tearDown(self):
         pass
@@ -49,7 +49,7 @@ class EngineTests(unittest.TestCase):
         for item in kwargs.iteritems():
             self.assertEqual( status[item[0]], item[1] )
 
-    def xtest01_cache(self):
+    def test01_cache(self):
         result = self.engine.execute( TaskRequest( request={ 'region': self.cache_region, 'data': self.getData() } ) )
         self.assertStatusEquals( result, cache_add=self.cache_region )
 
@@ -64,21 +64,21 @@ class EngineTests(unittest.TestCase):
         self.assertEqual( test_result, compute_result )
         self.assertStatusEquals( result, cache_found=Domain.COMPLETE, cache_found_domain=self.cache_region,  designated=True )
 
-    def xtest03_annual_cycle(self):
+    def test03_annual_cycle(self):
         test_result = [48.07984754774306, 49.218166775173614, 49.36114501953125, 46.40715196397569, 46.3406982421875, 44.37486775716146, 46.54383680555556, 48.780619303385414, 46.378028021918404, 46.693325466579864, 48.840003119574654, 46.627953423394096]
         task_args = self.getTaskArgs( op=self.getOp( 1 ) )
         result = self.engine.execute( TaskRequest( request=task_args ) )
         result_data = self.getResultData( result )
         self.assertEqual( test_result, result_data[0:len(test_result)] )
 
-    def xtest04_value_retreval(self):
+    def test04_value_retreval(self):
         test_result = 59.765625
         task_args = self.getTaskArgs( op=self.getOp( 2 ) )
         result = self.engine.execute( TaskRequest( request=task_args ) )
         result_data = self.getResultData( result )
         self.assertEqual( test_result, result_data )
 
-    def xtest05_multitask(self):
+    def test05_multitask(self):
         test_results = [ [ -1.405364990234375, -1.258880615234375, 0.840728759765625 ], [48.07984754774306, 49.218166775173614, 49.36114501953125], 59.765625 ]
         task_args = self.getTaskArgs( op=self.operations )
         results = self.engine.execute( TaskRequest( request=task_args ) )

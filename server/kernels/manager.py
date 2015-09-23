@@ -80,6 +80,8 @@ class KernelManager:
                 wpsLog.debug( " Error executing kernel: %s " % str(err) )
                 wpsLog.debug( traceback.format_exc() )
                 response['error'] = str(err)
+
+        self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
         return response
 
     def getKernel( self, operation ):
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     from modules.configuration import MERRA_TEST_VARIABLES
     import pprint
 
-    kernelMgr = KernelManager('W-1')
+    kernelMgr = KernelManager('W-3')
     pp = pprint.PrettyPrinter(indent=4)
     test_point = [ -137.0, 35.0, 85000 ]
     test_time = '2010-01-16T12:00:00'
@@ -153,6 +155,10 @@ if __name__ == "__main__":
             result_data = result['data']
             pp.pprint(result_data)
 
+    def test_utilities():
+        response = kernelMgr.run( TaskRequest( utility='worker.cache' ) )
+        pp.pprint(response)
+
     def test_api_cache():
         request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
         request_parameters['datainputs'] = [u'region={"level":"100000"};data={ "MERRA/mon/atmos":["v0:hur"]}']
@@ -173,5 +179,5 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_departures()
+    test_cache()
 
