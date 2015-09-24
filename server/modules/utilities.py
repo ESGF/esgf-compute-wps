@@ -52,6 +52,12 @@ class ExecutionRecord:
     def iteritems(self):
         return self.rec.iteritems()
 
+    def find(self, *keys ):
+        for key in keys:
+            value = self.rec.get( key, None )
+            if value is not None: return value
+        return None
+
     def __getitem__(self, item):
         return self.rec.get( item, None )
 

@@ -42,6 +42,12 @@ class DataPersistenceEngine( DataPersistenceEngineBase ):
             wpsLog.debug( " Data %s loaded in %.3f " % ( str(rv.shape), (t1-t0)) )
             return rv
 
+    def release(self, stat, **args ):
+        pid = stat['persist_id']
+        if pid:
+            filename = os.path.join(self.PersistenceDirectory,pid)
+            if os.path.isfile(filename): os.remove(filename)
+
     def is_stored( self, stat ):
         pid = stat.get('persist_id',None)
         if not pid: return False

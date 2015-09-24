@@ -62,20 +62,21 @@ class KernelManager:
         if utility is not None:
             if utility == 'worker.cache':
                 response['stats'] = self.dataManager.stats()
-            #    wpsLog.debug( "\n *---worker.cache---* Utility request: %s\n" % str( response['stats'] ) )
-
             elif utility=='domain.uncache':
-                response['uncache'] = self.dataManager.uncache( task_request.data.value, task_request.region.value )
+                self.dataManager.uncache( task_request.data.values, task_request.region.value )
+                response['stats'] = self.dataManager.stats()
             else:
                 wpsLog.debug( " Unrecognized utility command: %s " % str(utility) )
         else:
             try:
                 operations =  task_request.operations
                 operations_list = [None] if (operations.value is None) else operations.values
+                wpsLog.debug(  " ## Processing Op List: '%s' " % str(operations_list) )
                 for operation in operations_list:
                     variables, metadata_recs, region = self.getKernelInputs( operation, task_request )
                     kernel = self.getKernel( operation )
                     result = kernel.run( variables, metadata_recs, region, operation ) if kernel else { 'result': metadata_recs }
+                    wpsLog.debug(  " ## Run Kernel, op='%s', result: '%s' " % ( str(operation), str(result) ) )
                     results.append( result )
                 end_time = time.time()
                 wpsLog.debug( " $$$ Kernel Execution Complete, ` time = %.2f " % (end_time-start_time) )
@@ -85,6 +86,7 @@ class KernelManager:
                 response['error'] = str(err)
 
         self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
+        wpsLog.debug( " ## All ops processed, response = %s " % str(response) )
         return response
 
     def getKernel( self, operation ):
@@ -122,10 +124,6 @@ if __name__ == "__main__":
         task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op) }
         return task_args
 
-    def test_cache():
-        result = kernelMgr.run( TaskRequest( request={ 'region': { "level": 85000 }, 'data': getData() } ) )
-        result_stats = result[0]['result']
-        pp.pprint(result_stats)
 
     def test_1():
         result = kernelMgr.run( TaskRequest( request={'config': {'cache': True}, 'region': {'level': 85000}, 'data': '{"name": "hur", "collection": "MERRA/mon/atmos", "id": "v0"}'} ) )
@@ -150,7 +148,6 @@ if __name__ == "__main__":
         result_data = response['results'][0]['data']
         pp.pprint(result_data)
 
-
     def test_multitask():
         task_args = getTaskArgs( op=operations )
         response = kernelMgr.run( TaskRequest( request=task_args ) )
@@ -158,9 +155,23 @@ if __name__ == "__main__":
             result_data = result['data']
             pp.pprint(result_data)
 
-    def test_utilities():
-        response = kernelMgr.run( TaskRequest( utility='worker.cache' ) )
+    def test_cache():
+        task_args = { 'region': getRegion(), 'data': getData() }
+        response = kernelMgr.run( TaskRequest( request=task_args ) )
         pp.pprint(response)
+        response = kernelMgr.run( TaskRequest( request=task_args ) )
+        pp.pprint(response)
+
+    def test_utilities( utility_id ):
+        task_args = { 'region': getRegion(), 'data': getData() }
+        response = kernelMgr.run( TaskRequest( request=task_args, utility=utility_id ) )
+        pp.pprint(response)
+
+    def test_uncache(  ):
+        util_result = kernelMgr.run( TaskRequest( request={ 'region': getRegion(), 'data': getData() }, utility='domain.uncache' ) )
+        response    = kernelMgr.run( TaskRequest( request={ 'region': {'level': 85000}, 'data': getData() } ) )
+        pp.pprint(response)
+
 
     def test_api_cache():
         request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
@@ -183,4 +194,6 @@ if __name__ == "__main__":
      #    pp.pprint(result_data)
 
     test_cache()
+#    test_utilities('domain.uncache')
+#    test_uncache()
 

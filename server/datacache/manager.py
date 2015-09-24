@@ -2,7 +2,7 @@ from modules.utilities import  *
 from data_collections import CollectionManager
 from domains import *
 from decomposition.manager import decompositionManager
-from datacache.status_cache import  StatusShelveMgr
+from datacache.status_cache import StatusPickleMgr
 import numpy, sys
 
 import cdms2, time
@@ -76,6 +76,9 @@ class CachedVariable:
         self.domainManager.addDomain( domain )
         return domain
 
+    def uncache( self, region ):
+        return self.domainManager.uncache( region )
+
     def cacheType(self):
         return self.specs.get( 'cache_type', None )
 
@@ -93,7 +96,7 @@ class CacheManager:
         self._cache = {}
         self.stat = {}
         self.name = name
-        self.statusCache = StatusShelveMgr( '.'.join( [ 'stats_cache', name ] ) )
+        self.statusCache = StatusPickleMgr( '.'.join( [ 'stats_cache', name ] ) )
         self.loadStats()
 
     def __del__(self):
@@ -104,8 +107,12 @@ class CacheManager:
             cached_cvar.persist(**args)
         self.persistStats( **args )
 
-    def uncache( self, data, region ):
-        pass     # TODO:  Implement me!
+    def uncache( self, datasets, region ):
+        for dset in datasets:
+            var_cache_id =  ":".join( [dset['collection'],dset['name']] )
+            cached_cvar = self._cache.get( var_cache_id, None )
+            if cached_cvar: cached_cvar.uncache( region )
+            else: wpsLog.error( " Attempt to uncache unrecognized variable: %s" % var_cache_id )
 
     def stats( self, **args ):
         cache_stats = []
@@ -139,9 +146,11 @@ class CacheManager:
 
     def getVariable( self, cache_id, new_region ):
         cached_cvar = self._cache.get( cache_id, None )
-        wpsLog.debug( "Searching for cache_id '%s', cache keys = %s, Found = %s" % ( cache_id, str(self._cache.keys()), (cached_cvar is not None) ) )
         if cached_cvar is None: return Domain.DISJOINT, None
-        return cached_cvar.findDomain( new_region )
+        status, domain = cached_cvar.findDomain( new_region )
+        wpsLog.debug( "Searching for cache_id '%s', cache keys = %s, domain=%s, Found var = %s, Found domain = %s, status = %d" %
+                      ( cache_id, str(self._cache.keys()), str(new_region), (cached_cvar is not None), (domain is not None), status ) )
+        return status, domain
 
     def addVariable( self, cache_id, data, specs ):
         cached_cvar = self._cache.get( cache_id, None )
@@ -257,8 +266,9 @@ class DataManager:
         collectionManager = CollectionManager.getInstance( 'CreateV') # getConfigSetting( 'CDAS_APPLICATION' ) )
         url = collectionManager.getURL( collection, id )
         wpsLog.debug( "loadFileFromCollection: '%s' '%s': %s " % ( collection, id, url ) )
-        return self.loadFileFromURL( url )
+        rv = self.loadFileFromURL( url )
         wpsLog.debug( "Done loadFileFromCollection!" )
+        return rv
 
     def loadFileFromURL(self,url):
         ## let's figure out between dap or local

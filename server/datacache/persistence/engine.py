@@ -8,6 +8,9 @@ class DataPersistenceEngineBase:
     def store(self, data, stat, **args ):
         wpsLog.error( " DataPersistenceEngine not implemented- no data is being persisted." )
 
+    def release(self, stat, **args ):
+        wpsLog.error( " DataPersistenceEngine not implemented- no data is being released." )
+
     def load(self, stat, **args ):
         wpsLog.error( " DataPersistenceEngine not implemented- no persisted data available" )
 

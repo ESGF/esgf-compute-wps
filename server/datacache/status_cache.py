@@ -17,7 +17,7 @@ class PersistentStatusManager:
 
     def getCacheFilePath( self, exension=None ):
         cache_file = os.path.join( self.cacheDir,  self.cache_name  )
-        if exension: cache_file = '.'.join(cache_file,exension)
+        if exension: cache_file = '.'.join([cache_file,exension])
         return cache_file
 
     def __getitem__(self, key):

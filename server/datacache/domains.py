@@ -174,6 +174,9 @@ class Domain(Region):
         if flush and self.stat['persist_id']:
             self._variable = None
 
+    def release(self):
+        persistenceManager.release( self.stat )
+
     def stats(self,**args):
         self.stat['cid'] = args.get( 'cid', self.vstat['id'] )
         self.stat['rid'] = args.get( 'rid', self.vstat['id'] )
@@ -283,6 +286,22 @@ class DomainManager:
         if len( overlap_list ) > 0:
             return Domain.OVERLAP, overlap_list
         else: return Domain.DISJOINT, None
+
+    def uncache( self, region ):
+        uncache_list = [ ]
+        wids = []
+        for cache_domain in self.domains:
+            overlap_status = cache_domain.overlap( region )
+            if overlap_status == Domain.CONTAINED:
+                 uncache_list.append( cache_domain )
+        for domain in uncache_list:
+           wid = domain.stat.get('wid',None)
+           if wid: wids.append( wid )
+           domain.release()
+           self.domains.remove( domain )
+           wpsLog.error( "\n  ****uncache**** Removing domain from cache: %s " % str(domain) )
+        wpsLog.error( " ----> Remaining domains: %s " % str(self.domains) )
+        return wids
 
     def findSmallestDomain(self, domain_list ):
         if len( domain_list ) == 1:
