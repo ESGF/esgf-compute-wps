@@ -19,8 +19,15 @@ class ComputeEngine( Executable ):
     def getCommunicator(self):
         return None
 
+    def getCacheSizeMap(self):
+        cache_map = {}
+        for cvar in self.cachedVariables.values(): cvar.getCacheSize(cache_map)
+        return cache_map
+
     def restore(self):
-        self.communicator.worker_stats = self.communicator.getWorkerStats()
+        wstat = self.communicator.getWorkerStats()
+        cache_map = self.getCacheSizeMap()
+        for wid, csize  in cache_map.items():  wstat['csize']  = csize
         self.loadStats()
 
     def processCacheTask(self, cache_task_monitor, cached_domain, **args ):
@@ -130,7 +137,7 @@ class ComputeEngine( Executable ):
                             cache_op_args = { 'region':cache_region.spec, 'data':str(dataset) }
                             tc0 = time.time()
                             cache_task_request = TaskRequest( task=cache_op_args )
-                            cache_worker = self.communicator.getNextWorker()
+                            cache_worker = self.communicator.getNextWorker(True)
                             cache_task_monitor = self.communicator.submitTask( cache_task_request, cache_worker )
                             executionRecord.addRecs( cache_add=cache_region.spec, cache_add_worker = cache_worker )
                             tc01 = time.time()
@@ -181,3 +188,42 @@ class ComputeEngine( Executable ):
             wpsLog.error(" Error running compute engine: %s\n %s " % ( str(err), traceback.format_exc()  ) )
             return err
 
+if __name__ == '__main__':
+
+    from request.manager import TaskRequest
+    from engines import engineRegistry
+    from modules.configuration import MERRA_TEST_VARIABLES, CDAS_COMPUTE_ENGINE
+    test_point = [ -137.0, 35.0, 85000.0 ]
+    test_time = '2010-01-16T12:00:00'
+    operations = [ "time.departures(v0,slice:t)", "time.climatology(v0,slice:t,bounds:annualcycle)", "time.value(v0)" ]
+    import pprint
+    pp = pprint.PrettyPrinter(indent=4)
+
+    def getRegion():
+        return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point[0],test_point[1],test_point[2],test_time)
+
+    def getCacheRegion():
+        return '{ "level": %.2f }' % (test_point[2])
+
+    def getData( vars=[0]):
+        var_list = ','.join( [ ( '"v%d:%s"' % ( ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
+        data = '{"%s":[%s]}' % ( MERRA_TEST_VARIABLES["collection"], var_list )
+        return data
+
+    def getTaskArgs( op ):
+        task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op) }
+        return task_args
+
+    def getCacheTaskArgs( ):
+        task_args = { 'region': getCacheRegion(), 'data': getData() }
+        return task_args
+
+    engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
+
+    ctask_args = getCacheTaskArgs()
+    cresponse = engine.execute( TaskRequest( request=ctask_args ) )
+
+    task_args = getTaskArgs( op=[operations[ 0 ]] )
+    response = engine.execute( TaskRequest( request=task_args ) )
+    result_data = response[0]['results'][0]['data']
+    pp.pprint(result_data)

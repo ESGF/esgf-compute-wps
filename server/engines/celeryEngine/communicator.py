@@ -42,7 +42,7 @@ class CeleryCommunicator( ComputeEngineCommunicator ):
         task = execute.apply_async( (task_request.task,), exchange='C.dq', routing_key=worker )
         return CeleryTaskMonitor( task.id, task=task )
 
-    def getWorkerStats(self):
+    def initWorkerStats(self):
         import celery
         return celery.current_app.control.inspect().stats()
 

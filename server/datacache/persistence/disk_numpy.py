@@ -19,28 +19,34 @@ class DataPersistenceEngine( DataPersistenceEngineBase ):
         self.update_directory()
 
     def store(self, data, stat, **args ):
-        pid = stat['persist_id']
-        persisted = stat.get('persisted',False)
-        if pid and not persisted and (data is not None):
-            file = os.path.join(self.PersistenceDirectory,pid)
-            t0 = time.time()
-            data.tofile( file )
-            t1 = time.time()
-            wpsLog.debug( " Data %s persisted in %.3f " % ( str(data.shape), (t1-t0) ) )
+        try:
+            pid = stat['persist_id']
+            persisted = stat.get('persisted',False)
+            if pid and not persisted and (data is not None):
+                file = os.path.join(self.PersistenceDirectory,pid)
+                t0 = time.time()
+                data.tofile( file )
+                t1 = time.time()
+                wpsLog.debug( " Data %s persisted in %.3f " % ( str(data.shape), (t1-t0) ) )
+        except Exception, err:
+            wpsLog.debug( " Error storing data for %s: %s " % ( pid, str(err) ) )
 
 
     def load( self, stat, **args ):
-        pid = stat['persist_id']
-        if pid:
-            dtype = stat.get('dtype',np.float32)
-            shape = stat['shape']
-            file = os.path.join(self.PersistenceDirectory,pid)
-            t0 = time.time()
-            data = np.fromfile( file, dtype=dtype )
-            t1 = time.time()
-            rv = data.reshape( shape )
-            wpsLog.debug( " Data %s loaded in %.3f " % ( str(rv.shape), (t1-t0)) )
-            return rv
+        try:
+            pid = stat['persist_id']
+            if pid:
+                dtype = stat.get('dtype',np.float32)
+                shape = stat['shape']
+                file = os.path.join(self.PersistenceDirectory,pid)
+                t0 = time.time()
+                data = np.fromfile( file, dtype=dtype )
+                t1 = time.time()
+                rv = data.reshape( shape )
+                wpsLog.debug( " Data %s loaded in %.3f " % ( str(rv.shape), (t1-t0)) )
+                return rv
+        except Exception, err:
+            wpsLog.debug( " Error loading data for %s: %s " % ( pid, str(err) ) )
 
     def release(self, stat, **args ):
         pid = stat['persist_id']

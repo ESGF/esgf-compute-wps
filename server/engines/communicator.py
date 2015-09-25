@@ -39,7 +39,7 @@ class ComputeEngineCommunicator:
     WS_CACHE = 3
 
     def __init__( self ):
-        self.worker_stats = {}
+        self.worker_stats = None
 
     def submitTaskImpl( self, task_request, worker ):
         raise Exception( 'Error: submitTask method not implemented in engine communicator' )
@@ -56,7 +56,8 @@ class ComputeEngineCommunicator:
         return task_monitor
 
     def getWorkerStats(self):
-        return {}
+        self.updateWorkerStats()
+        return self.worker_stats
 
     def setWorkerState( self, widspec, state ):
         if widspec == "*":
@@ -87,16 +88,16 @@ class ComputeEngineCommunicator:
             return wstat.get('state', self.WS_FREE )
 
     def updateWorkerStats(self):
-        t0 = time.time()
         if not self.worker_stats:
-            self.worker_stats = self.getWorkerStats()
+            t0 = time.time()
+            self.worker_stats = self.initWorkerStats()
+            t1 = time.time()
+            wpsLog.debug( " ***** updateWorkerStats[ dt = %0.3f ], workers: %s" %  ( t1-t0, str(self.worker_stats.keys()) ) )
         if len( self.worker_stats ) == 0:
             wpsLog.error( "ERROR: Must start up workers!" )
-        t1 = time.time()
-        wpsLog.debug( " ***** updateWorkerStats[ dt = %0.3f ], workers: %s" %  ( t1-t0, str(self.worker_stats.keys()) ) )
 
-    def getNextWorker( self ):
-        mdbg = False
+    def getNextWorker( self, is_cache=False ):
+        mdbg = True
         if mdbg: wpsLog.debug( "  %%%%%%%%%%%%%%%% GetNextWorker: ")
         operational_worker = None
         free_worker = None
@@ -104,9 +105,9 @@ class ComputeEngineCommunicator:
         free_worker_cache_size = float('Inf')
         for worker, wstat in self.worker_stats.items():
             wstate =  wstat.get('state', self.WS_FREE )
-            if mdbg: wpsLog.debug( "  >>-----> Worker: '%s', state: %d " % ( worker, wstate) )
+            if mdbg: wpsLog.debug( "  >>-----> Worker: '%s', wstat: %s " % ( worker, str(wstat) ) )
             if wstate == self.WS_FREE:
-                cache_size =  wstat.get( 'csize', 0 )
+                cache_size =  wstat.setdefault( 'csize', 0 )
                 if(cache_size < free_worker_cache_size):
                    free_worker =  worker
                    free_worker_cache_size = cache_size
@@ -115,7 +116,14 @@ class ComputeEngineCommunicator:
                 if(ts < op_worker_tstamp):
                    operational_worker =  worker
                    op_worker_tstamp = ts
-        return free_worker if free_worker is not None else operational_worker
+        if mdbg: wpsLog.debug( "  SELECTED Free Worker: %s, Operational Worker: %s " % ( free_worker, operational_worker) )
+        if free_worker is not None:
+            # if is_cache:
+            #     wstat = self.worker_stats[free_worker]
+            #     wstat['csize'] =  free_worker_cache_size + 1
+            return free_worker
+        else:
+            return operational_worker
 
     # def updateWorkerCacheSize( self, wid, additional_cache_size ):
     #     wstat = self.worker_stats.get( wid, None )

@@ -46,6 +46,9 @@ class CachedVariable:
         cdms_domain = tvar.getDomain()
         self.stat['axes'] = [ d[0] for d in cdms_domain ]
 
+    def getCacheSize(self, cache_map ):
+        return self.domainManager.getCacheSize( cache_map )
+
     def persist( self, **args ):
         kwargs = { 'cid': self.id }
         kwargs.update( args )
@@ -136,7 +139,7 @@ class CacheManager:
 
     def persistStats( self, **args ):
         stats = self.stats( **args )
-     #   wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( args.get('loc',""), stats ) )
+        wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( args.get('loc',""), stats ) )
         self.statusCache['stats'] = stats
 
     @classmethod

@@ -26,6 +26,7 @@ class Region(JSONObject):
 
     def __init__( self, region_spec={}, **args ):
         self.tolerance=0.001
+        if isinstance( region_spec, Region ): region_spec = region_spec.items
         JSONObject.__init__( self, region_spec, **args )
 
     @classmethod
@@ -174,6 +175,12 @@ class Domain(Region):
         if flush and self.stat['persist_id']:
             self._variable = None
 
+    def getCacheSize( self, cache_map ):
+        wid = self.stat['wid']
+        iSize = 1
+        for iS in self.stat.get('shape',[]): iSize = iSize * iS
+        cache_map[wid] = cache_map.get(wid,0) + iSize
+
     def release(self):
         persistenceManager.release( self.stat )
 
@@ -262,6 +269,9 @@ class DomainManager:
             for domain in self.domains:
                 domain.persist(**args)
 
+    def getCacheSize(self, cache_map ):
+        for d in self.domains:
+            d.getCacheSize( cache_map )
 
     def stats( self, **args ):
         domains = []

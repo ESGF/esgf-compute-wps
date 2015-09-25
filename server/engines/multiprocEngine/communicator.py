@@ -86,7 +86,7 @@ class MultiprocCommunicator( ComputeEngineCommunicator ):
         else:                               comms = [ worker_manager.send( task_request.task, worker ) ]
         return MultiprocTaskMonitor( rid, comms=comms )
 
-    def getWorkerStats(self):
+    def initWorkerStats(self):
        return worker_manager.getProcessStats()
 
 

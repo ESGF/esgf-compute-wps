@@ -71,12 +71,10 @@ class KernelManager:
             try:
                 operations =  task_request.operations
                 operations_list = [None] if (operations.value is None) else operations.values
-                wpsLog.debug(  " ## Processing Op List: '%s' " % str(operations_list) )
                 for operation in operations_list:
                     variables, metadata_recs, region = self.getKernelInputs( operation, task_request )
                     kernel = self.getKernel( operation )
                     result = kernel.run( variables, metadata_recs, region, operation ) if kernel else { 'result': metadata_recs }
-                    wpsLog.debug(  " ## Run Kernel, op='%s', result: '%s' " % ( str(operation), str(result) ) )
                     results.append( result )
                 end_time = time.time()
                 wpsLog.debug( " $$$ Kernel Execution Complete, ` time = %.2f " % (end_time-start_time) )
@@ -86,7 +84,6 @@ class KernelManager:
                 response['error'] = str(err)
 
         self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
-        wpsLog.debug( " ## All ops processed, response = %s " % str(response) )
         return response
 
     def getKernel( self, operation ):
@@ -113,6 +110,9 @@ if __name__ == "__main__":
 
     def getRegion():
         return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point[0],test_point[1],test_point[2],test_time)
+
+    def getCacheRegion():
+        return '{"level": %.2f}' % (test_point[2])
 
     def getData( vars=[0]):
         var_list = ','.join( [ ( '"v%d:%s"' % ( ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
@@ -156,7 +156,7 @@ if __name__ == "__main__":
             pp.pprint(result_data)
 
     def test_cache():
-        task_args = { 'region': getRegion(), 'data': getData() }
+        task_args = { 'region': getCacheRegion(), 'data': getData() }
         response = kernelMgr.run( TaskRequest( request=task_args ) )
         pp.pprint(response)
         response = kernelMgr.run( TaskRequest( request=task_args ) )
