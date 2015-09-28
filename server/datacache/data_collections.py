@@ -2,6 +2,34 @@ from modules import configuration
 import cdms2
 from modules.utilities import  *
 
+class Collection:
+    def __init__( self, name, ( server_type, collection_base_url ) ):
+        self.collections = {}
+        self.name = name
+        self.server_type = server_type
+        self.base_url = collection_base_url
+
+    def constructURL(self, var_id ):
+        if self.server_type in [ 'dods', ]:
+            return "%s/%s.ncml" % ( self.base_url, var_id )
+
+    def getFile( self, var_id ):
+        file = self.collections.get( var_id, None )
+        if file is None:
+            file = self.loadFile( var_id )
+            if file is not None: self.collections[ var_id ] = file
+        return file
+
+    def loadFile(self, var_id ):
+        url = self.constructURL( var_id )
+        if url[:7].lower()=="http://":
+            f=cdms2.open(str(url))
+        elif url[:7]=="file://":
+            f=cdms2.open(str(url[6:]))
+        else:
+            f=None
+        return f
+
 class CollectionManager:
     CollectionManagers = {}
 
@@ -12,29 +40,24 @@ class CollectionManager:
     def __init__( self, name ):
         self.collections = {}
 
-    def getURL(self, collection_name, var_id  ):
-        wpsLog.debug( " getURL: %s %s " % ( collection_name, var_id ) )
-        collection_rec = self.getCollectionRecord( collection_name )
-        return self.constructURL( collection_rec[0], collection_rec[1], var_id )
+    def getFile( self, collection_name, var_id ):
+        collection = self.getCollection( collection_name )
+        return collection.getFile( var_id )
 
-    def addCollectionRecord(self, collection_name, collection_rec ):
-        self.collections[ collection_name ] = collection_rec
+    def addCollection(self, collection_name, collection_rec ):
+        self.collections[ collection_name ] = Collection( collection_name, collection_rec )
 
-    def getCollectionRecord(self, collection_name  ):
+    def getCollection(self, collection_name  ):
         try:
             return self.collections.get( collection_name )
         except KeyError:
             raise Exception( "Error, attempt to access undefined collection: %s " % collection_name )
 
-    def constructURL(self, server_type, collection_base_url, var_id ):
-        if server_type in [ 'dods', ]:
-            return "%s/%s.ncml" % ( collection_base_url, var_id )
-
-cm = CollectionManager.getInstance( configuration.CDAS_APPLICATION )
+collectionManager = CollectionManager.getInstance( configuration.CDAS_APPLICATION )
 
 collections = configuration.CDAS_COLLECTIONS
 for collection_spec in collections:
-    cm.addCollectionRecord( collection_spec[0], collection_spec[1] )
+    collectionManager.addCollection( collection_spec[0], collection_spec[1] )
 
 def cache_load_test():
     from modules.configuration import CDAS_PERSISTENCE_DIRECTORY

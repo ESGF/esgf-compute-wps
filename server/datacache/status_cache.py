@@ -72,7 +72,7 @@ class StatusPickleMgr(PersistentStatusManager):
             cacheFile = self.getCacheFilePath( "pkl" )
             with open( cacheFile, 'w' ) as cache_file:
                 cPickle.dump( self._cache_data, cache_file )
-                wpsLog.debug( " ***---->>> Persisting to cache file '%s'" % ( cacheFile  ) )
+     #           wpsLog.debug( " ***---->>> Persisting to cache file '%s'" % ( cacheFile  ) )
         except IOError, err:
             wpsLog.error( " Error writing to cache file '%s': %s" % ( cacheFile, str(err) ) )
 

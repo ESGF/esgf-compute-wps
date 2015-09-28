@@ -219,11 +219,11 @@ if __name__ == '__main__':
         return task_args
 
     engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
-
     ctask_args = getCacheTaskArgs()
-    cresponse = engine.execute( TaskRequest( request=ctask_args ) )
-
+    t0 = time.time()
+    ctask      = engine.execute( TaskRequest( request=ctask_args ), async=True )
     task_args = getTaskArgs( op=[operations[ 0 ]] )
-    response = engine.execute( TaskRequest( request=task_args ) )
-    result_data = response[0]['results'][0]['data']
-    pp.pprint(result_data)
+    results = engine.execute( TaskRequest( request=task_args ) )
+    result_data = results[0]['data']
+    t1 = time.time()
+    print " Completed in %.2f sec, data = %s " % ( (t1-t0), str( result_data ) )

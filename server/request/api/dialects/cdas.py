@@ -11,7 +11,7 @@ class CDASDialect( WPSDialect ):
         task_parameters = {}
         request = dict( request_params )
         inputs = request.get('datainputs',None)
-        wpsLog.debug( ">>>> REQUEST datainputs: %s" % str(inputs) )
+     #   wpsLog.debug( ">>>> REQUEST datainputs: %s" % str(inputs) )
         if inputs:
             if isinstance( inputs, dict ):
                 task_parameters.update( inputs )

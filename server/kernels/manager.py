@@ -56,7 +56,6 @@ class KernelManager:
         response['wid'] = self.dataManager.getName()
         results = []
         response['results'] = results
-        wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK: request = %s \n" % str(task_request) )
         start_time = time.time()
         utility = task_request['utility']
         if utility is not None:
@@ -69,6 +68,7 @@ class KernelManager:
                 wpsLog.debug( " Unrecognized utility command: %s " % str(utility) )
         else:
             try:
+                wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK[%.4f]: request = %s \n" % ( time.time()%1000.0, str(task_request) ) )
                 operations =  task_request.operations
                 operations_list = [None] if (operations.value is None) else operations.values
                 for operation in operations_list:
@@ -105,11 +105,15 @@ if __name__ == "__main__":
     kernelMgr = KernelManager('W-3')
     pp = pprint.PrettyPrinter(indent=4)
     test_point = [ -137.0, 35.0, 85000 ]
+    test_point1 = [ 137.0, -35.0, 100000 ]
     test_time = '2010-01-16T12:00:00'
     operations = [ "time.departures(v0,slice:t)", "time.climatology(v0,slice:t,bounds:annualcycle)", "time.value(v0)" ]
 
     def getRegion():
         return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point[0],test_point[1],test_point[2],test_time)
+
+    def getRegion1():
+        return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point1[0],test_point1[1],test_point1[2],test_time)
 
     def getCacheRegion():
         return '{"level": %.2f}' % (test_point[2])
@@ -124,6 +128,10 @@ if __name__ == "__main__":
         task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op) }
         return task_args
 
+    def getTaskArgs1( op ):
+        task_args = { 'region': getRegion1(), 'data': getData(), 'operation': json.dumps(op) }
+        return task_args
+
 
     def test_1():
         result = kernelMgr.run( TaskRequest( request={'config': {'cache': True}, 'region': {'level': 85000}, 'data': '{"name": "hur", "collection": "MERRA/mon/atmos", "id": "v0"}'} ) )
@@ -131,10 +139,20 @@ if __name__ == "__main__":
         pp.pprint(result_stats)
 
     def test_departures():
+        t0 = time.time()
         task_args = getTaskArgs( op=[operations[ 0 ]] )
         response = kernelMgr.run( TaskRequest( request=task_args ) )
         result_data = response['results'][0]['data']
+        t1 = time.time()
+        print "  Computed departures 1 in %.3f, results:" % (t1-t0)
         pp.pprint(result_data)
+        task_args1 = getTaskArgs1( op=[operations[ 0 ]] )
+        response1 = kernelMgr.run( TaskRequest( request=task_args1 ) )
+        result_data = response1['results'][0]['data']
+        t2 = time.time()
+        print "  Computed departures 2 in %.3f, results:" % (t2-t1)
+        pp.pprint(result_data)
+
 
     def test_annual_cycle():
         task_args = getTaskArgs( op=[operations[ 1 ]] )
@@ -193,7 +211,7 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_cache()
+    test_departures()
 #    test_utilities('domain.uncache')
 #    test_uncache()
 

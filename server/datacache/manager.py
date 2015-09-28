@@ -1,5 +1,5 @@
 from modules.utilities import  *
-from data_collections import CollectionManager
+from data_collections import collectionManager
 from domains import *
 from decomposition.manager import decompositionManager
 from datacache.status_cache import StatusPickleMgr
@@ -139,7 +139,7 @@ class CacheManager:
 
     def persistStats( self, **args ):
         stats = self.stats( **args )
-        wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( args.get('loc',""), stats ) )
+     #   wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( args.get('loc',""), stats ) )
         self.statusCache['stats'] = stats
 
     @classmethod
@@ -210,32 +210,21 @@ class DataManager:
         t0 = time.time()
         wpsLog.debug( " #@@ DataManager:LoadVariable %s (time = %.2f), region = [%s], cache_type = %d" %  ( str( data ), t0, str(region), cache_type ) )
         if variable is None:
-            url = data.get('url',None)
-            if url is not None:
-                var_cache_id =  ":".join( [url,name] )
+            collection = data.get('collection',None)
+            if collection is not None:
+                var_cache_id =  ":".join( [collection,name] )
                 status, domain = self.cacheManager.getVariable( var_cache_id, region )
                 if status is not Domain.CONTAINED:
-                    dataset = self.loadFileFromURL( url )
+                    dataset = self.loadFileFromCollection( collection, name )
+                    data_specs['dataset'] = record_attributes( dataset, [ 'name', 'id', 'uri' ])
                 else:
                     variable = domain.getVariable()
-                    data_specs['dataset']  = domain.spec
+                    data_specs['dataset']  = domain.spec.get( 'dataset', None )
+                    data_specs['region'] = str(domain.getRegion())
                 data_specs['cache_id']  = var_cache_id
             else:
-                collection = data.get('collection',None)
-                if collection is not None:
-                    var_cache_id =  ":".join( [collection,name] )
-                    status, domain = self.cacheManager.getVariable( var_cache_id, region )
-                    if status is not Domain.CONTAINED:
-                        dataset = self.loadFileFromCollection( collection, name )
-                        data_specs['dataset'] = record_attributes( dataset, [ 'name', 'id', 'uri' ])
-                    else:
-                        variable = domain.getVariable()
-                        data_specs['dataset']  = domain.spec.get( 'dataset', None )
-                        data_specs['region'] = str(domain.getRegion())
-                    data_specs['cache_id']  = var_cache_id
-                else:
-                    wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( data ) )
-                    return None, data_specs
+                wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( data ) )
+                return None, data_specs
 
             if (variable is None):
                 if (cache_type == CachedVariable.CACHE_NONE):
@@ -266,23 +255,12 @@ class DataManager:
         return variable, data_specs
 
     def loadFileFromCollection( self, collection, id=None ):
-        collectionManager = CollectionManager.getInstance( 'CreateV') # getConfigSetting( 'CDAS_APPLICATION' ) )
-        url = collectionManager.getURL( collection, id )
-        wpsLog.debug( "loadFileFromCollection: '%s' '%s': %s " % ( collection, id, url ) )
-        rv = self.loadFileFromURL( url )
-        wpsLog.debug( "Done loadFileFromCollection!" )
+        t0 = time.time()
+        wpsLog.debug( "loadFileFromCollection: '%s' '%s' " % ( collection, id ) )
+        rv = collectionManager.getFile( collection, id )
+        t1 = time.time()
+        wpsLog.debug( "Done loadFileFromCollection, cdms2.open completed in %.2f sec" % (t1-t0) )
         return rv
-
-    def loadFileFromURL(self,url):
-        ## let's figure out between dap or local
-        if url[:7].lower()=="http://":
-            f=cdms2.open(str(url))
-        elif url[:7]=="file://":
-            f=cdms2.open(str(url[6:]))
-        else:
-            # can't figure it out skipping
-            f=None
-        return f
 
 if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )

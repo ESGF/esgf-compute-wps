@@ -37,13 +37,13 @@ class TaskRequest:
         self.task = {}
         request_parameters = args.get( 'request', None )
         if request_parameters:
-            wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: request = %s \n" % str(request_parameters) )
+     #       wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: request = %s \n" % str(request_parameters) )
             dialect = apiManager.getDialect( request_parameters )
             self.task = dialect.getTaskRequestData( request_parameters )
         task_parameters = args.get( 'task', None )
         if task_parameters:
             self.task = task_parameters
-            wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: task = %s \n" % str(task_parameters) )
+     #       wpsLog.debug( "---"*50 + "\n $$$ NEW TASK REQUEST: task = %s \n" % str(task_parameters) )
         config_args = self.task.setdefault( 'config', {} )
         cache_val = config_args.setdefault( 'cache', True )
         utility = args.get( 'utility', None )
