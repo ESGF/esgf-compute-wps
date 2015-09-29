@@ -123,13 +123,16 @@ if __name__ == "__main__":
         data = '{"%s":[%s]}' % ( MERRA_TEST_VARIABLES["collection"], var_list )
         return data
 
+    def getLocalData():
+        data = '{"MERRA/mon/atmos/hur":["v0:hur"]}'
+        return data
 
     def getTaskArgs( op ):
         task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op) }
         return task_args
 
     def getTaskArgs1( op ):
-        task_args = { 'region': getRegion1(), 'data': getData(), 'operation': json.dumps(op) }
+        task_args = { 'region': getRegion1(), 'data': getLocalData(), 'operation': json.dumps(op) }
         return task_args
 
 
@@ -138,7 +141,7 @@ if __name__ == "__main__":
         result_stats = result[0]['result']
         pp.pprint(result_stats)
 
-    def test_departures():
+    def test_departures2():
         t0 = time.time()
         task_args = getTaskArgs( op=[operations[ 0 ]] )
         response = kernelMgr.run( TaskRequest( request=task_args ) )
@@ -151,6 +154,15 @@ if __name__ == "__main__":
         result_data = response1['results'][0]['data']
         t2 = time.time()
         print "  Computed departures 2 in %.3f, results:" % (t2-t1)
+        pp.pprint(result_data)
+
+    def test_departures_local():
+        t1 = time.time()
+        task_args1 = getTaskArgs1( op=[operations[ 0 ]] )
+        response1 = kernelMgr.run( TaskRequest( request=task_args1 ) )
+        result_data = response1['results'][0]['data']
+        t2 = time.time()
+        print "  Computed departures (local data) in %.3f, results:" % (t2-t1)
         pp.pprint(result_data)
 
 
@@ -211,7 +223,7 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_departures()
+    test_departures_local()
 #    test_utilities('domain.uncache')
 #    test_uncache()
 

@@ -3,31 +3,43 @@ import cdms2
 from modules.utilities import  *
 
 class Collection:
-    def __init__( self, name, ( server_type, collection_base_url ) ):
-        self.collections = {}
+    def __init__( self, name, collection_spec ):
+        self.dapfiles = {}
+        self.locfile = None
         self.name = name
-        self.server_type = server_type
-        self.base_url = collection_base_url
+        self.server_type = collection_spec.get('type', 'file')
+        self.base_url = collection_spec['url']
+        self.initialize( collection_spec.get( 'open', [] ) )
+
+    def initialize( self, open_list ):
+        for var_id in open_list:
+            self.getFile( var_id )
 
     def constructURL(self, var_id ):
         if self.server_type in [ 'dods', ]:
             return "%s/%s.ncml" % ( self.base_url, var_id )
 
     def getFile( self, var_id ):
-        file = self.collections.get( var_id, None )
-        if file is None:
-            file = self.loadFile( var_id )
-            if file is not None: self.collections[ var_id ] = file
-        return file
-
-    def loadFile(self, var_id ):
-        url = self.constructURL( var_id )
-        if url[:7].lower()=="http://":
-            f=cdms2.open(str(url))
-        elif url[:7]=="file://":
-            f=cdms2.open(str(url[6:]))
+        if self.server_type == 'file:':
+            if self.locfile is None:
+                self.locfile = self.loadFile()
+            return self.locfile
         else:
-            f=None
+            file = self.dapfiles.get( var_id, None )
+            if file is None:
+                file = self.loadFile( var_id )
+                if file is not None: self.dapfiles[ var_id ] = file
+            return file
+
+    def loadFile(self, var_id=None ):
+        if self.server_type == 'file':
+            if self.base_url[:7]=="file://":
+                f=cdms2.open(str(self.base_url[6:]))
+            else:
+                f=cdms2.open(str(self.base_url))
+        else:
+            url = self.constructURL( var_id )
+            f=cdms2.open(str(url))
         return f
 
 class CollectionManager:

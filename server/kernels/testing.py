@@ -14,7 +14,7 @@ kernelMgr = KernelManager('W-1')
 class KernelTests(unittest.TestCase):
 
     def setUp(self):
-        self.test_point = [ -137.0, 35.0, 85000 ]
+        self.test_point = [ -137.0, 35.0, 100000.0 ]
         self.test_time = '2010-01-16T12:00:00'
         self.operations = [ "time.departures(v0,slice:t)", "time.climatology(v0,slice:t,bounds:annualcycle)", "time.value(v0)" ]
         self.def_task_args =  { 'region': self.getRegion(), 'data': self.getData() }
@@ -28,6 +28,10 @@ class KernelTests(unittest.TestCase):
     def getData(self, vars=[0]):
         var_list = ','.join( [ ( '"v%d:%s"' % ( ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
         data = '{"%s":[%s]}' % ( MERRA_TEST_VARIABLES["collection"], var_list )
+        return data
+
+    def getLocalData(self):
+        data = '{"MERRA/mon/atmos/hur":["v0:hur"]}'
         return data
 
     def getOp(self, op_index ):
