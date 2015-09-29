@@ -40,7 +40,6 @@ class ComputeEngine( Executable ):
             self.communicator.clearWorkerState( worker )
             del self.pendingTasks[ cache_task_monitor ]
             wpsLog.debug( " ***** process Completed Task: worker = %s, cache_request = %s " % ( worker, str(cache_task_monitor) ) )
-            print " ---> Response= %s " % str( response )
         results = response['results']
         for result in results: result.update( args )
         return results
@@ -195,7 +194,7 @@ if __name__ == '__main__':
     from modules.configuration import MERRA_TEST_VARIABLES, CDAS_COMPUTE_ENGINE
     test_point = [ -137.0, 35.0, 85000.0 ]
     test_time = '2010-01-16T12:00:00'
-    operations = [ "time.departures(v0,slice:t)", "time.climatology(v0,slice:t,bounds:annualcycle)", "time.value(v0)" ]
+    operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
     import pprint
     pp = pprint.PrettyPrinter(indent=4)
 

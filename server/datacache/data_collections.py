@@ -14,9 +14,11 @@ class Collection:
         for var_id in open_list:
             self.getFile( var_id )
 
-    def constructURL(self, var_id ):
+    def getURL(self, var_id ):
         if self.server_type in [ 'dods', ]:
             return "%s/%s.ncml" % ( self.base_url, var_id )
+        elif self.server_type == 'file:':
+            return self.base_url
 
     def getFile( self, var_id ):
         if self.server_type == 'file:':
@@ -38,7 +40,7 @@ class Collection:
             else:
                 f=cdms2.open(str(self.base_url))
         else:
-            url = self.constructURL( var_id )
+            url = self.getURL( var_id )
             f=cdms2.open(str(url))
         return f
 
@@ -55,6 +57,10 @@ class CollectionManager:
     def getFile( self, collection_name, var_id ):
         collection = self.getCollection( collection_name )
         return collection.getFile( var_id )
+
+    def getURL( self, collection_name, var_id ):
+        collection = self.getCollection( collection_name )
+        return collection.getURL( var_id )
 
     def addCollection(self, collection_name, collection_rec ):
         self.collections[ collection_name ] = Collection( collection_name, collection_rec )
