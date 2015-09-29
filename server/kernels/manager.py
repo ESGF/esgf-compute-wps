@@ -1,4 +1,5 @@
-import sys, traceback
+import sys
+import traceback
 
 from modules.utilities import *
 from datacache.manager import DataManager, CachedVariable
@@ -87,12 +88,13 @@ class KernelManager:
         return response
 
     def getKernel( self, operation ):
+        from kernels import kernelRegistry
         if operation:
-            if operation.get('kernel','base') == 'time':
-                from kernels.timeseries_analysis import TimeseriesAnalytics
-                return TimeseriesAnalytics()
-            else:
+            kernel_id = operation.get('kernel','base')
+            kernel = kernelRegistry.getInstance( kernel_id )
+            if kernel == None:
                 raise Exception( "No compute kernel found for operations %s" % str(operation) )
+            return kernel
 
 if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
@@ -107,7 +109,7 @@ if __name__ == "__main__":
     test_point = [ -137.0, 35.0, 85000 ]
     test_point1 = [ 137.0, -35.0, 100000 ]
     test_time = '2010-01-16T12:00:00'
-    operations = [ "time.departures(v0,slice:t)", "time.climatology(v0,slice:t,bounds:annualcycle)", "time.value(v0)" ]
+    operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
 
     def getRegion():
         return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point[0],test_point[1],test_point[2],test_time)
@@ -132,6 +134,10 @@ if __name__ == "__main__":
         return task_args
 
     def getTaskArgs1( op ):
+        task_args = { 'region': getRegion1(), 'data': getData(), 'operation': json.dumps(op) }
+        return task_args
+
+    def getTaskArgs2( op ):
         task_args = { 'region': getRegion1(), 'data': getLocalData(), 'operation': json.dumps(op) }
         return task_args
 
@@ -148,17 +154,17 @@ if __name__ == "__main__":
         result_data = response['results'][0]['data']
         t1 = time.time()
         print "  Computed departures 1 in %.3f, results:" % (t1-t0)
-        pp.pprint(result_data)
+        pp.pprint(result_data[0:5])
         task_args1 = getTaskArgs1( op=[operations[ 0 ]] )
         response1 = kernelMgr.run( TaskRequest( request=task_args1 ) )
         result_data = response1['results'][0]['data']
         t2 = time.time()
         print "  Computed departures 2 in %.3f, results:" % (t2-t1)
-        pp.pprint(result_data)
+        pp.pprint(result_data[0:5])
 
     def test_departures_local():
         t1 = time.time()
-        task_args1 = getTaskArgs1( op=[operations[ 0 ]] )
+        task_args1 = getTaskArgs2( op=[operations[ 0 ]] )
         response1 = kernelMgr.run( TaskRequest( request=task_args1 ) )
         result_data = response1['results'][0]['data']
         t2 = time.time()
@@ -223,7 +229,7 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_departures_local()
+    test_departures2()
 #    test_utilities('domain.uncache')
 #    test_uncache()
 

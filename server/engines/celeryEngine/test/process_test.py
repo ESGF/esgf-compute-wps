@@ -4,8 +4,7 @@ import logging
 import pprint
 
 from modules.utilities import wpsLog
-from kernels.timeseries_analysis import TimeseriesAnalytics
-
+from kernels.cdtime.timeseries_analysis import TimeseriesAnalytics
 
 if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )

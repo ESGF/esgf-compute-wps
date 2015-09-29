@@ -5,6 +5,7 @@ import numpy as np
 import cdutil
 import cdms2, sys
 from modules.utilities import *
+from kernels.cda import CDASKernel
 
 def get_subset( input_data, subset_index, subset_index_array ):
     im_mask = subset_index_array <> subset_index
@@ -12,12 +13,9 @@ def get_subset( input_data, subset_index, subset_index_array ):
         im_mask = np.tile( im_mask, input_data.shape[1:] )
     return ma.masked_array( input_data, mask = im_mask )
 
-class TimeseriesAnalytics:
+class TimeseriesAnalytics( CDASKernel ):
 
     season_def_array = [ 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 0]
-
-    def __init__( self, **args ):
-        self.use_cache = args.get( 'cache', True )
 
     def compress( self, variable, precision=4 ):
         maxval = variable.max()
@@ -192,7 +190,7 @@ class TimeseriesAnalytics:
 
 
 if __name__ == "__main__":
-    from manager import kernelMgr
+    from kernels.manager import kernelMgr
     from request.manager import TaskRequest
 
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )

@@ -1,5 +1,4 @@
 from modules import configuration
-import cdms2
 from modules.utilities import  *
 
 class Collection:
@@ -32,6 +31,7 @@ class Collection:
             return file
 
     def loadFile(self, var_id=None ):
+        import cdms2
         if self.server_type == 'file':
             if self.base_url[:7]=="file://":
                 f=cdms2.open(str(self.base_url[6:]))

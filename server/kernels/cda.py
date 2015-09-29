@@ -68,36 +68,15 @@ class Operation(JSONObject):
                 inputs.append( fn_arg )
         self.items[ 'inputs' ]  = inputs
 
-class DataAnalytics:
+class CDASKernel:
 
-    def __init__( self,  **args  ):
+    def __init__( self, name,  **args  ):
+        self.name = name
         self.use_cache = args.get( 'cache', True )
 
-        # self.envs = {
-        #         "path":"PATH",
-        #         "addonPath":"GRASS_ADDON_PATH",
-        #         "version":"GRASS_VERSION",
-        #         "gui":"GRASS_GUI",
-        #         "gisbase": "GISBASE",
-        #         "ldLibraryPath": "LD_LIBRARY_PATH"
-        # }
 
-
-    def run( self, data, region, operation ):
-        wpsLog.debug( " DataAnalytics RUN, time = %.3f " % time.time() )
-        result_obj = {}
-        try:
-            if operation:
-                raise Exception( "Error, processing operation with undefined kernel: " + operation )
-            else:
-                read_start_time = time.time()
-                variable, result_obj = dataManager.loadVariable( data, region, cache_type )
-                read_end_time = time.time()
-                wpsLog.debug( " $$$ DATA CACHE Complete: " + str( (read_end_time-read_start_time) ) )
-
-        except Exception, err:
-            wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
-        return result_obj
+    def run( self, subsetted_variables, metadata_recs, region, operation ):
+        pass
 
     def saveVariable(self,data,dest,type="json"):
         cont = True
@@ -116,16 +95,3 @@ class DataAnalytics:
         json.dump(out,Fjson)
         Fjson.close()
         dest.setValue(fjson)
-
-    # def breakpoint(self):
-    #     try:
-    #         import pydevd
-    #         pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
-    #     except: pass
-
-
-if __name__ == "__main__":
-    da = DataAnalytics('')
-    id = 'clt'
-    ds = da.loadFileFromCollection( 'MERRA/mon/atmos', id )
-    v = ds[id]

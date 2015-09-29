@@ -22,7 +22,7 @@ CDAS_DATA_CACHE = 'default'
 CDAS_CELERY_BACKEND = 'redis'
 # Application definition
 
-CDAS_COLLECTIONS = [ ('MERRA/mon/atmos',       { 'type':'dods', 'url':'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos' } ),
+CDAS_COLLECTIONS = [ ('MERRA/mon/atmos',       { 'type':'dods', 'url':'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos', 'open':['hur'] } ),
                      ('CFSR/mon/atmos',        { 'type':'dods', 'url':'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/CFSR/mon/atmos' } ),
                      ('ECMWF/mon/atmos',       { 'type':'dods', 'url':'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/ECMWF/mon/atmos' } ),
                      ('MERRA/mon/atmos/hur',   { 'type':'file', 'url':'/usr/local/web/WPCDAS/data/hur.nc' } ),
