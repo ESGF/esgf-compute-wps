@@ -229,7 +229,7 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_departures2()
+    test_cache()
 #    test_utilities('domain.uncache')
 #    test_uncache()
 

@@ -19,7 +19,7 @@ def subset_variable_region( variable, cdms2_cache_args=None ):
     t0 = time.time()
     rv = numpy.ma.fix_invalid( variable( **cdms2_cache_args ) )
     t1 = time.time()
-    wpsLog.debug( "    ---->>> Subset-> %s: TIME: %.2f " %  ( str(rv.shape), (t1-t0) ) )
+    wpsLog.debug( " >> Subset-> %s: TIME: %.2f " %  ( str(rv.shape), (t1-t0) ) )
     return rv
 
 class CachedVariable:
@@ -203,7 +203,8 @@ class DataManager:
 
     def loadVariable( self, data, region, cache_type ):
         data_specs = {}
-        domain = None
+        domain =  None
+        dataset = None
         cache_region = region
         name =  data.get( 'name', None );
         variable = data.get('variable',None)
@@ -233,11 +234,12 @@ class DataManager:
                 else:
                     load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
                     cache_region = Region( load_region, axes=[ Region.LATITUDE, Region.LONGITUDE, Region.LEVEL ] )
+                    if dataset == None: dataset = self.loadFileFromCollection( collection, name )
                     variable = load_variable_region( dataset, name, cache_region.toCDMS() )
                     data_specs['region'] = str(cache_region)
 
             else:
-                wpsLog.debug( ">>----------------->>> Loading data from cache, cached region= %s" % data_specs['region'] )
+                wpsLog.debug( " *** Loading data from cache, cached region= %s" % data_specs['region'] )
                 if (cache_type == CachedVariable.CACHE_OP) and (region is not None):
                     variable = subset_variable_region( variable, region.toCDMS() )
                     data_specs['region'] = str(region)

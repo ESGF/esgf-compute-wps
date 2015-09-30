@@ -1,7 +1,8 @@
 from engines.communicator import ComputeEngineCommunicator, TaskMonitor
 from tasks import worker_manager
+from modules.utilities import *
 from collections import deque
-import cPickle
+import cPickle, time
 
 class MultiprocTaskMonitor(TaskMonitor):
 
@@ -10,13 +11,14 @@ class MultiprocTaskMonitor(TaskMonitor):
         self.comms = args.get( 'comms', [] )
         self.wait_list = list(self.comms)
         self.stats = {}
+        self._status = "NONE"
         self.responses = deque()
 
     def push_response(self,response):
         self.responses.appendleft( response )
 
     def status(self):
-        return self.comm.status()
+        return self._status
 
     def empty(self):
         return ( len( self.responses ) == 0 )
@@ -25,12 +27,18 @@ class MultiprocTaskMonitor(TaskMonitor):
         self.flush_incoming()
         return not self.empty()
 
+    def get_response(self, comm ):
+        response = cPickle.loads( comm.recv_bytes() )
+        wpsLog.debug( "\nCComputeEngineCommunicator:gotResponse-> RID: %s, t=%.2f\n" % ( response['rid'], time.time()%1000.0  ) )
+        return response
+
     def flush_incoming(self):
         for comm in self.comms:
             while comm.poll():
-                response = cPickle.loads( comm.recv_bytes() )
+                response = self.get_response( comm )
                 rid = response['rid']
                 if rid == self._request_id:
+                    self._status = "READY"
                     self.push_response( response )
                     self.wait_list.remove(comm)
                 else:
@@ -49,7 +57,7 @@ class MultiprocTaskMonitor(TaskMonitor):
             if not self.empty():
                 response = self.responses.pop()
             else:
-                response = cPickle.loads( self.comms[0].recv_bytes() )
+                response = self.get_response( self.comms[0] )
             return response
 
     def result( self, **args ):
@@ -81,9 +89,12 @@ class MultiprocCommunicator( ComputeEngineCommunicator ):
     def submitTaskImpl( self, task_request, worker ):
         rid = self.new_request_id()
         task_request.setRequestId(rid)
-        if worker == "*":                   comms = worker_manager.broadcast( task_request.task )
-        elif isinstance( worker, list ):    comms = worker_manager.broadcast( task_request.task, worker  )
-        else:                               comms = [ worker_manager.send( task_request.task, worker ) ]
+        if worker == "*":
+            comms = worker_manager.broadcast( task_request.task )
+        elif isinstance( worker, list ):
+            comms = worker_manager.broadcast( task_request.task, worker  )
+        else:
+            comms = [ worker_manager.send( task_request.task, worker ) ]
         return MultiprocTaskMonitor( rid, comms=comms )
 
     def initWorkerStats(self):

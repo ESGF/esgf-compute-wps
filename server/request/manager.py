@@ -8,9 +8,12 @@ class TaskManager:
 
     def getJsonResult( self, result_obj ):
         try:
-            result_json = json.dumps( result_obj )
+            if isinstance( result_obj, TaskRequest ):
+                result_json = json.dumps( result_obj.task )
+            else:
+                result_json = json.dumps( result_obj )
         except Exception, err:
-            wpsLog.error( "\n-----> Error parsing JSON response: %s \n" % str(err) )
+            wpsLog.error( "\n Error parsing JSON response: %s \n" % str(err) )
             result_json = "[]"
         return result_json
 
@@ -18,8 +21,8 @@ class TaskManager:
         from modules import configuration
         from staging import stagingRegistry
         task_request = TaskRequest( request=request_parameters )
-        wpsLog.debug( "---"*50 + "\n $$$ CDAS Process NEW Request[T=%.3f]: %s \n" % ( time.time(), str( request_parameters ) ) + "---"*50 )
         t0 = time.time()
+        wpsLog.debug( "---"*50 + "\n $$$ CDAS Process NEW Request[T=%.3f]: %s \n" % ( t0%1000.0, str( request_parameters ) ) + "---"*50 )
         handler = stagingRegistry.getInstance( configuration.CDAS_STAGING  )
         if handler is None:
             wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
@@ -27,7 +30,7 @@ class TaskManager:
         task_request['engine'] = configuration.CDAS_COMPUTE_ENGINE + "Engine"
         result_obj =  handler.execute( task_request )
         result_json = self.getJsonResult( result_obj )
-        wpsLog.debug( " $$$*** CDAS Processed Request (total response time: %.3f sec) " %  ( (time.time()-t0) ) )
+        wpsLog.debug( " >>----------------->>>  CDAS Processed Request (total response time: %.3f sec) " %  ( (time.time()-t0) ) )
         return result_json
 
 class TaskRequest:
@@ -117,23 +120,25 @@ def test02():
     print "Done!"
 
 def test03():
+    t0 = time.time()
+    print "Starting CACHE: %.3f" % ( t0 % 1000.0 )
     request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
-    request_parameters['datainputs'] = [u'[region={"level":100000};data={"MERRA/mon/atmos":["v0:hur"]};"];]']
+    request_parameters['datainputs'] = [u'[region={"level":100000};data={"MERRA/mon/atmos":["v0:hur"]};]']
     response_json = taskManager.processRequest( request_parameters )
 
+    t1 = time.time()
+    print "Starting OP: %.3f" % ( t1 % 1000.0 )
     request_parameters['datainputs'] =[u'[region={"longitude":-44.17499999999998,"latitude":28.0645809173584,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["CDTime.departures(v0,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)"];]']
     response_json = taskManager.processRequest( request_parameters )
     responses = json.loads(response_json)
+
+    t2 = time.time()
+    print "DONE OP: %.3f" % ( t2 % 1000.0 )
     print "Responses:"
     for iR, result in enumerate(responses):
 #        response_data = result['data']
         print result
     print "Done!"
 
-def test04():
-    task_request_args = {'config': {'cache': True, 'utility': 'worker.cache'}}
-    tr = TaskRequest(task=task_request_args)
-    print tr.task
-
 if __name__ == "__main__":
-    test04()
+    test03()

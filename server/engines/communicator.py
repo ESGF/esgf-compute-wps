@@ -47,12 +47,14 @@ class ComputeEngineCommunicator:
     def submitTask( self, task_request, worker ):
         task_monitor = self.submitTaskImpl( task_request, worker )
         if task_request['utility'] is None:
+            task_type = 'CACHE' if task_request.isCacheOp() else "OP"
+            wpsLog.error( "\nCComputeEngineCommunicator:submitTask-> type:%s, w=%s, rid=%s, t=%.2f\n" % ( task_type, worker, task_monitor.rid, time.time()%1000.0  ) )
             if task_request.isCacheOp():
                 self.setWorkerState( worker, self.WS_CACHE )
-                wpsLog.error( "setWorkerState CACHE %s" % ( worker ) )
             else:
                 self.setWorkerState( worker, self.WS_OP )
-                wpsLog.error( "setWorkerState OP %s" % ( worker ) )
+        else:
+            wpsLog.error( "\nCComputeEngineCommunicator:submitTask-> type: UTIL, w=%s, rid=%s, t=%.2f\n" % ( worker, task_monitor.rid, time.time()%1000.0  ) )
         return task_monitor
 
     def getWorkerStats(self):

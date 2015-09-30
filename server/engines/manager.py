@@ -55,14 +55,17 @@ class ComputeEngine( Executable ):
                     wpsLog.debug( "Task %s(%s) Failed:\n>> '%s' " % ( task_monitor.taskName(), task_monitor.rid, str(task_monitor) ) )
                 else:
                     response = task_monitor.response()
+                    wpsLog.debug( " PPT: got response = %s, cache_request = %s " % ( str(response), str(task_monitor) ) )
                     if not response:
-                        wpsLog.debug( " ***** Empty cache_request for task '%s', status = '%s':\n %s " % ( task_monitor.id, task_monitor.status(), str(task_monitor) ) )
+                        wpsLog.debug( " PPT: Empty cache_request for task '%s', status = '%s':\n %s " % ( task_monitor.id, task_monitor.status(), str(task_monitor) ) )
                     else:
-                        worker = response['worker']
+                        worker = response['wid']
                         cached_domain.cacheRequestComplete( worker )
                         completed_requests.append( task_monitor )
                         self.communicator.clearWorkerState( worker )
-                        wpsLog.debug( " ***** process Completed Task: worker = %s, cache_request = %s " % ( worker, str(task_monitor) ) )
+                        wpsLog.debug( " PPT: process Completed Task: worker = %s, cache_request = %s " % ( worker, str(task_monitor) ) )
+            else:
+                wpsLog.debug( " PPT: Still waiting on Task: cache_request = %s " % ( str(task_monitor) ) )
         for completed_request in completed_requests:
             del self.pendingTasks[ completed_request ]
         t1 = time.time()
@@ -106,7 +109,6 @@ class ComputeEngine( Executable ):
         try:
             t0 = time.time()
             executionRecord.clear()
-            async = compute_args.get( 'async', False )
             cache_task_request = None
             cache_task_monitor = None
             self.communicator.updateWorkerStats()
@@ -117,7 +119,8 @@ class ComputeEngine( Executable ):
             op_region = task_request.region.value
             utility = task_request['utility']
             operation = task_request.operations.values
-            wpsLog.debug( " ***** Executing compute engine (t=%.2f), request: %s" % ( t0, str(task_request) ) )
+            async = compute_args.get( 'async', ( not bool(operation) ) )
+            wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, request: %s" % ( t0, async, str(task_request) ) )
 
             for dataset in datasets:
                 dsid = dataset.get('name','')
@@ -130,6 +133,7 @@ class ComputeEngine( Executable ):
                         self.communicator.submitTask( task_request, wids )
                     else:
                         cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, dataset )
+                        wpsLog.debug( " Find Cached Domain, cached_var: %s, cached_domain: %s" % ( str(cached_var), str(cached_domain) ) )
                         if cached_domain is None:
                             cache_axis_list = [Region.LEVEL] if operation else [Region.LEVEL, Region.LATITUDE, Region.LONGITUDE]
                             cache_region = Region( op_region, axes=cache_axis_list )
@@ -140,7 +144,7 @@ class ComputeEngine( Executable ):
                             cache_task_monitor = self.communicator.submitTask( cache_task_request, cache_worker )
                             executionRecord.addRecs( cache_add=cache_region.spec, cache_add_worker = cache_worker )
                             tc01 = time.time()
-                            cached_domain = cached_var.addDomain( cache_region )
+                            cached_domain = cached_var.addDomain( cache_region, queue=cache_worker )
                             self.pendingTasks[ cache_task_monitor ] = cached_domain
                             tc1 = time.time()
                             wpsLog.debug( " ***** Caching data [rid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_task_monitor.rid, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
@@ -220,7 +224,7 @@ if __name__ == '__main__':
     engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
     ctask_args = getCacheTaskArgs()
     t0 = time.time()
-    ctask      = engine.execute( TaskRequest( request=ctask_args ), async=True )
+    ctask      = engine.execute( TaskRequest( request=ctask_args ) )
     task_args = getTaskArgs( op=[operations[ 0 ]] )
     results = engine.execute( TaskRequest( request=task_args ) )
     result_data = results[0]['data']
