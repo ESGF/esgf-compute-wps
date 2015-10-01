@@ -8,6 +8,9 @@ class TaskMonitor:
         self._request_id = rid
         self.Monitors[rid] = self
 
+    def __str__(self):
+        return "TaskMonitor[%s:%x]" % ( self._request_id, id(self) )
+
     @property
     def rid(self):
         return self._request_id
@@ -47,8 +50,8 @@ class ComputeEngineCommunicator:
     def submitTask( self, task_request, worker ):
         task_monitor = self.submitTaskImpl( task_request, worker )
         if task_request['utility'] is None:
-            task_type = 'CACHE' if task_request.isCacheOp() else "OP"
-            wpsLog.error( "\nCComputeEngineCommunicator:submitTask-> type:%s, w=%s, rid=%s, t=%.2f\n" % ( task_type, worker, task_monitor.rid, time.time()%1000.0  ) )
+     #       task_type = 'CACHE' if task_request.isCacheOp() else "OP"
+     #       wpsLog.error( "\nCComputeEngineCommunicator:submitTask-> type:%s, w=%s, rid=%s, t=%.2f\n" % ( task_type, worker, task_monitor.rid, time.time()%1000.0  ) )
             if task_request.isCacheOp():
                 self.setWorkerState( worker, self.WS_CACHE )
             else:

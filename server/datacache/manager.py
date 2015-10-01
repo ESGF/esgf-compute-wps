@@ -3,15 +3,19 @@ from data_collections import collectionManager
 from domains import *
 from decomposition.manager import decompositionManager
 from datacache.status_cache import StatusPickleMgr
-import numpy, sys
+import numpy, sys, traceback
 
 import cdms2, time
 
 def load_variable_region( dataset, name, cdms2_cache_args=None ):
-    t0 = time.time()
-    rv = numpy.ma.fix_invalid( dataset( name, **cdms2_cache_args ) )
-    t1 = time.time()
-    wpsLog.debug( " $$$ Variable '%s' %s loaded from dataset '%s' --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, (t1-t0) ) )
+    rv = None
+    try:
+        t0 = time.time()
+        rv = numpy.ma.fix_invalid( dataset( name, **cdms2_cache_args ) )
+        t1 = time.time()
+        wpsLog.debug( " $$$ Variable '%s' %s loaded from dataset '%s' --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, (t1-t0) ) )
+    except Exception, err:
+        wpsLog.error( " ERROR loading Variable '%s' from dataset %s --> args: %s\n --- %s ----\n%s " %  ( name, str(dataset), str(cdms2_cache_args), str(err), traceback.format_exc() ) )
     return rv
 
 def subset_variable_region( variable, cdms2_cache_args=None ):

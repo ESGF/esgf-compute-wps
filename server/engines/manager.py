@@ -44,6 +44,16 @@ class ComputeEngine( Executable ):
         for result in results: result.update( args )
         return results
 
+    def processOpTask( self, task_monitor, **args  ):
+        response = task_monitor.response( **args )
+        worker = response['wid']
+        wpsLog.debug( " ***** Retrieved result [rid:%s] from worker '%s'" %  ( task_monitor.rid, worker ) )
+        self.communicator.clearWorkerState( worker )
+        del self.pendingTasks[ task_monitor ]
+        results = response['results']
+        for result in results: result.update( args )
+        return results
+
     def processPendingTasks(self):
         pTasks = str( self.pendingTasks.keys() )
         t0 = time.time()
@@ -55,7 +65,7 @@ class ComputeEngine( Executable ):
                     wpsLog.debug( "Task %s(%s) Failed:\n>> '%s' " % ( task_monitor.taskName(), task_monitor.rid, str(task_monitor) ) )
                 else:
                     response = task_monitor.response()
-                    wpsLog.debug( " PPT: got response = %s, cache_request = %s " % ( str(response), str(task_monitor) ) )
+         #           wpsLog.debug( " PPT: got response = %s, cache_request = %s " % ( str(response), str(task_monitor) ) )
                     if not response:
                         wpsLog.debug( " PPT: Empty cache_request for task '%s', status = '%s':\n %s " % ( task_monitor.id, task_monitor.status(), str(task_monitor) ) )
                     else:
@@ -63,7 +73,7 @@ class ComputeEngine( Executable ):
                         cached_domain.cacheRequestComplete( worker )
                         completed_requests.append( task_monitor )
                         self.communicator.clearWorkerState( worker )
-                        wpsLog.debug( " PPT: process Completed Task: worker = %s, cache_request = %s " % ( worker, str(task_monitor) ) )
+         #               wpsLog.debug( " PPT: process Completed Task: worker = %s, cache_request = %s " % ( worker, str(task_monitor) ) )
             else:
                 wpsLog.debug( " PPT: Still waiting on Task: cache_request = %s " % ( str(task_monitor) ) )
         for completed_request in completed_requests:
@@ -173,10 +183,8 @@ class ComputeEngine( Executable ):
                 wpsLog.debug( " ***** Sending operation [rid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): request= %s " %  ( task_monitor.rid, str(designated_worker), t2, t2-t0, str(task_request) ) )
                 if async: return task_monitor
 
-                result = task_monitor.result()
-                t1 = time.time()
-                wpsLog.debug( " ***** Retrieved result [rid:%s] from worker '%s' (t = %.2f, dt1 = %.3f)" %  ( task_monitor.rid, designated_worker, t1, t1-t2 ) )
-                return result
+                results = self.processOpTask( task_monitor )
+                return results
 
             else:
                 if async: return cache_task_request
@@ -224,8 +232,8 @@ if __name__ == '__main__':
     engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
     ctask_args = getCacheTaskArgs()
     t0 = time.time()
-    ctask      = engine.execute( TaskRequest( request=ctask_args ) )
-    task_args = getTaskArgs( op=[operations[ 0 ]] )
+    ctask      = engine.execute( TaskRequest( request=ctask_args ), async=False )
+    task_args = getTaskArgs( op=operations[ 0:2 ] )
     results = engine.execute( TaskRequest( request=task_args ) )
     result_data = results[0]['data']
     t1 = time.time()

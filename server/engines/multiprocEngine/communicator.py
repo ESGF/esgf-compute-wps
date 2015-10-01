@@ -14,6 +14,9 @@ class MultiprocTaskMonitor(TaskMonitor):
         self._status = "NONE"
         self.responses = deque()
 
+    def __str__(self):
+        return "%s: %s" % ( TaskMonitor.__str__(self), str(self.stats) )
+
     def push_response(self,response):
         self.responses.appendleft( response )
 
@@ -29,7 +32,6 @@ class MultiprocTaskMonitor(TaskMonitor):
 
     def get_response(self, comm ):
         response = cPickle.loads( comm.recv_bytes() )
-        wpsLog.debug( "\nCComputeEngineCommunicator:gotResponse-> RID: %s, t=%.2f\n" % ( response['rid'], time.time()%1000.0  ) )
         return response
 
     def flush_incoming(self):
@@ -58,6 +60,7 @@ class MultiprocTaskMonitor(TaskMonitor):
                 response = self.responses.pop()
             else:
                 response = self.get_response( self.comms[0] )
+
             return response
 
     def result( self, **args ):

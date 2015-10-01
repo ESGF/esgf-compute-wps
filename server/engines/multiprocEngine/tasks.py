@@ -3,15 +3,20 @@ from kernels.manager import KernelManager
 from request.manager import TaskRequest
 from modules import configuration
 from modules.utilities import *
-import cPickle
+import cPickle, traceback
 
 def worker_exe( wid, comm ):
     kernelMgr = KernelManager( wid )
     while True:
-        task_request_args =  cPickle.loads( comm.recv_bytes() )
-     #   wpsLog.debug( "\n ---- MULTIPROC[%s] ---> task_request_args: %s -----\n" % ( wid, str( task_request_args ) ) )
-        results = kernelMgr.run( TaskRequest(task=task_request_args) )
-        comm.send_bytes( cPickle.dumps(results) )
+        try:
+            task_request_args =  cPickle.loads( comm.recv_bytes() )
+            wpsLog.debug( " MULTIPROC[%s] ---> task_request_args: %s " % ( wid, str( task_request_args ) ) )
+            results = kernelMgr.run( TaskRequest(task=task_request_args) )
+     #       wpsLog.debug( "\n PPT: Worker[%s] sending response-> RID: %s -----\n" % ( wid, results['rid'] ) )
+            comm.send_bytes( cPickle.dumps(results) )
+        except Exception, err:
+            wpsLog.error( " Error executing kernel on Worker[%s] --->  %s:\n %s " % ( wid, str( err ), traceback.format_exc() ) )
+
 
 class WorkerManager:
 

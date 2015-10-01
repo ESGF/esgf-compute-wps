@@ -203,7 +203,7 @@ class Domain(Region):
                 restored_data = persistenceManager.load( self.stat )
                 if restored_data is not None:
                     self.setData( restored_data )
-            if self._variable == None:
+            if self._variable is None:
                 wpsLog.error( "  ERROR: Failed to retreive persisted variable '%s'", self.stat['cid'] )
 
     def getSize(self):

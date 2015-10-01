@@ -8,10 +8,8 @@ class TaskManager:
 
     def getJsonResult( self, result_obj ):
         try:
-            if isinstance( result_obj, TaskRequest ):
-                result_json = json.dumps( result_obj.task )
-            else:
-                result_json = json.dumps( result_obj )
+            result = result_obj.task if (result_obj.__class__.__name__ == 'TaskRequest') else result_obj
+            result_json = json.dumps( result )
         except Exception, err:
             wpsLog.error( "\n Error parsing JSON response: %s \n" % str(err) )
             result_json = "[]"
@@ -96,6 +94,8 @@ class TaskRequest:
 
 taskManager = TaskManager()
 
+def getRegion(iR):
+    return 'region={"longitude":%f,"latitude":%f,"level":100000,"time":"2010-01-16T12:00:00"}' % ( -100.0+iR*5, -80.0+iR*5 )
 
 def test01():
     request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
@@ -120,24 +120,20 @@ def test02():
     print "Done!"
 
 def test03():
-    t0 = time.time()
-    print "Starting CACHE: %.3f" % ( t0 % 1000.0 )
     request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
+
+    print "Starting CACHE"
     request_parameters['datainputs'] = [u'[region={"level":100000};data={"MERRA/mon/atmos":["v0:hur"]};]']
     response_json = taskManager.processRequest( request_parameters )
 
-    t1 = time.time()
-    print "Starting OP: %.3f" % ( t1 % 1000.0 )
-    request_parameters['datainputs'] =[u'[region={"longitude":-44.17499999999998,"latitude":28.0645809173584,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["CDTime.departures(v0,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)"];]']
-    response_json = taskManager.processRequest( request_parameters )
-    responses = json.loads(response_json)
+    for iOP in range(10):
+        region = getRegion(iOP)
+        print "Starting OP-%d, r= %s" % (iOP, str(region) )
+        request_parameters['datainputs'] =[ '[%s;data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["CDTime.departures(v0,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)"];]' % region ]
+        response_json = taskManager.processRequest( request_parameters )
+        responses = json.loads(response_json)
 
-    t2 = time.time()
-    print "DONE OP: %.3f" % ( t2 % 1000.0 )
-    print "Responses:"
-    for iR, result in enumerate(responses):
-#        response_data = result['data']
-        print result
+
     print "Done!"
 
 if __name__ == "__main__":
