@@ -3,9 +3,9 @@ from modules.utilities import  *
 
 class Collection:
     def __init__( self, name, collection_spec ):
-        self.dapfiles = {}
-        self.locfile = None
+        self.open_files = {}
         self.name = name
+        self.cache_open_files = True
         self.server_type = collection_spec.get('type', 'file')
         self.base_url = collection_spec['url']
         self.initialize( collection_spec.get( 'open', [] ) )
@@ -17,31 +17,28 @@ class Collection:
     def getURL(self, var_id ):
         if self.server_type in [ 'dods', ]:
             return "%s/%s.ncml" % ( self.base_url, var_id )
-        elif self.server_type == 'file:':
+        elif self.server_type == 'file':
             return self.base_url
 
     def getFile( self, var_id ):
-        if self.server_type == 'file:':
-            if self.locfile is None:
-                self.locfile = self.loadFile()
-            return self.locfile
-        else:
-            file = self.dapfiles.get( var_id, None )
-            if file is None:
-                file = self.loadFile( var_id )
-                if file is not None: self.dapfiles[ var_id ] = file
-            return file
+        pid = str(os.getpid())
+        cache_key = pid if self.server_type == 'file' else '.'.join([var_id,pid] )
+        file = self.open_files.get( cache_key, None )
+        if file is None:
+            file = self.loadFile( var_id )
+            if (file is not None) and self.cache_open_files: self.open_files[ cache_key ] = file
+        return file
 
     def loadFile(self, var_id=None ):
         import cdms2
         if self.server_type == 'file':
             if self.base_url[:7]=="file://":
-                f=cdms2.open(str(self.base_url[6:]))
+                f=cdms2.open(str(self.base_url[6:]),'r')
             else:
-                f=cdms2.open(str(self.base_url))
+                f=cdms2.open(str(self.base_url),'r')
         else:
             url = self.getURL( var_id )
-            f=cdms2.open(str(url))
+            f=cdms2.open(str(url),'r')
         return f
 
 class CollectionManager:
@@ -71,11 +68,13 @@ class CollectionManager:
         except KeyError:
             raise Exception( "Error, attempt to access undefined collection: %s " % collection_name )
 
-collectionManager = CollectionManager.getInstance( configuration.CDAS_APPLICATION )
 
-collections = configuration.CDAS_COLLECTIONS
-for collection_spec in collections:
-    collectionManager.addCollection( collection_spec[0], collection_spec[1] )
+def getCollectionManger():
+    collectionManager = CollectionManager.getInstance( configuration.CDAS_APPLICATION )
+    collections = configuration.CDAS_COLLECTIONS
+    for collection_spec in collections:
+        collectionManager.addCollection( collection_spec[0], collection_spec[1] )
+    return collectionManager
 
 def cache_load_test():
     from modules.configuration import CDAS_PERSISTENCE_DIRECTORY

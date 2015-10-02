@@ -1,9 +1,9 @@
 from modules.utilities import  *
-from data_collections import collectionManager
+from data_collections import getCollectionManger
 from domains import *
 from decomposition.manager import decompositionManager
 from datacache.status_cache import StatusPickleMgr
-import numpy, sys, traceback
+import numpy, sys, os, traceback
 
 import cdms2, time
 
@@ -11,7 +11,9 @@ def load_variable_region( dataset, name, cdms2_cache_args=None ):
     rv = None
     try:
         t0 = time.time()
-        rv = numpy.ma.fix_invalid( dataset( name, **cdms2_cache_args ) )
+        wpsLog.debug( "\n\n LLLLLLLOAD DataSet<%s> %x:%x, status = '%s', var=%s, args=%s \n\n" % ( dataset.id, id(dataset), os.getpid(), dataset._status_, name, str(cdms2_cache_args) ) )
+        dset = dataset( name, **cdms2_cache_args )
+        rv = numpy.ma.fix_invalid( dset )
         t1 = time.time()
         wpsLog.debug( " $$$ Variable '%s' %s loaded from dataset '%s' --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, (t1-t0) ) )
     except Exception, err:
@@ -189,6 +191,7 @@ class DataManager:
 
     def __init__( self, name, **args ):
         self.cacheManager = CacheManager( name, **args )
+        self.collectionManager = getCollectionManger()
 
     def getName(self):
         return self.cacheManager.name
@@ -263,7 +266,7 @@ class DataManager:
     def loadFileFromCollection( self, collection, id=None ):
         t0 = time.time()
         wpsLog.debug( "loadFileFromCollection: '%s' '%s' " % ( collection, id ) )
-        rv = collectionManager.getFile( collection, id )
+        rv = self.collectionManager.getFile( collection, id )
         t1 = time.time()
         wpsLog.debug( "Done loadFileFromCollection, cdms2.open completed in %.2f sec" % (t1-t0) )
         return rv
@@ -272,20 +275,31 @@ if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
 
-    from modules.configuration import MERRA_TEST_VARIABLES
-    test_point = [ -137.0, 35.0, 85000 ]
-    test_time = '2010-01-16T12:00:00'
-    collection = MERRA_TEST_VARIABLES["collection"]
-    varname = MERRA_TEST_VARIABLES["vars"][0]
+    dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
+    slice_args = {'lev': (100000.0, 100000.0, 'cob')}
+    dataset = f=cdms2.open(dfile)
+    print dataset.id, dataset._status_
+    dset = dataset( "hur", **slice_args )
+    print str(dset.shape)
 
-    cache_type = CachedVariable.getCacheType( True, None )
-    region =  { "level":test_point[2] }
-    data = { 'name': varname, 'collection': collection }
-    variable, result_obj = dataManager.loadVariable( data, region, cache_type )
-    cached_data = dataManager.cacheManager.getVariable( result_obj['cache_id'], region )
-    cached_domain = cached_data[1]
-    cache_id = cached_domain.persist()
-    cached_domain.load_persisted_data()
+    slice_args1 = {"longitude": (-10.0, -10.0, 'cob'), "latitude": (10.0, 10.0, 'cob'), 'lev': (100000.0, 100000.0, 'cob')}
+    dset1 = dataset( "hur", **slice_args1 )
+    print str(dset1.shape)
+
+    # from modules.configuration import MERRA_TEST_VARIABLES
+    # test_point = [ -137.0, 35.0, 85000 ]
+    # test_time = '2010-01-16T12:00:00'
+    # collection = MERRA_TEST_VARIABLES["collection"]
+    # varname = MERRA_TEST_VARIABLES["vars"][0]
+    #
+    # cache_type = CachedVariable.getCacheType( True, None )
+    # region =  { "level":test_point[2] }
+    # data = { 'name': varname, 'collection': collection }
+    # variable, result_obj = dataManager.loadVariable( data, region, cache_type )
+    # cached_data = dataManager.cacheManager.getVariable( result_obj['cache_id'], region )
+    # cached_domain = cached_data[1]
+    # cache_id = cached_domain.persist()
+    # cached_domain.load_persisted_data()
 
 
 

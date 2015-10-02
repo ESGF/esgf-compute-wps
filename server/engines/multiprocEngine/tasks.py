@@ -72,3 +72,30 @@ class WorkerManager:
         return rv
 
 worker_manager = WorkerManager()
+
+if __name__ == "__main__":
+    import sys, cdms2
+    wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
+    wpsLog.setLevel(logging.DEBUG)
+
+    def worker_exe1():
+        dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
+        slice_args = {'lev': (100000.0, 100000.0, 'cob')}
+        dataset = f=cdms2.open(dfile)
+        dset = dataset( "hur", **slice_args )
+        print str(dset.shape)
+
+    def worker_exe2():
+        dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
+        dataset = f=cdms2.open(dfile)
+        slice_args1 = {"longitude": (-10.0, -10.0, 'cob'), "latitude": (10.0, 10.0, 'cob'), 'lev': (100000.0, 100000.0, 'cob')}
+        dset1 = dataset( "hur", **slice_args1 )
+        print str(dset1.shape)
+
+    worker_process1 = Process(target=worker_exe1)
+    worker_process2 = Process(target=worker_exe2)
+
+    worker_process1.start()
+    worker_process2.start()
+
+    worker_process1.join()
