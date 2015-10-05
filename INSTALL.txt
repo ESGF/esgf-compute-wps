@@ -35,7 +35,8 @@ Run flask:
    >> python manage.py
 
    CDAS will now be receiving GET requests at http://localhost:5000/cdas
-
+   CDAS can be shutdown using http://localhost:5000/shutdown/
+   ( Or http://127.0.0.1:5000/shutdown/ )
 
 Using the celery compute and staging engine:
 
