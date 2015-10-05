@@ -1,10 +1,11 @@
 import sys, json, time
 from modules.utilities import wpsLog
+from modules import configuration
 
 class TaskManager:
 
     def __init__(self):
-        pass
+        self.handler = None
 
     def getJsonResult( self, result_obj ):
         try:
@@ -15,21 +16,30 @@ class TaskManager:
             result_json = "[]"
         return result_json
 
+    def updateHandler(self):
+        if self.handler is None:
+            from staging import stagingRegistry
+            self.handler = stagingRegistry.getInstance( configuration.CDAS_STAGING  )
+            if self.handler is None:
+                wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
+                self.handler = stagingRegistry.getInstance( 'local' )
+
     def processRequest( self, request_parameters ):
-        from modules import configuration
-        from staging import stagingRegistry
+        self.updateHandler()
         task_request = TaskRequest( request=request_parameters )
         t0 = time.time()
         wpsLog.debug( "---"*50 + "\n $$$ CDAS Process NEW Request[T=%.3f]: %s \n" % ( t0%1000.0, str( request_parameters ) ) + "---"*50 )
-        handler = stagingRegistry.getInstance( configuration.CDAS_STAGING  )
-        if handler is None:
-            wpsLog.warning( " Staging method not configured. Running locally on wps server. " )
-            handler = stagingRegistry.getInstance( 'local' )
         task_request['engine'] = configuration.CDAS_COMPUTE_ENGINE + "Engine"
-        result_obj =  handler.execute( task_request )
+        result_obj =  self.handler.execute( task_request )
         result_json = self.getJsonResult( result_obj )
         wpsLog.debug( " >>----------------->>>  CDAS Processed Request (total response time: %.3f sec) " %  ( (time.time()-t0) ) )
         return result_json
+
+    def shutdown(self):
+        if self.handler is not None:
+            shutdown_task_request = TaskRequest( utility='shutdown.all' )
+            self.handler.execute( shutdown_task_request )
+
 
 class TaskRequest:
 
@@ -137,4 +147,4 @@ def test03():
     print "Done!"
 
 if __name__ == "__main__":
-    test03()
+    test01()

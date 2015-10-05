@@ -24,9 +24,6 @@ class WorkerManager:
         self.workers = {}
         self.startup( configuration.CDAS_NUM_WORKERS )
 
-    def  __del__(self):
-        self.shutdown()
-
     def startup( self, nworkers ):
         if len( self.workers ) == 0:
             for iworker in range( nworkers ):
@@ -55,6 +52,13 @@ class WorkerManager:
         msg = local_comm.recv_bytes()
         response = cPickle.loads(msg)
         wpsLog.debug( "WorkerManager--> receiving response from [%s]: %s" % ( wid, str(response) ) )
+
+    def close(self):
+        for ( local_comm, worker_process ) in self.workers.values():
+            try:
+                local_comm.close()
+            except: pass
+        self.workers = {}
 
     def shutdown(self):
         for ( local_comm, worker_process ) in self.workers.values():

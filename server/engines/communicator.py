@@ -47,6 +47,9 @@ class ComputeEngineCommunicator:
     def submitTaskImpl( self, task_request, worker ):
         raise Exception( 'Error: submitTask method not implemented in engine communicator' )
 
+    def close(self):
+        raise Exception( 'Error: close method not implemented in engine communicator' )
+
     def submitTask( self, task_request, worker ):
         task_monitor = self.submitTaskImpl( task_request, worker )
         if task_request['utility'] is None:

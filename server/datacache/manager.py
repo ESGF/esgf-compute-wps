@@ -108,9 +108,6 @@ class CacheManager:
         self.statusCache = StatusPickleMgr( '.'.join( [ 'stats_cache', name ] ) )
         self.loadStats()
 
-    def __del__(self):
-        self.persist(loc='del')
-
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
             cached_cvar.persist(**args)
@@ -192,6 +189,9 @@ class DataManager:
     def __init__( self, name, **args ):
         self.cacheManager = CacheManager( name, **args )
         self.collectionManager = getCollectionManger()
+
+    def close(self):
+        self.collectionManager.close()
 
     def getName(self):
         return self.cacheManager.name

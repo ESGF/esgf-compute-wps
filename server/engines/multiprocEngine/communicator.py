@@ -89,6 +89,9 @@ class MultiprocCommunicator( ComputeEngineCommunicator ):
         from modules import configuration
         ComputeEngineCommunicator.__init__( self )
 
+    def close(self):
+        worker_manager.close()
+
     def submitTaskImpl( self, task_request, worker ):
         rid = self.new_request_id()
         task_request.setRequestId(rid)

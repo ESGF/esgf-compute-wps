@@ -62,6 +62,8 @@ class KernelManager:
         if utility is not None:
             if utility == 'worker.cache':
                 response['stats'] = self.dataManager.stats()
+            elif utility == 'shutdown.all':
+                self.shutdown()
             elif utility=='domain.uncache':
                 self.dataManager.uncache( task_request.data.values, task_request.region.value )
                 response['stats'] = self.dataManager.stats()
@@ -86,6 +88,12 @@ class KernelManager:
 
         self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
         return response
+
+    def shutdown(self):
+        wpsLog.debug( "PERSIST (@shutdown) data and metadata " )
+        self.persist( loc='shutdown', wid=self.dataManager.getName() )
+        self.dataManager.close()
+        sys.exit(0)
 
     def getKernel( self, operation ):
         from kernels import kernelRegistry

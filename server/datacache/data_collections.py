@@ -14,6 +14,11 @@ class Collection:
         for var_id in open_list:
             self.getFile( var_id )
 
+    def close(self):
+        rv = [ f.close() for f in self.open_files.values() ]
+        self.open_files = {}
+        return rv
+
     def getURL(self, var_id ):
         if self.server_type in [ 'dods', ]:
             return "%s/%s.ncml" % ( self.base_url, var_id )
@@ -50,6 +55,9 @@ class CollectionManager:
 
     def __init__( self, name ):
         self.collections = {}
+
+    def close(self):
+        return [ collection.close() for collection in self.collections.values() ]
 
     def getFile( self, collection_name, var_id ):
         collection = self.getCollection( collection_name )

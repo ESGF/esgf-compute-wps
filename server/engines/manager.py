@@ -132,6 +132,11 @@ class ComputeEngine( Executable ):
             async = compute_args.get( 'async', ( not bool(operation) ) )
             wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, request: %s" % ( t0, async, str(task_request) ) )
 
+            if utility == "shutdown.all":
+                shutdown_task_monitor = self.communicator.submitTask( task_request, "*" )
+                self.communicator.close()
+                return
+
             for dataset in datasets:
                 dsid = dataset.get('name','')
                 collection = dataset.get('collection',None)
@@ -229,12 +234,25 @@ if __name__ == '__main__':
         task_args = { 'region': getCacheRegion(), 'data': getData() }
         return task_args
 
+    run_cache = True
+    run_op    = False
     engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
-    ctask_args = getCacheTaskArgs()
-    t0 = time.time()
-    ctask      = engine.execute( TaskRequest( request=ctask_args ), async=False )
-    task_args = getTaskArgs( op=operations[ 0:2 ] )
-    results = engine.execute( TaskRequest( request=task_args ) )
-    result_data = results[0]['data']
-    t1 = time.time()
-    print " Completed in %.2f sec, data = %s " % ( (t1-t0), str( result_data ) )
+
+    if run_cache:
+        ct0 = time.time()
+        ctask_args = getCacheTaskArgs()
+        ctask      = engine.execute( TaskRequest( request=ctask_args ), async=False )
+        ct1 = time.time()
+        print " Completed cache in %.2f sec " %  (ct1-ct0)
+
+    if run_op:
+        t0 = time.time()
+        task_args = getTaskArgs( op=operations[ 0:1 ] )
+        results = engine.execute( TaskRequest( request=task_args ) )
+        result_data = results[0]['data']
+        t1 = time.time()
+        print " Completed op in %.2f sec, data = %s " % ( (t1-t0), str( result_data ) )
+
+    print "Sending shutdown"
+    engine.execute( TaskRequest( utility='shutdown.all' ) )
+    print "Sending request completed"
