@@ -40,7 +40,7 @@ class PersistenceThread(threading.Thread):
                             if cid:
                                 stat['persist_id'] = '_'.join([ re.sub("[/:]","_",cid), str(int(10*time.time()))])
                                 self.persistenceManager.store(data,stat)
-                                wpsLog.debug( " \n ----- Persisting data chunk: %s ----- \n " % str( (cid, stat['region'] ) ) )
+                                wpsLog.debug( " \n ----- Persisting data chunk[ %s ], stat: %s ----- \n " % ( cid, str(stat) ) )
                             else:
                                 wpsLog.error( "ERROR, no cid for data chunk: %s" % str( stat ) )
                         else: break

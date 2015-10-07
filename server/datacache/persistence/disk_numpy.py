@@ -27,7 +27,7 @@ class DataPersistenceEngine( DataPersistenceEngineBase ):
                 t0 = time.time()
                 data.tofile( file )
                 t1 = time.time()
-                wpsLog.debug( " Data %s persisted in %.3f " % ( str(data.shape), (t1-t0) ) )
+                wpsLog.debug( " Data %s persisted in %.3f: %s " % ( str(data.shape), (t1-t0), str(stat) ) )
         except Exception, err:
             wpsLog.debug( " Error storing data for %s: %s " % ( pid, str(err) ) )
 

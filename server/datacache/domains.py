@@ -163,7 +163,7 @@ class Domain(Region):
         return Region( self.spec )
 
     def persist(self,**args):
-        if not self.stat.get('persist_id',None):
+        if not 'persist_id' in self.stat:
             cid = args.get( 'cid', self.stat.get('cid',None) )
             if cid:  self.stat['persist_id'] = '_'.join([ re.sub("[/:]","_",cid), str(int(10*time.time()))])
         if not persistenceManager.is_stored( self.stat ):
