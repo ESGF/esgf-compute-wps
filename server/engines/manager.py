@@ -239,6 +239,7 @@ if __name__ == '__main__':
     engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
 
     if run_cache:
+        print " Running cache operation "
         ct0 = time.time()
         ctask_args = getCacheTaskArgs()
         ctask      = engine.execute( TaskRequest( request=ctask_args ), async=False )
@@ -246,12 +247,15 @@ if __name__ == '__main__':
         print " Completed cache in %.2f sec " %  (ct1-ct0)
 
     if run_op:
+        print " Running departures operation "
         t0 = time.time()
         task_args = getTaskArgs( op=operations[ 0:1 ] )
         results = engine.execute( TaskRequest( request=task_args ) )
         result_data = results[0]['data']
         t1 = time.time()
         print " Completed op in %.2f sec, data = %s " % ( (t1-t0), str( result_data ) )
+
+    control_input = raw_input("Type <return> to continue. ")
 
     print "Sending shutdown"
     engine.execute( TaskRequest( utility='shutdown.all' ) )

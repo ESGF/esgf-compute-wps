@@ -50,8 +50,8 @@ class CollectionManager:
     CollectionManagers = {}
 
     @classmethod
-    def getInstance(cls,name):
-        return cls.CollectionManagers.setdefault( name, CollectionManager(name) )
+    def getInstance(cls,name,**args):
+        return cls.CollectionManagers.setdefault( name, CollectionManager(name,**args) )
 
     def __init__( self, name ):
         self.collections = {}
@@ -77,8 +77,8 @@ class CollectionManager:
             raise Exception( "Error, attempt to access undefined collection: %s " % collection_name )
 
 
-def getCollectionManger():
-    collectionManager = CollectionManager.getInstance( configuration.CDAS_APPLICATION )
+def getCollectionManger(**args):
+    collectionManager = CollectionManager.getInstance( configuration.CDAS_APPLICATION, **args )
     collections = configuration.CDAS_COLLECTIONS
     for collection_spec in collections:
         collectionManager.addCollection( collection_spec[0], collection_spec[1] )

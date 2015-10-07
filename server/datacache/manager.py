@@ -3,7 +3,8 @@ from data_collections import getCollectionManger
 from domains import *
 from decomposition.manager import decompositionManager
 from datacache.status_cache import StatusPickleMgr
-import numpy, sys, os, traceback
+from datacache.persistence.background_thread import PersistenceThread
+import numpy, sys, os, traceback, Queue
 
 import cdms2, time
 
@@ -101,7 +102,7 @@ class CacheManager:
     RESULT = 1
     modifiers = { '@': RESULT };
 
-    def __init__( self, name ):
+    def __init__( self, name, **args ):
         self._cache = {}
         self.stat = {}
         self.name = name
@@ -150,12 +151,12 @@ class CacheManager:
         var_type = cls.modifiers.get( variable_name[0], None )
         return ( var_type, variable_name if ( var_type == None ) else variable_name[1:] )
 
-    def getVariable( self, cache_id, new_region ):
-        cached_cvar = self._cache.get( cache_id, None )
+    def getVariable( self, cid, new_region ):
+        cached_cvar = self._cache.get( cid, None )
         if cached_cvar is None: return Domain.DISJOINT, None
         status, domain = cached_cvar.findDomain( new_region )
         wpsLog.debug( "Searching for cache_id '%s', cache keys = %s, domain=%s, Found var = %s, Found domain = %s, status = %d" %
-                      ( cache_id, str(self._cache.keys()), str(new_region), (cached_cvar is not None), (domain is not None), status ) )
+                      ( cid, str(self._cache.keys()), str(new_region), (cached_cvar is not None), (domain is not None), status ) )
         return status, domain
 
     def addVariable( self, cache_id, data, specs ):
@@ -188,7 +189,13 @@ class DataManager:
 
     def __init__( self, name, **args ):
         self.cacheManager = CacheManager( name, **args )
-        self.collectionManager = getCollectionManger()
+        self.collectionManager = getCollectionManger( **args )
+        self.persist_queue = Queue.Queue()
+        self.persistenceThread = None
+        enable_background_persist = args.get( 'background_persist', True )
+        if enable_background_persist:
+            self.persistenceThread = PersistenceThread( args=(self.persist_queue,) )
+            self.persistenceThread.start()
 
     def close(self):
         self.collectionManager.close()
@@ -229,7 +236,7 @@ class DataManager:
                     variable = domain.getVariable()
                     data_specs['dataset']  = domain.spec.get( 'dataset', None )
                     data_specs['region'] = str(domain.getRegion())
-                data_specs['cache_id']  = var_cache_id
+                data_specs['cid']  = var_cache_id
             else:
                 wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( data ) )
                 return None, data_specs
@@ -244,6 +251,7 @@ class DataManager:
                     if dataset == None: dataset = self.loadFileFromCollection( collection, name )
                     variable = load_variable_region( dataset, name, cache_region.toCDMS() )
                     data_specs['region'] = str(cache_region)
+                    self.persist_queue.put( ( variable.data, data_specs ) )
 
             else:
                 wpsLog.debug( " *** Loading data from cache, cached region= %s" % data_specs['region'] )
