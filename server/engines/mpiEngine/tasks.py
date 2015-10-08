@@ -1,78 +1,61 @@
 from mpi4py import MPI
-from kernels.manager import KernelManager
-from request.manager import TaskRequest
 from modules import configuration
 from modules.utilities import *
-import cPickle, traceback, numpy, sys
-
-def worker_exe( wid, comm ):
-    kernelMgr = KernelManager( wid )
-    while True:
-        try:
-            task_request_args =  cPickle.loads( comm.recv_bytes() )
-            wpsLog.debug( " MULTIPROC[%s] ---> task_request_args: %s " % ( wid, str( task_request_args ) ) )
-            results = kernelMgr.run( TaskRequest(task=task_request_args) )
-     #       wpsLog.debug( "\n PPT: Worker[%s] sending response-> RID: %s -----\n" % ( wid, results['rid'] ) )
-            comm.send_bytes( cPickle.dumps(results) )
-        except Exception, err:
-            wpsLog.error( " Error executing kernel on Worker[%s] --->  %s:\n %s " % ( wid, str( err ), traceback.format_exc() ) )
-
+from engines.communicator import wrank, wid
+import sys, os
 
 class WorkerManager:
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+    WORKER_SCRIPT = os.path.join( CURRENT_DIR, 'worker.py' )
 
     def __init__(self):
         self.comm=None
+        self._nworkers = None
         self.startup( configuration.CDAS_NUM_WORKERS )
 
     def startup( self, nworkers ):
         if self.comm is None :
-            self.comm = MPI.COMM_SELF.Spawn( sys.executable, args=['worker.py'], maxprocs=nworkers )
+            self.comm = MPI.COMM_SELF.Spawn( sys.executable, args=[ self.WORKER_SCRIPT ], maxprocs=nworkers )
 
-    def broadcast( self, msg, worker_list = None ):
-        comms = []
-        for wid, ( local_comm, worker_process ) in self.workers.items():
-            if ( worker_list is None ) or (wid in worker_list):
-                local_comm.send_bytes( cPickle.dumps(msg) )
-                comms.append( local_comm )
-        return comms
+    def nworkers(self):
+        if self._nworkers is None:
+            self._nworkers = self.comm.Get_remote_size()
+        return self._nworkers
 
-    def send( self, msg, wid ):
-        ( local_comm, worker_process ) = self.workers[wid]
-        local_comm.send_bytes( cPickle.dumps(msg) )
-        return local_comm
+    def broadcast( self, msg, tag, destination_list=None ):
+        if destination_list is None:
+            destination_list = range( self.nworkers() )
+        for destination in destination_list:
+            self.send( msg, tag, destination )
+        return self.comm, len(destination_list)
 
-    def recv( self, wid ):
-        ( local_comm, worker_process ) = self.workers[wid]
-        msg = local_comm.recv_bytes()
-        response = cPickle.loads(msg)
-        wpsLog.debug( "WorkerManager--> receiving response from [%s]: %s" % ( wid, str(response) ) )
+    def send( self, msg, tag, destination ):
+        self.comm.send( msg, tag=tag, dest=wrank(destination) )
+        return self.comm, 1
+
+    def recv( self, source, tag ):
+        response = self.comm.recv( source=source, tag=tag )
+        wpsLog.debug( "WorkerManager--> receiving response %d from [%s]: %s" % ( tag, source, str(response) ) )
+        return response
 
     def close(self):
-        for ( local_comm, worker_process ) in self.workers.values():
-            try:
-                local_comm.close()
-            except: pass
-        self.workers = {}
+        self.comm.Disconnect()
 
     def shutdown(self):
-        for ( local_comm, worker_process ) in self.workers.values():
-            try:
-                local_comm.send_bytes( 'exit' )
-                local_comm.close()
-                worker_process.terminate()
-            except: pass
-        self.workers = {}
+        self.broadcast( {'config':'exit'} )
+        self.comm.Disconnect()
 
     def getProcessStats(self):
         rv = {}
-        for wid, ( comm, process ) in self.workers.items():
-            rv[wid] = { 'name':process.name, "pid":process.pid }
+        for destination in range( self.nworkers() ):
+            w_id = wid(destination)
+            rv[w_id] = { 'name': w_id, 'rank': destination }
         return rv
 
 worker_manager = WorkerManager()
 
 if __name__ == "__main__":
-    import sys, cdms2
+    import cdms2
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
 
@@ -90,10 +73,3 @@ if __name__ == "__main__":
         dset1 = dataset( "hur", **slice_args1 )
         print str(dset1.shape)
 
-    worker_process1 = Process(target=worker_exe1)
-    worker_process2 = Process(target=worker_exe2)
-
-    worker_process1.start()
-    worker_process2.start()
-
-    worker_process1.join()

@@ -1,5 +1,12 @@
 from modules.utilities import *
 
+def wrank( value ):
+    return ( value if not isinstance(value,str) else int( value.split('-')[1] ) )
+
+def wid( value ):
+    return ( value if not isinstance(value,int) else 'W-%d' % value )
+
+
 class TaskMonitor:
 
     Monitors = {}
