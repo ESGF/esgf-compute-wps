@@ -36,7 +36,7 @@ class MpiTaskMonitor(TaskMonitor):
 
     def flush_incoming(self):
         status = MPI.Status()
-        while self.comm.Iprobe( MPI.MPI_ANY_SOURCE, MPI.MPI_ANY_TAG, status ):
+        while self.comm.Iprobe( MPI.ANY_SOURCE, MPI.ANY_TAG, status ):
             rid = status.Get_tag()
             response = self.comm.recv( source=status.Get_source(), tag=rid )
             if rid == self._request_id:

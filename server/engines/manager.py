@@ -117,7 +117,12 @@ class ComputeEngine( Executable ):
 
     def execute( self, task_request, **compute_args ):
         try:
+            wpsLog.debug( " xxxxx " )
             t0 = time.time()
+            operation = task_request.operations.values
+            async = compute_args.get( 'async', ( not bool(operation) ) )
+            wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, request: %s" % ( t0, async, str(task_request) ) )
+
             executionRecord.clear()
             cache_task_request = None
             cache_task_monitor = None
@@ -128,9 +133,6 @@ class ComputeEngine( Executable ):
             datasets = task_request.data.values
             op_region = task_request.region.value
             utility = task_request['utility']
-            operation = task_request.operations.values
-            async = compute_args.get( 'async', ( not bool(operation) ) )
-            wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, request: %s" % ( t0, async, str(task_request) ) )
 
             if utility == "shutdown.all":
                 shutdown_task_monitor = self.communicator.submitTask( task_request, "*" )
@@ -206,7 +208,6 @@ class ComputeEngine( Executable ):
 
 if __name__ == '__main__':
 
-    from request.manager import TaskRequest
     from engines import engineRegistry
     from modules.configuration import MERRA_TEST_VARIABLES, CDAS_COMPUTE_ENGINE
     test_point = [ -137.0, 35.0, 85000.0 ]
@@ -235,7 +236,7 @@ if __name__ == '__main__':
         return task_args
 
     run_cache = True
-    run_op    = False
+    run_op    = True
     engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
 
     if run_cache:

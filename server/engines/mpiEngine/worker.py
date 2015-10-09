@@ -16,7 +16,7 @@ kernelMgr = KernelManager( wid )
 while active:
     status = MPI.Status()
     try:
-        task_request_args = comm.recv( source=0, tag=MPI.MPI_ANY_TAG, status=status )
+        task_request_args = comm.recv( source=0, tag=MPI.ANY_TAG, status=status )
         rid = status.Get_tag()
         wpsLog.debug( " MULTIPROC[%s] ---> task_request[%d]: args: %s " % ( wid, rid, str( task_request_args ) ) )
         cfg = task_request_args.get('config','')
