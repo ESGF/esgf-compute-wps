@@ -146,5 +146,16 @@ def test03():
 
     print "Done!"
 
+def test04():
+    request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
+    request_parms['datainputs'] = [u'[domain=[{"id":"upper","level":{"start":0,"end":1,"system":"indices"}},{"id":"lower","level":{"start":2,"end":3,"system":"indices"}}];variable={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["CDTime.departures(v0,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)"];]']
+    response_json = taskManager.processRequest( request_parms )
+    responses = json.loads(response_json)
+    print "Responses:"
+    for iR, result in enumerate(responses):
+#        response_data = result['data']
+        print result
+    print "Done!"
+
 if __name__ == "__main__":
-    test01()
+    test04()

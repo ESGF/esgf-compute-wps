@@ -1,12 +1,12 @@
 from modules.utilities import  *
 from modules.containers import  *
 from datacache.persistence.manager import persistenceManager
-import re
+import re, traceback
 
-def filter_attributes( attr, keys ):
+def filter_attributes( attr, keys, include_keys = True ):
     rv = {}
-    for key in keys:
-        if key in attr.keys():
+    for key in attr.iterkeys():
+        if ( include_keys and (key in keys) ) or (not include_keys and (key not in keys)):
             rv[key] = attr[key]
     return rv
 
@@ -31,27 +31,42 @@ class Region(JSONObject):
 
     @classmethod
     def regularize( cls, axis, values ):
+        axis_spec = {'config':{},'bounds':[]}
         if axis == Region.TIME:
-            return values if hasattr( values, '__iter__' ) else [ values ]
+            axis_spec['bounds'] = values if hasattr( values, '__iter__' ) else [ values ]
         else:
             if hasattr( values, '__iter__' ):
                 if isinstance( values, dict ):
                     try:
-                        rv = [ values['start'], values['end'] ]
+                        if 'config' in values:
+                            axis_spec.update(values)
+                        else:
+                            start = values.get('start',None)
+                            end = values.get('end',None)
+                            if start == end:
+                                if start is None:
+                                   start =  values.get('value',None)
+                                   if start is None:
+                                       wpsLog.error( "Error, no bounds specified for axis: %s " % values.keys() )
+                                axis_spec['bounds'] = [ start ]
+                            else:
+                                axis_spec['bounds'] = [ start, end ]
+                            axis_spec['config'] = filter_attributes( values, ['start','end','value'], False )
                     except KeyError:
                         wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
                 else:
-                    rv = [ float(v) for v in values ]
+                    axis_spec['bounds'] = [ float(v) for v in values ]
             else:
                 try:
-                    rv = [ float(values) ]
+                    axis_spec['bounds'] = [ float(values) ]
                 except Exception, err:
                     wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
-                    rv = values
-            return rv
+                    axis_bounds = values
+            return axis_spec
 
     def getAxisRange( self, axis_name ):
-        return self.getItem( axis_name )
+        axis_spec = self.getItem( axis_name )
+        return axis_spec['bounds'] if axis_spec else None
 
     def process_spec(self, **args):
         axes = args.get('axes',None)
@@ -60,10 +75,10 @@ class Region(JSONObject):
         if self.spec is None: self.spec = {}
         for spec_item in self.spec.items():
             key = spec_item[0].lower()
-            v = self.regularize( key, spec_item[1] )
-            if key.startswith('grid'):
-                self['grid'] = v
+            if key in [ 'id', 'grid' ]:
+                self[key] = spec_item[1]
             else:
+                v = self.regularize( key, spec_item[1] )
                 for axis in self.AXIS_LIST.itervalues():
                     if key.startswith(axis):
                         if not axes or axis in axes:
@@ -90,13 +105,24 @@ class Region(JSONObject):
     def toCDMS( self, **args ):
         active_axes = args.get('axes',None)
         kargs = {}
-        for k,v in self.iteritems():
+        for k,axis_spec in self.iteritems():
             if not active_axes or k in active_axes:
-                if isinstance( v, list ) or isinstance( v, tuple ):
-                    if k == 'time':
-                        kargs[str(k)] = ( str(v[0]), str(v[1]), "cob" ) if ( len( v ) > 1 ) else ( str(v[0]), str(v[0]), "cob" )
-                    else:
-                        kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
+                try:
+                    v = axis_spec['bounds']
+                    c = axis_spec['config']
+                    is_indexed = c.get('indices',False)
+                    if isinstance( v, list ) or isinstance( v, tuple ):
+                        if not is_indexed:
+                            if k == 'time':
+                                kargs[str(k)] = ( str(v[0]), str(v[1]), "cob" ) if ( len( v ) > 1 ) else ( str(v[0]), str(v[0]), "cob" )
+                            else:
+                                kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
+                        else:
+                                kargs[str(k)] = slice(v[0],v[1]) if ( len( v ) > 1 ) else slice(v[0],v[0]+1)
+                except Exception, err:
+                    wpsLog.error( "Error processing axis '%s' spec '%s': %s\n %s " % ( k, str(axis_spec), str(err), traceback.format_exc() ) )
+
+
             # elif isinstance( v, dict ):
             #     system = v.get("system","value").lower()
             #     if isinstance(v["start"],unicode):

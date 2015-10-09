@@ -117,7 +117,6 @@ class ComputeEngine( Executable ):
 
     def execute( self, task_request, **compute_args ):
         try:
-            wpsLog.debug( " xxxxx " )
             t0 = time.time()
             operation = task_request.operations.values
             async = compute_args.get( 'async', ( not bool(operation) ) )
@@ -252,9 +251,8 @@ if __name__ == '__main__':
         t0 = time.time()
         task_args = getTaskArgs( op=operations[ 0:1 ] )
         results = engine.execute( TaskRequest( request=task_args ) )
-        result_data = results[0]['data']
         t1 = time.time()
-        print " Completed op in %.2f sec, data = %s " % ( (t1-t0), str( result_data ) )
+        print " Completed op in %.2f sec, data = %s " % ( (t1-t0), str( results[0] ) )
 
     control_input = raw_input("Type <return> to continue. ")
 
