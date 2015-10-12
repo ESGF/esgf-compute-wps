@@ -65,8 +65,12 @@ class Region(JSONObject):
             return axis_spec
 
     def getAxisRange( self, axis_name ):
-        axis_spec = self.getItem( axis_name )
-        return axis_spec['bounds'] if axis_spec else None
+        try:
+            axis_spec = self.getItem( axis_name )
+            return axis_spec['bounds'] if axis_spec else None
+        except Exception, err:
+            wpsLog.error( "Error in getAxisRange( %s ): %s" % ( axis_name, str(err) ) )
+            return None
 
     def process_spec(self, **args):
         axes = args.get('axes',None)
@@ -86,21 +90,33 @@ class Region(JSONObject):
 
     def __eq__(self, reqion1 ):
         if reqion1 is None: return False
-        if len( self ) <> len( reqion1 ): return False
+        if self.size() <> reqion1.size(): return False
         for k0,r0 in self.iteritems():
-            r1 = reqion1.getAxisRange( k0 )
-            if not r1: return False
-            if  ( len(r0) <> len(r1) ): return False
-            if k0 == self.TIME:
-                for x0, x1 in zip(r0, r1):
-                    if x0 <> x1: return False
+            if isinstance( r0, basestring ):
+                pass
             else:
-                for x0, x1 in zip(r0, r1):
-                    if ( abs(x1-x0) > self.tolerance ): return False
+                r1 = reqion1.getAxisRange( k0 )
+                if not r1: return False
+                if isinstance(r0,dict): r0 = r0['bounds']
+                if isinstance(r1,dict): r1 = r1['bounds']
+                if  ( len(r0) <> len(r1) ): return False
+                if k0 == self.TIME:
+                    for x0, x1 in zip(r0, r1):
+                        if x0 <> x1: return False
+                else:
+                    for x0, x1 in zip(r0, r1):
+                        if ( abs(x1-x0) > self.tolerance ): return False
         return True
 
     def __ne__(self, reqion1 ):
         return not self.__eq__( reqion1 )
+
+    def size(self):
+        axis_count = 0
+        for k,axis_spec in self.iteritems():
+             if not isinstance( axis_spec, basestring ):
+                 axis_count = axis_count + 1
+        return axis_count
 
     def toCDMS( self, **args ):
         active_axes = args.get('axes',None)
@@ -108,17 +124,20 @@ class Region(JSONObject):
         for k,axis_spec in self.iteritems():
             if not active_axes or k in active_axes:
                 try:
-                    v = axis_spec['bounds']
-                    c = axis_spec['config']
-                    is_indexed = c.get('indices',False)
-                    if isinstance( v, list ) or isinstance( v, tuple ):
-                        if not is_indexed:
-                            if k == 'time':
-                                kargs[str(k)] = ( str(v[0]), str(v[1]), "cob" ) if ( len( v ) > 1 ) else ( str(v[0]), str(v[0]), "cob" )
+                    if isinstance( axis_spec, basestring ):
+                        pass
+                    elif not axis_spec is None:
+                        v = axis_spec['bounds']
+                        c = axis_spec['config']
+                        is_indexed = c.get('indices',False)
+                        if isinstance( v, list ) or isinstance( v, tuple ):
+                            if not is_indexed:
+                                if k == 'time':
+                                    kargs[str(k)] = ( str(v[0]), str(v[1]), "cob" ) if ( len( v ) > 1 ) else ( str(v[0]), str(v[0]), "cob" )
+                                else:
+                                    kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
                             else:
-                                kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
-                        else:
-                                kargs[str(k)] = slice(v[0],v[1]) if ( len( v ) > 1 ) else slice(v[0],v[0]+1)
+                                    kargs[str(k)] = slice(v[0],v[1]) if ( len( v ) > 1 ) else slice(v[0],v[0]+1)
                 except Exception, err:
                     wpsLog.error( "Error processing axis '%s' spec '%s': %s\n %s " % ( k, str(axis_spec), str(err), traceback.format_exc() ) )
 

@@ -44,7 +44,7 @@ class TimeseriesAnalytics( CDASKernel ):
         wpsLog.debug( "Computed seasonal cycle, time = %.4f, result:\n %s" % ( (t1-t0), str(acycle) ) )
         return ma.array(acycle)
 
-    def run( self, subsetted_variables, metadata_recs, region, operation ):
+    def run( self, subsetted_variables, metadata_recs, operation ):
         try:
             start_time = time.time()
             result_obj = metadata_recs[0]
@@ -61,7 +61,7 @@ class TimeseriesAnalytics( CDASKernel ):
                 result_obj['time'] = time_obj
             result_obj['data'] = result_data
             end_time = time.time()
-            wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(region), (end_time-start_time) ) )
+            wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(result_obj["data.region"]), (end_time-start_time) ) )
 
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )

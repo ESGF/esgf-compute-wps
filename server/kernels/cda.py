@@ -10,31 +10,60 @@ cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 
+class Aliases:
+
+    def __init__( self, keys, aliases ):
+        self.keys = keys
+        self.aliases = aliases
+
+    def hasKeys( self, key_map ):
+        for key in key_map:
+            if key in self.keys: return True
+        return False
+
+    def insertAliases(self, key_map, clear_old=False ):
+        for key_alias, alt_key in self.aliases.items():
+            if key_alias in key_map:
+                key_map[ alt_key ] = key_map[ key_alias ]
+                if clear_old: del key_map[ key_alias ]
+
+
 class DatasetContainer(JSONObjectContainer):
 
-    def process_spec( self, spec ):
-        if spec:
-            spec = convert_json_str( spec )
-            if isinstance( spec, dict ):
-                if ('name' in spec.keys()) or ('id' in spec.keys()) or ('collection' in spec.keys()):
-                    self._objects.append( self.newObject( spec) )
+    DataAliases = Aliases( [ 'name', 'id', 'collection', 'dset', 'dataset', 'url' ], { 'dset':'collection', 'dataset':'collection' } )
+
+    def process_spec( self, specs ):
+        if specs:
+            specs = convert_json_str( specs )
+            if isinstance( specs, dict ): specs = [ specs ]
+            for spec in specs:
+                if isinstance( spec, dict ):
+                    if self.DataAliases.hasKeys( spec ):
+                        self.DataAliases.insertAliases( spec )
+                        var_id = spec.get('id',None)
+                        if var_id is not None:
+                            tokens = var_id.split(':')
+                            spec['id'] = tokens[0]
+                            if spec.get( 'name', None ) is None:
+                                spec['name'] = tokens[-1]
+                        self._objects.append( self.newObject( spec) )
+                    else:
+                        keys = []
+                        for item in spec.iteritems():
+                            collection = item[0]
+                            varlist = item[1]
+                            if isinstance(varlist,basestring): varlist = [ varlist ]
+                            for var_spec in varlist:
+                                tokens = var_spec.split(':')
+                                varid = tokens[0]
+                                varname = tokens[-1]
+                                if varid in keys:
+                                    raise Exception( "Error, Duplicate variable id in request data inputs: %s." % varid )
+                                object_spec = { 'collection':collection, 'name':varname, 'id':varid }
+                                self._objects.append( self.newObject( object_spec) )
+                                keys.append( varid )
                 else:
-                    keys = []
-                    for item in spec.iteritems():
-                        collection = item[0]
-                        varlist = item[1]
-                        if isinstance(varlist,basestring): varlist = [ varlist ]
-                        for var_spec in varlist:
-                            tokens = var_spec.split(':')
-                            varid = tokens[0]
-                            varname = tokens[-1]
-                            if varid in keys:
-                                raise Exception( "Error, Duplicate variable id in request data inputs: %s." % varid )
-                            object_spec = { 'collection':collection, 'name':varname, 'id':varid }
-                            self._objects.append( self.newObject( object_spec) )
-                            keys.append( varid )
-            else:
-                raise Exception( "Unrecognized DatasetContainer spec: " + str(spec) )
+                    raise Exception( "Unrecognized DatasetContainer spec: " + str(spec) )
 
     def newObject( self, spec ):
         return Dataset(spec)
@@ -75,7 +104,7 @@ class CDASKernel:
         self.use_cache = args.get( 'cache', True )
 
 
-    def run( self, subsetted_variables, metadata_recs, region, operation ):
+    def run( self, subsetted_variables, metadata_recs, operation ):
         pass
 
     def saveVariable(self,data,dest,type="json"):

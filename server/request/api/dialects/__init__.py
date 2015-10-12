@@ -29,7 +29,11 @@ class WPSDialect:
             parameter = request.get(key,None)
             if parameter:
                 if isinstance(parameter, basestring):
-                    parameter = json.loads( parameter )
+                    try:
+                        parameter = json.loads( parameter )
+                    except:
+                        wpsLog.error( " Error json decoding parameter: '%s' " % parameter )
+                        parameter = ""
                 task_parameters[ key ] = parameter
                 del request[key]
         for item in request.items():

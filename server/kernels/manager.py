@@ -17,11 +17,8 @@ class KernelManager:
     def getKernelInputs( self, operation, request ):
         read_start_time = time.time()
         use_cache =  request['cache']
-        region = request.region.value
+        regions = request.region
         cache_type = CachedVariable.getCacheType( use_cache, operation )
-        if cache_type == CachedVariable.CACHE_OP:
-            dslice = operation.get('slice',None)
-            if dslice: region = Region( region, slice=dslice )
         variables = []
         data_specs = []
         if operation is not None:
@@ -34,19 +31,25 @@ class KernelManager:
 
         for data in input_dataset:
             if data is not None:
+                region_id = data['domain']
+                region = regions.getValue(region_id) if region_id else regions.value
+                if cache_type == CachedVariable.CACHE_OP:
+                    dslice = operation.get('slice',None)
+                    if dslice: region = Region( region, slice=dslice )
                 variable, data_spec = self.dataManager.loadVariable( data, region, cache_type )
                 cached_region = Region( data_spec['region'] )
                 if (region is not None) and (cached_region <> region):
                     subset_args = region.toCDMS()
                     variable = numpy.ma.fix_invalid( variable( **subset_args ) )
         #            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))
+                data_spec['data.region'] = region
                 variables.append( variable )
                 data_specs.append( data_spec )
             else:
                 raise Exception( "Can't find data matching operation input '%s'", inputID)
         read_end_time = time.time()
-        wpsLog.debug( " $$$ DATA READ Complete (domain = %s): %s " % ( str(region), str(read_end_time-read_start_time) ) )
-        return variables, data_specs, region
+        wpsLog.debug( " $$$ DATA READ Complete: %s " % ( str(read_end_time-read_start_time) ) )
+        return variables, data_specs
 
     def persist( self, **args ):
         self.dataManager.persist( **args )
@@ -75,9 +78,9 @@ class KernelManager:
                 operations =  task_request.operations
                 operations_list = [None] if (operations.value is None) else operations.values
                 for operation in operations_list:
-                    variables, metadata_recs, region = self.getKernelInputs( operation, task_request )
+                    variables, metadata_recs = self.getKernelInputs( operation, task_request )
                     kernel = self.getKernel( operation )
-                    result = kernel.run( variables, metadata_recs, region, operation ) if kernel else { 'result': metadata_recs }
+                    result = kernel.run( variables, metadata_recs, operation ) if kernel else { 'result': metadata_recs }
                     results.append( result )
                 end_time = time.time()
                 wpsLog.debug( " $$$ Kernel Execution Complete, ` time = %.2f " % (end_time-start_time) )
@@ -109,8 +112,10 @@ if __name__ == "__main__":
     wpsLog.setLevel(logging.DEBUG)
 
     from request.manager import TaskRequest
+    from request.api.dialects import WPSDialect
     from modules.configuration import MERRA_TEST_VARIABLES
     import pprint
+    dialect = WPSDialect('cdas')
 
     kernelMgr = KernelManager('W-3')
     pp = pprint.PrettyPrinter(indent=4)
@@ -231,7 +236,8 @@ if __name__ == "__main__":
         pp.pprint(result_data)
 
     def test_new_api():
-        task_parms = {'config': {'cache': True}, 'region': {u'latitude': 35.0, u'time': u'2010-01-16T12:00:00', u'longitude': -137.0, u'level': 85000.0}, 'data': {u'MERRA/mon/atmos': [u'v0:hur']}, 'operation': [u'CDTime.departures(v0,slice:t)']}
+        requestData = {'config': {'cache': True}, 'domain': [ {'id':'r1','latitude': { 'value': 35.0 }, 'time': { 'value': u'2010-01-16T12:00:00' }, 'longitude': { 'value': -137.0 }, 'level': { 'value': 85000.0 } } ], 'data': [ {'dset':'MERRA/mon/atmos','id':'v0:hur','domain':'r1'} ], 'operation': [u'CDTime.departures(v0,slice:t)']}
+        task_parms = dialect.getTaskRequestData( requestData )
         response = kernelMgr.run( TaskRequest( task=task_parms ) )
         result_data = response['results'][0]['data']
         pp.pprint(result_data)
