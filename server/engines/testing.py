@@ -57,10 +57,10 @@ class EngineTests(unittest.TestCase):
         result      = self.engine.execute( TaskRequest( request={ 'domain': self.cache_region, 'variable': self.getData() } ) )
         if isinstance( result, list ): result = result[0]
         exerec = ExecutionRecord(result['exerec'])
-        self.assertEqual( exerec.find( 'cache_add', 'cache_found_domain' ), self.cache_region )
+#        self.assertEqual( exerec.find( 'cache_add', 'cache_found_domain' ), self.cache_region )
 
 
-    def xtest02_departures(self):
+    def test02_departures(self):
         test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,
                         -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375,
                           8.750885009765625, 11.778228759765625, 12.852447509765625 ]
@@ -71,7 +71,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual( test_result, compute_result )
         self.assertStatusEquals( result, cache_found=Domain.COMPLETE, cache_found_domain=self.cache_region,  designated=True )
 
-    def xtest03_annual_cycle(self):
+    def test03_annual_cycle(self):
         test_result = [48.07984754774306, 49.218166775173614, 49.36114501953125, 46.40715196397569, 46.3406982421875, 44.37486775716146, 46.54383680555556, 48.780619303385414, 46.378028021918404, 46.693325466579864, 48.840003119574654, 46.627953423394096]
         task_args = self.getTaskArgs( op=self.getOp( 1 ) )
         result = self.engine.execute( TaskRequest( request=task_args ) )

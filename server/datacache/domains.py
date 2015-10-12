@@ -15,54 +15,72 @@ class RegionContainer(JSONObjectContainer):
     def newObject( self, spec ):
         return Region(spec)
 
-class Region(JSONObject):
 
+class CDAxis(JSONObject):
     LEVEL = 'lev'
     LATITUDE = 'lat'
     LONGITUDE = 'lon'
-    TIME = 'time'
+    TIME = 'tim'
+
+    def __init__( self, axis, values, **args ):
+        self.tolerance=0.001
+        self['config'] = {}
+        self['bounds'] = {}
+        self['axis'] = axis[0:3].lower()
+        self.process_spec( values )
+
+    def __eq__(self, axis ):
+        if axis is None: return False
+        if self['axis'] <> axis['axis']: return False
+        r0 = self['bounds']
+        r1 = axis['bounds']
+        if  ( len(r0) <> len(r1) ): return False
+        if self['axis'] == self.TIME:
+            for x0, x1 in zip(r0, r1):
+                if x0 <> x1: return False
+        else:
+            for x0, x1 in zip(r0, r1):
+                if ( abs(x1-x0) > self.tolerance ): return False
+        return True
+
+    def __ne__(self, axis ):
+        return not self.__eq__( axis )
+
+    def process_spec( self, values ):
+        if hasattr( values, '__iter__' ):
+            if isinstance( values, dict ):
+                try:
+                    start = values.get('start',None)
+                    end = values.get('end',None)
+                    if start == end:
+                        if start is None:
+                           start =  values.get('value',None)
+                           if start is None:
+                               wpsLog.error( "Error, no bounds specified for axis: %s " % values.keys() )
+                        self['bounds'] = [ start ]
+                    else:
+                        self['bounds'] = [ start, end ]
+                    self['config'] = filter_attributes( values, ['start','end','value'], False )
+                except KeyError:
+                    wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
+            else:
+                self['bounds'] = [ float(v) for v in values ] if self['axis'] <> Region.TIME else values
+        else:
+            try:
+                self['bounds'] = [ float(values) ] if self['axis'] <> Region.TIME else [ values ]
+            except Exception, err:
+                wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
+                axis_bounds = values
+
+class Region(JSONObject):
+
 
     AXIS_LIST = { 'y' : LATITUDE, 'x' : LONGITUDE, 'z' : LEVEL, 't' : TIME }
 
     def __init__( self, region_spec={}, **args ):
-        self.tolerance=0.001
+
         if isinstance( region_spec, Region ): region_spec = region_spec.items
         JSONObject.__init__( self, region_spec, **args )
-
-    @classmethod
-    def regularize( cls, axis, values ):
-        axis_spec = {'config':{},'bounds':[]}
-        if axis == Region.TIME:
-            axis_spec['bounds'] = values if hasattr( values, '__iter__' ) else [ values ]
-        else:
-            if hasattr( values, '__iter__' ):
-                if isinstance( values, dict ):
-                    try:
-                        if 'config' in values:
-                            axis_spec.update(values)
-                        else:
-                            start = values.get('start',None)
-                            end = values.get('end',None)
-                            if start == end:
-                                if start is None:
-                                   start =  values.get('value',None)
-                                   if start is None:
-                                       wpsLog.error( "Error, no bounds specified for axis: %s " % values.keys() )
-                                axis_spec['bounds'] = [ start ]
-                            else:
-                                axis_spec['bounds'] = [ start, end ]
-                            axis_spec['config'] = filter_attributes( values, ['start','end','value'], False )
-                    except KeyError:
-                        wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
-                else:
-                    axis_spec['bounds'] = [ float(v) for v in values ]
-            else:
-                try:
-                    axis_spec['bounds'] = [ float(values) ]
-                except Exception, err:
-                    wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
-                    axis_bounds = values
-            return axis_spec
 
     def getAxisRange( self, axis_name ):
         try:
@@ -82,7 +100,7 @@ class Region(JSONObject):
             if key in [ 'id', 'grid' ]:
                 self[key] = spec_item[1]
             else:
-                v = self.regularize( key, spec_item[1] )
+                v = spec_item[1] if isinstance( spec_item[1], CDAxis ) else CDAxis( spec_item[1] )
                 for axis in self.AXIS_LIST.itervalues():
                     if key.startswith(axis):
                         if not axes or axis in axes:
@@ -96,16 +114,7 @@ class Region(JSONObject):
                 pass
             else:
                 r1 = reqion1.getAxisRange( k0 )
-                if not r1: return False
-                if isinstance(r0,dict): r0 = r0['bounds']
-                if isinstance(r1,dict): r1 = r1['bounds']
-                if  ( len(r0) <> len(r1) ): return False
-                if k0 == self.TIME:
-                    for x0, x1 in zip(r0, r1):
-                        if x0 <> x1: return False
-                else:
-                    for x0, x1 in zip(r0, r1):
-                        if ( abs(x1-x0) > self.tolerance ): return False
+                if (r0 <> r1): return False
         return True
 
     def __ne__(self, reqion1 ):
@@ -114,7 +123,7 @@ class Region(JSONObject):
     def size(self):
         axis_count = 0
         for k,axis_spec in self.iteritems():
-             if not isinstance( axis_spec, basestring ):
+             if isinstance( axis_spec, CDAxis ):
                  axis_count = axis_count + 1
         return axis_count
 
@@ -124,9 +133,7 @@ class Region(JSONObject):
         for k,axis_spec in self.iteritems():
             if not active_axes or k in active_axes:
                 try:
-                    if isinstance( axis_spec, basestring ):
-                        pass
-                    elif not axis_spec is None:
+                    if isinstance( axis_spec, CDAxis ):
                         v = axis_spec['bounds']
                         c = axis_spec['config']
                         is_indexed = c.get('indices',False)

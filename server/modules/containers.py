@@ -11,7 +11,8 @@ class JSONObject:
     def load_spec( self, spec ):
         if isinstance( spec, JSONObject ): spec = spec.spec
         self.spec = {} if (spec is None) else convert_json_str( spec )
-        assert isinstance( self.spec, dict ), "Error, unrecognized JSONObject spec: %s " % str( spec)
+        if not isinstance( self.spec, dict ):
+            raise Exception( "Unrecognized JSONObject spec: " + str(spec) )
 
     @property
     def id(self):
@@ -58,8 +59,7 @@ class JSONObject:
 class JSONObjectContainer:
 
     def __init__( self, spec=None ):
-        if isinstance( spec, JSONObjectContainer ): spec = spec.spec
-        else: self.spec = spec
+        if ( isinstance( spec, JSONObjectContainer ) or isinstance( spec, JSONObject ) ): spec = spec.spec
         self._objects = []
         self.process_spec( spec )
 
