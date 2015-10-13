@@ -14,6 +14,9 @@ class JSONObject:
         if not isinstance( self.spec, dict ):
             raise Exception( "Unrecognized JSONObject spec: " + str(spec) )
 
+    def get_spec(self):
+        return self.items
+
     @property
     def id(self):
         return self.items.get( "id", None )
@@ -27,7 +30,7 @@ class JSONObject:
         self.items = dict( self.spec )
 
     def __str__( self ):
-        return dump_json_str(self.items)
+        return str(self.items)
 
     def __len__( self ):
         return len( self.items )

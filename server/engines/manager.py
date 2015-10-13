@@ -1,7 +1,7 @@
 from modules.module import Executable
 from modules.utilities import *
 from datacache.manager import CachedVariable
-from datacache.domains import Domain, Region
+from datacache.domains import Domain, Region, CDAxis
 from request.manager import TaskRequest
 import traceback
 
@@ -151,7 +151,7 @@ class ComputeEngine( Executable ):
                         cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, dataset )
                         wpsLog.debug( " Find Cached Domain, cached_var: %s, cached_domain: %s" % ( str(cached_var), str(cached_domain) ) )
                         if cached_domain is None:
-                            cache_axis_list = [Region.LEVEL] if operation else [Region.LEVEL, Region.LATITUDE, Region.LONGITUDE]
+                            cache_axis_list = [CDAxis.LEVEL] if operation else [CDAxis.LEVEL, CDAxis.LATITUDE, CDAxis.LONGITUDE]
                             cache_region = Region( op_region, axes=cache_axis_list )
                             cache_op_args = { 'region':cache_region.spec, 'data':str(dataset) }
                             tc0 = time.time()

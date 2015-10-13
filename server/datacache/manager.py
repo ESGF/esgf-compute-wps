@@ -235,7 +235,7 @@ class DataManager:
                 else:
                     variable = domain.getVariable()
                     data_specs['dataset']  = domain.spec.get( 'dataset', None )
-                    data_specs['region'] = str(domain.getRegion())
+                    data_specs['region'] = domain.getRegion()
                 data_specs['cid']  = var_cache_id
             else:
                 wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( data ) )
@@ -244,20 +244,20 @@ class DataManager:
             if (variable is None):
                 if (cache_type == CachedVariable.CACHE_NONE):
                     variable = dataset[name]
-                    data_specs['region'] = str(region)
+                    data_specs['region'] = region
                 else:
                     load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
-                    cache_region = Region( load_region, axes=[ Region.LATITUDE, Region.LONGITUDE, Region.LEVEL ] )
+                    cache_region = Region( load_region, axes=[ CDAxis.LATITUDE, CDAxis.LONGITUDE, CDAxis.LEVEL ] )
                     if dataset == None: dataset = self.loadFileFromCollection( collection, name )
                     variable = load_variable_region( dataset, name, cache_region.toCDMS() )
-                    data_specs['region'] = str(cache_region)
+                    data_specs['region'] = cache_region
                     self.persist_queue.put( ( variable.data, data_specs ) )
 
             else:
-                wpsLog.debug( " *** Loading data from cache, cached region= %s" % data_specs['region'] )
+                wpsLog.debug( " *** Loading data from cache, cached region= %s" % str(data_specs['region']) )
                 if (cache_type == CachedVariable.CACHE_OP) and (region is not None):
                     variable = subset_variable_region( variable, region.toCDMS() )
-                    data_specs['region'] = str(region)
+                    data_specs['region'] = region
 
             data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ] )
         else:

@@ -50,11 +50,10 @@ class KernelTests(unittest.TestCase):
 
     def test01_cache(self):
         cache_level = 85000.0
+        request_region = Region( { "lev": {"config":{},"bounds":[cache_level]} } )
         results = self.getResults( kernelMgr.run( TaskRequest( request={ 'domain': [ {"id":"r0", "level": cache_level } ], 'data': self.getData() } ) ) )
         result_stats = results[0]['result'][0]
-        cached_region = Region( json.loads(result_stats['region']) )
-        request_region = Region( { "lev": {"config":{},"bounds":[cache_level]} } )
-        test = (cached_region == request_region)
+        cached_region = result_stats['region']
         self.assertEqual(cached_region, request_region )
 
     def test02_departures(self):

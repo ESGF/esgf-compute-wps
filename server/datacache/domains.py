@@ -21,13 +21,29 @@ class CDAxis(JSONObject):
     LATITUDE = 'lat'
     LONGITUDE = 'lon'
     TIME = 'tim'
+    AXIS_LIST = { 'y' : LATITUDE, 'x' : LONGITUDE, 'z' : LEVEL, 't' : TIME }
 
-    def __init__( self, axis, values, **args ):
+    @classmethod
+    def getInstance(cls, axis_id, value):
+        if isinstance( value, CDAxis ): return value
+        axis = CDAxis()
+        axis.init( axis_id, value )
+        return axis
+
+    def init( self, axis, values, **args ):
+        JSONObject.__init__( self )
         self.tolerance=0.001
-        self['config'] = {}
-        self['bounds'] = {}
-        self['axis'] = axis[0:3].lower()
-        self.process_spec( values )
+        self.items['config'] = {}
+        self.items['bounds'] = {}
+        self.items['axis'] = axis[0:3].lower()
+        self.init_axis_items( values )
+
+    @classmethod
+    def is_axis(cls, spec):
+        return isinstance(spec,dict) and isinstance( spec.get('config',None), dict ) and isinstance( spec.get('bounds',None), list )
+
+    def __str__(self):
+        return JSONObject.__str__(self)
 
     def __eq__(self, axis ):
         if axis is None: return False
@@ -46,39 +62,39 @@ class CDAxis(JSONObject):
     def __ne__(self, axis ):
         return not self.__eq__( axis )
 
-    def process_spec( self, values ):
+    def init_axis_items( self, values ):
+        if values is None: return
         if hasattr( values, '__iter__' ):
             if isinstance( values, dict ):
-                try:
-                    start = values.get('start',None)
-                    end = values.get('end',None)
-                    if start == end:
-                        if start is None:
-                           start =  values.get('value',None)
-                           if start is None:
-                               wpsLog.error( "Error, no bounds specified for axis: %s " % values.keys() )
-                        self['bounds'] = [ start ]
-                    else:
-                        self['bounds'] = [ start, end ]
-                    self['config'] = filter_attributes( values, ['start','end','value'], False )
-                except KeyError:
-                    wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
+                if CDAxis.is_axis(values):
+                    self.items.update(values)
+                else:
+                    try:
+                        start = values.get('start',None)
+                        end = values.get('end',None)
+                        if start == end:
+                            if start is None:
+                               start =  values.get('value',None)
+                               if start is None:
+                                   wpsLog.error( "Error, no bounds specified for axis: %s " % values.keys() )
+                            self['bounds'] = [ start ]
+                        else:
+                            self['bounds'] = [ start, end ]
+                        self['config'] = filter_attributes( values, ['start','end','value'], False )
+                    except KeyError:
+                        wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
             else:
-                self['bounds'] = [ float(v) for v in values ] if self['axis'] <> Region.TIME else values
+                self['bounds'] = [ float(v) for v in values ] if self['axis'] <> CDAxis.TIME else values
         else:
             try:
-                self['bounds'] = [ float(values) ] if self['axis'] <> Region.TIME else [ values ]
+                self['bounds'] = [ float(values) ] if self['axis'] <> CDAxis.TIME else [ values ]
             except Exception, err:
                 wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
                 axis_bounds = values
 
 class Region(JSONObject):
 
-
-    AXIS_LIST = { 'y' : LATITUDE, 'x' : LONGITUDE, 'z' : LEVEL, 't' : TIME }
-
     def __init__( self, region_spec={}, **args ):
-
         if isinstance( region_spec, Region ): region_spec = region_spec.items
         JSONObject.__init__( self, region_spec, **args )
 
@@ -93,18 +109,19 @@ class Region(JSONObject):
     def process_spec(self, **args):
         axes = args.get('axes',None)
         slice = args.get('slice',None)
-        if slice: axes = [ item[1] if item[0] not in slice else None for item in self.AXIS_LIST.iteritems() ]
+        if slice: axes = [ item[1] if item[0] not in slice else None for item in CDAxis.AXIS_LIST.iteritems() ]
         if self.spec is None: self.spec = {}
         for spec_item in self.spec.items():
             key = spec_item[0].lower()
             if key in [ 'id', 'grid' ]:
                 self[key] = spec_item[1]
             else:
-                v = spec_item[1] if isinstance( spec_item[1], CDAxis ) else CDAxis( spec_item[1] )
-                for axis in self.AXIS_LIST.itervalues():
+                for axis in CDAxis.AXIS_LIST.itervalues():
                     if key.startswith(axis):
                         if not axes or axis in axes:
-                            self[axis] = v
+                            cdaxis = CDAxis.getInstance( key, spec_item[1] )
+                            self[axis] = cdaxis.get_spec()
+                            break
 
     def __eq__(self, reqion1 ):
         if reqion1 is None: return False
@@ -114,7 +131,7 @@ class Region(JSONObject):
                 pass
             else:
                 r1 = reqion1.getAxisRange( k0 )
-                if (r0 <> r1): return False
+                if (r0['bounds'] <> r1): return False
         return True
 
     def __ne__(self, reqion1 ):
@@ -123,7 +140,7 @@ class Region(JSONObject):
     def size(self):
         axis_count = 0
         for k,axis_spec in self.iteritems():
-             if isinstance( axis_spec, CDAxis ):
+             if CDAxis.is_axis( axis_spec ):
                  axis_count = axis_count + 1
         return axis_count
 
@@ -133,7 +150,7 @@ class Region(JSONObject):
         for k,axis_spec in self.iteritems():
             if not active_axes or k in active_axes:
                 try:
-                    if isinstance( axis_spec, CDAxis ):
+                    if CDAxis.is_axis( axis_spec ):
                         v = axis_spec['bounds']
                         c = axis_spec['config']
                         is_indexed = c.get('indices',False)

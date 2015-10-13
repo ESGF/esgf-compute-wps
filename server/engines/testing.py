@@ -11,7 +11,7 @@ class EngineTests(unittest.TestCase):
         self.test_point = [ -137.0, 35.0, 85000 ]
         self.test_time = '2010-01-16T12:00:00'
         self.operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
-        self.def_task_args =  { 'domain': self.getRegion(), 'variable': self.getData() }
+        self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData() }
         self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
         self.cache_region =  Region( { "lev": {"config":{},"bounds":[ self.test_point[2] ] } } )
 
