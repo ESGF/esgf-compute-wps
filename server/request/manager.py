@@ -9,10 +9,13 @@ class TaskManager:
 
     def getJsonResult( self, result_obj ):
         try:
-            result = result_obj.task if (result_obj.__class__.__name__ == 'TaskRequest') else result_obj
-            result_json = json.dumps( result )
+            results = result_obj.task if (result_obj.__class__.__name__ == 'TaskRequest') else result_obj
+            for result in results:
+                for key,value in result.iteritems():
+                    if type(value) not in [ dict, list, str, tuple ]: result[key] = str(value)
+            result_json = json.dumps( results )
         except Exception, err:
-            wpsLog.error( "\n Error parsing JSON response: %s \n" % str(err) )
+            wpsLog.error( "\n Error parsing JSON response: %s \n result= %s" % ( str(err), str(result) )  )
             result_json = "[]"
         return result_json
 

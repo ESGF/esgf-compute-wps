@@ -20,7 +20,7 @@ class CDAxis(JSONObject):
     LEVEL = 'lev'
     LATITUDE = 'lat'
     LONGITUDE = 'lon'
-    TIME = 'tim'
+    TIME = 'time'
     AXIS_LIST = { 'y' : LATITUDE, 'x' : LONGITUDE, 'z' : LEVEL, 't' : TIME }
 
     @classmethod
@@ -35,12 +35,17 @@ class CDAxis(JSONObject):
         self.tolerance=0.001
         self.items['config'] = {}
         self.items['bounds'] = {}
-        self.items['axis'] = axis[0:3].lower()
+        self.items['axis'] = CDAxis.identify_axis( axis )
         self.init_axis_items( values )
 
     @classmethod
     def is_axis(cls, spec):
         return isinstance(spec,dict) and isinstance( spec.get('config',None), dict ) and isinstance( spec.get('bounds',None), list )
+
+    @classmethod
+    def identify_axis( cls, axis_name ):
+        for axis_id in cls.AXIS_LIST.values():
+            if axis_name.lower().find( axis_id ) >= 0: return axis_id
 
     def __str__(self):
         return JSONObject.__str__(self)
@@ -76,7 +81,7 @@ class CDAxis(JSONObject):
                             if start is None:
                                start =  values.get('value',None)
                                if start is None:
-                                   wpsLog.error( "Error, no bounds specified for axis: %s " % values.keys() )
+                                   wpsLog.error( "Warning, no bounds specified for axis: %s " % str(values) )
                             self['bounds'] = [ start ]
                         else:
                             self['bounds'] = [ start, end ]
@@ -89,7 +94,7 @@ class CDAxis(JSONObject):
             try:
                 self['bounds'] = [ float(values) ] if self['axis'] <> CDAxis.TIME else [ values ]
             except Exception, err:
-                wpsLog.error( "Error, unknown region axis value: %s " % str(values) )
+                wpsLog.error( "Error, unknown region axis value: %s, axis: %s " % ( str(values), self['axis'] )  )
                 axis_bounds = values
 
 class Region(JSONObject):
@@ -156,7 +161,7 @@ class Region(JSONObject):
                         is_indexed = c.get('indices',False)
                         if isinstance( v, list ) or isinstance( v, tuple ):
                             if not is_indexed:
-                                if k == 'time':
+                                if k == CDAxis.TIME:
                                     kargs[str(k)] = ( str(v[0]), str(v[1]), "cob" ) if ( len( v ) > 1 ) else ( str(v[0]), str(v[0]), "cob" )
                                 else:
                                     kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )

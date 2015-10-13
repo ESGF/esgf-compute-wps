@@ -1,4 +1,4 @@
-import logging, time, os, json, numpy
+import logging, time, os, json, numpy, traceback
 
 LogDir = os.path.abspath( os.path.join( os.path.dirname(__file__), '../', 'logs' ) )
 DefaultLogLevel = logging.DEBUG
@@ -12,10 +12,16 @@ def get_json_arg( id, args, default=None ):
         return default if json_arg is None else str(json_arg)
 
 def convert_json_str( json_arg ):
-    try:
-        return json.loads( json_arg ) if isinstance(json_arg, basestring) else json_arg
-    except:
-        wpsLog.error( "Can't recognize json '%s' " % ( str(json_arg) ) )
+        if isinstance(json_arg, basestring):
+            try:
+                json_arg = str(json_arg).replace("u'","'")
+                return json.loads( json_arg )
+            except Exception, err:
+                wpsLog.error( "Can't recognize json '%s': %s" % ( str(json_arg), str(err) ) )
+                wpsLog.error( traceback.format_exc() )
+                return []
+        else:
+            return json_arg
 
 def dump_json_str( obj ):
     try:
