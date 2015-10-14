@@ -1,5 +1,5 @@
 import sys, json, time
-from modules.utilities import wpsLog
+from modules.utilities import *
 from modules import configuration
 
 class TaskManager:
@@ -10,10 +10,7 @@ class TaskManager:
     def getJsonResult( self, result_obj ):
         try:
             results = result_obj.task if (result_obj.__class__.__name__ == 'TaskRequest') else result_obj
-            result_list = results if isinstance( results, list ) else [ results ]
-            for result in result_list:
-                for key,value in result.iteritems():
-                    if type(value) not in [ dict, list, str, tuple ]: result[key] = str(value)
+            genericize( results )
             result_json = json.dumps( results )
         except Exception, err:
             wpsLog.error( "\n Error parsing JSON response: %s \n result= %s, results=%s" % ( str(err), str(result), str(results) )  )

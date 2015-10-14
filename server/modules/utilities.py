@@ -24,6 +24,12 @@ def convert_json_str( json_arg ):
         else:
             return json_arg
 
+def genericize( results ):
+    result_list = results if isinstance( results, list ) else [ results ]
+    for result in result_list:
+        for key,value in result.iteritems():
+            if type(value) not in [ dict, list, str, tuple ]: result[key] = str(value)
+
 def dump_json_str( obj ):
     try:
         return json.dumps( obj ) if not isinstance(obj, basestring) else obj

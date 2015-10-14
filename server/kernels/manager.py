@@ -92,8 +92,10 @@ class KernelManager:
                 wpsLog.debug( traceback.format_exc() )
                 response['error'] = str(err)
 
+        genericize( results )
         self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
         return response
+
 
     def shutdown(self):
         wpsLog.debug( "PERSIST (@shutdown) data and metadata " )
@@ -240,7 +242,7 @@ if __name__ == "__main__":
 
     def test_average():
         request_parameters = {'version': ['1.0.0'], 'service': ['WPS'], 'embedded': ['false'], 'rawDataOutput': ['result'], 'identifier': ['cdas'], 'request': ['Execute'] }
-        request_parameters['datainputs'] = ['region={"id":"r0","level":{"value":"100000"}};data={"name":"hur","collection":"MERRA/mon/atmos","id":"v0","domain":"r0"};operation=["CWT.average(v0,axis:xy)"]']
+        request_parameters['datainputs'] = ['domain={"id":"r0","level":{"value":"100000"}};variable={"collection":"MERRA/mon/atmos","id":"v0:hur","domain":"r0"};operation=["CWT.average(v0,axis:xy)"]']
         response = kernelMgr.run( TaskRequest( request=request_parameters ) )
         pp.pprint(response)
 
