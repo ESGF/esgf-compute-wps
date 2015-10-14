@@ -242,9 +242,10 @@ class Domain(Region):
             if cid:  self.stat['persist_id'] = '_'.join([ re.sub("[/:]","_",cid), str(int(10*time.time()))])
         if not persistenceManager.is_stored( self.stat ):
             data = self.getData()
-            persistenceManager.store( data, self.stat )
-            self.stat['shape'] = list(data.shape)
-            self.stat['dtype'] = data.dtype
+            if data is not None:
+                persistenceManager.store( data, self.stat )
+                self.stat['shape'] = list(data.shape)
+                self.stat['dtype'] = data.dtype
         flush = args.get('flush',False)
         if flush and self.stat['persist_id']:
             self._variable = None

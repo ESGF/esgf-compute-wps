@@ -208,6 +208,7 @@ if __name__ == "__main__":
         task_args = { 'region': getCacheRegion(), 'data': getData() }
         response = kernelMgr.run( TaskRequest( request=task_args ) )
         pp.pprint(response)
+        kernelMgr.persist()
 #        response = kernelMgr.run( TaskRequest( request=task_args ) )
 #        pp.pprint(response)
 
@@ -248,8 +249,7 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_api_cache()
-    test_api()
+    test_cache()
 #    test_utilities('domain.uncache')
 #    test_cache()
 
