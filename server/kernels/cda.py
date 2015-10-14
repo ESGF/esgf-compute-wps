@@ -1,9 +1,10 @@
 import os
 import json
 import random, traceback
-import cdms2
+import cdms2, cdutil, numpy
 from modules.utilities import *
 from modules.containers import *
+from modules import configuration
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
@@ -107,20 +108,66 @@ class CDASKernel:
     def run( self, subsetted_variables, metadata_recs, operation ):
         pass
 
-    def saveVariable(self,data,dest,type="json"):
-        cont = True
-        while cont:
-            rndm = random.randint(0,100000000000)
-            fout = os.path.join(BASE_DIR,"%i.nc" % rndm)
-            fjson = os.path.join(BASE_DIR,"%i.json" % rndm)
-            cont = os.path.exists(fout) or os.path.exists(fjson)
-        f=cdms2.open(fout,"w")
+    def saveVariable(self, data ):
+        varname = "var-%d.nc"%int(10*time.time())
+        data_file = os.path.join( configuration.CDAS_OUTGOING_DATA_DIR, varname )
+        data_url = configuration.CDAS_OUTGOING_DATA_URL + varname
+        f=cdms2.open(data_file,"w")
         f.write(data)
         f.close()
-        out = {}
-        out["url"] = "file:/"+fout
-        out["id"]=data.id
-        Fjson=open(fjson,"w")
-        json.dump(out,Fjson)
-        Fjson.close()
-        dest.setValue(fjson)
+        return data_url
+
+    def toList( self, result, missing ): # input_variable.getMissing()
+        time_axis = result.getTime()
+        if isinstance( result, float ):
+            result_data = [ result ]
+        elif result is not None:
+            if result.__class__.__name__ == 'TransientVariable':
+                result = numpy.ma.masked_equal( result.squeeze().getValue(), result.getMissing() )
+            result_data = result.tolist( numpy.nan )
+        else:
+            result_data = None
+        return result_data, time_axis
+
+    def getEmbedded( self, metadata ):
+        if isinstance( metadata, list ): metadata = metadata[0]
+        embedded = metadata.get('embedded',['f'])[0]
+        return ( embedded.lower()[0] == 't' )
+
+    def getResultObject(self, metadata_recs, result ):
+        result_mdata = metadata_recs[0]
+        embedded = self.getEmbedded( result_mdata )
+        if embedded:
+            result_data, time_axis  = self.toList( result )
+
+            if time_axis is not None:
+                try:
+                    time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
+                    time_data = time_axis.getValue().tolist()
+                    time_obj['t0'] = time_data[0]
+                    time_obj['dt'] = time_data[1] - time_data[0]
+                except Exception, err:
+                    time_obj['data'] = time_data
+                result_mdata['time'] = time_obj
+            result_mdata['data'] = result_data
+        else:
+            result_mdata['result.url'] = self.saveVariable( result )
+        return result_mdata
+
+    def setTimeBounds( self, var ):
+        time_axis = var.getTime()
+        if time_axis.bounds is None:
+            try:
+                time_unit = time_axis.units.split(' since ')[0].strip()
+                if time_unit == 'hours':
+                    values = time_axis.getValue()
+                    freq = 24/( values[1]-values[0] )
+                    cdutil.setTimeBoundsDaily( time_axis, freq )
+                elif time_unit == 'days':
+                    cdutil.setTimeBoundsDaily( time_axis )
+                elif time_unit == 'months':
+                    cdutil.setTimeBoundsMonthly( time_axis )
+                elif time_unit == 'years':
+                    cdutil.setTimeBoundsYearly( time_axis )
+            except Exception, err:
+                wpsLog.debug( "Exception in setTimeBounds:\n " + traceback.format_exc() )

@@ -371,7 +371,7 @@ class DomainManager:
         if len( contained_list ) > 0:
             return Domain.CONTAINED, self.findSmallestDomain( contained_list )
         if len( overlap_list ) > 0:
-            return Domain.OVERLAP, overlap_list
+            return Domain.OVERLAP, overlap_list[0]
         else: return Domain.DISJOINT, None
 
     def uncache( self, region ):

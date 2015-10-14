@@ -16,6 +16,9 @@ CDAS_COMPUTE_ENGINE = 'multiproc'
 #CDAS_COMPUTE_ENGINE = 'serial'
 #CDAS_COMPUTE_ENGINE = 'mpi'
 
+CDAS_OUTGOING_DATA_DIR='/Developer/Projects/EclipseWorkspace/CreateV/source/climateinspector/web/data'
+CDAS_OUTGOING_DATA_URL='http://localhost:8002/data/'
+
 CDAS_NUM_WORKERS = 2
 
 CDAS_DATA_CACHE = 'default'

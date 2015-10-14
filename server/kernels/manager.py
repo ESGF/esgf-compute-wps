@@ -17,6 +17,7 @@ class KernelManager:
     def getKernelInputs( self, operation, request ):
         read_start_time = time.time()
         use_cache =  request['cache']
+        embedded = request.getRequestArg('embedded')
         regions = request.region
         cache_type = CachedVariable.getCacheType( use_cache, operation )
         variables = []
@@ -43,6 +44,7 @@ class KernelManager:
                     variable = numpy.ma.fix_invalid( variable( **subset_args ) )
         #            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))
                 data_spec['data.region'] = region
+                data_spec['embedded'] = embedded
                 variables.append( variable )
                 data_specs.append( data_spec )
             else:
@@ -58,6 +60,7 @@ class KernelManager:
         response = {}
         response['rid'] = task_request.rid
         response['wid'] = self.dataManager.getName()
+#        wpsLog.debug( " $$$ Kernel received task_request, embedded =  %s, task = %s" % ( str(embedded), str(task_request) ) )
         results = []
         response['results'] = results
         start_time = time.time()
@@ -235,6 +238,12 @@ if __name__ == "__main__":
         result_data = response['results'][1]['data']
         pp.pprint(result_data)
 
+    def test_average():
+        request_parameters = {'version': ['1.0.0'], 'service': ['WPS'], 'embedded': ['false'], 'rawDataOutput': ['result'], 'identifier': ['cdas'], 'request': ['Execute'] }
+        request_parameters['datainputs'] = ['region={"id":"r0","level":{"value":"100000"}};data={"name":"hur","collection":"MERRA/mon/atmos","id":"v0","domain":"r0"};operation=["CWT.average(v0,axis:xy)"]']
+        response = kernelMgr.run( TaskRequest( request=request_parameters ) )
+        pp.pprint(response)
+
     def test_new_api():
         requestData = {'config': {'cache': True}, 'domain': [ {'id':'r1','latitude': { 'value': 35.0 }, 'time': { 'value': u'2010-01-16T12:00:00' }, 'longitude': { 'value': -137.0 }, 'level': { 'value': 85000.0 } } ], 'data': [ {'dset':'MERRA/mon/atmos','id':'v0:hur','domain':'r1'} ], 'operation': [u'CDTime.departures(v0,slice:t)']}
         task_parms = dialect.getTaskRequestData( requestData )
@@ -249,7 +258,7 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_cache()
+    test_average()
 #    test_utilities('domain.uncache')
 #    test_cache()
 

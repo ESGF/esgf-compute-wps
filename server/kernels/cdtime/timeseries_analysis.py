@@ -47,25 +47,26 @@ class TimeseriesAnalytics( CDASKernel ):
     def run( self, subsetted_variables, metadata_recs, operation ):
         try:
             start_time = time.time()
-            result_obj = metadata_recs[0]
             ( result_data, time_axis ) = self.applyOperation( subsetted_variables, operation )
-            #            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
-            if time_axis is not None:
-                try:
-                    time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
-                    time_data = time_axis.getValue().tolist()
-                    time_obj['t0'] = time_data[0]
-                    time_obj['dt'] = time_data[1] - time_data[0]
-                except Exception, err:
-                    time_obj['data'] = time_data
-                result_obj['time'] = time_obj
-            result_obj['data'] = result_data
             end_time = time.time()
+            result_obj = self.getResultObject( metadata_recs, time_axis, result_data )
             wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(result_obj["data.region"]), (end_time-start_time) ) )
-
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
+        return result_obj
 
+    def getResultObject(self, metadata_recs, time_axis, result_data ):
+        result_obj = metadata_recs[0]
+        if time_axis is not None:
+            try:
+                time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
+                time_data = time_axis.getValue().tolist()
+                time_obj['t0'] = time_data[0]
+                time_obj['dt'] = time_data[1] - time_data[0]
+            except Exception, err:
+                time_obj['data'] = time_data
+            result_obj['time'] = time_obj
+        result_obj['data'] = result_data
         return result_obj
 
     def applyOperation( self, input_variables, operation ):
@@ -168,25 +169,6 @@ class TimeseriesAnalytics( CDASKernel ):
         t1 = time.time()
         wpsLog.debug( " $$$ Applied Operation: %s to variable shape %s in time %.4f, result shape = %s" % ( str( operation ), str(input_variable.shape), (t1-t0), rshape  ) )
         return ( rv, time_axis )
-
-    def setTimeBounds( self, var ):
-        time_axis = var.getTime()
-        if time_axis.bounds is None:
-            try:
-                time_unit = time_axis.units.split(' since ')[0].strip()
-                if time_unit == 'hours':
-                    values = time_axis.getValue()
-                    freq = 24/( values[1]-values[0] )
-                    cdutil.setTimeBoundsDaily( time_axis, freq )
-#                    cdutil.setTimeBoundsDaily( time_axis )
-                elif time_unit == 'days':
-                    cdutil.setTimeBoundsDaily( time_axis )
-                elif time_unit == 'months':
-                    cdutil.setTimeBoundsMonthly( time_axis )
-                elif time_unit == 'years':
-                    cdutil.setTimeBoundsYearly( time_axis )
-            except Exception, err:
-                wpsLog.debug( "Exception in setTimeBounds:\n " + traceback.format_exc() )
 
 
 if __name__ == "__main__":
