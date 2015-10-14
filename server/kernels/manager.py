@@ -221,16 +221,15 @@ if __name__ == "__main__":
         response    = kernelMgr.run( TaskRequest( request={ 'region': {'level': 85000}, 'data': getData() } ) )
         pp.pprint(response)
 
-
     def test_api_cache():
         request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
-        request_parameters['datainputs'] = [u'region={"level":"100000"};data={ "MERRA/mon/atmos":["v0:hur"]}']
+        request_parameters['datainputs'] = [u'region={"id":"r0","level":{"value":"100000"}};data={"name":"hur","collection":"MERRA/mon/atmos","id":"v0","domain":"r0"}']
         response = kernelMgr.run( TaskRequest( request=request_parameters ) )
         pp.pprint(response)
 
     def test_api():
         request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
-        request_parameters['datainputs'] = [u'[region={"longitude":-108.3,"latitude":-23.71042633056642,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["CDTime.departures(v0,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)","CDTime.value(v0)"]']
+        request_parameters['datainputs'] = [u'region={"id":"r0","level":{"value":"100000"}};data={"name":"hur","collection":"MERRA/mon/atmos","id":"v0","domain":"r0"};operation=["CDTime.departures(v0,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)","CDTime.value(v0)"]']
         response = kernelMgr.run( TaskRequest( request=request_parameters ) )
         result_data = response['results'][1]['data']
         pp.pprint(result_data)
@@ -249,7 +248,8 @@ if __name__ == "__main__":
      #    result_data = results[1]['data']
      #    pp.pprint(result_data)
 
-    test_new_api()
+    test_api_cache()
+    test_api()
 #    test_utilities('domain.uncache')
 #    test_cache()
 

@@ -15,9 +15,10 @@ def convert_json_str( json_arg ):
         if isinstance(json_arg, basestring):
             try:
                 json_arg = str(json_arg).replace("u'","'")
+                json_arg = str(json_arg).replace("'",'"')
                 return json.loads( json_arg )
             except Exception, err:
-                wpsLog.error( "Can't recognize json '%s': %s" % ( str(json_arg), str(err) ) )
+                wpsLog.error( "Can't recognize json: <%s>: %s" % ( str(json_arg), str(err) ) )
                 wpsLog.error( traceback.format_exc() )
                 return []
         else:

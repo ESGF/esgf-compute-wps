@@ -82,9 +82,9 @@ class CDAxis(JSONObject):
                                start =  values.get('value',None)
                                if start is None:
                                    wpsLog.error( "Warning, no bounds specified for axis: %s " % str(values) )
-                            self['bounds'] = [ start ]
+                            self['bounds'] = [ float(start) ]
                         else:
-                            self['bounds'] = [ start, end ]
+                            self['bounds'] = [ float(start), float(end) ]
                         self['config'] = filter_attributes( values, ['start','end','value'], False )
                     except KeyError:
                         wpsLog.error( "Error, can't recognize region values keys: %s " % values.keys() )
