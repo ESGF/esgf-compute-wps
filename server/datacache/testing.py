@@ -17,7 +17,6 @@ def getVariable( ivar, cache_level ):
     return dset( id, level=cache_level )  #, latitude=[self.cache_lat,self.cache_lat,'cob'] )
 
 CacheLevel = 10000.0
-TestVariable = getVariable( 0, CacheLevel )
 
 class PersistenceTests(unittest.TestCase):
 
@@ -39,6 +38,7 @@ class PersistenceTests(unittest.TestCase):
 
     def xtest02_domain_cache(self):
         from datacache.domains import Domain
+        TestVariable = getVariable( 0, CacheLevel )
         data_chunk = TestVariable.data
         domain = Domain( { 'level': CacheLevel }, TestVariable )  # , 'latitude': self.cache_lat
         domain.persist()

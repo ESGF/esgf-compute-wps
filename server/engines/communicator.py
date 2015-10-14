@@ -161,7 +161,7 @@ class ComputeEngineCommunicator:
         import subprocess, signal
         proc_specs = subprocess.check_output('ps').split('\n')
         for proc_spec in proc_specs:
-            if ('pydev' in proc_spec) or ('utrunner' in proc_spec) or ('WPCDAS' in proc_spec):
+            if ('pydev' in proc_spec) or ('utrunner' in proc_spec) or ('WPCDAS' in proc_spec) or ('manage.py' in proc_spec):
                 pid = int( proc_spec.split()[0] )
                 if pid <> os.getpid():
                     os.kill( pid, signal.SIGKILL )
