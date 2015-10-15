@@ -66,8 +66,8 @@ class TaskRequest:
 
     def __str__(self): return "TR-%s" % str(self.task)
 
-    def getRequestArg( self, id ):
-        return self.task.get( id, None )
+    def getRequestArg( self, id, default=None ):
+        return self.task.get( id, default )
 
     @property
     def rid(self):

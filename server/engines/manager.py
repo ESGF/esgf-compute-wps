@@ -122,7 +122,7 @@ class ComputeEngine( Executable ):
             t0 = time.time()
             self.invocation_index += 1
             operation = task_request.operations.values
-            embedded = compute_args.get( 'embedded', False )
+            embedded = task_request.getRequestArg( 'embedded', False )
             async = compute_args.get( 'async', not embedded )
             wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, embedded: %s, request: %s" % ( t0, async, embedded, str(task_request) ) )
 
