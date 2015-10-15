@@ -17,6 +17,11 @@ class MultiprocTaskMonitor(TaskMonitor):
     def __str__(self):
         return "%s: %s" % ( TaskMonitor.__str__(self), str(self.stats) )
 
+    def genericize(self):
+        stat = dict(self.stats)
+        stat['rid'] = self._request_id
+        return stat
+
     def push_response(self,response):
         self.responses.appendleft( response )
 

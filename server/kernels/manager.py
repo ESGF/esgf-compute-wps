@@ -14,10 +14,11 @@ class KernelManager:
     def persistStats( self, **args ):
         self.dataManager.persistStats( **args )
 
-    def getKernelInputs( self, operation, request ):
+    def getKernelInputs( self, operation, op_index, request ):
         read_start_time = time.time()
         use_cache =  request['cache']
         embedded = request.getRequestArg('embedded')
+        result_names = request['result_names']
         regions = request.region
         cache_type = CachedVariable.getCacheType( use_cache, operation )
         variables = []
@@ -38,6 +39,7 @@ class KernelManager:
                     dslice = operation.get('slice',None)
                     if dslice: region = Region( region, slice=dslice )
                 variable, data_spec = self.dataManager.loadVariable( data, region, cache_type )
+                data_spec['missing'] = variable.getMissing()
                 cached_region = Region( data_spec['region'] )
                 if (region is not None) and (cached_region <> region):
                     subset_args = region.toCDMS()
@@ -45,12 +47,13 @@ class KernelManager:
         #            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))
                 data_spec['data.region'] = region
                 data_spec['embedded'] = embedded
+                if result_names is not None: data_spec['result_name'] = result_names[ op_index ]
                 variables.append( variable )
                 data_specs.append( data_spec )
             else:
                 raise Exception( "Can't find data matching operation input '%s'", inputID)
         read_end_time = time.time()
-        wpsLog.debug( " $$$ DATA READ Complete: %s " % ( str(read_end_time-read_start_time) ) )
+        wpsLog.debug( " $$$ DATA READ Complete: %.2f, data_specs: %s " % ( (read_end_time-read_start_time), str(data_specs) ) )
         return variables, data_specs
 
     def persist( self, **args ):
@@ -60,7 +63,6 @@ class KernelManager:
         response = {}
         response['rid'] = task_request.rid
         response['wid'] = self.dataManager.getName()
-#        wpsLog.debug( " $$$ Kernel received task_request, embedded =  %s, task = %s" % ( str(embedded), str(task_request) ) )
         results = []
         response['results'] = results
         start_time = time.time()
@@ -80,8 +82,8 @@ class KernelManager:
                 wpsLog.debug( "---"*50 + "\n $$$ Kernel Manager START NEW TASK[%.4f]: request = %s \n" % ( time.time()%1000.0, str(task_request) ) )
                 operations =  task_request.operations
                 operations_list = [None] if (operations.value is None) else operations.values
-                for operation in operations_list:
-                    variables, metadata_recs = self.getKernelInputs( operation, task_request )
+                for op_index, operation in enumerate(operations_list):
+                    variables, metadata_recs = self.getKernelInputs( operation, op_index, task_request )
                     kernel = self.getKernel( operation )
                     result = kernel.run( variables, metadata_recs, operation ) if kernel else { 'result': metadata_recs }
                     results.append( result )

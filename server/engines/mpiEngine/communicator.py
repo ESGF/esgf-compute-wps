@@ -15,6 +15,11 @@ class MpiTaskMonitor(TaskMonitor):
         self._status = "NONE"
         self.responses = deque()
 
+    def genericize(self):
+        stat = dict(self.stats)
+        stat['rid'] = self._request_id
+        return stat
+
     def __str__(self):
         return "%s: %s" % ( TaskMonitor.__str__(self), str(self.stats) )
 

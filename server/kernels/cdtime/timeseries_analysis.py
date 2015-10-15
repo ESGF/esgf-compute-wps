@@ -44,33 +44,20 @@ class TimeseriesAnalytics( CDASKernel ):
         wpsLog.debug( "Computed seasonal cycle, time = %.4f, result:\n %s" % ( (t1-t0), str(acycle) ) )
         return ma.array(acycle)
 
-    def run( self, subsetted_variables, metadata_recs, operation ):
-        try:
-            start_time = time.time()
-            ( result_data, time_axis ) = self.applyOperation( subsetted_variables, operation )
-            end_time = time.time()
-            result_obj = self.getResultObject( metadata_recs, time_axis, result_data )
-            wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(result_obj["data.region"]), (end_time-start_time) ) )
-        except Exception, err:
-            wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
-        return result_obj
-
-    def getResultObject(self, metadata_recs, time_axis, result_data ):
-        result_obj = metadata_recs[0]
-        if time_axis is not None:
-            try:
-                time_obj = record_attributes( time_axis, [ 'units', 'calendar' ] )
-                time_data = time_axis.getValue().tolist()
-                time_obj['t0'] = time_data[0]
-                time_obj['dt'] = time_data[1] - time_data[0]
-            except Exception, err:
-                time_obj['data'] = time_data
-            result_obj['time'] = time_obj
-        result_obj['data'] = result_data
-        return result_obj
+    # def run( self, subsetted_variables, metadata_recs, operation ):
+    #     try:
+    #         start_time = time.time()
+    #         ( result_data, time_axis ) = self.applyOperation( subsetted_variables, operation )
+    #         end_time = time.time()
+    #         result_obj = self.getResultObject( metadata_recs, time_axis, result_data )
+    #         wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(result_obj["data.region"]), (end_time-start_time) ) )
+    #     except Exception, err:
+    #         wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
+    #     return result_obj
 
     def applyOperation( self, input_variables, operation ):
         result = None
+        result_mdata = {}
         rshape = None
         t0 = time.time()
         input_variable = input_variables[0]
@@ -168,7 +155,8 @@ class TimeseriesAnalytics( CDASKernel ):
         rv = input_variable if result is None else result_data
         t1 = time.time()
         wpsLog.debug( " $$$ Applied Operation: %s to variable shape %s in time %.4f, result shape = %s" % ( str( operation ), str(input_variable.shape), (t1-t0), rshape  ) )
-        return ( rv, time_axis )
+        result_mdata['time'] = time_axis
+        return ( rv, result_mdata )
 
 
 if __name__ == "__main__":

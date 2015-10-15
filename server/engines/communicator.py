@@ -18,6 +18,9 @@ class TaskMonitor:
     def __str__(self):
         return "TaskMonitor[%s:%x]" % ( self._request_id, id(self) )
 
+    def genericize(self):
+        return { 'id': self._request_id }
+
     @property
     def rid(self):
         return self._request_id
@@ -170,3 +173,4 @@ class ComputeEngineCommunicator:
 
 if __name__ == '__main__':
     ComputeEngineCommunicator.kill_all_zombies()
+    print "Done with kill_all_zombies!"

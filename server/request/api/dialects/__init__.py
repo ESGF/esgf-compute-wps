@@ -5,7 +5,7 @@ class WPSDialect:
 
     def __init__(self,id):
         self.id = id
-        self.dataInputKeys = [ 'data', 'region', 'operation', 'domain', 'variable' ]
+        self.dataInputKeys = [ 'data', 'region', 'operation', 'domain', 'variable', 'embedded', 'async' ]
         self.aliases = { 'variable':'data', 'domain':'region' }
 
     def getTaskRequestData( self, request_params ):

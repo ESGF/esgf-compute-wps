@@ -9,11 +9,11 @@ class TaskManager:
 
     def getJsonResult( self, result_obj ):
         try:
-            results = result_obj.task if (result_obj.__class__.__name__ == 'TaskRequest') else result_obj
+            results = result_obj.genericize() if hasattr( result_obj, 'genericize' ) else result_obj
             genericize( results )
             result_json = json.dumps( results )
         except Exception, err:
-            wpsLog.error( "\n Error parsing JSON response: %s \n result= %s, results=%s" % ( str(err), str(result), str(results) )  )
+            wpsLog.error( "\n Error parsing JSON response: %s \n results=%s" % ( str(err), str(results) )  )
             result_json = "[]"
         return result_json
 
@@ -60,6 +60,9 @@ class TaskRequest:
         cache_val = config_args.setdefault( 'cache', True )
         utility = args.get( 'utility', None )
         if utility: config_args['utility'] = utility
+
+    def genericize(self):
+        return self.task
 
     def __str__(self): return "TR-%s" % str(self.task)
 

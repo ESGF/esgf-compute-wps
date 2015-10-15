@@ -25,10 +25,13 @@ def convert_json_str( json_arg ):
             return json_arg
 
 def genericize( results ):
-    result_list = results if isinstance( results, list ) else [ results ]
-    for result in result_list:
-        for key,value in result.iteritems():
-            if type(value) not in [ dict, list, str, tuple ]: result[key] = str(value)
+    try:
+        result_list = results if isinstance( results, list ) else [ results ]
+        for result in result_list:
+            for key,value in result.iteritems():
+                if type(value) not in [ dict, list, str, tuple ]: result[key] = str(value)
+    except Exception, err:
+        wpsLog.error( "Error in genericize: '%s' " % ( str(err) ) )
 
 def dump_json_str( obj ):
     try:

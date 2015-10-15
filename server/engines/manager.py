@@ -3,6 +3,7 @@ from modules.utilities import *
 from datacache.manager import CachedVariable
 from datacache.domains import Domain, Region, CDAxis
 from request.manager import TaskRequest
+from modules import configuration
 import traceback
 
 executionRecord = ExecutionRecord()
@@ -15,6 +16,7 @@ class ComputeEngine( Executable ):
         self.pendingTasks = {}
         self.cachedVariables = {}
         self.restore()
+        self.invocation_index = 0
 
     def getCommunicator(self):
         return None
@@ -118,9 +120,11 @@ class ComputeEngine( Executable ):
     def execute( self, task_request, **compute_args ):
         try:
             t0 = time.time()
+            self.invocation_index += 1
             operation = task_request.operations.values
-            async = compute_args.get( 'async', ( not bool(operation) ) )
-            wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, request: %s" % ( t0, async, str(task_request) ) )
+            embedded = compute_args.get( 'embedded', False )
+            async = compute_args.get( 'async', not embedded )
+            wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, embedded: %s, request: %s" % ( t0, async, embedded, str(task_request) ) )
 
             executionRecord.clear()
             cache_task_request = None
@@ -175,11 +179,15 @@ class ComputeEngine( Executable ):
 
             if operation:
                 t2 = time.time()
-
                 if designated_worker is None:
                     designated_worker = self.communicator.getNextWorker()
                 else:
                     executionRecord.addRecs( designated= True, designated_worker= designated_worker )
+
+                if async:
+                    op_index = int(100*time.time())
+                    result_names = [ "r%d-%d-%d.nc"%(ivar,self.invocation_index,op_index) for ivar in range(len(operation)) ]
+                    task_request['result_names'] = result_names
 
                 task_monitor = self.communicator.submitTask( task_request, designated_worker )
                 op_domain = cached_var.addDomain( op_region )
@@ -187,7 +195,9 @@ class ComputeEngine( Executable ):
                 task_monitor.addStats( exerec=executionRecord.toJson() )
 
                 wpsLog.debug( " ***** Sending operation [rid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): request= %s " %  ( task_monitor.rid, str(designated_worker), t2, t2-t0, str(task_request) ) )
-                if async: return task_monitor
+                if async:
+                    task_monitor.addStats( result_names=result_names, result_url=configuration.CDAS_OUTGOING_DATA_URL  )
+                    return task_monitor
 
                 results = self.processOpTask( task_monitor )
                 return results
@@ -205,6 +215,7 @@ class ComputeEngine( Executable ):
             wpsLog.error(" Error running compute engine: %s\n %s " % ( str(err), traceback.format_exc()  ) )
             return err
 
+
 if __name__ == '__main__':
 
     from engines import engineRegistry
@@ -221,20 +232,20 @@ if __name__ == '__main__':
     def getCacheRegion():
         return '{ "level": %.2f }' % (test_point[2])
 
-    def getData( vars=[0]):
-        var_list = ','.join( [ ( '"v%d:%s"' % ( ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
-        data = '{"%s":[%s]}' % ( MERRA_TEST_VARIABLES["collection"], var_list )
+    def getData(vars=[0]):
+        var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( MERRA_TEST_VARIABLES["collection"], ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
+        data = '[%s]' % ( var_list )
         return data
 
     def getTaskArgs( op ):
-        task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op) }
+        task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op), 'async':True }
         return task_args
 
     def getCacheTaskArgs( ):
         task_args = { 'region': getCacheRegion(), 'data': getData() }
         return task_args
 
-    run_cache = True
+    run_cache = False
     run_op    = True
     engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
 
@@ -242,17 +253,17 @@ if __name__ == '__main__':
         print " Running cache operation "
         ct0 = time.time()
         ctask_args = getCacheTaskArgs()
-        ctask      = engine.execute( TaskRequest( request=ctask_args ), async=False )
+        ctask      = engine.execute( TaskRequest( request=ctask_args ), precache=False )
         ct1 = time.time()
         print " Completed cache in %.2f sec " %  (ct1-ct0)
 
     if run_op:
         print " Running departures operation "
         t0 = time.time()
-        task_args = getTaskArgs( op=operations[ 0:1 ] )
+        task_args = getTaskArgs( op=operations[ 0:2 ] )
         results = engine.execute( TaskRequest( request=task_args ) )
         t1 = time.time()
-        print " Completed op in %.2f sec, data = %s " % ( (t1-t0), str( results[0] ) )
+        print " Completed op in %.2f sec, data = %s " % ( (t1-t0), str( results ) )
 
     control_input = raw_input("Type <return> to continue. ")
 

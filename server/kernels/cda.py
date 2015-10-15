@@ -28,6 +28,18 @@ class Aliases:
                 key_map[ alt_key ] = key_map[ key_alias ]
                 if clear_old: del key_map[ key_alias ]
 
+def getRawValue( metadata, key, default ):
+    if isinstance( metadata, list ): metadata = metadata[0]
+    value = metadata.get( key, default )
+    if isinstance( value, list ): value = value[0]
+    return value
+
+def getBoolValue( metadata, key, default ):
+    value = getRawValue( metadata, key, default )
+    return ( value.lower()[0] == 't' ) if isinstance( value, str ) else bool(value)
+
+def getFloatValue( metadata, key, default ):
+    return float( getRawValue( metadata, key, default ) )
 
 class DatasetContainer(JSONObjectContainer):
 
@@ -104,41 +116,58 @@ class CDASKernel:
         self.name = name
         self.use_cache = args.get( 'cache', True )
 
+    def applyOperation( self, input_variables, operation ):
+        wpsLog.error( "Unimplemented applyOperation method in class %s" + self.__class__.__name__ )
 
     def run( self, subsetted_variables, metadata_recs, operation ):
-        pass
+        result_obj = None
+        try:
+            start_time = time.time()
+            self.setBounds(subsetted_variables)
+            result, result_mdata  = self.applyOperation( subsetted_variables, operation )
+            result_obj = self.getResultObject( metadata_recs, result, result_mdata  )
+            end_time = time.time()
+            wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(result_obj["data.region"]), (end_time-start_time) ) )
+        except Exception, err:
+            wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
+        return result_obj
 
-    def saveVariable(self, data ):
-        varname = "var-%d.nc"%int(10*time.time())
+    def setBounds(self, input_variables ):
+        for input_variable in input_variables:
+            self.setTimeBounds( input_variable )
+
+    def saveVariable(self, data, varname ):
         data_file = os.path.join( configuration.CDAS_OUTGOING_DATA_DIR, varname )
         data_url = configuration.CDAS_OUTGOING_DATA_URL + varname
         f=cdms2.open(data_file,"w")
         f.write(data)
         f.close()
+        wpsLog.debug( "Saved result to file: '%s', url: '%s' " % ( data_file, data_url ) )
         return data_url
 
-    def toList( self, result, missing ): # input_variable.getMissing()
-        time_axis = result.getTime()
+    def toList( self, result, missing=None ):
         if isinstance( result, float ):
             result_data = [ result ]
         elif result is not None:
             if result.__class__.__name__ == 'TransientVariable':
-                result = numpy.ma.masked_equal( result.squeeze().getValue(), result.getMissing() )
+                if missing is None: missing = result.getMissing()
+                result = numpy.ma.masked_equal( result.squeeze().getValue(), missing )
             result_data = result.tolist( numpy.nan )
         else:
             result_data = None
-        return result_data, time_axis
+        return result_data
 
-    def getEmbedded( self, metadata ):
-        if isinstance( metadata, list ): metadata = metadata[0]
-        embedded = metadata.get('embedded',['f'])[0]
-        return ( embedded.lower()[0] == 't' )
-
-    def getResultObject(self, metadata_recs, result ):
-        result_mdata = metadata_recs[0]
-        embedded = self.getEmbedded( result_mdata )
+    def getResultObject(self, request_mdatas, result, result_mdata ):
+        request_mdata = request_mdatas[0]
+        embedded = getBoolValue( request_mdata,'embedded', False )
         if embedded:
-            result_data, time_axis  = self.toList( result )
+            missing = getFloatValue( request_mdata,'missing', None )
+            if type( result ) in ( list, tuple, dict, float, int ):
+                result_data = result
+                time_axis = result_mdata['time']
+            else:
+                time_axis = result.getTime()
+                result_data = self.toList( result, missing )
 
             if time_axis is not None:
                 try:
@@ -148,11 +177,11 @@ class CDASKernel:
                     time_obj['dt'] = time_data[1] - time_data[0]
                 except Exception, err:
                     time_obj['data'] = time_data
-                result_mdata['time'] = time_obj
-            result_mdata['data'] = result_data
+                request_mdata['time'] = time_obj
+            request_mdata['data'] = result_data
         else:
-            result_mdata['result.url'] = self.saveVariable( result )
-        return result_mdata
+            request_mdata['result.url'] = self.saveVariable( result, request_mdata['result_name'] )
+        return request_mdata
 
     def setTimeBounds( self, var ):
         time_axis = var.getTime()

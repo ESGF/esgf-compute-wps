@@ -11,7 +11,7 @@ class EngineTests(unittest.TestCase):
         self.test_point = [ -137.0, 35.0, 85000 ]
         self.test_time = '2010-01-16T12:00:00'
         self.operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
-        self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData() }
+        self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData(), 'embedded': True }
         self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
         self.cache_region =  Region( { "lev": {"config":{},"bounds":[ self.test_point[2] ] } } )
 
@@ -41,7 +41,8 @@ class EngineTests(unittest.TestCase):
     def getResultData( self, results, index=0 ):
         if isinstance( results, Exception ):
             raise results
-        return results[index]['data']
+        rdata = results[index].get( 'data', None )
+        return None if (rdata is None) else ( [ float(rd) for rd in rdata ] if hasattr( rdata, '__iter__' ) else float(rdata) )
 
     def getResultStats( self, results, index=0 ):
         if isinstance( results, Exception ):
@@ -87,11 +88,11 @@ class EngineTests(unittest.TestCase):
         test_results = [ [ -1.405364990234375, -1.258880615234375, 0.840728759765625 ], [48.07984754774306, 49.218166775173614, 49.36114501953125], 59.765625 ]
         task_args = self.getTaskArgs( op=self.operations )
         results = self.engine.execute( TaskRequest( request=task_args ) )
-        for ir, result in enumerate(results):
-            result_data = self.getResultData( results, ir )
+        for ir in range(len(results)):
+            rdata = self.getResultData( results, ir )
             test_result = test_results[ir]
-            if hasattr( test_result, '__iter__' ):  self.assertEqual( test_result, result_data[0:len(test_result)] )
-            else:                                   self.assertEqual( test_result, result_data )
+            if hasattr( test_result, '__iter__' ):  self.assertEqual( test_result, rdata[0:len(test_result)] )
+            else:                                   self.assertEqual( test_result, rdata )
 
 if __name__ == '__main__':
     test_runner = unittest.TextTestRunner(verbosity=2)
