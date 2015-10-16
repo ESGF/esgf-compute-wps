@@ -155,9 +155,9 @@ class ComputeEngine( Executable ):
                         cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, dataset )
                         wpsLog.debug( " Find Cached Domain, cached_var: %s, cached_domain: %s" % ( str(cached_var), str(cached_domain) ) )
                         if cached_domain is None:
-                            cache_axis_list = [CDAxis.LEVEL] if operation else [CDAxis.LEVEL, CDAxis.LATITUDE, CDAxis.LONGITUDE]
-                            cache_region = Region( op_region, axes=cache_axis_list )
-                            cache_op_args = { 'region':cache_region.spec, 'data':str(dataset) }
+                            cache_axis_list = [CDAxis.LEVEL] if operation else [CDAxis.LEVEL, CDAxis.LATITUDE, CDAxis.LONGITUDE, CDAxis.TIME]
+                            cache_region = Region( op_region.filter_spec( cache_axis_list ) )
+                            cache_op_args = { 'region':cache_region, 'data':str(dataset) }
                             tc0 = time.time()
                             cache_task_request = TaskRequest( task=cache_op_args )
                             cache_worker = self.communicator.getNextWorker(True)
@@ -219,54 +219,74 @@ class ComputeEngine( Executable ):
 if __name__ == '__main__':
 
     from engines import engineRegistry
-    from modules.configuration import MERRA_TEST_VARIABLES, CDAS_COMPUTE_ENGINE
-    test_point = [ -137.0, 35.0, 85000.0 ]
+    from modules.configuration import MERRA_TEST_VARIABLES, MERRA_LOCAL_TEST_VARIABLES, CDAS_COMPUTE_ENGINE
+    test_point = [ -137.0, 35.0, 85000 ]
     test_time = '2010-01-16T12:00:00'
     operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
-    import pprint
-    pp = pprint.PrettyPrinter(indent=4)
+    engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
 
-    def getRegion():
-        return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point[0],test_point[1],test_point[2],test_time)
+    def getRegion( ipt=0 ):
+        return '[{"id":"r0","longitude": {"value":%.2f,"system":"value"}, "latitude": %.2f, "level": %.2f, "time":"%s" }]' % (test_point[0]+5*ipt,test_point[1]-5*ipt,test_point[2],test_time)
 
-    def getCacheRegion():
-        return '{ "level": %.2f }' % (test_point[2])
-
-    def getData(vars=[0]):
+    def getData( vars=[0]):
         var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( MERRA_TEST_VARIABLES["collection"], ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
         data = '[%s]' % ( var_list )
         return data
 
+    def getLocalData():
+        return '{"dset":"%s","id":"v0:%s","domain":"r0"}' % ( MERRA_LOCAL_TEST_VARIABLES["collection"], MERRA_LOCAL_TEST_VARIABLES["vars"][0] )
+
+    def getOp( op_index ):
+        return [ operations[ op_index ] ]
+
     def getTaskArgs( op ):
-        task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op), 'async':True }
+        task_args =  { "domain": getRegion(), "variable": getLocalData(), 'embedded': True }
+        task_args['operation'] = op
         return task_args
 
-    def getCacheTaskArgs( ):
-        task_args = { 'region': getCacheRegion(), 'data': getData() }
-        return task_args
+    def getResultData(  results, index=0 ):
+        if isinstance( results, Exception ):
+            raise results
+        rdata = results[index].get( 'data', None )
+        return None if (rdata is None) else ( [ float(rd) for rd in rdata ] if hasattr( rdata, '__iter__' ) else float(rdata) )
 
-    run_cache = False
-    run_op    = True
-    engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
+    def getResultStats(  results, index=0 ):
+        if isinstance( results, Exception ):
+            print str(results)
+        return ExecutionRecord( results[index]['exerec'] )
 
-    if run_cache:
-        print " Running cache operation "
-        ct0 = time.time()
-        ctask_args = getCacheTaskArgs()
-        ctask      = engine.execute( TaskRequest( request=ctask_args ), precache=False )
-        ct1 = time.time()
-        print " Completed cache in %.2f sec " %  (ct1-ct0)
+    def test01_cache():
+        result      = engine.execute( TaskRequest( request={ 'domain': cache_region, 'variable': getLocalData() } ) )
+        if isinstance( result, list ): result = result[0]
+        print result
 
-    if run_op:
-        print " Running departures operation "
-        t0 = time.time()
-        task_args = getTaskArgs( op=operations[ 0:2 ] )
+    def test02_departures():
+        task_args = getTaskArgs( op=getOp( 0 ) )
+        result = engine.execute( TaskRequest( request=task_args ) )
+        result_data = getResultData( result )
+        compute_result = result_data[0:10]
+        print compute_result
+        #        assertStatusEquals( result, cache_found=Domain.COMPLETE, cache_found_domain=cache_region,  designated=True )
+
+    def xtest03_annual_cycle():
+        task_args = getTaskArgs( op=getOp( 1 ) )
+        result = engine.execute( TaskRequest( request=task_args ) )
+        result_data = getResultData( result )
+        print result_data[0:10]
+
+    def xtest04_value_retreval():
+        task_args = getTaskArgs( op=getOp( 2 ) )
+        result = engine.execute( TaskRequest( request=task_args ) )
+        result_data = getResultData( result )
+        print result_data
+
+    def xtest05_multitask():
+        task_args = getTaskArgs( op=operations )
         results = engine.execute( TaskRequest( request=task_args ) )
-        t1 = time.time()
-        print " Completed op in %.2f sec, data = %s " % ( (t1-t0), str( results ) )
+        for ir in range(len(results)):
+            rdata = getResultData( results, ir )
+            print rdata[0:10]
 
-    control_input = raw_input("Type <return> to continue. ")
+    cache_region =  Region( { "lev": {"config":{},"bounds":[ test_point[2] ] } } )
 
-    print "Sending shutdown"
-    engine.execute( TaskRequest( utility='shutdown.all' ) )
-    print "Sending request completed"
+    test01_cache()

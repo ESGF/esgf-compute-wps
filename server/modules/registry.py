@@ -18,7 +18,7 @@ class ModuleRegistry:
                 if hasattr( module, 'getConstructor' ):
                     constructor = module.getConstructor()
                     self._registry[modulename] = constructor
-                    wpsLog.debug( "Registering %s '%s'" % ( self.name, modulename ) )
+                    wpsLog.debug( " %%---> Registering %s '%s'" % ( self.name, modulename ) )
             except Exception, err:
                 wpsLog.warning( "\n --------------- Error Registering %s '%s' --------------- \n %s\n%s" % ( self.name, modulename, str(err), traceback.format_exc() ) )
 

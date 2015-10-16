@@ -61,6 +61,7 @@ class TaskRequest:
         utility = args.get( 'utility', None )
         if utility: config_args['utility'] = utility
 
+
     def genericize(self):
         return self.task
 
@@ -127,36 +128,8 @@ def test01():
 
 def test02():
     request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
-    request_parameters['datainputs'] = [u'[region={"longitude":-142.5,"latitude":-15.635426330566418,"level":100000,"time":"2010-01-16T12:00:00"};data={ "MERRA/mon/atmos": [ "v0:hur", "v1:clt" ] };operation=["CDTime.departures(v0,v1,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)","CDTime.value(v0)"];]']
+    request_parameters['datainputs'] = [u'[region={"longitude":-142.5,"latitude":-15.635426330566418,"level":100000,"time":"2010-01-16T12:00:00"};data={ dset="MERRA/mon/atmos": [ "v0:hur", "v1:clt" ] };operation=["CDTime.departures(v0,v1,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)","CDTime.value(v0)"];]']
     response_json = taskManager.processRequest( request_parameters )
-    responses = json.loads(response_json)
-    print "Responses:"
-    for iR, result in enumerate(responses):
-#        response_data = result['data']
-        print result
-    print "Done!"
-
-def test03():
-    request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
-
-    print "Starting CACHE"
-    request_parameters['datainputs'] = [u'[region={"level":100000};data={"MERRA/mon/atmos":["v0:hur"]};]']
-    response_json = taskManager.processRequest( request_parameters )
-
-    for iOP in range(10):
-        region = getRegion(iOP)
-        print "Starting OP-%d, r= %s" % (iOP, str(region) )
-        request_parameters['datainputs'] =[ '[%s;data={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["CDTime.departures(v0,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)"];]' % region ]
-        response_json = taskManager.processRequest( request_parameters )
-        responses = json.loads(response_json)
-
-
-    print "Done!"
-
-def test04():
-    request_parms = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }
-    request_parms['datainputs'] = [u'[domain=[{"id":"upper","level":{"start":0,"end":1,"system":"indices"}},{"id":"lower","level":{"start":2,"end":3,"system":"indices"}}];variable={ "MERRA/mon/atmos": [ "v0:hur" ] };operation=["CDTime.departures(v0,slice:t)","CDTime.climatology(v0,slice:t,bounds:annualcycle)"];]']
-    response_json = taskManager.processRequest( request_parms )
     responses = json.loads(response_json)
     print "Responses:"
     for iR, result in enumerate(responses):
@@ -165,4 +138,4 @@ def test04():
     print "Done!"
 
 if __name__ == "__main__":
-    test04()
+    test02()

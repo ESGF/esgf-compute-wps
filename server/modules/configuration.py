@@ -29,10 +29,12 @@ CDAS_CELERY_BACKEND = 'redis'
 CDAS_COLLECTIONS = [ ('MERRA/mon/atmos',       { 'type':'dods', 'url':'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos', 'open':['hur'] } ),
                      ('CFSR/mon/atmos',        { 'type':'dods', 'url':'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/CFSR/mon/atmos' } ),
                      ('ECMWF/mon/atmos',       { 'type':'dods', 'url':'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/ECMWF/mon/atmos' } ),
-                     ('MERRA/mon/atmos/hur',   { 'type':'file', 'url':'/usr/local/web/WPCDAS/data/hur.nc' } ),
-                   ]
+                     ('MERRA/mon/atmos/ta',   { 'type':'file', 'url':'/usr/local/web/WPCDAS/data/atmos_ta.nc' } ),
+                     ('MERRA/mon/atmos/ua',   { 'type':'file', 'url':'/usr/local/web/WPCDAS/data/atmos_ua.nc' } ),
+                     ]
 
 MERRA_TEST_VARIABLES = {"collection": "MERRA/mon/atmos", "vars": [ "hur", "clt", "ua" ] }
+MERRA_LOCAL_TEST_VARIABLES = {"collection": "MERRA/mon/atmos/ta", "vars": [ "ta" ] }
 
 if __name__ == '__main__':
     import cdms2,os

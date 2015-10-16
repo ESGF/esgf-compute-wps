@@ -6,11 +6,13 @@ from modules.utilities import *
 import cPickle, traceback
 
 def worker_exe( wid, comm ):
+    wpsLog.debug( " WWWWWW STARTING WORKER %s EXE  " %  wid  )
     kernelMgr = KernelManager( wid )
     while True:
         try:
+            wpsLog.debug( " WWWWWW WORKER %s WAITING FOR MSG  " %  wid  )
             task_request_args =  cPickle.loads( comm.recv_bytes() )
-            wpsLog.debug( " MULTIPROC[%s] ---> task_request_args: %s " % ( wid, str( task_request_args ) ) )
+            wpsLog.debug( " WWWWWW MULTIPROC[%s] ---> task_request_args: %s " % ( wid, str( task_request_args ) ) )
             results = kernelMgr.run( TaskRequest(task=task_request_args) )
      #       wpsLog.debug( "\n PPT: Worker[%s] sending response-> RID: %s -----\n" % ( wid, results['rid'] ) )
             comm.send_bytes( cPickle.dumps(results) )

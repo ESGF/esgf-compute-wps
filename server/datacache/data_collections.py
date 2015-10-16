@@ -8,7 +8,7 @@ class Collection:
         self.cache_open_files = True
         self.server_type = collection_spec.get('type', 'file')
         self.base_url = collection_spec['url']
-        self.initialize( collection_spec.get( 'open', [] ) )
+ #       self.initialize( collection_spec.get( 'open', [] ) )
 
     def initialize( self, open_list ):
         for var_id in open_list:
@@ -36,6 +36,7 @@ class Collection:
 
     def loadFile(self, var_id=None ):
         import cdms2
+        wpsLog.debug( " WWWWW Opening File %s %s " % ( self.base_url, var_id ) )
         if self.server_type == 'file':
             if self.base_url[:7]=="file://":
                 f=cdms2.open(str(self.base_url[6:]),'r')

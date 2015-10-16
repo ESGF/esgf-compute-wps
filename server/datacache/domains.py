@@ -111,8 +111,20 @@ class Region(JSONObject):
             wpsLog.error( "Error in getAxisRange( %s ): %s" % ( axis_name, str(err) ) )
             return None
 
+    def filter_spec(self, valid_axes ):
+        new_spec = {}
+        for spec_item in self.spec.items():
+            key = spec_item[0].lower()
+            if key in [ 'id', 'grid' ]:
+                new_spec[key] = spec_item[1]
+            else:
+                for axis in CDAxis.AXIS_LIST.itervalues():
+                    if key.startswith(axis) and (axis in valid_axes):
+                        new_spec[key] = spec_item[1]
+                        break
+        return new_spec
+
     def process_spec(self, **args):
-        axes = args.get('axes',None)
         slice = args.get('slice',None)
         if slice: axes = [ item[1] if item[0] not in slice else None for item in CDAxis.AXIS_LIST.iteritems() ]
         if self.spec is None: self.spec = {}
@@ -123,10 +135,9 @@ class Region(JSONObject):
             else:
                 for axis in CDAxis.AXIS_LIST.itervalues():
                     if key.startswith(axis):
-                        if not axes or axis in axes:
-                            cdaxis = CDAxis.getInstance( key, spec_item[1] )
-                            self[axis] = cdaxis.get_spec()
-                            break
+                        cdaxis = CDAxis.getInstance( key, spec_item[1] )
+                        self[axis] = cdaxis.get_spec()
+                        break
 
     def __eq__(self, reqion1 ):
         if reqion1 is None: return False
@@ -158,7 +169,8 @@ class Region(JSONObject):
                     if CDAxis.is_axis( axis_spec ):
                         v = axis_spec['bounds']
                         c = axis_spec['config']
-                        is_indexed = c.get('indices',False)
+                        system = c.get('system','value')
+                        is_indexed = ( system == 'indices' )
                         if isinstance( v, list ) or isinstance( v, tuple ):
                             if not is_indexed:
                                 if k == CDAxis.TIME:
@@ -166,7 +178,7 @@ class Region(JSONObject):
                                 else:
                                     kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" ) if ( len( v ) > 1 ) else ( float(v[0]), float(v[0]), "cob" )
                             else:
-                                    kargs[str(k)] = slice(v[0],v[1]) if ( len( v ) > 1 ) else slice(v[0],v[0]+1)
+                                    kargs[str(k)] = slice(int(v[0]),int(v[1])) if ( len( v ) > 1 ) else slice(int(v[0]),int(v[0])+1)
                 except Exception, err:
                     wpsLog.error( "Error processing axis '%s' spec '%s': %s\n %s " % ( k, str(axis_spec), str(err), traceback.format_exc() ) )
 

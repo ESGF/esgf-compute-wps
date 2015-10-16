@@ -8,19 +8,6 @@ import numpy, sys, os, traceback, Queue
 
 import cdms2, time
 
-def load_variable_region( dataset, name, cdms2_cache_args=None ):
-    rv = None
-    try:
-        t0 = time.time()
-        wpsLog.debug( "\n\n LLLLLLLOAD DataSet<%s> %x:%x, status = '%s', var=%s, args=%s \n\n" % ( dataset.id, id(dataset), os.getpid(), dataset._status_, name, str(cdms2_cache_args) ) )
-        dset = dataset( name, **cdms2_cache_args )
-        rv = numpy.ma.fix_invalid( dset )
-        t1 = time.time()
-        wpsLog.debug( " $$$ Variable '%s' %s loaded from dataset '%s' --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, (t1-t0) ) )
-    except Exception, err:
-        wpsLog.error( " ERROR loading Variable '%s' from dataset %s --> args: %s\n --- %s ----\n%s " %  ( name, str(dataset), str(cdms2_cache_args), str(err), traceback.format_exc() ) )
-    return rv
-
 def subset_variable_region( variable, cdms2_cache_args=None ):
     wpsLog.debug( " $$$ Subsetting Variable '%s' (%s): args='%s' " %  ( variable.id, str(variable.shape), str(cdms2_cache_args) ) )
     t0 = time.time()
@@ -189,10 +176,12 @@ class DataManager:
 
     def __init__( self, name, **args ):
         self.cacheManager = CacheManager( name, **args )
+        wpsLog.debug( " WWWWW CACHE MGR %s STARTED " % name )
         self.collectionManager = getCollectionManger( **args )
+        wpsLog.debug( " WWWWW COLLECTION MGR %s STARTED " % name )
         self.persist_queue = Queue.Queue()
         self.persistenceThread = None
-        enable_background_persist = args.get( 'background_persist', True )
+        enable_background_persist = args.get( 'background_persist', False )
         if enable_background_persist:
             self.persistenceThread = PersistenceThread( args=(self.persist_queue,) )
             self.persistenceThread.start()
@@ -214,6 +203,20 @@ class DataManager:
 
     def stats( self, **args ):
         return self.cacheManager.stats( **args )
+
+    def load_variable_region( self, dataset, name, cdms2_cache_args={} ):
+        rv = None
+        try:
+            t0 = time.time()
+            wid = self.cacheManager.name
+            wpsLog.debug( "\n\n LLLLLLLOAD DataSet<%s:%s> %x:%x, status = '%s', var=%s, args=%s \n\n" % ( dataset.id, wid, id(dataset), os.getpid(), dataset._status_, name, str(cdms2_cache_args) ) )
+            dset = dataset( name, **cdms2_cache_args )
+            rv = numpy.ma.fix_invalid( dset )
+            t1 = time.time()
+            wpsLog.debug( " $$$ Variable '%s' %s loaded from Dataset<%s:%s> --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, wid, (t1-t0) ) )
+        except Exception, err:
+            wpsLog.error( " ERROR loading Variable '%s' from dataset %s --> args: %s\n --- %s ----\n%s " %  ( name, str(dataset), str(cdms2_cache_args), str(err), traceback.format_exc() ) )
+        return rv
 
     def loadVariable( self, data, region, cache_type ):
         data_specs = {}
@@ -249,7 +252,7 @@ class DataManager:
                     load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
                     cache_region = Region( load_region, axes=[ CDAxis.LATITUDE, CDAxis.LONGITUDE, CDAxis.LEVEL ] )
                     if dataset == None: dataset = self.loadFileFromCollection( collection, name )
-                    variable = load_variable_region( dataset, name, cache_region.toCDMS() )
+                    variable = self.load_variable_region( dataset, name, cache_region.toCDMS() )
                     data_specs['region'] = cache_region
                     self.persist_queue.put( ( variable.data, data_specs ) )
 
