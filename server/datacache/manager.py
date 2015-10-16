@@ -176,9 +176,7 @@ class DataManager:
 
     def __init__( self, name, **args ):
         self.cacheManager = CacheManager( name, **args )
-        wpsLog.debug( " WWWWW CACHE MGR %s STARTED " % name )
         self.collectionManager = getCollectionManger( **args )
-        wpsLog.debug( " WWWWW COLLECTION MGR %s STARTED " % name )
         self.persist_queue = Queue.Queue()
         self.persistenceThread = None
         enable_background_persist = args.get( 'background_persist', False )
