@@ -34,7 +34,7 @@ class KernelManager:
         for data in input_dataset:
             if data is not None:
                 region_id = data['domain']
-                region = regions.getValue(region_id) if region_id else regions.value
+                region = regions.getValue( region_id, True )
                 if cache_type == CachedVariable.CACHE_OP:
                     dslice = operation.get('slice',None)
                     if dslice: region = Region( region, slice=dslice )

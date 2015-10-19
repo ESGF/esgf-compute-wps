@@ -88,7 +88,9 @@ class JSONObjectContainer:
     def values(self):
         return self._objects
 
-    def getValue( self, id ):
-        for obj in self._objects:
-            if obj.id == id:
-                return obj
+    def getValue( self, id, use_default = False ):
+        if id is not None:
+            for obj in self._objects:
+                if obj.id == id:
+                    return obj
+        if use_default: return self.value

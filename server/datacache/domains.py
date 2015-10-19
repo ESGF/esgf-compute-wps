@@ -128,16 +128,20 @@ class Region(JSONObject):
         slice = args.get('slice',None)
         if slice: axes = [ item[1] if item[0] not in slice else None for item in CDAxis.AXIS_LIST.iteritems() ]
         if self.spec is None: self.spec = {}
-        for spec_item in self.spec.items():
-            key = spec_item[0].lower()
+        for skey in self.spec.keys():
+            sval = self.spec[skey]
+            key = skey.lower()
             if key in [ 'id', 'grid' ]:
-                self[key] = spec_item[1]
+                self[key] = sval
             else:
-                for axis in CDAxis.AXIS_LIST.itervalues():
+                for axis_id, axis in CDAxis.AXIS_LIST.iteritems():
                     if key.startswith(axis):
-                        cdaxis = CDAxis.getInstance( key, spec_item[1] )
-                        self[axis] = cdaxis.get_spec()
-                        break
+                        if axis_id == slice:
+                            del self.spec[skey]
+                        else:
+                            cdaxis = CDAxis.getInstance( key, sval )
+                            self[axis] = cdaxis.get_spec()
+                            break
 
     def __eq__(self, reqion1 ):
         if reqion1 is None: return False

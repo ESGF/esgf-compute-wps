@@ -13,7 +13,7 @@ class EngineTests(unittest.TestCase):
         self.operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
         self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData(), 'embedded': True }
         self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
-        self.cache_region =  Region( { "lev": {"config":{},"bounds":[ self.test_point[2] ] } } )
+        self.cache_region =  Region( { "lev": {"config":{},"bounds":[ self.test_point[2] ], 'id':"r0" } } )
 
     def tearDown(self):
         pass
