@@ -1,9 +1,8 @@
 import traceback
-
 import numpy.ma as ma
 import numpy as np
 import cdutil
-import cdms2, sys
+
 from modules.utilities import *
 from kernels.cda import CDASKernel
 
@@ -36,3 +35,18 @@ class Averages( CDASKernel ):
         wpsLog.debug( " $$$ Applied Operation: %s to variable shape %s in time %.4f, result shape = %s" % ( str( operation ), str(input_variable.shape), (t1-t0), result.shape  ) )
         return result, result_mdata
 
+if __name__ == "__main__":
+    import cdms2, sys
+    from datacache.data_collections import getCollectionManger
+    cm = getCollectionManger()
+    collections = [ "MERRA/mon/atmos", "CFSR/mon/atmos" ]
+    var = "ta"
+    dsets = [ cdms2.open( cm.getURL( collection, var ) ) for collection in collections ]
+    input_variables = [ dset( var, level=slice(0, 1, None) ) for dset in dsets ]
+    result = None
+    for input_variable in input_variables:
+        lresult = cdutil.averager( input_variable, axis='xy' )
+        result = lresult if result is None else result + lresult
+    result /= len( input_variables )
+
+    print result
