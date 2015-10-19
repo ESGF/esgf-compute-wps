@@ -27,7 +27,17 @@ class KernelManager:
             input_dataset = []
             input_ids = operation["inputs"]
             for inputID in input_ids:
-                input_dataset.append( request.data.getValue( inputID ) )
+                if inputID[0] == "$":
+                    try:
+                        inputIndex = int(inputID[1:])
+                        input_dataset.append( request.data.values[inputIndex] )
+                    except Exception, err:
+                        raise Exception( "Input ID '%s' syntax error: %s" % ( inputID, str(err) ) )
+                elif inputID == "*":
+                    for input_dset in request.data.values:
+                        input_dataset.append( input_dset )
+                else:
+                    input_dataset.append( request.data.getValue( inputID ) )
         else:
             input_dataset = request.data.values
 
@@ -130,15 +140,14 @@ if __name__ == "__main__":
     test_point1 = [ 137.0, -35.0, 100000 ]
     test_time = '2010-01-16T12:00:00'
     operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
+    ave_operations = [ "CWT.average(v0,axis:z)", "CWT.average(v0,axis:ze)" ]
 
     def getRegion():
-        return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point[0],test_point[1],test_point[2],test_time)
+        return '{"longitude": %.2f,"latitude": %.2f, "level": %.2f, "time":"%s","id":"r0"}' % (test_point[0],test_point[1],test_point[2],test_time)
 
-    def getRegion1():
-        return '{"longitude": %.2f, "latitude": %.2f, "level": %.2f, "time":"%s" }' % (test_point1[0],test_point1[1],test_point1[2],test_time)
 
     def getCacheRegion():
-        return '{"level": %.2f}' % (test_point[2])
+        return '{"level": %.2f,"id":"r0"}' % (test_point[2])
 
     def getData( vars=[0]):
         var_list = ','.join( [ ( '"v%d:%s"' % ( ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
@@ -149,16 +158,13 @@ if __name__ == "__main__":
         data = '{"MERRA/mon/atmos/hur":["v0:hur"]}'
         return data
 
-    def getTaskArgs( op ):
-        task_args = { 'region': getRegion(), 'data': getData(), 'operation': json.dumps(op) }
+    def getTaskArgs( op, vars=[0] ):
+        task_args = { 'region': getRegion(), 'data': getData(vars), 'operation': json.dumps(op) }
         return task_args
 
-    def getTaskArgs1( op ):
-        task_args = { 'region': getRegion1(), 'data': getData(), 'operation': json.dumps(op) }
-        return task_args
 
-    def getTaskArgs2( op ):
-        task_args = { 'region': getRegion1(), 'data': getLocalData(), 'operation': json.dumps(op) }
+    def getTaskArgsLoc( op ):
+        task_args = { 'region': getRegion(), 'data': getLocalData(), 'operation': json.dumps(op) }
         return task_args
 
 
@@ -167,24 +173,18 @@ if __name__ == "__main__":
         result_stats = result[0]['result']
         pp.pprint(result_stats)
 
-    def test_departures2():
+    def average():
         t0 = time.time()
         task_args = getTaskArgs( op=[operations[ 0 ]] )
         response = kernelMgr.run( TaskRequest( request=task_args ) )
         result_data = response['results'][0]['data']
         t1 = time.time()
         print "  Computed departures 1 in %.3f, results:" % (t1-t0)
-        pp.pprint(result_data[0:5])
-        task_args1 = getTaskArgs1( op=[operations[ 0 ]] )
-        response1 = kernelMgr.run( TaskRequest( request=task_args1 ) )
-        result_data = response1['results'][0]['data']
-        t2 = time.time()
-        print "  Computed departures 2 in %.3f, results:" % (t2-t1)
-        pp.pprint(result_data[0:5])
 
-    def test_departures_local():
+
+    def test_average():
         t1 = time.time()
-        task_args1 = getTaskArgs2( op=[operations[ 0 ]] )
+        task_args1 = getTaskArgs( op=[ ave_operations[0] ] )
         response1 = kernelMgr.run( TaskRequest( request=task_args1 ) )
         result_data = response1['results'][0]['data']
         t2 = time.time()
@@ -254,9 +254,3 @@ if __name__ == "__main__":
     #     response = kernelMgr.run( TaskRequest( task=task_parms ) )
     #     result_data = response['results'][0]['data']
     #     pp.pprint(result_data)
-
-
-    test_api()
-#    test_utilities('domain.uncache')
-#    test_cache()
-

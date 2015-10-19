@@ -62,6 +62,7 @@ class CollectionManager:
 
     def getFile( self, collection_name, var_id ):
         collection = self.getCollection( collection_name )
+        assert (collection is not None), "Error, collection %s does not exist!" % collection_name
         return collection.getFile( var_id )
 
     def getURL( self, collection_name, var_id ):

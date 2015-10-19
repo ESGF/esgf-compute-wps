@@ -18,6 +18,7 @@ class KernelTests(unittest.TestCase):
         self.test_point = [ -137.0, 35.0, 85000.0 ]
         self.test_time = '2010-01-16T12:00:00'
         self.operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
+        self.ave_operations = [ "CWT.average(*,axis:z)", "CWT.average(*,axis:ze)" ]
         self.def_task_args =  { 'domain': self.getRegion(), 'variable': self.getData() }
 
     def tearDown(self):
@@ -28,6 +29,12 @@ class KernelTests(unittest.TestCase):
 
     def getData(self, vars=[0]):
         var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( MERRA_TEST_VARIABLES["collection"], ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
+        data = '[%s]' % ( var_list )
+        return data
+
+    def getEnsembleData(self,var="ta"):
+        collections = [ "MERRA/mon/atmos", "CFSR/mon/atmos" ]
+        var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( collections[ivar], ivar, var ) ) for ivar in range(len(collections)) ] )
         data = '[%s]' % ( var_list )
         return data
 
@@ -56,7 +63,7 @@ class KernelTests(unittest.TestCase):
 
     def test01_cache(self):
         cache_level = 85000.0
-        request_region = Region( { "lev": {"config":{},"bounds":[cache_level]} } )
+        request_region = Region( { "lev": {"config":{},"bounds":[cache_level]}, "id":"r0" } )
         results = self.getResults( kernelMgr.run( TaskRequest( request={ 'domain': [ {"id":"r0", "level": cache_level } ], 'data': self.getData() } ) ) )
         result_stats = results[0]['result'][0]
         cached_region = result_stats['region']
@@ -69,6 +76,7 @@ class KernelTests(unittest.TestCase):
         task_args = self.getTaskArgs( op=self.getOp( 0 ) )
         result_data = self.getResultData( kernelMgr.run( TaskRequest( request=task_args ) ) )
         self.assertEqual( test_result, result_data[0:len(test_result)] )
+
 
     def test03_annual_cycle(self):
         test_result = [38.20164659288194, 40.60203721788194, 39.744038899739586, 37.738803439670136,
@@ -94,6 +102,16 @@ class KernelTests(unittest.TestCase):
             if hasattr( test_result, '__iter__' ):  self.assertEqual( test_result, result[0:len(test_result)] )
             else:                                   self.assertEqual( test_result, result )
 
-    def xtest06_stats(self):
-        results = kernelMgr.run( TaskRequest( utility='worker.cache' ) )
-        print results
+    def test06_average(self):
+        test_result = [60.45402434065925, 59.35986168551339, 59.17586797470401, 58.17904816915278, 58.354240161557236, 58.90145082179115, 59.25474219650481 ]
+        op_domain = Region( { "lev": {"config":{},"bounds":[85000.0]}, "id":"r0" } )
+        task_args = { 'domain': op_domain, 'variable': self.getData(), 'operation' : [ "CWT.average(*,axis:xy)" ],'embedded': True }
+        result_data = self.getResultData( kernelMgr.run( TaskRequest( request=task_args ) ) )
+        self.assertEqual( test_result, result_data[0:len(test_result)] )
+
+    def test07_ensemble_average(self):
+        test_result = [ 279.6803316230488, 279.7325255033889, 280.32625029619817, 280.9536142220719, 281.875403712933, 282.6501879774603, 282.9003404482816, 282.7242298368891, 282.048408536275 ]
+        op_domain = Region( { "lev": {"config":{},"bounds":[85000.0]}, "id":"r0" } )
+        task_args = { 'domain': op_domain, 'variable': self.getEnsembleData(), 'operation' : [ "CWT.average(*,axis:xye)" ],'embedded': True }
+        result_data = self.getResultData( kernelMgr.run( TaskRequest( request=task_args ) ) )
+        self.assertEqual( test_result, result_data[0:len(test_result)] )

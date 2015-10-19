@@ -20,7 +20,14 @@ class Averages( CDASKernel ):
                 method = operation.get('method','').lower()
                 if method == 'average':
                     axis = operation.get('axis','xy').lower()
-                    result = cdutil.averager( input_variable, axis=axis )
+                    if 'e' in axis:
+                        axis1 = axis.replace('e','')
+                        for input_variable in input_variables:
+                            lresult = cdutil.averager( input_variable, axis=axis1 ) if axis1 else cdutil.averager( input_variable )
+                            result = lresult if result is None else result + lresult
+                        result /= len( input_variables )
+                    else:
+                        result = cdutil.averager( input_variable, axis=axis )
 
         except Exception, err:
             wpsLog.debug( "Exception applying Operation '%s':\n %s" % ( str(operation), traceback.format_exc() ) )

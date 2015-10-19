@@ -284,16 +284,24 @@ if __name__ == "__main__":
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
 
-    dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
-    slice_args = {'lev': (100000.0, 100000.0, 'cob')}
+    dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/ECMWF/mon/atmos/ta.ncml'
+    slice_args = {'level': (85000.0, 85000.0, 'cob') }
     dataset = f=cdms2.open(dfile)
     print dataset.id, dataset._status_
-    dset = dataset( "hur", **slice_args )
-    print str(dset.shape)
+    var = dataset[ "ta" ]
+    vdata = var( level = (85000.0, 85000.0, 'cob') )
+    print str( vdata.shape )
 
-    slice_args1 = {"longitude": (-10.0, -10.0, 'cob'), "latitude": (10.0, 10.0, 'cob'), 'lev': (100000.0, 100000.0, 'cob')}
-    dset1 = dataset( "hur", **slice_args1 )
-    print str(dset1.shape)
+    # dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
+    # slice_args = {'lev': (100000.0, 100000.0, 'cob')}
+    # dataset = f=cdms2.open(dfile)
+    # print dataset.id, dataset._status_
+    # dset = dataset( "hur", **slice_args )
+    # print str(dset.shape)
+    #
+    # slice_args1 = {"longitude": (-10.0, -10.0, 'cob'), "latitude": (10.0, 10.0, 'cob'), 'lev': (100000.0, 100000.0, 'cob')}
+    # dset1 = dataset( "hur", **slice_args1 )
+    # print str(dset1.shape)
 
     # from modules.configuration import MERRA_TEST_VARIABLES
     # test_point = [ -137.0, 35.0, 85000 ]
