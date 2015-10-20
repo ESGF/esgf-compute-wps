@@ -133,6 +133,7 @@ class ComputeEngine( Executable ):
             self.processPendingTasks()
             designated_worker = None
             cached_domain = None
+            wait_for_cache = False
             datasets = task_request.data.values
             op_region = task_request.region.value
             utility = task_request['utility']
@@ -168,6 +169,9 @@ class ComputeEngine( Executable ):
                             self.pendingTasks[ cache_task_monitor ] = cached_domain
                             tc1 = time.time()
                             wpsLog.debug( " ***** Caching data [rid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_task_monitor.rid, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
+                            if op_region == cache_region:
+                                designated_worker = cache_worker
+                                wait_for_cache = True
                         else:
                             worker_id, cache_request_status = cached_domain.getCacheStatus()
                             executionRecord.addRecs( cache_found=cache_request_status, cache_found_domain=cached_domain.spec, cache_found_worker=worker_id )
@@ -188,6 +192,9 @@ class ComputeEngine( Executable ):
                     op_index = int(100*time.time())
                     result_names = [ "r%d-%d-%d.nc"%(ivar,self.invocation_index,op_index) for ivar in range(len(operation)) ]
                     task_request['result_names'] = result_names
+
+                if wait_for_cache:
+                    cache_results = self.processCacheTask( cache_task_monitor, cached_domain, exerec=executionRecord.toJson() )
 
                 task_monitor = self.communicator.submitTask( task_request, designated_worker )
                 op_domain = cached_var.addDomain( op_region )

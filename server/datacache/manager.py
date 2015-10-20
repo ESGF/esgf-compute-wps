@@ -179,7 +179,7 @@ class DataManager:
         self.collectionManager = getCollectionManger( **args )
         self.persist_queue = Queue.Queue()
         self.persistenceThread = None
-        enable_background_persist = args.get( 'background_persist', False )
+        enable_background_persist = args.get( 'background_persist', True )
         if enable_background_persist:
             self.persistenceThread = PersistenceThread( args=(self.persist_queue,) )
             self.persistenceThread.start()
