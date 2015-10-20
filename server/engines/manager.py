@@ -226,7 +226,7 @@ if __name__ == '__main__':
     engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
 
     def getRegion( ipt=0 ):
-        return '[{"id":"r0","longitude": {"value":%.2f,"system":"value"}, "latitude": %.2f, "level": %.2f, "time":"%s" }]' % (test_point[0]+5*ipt,test_point[1]-5*ipt,test_point[2],test_time)
+        return '[{"id":"r0","longitude": {"value":%.2f,"system":"values"}, "latitude": %.2f, "level": %.2f, "time":"%s" }]' % (test_point[0]+5*ipt,test_point[1]-5*ipt,test_point[2],test_time)
 
     def getData( vars=[0]):
         var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( MERRA_TEST_VARIABLES["collection"], ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )

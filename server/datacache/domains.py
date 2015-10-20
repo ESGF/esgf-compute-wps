@@ -188,7 +188,7 @@ class Region(JSONObject):
 
 
             # elif isinstance( v, dict ):
-            #     system = v.get("system","value").lower()
+            #     system = v.get("system","values").lower()
             #     if isinstance(v["start"],unicode):
             #         v["start"] = str(v["start"])
             #     if isinstance(v["end"],unicode):

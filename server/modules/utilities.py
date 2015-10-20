@@ -147,12 +147,12 @@ def region2cdms( region, **args ):
             elif isinstance( v, list ) or isinstance( v, tuple ):
                 kargs[str(k)] = ( float(v[0]), float(v[1]), "cob" )
             else:
-                system = v.get("system","value").lower()
+                system = v.get("system","values").lower()
                 if isinstance(v["start"],unicode):
                     v["start"] = str(v["start"])
                 if isinstance(v["end"],unicode):
                     v["end"] = str(v["end"])
-                if system == "value":
+                if system == "values":
                     kargs[str(k)]=(v["start"],v["end"])
                 elif system == "index":
                     kargs[str(k)] = slice(v["start"],v["end"])
