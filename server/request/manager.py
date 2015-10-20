@@ -70,6 +70,12 @@ class TaskRequest:
     def getRequestArg( self, id, default=None ):
         return self.task.get( id, default )
 
+    def getBoolRequestArg( self, id, default='false' ):
+        rval = self.task.get( id, default )
+        if type(rval) in (list,tuple): rval = rval[0]
+        sval = str(rval).lower()
+        return ( sval[0] == 't' )
+
     @property
     def rid(self):
         return self.task.get( 'rid', None )

@@ -122,7 +122,7 @@ class ComputeEngine( Executable ):
             t0 = time.time()
             self.invocation_index += 1
             operation = task_request.operations.values
-            embedded = task_request.getRequestArg( 'embedded', False )
+            embedded = task_request.getBoolRequestArg( 'embedded', False )
             async = compute_args.get( 'async', not embedded )
             wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, embedded: %s, request: %s" % ( t0, async, embedded, str(task_request) ) )
 
@@ -210,7 +210,7 @@ class ComputeEngine( Executable ):
                 return results
 
             else:
-                if async: return cache_task_request
+                if async: return cache_task_request.task
                 else:
                     if cache_task_monitor is not None:
                         results = self.processCacheTask( cache_task_monitor, cached_domain, exerec=executionRecord.toJson() )
