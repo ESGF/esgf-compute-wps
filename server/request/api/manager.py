@@ -10,7 +10,7 @@ class APIManager:
         self.dialects[dialect_instance.id] = dialect_instance
 
     def getDialect( self, request_parameters ):
-        dialect_id = request_parameters.get( 'id', 'cdas' )
+        dialect_id = request_parameters.get( 'dialect', 'cdas' )
         return self.dialects.get( dialect_id, None )
 
 apiManager = APIManager()

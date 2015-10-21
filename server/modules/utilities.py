@@ -1,4 +1,4 @@
-import logging, time, os, json, numpy
+import logging, time, os, json, numpy, traceback
 
 LogDir = os.path.abspath( os.path.join( os.path.dirname(__file__), '../', 'logs' ) )
 DefaultLogLevel = logging.DEBUG
@@ -12,16 +12,73 @@ def get_json_arg( id, args, default=None ):
         return default if json_arg is None else str(json_arg)
 
 def convert_json_str( json_arg ):
+        if isinstance(json_arg, basestring):
+            try:
+                json_arg = str(json_arg).replace("u'","'")
+                json_arg = str(json_arg).replace("'",'"')
+                return json.loads( json_arg )
+            except Exception, err:
+                wpsLog.error( "Can't recognize json: <%s>: %s" % ( str(json_arg), str(err) ) )
+                wpsLog.error( traceback.format_exc() )
+                return []
+        else:
+            return json_arg
+
+def genericize( results ):
     try:
-        return json.loads( json_arg ) if isinstance(json_arg, basestring) else json_arg
-    except:
-        wpsLog.error( "Can't recognize json '%s' " % ( str(json_arg) ) )
+        result_list = results if isinstance( results, list ) else [ results ]
+        for result in result_list:
+            for key,value in result.iteritems():
+                if type(value) not in [ dict, list, str, tuple ]: result[key] = str(value)
+    except Exception, err:
+        wpsLog.error( "Error in genericize: '%s' " % ( str(err) ) )
 
 def dump_json_str( obj ):
     try:
         return json.dumps( obj ) if not isinstance(obj, basestring) else obj
     except:
         wpsLog.error( "Can't serialize object '%s' " % ( str(obj) ) )
+
+class ExecutionRecord:
+
+    def __init__( self, stats = None ):
+        if stats is None: self.clear()
+        elif isinstance( stats, dict ):
+            self.rec = stats
+        elif isinstance( stats, basestring ):
+            self.rec = json.loads(stats)
+        else:
+            raise Exception( "Unrecognized stats in ExecutionRecord: %s" % str(stats) )
+
+    def addRecs( self, **kwargs ):
+        self.rec.update( kwargs )
+
+    def clear(self):
+        self.rec = {}
+
+    def toJson(self):
+        return json.dumps( self.rec )
+
+    def __str__(self):
+        return str( self.rec )
+
+    def items(self):
+        return self.rec.items()
+
+    def iteritems(self):
+        return self.rec.iteritems()
+
+    def find(self, *keys ):
+        for key in keys:
+            value = self.rec.get( key, None )
+            if value is not None: return value
+        return None
+
+    def __getitem__(self, item):
+        return self.rec.get( item, None )
+
+    def __setitem__(self, key, value):
+        self.rec[ key ] = value
 
 def record_attributes( var, attr_name_list, additional_attributes = {} ):
     mdata = {}
@@ -102,3 +159,20 @@ def region2cdms( region, **args ):
     return kargs
 
 
+class DebugLogger:
+
+    def __init__( self, name ):
+        from configuration import CDAS_PERSISTENCE_DIRECTORY
+        self._filepath = os.path.expanduser( os.path.join( CDAS_PERSISTENCE_DIRECTORY, name + ".log") )
+        self.create_log_file(True)
+
+    def create_log_file(self, refresh):
+        if refresh or not os.path.exists(self._filepath):
+            self._file = open( self._filepath, 'w')
+
+    def log( self, msg ):
+        t0 = time.time()
+        self.create_log_file(False)
+        self._file.write( "T[%6.2f]: %s\n" % ( t0 % 1000.0, msg ) )
+        self._file.flush()
+        return t0

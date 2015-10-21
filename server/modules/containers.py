@@ -4,17 +4,33 @@ from utilities import  *
 class JSONObject:
 
     def __init__( self, spec={}, **args ):
-        if isinstance( spec, JSONObject ): spec = spec.spec
-        self.spec = convert_json_str( spec )
         self.items = {}
-        assert isinstance( self.spec, dict ), "Error, unrecognized JSONObject spec: %s " % str( spec)
+        self.load_spec( spec )
         self.process_spec( **args )
+
+    def load_spec( self, spec ):
+        if isinstance( spec, JSONObject ): spec = spec.spec
+        self.spec = {} if (spec is None) else convert_json_str( spec )
+        if not isinstance( self.spec, dict ):
+            raise Exception( "Unrecognized JSONObject spec: " + str(spec) )
+
+    def get_spec(self):
+        return self.items
+
+    @property
+    def id(self):
+        return self.items.get( "id", None )
+
+    def equals( self, region ):
+        for (key,value) in self.items.iteritems():
+            if region.get(key) <> value: return False
+        return True
 
     def process_spec( self, **args ):
         self.items = dict( self.spec )
 
     def __str__( self ):
-        return dump_json_str(self.items)
+        return str(self.items)
 
     def __len__( self ):
         return len( self.items )
@@ -34,13 +50,19 @@ class JSONObject:
     def __setitem__(self, key, value):
         self.items[ key ] = value
 
-    def getItem( self, feature_name ):
-        return self.items.get( feature_name, None )
+    def getItem( self, item_name ):
+        return self.items.get( item_name, None )
+
+    def getSpec(self, spec_name ):
+        return self.spec.get( spec_name, None )
+
+    def specs(self):
+        return self.spec.items()
 
 class JSONObjectContainer:
 
     def __init__( self, spec=None ):
-        if isinstance( spec, JSONObjectContainer ): spec = spec.spec
+        if ( isinstance( spec, JSONObjectContainer ) or isinstance( spec, JSONObject ) ): spec = spec.spec
         self._objects = []
         self.process_spec( spec )
 
@@ -65,3 +87,10 @@ class JSONObjectContainer:
     @property
     def values(self):
         return self._objects
+
+    def getValue( self, id, use_default = False ):
+        if id is not None:
+            for obj in self._objects:
+                if obj.id == id:
+                    return obj
+        if use_default: return self.value
