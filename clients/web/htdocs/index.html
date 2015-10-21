@@ -1,22 +1,26 @@
 <head>
   <body>
-  	<h1> WPS Demo</h1>
+  	<h1> WPS Demo: Local Test</h1>
   	<hr>
-  	<h2> <a href="view-source:http://localhost:8000/wps?version=1.0.0&service=wps&request=getcapabilities"> GetCapabilities </A> </h2>  	   
+  	<h2> <a href="view-source:http://localhost:8080/wps?version=1.0.0&service=wps&request=getcapabilities"> GetCapabilities </A> </h2>
     	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>GetCapabilities</b></code></font></pre>   	
   	<hr>
-  	<h2> <a href="view-source:http://localhost:8000/wps?version=1.0.0&service=wps&request=DescribeProcess&identifier=timeseries"> Describe Timeseries Process </a> </h2>  	  
-    	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>DescribeProcess</b>&identifier=<i>timeseries</i></code></font></pre>    	
+  	<h2> <a href="view-source:http://localhost:8080/wps?version=1.0.0&service=wps&request=DescribeProcess&identifier=cdas"> Describe Timeseries Process </a> </h2>
+    	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>DescribeProcess</b>&identifier=<i>cdas</i></code></font></pre>    	
   	<hr>
-  	<h2> <a href='view-source:http://localhost:8000/wps?version=1.0.0&service=wps&request=Execute&identifier=timeseries&datainputs=[domain={"longitude":120.0,"latitude":-40.0};variable={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}]'> Extract Timeseries From NetCDF File </a> </h2>
-		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>timeseries</i><p></p>  &datainputs=[<p></p>    domain={"longitude":65.3,"latitude":10.5,"level":100.0}; <p></p>    variable={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}<p></p>  ] </code></font></pre>   	
+  	<h2> <a href='view-source:http://localhost:8080/wps?version=1.0.0&embedded=true&service=wps&request=Execute&identifier=cdas&datainputs=[region={"longitude":120.0,"latitude":-40.0};operation={};data={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}]'> Extract Timeseries From NetCDF File </a> </h2>
+		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>cdas</i><p></p>  &datainputs=[<p></p>    region={"longitude":65.3,"latitude":10.5,"level":100.0}; <p></p>    data={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}<p></p>  ] </code></font></pre>
  	<hr>
+  	<h1> WPS Demo: Remote Test</h1>
   	<hr>
-  	<h2> <a href="view-source:http://localhost:8000/wps?version=1.0.0&service=wps&request=DescribeProcess&identifier=vcsplot"> Describe vcsPlot Process </a> </h2>  	  
-    	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>DescribeProcess</b>&identifier=<i>timeseries</i></code></font></pre>    	
+  	<h2> <a href="view-source:http://localhost:9999/wps?version=1.0.0&service=wps&request=getcapabilities"> GetCapabilities </A> </h2>
+    	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>GetCapabilities</b></code></font></pre>
   	<hr>
-  	<h2> <a href='view-source:http://localhost:8000/wps?version=1.0.0&service=wps&request=Execute&identifier=vcsplot&datainputs=[plot={"gm":"boxfill"}domain={};variable={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}]'> Create vcs plot </a> </h2>
-		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>vcsplot</i><p></p>  &datainputs=[<p></p>    plot={"gm":"boxfill"}; <p></p>    domain={}; <p></p>    variable={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}<p></p>  ] </code></font></pre>   	
+  	<h2> <a href="view-source:http://localhost:9999/wps?version=1.0.0&service=wps&request=DescribeProcess&identifier=cdas"> Describe Timeseries Process </a> </h2>
+    	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>DescribeProcess</b>&identifier=<i>cdas</i></code></font></pre>
+  	<hr>
+  	<h2> <a href='view-source:http://localhost:9999/wps?version=1.0.0&embedded=true&service=wps&request=Execute&identifier=cdas&datainputs=[region={"longitude":120.0,"latitude":-40.0};operation={};data={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}]'> Extract Timeseries From NetCDF File </a> </h2>
+		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>cdas</i><p></p>  &datainputs=[<p></p>    region={"longitude":65.3,"latitude":10.5,"level":100.0}; <p></p>    data={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}<p></p>  ] </code></font></pre>
  	<hr>
   </body>
 </head>

@@ -1,0 +1,57 @@
+  WPCDAS:  Web Processing Climate Data Analysis Services
+
+WPS API leveraging UVCDAT for server-side climate data analytics with clients for web, python, etc.
+
+To serve CDAS WPS using Flask:
+
+Setup the python environment:
+
+  >> source <UVCDAT_INSTALL>/bin/setup_runtime.sh
+
+Install the CDAS package:
+
+  >> sudo mkdir /usr/local/web
+  >> sudo chown <username> /usr/local/web
+  >> cd /usr/local/web
+  >> git clone git@github.com:nasa-nccs-cds/cdas.git
+  >> chmod -R a+rX WPCDAS
+  >> chmod -R a+w WPCDAS/server/logs
+  >> cd WPCDAS
+  >> tar xzf sample_data.tar.gz
+
+Install the flask package:
+
+  >> pip install flask
+  >> pip install -U flask-cors
+
+Configure CDAS:
+
+  Edit the configuration file:
+      *  /usr/local/web/WPCDAS/server/modules/configuration.py
+
+Run flask:
+
+   >> cd /usr/local/web/WPCDAS/server/flask
+   >> python manage.py
+
+   CDAS will now be receiving GET requests at http://localhost:5000/cdas
+   CDAS can be shutdown using http://localhost:5000/shutdown/
+   ( Or http://127.0.0.1:5000/shutdown/ )
+
+Using the celery compute and staging engine:
+
+   Install celery:
+
+      >>  pip install -U celery[redis]
+      >>  pip install redis
+
+   Install and startup redis server:
+
+      See: http://redis.io/topics/quickstart
+
+   Startup Celery:
+
+      Copy, edit, and then execute the startup script:
+
+      * /usr/local/web/WPCDAS/server/engines/celery/start_workers.sh
+
