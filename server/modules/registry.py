@@ -31,5 +31,9 @@ class ModuleRegistry:
             self._instances[key] = instance
         return instance
 
+    def getClassInstance( self, key  ):
+        constructor = self._registry.get( key, None )
+        return constructor
+
 
 

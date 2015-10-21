@@ -17,7 +17,7 @@ class KernelManager:
     def getKernelInputs( self, operation, op_index, request ):
         read_start_time = time.time()
         use_cache =  request['cache']
-        embedded = request.getRequestArg('embedded')
+        embedded = request.getBoolRequestArg('embedded')
         result_names = request['result_names']
         regions = request.region
         cache_type = CachedVariable.getCacheType( use_cache, operation )
@@ -82,6 +82,8 @@ class KernelManager:
                 response['stats'] = self.dataManager.stats()
             elif utility == 'shutdown.all':
                 self.shutdown()
+            elif utility == 'domain.transfer':
+                self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'),  task_request.getRequestArg('region'),  task_request.getRequestArg('var') )
             elif utility=='domain.uncache':
                 self.dataManager.uncache( task_request.data.values, task_request.region.value )
                 response['stats'] = self.dataManager.stats()

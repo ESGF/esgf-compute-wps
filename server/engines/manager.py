@@ -117,13 +117,17 @@ class ComputeEngine( Executable ):
         workerCacheStats = cache_task_monitor.response()
         return workerCacheStats
 
+    def transferData(self, source_worker, destination_worker, domain ):
+        transfer_task_request = TaskRequest( utility='domain.transfer', source=source_worker, destination=destination_worker, domain=str(domain), var=domain.stat['cid'] )
+        self.communicator.submitTask( transfer_task_request, [ source_worker, destination_worker ] )
+
     def execute( self, task_request, **compute_args ):
         try:
             t0 = time.time()
             self.invocation_index += 1
             operation = task_request.operations.values
             embedded = task_request.getBoolRequestArg( 'embedded', False )
-            async = compute_args.get( 'async', not embedded )
+            async = task_request.getBoolRequestArg( 'async', True if operation else not embedded )
             wpsLog.debug( " ***** Executing compute engine (t=%.2f), async: %s, embedded: %s, request: %s" % ( t0, async, embedded, str(task_request) ) )
 
             executionRecord.clear()
@@ -133,6 +137,8 @@ class ComputeEngine( Executable ):
             self.processPendingTasks()
             designated_worker = None
             cached_domain = None
+            cache_worker = None
+            var_cache_id = None
             wait_for_cache = False
             datasets = task_request.data.values
             op_region = task_request.region.value
@@ -142,6 +148,9 @@ class ComputeEngine( Executable ):
                 shutdown_task_monitor = self.communicator.submitTask( task_request, "*" )
                 self.communicator.close()
                 return
+            elif utility == "domain.transfer":
+                transfer_task_monitor = self.communicator.submitTask( task_request, '*' )
+                return transfer_task_monitor
 
             for dataset in datasets:
                 dsid = dataset.get('name','')
@@ -210,13 +219,11 @@ class ComputeEngine( Executable ):
                 return results
 
             else:
-                if async: return cache_task_request.task
+                cache_rval = { 'cache_worker': cache_worker, 'cache_region': cache_region, 'cached_var': var_cache_id, 'async': async, 'exerec': executionRecord.toJson()  }
+                if async: return cache_rval
                 else:
-                    if cache_task_monitor is not None:
-                        results = self.processCacheTask( cache_task_monitor, cached_domain, exerec=executionRecord.toJson() )
-                        return results
-                    else:
-                        return [ { 'exerec': executionRecord.toJson() } ]
+                    if cache_task_monitor is not None: self.processCacheTask( cache_task_monitor, cached_domain )
+                    return cache_rval
 
         except Exception, err:
             wpsLog.error(" Error running compute engine: %s\n %s " % ( str(err), traceback.format_exc()  ) )
@@ -263,6 +270,7 @@ if __name__ == '__main__':
         return ExecutionRecord( results[index]['exerec'] )
 
     def test01_cache():
+        cache_region =  Region( { "lev": {"config":{},"bounds":[ 85000 ] } } )
         result      = engine.execute( TaskRequest( request={ 'domain': cache_region, 'variable': getLocalData() } ) )
         if isinstance( result, list ): result = result[0]
         print result
@@ -294,6 +302,12 @@ if __name__ == '__main__':
             rdata = getResultData( results, ir )
             print rdata[0:10]
 
-    cache_region =  Region( { "lev": {"config":{},"bounds":[ test_point[2] ] } } )
+    def transfer(ivar):
+        cache_region =  Region( { "id":"r0", "lev": {"config":{},"bounds":[ 85000 ] } } )
+        cache_result = engine.execute( TaskRequest( request={ 'domain': cache_region, 'variable': getLocalData(), 'async':False } ) )
+        source_worker = 'W-0'
+        destination_worker = 'W-1'
+        task_args = { 'utility':'domain.transfer', 'source':source_worker, 'destination':destination_worker, 'domain':cache_region, 'var':MERRA_TEST_VARIABLES["vars"][ivar] }
+        results = engine.execute( TaskRequest( request=task_args ) )
 
-    test01_cache()
+    transfer(0)

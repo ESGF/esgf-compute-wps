@@ -44,6 +44,16 @@ class TaskMonitor:
     def addStats(self,**args):
         raise Exception( 'Error: addStats method not implemented in TaskMonitor')
 
+class WorkerIntracom:
+
+    def __init__( self ):
+        pass
+
+    def sendRegion(self, data, destination ):
+        pass
+
+    def receiveRegion(self, data, destination ):
+        pass
 
 class ComputeEngineCommunicator:
 
@@ -70,7 +80,7 @@ class ComputeEngineCommunicator:
             else:
                 self.setWorkerState( worker, self.WS_OP )
         else:
-            wpsLog.error( "\nCComputeEngineCommunicator:submitTask-> type: UTIL, w=%s, rid=%s, t=%.2f\n" % ( worker, task_monitor.rid, time.time()%1000.0  ) )
+            wpsLog.debug( "\nCComputeEngineCommunicator:submitTask-> type: UTIL, w=%s, rid=%s, t=%.2f\n" % ( worker, task_monitor.rid, time.time()%1000.0  ) )
         return task_monitor
 
     def getWorkerStats(self):

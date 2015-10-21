@@ -1,4 +1,4 @@
-from engines.communicator import ComputeEngineCommunicator, TaskMonitor
+from engines.communicator import ComputeEngineCommunicator, TaskMonitor, WorkerIntracom, wrank
 from tasks import worker_manager
 from mpi4py import MPI
 from modules.utilities import *
@@ -71,13 +71,27 @@ class MpiTaskMonitor(TaskMonitor):
     def addStats(self,**args):
         self.stats.update( args )
 
+class MpiWorkerIntracom( WorkerIntracom ):
+
+    def __init__( self ):
+        WorkerIntracom.__init__( self )
+        self.intracom = MPI.COMM_WORLD
+        self.rank = self.intracom.Get_rank()
+        self.tag = 10001
+
+    def sendRegion(self, data, destination ):
+        self.intracom.Send(data, dest=wrank(destination), tag=self.tag)
+
+    def receiveRegion(self, data, source ):
+        self.intracom.Recv(data, dest=wrank(source), tag=self.tag)
+
 class MpiCommunicator( ComputeEngineCommunicator ):
 
     RequestIndex = 1
 
     @classmethod
     def new_request_id(cls):
-        cls.RequestIndex = cls.RequestIndex + 1
+        cls.RequestIndex = ( cls.RequestIndex + 1 ) % 10000
         return cls.RequestIndex
 
     def __init__( self ):

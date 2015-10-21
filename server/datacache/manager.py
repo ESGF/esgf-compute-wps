@@ -92,9 +92,24 @@ class CacheManager:
     def __init__( self, name, **args ):
         self._cache = {}
         self.stat = {}
+        self.comm = args.get('comm',None)
         self.name = name
         self.statusCache = StatusPickleMgr( '.'.join( [ 'stats_cache', name ] ) )
         self.loadStats()
+
+    def sendData( self, destination, region, var, specs ):
+        cvar = self._cache.get( var, None )
+        if cvar:
+            self.comm.sendRegion( data, destination )
+            wpsLog.debug( "\n **------------------->> CM[%s]: sendData: %s %s %s %s\n" % ( self.name, destination, region, var, cvar ) )
+        else:
+            wpsLog.debug( " CM[%s]: Attempt to send data that can't be found: %s, cache: %s\n" % ( self.name, var,  str(self._cache.keys()) ) )
+
+    def receiveData(  self, source, region, var, specs ):
+        data = self.comm.receiveRegion( source )
+        self.addVariable( var, data, specs )
+        wpsLog.debug( "\n\n **------------------->> CM[%s]: receiveData: %s %s %s %s\n\n" % ( self.name, source, region, var, cvar ) )
+
 
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
@@ -175,7 +190,8 @@ class CacheManager:
 class DataManager:
 
     def __init__( self, name, **args ):
-        self.cacheManager = CacheManager( name, **args )
+        self.getIntracom()
+        self.cacheManager = CacheManager( name, comm=self.intracom )
         self.collectionManager = getCollectionManger( **args )
         self.persist_queue = Queue.Queue()
         self.persistenceThread = None
@@ -183,6 +199,18 @@ class DataManager:
         if enable_background_persist:
             self.persistenceThread = PersistenceThread( args=(self.persist_queue,) )
             self.persistenceThread.start()
+
+    def getIntracom(self):
+        from engines import engineRegistry
+        from modules.configuration import CDAS_COMPUTE_ENGINE
+        engine_class = engineRegistry.getClassInstance( CDAS_COMPUTE_ENGINE + "Engine" )
+        self.intracom = engine_class.getWorkerIntracom()
+
+    def transferDomain( self, source, destination, region, var ):
+        if source == self.cacheManager.name:
+            self.cacheManager.sendData( destination, region, var )
+        elif destination == self.cacheManager.name:
+            self.cacheManager.receiveData( source, region, var )
 
     def close(self):
         self.collectionManager.close()

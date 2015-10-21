@@ -6,7 +6,10 @@ class MpiEngine( ComputeEngine ):
         from communicator import MpiCommunicator
         return  MpiCommunicator()
 
-
+    @staticmethod
+    def getWorkerIntracom():
+        from communicator import MpiWorkerIntracom
+        return MpiWorkerIntracom
 
 
 
