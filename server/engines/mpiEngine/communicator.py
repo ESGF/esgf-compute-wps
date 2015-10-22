@@ -82,8 +82,10 @@ class MpiWorkerIntracom( WorkerIntracom ):
     def sendRegion(self, data, destination ):
         self.intracom.Send(data, dest=wrank(destination), tag=self.tag)
 
-    def receiveRegion(self, data, source ):
+    def receiveRegion( self, source, shape ):
+        data = numpy.empty( shape, dtype=numpy.float32)
         self.intracom.Recv(data, dest=wrank(source), tag=self.tag)
+        return data
 
 class MpiCommunicator( ComputeEngineCommunicator ):
 

@@ -32,12 +32,14 @@ class ComputeEngine( Executable ):
         for wid, csize  in cache_map.items():  wstat['csize']  = csize
         self.loadStats()
 
-    def processCacheTask(self, cache_task_monitor, cached_domain, **args ):
+    def processCacheTask(self, cache_task_monitor, cached_var, cached_domain, **args ):
         response = cache_task_monitor.response( **args )
         if not response:
             wpsLog.debug( " ***** Empty cache_request for task '%s', status = '%s':\n %s " % ( cache_task_monitor.id, cache_task_monitor.status(), str(cache_task_monitor) ) )
         else:
             worker = response['wid']
+            results = response.get('results',None)
+            if results: cached_var.loadStats( results[0][0] )
             cached_domain.cacheRequestComplete( worker )
             self.communicator.clearWorkerState( worker )
             del self.pendingTasks[ cache_task_monitor ]
@@ -72,6 +74,11 @@ class ComputeEngine( Executable ):
                         wpsLog.debug( " PPT: Empty cache_request for task '%s', status = '%s':\n %s " % ( task_monitor.id, task_monitor.status(), str(task_monitor) ) )
                     else:
                         worker = response['wid']
+                        results = response['results']
+                        if results:
+                            mdata = results[0][0]
+                            cvar = self.cachedVariables.get( mdata['cid'], None )
+                            if cvar: cvar.loadStats(mdata)
                         cached_domain.cacheRequestComplete( worker )
                         completed_requests.append( task_monitor )
                         self.communicator.clearWorkerState( worker )
@@ -118,7 +125,9 @@ class ComputeEngine( Executable ):
         return workerCacheStats
 
     def transferData(self, source_worker, destination_worker, domain ):
-        transfer_task_request = TaskRequest( utility='domain.transfer', source=source_worker, destination=destination_worker, domain=str(domain), var=domain.stat['cid'] )
+        cid = domain.stat['cid']
+        cvar = self.cachedVariables[ cid ]
+        transfer_task_request = TaskRequest( utility='domain.transfer', source=source_worker, destination=destination_worker, domain=str(domain), var=cid, spec=cvar.spec )
         self.communicator.submitTask( transfer_task_request, [ source_worker, destination_worker ] )
 
     def execute( self, task_request, **compute_args ):
@@ -203,7 +212,7 @@ class ComputeEngine( Executable ):
                     task_request['result_names'] = result_names
 
                 if wait_for_cache:
-                    cache_results = self.processCacheTask( cache_task_monitor, cached_domain, exerec=executionRecord.toJson() )
+                    cache_results = self.processCacheTask( cache_task_monitor, cached_var, cached_domain, exerec=executionRecord.toJson() )
 
                 task_monitor = self.communicator.submitTask( task_request, designated_worker )
                 op_domain = cached_var.addDomain( op_region )
@@ -222,7 +231,7 @@ class ComputeEngine( Executable ):
                 cache_rval = { 'cache_worker': cache_worker, 'cache_region': cache_region, 'cached_var': var_cache_id, 'async': async, 'exerec': executionRecord.toJson()  }
                 if async: return cache_rval
                 else:
-                    if cache_task_monitor is not None: self.processCacheTask( cache_task_monitor, cached_domain )
+                    if cache_task_monitor is not None: self.processCacheTask( cache_task_monitor, cached_var, cached_domain )
                     return cache_rval
 
         except Exception, err:
@@ -303,7 +312,7 @@ if __name__ == '__main__':
             print rdata[0:10]
 
     def transfer(ivar):
-        cache_region =  Region( { "id":"r0", "lev": {"config":{},"bounds":[ 85000 ] } } )
+        cache_region =  Region( { "lev": {"bounds":[ 85000 ] } } )
         cache_result = engine.execute( TaskRequest( request={ 'domain': cache_region, 'variable': getLocalData(), 'async':False } ) )
         source_worker = 'W-0'
         destination_worker = 'W-1'

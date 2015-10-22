@@ -3,13 +3,6 @@ from modules.containers import  *
 from datacache.persistence.manager import persistenceManager
 import re, traceback
 
-def filter_attributes( attr, keys, include_keys = True ):
-    rv = {}
-    for key in attr.iterkeys():
-        if ( include_keys and (key in keys) ) or (not include_keys and (key not in keys)):
-            rv[key] = attr[key]
-    return rv
-
 class RegionContainer(JSONObjectContainer):
 
     def newObject( self, spec ):

@@ -47,4 +47,6 @@ class CeleryEngine( ComputeEngine ):
     def getCommunicator( self ):
         return  CeleryCommunicator()
 
-
+    @staticmethod
+    def getWorkerIntracom():
+        pass

@@ -65,7 +65,7 @@ class KernelTests(unittest.TestCase):
         cache_level = 85000.0
         request_region = Region( { "lev": {"config":{},"bounds":[cache_level]}, "id":"r0" } )
         results = self.getResults( kernelMgr.run( TaskRequest( request={ 'domain': [ {"id":"r0", "level": cache_level } ], 'data': self.getData() } ) ) )
-        result_stats = results[0]['result'][0]
+        result_stats = results[0][0]
         cached_region = result_stats['region']
         self.assertEqual(cached_region, request_region )
 

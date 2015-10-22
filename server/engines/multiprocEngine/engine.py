@@ -7,4 +7,6 @@ class MultiprocEngine( ComputeEngine ):
         return  MultiprocCommunicator()
 
 
-
+    @staticmethod
+    def getWorkerIntracom():
+        pass

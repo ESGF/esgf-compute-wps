@@ -6,6 +6,13 @@ wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(DefaultLogLevel)
 if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.join( LogDir, 'wps.log') ) )
 
+def filter_attributes( attr, keys, include_keys = True ):
+    rv = {}
+    for key in attr.iterkeys():
+        if ( include_keys and (key in keys) ) or (not include_keys and (key not in keys)):
+            rv[key] = attr[key]
+    return rv
+
 def get_json_arg( id, args, default=None ):
         json_arg = args.get( id, None )
         if json_arg is not None: return convert_json_str( json_arg )

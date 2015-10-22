@@ -31,14 +31,19 @@ class CachedVariable:
         self.domainManager = DomainManager()
 
     def updateStats(self,tvar):
-        self.stat['fill_value'] = tvar.fill_value
-        self.stat['attributes'] = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
-        self.stat['grid'] = tvar.getGrid()
-        self.stat['id'] = tvar.id
         self.stat['cid'] = self.id
-        self.stat['dtype'] = tvar.dtype
-        cdms_domain = tvar.getDomain()
-        self.stat['axes'] = [ d[0] for d in cdms_domain ]
+        if hasattr(tvar, 'getGrid'):
+            self.stat['fill_value'] = tvar.fill_value
+            self.stat['attributes'] = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
+            self.stat['grid'] = tvar.getGrid()
+            self.stat['id'] = tvar.id
+            self.stat['dtype'] = tvar.dtype
+            cdms_domain = tvar.getDomain()
+            self.stat['axes'] = [ d[0] for d in cdms_domain ]
+
+    def loadStats(self, mdata ):
+        self.stat.update( filter_attributes( mdata, [ 'fill_value', 'missing', 'grid', 'dtype', 'axes' ] ) )
+        self.stat['attributes'] = filter_attributes( mdata.get('variable',{}), [ 'units', 'long_name', 'standard_name', 'comment'] )
 
     def getCacheSize(self, cache_map ):
         return self.domainManager.getCacheSize( cache_map )
@@ -97,19 +102,18 @@ class CacheManager:
         self.statusCache = StatusPickleMgr( '.'.join( [ 'stats_cache', name ] ) )
         self.loadStats()
 
-    def sendData( self, destination, region, var, specs ):
+    def sendData( self, destination, region, var, spec ):
         cvar = self._cache.get( var, None )
         if cvar:
-            self.comm.sendRegion( data, destination )
+            self.comm.sendRegion( cvar.data, destination )
             wpsLog.debug( "\n **------------------->> CM[%s]: sendData: %s %s %s %s\n" % ( self.name, destination, region, var, cvar ) )
         else:
             wpsLog.debug( " CM[%s]: Attempt to send data that can't be found: %s, cache: %s\n" % ( self.name, var,  str(self._cache.keys()) ) )
 
-    def receiveData(  self, source, region, var, specs ):
-        data = self.comm.receiveRegion( source )
-        self.addVariable( var, data, specs )
-        wpsLog.debug( "\n\n **------------------->> CM[%s]: receiveData: %s %s %s %s\n\n" % ( self.name, source, region, var, cvar ) )
-
+    def receiveData(  self, source, region, varid, spec ):
+        vardata = self.comm.receiveRegion( source, spec['shape'] )
+        self.addVariable( varid, vardata, spec )
+        wpsLog.debug( "\n\n **------------------->> CM[%s]: receiveData: %s %s %s\n\n" % ( self.name, source, region, var ) )
 
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
@@ -131,7 +135,7 @@ class CacheManager:
 
     def loadStats( self, **args ):
         stats = self.statusCache['stats']
-     #   wpsLog.debug( "\n ***-------> Load Stats: %s\n" % stats )
+        wpsLog.debug( "\n ***CM[%s]-------> Load Stats: %s\n" % ( self.name, stats ) )
         if stats:
             for var_stats in stats:
                 cache_id = var_stats.get('cid',None)
@@ -145,7 +149,7 @@ class CacheManager:
 
     def persistStats( self, **args ):
         stats = self.stats( **args )
-     #   wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( args.get('loc',""), stats ) )
+        wpsLog.debug( "\n ***CM[%s]-------> Persist Stats[%s]:\n %s\n" % ( self.name, args.get('loc',""), stats ) )
         self.statusCache['stats'] = stats
 
     @classmethod
@@ -161,16 +165,19 @@ class CacheManager:
                       ( cid, str(self._cache.keys()), str(new_region), (cached_cvar is not None), (domain is not None), status ) )
         return status, domain
 
-    def addVariable( self, cache_id, data, specs ):
+    def createTransientVariable( self, cache_id, domain_data, specs ):
+        pass
+
+    def addVariable( self, cache_id, domain_data, specs ):
         cached_cvar = self._cache.get( cache_id, None )
         if cached_cvar is None:
             var_type, var_id = self.getModifiers( cache_id )
+            tvar = self.createTransientVariable( cache_id, domain_data, specs )
             cached_cvar = CachedVariable( type=var_type, id=cache_id, specs=specs )
-            cached_cvar.updateStats( data )
+            cached_cvar.updateStats( tvar )
             self._cache[ cache_id ] = cached_cvar
         region = specs.get( 'region', {} )
-        cached_cvar.addDomain( region, data=data )
-
+        cached_cvar.addDomain( region, data=tvar )
 
     def getResults(self):
         return self.filterVariables( { 'type': CachedVariable.RESULT } )
@@ -206,11 +213,11 @@ class DataManager:
         engine_class = engineRegistry.getClassInstance( CDAS_COMPUTE_ENGINE + "Engine" )
         self.intracom = engine_class.getWorkerIntracom()
 
-    def transferDomain( self, source, destination, region, var ):
+    def transferDomain( self, source, destination, region, varid, spec ):
         if source == self.cacheManager.name:
-            self.cacheManager.sendData( destination, region, var )
+            self.cacheManager.sendData( destination, region, varid, spec )
         elif destination == self.cacheManager.name:
-            self.cacheManager.receiveData( source, region, var )
+            self.cacheManager.receiveData( source, region, varid, spec )
 
     def close(self):
         self.collectionManager.close()

@@ -52,7 +52,7 @@ class WorkerIntracom:
     def sendRegion(self, data, destination ):
         pass
 
-    def receiveRegion(self, data, destination ):
+    def receiveRegion(self, source, shape ):
         pass
 
 class ComputeEngineCommunicator:

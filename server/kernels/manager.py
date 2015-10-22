@@ -50,6 +50,13 @@ class KernelManager:
                     if dslice: region = Region( region, slice=dslice )
                 variable, data_spec = self.dataManager.loadVariable( data, region, cache_type )
                 data_spec['missing'] = variable.getMissing()
+                data_spec['shape'] = variable.shape
+                data_spec['fill_value'] = variable.fill_value
+                data_spec['grid'] = variable.getGrid()
+                cdms_domain = variable.getDomain()
+                data_spec['axes'] = [ d[0] for d in cdms_domain ]
+                data_spec['dtype'] = variable.dtype
+                data_spec['attributes'] = filter_attributes( variable.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
                 cached_region = Region( data_spec['region'] )
                 if (region is not None) and (cached_region <> region):
                     subset_args = region.toCDMS()
@@ -83,7 +90,7 @@ class KernelManager:
             elif utility == 'shutdown.all':
                 self.shutdown()
             elif utility == 'domain.transfer':
-                self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'),  task_request.getRequestArg('region'),  task_request.getRequestArg('var') )
+                self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'),  task_request.getRequestArg('region'),  task_request.getRequestArg('var'),  task_request.getRequestArg('spec') )
             elif utility=='domain.uncache':
                 self.dataManager.uncache( task_request.data.values, task_request.region.value )
                 response['stats'] = self.dataManager.stats()
@@ -97,7 +104,7 @@ class KernelManager:
                 for op_index, operation in enumerate(operations_list):
                     variables, metadata_recs = self.getKernelInputs( operation, op_index, task_request )
                     kernel = self.getKernel( operation )
-                    result = kernel.run( variables, metadata_recs, operation ) if kernel else { 'result': metadata_recs }
+                    result = kernel.run( variables, metadata_recs, operation ) if kernel else metadata_recs
                     results.append( result )
                 end_time = time.time()
                 wpsLog.debug( " $$$ Kernel Execution Complete, ` time = %.2f " % (end_time-start_time) )
@@ -172,7 +179,7 @@ if __name__ == "__main__":
 
     def test_1():
         result = kernelMgr.run( TaskRequest( request={'config': {'cache': True}, 'region': {'level': 85000}, 'data': '{"name": "hur", "collection": "MERRA/mon/atmos", "id": "v0"}'} ) )
-        result_stats = result[0]['result']
+        result_stats = result[0]
         pp.pprint(result_stats)
 
     def average():
