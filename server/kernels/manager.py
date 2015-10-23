@@ -48,16 +48,12 @@ class KernelManager:
                 if cache_type == CachedVariable.CACHE_OP:
                     dslice = operation.get('slice',None)
                     if dslice: region = Region( region, slice=dslice )
-                variable, data_spec = self.dataManager.loadVariable( data, region, cache_type )
-                data_spec['missing'] = variable.getMissing()
-                data_spec['shape'] = variable.shape
-                data_spec['fill_value'] = variable.fill_value
-                cached_region = Region( data_spec['region'] )
+                variable, data_spec, cached_region = self.dataManager.loadVariable( data, region, cache_type )
                 if (region is not None) and (cached_region <> region):
                     subset_args = region.toCDMS()
                     variable = numpy.ma.fix_invalid( variable( **subset_args ) )
         #            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))
-                data_spec['data.region'] = region
+        #        data_spec['data.region'] = region
                 data_spec['embedded'] = embedded
                 if result_names is not None: data_spec['result_name'] = result_names[ op_index ]
                 variables.append( variable )
@@ -85,7 +81,7 @@ class KernelManager:
             elif utility == 'shutdown.all':
                 self.shutdown()
             elif utility == 'domain.transfer':
-                self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'),  task_request.getRequestArg('region'),  task_request.getRequestArg('var'),  task_request.getRequestArg('spec') )
+                self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'),  task_request.getRequestArg('dspec') )
             elif utility=='domain.uncache':
                 self.dataManager.uncache( task_request.data.values, task_request.region.value )
                 response['stats'] = self.dataManager.stats()
@@ -108,10 +104,14 @@ class KernelManager:
                 wpsLog.debug( traceback.format_exc() )
                 response['error'] = str(err)
 
-        genericize( results )
-        self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
-        return response
 
+        self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
+        rv = self.generateResponse( response )
+        return rv
+
+    def generateResponse( self, response ):
+        response['results'] = unwrap( response['results'] )
+        return response
 
     def shutdown(self):
         wpsLog.debug( "PERSIST (@shutdown) data and metadata " )

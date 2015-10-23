@@ -6,6 +6,12 @@ wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(DefaultLogLevel)
 if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.join( LogDir, 'wps.log') ) )
 
+def unwrap( results ):
+    while True:
+        if isinstance( results, list ) and len( results ) == 1: results = results[0]
+        else: break
+    return results
+
 def filter_attributes( attr, keys, include_keys = True ):
     rv = {}
     for key in attr.iterkeys():

@@ -127,7 +127,7 @@ class CDASKernel:
             result, result_mdata  = self.applyOperation( subsetted_variables, operation )
             result_obj = self.getResultObject( metadata_recs, result, result_mdata  )
             end_time = time.time()
-            wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(result_obj["data.region"]), (end_time-start_time) ) )
+            wpsLog.debug( "Computed operation %s: time = %.4f" % ( str(operation), (end_time-start_time) ) )
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
         return result_obj
@@ -161,7 +161,8 @@ class CDASKernel:
         request_mdata = request_mdatas[0]
         embedded = getBoolValue( request_mdata,'embedded', False )
         if embedded:
-            missing = getFloatValue( request_mdata,'missing', None )
+            vstat = request_mdata['domain_spec'].vstat
+            missing = getFloatValue( vstat,'missing', None )
             if type( result ) in ( list, tuple, dict, float, int ):
                 result_data = result
                 time_axis = result_mdata['time']

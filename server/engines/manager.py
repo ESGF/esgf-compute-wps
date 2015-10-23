@@ -39,13 +39,15 @@ class ComputeEngine( Executable ):
         else:
             worker = response['wid']
             results = response.get('results',None)
-            if results: cached_var.loadStats( results[0][0] )
+            if results: cached_var.loadStats( results['domain_spec'].vstat )
             cached_domain.cacheRequestComplete( worker )
             self.communicator.clearWorkerState( worker )
             del self.pendingTasks[ cache_task_monitor ]
             wpsLog.debug( " ***** process Completed Task: worker = %s, cache_request = %s " % ( worker, str(cache_task_monitor) ) )
         results = response['results']
-        for result in results: result.update( args )
+        if isinstance( results, list ):
+            for result in results: result.update( args )
+        else: results.update( args )
         return results
 
     def processOpTask( self, task_monitor, **args  ):
@@ -55,7 +57,10 @@ class ComputeEngine( Executable ):
         self.communicator.clearWorkerState( worker )
         del self.pendingTasks[ task_monitor ]
         results = response['results']
-        for result in results: result.update( args )
+        if isinstance( results, list ):
+            for result in results: result.update( args )
+        else:
+            results.update( args )
         return results
 
     def processPendingTasks(self):
@@ -105,7 +110,7 @@ class ComputeEngine( Executable ):
                 for domain_stat in domain_stats:
                     cached_cvar.addCachedDomain( domain_stat['region'], dstat=domain_stat, vstat=var_stats )
 
-    def findCachedDomain(self, var_cache_id, region, dataset ):
+    def findCachedDomain(self, var_cache_id, region, dataset=None ):
         cached_var = self.cachedVariables.get( var_cache_id, None )
         if cached_var == None:
             cached_var =  CachedVariable( id=var_cache_id, dataset=dataset)

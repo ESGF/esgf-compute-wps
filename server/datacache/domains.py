@@ -208,6 +208,18 @@ class DomainSpec:
     def __init__( self, vstat,  dstat ):
         self.vstat = vstat
         self.dstat = dstat
+        self.stat = {}
+
+    def copy( self, spec, keys, inclusive=True ):
+        for key in spec.iterkeys():
+            if ( inclusive and (key in keys) ) or (not inclusive and (key not in keys)):
+                self.stat[key] = spec[key]
+
+    def __getitem__(self, item):
+        return self.stat.get( item, None )
+
+    def __setitem__(self, key, value):
+        self.stat[ key ] = value
 
 class Domain(Region):
 
@@ -230,7 +242,7 @@ class Domain(Region):
         return self.stat.get( 'persist_id', None )
 
     def getDomainSpec(self):
-        return DomainSpec( self.vstat, self.stat )
+        return DomainSpec( self.vstat, self.spec )
 
     def isCached(self):
         return self.stat.get( 'persist_id', None ) or self.stat.get( 'inMemory', False )
@@ -278,8 +290,8 @@ class Domain(Region):
         persistenceManager.release( self.stat )
 
     def stats(self,**args):
-        self.stat['cid'] = args.get( 'cid', self.vstat['id'] )
-        self.stat['rid'] = args.get( 'rid', self.vstat['id'] )
+        self.stat['cid'] = args.get( 'cid', self.vstat['cid'] )
+        self.stat['rid'] = args.get( 'rid', self.vstat['cid'] )
         wid = args.get( 'wid', None )
         if wid:
             self.stat['wid'] = wid
