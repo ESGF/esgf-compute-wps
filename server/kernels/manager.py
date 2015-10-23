@@ -52,11 +52,6 @@ class KernelManager:
                 data_spec['missing'] = variable.getMissing()
                 data_spec['shape'] = variable.shape
                 data_spec['fill_value'] = variable.fill_value
-                data_spec['grid'] = variable.getGrid()
-                cdms_domain = variable.getDomain()
-                data_spec['axes'] = [ d[0] for d in cdms_domain ]
-                data_spec['dtype'] = variable.dtype
-                data_spec['attributes'] = filter_attributes( variable.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
                 cached_region = Region( data_spec['region'] )
                 if (region is not None) and (cached_region <> region):
                     subset_args = region.toCDMS()

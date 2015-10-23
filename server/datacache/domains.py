@@ -203,6 +203,12 @@ class Region(JSONObject):
 #         self.dtype = None
 #         self.axes = None
 
+class DomainSpec:
+
+    def __init__( self, vstat,  dstat ):
+        self.vstat = vstat
+        self.dstat = dstat
+
 class Domain(Region):
 
     DISJOINT = 0
@@ -222,6 +228,9 @@ class Domain(Region):
 
     def getPersistId(self):
         return self.stat.get( 'persist_id', None )
+
+    def getDomainSpec(self):
+        return DomainSpec( self.vstat, self.stat )
 
     def isCached(self):
         return self.stat.get( 'persist_id', None ) or self.stat.get( 'inMemory', False )

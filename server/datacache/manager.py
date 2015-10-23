@@ -177,7 +177,7 @@ class CacheManager:
             cached_cvar.updateStats( tvar )
             self._cache[ cache_id ] = cached_cvar
         region = specs.get( 'region', {} )
-        cached_cvar.addDomain( region, data=tvar )
+        return cached_cvar.addDomain( region, data=tvar )
 
     def getResults(self):
         return self.filterVariables( { 'type': CachedVariable.RESULT } )
@@ -302,7 +302,9 @@ class DataManager:
         if (variable is not None) and (cache_type <> CachedVariable.CACHE_NONE):
             data_specs['cache_type'] = cache_type
             if (domain is None) or not domain.equals( cache_region):
-                self.cacheManager.addVariable( var_cache_id, variable, data_specs )
+                domain = self.cacheManager.addVariable( var_cache_id, variable, data_specs )
+                domain_spec = domain.getDomainSpec()
+                data_specs['domain_spec'] = domain_spec
         t1 = time.time()
         wpsLog.debug( " #@@ DataManager:FinishedLoadVariable %s (time = %.2f, dt = %.2f), shape = %s" %  ( str( data_specs ), t1, (t1-t0), str(variable.shape) ) )
         return variable, data_specs
