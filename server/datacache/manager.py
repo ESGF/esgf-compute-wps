@@ -23,7 +23,7 @@ class CachedVariable:
     CACHE_REGION = 2
 
     def __init__(self, **args ):
-        self.stat = args.get('vstat',{})
+        self.stat = args.get('variable_spec',{})
         self.id = args.get('id',None)
         self.type = args.get('type',None)
         self.specs = args
@@ -59,9 +59,9 @@ class CachedVariable:
     def stats( self, **args ):
         kwargs = { 'cid': self.id }
         kwargs.update( args )
-        vstat = dict(self.stat)
-        vstat['domains'] = self.domainManager.stats( **kwargs )
-        return vstat
+        variable_spec = dict(self.stat)
+        variable_spec['domains'] = self.domainManager.stats( **kwargs )
+        return variable_spec
 
     @classmethod
     def getCacheType( cls, use_cache, operation ):
@@ -70,14 +70,14 @@ class CachedVariable:
 
     def addDomain(self, region, **args ):
         data = args.get( 'data', None )
-        domain = Domain( region, tvar=data, vstat=self.stat )
+        domain = Domain( region, tvar=data, variable_spec=self.stat )
         request_queue = args.get( 'queue', None )
         if request_queue: domain.cacheRequestSubmitted( request_queue )
         self.domainManager.addDomain( domain )
         return domain
 
-    def addCachedDomain( self, domain_spec, **args ):
-        domain = Domain( domain_spec, **args  )
+    def addCachedDomain( self, region_spec, **args ):
+        domain = Domain( region_spec, **args  )
         self.domainManager.addDomain( domain )
         return domain
 
@@ -105,8 +105,8 @@ class CacheManager:
         self.statusCache = StatusPickleMgr( '.'.join( [ 'stats_cache', name ] ) )
         self.loadStats()
 
-    def sendData( self, destination, dspec ):
-        var = dspec.vstat['id']
+    def sendData( self, destination, domain_spec ):
+        var = domain_spec.variable_spec['id']
         cvar = self._cache.get( var, None )
         if cvar:
             self.comm.sendRegion( cvar.data, destination )
@@ -114,9 +114,9 @@ class CacheManager:
         else:
             wpsLog.debug( " CM[%s]: Attempt to send data that can't be found: %s, cache: %s\n" % ( self.name, var,  str(self._cache.keys()) ) )
 
-    def receiveData(  self, source, dspec ):
-        vardata = self.comm.receiveRegion( source, dspec.vstat['shape'] )
-        self.addVariable( dspec.vstat['id'], vardata, dspec.dstat, dspec.vstat )   # TODO: update this metnod
+    def receiveData(  self, source, domain_spec ):
+        vardata = self.comm.receiveRegion( source, domain_spec.variable_spec['shape'] )
+        self.createTransientVariable( domain_spec, vardata )
         wpsLog.debug( "\n\n **------------------->> CM[%s]: receiveData: %s %s\n\n" % ( self.name, source, var ) )
 
     def persist( self, **args ):
@@ -145,11 +145,11 @@ class CacheManager:
                 cache_id = var_stats.get('cid',None)
                 cached_cvar = self._cache.get( cache_id, None )
                 if cached_cvar is None:
-                    cached_cvar = CachedVariable(  id=cache_id, vstat=var_stats )
+                    cached_cvar = CachedVariable(  id=cache_id, variable_spec=var_stats )
                     self._cache[ cache_id ] = cached_cvar
                 domain_stats = var_stats['domains']
                 for domain_stat in domain_stats:
-                    cached_cvar.addCachedDomain( domain_stat['region'], dstat=domain_stat, vstat=var_stats )
+                    cached_cvar.addCachedDomain( domain_stat['region'], region_spec=domain_stat, variable_spec=var_stats )
 
     def persistStats( self, **args ):
         stats = self.stats( **args )
@@ -169,12 +169,19 @@ class CacheManager:
                       ( cid, str(self._cache.keys()), str(new_region), (cached_cvar is not None), (domain is not None), status ) )
         return status, domain
 
-    def createTransientVariable( self, variable_data, vstat=None ):
-        if hasattr(variable_data, 'getGrid'): return variable_data
-
-    def addVariable( self, cache_id, variable_data, region, vstat=None ):
+    def addNewVariable( self, domain_spec, variable_data ):
+        cache_id = domain_spec.variable_spec['id']
         cached_cvar = self._cache.get( cache_id, None )
-        tvar = self.createTransientVariable( variable_data, vstat )
+        if cached_cvar is None:
+            var_type, var_id = self.getModifiers( cache_id )
+            cached_cvar = CachedVariable( type=var_type, id=cache_id, variable_spec=domain_spec.variable_spec )
+            self._cache[ cache_id ] = cached_cvar
+        domain = cached_cvar.addCachedDomain( domain_spec.region_spec )
+        domain.setData( variable_data )
+        return domain
+
+    def addTransientVariable( self, cache_id, tvar, region ):
+        cached_cvar = self._cache.get( cache_id, None )
         if cached_cvar is None:
             var_type, var_id = self.getModifiers( cache_id )
             cached_cvar = CachedVariable( type=var_type, id=cache_id )
@@ -216,11 +223,11 @@ class DataManager:
         engine_class = engineRegistry.getClassInstance( CDAS_COMPUTE_ENGINE + "Engine" )
         self.intracom = engine_class.getWorkerIntracom()
 
-    def transferDomain( self, source, destination, dspec ):
+    def transferDomain( self, source, destination, domain_spec ):
         if source == self.cacheManager.name:
-            self.cacheManager.sendData( destination, dspec )
+            self.cacheManager.sendData( destination, domain_spec )
         elif destination == self.cacheManager.name:
-            self.cacheManager.receiveData( source, dspec )
+            self.cacheManager.receiveData( source, domain_spec )
 
     def close(self):
         self.collectionManager.close()
@@ -300,7 +307,7 @@ class DataManager:
         if (variable is not None) and (cache_type <> CachedVariable.CACHE_NONE):
             data_specs['cache_type'] = cache_type
             if (domain is None) or not domain.equals( cache_region):
-                domain = self.cacheManager.addVariable( var_cache_id, variable, cache_region )
+                domain = self.cacheManager.addTransientVariable( var_cache_id, variable, cache_region )
 
         domain_spec = domain.getDomainSpec()
         data_specs['domain_spec'] = domain_spec

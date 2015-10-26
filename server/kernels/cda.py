@@ -161,8 +161,8 @@ class CDASKernel:
         request_mdata = request_mdatas[0]
         embedded = getBoolValue( request_mdata,'embedded', False )
         if embedded:
-            vstat = request_mdata['domain_spec'].vstat
-            missing = getFloatValue( vstat,'missing', None )
+            variable_spec = request_mdata['domain_spec'].variable_spec
+            missing = getFloatValue( variable_spec,'missing', None )
             if type( result ) in ( list, tuple, dict, float, int ):
                 result_data = result
                 time_axis = result_mdata['time']

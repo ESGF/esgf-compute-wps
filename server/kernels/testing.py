@@ -66,8 +66,8 @@ class KernelTests(unittest.TestCase):
         cache_level = 85000.0
         request_region = Region( { "lev": {"config":{},"bounds":[cache_level]}, "id":"r0" } )
         results = self.getResults( kernelMgr.run( TaskRequest( request={ 'domain': [ {"id":"r0", "level": cache_level } ], 'data': self.getData() } ) ) )
-        dstat = results['domain_spec'].dstat
-        self.assertEqual( Region(dstat) , request_region )
+        region_spec = results['domain_spec'].region_spec
+        self.assertEqual( Region(region_spec) , request_region )
 
     def test02_departures(self):
         test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,

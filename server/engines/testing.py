@@ -65,8 +65,8 @@ class EngineTests(unittest.TestCase):
         source_worker = cache_worker
         destination_worker = 'W-0'
         cached_var, domain = self.engine.findCachedDomain( cached_var, self.cache_region )
-        dspec = domain.getDomainSpec()
-        task_args = { 'source':source_worker, 'destination':destination_worker, 'dspec':dspec }
+        domain_spec = domain.getDomainSpec()
+        task_args = { 'source':source_worker, 'destination':destination_worker, 'domain_spec':domain_spec }
         results = self.engine.execute( TaskRequest( utility='domain.transfer', request=task_args ) )
 
     def test02_departures(self):

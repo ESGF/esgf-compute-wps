@@ -81,7 +81,7 @@ class KernelManager:
             elif utility == 'shutdown.all':
                 self.shutdown()
             elif utility == 'domain.transfer':
-                self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'),  task_request.getRequestArg('dspec') )
+                self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'),  task_request.getRequestArg('domain_spec') )
             elif utility=='domain.uncache':
                 self.dataManager.uncache( task_request.data.values, task_request.region.value )
                 response['stats'] = self.dataManager.stats()

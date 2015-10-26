@@ -205,9 +205,9 @@ class Region(JSONObject):
 
 class DomainSpec:
 
-    def __init__( self, vstat,  dstat ):
-        self.vstat = vstat
-        self.dstat = dstat
+    def __init__( self, variable_spec,  region_spec ):
+        self.variable_spec = variable_spec
+        self.region_spec = region_spec
         self.stat = {}
 
     def copy( self, spec, keys, inclusive=True ):
@@ -230,11 +230,11 @@ class Domain(Region):
     PENDING = 0
     COMPLETE = 1
 
-    def __init__( self, domain_spec=None,  **args ):
-        self.stat = args.get( 'dstat', { 'persist_id':None } )
-        Region.__init__( self, domain_spec )
+    def __init__( self, region_spec=None,  **args ):
+        self.stat = args.get( 'region_spec', { 'persist_id':None } )
+        Region.__init__( self, region_spec )
         self._variable = None
-        self.vstat = args.get('vstat', None )
+        self.variable_spec = args.get('variable_spec', None )
         self.setVariable( args.get('tvar', None ) )                   # TransientVariable
         self.cache_request_status = Domain.COMPLETE if self.isCached() else None
 
@@ -242,7 +242,7 @@ class Domain(Region):
         return self.stat.get( 'persist_id', None )
 
     def getDomainSpec(self):
-        return DomainSpec( self.vstat, self.spec )
+        return DomainSpec( self.variable_spec, self.spec )
 
     def isCached(self):
         return self.stat.get( 'persist_id', None ) or self.stat.get( 'inMemory', False )
@@ -253,7 +253,7 @@ class Domain(Region):
 
     def setData( self, data ):
         import cdms2
-        self._variable = cdms2.createVariable( data, fill_value=self.vstat['fill_value'], grid=self.vstat['grid'], axes=self.vstat['axes'], id=self.vstat['id'], dtype=self.vstat['dtype'], attributes=self.vstat['attributes'] )
+        self._variable = cdms2.createVariable( data, fill_value=self.variable_spec['fill_value'], grid=self.variable_spec['grid'], axes=self.variable_spec['axes'], id=self.variable_spec['id'], dtype=self.variable_spec['dtype'], attributes=self.variable_spec['attributes'] )
 
     def getVariable(self):
         if self._variable is None:
@@ -290,8 +290,8 @@ class Domain(Region):
         persistenceManager.release( self.stat )
 
     def stats(self,**args):
-        self.stat['cid'] = args.get( 'cid', self.vstat['cid'] )
-        self.stat['rid'] = args.get( 'rid', self.vstat['cid'] )
+        self.stat['cid'] = args.get( 'cid', self.variable_spec['cid'] )
+        self.stat['rid'] = args.get( 'rid', self.variable_spec['cid'] )
         wid = args.get( 'wid', None )
         if wid:
             self.stat['wid'] = wid

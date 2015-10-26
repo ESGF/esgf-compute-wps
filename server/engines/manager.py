@@ -39,7 +39,7 @@ class ComputeEngine( Executable ):
         else:
             worker = response['wid']
             results = response.get('results',None)
-            if results: cached_var.loadStats( results['domain_spec'].vstat )
+            if results: cached_var.loadStats( results['domain_spec'].variable_spec )
             cached_domain.cacheRequestComplete( worker )
             self.communicator.clearWorkerState( worker )
             del self.pendingTasks[ cache_task_monitor ]
@@ -104,11 +104,11 @@ class ComputeEngine( Executable ):
                 cache_id = var_stats.get('cid',None)
                 cached_cvar = self.cachedVariables.get( cache_id, None )
                 if cached_cvar is None:
-                    cached_cvar = CachedVariable(  id=cache_id, vstat=var_stats )
+                    cached_cvar = CachedVariable(  id=cache_id, variable_spec=var_stats )
                     self.cachedVariables[ cache_id ] = cached_cvar
                 domain_stats = var_stats['domains']
                 for domain_stat in domain_stats:
-                    cached_cvar.addCachedDomain( domain_stat['region'], dstat=domain_stat, vstat=var_stats )
+                    cached_cvar.addCachedDomain( domain_stat['region'], domain_spec=domain_stat, variable_spec=var_stats )
 
     def findCachedDomain(self, var_cache_id, region, dataset=None ):
         cached_var = self.cachedVariables.get( var_cache_id, None )
