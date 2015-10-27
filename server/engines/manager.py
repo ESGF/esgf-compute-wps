@@ -108,7 +108,7 @@ class ComputeEngine( Executable ):
                     self.cachedVariables[ cache_id ] = cached_cvar
                 domain_stats = var_stats['domains']
                 for domain_stat in domain_stats:
-                    cached_cvar.addCachedDomain( domain_stat['region'], domain_spec=domain_stat, variable_spec=var_stats )
+                    cached_cvar.addCachedDomain( domain_stat['region'], region_spec=domain_stat, variable_spec=var_stats )
 
     def findCachedDomain(self, var_cache_id, region, dataset=None ):
         cached_var = self.cachedVariables.get( var_cache_id, None )
@@ -233,7 +233,7 @@ class ComputeEngine( Executable ):
                 return results
 
             else:
-                cache_rval = { 'cache_worker': cache_worker, 'cache_region': cache_region, 'cached_var': var_cache_id, 'async': async, 'exerec': executionRecord.toJson()  }
+                cache_rval = { 'cache_worker': cache_worker, 'cache_region': cached_domain, 'cached_var': var_cache_id, 'async': async, 'exerec': executionRecord.toJson()  }
                 if async: return cache_rval
                 else:
                     if cache_task_monitor is not None: self.processCacheTask( cache_task_monitor, cached_var, cached_domain )
@@ -244,84 +244,92 @@ class ComputeEngine( Executable ):
             return err
 
 
-if __name__ == '__main__':
+class EngineTests:
 
-    from engines import engineRegistry
-    from modules.configuration import MERRA_TEST_VARIABLES, MERRA_LOCAL_TEST_VARIABLES, CDAS_COMPUTE_ENGINE
-    test_point = [ -137.0, 35.0, 85000 ]
-    test_time = '2010-01-16T12:00:00'
-    operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
-    engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
+    def __init__(self):
+        from engines import engineRegistry
+        self.test_point = [ -137.0, 35.0, 85000 ]
+        self.test_time = '2010-01-16T12:00:00'
+        self.operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
+        self.indexed_operations = [ "CDTime.departures($0,slice:t)", "CDTime.climatology($0,slice:t,bounds:annualcycle)", "CDTime.value($0)" ]
+        self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData(), 'embedded': True, 'async': False }
+        self.engine = engineRegistry.getInstance( configuration.CDAS_COMPUTE_ENGINE + "Engine" )
+        self.cache_region =  Region( { "lev": {"config":{},"bounds":[ self.test_point[2] ], 'id':"r0" } } )
 
-    def getRegion( ipt=0 ):
-        return '[{"id":"r0","longitude": {"value":%.2f,"system":"values"}, "latitude": %.2f, "level": %.2f, "time":"%s" }]' % (test_point[0]+5*ipt,test_point[1]-5*ipt,test_point[2],test_time)
+    def tearDown(self):
+        pass
 
-    def getData( vars=[0]):
-        var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( MERRA_TEST_VARIABLES["collection"], ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
+    def getRegion(self, ipt=0 ):
+        return '[{"id":"r0","longitude": {"value":%.2f,"system":"values"}, "latitude": %.2f, "level": %.2f, "time":"%s" }]' % (self.test_point[0]+5*ipt,self.test_point[1]-5*ipt,self.test_point[2],self.test_time)
+
+    def getData(self, vars=[0]):
+        var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( configuration.MERRA_TEST_VARIABLES["collection"], ivar, configuration.MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
         data = '[%s]' % ( var_list )
         return data
 
-    def getLocalData():
-        return '{"dset":"%s","id":"v0:%s","domain":"r0"}' % ( MERRA_LOCAL_TEST_VARIABLES["collection"], MERRA_LOCAL_TEST_VARIABLES["vars"][0] )
+    def getLocalData(self):
+        data = '{"dset":"MERRA/mon/atmos/hur","id":"v0:hur","domain":"r0"}'
+        return data
 
-    def getOp( op_index ):
-        return [ operations[ op_index ] ]
+    def getOp(self, op_index ):
+        return [ self.operations[ op_index ] ]
 
-    def getTaskArgs( op ):
-        task_args =  { "domain": getRegion(), "variable": getLocalData(), 'embedded': True }
+    def getTaskArgs(self, op ):
+        task_args = dict( self.def_task_args )
         task_args['operation'] = op
         return task_args
 
-    def getResultData(  results, index=0 ):
+    def getResultData( self, results, index=0 ):
         if isinstance( results, Exception ):
             raise results
-        rdata = results[index].get( 'data', None )
+        if isinstance( results, list ): rdata = results[index].get( 'data', None )
+        else:                           rdata = results.get( 'data', None )
         return None if (rdata is None) else ( [ float(rd) for rd in rdata ] if hasattr( rdata, '__iter__' ) else float(rdata) )
 
-    def getResultStats(  results, index=0 ):
+    def getResultStats( self, results, index=0 ):
         if isinstance( results, Exception ):
-            print str(results)
+            print(str(results))
         return ExecutionRecord( results[index]['exerec'] )
 
-    def test01_cache():
-        cache_region =  Region( { "lev": {"config":{},"bounds":[ 85000 ] } } )
-        result      = engine.execute( TaskRequest( request={ 'domain': cache_region, 'variable': getLocalData() } ) )
-        if isinstance( result, list ): result = result[0]
-        print result
+    def transfer(self):
+        result = self.engine.execute( TaskRequest( request={ 'domain': self.cache_region, 'variable': self.getData(), 'async': False } ) )
+        wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Cache Result: %s\n\n ", str(result ) )
+        cached_var, domain = self.engine.findCachedDomain( result['cached_var'], self.cache_region )
+        task_args = { 'source': result['cache_worker'], 'destination': 'W-0', 'domain_spec': domain.getDomainSpec(), 'async': False, 'embedded': True  }
+        results = self.engine.execute( TaskRequest( utility='domain.transfer', request=task_args ) )
+        wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Transfer Results: %s\n\n ", str(results) )
 
-    def test02_departures():
-        task_args = getTaskArgs( op=getOp( 0 ) )
-        result = engine.execute( TaskRequest( request=task_args ) )
-        result_data = getResultData( result )
-        compute_result = result_data[0:10]
-        print compute_result
-        #        assertStatusEquals( result, cache_found=Domain.COMPLETE, cache_found_domain=cache_region,  designated=True )
+    def xtest02_departures(self):
+        test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,
+                        -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375,
+                          8.750885009765625, 11.778228759765625, 12.852447509765625 ]
+        task_args = self.getTaskArgs( op=[ self.indexed_operations[0] ] )
+        result = self.engine.execute( TaskRequest( request=task_args ) )
+        result_data = self.getResultData( result )
+        compute_result = result_data[0:len(test_result)]
 
-    def xtest03_annual_cycle():
-        task_args = getTaskArgs( op=getOp( 1 ) )
-        result = engine.execute( TaskRequest( request=task_args ) )
-        result_data = getResultData( result )
-        print result_data[0:10]
+    def xtest03_annual_cycle(self):
+        test_result = [48.07984754774306, 49.218166775173614, 49.36114501953125, 46.40715196397569, 46.3406982421875, 44.37486775716146, 46.54383680555556, 48.780619303385414, 46.378028021918404, 46.693325466579864, 48.840003119574654, 46.627953423394096]
+        task_args = self.getTaskArgs( op=self.getOp( 1 ) )
+        result = self.engine.execute( TaskRequest( request=task_args ) )
+        result_data = self.getResultData( result )
+        self.assertEqual( test_result, result_data[0:len(test_result)] )
 
-    def xtest04_value_retreval():
-        task_args = getTaskArgs( op=getOp( 2 ) )
-        result = engine.execute( TaskRequest( request=task_args ) )
-        result_data = getResultData( result )
-        print result_data
+    def xtest04_value_retreval(self):
+        test_result = 59.765625
+        task_args = self.getTaskArgs( op=self.getOp( 2 ) )
+        result = self.engine.execute( TaskRequest( request=task_args ) )
+        result_data = self.getResultData( result )
 
-    def xtest05_multitask():
-        task_args = getTaskArgs( op=operations )
-        results = engine.execute( TaskRequest( request=task_args ) )
+    def xtest05_multitask(self):
+        test_results = [ [ -1.405364990234375, -1.258880615234375, 0.840728759765625 ], [48.07984754774306, 49.218166775173614, 49.36114501953125], 59.765625 ]
+        task_args = self.getTaskArgs( op=self.operations )
+        results = self.engine.execute( TaskRequest( request=task_args ) )
         for ir in range(len(results)):
-            rdata = getResultData( results, ir )
-            print rdata[0:10]
+            rdata = self.getResultData( results, ir )
+            test_result = test_results[ir]
 
-    def transfer(ivar):
-        cache_region =  Region( { "lev": {"bounds":[ 85000 ] } } )
-        cache_result = engine.execute( TaskRequest( request={ 'domain': cache_region, 'variable': getLocalData(), 'async':False } ) )
-        source_worker = 'W-0'
-        destination_worker = 'W-1'
-        task_args = { 'utility':'domain.transfer', 'source':source_worker, 'destination':destination_worker, 'domain':cache_region, 'var':MERRA_TEST_VARIABLES["vars"][ivar] }
-        results = engine.execute( TaskRequest( request=task_args ) )
+if __name__ == '__main__':
+    test_runner = EngineTests()
+    test_runner.transfer()
 
-    transfer(0)

@@ -11,10 +11,10 @@ CDAS_STAGING = 'local'
 #CDAS_STAGING = 'celery'
 
 #CDAS_COMPUTE_ENGINE = 'celery'
-CDAS_COMPUTE_ENGINE = 'multiproc'
+#CDAS_COMPUTE_ENGINE = 'multiproc'
 #CDAS_COMPUTE_ENGINE = 'spark'
 #CDAS_COMPUTE_ENGINE = 'serial'
-#CDAS_COMPUTE_ENGINE = 'mpi'
+CDAS_COMPUTE_ENGINE = 'mpi'
 
 CDAS_OUTGOING_DATA_DIR='/Developer/Projects/EclipseWorkspace/CreateV/source/climateinspector/web/data'
 CDAS_OUTGOING_DATA_URL='http://localhost:8002/data/'

@@ -15,6 +15,7 @@ class WorkerManager:
 
     def startup( self, nworkers ):
         if self.comm is None :
+            wpsLog.debug( "WorkerManager[%x:%x]--> Spawn %d workers." % ( id(self), os.getpid(), nworkers ) )
             self.comm = MPI.COMM_SELF.Spawn( sys.executable, args=[ self.WORKER_SCRIPT ], maxprocs=nworkers )
 
     def nworkers(self):
@@ -51,8 +52,6 @@ class WorkerManager:
             w_id = wid(destination)
             rv[w_id] = { 'name': w_id, 'rank': destination }
         return rv
-
-worker_manager = WorkerManager()
 
 if __name__ == "__main__":
     import cdms2

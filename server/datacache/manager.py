@@ -76,8 +76,8 @@ class CachedVariable:
         self.domainManager.addDomain( domain )
         return domain
 
-    def addCachedDomain( self, region_spec, **args ):
-        domain = Domain( region_spec, **args  )
+    def addCachedDomain( self, region, **args ):
+        domain = Domain( region, variable_spec=self.stat  )
         self.domainManager.addDomain( domain )
         return domain
 
@@ -108,16 +108,18 @@ class CacheManager:
     def sendData( self, destination, domain_spec ):
         var = domain_spec.variable_spec['id']
         cvar = self._cache.get( var, None )
-        if cvar:
-            self.comm.sendRegion( cvar.data, destination )
-            wpsLog.debug( "\n **------------------->> CM[%s]: sendData: %s %s\n" % ( self.name, destination, var ) )
+        overlap_status, cached_domain = cvar.findDomain( domain_spec.region_spec ) if cvar else None
+        if cached_domain:
+            self.comm.sendRegion( cached_domain.getData(), destination )
+            wpsLog.debug( "\n **------------------->> CM[%s] sendData: dest=%s var=%s, overlap status = %d\n" % ( self.name, destination, var, overlap_status ) )
         else:
             wpsLog.debug( " CM[%s]: Attempt to send data that can't be found: %s, cache: %s\n" % ( self.name, var,  str(self._cache.keys()) ) )
 
     def receiveData(  self, source, domain_spec ):
         vardata = self.comm.receiveRegion( source, domain_spec.variable_spec['shape'] )
-        self.createTransientVariable( domain_spec, vardata )
-        wpsLog.debug( "\n\n **------------------->> CM[%s]: receiveData: %s %s\n\n" % ( self.name, source, var ) )
+        self.addNewVariable( domain_spec, vardata )
+        wpsLog.debug( "\n\n **------------------->> CM[%s] receiveData: source=%s var=%s\n\n" % ( self.name, source, domain_spec.variable_spec['id'] ) )
+        return domain_spec
 
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
@@ -139,7 +141,7 @@ class CacheManager:
 
     def loadStats( self, **args ):
         stats = self.statusCache['stats']
-        wpsLog.debug( "\n ***CM[%s]-------> Load Stats: %s\n" % ( self.name, stats ) )
+     #    wpsLog.debug( "\n ***CM[%s]-------> Load Stats: %s\n" % ( self.name, stats ) )
         if stats:
             for var_stats in stats:
                 cache_id = var_stats.get('cid',None)
@@ -153,7 +155,7 @@ class CacheManager:
 
     def persistStats( self, **args ):
         stats = self.stats( **args )
-        wpsLog.debug( "\n ***CM[%s]-------> Persist Stats[%s]:\n %s\n" % ( self.name, args.get('loc',""), stats ) )
+     #   wpsLog.debug( "\n ***CM[%s]-------> Persist Stats[%s]:\n %s\n" % ( self.name, args.get('loc',""), stats ) )
         self.statusCache['stats'] = stats
 
     @classmethod
@@ -220,14 +222,14 @@ class DataManager:
     def getIntracom(self):
         from engines import engineRegistry
         from modules.configuration import CDAS_COMPUTE_ENGINE
-        engine_class = engineRegistry.getClassInstance( CDAS_COMPUTE_ENGINE + "Engine" )
-        self.intracom = engine_class.getWorkerIntracom()
+        self.intracom = engineRegistry.getWorkerIntracom( CDAS_COMPUTE_ENGINE + "Engine" )
 
     def transferDomain( self, source, destination, domain_spec ):
         if source == self.cacheManager.name:
             self.cacheManager.sendData( destination, domain_spec )
         elif destination == self.cacheManager.name:
             self.cacheManager.receiveData( source, domain_spec )
+        return domain_spec
 
     def close(self):
         self.collectionManager.close()

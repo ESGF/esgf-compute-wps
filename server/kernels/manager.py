@@ -9,6 +9,7 @@ executionRecord = ExecutionRecord()
 class KernelManager:
 
     def __init__(self, wid ):
+     #    wpsLog.debug( "\n ****** STARTUP KernelManager(%s), pid=%x ****** \n" % ( wid, os.getpid() ) )
         self.dataManager = DataManager( wid )
 
     def persistStats( self, **args ):
@@ -81,7 +82,8 @@ class KernelManager:
             elif utility == 'shutdown.all':
                 self.shutdown()
             elif utility == 'domain.transfer':
-                self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'),  task_request.getRequestArg('domain_spec') )
+                transferred_domain_spec = self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'), task_request.getRequestArg('domain_spec')  )
+                response['results'].extend( [ transferred_domain_spec.variable_spec['id'],  transferred_domain_spec.region_spec ] )
             elif utility=='domain.uncache':
                 self.dataManager.uncache( task_request.data.values, task_request.region.value )
                 response['stats'] = self.dataManager.stats()

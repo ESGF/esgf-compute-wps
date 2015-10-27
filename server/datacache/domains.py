@@ -92,9 +92,9 @@ class CDAxis(JSONObject):
 
 class Region(JSONObject):
 
-    def __init__( self, region_spec={}, **args ):
-        if isinstance( region_spec, Region ): region_spec = region_spec.items
-        JSONObject.__init__( self, region_spec, **args )
+    def __init__( self, region={}, **args ):
+        if isinstance( region, Region ): region_spec = region.items
+        JSONObject.__init__( self, region, **args )
 
     def getAxisRange( self, axis_name ):
         try:
@@ -230,9 +230,9 @@ class Domain(Region):
     PENDING = 0
     COMPLETE = 1
 
-    def __init__( self, region_spec=None,  **args ):
+    def __init__( self, region=None,  **args ):
         self.stat = args.get( 'region_spec', { 'persist_id':None } )
-        Region.__init__( self, region_spec )
+        Region.__init__( self, region )
         self._variable = None
         self.variable_spec = args.get('variable_spec', None )
         self.setVariable( args.get('tvar', None ) )                   # TransientVariable
@@ -290,8 +290,8 @@ class Domain(Region):
         persistenceManager.release( self.stat )
 
     def stats(self,**args):
-        self.stat['cid'] = args.get( 'cid', self.variable_spec['cid'] )
-        self.stat['rid'] = args.get( 'rid', self.variable_spec['cid'] )
+        self.stat['cid'] = args.get( 'cid', self.variable_spec['id'] )
+        self.stat['rid'] = args.get( 'rid', None )
         wid = args.get( 'wid', None )
         if wid:
             self.stat['wid'] = wid

@@ -12,13 +12,14 @@ active = True
 wid = "W-%d"%rank
 rid = -1
 kernelMgr = KernelManager( wid )
+wpsLog.debug( " MPI[%d/%d] STARTUP WORKER '%s': process %x" % ( rank, size, wid, os.getpid() ) )
 
 while active:
     status = MPI.Status()
     try:
         task_request_args = comm.recv( source=0, tag=MPI.ANY_TAG, status=status )
         rid = status.Get_tag()
-        wpsLog.debug( " MULTIPROC[%s] ---> task_request[%d]: args: %s " % ( wid, rid, str( task_request_args ) ) )
+        wpsLog.debug( " MPI[%s] ---> task_request[%d]: args: %s " % ( wid, rid, str( task_request_args ) ) )
         cfg = task_request_args.get('config','')
         if cfg == "exit": break
         task_request_args['rid'] = rid

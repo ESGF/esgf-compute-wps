@@ -53,7 +53,7 @@ class WorkerIntracom:
         pass
 
     def receiveRegion(self, source, shape ):
-        pass
+        passkill
 
 class ComputeEngineCommunicator:
 

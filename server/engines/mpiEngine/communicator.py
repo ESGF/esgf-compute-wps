@@ -1,5 +1,5 @@
 from engines.communicator import ComputeEngineCommunicator, TaskMonitor, WorkerIntracom, wrank
-from tasks import worker_manager
+from tasks import WorkerManager
 from mpi4py import MPI
 from modules.utilities import *
 from collections import deque
@@ -84,12 +84,13 @@ class MpiWorkerIntracom( WorkerIntracom ):
 
     def receiveRegion( self, source, shape ):
         data = numpy.empty( shape, dtype=numpy.float32)
-        self.intracom.Recv(data, dest=wrank(source), tag=self.tag)
+        self.intracom.Recv(data, source=wrank(source), tag=self.tag)
         return data
 
 class MpiCommunicator( ComputeEngineCommunicator ):
 
     RequestIndex = 1
+    WorkerMgr = None
 
     @classmethod
     def new_request_id(cls):
@@ -99,23 +100,25 @@ class MpiCommunicator( ComputeEngineCommunicator ):
     def __init__( self ):
         from modules import configuration
         ComputeEngineCommunicator.__init__( self )
+        if MpiCommunicator.WorkerMgr is None:
+            MpiCommunicator.WorkerMgr = WorkerManager()
 
     def close(self):
-        worker_manager.close()
+        MpiCommunicator.WorkerMgr.close()
 
     def submitTaskImpl( self, task_request, worker ):
         rid = self.new_request_id()
         task_request.setRequestId(rid)
         if worker == "*":
-            comm, nworkers = worker_manager.broadcast( task_request.task, rid )
+            comm, nworkers = MpiCommunicator.WorkerMgr.broadcast( task_request.task, rid )
         elif isinstance( worker, list ):
-            comm, nworkers  = worker_manager.broadcast( task_request.task, rid, worker  )
+            comm, nworkers  = MpiCommunicator.WorkerMgr.broadcast( task_request.task, rid, worker  )
         else:
-            comm, nworkers  =  worker_manager.send( task_request.task, rid, worker )
+            comm, nworkers  =  MpiCommunicator.WorkerMgr.send( task_request.task, rid, worker )
         return MpiTaskMonitor( rid, comm=comm, nworkers=nworkers )
 
     def initWorkerStats(self):
-       return worker_manager.getProcessStats()
+       return MpiCommunicator.WorkerMgr.getProcessStats()
 
 
 
