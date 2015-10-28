@@ -81,9 +81,9 @@ class ComputeEngine( Executable ):
                         worker = response['wid']
                         results = response['results']
                         if results:
-                            mdata = results[0][0]
-                            cvar = self.cachedVariables.get( mdata['cid'], None )
-                            if cvar: cvar.loadStats(mdata)
+                            wpsLog.debug( "\n\n PPT: process results '%s' \n\n" % str( results ) )
+                            cvar = self.cachedVariables.get( results['cid'], None )
+                            if cvar: cvar.loadStats(results)
                         cached_domain.cacheRequestComplete( worker )
                         completed_requests.append( task_monitor )
                         self.communicator.clearWorkerState( worker )
