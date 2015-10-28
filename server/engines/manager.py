@@ -163,46 +163,47 @@ class ComputeEngine( Executable ):
                 self.communicator.close()
                 return
             elif utility == "domain.transfer":
-                transfer_task_monitor = self.communicator.submitTask( task_request, '*' )
-                return transfer_task_monitor
-
-            for dataset in datasets:
-                dsid = dataset.get('name','')
-                collection = dataset.get('collection',None)
-                url = dataset.get('url','')
-                var_cache_id = ":".join( [collection,dsid] ) if (collection is not None) else ":".join( [url,dsid] )
-                if var_cache_id <> ":":
-                    if utility == "domain.uncache":
-                        wids = self.uncache( var_cache_id, op_region )
-                        self.communicator.submitTask( task_request, wids )
-                    else:
-                        cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, dataset )
-                        wpsLog.debug( " Find Cached Domain, cached_var: %s, cached_domain: %s" % ( str(cached_var), str(cached_domain) ) )
-                        if cached_domain is None:
-                            cache_axis_list = [CDAxis.LEVEL] if operation else [CDAxis.LEVEL, CDAxis.LATITUDE, CDAxis.LONGITUDE, CDAxis.TIME]
-                            cache_region = Region( op_region.filter_spec( cache_axis_list ) )
-                            cache_op_args = { 'region':cache_region, 'data':str(dataset) }
-                            tc0 = time.time()
-                            cache_task_request = TaskRequest( task=cache_op_args )
-                            cache_worker = self.communicator.getNextWorker(True)
-                            cache_task_monitor = self.communicator.submitTask( cache_task_request, cache_worker )
-                            executionRecord.addRecs( cache_add=cache_region.spec, cache_add_worker = cache_worker )
-                            tc01 = time.time()
-                            cached_domain = cached_var.addDomain( cache_region, queue=cache_worker )
-                            self.pendingTasks[ cache_task_monitor ] = cached_domain
-                            tc1 = time.time()
-                            wpsLog.debug( " ***** Caching data [rid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_task_monitor.rid, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
-                            if op_region == cache_region:
-                                designated_worker = cache_worker
-                                wait_for_cache = True
+                task_monitor = self.communicator.submitTask( task_request, '*' )
+                if async: return { }
+                else: return task_monitor.response()
+            else:
+                for dataset in datasets:
+                    dsid = dataset.get('name','')
+                    collection = dataset.get('collection',None)
+                    url = dataset.get('url','')
+                    var_cache_id = ":".join( [collection,dsid] ) if (collection is not None) else ":".join( [url,dsid] )
+                    if var_cache_id <> ":":
+                        if utility == "domain.uncache":
+                            wids = self.uncache( var_cache_id, op_region )
+                            self.communicator.submitTask( task_request, wids )
                         else:
-                            worker_id, cache_request_status = cached_domain.getCacheStatus()
-                            executionRecord.addRecs( cache_found=cache_request_status, cache_found_domain=cached_domain.spec, cache_found_worker=worker_id )
-                            if (cache_request_status == Domain.COMPLETE) or ( cached_var.cacheType() == CachedVariable.CACHE_OP ):
-                                designated_worker = worker_id
-                                wpsLog.debug( " ***** Found cached data on worker %s " %  worker_id )
+                            cached_var,cached_domain = self.findCachedDomain( var_cache_id, op_region, dataset )
+                            wpsLog.debug( " Find Cached Domain, cached_var: %s, cached_domain: %s" % ( str(cached_var), str(cached_domain) ) )
+                            if cached_domain is None:
+                                cache_axis_list = [CDAxis.LEVEL] if operation else [CDAxis.LEVEL, CDAxis.LATITUDE, CDAxis.LONGITUDE, CDAxis.TIME]
+                                cache_region = Region( op_region.filter_spec( cache_axis_list ) )
+                                cache_op_args = { 'region':cache_region, 'data':str(dataset) }
+                                tc0 = time.time()
+                                cache_task_request = TaskRequest( task=cache_op_args )
+                                cache_worker = self.communicator.getNextWorker(True)
+                                cache_task_monitor = self.communicator.submitTask( cache_task_request, cache_worker )
+                                executionRecord.addRecs( cache_add=cache_region.spec, cache_add_worker = cache_worker )
+                                tc01 = time.time()
+                                cached_domain = cached_var.addDomain( cache_region, queue=cache_worker )
+                                self.pendingTasks[ cache_task_monitor ] = cached_domain
+                                tc1 = time.time()
+                                wpsLog.debug( " ***** Caching data [rid:%s] to worker '%s' ([%.2f,%.2f,%.2f] dt = %.3f): args = %s " %  ( cache_task_monitor.rid, cache_worker, tc0, tc01, tc1, (tc1-tc0), str(cache_op_args) ) )
+                                if op_region == cache_region:
+                                    designated_worker = cache_worker
+                                    wait_for_cache = True
                             else:
-                                wpsLog.debug( " ***** Found cache op on worker %s, data not ready " %  worker_id )
+                                worker_id, cache_request_status = cached_domain.getCacheStatus()
+                                executionRecord.addRecs( cache_found=cache_request_status, cache_found_domain=cached_domain.spec, cache_found_worker=worker_id )
+                                if (cache_request_status == Domain.COMPLETE) or ( cached_var.cacheType() == CachedVariable.CACHE_OP ):
+                                    designated_worker = worker_id
+                                    wpsLog.debug( " ***** Found cached data on worker %s " %  worker_id )
+                                else:
+                                    wpsLog.debug( " ***** Found cache op on worker %s, data not ready " %  worker_id )
 
             if operation:
                 t2 = time.time()
@@ -296,8 +297,10 @@ class EngineTests:
         wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Cache Result: %s\n\n ", str(result ) )
         cached_var, domain = self.engine.findCachedDomain( result['cached_var'], self.cache_region )
         task_args = { 'source': result['cache_worker'], 'destination': 'W-0', 'domain_spec': domain.getDomainSpec(), 'async': False, 'embedded': True  }
+        t0 = time.time()
         results = self.engine.execute( TaskRequest( utility='domain.transfer', request=task_args ) )
-        wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Transfer Results: %s\n\n ", str(results) )
+        t1 = time.time()
+        wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Transfer (dt = %0.2f) Results: %s\n\n " % (t1-t0, str(results) ) )
 
     def xtest02_departures(self):
         test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,
@@ -332,4 +335,5 @@ class EngineTests:
 if __name__ == '__main__':
     test_runner = EngineTests()
     test_runner.transfer()
+    print "Done!"
 

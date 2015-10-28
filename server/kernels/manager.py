@@ -82,8 +82,15 @@ class KernelManager:
             elif utility == 'shutdown.all':
                 self.shutdown()
             elif utility == 'domain.transfer':
-                transferred_domain_spec = self.dataManager.transferDomain( task_request.getRequestArg('source'), task_request.getRequestArg('destination'), task_request.getRequestArg('domain_spec')  )
-                response['results'].extend( [ transferred_domain_spec.variable_spec['id'],  transferred_domain_spec.region_spec ] )
+                transfer_domain_spec = task_request.getRequestArg('domain_spec')
+                source = task_request.getRequestArg('source')
+                destination = task_request.getRequestArg('destination')
+                transfer_data = self.dataManager.transferDomain( source, destination, transfer_domain_spec  )
+                transfer_shape = transfer_data.shape if transfer_data is not None else None
+                if self.dataManager.getName() == source:
+                    response['results'].extend( [ "source", transfer_domain_spec.variable_spec['id'], transfer_shape ] )
+                elif self.dataManager.getName() == destination:
+                    response['results'].extend( [ "destination", transfer_domain_spec.variable_spec['id'],  transfer_shape ] )
             elif utility=='domain.uncache':
                 self.dataManager.uncache( task_request.data.values, task_request.region.value )
                 response['stats'] = self.dataManager.stats()
@@ -179,6 +186,11 @@ if __name__ == "__main__":
         result_stats = result[0]
         pp.pprint(result_stats)
 
+    def test_multitask():
+        task_request = {'embedded': True, 'data': [ {'dset':'MERRA/mon/atmos', 'domain':'r0', 'id':'v0', 'name':'hur' } ], 'region': [{'latitude': 35.0, 'level': 85000.0, 'id': 'r0', 'longitude': -137.0, 'time': u'2010-01-16T12:00:00'}], 'async': False, 'operation': ['CDTime.departures(v0,slice:t)', 'CDTime.climatology(v0,slice:t,bounds:annualcycle)', 'CDTime.value(v0)'] }
+        result = kernelMgr.run( TaskRequest( request=task_request ) )
+        pp.pprint(result)
+
     def average():
         t0 = time.time()
         task_args = getTaskArgs( op=[operations[ 0 ]] )
@@ -234,6 +246,8 @@ if __name__ == "__main__":
         util_result = kernelMgr.run( TaskRequest( request={ 'region': getRegion(), 'data': getData() }, utility='domain.uncache' ) )
         response    = kernelMgr.run( TaskRequest( request={ 'region': {'level': 85000}, 'data': getData() } ) )
         pp.pprint(response)
+
+    test_multitask()
 
     # def test_api_cache():
     #     request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }

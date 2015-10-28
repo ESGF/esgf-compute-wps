@@ -93,7 +93,6 @@ class CDAxis(JSONObject):
 class Region(JSONObject):
 
     def __init__( self, region={}, **args ):
-        if isinstance( region, Region ): region_spec = region.items
         JSONObject.__init__( self, region, **args )
 
     def getAxisRange( self, axis_name ):

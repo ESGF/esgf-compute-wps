@@ -6,6 +6,12 @@ wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(DefaultLogLevel)
 if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.join( LogDir, 'wps.log') ) )
 
+def wrank( value ):
+    return ( value if not isinstance(value,basestring) else int( value.split('-')[1] ) )
+
+def wid( value ):
+    return ( value if not isinstance(value,int) else 'W-%d' % value )
+
 def unwrap( results ):
     while True:
         if isinstance( results, list ) and len( results ) == 1: results = results[0]

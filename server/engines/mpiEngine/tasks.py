@@ -1,7 +1,6 @@
 from mpi4py import MPI
 from modules import configuration
 from modules.utilities import *
-from engines.communicator import wrank, wid
 import sys, os
 
 class WorkerManager:

@@ -59,12 +59,24 @@ class EngineTests(unittest.TestCase):
     def test010_cache(self):
         result = self.engine.execute( TaskRequest( request={ 'domain': self.cache_region, 'variable': self.getData(), 'async': False } ) )
         self.assertEqual( result['cache_region'], self.cache_region )
+        wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Cache Result: %s\n\n ", str(result ) )
+        if CDAS_COMPUTE_ENGINE == 'mpi':
+            cached_var, domain = self.engine.findCachedDomain( result['cached_var'], self.cache_region )
+            source = result['cache_worker']
+            srank = wrank(source)
+            dest = 'W-1' if (srank == 0) else 'W-0'
+            task_args = { 'source': source, 'destination': dest, 'domain_spec': domain.getDomainSpec(), 'async': False, 'embedded': True  }
+            t0 = time.time()
+            results = self.engine.execute( TaskRequest( utility='domain.transfer', request=task_args ) )
+            t1 = time.time()
+            wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Transfer (dt = %0.2f) Results: %s\n\n " % (t1-t0, str(results) ) )
+            transferred_shape = domain.variable_spec['shape']
+            worker_results = [ worker_response['results'] for worker_response in results ]
+            for worker_result in worker_results:
+                if worker_result and (worker_result[0] in ["source","destination"]):
+                    self.assertSequenceEqual( transferred_shape, worker_result[2] )
 
-        cached_var, domain = self.engine.findCachedDomain( result['cached_var'], self.cache_region )
-        task_args = { 'source': result['cache_worker'], 'destination': 'W-0', 'domain_spec': domain.getDomainSpec() }
-        results = self.engine.execute( TaskRequest( utility='domain.transfer', request=task_args ) )
-
-    def xtest02_departures(self):
+    def test02_departures(self):
         test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,
                         -11.854583740234375, -3.212005615234375, -5.311614990234375, 5.332916259765625, -1.698333740234375,
                           8.750885009765625, 11.778228759765625, 12.852447509765625 ]
@@ -75,21 +87,21 @@ class EngineTests(unittest.TestCase):
         self.assertEqual( test_result, compute_result )
 #        self.assertStatusEquals( result, cache_found=Domain.COMPLETE, cache_found_domain=self.cache_region,  designated=True )
 
-    def xtest03_annual_cycle(self):
+    def test03_annual_cycle(self):
         test_result = [48.07984754774306, 49.218166775173614, 49.36114501953125, 46.40715196397569, 46.3406982421875, 44.37486775716146, 46.54383680555556, 48.780619303385414, 46.378028021918404, 46.693325466579864, 48.840003119574654, 46.627953423394096]
         task_args = self.getTaskArgs( op=self.getOp( 1 ) )
         result = self.engine.execute( TaskRequest( request=task_args ) )
         result_data = self.getResultData( result )
         self.assertEqual( test_result, result_data[0:len(test_result)] )
 
-    def xtest04_value_retreval(self):
+    def test04_value_retreval(self):
         test_result = 59.765625
         task_args = self.getTaskArgs( op=self.getOp( 2 ) )
         result = self.engine.execute( TaskRequest( request=task_args ) )
         result_data = self.getResultData( result )
         self.assertEqual( test_result, result_data )
 
-    def xtest05_multitask(self):
+    def test05_multitask(self):
         test_results = [ [ -1.405364990234375, -1.258880615234375, 0.840728759765625 ], [48.07984754774306, 49.218166775173614, 49.36114501953125], 59.765625 ]
         task_args = self.getTaskArgs( op=self.operations )
         results = self.engine.execute( TaskRequest( request=task_args ) )

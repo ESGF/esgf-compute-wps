@@ -110,16 +110,19 @@ class CacheManager:
         cvar = self._cache.get( var, None )
         overlap_status, cached_domain = cvar.findDomain( domain_spec.region_spec ) if cvar else None
         if cached_domain:
-            self.comm.sendRegion( cached_domain.getData(), destination )
-            wpsLog.debug( "\n **------------------->> CM[%s] sendData: dest=%s var=%s, overlap status = %d\n" % ( self.name, destination, var, overlap_status ) )
+            cdata = cached_domain.getData()
+            wpsLog.debug( "\n **------------------->> CM[%s] sendData: dest=%s var=%s, overlap status = %d, shape=%s, time=%.2f\n" % ( self.name, destination, var, overlap_status, str(cdata.shape), time.time() ) )
+            self.comm.sendRegion( cdata, destination )
         else:
             wpsLog.debug( " CM[%s]: Attempt to send data that can't be found: %s, cache: %s\n" % ( self.name, var,  str(self._cache.keys()) ) )
+            cdata = None
+        return cdata
 
     def receiveData(  self, source, domain_spec ):
         vardata = self.comm.receiveRegion( source, domain_spec.variable_spec['shape'] )
         self.addNewVariable( domain_spec, vardata )
-        wpsLog.debug( "\n\n **------------------->> CM[%s] receiveData: source=%s var=%s\n\n" % ( self.name, source, domain_spec.variable_spec['id'] ) )
-        return domain_spec
+        wpsLog.debug( "\n\n **------------------->> CM[%s] receiveData: source=%s var=%s, shape=%s, time=%.2f\n\n" % ( self.name, source, domain_spec.variable_spec['id'], str(vardata.shape), time.time() ) )
+        return vardata
 
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
@@ -226,10 +229,11 @@ class DataManager:
 
     def transferDomain( self, source, destination, domain_spec ):
         if source == self.cacheManager.name:
-            self.cacheManager.sendData( destination, domain_spec )
+            transfer_data = self.cacheManager.sendData( destination, domain_spec )
         elif destination == self.cacheManager.name:
-            self.cacheManager.receiveData( source, domain_spec )
-        return domain_spec
+            transfer_data = self.cacheManager.receiveData( source, domain_spec )
+        else: transfer_data = None
+        return transfer_data
 
     def close(self):
         self.collectionManager.close()

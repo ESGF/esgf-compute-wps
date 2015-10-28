@@ -1,4 +1,4 @@
-from engines.communicator import ComputeEngineCommunicator, TaskMonitor, WorkerIntracom, wrank
+from engines.communicator import ComputeEngineCommunicator, TaskMonitor, WorkerIntracom
 from tasks import WorkerManager
 from mpi4py import MPI
 from modules.utilities import *
