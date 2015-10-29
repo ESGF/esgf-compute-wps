@@ -209,6 +209,32 @@ class DomainSpec:
         self.region_spec = region_spec
         self.stat = {}
 
+    @staticmethod
+    def getAxisId(axis):
+        if axis.isLatitude(): return 'lat'
+        if axis.isLevel(): return 'lev'
+        if axis.isLongitude(): return 'lon'
+        if axis.isTime(): return 'time'
+        return None
+
+    def __str__(self):
+         fill_value = self.variable_spec.get('fill_value',None)
+         if fill_value is not None and hasattr( fill_value, 'tolist'): self.variable_spec['fill_value'] = fill_value.tolist()
+         dtype = self.variable_spec.get('dtype',None)
+         if dtype is not None: self.variable_spec['dtype'] = str(dtype)
+         axes = self.variable_spec.get('axes',None)
+         genericized_axes = {}
+         if axes:
+             for axis in axes:
+                 axisId = self.getAxisId(axis)
+                 if axisId: genericized_axes[axisId] = { 'shape':axis.shape, 'attributes':axis.attributes, 'id':axis.id, 'value':axis.getValue().tolist() }
+         self.variable_spec['axes'] = genericized_axes
+         grid = self.variable_spec.get('grid',None)
+         if grid: self.variable_spec['grid'] = { 'shape':grid.shape, 'attributes':grid.attributes, 'id':grid.id }
+         wpsLog.debug( "\n\nDDDDDDDomainSpec variable serialization:\n%s\n\n" % str(self.variable_spec) )
+         ds = json.dumps( {'variable':self.variable_spec,'region':self.region_spec } )
+         return ds
+
     def copy( self, spec, keys, inclusive=True ):
         for key in spec.iterkeys():
             if ( inclusive and (key in keys) ) or (not inclusive and (key not in keys)):
