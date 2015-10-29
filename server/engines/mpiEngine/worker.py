@@ -24,6 +24,7 @@ while active:
         if cfg == "exit": break
         task_request_args['rid'] = rid
         results = kernelMgr.run( TaskRequest(task=task_request_args) )
+        wpsLog.debug( " MPI[%d/%d] WORKER SEND RESPONSE '%s': worker %s" % ( rank, size, str(results), wid ) )
         comm.send( results, dest=0, tag=rid )
     except Exception, err:
         wpsLog.error( " Error executing task_request[%d] on Worker[%s] --->  %s:\n %s " % ( rid, wid, str( err ), traceback.format_exc() ) )

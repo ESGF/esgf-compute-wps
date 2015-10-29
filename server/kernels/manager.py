@@ -116,6 +116,7 @@ class KernelManager:
 
         self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
         rv = self.generateResponse( response )
+        wpsLog.debug( " $$$ KernelManager run complete, result = %s " % str(rv) )
         return rv
 
     def generateResponse( self, response ):
