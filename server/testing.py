@@ -1,6 +1,6 @@
 import unittest, sys, os, traceback
 d = os.path.dirname(__file__)
-test_modules = [ 'request', 'datacache', 'engines', 'kernels' ]
+test_modules = [  'datacache', 'engines', 'kernels', 'request' ]
 
 def print_header( module_name ):
     print>>sys.stderr, "----- "*8

@@ -32,16 +32,14 @@ class CachedVariable:
     def updateStats(self,tvar):
         self.stat['cid'] = self.id
         if hasattr(tvar, 'getGrid'):
-            self.stat['fill_value'] = tvar.fill_value
+            self.stat['fill_value'] = tvar.fill_value.tolist()
             self.stat['attributes'] = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
             self.stat['grid'] = tvar.getGrid()
             self.stat['id'] = tvar.id
-            self.stat['dtype'] = tvar.dtype
+            self.stat['dtype'] = str(tvar.dtype)
             self.stat['missing'] = tvar.getMissing()
             self.stat['shape'] = tvar.shape
-            self.stat['fill_value'] = tvar.fill_value
-            cdms_domain = tvar.getDomain()
-            self.stat['axes'] = [ d[0] for d in cdms_domain ]
+            self.stat['axes'] = tvar.getAxisList()
 
     def loadStats(self, mdata ):
         self.stat.update( filter_attributes( mdata, [ 'fill_value', 'missing', 'grid', 'dtype', 'axes', 'shape' ] ) )

@@ -218,22 +218,18 @@ class DomainSpec:
         return None
 
     def __str__(self):
-         fill_value = self.variable_spec.get('fill_value',None)
-         if fill_value is not None and hasattr( fill_value, 'tolist'): self.variable_spec['fill_value'] = fill_value.tolist()
-         dtype = self.variable_spec.get('dtype',None)
-         if dtype is not None: self.variable_spec['dtype'] = str(dtype)
-         axes = self.variable_spec.get('axes',None)
-         genericized_axes = {}
-         if axes:
-             for axis in axes:
-                 axisId = self.getAxisId(axis)
-                 if axisId: genericized_axes[axisId] = { 'shape':axis.shape, 'attributes':axis.attributes, 'id':axis.id, 'value':axis.getValue().tolist() }
-         self.variable_spec['axes'] = genericized_axes
-         grid = self.variable_spec.get('grid',None)
-         if grid: self.variable_spec['grid'] = { 'shape':grid.shape, 'attributes':grid.attributes, 'id':grid.id }
-         wpsLog.debug( "\n\nDDDDDDDomainSpec variable serialization:\n%s\n\n" % str(self.variable_spec) )
-         ds = json.dumps( {'variable':self.variable_spec,'region':self.region_spec } )
-         return ds
+        var_spec = dict(self.variable_spec  )
+        grid = self.variable_spec['grid']
+        var_spec['grid'] = { 'id':grid.id, 'shape':grid.shape, 'attributes':grid.attributes }
+        if hasattr( grid, 'getOrder'): var_spec['grid'].update( { 'order':grid.getOrder(), 'type':grid.getType() } )
+        axes = var_spec['axes']
+        genericized_axes = {}
+        for axis in axes:
+             axisId = self.getAxisId(axis)
+             values = axis.getValue().tolist()
+             if axisId: genericized_axes[axisId] = { 'shape':axis.shape, 'attributes':axis.attributes, 'id':axis.id, 'start': values[0], 'end': values[-1] }
+        var_spec['axes'] =  genericized_axes
+        return json.dumps( {'variable':var_spec,'region':self.region_spec } )
 
     def copy( self, spec, keys, inclusive=True ):
         for key in spec.iterkeys():
