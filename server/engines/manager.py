@@ -81,7 +81,7 @@ class ComputeEngine( Executable ):
                         worker = response['wid']
                         results = response['results']
                         if results:
-                            wpsLog.debug( "\n\n PPT: process results '%s' \n\n" % str( results ) )
+#                            wpsLog.debug( "\n\n PPT: process results '%s' \n\n" % str( results ) )
                             cvar = self.cachedVariables.get( results['cid'], None )
                             if cvar: cvar.loadStats(results)
                         cached_domain.cacheRequestComplete( worker )

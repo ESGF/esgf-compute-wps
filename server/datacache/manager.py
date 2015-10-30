@@ -321,10 +321,10 @@ class DataManager:
 
     def loadFileFromCollection( self, collection, id=None ):
         t0 = time.time()
-        wpsLog.debug( "loadFileFromCollection: '%s' '%s' " % ( collection, id ) )
+     #   wpsLog.debug( "loadFileFromCollection: '%s' '%s' " % ( collection, id ) )
         rv = self.collectionManager.getFile( collection, id )
         t1 = time.time()
-        wpsLog.debug( "Done loadFileFromCollection, cdms2.open completed in %.2f sec" % (t1-t0) )
+    #    wpsLog.debug( "Done loadFileFromCollection, cdms2.open completed in %.2f sec" % (t1-t0) )
         return rv
 
 if __name__ == "__main__":

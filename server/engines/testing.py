@@ -61,6 +61,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual( result['cache_region'], self.cache_region )
         wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Cache Result: %s\n\n ", str(result ) )
         if CDAS_COMPUTE_ENGINE == 'mpi':
+            print "\n ... Executing Data Transfer Tests ... "
             cached_var, domain = self.engine.findCachedDomain( result['cached_var'], self.cache_region )
             source = result['cache_worker']
             srank = wrank(source)
@@ -72,9 +73,12 @@ class EngineTests(unittest.TestCase):
             wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Transfer (dt = %0.2f) Results: %s\n\n " % (t1-t0, str(results) ) )
             transferred_shape = domain.variable_spec['shape']
             worker_results = [ worker_response['results'] for worker_response in results ]
+            numtests = 0
             for worker_result in worker_results:
                 if worker_result and (worker_result[0] in ["source","destination"]):
                     self.assertSequenceEqual( transferred_shape, worker_result[2] )
+                    numtests = numtests + 1
+            self.assertEqual( numtests, 2 )
 
     def test02_departures(self):
         test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,
