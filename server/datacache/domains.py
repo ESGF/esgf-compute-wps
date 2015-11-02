@@ -259,6 +259,9 @@ class Domain(Region):
         self.setVariable( args.get('tvar', None ) )                   # TransientVariable
         self.cache_request_status = Domain.COMPLETE if self.isCached() else None
 
+    def getSubDomain( self, subregion_layout ):
+        return Domain( )
+
     def getPersistId(self):
         return self.stat.get( 'persist_id', None )
 
@@ -268,18 +271,21 @@ class Domain(Region):
     def isCached(self):
         return self.stat.get( 'persist_id', None ) or self.stat.get( 'inMemory', False )
 
-    def getData(self):
-        v = self.getVariable()
-        return None if v is None else v.data
+    def getData( self, subregion=None ):
+        v = self.getVariable( subregion )
+        if v is None: return None
+        return v.data
 
     def setData( self, data ):
         import cdms2
         self._variable = cdms2.createVariable( data, fill_value=self.variable_spec['fill_value'], grid=self.variable_spec['grid'], axes=self.variable_spec['axes'], id=self.variable_spec['id'], dtype=self.variable_spec['dtype'], attributes=self.variable_spec['attributes'] )
+        return self._variable
 
-    def getVariable(self):
+    def getVariable(self, subregion=None):
         if self._variable is None:
             self.load_persisted_data()
-        return self._variable
+        subset_args = subregion.toCDMS() if (subregion is not None) else None
+        return self._variable if (subset_args is None) else numpy.ma.fix_invalid( self._variable( **subset_args ) )
 
     def setVariable( self, tvar ):
         self._variable = tvar

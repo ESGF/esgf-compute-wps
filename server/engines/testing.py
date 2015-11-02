@@ -15,6 +15,7 @@ class EngineTests(unittest.TestCase):
         self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData(), 'embedded': True, 'async': False }
         self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
         self.cache_region =  Region( { "lev": {"config":{},"bounds":[ self.test_point[2] ], 'id':"r0" } } )
+        self.subregion =  Region( { "id":"sr0", "lev":self.test_point[2], "time":self.test_time  } )
 
     def tearDown(self):
         pass
@@ -72,6 +73,21 @@ class EngineTests(unittest.TestCase):
             t1 = time.time()
             wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Transfer (dt = %0.2f) Results: %s\n\n " % (t1-t0, str(results) ) )
             transferred_shape = domain.variable_spec['shape']
+            worker_results = [ worker_response['results'] for worker_response in results ]
+            numtests = 0
+            for worker_result in worker_results:
+                if worker_result and (worker_result[0] in ["source","destination"]):
+                    self.assertSequenceEqual( transferred_shape, worker_result[2] )
+                    numtests = numtests + 1
+            self.assertEqual( numtests, 2 )
+
+            task_args = { 'source': source, 'destination': dest, 'domain_spec': domain.getDomainSpec(), 'async': False, 'embedded': True, 'subregion': self.subregion }
+            t0 = time.time()
+            results = self.engine.execute( TaskRequest( utility='domain.transfer', request=task_args ) )
+            t1 = time.time()
+            wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Subregion Transfer (dt = %0.2f) Results: %s\n\n " % (t1-t0, str(results) ) )
+            subregion_shape = list(transferred_shape)
+            subregion_shape[0] = 1
             worker_results = [ worker_response['results'] for worker_response in results ]
             numtests = 0
             for worker_result in worker_results:

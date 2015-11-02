@@ -42,11 +42,11 @@ class WorkerIntracom:
     def __init__( self ):
         pass
 
-    def sendRegion(self, data, destination ):
+    def sendRegion(self, data, destination, layout=None ):
         pass
 
-    def receiveRegion(self, source, shape ):
-        passkill
+    def receiveRegion(self, source, shape=None ):
+        pass
 
 class ComputeEngineCommunicator:
 

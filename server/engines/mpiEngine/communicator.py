@@ -78,14 +78,20 @@ class MpiWorkerIntracom( WorkerIntracom ):
         self.intracom = MPI.COMM_WORLD
         self.rank = self.intracom.Get_rank()
         self.tag = 10001
+        self.pretag = 10002
 
-    def sendRegion(self, data, destination ):
-        self.intracom.Send(data, dest=wrank(destination), tag=self.tag)
+    def sendRegion(self, data, destination, layout=None ):
+        dest = wrank(destination)
+        if layout is not None: self.intracom.send( layout, dest=dest, tag=self.pretag )
+        self.intracom.Send(data, dest=dest, tag=self.tag)
 
-    def receiveRegion( self, source, shape ):
+    def receiveRegion( self, source, shape=None ):
+        layout = self.intracom.recv(source=wrank(source), tag=self.pretag ) if (shape is None) else None
+        if shape is None: shape = layout['shape']
         data = numpy.empty( shape, dtype=numpy.float32)
+        wpsLog.debug( "\n\n receive Region from %s (%s) \n" % ( source, wrank(source) ) )
         self.intracom.Recv(data, source=wrank(source), tag=self.tag)
-        return data
+        return data, layout
 
 class MpiCommunicator( ComputeEngineCommunicator ):
 

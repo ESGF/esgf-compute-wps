@@ -103,24 +103,38 @@ class CacheManager:
         self.statusCache = StatusPickleMgr( '.'.join( [ 'stats_cache', name ] ) )
         self.loadStats()
 
-    def sendData( self, destination, domain_spec ):
+    def sendData( self, destination, domain_spec, subregion=None ):
         var = domain_spec.variable_spec['id']
         cvar = self._cache.get( var, None )
         overlap_status, cached_domain = cvar.findDomain( domain_spec.region_spec ) if cvar else None
         if cached_domain:
-            cdata = cached_domain.getData()
+            if subregion is None:
+                cdata = cached_domain.getData()
+                layout = None
+            else:
+                v = cached_domain.getVariable(subregion)
+                cdata = v.data
+                layout = {"shape":v.shape, "axes": v.getAxisList(), "region_spec":subregion.spec }
             wpsLog.debug( "\n **------------------->> CM[%s] sendData: dest=%s var=%s, overlap status = %d, shape=%s, time=%.2f\n" % ( self.name, destination, var, overlap_status, str(cdata.shape), time.time() ) )
-            self.comm.sendRegion( cdata, destination )
+            self.comm.sendRegion( cdata, destination, layout )
         else:
             wpsLog.debug( " CM[%s]: Attempt to send data that can't be found: %s, cache: %s\n" % ( self.name, var,  str(self._cache.keys()) ) )
             cdata = None
         return cdata
 
-    def receiveData(  self, source, domain_spec ):
-        vardata = self.comm.receiveRegion( source, domain_spec.variable_spec['shape'] )
-        self.addNewVariable( domain_spec, vardata )
+    def receiveData(  self, source, domain_spec, subregion=None ):
+        shape = domain_spec.variable_spec['shape'] if (subregion is None) else None
+        vardata, subregion_layout = self.comm.receiveRegion( source, shape )
+        if subregion is None:
+            cached_domain = self.addNewVariable( domain_spec, vardata )
+            v = cached_domain.getVariable()
+        else:
+            variable_spec = dict( domain_spec.variable_spec ). update( { 'shape':vardata.shape, 'axes': subregion_layout['axes'] } )
+            domain = Domain( region_spec=subregion_layout['region_spec'], variable_spec=variable_spec )
+            v = domain.setData( vardata )
+            self.addTransientVariable( variable_spec['cid'], v, domain )
         wpsLog.debug( "\n\n **------------------->> CM[%s] receiveData: source=%s var=%s, shape=%s, time=%.2f\n\n" % ( self.name, source, domain_spec.variable_spec['id'], str(vardata.shape), time.time() ) )
-        return vardata
+        return v
 
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
@@ -225,11 +239,12 @@ class DataManager:
         from modules.configuration import CDAS_COMPUTE_ENGINE
         self.intracom = engineRegistry.getWorkerIntracom( CDAS_COMPUTE_ENGINE + "Engine" )
 
-    def transferDomain( self, source, destination, domain_spec ):
+    def transferDomain( self, source, destination, domain_spec, subregion_spec ):
+        subregion = Region(subregion_spec) if (subregion_spec is not None) else None
         if source == self.cacheManager.name:
-            transfer_data = self.cacheManager.sendData( destination, domain_spec )
+            transfer_data = self.cacheManager.sendData( destination, domain_spec, subregion )
         elif destination == self.cacheManager.name:
-            transfer_data = self.cacheManager.receiveData( source, domain_spec )
+            transfer_data = self.cacheManager.receiveData( source, domain_spec, subregion )
         else: transfer_data = None
         return transfer_data
 

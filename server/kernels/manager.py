@@ -85,7 +85,8 @@ class KernelManager:
                 transfer_domain_spec = task_request.getRequestArg('domain_spec')
                 source = task_request.getRequestArg('source')
                 destination = task_request.getRequestArg('destination')
-                transfer_data = self.dataManager.transferDomain( source, destination, transfer_domain_spec  )
+                subregion_spec = task_request.getRequestArg('subregion')
+                transfer_data = self.dataManager.transferDomain( source, destination, transfer_domain_spec, subregion_spec  )
                 transfer_shape = transfer_data.shape if transfer_data is not None else None
                 if self.dataManager.getName() == source:
                     response['results'].extend( [ "source", transfer_domain_spec.variable_spec['id'], transfer_shape ] )
