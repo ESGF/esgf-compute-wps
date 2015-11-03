@@ -59,6 +59,7 @@ class EngineTests(unittest.TestCase):
 
     def test010_cache(self):
         result = self.engine.execute( TaskRequest( request={ 'domain': self.cache_region, 'variable': self.getData(), 'async': False } ) )
+        print "result = %s" % str(result)
         self.assertEqual( result['cache_region'], self.cache_region )
         wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Cache Result: %s\n\n ", str(result ) )
         if CDAS_COMPUTE_ENGINE == 'mpi':

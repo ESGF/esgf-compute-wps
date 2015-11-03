@@ -1,4 +1,5 @@
 from modules.utilities import *
+from collections import deque
 
 class TaskMonitor:
 
@@ -7,12 +8,56 @@ class TaskMonitor:
     def __init__( self, rid, **kwargs ):
         self._request_id = rid
         self.Monitors[rid] = self
-
-    def __str__(self):
-        return "TaskMonitor[%s:%x]" % ( self._request_id, id(self) )
+        self.nworkers = kwargs.get( 'nworkers', 1 )
+        self.stats = {}
+        self._status = "NONE"
+        self.responses = deque()
 
     def genericize(self):
-        return { 'id': self._request_id }
+        stat = dict(self.stats)
+        stat['rid'] = self._request_id
+        return stat
+
+    def __str__(self):
+        return "%s: %s" % ( TaskMonitor.__str__(self), str(self.stats) )
+
+    def push_response(self,response):
+        self.responses.appendleft( response )
+
+    def status(self):
+        return self._status
+
+    def empty(self):
+        return ( len( self.responses ) == 0 )
+
+    def full(self):
+        return ( len( self.responses ) == self.nworkers )
+
+    def ready(self):
+        self.flush_incoming()
+        return not self.empty()
+
+    def flush_incoming(self):
+        raise Exception( 'Error: status method not implemented in TaskMonitor')
+
+    def response(self, **args):
+        self.addStats( **args )
+        while not self.full():
+            self.flush_incoming()
+        return self.responses if self.nworkers > 1 else self.responses.pop()
+
+    def result( self, **args ):
+        response = self.response( **args )
+        results = response['results']
+        if len( self.stats ):
+            for result in results: result.update( self.stats )
+        return results
+
+    def taskName(self):
+        return self.rid
+
+    def addStats(self,**args):
+        self.stats.update( args )
 
     @property
     def rid(self):
@@ -21,21 +66,6 @@ class TaskMonitor:
     @classmethod
     def get_monitor( cls, rid ):
         return cls.Monitors.get( rid, None )
-
-    def status(self):
-        raise Exception( 'Error: status method not implemented in TaskMonitor')
-
-    def taskName(self):
-        raise Exception( 'Error: taskName method not implemented in TaskMonitor')
-
-    def ready(self):
-        raise Exception( 'Error: ready method not implemented in TaskMonitor')
-
-    def result(self,**args):
-        raise Exception( 'Error: result method not implemented in TaskMonitor')
-
-    def addStats(self,**args):
-        raise Exception( 'Error: addStats method not implemented in TaskMonitor')
 
 class WorkerIntracom:
 
