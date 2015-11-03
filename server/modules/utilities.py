@@ -18,6 +18,10 @@ def unwrap( results ):
         else: break
     return results
 
+def debug_trace():
+    import pydevd
+    pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+
 def filter_attributes( attr, keys, include_keys = True ):
     rv = {}
     for key in attr.iterkeys():

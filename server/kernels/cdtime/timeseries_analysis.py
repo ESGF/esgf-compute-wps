@@ -65,7 +65,6 @@ class TimeseriesAnalytics( CDASKernel ):
             self.setTimeBounds( input_variable )
             operator = None
             time_axis = None
-#            pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
             if operation is not None:
                 method = operation.get('method','').lower()
                 bounds = operation.get('bounds','').lower()
