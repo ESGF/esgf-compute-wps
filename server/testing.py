@@ -1,4 +1,5 @@
 import unittest, sys, os, traceback
+from modules.utilities import debug_stop
 d = os.path.dirname(__file__)
 test_modules = [  'datacache', 'engines', 'kernels', 'request' ]
 
@@ -17,4 +18,6 @@ for test_module in test_modules:
     except Exception, err:
         print>>sys.stderr, "   ******* Error running unit tests in module '%s' ******* " % test_module
         traceback.print_exc()
+
+debug_stop()
 

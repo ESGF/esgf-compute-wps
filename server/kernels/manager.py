@@ -69,9 +69,10 @@ class KernelManager:
         self.dataManager.persist( **args )
 
     def run( self, task_request ):
-        response = {}
-        response['rid'] = task_request.rid
-        response['wid'] = self.dataManager.getName()
+        wid = self.dataManager.getName()
+        response = {'rid': task_request.rid, 'wid':wid }
+#        if wid == 'W-1':
+#            debug_trace()
         results = []
         response['results'] = results
         start_time = time.time()

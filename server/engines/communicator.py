@@ -19,7 +19,7 @@ class TaskMonitor:
         return stat
 
     def __str__(self):
-        return "%s: %s" % ( TaskMonitor.__str__(self), str(self.stats) )
+        return "TM[%s]: %s" % ( self._request_id, str(self.stats) )
 
     def push_response(self,response):
         self.responses.appendleft( response )
@@ -197,7 +197,7 @@ class ComputeEngineCommunicator:
         import subprocess, signal
         proc_specs = subprocess.check_output('ps').split('\n')
         for proc_spec in proc_specs:
-            if ('pydev' in proc_spec) or ('utrunner' in proc_spec) or ('WPCDAS' in proc_spec) or ('manage.py' in proc_spec):
+            if ('pydev' in proc_spec) or ('utrunner' in proc_spec) or ('WPCDAS' in proc_spec) or ('manage.py' in proc_spec) or ('uvcdat' in proc_spec):
                 pid = int( proc_spec.split()[0] )
                 if pid <> os.getpid():
                     os.kill( pid, signal.SIGKILL )

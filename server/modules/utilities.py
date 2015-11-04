@@ -20,7 +20,13 @@ def unwrap( results ):
 
 def debug_trace():
     import pydevd
-    pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
+    pydevd.settrace('localhost', port=8333, stdoutToServer=True, stderrToServer=True)
+
+def debug_stop():
+    try:
+        import pydevd
+        pydevd.stoptrace()
+    except: pass
 
 def filter_attributes( attr, keys, include_keys = True ):
     rv = {}
@@ -199,3 +205,7 @@ class DebugLogger:
         self._file.write( "T[%6.2f]: %s\n" % ( t0 % 1000.0, msg ) )
         self._file.flush()
         return t0
+
+if __name__ == '__main__':
+    debug_trace()
+    print "Done!"
