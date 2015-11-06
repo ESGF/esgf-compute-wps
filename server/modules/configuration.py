@@ -1,6 +1,7 @@
 CDAS_APPLICATION = 'CreateV'
 
-CDAS_DEFAULT_DECOMP_STRATEGY = 'space.lon'
+CDAS_REDUCTION_STRATEGY = { 'DecompositionStrategy': { 'id':'space.lon' },
+                            'DecimationStrategy':    { 'id':'time.subset', 'max_size': 600 }  }
 
 CDAS_DATA_PERSISTENCE_ENGINE = 'disk.numpy'
 CDAS_PERSISTENCE_DIRECTORY = "~/.cdas/persistence"
@@ -22,14 +23,14 @@ CDAS_DATA_CACHE = 'default'
 CDAS_CELERY_BACKEND = 'redis'
 # Application definition
 
-CDAS_COLLECTIONS = [ ('MERRA/mon/atmos',       { 'type':'dods', 'url':'http://dptomcat01.nccs.nasa.gov/thredds/catalog/bypass/CREATE-IP/MERRA/mon/atmos' } ),
+CDAS_COLLECTIONS = [ ('MERRA/mon/atmos',       { 'type':'dods', 'url':'http://dptomcat01.nccs.nasa.gov/thredds/catalog/bypass/CREATE-IP/MERRA/mon/atmos/' } ),
                      ('CFSR/mon/atmos',        { 'type':'dods', 'url':'http://dptomcat01.nccs.nasa.gov/thredds/catalog/bypass/CREATE-IP/CFSR/mon/atmos' } ),
                      ('ECMWF/mon/atmos',       { 'type':'dods', 'url':'http://dptomcat01.nccs.nasa.gov/thredds/catalog/bypass/CREATE-IP/ECMWF/mon/atmos' } ),
                      ('MERRA/6hr/atmos',       { 'type':'dods', 'url':'http://dptomcat01.nccs.nasa.gov/thredds/catalog/bypass/CREATE-IP/MERRA/6hr/atmos' } ),
                      ('CFSR/6hr/atmos',        { 'type':'dods', 'url':'http://dptomcat01.nccs.nasa.gov/thredds/catalog/bypass/CREATE-IP/CFSR/6hr/atmos' } ),
                      ('ECMWF/6hr/atmos',       { 'type':'dods', 'url':'http://dptomcat01.nccs.nasa.gov/thredds/catalog/bypass/CREATE-IP/ECMWF/6hr/atmos' } ),
-                     ('MERRA/mon/atmos/ta',   { 'type':'file', 'url':'/usr/local/web/WPCDAS/data/atmos_ta.nc' } ),
-                     ('MERRA/mon/atmos/ua',   { 'type':'file', 'url':'/usr/local/web/WPCDAS/data/atmos_ua.nc' } ),
+                     ('MERRA/mon/atmos/ta',    { 'type':'file', 'url':'/usr/local/web/WPCDAS/data/atmos_ta.nc' } ),
+                     ('MERRA/mon/atmos/ua',    { 'type':'file', 'url':'/usr/local/web/WPCDAS/data/atmos_ua.nc' } ),
                      ]
 
 MERRA_TEST_VARIABLES = {"collection": "MERRA/mon/atmos", "vars": [ "hur", "clt", "ua" ] }

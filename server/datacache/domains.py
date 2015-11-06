@@ -46,6 +46,9 @@ class CDAxis(JSONObject):
     def __eq__(self, axis ):
         if axis is None: return False
         if self['axis'] <> axis['axis']: return False
+        c0 = self['config']
+        c1 = axis['config']
+        if ( c0.get('system','value') <> c1.get('system','value') ): return False
         r0 = self['bounds']
         r1 = axis['bounds']
         if  ( len(r0) <> len(r1) ): return False
@@ -98,10 +101,27 @@ class Region(JSONObject):
     def getAxisRange( self, axis_name ):
         try:
             axis_spec = self.getItem( axis_name )
-            return axis_spec['bounds'] if axis_spec else None
+            if axis_spec is None: return None
+            config = axis_spec['config']
+            axis_system = config.get('system', 'value' )
+            bounds = axis_spec['bounds']
+            return bounds
+#            if (len(bounds) == 0) or (system == axis_system): return bounds
         except Exception, err:
             wpsLog.error( "Error in getAxisRange( %s ): %s" % ( axis_name, str(err) ) )
             return None
+
+    def getIndexedAxisSize(self, axis_name, axis ):
+        axis_spec = self.getItem( axis_name )
+        if axis_spec is None: return axis.shape[0]
+        config = axis_spec['config']
+        bounds = axis_spec['bounds']
+        if not bounds: return axis.shape[0]
+        if (len(bounds)==1): return 0
+        axis_system = config.get('system', 'value' )
+        if (axis_system == 'value'):
+            bounds = axis.mapInterval(bounds)
+        return bounds[1] - bounds[0]
 
     def filter_spec(self, valid_axes ):
         new_spec = {}
@@ -155,6 +175,18 @@ class Region(JSONObject):
              if CDAxis.is_axis( axis_spec ):
                  axis_count = axis_count + 1
         return axis_count
+
+    def setStepSize( self, coord, step_size, axis ):
+        debug_trace()
+        axis_spec = self[ CDAxis.AXIS_LIST[ coord ] ]
+        if axis_spec == None:
+            axis_spec = { 'config':{'system':'indices'}, 'bounds':[], 'axis':'time' }
+            self[ CDAxis.AXIS_LIST[ coord ] ] = axis_spec
+        c = axis_spec['config']
+        system = c.get('system','value')
+        if system == 'value':
+            axis_spec = self.toIndexedAxis(axis_spec)
+        bounds = axis_spec['bounds']
 
     def toCDMS( self, **args ):
         active_axes = args.get('axes',None)

@@ -8,13 +8,14 @@ from modules.utilities import *
 class EngineTests(unittest.TestCase):
 
     def setUp(self):
+        self.local_data = True
         self.test_point = [ -137.0, 35.0, 85000 ]
         self.test_time = '2010-01-16T12:00:00'
         self.operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
         self.indexed_operations = [ "CDTime.departures($0,slice:t)", "CDTime.climatology($0,slice:t,bounds:annualcycle)", "CDTime.value($0)" ]
         self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData(), 'embedded': True, 'async': False }
         self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
-        self.cache_region =  Region( { "lev": {"config":{},"bounds":[ self.test_point[2] ], 'id':"r0" } } )
+        self.cache_region =  Region( { 'id':"r0", "lev":self.test_point[2] } )
         self.subregion =  Region( { "id":"sr0", "lev":self.test_point[2], "time":self.test_time  } )
 
     def tearDown(self):
@@ -23,13 +24,16 @@ class EngineTests(unittest.TestCase):
     def getRegion(self, ipt=0 ):
         return '[{"id":"r0","longitude": {"value":%.2f,"system":"values"}, "latitude": %.2f, "level": %.2f, "time":"%s" }]' % (self.test_point[0]+5*ipt,self.test_point[1]-5*ipt,self.test_point[2],self.test_time)
 
-    def getData(self, vars=[0]):
+    def getData(self):
+        return self.getLocalData() if self.local_data else self.getRemoteData()
+
+    def getRemoteData(self, vars=[0]):
         var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( MERRA_TEST_VARIABLES["collection"], ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
         data = '[%s]' % ( var_list )
         return data
 
     def getLocalData(self):
-        data = '{"dset":"MERRA/mon/atmos/hur","id":"v0:hur","domain":"r0"}'
+        data = '{"dset":"MERRA/mon/atmos/ta","id":"v0:ta","domain":"r0"}'
         return data
 
     def getOp(self, op_index ):

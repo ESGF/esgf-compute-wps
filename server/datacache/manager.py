@@ -1,7 +1,6 @@
 from modules.utilities import  *
 from data_collections import getCollectionManger
 from domains import *
-from decomposition.manager import decompositionManager
 from datacache.status_cache import StatusPickleMgr
 from datacache.persistence.background_thread import PersistenceThread
 import numpy, sys, os, traceback, Queue
@@ -266,13 +265,17 @@ class DataManager:
     def stats( self, **args ):
         return self.cacheManager.stats( **args )
 
-    def load_variable_region( self, dataset, name, cdms2_cache_args={} ):
+    def load_variable_region( self, dataset, name, region ):
+        from decomposition.strategies import decimationManager
         rv = None
         try:
             t0 = time.time()
             wid = self.cacheManager.name
+            variable = dataset[name]
+            load_region = decimationManager.getReducedRegion( region, axes=variable.getAxisList() )
+            cdms2_cache_args = load_region.toCDMS()
             wpsLog.debug( "\n\n LLLLLLLOAD DataSet<%s:%s> %x:%x, status = '%s', var=%s, args=%s \n\n" % ( dataset.id, wid, id(dataset), os.getpid(), dataset._status_, name, str(cdms2_cache_args) ) )
-            dset = dataset( name, **cdms2_cache_args )
+            dset = variable( **cdms2_cache_args )
             rv = numpy.ma.fix_invalid( dset )
             t1 = time.time()
             wpsLog.debug( " $$$ Variable '%s' %s loaded from Dataset<%s:%s> --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, wid, (t1-t0) ) )
@@ -281,6 +284,7 @@ class DataManager:
         return rv
 
     def loadVariable( self, data, region, cache_type ):
+        from decomposition.strategies import decompositionManager
         data_specs = {}
         domain =  None
         dataset = None
@@ -311,10 +315,10 @@ class DataManager:
                     variable = dataset[name]
                     data_specs['region'] = region
                 else:
-                    load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
+                    load_region = decompositionManager.getReducedRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
                     cache_region = Region( load_region, axes=[ CDAxis.LATITUDE, CDAxis.LONGITUDE, CDAxis.LEVEL ] )
                     if dataset == None: dataset = self.loadFileFromCollection( collection, name )
-                    variable = self.load_variable_region( dataset, name, cache_region.toCDMS() )
+                    variable = self.load_variable_region( dataset, name, cache_region )
                     self.persist_queue.put( ( variable.data, data_specs ) )
 
             else:
