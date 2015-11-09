@@ -245,6 +245,14 @@ if __name__ == "__main__":
         response = kernelMgr.run( TaskRequest( request=task_args, utility=utility_id ) )
         pp.pprint(response)
 
+    def read_test():
+        import cdms2
+        data_url =  "http://dptomcat01.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/ta.ncml"
+        f=cdms2.open(data_url,'r')
+        v = f['ta']
+        print "read variable 'hur', shape = %s" % str( v.shape )
+
+
     def test_uncache(  ):
         util_result = kernelMgr.run( TaskRequest( request={ 'region': getRegion(), 'data': getData() }, utility='domain.uncache' ) )
         response    = kernelMgr.run( TaskRequest( request={ 'region': {'level': 85000}, 'data': getData() } ) )

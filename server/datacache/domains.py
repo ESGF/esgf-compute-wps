@@ -120,7 +120,8 @@ class Region(JSONObject):
         if (len(bounds)==1): return 0
         axis_system = config.get('system', 'value' )
         if (axis_system == 'value'):
-            bounds = axis.mapInterval(bounds)
+            ibounds = axis.mapInterval(bounds)
+            axis_spec['ibounds'] = ibounds       # TODO: use 'ibounds' instead of config[system]
         return bounds[1] - bounds[0]
 
     def filter_spec(self, valid_axes ):
@@ -177,7 +178,7 @@ class Region(JSONObject):
         return axis_count
 
     def setStepSize( self, coord, step_size, axis ):
-        debug_trace()
+#        debug_trace()
         axis_spec = self[ CDAxis.AXIS_LIST[ coord ] ]
         if axis_spec == None:
             axis_spec = { 'config':{'system':'indices'}, 'bounds':[], 'axis':'time' }
@@ -199,7 +200,7 @@ class Region(JSONObject):
                         c = axis_spec['config']
                         system = c.get('system','value')
                         is_indexed = ( system == 'indices' )
-                        if isinstance( v, list ) or isinstance( v, tuple ):
+                        if (isinstance( v, list ) or isinstance( v, tuple )) and (len(v)>0):
                             if not is_indexed:
                                 if k == CDAxis.TIME:
                                     kargs[str(k)] = ( str(v[0]), str(v[1]), "cob" ) if ( len( v ) > 1 ) else ( str(v[0]), str(v[0]), "cob" )
@@ -251,6 +252,9 @@ class DomainSpec:
 
     def __str__(self):
         var_spec = dict(self.variable_spec  )
+        for (key,value) in var_spec.items():
+            if isinstance(value,numpy.float32):
+                var_spec[key] = float(value)
         grid = self.variable_spec['grid']
         var_spec['grid'] = { 'id':grid.id, 'shape':grid.shape, 'attributes':grid.attributes }
         if hasattr( grid, 'getOrder'): var_spec['grid'].update( { 'order':grid.getOrder(), 'type':grid.getType() } )

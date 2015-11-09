@@ -60,6 +60,7 @@ def genericize( results ):
             for key,value in result.iteritems():
                 if type(value) not in [ dict, list, str, tuple ]: result[key] = str(value)
     except Exception, err:
+        debug_trace()
         wpsLog.error( "Error in genericize: '%s' " % ( str(err) ) )
 
 def dump_json_str( obj ):

@@ -8,7 +8,7 @@ from modules.utilities import *
 class EngineTests(unittest.TestCase):
 
     def setUp(self):
-        self.local_data = True
+        self.local_data = False
         self.test_point = [ -137.0, 35.0, 85000 ]
         self.test_time = '2010-01-16T12:00:00'
         self.operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
@@ -97,7 +97,7 @@ class EngineTests(unittest.TestCase):
             numtests = 0
             for worker_result in worker_results:
                 if worker_result and (worker_result[0] in ["source","destination"]):
-                    self.assertSequenceEqual( transferred_shape, worker_result[2] )
+                    self.assertSequenceEqual( subregion_shape, worker_result[2] )
                     numtests = numtests + 1
             self.assertEqual( numtests, 2 )
 

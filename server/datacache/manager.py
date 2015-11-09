@@ -128,10 +128,11 @@ class CacheManager:
             cached_domain = self.addNewVariable( domain_spec, vardata )
             v = cached_domain.getVariable()
         else:
-            variable_spec = dict( domain_spec.variable_spec ). update( { 'shape':vardata.shape, 'axes': subregion_layout['axes'] } )
+            variable_spec = dict( domain_spec.variable_spec )
+            variable_spec.update( { 'shape':vardata.shape, 'axes': subregion_layout['axes'] } )
             domain = Domain( region_spec=subregion_layout['region_spec'], variable_spec=variable_spec )
             v = domain.setData( vardata )
-            self.addTransientVariable( variable_spec['cid'], v, domain )
+            self.addTransientVariable( variable_spec['id'], v, domain )
         wpsLog.debug( "\n\n **------------------->> CM[%s] receiveData: source=%s var=%s, shape=%s, time=%.2f\n\n" % ( self.name, source, domain_spec.variable_spec['id'], str(vardata.shape), time.time() ) )
         return v
 
@@ -267,12 +268,13 @@ class DataManager:
 
     def load_variable_region( self, dataset, name, region ):
         from decomposition.strategies import decimationManager
+        cdms2_cache_args = None
         rv = None
         try:
             t0 = time.time()
             wid = self.cacheManager.name
             variable = dataset[name]
-            load_region = decimationManager.getReducedRegion( region, axes=variable.getAxisList() )
+            load_region = region # decimationManager.getReducedRegion( region, axes=variable.getAxisList() )
             cdms2_cache_args = load_region.toCDMS()
             wpsLog.debug( "\n\n LLLLLLLOAD DataSet<%s:%s> %x:%x, status = '%s', var=%s, args=%s \n\n" % ( dataset.id, wid, id(dataset), os.getpid(), dataset._status_, name, str(cdms2_cache_args) ) )
             dset = variable( **cdms2_cache_args )
