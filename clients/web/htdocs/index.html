@@ -8,8 +8,8 @@
   	<h2> <a href="view-source:http://localhost:8080/wps?version=1.0.0&service=wps&request=DescribeProcess&identifier=cdas"> Describe Timeseries Process </a> </h2>
     	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>DescribeProcess</b>&identifier=<i>cdas</i></code></font></pre>    	
   	<hr>
-  	<h2> <a href='view-source:http://localhost:8080/wps?version=1.0.0&service=wps&request=Execute&identifier=cdas&datainputs=[embedded=true;async=false;domain={"id":"d0","level":{"start":0,"end":1,"system":"indices"}};variable={"dset":"MERRA/mon/atmos","id":"v0:hur","domain":"d0"};operation=["CWT.average(v0,axis:xy)"];]'> Extract Timeseries From NetCDF File </a> </h2>
-		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>cdas</i><p></p>  &datainputs=[<p></p>    domain=[{"id":"d0","level":{"start":0,"end":1,"system":"indices"}}];<p></p>    variable={"dset":"MERRA/mon/atmos","id":"v0:hur","domain":"d0"};<p></p>    operation=["CWT.average(v0,axis:xy)"];<p></p>    embedded=true; async = false;<p></p>  ] </code></font></pre>
+  	<h2> <a href='view-source:http://localhost:8080/wps?version=1.0.0&service=wps&request=Execute&identifier=cdas&datainputs=[domain={"id":"d0","level":{"start":0,"end":1,"system":"indices"}};variable={"dset":"MERRA/mon/atmos","id":"v0:hur","domain":"d0"};operation=["CWT.average(v0,axis:xy)"];]'> Extract Timeseries From NetCDF File </a> </h2>
+		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>cdas</i><p></p>  &datainputs=[<p></p>    domain=[{"id":"d0","level":{"start":0,"end":1,"system":"indices"}}];<p></p>    variable={"dset":"MERRA/mon/atmos","id":"v0:hur","domain":"d0"};<p></p>    operation=["CWT.average(v0,axis:xy)"];<p></p>  ] </code></font></pre>
  	<hr>
   </body>
 </head>

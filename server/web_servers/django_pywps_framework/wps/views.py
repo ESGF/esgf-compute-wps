@@ -80,14 +80,26 @@ def clear_process(request,id):
     return redirect("/status")
 
 def getRequestParms( request ):
-  parmMap = { 'embedded': False, 'execute':False }
-  queryStr = request.META["QUERY_STRING"]
-  for requestParm in queryStr.split('&'):
-      rParmElems = requestParm.split('=')
-      param = rParmElems[0].strip().lower()
-      paramVal = rParmElems[1].strip().lower()
-      if ( param == 'request' ) and ( paramVal == 'execute' ): parmMap['execute']  = True
-      if ( param == 'embedded' ) and ( paramVal == 'true' ):   parmMap['embedded']  = True
+  parmMap = { 'embedded': False, 'execute':False, 'async':False }
+  try:
+      queryStr = request.META["QUERY_STRING"]
+      for requestParm in queryStr.split('&'):
+          rParmElems = requestParm.split('=')
+          param = rParmElems[0].strip().lower()
+          paramVal = rParmElems[1].strip().lower()
+          if ( param == 'request' ) and ( paramVal == 'execute' ): parmMap['execute']  = True
+          if ( param == 'embedded' ) and ( paramVal == 'true' ):   parmMap['embedded']  = True
+          if ( param == 'async' ) and ( paramVal == 'true' ):   parmMap['async']  = True
+          if ( param == 'datainputs' ):
+            debug_trace()
+            value_cut = requestParm.find('=')
+            di_params = requestParm[value_cut+1:].strip('[]').lower().split(';')
+            for di_param in di_params:
+                diparam, diparamval = di_param.split('=')
+                if ( diparam == 'embedded' ) and ( diparamval == 'true' ):   parmMap['embedded']  = True
+                if ( diparam == 'async' ) and ( diparamval == 'true' ):      parmMap['async']  = True
+  except Exception, err:
+      wpsLog.error( "Error in getRequestParms: %s " % str(err) )
   return parmMap
 
 def wps(request):
@@ -96,10 +108,9 @@ def wps(request):
   out = open("out_%i.txt" % rndm, "w")
   err = open("err_%i.txt" % rndm, "w")
   requestParams = getRequestParms(request)
-
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
   T.start()
-  if not requestParams['embedded'] and requestParams['execute']:
+  if requestParams['async'] and requestParams['execute']:
       return HttpResponse("Started Request Process id: <a href='http://%s/view/%i'>%i</a>" % (request.get_host(),rndm,rndm))
   else:
       T.join()

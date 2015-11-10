@@ -27,7 +27,6 @@ class TaskManager:
 
     def processRequest( self, request_parameters ):
         self.updateHandler()
-        debug_trace()
         task_request = TaskRequest( request=request_parameters )
         t0 = time.time()
         wpsLog.debug( "---"*50 + "\n $$$ CDAS Process NEW Request[T=%.3f]: %s \n" % ( t0%1000.0, str( request_parameters ) ) + "---"*50 )

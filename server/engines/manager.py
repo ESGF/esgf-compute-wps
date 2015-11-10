@@ -139,7 +139,6 @@ class ComputeEngine( Executable ):
         try:
             t0 = time.time()
             self.invocation_index += 1
-            debug_trace()
             operation = task_request.operations.values
             embedded = task_request.getBoolRequestArg( 'embedded', False )
             async = task_request.getBoolRequestArg( 'async', True if operation else not embedded )
