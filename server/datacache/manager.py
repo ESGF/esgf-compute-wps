@@ -349,16 +349,22 @@ class DataManager:
         return rv
 
 if __name__ == "__main__":
+    from modules import configuration
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
 
-    dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/ECMWF/mon/atmos/ta.ncml'
-    slice_args = {'level': (85000.0, 85000.0, 'cob') }
+    dfile = '/usr/local/web/WPCDAS/data/atmos_ta.nc'
+    varname = "ta"
     dataset = f=cdms2.open(dfile)
-    print dataset.id, dataset._status_
-    var = dataset[ "ta" ]
-    vdata = var( level = (85000.0, 85000.0, 'cob') )
+    var = dataset[ varname ]
+    vdata = var( time = slice(0,1) )
     print str( vdata.shape )
+
+    data_file = os.path.join( configuration.CDAS_OUTGOING_DATA_DIR, varname )
+    print "----"*50 + "\nSaving result to file: '%s'\n" % ( data_file ) + "----"*50
+    f=cdms2.open(data_file,"w")
+    f.write(vdata)
+    f.close()
 
     # dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
     # slice_args = {'lev': (100000.0, 100000.0, 'cob')}

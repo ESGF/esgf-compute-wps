@@ -1,20 +1,11 @@
 from django.http import HttpResponse,HttpRequest
 from django.shortcuts import redirect
-import sys
-import os
-import random
+import sys, os, random
 os.environ["PYWPS_PROCESSES"]=os.path.realpath(os.path.join(os.path.dirname(__file__),"..","processes"))
-import pywps
 import glob, logging
 import threading
 import subprocess
-enable_debug=False
-if enable_debug:
-    import pydevd
-wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-if len( wpsLog.handlers ) == 0:
-    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log' ) ) ) )
+from modules.utilities import *
 
 class TestRequest:
     def __init__(self, request_str ):
@@ -100,12 +91,10 @@ def getRequestParms( request ):
   return parmMap
 
 def wps(request):
+  wpsLog.debug( "WPS-> process request: %s" % str(request) )
   rndm = random.randint(0,100000000000)
   out = open("out_%i.txt" % rndm, "w")
   err = open("err_%i.txt" % rndm, "w")
-  if enable_debug:
-      import pydevd
-      pydevd.settrace('localhost', port=8030, stdoutToServer=False, stderrToServer=True)
   requestParams = getRequestParms(request)
 
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))

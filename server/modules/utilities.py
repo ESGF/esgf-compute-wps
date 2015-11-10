@@ -205,7 +205,3 @@ class DebugLogger:
         self._file.write( "T[%6.2f]: %s\n" % ( t0 % 1000.0, msg ) )
         self._file.flush()
         return t0
-
-if __name__ == '__main__':
-    debug_trace()
-    print "Done!"

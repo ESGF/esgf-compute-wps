@@ -10,7 +10,7 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 
 # Quick-start development settings - unsuitable for production
@@ -101,7 +101,7 @@ LOGGING = {
         'dj_logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': "/usr/local/web/WPCDAS/server/logs/django.log",
+            'filename': os.path.join( BASE_DIR, "logs", "django.log" ),
             'maxBytes': 50000,
             'backupCount': 2,
             'formatter': 'standard',

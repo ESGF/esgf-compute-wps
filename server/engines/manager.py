@@ -139,6 +139,7 @@ class ComputeEngine( Executable ):
         try:
             t0 = time.time()
             self.invocation_index += 1
+            debug_trace()
             operation = task_request.operations.values
             embedded = task_request.getBoolRequestArg( 'embedded', False )
             async = task_request.getBoolRequestArg( 'async', True if operation else not embedded )
@@ -227,7 +228,8 @@ class ComputeEngine( Executable ):
 
                 wpsLog.debug( " ***** Sending operation [rid:%s] to worker '%s' (t = %.2f, dt0 = %.3f): request= %s " %  ( task_monitor.rid, str(designated_worker), t2, t2-t0, str(task_request) ) )
                 if async:
-                    task_monitor.addStats( result_names=result_names, result_url=configuration.CDAS_OUTGOING_DATA_URL  )
+                    result_urls = [ '/'.join( [configuration.CDAS_OUTGOING_DATA_URL, result_name] ) for result_name in result_names ]
+                    task_monitor.addStats( result_urls=result_urls )
                     return task_monitor
 
                 results = self.processOpTask( task_monitor )
@@ -243,7 +245,7 @@ class ComputeEngine( Executable ):
                     return cache_rval
 
         except Exception, err:
-            wpsLog.error(" Error running compute engine: %s\n %s " % ( str(err), traceback.format_exc()  ) )
+            wpsLog.error(" Error running compute engine: %s\n %s " % ( str(err), traceback.format_exc() ) )
             return err
 
 

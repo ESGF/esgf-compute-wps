@@ -4,16 +4,17 @@ import logging
 import json, types, traceback
 from cdasProcess import CDASProcess, loadValue
 from request.manager import taskManager
-
-wpsLog = logging.getLogger( 'wps' )
+from modules.utilities import wpsLog, debug_trace
 
 class Process(CDASProcess):
     def __init__(self):
         """Process initialization"""
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='CDAS', version=0.1, abstract='Climate Data Analytic Services', storeSupported='true', statusSupported='true')
-        self.region = self.addComplexInput(identifier='domain', title='spatial location of timeseries', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=0, maxOccurs=1 )
-        self.data = self.addComplexInput(identifier='variable', title='variables to process', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=1, maxOccurs=1)
-        self.operation = self.addComplexInput(identifier='operation', title='analysis operation', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=0, maxOccurs=1)
+        self.region = self.addComplexInput(identifier='domain', title='Spatial location of timeseries', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=0, maxOccurs=1 )
+        self.data = self.addComplexInput(identifier='variable', title='Variables to process', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=1, maxOccurs=1)
+        self.operation = self.addComplexInput(identifier='operation', title='Analysis operation', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}], minOccurs=0, maxOccurs=1)
+        self.async = self.addLiteralInput(identifier='async', title='Async operation', default='true', type=types.StringType, minOccurs=0, maxOccurs=1)
+        self.embedded = self.addLiteralInput(identifier='embedded', title='Embedded result', default='false', type=types.StringType, minOccurs=0, maxOccurs=1)
         self.result = self.addLiteralOutput( identifier='result', title='timeseries data', type=types.StringType )
 
     def execute(self):
@@ -21,11 +22,11 @@ class Process(CDASProcess):
             # wpsLog.debug( "  -------------- Execution stack:  -------------- ")
             # wpsLog.debug( traceback.format_stack() )
             # wpsLog.debug( "  -------------- ________________  -------------- ")
-
+#            debug_trace()
             data = loadValue( self.data )
             region = loadValue( self.region )
             operation = loadValue( self.operation )
-            request = { 'datainputs': { 'data':data, 'region':region, 'operation':operation } }
+            request = { 'datainputs': { 'data':data, 'region':region, 'operation':operation }, 'async':self.async.value, 'embedded':self.embedded.value }
             wpsLog.debug( " $$$ CDAS Django-WPS Process,  Request: %s, Operation: %s " % ( str( request ), str(operation) ) )
             response = taskManager.processRequest( request )
             self.result.setValue( response )
