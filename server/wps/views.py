@@ -44,7 +44,7 @@ def process_status(nm):
         return "Unknown",-1,"???"
 
 def status(request):
-    processes = glob.glob("err*.txt")
+    processes = glob.glob(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err*.txt"))
     done =[]
     running=[]
     unknown = []
