@@ -3,13 +3,6 @@ from modules.containers import  *
 from datacache.persistence.manager import persistenceManager
 import re, traceback
 
-def filter_attributes( attr, keys, include_keys = True ):
-    rv = {}
-    for key in attr.iterkeys():
-        if ( include_keys and (key in keys) ) or (not include_keys and (key not in keys)):
-            rv[key] = attr[key]
-    return rv
-
 class RegionContainer(JSONObjectContainer):
 
     def newObject( self, spec ):
@@ -53,6 +46,9 @@ class CDAxis(JSONObject):
     def __eq__(self, axis ):
         if axis is None: return False
         if self['axis'] <> axis['axis']: return False
+        c0 = self['config']
+        c1 = axis['config']
+        if ( c0.get('system','value') <> c1.get('system','value') ): return False
         r0 = self['bounds']
         r1 = axis['bounds']
         if  ( len(r0) <> len(r1) ): return False
@@ -99,17 +95,34 @@ class CDAxis(JSONObject):
 
 class Region(JSONObject):
 
-    def __init__( self, region_spec={}, **args ):
-        if isinstance( region_spec, Region ): region_spec = region_spec.items
-        JSONObject.__init__( self, region_spec, **args )
+    def __init__( self, region={}, **args ):
+        JSONObject.__init__( self, region, **args )
 
     def getAxisRange( self, axis_name ):
         try:
             axis_spec = self.getItem( axis_name )
-            return axis_spec['bounds'] if axis_spec else None
+            if axis_spec is None: return None
+            config = axis_spec['config']
+            axis_system = config.get('system', 'value' )
+            bounds = axis_spec['bounds']
+            return bounds
+#            if (len(bounds) == 0) or (system == axis_system): return bounds
         except Exception, err:
             wpsLog.error( "Error in getAxisRange( %s ): %s" % ( axis_name, str(err) ) )
             return None
+
+    def getIndexedAxisSize(self, axis_name, axis ):
+        axis_spec = self.getItem( axis_name )
+        if axis_spec is None: return axis.shape[0]
+        config = axis_spec['config']
+        bounds = axis_spec['bounds']
+        if not bounds: return axis.shape[0]
+        if (len(bounds)==1): return 0
+        axis_system = config.get('system', 'value' )
+        if (axis_system == 'value'):
+            ibounds = axis.mapInterval(bounds)
+            axis_spec['ibounds'] = ibounds       # TODO: use 'ibounds' instead of config[system]
+        return bounds[1] - bounds[0]
 
     def filter_spec(self, valid_axes ):
         new_spec = {}
@@ -164,6 +177,18 @@ class Region(JSONObject):
                  axis_count = axis_count + 1
         return axis_count
 
+    def setStepSize( self, coord, step_size, axis ):
+#        debug_trace()
+        axis_spec = self[ CDAxis.AXIS_LIST[ coord ] ]
+        if axis_spec == None:
+            axis_spec = { 'config':{'system':'indices'}, 'bounds':[], 'axis':'time' }
+            self[ CDAxis.AXIS_LIST[ coord ] ] = axis_spec
+        c = axis_spec['config']
+        system = c.get('system','value')
+        if system == 'value':
+            axis_spec = self.toIndexedAxis(axis_spec)
+        bounds = axis_spec['bounds']
+
     def toCDMS( self, **args ):
         active_axes = args.get('axes',None)
         kargs = {}
@@ -175,7 +200,7 @@ class Region(JSONObject):
                         c = axis_spec['config']
                         system = c.get('system','value')
                         is_indexed = ( system == 'indices' )
-                        if isinstance( v, list ) or isinstance( v, tuple ):
+                        if (isinstance( v, list ) or isinstance( v, tuple )) and (len(v)>0):
                             if not is_indexed:
                                 if k == CDAxis.TIME:
                                     kargs[str(k)] = ( str(v[0]), str(v[1]), "cob" ) if ( len( v ) > 1 ) else ( str(v[0]), str(v[0]), "cob" )
@@ -210,6 +235,49 @@ class Region(JSONObject):
 #         self.dtype = None
 #         self.axes = None
 
+class DomainSpec:
+
+    def __init__( self, variable_spec,  region_spec ):
+        self.variable_spec = variable_spec
+        self.region_spec = region_spec
+        self.stat = {}
+
+    @staticmethod
+    def getAxisId(axis):
+        if axis.isLatitude(): return 'lat'
+        if axis.isLevel(): return 'lev'
+        if axis.isLongitude(): return 'lon'
+        if axis.isTime(): return 'time'
+        return None
+
+    def __str__(self):
+        var_spec = dict(self.variable_spec  )
+        for (key,value) in var_spec.items():
+            if isinstance(value,numpy.float32):
+                var_spec[key] = float(value)
+        grid = self.variable_spec['grid']
+        var_spec['grid'] = { 'id':grid.id, 'shape':grid.shape, 'attributes':grid.attributes }
+        if hasattr( grid, 'getOrder'): var_spec['grid'].update( { 'order':grid.getOrder(), 'type':grid.getType() } )
+        axes = var_spec['axes']
+        genericized_axes = {}
+        for axis in axes:
+             axisId = self.getAxisId(axis)
+             values = axis.getValue().tolist()
+             if axisId: genericized_axes[axisId] = { 'shape':axis.shape, 'attributes':axis.attributes, 'id':axis.id, 'start': values[0], 'end': values[-1] }
+        var_spec['axes'] =  genericized_axes
+        return json.dumps( {'variable':var_spec,'region':self.region_spec } )
+
+    def copy( self, spec, keys, inclusive=True ):
+        for key in spec.iterkeys():
+            if ( inclusive and (key in keys) ) or (not inclusive and (key not in keys)):
+                self.stat[key] = spec[key]
+
+    def __getitem__(self, item):
+        return self.stat.get( item, None )
+
+    def __setitem__(self, key, value):
+        self.stat[ key ] = value
+
 class Domain(Region):
 
     DISJOINT = 0
@@ -219,32 +287,41 @@ class Domain(Region):
     PENDING = 0
     COMPLETE = 1
 
-    def __init__( self, domain_spec=None,  **args ):
-        self.stat = args.get( 'dstat', { 'persist_id':None } )
-        Region.__init__( self, domain_spec )
+    def __init__( self, region=None,  **args ):
+        self.stat = args.get( 'region_spec', { 'persist_id':None } )
+        Region.__init__( self, region )
         self._variable = None
-        self.vstat = args.get('vstat', None )
+        self.variable_spec = args.get('variable_spec', None )
         self.setVariable( args.get('tvar', None ) )                   # TransientVariable
         self.cache_request_status = Domain.COMPLETE if self.isCached() else None
+
+    def getSubDomain( self, subregion_layout ):
+        return Domain( )
 
     def getPersistId(self):
         return self.stat.get( 'persist_id', None )
 
+    def getDomainSpec(self):
+        return DomainSpec( self.variable_spec, self.spec )
+
     def isCached(self):
         return self.stat.get( 'persist_id', None ) or self.stat.get( 'inMemory', False )
 
-    def getData(self):
-        v = self.getVariable()
-        return None if v is None else v.data
+    def getData( self, subregion=None ):
+        v = self.getVariable( subregion )
+        if v is None: return None
+        return v.data
 
     def setData( self, data ):
         import cdms2
-        self._variable = cdms2.createVariable( data, fill_value=self.vstat['fill_value'], grid=self.vstat['grid'], axes=self.vstat['axes'], id=self.vstat['id'], dtype=self.vstat['dtype'], attributes=self.vstat['attributes'] )
+        self._variable = cdms2.createVariable( data, fill_value=self.variable_spec['fill_value'], grid=self.variable_spec['grid'], axes=self.variable_spec['axes'], id=self.variable_spec['id'], dtype=self.variable_spec['dtype'], attributes=self.variable_spec['attributes'] )
+        return self._variable
 
-    def getVariable(self):
+    def getVariable(self, subregion=None):
         if self._variable is None:
             self.load_persisted_data()
-        return self._variable
+        subset_args = subregion.toCDMS() if (subregion is not None) else None
+        return self._variable if (subset_args is None) else numpy.ma.fix_invalid( self._variable( **subset_args ) )
 
     def setVariable( self, tvar ):
         self._variable = tvar
@@ -276,8 +353,8 @@ class Domain(Region):
         persistenceManager.release( self.stat )
 
     def stats(self,**args):
-        self.stat['cid'] = args.get( 'cid', self.vstat['id'] )
-        self.stat['rid'] = args.get( 'rid', self.vstat['id'] )
+        self.stat['cid'] = args.get( 'cid', self.variable_spec['id'] )
+        self.stat['rid'] = args.get( 'rid', None )
         wid = args.get( 'wid', None )
         if wid:
             self.stat['wid'] = wid

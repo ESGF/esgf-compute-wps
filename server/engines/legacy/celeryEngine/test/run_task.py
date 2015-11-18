@@ -1,6 +1,6 @@
 from celery import group
 
-from tasks import computeTimeseries, createDomain, addVariable
+from engines.legacy.celeryEngine.tasks import computeTimeseries, createDomain, addVariable
 from utilities import Profiler
 
 profiler = Profiler()

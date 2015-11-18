@@ -1,6 +1,8 @@
-from modules.utilities import wpsLog
-import celeryconfig
 import celery
+
+from modules.utilities import wpsLog
+from engines.legacy.celeryEngine import celeryconfig
+
 
 app = celery.Celery( 'tasks', broker=celeryconfig.BROKER_URL, backend=celeryconfig.CELERY_RESULT_BACKEND )
 app.conf.update(
@@ -40,11 +42,13 @@ def execute( task_request_args ):
     return response
 
 from engines.manager import ComputeEngine
-from communicator import CeleryCommunicator
+from engines.legacy.celeryEngine.communicator import CeleryCommunicator
 
 class CeleryEngine( ComputeEngine ):
 
     def getCommunicator( self ):
         return  CeleryCommunicator()
 
-
+    @staticmethod
+    def getWorkerIntracom():
+        pass

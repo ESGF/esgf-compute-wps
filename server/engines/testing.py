@@ -8,13 +8,15 @@ from modules.utilities import *
 class EngineTests(unittest.TestCase):
 
     def setUp(self):
+        self.local_data = False
         self.test_point = [ -137.0, 35.0, 85000 ]
         self.test_time = '2010-01-16T12:00:00'
         self.operations = [ "CDTime.departures(v0,slice:t)", "CDTime.climatology(v0,slice:t,bounds:annualcycle)", "CDTime.value(v0)" ]
         self.indexed_operations = [ "CDTime.departures($0,slice:t)", "CDTime.climatology($0,slice:t,bounds:annualcycle)", "CDTime.value($0)" ]
-        self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData(), 'embedded': True }
+        self.def_task_args =  { "domain": self.getRegion(), "variable": self.getData(), 'embedded': True, 'async': False }
         self.engine = engineRegistry.getInstance( CDAS_COMPUTE_ENGINE + "Engine" )
-        self.cache_region =  Region( { "lev": {"config":{},"bounds":[ self.test_point[2] ], 'id':"r0" } } )
+        self.cache_region =  Region( { 'id':"r0", "lev":self.test_point[2] } )
+        self.subregion =  Region( { "id":"sr0", "lev":self.test_point[2], "time":self.test_time  } )
 
     def tearDown(self):
         pass
@@ -22,13 +24,16 @@ class EngineTests(unittest.TestCase):
     def getRegion(self, ipt=0 ):
         return '[{"id":"r0","longitude": {"value":%.2f,"system":"values"}, "latitude": %.2f, "level": %.2f, "time":"%s" }]' % (self.test_point[0]+5*ipt,self.test_point[1]-5*ipt,self.test_point[2],self.test_time)
 
-    def getData(self, vars=[0]):
+    def getData(self):
+        return self.getLocalData() if self.local_data else self.getRemoteData()
+
+    def getRemoteData(self, vars=[0]):
         var_list = ','.join( [ ( '{"dset":"%s","id":"v%d:%s","domain":"r0"}' % ( MERRA_TEST_VARIABLES["collection"], ivar, MERRA_TEST_VARIABLES["vars"][ivar] ) ) for ivar in vars ] )
         data = '[%s]' % ( var_list )
         return data
 
     def getLocalData(self):
-        data = '{"dset":"MERRA/mon/atmos/hur","id":"v0:hur","domain":"r0"}'
+        data = '{"dset":"MERRA/mon/atmos/ta","id":"v0:ta","domain":"r0"}'
         return data
 
     def getOp(self, op_index ):
@@ -42,7 +47,8 @@ class EngineTests(unittest.TestCase):
     def getResultData( self, results, index=0 ):
         if isinstance( results, Exception ):
             raise results
-        rdata = results[index].get( 'data', None )
+        if isinstance( results, list ): rdata = results[index].get( 'data', None )
+        else:                           rdata = results.get( 'data', None )
         return None if (rdata is None) else ( [ float(rd) for rd in rdata ] if hasattr( rdata, '__iter__' ) else float(rdata) )
 
     def getResultStats( self, results, index=0 ):
@@ -55,10 +61,45 @@ class EngineTests(unittest.TestCase):
         for item in kwargs.iteritems():
             self.assertEqual( status[item[0]], item[1] )
 
-    def test01_cache(self):
-        result      = self.engine.execute( TaskRequest( request={ 'domain': self.cache_region, 'variable': self.getData() } ) )
-        if isinstance( result, list ): result = result[0]
-        self.assertEqual( result.region.value, self.cache_region )
+    def test010_cache(self):
+        result = self.engine.execute( TaskRequest( request={ 'domain': self.cache_region, 'variable': self.getData(), 'async': False } ) )
+        print "result = %s" % str(result)
+        self.assertEqual( result['cache_region'], self.cache_region )
+        wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Cache Result: %s\n\n ", str(result ) )
+        if CDAS_COMPUTE_ENGINE == 'mpi':
+            print "\n ... Executing Data Transfer Tests ... "
+            cached_var, domain = self.engine.findCachedDomain( result['cached_var'], self.cache_region )
+            source = result['cache_worker']
+            srank = wrank(source)
+            dest = 'W-1' if (srank == 0) else 'W-0'
+            task_args = { 'source': source, 'destination': dest, 'domain_spec': domain.getDomainSpec(), 'async': False, 'embedded': True  }
+            t0 = time.time()
+            results = self.engine.execute( TaskRequest( utility='domain.transfer', request=task_args ) )
+            t1 = time.time()
+            wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Transfer (dt = %0.2f) Results: %s\n\n " % (t1-t0, str(results) ) )
+            transferred_shape = domain.variable_spec['shape']
+            worker_results = [ worker_response['results'] for worker_response in results ]
+            numtests = 0
+            for worker_result in worker_results:
+                if worker_result and (worker_result[0] in ["source","destination"]):
+                    self.assertSequenceEqual( transferred_shape, worker_result[2] )
+                    numtests = numtests + 1
+            self.assertEqual( numtests, 2 )
+
+            task_args = { 'source': source, 'destination': dest, 'domain_spec': domain.getDomainSpec(), 'async': False, 'embedded': True, 'subregion': self.subregion }
+            t0 = time.time()
+            results = self.engine.execute( TaskRequest( utility='domain.transfer', request=task_args ) )
+            t1 = time.time()
+            wpsLog.debug( "\n\n ++++++++++++++++ ++++++++++++++++ ++++++++++++++++ Subregion Transfer (dt = %0.2f) Results: %s\n\n " % (t1-t0, str(results) ) )
+            subregion_shape = list(transferred_shape)
+            subregion_shape[0] = 1
+            worker_results = [ worker_response['results'] for worker_response in results ]
+            numtests = 0
+            for worker_result in worker_results:
+                if worker_result and (worker_result[0] in ["source","destination"]):
+                    self.assertSequenceEqual( subregion_shape, worker_result[2] )
+                    numtests = numtests + 1
+            self.assertEqual( numtests, 2 )
 
     def test02_departures(self):
         test_result = [  -1.405364990234375, -1.258880615234375, 0.840728759765625, 2.891510009765625, -18.592864990234375,

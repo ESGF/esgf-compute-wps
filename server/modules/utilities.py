@@ -6,6 +6,35 @@ wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(DefaultLogLevel)
 if len( wpsLog.handlers ) == 0: wpsLog.addHandler( logging.FileHandler( os.path.join( LogDir, 'wps.log') ) )
 
+def wrank( value ):
+    return ( value if not isinstance(value,basestring) else int( value.split('-')[1] ) )
+
+def wid( value ):
+    return ( value if not isinstance(value,int) else 'W-%d' % value )
+
+def unwrap( results ):
+    while True:
+        if isinstance( results, list ) and len( results ) == 1: results = results[0]
+        else: break
+    return results
+
+def debug_trace():
+    import pydevd
+    pydevd.settrace('localhost', port=8333, stdoutToServer=True, stderrToServer=True)
+
+def debug_stop():
+    try:
+        import pydevd
+        pydevd.stoptrace()
+    except: pass
+
+def filter_attributes( attr, keys, include_keys = True ):
+    rv = {}
+    for key in attr.iterkeys():
+        if ( include_keys and (key in keys) ) or (not include_keys and (key not in keys)):
+            rv[key] = attr[key]
+    return rv
+
 def get_json_arg( id, args, default=None ):
         json_arg = args.get( id, None )
         if json_arg is not None: return convert_json_str( json_arg )

@@ -1,4 +1,5 @@
 from engines.manager import ComputeEngine
+from modules.utilities import wpsLog
 
 class MpiEngine( ComputeEngine ):
 
@@ -6,6 +7,11 @@ class MpiEngine( ComputeEngine ):
         from communicator import MpiCommunicator
         return  MpiCommunicator()
 
+    @classmethod
+    def getWorkerIntracom(cls):
+        from communicator import MpiWorkerIntracom
+        rv = MpiWorkerIntracom()
+        return rv
 
 
 

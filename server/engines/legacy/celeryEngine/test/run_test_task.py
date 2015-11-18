@@ -1,4 +1,4 @@
-from tasks import simpleTest
+from engines.legacy.celeryEngine.tasks import simpleTest
 from utilities import Profiler
 
 profiler = Profiler()

@@ -8,19 +8,8 @@
   	<h2> <a href="view-source:http://localhost:8080/wps?version=1.0.0&service=wps&request=DescribeProcess&identifier=cdas"> Describe Timeseries Process </a> </h2>
     	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>DescribeProcess</b>&identifier=<i>cdas</i></code></font></pre>    	
   	<hr>
-  	<h2> <a href='view-source:http://localhost:8080/wps?version=1.0.0&embedded=true&service=wps&request=Execute&identifier=cdas&datainputs=[region={"longitude":120.0,"latitude":-40.0};operation={};data={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}]'> Extract Timeseries From NetCDF File </a> </h2>
-		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>cdas</i><p></p>  &datainputs=[<p></p>    region={"longitude":65.3,"latitude":10.5,"level":100.0}; <p></p>    data={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}<p></p>  ] </code></font></pre>
- 	<hr>
-  	<h1> WPS Demo: Remote Test</h1>
-  	<hr>
-  	<h2> <a href="view-source:http://localhost:9999/wps?version=1.0.0&service=wps&request=getcapabilities"> GetCapabilities </A> </h2>
-    	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>GetCapabilities</b></code></font></pre>
-  	<hr>
-  	<h2> <a href="view-source:http://localhost:9999/wps?version=1.0.0&service=wps&request=DescribeProcess&identifier=cdas"> Describe Timeseries Process </a> </h2>
-    	<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>DescribeProcess</b>&identifier=<i>cdas</i></code></font></pre>
-  	<hr>
-  	<h2> <a href='view-source:http://localhost:9999/wps?version=1.0.0&embedded=true&service=wps&request=Execute&identifier=cdas&datainputs=[region={"longitude":120.0,"latitude":-40.0};operation={};data={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}]'> Extract Timeseries From NetCDF File </a> </h2>
-		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>cdas</i><p></p>  &datainputs=[<p></p>    region={"longitude":65.3,"latitude":10.5,"level":100.0}; <p></p>    data={"url":"file://usr/local/web/WPCDAS/data/TestData.nc","id":"t"}<p></p>  ] </code></font></pre>
+  	<h2> <a href='view-source:http://localhost:8080/wps?version=1.0.0&service=wps&request=Execute&identifier=cdas&datainputs=[domain={"id":"d0","level":{"start":0,"end":1,"system":"indices"}};variable={"dset":"MERRA/mon/atmos","id":"v0:hur","domain":"d0"};operation=["CWT.average(v0,axis:xy)"];]'> Extract Timeseries From NetCDF File </a> </h2>
+		<pre><font size="5"><code>  http://localhost/wps?version=1.0.0&service=wps&request=<b>Execute</b>&identifier=<i>cdas</i><p></p>  &datainputs=[<p></p>    domain=[{"id":"d0","level":{"start":0,"end":1,"system":"indices"}}];<p></p>    variable={"dset":"MERRA/mon/atmos","id":"v0:hur","domain":"d0"};<p></p>    operation=["CWT.average(v0,axis:xy)"];<p></p>  ] </code></font></pre>
  	<hr>
   </body>
 </head>

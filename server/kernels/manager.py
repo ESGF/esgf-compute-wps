@@ -9,6 +9,7 @@ executionRecord = ExecutionRecord()
 class KernelManager:
 
     def __init__(self, wid ):
+     #    wpsLog.debug( "\n ****** STARTUP KernelManager(%s), pid=%x ****** \n" % ( wid, os.getpid() ) )
         self.dataManager = DataManager( wid )
 
     def persistStats( self, **args ):
@@ -17,7 +18,7 @@ class KernelManager:
     def getKernelInputs( self, operation, op_index, request ):
         read_start_time = time.time()
         use_cache =  request['cache']
-        embedded = request.getRequestArg('embedded')
+        embedded = request.getBoolRequestArg('embedded')
         result_names = request['result_names']
         regions = request.region
         cache_type = CachedVariable.getCacheType( use_cache, operation )
@@ -48,14 +49,12 @@ class KernelManager:
                 if cache_type == CachedVariable.CACHE_OP:
                     dslice = operation.get('slice',None)
                     if dslice: region = Region( region, slice=dslice )
-                variable, data_spec = self.dataManager.loadVariable( data, region, cache_type )
-                data_spec['missing'] = variable.getMissing()
-                cached_region = Region( data_spec['region'] )
+                variable, data_spec, cached_region = self.dataManager.loadVariable( data, region, cache_type )
                 if (region is not None) and (cached_region <> region):
                     subset_args = region.toCDMS()
                     variable = numpy.ma.fix_invalid( variable( **subset_args ) )
         #            wpsLog.debug( " $$$ Subsetting variable: args = %s\n >> in = %s\n >> out = %s " % ( str(subset_args), str(variable.squeeze().tolist()), str(subset_var.squeeze().tolist()) ))
-                data_spec['data.region'] = region
+        #        data_spec['data.region'] = region
                 data_spec['embedded'] = embedded
                 if result_names is not None: data_spec['result_name'] = result_names[ op_index ]
                 variables.append( variable )
@@ -70,9 +69,10 @@ class KernelManager:
         self.dataManager.persist( **args )
 
     def run( self, task_request ):
-        response = {}
-        response['rid'] = task_request.rid
-        response['wid'] = self.dataManager.getName()
+        wid = self.dataManager.getName()
+        response = {'rid': task_request.rid, 'wid':wid }
+#        if wid == 'W-1':
+#            debug_trace()
         results = []
         response['results'] = results
         start_time = time.time()
@@ -82,6 +82,17 @@ class KernelManager:
                 response['stats'] = self.dataManager.stats()
             elif utility == 'shutdown.all':
                 self.shutdown()
+            elif utility == 'domain.transfer':
+                transfer_domain_spec = task_request.getRequestArg('domain_spec')
+                source = task_request.getRequestArg('source')
+                destination = task_request.getRequestArg('destination')
+                subregion_spec = task_request.getRequestArg('subregion')
+                transfer_data = self.dataManager.transferDomain( source, destination, transfer_domain_spec, subregion_spec  )
+                transfer_shape = transfer_data.shape if transfer_data is not None else None
+                if self.dataManager.getName() == source:
+                    response['results'].extend( [ "source", transfer_domain_spec.variable_spec['id'], transfer_shape ] )
+                elif self.dataManager.getName() == destination:
+                    response['results'].extend( [ "destination", transfer_domain_spec.variable_spec['id'],  transfer_shape ] )
             elif utility=='domain.uncache':
                 self.dataManager.uncache( task_request.data.values, task_request.region.value )
                 response['stats'] = self.dataManager.stats()
@@ -95,7 +106,7 @@ class KernelManager:
                 for op_index, operation in enumerate(operations_list):
                     variables, metadata_recs = self.getKernelInputs( operation, op_index, task_request )
                     kernel = self.getKernel( operation )
-                    result = kernel.run( variables, metadata_recs, operation ) if kernel else { 'result': metadata_recs }
+                    result = kernel.run( variables, metadata_recs, operation ) if kernel else metadata_recs
                     results.append( result )
                 end_time = time.time()
                 wpsLog.debug( " $$$ Kernel Execution Complete, ` time = %.2f " % (end_time-start_time) )
@@ -104,10 +115,15 @@ class KernelManager:
                 wpsLog.debug( traceback.format_exc() )
                 response['error'] = str(err)
 
-        genericize( results )
-        self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
-        return response
 
+        self.persistStats( loc='KM-exit', wid=self.dataManager.getName() )
+        rv = self.generateResponse( response )
+     #   wpsLog.debug( " $$$ KernelManager run complete, result = %s " % str(rv) )
+        return rv
+
+    def generateResponse( self, response ):
+        response['results'] = unwrap( response['results'] )
+        return response
 
     def shutdown(self):
         wpsLog.debug( "PERSIST (@shutdown) data and metadata " )
@@ -170,8 +186,13 @@ if __name__ == "__main__":
 
     def test_1():
         result = kernelMgr.run( TaskRequest( request={'config': {'cache': True}, 'region': {'level': 85000}, 'data': '{"name": "hur", "collection": "MERRA/mon/atmos", "id": "v0"}'} ) )
-        result_stats = result[0]['result']
+        result_stats = result[0]
         pp.pprint(result_stats)
+
+    def test_multitask():
+        task_request = {'embedded': True, 'data': [ {'dset':'MERRA/mon/atmos', 'domain':'r0', 'id':'v0', 'name':'hur' } ], 'region': [{'latitude': 35.0, 'level': 85000.0, 'id': 'r0', 'longitude': -137.0, 'time': u'2010-01-16T12:00:00'}], 'async': False, 'operation': ['CDTime.departures(v0,slice:t)', 'CDTime.climatology(v0,slice:t,bounds:annualcycle)', 'CDTime.value(v0)'] }
+        result = kernelMgr.run( TaskRequest( request=task_request ) )
+        pp.pprint(result)
 
     def average():
         t0 = time.time()
@@ -224,10 +245,20 @@ if __name__ == "__main__":
         response = kernelMgr.run( TaskRequest( request=task_args, utility=utility_id ) )
         pp.pprint(response)
 
+    def read_test():
+        import cdms2
+        data_url =  "http://dptomcat01.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/ta.ncml"
+        f=cdms2.open(data_url,'r')
+        v = f['ta']
+        print "read variable 'hur', shape = %s" % str( v.shape )
+
+
     def test_uncache(  ):
         util_result = kernelMgr.run( TaskRequest( request={ 'region': getRegion(), 'data': getData() }, utility='domain.uncache' ) )
         response    = kernelMgr.run( TaskRequest( request={ 'region': {'level': 85000}, 'data': getData() } ) )
         pp.pprint(response)
+
+    test_multitask()
 
     # def test_api_cache():
     #     request_parameters = {'version': [u'1.0.0'], 'service': [u'WPS'], 'embedded': [u'true'], 'rawDataOutput': [u'result'], 'identifier': [u'cdas'], 'request': [u'Execute'] }

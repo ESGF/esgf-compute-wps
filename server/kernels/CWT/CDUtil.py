@@ -36,17 +36,58 @@ class Averages( CDASKernel ):
         return result, result_mdata
 
 if __name__ == "__main__":
-    import cdms2, sys
-    from datacache.data_collections import getCollectionManger
-    cm = getCollectionManger()
-    collections = [ "MERRA/mon/atmos", "CFSR/mon/atmos" ]
-    var = "ta"
-    dsets = [ cdms2.open( cm.getURL( collection, var ) ) for collection in collections ]
-    input_variables = [ dset( var, level=slice(0, 1, None) ) for dset in dsets ]
-    result = None
-    for input_variable in input_variables:
-        lresult = cdutil.averager( input_variable, axis='xy' )
-        result = lresult if result is None else result + lresult
-    result /= len( input_variables )
+    import cdms2
 
-    print result
+    def get_one_month_subset( input_data, month_index, month_index_array ):   # Assumes time is dimension 0.
+        im_mask = month_index_array <> month_index
+        if input_data.ndim > 1:
+            im_mask = np.tile( im_mask, input_data.shape[1:] )
+        return ma.masked_array( input_data, mask = im_mask )
+
+    def annual_cycle( input_variable ):
+        time_vals = input_variable.getTime().asComponentTime()
+        month_index_array = np.array( [  tv.month for tv in time_vals ] )
+        squeezed_input = input_variable.squeeze()
+        acycle = [ ma.average( get_one_month_subset( squeezed_input, month_index, month_index_array ), axis=0 ) for month_index in range(1,13) ]
+        return ma.array(acycle)
+
+    var = "ta"
+    url = "http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/ta.ncml"
+    dset =  cdms2.open( url )
+    input_variable = dset( var, level=700 )
+
+    t0 = time.time()
+    lresult = annual_cycle( input_variable ).squeeze()
+    t1 = time.time()
+
+    print "numpy Comp time: %.2f, shape = %s, sample values:" % ( ( t1-t0 ), lresult.shape )
+    print lresult.flatten()[0:10]
+
+    operator = cdutil.ANNUALCYCLE
+    t0 = time.time()
+    lresult = operator.climatology( input_variable ).squeeze()
+    t1 = time.time()
+
+    print "cdutil Comp time: %.2f, shape = %s, sample values:" % ( ( t1-t0 ), lresult.shape )
+    print lresult.flatten()[0:10]
+
+#    lresult = cdutil.averager( input_variable, axis='t' )
+#    lresult = numpy.average( input_variable, axis=0 )
+    # from datacache.data_collections import getCollectionManger
+    # cm = getCollectionManger()
+    # collections = [ "MERRA/mon/atmos", "CFSR/mon/atmos" ]
+    # result = None
+    # dsets = [ cdms2.open( cm.getURL( collection, var ) ) for collection in collections ]
+    # input_variables = [ dset( var, level=slice(0, 1, None) ) for dset in dsets ]
+    # for input_variable in input_variables:
+    #     lresult = cdutil.averager( input_variable, axis='xy' )
+    #     result = lresult if result is None else result + lresult
+    # result /= len( input_variables )
+    #
+    # print result
+
+
+
+
+
+

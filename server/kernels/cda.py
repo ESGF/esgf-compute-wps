@@ -127,7 +127,7 @@ class CDASKernel:
             result, result_mdata  = self.applyOperation( subsetted_variables, operation )
             result_obj = self.getResultObject( metadata_recs, result, result_mdata  )
             end_time = time.time()
-            wpsLog.debug( "Computed operation %s on region %s: time = %.4f" % ( str(operation), str(result_obj["data.region"]), (end_time-start_time) ) )
+            wpsLog.debug( "Computed operation %s: time = %.4f" % ( str(operation), (end_time-start_time) ) )
         except Exception, err:
             wpsLog.debug( "Exception executing timeseries process:\n " + traceback.format_exc() )
         return result_obj
@@ -137,13 +137,18 @@ class CDASKernel:
             self.setTimeBounds( input_variable )
 
     def saveVariable(self, data, varname ):
-        data_file = os.path.join( configuration.CDAS_OUTGOING_DATA_DIR, varname )
-        data_url = configuration.CDAS_OUTGOING_DATA_URL + varname
-        f=cdms2.open(data_file,"w")
-        f.write(data)
-        f.close()
-        wpsLog.debug( "Saved result to file: '%s', url: '%s' " % ( data_file, data_url ) )
-        return data_url
+        try:
+            output_data_dir =  configuration.CDAS_OUTGOING_DATA_DIR
+            data_url = configuration.CDAS_OUTGOING_DATA_URL + varname
+            wpsLog.debug( "----"*50 + "\nSaving result to directory: '%s', file: '%s', url: '%s'\n" % ( output_data_dir, varname, data_url ) + "----"*50 )
+            os.chdir( output_data_dir )
+            f=cdms2.open( varname, "w" )
+            f.write(data)
+            f.close()
+            return data_url
+        except Exception, err:
+            wpsLog.error( "----"*50 + "\nError Saving result to directory: '%s', file: '%s', error: '%s' \n" % ( output_data_dir, varname, str(err) ) + "----"*50 )
+            return "ERROR"
 
     def toList( self, result, missing=None ):
         if isinstance( result, float ):
@@ -161,7 +166,8 @@ class CDASKernel:
         request_mdata = request_mdatas[0]
         embedded = getBoolValue( request_mdata,'embedded', False )
         if embedded:
-            missing = getFloatValue( request_mdata,'missing', None )
+            variable_spec = request_mdata['domain_spec'].variable_spec
+            missing = getFloatValue( variable_spec,'missing', None )
             if type( result ) in ( list, tuple, dict, float, int ):
                 result_data = result
                 time_axis = result_mdata['time']
@@ -200,3 +206,8 @@ class CDASKernel:
                     cdutil.setTimeBoundsYearly( time_axis )
             except Exception, err:
                 wpsLog.debug( "Exception in setTimeBounds:\n " + traceback.format_exc() )
+
+if __name__ == "__main__":
+    data_file = "/HP/tmp.nc"
+    f=cdms2.open(data_file,"w")
+    print "Done."

@@ -1,5 +1,5 @@
 from engines.communicator import ComputeEngineCommunicator, TaskMonitor
-from tasks import execute
+from engines.legacy.celeryEngine.tasks import execute
 
 class CeleryTaskMonitor(TaskMonitor):
 
@@ -50,7 +50,7 @@ class CeleryCommunicator( ComputeEngineCommunicator ):
 def run_test():
     import pprint, time, logging, sys
     from modules.utilities import wpsLog
-    from tasks import CeleryEngine
+    from engines.legacy.celeryEngine.tasks import CeleryEngine
     from request.manager import TaskRequest
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) ) #logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
     wpsLog.setLevel(logging.DEBUG)

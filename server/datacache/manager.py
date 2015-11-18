@@ -1,7 +1,6 @@
 from modules.utilities import  *
 from data_collections import getCollectionManger
 from domains import *
-from decomposition.manager import decompositionManager
 from datacache.status_cache import StatusPickleMgr
 from datacache.persistence.background_thread import PersistenceThread
 import numpy, sys, os, traceback, Queue
@@ -23,22 +22,28 @@ class CachedVariable:
     CACHE_REGION = 2
 
     def __init__(self, **args ):
+        self.stat = args.get('variable_spec',{})
         self.id = args.get('id',None)
         self.type = args.get('type',None)
-        self.dataset = args.get('dataset',None)
         self.specs = args
-        self.stat = args.get('vstat',{})
         self.domainManager = DomainManager()
 
     def updateStats(self,tvar):
-        self.stat['fill_value'] = tvar.fill_value
-        self.stat['attributes'] = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
-        self.stat['grid'] = tvar.getGrid()
-        self.stat['id'] = tvar.id
         self.stat['cid'] = self.id
-        self.stat['dtype'] = tvar.dtype
-        cdms_domain = tvar.getDomain()
-        self.stat['axes'] = [ d[0] for d in cdms_domain ]
+        if hasattr(tvar, 'getGrid'):
+            self.stat['fill_value'] = tvar.fill_value.tolist()
+            self.stat['attributes'] = filter_attributes( tvar.attributes, [ 'units', 'long_name', 'standard_name', 'comment'] )
+            self.stat['grid'] = tvar.getGrid()
+            self.stat['id'] = tvar.id
+            self.stat['dtype'] = str(tvar.dtype)
+            self.stat['missing'] = tvar.getMissing()
+            self.stat['shape'] = tvar.shape
+            self.stat['axes'] = tvar.getAxisList()
+
+    def loadStats(self, mdata ):
+        self.stat.update( filter_attributes( mdata, [ 'fill_value', 'missing', 'grid', 'dtype', 'axes', 'shape' ] ) )
+        self.stat['attributes'] = filter_attributes( mdata.get('attributes',{}), [ 'units', 'long_name', 'standard_name', 'comment'] )
+        self.stat['id'] = self.id
 
     def getCacheSize(self, cache_map ):
         return self.domainManager.getCacheSize( cache_map )
@@ -51,9 +56,9 @@ class CachedVariable:
     def stats( self, **args ):
         kwargs = { 'cid': self.id }
         kwargs.update( args )
-        vstat = dict(self.stat)
-        vstat['domains'] = self.domainManager.stats( **kwargs )
-        return vstat
+        variable_spec = dict(self.stat)
+        variable_spec['domains'] = self.domainManager.stats( **kwargs )
+        return variable_spec
 
     @classmethod
     def getCacheType( cls, use_cache, operation ):
@@ -62,14 +67,14 @@ class CachedVariable:
 
     def addDomain(self, region, **args ):
         data = args.get( 'data', None )
-        domain = Domain( region, tvar=data, vstat=self.stat )
+        domain = Domain( region, tvar=data, variable_spec=self.stat )
         request_queue = args.get( 'queue', None )
         if request_queue: domain.cacheRequestSubmitted( request_queue )
         self.domainManager.addDomain( domain )
         return domain
 
-    def addCachedDomain( self, domain_spec, **args ):
-        domain = Domain( domain_spec, **args  )
+    def addCachedDomain( self, region, **args ):
+        domain = Domain( region, variable_spec=self.stat  )
         self.domainManager.addDomain( domain )
         return domain
 
@@ -92,9 +97,44 @@ class CacheManager:
     def __init__( self, name, **args ):
         self._cache = {}
         self.stat = {}
+        self.comm = args.get('comm',None)
         self.name = name
         self.statusCache = StatusPickleMgr( '.'.join( [ 'stats_cache', name ] ) )
         self.loadStats()
+
+    def sendData( self, destination, domain_spec, subregion=None ):
+        var = domain_spec.variable_spec['id']
+        cvar = self._cache.get( var, None )
+        overlap_status, cached_domain = cvar.findDomain( domain_spec.region_spec ) if cvar else None
+        if cached_domain:
+            if subregion is None:
+                cdata = cached_domain.getData()
+                layout = None
+            else:
+                v = cached_domain.getVariable(subregion)
+                cdata = v.data
+                layout = {"shape":v.shape, "axes": v.getAxisList(), "region_spec":subregion.spec }
+            wpsLog.debug( "\n **------------------->> CM[%s] sendData: dest=%s var=%s, overlap status = %d, shape=%s, time=%.2f\n" % ( self.name, destination, var, overlap_status, str(cdata.shape), time.time() ) )
+            self.comm.sendRegion( cdata, destination, layout )
+        else:
+            wpsLog.debug( " CM[%s]: Attempt to send data that can't be found: %s, cache: %s\n" % ( self.name, var,  str(self._cache.keys()) ) )
+            cdata = None
+        return cdata
+
+    def receiveData(  self, source, domain_spec, subregion=None ):
+        shape = domain_spec.variable_spec['shape'] if (subregion is None) else None
+        vardata, subregion_layout = self.comm.receiveRegion( source, shape )
+        if subregion is None:
+            cached_domain = self.addNewVariable( domain_spec, vardata )
+            v = cached_domain.getVariable()
+        else:
+            variable_spec = dict( domain_spec.variable_spec )
+            variable_spec.update( { 'shape':vardata.shape, 'axes': subregion_layout['axes'] } )
+            domain = Domain( region_spec=subregion_layout['region_spec'], variable_spec=variable_spec )
+            v = domain.setData( vardata )
+            self.addTransientVariable( variable_spec['id'], v, domain )
+        wpsLog.debug( "\n\n **------------------->> CM[%s] receiveData: source=%s var=%s, shape=%s, time=%.2f\n\n" % ( self.name, source, domain_spec.variable_spec['id'], str(vardata.shape), time.time() ) )
+        return v
 
     def persist( self, **args ):
         for cached_cvar in self._cache.values():
@@ -116,21 +156,21 @@ class CacheManager:
 
     def loadStats( self, **args ):
         stats = self.statusCache['stats']
-     #   wpsLog.debug( "\n ***-------> Load Stats: %s\n" % stats )
+     #    wpsLog.debug( "\n ***CM[%s]-------> Load Stats: %s\n" % ( self.name, stats ) )
         if stats:
             for var_stats in stats:
                 cache_id = var_stats.get('cid',None)
                 cached_cvar = self._cache.get( cache_id, None )
                 if cached_cvar is None:
-                    cached_cvar = CachedVariable(  id=cache_id, vstat=var_stats )
+                    cached_cvar = CachedVariable(  id=cache_id, variable_spec=var_stats )
                     self._cache[ cache_id ] = cached_cvar
                 domain_stats = var_stats['domains']
                 for domain_stat in domain_stats:
-                    cached_cvar.addCachedDomain( domain_stat['region'], dstat=domain_stat, vstat=var_stats )
+                    cached_cvar.addCachedDomain( domain_stat['region'], region_spec=domain_stat, variable_spec=var_stats )
 
     def persistStats( self, **args ):
         stats = self.stats( **args )
-     #   wpsLog.debug( "\n ***-------> Persist Stats[%s]:\n %s\n" % ( args.get('loc',""), stats ) )
+     #   wpsLog.debug( "\n ***CM[%s]-------> Persist Stats[%s]:\n %s\n" % ( self.name, args.get('loc',""), stats ) )
         self.statusCache['stats'] = stats
 
     @classmethod
@@ -146,16 +186,25 @@ class CacheManager:
                       ( cid, str(self._cache.keys()), str(new_region), (cached_cvar is not None), (domain is not None), status ) )
         return status, domain
 
-    def addVariable( self, cache_id, data, specs ):
+    def addNewVariable( self, domain_spec, variable_data ):
+        cache_id = domain_spec.variable_spec['id']
         cached_cvar = self._cache.get( cache_id, None )
         if cached_cvar is None:
             var_type, var_id = self.getModifiers( cache_id )
-            cached_cvar = CachedVariable( type=var_type, id=cache_id, specs=specs )
-            cached_cvar.updateStats( data )
+            cached_cvar = CachedVariable( type=var_type, id=cache_id, variable_spec=domain_spec.variable_spec )
             self._cache[ cache_id ] = cached_cvar
-        region = specs.get( 'region', {} )
-        cached_cvar.addDomain( region, data=data )
+        domain = cached_cvar.addCachedDomain( domain_spec.region_spec )
+        domain.setData( variable_data )
+        return domain
 
+    def addTransientVariable( self, cache_id, tvar, region ):
+        cached_cvar = self._cache.get( cache_id, None )
+        if cached_cvar is None:
+            var_type, var_id = self.getModifiers( cache_id )
+            cached_cvar = CachedVariable( type=var_type, id=cache_id )
+            cached_cvar.updateStats( tvar )
+            self._cache[ cache_id ] = cached_cvar
+        return cached_cvar.addDomain( region, data=tvar )
 
     def getResults(self):
         return self.filterVariables( { 'type': CachedVariable.RESULT } )
@@ -175,7 +224,8 @@ class CacheManager:
 class DataManager:
 
     def __init__( self, name, **args ):
-        self.cacheManager = CacheManager( name, **args )
+        self.getIntracom()
+        self.cacheManager = CacheManager( name, comm=self.intracom )
         self.collectionManager = getCollectionManger( **args )
         self.persist_queue = Queue.Queue()
         self.persistenceThread = None
@@ -183,6 +233,20 @@ class DataManager:
         if enable_background_persist:
             self.persistenceThread = PersistenceThread( args=(self.persist_queue,) )
             self.persistenceThread.start()
+
+    def getIntracom(self):
+        from engines import engineRegistry
+        from modules.configuration import CDAS_COMPUTE_ENGINE
+        self.intracom = engineRegistry.getWorkerIntracom( CDAS_COMPUTE_ENGINE + "Engine" )
+
+    def transferDomain( self, source, destination, domain_spec, subregion_spec ):
+        subregion = Region(subregion_spec) if (subregion_spec is not None) else None
+        if source == self.cacheManager.name:
+            transfer_data = self.cacheManager.sendData( destination, domain_spec, subregion )
+        elif destination == self.cacheManager.name:
+            transfer_data = self.cacheManager.receiveData( source, domain_spec, subregion )
+        else: transfer_data = None
+        return transfer_data
 
     def close(self):
         self.collectionManager.close()
@@ -202,13 +266,18 @@ class DataManager:
     def stats( self, **args ):
         return self.cacheManager.stats( **args )
 
-    def load_variable_region( self, dataset, name, cdms2_cache_args={} ):
+    def load_variable_region( self, dataset, name, region ):
+        from decomposition.strategies import decimationManager
+        cdms2_cache_args = None
         rv = None
         try:
             t0 = time.time()
             wid = self.cacheManager.name
+            variable = dataset[name]
+            load_region = region # decimationManager.getReducedRegion( region, axes=variable.getAxisList() )
+            cdms2_cache_args = load_region.toCDMS()
             wpsLog.debug( "\n\n LLLLLLLOAD DataSet<%s:%s> %x:%x, status = '%s', var=%s, args=%s \n\n" % ( dataset.id, wid, id(dataset), os.getpid(), dataset._status_, name, str(cdms2_cache_args) ) )
-            dset = dataset( name, **cdms2_cache_args )
+            dset = variable( **cdms2_cache_args )
             rv = numpy.ma.fix_invalid( dset )
             t1 = time.time()
             wpsLog.debug( " $$$ Variable '%s' %s loaded from Dataset<%s:%s> --> TIME: %.2f " %  ( name, str(rv.shape), dataset.id, wid, (t1-t0) ) )
@@ -217,6 +286,7 @@ class DataManager:
         return rv
 
     def loadVariable( self, data, region, cache_type ):
+        from decomposition.strategies import decompositionManager
         data_specs = {}
         domain =  None
         dataset = None
@@ -236,7 +306,7 @@ class DataManager:
                 else:
                     variable = domain.getVariable()
                     data_specs['dataset']  = domain.spec.get( 'dataset', None )
-                    data_specs['region'] = domain.getRegion()
+                    cache_region = domain.getRegion()
                 data_specs['cid']  = var_cache_id
             else:
                 wpsLog.debug( " $$$ Empty Data Request: '%s' ",  str( data ) )
@@ -247,50 +317,54 @@ class DataManager:
                     variable = dataset[name]
                     data_specs['region'] = region
                 else:
-                    load_region = decompositionManager.getNodeRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
+                    load_region = decompositionManager.getReducedRegion( region ) if (cache_type == CachedVariable.CACHE_REGION) else region
                     cache_region = Region( load_region, axes=[ CDAxis.LATITUDE, CDAxis.LONGITUDE, CDAxis.LEVEL ] )
                     if dataset == None: dataset = self.loadFileFromCollection( collection, name )
-                    variable = self.load_variable_region( dataset, name, cache_region.toCDMS() )
-                    data_specs['region'] = cache_region
+                    variable = self.load_variable_region( dataset, name, cache_region )
                     self.persist_queue.put( ( variable.data, data_specs ) )
 
             else:
-                wpsLog.debug( " *** Loading data from cache, cached region= %s" % str(data_specs['region']) )
+                wpsLog.debug( " *** Loading data from cache, cached region= %s" % str(cache_region) )
                 if (cache_type == CachedVariable.CACHE_OP) and (region is not None):
                     variable = subset_variable_region( variable, region.toCDMS() )
-                    data_specs['region'] = region
-
-            data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'units' ] )
-        else:
-            data_specs['variable'] = record_attributes( variable, [ 'long_name', 'name', 'id', 'units' ]  )
+                    cache_region = region
 
         if (variable is not None) and (cache_type <> CachedVariable.CACHE_NONE):
             data_specs['cache_type'] = cache_type
             if (domain is None) or not domain.equals( cache_region):
-                self.cacheManager.addVariable( var_cache_id, variable, data_specs )
+                domain = self.cacheManager.addTransientVariable( var_cache_id, variable, cache_region )
+
+        domain_spec = domain.getDomainSpec()
+        data_specs['domain_spec'] = domain_spec
         t1 = time.time()
         wpsLog.debug( " #@@ DataManager:FinishedLoadVariable %s (time = %.2f, dt = %.2f), shape = %s" %  ( str( data_specs ), t1, (t1-t0), str(variable.shape) ) )
-        return variable, data_specs
+        return variable, data_specs, cache_region
 
     def loadFileFromCollection( self, collection, id=None ):
         t0 = time.time()
-        wpsLog.debug( "loadFileFromCollection: '%s' '%s' " % ( collection, id ) )
+     #   wpsLog.debug( "loadFileFromCollection: '%s' '%s' " % ( collection, id ) )
         rv = self.collectionManager.getFile( collection, id )
         t1 = time.time()
-        wpsLog.debug( "Done loadFileFromCollection, cdms2.open completed in %.2f sec" % (t1-t0) )
+    #    wpsLog.debug( "Done loadFileFromCollection, cdms2.open completed in %.2f sec" % (t1-t0) )
         return rv
 
 if __name__ == "__main__":
+    from modules import configuration
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
 
-    dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/ECMWF/mon/atmos/ta.ncml'
-    slice_args = {'level': (85000.0, 85000.0, 'cob') }
+    dfile = '/usr/local/web/WPCDAS/data/atmos_ta.nc'
+    varname = "ta"
     dataset = f=cdms2.open(dfile)
-    print dataset.id, dataset._status_
-    var = dataset[ "ta" ]
-    vdata = var( level = (85000.0, 85000.0, 'cob') )
+    var = dataset[ varname ]
+    vdata = var( time = slice(0,1) )
     print str( vdata.shape )
+
+    data_file = os.path.join( configuration.CDAS_OUTGOING_DATA_DIR, varname )
+    print "----"*50 + "\nSaving result to file: '%s'\n" % ( data_file ) + "----"*50
+    f=cdms2.open(data_file,"w")
+    f.write(vdata)
+    f.close()
 
     # dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
     # slice_args = {'lev': (100000.0, 100000.0, 'cob')}

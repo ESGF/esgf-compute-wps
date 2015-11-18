@@ -1,12 +1,18 @@
+import os
+import traceback
+import sys
+import pprint
+
+import celery
+
 from modules.module import Executable
-from tasks import execute, simpleTest
+from engines.legacy.celeryEngine.tasks import execute, simpleTest
 from modules.utilities import *
 from datacache.manager import CachedVariable
 from datacache.status_cache import  StatusShelveMgr
 from datacache.domains import Domain, Region
 from request.manager import TaskRequest
-import celery, pickle, os, traceback
-import sys, pprint
+
 cLog = logging.getLogger('celery-debug')
 cLog.setLevel(logging.DEBUG)
 if len( cLog.handlers ) == 0: cLog.addHandler( logging.FileHandler( os.path.expanduser( "~/.celery-debug") ) )

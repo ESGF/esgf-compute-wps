@@ -82,25 +82,47 @@ if __name__ == "__main__":
     import sys, cdms2
     wpsLog.addHandler( logging.StreamHandler(sys.stdout) )
     wpsLog.setLevel(logging.DEBUG)
+    wid1 = "W-1"
+    wid2 = "W-2"
 
-    def worker_exe1():
+    def data_worker_exe1( wid, comm ):
         dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
         slice_args = {'lev': (100000.0, 100000.0, 'cob')}
         dataset = f=cdms2.open(dfile)
         dset = dataset( "hur", **slice_args )
-        print str(dset.shape)
+        print dset.shape
 
-    def worker_exe2():
+    def worker_exe1( wid, comm ):
+        shape = (10,10,1)
+        ( task, intercomm ) = comm.recv()
+        if task == "msg.out":
+            msg =  [ wid, shape ]
+            intercomm.send( msg )
+
+    def data_worker_exe2():
         dfile = 'http://dataserver.nccs.nasa.gov/thredds/dodsC/bypass/CREATE-IP/MERRA/mon/atmos/hur.ncml'
         dataset = f=cdms2.open(dfile)
         slice_args1 = {"longitude": (-10.0, -10.0, 'cob'), "latitude": (10.0, 10.0, 'cob'), 'lev': (100000.0, 100000.0, 'cob')}
         dset1 = dataset( "hur", **slice_args1 )
         print str(dset1.shape)
 
-    worker_process1 = Process(target=worker_exe1)
-    worker_process2 = Process(target=worker_exe2)
+    def worker_exe2( wid, comm ):
+        ( task, intercomm ) = comm.recv()
+        if task == "msg.in":
+            [ wid, shape ] =  intercomm.recv()
+            print "Received message from worker %s: %s" % ( wid, shape )
+
+
+    local_comm1, remote_comm1 = Pipe()
+    worker_process1 = Process( target=worker_exe1, name=wid1, args=(wid1,remote_comm1) )
+    local_comm2, remote_comm2 = Pipe()
+    worker_process2 = Process(target=worker_exe2, name=wid2, args=(wid2,remote_comm2) )
 
     worker_process1.start()
     worker_process2.start()
+
+    source, destination = Pipe()
+    remote_comm1.send( ["msg.out",destination] )
+    remote_comm2.send( ["msg.in", source ] )
 
     worker_process1.join()

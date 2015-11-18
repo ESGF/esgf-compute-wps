@@ -5,7 +5,8 @@ class WPSDialect:
 
     def __init__(self,id):
         self.id = id
-        self.dataInputKeys = [ 'data', 'region', 'operation', 'domain', 'variable', 'embedded', 'async' ]
+        self.dataInputKeys = [ 'data', 'region', 'operation', 'domain', 'variable' ]
+        self.controlKeys = [ 'embedded', 'async' ]
         self.aliases = { 'variable':'data', 'domain':'region' }
 
     def getTaskRequestData( self, request_params ):
@@ -34,6 +35,12 @@ class WPSDialect:
                     except:
                         wpsLog.error( " Error json decoding parameter: '%s' " % parameter )
                         parameter = ""
+                task_parameters[ key ] = parameter
+                del request[key]
+        for key in self.controlKeys:
+            parameter = request.get(key,None)
+            if parameter:
+                if isinstance(parameter, basestring): parameter = parameter.lower()
                 task_parameters[ key ] = parameter
                 del request[key]
         for item in request.items():

@@ -1,28 +1,37 @@
 from modules import configuration
-import strategies
+from modules.utilities import *
+import inspect
 
-class DecompositionManager:
+class RegionReductionStrategy:
+
+    def __init__( self, **args ):
+        pass
+
+    def getReducedRegion( self, region, **args ):
+        return region
+
+class StrategyManager:
 
     def __init__( self ):
         self.strategies = {}
+        self.strategy_spec = configuration.CDAS_REDUCTION_STRATEGY[ self.StrategyClass.__name__ ]
         self.load()
 
-    def getStrategy(self, global_region, nnodes=configuration.CDAS_DEFAULT_NUM_NODES ):
-        return self.strategies[ configuration.CDAS_DEFAULT_DECOMP_STRATEGY ]
+    def getStrategy(self, region, **args ):
+        return self.strategies[ self.strategy_spec['id'] ]
 
-    def getNodeRegion( self, region, inode=0, num_nodes=configuration.CDAS_DEFAULT_NUM_NODES ):
-        strategy = self.getStrategy( region, num_nodes )
+    def getReducedRegion( self, region, **args ):
+        strategy = self.getStrategy( region, **args  )
         assert strategy is not None, "Error, undefined decomposition strategy."
-        return strategy.getNodeRegion( region, inode, num_nodes )
+        return strategy.getReducedRegion( region, **args  )
 
     def load(self):
-        for name, cls in strategies.__dict__.items():
-            try:
-                if ( strategies.DecompositionStrategy in cls.__bases__ ):
-                    self.strategies[ cls.ID ] = cls()
-            except: pass
-        pass
+        import strategies
+        class_map = strategies.__dict__
+        for name, cls in class_map.items():
+            if inspect.isclass(cls) and issubclass( cls, self.StrategyClass ) and cls <> self.StrategyClass:
+                try:
+                    self.strategies[ cls.ID ] = cls( **self.strategy_spec )
+                except Exception, err:
+                    wpsLog.error( "StrategyManager load error: %s " % str( err ) )
 
-
-
-decompositionManager = DecompositionManager()

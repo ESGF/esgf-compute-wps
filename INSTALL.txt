@@ -2,13 +2,11 @@
 
 WPS API leveraging UVCDAT for server-side climate data analytics with clients for web, python, etc.
 
-To serve CDAS WPS using Flask:
-
-Setup the python environment:
+I. Setup the python environment:
 
   >> source <UVCDAT_INSTALL>/bin/setup_runtime.sh
 
-Install the CDAS package:
+II. Install the CDAS package:
 
   >> sudo mkdir /usr/local/web
   >> sudo chown <username> /usr/local/web
@@ -19,39 +17,62 @@ Install the CDAS package:
   >> cd WPCDAS
   >> tar xzf sample_data.tar.gz
 
-Install the flask package:
-
-  >> pip install flask
-  >> pip install -U flask-cors
-
-Configure CDAS:
+III. Configure CDAS:
 
   Edit the configuration file:
       *  /usr/local/web/WPCDAS/server/modules/configuration.py
 
-Run flask:
+IV. Use the mpi compute engine (this is currently the only supported compute engine):
 
-   >> cd /usr/local/web/WPCDAS/server/flask
-   >> python manage.py
+    * Build uvcdat with 'parallel' enabled.
+    * Use CDAS_COMPUTE_ENGINE = 'mpi' in the configuration.py file.
+
+V. Use either flask or django/pyWPS to deploy the service:
+
+ 1) Using Flask:
+
+  * Install the flask package:
+
+  >> pip install flask
+  >> pip install -U flask-cors
+
+  * Run flask:
+
+   >> cd /usr/local/web/WPCDAS/server/web_servers/flask_framework
+   >> mpiexec -np 1 python manage.py
 
    CDAS will now be receiving GET requests at http://localhost:5000/cdas
    CDAS can be shutdown using http://localhost:5000/shutdown/
    ( Or http://127.0.0.1:5000/shutdown/ )
 
-Using the celery compute and staging engine:
+ 2) Using Django/pyWPS:
 
-   Install celery:
+    * Install the required packages:
 
-      >>  pip install -U celery[redis]
-      >>  pip install redis
+    >> pip install Django
+    >> pip install django-cors-headers
+    >> pip install lxml
 
-   Install and startup redis server:
+    Download the pyWPS source package from https://github.com/geopython/PyWPS/archive/pywps-3.2.2.tar.gz.
+    Unpack, cd into the pywps-3.2.2 dir and execute the following:
 
-      See: http://redis.io/topics/quickstart
+    >> python setup.py install
 
-   Startup Celery:
+    * Configure Django:
 
-      Copy, edit, and then execute the startup script:
+    >> cd /usr/local/web/WPCDAS/server/web_servers/django_pywps_framework
+    >> cp wps.sample.cfg wps.cfg
+    >> emacs wps.cfg
+    >> cd wps
+    >> cp settings.sample.py settings.py
+    >> emacs settings.py
 
-      * /usr/local/web/WPCDAS/server/engines/celery/start_workers.sh
+    * Running Django:
 
+    >> cd /usr/local/web/WPCDAS/server/web_servers/django_pywps_framework
+    >> mpiexec -np 1 python manage.py runserver 8080
+
+****************************************************************************************************************************************************************
+>> Need to patch cdms2/dataset.py: (.../install/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/cdms2/dataset.py)
+>>>> Comment out lines 923-924.
+****************************************************************************************************************************************************************

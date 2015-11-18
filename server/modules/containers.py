@@ -9,7 +9,7 @@ class JSONObject:
         self.process_spec( **args )
 
     def load_spec( self, spec ):
-        if isinstance( spec, JSONObject ): spec = spec.spec
+        if isinstance( spec, JSONObject ): spec = dict(spec.spec)
         self.spec = {} if (spec is None) else convert_json_str( spec )
         if not isinstance( self.spec, dict ):
             raise Exception( "Unrecognized JSONObject spec: " + str(spec) )
