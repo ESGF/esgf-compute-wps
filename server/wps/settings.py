@@ -16,16 +16,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'PUT-YOUR-SECRET-KEY-HERE'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+from .secrets import *
 
 TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# Where to write temp files
+
+PROCESS_TEMPORARY_FILES = "/opt/nfs/cwt/wpstmp"
 
 # Application definition
 
@@ -80,7 +79,10 @@ USE_L10N = True
 
 USE_TZ = True
 
-
+# Templates
+TEMPLATE_DIRS = (
+        '/opt/nfs/cwt/wps_cwt/server/templates',
+        )
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
@@ -103,7 +105,7 @@ LOGGING = {
         'dj_logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': "/usr/local/web/WPCDAS/server/logs/django.log",
+            'filename': "/usr/local/wps_cwt/apache/2.4.16/logs/django.log",
             'maxBytes': 50000,
             'backupCount': 2,
             'formatter': 'standard',

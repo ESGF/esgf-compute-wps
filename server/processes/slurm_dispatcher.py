@@ -10,7 +10,12 @@ from subprocess import call
 
 # TODO - get the output directory from an environment variable or external config
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-OUTPUT_BASE_DIR = os.path.abspath(os.path.join(settings.PROCESS_TEMPORARY_FILES, 'output'))
+
+#OUTPUT_BASE_DIR = os.path.abspath(os.path.join(settings.PROCESS_TEMPORARY_FILES, 'output'))
+
+# 
+OUTPUT_BASE_DIR = "/opt/nfs/cwt/wpstmp/output"
+
 
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
@@ -40,6 +45,7 @@ class Process(WPSProcess):
 
     def execute(self):
 
+#        OUTPUT_BASE_DIR = self.pywps.config.getConfigValue("server","outputPath")
         cont = True
 
         rndm = 0
@@ -47,7 +53,7 @@ class Process(WPSProcess):
         while cont:
             rndm = random.randint(0,100000000000)
             fout = os.path.join(OUTPUT_BASE_DIR,"%i.nc" % rndm)
-            fjson = os.path.join(BASE_DIR,"%i.json" % rndm)
+            fjson = os.path.join(OUTPUT_BASE_DIR,"%i.json" % rndm)
             cont = os.path.exists(fout) or os.path.exists(fjson)
 
 
@@ -59,7 +65,7 @@ class Process(WPSProcess):
         dataIn = self.dataIn.getValue()
         region = self.region.getValue()
 
-
+#        wpsLog.info("%s",OUTPUT_BASE_DIR)
 #        wpsLog.info("time srun -o " + OUTPUT_BASE_DIR + "/" + str(rndm)+".log sh "+ BASE_DIR + "/../analysis/run_job.sh " + BASE_DIR + "/../analysis/slurm_job.py " + operation + " " + dataIn + " " + region + " %s", fout)
         if  call("time srun -o " + OUTPUT_BASE_DIR + "/" + str(rndm)+".log sh "+ BASE_DIR + "/../slurm_ops/run_job.sh " + BASE_DIR + "/../slurm_ops/slurm_job.py " + operation + " " + dataIn + " " + region + " "  + fout, shell=True) > 0:
 
