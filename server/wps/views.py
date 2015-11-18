@@ -8,7 +8,7 @@ import pywps
 import glob
 import threading
 import subprocess
-from processes.cdasProcess import wpsLog
+#from processes.cdasProcess import wpsLog
 from django import template
 from django.template.loader import get_template
 import settings
@@ -97,7 +97,7 @@ def clear_process(request,id):
 def getRequestParms( request ):
   parmMap = { 'embedded': False, 'execute':False }
   queryStr = request.META["QUERY_STRING"]
-  wpsLog.debug("Query String: " + queryStr)
+#  wpsLog.debug("Query String: " + queryStr)
   for requestParm in queryStr.split('&'):
       rParmElems = requestParm.split('=')
       param = rParmElems[0].strip().lower()
