@@ -10,22 +10,23 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'th+k)==0t#wm2*q%(!)02a8(15+6xi(06kj=-7av*in&5nl!-7'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+from .secrets import *
 
 TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# Where to write temp files
+
+PROCESS_TEMPORARY_FILES = "/opt/nfs/cwt/wpstmp"
+
+# Application definition
 
 INSTALLED_APPS = (
     'django.contrib.admin',
@@ -78,7 +79,10 @@ USE_L10N = True
 
 USE_TZ = True
 
-
+# Templates
+TEMPLATE_DIRS = (
+        '/opt/nfs/cwt/wps_cwt/server/templates',
+        )
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
@@ -101,7 +105,7 @@ LOGGING = {
         'dj_logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join( BASE_DIR, "logs", "django.log" ),
+            'filename': "/usr/local/wps_cwt/apache/2.4.16/logs/django.log",
             'maxBytes': 50000,
             'backupCount': 2,
             'formatter': 'standard',

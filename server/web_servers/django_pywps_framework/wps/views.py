@@ -1,10 +1,14 @@
 from django.http import HttpResponse,HttpRequest
 from django.shortcuts import redirect
 import sys, os, random
-os.environ["PYWPS_PROCESSES"]=os.path.realpath(os.path.join(os.path.dirname(__file__),"..","processes"))
-import glob, logging
+server_dir = os.path.realpath(os.path.join(os.path.dirname(__file__),"..","..",".."))
+os.environ["PYWPS_PROCESSES"]=os.path.realpath(os.path.join(server_dir,"processes"))
+import glob
+import logging
 import threading
 import subprocess
+import sys
+sys.path.insert(0,server_dir)
 from modules.utilities import *
 
 class TestRequest:
@@ -34,7 +38,7 @@ def process_status(nm):
         return "Unknown",-1,"???"
 
 def status(request):
-    processes = glob.glob("err*.txt")
+    processes = glob.glob(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err*.txt"))
     done =[]
     running=[]
     unknown = []
@@ -65,8 +69,13 @@ def status(request):
 
     return HttpResponse(st)
 
+def view_main(request):
+    t = get_template("test_urls.html")
+    html = t.render()
+    return HttpResponse(html)
+
 def view_process(request,id):
-    nm = "out_%s.txt" % id
+    nm = os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%s.txt" % id)
     if os.path.exists(nm):
         f=open(nm)
         msg = f.read()
@@ -75,8 +84,8 @@ def view_process(request,id):
     return HttpResponse(msg)
 
 def clear_process(request,id):
-    os.remove("out_%i.txt" % int(id))
-    os.remove("err_%i.txt" % int(id))
+    os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % int(id)))
+    os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % int(id)))
     return redirect("/status")
 
 def getRequestParms( request ):
@@ -105,8 +114,8 @@ def getRequestParms( request ):
 def wps(request):
   wpsLog.debug( "WPS-> process request: %s" % str(request) )
   rndm = random.randint(0,100000000000)
-  out = open("out_%i.txt" % rndm, "w")
-  err = open("err_%i.txt" % rndm, "w")
+  out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm), "w")
+  err = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % rndm), "w")
   requestParams = getRequestParms(request)
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
   T.start()
@@ -114,15 +123,16 @@ def wps(request):
       return HttpResponse("Started Request Process id: <a href='http://%s/view/%i'>%i</a>" % (request.get_host(),rndm,rndm))
   else:
       T.join()
-      out = open("out_%i.txt" % rndm)
+      out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm))
       st = out.read()
       out.close()
-      os.remove("out_%i.txt" % rndm)
-      os.remove("err_%i.txt" % rndm)
+      # os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm))
+      # os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % rndm))
       return HttpResponse(st)
 
 def run_wps(request,out,err,rndm):
   inputQuery = request.META["QUERY_STRING"]
+  print "QUERY:",inputQuery,rndm,out,err
   P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
   P.wait()
   out.close()
