@@ -6,6 +6,7 @@ import random
 import settings
 server_dir = settings.CWT_SERVER_DIR
 os.environ["PYWPS_PROCESSES"]=os.path.realpath(os.path.join(server_dir,"processes"))
+os.environ["PYWPS_SERVER_DIR"]=os.path.realpath(server_dir)
 import glob
 import logging
 import threading
@@ -41,7 +42,9 @@ def process_status(nm):
         return "Unknown",-1,"???"
 
 def status(request):
+    print "LOOKING AT FILES IN:",settings.PROCESS_TEMPORARY_FILES
     processes = glob.glob(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err*.txt"))
+    print "got:",processes
     done =[]
     running=[]
     unknown = []

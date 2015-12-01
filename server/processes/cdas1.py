@@ -1,7 +1,9 @@
 from pywps.Process import WPSProcess
 from cdasProcess import CDASProcess, loadValue
-import json, types, traceback, os, logging
+import json, types, traceback, os, logging, sys
 from pywps.Process import WPSProcess
+sys.path.insert(0,os.environ["PYWPS_SERVER_DIR"])
+print "ADDED PATH:",os.environ["PYWPS_SERVER_DIR"]
 from engines import getComputeEngine
 wpsLog = logging.getLogger( 'wps' )
 
