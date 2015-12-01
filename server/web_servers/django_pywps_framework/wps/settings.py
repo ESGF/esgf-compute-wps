@@ -13,18 +13,21 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
+CWT_SERVER_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__),"..","..",".."))
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
-from .secrets import *
+from secrets import *
 
 TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
 # Where to write temp files
+wps_settings = open(os.path.join(CWT_SERVER_DIR,"wps.cfg")).read()
 
-PROCESS_TEMPORARY_FILES = "/opt/nfs/cwt/wpstmp"
+PROCESS_TEMPORARY_FILES = wps_settings.split("tempPath=")[-1].split("\n")[0]
 
 # Application definition
 

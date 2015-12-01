@@ -1,7 +1,10 @@
 from django.http import HttpResponse,HttpRequest
 from django.shortcuts import redirect
-import sys, os, random
-server_dir = os.path.realpath(os.path.join(os.path.dirname(__file__),"..","..",".."))
+from django.template.loader import get_template
+import os
+import random
+import settings
+server_dir = settings.CWT_SERVER_DIR
 os.environ["PYWPS_PROCESSES"]=os.path.realpath(os.path.join(server_dir,"processes"))
 import glob
 import logging
