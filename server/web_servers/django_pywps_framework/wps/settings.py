@@ -84,7 +84,7 @@ USE_TZ = True
 
 # Templates
 TEMPLATE_DIRS = (
-        '/opt/nfs/cwt/wps_cwt/server/templates',
+        os.path.realpath(os.path.join(os.path.dirname(__file__),'template')),
         )
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
