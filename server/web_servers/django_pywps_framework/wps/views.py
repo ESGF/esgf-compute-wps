@@ -138,7 +138,8 @@ def wps(request):
 
 def run_wps(request,out,err,rndm):
   inputQuery = request.META["QUERY_STRING"]
-  print "QUERY:",inputQuery,rndm,out,err
+  print "QUERY:",inputQuery
+  print "ERR:",err
   P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
   P.wait()
   out.close()

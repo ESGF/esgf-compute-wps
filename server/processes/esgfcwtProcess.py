@@ -22,7 +22,7 @@ def loadValue( wpsInput ):
         return f.read()
     return ""
 
-class CDASProcess(WPSProcess):
+class esgfcwtProcess(WPSProcess):
 
     def saveVariable(self,data,dest,type="json"):
         cont = True
@@ -35,7 +35,7 @@ class CDASProcess(WPSProcess):
         f.write(data)
         f.close()
         out = {}
-        out["url"] = "file:/"+fout
+        out["uri"] = "file:/"+fout
         out["id"]=data.id
         Fjson=open(fjson,"w")
         json.dump(out,Fjson)
@@ -59,6 +59,33 @@ class CDASProcess(WPSProcess):
             if op_json: return json.loads(op_json)
         return None
 
+    def loadFileFromURI(self,uri):
+        if uri[:7]i.lower()=="file://"
+            f=cdms2.open(uri[7:])
+        else:
+            f=cdms2.open(uri)
+        return f
+
+    def getVariableName(self,variable):
+        # "var1:clt" clt is real name var1 is used for expressions
+        return variable["id"].split(":")[-1]
+
+    def loadVariables(self,variables):
+        domains = self.loadDomain()
+        out = []
+        for variable in variables:
+            out.append(self.loadVariable(variable,domains))
+        return out
+
+    def loadVariable(self,variable,domains=[]):
+        if len(domains)==0:
+            domains = self.loadDomain()
+        cdms2keyargs = self.domain2cdms(variable.get("domain",None),domains)
+        f=self.loadFileFromURI(variable["uri"])
+        var = self.getVariableName(variable)
+        data = f(var,**cdms2keyargs)
+        return data,cdms2keyargs
+
     def loadData(self,origin=None):
         if origin is None:
             origin = self.dataIn
@@ -69,23 +96,38 @@ class CDASProcess(WPSProcess):
             dataFiles = [dataFiles,]
         for fnm in dataFiles:
             f=open(fnm)
-            dataIn.append(self.loadVariable(f.read()))
+            dataIn.append(self.loadJSONVariable(f.read()))
         return dataIn
 
-    def loadVariable(self,data):
+    def loadJSONVariable(self,data):
         """loads in data, right now can only be json but i guess could have to determine between json and xml"""
         return json.loads(data)
 
-    def  loadDomain(self,origin=None):
+    def loadDomain(self,origin=None):
         if origin is None:
             origin = self.domain
         if origin is None: return None
         domain = origin.getValue()
         f=open(domain)
-        return json.loads(f.read())
+        domains = json.loads(f.read())
+        if not isinstance(domains,(list,tuple)):
+            domains = [domains,]
+        return domains
 
-    def location2cdms(self,domain):
+    def domain2cdms(self,domain,domains):
         kargs = {}
+        if domain is None:
+            # datInput did not provide anything
+            # Using first domain available
+            if len(domains)>0:
+                domain = domains[0]
+        elif isinstance(domain,basestring):
+            domain = domains.get(domain,None)
+
+        if domain is None:
+            # no domain
+            return {}
+
         for k,v in domain.iteritems():
             if k not in ["id","version"]:
                 kargs[str(k)] = float( str(v) )
