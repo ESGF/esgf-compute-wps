@@ -27,6 +27,6 @@ class Process(esgfcwtProcess):
         data,cdms2keyargs = self.loadVariable(dataIn)
         dims = "".join(["(%s)" % x for x in cdms2keyargs.keys()])
         data = cdutil.averager(data,axis=dims)
-        data.id=self.getVariableName(dataIn["id"])
+        data.id=self.getVariableName(dataIn)
         self.saveVariable(data,self.average,"json")
         return

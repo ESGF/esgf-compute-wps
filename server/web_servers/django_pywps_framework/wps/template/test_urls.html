@@ -20,9 +20,9 @@
     <br>
     <a href="{{ request.get_host }}/status">Status Page</a>
     <br>
-    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=ensemble_averager&datainputs=[variable={"uri":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"};variable={"uri":"file://lgm/uvcdat/2015-01-26/sample_data/clt.nc","id":"clt"}]'>Execute Ensemble Averager Over Local File</a>
+    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=ensemble_averager&datainputs=[variable={"uri":"file://opt/nfs/cwt/uvcdat/latest/share/uvcdat/sample_data/clt.nc","id":"clt"};variable={"uri":"file://opt/nfs/cwt/uvcdat/latest/share/uvcdat/sample_data/clt.nc","id":"clt"}]'>Execute Ensemble Averager Over Local File</a>
     <br>
-    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=averager&datainputs=[domain={"id":"glbl","longitude": {"start": -180.0, "end": 180.0}, "time": {"start": "1980", "end": "1982"}};variable={"uri":"file://lgm/uvcdat/2015-01-26/sample_data/tas_dnm-95a.xml","id":"tas","domain":"glbl"}]'>Execute Averager On Local File</a>
+    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=averager&datainputs=[domain={"id":"glbl","longitude": {"start": -180.0, "end": 180.0}, "time": {"start": "1980", "end": "1982"}};variable={"uri":"file://opt/nfs/cwt/uvcdat/latest/share/uvcdat/sample_data/tas_dnm-95a.xml","id":"tas","domain":"glbl"}]'>Execute Averager On Local File</a>
 <br>
 
 

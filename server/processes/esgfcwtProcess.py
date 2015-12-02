@@ -35,7 +35,7 @@ class esgfcwtProcess(WPSProcess):
         f.write(data)
         f.close()
         out = {}
-        out["uri"] = "file:/"+fout
+        out["uri"] = "file://"+fout
         out["id"]=data.id
         Fjson=open(fjson,"w")
         json.dump(out,Fjson)
@@ -60,8 +60,8 @@ class esgfcwtProcess(WPSProcess):
         return None
 
     def loadFileFromURI(self,uri):
-        if uri[:7]i.lower()=="file://"
-            f=cdms2.open(uri[7:])
+        if uri[:7].lower()=="file://":
+            f=cdms2.open(uri[6:])
         else:
             f=cdms2.open(uri)
         return f
@@ -83,6 +83,7 @@ class esgfcwtProcess(WPSProcess):
         cdms2keyargs = self.domain2cdms(variable.get("domain",None),domains)
         f=self.loadFileFromURI(variable["uri"])
         var = self.getVariableName(variable)
+        print "cdms2:",cdms2keyargs,type(cdms2keyargs)
         data = f(var,**cdms2keyargs)
         return data,cdms2keyargs
 
@@ -122,15 +123,32 @@ class esgfcwtProcess(WPSProcess):
             if len(domains)>0:
                 domain = domains[0]
         elif isinstance(domain,basestring):
-            domain = domains.get(domain,None)
+            for d in domains:
+                if d["id"]==domain:
+                    domain = d
+                    break
 
         if domain is None:
             # no domain
             return {}
 
-        for k,v in domain.iteritems():
-            if k not in ["id","version"]:
-                kargs[str(k)] = float( str(v) )
+        for kw,definition in domain.iteritems():
+            if kw not in ["id","version"]:
+                system = definition.get("system","values").lower()
+                if system == "values":
+                    start = definition["start"]
+                    end = definition["end"]
+                    if isinstance(start,basestring):
+                        start = str(start)  # cdms2 does not like unicode
+                    if isinstance(end,basestring):
+                        end = str(end)  # cdms2 does not like unicode
+                    val = (start,end)
+                    cdms_selection = definition.get("cdms_selection","")
+                    if cdms_selection != "":
+                        val.append(cdms_selection)
+                elif system == "indices":
+                    val = slice(definition["start"],definition["end"])
+                kargs[str(kw)] = val
         return kargs
 
 
