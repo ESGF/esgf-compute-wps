@@ -1,0 +1,37 @@
+<html>
+<head>
+<META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
+</head>
+  <body>
+
+    <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=getcapabilities">WPS GetCapabilities</A>
+    <br>
+    <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=DescribeProcess&identifier=test_process">Describe Test Process</a>
+    <br>
+    <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=DescribeProcess&identifier=ensemble_averager">Describe Ensemble Averager Process</a>
+    <br>
+    <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=test_process">Execute Test Process With Default Values</a>
+    <br>
+    <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=test_process&datainputs=[val=5;pauseTime=.1;pauseNumber=1;pause=True]">Execute Test Process With 1 Small Pause</a>
+    <br>
+    <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=test_process&datainputs=[val=5;pauseTime=4;pauseNumber=5;pause=True]">Execute Test Process With 5 Long Pauses</a>
+    <br>
+    <a href="{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=test_process&datainputs=[val=5;pauseTime=8;pauseNumber=9;pause=True]">Execute Test Process With Too Many Pauses</a>
+    <br>
+    <a href="{{ request.get_host }}/status">Status Page</a>
+    <br>
+    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=ensemble_averager&datainputs=[variable={"uri":"file://opt/nfs/cwt/uvcdat/latest/share/uvcdat/sample_data/clt.nc","id":"clt"};variable={"uri":"file://opt/nfs/cwt/uvcdat/latest/share/uvcdat/sample_data/clt.nc","id":"clt"};domain={"id":"foobar"}]'>Execute Ensemble Averager Over Local File</a>
+    <br>
+    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=averager&datainputs=[domain={"id":"glbl","longitude": {"start": -180.0, "end": 180.0}, "time": {"start": "1980", "end": "1982"}};variable={"uri":"file://opt/nfs/cwt/uvcdat/latest/share/uvcdat/sample_data/tas_dnm-95a.xml","id":"tas","domain":"glbl"}]'>Execute Averager On Local File</a>
+<br>
+
+
+<br>
+    <a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_dispatcher&datainputs=[domain={"longitude":{"start":-180.0,"end":180.0}};variable={"uri":"file://opt/nfs/cwt/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"};operation=averager]'>Dispatch Averager Using SLURM</a>
+<br>
+<a href='{{ request.get_host }}/wps/?version=1.0.0&service=wps&request=Execute&identifier=slurm_dispatcher&datainputs=[variable=[{"uri":"file://opt/nfs/cwt/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r1i1p1.xml","id":"ts"},{"uri":"file://opt/nfs/cwt/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r2i1p1.xml","id":"ts","domain":"foo"},{"uri":"file://opt/nfs/cwt/data/cmip5.output1.MIROC.MIROC4h.historical.mon.atmos.Amon.r3i1p1.xml","id":"ts","domain":"foo"}];domain={"id":"foo","latitude":{"start":-90,"end":90}};operation=ensemble_averager]'>Dispatch Ensemble Averager Using Slurm</a>
+    <br>
+
+  </body>
+</html>
+

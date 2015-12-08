@@ -31,7 +31,7 @@
       	var debug = true;
         var map = new OpenLayers.Map('map');
         var variables = [  { url: "file://usr/local/web/WPCDAS/data/TestData.nc",  id: "t" },  ];
-        var django_server = 'http://localhost:8000/wps/';
+        var django_server = 'http://localhost:8080/wps/';
         var variable_index = 0;
         var embedded = true;
         var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS", "http://vmap0.tiles.osgeo.org/wms/vmap0", {layers: 'basic'} );

@@ -1,0 +1,78 @@
+  WPCDAS:  Web Processing Climate Data Analysis Services
+
+WPS API leveraging UVCDAT for server-side climate data analytics with clients for web, python, etc.
+
+I. Setup the python environment:
+
+  >> source <UVCDAT_INSTALL>/bin/setup_runtime.sh
+
+II. Install the CDAS package:
+
+  >> sudo mkdir /usr/local/web
+  >> sudo chown <username> /usr/local/web
+  >> cd /usr/local/web
+  >> git clone git@github.com:nasa-nccs-cds/cdas.git
+  >> chmod -R a+rX WPCDAS
+  >> chmod -R a+w WPCDAS/server/logs
+  >> cd WPCDAS
+  >> tar xzf sample_data.tar.gz
+
+III. Configure CDAS:
+
+  Edit the configuration file:
+      *  /usr/local/web/WPCDAS/server/modules/configuration.py
+
+IV. Use the mpi compute engine (this is currently the only supported compute engine):
+
+    * Build uvcdat with 'parallel' enabled.
+    * Use CDAS_COMPUTE_ENGINE = 'mpi' in the configuration.py file.
+
+V. Use either flask or django/pyWPS to deploy the service:
+
+ 1) Using Flask:
+
+  * Install the flask package:
+
+  >> pip install flask
+  >> pip install -U flask-cors
+
+  * Run flask:
+
+   >> cd /usr/local/web/WPCDAS/server/web_servers/flask_framework
+   >> mpiexec -np 1 python manage.py
+
+   CDAS will now be receiving GET requests at http://localhost:5000/cdas
+   CDAS can be shutdown using http://localhost:5000/shutdown/
+   ( Or http://127.0.0.1:5000/shutdown/ )
+
+ 2) Using Django/pyWPS:
+
+    * Install the required packages:
+
+    >> pip install Django
+    >> pip install django-cors-headers
+    >> pip install lxml
+
+    Download the pyWPS source package from https://github.com/geopython/PyWPS/archive/pywps-3.2.2.tar.gz.
+    Unpack, cd into the pywps-3.2.2 dir and execute the following:
+
+    >> python setup.py install
+
+    * Configure Django:
+
+    >> cd /usr/local/web/WPCDAS/server/web_servers/django_pywps_framework
+    >> cp wps.sample.cfg wps.cfg
+    >> emacs wps.cfg
+    >> cd wps
+    >> cp settings.sample.py settings.py
+    >> emacs settings.py
+
+    * Running Django:
+
+    >> cd /usr/local/web/WPCDAS/server/web_servers/django_pywps_framework
+    >> mpiexec -np 1 python manage.py runserver 8080
+
+****************************************************************************************************************************************************************
+>> Need to patch cdms2/dataset.py: (.../install/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/cdms2/dataset.py)
+>>>> Comment out lines 923-924.
+****************************************************************************************************************************************************************

@@ -6,11 +6,10 @@ cdms2.setNetcdfShuffleFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 included
 import random
-# Path where output will be stored/cached
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"..","output"))
-from cdasProcess import CDASProcess
 
-class Process(CDASProcess):
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
+from esgfcwtProcess import esgfcwtProcess
+class Process(esgfcwtProcess):
   """Main process class"""
   def __init__(self):
     """Process initialization"""
@@ -23,6 +22,7 @@ class Process(CDASProcess):
         storeSupported = "true",
         statusSupported = "true",
         )
+    self.domain = self.addComplexInput(identifier='domain', title='domain over which to average', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
     self.dataIn = self.addComplexInput(identifier = "variable",title="variable to average",formats = [{"mimeType":"text/json"}], minOccurs=1, maxOccurs=10)
     self.ensemble = self.addComplexOutput(identifier = "ensemble",title="ensemble average",formats = [{"mimeType":"text/json"}])
 
@@ -31,24 +31,17 @@ class Process(CDASProcess):
     # Not tring to regrid it's an ensmeble over same model for this basic demo
     # When node manager is in place we code add code to see load balance and maybe spwan new request to avergae on different nodes, or whatever
     out = None
-    N=0
     dataIn = self.loadData()
     Ntot = len(dataIn)+1
-    for d in dataIn:
-        fnm = str(d["url"])
-        self.status.set("Reading file: %s" % fnm,100*float(N)/Ntot)
-        f = self.loadFileFromURL(d["url"])
-        if f is None:
-            continue
-        N+=1
-        V=f(d["id"])
-        f.close()
+    for i,d in enumerate(dataIn):
+        self.status.set("Preparing Output from :%s" % d["uri"],100*i/Ntot)
+        data,dummy = self.loadVariable(d)
         if out is None:
-            out = V
+            out = data
         else:
-            out+=V
-    out/=N
-    out.id = d["id"]
+            out += data
+    out/=len(data)
+    out.id = self.getVariableName(dataIn[0])
     cont = True
     self.status.set("Preparing Output",100*float(Ntot-1)/Ntot)
     self.saveVariable(out,self.ensemble,"json")
