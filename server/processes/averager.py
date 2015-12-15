@@ -17,16 +17,25 @@ class Process(esgfcwtProcess):
     def __init__(self):
         """Process initialization"""
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='averager', version=0.1, abstract='Average a variable over a (many) dimension', storeSupported='true', statusSupported='true')
-        self.domain = self.addComplexInput(identifier='domain', title='domain over which to average', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
         self.dataIn = self.addComplexInput(identifier='variable', title='variable to average', formats=[{'mimeType': 'text/json'}], minOccurs=1, maxOccurs=1)
-        self.download = self.addLiteralInput(identifier='download', type=bool, title='download output', default=False)
-        self.average = self.addComplexOutput(identifier='average', title='averaged variable', formats=[{'mimeType': 'text/json'}])
+        self.domain = self.addComplexInput(identifier='domain', title='domain over which to average', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
+        self.axes = self.addLiteralInput(identifier = "axes", type=types.CharType,title = "Axes to average over", default = 't')
+        # TODO application/netcdf ???
+        self.output = self.addComplexOutput(identifier='output', title='averaged variable', formats=[{'mimeType': 'text/json'}])
 
     def execute(self):
+        # What data did the user send us?
+        # We are only taking care of the first one
+        # TODO: Add check there is only ONE dataset sent over.
         dataIn=self.loadData()[0]
+        # Let's read this in
         data,cdms2keyargs = self.loadVariable(dataIn)
-        dims = "".join(["(%s)" % x for x in cdms2keyargs.keys()])
-        data = cdutil.averager(data,axis=dims)
+        # Which axes do we average over?
+        axes = self.axes.getValue()
+        # Ok actual average happens here
+        data = cdutil.averager(data,axis=axes)
+        # Save
         data.id=self.getVariableName(dataIn)
+        # TODO json vs netcdf embeded?
         self.saveVariable(data,self.average,"json")
         return

@@ -35,6 +35,7 @@ class esgfcwtProcess(WPSProcess):
         f.write(data)
         f.close()
         out = {}
+        # TODO ADD AN OPENDAP SERVER
         out["uri"] = "file://"+fout
         out["id"]=data.id
         Fjson=open(fjson,"w")
@@ -62,7 +63,13 @@ class esgfcwtProcess(WPSProcess):
     def loadFileFromURI(self,uri):
         if uri[:7].lower()=="file://":
             f=cdms2.open(uri[6:])
-        else:
+        elif uri[:13].lower() == "collection://":
+            # TODO @ThomasMaxwell please add code here
+            f = None
+        elif uri[:7].lower() == "esgf://":
+            # TODO placeholder we don't know wht this will be yet
+            f = None
+        else:  # cdms2 knows how to open http://
             f=cdms2.open(uri)
         return f
 
@@ -119,23 +126,17 @@ class esgfcwtProcess(WPSProcess):
         kargs = {}
         if domain is None:
             # datInput did not provide anything
-            # Using first domain available
-            if len(domains)>0:
-                domain = domains[0]
+            return {}
         elif isinstance(domain,basestring):
             for d in domains:
                 if d["id"]==domain:
                     domain = d
                     break
 
-        if domain is None:
-            # no domain
-            return {}
-
         for kw,definition in domain.iteritems():
             if kw not in ["id","version"]:
-                system = definition.get("system","values").lower()
-                if system == "values":
+                crs = definition.get("crs","values").lower()
+                if crs in ["values","epsg:4326"]:
                     start = definition["start"]
                     end = definition["end"]
                     if isinstance(start,basestring):
@@ -146,8 +147,9 @@ class esgfcwtProcess(WPSProcess):
                     cdms_selection = definition.get("cdms_selection","")
                     if cdms_selection != "":
                         val.append(cdms_selection)
-                elif system == "indices":
-                    val = slice(definition["start"],definition["end"])
+                elif crs == "indices":
+                    step = defintion.get("step",None)
+                    val = slice(definition["start"],definition["end"],step)
                 kargs[str(kw)] = val
         return kargs
 
