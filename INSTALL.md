@@ -144,6 +144,24 @@ paster serve /path/to/pydap/data/server.ini
 
 ## Step 8: Setting up our server
 
+### Configure the wps part
+
+[server/wpscfg|server/wps.cfg]
+
+```
+[server]
+maxoperations=30
+maxinputparamlength=1024
+maxfilesize=3mb
+tempPath=/opt/nfs/cwt/wpstmp
+processesPath=/opt/nfs/cwt/wps_cwt/server/processes
+outputUrl=http://localhost/wpsoutputs
+outputPath=/opt/nfs/cwt/wps_cwt/outputs
+logFile=/opt/nfs/cwt/wps_cwt/logs/wps.log
+logLevel=DEBUG
+```
+
+
 ### Configure the django part
 
 ```
@@ -171,13 +189,6 @@ Change the path to your templates (full path required by apache)
 TEMPLATE_DIRS = (
         '/export/doutriaux1/git/wps_cwt/server/templates',
                 )
-```
-
-The following is needed so your wps process know where to write temporary files
-
-```python
-# Where to write temp files
-PROCESS_TEMPORARY_FILES = "/tmp"
 ```
 
 Change the path to your logs

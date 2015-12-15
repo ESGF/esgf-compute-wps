@@ -10,9 +10,13 @@ cdms2.setNetcdfShuffleFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 included
 
+DAP_BASE_DIR = config.getConfigValue("dapserver","dapPath")
+with open(os.path.join(DAP_BASE_DIR,"server.in")) as dapini:
+    dapconfig = dapini.read()
+    dap_host = dapconfig.split("host")[1].split()[1]
+    dap_port = dapconfig.split("port")[1].split()[1]
+
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-OutputDir = 'wpsoutputs'
-# OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
 wpsLog = logging.getLogger( 'wps' )
 
 def loadValue( wpsInput ):
@@ -28,15 +32,14 @@ class esgfcwtProcess(WPSProcess):
         cont = True
         while cont:
             rndm = random.randint(0,100000000000)
-            fout = os.path.join(BASE_DIR,"%i.nc" % rndm)
+            fout = os.path.join(DAP_BASE_DIR,"%i.nc" % rndm)
             fjson = os.path.join(BASE_DIR,"%i.json" % rndm)
             cont = os.path.exists(fout) or os.path.exists(fjson)
         f=cdms2.open(fout,"w")
         f.write(data)
         f.close()
         out = {}
-        # TODO ADD AN OPENDAP SERVER
-        out["uri"] = "file://"+fout
+        out["uri"] = "http://%s:%s/%s" % (dap_host, dap_server, os.path.split(fout)[1])
         out["id"]=data.id
         Fjson=open(fjson,"w")
         json.dump(out,Fjson)
