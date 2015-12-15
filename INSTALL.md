@@ -169,8 +169,11 @@ dap_data=/opt/nfs/cwt/cwt_pydap_server/data
 dap_port=8001
 dap_host=aims2.llnl.gov
 ```
+
 `dap_data` points to the directory from which dap files are served
+
 `dap_ini` points to pydap server.ini file
+
 `dap_port` and `dap_host` overwrite what is in `dap_ini` (mostly for non pydap servers)
 
 
