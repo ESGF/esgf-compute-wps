@@ -109,7 +109,7 @@ It should output the installed version (1.8.3 at the time we write this)
 /usr/local/uvcdat/latest/bin/pip install --cert=/export/doutriaux1/cspca.cer django-cors-headers
 ```
 `
-## Step 5: PyWPS
+## Step 6: PyWPS
 [source](https://github.com/geopython/PyWPS/archive/pywps-3.2.2.tar.gz)
 
 ```
@@ -118,7 +118,31 @@ cd PyWPS*
 /usr/local/uvcdat/latest/bin/python setup.py install
 ```
 
-## Step 6: Setting up our server
+## Step 7: PyDAP (substitute with your favorite dap server)
+
+### Install Python packages
+
+```
+/usr/local/uvcdat/latest/bin/pip install --cert=/export/doutriaux1/cspca.cer Pydap
+/usr/local/uvcdat/latest/bin/pip install --cert=/export/doutriaux1/cspca.cer pydap.handlers.netcdf
+```
+
+### Configure PyDAP server
+
+```
+paster create -t pydap /path/to/pydap/data
+```
+
+Edit `/path/to/pydap/data/server.ini`
+
+Start server:
+
+```
+paster serve /path/to/pydap/data/server.ini
+```
+
+
+## Step 8: Setting up our server
 
 ### Configure the django part
 
@@ -194,7 +218,7 @@ LOGGING = {
             'propagate': True,
             'level':'DEBUG',
         },
-    }
+
 }
 
 ```
@@ -206,7 +230,7 @@ python manage.py runserver
 
 point your browser to the [Home Page](http://localhost:8000/)
 
-## Step 7: Deploy in Apache (For production)
+## Step 9: Deploy in Apache (For production)
 
 ### Intro
 
