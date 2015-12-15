@@ -146,7 +146,7 @@ paster serve /path/to/pydap/data/server.ini
 
 ### Configure the wps part
 
-[server/wpscfg|server/wps.cfg]
+[server/wpscfg](server/wps.cfg)
 
 ```
 [server]
@@ -160,6 +160,18 @@ outputPath=/opt/nfs/cwt/wps_cwt/outputs
 logFile=/opt/nfs/cwt/wps_cwt/logs/wps.log
 logLevel=DEBUG
 ```
+
+Do not forget the DAP server bit
+```
+[dapserver]
+dap_ini=/opt/nfs/cwt/cwt_pydap_server/server.ini
+dap_data=/opt/nfs/cwt/cwt_pydap_server/data
+dap_port=8001
+dap_host=aims2.llnl.gov
+```
+`dap_data` points to the directory from which dap files are served
+`dap_ini` points to pydap server.ini file
+`dap_port` and `dap_host` overwrite what is in `dap_ini` (mostly for non pydap servers)
 
 
 ### Configure the django part
