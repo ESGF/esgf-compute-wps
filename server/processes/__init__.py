@@ -6,4 +6,5 @@ __all__ = [ os.path.split(x)[-1].split(".")[0] for x in pyfiles]
 __all__.remove("__init__")
 __all__.remove("esgfcwtProcess")
 __all__.remove("cdas1")
+__all__.remove("ensemble_averager")
 

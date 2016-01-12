@@ -4,23 +4,30 @@ import logging, json
 import cdms2
 import random
 from pywps import config
+import ConfigParser
 # Path where output will be stored/cached
 
 cdms2.setNetcdfShuffleFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 included
 
-DAP_DATA = config.getConfigValue("dapserver","dap_data")
+wps_config = ConfigParser.ConfigParser()
+wps_config.read(os.path.join(os.path.dirname(__file__),"..","wps.cfg"))
 try:
-    DAP_INI = config.getConfigValue("dapserver","dap_ini")
+    DAP_DATA = wps_config.get("dapserver","dap_data")
+except:
+    warnings.warn("Could not READ DAP_DATA from wps.cfg will store files in /tmp")
+    DAP_DATA = "/tmp"
+try:
+    DAP_INI = wps_config.get("dapserver","dap_ini")
 except:
     DAP_INI = None
 try:
-    DAP_HOST = config.getConfigValue("dapserver","dap_host")
+    DAP_HOST = wps_config.get("dapserver","dap_host")
 except:
     DAP_HOST = None
 try:
-    DAP_PORT = config.getConfigValue("dapserver","dap_port")
+    DAP_PORT = wps_config.get("dapserver","dap_port")
 except:
     DAP_PORT = None
 
@@ -51,6 +58,7 @@ class esgfcwtProcess(WPSProcess):
             fout = os.path.join(DAP_DATA,"%i.nc" % rndm)
             fjson = os.path.join(BASE_DIR,"%i.json" % rndm)
             cont = os.path.exists(fout) or os.path.exists(fjson)
+        cdms2.setNetcdf4Flag(False)
         f=cdms2.open(fout,"w")
         f.write(data)
         f.close()

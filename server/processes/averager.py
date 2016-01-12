@@ -19,7 +19,7 @@ class Process(esgfcwtProcess):
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='averager', version=0.1, abstract='Average a variable over a (many) dimension', storeSupported='true', statusSupported='true')
         self.dataIn = self.addComplexInput(identifier='variable', title='variable to average', formats=[{'mimeType': 'text/json'}], minOccurs=1, maxOccurs=1)
         self.domain = self.addComplexInput(identifier='domain', title='domain over which to average', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
-        self.axes = self.addLiteralInput(identifier = "axes", type=types.CharType,title = "Axes to average over", default = 't')
+        self.axes = self.addLiteralInput(identifier = "axes", type=str,title = "Axes to average over", default = 't')
         # TODO application/netcdf ???
         self.output = self.addComplexOutput(identifier='output', title='averaged variable', formats=[{'mimeType': 'text/json'}])
 
@@ -33,9 +33,10 @@ class Process(esgfcwtProcess):
         # Which axes do we average over?
         axes = self.axes.getValue()
         # Ok actual average happens here
+        print "AXES TO AVG OVER:",axes
         data = cdutil.averager(data,axis=axes)
         # Save
         data.id=self.getVariableName(dataIn)
         # TODO json vs netcdf embeded?
-        self.saveVariable(data,self.average,"json")
+        self.saveVariable(data,self.output,"json")
         return
