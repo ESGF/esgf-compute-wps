@@ -141,7 +141,11 @@ def run_wps(request,out,err,rndm):
   P.wait()
   out.close()
   err.close()
-  
+
+def postprocess(request):
+    st = request.build_absolute_uri()
+    return HttpResponse(st)
+
 if __name__ == "__main__":
     project_dir = os.path.dirname( os.path.dirname( __file__ ) )
     sys.path.append( project_dir )

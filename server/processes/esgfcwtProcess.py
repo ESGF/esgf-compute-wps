@@ -51,7 +51,7 @@ def loadValue( wpsInput ):
 
 class esgfcwtProcess(WPSProcess):
 
-    def saveVariable(self,data,dest,type="json"):
+    def saveVariable(self,data,dest,type=None):
         cont = True
         while cont:
             rndm = random.randint(0,100000000000)
@@ -62,13 +62,30 @@ class esgfcwtProcess(WPSProcess):
         f=cdms2.open(fout,"w")
         f.write(data)
         f.close()
-        out = {}
-        out["uri"] = "http://%s:%s/%s" % (DAP_HOST,DAP_PORT, os.path.split(fout)[1])
-        out["id"]=data.id
-        Fjson=open(fjson,"w")
-        json.dump(out,Fjson)
-        Fjson.close()
-        dest.setValue(fjson)
+        if type is None:  # not user specified
+            type = self.outputformat.getValue()
+        if type == "opendap":
+            out = {}
+            out["uri"] = "http://%s:%s/%s" % (DAP_HOST,DAP_PORT, os.path.split(fout)[1])
+            out["id"]=data.id
+            Fjson=open(fjson,"w")
+            json.dump(out,Fjson)
+            Fjson.close()
+            dest.format = {"mimetype":"text/json",'encoding':"utf-8",'schema':""}
+            dest.setValue(fjson)
+        elif type == "netcdf":
+            dest.format = {"mimetype":"application/netcdf",'encoding':"utf-8",'schema':""}
+            dest.setValue(fout)
+        elif type == "png":
+            import vcs
+            x=vcs.init()
+            x.plot(data,bg=False)
+            x.png(fjson)
+            dest.format = {"mimetype":"image/png",'encoding':"base64",'schema':""}
+            dest.setValue(fjson+".png")
+        else:
+            raise "UNKnwon format"
+
 
     def breakpoint(self):
         try:

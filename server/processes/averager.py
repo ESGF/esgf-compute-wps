@@ -20,8 +20,9 @@ class Process(esgfcwtProcess):
         self.dataIn = self.addComplexInput(identifier='variable', title='variable to average', formats=[{'mimeType': 'text/json'}], minOccurs=1, maxOccurs=1)
         self.domain = self.addComplexInput(identifier='domain', title='domain over which to average', formats=[{'mimeType': 'text/json', 'encoding': 'utf-8', 'schema': None}])
         self.axes = self.addLiteralInput(identifier = "axes", type=str,title = "Axes to average over", default = 't')
+        self.outputformat = self.addLiteralInput(identifier = "outputformat", type=str,title = "Output Format", default = 'opendap')
         # TODO application/netcdf ???
-        self.output = self.addComplexOutput(identifier='output', title='averaged variable', formats=[{'mimeType': 'text/json'}])
+        self.output = self.addComplexOutput(identifier='output', title='averaged variable', formats=[{'mimeType': 'text/json'},{'mimeType': "application/netcdf"}, {"mimeType":"image/png"}])
 
     def execute(self):
         # What data did the user send us?
@@ -38,5 +39,5 @@ class Process(esgfcwtProcess):
         # Save
         data.id=self.getVariableName(dataIn)
         # TODO json vs netcdf embeded?
-        self.saveVariable(data,self.output,"json")
+        self.saveVariable(data,self.output)
         return
