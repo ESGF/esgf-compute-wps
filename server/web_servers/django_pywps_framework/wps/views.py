@@ -14,6 +14,7 @@ import subprocess
 import sys
 sys.path.insert(0,server_dir)
 from modules.utilities import *
+debug = False
 
 class TestRequest:
     def __init__(self, request_str ):
@@ -42,7 +43,7 @@ def process_status(nm):
         return "Unknown",-1,"???"
 
 def status(request):
-    print "LOOKING AT FILES IN:",settings.PROCESS_TEMPORARY_FILES
+    if debug: print "LOOKING AT FILES IN:",settings.PROCESS_TEMPORARY_FILES
     processes = glob.glob(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err*.txt"))
     done =[]
     running=[]
@@ -125,7 +126,7 @@ def wps(request):
   T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
   T.start()
   if requestParams['async'] and requestParams['execute']:
-      return HttpResponse("Started Request Process id: <a href='http://%s/view/%i'>%i</a>" % (request.get_host(),rndm,rndm))
+      return HttpResponse("Started Request Process id: <a href='http://%s/view_process/%i'>%i</a>" % (request.get_host(),rndm,rndm))
   else:
       T.join()
       out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm))
@@ -143,8 +144,20 @@ def run_wps(request,out,err,rndm):
   err.close()
 
 def postprocess(request):
-    st = request.build_absolute_uri()
-    return HttpResponse(st)
+    # First run the actual wps
+    out = wps(request)
+    # isolate data section
+    start = out.find("<wps:ExecuteResponse")
+    from xml.dom import minidom
+    outxml = minidom.parseString(out[start:])
+
+
+    response = HttpResponse()
+    response['content_type'] =  'image/png'
+    response['content'] = '<html>test123</html>'
+    response['Content-Length'] = len(response.content)
+
+    return response
 
 if __name__ == "__main__":
     project_dir = os.path.dirname( os.path.dirname( __file__ ) )

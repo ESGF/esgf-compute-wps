@@ -34,7 +34,6 @@ class Process(esgfcwtProcess):
         # Which axes do we average over?
         axes = self.axes.getValue()
         # Ok actual average happens here
-        print "AXES TO AVG OVER:",axes
         data = cdutil.averager(data,axis=axes)
         # Save
         data.id=self.getVariableName(dataIn)

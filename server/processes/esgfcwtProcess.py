@@ -134,7 +134,6 @@ class esgfcwtProcess(WPSProcess):
         cdms2keyargs = self.domain2cdms(variable.get("domain",None),domains)
         f=self.loadFileFromURI(variable["uri"])
         var = self.getVariableName(variable)
-        print "cdms2:",cdms2keyargs,type(cdms2keyargs)
         data = f(var,**cdms2keyargs)
         return data,cdms2keyargs
 
