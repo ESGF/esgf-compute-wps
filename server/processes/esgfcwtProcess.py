@@ -4,15 +4,42 @@ import logging, json
 import cdms2
 import random
 from pywps import config
+import ConfigParser
 # Path where output will be stored/cached
 
 cdms2.setNetcdfShuffleFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateFlag(0) ## where value is either 0 or 1
 cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 included
 
+wps_config = ConfigParser.ConfigParser()
+wps_config.read(os.path.join(os.path.dirname(__file__),"..","wps.cfg"))
+try:
+    DAP_DATA = wps_config.get("dapserver","dap_data")
+except:
+    warnings.warn("Could not READ DAP_DATA from wps.cfg will store files in /tmp")
+    DAP_DATA = "/tmp"
+try:
+    DAP_INI = wps_config.get("dapserver","dap_ini")
+except:
+    DAP_INI = None
+try:
+    DAP_HOST = wps_config.get("dapserver","dap_host")
+except:
+    DAP_HOST = None
+try:
+    DAP_PORT = wps_config.get("dapserver","dap_port")
+except:
+    DAP_PORT = None
+
+if DAP_INI is not None:
+    with open(DAP_INI) as dapini:
+        dapconfig = dapini.read()
+        if DAP_HOST is None:
+            DAP_HOST = dapconfig.split("host")[1].split()[1]
+        if DAP_PORT is None:
+            DAP_PORT = dapconfig.split("port")[1].split()[1]
+
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-OutputDir = 'wpsoutputs'
-# OutputPath = os.environ['DOCUMENT_ROOT'] + "/" + OutputDir
 wpsLog = logging.getLogger( 'wps' )
 
 def loadValue( wpsInput ):
@@ -24,23 +51,41 @@ def loadValue( wpsInput ):
 
 class esgfcwtProcess(WPSProcess):
 
-    def saveVariable(self,data,dest,type="json"):
+    def saveVariable(self,data,dest,type=None):
         cont = True
         while cont:
             rndm = random.randint(0,100000000000)
-            fout = os.path.join(BASE_DIR,"%i.nc" % rndm)
+            fout = os.path.join(DAP_DATA,"%i.nc" % rndm)
             fjson = os.path.join(BASE_DIR,"%i.json" % rndm)
             cont = os.path.exists(fout) or os.path.exists(fjson)
+        cdms2.setNetcdf4Flag(False)
         f=cdms2.open(fout,"w")
         f.write(data)
         f.close()
-        out = {}
-        out["uri"] = "file://"+fout
-        out["id"]=data.id
-        Fjson=open(fjson,"w")
-        json.dump(out,Fjson)
-        Fjson.close()
-        dest.setValue(fjson)
+        if type is None:  # not user specified
+            type = self.outputformat.getValue()
+        if type == "opendap":
+            out = {}
+            out["uri"] = "http://%s:%s/%s" % (DAP_HOST,DAP_PORT, os.path.split(fout)[1])
+            out["id"]=data.id
+            Fjson=open(fjson,"w")
+            json.dump(out,Fjson)
+            Fjson.close()
+            dest.format = {"mimetype":"text/json",'encoding':"utf-8",'schema':""}
+            dest.setValue(fjson)
+        elif type == "netcdf":
+            dest.format = {"mimetype":"application/netcdf",'encoding':"utf-8",'schema':""}
+            dest.setValue(fout)
+        elif type == "png":
+            import vcs
+            x=vcs.init()
+            x.plot(data,bg=False)
+            x.png(fjson)
+            dest.format = {"mimetype":"image/png",'encoding':"base64",'schema':""}
+            dest.setValue(fjson+".png")
+        else:
+            raise "UNKnwon format"
+
 
     def breakpoint(self):
         try:
@@ -62,7 +107,13 @@ class esgfcwtProcess(WPSProcess):
     def loadFileFromURI(self,uri):
         if uri[:7].lower()=="file://":
             f=cdms2.open(uri[6:])
-        else:
+        elif uri[:13].lower() == "collection://":
+            # TODO @ThomasMaxwell please add code here
+            f = None
+        elif uri[:7].lower() == "esgf://":
+            # TODO placeholder we don't know wht this will be yet
+            f = None
+        else:  # cdms2 knows how to open http://
             f=cdms2.open(uri)
         return f
 
@@ -83,7 +134,6 @@ class esgfcwtProcess(WPSProcess):
         cdms2keyargs = self.domain2cdms(variable.get("domain",None),domains)
         f=self.loadFileFromURI(variable["uri"])
         var = self.getVariableName(variable)
-        print "cdms2:",cdms2keyargs,type(cdms2keyargs)
         data = f(var,**cdms2keyargs)
         return data,cdms2keyargs
 
@@ -119,23 +169,17 @@ class esgfcwtProcess(WPSProcess):
         kargs = {}
         if domain is None:
             # datInput did not provide anything
-            # Using first domain available
-            if len(domains)>0:
-                domain = domains[0]
+            return {}
         elif isinstance(domain,basestring):
             for d in domains:
                 if d["id"]==domain:
                     domain = d
                     break
 
-        if domain is None:
-            # no domain
-            return {}
-
         for kw,definition in domain.iteritems():
             if kw not in ["id","version"]:
-                system = definition.get("system","values").lower()
-                if system == "values":
+                crs = definition.get("crs","values").lower()
+                if crs in ["values","epsg:4326"]:
                     start = definition["start"]
                     end = definition["end"]
                     if isinstance(start,basestring):
@@ -146,8 +190,9 @@ class esgfcwtProcess(WPSProcess):
                     cdms_selection = definition.get("cdms_selection","")
                     if cdms_selection != "":
                         val.append(cdms_selection)
-                elif system == "indices":
-                    val = slice(definition["start"],definition["end"])
+                elif crs == "indices":
+                    step = defintion.get("step",None)
+                    val = slice(definition["start"],definition["end"],step)
                 kargs[str(kw)] = val
         return kargs
 

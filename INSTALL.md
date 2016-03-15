@@ -109,7 +109,7 @@ It should output the installed version (1.8.3 at the time we write this)
 /usr/local/uvcdat/latest/bin/pip install --cert=/export/doutriaux1/cspca.cer django-cors-headers
 ```
 `
-## Step 5: PyWPS
+## Step 6: PyWPS
 [source](https://github.com/geopython/PyWPS/archive/pywps-3.2.2.tar.gz)
 
 ```
@@ -118,7 +118,64 @@ cd PyWPS*
 /usr/local/uvcdat/latest/bin/python setup.py install
 ```
 
-## Step 6: Setting up our server
+## Step 7: PyDAP (substitute with your favorite dap server)
+
+### Install Python packages
+
+```
+/usr/local/uvcdat/latest/bin/pip install --cert=/export/doutriaux1/cspca.cer Pydap
+/usr/local/uvcdat/latest/bin/pip install --cert=/export/doutriaux1/cspca.cer pydap.handlers.netcdf
+```
+
+### Configure PyDAP server
+
+```
+paster create -t pydap /path/to/pydap/data
+```
+
+Edit `/path/to/pydap/data/server.ini`
+
+Start server:
+
+```
+paster serve /path/to/pydap/data/server.ini
+```
+
+
+## Step 8: Setting up our server
+
+### Configure the wps part
+
+[server/wpscfg](server/wps.cfg)
+
+```
+[server]
+maxoperations=30
+maxinputparamlength=1024
+maxfilesize=3mb
+tempPath=/opt/nfs/cwt/wpstmp
+processesPath=/opt/nfs/cwt/wps_cwt/server/processes
+outputUrl=http://localhost/wpsoutputs
+outputPath=/opt/nfs/cwt/wps_cwt/outputs
+logFile=/opt/nfs/cwt/wps_cwt/logs/wps.log
+logLevel=DEBUG
+```
+
+Do not forget the DAP server bit
+```
+[dapserver]
+dap_ini=/opt/nfs/cwt/cwt_pydap_server/server.ini
+dap_data=/opt/nfs/cwt/cwt_pydap_server/data
+dap_port=8001
+dap_host=aims2.llnl.gov
+```
+
+`dap_data` points to the directory from which dap files are served
+
+`dap_ini` points to pydap server.ini file
+
+`dap_port` and `dap_host` overwrite what is in `dap_ini` (mostly for non pydap servers)
+
 
 ### Configure the django part
 
@@ -147,13 +204,6 @@ Change the path to your templates (full path required by apache)
 TEMPLATE_DIRS = (
         '/export/doutriaux1/git/wps_cwt/server/templates',
                 )
-```
-
-The following is needed so your wps process know where to write temporary files
-
-```python
-# Where to write temp files
-PROCESS_TEMPORARY_FILES = "/tmp"
 ```
 
 Change the path to your logs
@@ -194,7 +244,7 @@ LOGGING = {
             'propagate': True,
             'level':'DEBUG',
         },
-    }
+
 }
 
 ```
@@ -206,7 +256,7 @@ python manage.py runserver
 
 point your browser to the [Home Page](http://localhost:8000/)
 
-## Step 7: Deploy in Apache (For production)
+## Step 9: Deploy in Apache (For production)
 
 ### Intro
 
