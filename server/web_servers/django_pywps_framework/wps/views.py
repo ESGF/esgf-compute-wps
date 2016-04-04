@@ -130,14 +130,16 @@ def wps(request):
   else:
       T.join()
       out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm))
-      st = out.read()
+      st = out.readlines()
       out.close()
       # os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm))
       # os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % rndm))
-      return HttpResponse(st)
+      return HttpResponse("".join(st[2:])) # skips first two lines that confuses Maarten web
 
 def run_wps(request,out,err,rndm):
   inputQuery = request.META["QUERY_STRING"]
+  if debug:
+      print "Dumping to:",out,err
   P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
   P.wait()
   out.close()
