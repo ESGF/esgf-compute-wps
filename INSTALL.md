@@ -181,7 +181,7 @@ dap_host=aims2.llnl.gov
 
 ```
 cd ~/git/wps_cwt/server
-cp wps/settings.template.py wps/settings.py
+cp wps/web_servers/django_pywps_framework/wps/settings.sample.py wps/web_servers/django_pywps_framework/wps/settings.py
 ```
 
 Change the key before going in production mode
