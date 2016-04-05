@@ -13,32 +13,22 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
+CWT_SERVER_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__),"..","..",".."))
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'th+k)==0t#wm2*q%(!)02a8(15+6xi(06kj=-7av*in&5nl!-7'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+from secrets import *
 
 TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
-CDAS_APPLICATION = 'CreateV'
+# Where to write temp files
+wps_settings = open(os.path.join(CWT_SERVER_DIR,"wps.cfg")).read()
 
-CDAS_STAGING = 'local'
-#CDAS_STAGING = 'celery'
+PROCESS_TEMPORARY_FILES = wps_settings.split("tempPath=")[-1].split("\n")[0]
 
-#CDAS_COMPUTE_ENGINE = 'celery'
-#CDAS_COMPUTE_ENGINE = 'spark'
-CDAS_COMPUTE_ENGINE = 'serial'
-
-CDAS_DATA_CACHE = 'default'
-
-CDAS_CELERY_BROKER = 'amqp://guest@localhost//'
-CDAS_CELERY_BACKEND = 'amqp'
 # Application definition
 
 INSTALLED_APPS = (
@@ -92,7 +82,10 @@ USE_L10N = True
 
 USE_TZ = True
 
-
+# Templates
+TEMPLATE_DIRS = (
+        os.path.realpath(os.path.join(os.path.dirname(__file__),'template')),
+        )
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
@@ -115,7 +108,7 @@ LOGGING = {
         'dj_logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': "/att/nobackup/tpmaxwel//WPCDAS/server/logs/django.log",
+            'filename': "/usr/local/wps_cwt/apache/2.4.16/logs/django.log",
             'maxBytes': 50000,
             'backupCount': 2,
             'formatter': 'standard',
