@@ -181,7 +181,7 @@ dap_host=aims2.llnl.gov
 
 ```
 cd ~/git/wps_cwt/server
-cp wps/web_servers/django_pywps_framework/wps/settings.sample.py wps/web_servers/django_pywps_framework/wps/settings.py
+cp web_servers/django_pywps_framework/wps/settings.sample.py web_servers/django_pywps_framework/wps/settings.py
 ```
 
 Change the key before going in production mode
@@ -210,7 +210,7 @@ Change the path to your logs
 
 ```python
 
-LOGGING = { 
+LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
@@ -285,6 +285,3 @@ WSGIDaemonProcess aims2.llnl.gov python-path=/export/doutriaux1/git/wps_cwt/serv
 WSGIProcessGroup aims2.llnl.gov
 
 ```
-
-
-
