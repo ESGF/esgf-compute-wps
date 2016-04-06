@@ -84,7 +84,8 @@ USE_TZ = True
 
 # Templates
 TEMPLATE_DIRS = (
-        os.path.realpath(os.path.join(os.path.dirname(__file__),'template')),
+        #os.path.realpath(os.path.join(os.path.dirname(__file__),'template')),
+        '/Users/shaheen2/github/wps_cwt/server/web_servers/django_pywps_framework/wps/template',
         )
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
@@ -103,7 +104,8 @@ LOGGING = {
     'handlers': {
         'null': {
             'level':'DEBUG',
-            'class':'django.utils.log.NullHandler',
+            #'class':'django.utils.log.NullHandler',
+            'class':'logging.NullHandler',
         },
         'dj_logfile': {
             'level':'DEBUG',

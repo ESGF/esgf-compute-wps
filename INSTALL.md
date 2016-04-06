@@ -146,6 +146,8 @@ paster serve /path/to/pydap/data/server.ini
 
 ### Configure the wps part
 
+Make sure to change any line with '/opt/' in it so that it matches your setup.
+
 [server/wpscfg](server/wps.cfg)
 
 ```
@@ -170,6 +172,15 @@ dap_port=8001
 dap_host=aims2.llnl.gov
 ```
 
+And change this as well if needed
+```
+[cds]
+uvcdatSetupPath=/opt/nfs/cwt/uvcdat/2015-10-26/
+ldLibraryPath=/opt/nfs/cwt/uvcdat/2015-10-26/install/Externals/lib
+pythonPath=/opt/nfs/cwt/uvcdat/2015-10-26/Externals/lib/python2.7/site-packages
+dyldFallbackLibraryPath=/opt/nfs/cwt/uvcdat/2015-10-26/Externals/lib
+```
+
 `dap_data` points to the directory from which dap files are served
 
 `dap_ini` points to pydap server.ini file
@@ -182,19 +193,20 @@ dap_host=aims2.llnl.gov
 ```
 cd ~/git/wps_cwt/server
 cp web_servers/django_pywps_framework/wps/settings.sample.py web_servers/django_pywps_framework/wps/settings.py
+cp web_servers/django_pywps_framework/wps/secrets.template.py web_servers/django_pywps_framework/wps/secrets.py
 ```
 
-Change the key before going in production mode
+In secrets.py, change the key before going in production mode
+Also change the debug to False when going in production
 
 ```python
 SECRET_KEY = 'YOUR KEY HERE'
+
+DEBUG = False
 ```
 
-Change the debug to False when going in production
-
+In settings.py, change the debug to False when going in production
 ```python
-DEBUG = False
-
 TEMPLATE_DEBUG = False
 ```
 
@@ -202,7 +214,7 @@ Change the path to your templates (full path required by apache)
 ```python
 # Templates
 TEMPLATE_DIRS = (
-        '/export/doutriaux1/git/wps_cwt/server/templates',
+        '/export/doutriaux1/git/wps_cwt/server/web_servers/django_pywps_framework/wps/templates',
                 )
 ```
 
@@ -249,7 +261,7 @@ LOGGING = {
 
 ```
 
-Start server locally
+Start server locally from wps_cwt/server/web_servers/django_pywps_framework
 ```
 python manage.py runserver
 ```
