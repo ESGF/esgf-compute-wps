@@ -34,7 +34,8 @@ class Process(esgfcwtProcess):
         # Which axes do we average over?
         axes = self.axes.getValue()
         # Ok actual average happens here
-        data = cdutil.averager(data,axis=axes)
+        #data = cdutil.averager(data,axis=axes)
+        data = cdms2.MV2.average(data,axis=0)
         # Save
         data.id=self.getVariableName(dataIn)
         # TODO json vs netcdf embeded?
