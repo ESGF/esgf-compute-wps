@@ -12,7 +12,6 @@ from esgfcwtProcess import esgfcwtProcess
 from PyOphidia import client, cube
 import ConfigParser
 # Path where output will be stored/cached
-
 wps_config = ConfigParser.ConfigParser()
 wps_config.read(os.path.join(os.path.dirname(__file__),"..","wps.cfg"))
 
