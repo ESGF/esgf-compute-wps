@@ -129,11 +129,19 @@ cd PyWPS*
 
 ### Configure PyDAP server
 
+NOTE: You MUST be in the directory where you want to create the PyDAP server.
+For example, if you are in a folder named `cwt`, running `paster create -t pydap cwt_pydap_server/`
+will create a folder named `cwt_pydap_server` with `server.ini` in `cwt/cwt_pydap_server/server.ini`.
 ```
 paster create -t pydap /path/to/pydap/data
 ```
 
-Edit `/path/to/pydap/data/server.ini`
+NOTE: Running the above command will create a `data` folder where all of the data
+will be obtained from. Ex: running `paster create -t pydap /cwt/cwt_pydap_server`
+will create `/cwt/cwt_pydap_server/data`. To change this, edit the value of
+`root` in `server.ini`.
+
+Edit `/path/to/pydap/data/server.ini` if needed for other things.
 
 Start server:
 
@@ -141,12 +149,13 @@ Start server:
 paster serve /path/to/pydap/data/server.ini
 ```
 
+Example: If you are
 
 ## Step 8: Setting up our server
 
 ### Configure the wps part
 
-Make sure to change any line with '/opt/' in it so that it matches your setup.
+Make sure to change any line with `opt` in it so that it matches your setup.
 
 [server/wpscfg](server/wps.cfg)
 
