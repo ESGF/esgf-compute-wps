@@ -59,15 +59,33 @@ class esgfcwtProcess(WPSProcess):
             fjson = os.path.join(BASE_DIR,"%i.json" % rndm)
             cont = os.path.exists(fout) or os.path.exists(fjson)
         cdms2.setNetcdf4Flag(False)
-        f=cdms2.open(fout,"w")
-        f.write(data)
-        f.close()
+
+       #Writing data to fout is not needed when using Ophidia because:
+	   # 1. calling this function via ophidia_averager has no value for data
+	   # 2. nothing needs to be written because Ophidia already created the file
+	   if type!= "ophidia":
+            f=cdms2.open(fout,"w")
+            f.write(data)
+            f.close()
+
         if type is None:  # not user specified
             type = self.outputformat.getValue()
         if type == "opendap":
             out = {}
             out["uri"] = "http://%s:%s/%s" % (DAP_HOST,DAP_PORT, os.path.split(fout)[1])
             out["id"]=data.id
+            Fjson=open(fjson,"w")
+            json.dump(out,Fjson)
+            Fjson.close()
+            dest.format = {"mimetype":"text/json",'encoding':"utf-8",'schema':""}
+            dest.setValue(fjson)
+        elif type == "ophidia":
+            #Dont need fout because it's used in the uri of out variable, and we already know it
+            out = {}
+            out["uri"] = oph_loc
+            #out["uri"] = "http://%s:%s/%s" % (DAP_HOST,DAP_PORT, oph_loc.replace('SOMETHING'.'SOMETHING'))
+            #out["uri"] = oph_loc.replace('http://aims2.llnl.gov', 'localhost')
+            out["id"] = self.getVariableName(self.loadData()[0])
             Fjson=open(fjson,"w")
             json.dump(out,Fjson)
             Fjson.close()
@@ -260,4 +278,3 @@ def record_attributes( var, attr_name_list, additional_attributes = {} ):
     for attr_name in additional_attributes:
         mdata[attr_name] = additional_attributes[attr_name]
     return mdata
-
