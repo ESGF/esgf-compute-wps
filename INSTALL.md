@@ -129,11 +129,19 @@ cd PyWPS*
 
 ### Configure PyDAP server
 
+NOTE: You MUST be in the directory where you want to create the PyDAP server.
+For example, if you are in a folder named `cwt`, running `paster create -t pydap cwt_pydap_server/`
+will create a folder named `cwt_pydap_server` with `server.ini` in `cwt/cwt_pydap_server/server.ini`.
 ```
 paster create -t pydap /path/to/pydap/data
 ```
 
-Edit `/path/to/pydap/data/server.ini`
+NOTE: Running the above command will create a `data` folder where all of the data
+will be obtained from. Ex: running `paster create -t pydap /cwt/cwt_pydap_server`
+will create `/cwt/cwt_pydap_server/data`. To change this, edit the value of
+`root` in `server.ini`.
+
+Edit `/path/to/pydap/data/server.ini` if needed for other things.
 
 Start server:
 
@@ -141,10 +149,13 @@ Start server:
 paster serve /path/to/pydap/data/server.ini
 ```
 
+Example: If you are
 
 ## Step 8: Setting up our server
 
 ### Configure the wps part
+
+Make sure to change any line with `opt` in it so that it matches your setup.
 
 [server/wpscfg](server/wps.cfg)
 
@@ -170,6 +181,15 @@ dap_port=8001
 dap_host=aims2.llnl.gov
 ```
 
+And change this as well if needed
+```
+[cds]
+uvcdatSetupPath=/opt/nfs/cwt/uvcdat/2015-10-26/
+ldLibraryPath=/opt/nfs/cwt/uvcdat/2015-10-26/install/Externals/lib
+pythonPath=/opt/nfs/cwt/uvcdat/2015-10-26/Externals/lib/python2.7/site-packages
+dyldFallbackLibraryPath=/opt/nfs/cwt/uvcdat/2015-10-26/Externals/lib
+```
+
 `dap_data` points to the directory from which dap files are served
 
 `dap_ini` points to pydap server.ini file
@@ -181,20 +201,21 @@ dap_host=aims2.llnl.gov
 
 ```
 cd ~/git/wps_cwt/server
-cp wps/web_servers/django_pywps_framework/wps/settings.sample.py wps/web_servers/django_pywps_framework/wps/settings.py
+cp web_servers/django_pywps_framework/wps/settings.sample.py web_servers/django_pywps_framework/wps/settings.py
+cp web_servers/django_pywps_framework/wps/secrets.template.py web_servers/django_pywps_framework/wps/secrets.py
 ```
 
-Change the key before going in production mode
+In secrets.py, change the key before going in production mode
+Also change the debug to False when going in production
 
 ```python
 SECRET_KEY = 'YOUR KEY HERE'
+
+DEBUG = False
 ```
 
-Change the debug to False when going in production
-
+In settings.py, change the debug to False when going in production
 ```python
-DEBUG = False
-
 TEMPLATE_DEBUG = False
 ```
 
@@ -202,7 +223,7 @@ Change the path to your templates (full path required by apache)
 ```python
 # Templates
 TEMPLATE_DIRS = (
-        '/export/doutriaux1/git/wps_cwt/server/templates',
+        '/export/doutriaux1/git/wps_cwt/server/web_servers/django_pywps_framework/wps/templates',
                 )
 ```
 
@@ -210,7 +231,7 @@ Change the path to your logs
 
 ```python
 
-LOGGING = { 
+LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
@@ -249,7 +270,7 @@ LOGGING = {
 
 ```
 
-Start server locally
+Start server locally from wps_cwt/server/web_servers/django_pywps_framework
 ```
 python manage.py runserver
 ```
@@ -286,5 +307,20 @@ WSGIProcessGroup aims2.llnl.gov
 
 ```
 
+## Optional: Installing Ophidia
+
+### Important notes
+
+The section below links to the official guide on how to install Ophidia.
+Below are important things to remember and/or additional information.
+
+* Install whatever that is possible from the user `ophidia`. Installing from `root` causes permission errors later on.
+* If you are stuck on how to setup `slurm.conf`, download the [Ophidia VM here](https://download.ophidia.cmcc.it/vmi_desktop/0.9.0/OphidiaVM.ova), find `slurm.conf` and adapt if for your use.
+* Installing on a non clean machine can cause problems, since Ophidia may try to run software that originally existed and not the one that has been installed and configured for Ophidia. If this is the case, check a [list of these configuration files](http://ophidia.cmcc.it/documentation/admin/configure/index.html) to make sure that the configuration is correct.
+  * For example, if there was an existing installation of slurm on a machine, we must edit the `SUBM_CMD` value in `$prefix/etc/rmanager.conf` to link to the location of where slurm was installed during this process.
 
 
+### Installation guide
+
+Follow the [preliminary steps here](http://ophidia.cmcc.it/documentation/admin/install/preliminarysteps.html) first.
+Then install [from source](http://ophidia.cmcc.it/documentation/admin/install/install_from_source.html) or [from RPMs](ophidia.cmcc.it/documentation/admin/install/install_from_rpm.html).
