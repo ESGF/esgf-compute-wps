@@ -3,16 +3,12 @@ from django.shortcuts import redirect, render
 import os
 import random
 import settings
-server_dir = settings.CWT_SERVER_DIR
-os.environ["PYWPS_PROCESSES"]=os.path.realpath(os.path.join(server_dir,"processes"))
-os.environ["PYWPS_SERVER_DIR"]=os.path.realpath(server_dir)
 import glob
 import logging
 import threading
 import subprocess
 import sys
-sys.path.insert(0,server_dir)
-#from modules.utilities import *
+
 debug = False
 
 class TestRequest:
