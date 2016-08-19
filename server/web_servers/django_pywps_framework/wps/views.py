@@ -111,11 +111,10 @@ def getRequestParms( request ):
                 if ( diparam == 'embedded' ) and ( diparamval == 'true' ):   parmMap['embedded']  = True
                 if ( diparam == 'async' ) and ( diparamval == 'true' ):      parmMap['async']  = True
   except Exception, err:
-      wpsLog.error( "Error in getRequestParms: %s " % str(err) )
+      print err
   return parmMap
 
 def wps(request):
-  wpsLog.debug( "WPS-> process request: %s" % str(request) )
   rndm = random.randint(0,100000000000)
   out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm), "w")
   err = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % rndm), "w")
