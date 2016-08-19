@@ -8,8 +8,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.7/ref/settings/
 """
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
@@ -18,7 +19,9 @@ CWT_SERVER_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__),"..",".
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
-from secrets import *
+SECRET_KEY = 'replace me with a secret'
+
+DEBUG = True
 
 TEMPLATE_DEBUG = True
 
@@ -47,7 +50,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
@@ -84,9 +87,9 @@ USE_TZ = True
 
 # Templates
 TEMPLATE_DIRS = (
-        #os.path.realpath(os.path.join(os.path.dirname(__file__),'template')),
-        '/Users/shaheen2/github/wps_cwt/server/web_servers/django_pywps_framework/wps/template',
-        )
+    os.path.join(os.path.dirname(__file__), 'template'),
+)
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
@@ -110,7 +113,7 @@ LOGGING = {
         'dj_logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': "/usr/local/wps_cwt/apache/2.4.16/logs/django.log",
+            'filename': "django.log",
             'maxBytes': 50000,
             'backupCount': 2,
             'formatter': 'standard',

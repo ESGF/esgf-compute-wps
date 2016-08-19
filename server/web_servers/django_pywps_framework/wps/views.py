@@ -1,6 +1,5 @@
 from django.http import HttpResponse,HttpRequest
-from django.shortcuts import redirect
-from django.template.loader import get_template
+from django.shortcuts import redirect, render
 import os
 import random
 import settings
@@ -13,7 +12,7 @@ import threading
 import subprocess
 import sys
 sys.path.insert(0,server_dir)
-from modules.utilities import *
+#from modules.utilities import *
 debug = False
 
 class TestRequest:
@@ -76,9 +75,7 @@ def status(request):
     return HttpResponse(st)
 
 def view_main(request):
-    t = get_template("test_urls.html")
-    html = t.render()
-    return HttpResponse(html)
+    return render(request, 'wps/test_urls.html')
 
 def view_process(request,id):
     nm = os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%s.txt" % id)

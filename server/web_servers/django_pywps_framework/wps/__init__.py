@@ -3,9 +3,6 @@ import os, logging
 
 wpsLog = logging.getLogger('wps')
 wpsLog.setLevel(logging.DEBUG)
-if len( wpsLog.handlers ) == 0:
-    wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', '..', '..', 'logs', 'wps.log' ) )))
-
 
 def setEnv( key, value = None ):
     current_value = os.getenv( key )
