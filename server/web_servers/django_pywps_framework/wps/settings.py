@@ -97,7 +97,7 @@ STATIC_URL = '/static/'
 
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False,
+    'disable_existing_loggers': True,
     'formatters': {
         'standard': {
             'format' : "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
@@ -105,19 +105,6 @@ LOGGING = {
         },
     },
     'handlers': {
-        'null': {
-            'level':'DEBUG',
-            #'class':'django.utils.log.NullHandler',
-            'class':'logging.NullHandler',
-        },
-        'dj_logfile': {
-            'level':'DEBUG',
-            'class':'logging.handlers.RotatingFileHandler',
-            'filename': "django.log",
-            'maxBytes': 50000,
-            'backupCount': 2,
-            'formatter': 'standard',
-        },
         'console':{
             'level':'INFO',
             'class':'logging.StreamHandler',
@@ -126,7 +113,7 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers':[ 'dj_logfile' ],
+            'handlers':[ 'console' ],
             'propagate': True,
             'level':'DEBUG',
         },
