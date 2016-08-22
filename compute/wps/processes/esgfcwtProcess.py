@@ -60,10 +60,10 @@ class esgfcwtProcess(WPSProcess):
             cont = os.path.exists(fout) or os.path.exists(fjson)
         cdms2.setNetcdf4Flag(False)
 
-       #Writing data to fout is not needed when using Ophidia because:
-	   # 1. calling this function via ophidia_averager has no value for data
-	   # 2. nothing needs to be written because Ophidia already created the file
-	   if type!= "ophidia":
+        #Writing data to fout is not needed when using Ophidia because:
+        # 1. calling this function via ophidia_averager has no value for data
+        # 2. nothing needs to be written because Ophidia already created the file
+        if type!= "ophidia":
             f=cdms2.open(fout,"w")
             f.write(data)
             f.close()
@@ -208,8 +208,8 @@ class esgfcwtProcess(WPSProcess):
                     cdms_selection = definition.get("cdms_selection","")
                     if cdms_selection != "":
                         val.append(cdms_selection)
-                elif crs == "indices":
-                    step = defintion.get("step",None)
+                    elif crs == "indices":
+                        step = defintion.get("step",None)
                     val = slice(definition["start"],definition["end"],step)
                 kargs[str(kw)] = val
         return kargs
