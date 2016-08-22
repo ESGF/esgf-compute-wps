@@ -1,13 +1,17 @@
 from django.http import HttpResponse,HttpRequest
 from django.shortcuts import redirect, render
+
+from pywps import Pywps
+
 import os
-import random
-import settings
+import sys
 import glob
+import pywps
+import random
 import logging
+import settings
 import threading
 import subprocess
-import sys
 
 debug = False
 
@@ -90,54 +94,36 @@ def clear_process(request,id):
     return redirect("/status")
 
 def getRequestParms( request ):
-  parmMap = { 'embedded': False, 'execute':False, 'async':False }
-  try:
-      queryStr = request.META["QUERY_STRING"]
-      for requestParm in queryStr.split('&'):
-          rParmElems = requestParm.split('=')
-          param = rParmElems[0].strip().lower()
-          paramVal = rParmElems[1].strip().lower()
-          if ( param == 'request' ) and ( paramVal == 'execute' ): parmMap['execute']  = True
-          if ( param == 'embedded' ) and ( paramVal == 'true' ):   parmMap['embedded']  = True
-          if ( param == 'async' ) and ( paramVal == 'true' ):   parmMap['async']  = True
-          if ( param == 'datainputs' ):
-            debug_trace()
+    parmMap = { 'embedded': False, 'execute':False, 'async':False }
+    try:
+        queryStr = request.META["QUERY_STRING"]
+        for requestParm in queryStr.split('&'):
+            rParmElems = requestParm.split('=')
+            param = rParmElems[0].strip().lower()
+            paramVal = rParmElems[1].strip().lower()
+            if ( param == 'request' ) and ( paramVal == 'execute' ): parmMap['execute']  = True
+            if ( param == 'embedded' ) and ( paramVal == 'true' ):   parmMap['embedded']  = True
+            if ( param == 'async' ) and ( paramVal == 'true' ):   parmMap['async']  = True
+            if ( param == 'datainputs' ):
+                debug_trace()
             value_cut = requestParm.find('=')
             di_params = requestParm[value_cut+1:].strip('[]').lower().split(';')
             for di_param in di_params:
                 diparam, diparamval = di_param.split('=')
                 if ( diparam == 'embedded' ) and ( diparamval == 'true' ):   parmMap['embedded']  = True
                 if ( diparam == 'async' ) and ( diparamval == 'true' ):      parmMap['async']  = True
-  except Exception, err:
-      print err
-  return parmMap
+    except Exception, err:
+        print err
+        return parmMap
 
 def wps(request):
-  rndm = random.randint(0,100000000000)
-  out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm), "w")
-  err = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % rndm), "w")
-  requestParams = getRequestParms(request)
-  T=threading.Thread(target=run_wps,args=(request,out,err,rndm))
-  T.start()
-  if requestParams['async'] and requestParams['execute']:
-      return HttpResponse("Started Request Process id: <a href='http://%s/view_process/%i'>%i</a>" % (request.get_host(),rndm,rndm))
-  else:
-      T.join()
-      out = open(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm))
-      st = out.readlines()
-      out.close()
-      # os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"out_%i.txt" % rndm))
-      # os.remove(os.path.join(settings.PROCESS_TEMPORARY_FILES,"err_%i.txt" % rndm))
-      return HttpResponse("".join(st[2:])) # skips first two lines that confuses Maarten web
+    service = Pywps(pywps.METHOD_GET)
 
-def run_wps(request,out,err,rndm):
-  inputQuery = request.META["QUERY_STRING"]
-  if debug:
-      print "Dumping to:",out,err
-  P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
-  P.wait()
-  out.close()
-  err.close()
+    service_inputs = service.parseRequest(request.META['QUERY_STRING'])
+
+    service_response = service.performRequest(service_inputs)
+
+    return HttpResponse(service_response)
 
 def postprocess(request):
     # First run the actual wps
@@ -154,23 +140,3 @@ def postprocess(request):
     response['Content-Length'] = len(response.content)
 
     return response
-
-if __name__ == "__main__":
-    project_dir = os.path.dirname( os.path.dirname( __file__ ) )
-    sys.path.append( project_dir )
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "wps.settings")
-    os.environ.setdefault("PYWPS_CFG", os.path.join( project_dir, "wps.cfg" ) )
-    os.environ.setdefault("DOCUMENT_ROOT", os.path.join( project_dir, "wps") )
-
-    testRequest = TestRequest('version=1.0.0&service=wps&request=getcapabilities')
-    run_wps( testRequest, sys.stdout, sys.stderr, 0)
-
-#DJANGO_SETTINGS_MODULE wps.settings
-#PYWPS_CFG /usr/local/web/WPCDAS/server/wps.cfg
-#DOCUMENT_ROOT  /usr/local/web/WPCDAS/server/wps
-
-#  inputQuery = "version=1.0.0&service=wps&request=DescribeProcess&identifier=timeseries"
-#  P=subprocess.Popen(["wps.py",inputQuery],bufsize=0,stdin=None,stdout=out,stderr=err)
-#  P.wait()
-#  out.close()
-#  err.close()
