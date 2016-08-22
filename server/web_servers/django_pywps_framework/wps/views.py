@@ -11,6 +11,8 @@ import sys
 
 debug = False
 
+os.environ['PYWPS_PROCESSES'] = os.path.join(settings.WPS_SERVER_DIR, 'processes')
+
 class TestRequest:
     def __init__(self, request_str ):
         self.META = {}

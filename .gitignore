@@ -59,3 +59,4 @@ target/
 # local secret things
 secrets.py
 
+*.sqlite3
