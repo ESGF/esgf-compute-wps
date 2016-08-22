@@ -13,31 +13,6 @@ cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 i
 
 wps_config = ConfigParser.ConfigParser()
 wps_config.read(os.path.join(os.path.dirname(__file__),"..","wps.cfg"))
-try:
-    DAP_DATA = wps_config.get("dapserver","dap_data")
-except:
-    warnings.warn("Could not READ DAP_DATA from wps.cfg will store files in /tmp")
-    DAP_DATA = "/tmp"
-try:
-    DAP_INI = wps_config.get("dapserver","dap_ini")
-except:
-    DAP_INI = None
-try:
-    DAP_HOST = wps_config.get("dapserver","dap_host")
-except:
-    DAP_HOST = None
-try:
-    DAP_PORT = wps_config.get("dapserver","dap_port")
-except:
-    DAP_PORT = None
-
-if DAP_INI is not None:
-    with open(DAP_INI) as dapini:
-        dapconfig = dapini.read()
-        if DAP_HOST is None:
-            DAP_HOST = dapconfig.split("host")[1].split()[1]
-        if DAP_PORT is None:
-            DAP_PORT = dapconfig.split("port")[1].split()[1]
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 wpsLog = logging.getLogger( 'wps' )
@@ -55,7 +30,7 @@ class esgfcwtProcess(WPSProcess):
         cont = True
         while cont:
             rndm = random.randint(0,100000000000)
-            fout = os.path.join(DAP_DATA,"%i.nc" % rndm)
+            fout = os.path.join(BASE_DIR,"%i.nc" % rndm)
             fjson = os.path.join(BASE_DIR,"%i.json" % rndm)
             cont = os.path.exists(fout) or os.path.exists(fjson)
         cdms2.setNetcdf4Flag(False)

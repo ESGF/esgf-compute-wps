@@ -1,7 +1,7 @@
 from pywps.Process import WPSProcess
 import json, types
 from cdasProcess import CDASProcess, wpsLog
-from analysis.timeseries_analysis import *
+from wps.processes.cdas.analysis.timeseries_analysis import *
 
 # Test arguments for run configuration:
 # version=1.0.0&service=wps&request=Execute&RawDataOutput=result&identifier=timeseries&datainputs=[domain={\"longitude\":10.0,\"latitude\":10.0,\"level\":1000.0};variable={\"url\":\"file://Users/tpmaxwel/Data/AConaty/comp-ECMWF/geos5.xml\",\"id\":\"uwnd\"}]

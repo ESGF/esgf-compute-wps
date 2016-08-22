@@ -18,9 +18,6 @@ OUTPUT_BASE_DIR = "/opt/nfs/cwt/wpstmp/output"
 
 
 wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
-
 
 class Process(WPSProcess):
 

@@ -11,9 +11,6 @@ from subprocess import call
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
 
 wpsLog = logging.getLogger('wps')
-wpsLog.setLevel(logging.DEBUG)
-wpsLog.addHandler( logging.FileHandler( os.path.abspath( os.path.join(os.path.dirname(__file__), '..', 'logs', 'wps.log') ) ) )
-
 
 class Process(WPSProcess):
 
