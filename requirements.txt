@@ -1,0 +1,3 @@
+pywps
+django
+django-cors-headers
