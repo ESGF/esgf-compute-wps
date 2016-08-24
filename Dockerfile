@@ -10,6 +10,8 @@ RUN bash conda.sh -b -f
 
 ENV PATH=/root/miniconda2/bin:$PATH
 
+RUN conda install -c uvcdat -y uvcdat
+
 WORKDIR /root
 
 COPY requirements.txt requirements.txt
