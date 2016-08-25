@@ -1,3 +1,4 @@
 pywps
+pyophidia
 django
 django-cors-headers
