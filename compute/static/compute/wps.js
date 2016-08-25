@@ -1,4 +1,19 @@
 $(document).ready(function() {
+  $('#execute_btn').click(function() {
+    var query_line = $('#execute_query').val();
+    var url = '/wps/?version=1.0.0&service=wps&request=execute&identifier=';
+    var selected_process = $('#process_select option:selected').attr('value');
+
+    url = url.concat(selected_process);
+    url = url.concat('&datainputs=[');
+    url = url.concat(query_line);
+    url = url.concat(']');
+
+    $.get(url, function(data) {
+      $('#result').text(data);
+    }, 'text');
+  });
+
   $('#getcapabilities_btn').click(function() {
     $.get('/wps/?version=1.0.0&service=wps&request=getcapabilities', function(data) {
       $('#result').text(data);
