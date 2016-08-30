@@ -7,6 +7,8 @@ from pywps import Pywps
 
 from lxml import etree
 
+from urllib import unquote
+
 import os
 import re
 import json
@@ -21,11 +23,11 @@ def strip_tag_namespace(tag):
     return tag
 
 def execute_process(method, query_string):
-    service = Pywps(method)
+    service = Pywps(method, os.path.join(os.path.dirname(__file__), 'wps.cfg'))
 
     service_inputs = service.parseRequest(query_string)
 
-    return service.performRequest(service_inputs)
+    return service.performRequest()
 
 def view_main(request):
     return render(request, 'wps/index.html')
@@ -57,6 +59,13 @@ def api_processes(request):
     return JsonResponse({'processes': processes})
 
 def wps(request):
-    service_response = execute_process(pywps.METHOD_GET, request.META['QUERY_STRING'])
+    # Corrects the query format
+    query = request.META['QUERY_STRING']
+
+    # unquote undoes the percent coding, pywps wants the string in ascii but
+    # utf-8 -> ascii doesn't preserve double quotes (TODO figure out why?)
+    query = unquote(query).decode('utf-8').encode('ascii', 'replace').replace('?', '"')
+
+    service_response = execute_process(pywps.METHOD_GET, query)
 
     return HttpResponse(service_response, content_type='text/xml')

@@ -2,3 +2,5 @@ pywps
 pyophidia
 django
 django-cors-headers
+owslib
+git+https://github.com/esgf/esgf-compute-api

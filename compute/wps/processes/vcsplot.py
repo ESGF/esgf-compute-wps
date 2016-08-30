@@ -8,9 +8,10 @@ cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-from esgfcwtProcess import esgfcwtProcess
 
-class Process(esgfcwtProcess):
+from esgf_process import ESGFProcess
+
+class Process(ESGFProcess):
     def __init__(self):
         """Process initialization"""
         WPSProcess.__init__(self, identifier=os.path.split(__file__)[-1].split('.')[0], title='vcs plot', version=0.1, abstract='Generate a plot using vcs', storeSupported='true', statusSupported='true')

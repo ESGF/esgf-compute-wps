@@ -1,15 +1,18 @@
 $(document).ready(function() {
   $('#execute_btn').click(function() {
-    var query_line = $('#execute_query').val();
-    var url = '/wps/?version=1.0.0&service=wps&request=execute&identifier=';
+    var query_line = $('#query').val();
+    var url = '/wps';
     var selected_process = $('#process_select option:selected').attr('value');
+    
+    params = {
+      'version': '1.0.0',
+      'service': 'wps',
+      'request': 'execute',
+      'identifier': selected_process,
+      'datainputs': '['.concat(query_line).concat(']'),
+    }
 
-    url = url.concat(selected_process);
-    url = url.concat('&datainputs=[');
-    url = url.concat(query_line);
-    url = url.concat(']');
-
-    $.get(url, function(data) {
+    $.get(url, params, function(data) {
       $('#result').text(data);
     }, 'text');
   });

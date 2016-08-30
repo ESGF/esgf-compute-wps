@@ -8,8 +8,10 @@ cdms2.setNetcdfDeflateLevelFlag(0) ## where value is a integer between 0 and 9 i
 import random
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-from esgfcwtProcess import esgfcwtProcess
-class Process(esgfcwtProcess):
+
+from esgf_process import ESGFProcess
+
+class Process(ESGFProcess):
   """Main process class"""
   def __init__(self):
     """Process initialization"""

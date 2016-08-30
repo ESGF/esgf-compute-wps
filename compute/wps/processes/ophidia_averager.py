@@ -8,16 +8,15 @@ cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 import random
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
-from esgfcwtProcess import esgfcwtProcess
 from PyOphidia import client, cube
 import ConfigParser
 # Path where output will be stored/cached
 wps_config = ConfigParser.ConfigParser()
 wps_config.read(os.path.join(os.path.dirname(__file__),"..","wps.cfg"))
 
+from esgf_process import ESGFProcess
 
-
-class Process(esgfcwtProcess):
+class Process(ESGFProcess):
 
     def __init__(self):
         """Process initialization"""
