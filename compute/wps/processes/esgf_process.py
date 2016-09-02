@@ -17,6 +17,7 @@ from uuid import uuid4 as uuid
 from tempfile import NamedTemporaryFile
 
 import os
+import sys
 import json
 import cdms2
 import types
@@ -28,11 +29,12 @@ class ESGFProcess(WPSProcess):
     function. This function is where all the work should be done. From
     __calll__ return a list of output files. 
     """
-    def __init__(self, identifier, title, **kwargs):
+    def __init__(self, title, **kwargs):
+
         """ ESGFProcess init. """
         WPSProcess.__init__(
             self,
-            identifier,
+            '.'.join(os.path.splitext(sys.modules[self.__module__].__file__)[0].split('/')[-2:]),
             title,
             abstract=kwargs.get('abstract', ''),
             version=kwargs.get('version', None),

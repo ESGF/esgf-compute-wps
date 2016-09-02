@@ -1,1 +1,1 @@
-from mv import Process
+from mv import CDMS2Process

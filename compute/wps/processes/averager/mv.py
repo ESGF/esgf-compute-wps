@@ -8,7 +8,11 @@ from pywps import config
 import os
 import cdms2
 
-class CDMS2(ESGFProcess):
+cdms2.setNetcdfShuffleFlag(0)
+cdms2.setNetcdfDeflateFlag(0)
+cdms2.setNetcdfDeflateLevelFlag(0)
+
+class CDMS2Process(ESGFProcess):
     """ Averager class. 
    
     Averages variable over multiple dimensions.
@@ -17,7 +21,6 @@ class CDMS2(ESGFProcess):
         """Process initialization"""
         ESGFProcess.__init__(
             self,
-            'averager', 
             'Averager')
 
     def __call__(self, v0, axes):
