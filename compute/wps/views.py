@@ -12,9 +12,12 @@ from urllib import unquote
 import os
 import re
 import json
+import logging
 import settings
 
-os.environ['PYWPS_PROCESSES'] = os.path.join(settings.WPS_SERVER_DIR, 'processes')
+logger = logging.getLogger(__name__)
+
+os.environ['PYWPS_PROCESSES'] = os.path.join(settings.WPS_DIR, 'processes')
 
 def strip_tag_namespace(tag):
     if re.match('^{.*}', tag):
@@ -23,7 +26,14 @@ def strip_tag_namespace(tag):
     return tag
 
 def execute_process(method, query_string):
-    service = Pywps(method, os.path.join(os.path.dirname(__file__), 'wps.cfg'))
+    if os.path.exists(settings.WPS_CONFIG):
+        logging.info('Pywps with confiuration %s' % (settings.WPS_CONFIG))
+
+        service = Pywps(method, settings.WPS_CONFIG)
+    else:
+        logging.info('No Pywps configuration')
+
+        service = Pywps(method)
 
     service_inputs = service.parseRequest(query_string)
 
@@ -33,6 +43,8 @@ def view_main(request):
     return render(request, 'wps/index.html')
 
 def api_processes(request):
+    logging.info('Requesting processes')
+
     service_response = execute_process(pywps.METHOD_GET, 'version=1.0&service=wps&request=getcapabilities')
 
     root = etree.fromstring(service_response)

@@ -13,6 +13,10 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
+WPS_DIR = os.path.join(BASE_DIR, 'wps')
+
+WPS_CONFIG = os.path.join(WPS_DIR, 'wps.cfg')
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
@@ -21,13 +25,6 @@ SECRET_KEY = 'replace me with a secret'
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
-WPS_SERVER_DIR = os.path.join(BASE_DIR, 'wps')
-
-# Where to write temp files
-wps_settings = open(os.path.join(WPS_SERVER_DIR, "wps.cfg")).read()
-
-PROCESS_TEMPORARY_FILES = wps_settings.split("tempPath=")[-1].split("\n")[0]
 
 # Application definition
 
@@ -109,25 +106,29 @@ STATIC_URL = '/static/'
 
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': True,
+    'disable_existing_loggers': False,
     'formatters': {
-        'standard': {
-            'format' : "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
-            'datefmt' : "%d/%b/%Y %H:%M:%S"
+        'simple': {
+            'format': '[%(asctime)s] %(levelname)s %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'verbose': {
+            'format': '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
     },
     'handlers': {
-        'console':{
-            'level':'INFO',
-            'class':'logging.StreamHandler',
-            'formatter': 'standard'
-        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        }
     },
     'loggers': {
-        'django': {
-            'handlers':[ 'console' ],
+        '': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
             'propagate': True,
-            'level':'INFO',
         },
-    }
+    },
 }
