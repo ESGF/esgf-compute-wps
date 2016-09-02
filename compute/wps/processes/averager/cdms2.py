@@ -1,14 +1,14 @@
 """
 CDMS2 MV Averager module.
 """
-from esgf_process import ESGFProcess
+from ..esgf_process import ESGFProcess
 
 from pywps import config
 
 import os
 import cdms2
 
-class Averager(ESGFProcess):
+class CDMS2(ESGFProcess):
     """ Averager class. 
    
     Averages variable over multiple dimensions.

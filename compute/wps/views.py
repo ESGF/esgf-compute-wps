@@ -9,6 +9,10 @@ from lxml import etree
 
 from urllib import unquote
 
+from wps.processes import load_processes
+
+PROCESSES = load_processes()
+
 import os
 import re
 import json
@@ -16,8 +20,6 @@ import logging
 import settings
 
 logger = logging.getLogger(__name__)
-
-os.environ['PYWPS_PROCESSES'] = os.path.join(settings.WPS_DIR, 'processes')
 
 def strip_tag_namespace(tag):
     if re.match('^{.*}', tag):
@@ -37,7 +39,7 @@ def execute_process(method, query_string):
 
     service_inputs = service.parseRequest(query_string)
 
-    return service.performRequest()
+    return service.performRequest(processes=PROCESSES)
 
 def view_main(request):
     return render(request, 'wps/index.html')
