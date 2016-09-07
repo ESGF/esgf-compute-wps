@@ -22,6 +22,8 @@ import json
 import cdms2
 import types
 
+from wps import logger
+
 class ESGFProcess(WPSProcess):
     """ ESGF Process.
 
@@ -90,7 +92,7 @@ class ESGFProcess(WPSProcess):
 
         self._operation = None
         self._variable = None
-        self._domains = None
+        self._domains = []
 
         self._symbols = {}
 
@@ -109,11 +111,15 @@ class ESGFProcess(WPSProcess):
         """ Loads the processes operation. """
         op_str = self._read_input_literal('operation')
 
+        logger.info('Loading operation "%s"' % op_str)
+
         self._operation = Operation.from_str(self.identifier, op_str)
 
     def _load_variable(self):
         """ Loads the variable to be processed. """
         var_str = self._read_input('variable')
+
+        logger.info('Loading variable "%s"' % var_str)
 
         var = Variable.from_dict(json.loads(var_str[0]))
 
@@ -123,9 +129,15 @@ class ESGFProcess(WPSProcess):
         """ Loads the domains that will be used in the process. """
         dom_str = self._read_input('domain')
 
-        dom = Domain.from_dict(json.loads(dom_str[0]))
+        logger.info('Loading domains %s' % dom_str)
 
-        self._domains = self._symbols[dom.name] = dom
+        domains = json.loads(dom_str[0])
+
+        for domain in domains:
+            dom = Domain.from_dict(domain)
+
+            self._domains.append(dom)
+            self._symbols[dom.name] = dom
 
     def _cdms2_selector_value(self, dim):
         """ Creates the value for a CDMS2 selector. """
@@ -180,7 +192,11 @@ class ESGFProcess(WPSProcess):
 
     def execute(self):
         """ Called by Pywps library when process is executing. """
+        logger.info('Executing process %s' % self.identifier)
+
         self._load_data()
+
+        logger.info('Finished loading data')
     
         args_list = [arg for arg in self._operation.parameters
                         if not isinstance(arg, NamedParameter)]
@@ -191,11 +207,22 @@ class ESGFProcess(WPSProcess):
         args = [self._symbols[arg.name] for arg in args_list]
         kwargs = dict([(arg.name, arg.values) for arg in kwargs_list])
 
+        logger.info('Beginning execution')
+
         output_file_paths = self(*args, **kwargs)
 
-        out_var = Variable(output_file_paths, self._variable.var_name, name='')
+        logger.info('Finished execution')
+
+        domain = self._symbols[self._variable.domains] 
+
+        out_var = Variable(output_file_paths,
+                           self._variable.var_name,
+                           domains=domain,
+                           name='')
 
         temp_file = NamedTemporaryFile(delete=False)
+
+        logger.info('Writing process output to %s' % temp_file.name)
 
         temp_file.write(json.dumps(out_var.parameterize()))
 

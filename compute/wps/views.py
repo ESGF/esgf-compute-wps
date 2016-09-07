@@ -18,10 +18,9 @@ PROCESSES = load_processes()
 import os
 import re
 import json
-import logging
 import settings
 
-logger = logging.getLogger(__name__)
+from wps import logger
 
 def strip_tag_namespace(tag):
     if re.match('^{.*}', tag):
@@ -31,11 +30,11 @@ def strip_tag_namespace(tag):
 
 def execute_process(method, query_string):
     if os.path.exists(settings.WPS_CONFIG):
-        logging.info('Pywps with confiuration %s' % (settings.WPS_CONFIG))
+        logger.info('Pywps with confiuration %s' % (settings.WPS_CONFIG))
 
         service = Pywps(method, settings.WPS_CONFIG)
     else:
-        logging.info('No Pywps configuration')
+        logger.info('No Pywps configuration')
 
         service = Pywps(method)
 
@@ -47,7 +46,7 @@ def view_main(request):
     return render(request, 'wps/index.html')
 
 def api_processes(request):
-    logging.info('Requesting processes')
+    logger.info('Requesting processes')
 
     service_response = execute_process(pywps.METHOD_GET, 'version=1.0&service=wps&request=getcapabilities')
 

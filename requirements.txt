@@ -1,6 +1,6 @@
-pywps
+pywps==3.2.6
 pyophidia
-django
+django==1.10.0
 django-cors-headers
 owslib
 git+https://github.com/esgf/esgf-compute-api
