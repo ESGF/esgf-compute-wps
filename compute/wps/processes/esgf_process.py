@@ -93,6 +93,7 @@ class ESGFProcess(WPSProcess):
         self._operation = None
         self._variable = None
         self._domains = []
+        self._output = None
 
         self._symbols = {}
 
@@ -185,6 +186,19 @@ class ESGFProcess(WPSProcess):
 
         return out_file_path
 
+    def process_output(self, file_path, mime_type):
+        """ Creates variable to set process output. """
+        out_var = Variable(file_path,
+                           self._variable.var_name,
+                           domains = self._symbols[self._variable.domains],
+                           mime_type = mime_type)
+
+        temp_file = NamedTemporaryFile(delete=False)
+
+        temp_file.write(json.dumps(out_var.parameterize()))
+        
+        self.setOutputValue('output', temp_file.name)
+
     def __call__(self, *arg, **kwarg):
         """ Raises error when subclass has not overridden __call__. """
         raise WPSServerError('%s must implement __call__ function.' %
@@ -209,21 +223,6 @@ class ESGFProcess(WPSProcess):
 
         logger.info('Beginning execution')
 
-        output_file_paths = self(*args, **kwargs)
+        result = self(*args, **kwargs)
 
         logger.info('Finished execution')
-
-        domain = self._symbols[self._variable.domains] 
-
-        out_var = Variable(output_file_paths,
-                           self._variable.var_name,
-                           domains=domain,
-                           name='')
-
-        temp_file = NamedTemporaryFile(delete=False)
-
-        logger.info('Writing process output to %s' % temp_file.name)
-
-        temp_file.write(json.dumps(out_var.parameterize()))
-
-        self.setOutputValue('output', temp_file.name)

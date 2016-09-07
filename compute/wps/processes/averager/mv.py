@@ -41,7 +41,7 @@ class CDMS2Process(ESGFProcess):
     
         new_nc.close()
 
-        return out_file
+        self.process_output(out_file, 'application/netcdf')
 
     def _find_axis_index(self, func, axes, value):
         """ Helper function to translate cdms2 indexes. """
