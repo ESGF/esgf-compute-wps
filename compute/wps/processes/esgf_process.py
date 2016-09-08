@@ -195,7 +195,7 @@ class ESGFProcess(WPSProcess):
 
         out_var = Variable(file_path,
                            self._variable.var_name,
-                           domains = self._symbols[self._variable.domains],
+                           domains = self._variable.domains,
                            mime_type = mime_type)
 
         temp_file = NamedTemporaryFile(delete=False)
