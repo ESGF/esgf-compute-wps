@@ -3,13 +3,15 @@ $(document).ready(function() {
     var query_line = $('#query').val();
     var url = '/wps';
     var selected_process = $('#process_select option:selected').attr('value');
-    
+
     params = {
       'version': '1.0.0',
       'service': 'wps',
       'request': 'execute',
       'identifier': selected_process,
       'datainputs': '['.concat(query_line).concat(']'),
+      'storeexecuteresponse': $('#store').is(':checked'),
+      'status': $('#status').is(':checked'),
     }
 
     $.get(url, params, function(data) {
