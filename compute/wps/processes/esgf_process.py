@@ -21,6 +21,7 @@ import sys
 import json
 import cdms2
 import types
+import mimetypes
 
 from wps import logger
 
@@ -175,19 +176,23 @@ class ESGFProcess(WPSProcess):
 
         self._symbols[self._variable.name] = var
 
-    def output_file(self):
+    def output_file(self, mime_type):
         """ Returns path to a valid output file. """
         out_path = config.getConfigValue('server', 'outputPath', '/var/wps')
 
         if not os.path.exists(out_path):
             os.mkdir(out_path)
 
-        out_file_path = os.path.join(out_path, '%s.nc' % (str(uuid()),))
+        ext = mimetypes.guess_extension(mime_type)
+
+        out_file_path = os.path.join(out_path, '%s%s' % (str(uuid()), ext))
 
         return out_file_path
 
-    def process_output(self, file_path, mime_type):
+    def process_output(self, file_path):
         """ Creates variable to set process output. """
+        mime_type, _ = mimetypes.guess_type(file_path)
+
         out_var = Variable(file_path,
                            self._variable.var_name,
                            domains = self._symbols[self._variable.domains],
