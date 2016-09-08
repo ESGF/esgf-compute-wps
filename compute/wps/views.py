@@ -11,16 +11,14 @@ from urllib import unquote
 
 from tempfile import NamedTemporaryFile
 
-from wps.processes import load_processes
-
-PROCESSES = load_processes()
-
 import os
 import re
 import json
 import settings
 
 from wps import logger
+
+os.environ['PYWPS_PROCESSES'] = settings.PROCESS_DIR
 
 def strip_tag_namespace(tag):
     if re.match('^{.*}', tag):
@@ -40,7 +38,7 @@ def execute_process(method, query_string):
 
     service_inputs = service.parseRequest(query_string)
 
-    return service.performRequest(processes=PROCESSES)
+    return service.performRequest()
 
 def view_main(request):
     return render(request, 'wps/index.html')

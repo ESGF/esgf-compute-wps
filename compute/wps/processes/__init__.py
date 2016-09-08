@@ -9,27 +9,19 @@ from esgf_process import ESGFProcess
 import os
 import glob
 
+def file_path_to_package(path):
+    path_no_ext, _ = os.path.splitext(path)
+
+    package_path = os.path.relpath(path_no_ext, settings.BASE_DIR)
+
+    return package_path.replace('/', '.')
+
 def load_processes():
     process_path = os.path.dirname(__file__)
 
-    candidates = os.listdir(process_path)
+    process_file_paths = glob.glob(os.path.join(process_path, '**/*.py'))
 
-    candidates = [os.path.join(process_path, cand) for cand in candidates
-                  if os.path.isdir(os.path.join(process_path, cand))]
+    return [file_path_to_package(x) for x in process_file_paths
+            if '__init__' not in x]
 
-    processes = []
-
-    for candidate in candidates:
-        module_path, _ = os.path.splitext(candidate)
-        module_path = os.path.relpath(module_path, settings.BASE_DIR)
-        module_path = module_path.replace('/', '.')
-
-        module = import_module(module_path)
-
-        for cls_str in [x for x in module.__dict__ if '__' not in x]:
-            cls = getattr(module, cls_str)
-
-            if isclass(cls) and issubclass(cls, ESGFProcess):
-                processes.append(cls)
-
-    return processes
+__all__ = load_processes()

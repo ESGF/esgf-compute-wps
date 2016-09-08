@@ -15,6 +15,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 WPS_DIR = os.path.join(BASE_DIR, 'wps')
 
+PROCESS_DIR = os.path.join(WPS_DIR, 'processes')
+
 WPS_CONFIG = os.path.join(WPS_DIR, 'wps.cfg')
 
 # Quick-start development settings - unsuitable for production
