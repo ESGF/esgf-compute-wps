@@ -123,7 +123,7 @@ class ESGFProcess(WPSProcess):
 
         logger.info('Loading variable "%s"' % var_str)
 
-        var = Variable.from_dict(json.loads(var_str[0]))
+        var = Variable.from_dict(json.loads(var_str[0]), self._symbols)
 
         self._variable = var 
 
@@ -150,7 +150,7 @@ class ESGFProcess(WPSProcess):
 
     def _cdms2_selector(self):
         """ Creates a CDMS2 selector from the variables domain. """
-        domain = self._symbols[self._variable.domains]
+        domain = self._variable.domains[0]
 
         selector = {}
 

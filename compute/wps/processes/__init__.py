@@ -1,13 +1,6 @@
-from wps import settings
-
-from importlib import import_module
-
-from inspect import isclass
-
-from esgf_process import ESGFProcess
-
 import os
 import glob
+import settings
 
 def file_path_to_package(path):
     path_no_ext, _ = os.path.splitext(path)
