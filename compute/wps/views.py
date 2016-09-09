@@ -1,9 +1,12 @@
 from django.http import HttpResponse
 from django.http import JsonResponse
+from django.http import FileResponse
+from django.http import Http404
 from django.shortcuts import render
 
 import pywps
 from pywps import Pywps
+from pywps import config
 
 from lxml import etree
 
@@ -15,6 +18,8 @@ import os
 import re
 import json
 import settings
+
+config.loadConfiguration(settings.WPS_CONFIG)
 
 from wps import logger
 
@@ -99,3 +104,13 @@ def wps(request):
         return HttpResponse('%s is an unsupported method.' % (request.method,))
 
     return HttpResponse(service_response, content_type='text/xml')
+
+def status(request, file_name):
+    output_path = config.getConfigValue('server', 'outputPath')
+
+    output_file = os.path.join(output_path, file_name)
+    
+    if not os.path.exists(output_file):
+        raise Http404('%s does not exist' % file_name)
+    
+    return FileResponse(open(output_file, 'r'))
