@@ -17,4 +17,16 @@ def load_processes():
     return [file_path_to_package(x) for x in process_file_paths
             if '__init__' not in x]
 
+from owslib.util import log
+
+import sys
+
+# After Pywps forks for async operation the sys.path does not include
+# the base path to the django project. Imports from the root package i.e.
+# from wps import settings will not work until path is fixed. Oddly 
+# the path for ./compute/wps is in sys.path and we can load settings through
+# import settings.
+if settings.BASE_DIR not in sys.path:
+    sys.path.insert(2, settings.BASE_DIR)
+
 __all__ = load_processes()
