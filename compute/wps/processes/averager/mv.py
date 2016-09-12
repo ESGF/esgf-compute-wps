@@ -1,9 +1,12 @@
 """
 CDMS2 MV Averager module.
 """
+from wps import logger
 from ..esgf_process import ESGFProcess
 
 from pywps import config
+
+from cdutil import averager
 
 import os
 import cdms2
@@ -21,23 +24,19 @@ class CDMS2Process(ESGFProcess):
         """Process initialization"""
         ESGFProcess.__init__(
             self,
-            'Averager')
+            'UV-CDAT cdutil averager')
 
     def __call__(self, v0, axes):
         """ Averages a variable over multiple dimensions. """
-        axis_list = v0.getAxisList()
-        axes_map = {}
-
         out_file = self.output_file('application/x-netcdf')
 
         new_nc = cdms2.open(out_file, 'w') 
+        
+        axis = ''.join(str(v0.getAxisIndex(x)) for x in axes)
 
-        for axis in axes:
-            id_axis = self._find_axis_index(lambda x: x.id, axis_list, axis)
+        new_var = averager(v0, axis=axis)
 
-            new_var = cdms2.MV.average(v0, axis=id_axis[0][1])
-
-            new_nc.write(new_var, id='avg_%s' % (axis,))
+        new_nc.write(new_var, id='avg_%s' % ('_'.join(axes),))
     
         new_nc.close()
 
