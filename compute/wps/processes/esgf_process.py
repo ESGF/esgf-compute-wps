@@ -24,6 +24,9 @@ import types
 import mimetypes
 
 from wps import logger
+from wps import settings
+
+PYWPS_OUTPUT = config.getConfigValue('server', 'outputPath', '/var/lib/wps')
 
 class ESGFProcess(WPSProcess):
     """ ESGF Process.
@@ -178,14 +181,12 @@ class ESGFProcess(WPSProcess):
 
     def output_file(self, mime_type):
         """ Returns path to a valid output file. """
-        out_path = config.getConfigValue('server', 'outputPath', '/var/wps')
-
-        if not os.path.exists(out_path):
-            os.mkdir(out_path)
+        if not os.path.exists(PYWPS_OUTPUT):
+            os.mkdir(PYWPS_OUTPUT)
 
         ext = mimetypes.guess_extension(mime_type)
 
-        out_file_path = os.path.join(out_path, '%s%s' % (str(uuid()), ext))
+        out_file_path = os.path.join(PYWPS_OUTPUT, '%s%s' % (str(uuid()), ext))
 
         return out_file_path
 
@@ -193,7 +194,11 @@ class ESGFProcess(WPSProcess):
         """ Creates variable to set process output. """
         mime_type, _ = mimetypes.guess_type(file_path)
 
-        out_var = Variable(file_path,
+        file_name = os.path.split(file_path)[1]
+
+        out_var = Variable('http://%s:%s/%s' % (settings.DAP_HOSTNAME,
+                                                settings.DAP_PORT,
+                                                file_name),
                            self._variable.var_name,
                            domains = self._variable.domains,
                            mime_type = mime_type)

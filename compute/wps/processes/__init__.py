@@ -17,8 +17,6 @@ def load_processes():
     return [file_path_to_package(x) for x in process_file_paths
             if '__init__' not in x]
 
-from owslib.util import log
-
 import sys
 
 # After Pywps forks for async operation the sys.path does not include

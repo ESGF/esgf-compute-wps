@@ -19,6 +19,9 @@ PROCESS_DIR = os.path.join(WPS_DIR, 'processes')
 
 WPS_CONFIG = os.path.join(WPS_DIR, 'wps.cfg')
 
+DAP_HOSTNAME = '0.0.0.0'
+DAP_PORT = 8001
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
