@@ -190,6 +190,10 @@ class ESGFProcess(WPSProcess):
 
         return out_file_path
 
+    def update_status(self, message, progress):
+        """ Updates process status. """
+        self.status.set(message, progress)
+
     def process_output(self, file_path):
         """ Creates variable to set process output. """
         mime_type, _ = mimetypes.guess_type(file_path)
