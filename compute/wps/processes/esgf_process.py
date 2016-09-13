@@ -173,7 +173,10 @@ class ESGFProcess(WPSProcess):
         # TODO dynamic reader dependent on mime-type
         file_obj = cdms2.open(self._variable.uri, 'r')
 
-        selector = self._cdms2_selector()
+        selector = {}
+
+        if len(self._variable.domains):
+            selector = self._cdms2_selector()
 
         var = file_obj(self._variable.var_name, **selector)
 
