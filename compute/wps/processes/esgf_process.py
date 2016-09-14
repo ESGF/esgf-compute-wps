@@ -120,6 +120,10 @@ class ESGFProcess(WPSProcess):
 
         self._operation = Operation.from_str(self.identifier, op_str)
 
+        for param in self._operation.parameters:
+            if param.name not in self._symbols:
+                self._symbols[param.name] = param.values
+
     def _load_variable(self):
         """ Loads the variable to be processed. """
         var_str = self._read_input('variable')
@@ -129,6 +133,8 @@ class ESGFProcess(WPSProcess):
         var = Variable.from_dict(json.loads(var_str[0]), self._symbols)
 
         self._variable = var 
+
+        self._symbols[var.name] = var
 
     def _load_domains(self):
         """ Loads the domains that will be used in the process. """
@@ -164,11 +170,11 @@ class ESGFProcess(WPSProcess):
 
     def _load_data(self):
         """ Loads all the required data for the process. """
-        self._load_operation()
-
         self._load_domains()
 
         self._load_variable()
+
+        self._load_operation()
 
         # TODO dynamic reader dependent on mime-type
         file_obj = cdms2.open(self._variable.uri, 'r')
@@ -216,10 +222,16 @@ class ESGFProcess(WPSProcess):
         
         self.setOutputValue('output', temp_file.name)
 
-    def __call__(self, *arg, **kwarg):
+    def __call__(self):
         """ Raises error when subclass has not overridden __call__. """
         raise WPSServerError('%s must implement __call__ function.' %
                              (self.identifier,))
+
+    def get_parameter(self, name):
+        if name not in self._symbols:
+            raise WPSServerError('Parameter %s was not provided.' % name)
+
+        return self._symbols[name]
 
     def execute(self):
         """ Called by Pywps library when process is executing. """
@@ -228,18 +240,9 @@ class ESGFProcess(WPSProcess):
         self._load_data()
 
         logger.info('Finished loading data')
-    
-        args_list = [arg for arg in self._operation.parameters
-                        if not isinstance(arg, NamedParameter)]
-        
-        kwargs_list = [arg for arg in self._operation.parameters
-                          if arg not in args_list]
-
-        args = [self._symbols[arg.name] for arg in args_list]
-        kwargs = dict([(arg.name, arg.values) for arg in kwargs_list])
 
         logger.info('Beginning execution')
 
-        result = self(*args, **kwargs)
+        result = self()
 
         logger.info('Finished execution')

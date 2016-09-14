@@ -4,6 +4,8 @@ CDMS2 MV Averager module.
 from wps import logger
 from wps.processes.esgf_process import ESGFProcess
 
+from esgf import WPSServerError
+
 from pywps import config
 
 from cdutil import averager
@@ -28,8 +30,12 @@ class CDMS2Process(ESGFProcess):
             self,
             'UV-CDAT cdutil averager')
 
-    def __call__(self, v0, axes):
+    def __call__(self):
         """ Averages a variable over multiple dimensions. """
+        v0 = self.get_parameter('v0')
+
+        axes = self.get_parameter('axes')
+
         axis = ''.join(str(v0.getAxisIndex(x)) for x in axes)
 
         self.update_status('Average over %r' % zip(axes, axis), 25.0)
