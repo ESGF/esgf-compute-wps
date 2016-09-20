@@ -1,0 +1,20 @@
+version: '2'
+services:
+  wps:
+    build:
+      context: ../../
+    volumes_from:
+      - thredds
+    ports:
+      - "8000:8000"
+    links:
+      - thredds
+
+  thredds:
+    build: .
+    volumes:
+      - ~/data:/root/data
+    expose:
+      - 8080
+    ports:
+      - "8080:8080"

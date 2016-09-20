@@ -18,6 +18,8 @@ COPY requirements.txt requirements.txt
 
 RUN pip install lxml==3.5.0
 
+RUN apt-get install -y git
+
 RUN C_INCLUDE_PATH=/usr/include/gdal CPLUS_INCLUDE_PATH=/usr/include/gdal pip install -r requirements.txt --no-deps
 
 COPY compute/ compute/
