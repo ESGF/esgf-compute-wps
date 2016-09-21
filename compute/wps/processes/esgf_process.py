@@ -121,7 +121,8 @@ class ESGFProcess(WPSProcess):
         self._operation = Operation.from_str(self.identifier, op_str)
 
         for param in self._operation.parameters:
-            if param.name not in self._symbols:
+            if (isinstance(param, NamedParameter) and
+                    param.name not in self._symbols):
                 self._symbols[param.name] = param.values
 
     def _load_variable(self):
@@ -227,11 +228,13 @@ class ESGFProcess(WPSProcess):
         raise WPSServerError('%s must implement __call__ function.' %
                              (self.identifier,))
 
-    def get_parameter(self, name):
-        if name not in self._symbols:
-            raise WPSServerError('Parameter %s was not provided.' % name)
-
-        return self._symbols[name]
+    def get_parameters(self):
+        try:
+            params = [self._symbols[x.name] for x in self._operation.parameters]
+        except KeyError as e:
+            raise WPSServerError('Missing parameter \'%s\'' % e.message)
+        else:
+            return params
 
     def execute(self):
         """ Called by Pywps library when process is executing. """
@@ -243,6 +246,6 @@ class ESGFProcess(WPSProcess):
 
         logger.info('Beginning execution')
 
-        result = self()
+        self()
 
         logger.info('Finished execution')

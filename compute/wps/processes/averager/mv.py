@@ -32,17 +32,17 @@ class CDMS2Process(ESGFProcess):
 
     def __call__(self):
         """ Averages a variable over multiple dimensions. """
-        v0 = self.get_parameter('v0')
+        variable, axes = self.get_parameters()
 
-        axes = self.get_parameter('axes')
+        logger.info(type(variable))
 
-        axis = ''.join(str(v0.getAxisIndex(x)) for x in axes)
+        axis = ''.join(str(variable.getAxisIndex(x)) for x in axes)
 
         self.update_status('Average over %r' % zip(axes, axis), 25.0)
 
         start = datetime.now()
 
-        new_var = averager(v0, axis=axis)
+        new_var = averager(variable, axis=axis)
 
         self.update_status('Finished average in %s' % (datetime.now()-start), 50.0)
 
