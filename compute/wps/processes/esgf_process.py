@@ -71,17 +71,17 @@ class ESGFProcess(WPSProcess):
             ],
             maxmegabites=None)
 
-        self.addLiteralInput(
+        self.addComplexInput(
             'operation',
             'Operation',
             'Operation/Arguments for the process.',
-            uoms=(),
+            metadata=[],
             minOccurs=1,
             maxOccurs=1,
-            allowedValues=('*'),
-            type=types.StringType,
-            default=None,
-            metadata=[])
+            formats=[
+                {'mimeType': 'text/json'}
+            ],
+            maxmegabites=None)
 
         self.addComplexOutput(
             'output',
@@ -94,9 +94,9 @@ class ESGFProcess(WPSProcess):
             useMapscript=False,
             asReference=False)
 
-        self._operation = None
-        self._variable = None
-        self._domains = []
+        self._variable = []
+        self._domain = []
+        self._operation = []
         self._output = None
 
         self._symbols = {}
@@ -114,42 +114,42 @@ class ESGFProcess(WPSProcess):
 
     def _load_operation(self):
         """ Loads the processes operation. """
-        op_str = self._read_input_literal('operation')
+        op_param = self._read_input('operation')[0]
 
-        logger.info('Loading operation "%s"' % op_str)
+        logger.info('Loading operation "%s"' % op_param)
 
-        self._operation = Operation.from_str(self.identifier, op_str)
+        op_dict = json.loads(op_param)
 
-        for param in self._operation.parameters:
-            if (isinstance(param, NamedParameter) and
-                    param.name not in self._symbols):
-                self._symbols[param.name] = param.values
+        for op in op_dict:
+            op_obj = Operation.from_dict(op)
+
+            self._operation.append(op_obj)
 
     def _load_variable(self):
         """ Loads the variable to be processed. """
-        var_str = self._read_input('variable')
+        var_param = self._read_input('variable')[0]
 
-        logger.info('Loading variable "%s"' % var_str)
+        logger.info('Loading variable "%s"' % var_param)
 
-        var = Variable.from_dict(json.loads(var_str[0]), self._symbols)
+        var_dict = json.loads(var_param)
 
-        self._variable = var 
+        for var in var_dict:
+            var_obj = Variable.from_dict(var, self._symbols)
 
-        self._symbols[var.name] = var
+            self._variable.append(var_obj)
 
     def _load_domains(self):
         """ Loads the domains that will be used in the process. """
-        dom_str = self._read_input('domain')
+        dom_param = self._read_input('domain')[0]
 
-        logger.info('Loading domains %s' % dom_str)
+        logger.info('Loading domain %s' % dom_param)
 
-        domains = json.loads(dom_str[0])
+        dom_dict = json.loads(dom_param)
 
-        for domain in domains:
-            dom = Domain.from_dict(domain)
+        for dom in dom_dict:
+            dom_obj = Domain.from_dict(dom)
 
-            self._domains.append(dom)
-            self._symbols[dom.name] = dom
+            self._domain.append(dom_obj)
 
     def _cdms2_selector_value(self, dim):
         """ Creates the value for a CDMS2 selector. """
@@ -177,17 +177,15 @@ class ESGFProcess(WPSProcess):
 
         self._load_operation()
 
-        # TODO dynamic reader dependent on mime-type
-        file_obj = cdms2.open(self._variable.uri, 'r')
+        for var in self._variable:
+            file_obj = cdms2.open(var.uri, 'r')
 
-        selector = {}
+            self._symbols[var.name] = file_obj[var.var_name]
 
-        if len(self._variable.domains):
-            selector = self._cdms2_selector()
-
-        var = file_obj(self._variable.var_name, **selector)
-
-        self._symbols[self._variable.name] = var
+        for op in self._operation:
+            for param in op.parameters:
+                if isinstance(param, NamedParameter):
+                    self._symbols[param.name] = param.values
 
     def output_file(self, mime_type):
         """ Returns path to a valid output file. """
@@ -213,8 +211,8 @@ class ESGFProcess(WPSProcess):
         out_var = Variable('http://%s:%s/%s' % (settings.DAP_HOSTNAME,
                                                 settings.DAP_PORT,
                                                 file_name),
-                           self._variable.var_name,
-                           domains = self._variable.domains,
+                           self._variable[0].var_name,
+                           domains = self._variable[0].domains,
                            mime_type = mime_type)
 
         temp_file = NamedTemporaryFile(delete=False)
@@ -228,13 +226,13 @@ class ESGFProcess(WPSProcess):
         raise WPSServerError('%s must implement __call__ function.' %
                              (self.identifier,))
 
-    def get_parameters(self):
-        try:
-            params = [self._symbols[x.name] for x in self._operation.parameters]
-        except KeyError as e:
-            raise WPSServerError('Missing parameter \'%s\'' % e.message)
-        else:
-            return params
+    def get_input(self):
+        """ Gets inputs for current process. """
+        return [self._symbols[x.name] for x in self._operation[0].input]
+
+    def get_parameter(self, name):
+        """ Gets parameter by name. """
+        return self._symbols[name]
 
     def execute(self):
         """ Called by Pywps library when process is executing. """
