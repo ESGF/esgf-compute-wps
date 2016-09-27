@@ -17,11 +17,11 @@ from tempfile import NamedTemporaryFile
 import os
 import re
 import json
-import settings
-
-config.loadConfiguration(settings.WPS_CONFIG)
 
 from wps import logger
+from wps.conf import settings
+
+config.loadConfiguration(settings.WPS_CONFIG)
 
 os.environ['PYWPS_PROCESSES'] = settings.PROCESS_DIR
 
@@ -45,7 +45,7 @@ def execute_process(method, query_string):
 
     return service.performRequest()
 
-def view_main(request):
+def index(request):
     return render(request, 'wps/index.html')
 
 def api_processes(request):

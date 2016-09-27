@@ -24,7 +24,7 @@ import types
 import mimetypes
 
 from wps import logger
-from wps import settings
+from wps.conf import settings
 
 PYWPS_OUTPUT = config.getConfigValue('server', 'outputPath', '/var/lib/wps')
 

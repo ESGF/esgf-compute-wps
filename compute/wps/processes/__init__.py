@@ -1,7 +1,7 @@
 import os
 import glob
 
-from wps import settings
+from django.conf import settings
 
 def file_path_to_package(path):
     path_no_ext, _ = os.path.splitext(path)
