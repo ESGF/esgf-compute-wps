@@ -13,7 +13,7 @@ services:
   thredds:
     build: .
     volumes:
-      - ~/data:/root/data
+      - ~/:/data
     expose:
       - 8080
     ports:

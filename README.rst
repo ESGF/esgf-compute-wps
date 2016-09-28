@@ -25,6 +25,7 @@ Docker
 
 Provided are several docker files and docker-compose files.
 
+****************************
 Standalone Django WPS server
 ****************************
 
@@ -36,13 +37,15 @@ You can access the demo page at http://0.0.0.0:8000
 
     docker run -d -p 8000:8000 wps
 
+***************************
 Django WPS w/THREDDS server
 ***************************
 
-The Django and THREDDS server will share a directory /root/data.
-THREDDS is not configured with users or datasets. 
+Django WPS and THREDDS will share a volume at /data which points to your home
+directory.
 
-Access Django on port http://0.0.0.0:8000 and THREDDS on http://0.0.0.0:8001.
+Django WPS can be accessed at http://0.0.0.0:8000
+THREDDS can be accessed at http://0.0.0.0:8080/thredds
 
 ::
 
