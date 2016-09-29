@@ -1,0 +1,11 @@
+sudo: required
+
+services:
+  - docker
+
+install:
+  - docker build -t wps .
+  - docker run -d -p 8000:8000 --name wps wps
+
+script:
+  - docker ps -a
