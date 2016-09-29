@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.http import FileResponse
 from django.http import Http404
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
 
 import pywps
 from pywps import Pywps
@@ -76,6 +77,7 @@ def api_processes(request):
 
     return JsonResponse({'processes': processes})
 
+@login_required
 def wps(request):
     if request.method == 'GET':
         # Corrects the query format

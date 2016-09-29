@@ -14,9 +14,26 @@ $(document).ready(function() {
       'status': $('#status').is(':checked'),
     }
 
-    $.get(url, params, function(data) {
-      $('#result').text(data);
-    }, 'text');
+    var username = $('#username').val();
+    var password = $('#password').val();
+
+    var basic_auth = 'Basic '.concat(window.btoa(username.concat(':').concat(password)));
+
+    $.ajax({
+      beforeSend: function(xhr) {
+        xhr.setRequestHeader('Authorization', basic_auth);
+      },
+      dataType: 'text',
+      method: 'GET',
+      url: url,
+      data: params,
+      error: function(xhr, textStatus, errorThrown) {
+        $('#result').text(textStatus.concat(':').concat(errorThrown));
+      },
+      success: function(data, textStatus, xhr) {
+        $('#result').text(data);
+      },
+    });
   });
 
   $('#getcapabilities_btn').click(function() {
