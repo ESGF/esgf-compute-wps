@@ -22,6 +22,10 @@ WORKDIR /var/www
 
 COPY compute/ compute/
 
-RUN mkdir -p /tmp/wps && /data
+WORKDIR compute/
 
-CMD ["python", "compute/manage.py", "runserver", "0.0.0.0:8000"]
+RUN python manage.py migrate
+
+RUN mkdir -p /tmp/wps /data
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
