@@ -200,6 +200,8 @@ class ESGFProcess(WPSProcess):
 
     def update_status(self, message, progress):
         """ Updates process status. """
+        logger.info('Status %s' % (message,))
+
         self.status.set(message, progress)
 
     def process_output(self, file_path):
