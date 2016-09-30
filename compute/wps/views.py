@@ -26,6 +26,9 @@ config.loadConfiguration(settings.WPS_CONFIG)
 
 os.environ['PYWPS_PROCESSES'] = settings.PROCESS_DIR
 
+def test(request):
+    return HttpRepsonse('test')
+
 def strip_tag_namespace(tag):
     if re.match('^{.*}', tag):
         return re.sub('^{.*}', '', tag)
@@ -89,7 +92,7 @@ def wps(request):
 
         service_response = execute_process(pywps.METHOD_GET, query)
     elif request.method == 'POST':
-        query = request.read()
+        query = request.POST['document']
 
         temp_file = NamedTemporaryFile(delete=False)
 
