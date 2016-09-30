@@ -26,9 +26,6 @@ config.loadConfiguration(settings.WPS_CONFIG)
 
 os.environ['PYWPS_PROCESSES'] = settings.PROCESS_DIR
 
-def test(request):
-    return HttpRepsonse('test')
-
 def strip_tag_namespace(tag):
     if re.match('^{.*}', tag):
         return re.sub('^{.*}', '', tag)

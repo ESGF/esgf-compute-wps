@@ -69,11 +69,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'compute.wsgi.application'
 
-SESSION_COOKIE_AGE = 5
-
 # Authentication
 
-LOGIN_URL = '/esgf/login'
+LOGIN_URL = '/esgf/login/'
 
 AUTHENTICATION_BACKENDS = [
     'esgf_auth.backend.MyProxyClientBackend',
