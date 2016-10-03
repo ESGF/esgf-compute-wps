@@ -210,16 +210,20 @@ class ESGFProcess(WPSProcess):
 
         file_name = os.path.split(file_path)[1]
 
-        out_var = Variable('http://%s:%s/%s' % (settings.DAP_HOSTNAME,
-                                                settings.DAP_PORT,
-                                                file_name),
-                           self._variable[0].var_name,
-                           domains = self._variable[0].domains,
-                           mime_type = mime_type)
+        format_args = {
+            'hostname': settings.DAP_HOSTNAME,
+            'port': ':%s' % (settings.DAP_PORT,) if settings.DAP_PORT else '',
+            'filename': file_name,
+        }
+
+        output_var = Variable(settings.DAP_PATH_FORMAT.format(**format_args),
+                              self._variable[0].var_name,
+                              domains = self._variable[0].domains,
+                              mime_type = mime_type)
 
         temp_file = NamedTemporaryFile(delete=False)
 
-        temp_file.write(json.dumps(out_var.parameterize()))
+        temp_file.write(json.dumps(output_var.parameterize()))
         
         self.setOutputValue('output', temp_file.name)
 
