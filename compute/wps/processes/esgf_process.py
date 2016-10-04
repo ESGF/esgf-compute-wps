@@ -10,6 +10,7 @@ from esgf import Operation
 from esgf import NamedParameter
 from esgf import Parameter
 from esgf import Variable
+from esgf import Gridder
 from esgf import WPSServerError
 
 from uuid import uuid4 as uuid
@@ -95,7 +96,6 @@ class ESGFProcess(WPSProcess):
             asReference=False)
 
         self._variable = []
-        self._domain = []
         self._operation = []
         self._output = None
 
@@ -116,12 +116,14 @@ class ESGFProcess(WPSProcess):
         """ Loads the processes operation. """
         op_param = self._read_input('operation')[0]
 
-        logger.info('Loading operation "%s"' % op_param)
+        logger.info('Received operations %s', op_param)
 
         op_dict = json.loads(op_param)
 
         for op in op_dict:
             op_obj = Operation.from_dict(op)
+
+            logger.info('Loaded operation %r', op_obj)
 
             self._operation.append(op_obj)
 
@@ -129,12 +131,14 @@ class ESGFProcess(WPSProcess):
         """ Loads the variable to be processed. """
         var_param = self._read_input('variable')[0]
 
-        logger.info('Loading variable "%s"' % var_param)
+        logger.info('Received variables %s', var_param)
 
         var_dict = json.loads(var_param)
 
         for var in var_dict:
             var_obj = Variable.from_dict(var, self._symbols)
+
+            logger.info('Loaded variable %r', var_obj)
 
             self._variable.append(var_obj)
 
@@ -142,32 +146,16 @@ class ESGFProcess(WPSProcess):
         """ Loads the domains that will be used in the process. """
         dom_param = self._read_input('domain')[0]
 
-        logger.info('Loading domain %s' % dom_param)
+        logger.info('Received domains %s', dom_param)
 
         dom_dict = json.loads(dom_param)
 
         for dom in dom_dict:
             dom_obj = Domain.from_dict(dom)
 
-            self._domain.append(dom_obj)
+            logger.info('Loaded domain %r', dom_obj)
 
-    def _cdms2_selector_value(self, dim):
-        """ Creates the value for a CDMS2 selector. """
-        if not dim.end:
-            return dim.start
-
-        return (dim.start, dim.end)
-
-    def _cdms2_selector(self):
-        """ Creates a CDMS2 selector from the variables domain. """
-        domain = self._variable.domains[0]
-
-        selector = {}
-
-        for dim in domain.dimensions:
-            selector[dim.name] = self._cdms2_selector_value(dim)
-
-        return selector
+            self._symbols[dom_obj.name] = dom_obj
 
     def _load_data(self):
         """ Loads all the required data for the process. """
@@ -177,15 +165,70 @@ class ESGFProcess(WPSProcess):
 
         self._load_operation()
 
-        for var in self._variable:
-            file_obj = cdms2.open(var.uri, 'r')
-
-            self._symbols[var.name] = file_obj[var.var_name]
+        gridder = None
 
         for op in self._operation:
             for param in op.parameters:
                 if isinstance(param, NamedParameter):
                     self._symbols[param.name] = param.values
+                elif isinstance(param, Gridder):
+                    gridder = param
+        
+        for var in self._variable:
+            file_obj = cdms2.open(var.uri, 'r')
+
+            self._symbols[var.name] = file_obj[var.var_name]
+
+            if gridder:
+                try:
+                    var_regrid = self._regrid(gridder, self._symbols[var.name])
+                except AttributeError as e:
+                    raise WPSServerError('Regridding failed: %s' % (e.message,))
+                else:
+                    self._symbols[var.name] = var_regrid
+
+    def _regrid(self, gridder, variable):
+        """ Attempts to regrid a variable. """
+        try:
+            grid = self._symbols[gridder.grid]
+        except KeyError:
+            raise WPSServerError('Unable to generate grid %s', gridder.grid)
+
+        if isinstance(grid, Variable):
+            temp_file = cdms2.open(grid.uri, 'r')
+
+            new_grid = temp_file[grid.var_name].getGrid()
+        else:
+            new_grid = self._new_grid_from_domain(grid)
+
+        return variable.regrid(new_grid, grid_tool=gridder.tool, grid_method=gridder.method)
+
+    def _new_grid_from_domain(self, domain):
+        """ Creates a new grid from a Domain object. """
+        lat = self._filter_domain_dimension(domain, ('latitude',))
+        lat_n = abs(lat.start-lat.end)
+        
+        lon = self._filter_domain_dimension(domain, ('longitude',))
+        lon_n = abs(lon.start-lon.end)
+
+        cdms2_args = {
+            'startLat': lat.start,
+            'nlat': lat_n,
+            'deltaLat': lat.step,
+            'startLon': lon.start,
+            'nlon': lon_n,
+            'deltaLon': lon.step,
+        }
+
+        return cdms2.createUniformGrid(**cdms2_args)
+
+    def _filter_domain_dimension(self, domain, targets):
+        values = [x for x in domain.dimensions if x.name in targets]
+
+        if not len(values):
+            raise WPSServerError('Did not find a dimension named %s in domain %s',
+                                 targets, domain)
+        return values[0]
 
     def output_file(self, mime_type):
         """ Returns path to a valid output file. """
@@ -234,7 +277,7 @@ class ESGFProcess(WPSProcess):
 
     def get_input(self):
         """ Gets inputs for current process. """
-        return [self._symbols[x.name] for x in self._operation[0].input]
+        return [self._symbols[x.name] for x in self._operation[0].inputs]
 
     def get_parameter(self, name):
         """ Gets parameter by name. """
