@@ -12,17 +12,22 @@ from esgf import Parameter
 from esgf import Variable
 from esgf import Gridder
 from esgf import WPSServerError
+from esgf import utils
 
 from uuid import uuid4 as uuid
 
 from tempfile import NamedTemporaryFile
 
 import os
+import re
 import sys
 import json
-import cdms2
 import types
 import mimetypes
+
+import cdms2
+import genutil
+from cdms2 import MV2
 
 from wps import logger
 from wps.conf import settings
@@ -177,15 +182,73 @@ class ESGFProcess(WPSProcess):
         for var in self._variable:
             file_obj = cdms2.open(var.uri, 'r')
 
-            self._symbols[var.name] = file_obj[var.var_name]
+            var_obj = file_obj(var.var_name)
+
+            if var.domains and var.domains[0].mask:
+                var_obj = self._apply_mask(var.domains[0].mask, var_obj)
+
+            self._symbols[var.name] = var_obj
 
             if gridder:
                 try:
                     var_regrid = self._regrid(gridder, self._symbols[var.name])
-                except AttributeError as e:
+                except Exception as e:
                     raise WPSServerError('Regridding failed: %s' % (e.message,))
                 else:
                     self._symbols[var.name] = var_regrid
+
+    def _apply_mask(self, mask, var_obj):
+        """ Applys mask to variable. """
+        logger.info('Applying mask %r', mask)
+
+        mask_file = cdms2.open(mask.uri)
+
+        mask_var = mask_file(mask.var_name)
+
+        value_pattern = 'mask_data|var_data|[0-9]*\.?[0-9]*'
+        equality_pattern = '<=|>=|<|>'
+        full_pattern = '(%s)(%s)(%s)' % (value_pattern,
+                                         equality_pattern,
+                                         value_pattern)
+
+        res = re.match(full_pattern, mask.operation)
+
+        if not res:
+            raise WPSServerError('Invalid mask operation: %s' % (mask.operation,))
+
+        op_map = {
+            '<=': MV2.less_equal,
+            '>=': MV2.greater_equal,
+            '<': MV2.less,
+            '>': MV2.greater,
+        }
+
+        left, op, right = res.groups()
+
+        left_data = self._get_data(var_obj, mask_var, left)
+        right_data = self._get_data(var_obj, mask_var, right)
+
+        mask_data = op_map[op](left_data, right_data)
+
+        if mask_data.shape != var_obj.shape:
+            mask_data, var_obj = genutil.grower(mask_data, var_obj)
+
+        mask_var = MV2.masked_where(mask_data, var_obj)
+
+        return mask_var
+
+    def _get_data(self, var_obj, mask_var, data):
+        """ Return literal value or referenced data. """
+        data_map = {
+            'var_data': var_obj,
+            'mask_data': mask_var,
+        }
+
+        try:
+            return data_map[data]
+        except KeyError:
+            # Return a literal value
+            return utils.int_or_float(data)
 
     def _regrid(self, gridder, variable):
         """ Attempts to regrid a variable. """
@@ -223,6 +286,7 @@ class ESGFProcess(WPSProcess):
         return cdms2.createUniformGrid(**cdms2_args)
 
     def _filter_domain_dimension(self, domain, targets):
+        """ Filters a domains dimensions. """
         values = [x for x in domain.dimensions if x.name in targets]
 
         if not len(values):
