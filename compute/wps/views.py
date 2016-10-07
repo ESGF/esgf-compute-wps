@@ -7,7 +7,6 @@ from django.contrib.auth.decorators import login_required
 
 import pywps
 from pywps import Pywps
-from pywps import config
 
 from lxml import etree
 
@@ -21,8 +20,9 @@ import json
 
 from wps import logger
 from wps.conf import settings
+from wps.processes import PROCESSES
 
-config.loadConfiguration(settings.WPS_CONFIG)
+pywps.config.loadConfiguration(settings.WPS_CONFIG)
 
 os.environ['PYWPS_PROCESSES'] = settings.PROCESS_DIR
 
@@ -44,7 +44,7 @@ def execute_process(method, query_string):
 
     service_inputs = service.parseRequest(query_string)
 
-    return service.performRequest()
+    return service.performRequest(processes=PROCESSES)
 
 def index(request):
     return render(request, 'wps/index.html')
@@ -77,7 +77,7 @@ def api_processes(request):
 
     return JsonResponse({'processes': processes})
 
-@login_required
+#TODO reenable @login_required
 def wps(request):
     if request.method == 'GET':
         # Corrects the query format

@@ -1,63 +1,52 @@
-"""
-CDMS2 MV Averager module.
-"""
 from wps import logger
-from wps.processes.esgf_process import ESGFProcess
-
-from esgf import WPSServerError
+from wps.processes.data_manager import DataManager
+from wps.processes.esgf_operation import ESGFOperation
 
 from pywps import config
 
+from esgf import Variable
+from esgf import WPSServerError
+
 from cdutil import averager
 
-from datetime import datetime
-
 import os
-import cdms2
 
-cdms2.setNetcdfShuffleFlag(0)
-cdms2.setNetcdfDeflateFlag(0)
-cdms2.setNetcdfDeflateLevelFlag(0)
+from uuid import uuid4 as uuid
 
-class CDMS2Process(ESGFProcess):
-    """ Averager class. 
-   
-    Averages variable over multiple dimensions.
-    """
+class CDUtilOperation(ESGFOperation):
     def __init__(self):
-        """Process initialization"""
-        ESGFProcess.__init__(
-            self,
-            'UV-CDAT cdutil averager')
+        super(CDUtilOperation, self).__init__()
 
-    def __call__(self):
-        """ Averages a variable over multiple dimensions. """
-        variable = self.get_input()[0]
+    @property
+    def title(self):
+        return 'CDUtil Averager'
 
-        axes = self.get_parameter('axes')
+    def __call__(self, operations):
+        operation = operations[0]
 
-        axis = ''.join(str(variable.getAxisIndex(x)) for x in axes)
+        data_manager = DataManager()
 
-        self.update_status('Average over %r' % zip(axes, axis), 25.0)
+        input_var = data_manager.read(operation.inputs[0])
 
-        start = datetime.now()
+        try:
+            axes = operation.parameters['axes']
+        except KeyError:
+            raise WPSServerError('Expecting parameter named axes')
 
-        new_var = averager(variable, axis=axis)
+        axes_arg = ''.join((str(input_var.getAxisIndex(x)) for x in axes.values))
 
-        self.update_status('Finished average in %s' % (datetime.now()-start), 50.0)
+        new_var = averager(input_var, axis=axes_arg)
 
-        out_file = self.output_file('application/x-netcdf')
+        new_var_name = '%s_avg_%s' % (input_var.name, '_'.join(axes.values))
 
-        new_nc = cdms2.open(out_file, 'w') 
+        new_file_name = '%s.nc' % (str(uuid()),)
 
-        new_file_name = os.path.split(out_file)[1]
+        output_path = config.getConfigValue('server', 'outputPath', '/var/wps')
 
-        self.update_status('Created output file %s' % (new_file_name), 75.0)
+        new_file = os.path.join(output_path, new_file_name)
 
-        new_nc.write(new_var, id='avg_%s' % ('_'.join(axes),))
-    
-        new_nc.close()
+        data_manager.write('file://' + new_file, new_var, id=new_var_name)
 
-        self.update_status('Wrote new variable %s to %s' % ('_'.join(axes), new_file_name), 100.0)
+        out_var = Variable(new_file, new_var_name)
 
-        self.process_output(out_file)
+        self.complete_process(out_var)

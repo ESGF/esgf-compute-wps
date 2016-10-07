@@ -1,17 +1,24 @@
-from ..esgf_process import ESGFProcess
+from wps import logger
+from wps.processes.esgf_operation import ESGFOperation
 
-import time
+from esgf import Variable
 
-class SleepProcess(ESGFProcess):
+from time import sleep
+
+class SleepOperation(ESGFOperation):
     def __init__(self):
-        ESGFProcess.__init__(self, 'Sleep')
+        super(SleepOperation, self).__init__()
 
-    def __call__(self, *args, **kwargs):
-        output_file = self.output_file('text/plain')
+    @property
+    def title(self):
+        return 'Test Sleep'
 
-        for x in range(30):
-            time.sleep(1)
+    def __call__(self, operations):
+        for x in range(60):
+            sleep(1)
+            
+            message = '%s out of 60' % (x+1,)
 
-            self.status.set('Sleeping %s' % x, x*100.0/30.0)            
+            self.status(message, (x+1)*100/60)
 
-        self.process_output(output_file)
+        self.complete_process(Variable('', ''))

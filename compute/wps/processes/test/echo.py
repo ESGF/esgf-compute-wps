@@ -1,21 +1,36 @@
-from ..esgf_process import ESGFProcess
+from wps import logger
+from wps.processes.data_manager import DataManager
+from wps.processes.esgf_operation import ESGFOperation
 
-import json
+from esgf import Variable
 
-class EchoProcess(ESGFProcess):
+from pywps import config
+
+import os
+
+from uuid import uuid4 as uuid
+
+class EchoOperation(ESGFOperation):
     def __init__(self):
-        ESGFProcess.__init__(self, 'Echo')
+        super(EchoOperation, self).__init__()
 
-    def __call__(self, *args, **kwargs):
-        response = {}
+    @property
+    def title(self):
+        return 'Test Echo'
 
-        response['variable'] = self._variable.parameterize()
-        response['domain'] = [x.parameterize() for x in self._domains]
-        response['operation'] = self._operation.parameterize()
+    def __call__(self, operations):
+        operation = operations[0]
 
-        output_file = self.output_file('application/json')
+        data_manager = DataManager()
 
-        with open(output_file, 'w') as json_file:
-            json.dump(response, json_file)
+        output_path = config.getConfigValue('server', 'outputPath', '/var/wps')
 
-        self.process_output(output_file)
+        output_name = '%s.json' % (str(uuid()),)
+
+        output_file = os.path.join(output_path, output_name)
+
+        data_manager.write(output_file, operation.parameterize())
+
+        output_var = Variable(output_file, '')
+
+        self.complete_process(output_var)
