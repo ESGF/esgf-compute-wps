@@ -3,4 +3,6 @@ pyophidia
 django==1.10.0
 django-cors-headers
 owslib
+pyopenssl
+myproxyclient
 git+https://github.com/esgf/esgf-compute-api
