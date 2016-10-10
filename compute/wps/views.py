@@ -65,7 +65,7 @@ def index(request):
 def api_processes(request):
     logger.info('Requesting processes')
 
-    service_response = execute_process(pywps.METHOD_GET, 'version=1.0&service=wps&request=getcapabilities')
+    service_response = execute_process(request, pywps.METHOD_GET, 'version=1.0&service=wps&request=getcapabilities')
 
     root = etree.fromstring(service_response)
 
