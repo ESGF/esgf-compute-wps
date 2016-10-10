@@ -25,13 +25,24 @@ class CDUtilOperation(ESGFOperation):
         operation = operations[0]
 
         data_manager = DataManager()
+        
+        try:
+            gridder = operation.parameters['gridder']
+        except KeyError:
+            gridder = None
 
-        input_var = data_manager.read(operation.inputs[0])
+        metadata = {
+            'gridder': gridder,
+        }
+
+        data = data_manager.read(operation.inputs[0], **metadata)
 
         try:
             axes = operation.parameters['axes']
         except KeyError:
             raise WPSServerError('Expecting parameter named axes')
+
+        input_var = data.chunk
 
         axes_arg = ''.join((str(input_var.getAxisIndex(x)) for x in axes.values))
 

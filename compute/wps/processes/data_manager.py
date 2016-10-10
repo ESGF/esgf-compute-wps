@@ -1,4 +1,5 @@
 from wps import logger
+from wps.processes.data_container import DataContainer
 
 from esgf import WPSServerError
 
@@ -82,7 +83,12 @@ class NetCDFHandler(BaseHandler):
 
         data = reader(variable, **metadata)
 
-        return data[variable.var_name]
+        gridder = None
+
+        if 'gridder' in metadata:
+            gridder = metadata['gridder']
+
+        return DataContainer(data[variable.var_name], variable.domains, gridder)
     
     def _read_generic(self, variable, **metadata):
         """ Generic ready function for http or file. """
