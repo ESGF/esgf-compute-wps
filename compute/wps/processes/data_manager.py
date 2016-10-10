@@ -7,8 +7,12 @@ from urllib2 import urlparse
 
 import cdms2
 
+from uuid import uuid4 as uuid
+
+import os
 import json
 import mimetypes
+import requests
 
 class BaseHandler(object):
     """ DataManager BaseHandler. 
@@ -74,6 +78,7 @@ class NetCDFHandler(BaseHandler):
 
         self.register_reader('file', self._read_generic)
         self.register_reader('http', self._read_generic)
+        self.register_reader('https', self._read_ssl)
 
         self.register_writer('file', self._write_file)
 
@@ -91,8 +96,34 @@ class NetCDFHandler(BaseHandler):
         return DataContainer(data[variable.var_name], variable.domains, gridder)
     
     def _read_generic(self, variable, **metadata):
-        """ Generic ready function for http or file. """
+        """ Generic read function for http or file protocols."""
         return cdms2.open(variable.uri, 'r')
+
+    def _read_ssl(self, variable, **metadata):
+        """ Read function for https. Localize then read with cdms2. """
+        session = requests.Session()
+        session.cert = metadata['cert']
+
+        file_name = os.path.split(variable.uri)[1]
+        file_path = os.path.join(metadata['temp'], file_name)
+
+        if not os.path.exists(file_path):
+            with open(file_path, 'w') as nc_file:
+                logger.info('Localizing file to %s', file_path)
+
+                result = session.get(variable.uri)
+
+                written = 0
+                total_size = int(result.headers['Content-Length'])
+
+                for chunk in result.iter_content(64*1024):
+                    nc_file.write(chunk)
+
+                    written += len(chunk)
+
+                    logger.info('Localizing %f', written*100/total_size)
+
+        return cdms2.open(file_path, 'r')
 
     def write(self, uri, data, **metadata):
         """ Writes a netcdf file. """

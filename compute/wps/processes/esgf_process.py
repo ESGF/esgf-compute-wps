@@ -81,6 +81,18 @@ class ESGFProcess(WPSProcess):
             ],
             maxmegabites=None)
 
+        self.addComplexInput(
+            'auth',
+            'Authentication',
+            'Authentication info for the process.',
+            metadata=[],
+            minOccurs=0,
+            maxOccurs=1,
+            formats=[
+                {'mimeType': 'text/json'},
+            ],
+            maxmegabites=None)
+
         self.addComplexOutput(
             'output',
             'Output',
@@ -178,7 +190,9 @@ class ESGFProcess(WPSProcess):
             self._operation.complete_process = self.complete_process
             self._operation.status = self.update_status
 
-            self._operation(operations)
+            auth = json.loads(self._read_input('auth'))
+
+            self._operation(operations, auth)
 
             self._operation.status = None
             self._operation.complete_process = None

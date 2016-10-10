@@ -32,7 +32,7 @@ def strip_tag_namespace(tag):
 
     return tag
 
-def execute_process(method, query_string):
+def execute_process(request, method, query_string):
     if os.path.exists(settings.WPS_CONFIG):
         logger.info('Pywps with confiuration %s' % (settings.WPS_CONFIG))
 
@@ -44,7 +44,20 @@ def execute_process(method, query_string):
 
     service_inputs = service.parseRequest(query_string)
 
-    return service.performRequest(processes=PROCESSES)
+    # Inject authentication data
+    if service_inputs['request'].lower() == 'execute':
+        http_auth = request.META['HTTP_AUTHORIZATION']
+
+        password = http_auth.split(' ')[1].decode('base64').split(':')[1]
+
+        user_data = {
+            'id': request.user.id,
+            'pem': request.user.myproxyclientauth.decrypt_pem(password),
+        }
+
+        service_inputs['datainputs'].append({'identifier': 'auth', 'value': json.dumps(user_data)})
+
+    return service.performRequest(service_inputs, processes=PROCESSES)
 
 def index(request):
     return render(request, 'wps/index.html')
@@ -77,7 +90,7 @@ def api_processes(request):
 
     return JsonResponse({'processes': processes})
 
-#TODO reenable @login_required
+@login_required
 def wps(request):
     if request.method == 'GET':
         # Corrects the query format
@@ -87,7 +100,7 @@ def wps(request):
         # utf-8 -> ascii doesn't preserve double quotes (TODO figure out why?)
         query = unquote(query).decode('utf-8').encode('ascii', 'replace').replace('?', '"')
 
-        service_response = execute_process(pywps.METHOD_GET, query)
+        service_response = execute_process(request, pywps.METHOD_GET, query)
     elif request.method == 'POST':
         query = request.POST['document']
 
@@ -99,7 +112,7 @@ def wps(request):
         temp_file.flush()
         temp_file.seek(0)
 
-        service_response = execute_process(pywps.METHOD_POST, temp_file)
+        service_response = execute_process(request, pywps.METHOD_POST, temp_file)
 
         temp_file.close()
     else:

@@ -47,6 +47,6 @@ class ESGFOperation(object):
         """ Updates the status of a WPS process. """
         raise NotImplementedError
 
-    def __call__(self, operations):
+    def __call__(self, operations, auth):
         """ Main execution call. """
         raise NotImplementedError

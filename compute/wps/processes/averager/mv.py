@@ -11,6 +11,8 @@ from cdutil import averager
 
 import os
 
+from tempfile import NamedTemporaryFile
+
 from uuid import uuid4 as uuid
 
 class CDUtilOperation(ESGFOperation):
@@ -21,7 +23,7 @@ class CDUtilOperation(ESGFOperation):
     def title(self):
         return 'CDUtil Averager'
 
-    def __call__(self, operations):
+    def __call__(self, operations, auth):
         operation = operations[0]
 
         data_manager = DataManager()
@@ -31,11 +33,17 @@ class CDUtilOperation(ESGFOperation):
         except KeyError:
             gridder = None
 
-        metadata = {
-            'gridder': gridder,
-        }
+        with NamedTemporaryFile() as pem_file:
+            pem_file.write(str(auth['pem']))
+            pem_file.flush()
 
-        data = data_manager.read(operation.inputs[0], **metadata)
+            metadata = {
+                'gridder': gridder,
+                'cert': pem_file.name,
+                'temp': config.getConfigValue('server', 'tempPath', '/tmp/wps'),
+            }
+
+            data = data_manager.read(operation.inputs[0], **metadata)
 
         try:
             axes = operation.parameters['axes']
@@ -48,7 +56,7 @@ class CDUtilOperation(ESGFOperation):
 
         new_var = averager(input_var, axis=axes_arg)
 
-        new_var_name = '%s_avg_%s' % (input_var.name, '_'.join(axes.values))
+        new_var_name = '%s_avg_%s' % (input_var.id, '_'.join(axes.values))
 
         new_file_name = '%s.nc' % (str(uuid()),)
 
