@@ -57,6 +57,13 @@ def execute_process(request, method, query_string):
 
         service_inputs['datainputs'].append({'identifier': 'auth', 'value': json.dumps(user_data)})
 
+        identifier = service_inputs['identifier'][0]
+
+        proc = [x for x in PROCESSES if x.identifier == identifier][0]
+
+        for k, v in proc.inputs.iteritems():
+            v.value = None
+
     return service.performRequest(service_inputs, processes=PROCESSES)
 
 def index(request):
