@@ -2,33 +2,26 @@
 ESGFProcess module.
 """
 
-from pywps import config
-from pywps.Process import WPSProcess
-
-from wps import logger
-from wps.conf import settings
-
-from esgf import Domain
-from esgf import Variable
-from esgf import Operation
-from esgf import WPSServerError
+import json
+import os
+import sys
+import tempfile
+import uuid
 
 import cdms2
+import esgf
+import pywps
+from pywps import Process
+
+from wps import conf
+from wps import logger
+from wps.conf import settings
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
 cdms2.setNetcdfDeflateLevelFlag(0)
 
-import os
-import sys
-import json
-import traceback
-
-from tempfile import NamedTemporaryFile
-
-from uuid import uuid4 as uuid
-
-class ESGFProcess(WPSProcess):
+class ESGFProcess(Process.WPSProcess):
     """ ESGFProcess
 
     Wrapper class to expose operations as a WPS process.
@@ -36,7 +29,7 @@ class ESGFProcess(WPSProcess):
     def __init__(self, operation):
 
         """ ESGFProcess init. """
-        WPSProcess.__init__(
+        Process.WPSProcess.__init__(
             self,
             operation.identifier,
             operation.title,
@@ -131,15 +124,30 @@ class ESGFProcess(WPSProcess):
         domains = {}
         variables = {}
 
-        logger.info('Beginning staging of processes %s', self._operation.identifier)
+        logger.info('Beginning staging of processes %s',
+                    self._operation.identifier)
 
-        for domain in self._load_from_input('domain', Domain):
+        for domain in self._load_from_input('domain', esgf.Domain):
             domains[domain.name] = domain
 
-        for variable in self._load_from_input('variable', Variable):
+            logger.debug('Domain %r', domain)
+
+        logger.info('Loaded %d domains', len(domains))
+    
+        for variable in self._load_from_input('variable', esgf.Variable):
             variables[variable.name] = variable
 
-        operations = self._load_from_input('operation', Operation)
+            logger.debug('Variable %r', variable)
+
+        logger.info('Loaded %d variables', len(variables))
+
+        operations = self._load_from_input('operation', esgf.Operation)
+
+        logger.info('Operations %r', operations) 
+
+        logger.info('Loaded %d operations', len(operations))
+
+        # TODO try to rebuild tree/organize non-dependent operations
 
         logger.info('Rebuilding variables')
 
@@ -154,7 +162,11 @@ class ESGFProcess(WPSProcess):
 
             for name, param in operation.parameters.iteritems():
                 if name == 'gridder':
+                    logger.info('Rebuilding gridder')
+
                     param.grid = domains[param.grid]
+
+        logger.info('Done staging')
 
         return operations
 
@@ -170,13 +182,19 @@ class ESGFProcess(WPSProcess):
 
         variable.uri = settings.DAP_PATH_FORMAT.format(**dap_args)
 
-        with NamedTemporaryFile(delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            logger.info('Writing output "%r" to "%s"',
+                        variable,
+                        temp_file.name)
+
             json.dump(variable.parameterize(), temp_file)
 
             self.setOutputValue('output', temp_file.name)
 
     def update_status(self, message, progress=0.0):
         """ Propagates a status message. """
+        logger.info('Status %d %s', progress, message)
+
         self.status.set(message, progress)
 
     def execute(self):
@@ -187,16 +205,15 @@ class ESGFProcess(WPSProcess):
         try:
             operations = self._staging()
 
-            self._operation.complete_process = self.complete_process
-            self._operation.status = self.update_status
-
             auth = json.loads(self._read_input('auth'))
 
-            self._operation(operations, auth)
+            # For the moment we only support single operations but
+            # later this will be the root of a tree and/or list of 
+            # non-dependent operations
+            self._operation(operations[0], auth, self.update_status)
 
-            self._operation.status = None
-            self._operation.complete_process = None
+            self.complete_process(self._operation.output)
         except Exception as e:
-            traceback.print_exc()
-            e.message = 'Process failed "%s"' % (e.message,)
+            logger.exception('Operation failed: %s' % (e.message,))
+
             raise

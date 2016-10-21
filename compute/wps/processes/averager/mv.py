@@ -1,21 +1,16 @@
-from wps import logger
-from wps.processes.data_manager import DataManager
-from wps.processes.esgf_operation import ESGFOperation
-
-from pywps import config
-
-from esgf import Variable
-from esgf import WPSServerError
-
-from cdutil import averager
-
+import datetime
 import os
+import tempfile
+import uuid
 
-from tempfile import NamedTemporaryFile
+import cdutil
+from pywps import config
+import esgf
 
-from uuid import uuid4 as uuid
+from wps.processes import data_manager
+from wps.processes import esgf_operation
 
-class CDUtilOperation(ESGFOperation):
+class CDUtilOperation(esgf_operation.ESGFOperation):
     def __init__(self):
         super(CDUtilOperation, self).__init__()
 
@@ -23,17 +18,15 @@ class CDUtilOperation(ESGFOperation):
     def title(self):
         return 'CDUtil Averager'
 
-    def __call__(self, operations, auth):
-        operation = operations[0]
-
-        data_manager = DataManager()
+    def __call__(self, operation, auth, status):
+        dm = data_manager.DataManager()
         
         try:
             gridder = operation.parameters['gridder']
         except KeyError:
             gridder = None
 
-        with NamedTemporaryFile() as pem_file:
+        with tempfile.NamedTemporaryFile() as pem_file:
             pem_file.write(str(auth['pem']))
             pem_file.flush()
 
@@ -43,29 +36,40 @@ class CDUtilOperation(ESGFOperation):
                 'temp': config.getConfigValue('server', 'tempPath', '/tmp/wps'),
             }
 
-            data = data_manager.read(operation.inputs[0], **metadata)
+            data = dm.read(operation.inputs[0], **metadata)
 
         try:
             axes = operation.parameters['axes']
         except KeyError:
-            raise WPSServerError('Expecting parameter named axes')
+            raise esgf.WPSServerError('Expecting parameter named axes')
+
+        status('Read input data')
 
         input_var = data.chunk
 
         axes_arg = ''.join((str(input_var.getAxisIndex(x)) for x in axes.values))
 
-        new_var = averager(input_var, axis=axes_arg)
+        status('Averagering "%s" over dimensions "%s"' %
+               (input_var.id,
+                ', '.join(axes.values)))
+        
+        start = datetime.datetime.now() 
+
+        new_var = cdutil.averager(input_var, axis=axes_arg)
+
+        status('Finished averaging in %s' % (datetime.datetime.now()-start,))
 
         new_var_name = '%s_avg_%s' % (input_var.id, '_'.join(axes.values))
 
-        new_file_name = '%s.nc' % (str(uuid()),)
+        new_file_name = '%s.nc' % (str(uuid.uuid4()),)
 
         output_path = config.getConfigValue('server', 'outputPath', '/var/wps')
 
         new_file = os.path.join(output_path, new_file_name)
 
-        data_manager.write('file://' + new_file, new_var, id=new_var_name)
+        status('Writing output to "%s"' % (new_file,))
 
-        out_var = Variable(new_file, new_var_name)
+        dm.write('file://' + new_file, new_var, id=new_var_name)
 
-        self.complete_process(out_var)
+        self.set_output(new_file, new_var_name)
+

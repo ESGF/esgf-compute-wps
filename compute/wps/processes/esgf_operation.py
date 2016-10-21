@@ -1,11 +1,7 @@
-from wps.conf import settings
-
-from pywps import config
-
-from uuid import uuid4 as uuid
-
 import os
 import sys
+
+import esgf
 
 class ESGFOperation(object):
     """ ESGFOperation
@@ -17,6 +13,8 @@ class ESGFOperation(object):
 
         self._identifier = '.'.join(os.path.splitext(file_path)[0].split('/')[-2:])
 
+        self._output = None
+        
     @property
     def identifier(self):
         return self._identifier
@@ -39,14 +37,15 @@ class ESGFOperation(object):
         """ Returns version of the operation. """
         return ''
 
-    def complete_process(self, variable):
-        """ Marks the completion of a WPS process. """
-        raise NotImplementedError
+    @property
+    def output(self):
+        """ Returns process output as a Variable. """
+        return self._output
 
-    def status(self, message, progress):
-        """ Updates the status of a WPS process. """
-        raise NotImplementedError
+    def set_output(self, uri, var_name, mime_type=None):
+        """ Sets process output. """
+        self._output = esgf.Variable(uri, var_name, mime_type=mime_type)
 
-    def __call__(self, operations, auth):
+    def __call__(self, operations, auth, status):
         """ Main execution call. """
         raise NotImplementedError

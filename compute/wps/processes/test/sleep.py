@@ -1,11 +1,9 @@
+import time
+
 from wps import logger
-from wps.processes.esgf_operation import ESGFOperation
+from wps.processes import esgf_operation
 
-from esgf import Variable
-
-from time import sleep
-
-class SleepOperation(ESGFOperation):
+class SleepOperation(esgf_operation.ESGFOperation):
     def __init__(self):
         super(SleepOperation, self).__init__()
 
@@ -13,12 +11,12 @@ class SleepOperation(ESGFOperation):
     def title(self):
         return 'Test Sleep'
 
-    def __call__(self, operations):
+    def __call__(self, operation, auth, status):
         for x in range(60):
-            sleep(1)
+            time.sleep(1)
             
             message = '%s out of 60' % (x+1,)
 
-            self.status(message, (x+1)*100/60)
+            status(message, (x+1)*100/60)
 
-        self.complete_process(Variable('', ''))
+        self.set_output('', '')

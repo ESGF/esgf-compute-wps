@@ -1,21 +1,17 @@
-from wps import logger
-from wps.conf import settings
-from wps.processes.data_manager import DataManager
-from wps.processes.esgf_operation import ESGFOperation
-
-from pywps import config
-
-from esgf import Variable
-from esgf import WPSServerError
-
-from PyOphidia.client import Client
-
+import json
+import os
 from uuid import uuid4 as uuid
 
-import os
-import json
+import esgf
+from PyOphidia import client
+from pywps import config
 
-class OphidiaAverager(ESGFOperation):
+from wps import logger
+from wps.conf import settings
+from wps.processes import data_manager
+from wps.processes import esgf_operation
+
+class OphidiaAverager(esgf_operation.ESGFOperation):
     def __init__(self):
         super(OphidiaAverager, self).__init__()
 
@@ -23,30 +19,34 @@ class OphidiaAverager(ESGFOperation):
     def title(self):
         return 'Ophidia Average'
 
-    def __call__(self, operations, auth):
+    def __call__(self, operation, auth, status):
         oph_user = settings.OPH_USER
         oph_pass = settings.OPH_PASSWORD
         oph_host = settings.OPH_HOST
         oph_port = settings.OPH_PORT
 
-        cl = Client(oph_user, oph_pass, oph_host, oph_port)
+        cl = client.Client(oph_user, oph_pass, oph_host, oph_port)
 
         if not cl.last_response:
-            raise WPSServerError('Could not connect to %s' % (oph_host,))
-
-        operation = operations[0]
+            raise esgf.WPSServerError('Could not connect to %s' % (oph_host,))
 
         container = self._create_container(cl, operation)
 
         import_cube = self._importnc(cl, operation, container)
 
+        status('Imported input "%s"' %
+               (operation.inputs[0].uri,))
+
         reduce_cube = self._reduce(cl, operation, import_cube)
+
+        status('Reduced across "%s" dimensions' %
+               (', '.join(operation.parameters['axes'].values),))
 
         output = self._export(cl, reduce_cube, container)
 
-        out_var = Variable(output, '')
+        status('Exported output to %s' % (output,))
 
-        self.complete_process(out_var)
+        self.set_output(output, '')
 
     def _export(self, client, cube, container):
         cmd = 'oph_exportnc cube=%s;output_path=%s;output_name=%s;'
@@ -98,7 +98,7 @@ class OphidiaAverager(ESGFOperation):
         return cube
 
     def _create_container(self, client, operation):
-        dm = DataManager()
+        dm = data_manager.DataManager()
 
         var = dm.read(operation.inputs[0])
 

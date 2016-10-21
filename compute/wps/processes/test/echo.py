@@ -1,16 +1,11 @@
-from wps import logger
-from wps.processes.data_manager import DataManager
-from wps.processes.esgf_operation import ESGFOperation
-
-from esgf import Variable
+import os
+import uuid
 
 from pywps import config
+from wps.processes import data_manager
+from wps.processes import esgf_operation
 
-import os
-
-from uuid import uuid4 as uuid
-
-class EchoOperation(ESGFOperation):
+class EchoOperation(esgf_operation.ESGFOperation):
     def __init__(self):
         super(EchoOperation, self).__init__()
 
@@ -18,19 +13,15 @@ class EchoOperation(ESGFOperation):
     def title(self):
         return 'Test Echo'
 
-    def __call__(self, operations):
-        operation = operations[0]
-
-        data_manager = DataManager()
+    def __call__(self, operation, auth, status):
+        dm = data_manager.DataManager()
 
         output_path = config.getConfigValue('server', 'outputPath', '/var/wps')
 
-        output_name = '%s.json' % (str(uuid()),)
+        output_name = '%s.json' % (str(uuid.uuid4()),)
 
         output_file = os.path.join(output_path, output_name)
 
-        data_manager.write(output_file, operation.parameterize())
+        dm.write(output_file, operation.parameterize())
 
-        output_var = Variable(output_file, '')
-
-        self.complete_process(output_var)
+        self.set_output(output_file, '')
