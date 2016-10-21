@@ -30,7 +30,10 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
         if not cl.last_response:
             raise esgf.WPSServerError('Could not connect to %s' % (oph_host,))
 
-        container = self._create_container(cl, operation)
+        try:
+            container = self._create_container(cl, operation)
+        except esgf.WPSServerError:
+            container = 'wps'
 
         import_cube = self._importnc(cl, operation, container)
 
@@ -53,7 +56,7 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         output_path = config.getConfigValue('server', 'outputPath', '/var/wps')
 
-        output_name = '%s.nc' % (container,)
+        output_name = '%s.nc' % (str(uuid()),)
 
         client.submit(cmd % (cube,
                              output_path,
@@ -108,7 +111,7 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         cmd = 'oph_createcontainer container=%s;dim=%s;imp_dim=%s;'
 
-        container = 'wps_%s' % (str(uuid()), )
+        container = 'wps'
 
         client.submit(cmd % (container,
                              dim,
@@ -137,10 +140,10 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
                   if x['objkey'] == 'status']
 
         if not status or status[0].lower() != 'success':
-            raise WPSServerError('Ophidia command "%s" failed.' % (client.last_request,))
+            raise esgf.WPSServerError('Ophidia command "%s" failed.' % (client.last_request,))
 
     def _parse_response(self, client):
         if not client.last_response:
-            raise WPSServerError('Ophidia command "%s" returned no response.' % (client.last_request,))
+            raise esgf.WPSServerError('Ophidia command "%s" returned no response.' % (client.last_request,))
 
         return json.loads(client.last_response)
