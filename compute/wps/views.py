@@ -4,9 +4,11 @@ from django.http import FileResponse
 from django.http import Http404
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 
 import pywps
 from pywps import Pywps
+from pywps import config
 
 from lxml import etree
 
@@ -22,7 +24,7 @@ from wps import logger
 from wps.conf import settings
 from wps.processes import PROCESSES
 
-pywps.config.loadConfiguration(settings.WPS_CONFIG)
+config.loadConfiguration(settings.WPS_CONFIG)
 
 os.environ['PYWPS_PROCESSES'] = settings.PROCESS_DIR
 
@@ -45,7 +47,8 @@ def execute_process(request, method, query_string):
     service_inputs = service.parseRequest(query_string)
 
     # Inject authentication data
-    if service_inputs['request'].lower() == 'execute':
+    if (service_inputs['request'].lower() == 'execute' and
+            'HTTP_AUTHORIZATION' in request.META):
         http_auth = request.META['HTTP_AUTHORIZATION']
 
         password = http_auth.split(' ')[1].decode('base64').split(':')[1]
@@ -97,7 +100,8 @@ def api_processes(request):
 
     return JsonResponse({'processes': processes})
 
-@login_required
+#@login_required
+@csrf_exempt
 def wps(request):
     if request.method == 'GET':
         # Corrects the query format
@@ -109,9 +113,12 @@ def wps(request):
 
         service_response = execute_process(request, pywps.METHOD_GET, query)
     elif request.method == 'POST':
-        query = request.POST['document']
-
         temp_file = NamedTemporaryFile(delete=False)
+
+        if 'document' in request.POST:
+            query = request.POST['document']
+        else:
+            query = request.read()
 
         # Write file and seek beginning, Pywps wants a file-object,
         # rather than the raw string.
