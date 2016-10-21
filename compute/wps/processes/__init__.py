@@ -60,7 +60,11 @@ def _load_processes():
 
         if operations:
             for operation in operations:
-                processes.append(ESGFProcess(operation))
+                try:
+                    processes.append(ESGFProcess(operation))
+                except Exception:
+                    logger.exception('Failed to create process for operation'
+                                     '"%s"', operation.identifier)
 
     return processes
 
