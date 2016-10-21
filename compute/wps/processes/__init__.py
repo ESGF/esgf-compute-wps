@@ -26,8 +26,7 @@ def _load_operations_from_module(module_name):
     try:
         module = import_module(module_name)
     except Exception as e:
-        traceback.print_exc()
-        logger.error('Failed to import module %s', module_name)
+        logger.exception('Failed to import module %s', module_name)
 
         return None
     else:
@@ -37,7 +36,11 @@ def _load_operations_from_module(module_name):
             if type(sub_module) == types.TypeType:
                 if (issubclass(sub_module, ESGFOperation) and
                         sub_module != ESGFOperation):
-                    operations.append(sub_module())
+                    try:
+                        operations.append(sub_module())
+                    except Exception as e:
+                        logger.exception('Failed to create instance of '
+                                         'module "%s', sub_module_name)
 
     return operations
 
@@ -66,8 +69,7 @@ start = datetime.now()
 try:
     PROCESSES = _load_processes()
 except Exception as e:
-    traceback.print_exc()
-    logger.error('Error loading processes: %r', e)
+    logger.exception('Error loading processes: %s', e.message)
 
 logger.info('Finished loading processes in %s', datetime.now()-start)
 
