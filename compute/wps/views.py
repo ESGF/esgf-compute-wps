@@ -100,7 +100,7 @@ def api_processes(request):
 
     return JsonResponse({'processes': processes})
 
-#@login_required
+@login_required
 @csrf_exempt
 def wps(request):
     if request.method == 'GET':
