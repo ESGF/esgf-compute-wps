@@ -11,6 +11,6 @@ DAP_HOSTNAME = getattr(settings, 'DAP_HOSTNAME', '0.0.0.0')
 DAP_PORT = getattr(settings, 'DAP_PORT', 8080)
 
 OPH_USER = getattr(settings, 'OPH_USER', 'oph-test')
-OPH_PASSWORD = getattr(settings, 'OPH_PASSWORD', 'llnlaims')
-OPH_HOST = getattr(settings, 'OPH_HOST', '127.0.0.1')
+OPH_PASSWORD = getattr(settings, 'OPH_PASSWORD', 'abcd')
+OPH_HOST = getattr(settings, 'OPH_HOST', '172.20.0.4')
 OPH_PORT = getattr(settings, 'OPH_PORT', 11732)
