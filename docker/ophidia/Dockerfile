@@ -107,4 +107,6 @@ RUN chmod +x entrypoint.sh
 
 EXPOSE 22 80 443 11732
 
-CMD ["./entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]
+
+CMD ["/usr/local/ophidia/oph-server/bin/oph_server", "-d"]

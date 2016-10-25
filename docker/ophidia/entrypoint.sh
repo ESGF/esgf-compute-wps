@@ -192,8 +192,4 @@ sed -ibak 's/\(SUBM_CMD\).*/\1=\/usr\/local\/ophidia\/extra\/bin\/srun/g' /usr/l
 sed -ibak 's/\(SUBM_CANCEL\).*/\1=\/usr\/local\/ophidia\/extra\/bin\/scancel -n/g' /usr/local/ophidia/oph-server/etc/rmanager.conf
 sed -ibak 's/\(SUBM_JOBCHECK\).*/\1=\/usr\/local\/ophidia\/extra\/bin\/squeue -o "%j" | grep oph/g' /usr/local/ophidia/oph-server/etc/rmanager.conf
 
-/usr/local/ophidia/oph-server/bin/oph_server &>/dev/null &
-
-sleep 2
-
-/usr/local/ophidia/oph-terminal/bin/oph_term -u oph-test -p abcd -H 127.0.0.1 -P 11732
+exec "$@"

@@ -1,0 +1,33 @@
+version: '2'
+services:
+  thredds:
+    build:
+      context: ../thredds
+    ports:
+      - "8080:8080"
+    volumes:
+      - /data  
+
+  wps:
+    build:
+      context: ../../
+    links:
+      - thredds
+      - ophidia
+    ports:
+      - "8000:8000"
+    volumes_from:
+      - thredds
+
+  ophidia:
+    build:
+      context: .
+    expose:
+      - "11732"
+      - "443"
+    links:
+      - thredds
+    ports:
+      - "80:80"
+    volumes_from:
+      - thredds
