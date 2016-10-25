@@ -12,5 +12,5 @@ DAP_PORT = getattr(settings, 'DAP_PORT', 8080)
 
 OPH_USER = getattr(settings, 'OPH_USER', 'oph-test')
 OPH_PASSWORD = getattr(settings, 'OPH_PASSWORD', 'abcd')
-OPH_HOST = getattr(settings, 'OPH_HOST', '172.20.0.4')
+OPH_HOST = getattr(settings, 'OPH_HOST', 'ophidia')
 OPH_PORT = getattr(settings, 'OPH_PORT', 11732)
