@@ -107,4 +107,4 @@ RUN chmod +x entrypoint.sh
 
 EXPOSE 22 80 443 11732
 
-ENTRYPOINT ["./entrypoint.sh"]
+CMD ["./entrypoint.sh"]

@@ -15,10 +15,12 @@ myserver="$cert/myserver.pem"
 
 function create_server_certs {
   ssh-keygen -t dsa -f ~/.ssh/id_dsa -N ""
+
   cat ~/.ssh/id_dsa.pub >> ~/.ssh/authorized_keys
+
   chmod 0600 ~/.ssh/authorized_keys
 
-  mkdir "$cert"
+  mkdir -p "$cert"
 
   openssl req -newkey rsa:1024 -passout pass:$password -subj "/" -sha1 \
     -keyout $root_key -out $root_req
@@ -151,30 +153,20 @@ NodeName=$(hostname) CPUs=1 State=UNKNOWN
 PartitionName=debug Nodes=$(hostname) Default=YES MaxTime=INFINITE State=UP
 EOF
 
-openssl genrsa -out ca.key 2048
-openssl req -new -key ca.key -out ca.csr
-openssl x509 -req -days 365 -in ca.csr -signkey ca.key -out ca.crt
+if [[ "${HTTP:-0}" -eq "1" ]]
+then
+  openssl genrsa -out ca.key 2048
+  openssl req -new -key ca.key -out ca.csr
+  openssl x509 -req -days 365 -in ca.csr -signkey ca.key -out ca.crt
 
-cp ca.crt /etc/pki/tls/certs
-cp ca.key /etc/pki/tls/private/ca.key
-cp ca.csr /etc/pki/tls/private/cs.csr
+  cp ca.crt /etc/pki/tls/certs
+  cp ca.key /etc/pki/tls/private/ca.key
+  cp ca.csr /etc/pki/tls/private/cs.csr
+fi
 
 sed -ibak 's/(SSLCertificateFile).*/\\1 \/etc\/pki\/tls\/certs\/ca.crt/g' /etc/httpd/conf.d/ssl.conf
 sed -ibak 's/(SSLCertificateKeyFile).*/\\1 \/etc\/pki\/tls\/private\/ca.key/g' /etc/httpd/conf.d/ssl.conf
 sed -ibak 's/Listen 80/Listen 0.0.0.0:80/g' /etc/httpd/conf/httpd.conf
-
-#cat << EOF >> /etc/httpd/conf/httpd.conf
-#<VirtualHost *:443>
-#  SSLEngine on
-#  SSLCertificateFile /etc/pki/tls/certs/ca.crt
-#  SSLCertificateKeyFile /etc/pki/tls/private/ca.key
-#  <Directory /var/www/vhosts/yoursite.com/httpsdocs>
-#  AllowOverride All
-#  </Directory>
-#  DocumentRoot /var/www/vhosts/yoursite.com/httpsdocs
-#  ServerName yoursite.com
-#</VirtualHost>
-#EOF
 
 service mysqld start
 
@@ -202,4 +194,6 @@ sed -ibak 's/\(SUBM_JOBCHECK\).*/\1=\/usr\/local\/ophidia\/extra\/bin\/squeue -o
 
 /usr/local/ophidia/oph-server/bin/oph_server &>/dev/null &
 
-exec "$@"
+sleep 2
+
+/usr/local/ophidia/oph-terminal/bin/oph_term -u oph-test -p abcd -H 127.0.0.1 -P 11732
