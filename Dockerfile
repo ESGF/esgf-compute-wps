@@ -18,7 +18,7 @@ RUN C_INCLUDE_PATH=/usr/include/gdal CPLUS_INCLUDE_PATH=/usr/include/gdal pip in
 
 WORKDIR /var/www
 
-COPY compute/ compute/
+COPY . .
 
 RUN mkdir -p /tmp/wps /data
 
