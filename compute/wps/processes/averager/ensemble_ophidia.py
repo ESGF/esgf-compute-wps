@@ -48,7 +48,8 @@ class EnsembleAveragerOphidia(esgf_operation.ESGFOperation):
             return
 
         if not client.last_response:
-            raise esgf.WPSServerError('Ophidia return no response')
+            raise esgf.WPSServerError('Ophidia return no response from "%s"' %
+                                      (client.last_request,))
 
         return OphResponseWrapper(client.last_response)
 
@@ -63,13 +64,11 @@ class EnsembleAveragerOphidia(esgf_operation.ESGFOperation):
 
         cl = client.Client(oph_user, oph_pass, oph_host, oph_port)
 
-        input0, input1 = operation.inputs
+        input0 = operation.inputs[0]
 
         dm = data_manager.DataManager()
 
         var0 = dm.read(input0)
-
-        var1 = dm.read(input1)
 
         axis_ids = [x.id for x in var0.chunk.getAxisList()]
 
@@ -83,49 +82,58 @@ class EnsembleAveragerOphidia(esgf_operation.ESGFOperation):
         status('Created container "%s" with dimensions "%s"' %
                (container, dim))
 
-        resp = self.oph_submit(cl, 'oph_importnc container=%s;measure=%s;'
-                               'src_path=%s;' %
-                               (container, input0.var_name, input0.uri))
+        cubes = []
 
-        if not resp.success:
-            raise esgf.WPSServerError('Ophidia import operation failed')
+        for inp in operation.inputs:
+            resp = self.oph_submit(cl, 'oph_importnc container=%s;measure=%s;'
+                                   'src_path=%s;' %
+                                   (container, inp.var_name, inp.uri))
 
-        cube0 = resp.datacube('importnc')
+            if not resp.success:
+                raise esgf.WPSServerError('Ophidia failed to import "%s"' %
+                                          (inp.uri,))
 
-        status('Imported "%s" to "%s"' % (input0.uri, cube0))
-            
-        resp = self.oph_submit(cl, 'oph_importnc container=%s;measure=%s;'
-                               'src_path=%s;' %
-                               (container, input1.var_name, input1.uri))
+            cubes.append(resp.datacube('importnc'))
 
-        if not resp.success:
-            raise esgf.WPSServerError('Ophidia import operation failed')
+            status('Done importing "%s" to "%s"' %
+                   (inp.uri, resp.datacube('importnc')))
 
-        cube1 = resp.datacube('importnc')
-
-        status('Imported "%s" to "%s"' % (input1.uri, cube1))
 
         resp = self.oph_submit(cl, 'oph_intercube cube=%s;cube2=%s;'
-                               'operation=sum;output_measure=%s;container=%s;' % 
-                               (cube0, cube1, 'tas', container))
+                               'operation=sum;output_measure=%s;' %
+                               (cubes[0], cubes[1], 'tas'))
 
         if not resp.success:
-            raise esgf.WPSServerError('Ophidia intercube operation failed')
+            raise esgf.WPSServerError('Ophidia failed initial intercube '
+                                      'operation')
 
-        out_cube = resp.datacube('intercube')
+        curr_cube = resp.datacube('intercube')
 
-        status('Finished taking the intercube sum.')
+        for next_cube in cubes[2:]:
+            resp = self.oph_submit(cl, 'oph_intercube cube=%s;cube2=%s;'
+                                   'operation=sum;output_measure=%s;' %
+                                   (curr_cube, next_cube, 'tas'))
+
+            if not resp.success:
+                raise esgf.WPSServerError('Ophidia failed initial intercube '
+                                          'operation')
+
+            curr_cube = resp.datacube('intercube')
+
+            status('Done intercube sum operation')
+
+        divisor = 1.0/len(cubes)
 
         resp = self.oph_submit(cl, 'oph_apply cube=%s;query=oph_mul_scalar'
-                               '(\'oph_float\', \'oph_float\', measure, 0.5);'
-                               % (out_cube,))
+                               '(\'oph_float\', \'oph_float\', measure, %f);'
+                               % (curr_cube, divisor))
 
         if not resp.success:
             raise esgf.WPSServerError('Ophidia apply operation failed.')
 
         avg_cube = resp.datacube('apply')
 
-        status('Finished element wise multiplication by 0.5')
+        status('Finished element wise multiplication by %s' % (divisor,))
 
         resp = self.oph_submit(cl, 'oph_merge cube=%s;' % (avg_cube,))
 
