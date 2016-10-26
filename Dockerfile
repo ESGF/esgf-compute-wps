@@ -22,10 +22,10 @@ COPY . .
 
 RUN mkdir -p /tmp/wps /data
 
-COPY entrypoint.sh entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod 0755 entrypoint.sh
+RUN chmod 0755 /entrypoint.sh
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
 
 CMD ["python", "compute/manage.py", "runserver", "0.0.0.0:8000"]
