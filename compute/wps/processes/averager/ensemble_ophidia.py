@@ -53,7 +53,7 @@ class EnsembleAveragerOphidia(esgf_operation.ESGFOperation):
 
         return OphResponseWrapper(client.last_response)
 
-    def __call__(self, auth, status):
+    def __call__(self, data_manager, status):
         if len(self.input()) < 2:
             raise esgf.WPSServerError('Must supply two input variables.')
 
@@ -66,11 +66,9 @@ class EnsembleAveragerOphidia(esgf_operation.ESGFOperation):
 
         input0 = self.input()[0]
 
-        dm = data_manager.DataManager()
+        var0 = data_manager.metadata(input0)
 
-        var0 = dm.read(input0)
-
-        axis_ids = [x.id for x in var0.chunk.getAxisList()]
+        axis_ids = [x.id for x in var0.getAxisList()]
 
         dim = '|'.join(axis_ids)
 

@@ -16,6 +16,7 @@ from pywps import Process
 from wps import conf
 from wps import logger
 from wps.conf import settings
+from wps.processes import data_manager
 
 cdms2.setNetcdfShuffleFlag(0)
 cdms2.setNetcdfDeflateFlag(0)
@@ -211,9 +212,10 @@ class ESGFProcess(Process.WPSProcess):
 
             auth = json.loads(self._read_input('auth'))
 
-            self._operation(auth, self.update_status)
+            with data_manager.DataManager(auth['pem']) as dm:
+                self._operation(dm, self.update_status)
 
-            self.complete_process(self._operation.output)
+                self.complete_process(self._operation.output)
         except Exception as e:
             logger.exception('Operation failed: %s' % (e.message,))
 

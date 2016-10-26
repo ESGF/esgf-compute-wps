@@ -13,15 +13,13 @@ class EchoOperation(esgf_operation.ESGFOperation):
     def title(self):
         return 'Test Echo'
 
-    def __call__(self, auth, status):
-        dm = data_manager.DataManager()
-
+    def __call__(self, data_manager, status):
         output_path = config.getConfigValue('server', 'outputPath', '/var/wps')
 
         output_name = '%s.json' % (str(uuid.uuid4()),)
 
         output_file = os.path.join(output_path, output_name)
 
-        dm.write(output_file, self._data.parameterize())
+        data_manager.write(output_file, self.data.parameterize(), '')
 
         self.set_output(output_file, '')

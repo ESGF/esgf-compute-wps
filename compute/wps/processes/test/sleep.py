@@ -11,7 +11,7 @@ class SleepOperation(esgf_operation.ESGFOperation):
     def title(self):
         return 'Test Sleep'
 
-    def __call__(self, operation, auth, status):
+    def __call__(self, data_manager, status):
         for x in range(60):
             time.sleep(1)
             

@@ -19,7 +19,7 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
     def title(self):
         return 'Ophidia Average'
 
-    def __call__(self, auth, status):
+    def __call__(self, data_manager, status):
         oph_user = settings.OPH_USER
         oph_pass = settings.OPH_PASSWORD
         oph_host = settings.OPH_HOST
@@ -31,7 +31,7 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
             raise esgf.WPSServerError('Could not connect to %s' % (oph_host,))
 
         try:
-            container = self._create_container(cl)
+            container = self._create_container(cl, data_manager)
         except esgf.WPSServerError:
             container = 'wps'
 
@@ -100,12 +100,10 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         return cube
 
-    def _create_container(self, client):
-        dm = data_manager.DataManager()
+    def _create_container(self, client, data_manager):
+        var = data_manager.metadata(self.input()[0])
 
-        var = dm.read(self.input()[0])
-
-        dim = '|'.join([x.id for x in var.chunk.getAxisList()])
+        dim = '|'.join([x.id for x in var.getAxisList()])
 
         imp_dim = '|'.join(self.parameter('axes').values)
 

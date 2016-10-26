@@ -1,203 +1,233 @@
-from wps import logger
-from wps.processes.data_container import DataContainer
-
-from esgf import WPSServerError
-
-from urllib2 import urlparse
+import os
+import tempfile
+import urlparse
+import collections
 
 import cdms2
-
-from uuid import uuid4 as uuid
-
-import os
+import esgf
 import json
-import mimetypes
 import requests
 
-class BaseHandler(object):
-    """ DataManager BaseHandler. 
-    
-    To create a DataManager handler subclass BaseHandler. Register handlers
-    for reading and writing from different protocols.
+from wps import logger
+
+class NetCDFHandler(object):
+    """ NetCDFHandler
+
+    Handles read/write/metadata operations for NetCDF files.
+
+    Only supports http/file protocols.
     """
-    def __init__(self):
-        """ Init. """
-        self._read = {}
-        self._write = {}
+    def __init__(self, pem_file):
+        """ Init """
+        self._pem_file = pem_file
 
-    def register_reader(self, scheme, reader_func):
-        """ Register a protocol reader function for a scheme. """
-        if scheme not in self._read:
-            self._read[scheme] = reader_func
+        dodsrc = os.path.join(os.path.expanduser('~'), '.dodsrc')
 
-    def register_writer(self, scheme, writer_func):
-        """ Register a protocol writer function for a scheme. """
-        if scheme not in self._write:
-            self._write[scheme] = writer_func
+        cookiejar = os.path.join(os.path.expanduser('~'), '.dods_cookies')
 
-    def read(self, variable, **metadata):
-        """ Required override. """
+        # Update .dodsrc for netcdf library
+        with open(dodsrc, 'w') as new_file:
+            new_file.write('HTTP.COOKIEJAR=%s\n' % (cookiejar,))
+            new_file.write('HTTP.SSL.VALIDATE=1\n')
+            new_file.write('HTTP.SSL.CERTIFICATE=%s\n' % (pem_file,))
+            new_file.write('HTTP.SSL.KEY=%s\n' % (pem_file,))
+            new_file.write('HTTP.SSL.CAPATH=%s\n' % (pem_file,))
+
+    def _localize(self, uri):
+        """ Attempts to localize http file using credentials. """
+        local_path = None
+
+        with requests.session() as session:
+            session.cert = self._pem_file
+
+            response = session.get(uri)
+
+            # Check for good response status
+            if response.status_code != 200:
+                response.raise_for_status()
+
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                current = 0
+                total = None
+
+                if 'Content-Length' in response.headers:
+                    total = int(response.headers['Content-Length'])
+
+                # Download file in chunks
+                for chunk in response.iter_content(2048):
+                    temp_file.write(chunk)
+
+                    current += 2048
+
+                    if total:
+                        logger.debug('Localize progress %f',
+                                     current*100.0/total) 
+
+                local_path = temp_file.name
+
+                logger.debug('Done localizing file "%s"', local_path)
+
+        return local_path
+
+    def _open_http(self, uri):
+        """ Handles opening http files. """
+        file_obj = None
+
+        # First attempt to open like dap/http file
+        try:
+            file_obj = cdms2.open(uri, 'r')
+        except cdms2.CDMSError:
+            pass
+        else:
+            return file_obj
+            
+        # Second attempt treat liek http file and localize
+        try:
+            local_path = self._localize(uri)
+
+            file_obj = cdms2.open(local_path, 'r')
+        except cdms2.CDMSError:
+            logger.exception('Failed to open remote netcdf file "%s"', uri)
+
+            raise
+        else:
+            return file_obj
+
+    def _open_local(self, uri):
+        """ Handles opening local files. """
+        try:
+            file_obj = cdms2.open(uri, 'r')
+        except cdms2.CDMSError:
+            logger.exception('Failed to open local netcdf file "%s"', uri)
+            
+            raise
+        else:
+            return file_obj
+
+    def metadata(self, variable):
+        """ Retrieves files metadata, not real data is loaded. """
+        scheme, _, _, _, _, _ =  urlparse.urlparse(variable.uri)
+
+        if scheme in ('http', 'https'):
+            file_obj = self._open_http(variable.uri)
+        elif scheme in ('', 'file'):
+            file_obj = self._opne_local(variable.uri)
+        else:
+            raise esgf.WPSServerError('Unsupported protocol "%s"' % (scheme,))
+
+        return file_obj[variable.var_name]
+
+    def read(self, variable):
+        """ Loads actual data. """
+        file_var = self.metadata(variable)
+
+        # TODO apply domains when request actual data
+
+        return file_var()
+
+    def write(self, uri, data, var_name):
+        """ Writes variable to new NetCDF file. """
+        # Check if data is in correct format
+        if not isinstance(data, cdms2.tvariable):
+            raise esgf.WPSServerError('Input data not in correct format.')
+
+        logger.debug('Writing "%s" variable to file at "%s"',
+                     var_name,
+                     uri)
+
+        file_obj = cdms2.open(uri, 'w')
+
+        file_obj.write(data, id=var_name)
+
+        file_obj.close()
+
+class JSONHandler(object):
+    """ JSONHandler
+
+    Handlers JSON read/write/metadata operations.
+    """
+    def __init__(self, pem_file):
+        """ Init """
+        pass
+
+    def metadata(self, variable):
+        """ Retrieves metadata. """
         raise NotImplementedError
 
-    def write(self, uri, data, **metadata):
-        """ Required override. """
+    def read(self, variable):
+        """ Reads actual data. """
         raise NotImplementedError
 
-    def reader(self, uri):
-        """ Returns the correct reader for the uri scheme. """
-        scheme = self._parse_scheme(uri)
-
-        try:
-            return self._read[scheme]
-        except KeyError:
-            raise WPSServerError('No protocol handler for %s', scheme)
-
-    def writer(self, uri):
-        """ Returns the correct writer for the uri scheme. """
-        scheme = self._parse_scheme(uri)
-
-        try:
-            return self._write[scheme]
-        except KeyError:
-            raise WPSServerError('No protocol handler for %s', scheme)
-
-    def _parse_scheme(self, uri):
-        """ Parses uri for the scheme portion. """
-        scheme, _, _, _, _, _ = urlparse.urlparse(uri)
-
-        return scheme
-
-class NetCDFHandler(BaseHandler):
-    """ NetCDFHandler.
-
-    Write/Read allowed for local filesystem and Read-only for http.
-    """
-    def __init__(self):
-        """ Init. """
-        super(NetCDFHandler, self).__init__()
-
-        self.register_reader('file', self._read_generic)
-        self.register_reader('http', self._read_generic)
-        self.register_reader('https', self._read_ssl)
-
-        self.register_writer('file', self._write_file)
-
-    def read(self, variable, **metadata):
-        """ Reads a netcdf file. """
-        reader = self.reader(variable.uri)
-
-        data = reader(variable, **metadata)
-
-        gridder = None
-
-        if 'gridder' in metadata:
-            gridder = metadata['gridder']
-
-        return DataContainer(data[variable.var_name], variable.domains, gridder)
-    
-    def _read_generic(self, variable, **metadata):
-        """ Generic read function for http or file protocols."""
-        return cdms2.open(variable.uri, 'r')
-
-    def _read_ssl(self, variable, **metadata):
-        """ Read function for https. Localize then read with cdms2. """
-        session = requests.Session()
-        session.cert = metadata['cert']
-
-        file_name = os.path.split(variable.uri)[1]
-        file_path = os.path.join(metadata['temp'], file_name)
-
-        if not os.path.exists(file_path):
-            with open(file_path, 'w') as nc_file:
-                logger.info('Localizing file to %s', file_path)
-
-                result = session.get(variable.uri)
-
-                written = 0
-                total_size = int(result.headers['Content-Length'])
-
-                for chunk in result.iter_content(64*1024):
-                    nc_file.write(chunk)
-
-                    written += len(chunk)
-
-                    logger.info('Localizing %f', written*100/total_size)
-
-        return cdms2.open(file_path, 'r')
-
-    def write(self, uri, data, **metadata):
-        """ Writes a netcdf file. """
-        writer = self.writer(uri)
-
-        return writer(uri, data, **metadata)
-
-    def _write_file(self, uri, data, **metadata):
-        """ Write function for file. """
-        new_file = cdms2.open(uri, 'w')
-
-        new_file.write(data, **metadata)
-
-        new_file.close()
-
-class JSONHandler(BaseHandler):
-    """ JSONHandler """
-    def __init__(self):
-        """ Init. """
-        super(JSONHandler, self).__init__()
-
-        self.register_writer('file', self._write_file)
-
-    def read(self, variable, **metadata):
-        """ Reads a json file. """
-        reader = self.reader(uri)
-
-        return reader.read(variable, **metadata)
-
-    def write(self, uri, data, **metadata):
-        """ Writes a json file. """
-        writer = self.writer(uri)
-
-        return writer(uri, data, **metadata)
-
-    def _write_file(self, uri, data, **metadata):
-        """ File protocol writer. """
-        with open(uri[7:], 'w') as new_file:
+    def write(self, uri, data, var_name):
+        """ Writes object to json file. """
+        with open(uri, 'w') as new_file:
             json.dump(data, new_file)
 
 class DataManager(object):
     """ DataManager
 
-    Handles determining the correct handler for the file provided by the 
-    Variable class.
+    Supported formats:
+        - NetCDF
+        - JSON
     """
-    HANDLERS = {
-        'application/x-netcdf': NetCDFHandler(),
-        'application/json': JSONHandler(),
+    handlers = {
+        '.nc': NetCDFHandler,
+        '.json': JSONHandler,
     }
-       
-    def read(self, variable, **metadata):
-        """ Read the file describe by variable. """
-        mimetype, _ = mimetypes.guess_type(variable.uri)
+
+    def __init__(self, pem):
+        """ Init """
+        self._pem = pem
+        self._pem_temp = None
+
+    def __enter__(self):
+        """ Enter method for context management. """
+        # Maybe write when need rather than all the time,
+        # can still use context manager to guarantee cleanup.
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            self._pem_temp = temp_file.name
+            
+            temp_file.write(self._pem)
+
+            logger.debug('%s', temp_file.name)
+
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """ Exit method for context management. 
+        
+        Clean up written credentials.
+        """
+        os.remove(self._pem_temp)
+
+    def _resolve_handler(self, uri):
+        """ Determine correct handler for file type. """
+        scheme, _, path, _, _, _ = urlparse.urlparse(uri)
+
+        _, ext = os.path.splitext(path)
 
         try:
-            handler = self.HANDLERS[mimetype]
+            handler = self.handlers[ext](self._pem_temp)
         except KeyError:
-            raise WPSServerError('No handler for %s', mimetype)
+            raise esgf.WPSServerError('No data handler for file type "%s"' %
+                                      (ext,))
+        else:
+            return handler
 
-        data = handler.read(variable, **metadata)
+    def metadata(self, variable):
+        """ Reads metadata. """
+        handler = self._resolve_handler(variable.uri)
 
-        return data
+        return handler.metadata(variable)
 
-    def write(self, uri, data, **metadata):
-        """ Write the file described by variable. """
-        mimetype, _ = mimetypes.guess_type(uri)
+    def read(self, variable):
+        """ Reads file contents. """
+        handler = self._resolve_handler(variable.uri)
 
-        try:
-            handler = self.HANDLERS[mimetype]
-        except KeyError:
-            raise WPSServerError('No handler for %s', mimetype)
+        return handler.read(variable)
 
-        if uri[0] == '/':
-            uri = 'file://' + uri
+    def write(self, uri, data, var_name):
+        """ Writes file contents. """
+        handler = self._resolve_handler(uri)
 
-        handler.write(uri, data, **metadata)
+        return handler.write(uri, data, var_name)

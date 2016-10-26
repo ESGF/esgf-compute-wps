@@ -7,6 +7,7 @@ import cdutil
 from pywps import config
 import esgf
 
+from wps import logger
 from wps.processes import data_manager
 from wps.processes import esgf_operation
 
@@ -18,28 +19,12 @@ class CDUtilOperation(esgf_operation.ESGFOperation):
     def title(self):
         return 'CDUtil Averager'
 
-    def __call__(self, auth, status):
-        dm = data_manager.DataManager()
-        
-        gridder = self.parameter('gridder', False)
-
-        with tempfile.NamedTemporaryFile() as pem_file:
-            pem_file.write(str(auth['pem']))
-            pem_file.flush()
-
-            metadata = {
-                'gridder': gridder,
-                'cert': pem_file.name,
-                'temp': config.getConfigValue('server', 'tempPath', '/tmp/wps'),
-            }
-
-            data = dm.read(self.input()[0], **metadata)
-
+    def __call__(self, data_manager, status):
         axes = self.parameter('axes')
 
         status('Read input data')
 
-        input_var = data.chunk
+        input_var = data_manager.read(self.input()[0])
 
         axes_arg = ''.join((str(input_var.getAxisIndex(x)) for x in axes.values))
 
@@ -63,7 +48,6 @@ class CDUtilOperation(esgf_operation.ESGFOperation):
 
         status('Writing output to "%s"' % (new_file,))
 
-        dm.write('file://' + new_file, new_var, id=new_var_name)
+        data_manager.write('file://' + new_file, new_var, new_var_name)
 
         self.set_output(new_file, new_var_name)
-

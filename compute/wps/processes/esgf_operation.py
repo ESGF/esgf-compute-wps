@@ -62,6 +62,6 @@ class ESGFOperation(object):
         """ Sets process output. """
         self._output = esgf.Variable(uri, var_name, mime_type=mime_type)
 
-    def __call__(self, auth, status):
+    def __call__(self, data_manager, status):
         """ Main execution call. """
         raise NotImplementedError
