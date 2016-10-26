@@ -14,6 +14,9 @@ class ESGFOperation(object):
         self._identifier = '.'.join(os.path.splitext(file_path)[0].split('/')[-2:])
 
         self._output = None
+
+        # Stores esgf.operation object
+        self.data = None
         
     @property
     def identifier(self):
@@ -42,10 +45,23 @@ class ESGFOperation(object):
         """ Returns process output as a Variable. """
         return self._output
 
+    def input(self):
+        return self.data.inputs
+
+    def parameter(self, name, required=True):
+        try:
+            return self.data.parameters[name]
+        except KeyError:
+            if not required:
+                return None
+
+            raise esgf.WPSServerError('No parameter "%s" passed to operation'
+                                      ' "%s"' % (name, self._identifier))
+
     def set_output(self, uri, var_name, mime_type=None):
         """ Sets process output. """
         self._output = esgf.Variable(uri, var_name, mime_type=mime_type)
 
-    def __call__(self, operations, auth, status):
+    def __call__(self, auth, status):
         """ Main execution call. """
         raise NotImplementedError

@@ -166,9 +166,13 @@ class ESGFProcess(Process.WPSProcess):
 
                     param.grid = domains[param.grid]
 
-        logger.info('Done staging')
+            if self._operation.identifier == operation.identifier:
+                self._operation.data = operation
 
-        return operations
+        if not self._operation.data:
+            raise esgf.WPSServerError('Failed to find operation')
+
+        logger.info('Done staging')
 
     def complete_process(self, variable):
         """ Signals the end of a process and the populates the output. """
@@ -203,14 +207,11 @@ class ESGFProcess(Process.WPSProcess):
         Called by WPS process.
         """ 
         try:
-            operations = self._staging()
+            self._staging()
 
             auth = json.loads(self._read_input('auth'))
 
-            # For the moment we only support single operations but
-            # later this will be the root of a tree and/or list of 
-            # non-dependent operations
-            self._operation(operations[0], auth, self.update_status)
+            self._operation(auth, self.update_status)
 
             self.complete_process(self._operation.output)
         except Exception as e:

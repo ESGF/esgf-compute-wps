@@ -13,7 +13,7 @@ class EchoOperation(esgf_operation.ESGFOperation):
     def title(self):
         return 'Test Echo'
 
-    def __call__(self, operation, auth, status):
+    def __call__(self, auth, status):
         dm = data_manager.DataManager()
 
         output_path = config.getConfigValue('server', 'outputPath', '/var/wps')
@@ -22,6 +22,6 @@ class EchoOperation(esgf_operation.ESGFOperation):
 
         output_file = os.path.join(output_path, output_name)
 
-        dm.write(output_file, operation.parameterize())
+        dm.write(output_file, self._data.parameterize())
 
         self.set_output(output_file, '')

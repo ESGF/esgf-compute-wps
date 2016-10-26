@@ -18,13 +18,10 @@ class CDUtilOperation(esgf_operation.ESGFOperation):
     def title(self):
         return 'CDUtil Averager'
 
-    def __call__(self, operation, auth, status):
+    def __call__(self, auth, status):
         dm = data_manager.DataManager()
         
-        try:
-            gridder = operation.parameters['gridder']
-        except KeyError:
-            gridder = None
+        gridder = self.parameter('gridder', False)
 
         with tempfile.NamedTemporaryFile() as pem_file:
             pem_file.write(str(auth['pem']))
@@ -36,12 +33,9 @@ class CDUtilOperation(esgf_operation.ESGFOperation):
                 'temp': config.getConfigValue('server', 'tempPath', '/tmp/wps'),
             }
 
-            data = dm.read(operation.inputs[0], **metadata)
+            data = dm.read(self.input()[0], **metadata)
 
-        try:
-            axes = operation.parameters['axes']
-        except KeyError:
-            raise esgf.WPSServerError('Expecting parameter named axes')
+        axes = self.parameter('axes')
 
         status('Read input data')
 

@@ -53,8 +53,8 @@ class EnsembleAveragerOphidia(esgf_operation.ESGFOperation):
 
         return OphResponseWrapper(client.last_response)
 
-    def __call__(self, operation, auth, status):
-        if len(operation.inputs) < 2:
+    def __call__(self, auth, status):
+        if len(self.input()) < 2:
             raise esgf.WPSServerError('Must supply two input variables.')
 
         oph_host = settings.OPH_HOST
@@ -64,7 +64,7 @@ class EnsembleAveragerOphidia(esgf_operation.ESGFOperation):
 
         cl = client.Client(oph_user, oph_pass, oph_host, oph_port)
 
-        input0 = operation.inputs[0]
+        input0 = self.input()[0]
 
         dm = data_manager.DataManager()
 
@@ -84,7 +84,7 @@ class EnsembleAveragerOphidia(esgf_operation.ESGFOperation):
 
         cubes = []
 
-        for inp in operation.inputs:
+        for inp in self.input():
             resp = self.oph_submit(cl, 'oph_importnc container=%s;measure=%s;'
                                    'src_path=%s;' %
                                    (container, inp.var_name, inp.uri))

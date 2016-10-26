@@ -19,7 +19,7 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
     def title(self):
         return 'Ophidia Average'
 
-    def __call__(self, operation, auth, status):
+    def __call__(self, auth, status):
         oph_user = settings.OPH_USER
         oph_pass = settings.OPH_PASSWORD
         oph_host = settings.OPH_HOST
@@ -31,19 +31,19 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
             raise esgf.WPSServerError('Could not connect to %s' % (oph_host,))
 
         try:
-            container = self._create_container(cl, operation)
+            container = self._create_container(cl)
         except esgf.WPSServerError:
             container = 'wps'
 
-        import_cube = self._importnc(cl, operation, container)
+        import_cube = self._importnc(cl, container)
 
         status('Imported input "%s"' %
-               (operation.inputs[0].uri,))
+               (self.input()[0].uri,))
 
-        reduce_cube = self._reduce(cl, operation, import_cube)
+        reduce_cube = self._reduce(cl, import_cube)
 
         status('Reduced across "%s" dimensions' %
-               (', '.join(operation.parameters['axes'].values),))
+               (', '.join(self.parameter('axes').values),))
 
         output = self._export(cl, reduce_cube, container)
 
@@ -70,7 +70,7 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         return output
 
-    def _reduce(self, client, operation, cube):
+    def _reduce(self, client, cube):
         cmd = 'oph_reduce cube=%s;operation=avg;'
 
         client.submit(cmd % (cube, ))
@@ -83,8 +83,8 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         return cube
 
-    def _importnc(self, client, operation, container):
-        variable = operation.inputs[0]
+    def _importnc(self, client, container):
+        variable = self.input()[0]
         
         cmd = 'oph_importnc container=%s;measure=%s;src_path=%s;'
 
@@ -100,14 +100,14 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         return cube
 
-    def _create_container(self, client, operation):
+    def _create_container(self, client):
         dm = data_manager.DataManager()
 
-        var = dm.read(operation.inputs[0])
+        var = dm.read(self.input()[0])
 
         dim = '|'.join([x.id for x in var.chunk.getAxisList()])
 
-        imp_dim = '|'.join(operation.parameters['axes'].values)
+        imp_dim = '|'.join(self.parameter('axes').values)
 
         cmd = 'oph_createcontainer container=%s;dim=%s;imp_dim=%s;'
 
