@@ -21,18 +21,18 @@ class NetCDFHandler(object):
         """ Init """
         self._pem_file = pem_file
 
-    def create_dodsrc(self, path):
-        dodsrc = os.path.join(path, '.dodsrc')
+    def create_dodsrc(self, output_path, pem_path):
+        dodsrc = os.path.join(output_path, '.dodsrc')
 
-        cookiejar = os.path.join(path, '.dods_cookies')
+        cookiejar = os.path.join(output_path, '.dods_cookies')
 
         # Update .dodsrc for netcdf library
         with open(dodsrc, 'w') as new_file:
             new_file.write('HTTP.COOKIEJAR=%s\n' % (cookiejar,))
             new_file.write('HTTP.SSL.VALIDATE=1\n')
-            new_file.write('HTTP.SSL.CERTIFICATE=%s\n' % (self._pem_file,))
-            new_file.write('HTTP.SSL.KEY=%s\n' % (self._pem_file,))
-            new_file.write('HTTP.SSL.CAPATH=%s\n' % (self._pem_file,))
+            new_file.write('HTTP.SSL.CERTIFICATE=%s\n' % (pem_path,))
+            new_file.write('HTTP.SSL.KEY=%s\n' % (pem_path,))
+            new_file.write('HTTP.SSL.CAPATH=%s\n' % (pem_path,))
 
         return dodsrc
 
@@ -76,7 +76,7 @@ class NetCDFHandler(object):
         """ Handles opening http files. """
         file_obj = None
 
-        self.create_dodsrc(os.path.expanduser('~'))
+        self.create_dodsrc(os.path.expanduser('~'), self._pem_file)
 
         # First attempt to open like dap/http file
         try:
@@ -224,8 +224,9 @@ class DataManager(object):
         """ Temporary PEM file location. """
         return self._pem_temp
 
-    def create_dodsrc(self, path):
-        return self.handlers['.nc'].create_dodsrc(path)
+    def create_dodsrc(self, output_path, pem_path):
+        return self.handlers['.nc'](self._pem_temp).create_dodsrc(
+            output_path, pem_path)
 
     def metadata(self, variable):
         """ Reads metadata. """

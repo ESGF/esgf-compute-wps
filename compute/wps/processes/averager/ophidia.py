@@ -3,8 +3,10 @@ import os
 from uuid import uuid4 as uuid
 
 import esgf
+from paramiko import client as pclient
 from PyOphidia import client
 from pywps import config
+import scpclient
 
 from wps import logger
 from wps.conf import settings
@@ -27,29 +29,53 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         cl = client.Client(oph_user, oph_pass, oph_host, oph_port)
 
-        if not cl.last_response:
-            raise esgf.WPSServerError('Could not connect to %s' % (oph_host,))
+        # Connect SSH to send certificates
+        ssh = pclient.SSHClient()
+        ssh.load_system_host_keys()
+        ssh.connect(settings.OPH_HOST, username='root', password='volcom87')
+
+        # Connect SCP to transfer certificates
+        with scpclient.closing(
+                scpclient.Write(ssh.get_transport(), '~/')) as scp:
+            dodsrc = data_manager.create_dodsrc(
+                os.path.curdir, '${HOME}/certificate.pem')
+
+            scp.send_file(dodsrc)
+            scp.send_file(data_manager.pem_file,
+                          remote_filename='certificate.pem')
+    
+            # Remove local .dodsrc so global is not overwritten
+            os.remove(dodsrc)
 
         try:
-            container = self._create_container(cl, data_manager)
-        except esgf.WPSServerError:
-            container = 'wps'
+            if not cl.last_response:
+                raise esgf.WPSServerError('Could not connect to %s' % (oph_host,))
 
-        import_cube = self._importnc(cl, container)
+            try:
+                container = self._create_container(cl, data_manager)
+            except esgf.WPSServerError:
+                container = 'wps'
 
-        status('Imported input "%s"' %
-               (self.input()[0].uri,))
+            import_cube = self._importnc(cl, container)
 
-        reduce_cube = self._reduce(cl, import_cube)
+            status('Imported input "%s"' %
+                   (self.input()[0].uri,))
 
-        status('Reduced across "%s" dimensions' %
-               (', '.join(self.parameter('axes').values),))
+            reduce_cube = self._reduce(cl, import_cube)
 
-        output = self._export(cl, reduce_cube, container)
+            status('Reduced across "%s" dimensions' %
+                   (', '.join(self.parameter('axes').values),))
 
-        status('Exported output to %s' % (output,))
+            output = self._export(cl, reduce_cube, container)
 
-        self.set_output(output, '')
+            status('Exported output to %s' % (output,))
+
+            self.set_output(output, '')
+        finally:
+            # Clean up remove certificates.
+            ssh.exec_command('rm -f ~/certificate.pem')
+
+            ssh.close()
 
     def _export(self, client, cube, container):
         cmd = 'oph_exportnc cube=%s;output_path=%s;output_name=%s;'
