@@ -214,6 +214,11 @@ class DataManager(object):
         else:
             return handler
 
+    @property
+    def pem_file(self):
+        """ Temporary PEM file location. """
+        return self._pem_temp
+
     def metadata(self, variable):
         """ Reads metadata. """
         handler = self._resolve_handler(variable.uri)
