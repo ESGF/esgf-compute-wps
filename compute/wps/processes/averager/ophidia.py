@@ -31,6 +31,7 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         # Connect SSH to send certificates
         ssh = pclient.SSHClient()
+        ssh.set_missing_host_key_policy(pclient.AutoAddPolicy())
         ssh.load_system_host_keys()
         ssh.connect(settings.OPH_HOST,
                     username=settings.OPH_SSH_USER,
