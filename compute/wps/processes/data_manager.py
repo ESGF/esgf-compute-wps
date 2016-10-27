@@ -128,7 +128,7 @@ class NetCDFHandler(object):
     def write(self, uri, data, var_name):
         """ Writes variable to new NetCDF file. """
         # Check if data is in correct format
-        if not isinstance(data, cdms2.tvariable):
+        if not isinstance(data, cdms2.tvariable.TransientVariable):
             raise esgf.WPSServerError('Input data not in correct format.')
 
         logger.debug('Writing "%s" variable to file at "%s"',
