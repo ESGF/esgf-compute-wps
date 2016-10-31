@@ -212,7 +212,8 @@ class ESGFProcess(Process.WPSProcess):
 
             auth = json.loads(self._read_input('auth'))
 
-            with data_manager.DataManager(auth['pem']) as dm:
+            with data_manager.DataManager(ca_dir=auth['ca_dir'],
+                                          pem=auth['pem']) as dm:
                 self._operation(dm, self.update_status)
 
                 self.complete_process(self._operation.output)

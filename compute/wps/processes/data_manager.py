@@ -17,8 +17,9 @@ class NetCDFHandler(object):
 
     Only supports http/file protocols.
     """
-    def __init__(self, pem_file):
+    def __init__(self, ca_dir, pem_file):
         """ Init """
+        self._ca_dir = ca_dir
         self._pem_file = pem_file
 
     def create_dodsrc(self, output_path, pem_path):
@@ -28,11 +29,12 @@ class NetCDFHandler(object):
 
         # Update .dodsrc for netcdf library
         with open(dodsrc, 'w') as new_file:
+            new_file.write('HTTP.VERBOSE=1\n')
             new_file.write('HTTP.COOKIEJAR=%s\n' % (cookiejar,))
-            new_file.write('HTTP.SSL.VALIDATE=1\n')
+            new_file.write('HTTP.SSL.VALIDATE=0\n')
             new_file.write('HTTP.SSL.CERTIFICATE=%s\n' % (pem_path,))
             new_file.write('HTTP.SSL.KEY=%s\n' % (pem_path,))
-            new_file.write('HTTP.SSL.CAPATH=%s\n' % (pem_path,))
+            new_file.write('HTTP.SSL.CAPATH=%s\n' % (self._ca_dir,))
 
         return dodsrc
 
@@ -180,21 +182,20 @@ class DataManager(object):
         '.json': JSONHandler,
     }
 
-    def __init__(self, pem):
+    def __init__(self, **kwargs):
         """ Init """
-        self._pem = pem
-        self._pem_temp = None
+        self._ca_dir = kwargs.get('ca_dir', None)
+        self._pem_data = kwargs.get('pem', None)
+        self._pem_file = None
 
     def __enter__(self):
         """ Enter method for context management. """
         # Maybe write when need rather than all the time,
         # can still use context manager to guarantee cleanup.
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            self._pem_temp = temp_file.name
+            self._pem_file = temp_file.name
             
-            temp_file.write(self._pem)
-
-            logger.debug('%s', temp_file.name)
+            temp_file.write(self._pem_data)
 
         return self
 
@@ -203,7 +204,7 @@ class DataManager(object):
         
         Clean up written credentials.
         """
-        os.remove(self._pem_temp)
+        os.remove(self._pem_file)
 
     def _resolve_handler(self, uri):
         """ Determine correct handler for file type. """
@@ -212,7 +213,7 @@ class DataManager(object):
         _, ext = os.path.splitext(path)
 
         try:
-            handler = self.handlers[ext](self._pem_temp)
+            handler = self.handlers[ext](self._ca_dir, self._pem_file)
         except KeyError:
             raise esgf.WPSServerError('No data handler for file type "%s"' %
                                       (ext,))
@@ -223,10 +224,6 @@ class DataManager(object):
     def pem_file(self):
         """ Temporary PEM file location. """
         return self._pem_temp
-
-    def create_dodsrc(self, output_path, pem_path):
-        return self.handlers['.nc'](self._pem_temp).create_dodsrc(
-            output_path, pem_path)
 
     def metadata(self, variable):
         """ Reads metadata. """
