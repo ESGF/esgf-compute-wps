@@ -25,6 +25,7 @@ class MyProxyClientBackend(object):
             bootstrap = True
 
             # if ca certs exist no need to grab them again.
+            # TODO possible check validity incase the trust roots are outdated
             if os.path.exists(settings.MPC_CA_CERT_DIR):
                 bootstrap = False
 

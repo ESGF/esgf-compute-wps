@@ -2,13 +2,10 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from django.http import HttpResponse
 from django.shortcuts import redirect
+from wps import logger
 
 from esgf_auth.conf import settings
-from esgf_auth.models import MyProxyClientAuth
-
-from OpenSSL import crypto
-
-from datetime import datetime
+from esgf_auth import models
 
 def parse_auth_header(header):
     """ Pasre HTTP Authorization header. """
@@ -18,10 +15,17 @@ def parse_auth_header(header):
 
 def esgf_login(request):
     """ Authenticate and log a user in. """
-    if 'HTTP_AUTHORIZATION' not in request.META:
-        return HttpResponse('Expecting Authorization header.')
+    if request.method == 'POST':
+        return HttpResponse('POST authentication is not supported')
 
-    username, password = parse_auth_header(request.META['HTTP_AUTHORIZATION'])
+    username = request.GET.get('username', None)
+    password = request.GET.get('password', None)
+
+    if not username or not password:
+        if 'HTTP_AUTHORIZATION' not in request.META:
+            return HttpResponse('Expecting Authorization header.')
+
+        username, password = parse_auth_header(request.META['HTTP_AUTHORIZATION'])
 
     user = authenticate(username=username, password=password)
 
@@ -30,13 +34,16 @@ def esgf_login(request):
             login(request, user)
 
             if settings.MPC_SESSION_EXP:
-                auth = MyProxyClientAuth.objects.get(user=user)
+                auth = models.MyProxyClientAuth.objects.get(user=user)
                 
                 request.session.set_expiry(auth.get_expiry(password))
 
-            next_url = request.GET['next']
+            if 'next' in request.GET:
+                next_url = request.GET['next']
 
-            return redirect(next_url)
+                return redirect(next_url)
+            else:
+                return HttpResponse('Authenticated.')
         else:
             return HttpResponse('Account disabled.')
     else:
