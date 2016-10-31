@@ -22,21 +22,17 @@ class NetCDFHandler(object):
         self._ca_dir = ca_dir
         self._pem_file = pem_file
 
-    def create_dodsrc(self, output_path, pem_path):
-        dodsrc = os.path.join(output_path, '.dodsrc')
-
-        cookiejar = os.path.join(output_path, '.dods_cookies')
-
+    def create_dodsrc(self, output_file, cookie_jar, pem_path, ca_dir):
         # Update .dodsrc for netcdf library
-        with open(dodsrc, 'w') as new_file:
+        with open(output_file, 'w') as new_file:
             new_file.write('HTTP.VERBOSE=1\n')
-            new_file.write('HTTP.COOKIEJAR=%s\n' % (cookiejar,))
+            new_file.write('HTTP.COOKIEJAR=%s\n' % (cookie_jar,))
             new_file.write('HTTP.SSL.VALIDATE=0\n')
             new_file.write('HTTP.SSL.CERTIFICATE=%s\n' % (pem_path,))
             new_file.write('HTTP.SSL.KEY=%s\n' % (pem_path,))
-            new_file.write('HTTP.SSL.CAPATH=%s\n' % (self._ca_dir,))
+            new_file.write('HTTP.SSL.CAPATH=%s\n' % (ca_dir,))
 
-        return dodsrc
+        return output_file
 
     def _localize(self, uri):
         """ Attempts to localize http file using credentials. """
@@ -78,7 +74,10 @@ class NetCDFHandler(object):
         """ Handles opening http files. """
         file_obj = None
 
-        self.create_dodsrc(os.path.expanduser('~'), self._pem_file)
+        output_file = os.path.join(os.path.expanduser('~'), '.dodsrc')
+        cookie_jar = os.path.join(os.path.expanduser('~'), '.dods_cookies')
+
+        self.create_dodsrc(output_file, cookie_jar, self._pem_file, self._ca_dir)
 
         # First attempt to open like dap/http file
         try:
