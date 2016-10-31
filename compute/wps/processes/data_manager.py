@@ -222,7 +222,14 @@ class DataManager(object):
     @property
     def pem_file(self):
         """ Temporary PEM file location. """
-        return self._pem_temp
+        return self._pem_file
+
+    @property
+    def ca_dir(self):
+        return self._ca_dir
+
+    def handler_by_ext(self, ext):
+        return self.handlers['.nc'](self._pem_file, self._ca_dir)
 
     def metadata(self, variable):
         """ Reads metadata. """

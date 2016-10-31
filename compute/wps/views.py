@@ -20,6 +20,8 @@ import os
 import re
 import json
 
+from esgf_auth.conf import settings as auth_settings
+
 from wps import logger
 from wps.conf import settings
 from wps.processes import PROCESSES
@@ -55,6 +57,7 @@ def execute_process(request, method, query_string):
 
         user_data = {
             'id': request.user.id,
+            'ca_dir': auth_settings.MPC_CA_CERT_DIR,
             'pem': request.user.myproxyclientauth.decrypt_pem(password),
         }
 
@@ -64,6 +67,7 @@ def execute_process(request, method, query_string):
 
         proc = [x for x in PROCESSES if x.identifier == identifier][0]
 
+        # Clean the inputs to the process
         for k, v in proc.inputs.iteritems():
             v.value = None
 
@@ -101,7 +105,7 @@ def api_processes(request):
     return JsonResponse({'processes': processes})
 
 @login_required
-@csrf_exempt
+#@csrf_exempt
 def wps(request):
     if request.method == 'GET':
         # Corrects the query format
