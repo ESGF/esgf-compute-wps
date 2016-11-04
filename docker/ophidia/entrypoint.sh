@@ -43,6 +43,28 @@ mkdir -p $cert_base
 
 cp $ca_cert $my_srv $cert_base
 
+cat << EOF > /root/miniconda2/etc/slurm.conf
+ControlMachine=$(hostname)
+MpiDefault=None
+ProctrackType=proctrack/pgid
+ReturnToService=1
+SlurmctldPidFile=/var/run/slurmctld.pid
+SlurmdPidFile=/var/run/slurmd.pid
+SlurmdSpoolDir=/var/spool/slurmd
+SlurmUser=root
+StateSaveLocation=/var/spool
+SwitchType=switch/none
+TaskPlugin=task/none
+FastSchedule=1
+SchedulerType=sched/backfill
+SelectType=select/linear
+AccountingStorageType=accounting_storage/none
+ClusterName=cluster
+JobAcctGatherType=jobacct_gather/none
+NodeName=$(hostname) CPUs=1 State=UNKNOWN
+PartitionName=debug Nodes=$(hostname) Default=YES MaxTime=INFINITE State=UP
+EOF
+
 sed -ibak "s/\(MAPPERDB_PWD\)=.*/\1=abcd/g" /root/miniconda2/etc/oph_configuration
 sed -ibak "s/\(MAPPERDB_PWD\)=.*/\1=abcd/g" /root/miniconda2/etc/oph_dim_configuration
 sed -ibak "s/\(SUBM_USER_PUBLK\)=.*/\1=\/root\/\.ssh\/id_dsa\.pub/g" /root/miniconda2/etc/server.conf
@@ -62,6 +84,12 @@ mysql -h 127.0.0.1 -u root --password=abcd ophidiadb -e "INSERT INTO dbmsinstanc
 mysql -h 127.0.0.1 -u root --password=abcd ophidiadb -e "INSERT INTO hostpartition (partitionname) VALUES ('test');"
 mysql -h 127.0.0.1 -u root --password=abcd ophidiadb -e "INSERT INTO hashost VALUES (1, 1);"
 
+/root/miniconda2/sbin/slurmctld
+/root/miniconda2/sbin/slurmd
+
+service munge start
 service sshd start
+
+oph_server &>/dev/null &
 
 exec "$@"
