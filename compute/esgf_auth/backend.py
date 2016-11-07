@@ -1,3 +1,6 @@
+import os
+import re
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -5,10 +8,10 @@ from myproxy.client import MyProxyClient
 from myproxy.client import MyProxyClientGetError
 from myproxy.client import MyProxyClientRetrieveError
 
+from wps import logger
+
 from esgf_auth.conf import settings
 from esgf_auth.models import MyProxyClientAuth
-
-import os
 
 class MyProxyClientBackend(object):
     def authenticate(self, username=None, password=None):
@@ -19,18 +22,30 @@ class MyProxyClientBackend(object):
             except User.DoesNotExist:
                 user = User(username=username)
 
-            client = MyProxyClient(hostname=settings.MPC_HOSTNAME,
-                                   caCertDir=settings.MPC_CA_CERT_DIR)
+            user_host_pattern = 'https?://(.*).(gov|net|edu)/?.*/openid/(.*)'
 
-            bootstrap = True
+            result = re.match(user_host_pattern, username).groups()
 
-            # if ca certs exist no need to grab them again.
-            # TODO possible check validity incase the trust roots are outdated
-            if os.path.exists(settings.MPC_CA_CERT_DIR):
-                bootstrap = False
+            if not result:
+                logger.debug('Using default MyProxyClient endpoint "%s"',
+                             settings.MPC_HOSTNAME)
+
+                client = MyProxyClient(hostname=settings.MPC_HOSTNAME,
+                                       caCertDir=settings.MPC_CA_CERT_DIR)
+            else:
+                hostname = '%s.%s' % (result[0], result[1])
+
+                logger.debug('Using custom MyProxyClient endpoint "%s"',
+                             hostname)
+
+                client = MyProxyClient(hostname=hostname,
+                                       caCertDir=settings.MPC_CA_CERT_DIR)
 
             try:
-                proxy_cred = client.logon(username, password, bootstrap=bootstrap)
+                if not result:
+                    proxy_cred = client.logon(username, password, bootstrap=True)
+                else:
+                    proxy_cred = client.logon(result[2], password, bootstrap=True)
             except (MyProxyClientGetError, MyProxyClientRetrieveError) as e:
                 raise Exception('MyProxyClient error: %s' % e.message)
             else:

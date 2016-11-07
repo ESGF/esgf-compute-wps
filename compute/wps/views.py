@@ -53,7 +53,11 @@ def execute_process(request, method, query_string):
             'HTTP_AUTHORIZATION' in request.META):
         http_auth = request.META['HTTP_AUTHORIZATION']
 
-        password = http_auth.split(' ')[1].decode('base64').split(':')[1]
+        decoded = http_auth.split(' ')[1].decode('base64')
+
+        last_idx = decoded.rfind(':')
+
+        password = decoded[last_idx+1:]
 
         user_data = {
             'id': request.user.id,

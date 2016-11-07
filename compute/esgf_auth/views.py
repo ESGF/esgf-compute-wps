@@ -11,7 +11,11 @@ def parse_auth_header(header):
     """ Pasre HTTP Authorization header. """
     method, auth = header.split(' ')
 
-    return auth.decode('base64').split(':')
+    decoded_auth = auth.decode('base64')
+
+    last_idx = decoded_auth.rfind(':')
+
+    return decoded_auth[:last_idx], decoded_auth[last_idx+1:]
 
 def esgf_login(request):
     """ Authenticate and log a user in. """
