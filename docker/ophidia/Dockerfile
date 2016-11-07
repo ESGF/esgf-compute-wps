@@ -28,7 +28,7 @@ RUN bash Miniconda2-latest-Linux-x86_64.sh -b -f
 
 ENV PATH=/root/miniconda2/bin:/root/miniconda2/sbin:$PATH
 
-RUN yum install -y glibc-devel
+RUN yum install -y glibc-devel openssh-clients
 
 RUN conda install -c jasonb857 -c conda-forge \
       ophidia-primitives ophidia-analytics-framework ophidia-server \
