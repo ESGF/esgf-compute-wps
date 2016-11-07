@@ -45,7 +45,7 @@ cp $ca_cert $my_srv $cert_base
 
 cat << EOF > /root/miniconda2/etc/slurm.conf
 ControlMachine=$(hostname)
-MpiDefault=None
+MpiDefault=none
 ProctrackType=proctrack/pgid
 ReturnToService=1
 SlurmctldPidFile=/var/run/slurmctld.pid
@@ -57,13 +57,16 @@ SwitchType=switch/none
 TaskPlugin=task/none
 FastSchedule=1
 SchedulerType=sched/backfill
-SelectType=select/linear
+SelectType=select/cons_res
+SelectTypeParameters=CR_CPU
 AccountingStorageType=accounting_storage/none
 ClusterName=cluster
 JobAcctGatherType=jobacct_gather/none
-NodeName=$(hostname) CPUs=1 State=UNKNOWN
+NodeName=$(hostname) CPUs=4 State=UNKNOWN
 PartitionName=debug Nodes=$(hostname) Default=YES MaxTime=INFINITE State=UP
 EOF
+
+echo ${CPU_COUNT}
 
 sed -ibak "s/\(MAPPERDB_PWD\)=.*/\1=abcd/g" /root/miniconda2/etc/oph_configuration
 sed -ibak "s/\(MAPPERDB_PWD\)=.*/\1=abcd/g" /root/miniconda2/etc/oph_dim_configuration
