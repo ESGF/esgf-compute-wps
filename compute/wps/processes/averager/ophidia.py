@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from uuid import uuid4 as uuid
 
 import esgf
@@ -38,17 +39,22 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
                     password=settings.OPH_SSH_PASSWORD)
 
         # Connect SCP to transfer certificates
-        with scpclient.closing(
-                scpclient.Write(ssh.get_transport(), '~/')) as scp:
-            dodsrc = data_manager.create_dodsrc(
-                os.path.curdir, '${HOME}/certificate.pem')
+        with scpclient.closing(scpclient.Write(ssh.get_transport(), '~/')) as scp:
+            nc_handler = data_manager.handler_by_ext('.nc')
 
-            scp.send_file(dodsrc)
-            scp.send_file(data_manager.pem_file,
-                          remote_filename='certificate.pem')
-    
-            # Remove local .dodsrc so global is not overwritten
-            os.remove(dodsrc)
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                nc_handler.create_dodsrc(temp_file.name,
+                                         '/root/dods_cookies',
+                                         '/root/credentials.pem',
+                                         '/root/certificates')
+
+                scp.send_file(temp_file.name, remote_filename='.dodsrc')
+                scp.send_file(data_manager.pem_file, remote_filename='credentials.pem')
+
+        with scpclient.closing(scpclient.WriteDir(ssh.get_transport(), '~/')) as scp:
+            ssh.exec_command('mkdir -p ~/certificates')
+
+            scp.send_dir(data_manager.ca_dir)
 
         try:
             if not cl.last_response:
