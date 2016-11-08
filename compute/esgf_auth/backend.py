@@ -24,7 +24,7 @@ class MyProxyClientBackend(object):
 
             user_host_pattern = 'https?://(.*).(gov|net|edu)/?.*/openid/(.*)'
 
-            result = re.match(user_host_pattern, username).groups()
+            result = re.match(user_host_pattern, username)
 
             if not result:
                 logger.debug('Using default MyProxyClient endpoint "%s"',
@@ -33,7 +33,7 @@ class MyProxyClientBackend(object):
                 client = MyProxyClient(hostname=settings.MPC_HOSTNAME,
                                        caCertDir=settings.MPC_CA_CERT_DIR)
             else:
-                hostname = '%s.%s' % (result[0], result[1])
+                hostname = '%s.%s' % (result.group(0), result.group(1))
 
                 logger.debug('Using custom MyProxyClient endpoint "%s"',
                              hostname)
@@ -45,7 +45,7 @@ class MyProxyClientBackend(object):
                 if not result:
                     proxy_cred = client.logon(username, password, bootstrap=True)
                 else:
-                    proxy_cred = client.logon(result[2], password, bootstrap=True)
+                    proxy_cred = client.logon(result.group(2), password, bootstrap=True)
             except (MyProxyClientGetError, MyProxyClientRetrieveError) as e:
                 raise Exception('MyProxyClient error: %s' % e.message)
             else:
