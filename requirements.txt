@@ -3,4 +3,6 @@ pyophidia
 django==1.10.0
 pyopenssl
 myproxyclient
+paramiko
+scpclient
 git+https://github.com/esgf/esgf-compute-api
