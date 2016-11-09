@@ -139,12 +139,13 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
-        }
+        },
     },
     'loggers': {
         '': {
             'handlers': ['console'],
             'propagate': True,
+            'level': 'DEBUG',
         }
     }
 }
