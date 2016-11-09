@@ -4,10 +4,8 @@ import tempfile
 from uuid import uuid4 as uuid
 
 import esgf
-from paramiko import client as pclient
 from PyOphidia import client
 from pywps import config
-import scpclient
 
 from wps import logger
 from wps.conf import settings
@@ -30,61 +28,29 @@ class OphidiaAverager(esgf_operation.ESGFOperation):
 
         cl = client.Client(oph_user, oph_pass, oph_host, oph_port)
 
-        # Connect SSH to send certificates
-        ssh = pclient.SSHClient()
-        ssh.set_missing_host_key_policy(pclient.AutoAddPolicy())
-        ssh.load_system_host_keys()
-        ssh.connect(settings.OPH_HOST,
-                    username=settings.OPH_SSH_USER,
-                    password=settings.OPH_SSH_PASSWORD)
-
-        # Connect SCP to transfer certificates
-        with scpclient.closing(scpclient.Write(ssh.get_transport(), '~/')) as scp:
-            nc_handler = data_manager.handler_by_ext('.nc')
-
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                nc_handler.create_dodsrc(temp_file.name,
-                                         '/root/dods_cookies',
-                                         '/root/credentials.pem',
-                                         '/root/certificates')
-
-                scp.send_file(temp_file.name, remote_filename='.dodsrc')
-                scp.send_file(data_manager.pem_file, remote_filename='credentials.pem')
-
-        with scpclient.closing(scpclient.WriteDir(ssh.get_transport(), '~/')) as scp:
-            ssh.exec_command('mkdir -p ~/certificates')
-
-            scp.send_dir(data_manager.ca_dir)
+        if not cl.last_response:
+            raise esgf.WPSServerError('Could not connect to %s' % (oph_host,))
 
         try:
-            if not cl.last_response:
-                raise esgf.WPSServerError('Could not connect to %s' % (oph_host,))
+            container = self._create_container(cl, data_manager)
+        except esgf.WPSServerError:
+            container = 'wps'
 
-            try:
-                container = self._create_container(cl, data_manager)
-            except esgf.WPSServerError:
-                container = 'wps'
+        import_cube = self._importnc(cl, container)
 
-            import_cube = self._importnc(cl, container)
+        status('Imported input "%s"' %
+               (self.input()[0].uri,))
 
-            status('Imported input "%s"' %
-                   (self.input()[0].uri,))
+        reduce_cube = self._reduce(cl, import_cube)
 
-            reduce_cube = self._reduce(cl, import_cube)
+        status('Reduced across "%s" dimensions' %
+               (', '.join(self.parameter('axes').values),))
 
-            status('Reduced across "%s" dimensions' %
-                   (', '.join(self.parameter('axes').values),))
+        output = self._export(cl, reduce_cube, container)
 
-            output = self._export(cl, reduce_cube, container)
+        status('Exported output to %s' % (output,))
 
-            status('Exported output to %s' % (output,))
-
-            self.set_output(output, '')
-        finally:
-            # Clean up remove certificates.
-            ssh.exec_command('rm -f ~/certificate.pem')
-
-            ssh.close()
+        self.set_output(output, '')
 
     def _export(self, client, cube, container):
         cmd = 'oph_exportnc cube=%s;output_path=%s;output_name=%s;'
