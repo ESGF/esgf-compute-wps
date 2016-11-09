@@ -16,6 +16,8 @@ from urllib import unquote
 
 from tempfile import NamedTemporaryFile
 
+from esgf import errors
+
 import os
 import re
 import json
@@ -58,6 +60,9 @@ def execute_process(request, method, query_string):
         last_idx = decoded.rfind(':')
 
         password = decoded[last_idx+1:]
+
+        if not password:
+            raise errors.WPSServerError('Must provide a password.')
 
         user_data = {
             'id': request.user.id,
@@ -111,34 +116,37 @@ def api_processes(request):
 @login_required
 #@csrf_exempt
 def wps(request):
-    if request.method == 'GET':
-        # Corrects the query format
-        query = request.META['QUERY_STRING']
+    try:
+        if request.method == 'GET':
+            # Corrects the query format
+            query = request.META['QUERY_STRING']
 
-        # unquote undoes the percent coding, pywps wants the string in ascii but
-        # utf-8 -> ascii doesn't preserve double quotes (TODO figure out why?)
-        query = unquote(query).decode('utf-8').encode('ascii', 'replace').replace('?', '"')
+            # unquote undoes the percent coding, pywps wants the string in ascii but
+            # utf-8 -> ascii doesn't preserve double quotes (TODO figure out why?)
+            query = unquote(query).decode('utf-8').encode('ascii', 'replace').replace('?', '"')
 
-        service_response = execute_process(request, pywps.METHOD_GET, query)
-    elif request.method == 'POST':
-        temp_file = NamedTemporaryFile(delete=False)
+            service_response = execute_process(request, pywps.METHOD_GET, query)
+        elif request.method == 'POST':
+            temp_file = NamedTemporaryFile(delete=False)
 
-        if 'document' in request.POST:
-            query = request.POST['document']
+            if 'document' in request.POST:
+                query = request.POST['document']
+            else:
+                query = request.read()
+
+            # Write file and seek beginning, Pywps wants a file-object,
+            # rather than the raw string.
+            temp_file.write(query)
+            temp_file.flush()
+            temp_file.seek(0)
+
+            service_response = execute_process(request, pywps.METHOD_POST, temp_file)
+
+            temp_file.close()
         else:
-            query = request.read()
-
-        # Write file and seek beginning, Pywps wants a file-object,
-        # rather than the raw string.
-        temp_file.write(query)
-        temp_file.flush()
-        temp_file.seek(0)
-
-        service_response = execute_process(request, pywps.METHOD_POST, temp_file)
-
-        temp_file.close()
-    else:
-        return HttpResponse('%s is an unsupported method.' % (request.method,))
+            return HttpResponse('%s is an unsupported method.' % (request.method,))
+    except Exception as e:
+        return HttpResponse('Error "%s"' % (e.message,))
 
     return HttpResponse(service_response, content_type='text/xml')
 
