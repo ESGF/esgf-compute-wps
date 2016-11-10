@@ -50,4 +50,6 @@ class CDUtilOperation(esgf_operation.ESGFOperation):
 
         data_manager.write('file://' + new_file, new_var, new_var_name)
 
-        self.set_output(new_file, new_var_name)
+        dap_url = self.create_dap_url(new_file_name)
+
+        self.set_output(dap_url, new_var_name)

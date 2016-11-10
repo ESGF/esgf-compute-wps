@@ -177,16 +177,6 @@ class ESGFProcess(Process.WPSProcess):
 
     def complete_process(self, variable):
         """ Signals the end of a process and the populates the output. """
-        _, filename = os.path.split(variable.uri)
-
-        dap_args = {
-            'filename': filename,
-            'hostname': settings.DAP_HOSTNAME,
-            'port': ':%s' % (settings.DAP_PORT,) if settings.DAP_PORT else '',
-        }
-
-        variable.uri = settings.DAP_PATH_FORMAT.format(**dap_args)
-
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             logger.info('Writing output "%r" to "%s"',
                         variable,

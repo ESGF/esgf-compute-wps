@@ -3,6 +3,8 @@ import sys
 
 import esgf
 
+from wps.conf import settings
+
 class ESGFOperation(object):
     """ ESGFOperation
 
@@ -57,6 +59,15 @@ class ESGFOperation(object):
 
             raise esgf.WPSServerError('No parameter "%s" passed to operation'
                                       ' "%s"' % (name, self._identifier))
+
+    def create_dap_url(self, filename):
+        url_args = {
+            'hostname': settings.DAP_HOSTNAME,
+            'port': settings.DAP_PORT,
+            'filename': '%s.nc' % (filename,),
+        }
+
+        return settings.DAP_PATH_FORMAT.format(**url_args)
 
     def set_output(self, uri, var_name, mime_type=None):
         """ Sets process output. """
