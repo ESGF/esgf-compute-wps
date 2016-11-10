@@ -104,7 +104,7 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
         if not self._submit_server(cmd, ignore_error):
             return None
 
-        op = re.match('^oph_(.*) .*$', cmd).group(1) 
+        op = re.match('^oph_([a-z0-9]+) .*$', cmd).group(1) 
 
         result = OphidiaResponseWrapper(self._client.last_response, op)
 
