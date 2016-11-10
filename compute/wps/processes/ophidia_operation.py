@@ -31,13 +31,11 @@ class OphidiaResponse(object):
         return self._status
 
     def find_by_key(self, key):
-        match = None
-
         for x in self.response['response']:
             if x['objkey'] == key:
-                match = x['objcontent']
+                return x['objcontent']
 
-        return match
+        return None
 
 class OphidiaListResponseWrapper(OphidiaResponse):
     def __init__(self, response):
