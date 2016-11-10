@@ -64,7 +64,7 @@ class ESGFOperation(object):
         url_args = {
             'hostname': settings.DAP_HOSTNAME,
             'port': settings.DAP_PORT,
-            'filename': '%s.nc' % (filename,),
+            'filename': filename,
         }
 
         return settings.DAP_PATH_FORMAT.format(**url_args)
