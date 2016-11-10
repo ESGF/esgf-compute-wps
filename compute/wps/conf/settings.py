@@ -14,6 +14,7 @@ OPH_USER = getattr(settings, 'OPH_USER', 'oph-test')
 OPH_PASSWORD = getattr(settings, 'OPH_PASSWORD', 'llnlaims')
 OPH_HOST = getattr(settings, 'OPH_HOST', 'aims2.llnl.gov')
 OPH_PORT = getattr(settings, 'OPH_PORT', 11732)
+OPH_CORES = getattr(settings, 'OPH_CORES', 8)
 OPH_DAP_PATH_FORMAT = getattr(settings, 'OPH_DAP_PATH_FORMAT',
                               'http://{hostname}:{port}/thredds/dodsC/test/{filename}.html')
 OPH_DAP_PATH = getattr(settings, 'OPH_DAP_PATH', '/export/boutte3/thredds/data/wps')

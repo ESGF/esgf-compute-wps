@@ -78,7 +78,6 @@ class OphidiaResponseWrapper(OphidiaResponse):
         return self._message
 
 class OphidiaOperation(esgf_operation.ESGFOperation):
-
     def __init__(self):
         super(OphidiaOperation, self).__init__()
 
@@ -88,6 +87,8 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
                                      settings.OPH_PORT)
 
     def _submit_server(self, cmd, ignore_error=False):
+        cmd += 'ncores=%s;' % (settings.OPH_CORES,)
+
         self._client.submit(cmd)
 
         if not self._client.last_response:
@@ -115,8 +116,10 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
 
         return OphidiaListResponseWrapper(self._client.last_response)
 
-    def list(self, level=0, container=None):
+    def list(self, level=0, **kwargs):
         cmd = 'oph_list level=%s;' % (level,)
+
+        container = kwargs.get('container')
 
         if container:
             cmd += 'container_filter=%s;' % (container,)
@@ -124,7 +127,7 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
         return self._submit_list(cmd)
 
     def apply(self, cube, query, measure=None):
-        cmd = 'oph_apply cube=%s;query=%s;ncores=12;' % (cube,
+        cmd = 'oph_apply cube=%s;query=%s;' % (cube,
                                               query)
 
         if measure:
