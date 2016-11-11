@@ -129,7 +129,61 @@ class NetCDFHandler(object):
 
         # TODO apply domains when request actual data
 
-        return file_var()
+        sel = cdms2.selectors.Selector()
+
+        logger.debug('Building domain selector')
+
+        for dim in variable.domains[0].dimensions:
+            if dim.crs == esgf.Dimension.indices:
+                dim_slice = self.create_index_slice(dim)
+
+                logger.debug('Adding dimension "%s" slice "%s"',
+                             dim.name,
+                             dim_slice)
+
+                sel = sel & dim_slice
+            elif dim.crs == esgf.Dimension.values:
+                dim_slice = self.create_value_slice(dim)
+
+                logger.debug('Adding dimension "%s" slice "%s"',
+                             dim.name,
+                             dim_slice)
+
+                sel = sel & dim_slice
+            else:
+                raise esgf.WPSServerError('Unknown CRS value "%s"' % (dim.crs,))
+
+        logger.debug('Complete selector "%s"', sel)
+
+        data = file_var(sel) 
+
+        return data
+
+    def create_index_slice(self, dim):
+        if dim.name in ('lat', 'latitude'):
+            return cdms2.latitudeslice(dim.start, dim.end, dim.step)
+        elif dim.name in ('lon', 'longitude'):
+            return cdms2.longitudeslice(dim.start, dim.end, dim.step)
+        elif dim.name in ('lvl', 'level'):
+            return cdms2.levelslice(dim.start, dim.end, dim.step)
+        elif dim.name == 'time':
+            return cdms2.timeslice(dim.start, dim.end, dim.step)
+        else:
+            raise esgf.WPSServerError('Failed to create index slice')
+
+    def create_value_slice(self, dim):
+        dim_slice = (str(dim.start), str(dim.end), str(dim.step))
+
+        if dim.name in ('lat', 'latitude'):
+            return cdms2.selectors.Selector(latitude=dim_slice)
+        elif dim.name in ('lon', 'longitude'):
+            return cdms2.selectors.Selector(longitude=dim_slice)
+        elif dim.name in ('lvl', 'level'):
+            return cdms2.selectors.Selector(level=dim_slice)
+        elif dim.name == 'time':
+            return cdms2.selectors.Selector(time=dim_slice)
+        else:
+            raise esgf.WPSServerError('Failed to create index slice')
 
     def write(self, uri, data, var_name):
         """ Writes variable to new NetCDF file. """
