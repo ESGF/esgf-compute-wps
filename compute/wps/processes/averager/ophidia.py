@@ -27,7 +27,10 @@ class OphidiaAverager(ophidia_operation.OphidiaOperation):
 
         imp_dim = '|'.join(axes.values)
 
-        src_cube = self.importnc(container, data.uri, data.var_name, imp_dim)
+        src_cube = self.importnc(container,
+                                 data.uri,
+                                 data.var_name,
+                                 dim=imp_dim)
 
         logger.debug('Imported "%s" with implicit dimensions "%s"',
                      data.uri, imp_dim)

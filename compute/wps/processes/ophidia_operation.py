@@ -165,7 +165,9 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
 
         return result.message
 
-    def importnc(self, container, uri, measure, dim=None):
+    def importnc(self, container, uri, measure, **kwargs):
+        dim = kwargs.get('dim')
+
         cmd = 'oph_importnc container=%s;measure=%s;src_path=%s;' % (
             container, measure, uri)
 
