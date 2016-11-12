@@ -28,11 +28,21 @@ class EnsembleAveragerOphidia(ophidia_operation.OphidiaOperation):
 
         inp_cubes = []
 
+        domain = None
+
+        if self.domain:
+            domain = self.domain
+
+            logger.debug('Applying domain "%s" to inputs', domain)
+
         for data in data_list:
             cubes = entries.filter_by_src(data.uri)
 
             if not len(cubes):
-                cube = self.importnc(container, data.uri, data.var_name)
+                cube = self.importnc(container,
+                                     data.uri,
+                                     data.var_name,
+                                     domain=domain)
                 
                 inp_cubes.append(cube)
 

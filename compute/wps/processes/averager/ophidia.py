@@ -27,10 +27,23 @@ class OphidiaAverager(ophidia_operation.OphidiaOperation):
 
         imp_dim = '|'.join(axes.values)
 
+        domain = None
+
+        if data.domains:
+            domain = data.domains[0]
+
+            logger.debug('Applying domain "%s" to input', domain)
+
+        if self.domain:
+            domain = self.domain
+
+            logger.debug('Overriding operation domain "%s"', domain)
+
         src_cube = self.importnc(container,
                                  data.uri,
                                  data.var_name,
-                                 dim=imp_dim)
+                                 dim=imp_dim,
+                                 domain=domain)
 
         logger.debug('Imported "%s" with implicit dimensions "%s"',
                      data.uri, imp_dim)

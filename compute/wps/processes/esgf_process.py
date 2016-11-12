@@ -167,6 +167,9 @@ class ESGFProcess(Process.WPSProcess):
 
                     param.grid = domains[param.grid]
 
+            if operation.domain:
+                operation.domain = domains[operation.domain.name]
+
             if self._operation.identifier == operation.identifier:
                 self._operation.data = operation
 

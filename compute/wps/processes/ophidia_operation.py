@@ -10,6 +10,7 @@ def _new_https_connection(host, port, context):
 
 httplib.HTTPSConnection = _new_https_connection
 
+import esgf
 from esgf import errors
 from PyOphidia import client
 
@@ -167,12 +168,26 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
 
     def importnc(self, container, uri, measure, **kwargs):
         dim = kwargs.get('dim')
+        domain = kwargs.get('domain')
 
         cmd = 'oph_importnc container=%s;measure=%s;src_path=%s;' % (
             container, measure, uri)
 
         if dim:
             cmd += 'imp_dim=%s;' % (dim,)
+
+        if domain:
+            cmd += 'subset_dims=%s;' % (
+                '|'.join([x.name for x in domain.dimensions]))
+
+            cmd += 'subset_filter=%s;' % (
+                '|'.join(['%s:%s' % (x.start, x.end)
+                          for x in domain.dimensions]))
+
+            if domain.dimensions[0].crs == esgf.Dimension.indices:
+                cmd += 'subset_type=index;'
+            else:
+                cmd += 'subset_type=coord;'
 
         result = self._submit(cmd)
 

@@ -47,6 +47,10 @@ class ESGFOperation(object):
         """ Returns process output as a Variable. """
         return self._output
 
+    @property
+    def domain(self):
+        return self.data.domain
+
     def input(self):
         return self.data.inputs
 
