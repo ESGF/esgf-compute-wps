@@ -131,29 +131,30 @@ class NetCDFHandler(object):
 
         sel = cdms2.selectors.Selector()
 
-        logger.debug('Building domain selector')
+        if variable.domains:
+            logger.debug('Building domain selector')
 
-        for dim in variable.domains[0].dimensions:
-            if dim.crs == esgf.Dimension.indices:
-                dim_slice = self.create_index_slice(dim)
+            for dim in variable.domains[0].dimensions:
+                if dim.crs == esgf.Dimension.indices:
+                    dim_slice = self.create_index_slice(dim)
 
-                logger.debug('Adding dimension "%s" slice "%s"',
-                             dim.name,
-                             dim_slice)
+                    logger.debug('Adding dimension "%s" slice "%s"',
+                                 dim.name,
+                                 dim_slice)
 
-                sel = sel & dim_slice
-            elif dim.crs == esgf.Dimension.values:
-                dim_slice = self.create_value_slice(dim)
+                    sel = sel & dim_slice
+                elif dim.crs == esgf.Dimension.values:
+                    dim_slice = self.create_value_slice(dim)
 
-                logger.debug('Adding dimension "%s" slice "%s"',
-                             dim.name,
-                             dim_slice)
+                    logger.debug('Adding dimension "%s" slice "%s"',
+                                 dim.name,
+                                 dim_slice)
 
-                sel = sel & dim_slice
-            else:
-                raise esgf.WPSServerError('Unknown CRS value "%s"' % (dim.crs,))
+                    sel = sel & dim_slice
+                else:
+                    raise esgf.WPSServerError('Unknown CRS value "%s"' % (dim.crs,))
 
-        logger.debug('Complete selector "%s"', sel)
+            logger.debug('Complete selector "%s"', sel)
 
         data = file_var(sel) 
 
