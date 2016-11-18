@@ -20,11 +20,12 @@ RUN bash Miniconda2-latest-Linux-x86_64.sh -f -b
 
 ENV PATH=/root/miniconda2/bin:/root/miniconda2/sbin:$PATH
 
-RUN echo 1
+RUN yum install -y glibc-devel libtool-ltdl
 
-RUN conda install -y -c jasonb857 ophidia-primitives
+RUN conda install -y -c jasonb857 -c conda-forge ophidia-primitives \
+      ophidia-analytics-framework ophidia-server
 
-RUN cp /root/miniconda2/lib/liboph_* $(mysql_config --plugindir) && \
+RUN cp /root/miniconda2/lib/liboph* $(mysql_config --plugindir) && \
       cp /root/miniconda2/lib/libgsl* /lib64 && \
       cp /root/miniconda2/lib/libmatheval* /lib64
 
