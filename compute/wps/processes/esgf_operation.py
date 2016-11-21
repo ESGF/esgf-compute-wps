@@ -64,6 +64,14 @@ class ESGFOperation(object):
             raise esgf.WPSServerError('No parameter "%s" passed to operation'
                                       ' "%s"' % (name, self._identifier))
 
+    def parameter_bool(self, name, required=True):
+        param = self.parameter(name, required=required)
+
+        if param:
+            return bool(param.values[0])
+
+        return param
+
     def create_dap_url(self, filename):
         url_args = {
             'hostname': settings.DAP_HOSTNAME,

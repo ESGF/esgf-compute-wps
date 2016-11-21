@@ -24,8 +24,6 @@ class EnsembleAveragerOphidia(ophidia_operation.OphidiaOperation):
 
         container = self.createcontainer('wps', '|'.join(axis))
 
-        entries = self.list(level=3, container=container)
-
         inp_cubes = []
 
         domain = None
@@ -35,26 +33,18 @@ class EnsembleAveragerOphidia(ophidia_operation.OphidiaOperation):
 
             logger.debug('Applying domain "%s" to inputs', domain)
 
+        force_import = self.parameter_bool('force_import', required=False)
+
         for data in data_list:
-            cubes = entries.filter_by_src(data.uri)
+            cube = self.importnc(container,
+                                 data.uri,
+                                 data.var_name,
+                                 domain=domain,
+                                 use_cache=not force_import)
+            
+            inp_cubes.append(cube)
 
-            if not len(cubes):
-                cube = self.importnc(container,
-                                     data.uri,
-                                     data.var_name,
-                                     domain=domain)
-                
-                inp_cubes.append(cube)
-
-                logger.debug('Imported "%s" into cube "%s"', data.uri, cube)
-            else:
-                # Assume ordered chronologically
-                inp_cubes.append(cubes[-1][2])
-
-                logger.debug('"%s" already imported into cube "%s"',
-                             data.uri,
-                             cubes[-1][2])
-
+            logger.debug('Imported "%s" into cube "%s"', data.uri, cube)
 
         sum_cube = self.intercube(inp_cubes[0],
                                   inp_cubes[1],

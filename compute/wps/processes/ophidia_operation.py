@@ -169,6 +169,19 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
     def importnc(self, container, uri, measure, **kwargs):
         dim = kwargs.get('dim')
         domain = kwargs.get('domain')
+        cache = kwargs.get('use_cache', True)
+
+        if cache:
+            logger.debug('Check Ophidias cache')
+
+            entries = self.list(level=3, container=container)
+
+            cubes = entries.filter_by_src(uri)
+
+            if len(cubes):
+                logger.debug('Found file already imported')
+
+                return cubes[-1][2]
 
         cmd = 'oph_importnc container=%s;measure=%s;src_path=%s;' % (
             container, measure, uri)
