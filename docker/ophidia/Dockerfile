@@ -1,33 +1,47 @@
-FROM centos:6.7
+FROM ubuntu:trusty
 
-RUN yum update -y yum && \
-      yum update -y
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN yum install -y \
-      http://dev.mysql.com/get/mysql57-community-release-el6-7.noarch.rpm
+RUN apt-get autoclean && \
+      apt-get update
 
-RUN yum install -y yum-utils
+RUN apt-get install -y autoconf autotools-dev gcc make git graphviz-dev \
+      gsl-bin libgsl0-dev libgtk2.0-dev  apache2-bin php5 libapache2-mod-php5 \
+      libjansson-dev libxml2 libxml2-dev openssh-server openssl libssl-dev \
+      libssh2-1-dev libreadline-dev libltdl-dev mpich libmpich2-dev curl \
+      libcurl3 libcurl4-openssl-dev
 
-RUN yum-config-manager --disable mysql57-community && \
-      yum-config-manager --enable mysql56-community
+RUN apt-get install -y mysql-server-5.6  mysql-client-5.6 libmysqlclient-dev \
+      munge libmunge-dev libmunge2
 
-RUN yum install -y mysql-community-server mysql-community-devel \
-      wget tar bzip2
+RUN apt-get install -y wget
 
-RUN wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh
+RUN wget --no-check-certificate \
+  https://download.ophidia.cmcc.it/deb/0.10/ophidia-analytics-framework_0.10.7-0_amd64.deb && \
+  wget --no-check-certificate \
+  https://download.ophidia.cmcc.it/deb/0.10/ophidia-primitives_0.10.6-0_amd64.deb && \
+  wget --no-check-certificate \
+  https://download.ophidia.cmcc.it/deb/0.10/ophidia-server_0.10.7-0_amd64.deb && \
+  wget --no-check-certificate \
+  https://download.ophidia.cmcc.it/deb/0.10/ophidia-terminal_0.10.6-0_amd64.deb
 
-RUN bash Miniconda2-latest-Linux-x86_64.sh -f -b
+RUN dpkg -i ophidia-primitives_0.10.*_amd64.deb && \
+      dpkg -i ophidia-analytics-framework_0.10.*_amd64.deb && \
+      dpkg -i ophidia-server_0.10.*_amd64.deb && \
+      dpkg -i ophidia-terminal_0.10.*_amd64.deb
+
+RUN cp /usr/local/ophidia/oph-cluster/oph-primitives/lib/liboph* /usr/lib/mysql/plugin
+
+RUN wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh && \
+      bash Miniconda2-latest-Linux-x86_64.sh -f -b
+
+ENV PATH=/root/miniconda2/bin:$PATH
+
+RUN conda install -y -c jasonb857 libmatheval slurm
+
+RUN cp /root/miniconda2/lib/libmatheval* /usr/lib
 
 ENV PATH=/root/miniconda2/bin:/root/miniconda2/sbin:$PATH
-
-RUN yum install -y glibc-devel libtool-ltdl
-
-RUN conda install -y -c jasonb857 -c conda-forge ophidia-primitives \
-      ophidia-analytics-framework ophidia-server
-
-RUN cp /root/miniconda2/lib/liboph* $(mysql_config --plugindir) && \
-      cp /root/miniconda2/lib/libgsl* /lib64 && \
-      cp /root/miniconda2/lib/libmatheval* /lib64
 
 COPY entrypoint.sh entrypoint.sh
 
