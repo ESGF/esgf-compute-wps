@@ -182,7 +182,10 @@ class ESGFProcess(Process.WPSProcess):
                 if name == 'gridder':
                     logger.info('Rebuilding gridder')
 
-                    param.grid = domains[param.grid]
+                    try:
+                        param.grid = domains[param.grid]
+                    except KeyError:
+                        pass
 
             if operation.domain:
                 operation.domain = domains[operation.domain.name]
