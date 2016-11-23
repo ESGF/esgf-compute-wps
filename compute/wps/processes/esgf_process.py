@@ -159,7 +159,24 @@ class ESGFProcess(Process.WPSProcess):
         logger.info('Rebuilding operations')
 
         for operation in operations:
-            operation.inputs = [variables[x.name] for x in operation.inputs]
+            op_inputs = []
+
+            for inp in operation.inputs:
+                try:
+                    op_inputs.append(variables[inp.name])
+                except KeyError:
+                    pass
+                else:
+                    continue
+
+                candidates = [x for x in operations if x.name == inp.name]
+
+                try:
+                    op_inputs.append(candidates[0])
+                except KeyError:
+                    raise esgf.WPSServerError('Failed to find input "%s"' % (inp.name,))
+
+            operation.inputs = op_inputs
 
             for name, param in operation.parameters.iteritems():
                 if name == 'gridder':
