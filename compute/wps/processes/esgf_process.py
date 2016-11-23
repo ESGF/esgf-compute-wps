@@ -209,9 +209,13 @@ class ESGFProcess(Process.WPSProcess):
 
             self.setOutputValue('output', temp_file.name)
 
-    def update_status(self, message, progress=0.0):
+    def update_status(self, fmt, *args, **kwargs):
         """ Propagates a status message. """
-        logger.info('Status %d %s', progress, message)
+        progress = kwargs.get('progress', 0.0)
+
+        message = fmt % args
+
+        logger.info(message)
 
         self.status.set(message, progress)
 
