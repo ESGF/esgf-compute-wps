@@ -1,6 +1,7 @@
 import httplib
 import json
 import re
+import sys
 
 # Little hack to use the timeout argument
 old_https = httplib.HTTPSConnection
@@ -13,10 +14,76 @@ httplib.HTTPSConnection = _new_https_connection
 import esgf
 from esgf import errors
 from PyOphidia import client
+from PyOphidia.client import _ophsubmit
+from PyOphidia.client import get_linenumber
 
 from wps import logger
 from wps.conf import settings
 from wps.processes import esgf_operation
+
+def wsubmit(self, workflow, *params):
+    request = None
+
+    try:
+        buffer = workflow
+        for index, param in enumerate(params, start=1):
+            buffer = buffer.replace('${' + str(index) + '}', str(param))
+            buffer = re.sub('(\$' + str(index) + ')([^0-9]|$)', str(param) + '\g<2>', buffer)
+        request = json.loads(buffer)
+    except Exception as e:
+        print(get_linenumber(),"Something went wrong in parsing the string:", e)
+
+        return None
+
+    if self.session and 'sessionid' not in request:
+        request['sessionid'] = self.session
+    if self.cwd and 'cwd' not in request:
+        request['cwd'] = self.cwd
+    if self.cube and 'cube' not in request:
+        request['cube'] = self.cube
+    if self.exec_mode and 'exec_mode' not in request:
+        request['exec_mode'] = self.exec_mode
+    if self.ncores and 'ncores' not in request:
+        request['ncores'] = str(self.ncores)
+
+    self.last_request = json.dumps(request)
+
+    try:
+        if not self.wisvalid(self.last_request):
+            print("The workflow is not valid")
+            return None
+
+        self.last_response, self.last_jobid, newsession, return_value, error = _ophsubmit.submit(self.username, self.password, self.server, self.port, self.last_request)
+
+        if return_value:
+            raise RuntimeError(error)
+
+        if newsession is not None:
+            if len(newsession) == 0:
+                self.session = None
+            else:
+                self.session = newsession
+                self.cwd = '/'
+
+        response = self.deserialize_response()
+
+        if response is not None:
+            for response_i in response['response']:
+                if response_i['objclass'] == 'text':
+                    if response_i['objcontent'][0]['title'] == 'Output Cube':
+                        self.cube = response_i['objcontent'][0]['message']
+                        break
+
+            for response_i in response['response']:
+                if response_i['objclass'] == 'text':
+                    if response_i['objcontent'][0]['title'] == 'Current Working Directory':
+                        self.cwd = response_i['objcontent'][0]['message']
+                        break
+    except Exception as e:
+        print(get_linenumber(),"Something went wrong in submitting the request:", e)
+        return None
+
+    return self
 
 class OphidiaResponse(object):
     def __init__(self, response):
@@ -68,7 +135,7 @@ class OphidiaResponseWrapper(OphidiaResponse):
         super(OphidiaResponseWrapper, self).__init__(response)
 
         self._message = None
-        
+
         msg_content = self.find_by_key(op)
 
         if msg_content:
@@ -86,6 +153,8 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
                                      settings.OPH_PASSWORD,
                                      settings.OPH_HOST,
                                      settings.OPH_PORT)
+
+        self._client.wsubmit = wsubmit
 
     def _submit_server(self, cmd, ignore_error=False):
         cmd += 'ncores=%s;' % (settings.OPH_CORES,)
@@ -117,6 +186,13 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
 
         return OphidiaListResponseWrapper(self._client.last_response)
 
+    def submit_workflow(self, workflow):
+        logger.debug(json.dumps(workflow._doc, indent=4))
+
+        self._client.wsubmit(self._client, workflow.to_json)
+
+        logger.debug(json.dumps(self._client.last_response, indent=4))
+
     def list(self, level=0, **kwargs):
         cmd = 'oph_list level=%s;' % (level,)
 
@@ -129,7 +205,7 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
 
     def apply(self, cube, query, measure=None):
         cmd = 'oph_apply cube=%s;query=%s;' % (cube,
-                                              query)
+                                               query)
 
         if measure:
             cmd += 'measure=%s;' % (measure,)
@@ -144,7 +220,7 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
                                        cube2,
                                        operation,
                                        output_measure,))
-        
+
         result = self._submit(cmd)
 
         return result.message
@@ -161,7 +237,7 @@ class OphidiaOperation(esgf_operation.ESGFOperation):
         cmd = 'oph_reduce cube=%s;operation=%s;' % (
             cube,
             operation)
-        
+
         result = self._submit(cmd)
 
         return result.message

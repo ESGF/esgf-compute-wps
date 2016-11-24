@@ -84,6 +84,8 @@ class OphidiaWorkflowBuilder(object):
 
     @property
     def to_json(self):
+        del self._doc['tasks'][:]
+
         for task in self._tasks:
             self._doc['tasks'].append(task.doc)
     
