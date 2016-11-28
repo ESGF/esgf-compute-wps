@@ -33,12 +33,12 @@ You can access the demo page at http://0.0.0.0:8000
 
 ::
 
-    docker build -t wps .
-
-    docker run -d -p 8000:8000 wps
+    docker pull jasonb87/esgf_wps
+    
+    docker run -d -p 8000:8000 esgf_wps
 
 ***************************
-Django WPS w/THREDDS server
+Django WPS server w/THREDDS
 ***************************
 
 Django WPS and THREDDS will share a volume at /data which points to your home
@@ -51,6 +51,27 @@ THREDDS can be accessed at http://0.0.0.0:8080/thredds
 
     cd docker/thredds
 
-    docker-compose build
+    docker-compose up -d
+
+*************************************
+Django WPS server w/THREDDS & Ophidia
+*************************************
+
+Django WPS, THREDDS and Ophidia server. They all share the volume /data.
+
+Django WPS can be accessed at http://0.0.0.0:8000
+THREDDS can be accessed at http://0.0.0.0:8080/thredds
+
+::
+
+    cd docker/ophidia
 
     docker-compose up -d
+
+Ophidia Terminal can be accessed by
+
+::
+    
+    cd docker/ophidia
+
+    docker-compose exec ophidia oph_term -H 127.0.0.1 -P 11732 -u oph-test -p abcd

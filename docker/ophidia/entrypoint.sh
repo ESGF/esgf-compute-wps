@@ -82,24 +82,30 @@ configure_mysql() {
 }
 
 configure_server() {
-  openssl req -newkey rsa:1024 -passout pass:$passwd -subj "/" -sha1 \
-    -keyout rootkey.pem -out rootreq.pem
-  openssl x509 -req -in rootreq.pem -passin pass:$passwd -sha1 \
-    -extensions v3_ca -signkey rootkey.pem -out rootcert.pem
+  if [[ ! -e "$server/etc/cert/cacert.pem" ]]
+  then
+    openssl req -newkey rsa:1024 -passout pass:$passwd -subj "/" -sha1 \
+      -keyout rootkey.pem -out rootreq.pem
+    openssl x509 -req -in rootreq.pem -passin pass:$passwd -sha1 \
+      -extensions v3_ca -signkey rootkey.pem -out rootcert.pem
 
-  cat rootcert.pem rootkey.pem > cacert.pem
+    cat rootcert.pem rootkey.pem > cacert.pem
 
-  cp cacert.pem "$server/etc/cert"
+    cp cacert.pem "$server/etc/cert"
+  fi
 
-  openssl req -newkey rsa:1024 -passout pass:$passwd -subj "/" -sha1 \
-    -keyout serverkey.pem -out serverreq.pem
-  openssl x509 -req -in serverreq.pem -passin pass:$passwd -sha1 \
-    -extensions usr_cert -CA cacert.pem -CAkey cacert.pem -CAcreateserial \
-    -out servercert.pem
+  if [[ ! -e "$server/etc/cert/myserver.pem" ]]
+  then
+    openssl req -newkey rsa:1024 -passout pass:$passwd -subj "/" -sha1 \
+      -keyout serverkey.pem -out serverreq.pem
+    openssl x509 -req -in serverreq.pem -passin pass:$passwd -sha1 \
+      -extensions usr_cert -CA cacert.pem -CAkey cacert.pem -CAcreateserial \
+      -out servercert.pem
 
-  cat servercert.pem serverkey.pem rootcert.pem > myserver.pem
+    cat servercert.pem serverkey.pem rootcert.pem > myserver.pem
 
-  cp myserver.pem "$server/etc/cert"
+    cp myserver.pem "$server/etc/cert"
+  fi
 
   sed -i "s#SUBM_USER=.*#SUBM_USER=root#" "$server/etc/server.conf"
   sed -i "s#\(SUBM_USER_PUBLK=\)/usr/local/ophidia#\1/root#" "$server/etc/server.conf"
@@ -111,9 +117,12 @@ configure_server
 configure_mysql
 configure_slurm
 
-ssh-keygen -t dsa -f /root/.ssh/id_dsa -N ''
-cat /root/.ssh/id_dsa.pub >> /root/.ssh/authorized_keys
-chmod 0600 /root/.ssh/authorized_keys
+if [[ ! -e "/root/.ssh" ]]
+then
+  ssh-keygen -t dsa -f /root/.ssh/id_dsa -N ''
+  cat /root/.ssh/id_dsa.pub >> /root/.ssh/authorized_keys
+  chmod 0600 /root/.ssh/authorized_keys
+fi
 
 echo -e "export PATH=$PATH\n$(cat /root/.bashrc)" > /root/.bashrc
 
@@ -128,5 +137,7 @@ ssh -o "StrictHostKeyChecking no" 127.0.0.1 hostname
 oph_server &>/dev/null &
 
 echo "alias oph_term='oph_term -H 127.0.0.1 -P 11732 -u oph-test -p abcd'" >> ~/.bashrc
+
+sleep 2
 
 exec "$@"

@@ -1,16 +1,14 @@
 version: '2'
 services:
   thredds:
-    build:
-      context: ../thredds
+    image: jasonb87/thredds
     ports:
       - "8080:8080"
     volumes:
       - /data  
 
   wps:
-    build:
-      context: ../../
+    image: jasonb87/esgf_wps
     links:
       - thredds
       - ophidia
@@ -20,8 +18,7 @@ services:
       - thredds
 
   ophidia:
-    build:
-      context: .
+    image: jasonb87/ophidia
     entrypoint:
       - ./entrypoint.sh
       - sleep
