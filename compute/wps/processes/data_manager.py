@@ -117,7 +117,7 @@ class NetCDFHandler(object):
         if scheme in ('http', 'https'):
             file_obj = self._open_http(variable.uri)
         elif scheme in ('', 'file'):
-            file_obj = self._opne_local(variable.uri)
+            file_obj = self._open_local(variable.uri)
         else:
             raise esgf.WPSServerError('Unsupported protocol "%s"' % (scheme,))
 
