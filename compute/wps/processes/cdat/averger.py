@@ -20,8 +20,7 @@ class CDUtilOperation(esgf_operation.ESGFOperation):
         return 'CDUtil Averager'
 
     def __call__(self, data_manager, status):
-
-        domain = self.parameter('domain',required=False)
+        axes = self.parameter('axes')
 
         status('Read input data')
 
@@ -37,7 +36,7 @@ class CDUtilOperation(esgf_operation.ESGFOperation):
 
         new_var = cdutil.averager(input_var, axis=axes_arg)
 
-        #status('Finished averaging in %s' % (datetime.datetime.now()-start,))
+        status('Finished averaging in %s' % (datetime.datetime.now()-start,))
 
         new_var_name = '%s_avg_%s' % (input_var.id, '_'.join(axes.values))
 
@@ -47,7 +46,7 @@ class CDUtilOperation(esgf_operation.ESGFOperation):
 
         new_file = os.path.join(output_path, new_file_name)
 
-        #status('Writing output to "%s"' % (new_file,))
+        status('Writing output to "%s"' % (new_file,))
 
         data_manager.write('file://' + new_file, new_var, new_var_name)
 
