@@ -55,6 +55,12 @@ class ESGFOperation(object):
         return self.data.inputs
 
     def parameter(self, name, required=True):
+        if not self.data.parameters:
+            if required:
+                raise esgf.WPSServerError('Expecting parameter "%s"' % (name,))
+            else:
+                return None
+
         try:
             return self.data.parameters[name]
         except KeyError:

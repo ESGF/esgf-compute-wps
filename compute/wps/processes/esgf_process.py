@@ -178,14 +178,15 @@ class ESGFProcess(Process.WPSProcess):
 
             operation.inputs = op_inputs
 
-            for name, param in operation.parameters.iteritems():
-                if name == 'gridder':
-                    logger.info('Rebuilding gridder')
+            if operation.parameters:
+                for name, param in operation.parameters.iteritems():
+                    if name == 'gridder':
+                        logger.info('Rebuilding gridder')
 
-                    try:
-                        param.grid = domains[param.grid]
-                    except KeyError:
-                        pass
+                        try:
+                            param.grid = domains[param.grid]
+                        except KeyError:
+                            pass
 
             if operation.domain:
                 operation.domain = domains[operation.domain.name]
