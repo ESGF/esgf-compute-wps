@@ -3,13 +3,38 @@ import sys
 
 import esgf
 
+from wps import logger
 from wps.conf import settings
+
+def create_from_def(definition):
+    try:
+        op = ESGFOperation.registry[definition.identifier]()
+    except KeyError:
+        raise esgf.WPSServerError('Unable to find operation "%s"' %
+                                  (definition.identifier,))
+
+    op.data = definition
+
+    return op
+
+class ESGFOperationMeta(type):
+    def __init__(cls, name, bases, dct):
+        if not hasattr(cls, 'registry'):
+            cls.registry = {}
+        else:
+            reg_name = '.'.join(cls.__module__.split('.')[-2:])
+
+            cls.registry[reg_name] = cls
+
+        super(ESGFOperationMeta, cls).__init__(name, bases, dct)
 
 class ESGFOperation(object):
     """ ESGFOperation
 
     Defines an ESGFOperation
     """
+    __metaclass__ = ESGFOperationMeta
+
     def __init__(self):
         file_path = sys.modules[self.__module__].__file__
 
@@ -19,7 +44,7 @@ class ESGFOperation(object):
 
         # Stores esgf.operation object
         self.data = None
-        
+
     @property
     def identifier(self):
         return self._identifier

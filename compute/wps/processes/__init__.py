@@ -33,7 +33,7 @@ def _load_operations_from_module(module_name):
         for sub_module_name in dir(module):
             sub_module = getattr(module, sub_module_name)
 
-            if type(sub_module) == types.TypeType:
+            if type(sub_module) == esgf_operation.ESGFOperationMeta:
                 if (issubclass(sub_module, ESGFOperation) and
                         sub_module != ESGFOperation):
                     try:
