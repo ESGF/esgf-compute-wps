@@ -91,8 +91,10 @@ class CDATEnsemble(esgf_operation.ESGFOperation):
                 raise esgf.WPSServerError(
                     'Target grid from Domain NotImplemented yet.')
             elif isinstance(gridder.grid, esgf.Variable):
-                raise esgf.WPSServerError(
-                    'Target grid from Variable NotImplemented yet.')
+                with cdms2.open(gridder.grid.uri, 'r') as grid_file:
+                    var = grid_file[gridder.grid.var_name]
+
+                    target_grid = var.getGrid()
             elif isinstance(gridder.grid, (str, unicode)):
                 try:
                     grid = self.KNOWN_GRIDS[gridder.grid.lower()]
@@ -134,7 +136,8 @@ class CDATEnsemble(esgf_operation.ESGFOperation):
 
         dap_url = self.create_dap_url(new_file_name)
 
-        self.set_output(dap_url, var_name)
+        #self.set_output(dap_url, var_name)
+        self.set_output(new_file, var_name)
 
     def _convert_temporal_domain(self, time, domain):
         start = 0
