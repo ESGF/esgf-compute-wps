@@ -88,8 +88,7 @@ class CDATEnsemble(esgf_operation.ESGFOperation):
         # Build the target grid if gridder is passed to the operation
         if gridder:
             if isinstance(gridder.grid, esgf.Domain):
-                raise esgf.WPSServerError(
-                    'Target grid from Domain NotImplemented yet.')
+                target_grid = self._create_grid_from_domain(gridder.grid)
             elif isinstance(gridder.grid, esgf.Variable):
                 with cdms2.open(gridder.grid.uri, 'r') as grid_file:
                     var = grid_file[gridder.grid.var_name]
@@ -138,6 +137,39 @@ class CDATEnsemble(esgf_operation.ESGFOperation):
 
         #self.set_output(dap_url, var_name)
         self.set_output(new_file, var_name)
+
+    def _creaate_grid_from_domain(self, domain):
+        lat = self._find_dimension(domain, ('latitude', 'lat'))
+
+        lon = self._find_dimension(domain, ('longitude', 'lon'))
+
+        if not lat.end or lat.end == lat.start:
+            lat_start = lat.start
+            lat_n = 1
+            lat_delta = lat.step
+        else:
+            lat_start = lat.start
+            lat_n = (lat.end - lat.start) / lat.step
+            lat_delta = 0
+
+        if not lon.end or lon.end == lon.start:
+            lon_start = lon.start
+            lon_n = 1
+            lon_delta = lon.step
+        else:
+            lon_start = lon.start
+            lon_n = (lon.end - lon.start) / lon.step
+            lon_delta = 0
+
+        return cdms2.createUnifromGrid(lat_start, lat_n, lat_delta,
+                                       lon_start, lon_n, lon_delta)
+
+    def _find_dimension(self, domain, dimension):
+        try:
+            return [x for x in domain.dimensions
+                    if x.name in dimensions][0]
+        except KeyError:
+            raise esgf.WPSServerError('Missing dimension %r' % (dimensions,))
 
     def _convert_temporal_domain(self, time, domain):
         start = 0
