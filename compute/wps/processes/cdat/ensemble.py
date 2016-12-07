@@ -25,13 +25,13 @@ class CDATEnsemble(esgf_operation.ESGFOperation):
         return 'CDAT Ensemble'
 
     def __call__(self, data_manager, status):
-        src = [data_manager.metadata(x) for x in self.input()]
+        src = [data_manager.open(x) for x in self.input()]
 
         # assumed all files are from the same model
         # TODO add some validation
-        time = [x.getTime() for x in src]
+        time = [x.cdms_variable.getTime() for x in src]
 
-        temporal, spatial = self._gen_domains(src[0].getAxisList(),
+        temporal, spatial = self._gen_domains(src[0].cdms_variable.getAxisList(),
                                               time[0],
                                               self.domain)
         
@@ -80,12 +80,14 @@ class CDATEnsemble(esgf_operation.ESGFOperation):
 
         var_name = self.input()[0].var_name
 
+        step = 200
+
         for i in xrange(start, end, step):
             logger.debug('Averaging time slice %s', i)
 
             # Grab indexed time slice relative to it's own timeline
             # Apply spatial subset if present
-            data = [x(time=time[j][i], **spatial) for j, x in enumerate(src)]
+            data = [x[start, start+step] for j, x in enumerate(src)]
 
             # Regrid slice
             if target_grid:

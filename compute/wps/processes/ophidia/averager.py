@@ -13,11 +13,9 @@ class OphidiaAverager(ophidia_operation.OphidiaOperation):
         return 'Ophidia Average'
 
     def __call__(self, data_manager, status):
-        data = self.input()[0]
+        var = data_manager.open(self.input()[0])
 
-        metadata = data_manager.metadata(data)
-
-        axis = [x.id for x in metadata.getAxisList()]
+        axis = [x.id for x in var.cdms_variable.getAxisList()]
 
         container = self.createcontainer('wps', '|'.join(axis))
 

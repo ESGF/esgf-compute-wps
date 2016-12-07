@@ -191,6 +191,10 @@ class ESGFProcess(Process.WPSProcess):
             if operation.domain:
                 operation.domain = domains[operation.domain.name]
 
+                # Push operation wide domains into variables
+                for inp in operation.inputs:
+                    inp.domains = operation.domain
+
             if self._operation.identifier == operation.identifier:
                 self._operation.data = operation
 
@@ -225,17 +229,28 @@ class ESGFProcess(Process.WPSProcess):
 
         Called by WPS process.
         """ 
+
         try:
             self._staging()
 
             auth = json.loads(self._read_input('auth'))
 
-            with data_manager.DataManager(ca_dir=auth['ca_dir'],
-                                          pem=auth['pem']) as dm:
-                self._operation(dm, self.update_status)
+            credentials_path = os.path.expanduser('~/.esg/credentials')
 
-                self.complete_process(self._operation.output)
+            # Write the credentials 
+            with open(credentials_path, 'w') as credentials:
+                credentials.write(auth['pem'])
+
+            dm = data_manager.DataManager(esgf_ca_path=auth['ca_dir'],
+                                          esgf_credentials = credentials_path)
+
+            self._operation(dm, self.update_status)
+
+            self.complete_process(self._operation.output)
         except Exception as e:
             logger.exception('Operation failed: %s' % (e.message,))
 
             raise
+        finally:
+            # Clean up credentials
+            os.remove(credentials_path)
