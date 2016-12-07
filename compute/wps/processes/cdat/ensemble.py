@@ -25,37 +25,7 @@ class CDATEnsemble(esgf_operation.ESGFOperation):
         return 'CDAT Ensemble'
 
     def __call__(self, data_manager, status):
-        var = [x for x in self.input() if isinstance(x, esgf.Variable)]
-
-        var_name = None
-
-        if len(var):
-            var_name = var[0].var_name
-
-        src = [data_manager.metadata(x) for x in var
-               if isinstance(x, esgf.Variable)]
-
-        # Find inputs that are operations and execute them appending the
-        # input list
-        # NOTE this will be moved into workflow at some point
-        input_ops = [x for x in self.input() if isinstance(x, esgf.Operation)]
-
-        for inp in input_ops:
-            logger.debug('Executing child operation %s', inp.identifier)
-
-            op = create_from_def(inp)
-
-            if self.domain:
-                op.data.domain = self.domain
-
-            op.__call__(data_manager, status)
-
-            src.append(data_manager.metadata(op.output))
-
-            # If we couldn't get the variable name from source files,
-            # take the first name from input operation outputs
-            if not var_name:
-                var_name = op.output.var_name
+        src = [data_manager.metadata(x) for x in self.input()]
 
         # assumed all files are from the same model
         # TODO add some validation
@@ -107,6 +77,8 @@ class CDATEnsemble(esgf_operation.ESGFOperation):
                     'Unknown value passed as target grid %r' % (gridder.grid,))
 
             logger.debug('Target grid %r', target_grid)
+
+        var_name = self.input()[0].var_name
 
         for i in xrange(start, end, step):
             logger.debug('Averaging time slice %s', i)
