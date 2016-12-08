@@ -25,6 +25,9 @@ class VariableData(object):
     def _domain_to_selector(self):
         if self._variable.domains:
             for dim in self._variable.domains.dimensions:
+                if dim.name == 'time':
+                    continue
+
                 if dim.crs == esgf.Dimension.indices:
                     self._spatial_domain[dim.name] = slice(dim.start, dim.end)
                 elif dim.crs == esgf.Dimension.values:
