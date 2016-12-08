@@ -231,18 +231,18 @@ class ESGFProcess(Process.WPSProcess):
         """ 
 
         try:
+            credentials_path = os.path.expanduser('~/.esg/credentials')
+
             self._staging()
 
             auth = json.loads(self._read_input('auth'))
-
-            credentials_path = os.path.expanduser('~/.esg/credentials')
 
             # Write the credentials 
             with open(credentials_path, 'w') as credentials:
                 credentials.write(auth['pem'])
 
             dm = data_manager.DataManager(esgf_ca_path=auth['ca_dir'],
-                                          esgf_credentials = credentials_path)
+                                          esgf_credentials=credentials_path)
 
             self._operation(dm, self.update_status)
 
@@ -253,4 +253,5 @@ class ESGFProcess(Process.WPSProcess):
             raise
         finally:
             # Clean up credentials
-            os.remove(credentials_path)
+            if os.path.exists(credentials_path):
+                os.remove(credentials_path)
