@@ -13,7 +13,9 @@ class OphidiaAverager(ophidia_operation.OphidiaOperation):
         return 'Ophidia Average'
 
     def __call__(self, data_manager, status):
-        var = data_manager.open(self.input()[0])
+        src = self.input()[0]
+
+        var = data_manager.open(src)
 
         axis = [x.id for x in var.cdms_variable.getAxisList()]
 
@@ -27,8 +29,8 @@ class OphidiaAverager(ophidia_operation.OphidiaOperation):
 
         domain = None
 
-        if data.domains:
-            domain = data.domains[0]
+        if src.domains:
+            domain = src.domains[0]
 
             logger.debug('Applying domain "%s" to input', domain)
 
@@ -38,13 +40,13 @@ class OphidiaAverager(ophidia_operation.OphidiaOperation):
             logger.debug('Overriding operation domain "%s"', domain)
 
         src_cube = self.importnc(container,
-                                 data.uri,
-                                 data.var_name,
+                                 src.uri,
+                                 src.var_name,
                                  dim=imp_dim,
                                  domain=domain)
 
         logger.debug('Imported "%s" with implicit dimensions "%s"',
-                     data.uri, imp_dim)
+                     src.uri, imp_dim)
 
         avg_cube = self.reduce(src_cube, 'avg')
 
@@ -66,4 +68,4 @@ class OphidiaAverager(ophidia_operation.OphidiaOperation):
 
         output_uri = settings.OPH_DAP_PATH_FORMAT.format(**uri_args)
 
-        self.set_output(output_uri, data.var_name)
+        self.set_output(output_uri, src.var_name)
