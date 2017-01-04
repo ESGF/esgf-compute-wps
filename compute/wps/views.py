@@ -22,8 +22,6 @@ import os
 import re
 import json
 
-from esgf_auth.conf import settings as auth_settings
-
 from wps import logger
 from wps.conf import settings
 from wps.processes import PROCESSES
@@ -49,36 +47,6 @@ def execute_process(request, method, query_string):
         service = Pywps(method)
 
     service_inputs = service.parseRequest(query_string)
-
-    # Inject authentication data
-    if (service_inputs['request'].lower() == 'execute' and
-            'HTTP_AUTHORIZATION' in request.META):
-        http_auth = request.META['HTTP_AUTHORIZATION']
-
-        decoded = http_auth.split(' ')[1].decode('base64')
-
-        last_idx = decoded.rfind(':')
-
-        password = decoded[last_idx+1:]
-
-        if not password:
-            raise errors.WPSServerError('Must provide a password.')
-
-        user_data = {
-            'id': request.user.id,
-            'ca_dir': auth_settings.MPC_CA_CERT_DIR,
-            'pem': request.user.myproxyclientauth.decrypt_pem(password),
-        }
-
-        service_inputs['datainputs'].append({'identifier': 'auth', 'value': json.dumps(user_data)})
-
-        identifier = service_inputs['identifier'][0]
-
-        proc = [x for x in PROCESSES if x.identifier == identifier][0]
-
-        # Clean the inputs to the process
-        for k, v in proc.inputs.iteritems():
-            v.value = None
 
     return service.performRequest(service_inputs, processes=PROCESSES)
 
@@ -113,8 +81,6 @@ def api_processes(request):
 
     return JsonResponse({'processes': processes})
 
-@login_required
-#@csrf_exempt
 def wps(request):
     try:
         if request.method == 'GET':

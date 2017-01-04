@@ -87,18 +87,12 @@ class DataManager(object):
         http_chunk_size: Chunk size for HTTP connections
         http_timeout: Timeout for HTTP connections
     """
-    def __init__(self, esgf_credentials, esgf_ca_path, **kwargs):
-        self._credentials = esgf_credentials
-        self._ca_path = esgf_ca_path
-
+    def __init__(self, **kwargs):
         self._temp_path = config.getConfigValue('server', 'tempPath', '/tmp/wps')
-        self._default_dodsrc = os.path.expanduser('~/.dodsrc')
 
         self._remote_handlers = [
             self._open_dap,
-            self._open_dap_credentials,
             self._open_http,
-            self._open_http_credentials,
         ]
 
         self._http_chunk_size = kwargs.get('http_chunk_size', 10 * 1024)

@@ -235,14 +235,7 @@ class ESGFProcess(Process.WPSProcess):
 
             self._staging()
 
-            auth = json.loads(self._read_input('auth'))
-
-            # Write the credentials 
-            with open(credentials_path, 'w') as credentials:
-                credentials.write(auth['pem'])
-
-            dm = data_manager.DataManager(esgf_ca_path=auth['ca_dir'],
-                                          esgf_credentials=credentials_path)
+            dm = data_manager.DataManager()
 
             self._operation(dm, self.update_status)
 

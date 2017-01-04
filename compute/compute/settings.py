@@ -30,7 +30,6 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'wps',
-    'esgf_auth',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -68,14 +67,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'compute.wsgi.application'
-
-# Authentication
-
-LOGIN_URL = '/esgf/login/'
-
-AUTHENTICATION_BACKENDS = [
-    'esgf_auth.backend.MyProxyClientBackend',
-]
 
 # Database
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases

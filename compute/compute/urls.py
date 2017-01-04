@@ -19,6 +19,5 @@ from django.contrib import admin
 
 urlpatterns = [
     url(r'^', include('wps.urls')),
-    url(r'^esgf/', include('esgf_auth.urls')),
     url(r'^admin/', admin.site.urls),
 ]
