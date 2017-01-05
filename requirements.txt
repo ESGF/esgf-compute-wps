@@ -1,8 +1,2 @@
-pywps==3.2.6
-pyophidia
-django==1.10.0
-pyopenssl
-myproxyclient
-paramiko
-scpclient
+django
 git+https://github.com/esgf/esgf-compute-api
