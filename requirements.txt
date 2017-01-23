@@ -1,2 +1,6 @@
 django
+zmq
+celery
+gunicorn
+redis
 git+https://github.com/esgf/esgf-compute-api

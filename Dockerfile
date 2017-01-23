@@ -1,39 +1,34 @@
-FROM ubuntu:trusty
+FROM ubuntu:latest
 
 RUN apt-get update && \
-      apt-get install -y curl git build-essential libssl-dev libffi-dev
+      apt-get install -y wget bzip2 git
 
-RUN curl -o conda.sh https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh && \
-      bash conda.sh -b -f
+RUN wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O conda.sh && \
+      bash conda.sh -bfp /opt/conda
 
-ENV PATH=/root/miniconda2/bin:$PATH
+ENV PATH=/opt/conda/bin:$PATH
 
-RUN conda install -c conda-forge -c uvcdat cdat_info=2.6 cdms2=2.6 cdtime=2.6 \
-      cdutil=2.6 distarray=2.6 genutil=2.6 unidata=2.6 lxml gdal=1.11.2 \
-      libgdal=1.11.2 owslib
-
-#RUN ln -sf /root/miniconda2/lib/libnetcdf.so.7 /root/miniconda2/lib/libnetcdf.so.11
+RUN conda install -c conda-forge -c uvcdat uvcdat
 
 COPY requirements.txt requirements.txt
 
 RUN pip install -r requirements.txt
 
-RUN conda install -y -c conda-forge -c uvcdat/label/nightly -c uvcdat vcs-nox
+RUN git clone https://github.com/nasa-nccs-cds/CDAS2 && \
+	cd CDAS2 && \
+	python setup.py install
+
+RUN mkdir -p /root/.cdas
 
 WORKDIR /var/www
 
 COPY . .
 
-COPY entrypoint.sh entrypoint.sh
-
-ENV HDF5_DISABLE_VERSION_CHECK=1
+RUN sed -i 's/^ALLOWED_HOSTS.*/ALLOWED_HOSTS=\["0.0.0.0"\]/' /var/www/compute/compute/settings.py
 
 ENV UVCDAT_ANONYMOUS_LOG=yes
 
-RUN vcs_download_sample_data && \
-      mkdir -p /tmp/wps /data && \
-      cp /root/miniconda2/share/uvcdat/sample_data/* /data
+WORKDIR /var/www/compute
 
-ENTRYPOINT ["./entrypoint.sh"]
-
-CMD ["python", "compute/manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["gunicorn", "-b", "0.0.0.0:8000", "compute.wsgi"]
+#CMD ["python", "compute/manage.py", "runserver", "0.0.0.0:8000"]
