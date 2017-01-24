@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:latest
 
 RUN apt-get update --fix-missing && \
 	apt-get install -y git wget default-jdk scala
@@ -14,13 +14,23 @@ RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86
 	/bin/bash conda.sh -bp /opt/conda && \
 	rm conda.sh
 
-ENV PATH /opt/conda:$PATH
+ENV PATH /opt/conda/bin:$PATH
 
 RUN git clone https://github.com/nasa-nccs-cds/CDAS2.git
 
-WORKDIR CDAS2
+WORKDIR /CDAS2
+
+ENV CONDA_PREFIX /opt/conda
+
+RUN sed -i 's/System.out.println.*//g' src/main/java/nasa/nccs/cdas/workers/test/floatClient.java && \
+	sed -i 's/System.out.println.*//g' src/main/java/nasa/nccs/cdas/workers/test/helloClient.java
+
+RUN sbt compile; exit 0 
 
 RUN sbt compile && \
 	sbt stage
 
-CMD ["target/universal/stage/bin/cdas2"]
+ENV CDAS_REQUEST_PORT 4356
+ENV CDAS_RESPONSE_PORT 4357
+
+CMD ["sh", "-c", "target/universal/stage/bin/cdas2 bind $CDAS_REQUEST_PORT $CDAS_RESPONSE_PORT"]
