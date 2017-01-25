@@ -16,11 +16,15 @@ RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86
 
 ENV PATH /opt/conda/bin:$PATH
 
+RUN conda create -n cdas2 -c conda-forge -c uvcdat/label/nightly -c uvcdat uvcdat nco pyzmq
+
+ENV PATH /opt/conda/envs/cdas2/bin:$PATH
+
+ENV CONDA_PREFIX /opt/conda/envs/cdas2
+
 RUN git clone https://github.com/nasa-nccs-cds/CDAS2.git
 
 WORKDIR /CDAS2
-
-ENV CONDA_PREFIX /opt/conda
 
 RUN sed -i 's/System.out.println.*//g' src/main/java/nasa/nccs/cdas/workers/test/floatClient.java && \
 	sed -i 's/System.out.println.*//g' src/main/java/nasa/nccs/cdas/workers/test/helloClient.java
@@ -30,7 +34,14 @@ RUN sbt compile; exit 0
 RUN sbt compile && \
 	sbt stage
 
+RUN python setup.py install
+#RUN conda install -c conda-forge -c nasa_nccs pycdas
+
 ENV CDAS_REQUEST_PORT 4356
 ENV CDAS_RESPONSE_PORT 4357
+ENV UVCDAT_ANONYMOUS_LOG=no
+ENV CDAS_CACHE_DIR=/root/.cdas/cache
+
+EXPOSE $CDAS_REQUEST_PORT $CDAS_RESPONSE_PORT
 
 CMD ["sh", "-c", "target/universal/stage/bin/cdas2 bind $CDAS_REQUEST_PORT $CDAS_RESPONSE_PORT"]
