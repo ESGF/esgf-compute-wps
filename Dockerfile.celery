@@ -1,0 +1,25 @@
+FROM ubuntu:latest
+
+RUN apt-get update --fix-missing && \
+	apt-get update -y && \
+	apt-get install -y python-pip
+
+RUN pip install celery zmq redis pycdas numpy
+
+WORKDIR /var/www
+
+COPY . .
+
+WORKDIR /var/www/compute
+
+ENV CELERY_BROKER redis://0.0.0.0
+
+RUN useradd -ms /bin/bash celery
+
+USER celery
+
+RUN mkdir -p /home/celery/.cdas
+
+EXPOSE 4356 4357
+
+CMD ["sh", "-c", "celery -A wps -b $CELERY_BROKER worker -l info"]
