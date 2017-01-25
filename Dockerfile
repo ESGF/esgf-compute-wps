@@ -31,4 +31,3 @@ ENV UVCDAT_ANONYMOUS_LOG=yes
 WORKDIR /var/www/compute
 
 CMD ["gunicorn", "-b", "0.0.0.0:8000", "compute.wsgi"]
-#CMD ["python", "compute/manage.py", "runserver", "0.0.0.0:8000"]
