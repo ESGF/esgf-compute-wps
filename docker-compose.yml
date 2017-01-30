@@ -1,0 +1,42 @@
+version: '2'
+services:
+  wps:
+    image: jasonb87/esgf_wps:latest
+    #build: .
+    environment:
+      - CELERY_BROKER=redis://redis/0
+      - CELERY_BACKEND=redis://redis/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/www
+    networks:
+      frontend:
+  redis:
+    image: redis:latest
+    networks:
+      frontend:
+  celery:
+    image: jasonb87/celery:latest
+    #build:
+    #  context: .
+    #  dockerfile: Dockerfile.celery
+    environment:
+      - CELERY_BROKER=redis://redis/0
+      - CELERY_BACKEND=redis://redis/0
+    networks:
+      frontend:
+      backend:
+  cdas:
+    image: jasonb87/cdas2:latest
+    #build:
+    #  context: docker/cdas2
+    expose:
+      - "4356"
+      - "4357"
+    networks:
+      backend:
+
+networks:
+  frontend:
+  backend:
