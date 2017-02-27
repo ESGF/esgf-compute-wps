@@ -9,6 +9,7 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 sys.path.insert(0, BASE_DIR)
 
 import django
+from django.db.models import fields
 from django.conf import settings
 
 settings.configure(
@@ -30,36 +31,78 @@ django.setup()
 
 from wps import models
 
-def add_update_server(args):
+TYPE_MAP = {
+        fields.CharField: str,
+        fields.BooleanField: bool,
+        fields.IntegerField: int
+        }
+
+class ModelDoesNotExist(Exception):
+    pass
+
+class RequiredArgument(Exception):
+    pass
+
+def create_model(model, args, required=()):
+    m = model()
+
+    for f in model._meta.get_fields():
+        if hasattr(args, f.name):
+            value = getattr(args, f.name)
+
+            if f.name in required and value is None:
+                raise RequiredArgument(f.name)
+
+            setattr(m, f.name, value)
+
+    m.save()
+
+def list_model(model, key):
+    models = model.objects.all()
+
+    for m in models:
+        value = getattr(m, key)
+
+        print key, ':', value
+
+        for f in model._meta.get_fields():
+            if hasattr(m, f.name):
+                value = getattr(m, f.name)
+
+                print '\t', f.name, ':', value
+
+def remove_model(model, **kwargs):
     try:
-        server = models.Server.objects.get(address=args.address)
-    except models.Server.DoesNotExist:
-        server = models.Server()
+        m = model.objects.get(**kwargs)
+    except model.DoesNotExist:
+        raise ModelDoesNotExist('Could not find model matching {0}'.format(kwargs))
+    else:
+        m.delete()
 
-    if args.name is not None:
-        server.name = args.name
+def update_model(model, args, **kwargs):
+    try:
+        m = model.objects.get(**kwargs)
+    except model.DoesNotExist:
+        raise ModelDoesNotExist('Could not find model matching {0}'.format(kwargs))
+    else:
+        m.delete()
     
-    if args.is_wps is not None:
-        server.is_wps = args.is_wps
+    for f in model._meta.get_fields():
+        value = getattr(args, f.name)
 
-    if args.queue_size is not None:
-        server.queue_size = args.queue_size
-
-    server.save()
+        if value is not None:
+            setattr(m, f.name, value)
+    m.save()
 
 def process_server(args):
     if args.action == 'add':
-        add_update_server(args)
+        create_model(models.Server, args, ('address'))
+    elif args.action == 'list':
+        list_model(models.Server, 'address')
     elif args.action == 'remove':
-        server = models.Server.objects.filter(address=args.address)
-
-        if len(server) == 0:
-            print 'No server exists with address equal to %s' % (args.address,)
-        else:
-            for s in server:
-                s.delete()
+        remove_model(models.Server, address=args.address)
     elif args.action == 'update':
-        add_update_server(args)
+        update_model(models.Server, args, address=args.address)
 
 def create_parser():
     parent_parser = argparse.ArgumentParser(add_help=False)
@@ -68,12 +111,12 @@ def create_parser():
     subparsers = parser.add_subparsers()
 
     server = subparsers.add_parser('server', parents=[parent_parser])
-    server.add_argument('--action', default='add', choices=['add', 'remove', 'update'])
-    server.add_argument('--name')
-    server.add_argument('--is_wps', type=bool)
-    server.add_argument('--queue_size', type=int)
-    server.add_argument('address', type=str)
     server.set_defaults(func=process_server)
+    server.add_argument('action', choices=['add', 'list', 'remove', 'update'])
+
+    for f in models.Server._meta.get_fields():
+        if f.__class__ in TYPE_MAP:
+            server.add_argument('--{0}'.format(f.name), type=TYPE_MAP[f.__class__])
 
     return parser
 

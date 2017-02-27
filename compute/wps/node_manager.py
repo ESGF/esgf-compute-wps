@@ -5,9 +5,13 @@ from contextlib import closing
 
 import zmq
 
+from wps import models
 from wps.conf import settings
 
 logger = logging.getLogger(__name__)
+
+class NoAvailableServers(Exception):
+    pass
 
 class NodeManager(object):
 
@@ -22,39 +26,47 @@ class NodeManager(object):
 
         return socket
 
-    def monitor_responses(self):
-        with closing(self.__get_socket(zmq.PULL,
-            settings.CDAS_HOST,
-            settings.CDAS_RESPONSE_PORT)) as response:
+    def get_server(self):
+        servers = models.Server.objects.all()
 
+        if len(servers) == 0:
+            raise NoAvailableServers()
+
+        return servers[0]
+
+    def monitor_responses(self):
+        # TODO should be polling all instance servers for results
+        server = self.get_server()
+
+        with closing(self.__get_socket(zmq.PULL, server.address, server.response)) as response:
             while True:
                 result = response.recv()
 
                 logger.info(result)
 
     def execute(self, identifier, data_inputs):
-        with closing(self.__get_socket(zmq.PUSH,
-            settings.CDAS_HOST,
-            settings.CDAS_REQUEST_PORT)) as request:
+        server = self.get_server()
 
+        with closing(self.__get_socket(zmq.PUSH, server.address, server.request)) as request:
             request.send(str('1!execute!{0}!{1}'.format(identifier, data_inputs)))
 
         return True
 
     def describe_process(self, identifier):
-        with closing(self.__get_socket(zmq.PUSH,
-            settings.CDAS_HOST,
-            settings.CDAS_REQUEST_PORT)) as request:
+        server = self.get_server()
 
+        # TODO refer to get_capabilities, need to map operation to instance
+        # if we support aggregation
+        with closing(self.__get_socket(zmq.PUSH, server.address, server.request)) as request:
             request.send(str('1!describeProcess!{0}'.format(identifier)))
 
         return True
     
     def get_capabilities(self):
-        with closing(self.__get_socket(zmq.PUSH,
-            settings.CDAS_HOST,
-            settings.CDAS_REQUEST_PORT)) as request:
+        server = self.get_server()
 
+        # TODO aggregate all instances to support mixed operation support
+        with closing(self.__get_socket(zmq.PUSH, server.address, server.request)) as request:
             request.send(str('1!getCapabilities!WPS'))
 
         return True
