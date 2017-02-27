@@ -41,14 +41,28 @@ class NodeManager(object):
         with closing(self.__get_socket(zmq.PULL, server.address, server.response)) as response:
             while True:
                 result = response.recv()
+                
+                job_id, _, data = result.split('!')
 
-                logger.info(result)
+                logger.info('JOB FINISHED %s', job_id)
+
+                job = models.Job.objects.get(pk=job_id)
+
+                job.status = 'completed'
+
+                job.result = data
+
+                job.save()
 
     def execute(self, identifier, data_inputs):
         server = self.get_server()
 
+        job = models.Job(server=server, status='running')
+
+        job.save()
+
         with closing(self.__get_socket(zmq.PUSH, server.address, server.request)) as request:
-            request.send(str('1!execute!{0}!{1}'.format(identifier, data_inputs)))
+            request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
         return True
 

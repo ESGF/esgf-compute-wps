@@ -57,7 +57,7 @@ def create_model(model, args, required=()):
 
     m.save()
 
-def list_model(model, key):
+def list_model(model, key, args):
     models = model.objects.all()
 
     for m in models:
@@ -68,6 +68,12 @@ def list_model(model, key):
         for f in model._meta.get_fields():
             if hasattr(m, f.name):
                 value = getattr(m, f.name)
+
+                if hasattr(args, 'trunc') and isinstance(value, (unicode, str)):
+                    value = str(value)
+
+                    if getattr(args, 'trunc'):
+                        value = value[0:100]
 
                 print '\t', f.name, ':', value
 
@@ -98,11 +104,14 @@ def process_server(args):
     if args.action == 'add':
         create_model(models.Server, args, ('address'))
     elif args.action == 'list':
-        list_model(models.Server, 'address')
+        list_model(models.Server, 'address', args)
     elif args.action == 'remove':
         remove_model(models.Server, address=args.address)
     elif args.action == 'update':
         update_model(models.Server, args, address=args.address)
+
+def process_jobs(args):
+    list_model(models.Job, 'id', args)
 
 def create_parser():
     parent_parser = argparse.ArgumentParser(add_help=False)
@@ -117,6 +126,10 @@ def create_parser():
     for f in models.Server._meta.get_fields():
         if f.__class__ in TYPE_MAP:
             server.add_argument('--{0}'.format(f.name), type=TYPE_MAP[f.__class__])
+
+    jobs = subparsers.add_parser('jobs', parents=[parent_parser])
+    jobs.set_defaults(func=process_jobs)
+    jobs.add_argument('--trunc', action='store_false')
 
     return parser
 

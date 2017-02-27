@@ -10,3 +10,8 @@ class Server(models.Model):
     is_wps = models.BooleanField(default=False)
     queue = models.PositiveIntegerField(default=0)
     queue_size = models.PositiveIntegerField(default=0)
+
+class Job(models.Model):
+    server = models.ForeignKey(Server, on_delete=models.CASCADE)
+    status = models.CharField(max_length=64)
+    result = models.TextField()
