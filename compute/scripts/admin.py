@@ -14,8 +14,11 @@ from django.conf import settings
 settings.configure(
         DATABASES = {
             'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+                'ENGINE': 'django.db.backends.postgresql_psycopg2',
+                'NAME': 'postgres',
+                'USER': 'postgres',
+                'PASSWORD': os.getenv('POSTGRES_PASSWORD', '1234'),
+                'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
                 }
             },
         INSTALLED_APPS = (
@@ -28,7 +31,10 @@ django.setup()
 from wps import models
 
 def add_update_server(args):
-    server = models.Server.objects.get(address=args.address)
+    try:
+        server = models.Server.objects.get(address=args.address)
+    except models.Server.DoesNotExist:
+        server = models.Server()
 
     if args.name is not None:
         server.name = args.name

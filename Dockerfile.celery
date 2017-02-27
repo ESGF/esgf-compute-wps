@@ -1,25 +1,26 @@
-FROM ubuntu:latest
+FROM continuumio/miniconda:4.2.12
 
 RUN apt-get update --fix-missing && \
-	apt-get update -y && \
-	apt-get install -y python-pip
-
-RUN pip install celery zmq redis pycdas numpy
-
-WORKDIR /var/www
-
-COPY . .
-
-WORKDIR /var/www/compute
+	apt-get install -y --no-install-recommends git libpq-dev gcc && \
+	git clone https://github.com/esgf/esgf-compute-api && \
+	cd esgf-compute-api &&  \
+	git checkout 2.0 && \
+	pip install -e . && \
+	apt-get clean -y
 
 ENV CELERY_BROKER redis://0.0.0.0
 
-RUN useradd -ms /bin/bash celery
+RUN conda install -c conda-forge pyzmq && \
+	pip install celery django redis psycopg2
+
+COPY . /var/www
+
+WORKDIR /var/www/compute
+
+RUN useradd -m -s /bin/bash celery
 
 USER celery
 
-RUN mkdir -p /home/celery/.cdas
-
 EXPOSE 4356 4357
 
-CMD ["sh", "-c", "celery -A wps -b $CELERY_BROKER worker -l info"]
+CMD ["sh", "-c", "celery -A compute -b $CELERY_BROKER worker -l info"]
