@@ -47,11 +47,23 @@ class NodeManager(object):
         if len(servers) == 0:
             raise NoAvailableServers()
 
-        return servers[0]
+        candidate = None
 
-    def monitor_responses(self):
-        # TODO should be polling all instance servers for results
-        server = self.get_server()
+        for s in servers:
+            free = s.queue_size - s.queue
+
+            if free > 0:
+                candidate = s
+
+                break
+
+        if candidate is None:
+            raise NoAvailableServers()
+
+        return candidate
+
+    def monitor_responses(self, server):
+        logger.info('Monitoring for response at %s:%s', server.address, server.response)
 
         with closing(self.__get_socket(zmq.PULL, server.address, server.response)) as response:
             while True:
@@ -67,6 +79,10 @@ class NodeManager(object):
 
                 job.result = data
 
+                job.server.queue -= 1
+                
+                job.server.save()
+
                 job.save()
 
     def get_status(self, job_id):
@@ -79,8 +95,11 @@ class NodeManager(object):
             # Build final output with result which should just be data
             response = operations.ExecuteResponse.from_xml(job.result)
 
+            response.service_instance = 'http://aims2.llnl.gov/wps'
             response.creation_time = '{0: %X} {0: %x}'.format(datetime.datetime.now())
+            response.status_location = 'http://0.0.0.0:8000/wps/status/{0}'.format(job_id)
             response.status = metadata.ProcessSucceeded()
+            response.process = metadata.Process()
             response.process.identifier = 'dummy'
             response.process.title = 'dummy'
             
@@ -106,6 +125,12 @@ class NodeManager(object):
 
     def execute(self, identifier, data_inputs):
         server = self.get_server()
+
+        server.queue += 1
+
+        server.save()
+
+        logger.info('Executing on server {0}'.format(server.name))
 
         # Put job creation in the view so we can set initial staus to accepted
         job = models.Job(server=server, status='started')

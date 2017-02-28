@@ -8,20 +8,26 @@ from celery.utils.log import get_task_logger
 from celery import shared_task
 
 from wps import node_manager as node
+from wps import models
 
 logger = get_task_logger(__name__)
 
 @celeryd_init.connect
 def start_monitor_tasks(sender=None, instance=None, **kwargs):
-    monitor_responses.delay()
+    servers = models.Server.objects.all()
+
+    for s in servers:
+        monitor_responses.delay(s.id)
 
 @shared_task
-def monitor_responses():
+def monitor_responses(server_id):
     logger.info('Monitor task started')
 
     manager = node.NodeManager()
 
-    manager.monitor_responses()
+    server = models.Server.objects.get(pk=server_id)
+
+    manager.monitor_responses(server)
 
 @shared_task
 def handle_get(params):
