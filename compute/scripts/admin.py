@@ -34,7 +34,8 @@ from wps import models
 TYPE_MAP = {
         fields.CharField: str,
         fields.BooleanField: bool,
-        fields.IntegerField: int
+        fields.IntegerField: int,
+        fields.PositiveIntegerField: int,
         }
 
 class ModelDoesNotExist(Exception):
@@ -95,10 +96,12 @@ def update_model(model, args, **kwargs):
         m.delete()
     
     for f in model._meta.get_fields():
-        value = getattr(args, f.name)
+        if hasattr(args, f.name):
+            value = getattr(args, f.name)
 
-        if value is not None:
-            setattr(m, f.name, value)
+            if value is not None:
+                setattr(m, f.name, value)
+
     m.save()
 
 def process_server(args):
