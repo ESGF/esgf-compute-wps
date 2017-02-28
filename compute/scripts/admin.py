@@ -53,7 +53,8 @@ def create_model(model, args, required=()):
             if f.name in required and value is None:
                 raise RequiredArgument(f.name)
 
-            setattr(m, f.name, value)
+            if value is not None:
+                setattr(m, f.name, value)
 
     m.save()
 
