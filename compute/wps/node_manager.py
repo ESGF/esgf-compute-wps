@@ -64,7 +64,7 @@ class NodeManager(object):
         with closing(self.__get_socket(zmq.PUSH, server.address, server.request)) as request:
             request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
-        return True
+        return job.id
 
     def describe_process(self, identifier):
         server = self.get_server()

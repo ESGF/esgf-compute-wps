@@ -3,6 +3,10 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import datetime
+
+from esgf.wps_lib import metadata
+from esgf.wps_lib import operations
 from celery.signals import celeryd_init
 from celery.utils.log import get_task_logger
 from celery import shared_task
@@ -46,7 +50,26 @@ def handle_get(params):
 
         logger.debug('Executing process %s', identifier)
 
-        result = manager.execute(identifier, data_inputs)
+        job_id = manager.execute(identifier, data_inputs)
+
+        # This should be loaded from database
+        process = metadata.Process() 
+        process.identifier = 'dummy'
+        process.title = 'dummy'
+
+        # Alot of values are static so we'll store a copy a load and 
+        # make deep copies as needed
+        response = operations.ExecuteResponse()
+        response.service = 'WPS'
+        response.version = '1.0.0'
+        response.lang = 'en-CA'
+        response.service_instance = 'http://aims2.llnl.gov/wps'
+        response.creation_time = '{0: %X} {0: %x}'.format(datetime.datetime.now())
+        response.status_location = 'http://wps:8000/wps/status?job_id={0}'.format(job_id)
+        response.status = metadata.ProcessStarted()
+        response.process = process
+
+        result = response.xml()
 
     return result
 
