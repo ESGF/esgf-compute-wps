@@ -32,6 +32,8 @@ services:
     environment:
       - CELERY_BROKER=redis://redis/0
       - CELERY_BACKEND=redis://redis/0
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_HOST=postgres
     volumes_from:
       - wps
     networks:
