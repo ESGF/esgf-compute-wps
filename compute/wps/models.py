@@ -2,16 +2,23 @@ from __future__ import unicode_literals
 
 from django.db import models
 
-class Server(models.Model):
-    name = models.CharField(max_length=256, blank=True, null=True)
-    address = models.CharField(max_length=64, unique=True)
-    request = models.IntegerField(default=4356)
-    response = models.IntegerField(default=4357)
-    is_wps = models.BooleanField(default=False)
+class Process(models.Model):
+    identifier = models.CharField(max_length=128)
+    description = models.TextField()
+
+class Instance(models.Model):
+    host = models.CharField(max_length=128, unique=True, blank=False, null=False)
+    added = models.DateTimeField(auto_now_add=True)
+    request = models.PositiveIntegerField(default=4356)
+    response = models.PositiveIntegerField(default=4357)
+    status = models.IntegerField(default=1)
+    checked = models.DateTimeField(auto_now=True)
     queue = models.PositiveIntegerField(default=0)
     queue_size = models.PositiveIntegerField(default=0)
 
-class Job(models.Model):
-    server = models.ForeignKey(Server, on_delete=models.CASCADE)
-    status = models.CharField(max_length=64)
-    result = models.TextField()
+class Server(models.Model):
+    host = models.CharField(max_length=128)
+    added = models.DateTimeField(auto_now_add=True)
+    status = models.IntegerField(default=1)
+    capabilities = models.TextField()
+    processes = models.ManyToManyField(Process)

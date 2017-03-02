@@ -1,4 +1,13 @@
 #! /usr/bin/env python
 
+import logging
+import os
+
+from wps import tasks
+
+logger = logging.getLogger(__name__)
+
 class NodeManager(object):
-    pass
+
+    def initialize(self):
+        logger.info('Initializing node manager')

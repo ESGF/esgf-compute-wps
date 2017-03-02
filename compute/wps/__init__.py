@@ -1,8 +1,15 @@
 import os
-import logging
+
+from wps import node_manager
 
 os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
 
-logger = logging.getLogger(__name__)
-
 default_app_config = 'wps.apps.WpsConfig'
+
+admin = os.getenv('WPS_ADMIN')
+
+if admin is None:
+    manager = node_manager.NodeManager()
+
+    manager.initialize()
+
