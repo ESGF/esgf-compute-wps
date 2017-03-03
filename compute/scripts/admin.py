@@ -8,7 +8,7 @@ base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 sys.path.insert(0, base_path)
 
-os.environ['WPS_ADMIN'] = ''
+os.environ['WPS_NO_INIT'] = ''
 os.environ['DJANGO_SETTINGS_MODULE'] = 'compute.settings'
 
 import django
@@ -99,20 +99,28 @@ def process_instances(args):
     elif args.action == 'list':
         list_model(args, 'host')
 
+def create_sub_parser(model, subparsers, handler, actions):
+    name = model.__name__.lower()
+
+    parser = subparsers.add_parser(name)
+    parser.set_defaults(func=handler, model=model)
+    parser.add_argument('-a', '--action', choices=actions, required=True)
+
+    if 'remove' in actions or 'update' in actions:
+        parser.add_argument('-m', '--match', nargs='*')
+
+    for f in model._meta.get_fields():
+        if f.__class__ in TYPE_MAP:
+            parser.add_argument('--{0}'.format(f.name), type=TYPE_MAP[f.__class__])
+
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
-    instances = subparsers.add_parser('instances')
-    instances.set_defaults(func=process_instances, model=models.Instance)
-    instances.add_argument('-a', '--action',
-            choices=['add', 'remove', 'update', 'list'],
-            required=True) 
-    instances.add_argument('-m', '--match', nargs='*')
-
-    for f in models.Instance._meta.get_fields():
-        if f.__class__ in TYPE_MAP:
-            instances.add_argument('--{0}'.format(f.name), type=TYPE_MAP[f.__class__])
+    create_sub_parser(models.Instance,
+            subparsers,
+            process_instances,
+            ['add', 'remove', 'update', 'list'])
 
     return parser
 
