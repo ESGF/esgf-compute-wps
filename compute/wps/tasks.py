@@ -53,6 +53,8 @@ def init_handler(response):
 
     server_id, _, data = buf.split('!')
 
+    logger.info(data)
+
     capabilities = wps_xml.create_capabilities(data) 
 
     server = models.Server.objects.get(pk=server_id)
