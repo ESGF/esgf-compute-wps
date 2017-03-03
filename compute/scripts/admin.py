@@ -89,7 +89,7 @@ def list_model(args, key):
 
             print '\t', f.name, '=', value
 
-def process_instances(args):
+def process_cmd(args):
     if args.action == 'add':
         add_model(args)
     elif args.action == 'remove':
@@ -97,13 +97,13 @@ def process_instances(args):
     elif args.action == 'update':
         update_model(args)
     elif args.action == 'list':
-        list_model(args, 'host')
+        list_model(args, args.key)
 
-def create_sub_parser(model, subparsers, handler, actions):
+def create_sub_parser(model, subparsers, actions, key=None):
     name = model.__name__.lower()
 
     parser = subparsers.add_parser(name)
-    parser.set_defaults(func=handler, model=model)
+    parser.set_defaults(func=process_cmd, model=model, key=key)
     parser.add_argument('-a', '--action', choices=actions, required=True)
 
     if 'remove' in actions or 'update' in actions:
@@ -119,8 +119,13 @@ def create_parser():
 
     create_sub_parser(models.Instance,
             subparsers,
-            process_instances,
-            ['add', 'remove', 'update', 'list'])
+            ['add', 'remove', 'update', 'list'],
+            'host')
+
+    create_sub_parser(models.Server,
+            subparsers,
+            ['add', 'remove', 'update', 'list'],
+            'host')
 
     return parser
 
