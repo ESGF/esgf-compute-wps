@@ -39,7 +39,7 @@ class NodeManager(object):
         init = redis.get('init')
 
         # Enable this to force a initialization each startup
-        redis.delete('init')
+        #redis.delete('init')
 
         if init is not None:
             return
