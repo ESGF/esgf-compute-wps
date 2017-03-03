@@ -1,47 +1,38 @@
-FROM ubuntu:latest
-
-RUN apt-get update --fix-missing && \
-	apt-get install -y git wget default-jdk scala
+FROM continuumio/miniconda:4.2.12
 
 RUN echo "deb http://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list && \
+	echo "deb http://ftp.debian.org/debian jessie-backports main" | tee -a /etc/apt/sources.list.d/jessie-backports.list && \
 	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && \
-	apt-get update && \
-	apt-get install sbt
+	apt-get update --fix-missing && \
+	apt-get install -y --no-install-recommends -t jessie-backports openjdk-8-jre-headless ca-certificates-java && \
+	apt-get install -y --no-install-recommends default-jdk sbt linux-headers-amd64 build-essential openjdk-8-jdk && \
+	apt-get clean && \
+	update-java-alternatives -s java-1.8.0-openjdk-amd64
 
-RUN apt-get install -y bzip2
+RUN conda install -c conda-forge -c uvcdat/label/nightly -c uvcdat uvcdat-nox nco pyzmq
 
-RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O conda.sh && \
-	/bin/bash conda.sh -bp /opt/conda && \
-	rm conda.sh
-
-ENV PATH /opt/conda/bin:$PATH
-
-RUN conda create -n cdas2 -c conda-forge -c uvcdat/label/nightly -c uvcdat uvcdat nco pyzmq
-
-ENV PATH /opt/conda/envs/cdas2/bin:$PATH
-
-ENV CONDA_PREFIX /opt/conda/envs/cdas2
-
-RUN git clone https://github.com/nasa-nccs-cds/CDAS2.git
+RUN git clone --depth=1 https://github.com/nasa-nccs-cds/CDAS2.git && \
+	cd CDAS2 && \
+	git checkout master
 
 WORKDIR /CDAS2
 
 RUN sed -i 's/System.out.println.*//g' src/main/java/nasa/nccs/cdas/workers/test/floatClient.java && \
 	sed -i 's/System.out.println.*//g' src/main/java/nasa/nccs/cdas/workers/test/helloClient.java
 
-RUN sbt compile; exit 0 
+ENV CONDA_PREFIX=/opt/conda
+
+RUN sbt compile; exit 0
 
 RUN sbt compile && \
 	sbt stage
 
 RUN python setup.py install
-#RUN conda install -c conda-forge -c nasa_nccs pycdas
 
 ENV CDAS_REQUEST_PORT 4356
 ENV CDAS_RESPONSE_PORT 4357
 ENV UVCDAT_ANONYMOUS_LOG=no
-ENV CDAS_CACHE_DIR=/root/.cdas/cache
 
 EXPOSE $CDAS_REQUEST_PORT $CDAS_RESPONSE_PORT
 
-CMD ["sh", "-c", "target/universal/stage/bin/cdas2 bind $CDAS_REQUEST_PORT $CDAS_RESPONSE_PORT"]
+CMD ["sh", "-c", "target/universal/stage/bin/cdas2 bind $CDAS_REQUEST_PORT $CDAS_RESPONSE_PORT -J-Xmx2000M -J-Xms512M -J-Xss1M -J-XX:+CMSClassUnloadingEnabled -J-XX:+UseConcMarkSweepGC"]
