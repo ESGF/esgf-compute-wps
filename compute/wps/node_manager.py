@@ -78,11 +78,15 @@ class NodeManager(object):
                     metadata.Exception.MissingParameterValue,
                     name)
 
+            logger.info('Missing required parameter %s', name)
+
             raise WPSError(text)
             
         return params[name]
 
     def handle_get_capabilities(self):
+        logger.info('Handling GetCapabilities request')
+
         try:
             server = models.Server.objects.get(host='0.0.0.0')
         except models.Server.DoesNotExit:
@@ -94,8 +98,35 @@ class NodeManager(object):
 
         return server.capabilities
 
+    def get_instance(self):
+        instances = models.Instance.objects.all()
+
+        if len(instances) == 0:
+            text = self.create_wps_exception(
+                    metadata.Exeption.NoApplicableCode,
+                    'No CDAS2 instances are available')
+
+            raise WPSError(text)
+
+        return instances[0]
+
+    def handle_execute(self, identifier, data_inputs):
+        logger.info('Handling Execute request')
+
+        instance = self.get_instance()
+
+        logger.info('Executing on CDAS2 instance %s:%s', instance.host, instance.request)
+
+        task = tasks.execute.delay(instance.id, identifier, data_inputs)
+
+        response = task.get()
+
+        return response
+
     def handle_get(self, params):
-        request = self.get_parameter(params, 'Request')
+        logger.info('Received GET request %s', params)
+        
+        request = self.get_parameter(params, 'request')
 
         service = self.get_parameter(params, 'service')
 
@@ -106,7 +137,11 @@ class NodeManager(object):
         elif request == 'describeprocess':
             raise NotImplementedError()
         elif request == 'execute':
-            raise NotImplementedError()
+            identifier = self.get_parameter(params, 'Identifier')
+
+            data_inputs = self.get_parameter(params, 'datainputs')
+
+            response = self.handle_execute(identifier, data_inputs)
 
         return response
 

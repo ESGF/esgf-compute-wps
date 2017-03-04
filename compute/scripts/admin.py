@@ -85,9 +85,10 @@ def list_model(args, key):
         print key, ':', getattr(m, key)
 
         for f in m._meta.get_fields():
-            value = getattr(m, f.name)
+            if hasattr(m, f.name):
+                value = getattr(m, f.name)
 
-            print '\t', f.name, '=', value
+                print '\t', f.name, '=', value
 
 def process_cmd(args):
     if args.action == 'add':
@@ -126,6 +127,11 @@ def create_parser():
             subparsers,
             ['add', 'remove', 'update', 'list'],
             'host')
+
+    create_sub_parser(models.Job,
+            subparsers,
+            ['list'],
+            'id')
 
     return parser
 

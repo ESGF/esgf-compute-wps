@@ -22,3 +22,14 @@ class Server(models.Model):
     status = models.IntegerField(default=1)
     capabilities = models.TextField()
     processes = models.ManyToManyField(Process)
+
+class Job(models.Model):
+    server = models.ForeignKey(Server, on_delete=models.CASCADE)
+    result = models.TextField()
+
+class JobState(models.Model):
+    state = models.IntegerField()
+    create = models.DateTimeField(auto_now_add=True)
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+
+

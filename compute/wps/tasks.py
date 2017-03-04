@@ -92,6 +92,17 @@ def monitor_cdas(instance_id):
             buf = response.recv()
 
             logger.info('Received CDAS response')
+
+            job_id, _, data = buf.split('!')
+
+            try:
+                job = models.Job.objects.get(pk=job_id)
+            except models.Job.DoesNotExist:
+                logger.info('Result for job %s does not exist', job_id)
+            else:
+                job.result = data
+
+                job.save()
             
 @shared_task
 def instance_capabilities(instance_id):
@@ -107,3 +118,28 @@ def instance_capabilities(instance_id):
 
     with closing(__create_socket(instance.host, instance.request, zmq.PUSH)) as request:
         request.send(str('1!getCapabilities!WPS'))
+
+@shared_task
+def execute(instance_id, identifier, data_inputs):
+    try:
+        instance = models.Instance.objects.get(pk=instance_id)
+    except models.Instance.DoesNotExist:
+        logger.info('Instance id "%s" does not exist', instance_id)
+
+        return
+
+    try:
+        server = models.Server.objects.get(host='0.0.0.0')
+    except models.Instance.DoesNotExist:
+        logger.info('Default server does not exist yet')
+
+        return
+
+    logger.info('Executing on CDAS2 instance at %s:%s', instance.host, instance.request)
+
+    job = models.Job(server=server)
+
+    job.save()
+
+    with closing(__create_socket(instance.host, instance.request, zmq.PUSH)) as request:
+        request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
