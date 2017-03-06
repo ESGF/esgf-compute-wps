@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import datetime
 import logging
 
 from lxml import etree
@@ -90,5 +91,41 @@ def create_capabilities_response(data):
 
     return cap.xml()
 
-def create_execute_response(data):
-    return data
+def create_execute_response(status_location, status, identifier):
+    p = metadata.Process()
+    p.identifier = identifier
+    p.title = identifier
+
+    ex = operations.ExecuteResponse()
+
+    ex.service = SERVICE
+    ex.service_instance = 'http://0.0.0.0:8000'
+    ex.version = VERSION
+    ex.lang = LANG
+    ex.status_location = status_location
+    ex.process = p
+    ex.status = status
+    ex.creation_time = datetime.datetime.now()
+
+    return ex.xml()
+
+def update_execute_response(old_response, data):
+    ex = operations.ExecuteResponse.from_xml(old_response)
+
+    tree = etree.fromstring(data)
+
+    data = tree.xpath('/response/outputs/data')
+
+    if data is not None and len(data) > 0:
+        comp = metadata.ComplexData()
+        comp.value = data[0].text
+
+        output = metadata.Output()
+        output.identifier = 'Output'
+        output.title = 'Output'
+        output.data = comp
+
+        ex.status = metadata.ProcessSucceeded()
+        ex.process_outputs = [output]
+
+    return ex.xml()

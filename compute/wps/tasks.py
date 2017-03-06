@@ -12,6 +12,7 @@ import zmq
 from celery import shared_task
 from celery.signals import celeryd_init
 from celery.utils.log import get_task_logger
+from esgf.wps_lib import metadata
 
 from wps import models
 from wps import wps_xml
@@ -70,9 +71,9 @@ def store_job_result(job_id, data):
     except models.Job.DoesNotExist:
         logger.info('Result for job %s does not exist', job_id)
     else:
-        xml_response = wps_xml.create_execute_response(data)
+        response = wps_xml.update_execute_response(job.result, data)
 
-        job.result = xml_response
+        job.result = response
 
         job.save()
     
@@ -104,7 +105,7 @@ def monitor_cdas(instance_id):
         while True:
             buf = response.recv()
 
-            logger.info('Received CDAS response')
+            logger.info('Received CDAS response, %s', buf)
 
             job_id, _, data = buf.split('!')
 
@@ -149,3 +150,15 @@ def execute(instance_id, identifier, data_inputs):
 
     with closing(__create_socket(instance.host, instance.request, zmq.PUSH)) as request:
         request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
+
+    status_location = 'http://0.0.0.0:8000/wps/job/{0}'.format(job.id)
+
+    response = wps_xml.create_execute_response(status_location,
+            metadata.ProcessStarted(),
+            identifier)
+    
+    job.result = response
+
+    job.save()
+
+    return response
