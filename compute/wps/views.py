@@ -22,4 +22,8 @@ def wps(request):
     return http.HttpResponse(response, content_type='text/xml')
 
 def status(request, job_id):
-    raise NotImplementedError()
+    manager = node_manager.NodeManager()
+
+    status = manager.get_status(job_id)
+
+    return http.HttpResponse(status, content_type='text/xml')

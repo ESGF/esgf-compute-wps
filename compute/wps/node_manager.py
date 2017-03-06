@@ -84,6 +84,17 @@ class NodeManager(object):
             
         return params[name]
 
+    def get_status(self, job_id):
+        try:
+            job = models.Job.objects.get(pk=job_id)
+        except models.Job.DoesNotExist:
+            text = self.create_wps_exception(metadata.Exception.NoApplicableCode,
+                    'Job with id %s does not exist', job_id)
+
+            raise WPSError(text)
+        else:
+            return job.result
+
     def handle_get_capabilities(self):
         logger.info('Handling GetCapabilities request')
 

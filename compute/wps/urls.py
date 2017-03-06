@@ -4,5 +4,5 @@ import views
 
 urlpatterns = [
     url(r'^$', views.wps),
-    url(r'^/status/(?P<job_id>[0-9]*)/$', views.status),
+    url(r'^job/(?P<job_id>[0-9]*)/$', views.status),
 ]
