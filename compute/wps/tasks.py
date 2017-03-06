@@ -55,13 +55,26 @@ def init_handler(response):
 
     logger.info(data)
 
-    capabilities = wps_xml.create_capabilities(data) 
+    capabilities = wps_xml.create_capabilities_response(data) 
 
     server = models.Server.objects.get(pk=server_id)
 
     server.capabilities = capabilities
 
     server.save()
+
+@shared_task
+def store_job_result(job_id, data):
+    try:
+        job = models.Job.objects.get(pk=job_id)
+    except models.Job.DoesNotExist:
+        logger.info('Result for job %s does not exist', job_id)
+    else:
+        xml_response = wps_xml.create_execute_response(data)
+
+        job.result = xml_response
+
+        job.save()
     
 @shared_task
 def monitor_cdas(instance_id):
@@ -95,15 +108,8 @@ def monitor_cdas(instance_id):
 
             job_id, _, data = buf.split('!')
 
-            try:
-                job = models.Job.objects.get(pk=job_id)
-            except models.Job.DoesNotExist:
-                logger.info('Result for job %s does not exist', job_id)
-            else:
-                job.result = data
+            store_job_result.delay(job_id, data)
 
-                job.save()
-            
 @shared_task
 def instance_capabilities(instance_id):
     try:
