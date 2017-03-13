@@ -1,13 +1,15 @@
 #! /usr/bin/env python
 
-import logging
-import time
-import os
 import json
+import logging
+import os
+import time
 
 import django
 import redis
 from esgf.wps_lib import metadata
+from esgf.wps_lib import operations
+from lxml import etree
 
 from wps import models
 from wps import tasks
@@ -149,7 +151,7 @@ class NodeManager(object):
         elif request == 'describeprocess':
             raise NotImplementedError()
         elif request == 'execute':
-            identifier = self.get_parameter(params, 'Identifier')
+            identifier = self.get_parameter(params, 'identifier')
 
             data_inputs = self.get_parameter(params, 'datainputs')
 
@@ -157,5 +159,24 @@ class NodeManager(object):
 
         return response
 
-    def handle_post(self):
-        pass
+    def handle_post(self, data):
+        logger.info('Received POST request %s', data)
+
+        try:
+            request = operations.ExecuteRequest.from_xml(data)
+        except etree.XMLSyntaxError:
+            logger.exception('Failed to parse xml request')
+
+            text = self.create_wps_exception(
+                    metadata.Exception.NoApplicableCode,
+                    'POST request only supported for Execute operation')
+
+            raise WPSError(text)
+
+        data_inputs = '[{0}]'.format(';'.join('{0}={1}'.format(x.identifier, x.data.value) for x in request.data_inputs))
+
+        data_inputs = data_inputs.replace('\'', '\"')
+
+        response = self.handle_execute(request.identifier, data_inputs)
+        
+        return response
