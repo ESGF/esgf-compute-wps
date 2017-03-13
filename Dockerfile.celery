@@ -10,7 +10,7 @@ RUN apt-get update --fix-missing && \
 
 ENV CELERY_BROKER redis://0.0.0.0
 
-RUN conda install -c conda-forge pyzmq && \
+RUN conda install -c conda-forge pyzmq lxml owslib && \
 	pip install celery django redis psycopg2
 
 COPY . /var/www
