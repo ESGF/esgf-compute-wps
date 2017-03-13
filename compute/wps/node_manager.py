@@ -3,6 +3,7 @@
 import logging
 import time
 import os
+import json
 
 import django
 import redis
@@ -48,22 +49,22 @@ class NodeManager(object):
 
         try:
             instances = models.Instance.objects.all()
+
+            if len(instances) > 0:
+                tasks.instance_capabilities.delay(instances[0].id)
+
+                while redis.get('init') is None:
+                    time.sleep(1)
+
+                logger.info('Initialization done')
+                
+                time.sleep(10)
+            else:
+                logger.info('No CDAS instances were found to querying capabilities')
         except django.db.utils.ProgrammingError:
             logger.info('Database does not appear to be setup yet, skipping initialization')
 
             return
-
-        if len(instances) > 0:
-            tasks.instance_capabilities.delay(instances[0].id)
-
-            while redis.get('init') is None:
-                time.sleep(1)
-
-            logger.info('Initialization done')
-            
-            time.sleep(10)
-        else:
-            logger.info('No CDAS instances were found to querying capabilities')
 
     def create_wps_exception(self, ex_type, message):
         ex_report = metadata.ExceptionReport(settings.WPS_VERSION)
