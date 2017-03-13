@@ -18,5 +18,5 @@ from django.conf.urls import include
 from django.contrib import admin
 
 urlpatterns = [
-    url(r'^wps', include('wps.urls')),
+    url(r'^wps/', include('wps.urls')),
 ]
