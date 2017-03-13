@@ -1,17 +1,18 @@
 version: '2'
 services:
   wps:
-    #image: jasonb87/esgf_wps:latest
-    build: .
+    image: jasonb87/esgf_wps:latest
     environment:
       - CELERY_BROKER=redis://redis/0
       - CELERY_BACKEND=redis://redis/0
       - POSTGRES_PASSWORD=1234
       - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
     ports:
       - "8000:8000"
-    volumes:
-      - ./:/var/www
+    #volumes:
+    #  - ./:/var/www
+    #  - ./../esgf-compute-api:/esgf-compute-api
     networks:
       frontend:
   postgres:
@@ -25,15 +26,14 @@ services:
     networks:
       frontend:
   celery:
-    #image: jasonb87/celery:latest
-    build:
-      context: .
-      dockerfile: Dockerfile.celery
+    image: jasonb87/celery:latest
     environment:
+      - WPS_NO_INIT=1
       - CELERY_BROKER=redis://redis/0
       - CELERY_BACKEND=redis://redis/0
       - POSTGRES_PASSWORD=1234
       - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
     volumes_from:
       - wps
     networks:
