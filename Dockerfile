@@ -10,7 +10,7 @@ RUN apt-get update --fix-missing && \
 
 ENV PATH=/opt/conda/bin:$PATH
 
-RUN conda install -c conda-forge pyzmq gunicorn && \
+RUN conda install -c conda-forge pyzmq gunicorn lxml owslib && \
 	pip install django celery psycopg2 redis
 
 COPY . /var/www
