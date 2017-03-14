@@ -103,7 +103,7 @@ class NodeManager(object):
 
         try:
             server = models.Server.objects.get(host='0.0.0.0')
-        except models.Server.DoesNotExit:
+        except models.Server.DoesNotExist:
             text = self.create_wps_exception(
                     metadata.Exception.NoApplicableCode,
                     'Default server has not been created yet')
