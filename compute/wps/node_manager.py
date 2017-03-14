@@ -23,6 +23,7 @@ class NodeManagerError(Exception):
 class NodeManager(object):
 
     def connect_redis(self):
+        """ Create redis connection from environment variables. """
         host = os.getenv('REDIS_HOST', '0.0.0.0')
 
         port = os.getenv('REDIS_PORT', 6379)
@@ -32,20 +33,20 @@ class NodeManager(object):
         return redis.Redis(host, port, db)
 
     def initialize(self):
-        wps_init = os.getenv('WPS_NO_INIT')
+        """ Initialize node_manager
 
-        if wps_init is not None:
+        Only run if WPS_NO_INIT is not set.
+        """
+        if os.getenv('WPS_NO_INIT') is not None:
             return
 
         redis = self.connect_redis()
 
-        init = redis.get('init')
-
         # Enable this to force a initialization each startup
         #redis.delete('init')
 
-        if init is not None:
-            return
+        if redis.get('init') is not None:
+            return 
 
         logger.info('Initializing node manager')
 
@@ -53,8 +54,10 @@ class NodeManager(object):
             instances = models.Instance.objects.all()
 
             if len(instances) > 0:
+                # Assume all instances have same capabilities
                 tasks.instance_capabilities.delay(instances[0].id)
 
+                # Wait until task worker is done grabbing capabilities
                 while redis.get('init') is None:
                     time.sleep(1)
 
@@ -69,62 +72,69 @@ class NodeManager(object):
             return
 
     def create_wps_exception(self, ex_type, message):
+        """ Create an ExceptionReport. """
         ex_report = metadata.ExceptionReport(settings.WPS_VERSION)
 
         ex_report.add_exception(ex_type, message)
 
-        return ex_report.xml()
+        return NodeManagerError(ex_report.xml())
 
     def get_parameter(self, params, name):
-        if name not in params:
-            text = self.create_wps_exception(
-                    metadata.Exception.MissingParameterValue,
-                    name)
+        """ Gets a parameter from a django QueryDict """
 
+        # Case insesitive
+        temp = dict((x.lower(), y) for x, y in params.iteritems())
+
+        if name.lower() not in temp:
             logger.info('Missing required parameter %s', name)
 
-            raise NodeManagerError(text)
-            
-        return params[name]
+            raise self.create_wps_exception(
+                    metadata.MissingParameterValue,
+                    name)
+
+        return temp[name.lower()]
 
     def get_status(self, job_id):
+        """ Get job status. """
         try:
             job = models.Job.objects.get(pk=job_id)
         except models.Job.DoesNotExist:
-            text = self.create_wps_exception(metadata.Exception.NoApplicableCode,
+            raise self.create_wps_exception(
+                    metadata.NoApplicableCode,
                     'Job with id %s does not exist', job_id)
-
-            raise NodeManagerError(text)
         else:
             return job.result
 
+    def get_instance(self):
+        """ Determine which CDAS instance to execute on. """
+        instances = models.Instance.objects.all()
+
+        if len(instances) == 0:
+            raise self.create_wps_exception(
+                    metadata.NoApplicableCode,
+                    'No CDAS2 instances are available')
+
+        return instances[0]
+
     def handle_get_capabilities(self):
+        """ Handles get_capabilities operation. """
         logger.info('Handling GetCapabilities request')
 
         try:
             server = models.Server.objects.get(host='0.0.0.0')
         except models.Server.DoesNotExist:
-            text = self.create_wps_exception(
-                    metadata.Exception.NoApplicableCode,
+            raise self.create_wps_exception(
+                    metadata.NoApplicableCode,
                     'Default server has not been created yet')
-
-            raise NodeManagerError(text)
 
         return server.capabilities
 
-    def get_instance(self):
-        instances = models.Instance.objects.all()
-
-        if len(instances) == 0:
-            text = self.create_wps_exception(
-                    metadata.Exeption.NoApplicableCode,
-                    'No CDAS2 instances are available')
-
-            raise NodeManagerError(text)
-
-        return instances[0]
+    def handle_describe_process(self, identifier):
+        """ Handles describe_process operation. """
+        pass
 
     def handle_execute(self, identifier, data_inputs):
+        """ Handles execute operation """
         logger.info('Handling Execute request')
 
         instance = self.get_instance()
@@ -138,6 +148,7 @@ class NodeManager(object):
         return response
 
     def handle_get(self, params):
+        """ Handle an HTTP GET request. """
         logger.info('Received GET request %s', params)
         
         request = self.get_parameter(params, 'request')
@@ -149,6 +160,7 @@ class NodeManager(object):
         if request == 'getcapabilities':
             response = self.handle_get_capabilities()
         elif request == 'describeprocess':
+            #TODO implement describe process, will be the same besides identifier
             raise NotImplementedError()
         elif request == 'execute':
             identifier = self.get_parameter(params, 'identifier')
@@ -160,6 +172,10 @@ class NodeManager(object):
         return response
 
     def handle_post(self, data):
+        """ Handle an HTTP POST request. 
+
+        NOTE: we only support execute requests as POST for the moment
+        """
         logger.info('Received POST request %s', data)
 
         try:
@@ -167,14 +183,16 @@ class NodeManager(object):
         except etree.XMLSyntaxError:
             logger.exception('Failed to parse xml request')
 
-            text = self.create_wps_exception(
-                    metadata.Exception.NoApplicableCode,
+            raise self.create_wps_exception(
+                    metadata.NoApplicableCode,
                     'POST request only supported for Execute operation')
 
-            raise NodeManagerError(text)
+        # Build to format [variable=[];domain=[];operation=[]]
+        data_inputs = '[{0}]'.format(
+                ';'.join('{0}={1}'.format(x.identifier, x.data.value)
+                    for x in request.data_inputs))
 
-        data_inputs = '[{0}]'.format(';'.join('{0}={1}'.format(x.identifier, x.data.value) for x in request.data_inputs))
-
+        # CDAS doesn't like single quotes
         data_inputs = data_inputs.replace('\'', '\"')
 
         response = self.handle_execute(request.identifier, data_inputs)
@@ -182,6 +200,7 @@ class NodeManager(object):
         return response
 
     def handle_request(self, request):
+        """ Handle HTTP request """
         if request.method == 'GET':
             return self.handle_get(request.GET)
         elif request.method == 'POST':
