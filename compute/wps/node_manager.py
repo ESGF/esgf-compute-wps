@@ -17,7 +17,7 @@ from wps.conf import settings
 
 logger = logging.getLogger(__name__)
 
-class WPSError(Exception):
+class NodeManagerError(Exception):
     pass
 
 class NodeManager(object):
@@ -83,7 +83,7 @@ class NodeManager(object):
 
             logger.info('Missing required parameter %s', name)
 
-            raise WPSError(text)
+            raise NodeManagerError(text)
             
         return params[name]
 
@@ -94,7 +94,7 @@ class NodeManager(object):
             text = self.create_wps_exception(metadata.Exception.NoApplicableCode,
                     'Job with id %s does not exist', job_id)
 
-            raise WPSError(text)
+            raise NodeManagerError(text)
         else:
             return job.result
 
@@ -108,7 +108,7 @@ class NodeManager(object):
                     metadata.Exception.NoApplicableCode,
                     'Default server has not been created yet')
 
-            raise WPSError(text)
+            raise NodeManagerError(text)
 
         return server.capabilities
 
@@ -120,7 +120,7 @@ class NodeManager(object):
                     metadata.Exeption.NoApplicableCode,
                     'No CDAS2 instances are available')
 
-            raise WPSError(text)
+            raise NodeManagerError(text)
 
         return instances[0]
 
@@ -171,7 +171,7 @@ class NodeManager(object):
                     metadata.Exception.NoApplicableCode,
                     'POST request only supported for Execute operation')
 
-            raise WPSError(text)
+            raise NodeManagerError(text)
 
         data_inputs = '[{0}]'.format(';'.join('{0}={1}'.format(x.identifier, x.data.value) for x in request.data_inputs))
 
@@ -180,3 +180,9 @@ class NodeManager(object):
         response = self.handle_execute(request.identifier, data_inputs)
         
         return response
+
+    def handle_request(self, request):
+        if request.method == 'GET':
+            return self.handle_get(request.GET)
+        elif request.method == 'POST':
+            return self.handle_post(request.data)

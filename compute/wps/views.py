@@ -4,6 +4,8 @@ from django import http
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
+from esgf.wps_lib import metadata
+
 from wps import node_manager
 
 logger = logging.getLogger(__name__)
@@ -11,17 +13,20 @@ logger = logging.getLogger(__name__)
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie
 def wps(request):
-    logger.info(request.META)
-    
     manager = node_manager.NodeManager()
 
     try:
-        if request.method == 'GET':
-            response = manager.handle_get(request.GET)
-        elif request.method == 'POST':
-            response = manager.handle_post(request.body)
-    except node_manager.WPSError as e:
-        return http.HttpResponse(e.message) 
+        response = manager.handle_request(request)
+    except node_manager.NodeManagerError as e:
+        # NodeManagerError should always contain ExceptionReport xml
+        response = e.message
+    except Exception as e:
+        # Handle any generic exceptions, a catch-all
+        report = metadata.ExceptionReport('1.0.0')
+
+        report.add_exception(metadata.NoApplicableCode, e.message)
+
+        response = report.xml()
 
     return http.HttpResponse(response, content_type='text/xml')
 
