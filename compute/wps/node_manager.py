@@ -22,16 +22,6 @@ class NodeManagerError(Exception):
 
 class NodeManager(object):
 
-    def connect_redis(self):
-        """ Create redis connection from environment variables. """
-        host = os.getenv('REDIS_HOST', '0.0.0.0')
-
-        port = os.getenv('REDIS_PORT', 6379)
-
-        db = os.getenv('REDIS_DB', 0)
-
-        return redis.Redis(host, port, db)
-
     def initialize(self):
         """ Initialize node_manager
 
@@ -40,36 +30,30 @@ class NodeManager(object):
         if os.getenv('WPS_NO_INIT') is not None:
             return
 
-        redis = self.connect_redis()
-
-        # Enable this to force a initialization each startup
-        #redis.delete('init')
-
-        if redis.get('init') is not None:
-            return 
-
         logger.info('Initializing node manager')
 
         try:
-            instances = models.Instance.objects.all()
-
-            if len(instances) > 0:
-                # Assume all instances have same capabilities
-                tasks.instance_capabilities.delay(instances[0].id)
-
-                # Wait until task worker is done grabbing capabilities
-                while redis.get('init') is None:
-                    time.sleep(1)
-
-                logger.info('Initialization done')
-                
-                time.sleep(10)
-            else:
-                logger.info('No CDAS instances were found to querying capabilities')
-        except django.db.utils.ProgrammingError:
-            logger.info('Database does not appear to be setup yet, skipping initialization')
+            server = models.Server.objects.get(host='0.0.0.0')
+        except models.Server.DoesNotExist:
+            logger.info('Default server does not exist.')
 
             return
+
+        if server.capabilities == '':
+            logger.info('Servers capabilities have not been populated')
+
+            instances = models.Instance.objects.all()
+
+            if len(instances) == 0:
+                logger.info('No CDAS2 instances have been registered with the server.')
+
+                return
+
+            tasks.capabilities.delay(server.id, instances[0].id)
+
+            logger.info('Sent capabilities query to CDAS2 instance %s:%s',
+                    instances[0].host,
+                    instances[0].request)
 
     def create_wps_exception(self, ex_type, message):
         """ Create an ExceptionReport. """
@@ -126,6 +110,11 @@ class NodeManager(object):
             raise self.create_wps_exception(
                     metadata.NoApplicableCode,
                     'Default server has not been created yet')
+
+        if server.capabilities == '':
+            raise self.create_wps_exception(
+                    metadata.NoApplicableCode,
+                    'Servers capabilities have not been populated yet, server may still be starting up')
 
         return server.capabilities
 

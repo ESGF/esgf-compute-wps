@@ -13,13 +13,24 @@ from celery import shared_task
 from celery.signals import celeryd_init
 from celery.utils.log import get_task_logger
 from esgf.wps_lib import metadata
+from esgf.wps_lib import operations
 
 from wps import models
 from wps import wps_xml
 
 logger = get_task_logger(__name__)
 
-def __create_socket(host, port, socket_type):
+def create_status_location(host, job_id, port=None):
+    loc = 'http://{0}'.format(host)
+
+    if port is not None:
+        loc = '{0}:{1}'.format(loc, port)
+
+    loc = '{0}/wps/job/{1}'.format(loc, job_id)
+
+    return loc
+
+def create_socket(host, port, socket_type):
     context = zmq.Context.instance()
 
     socket = context.socket(socket_type)
@@ -27,15 +38,6 @@ def __create_socket(host, port, socket_type):
     socket.connect('tcp://{0}:{1}'.format(host, port))
 
     return socket
-
-def connect_redis():
-    host = os.getenv('REDIS_HOST', '0.0.0.0')
-    
-    port = os.getenv('REDIS_PORT', 6379)
-
-    db = os.getenv('REDIS_DB', 0)
-
-    return redis.Redis(host, port, db)
 
 @celeryd_init.connect
 def monitor_handler(**kwargs):
@@ -49,33 +51,44 @@ def monitor_handler(**kwargs):
     except django.db.utils.ProgrammingError:
         logger.info('Database does not appear to be setup, not starting monitors')
 
-def init_handler(response):
-    buf = response.recv()
-
-    server_id, _, data = buf.split('!')
-
-    logger.info(data)
-
-    capabilities = wps_xml.create_capabilities_response(data) 
-
-    server = models.Server.objects.get(pk=server_id)
-
-    server.capabilities = capabilities
-
-    server.save()
-
 @shared_task
-def store_job_result(job_id, data):
+def handle_response(data):
+    job_id, _, response = data.split('!')
+
+    logger.info('Handling CDAS2 response for job %s', job_id)
+
+    try:
+        result = wps_xml.convert_cdas2_response(response)
+    except Exception:
+        logger.exception('Failed to convert CDAS2 response')
+
+        return
+
     try:
         job = models.Job.objects.get(pk=job_id)
     except models.Job.DoesNotExist:
-        logger.info('Result for job %s does not exist', job_id)
-    else:
-        response = wps_xml.update_execute_response(job.result, data)
+        logger.exception('Job %s does not exist', job_id)
 
-        job.result = response
+        return
 
-        job.save()
+    if isinstance(result, operations.GetCapabilitiesResponse):
+        job.server.capabilities = result.xml()
+
+        job.server.save()
+    elif isinstance(result, operations.ExecuteResponse):
+        # TODO grab existing and update
+        result.process.identifier = ''
+        
+        result.process.title = ''
+
+        result.status = metadata.ProcessSucceeded()
+
+        result.status_location = create_status_location(
+                '0.0.0.0',
+                job.id,
+                '8000')
+
+    job.jobstate_set.create(state=1, result=result.xml())
     
 @shared_task
 def monitor_cdas(instance_id):
@@ -88,31 +101,14 @@ def monitor_cdas(instance_id):
 
     logger.info('Monitoring CDAS instance at %s:%s', instance.host, instance.response)
 
-    redis = connect_redis()
-
-    init = redis.get('init')
-
-    with closing(__create_socket(instance.host, instance.response, zmq.PULL)) as response:
-        if init is None:
-            logger.info('Need to initialize')
-
-            init_handler(response)
-
-            logger.info('Done initializing')
-
-            redis.set('init', True)
-
+    with closing(create_socket(instance.host, instance.response, zmq.PULL)) as response:
         while True:
-            buf = response.recv()
+            data = response.recv()
 
-            logger.info('Received CDAS response, %s', buf)
-
-            job_id, _, data = buf.split('!')
-
-            store_job_result.delay(job_id, data)
+            handle_response.delay(data)
 
 @shared_task
-def instance_capabilities(instance_id):
+def capabilities(server_id, instance_id):
     try:
         instance = models.Instance.objects.get(pk=instance_id)
     except models.Instance.DoesNotExist:
@@ -123,8 +119,19 @@ def instance_capabilities(instance_id):
     logger.info('Querying CDAS instance at %s:%s for capabilities',
             instance.host, instance.request)
 
-    with closing(__create_socket(instance.host, instance.request, zmq.PUSH)) as request:
-        request.send(str('1!getCapabilities!WPS'))
+    try:
+        server = models.Server.objects.get(pk=server_id)
+    except models.Server.DoesNotExist:
+        logger.info('Server id "%s" does not exist', server_id)
+
+        return
+
+    job = models.Job(server=server)
+
+    job.save()
+
+    with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
+        request.send(str('{0}!getCapabilities!WPS'.format(job.id)))
 
 @shared_task
 def execute(instance_id, identifier, data_inputs):
@@ -142,23 +149,25 @@ def execute(instance_id, identifier, data_inputs):
 
         return
 
-    logger.info('Executing on CDAS2 instance at %s:%s', instance.host, instance.request)
+    logger.info('Executing %s on CDAS2 instance at %s:%s',
+            identifier, instance.host, instance.request)
 
     job = models.Job(server=server)
 
     job.save()
 
-    with closing(__create_socket(instance.host, instance.request, zmq.PUSH)) as request:
+    with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
         request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
     status_location = 'http://0.0.0.0:8000/wps/job/{0}'.format(job.id)
 
-    response = wps_xml.create_execute_response(status_location,
-            metadata.ProcessStarted(),
-            identifier)
+    response = wps_xml.create_execute_response(
+            status_location=create_status_location('0.0.0.0', job.id, '8000'),
+            status=metadata.ProcessStarted(),
+            identifier=identifier)
     
-    job.result = response
+    job.result = response.xml()
 
     job.save()
 
-    return response
+    return response.xml()

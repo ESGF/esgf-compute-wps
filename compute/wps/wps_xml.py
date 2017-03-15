@@ -15,6 +15,9 @@ VERSION = '1.0.0'
 UPDATE_SEQUENCE = 0
 LANG = 'en-US'
 
+def CDAS2ConversionError(Exception):
+    pass
+
 def create_identification():
     id = metadata.ServiceIdentification()
 
@@ -90,9 +93,12 @@ def create_capabilities_response(data):
 
         cap.process_offerings.append(proc)
 
-    return cap.xml()
+    return cap
 
-def create_execute_response(status_location, status, identifier):
+def create_describe_process_response(data):
+    pass
+
+def create_execute_response(status_location=None, status=None, identifier=None):
     p = metadata.Process()
     p.identifier = identifier
     p.title = identifier
@@ -108,25 +114,16 @@ def create_execute_response(status_location, status, identifier):
     ex.status = status
     ex.creation_time = datetime.datetime.now()
 
-    return ex.xml()
+    return ex
 
-def update_execute_response(old_response, data):
-    ex = operations.ExecuteResponse.from_xml(old_response)
+def convert_cdas2_response(response, **kwargs):
+    logger.info('Converting CDAS2 response\n%s', response)
 
-    tree = etree.fromstring(data)
+    if 'capabilities' in response:
+        result = create_capabilities_response(response)
+    elif 'response' in response:
+        result = create_execute_response(**kwargs)
+    else:
+        raise CDAS2ConversionError('Unknown response format')
 
-    data = tree.xpath('/response/outputs/data')
-
-    if data is not None and len(data) > 0:
-        comp = metadata.ComplexData()
-        comp.value = data[0].text
-
-        output = metadata.Output()
-        output.identifier = 'Output'
-        output.title = 'Output'
-        output.data = comp
-
-        ex.status = metadata.ProcessSucceeded()
-        ex.process_outputs = [output]
-
-    return ex.xml()
+    return result
