@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 from esgf.wps_lib import metadata
 
 from wps import node_manager
+from wps import wps_xml
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ def wps(request):
         response = e.message
     except Exception as e:
         # Handle any generic exceptions, a catch-all
-        report = metadata.ExceptionReport('1.0.0')
+        report = metadata.ExceptionReport(wps_xml.VERSION)
 
         report.add_exception(metadata.NoApplicableCode, e.message)
 
