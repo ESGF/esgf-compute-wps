@@ -10,6 +10,11 @@ from esgf.wps_lib import operations
 
 logger = logging.getLogger(__name__)
 
+SERVICE = 'WPS'
+VERSION = '1.0.0'
+UPDATE_SEQUENCE = 0
+LANG = 'en-US'
+
 def create_identification():
     id = metadata.ServiceIdentification()
 
@@ -54,10 +59,6 @@ def create_operations():
 
     return [get_capabilities, describe_process, execute]
 
-SERVICE = 'WPS'
-VERSION = '1.0.0'
-UPDATE_SEQUENCE = 0
-LANG = 'en-US'
 IDENTIFICATION = create_identification()
 PROVIDER = create_provider()
 LANGUAGES = create_languages()
