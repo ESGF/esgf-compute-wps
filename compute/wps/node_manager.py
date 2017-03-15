@@ -204,4 +204,4 @@ class NodeManager(object):
         if request.method == 'GET':
             return self.handle_get(request.GET)
         elif request.method == 'POST':
-            return self.handle_post(request.data)
+            return self.handle_post(request.body)
