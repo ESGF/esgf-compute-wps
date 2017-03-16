@@ -142,6 +142,26 @@ def create_execute_response(status_location=None, status=None, identifier=None):
 
     return ex
 
+def update_execute_response(old_response, response):
+    ex = operations.ExecuteResponse.from_xml(old_response)
+
+    logger.info(response)
+
+    ex.status = metadata.ProcessSucceeded()
+
+    tree = etree.fromstring(response)
+
+    output_data = tree.xpath('/response/outputs/data')
+
+    if len(output_data) > 0:
+        data = metadata.ComplexData(value=output_data[0].text)
+
+    output = metadata.Output(identifier='output', title='Output', data=data)
+
+    ex.add_output(output)
+
+    return ex
+
 def convert_cdas2_response(response, **kwargs):
     logger.info('Converting CDAS2 response\n%s', response)
 

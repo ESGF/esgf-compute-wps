@@ -76,17 +76,9 @@ def handle_response(data):
 
         job.server.save()
     elif isinstance(result, operations.ExecuteResponse):
-        # TODO grab existing and update
-        result.process.identifier = ''
-        
-        result.process.title = ''
+        latest_response = job.status_set.all().latest('created_date')
 
-        result.status = metadata.ProcessSucceeded()
-
-        result.status_location = create_status_location(
-                '0.0.0.0',
-                job.id,
-                '8000')
+        result = wps_xml.update_execute_response(latest_response.result, response)
 
     job.status_set.create(status=1, result=result.xml())
     
