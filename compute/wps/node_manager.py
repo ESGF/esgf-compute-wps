@@ -38,6 +38,10 @@ class NodeManager(object):
             logger.info('Default server does not exist.')
 
             return
+        except django.db.utils.ProgrammingError:
+            logger.info('Database has not been initialized yet.')
+
+            return
 
         if server.capabilities == '':
             logger.info('Servers capabilities have not been populated')
