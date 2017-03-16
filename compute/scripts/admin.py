@@ -133,6 +133,12 @@ def create_parser():
             ['list'],
             'id')
 
+    create_sub_parser(models.Process,
+            subparsers,
+            ['list'],
+            'id')
+
+
     return parser
 
 parser = create_parser()

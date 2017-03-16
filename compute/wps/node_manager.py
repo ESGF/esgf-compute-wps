@@ -89,7 +89,7 @@ class NodeManager(object):
         except models.Job.DoesNotExist:
             raise self.create_wps_exception(
                     metadata.NoApplicableCode,
-                    'Job with id %s does not exist', job_id)
+                    'Job with id {0} does not exist'.format(job_id))
 
         try:
             latest_status = job.status_set.all().latest('created_date')

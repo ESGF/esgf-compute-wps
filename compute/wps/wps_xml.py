@@ -31,7 +31,7 @@ STATUS_LIST = (
         metadata.ProcessFailed
         )
 
-def CDAS2ConversionError(Exception):
+class CDAS2ConversionError(Exception):
     pass
 
 def status_to_int(status):
@@ -93,6 +93,17 @@ PROVIDER = create_provider()
 LANGUAGES = create_languages()
 OPERATIONS = create_operations()
 
+def xpath_result(tree, path):
+    result = tree.xpath(path)
+
+    if len(result) == 0:
+        return None
+
+    if isinstance(result[0], etree._Element):
+        return result[0].text
+
+    return result[0]
+
 def create_capabilities_response(data):
     cap = operations.GetCapabilitiesResponse()
 
@@ -122,9 +133,58 @@ def create_capabilities_response(data):
     return cap
 
 def create_describe_process_response(data):
-    pass
+    format = metadata.Format(mime_type='text/json')
 
-def create_execute_response(status_location=None, status=None, identifier=None):
+    complex_data = metadata.ComplexDataDescription(default=format, supported=[format], maximum_megabytes=0)
+
+    inputs = []
+   
+    for key in ('variable', 'domain', 'operation'):
+        dct = {
+                'identifier': key,
+                'title': key.title(),
+                'min_occurs': 1,
+                'max_occurs': 1,
+                'value': complex_data
+                }
+
+        inputs.append(metadata.InputDescription(**dct))
+
+    dct = {
+            'identifier': 'output',
+            'title': 'Output',
+            'value': complex_data,
+            }
+
+    output = metadata.OutputDescription(**dct)
+
+    tree = etree.fromstring(data)
+
+    dct = {
+            'identifier': xpath_result(tree, '/processDescriptions/process/description/@id'),
+            'title': xpath_result(tree, '/processDescriptions/process/description/@title'),
+            'abstract': xpath_result(tree, '/processDescriptions/process/description'),
+            'process_version': '1.0.0',
+            'store_supported': True,
+            'status_supported': True,
+            'input': inputs,
+            'output': [output],
+            }
+
+    proc_desc = metadata.ProcessDescription(**dct)
+    
+    dct = {
+            'process_description': [proc_desc],
+            'service': SERVICE,
+            'version': '1.0.0',
+            'lang': LANG,
+            }
+
+    desc = operations.DescribeProcessResponse(**dct)
+
+    return desc
+
+def create_execute_response(status_location, status, identifier):
     p = metadata.Process()
     p.identifier = identifier
     p.title = identifier
@@ -167,6 +227,8 @@ def convert_cdas2_response(response, **kwargs):
 
     if 'capabilities' in response:
         result = create_capabilities_response(response)
+    elif 'processDescription' in response:
+        result = create_describe_process_response(response)
     elif 'response' in response:
         result = create_execute_response(**kwargs)
     else:

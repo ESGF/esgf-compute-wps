@@ -12,11 +12,19 @@ class Instance(models.Model):
     queue = models.PositiveIntegerField(default=0)
     queue_size = models.PositiveIntegerField(default=0)
 
+class Process(models.Model):
+    identifier = models.CharField(max_length=128)
+    description = models.TextField()
+    started = models.PositiveIntegerField(default=0)
+    completed = models.PositiveIntegerField(default=0)
+
 class Server(models.Model):
     host = models.CharField(max_length=128)
     added_date = models.DateTimeField(auto_now_add=True)
     status = models.IntegerField(default=1)
     capabilities = models.TextField()
+
+    processes = models.ManyToManyField(Process)
 
 class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)

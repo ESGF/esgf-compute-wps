@@ -75,12 +75,32 @@ def handle_response(data):
         job.server.capabilities = result.xml()
 
         job.server.save()
+
+        describe.starmap((job.server.id, x.identifier)
+                for x in result.process_offerings).delay()
+    elif isinstance(result, operations.DescribeProcessResponse):
+        result = wps_xml.create_describe_process_response(response)
+        
+        try:
+            server = models.Server.objects.get(host='0.0.0.0')
+        except models.Server.DoesNotExist:
+            logger.expcetion('Default server does not exist')
+
+            return
+
+        process = models.Process(
+                identifier=result.process_description[0].identifier,
+                description=result.xml())
+        
+        process.save()
+
+        server.processes.add(process)
     elif isinstance(result, operations.ExecuteResponse):
         latest_response = job.status_set.all().latest('created_date')
 
         result = wps_xml.update_execute_response(latest_response.result, response)
 
-    job.status_set.create(status=1, result=result.xml())
+    job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessSucceeded()), result=result.xml())
     
 @shared_task
 def monitor_cdas(instance_id):
@@ -134,6 +154,33 @@ def capabilities(server_id, instance_id):
 
     with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
         request.send(str('{0}!getCapabilities!WPS'.format(job.id)))
+
+@shared_task
+def describe(server_id, identifier):
+    try:
+        # TODO might want a better way of choosing
+        instance = models.Instance.objects.all()
+    except models.Instance.DoesNotExist:
+        logger.info('Instance id "%s" does not exist', instance_id)
+
+        return
+
+    try:
+        server = models.Server.objects.get(pk=server_id)
+    except models.Instance.DoesNotExist:
+        logger.info('Default server does not exist yet')
+
+        return
+
+    if len(instance) == 0:
+        logger.info('No CDAS2 instance to run describe process for %s', identifier)
+
+        return
+
+    job = create_job(server)
+
+    with closing(create_socket(instance[0].host, instance[0].request, zmq.PUSH)) as request:
+        request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
 @shared_task
 def execute(instance_id, identifier, data_inputs):
