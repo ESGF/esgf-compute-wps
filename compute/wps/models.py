@@ -4,17 +4,17 @@ from django.db import models
 
 class Instance(models.Model):
     host = models.CharField(max_length=128, unique=True, blank=False, null=False)
-    added = models.DateTimeField(auto_now_add=True)
+    added_date = models.DateTimeField(auto_now_add=True)
     request = models.PositiveIntegerField(default=4356)
     response = models.PositiveIntegerField(default=4357)
     status = models.IntegerField(default=1)
-    checked = models.DateTimeField(auto_now=True)
+    checked_date = models.DateTimeField(auto_now=True)
     queue = models.PositiveIntegerField(default=0)
     queue_size = models.PositiveIntegerField(default=0)
 
 class Server(models.Model):
     host = models.CharField(max_length=128)
-    added = models.DateTimeField(auto_now_add=True)
+    added_date = models.DateTimeField(auto_now_add=True)
     status = models.IntegerField(default=1)
     capabilities = models.TextField()
 
@@ -25,5 +25,5 @@ class JobState(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
     state = models.IntegerField()
-    create = models.DateTimeField(auto_now_add=True)
+    created_date = models.DateTimeField(auto_now_add=True)
     result = models.TextField()
