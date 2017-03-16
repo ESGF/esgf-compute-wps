@@ -107,6 +107,18 @@ def monitor_cdas(instance_id):
 
             handle_response.delay(data)
 
+def create_job(server, status=None, result=None):
+    if status is None:
+        status = metadata.ProcessStarted()
+
+    job = models.Job(server=server)
+
+    job.save()
+
+    job.jobstate_set.create(state=wps_xml.status_to_int(status))
+    
+    return job
+
 @shared_task
 def capabilities(server_id, instance_id):
     try:
@@ -126,9 +138,7 @@ def capabilities(server_id, instance_id):
 
         return
 
-    job = models.Job(server=server)
-
-    job.save()
+    job = create_job(server)
 
     with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
         request.send(str('{0}!getCapabilities!WPS'.format(job.id)))
@@ -152,22 +162,20 @@ def execute(instance_id, identifier, data_inputs):
     logger.info('Executing %s on CDAS2 instance at %s:%s',
             identifier, instance.host, instance.request)
 
-    job = models.Job(server=server)
-
-    job.save()
-
-    with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
-        request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
-
-    status_location = 'http://0.0.0.0:8000/wps/job/{0}'.format(job.id)
+    job = create_job(server)
 
     response = wps_xml.create_execute_response(
             status_location=create_status_location('0.0.0.0', job.id, '8000'),
             status=metadata.ProcessStarted(),
             identifier=identifier)
-    
-    job.result = response.xml()
 
-    job.save()
+    jobstate = job.jobstate_set.all().latest('created_date')
+
+    jobstate.result = response.xml()
+
+    jobstate.save()
+
+    with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
+        request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
     return response.xml()
