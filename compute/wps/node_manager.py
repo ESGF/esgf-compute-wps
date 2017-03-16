@@ -129,7 +129,16 @@ class NodeManager(object):
 
     def handle_describe_process(self, identifier):
         """ Handles describe_process operation. """
-        pass
+        logger.info('Handling DescribeProcess request')
+        
+        try:
+            process = models.Process.objects.get(identifier=identifier)
+        except models.Process.DoesNotExist:
+            raise self.create_wps_exception(
+                    metadata.NoApplicableCode,
+                    'Process {0} does not exist'.format(identifier))
+
+        return process.description
 
     def handle_execute(self, identifier, data_inputs):
         """ Handles execute operation """
@@ -158,8 +167,9 @@ class NodeManager(object):
         if request == 'getcapabilities':
             response = self.handle_get_capabilities()
         elif request == 'describeprocess':
-            #TODO implement describe process, will be the same besides identifier
-            raise NotImplementedError()
+            identifier = self.get_parameter(params, 'identifier')
+
+            response = self.handle_describe_process(identifier)
         elif request == 'execute':
             identifier = self.get_parameter(params, 'identifier')
 
