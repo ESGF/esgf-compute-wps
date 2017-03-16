@@ -88,7 +88,7 @@ def handle_response(data):
                 job.id,
                 '8000')
 
-    job.jobstate_set.create(state=1, result=result.xml())
+    job.status_set.create(status=1, result=result.xml())
     
 @shared_task
 def monitor_cdas(instance_id):
@@ -115,7 +115,7 @@ def create_job(server, status=None, result=None):
 
     job.save()
 
-    job.jobstate_set.create(state=wps_xml.status_to_int(status))
+    job.status_set.create(status=wps_xml.status_to_int(status))
     
     return job
 
@@ -169,11 +169,11 @@ def execute(instance_id, identifier, data_inputs):
             status=metadata.ProcessStarted(),
             identifier=identifier)
 
-    jobstate = job.jobstate_set.all().latest('created_date')
+    status = job.status_set.all().latest('created_date')
 
-    jobstate.result = response.xml()
+    status.result = response.xml()
 
-    jobstate.save()
+    status.save()
 
     with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
         request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))

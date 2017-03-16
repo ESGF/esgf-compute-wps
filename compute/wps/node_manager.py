@@ -92,11 +92,11 @@ class NodeManager(object):
                     'Job with id %s does not exist', job_id)
 
         try:
-            latest_state = job.jobstate_set.all().latest('created_date')
-        except models.JobState.DoesNotExist:
+            latest_status = job.status_set.all().latest('created_date')
+        except models.Status.DoesNotExist:
             raise NodeManagerError('Job {0} has not states'.format(job_id))
 
-        return latest_state.result
+        return latest_status.result
 
     def get_instance(self):
         """ Determine which CDAS instance to execute on. """

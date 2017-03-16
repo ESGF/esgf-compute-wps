@@ -21,9 +21,9 @@ class Server(models.Model):
 class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
 
-class JobState(models.Model):
+class Status(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
-    state = models.IntegerField()
+    status = models.IntegerField()
     created_date = models.DateTimeField(auto_now_add=True)
     result = models.TextField()
