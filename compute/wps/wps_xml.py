@@ -5,8 +5,8 @@ import logging
 
 from lxml import etree
 
-from esgf.wps_lib import metadata
-from esgf.wps_lib import operations
+from cwt.wps_lib import metadata
+from cwt.wps_lib import operations
 
 logger = logging.getLogger(__name__)
 

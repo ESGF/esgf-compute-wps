@@ -12,8 +12,8 @@ import zmq
 from celery import shared_task
 from celery.signals import celeryd_init
 from celery.utils.log import get_task_logger
-from esgf.wps_lib import metadata
-from esgf.wps_lib import operations
+from cwt.wps_lib import metadata
+from cwt.wps_lib import operations
 
 from wps import models
 from wps import wps_xml
