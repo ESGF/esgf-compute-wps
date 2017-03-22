@@ -114,7 +114,7 @@ def create_capabilities_response(data):
     cap.service_identification = IDENTIFICATION
     cap.service_provider = PROVIDER
     cap.languages = LANGUAGES
-    cap.operation = OPERATIONS
+    cap.operations_metadata = OPERATIONS
 
     tree = etree.fromstring(data)
 
