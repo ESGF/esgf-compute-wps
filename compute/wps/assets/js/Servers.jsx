@@ -22,7 +22,7 @@ export default class Debug extends Component {
 
     return (
       <div>
-        <h1>WPS Debug</h1>
+        <h1 className="center-align">Servers</h1>
         <table className="bordered stripped">
           <thead>
             <tr>

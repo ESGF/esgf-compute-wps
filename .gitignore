@@ -1,7 +1,7 @@
 node_modules/
 compute/assets/
 webpack-stats.json
-assets/bundles/
+compute/wps/assets/bundles/
 
 
 # Byte-compiled / optimized / DLL files
