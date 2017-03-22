@@ -3,4 +3,5 @@ zmq
 celery
 gunicorn
 redis
+django-webpack-loader
 git+https://github.com/esgf/esgf-compute-api
