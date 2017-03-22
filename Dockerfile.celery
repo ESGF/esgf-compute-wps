@@ -1,5 +1,8 @@
 FROM continuumio/miniconda:4.2.12
 
+RUN conda install -c conda-forge pyzmq lxml && \
+	pip install celery django redis psycopg2
+
 RUN apt-get update --fix-missing && \
 	apt-get install -y --no-install-recommends git libpq-dev gcc && \
 	git clone https://github.com/esgf/esgf-compute-api && \
@@ -9,9 +12,6 @@ RUN apt-get update --fix-missing && \
 	apt-get clean -y
 
 ENV CELERY_BROKER redis://0.0.0.0
-
-RUN conda install -c conda-forge pyzmq lxml owslib && \
-	pip install celery django redis psycopg2
 
 COPY . /var/www
 
