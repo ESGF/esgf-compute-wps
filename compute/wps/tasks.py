@@ -20,7 +20,24 @@ from wps import wps_xml
 
 logger = get_task_logger(__name__)
 
+class WPSTaskError(Exception):
+    pass
+
+def create_job(server, status=None, result=None):
+    """ Creates a Job entry. """
+    if status is None:
+        status = metadata.ProcessStarted()
+
+    job = models.Job(server=server)
+
+    job.save()
+
+    job.status_set.create(status=wps_xml.status_to_int(status))
+    
+    return job
+
 def create_status_location(host, job_id, port=None):
+    """ Format status location. """
     loc = 'http://{0}'.format(host)
 
     if port is not None:
@@ -31,6 +48,7 @@ def create_status_location(host, job_id, port=None):
     return loc
 
 def create_socket(host, port, socket_type):
+    """ Create a ZMQ socket. """
     context = zmq.Context.instance()
 
     socket = context.socket(socket_type)
@@ -39,8 +57,19 @@ def create_socket(host, port, socket_type):
 
     return socket
 
+def default_server():
+    """ Retreives the default server. """
+    try:
+        return models.Server.objects.get(host='0.0.0.0')
+    except models.Server.DoesNotExist:
+        raise WPSTaskError('Default server does not exist')
+
 @celeryd_init.connect
 def monitor_handler(**kwargs):
+    """ Monitor CDAS2 queue.
+
+    Create a monitor for each CDAS2 instance.
+    """
     logger.info('celeryd_init, starting monitors')
 
     instances = models.Instance.objects.all()
@@ -53,6 +82,10 @@ def monitor_handler(**kwargs):
 
 @shared_task
 def handle_response(data):
+    """ Handle CDAS2 responses.
+
+    Convert the CDAS2 response to the appropriate WPS operation response.
+    """
     job_id, _, response = data.split('!')
 
     logger.info('Handling CDAS2 response for job %s', job_id)
@@ -76,17 +109,13 @@ def handle_response(data):
 
         job.server.save()
 
-        describe.starmap((job.server.id, x.identifier)
-                for x in result.process_offerings).delay()
+        identifiers = [x.identifier for x in result.process_offerings]
+
+        describe.delay(job.server.id, identifiers)
     elif isinstance(result, operations.DescribeProcessResponse):
         result = wps_xml.create_describe_process_response(response)
         
-        try:
-            server = models.Server.objects.get(host='0.0.0.0')
-        except models.Server.DoesNotExist:
-            logger.expcetion('Default server does not exist')
-
-            return
+        server = default_server()
 
         process = models.Process(
                 identifier=result.process_description[0].identifier,
@@ -104,6 +133,10 @@ def handle_response(data):
     
 @shared_task
 def monitor_cdas(instance_id):
+    """ Monitor CDAS2 queue.
+
+    Start a handler task for each CDAS2 message that pops off the queue.
+    """
     try:
         instance = models.Instance.objects.get(pk=instance_id)
     except models.Instance.DoesNotExist:
@@ -119,20 +152,9 @@ def monitor_cdas(instance_id):
 
             handle_response.delay(data)
 
-def create_job(server, status=None, result=None):
-    if status is None:
-        status = metadata.ProcessStarted()
-
-    job = models.Job(server=server)
-
-    job.save()
-
-    job.status_set.create(status=wps_xml.status_to_int(status))
-    
-    return job
-
 @shared_task
 def capabilities(server_id, instance_id):
+    """ Handles GetCapabilities request. """
     try:
         instance = models.Instance.objects.get(pk=instance_id)
     except models.Instance.DoesNotExist:
@@ -156,7 +178,8 @@ def capabilities(server_id, instance_id):
         request.send(str('{0}!getCapabilities!WPS'.format(job.id)))
 
 @shared_task
-def describe(server_id, identifier):
+def describe(server_id, identifiers):
+    """ Handles a DescribeProcess request. """
     try:
         # TODO might want a better way of choosing
         instance = models.Instance.objects.all()
@@ -177,13 +200,15 @@ def describe(server_id, identifier):
 
         return
 
-    job = create_job(server)
-
     with closing(create_socket(instance[0].host, instance[0].request, zmq.PUSH)) as request:
-        request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
+        for identifier in identifiers:
+            job = create_job(server)
+
+            request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
 @shared_task
 def execute(instance_id, identifier, data_inputs):
+    """ Handles an execute request. """
     try:
         instance = models.Instance.objects.get(pk=instance_id)
     except models.Instance.DoesNotExist:
@@ -191,20 +216,17 @@ def execute(instance_id, identifier, data_inputs):
 
         return
 
-    try:
-        server = models.Server.objects.get(host='0.0.0.0')
-    except models.Instance.DoesNotExist:
-        logger.info('Default server does not exist yet')
-
-        return
+    server = default_server()
 
     logger.info('Executing %s on CDAS2 instance at %s:%s',
             identifier, instance.host, instance.request)
 
     job = create_job(server)
 
+    status_location = create_status_location('0.0.0.0', job.id, '8000')
+
     response = wps_xml.create_execute_response(
-            status_location=create_status_location('0.0.0.0', job.id, '8000'),
+            status_location=status_location,
             status=metadata.ProcessStarted(),
             identifier=identifier)
 
