@@ -1,11 +1,16 @@
+import json
 import logging
 
 from django import http
+from django.core import serializers
+from django.shortcuts import render
+from django.shortcuts import get_list_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from cwt.wps_lib import metadata
 
+from wps import models
 from wps import node_manager
 from wps import wps_xml
 
@@ -37,3 +42,14 @@ def status(request, job_id):
     status = manager.get_status(job_id)
 
     return http.HttpResponse(status, content_type='text/xml')
+
+@require_http_methods(['GET'])
+def servers(request):
+    servers = get_list_or_404(models.Server)
+
+    data = serializers.serialize('json', servers)
+
+    return http.HttpResponse(data, content_type='application/json')
+
+def debug(request):
+    return render(request, 'wps/debug.html')
