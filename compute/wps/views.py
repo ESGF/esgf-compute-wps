@@ -4,7 +4,7 @@ from django import http
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
-from esgf.wps_lib import metadata
+from cwt.wps_lib import metadata
 
 from wps import node_manager
 from wps import wps_xml

@@ -7,8 +7,8 @@ import time
 
 import django
 import redis
-from esgf.wps_lib import metadata
-from esgf.wps_lib import operations
+from cwt.wps_lib import metadata
+from cwt.wps_lib import operations
 from lxml import etree
 
 from wps import models
