@@ -6,6 +6,7 @@ import { HashRouter, Link } from 'react-router-dom';
 
 import Servers from './Servers.jsx';
 import Instances from './Instances.jsx';
+import Processes from './Processes.jsx';
 
 ReactDOM.render(
   <HashRouter>
@@ -16,6 +17,7 @@ ReactDOM.render(
           <ul id="nav-mobile" className="left">
             <li><Link to="/servers">Servers</Link></li>
             <li><Link to="/instances">Instances</Link></li>
+            <li><Link to="/processes">Processes</Link></li>
           </ul>
         </div>
       </nav>
@@ -25,6 +27,7 @@ ReactDOM.render(
             <div className="card-content">
               <Route path="/servers" component={Servers}/>
               <Route path="/instances" component={Instances}/>
+              <Route path="/processes" component={Processes}/>
             </div>
           </div>
         </div>

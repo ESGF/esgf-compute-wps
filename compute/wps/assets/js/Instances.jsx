@@ -37,7 +37,7 @@ export default class Instances extends Component {
 
     return (
       <div>
-        <h1 className="align-center">Instances</h1>
+        <h1 className="center-align">Instances</h1>
         <table className="bordered stripped">
           <thead>
             <tr>
