@@ -33,7 +33,7 @@ class NodeManager(object):
         logger.info('Initializing node manager')
 
         try:
-            server = models.Server.objects.get(host='0.0.0.0')
+            server = models.Server.objects.get(host='default')
         except models.Server.DoesNotExist:
             logger.info('Default server does not exist.')
 
@@ -114,7 +114,7 @@ class NodeManager(object):
         logger.info('Handling GetCapabilities request')
 
         try:
-            server = models.Server.objects.get(host='0.0.0.0')
+            server = models.Server.objects.get(host='default')
         except models.Server.DoesNotExist:
             raise self.create_wps_exception(
                     metadata.NoApplicableCode,

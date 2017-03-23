@@ -60,7 +60,7 @@ def create_socket(host, port, socket_type):
 def default_server():
     """ Retreives the default server. """
     try:
-        return models.Server.objects.get(host='0.0.0.0')
+        return models.Server.objects.get(host='default')
     except models.Server.DoesNotExist:
         raise WPSTaskError('Default server does not exist')
 
@@ -223,7 +223,7 @@ def execute(instance_id, identifier, data_inputs):
 
     job = create_job(server)
 
-    status_location = create_status_location('0.0.0.0', job.id, '8000')
+    status_location = create_status_location('default', job.id, '8000')
 
     response = wps_xml.create_execute_response(
             status_location=status_location,
