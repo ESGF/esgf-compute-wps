@@ -8,6 +8,7 @@ urlpatterns = [
     url(r'^servers/$', views.servers),
     url(r'^instances/$', views.instances),
     url(r'^processes/$', views.processes),
+    url(r'^jobs/$', views.jobs),
     url(r'^job/(?P<job_id>[0-9]*)/$', views.status),
 ]
 

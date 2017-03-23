@@ -44,6 +44,20 @@ def status(request, job_id):
     return http.HttpResponse(status, content_type='text/xml')
 
 @require_http_methods(['GET'])
+def jobs(request):
+    jobs = get_list_or_404(models.Job)
+
+    data = []
+
+    for j in jobs:
+        history = [dict(pk=x.pk, status=x.status, created_date=x.created_date, result=x.result)
+                for x in j.status_set.all()]
+
+        data.append(dict(pk=j.pk, server=j.server.host, history=history))
+
+    return http.JsonResponse(data, safe=False)
+
+@require_http_methods(['GET'])
 def processes(request):
     processes = get_list_or_404(models.Process)
 

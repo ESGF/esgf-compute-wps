@@ -7,6 +7,7 @@ import { HashRouter, Link } from 'react-router-dom';
 import Servers from './Servers.jsx';
 import Instances from './Instances.jsx';
 import Processes from './Processes.jsx';
+import Jobs from './Jobs.jsx';
 
 ReactDOM.render(
   <HashRouter>
@@ -18,6 +19,7 @@ ReactDOM.render(
             <li><Link to="/servers">Servers</Link></li>
             <li><Link to="/instances">Instances</Link></li>
             <li><Link to="/processes">Processes</Link></li>
+            <li><Link to="/jobs">Jobs</Link></li>
           </ul>
         </div>
       </nav>
@@ -28,6 +30,7 @@ ReactDOM.render(
               <Route path="/servers" component={Servers}/>
               <Route path="/instances" component={Instances}/>
               <Route path="/processes" component={Processes}/>
+              <Route path="/jobs" component={Jobs}/>
             </div>
           </div>
         </div>
