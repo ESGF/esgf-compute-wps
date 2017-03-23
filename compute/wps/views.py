@@ -44,6 +44,14 @@ def status(request, job_id):
     return http.HttpResponse(status, content_type='text/xml')
 
 @require_http_methods(['GET'])
+def instances(request):
+    instances = get_list_or_404(models.Instance)
+
+    data = serializers.serialize('json', instances)
+
+    return http.HttpResponse(data, content_type='application/json')
+
+@require_http_methods(['GET'])
 def servers(request):
     servers = get_list_or_404(models.Server)
 

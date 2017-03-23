@@ -6,6 +6,7 @@ import views
 urlpatterns = [
     url(r'^$', views.wps),
     url(r'^servers/$', views.servers),
+    url(r'^instances/$', views.instances),
     url(r'^job/(?P<job_id>[0-9]*)/$', views.status),
 ]
 
