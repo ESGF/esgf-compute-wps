@@ -1,6 +1,18 @@
 from __future__ import unicode_literals
 
+from django.contrib.auth.models import User
 from django.db import models
+
+class OAuth2(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+
+    openid = models.CharField(max_length=256)
+    token_type = models.CharField(max_length=64)
+    refresh_token = models.CharField(max_length=64)
+    access_token = models.CharField(max_length=64)
+    scope = models.CharField(max_length=128)
+    expires_at = models.DateField()
+    api_key = models.CharField(max_length=256)
 
 class Instance(models.Model):
     host = models.CharField(max_length=128, unique=True, blank=False, null=False)

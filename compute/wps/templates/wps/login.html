@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>OpenID login</title>
+  </head>
+  <body>
+    <form action="/wps/login/" method="post">
+      {% csrf_token %}
+      {{ form }}
+      <input type="submit" value="Login" />
+    </form>
+  </body>
+</html>

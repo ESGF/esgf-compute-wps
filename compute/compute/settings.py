@@ -24,12 +24,13 @@ SECRET_KEY = '+a#&@l4!^)i5cn=!*ye^!42xcmyqs3l&j368ow^-y=3fs-txq6'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['0.0.0.0']
+ALLOWED_HOSTS = ['0.0.0.0', 'aims2.llnl.gov']
 
 # Application definition
 
 INSTALLED_APPS = [
     'wps',
+    'django_extensions',
     'webpack_loader',
     'django.contrib.admin',
     'django.contrib.auth',

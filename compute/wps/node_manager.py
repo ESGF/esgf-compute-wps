@@ -1,14 +1,18 @@
 #! /usr/bin/env python
 
+import datetime
 import json
 import logging
 import os
+import random
+import string
 import time
 
 import django
 import redis
 from cwt.wps_lib import metadata
 from cwt.wps_lib import operations
+from django.contrib.auth import models as dj_models
 from lxml import etree
 
 from wps import models
@@ -58,6 +62,32 @@ class NodeManager(object):
             logger.info('Sent capabilities query to CDAS2 instance %s:%s',
                     instances[0].host,
                     instances[0].request)
+
+    def create_user(self, openid_url, token):
+        """ Create a new user. """
+        user = dj_models.User() 
+
+        user.username = openid_url
+
+        try:
+            user.save()
+        except django.db.IntegrityError as e:
+            raise NodeManagerError('Failed to create user: {}'.format(e.message))
+
+        oauth2 = models.OAuth2()
+
+        oauth2.user = user
+        oauth2.openid = openid_url
+        oauth2.token_type = token['token_type']
+        oauth2.refresh_token = token['refresh_token']
+        oauth2.access_token = token['access_token']
+        oauth2.scope = json.dumps(token['scope'])
+        oauth2.expires_at = datetime.datetime.fromtimestamp(token['expires_at'])
+        oauth2.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+
+        oauth2.save()
+
+        return user.oauth2.api_key
 
     def create_wps_exception(self, ex_type, message):
         """ Create an ExceptionReport. """

@@ -1,8 +1,17 @@
 version: '2'
 services:
+  devel:
+    image: jasonb87/devel:latest
+    command: sleep infinity
+    volumes_from:
+      - wps
+    networks:
+      frontend:
   wps:
     image: jasonb87/esgf_wps:latest
     environment:
+      - OAUTH_CLIENT=31fDwssLNxS7Z9tBzMuiKZAv3urvGmCBJiFLyAFv
+      - OAUTH_SECRET=8EUa40xRsajQovC60mAFVVB6ShxHYfQ91GIw5j2Wj0HLWGP2pkMt1vVnlKhxjfBbWGwsLo0OKlx4EwNeNxhUu3JiEI23DDN5ahYD0v1EUhqxfp4ghmTjEOwqusnLyYuF
       - CELERY_BROKER=redis://redis/0
       - CELERY_BACKEND=redis://redis/0
       - POSTGRES_PASSWORD=1234
@@ -10,9 +19,9 @@ services:
       - REDIS_HOST=redis
     ports:
       - "8000:8000"
-    #volumes:
-    #  - ./:/var/www
-    #  - ./../esgf-compute-api:/esgf-compute-api
+    volumes:
+      - ./:/var/www
+      - ./../esgf-compute-api:/esgf-compute-api
     networks:
       frontend:
   postgres:
@@ -36,6 +45,7 @@ services:
       - REDIS_HOST=redis
     volumes_from:
       - wps
+    command: sleep infinity
     networks:
       frontend:
       backend:

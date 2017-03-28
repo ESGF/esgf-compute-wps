@@ -4,17 +4,69 @@ import logging
 from django import http
 from django.core import serializers
 from django.shortcuts import render
+from django.shortcuts import redirect
 from django.shortcuts import get_list_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from cwt.wps_lib import metadata
 
+from wps import forms
 from wps import models
 from wps import node_manager
+from wps import settings
 from wps import wps_xml
+from wps.auth import oauth2
 
 logger = logging.getLogger(__name__)
+
+@require_http_methods(['GET'])
+def oauth2_callback(request):
+    try:
+        openid_url = request.session.pop('openid')
+
+        oauth_state = request.session.pop('oauth_state')
+    except KeyError as e:
+        logger.debug('Session did not contain key "%s"', e.message)
+
+        return redirect('login')
+
+    request_url = '{0}?{1}'.format(settings.OAUTH2_CALLBACK,
+            request.META['QUERY_STRING'])
+
+    token = oauth2.token_from_openid(openid_url, request_url, oauth_state) 
+
+    manager = node_manager.NodeManager()
+
+    api_key = manager.create_user(openid_url, token)
+
+    return http.HttpResponse('Your new api key: {}'.format(api_key))
+
+@require_http_methods(['GET', 'POST'])
+def oauth2_login(request):
+    if request.method == 'POST':
+        form = forms.OpenIDForm(request.POST)
+
+        if form.is_valid():
+            openid_url = form.cleaned_data['openid']
+
+            auth_url, state = oauth2.auth_url_from_openid(openid_url)
+
+            if 'oauth_state' in request.session:
+                del request.session['oauth_state']
+
+            request.session['oauth_state'] = state
+
+            if 'openid' in request.session:
+                del request.session['openid']
+
+            request.session['openid'] = openid_url
+
+            return redirect(auth_url)
+    else:
+        form = forms.OpenIDForm()
+
+    return render(request, 'wps/login.html', { 'form': form })
 
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie
@@ -36,6 +88,7 @@ def wps(request):
 
     return http.HttpResponse(response, content_type='text/xml')
 
+@require_http_methods(['GET'])
 def status(request, job_id):
     manager = node_manager.NodeManager()
 
