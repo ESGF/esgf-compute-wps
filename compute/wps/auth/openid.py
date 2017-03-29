@@ -59,7 +59,7 @@ class OpenID(object):
     def _retrieve_and_parse(self, url):
         try:
             response = requests.get(url)
-        except requests.ConnectionError:
+        except requests.RequestException:
             raise OpenIDError('Error contacting server')
 
         if response.status_code not in (200,):
@@ -67,7 +67,7 @@ class OpenID(object):
 
         try:
             tree = etree.fromstring(str(response.text))
-        except etree.XMLSyntaxeError:
+        except etree.XMLSyntaxError:
             raise OpenIDError('Failed to load XRDI document')
 
         services = tree.findall('.//{xri://$xrd*($v*2.0)}Service')

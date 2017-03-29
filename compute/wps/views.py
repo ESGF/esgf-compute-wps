@@ -16,6 +16,7 @@ from wps import models
 from wps import node_manager
 from wps import settings
 from wps import wps_xml
+from wps.auth import openid
 from wps.auth import oauth2
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,15 @@ def oauth2_callback(request):
     request_url = '{0}?{1}'.format(settings.OAUTH2_CALLBACK,
             request.META['QUERY_STRING'])
 
-    token = oauth2.token_from_openid(openid_url, request_url, oauth_state) 
+    try:
+        _, token, _ = openid.OpenID.parse(openid_url)
+    except openid.OpenIDError:
+        return http.HttpResponseBadRequest('Unable to retrieve token url from OpenID metadata')
+
+    try:
+        token = oauth2.token_from_openid(token, request_url, oauth_state) 
+    except oauth2.OAuth2Error:
+        return http.HttpResponseBadRequest('OAuth2 callback was not passed the correct parameters')
 
     manager = node_manager.NodeManager()
 
@@ -50,7 +59,15 @@ def oauth2_login(request):
         if form.is_valid():
             openid_url = form.cleaned_data['openid']
 
-            auth_url, state = oauth2.auth_url_from_openid(openid_url)
+            try:
+                auth, _, cert = openid.OpenID.parse(openid_url)
+            except openid.OpenIDError:
+                return http.HttpResponseBadRequest('Unable to retrieve authorization and certificate urls from OpenID metadata')
+
+            try:
+                auth_url, state = oauth2.get_authorization_url(auth.uri, cert.uri)
+            except oauth2.OAuth2Error:
+                return http.HttpResponseBadRequest('Could not retrieve the OAuth2 authorization url')
 
             if 'oauth_state' in request.session:
                 del request.session['oauth_state']
