@@ -1,5 +1,8 @@
 #! /usr/bin/env python
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import datetime
 import json
 import logging
@@ -17,6 +20,7 @@ from lxml import etree
 
 from wps import models
 from wps import tasks
+from wps import settings as local_settings
 from wps.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -178,7 +182,11 @@ class NodeManager(object):
 
         logger.info('Executing on CDAS2 instance %s:%s', instance.host, instance.request)
 
-        task = tasks.execute.delay(instance.id, identifier, data_inputs)
+        hostname = local_settings.HOSTNAME
+
+        port = local_settings.PORT
+
+        task = tasks.execute.delay(instance.id, identifier, data_inputs, hostname, port)
 
         response = task.get()
 

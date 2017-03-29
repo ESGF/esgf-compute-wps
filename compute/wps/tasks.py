@@ -91,16 +91,26 @@ def handle_response(data):
     logger.info('Handling CDAS2 response for job %s', job_id)
 
     try:
-        result = wps_xml.convert_cdas2_response(response)
-    except Exception:
-        logger.exception('Failed to convert CDAS2 response')
+        job = models.Job.objects.get(pk=job_id)
+    except models.Job.DoesNotExist:
+        # Really should never hist this point
+        logger.exception('Job %s does not exist', job_id)
 
         return
 
     try:
-        job = models.Job.objects.get(pk=job_id)
-    except models.Job.DoesNotExist:
-        logger.exception('Job %s does not exist', job_id)
+        result = wps_xml.convert_cdas2_response(response)
+    except Exception as e:
+        logger.exception('Failed to convert CDAS2 response')
+
+        exc_report = metadata.ExceptionReport(wps_xml.VERSION)
+        exc_report.add_exception(metadata.NoApplicableCode, e.message)
+
+        latest_response = job.status_set.all().latest('created_date')
+
+        result = wps_xml.update_execute_response_exception(latest_response.result, exc_report)
+
+        job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessFailed()), result=result.xml())
 
         return
 
@@ -207,7 +217,7 @@ def describe(server_id, identifiers):
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
 @shared_task
-def execute(instance_id, identifier, data_inputs):
+def execute(instance_id, identifier, data_inputs, hostname, port):
     """ Handles an execute request. """
     try:
         instance = models.Instance.objects.get(pk=instance_id)
@@ -223,7 +233,7 @@ def execute(instance_id, identifier, data_inputs):
 
     job = create_job(server)
 
-    status_location = create_status_location('default', job.id, '8000')
+    status_location = create_status_location(hostname, job.id, port)
 
     response = wps_xml.create_execute_response(
             status_location=status_location,

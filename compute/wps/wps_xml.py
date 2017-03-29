@@ -202,6 +202,16 @@ def create_execute_response(status_location, status, identifier):
 
     return ex
 
+def update_execute_response_exception(old_response, exception):
+    ex = operations.ExecuteResponse.from_xml(old_response)
+
+    logger.info('Updating execute response with exception')
+
+    ex.status = metadata.ProcessFailed()
+    ex.status.exception_report = exception
+
+    return ex
+
 def update_execute_response(old_response, response):
     ex = operations.ExecuteResponse.from_xml(old_response)
 
@@ -224,6 +234,16 @@ def update_execute_response(old_response, response):
 
 def convert_cdas2_response(response, **kwargs):
     logger.info('Converting CDAS2 response\n%s', response)
+
+    try:
+        tree = etree.fromstring(response)
+    except etree.XMLSyntaxError:
+        raise CDAS2ConversionError('Failed to load the response string')
+
+    error = tree.xpath('/response/exceptions/exception')
+
+    if len(error) > 0:
+        raise Exception(error[0].text)
 
     if 'capabilities' in response:
         result = create_capabilities_response(response)
