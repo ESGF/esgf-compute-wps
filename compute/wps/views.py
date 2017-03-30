@@ -21,6 +21,10 @@ from wps.auth import oauth2
 
 logger = logging.getLogger(__name__)
 
+URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
+URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
+URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
+
 @require_http_methods(['GET'])
 def oauth2_callback(request):
     try:
@@ -36,12 +40,14 @@ def oauth2_callback(request):
             request.META['QUERY_STRING'])
 
     try:
-        _, token, _ = openid.OpenID.parse(openid_url)
+        oid = openid.OpenID.parse(openid_url)
+
+        token_service = oid.find(URN_ACCESS)
     except openid.OpenIDError:
         return http.HttpResponseBadRequest('Unable to retrieve token url from OpenID metadata')
 
     try:
-        token = oauth2.token_from_openid(token, request_url, oauth_state) 
+        token = oauth2.token_from_openid(token_service.uri, request_url, oauth_state) 
     except oauth2.OAuth2Error:
         return http.HttpResponseBadRequest('OAuth2 callback was not passed the correct parameters')
 
@@ -60,12 +66,16 @@ def oauth2_login(request):
             openid_url = form.cleaned_data['openid']
 
             try:
-                auth, _, cert = openid.OpenID.parse(openid_url)
+                oid = openid.OpenID.parse(openid_url)
+
+                auth_service = oid.find(URN_AUTHORIZE)
+
+                cert_service = oid.find(URN_RESOURCE)
             except openid.OpenIDError:
                 return http.HttpResponseBadRequest('Unable to retrieve authorization and certificate urls from OpenID metadata')
 
             try:
-                auth_url, state = oauth2.get_authorization_url(auth.uri, cert.uri)
+                auth_url, state = oauth2.get_authorization_url(auth_service.uri, cert_service.uri)
             except oauth2.OAuth2Error:
                 return http.HttpResponseBadRequest('Could not retrieve the OAuth2 authorization url')
 
