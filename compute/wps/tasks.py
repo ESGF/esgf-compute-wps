@@ -98,49 +98,67 @@ def handle_response(data):
 
         return
 
-    try:
-        result = wps_xml.convert_cdas2_response(response)
-    except Exception as e:
-        logger.exception('Failed to convert CDAS2 response')
+    error = wps_xml.check_cdas2_error(response)
 
-        exc_report = metadata.ExceptionReport(wps_xml.VERSION)
-        exc_report.add_exception(metadata.NoApplicableCode, e.message)
+    if error is not None:
+        latest = job.status_set.all().latest('created_date')
 
-        latest_response = job.status_set.all().latest('created_date')
+        message = wps_xml.update_execute_response_exception(latest.result, error)
 
-        result = wps_xml.update_execute_response_exception(latest_response.result, exc_report)
-
-        job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessFailed()), result=result.xml())
+        job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessFailed()),
+                result=message.xml())
 
         return
 
-    if isinstance(result, operations.GetCapabilitiesResponse):
-        job.server.capabilities = result.xml()
+    cap = 'capabilities' in data
 
-        job.server.save()
+    desc = 'processDescription' in data
 
-        identifiers = [x.identifier for x in result.process_offerings]
+    if cap or desc:
+        try:
+            result = wps_xml.convert_cdas2_response(response)
+        except Exception as e:
+            logger.exception('Failed to convert CDAS2 response: %s', e.message)
 
-        describe.delay(job.server.id, identifiers)
-    elif isinstance(result, operations.DescribeProcessResponse):
-        result = wps_xml.create_describe_process_response(response)
-        
-        server = default_server()
+            exc_report = metadata.ExceptionReport(wps_xml.VERSION)
 
-        process = models.Process(
-                identifier=result.process_description[0].identifier,
-                description=result.xml())
-        
-        process.save()
+            exc_report.add_exception(metadata.NoApplicableCode, e.message)
 
-        server.processes.add(process)
-    elif isinstance(result, operations.ExecuteResponse):
+            latest_response = job.status_set.all().latest('created_date')
+
+            result = wps_xml.update_execute_response_exception(latest_response.result, exc_report)
+
+            job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessFailed()), result=result.xml())
+
+            return
+
+        if cap:
+            job.server.capabilities = result.xml()
+
+            job.server.save()
+
+            identifiers = [x.identifier for x in result.process_offerings]
+
+            describe.delay(job.server.id, identifiers)
+        else:
+            result = wps_xml.create_describe_process_response(response)
+            
+            server = default_server()
+
+            process = models.Process(
+                    identifier=result.process_description[0].identifier,
+                    description=result.xml())
+            
+            process.save()
+
+            server.processes.add(process)
+    else:
         latest_response = job.status_set.all().latest('created_date')
 
         result = wps_xml.update_execute_response(latest_response.result, response)
 
     job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessSucceeded()), result=result.xml())
-    
+
 @shared_task
 def monitor_cdas(instance_id):
     """ Monitor CDAS2 queue.

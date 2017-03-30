@@ -232,9 +232,7 @@ def update_execute_response(old_response, response):
 
     return ex
 
-def convert_cdas2_response(response, **kwargs):
-    logger.info('Converting CDAS2 response\n%s', response)
-
+def check_cdas2_error(response):
     try:
         tree = etree.fromstring(response)
     except etree.XMLSyntaxError:
@@ -243,7 +241,16 @@ def convert_cdas2_response(response, **kwargs):
     error = tree.xpath('/response/exceptions/exception')
 
     if len(error) > 0:
-        raise Exception(error[0].text)
+        exc_report = metadata.ExceptionReport(VERSION)
+
+        exc_report.add_exception(metadata.NoApplicableCode, error[0].text)
+
+        return exc_report
+
+    return None
+
+def convert_cdas2_response(response, **kwargs):
+    logger.info('Converting CDAS2 response\n%s', response)
 
     if 'capabilities' in response:
         result = create_capabilities_response(response)
