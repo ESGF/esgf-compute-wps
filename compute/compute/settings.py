@@ -30,7 +30,6 @@ ALLOWED_HOSTS = ['0.0.0.0', 'aims2.llnl.gov']
 
 INSTALLED_APPS = [
     'wps',
-    'django_extensions',
     'webpack_loader',
     'django.contrib.admin',
     'django.contrib.auth',
