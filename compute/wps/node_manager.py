@@ -43,29 +43,23 @@ class NodeManager(object):
         try:
             server = models.Server.objects.get(host='default')
         except models.Server.DoesNotExist:
-            logger.info('Default server does not exist.')
+            logger.info('Default server does not exist, creating new server entry.')
 
-            return
+            server = models.Server(host='default')
+
+            server.save()
         except django.db.utils.ProgrammingError:
             logger.info('Database has not been initialized yet.')
 
             return
 
-        if server.capabilities == '':
-            logger.info('Servers capabilities have not been populated')
+        servers = models.Server.objects.all()
 
-            instances = models.Instance.objects.all()
+        for s in servers:
+            if s.capabilities == '':
+                logger.info('Server "%s" capabilities have not been populated', s.host)
 
-            if len(instances) == 0:
-                logger.info('No CDAS2 instances have been registered with the server.')
-
-                return
-
-            tasks.capabilities.delay(server.id, instances[0].id)
-
-            logger.info('Sent capabilities query to CDAS2 instance %s:%s',
-                    instances[0].host,
-                    instances[0].request)
+                tasks.capabilities.delay(server.id)
 
     def create_user(self, openid_url, token):
         """ Create a new user. """

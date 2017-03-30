@@ -26,9 +26,8 @@ class Instance(models.Model):
 
 class Process(models.Model):
     identifier = models.CharField(max_length=128)
+    backend = models.CharField(max_length=128)
     description = models.TextField()
-    started = models.PositiveIntegerField(default=0)
-    completed = models.PositiveIntegerField(default=0)
 
 class Server(models.Model):
     host = models.CharField(max_length=128)

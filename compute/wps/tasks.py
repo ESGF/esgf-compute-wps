@@ -147,6 +147,7 @@ def handle_response(data):
 
             process = models.Process(
                     identifier=result.process_description[0].identifier,
+                    backend='CDAS2',
                     description=result.xml())
             
             process.save()
@@ -181,18 +182,8 @@ def monitor_cdas(instance_id):
             handle_response.delay(data)
 
 @shared_task
-def capabilities(server_id, instance_id):
+def capabilities(server_id):
     """ Handles GetCapabilities request. """
-    try:
-        instance = models.Instance.objects.get(pk=instance_id)
-    except models.Instance.DoesNotExist:
-        logger.info('Instance id "%s" does not exist', instance_id)
-
-        return
-
-    logger.info('Querying CDAS instance at %s:%s for capabilities',
-            instance.host, instance.request)
-
     try:
         server = models.Server.objects.get(pk=server_id)
     except models.Server.DoesNotExist:
@@ -200,10 +191,21 @@ def capabilities(server_id, instance_id):
 
         return
 
-    job = create_job(server)
+    logger.info('Gathering "%s" capabilities', server.host)
 
-    with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
-        request.send(str('{0}!getCapabilities!WPS'.format(job.id)))
+    instances = models.Instance.objects.all()
+
+    if len(instances) > 0:
+        logger.info('Querying CDAS2 instance capabilities')
+
+        instance = instances[0]
+
+        job = create_job(server)
+
+        with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
+            request.send(str('{0}!getCapabilities!WPS'.format(job.id)))
+    else:
+        logger.info('Server has not CDAS2 instances')
 
 @shared_task
 def describe(server_id, identifiers):
