@@ -1,7 +1,9 @@
 FROM continuumio/miniconda:4.2.12
 
+COPY requirements.txt requirements.txt
+
 RUN conda install -c conda-forge pyzmq lxml && \
-	pip install celery django redis psycopg2
+	pip install -r requirements.txt
 
 RUN apt-get update --fix-missing && \
 	apt-get install -y --no-install-recommends git libpq-dev gcc && \
@@ -13,13 +15,13 @@ RUN apt-get update --fix-missing && \
 
 ENV CELERY_BROKER redis://0.0.0.0
 
-COPY . /var/www
-
-WORKDIR /var/www/compute
-
 RUN useradd -m -s /bin/bash celery
 
 USER celery
+
+COPY . /var/www
+
+WORKDIR /var/www/compute
 
 EXPOSE 4356 4357
 

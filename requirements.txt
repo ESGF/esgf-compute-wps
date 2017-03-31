@@ -3,5 +3,7 @@ zmq
 celery
 gunicorn
 redis
+psycopg2
+requests_oauthlib
 django-webpack-loader
 git+https://github.com/esgf/esgf-compute-api

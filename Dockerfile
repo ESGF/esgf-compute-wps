@@ -1,7 +1,9 @@
 FROM continuumio/miniconda:4.2.12
 
+COPY requirements.txt requirements.txt
+
 RUN conda install -c conda-forge pyzmq gunicorn lxml && \
-	pip install django celery psycopg2 redis
+	pip install -r requirements.txt
 
 RUN apt-get update --fix-missing && \
       apt-get install -y --no-install-recommends git libpq-dev gcc && \
