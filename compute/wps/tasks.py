@@ -237,19 +237,17 @@ def describe(server_id, identifiers):
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
 @shared_task
-def execute(instance_id, identifier, data_inputs, hostname, port):
+def execute(identifier, data_inputs, hostname, port):
     """ Handles an execute request. """
-    try:
-        instance = models.Instance.objects.get(pk=instance_id)
-    except models.Instance.DoesNotExist:
-        logger.info('Instance id "%s" does not exist', instance_id)
+    instances = models.Instance.objects.all()
 
-        return
+    if len(instances) == 0:
+        raise Exception('There are no CDAS2 instances available')
 
     server = default_server()
 
     logger.info('Executing %s on CDAS2 instance at %s:%s',
-            identifier, instance.host, instance.request)
+            identifier, instances[0].host, instances[0].request)
 
     job = create_job(server)
 
@@ -266,7 +264,7 @@ def execute(instance_id, identifier, data_inputs, hostname, port):
 
     status.save()
 
-    with closing(create_socket(instance.host, instance.request, zmq.PUSH)) as request:
+    with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
         request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
     return response.xml()

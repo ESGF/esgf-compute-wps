@@ -8,13 +8,13 @@ from django.shortcuts import redirect
 from django.shortcuts import get_list_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
-
 from cwt.wps_lib import metadata
 
 from wps import forms
 from wps import models
 from wps import node_manager
 from wps import settings
+from wps import tasks
 from wps import wps_xml
 from wps.auth import openid
 from wps.auth import oauth2
@@ -101,17 +101,35 @@ def wps(request):
     manager = node_manager.NodeManager()
 
     try:
-        response = manager.handle_request(request)
-    except node_manager.NodeManagerError as e:
-        # NodeManagerError should always contain ExceptionReport xml
-        response = e.message
+        op, identifier, data_inputs = manager.handle_request(request)
+
+        logger.info('Transformed WPS request Operation: %s Identifier: %s '
+                'DataInputs: %s', op, identifier, data_inputs)
+
+        if op == 'getcapabilities':
+            response = manager.get_capabilities()
+        elif op == 'describeprocess':
+            response = manager.describe_process(identifier)
+        else:
+            hostname = settings.HOSTNAME
+
+            port = settings.PORT
+
+            task = tasks.execute.delay(identifier, data_inputs, hostname, port)
+
+            response = task.get()
+    except node_manager.NodeManagerWPSError as e:
+        logger.exception('Specific WPS error')
+        # Custom WPS error
+        resposne = e.exc_report.xml()
     except Exception as e:
-        # Handle any generic exceptions, a catch-all
-        report = metadata.ExceptionReport(wps_xml.VERSION)
+        logger.exception('General WPS error')
 
-        report.add_exception(metadata.NoApplicableCode, e.message)
+        exc_report = metadata.ExceptionReport(wps_xml.VERSION)
+        
+        exc_report.add_exception(metadata.NoApplicableCode, e.message)
 
-        response = report.xml()
+        response = exc_report.xml()
 
     return http.HttpResponse(response, content_type='text/xml')
 
