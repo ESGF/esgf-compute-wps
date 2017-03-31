@@ -30,37 +30,6 @@ class NodeManagerError(Exception):
 
 class NodeManager(object):
 
-    def initialize(self):
-        """ Initialize node_manager
-
-        Only run if WPS_NO_INIT is not set.
-        """
-        if os.getenv('WPS_NO_INIT') is not None:
-            return
-
-        logger.info('Initializing node manager')
-
-        try:
-            server = models.Server.objects.get(host='default')
-        except models.Server.DoesNotExist:
-            logger.info('Default server does not exist, creating new server entry.')
-
-            server = models.Server(host='default')
-
-            server.save()
-        except django.db.utils.ProgrammingError:
-            logger.info('Database has not been initialized yet.')
-
-            return
-
-        servers = models.Server.objects.all()
-
-        for s in servers:
-            if s.capabilities == '':
-                logger.info('Server "%s" capabilities have not been populated', s.host)
-
-                tasks.capabilities.delay(server.id)
-
     def create_user(self, openid_url, token):
         """ Create a new user. """
         user = dj_models.User() 

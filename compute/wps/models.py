@@ -25,7 +25,7 @@ class Instance(models.Model):
     queue_size = models.PositiveIntegerField(default=0)
 
 class Process(models.Model):
-    identifier = models.CharField(max_length=128)
+    identifier = models.CharField(max_length=128, unique=True)
     backend = models.CharField(max_length=128)
     description = models.TextField()
 
