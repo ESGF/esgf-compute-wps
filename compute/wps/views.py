@@ -121,7 +121,7 @@ def wps(request):
     except node_manager.NodeManagerWPSError as e:
         logger.exception('Specific WPS error')
         # Custom WPS error
-        resposne = e.exc_report.xml()
+        response = e.exc_report.xml()
     except Exception as e:
         logger.exception('General WPS error')
 
