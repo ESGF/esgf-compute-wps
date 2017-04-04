@@ -1,12 +1,5 @@
 version: '2'
 services:
-  devel:
-    image: jasonb87/devel:latest
-    command: sleep infinity
-    volumes_from:
-      - wps
-    networks:
-      frontend:
   wps:
     image: jasonb87/esgf_wps:latest
     environment:
