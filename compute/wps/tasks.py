@@ -17,6 +17,7 @@ from cwt.wps_lib import operations
 
 from wps import models
 from wps import wps_xml
+from wps.processes import get_process
 
 logger = get_task_logger(__name__)
 
@@ -116,7 +117,12 @@ def handle_response(data):
 
     if cap or desc:
         try:
-            result = wps_xml.convert_cdas2_response(response)
+            if cap:
+                local_procs = models.Process.objects.filter(backend='local')
+
+                result = wps_xml.capabilities_response(response, local_procs)
+            else:
+                result = wps_xml.describe_process_response_from_cdas2(response)
         except Exception as e:
             logger.exception('Failed to convert CDAS2 response: %s', e.message)
 
@@ -139,9 +145,11 @@ def handle_response(data):
 
             identifiers = [x.identifier for x in result.process_offerings]
 
+            logger.info('Queueing DescribeProcess for following proccesses: %s', identifiers)
+
             describe.delay(job.server.id, identifiers)
         else:
-            result = wps_xml.create_describe_process_response(response)
+            result = wps_xml.describe_process_response_from_cdas2(response)
             
             server = default_server()
 
@@ -156,7 +164,7 @@ def handle_response(data):
     else:
         latest_response = job.status_set.all().latest('created_date')
 
-        result = wps_xml.update_execute_response(latest_response.result, response)
+        result = wps_xml.update_execute_cdas2_response(latest_response.result, response)
 
     job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessSucceeded()), result=result.xml())
 
@@ -237,26 +245,30 @@ def describe(server_id, identifiers):
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
 @shared_task
+def handle_local_execute_output(url, job_id):
+    """ Handles a local execute output. """
+    try:
+        job = models.Job.objects.get(pk=job_id)
+    except models.Job.DoesNotExist:
+        raise Exception('Job {} does not exist')
+
+    latest = job.status_set.all().latest('created_date')
+
+    response = wps_xml.update_execute_response(latest.result, url)
+
+    job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessSucceeded()),
+                          result=response.xml())
+
+@shared_task
 def execute(identifier, data_inputs, hostname, port):
     """ Handles an execute request. """
-    instances = models.Instance.objects.all()
+    process = models.Process.objects.get(identifier=identifier)
 
-    if len(instances) == 0:
-        raise Exception('There are no CDAS2 instances available')
-
-    server = default_server()
-
-    logger.info('Executing %s on CDAS2 instance at %s:%s',
-            identifier, instances[0].host, instances[0].request)
-
-    job = create_job(server)
+    job = create_job(process.server_set.all()[0])
 
     status_location = create_status_location(hostname, job.id, port)
 
-    response = wps_xml.create_execute_response(
-            status_location=status_location,
-            status=metadata.ProcessStarted(),
-            identifier=identifier)
+    response = wps_xml.execute_response(status_location, metadata.ProcessStarted(), identifier)
 
     status = job.status_set.all().latest('created_date')
 
@@ -264,7 +276,19 @@ def execute(identifier, data_inputs, hostname, port):
 
     status.save()
 
-    with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
-        request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
+    if process.backend == 'local':
+        process = get_process(identifier)
 
-    return response.xml()
+        chain = process.s(data_inputs) | handle_local_execute_output.s(job.id)
+
+        chain()
+    else:
+        instances = models.Instance.objects.all()
+
+        if len(instances) == 0:
+            raise Exception('There are no CDAS2 instances available')
+
+        with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
+            request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
+
+    return status.result

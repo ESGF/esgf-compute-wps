@@ -14,3 +14,5 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += [url(r'^debug/$', views.debug)]
+
+    urlpatterns += [url(r'^output/(?P<file_name>.*)$', views.output)]

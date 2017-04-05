@@ -2,7 +2,7 @@ FROM continuumio/miniconda:4.2.12
 
 COPY requirements.txt requirements.txt
 
-RUN conda install -c conda-forge pyzmq gunicorn lxml && \
+RUN conda install -c conda-forge -c uvcdat cdms2 pyzmq gunicorn lxml  && \
 	pip install -r requirements.txt
 
 RUN apt-get update --fix-missing && \

@@ -104,7 +104,10 @@ def xpath_result(tree, path):
 
     return result[0]
 
-def create_capabilities_response(data):
+def capabilities_response(data, add_procs=None):
+    if add_procs is None:
+        add_procs = []
+
     cap = operations.GetCapabilitiesResponse()
 
     cap.service = SERVICE
@@ -130,61 +133,82 @@ def create_capabilities_response(data):
 
         cap.process_offerings.append(proc)
 
+    for p in add_procs:
+        proc = metadata.Process()
+        proc.identifier = p.identifier
+        proc.title = p.identifier.title()
+        proc.abstract = ''
+
+        cap.process_offerings.append(proc)
+    
     return cap
 
-def create_describe_process_response(data):
-    format = metadata.Format(mime_type='text/json')
+def describe_process_response(identifier, title, abstract):
+    fmt = metadata.Format(mime_type='text/json')
 
-    complex_data = metadata.ComplexDataDescription(default=format, supported=[format], maximum_megabytes=0)
+    complex_data = metadata.ComplexDataDescription(default=format,
+                                                    supported=[format],
+                                                    maximum_megabytes=0)
 
     inputs = []
-   
+
     for key in ('variable', 'domain', 'operation'):
         dct = {
-                'identifier': key,
-                'title': key.title(),
-                'min_occurs': 1,
-                'max_occurs': 1,
-                'value': complex_data
-                }
+            'identifier': key,
+            'title': key.title(),
+            'min_occurs': 1,
+            'max_occurs': 1,
+            'value': complex_data
+        }
 
         inputs.append(metadata.InputDescription(**dct))
 
     dct = {
-            'identifier': 'output',
-            'title': 'Output',
-            'value': complex_data,
-            }
+        'identifier': 'output',
+        'title': 'Output',
+        'value': complex_data,
+    }
 
     output = metadata.OutputDescription(**dct)
 
-    tree = etree.fromstring(data)
-
     dct = {
-            'identifier': xpath_result(tree, '/processDescriptions/process/description/@id'),
-            'title': xpath_result(tree, '/processDescriptions/process/description/@title'),
-            'abstract': xpath_result(tree, '/processDescriptions/process/description'),
-            'process_version': '1.0.0',
-            'store_supported': True,
-            'status_supported': True,
-            'input': inputs,
-            'output': [output],
-            }
+        'identifier': identifier,
+        'title': title,
+        'abstract': abstract,
+        'process_version': '1.0.0',
+        'store_supported': True,
+        'status_supported': True,
+        'input': inputs,
+        'output': [output],
+    }
 
     proc_desc = metadata.ProcessDescription(**dct)
-    
+
     dct = {
-            'process_description': [proc_desc],
-            'service': SERVICE,
-            'version': '1.0.0',
-            'lang': LANG,
-            }
+        'process_description': [proc_desc],
+        'service': SERVICE,
+        'version': '1.0.0',
+        'lang': LANG,
+    }
 
     desc = operations.DescribeProcessResponse(**dct)
 
     return desc
 
-def create_execute_response(status_location, status, identifier):
+def describe_process_response_from_cdas2(data):
+    tree = etree.fromstring(data)
+
+    identifier = xpath_result(tree, '/processDescriptions/process/description/@id')
+
+    title = xpath_result(tree, '/processDescriptions/process/description/@title')
+
+    abstract = xpath_result(tree, '/processDescriptions/process/description')
+
+    desc = describe_process_response(identifier, title, abstract)
+
+    return desc
+
+def execute_response(status_location, status, identifier):
     p = metadata.Process()
     p.identifier = identifier
     p.title = identifier
@@ -212,7 +236,20 @@ def update_execute_response_exception(old_response, exception):
 
     return ex
 
-def update_execute_response(old_response, response):
+def update_execute_response(old_response, output):
+    ex = operations.ExecuteResponse.from_xml(old_response)
+
+    ex.status = metadata.ProcessSucceeded()
+
+    data = metadata.ComplexData(value=output)
+
+    output = metadata.Output(identifier='output', title='Output', data=data)
+
+    ex.add_output(output)
+
+    return ex
+
+def update_execute_cdas2_response(old_response, response):
     ex = operations.ExecuteResponse.from_xml(old_response)
 
     logger.info(response)
@@ -226,9 +263,9 @@ def update_execute_response(old_response, response):
     if len(output_data) > 0:
         data = metadata.ComplexData(value=output_data[0].text)
 
-    output = metadata.Output(identifier='output', title='Output', data=data)
+        output = metadata.Output(identifier='output', title='Output', data=data)
 
-    ex.add_output(output)
+        ex.add_output(output)
 
     return ex
 
@@ -248,17 +285,3 @@ def check_cdas2_error(response):
         return exc_report
 
     return None
-
-def convert_cdas2_response(response, **kwargs):
-    logger.info('Converting CDAS2 response\n%s', response)
-
-    if 'capabilities' in response:
-        result = create_capabilities_response(response)
-    elif 'processDescription' in response:
-        result = create_describe_process_response(response)
-    elif 'response' in response:
-        result = create_execute_response(**kwargs)
-    else:
-        raise CDAS2ConversionError('Unknown response format')
-
-    return result
