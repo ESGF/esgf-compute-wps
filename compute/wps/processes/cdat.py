@@ -55,17 +55,11 @@ def avg(data_inputs):
 
             fout.write(out, id=var_name)
 
-    url_path = settings.DAP_URL_PATH.format(file_name=file_name)
+    if settings.DAP:
+        url = settings.DAP_URL.format(file_name=file_name)
+    else:
+        url = settings.OUTPUT_URL.format(file_name=file_name)
 
-    url_args = {
-        'proto': settings.DAP_PROTO,
-        'host': settings.DAP_HOST,
-        'port': settings.DAP_PORT,
-        'path': url_path
-    }
-
-    url = '{proto}://{host}:{port}{path}'.format(**url_args)
-
-    logger.info('DAP path {}'.format(url))
+    logger.info('Output url {}'.format(url))
 
     return url
