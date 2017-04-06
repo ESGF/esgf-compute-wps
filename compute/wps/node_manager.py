@@ -95,6 +95,9 @@ class NodeManager(object):
         except models.Server.DoesNotExist:
             raise Exception('Default server does not exist')
 
+        if server.capabilities == '':
+            raise Exception('Capabilities has not been populated yet')
+
         return server.capabilities
 
     def describe_process(self, identifier):
