@@ -1,6 +1,7 @@
 import json
 import logging
 
+import django
 from django import http
 from django.core import serializers
 from django.shortcuts import render
@@ -123,6 +124,12 @@ def wps(request):
         logger.exception('Specific WPS error')
         # Custom WPS error
         response = e.exc_report.xml()
+    except django.db.ProgrammingError:
+        exc_report = metadata.ExceptionReport(wps_xml.VERSION)
+
+        exc_report.add_exception(metadata.NoApplicableCode, 'Database has not been initialized')
+
+        response = exc_report.xml()
     except Exception as e:
         logger.exception('General WPS error')
 
