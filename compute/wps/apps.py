@@ -57,6 +57,8 @@ class WpsConfig(AppConfig):
 
                 continue
 
+            logger.info('Registered process "{}"'.format(identifier))
+
             proc.server_set.add(server)
 
         logger.info('Registering CDAS2 processes')
