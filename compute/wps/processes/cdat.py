@@ -17,9 +17,15 @@ logger = get_task_logger(__name__)
 
 @shared_task()
 def avg(data_inputs):
-    operations, _, _ = cwt.WPS.parse_data_inputs(data_inputs)
+    operations, domains, inputs = cwt.WPS.parse_data_inputs(data_inputs)
 
     op = operations[0]
+
+    temp_inputs = dict((x.name, x) for x in inputs)
+
+    temp_operations = dict((x.name, x) for x in operations)
+
+    op.resolve_inputs(temp_inputs, temp_operations)
 
     if len(op.inputs) < 1:
         raise Exception('Expecting a single input file')
