@@ -14,6 +14,7 @@ logger = get_task_logger(__name__)
 
 registry = {
     'CDAT.avg': cdat.avg,
+    'CDAT.workflow': cdat.workflow,
 }
 
 def get_process(identifier):

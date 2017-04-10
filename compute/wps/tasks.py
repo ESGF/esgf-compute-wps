@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import os
 from contextlib import closing
 
+import cwt
 import django
 import redis
 import zmq
@@ -278,6 +279,8 @@ def execute(identifier, data_inputs, hostname, port):
 
     if process.backend == 'local':
         process = get_process(identifier)
+
+        operations, domains, variables = cwt.WPS.parse_data_inputs(data_inputs)
 
         chain = process.s(data_inputs) | handle_local_execute_output.s(job.id)
 
