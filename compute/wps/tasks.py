@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import os
+import json
 from contextlib import closing
 
 import cwt
@@ -255,7 +256,7 @@ def handle_local_execute_output(url, job_id):
 
     latest = job.status_set.all().latest('created_date')
 
-    response = wps_xml.update_execute_response(latest.result, url)
+    response = wps_xml.update_execute_response(latest.result, json.dumps(url))
 
     job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessSucceeded()),
                           result=response.xml())

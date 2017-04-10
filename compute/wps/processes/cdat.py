@@ -9,6 +9,7 @@ from contextlib import closing
 
 import cdms2
 import cwt
+import requests
 from celery import group
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -38,10 +39,12 @@ def workflow(data_inputs):
     child_tasks = []
 
     for p in workflow.inputs:
-        new_data_inputs = dummy_wps.prepare_data_inputs(p, inputs, domains)
+        new_data_inputs = dummy_wps.prepare_data_inputs(p, p.inputs, domains)
 
         if p.identifier == 'CDAT.avg':
-            child_tasks.append(avg.s(new_data_inputs))
+            child_tasks.append(avg.s(new_data_inputs, p.name))
+
+    output = []
 
     if len(child_tasks) > 0:
         logger.info('Calling child tasks {}'.format(child_tasks))
@@ -53,15 +56,40 @@ def workflow(data_inputs):
         while not child_group.ready():
             time.sleep(1)
 
-        logger.info(child_group)
+        for c in child_group:
+            file_name = c.result.split('/')[-1]
 
-    return 'FAIL'
+            local_file_path = '{}/{}'.format(settings.OUTPUT_LOCAL_PATH, file_name)
+
+            logger.info('Localizing result {}'.format(c.result))
+
+            response = requests.get(c.result)
+
+            with open(local_file_path, 'w') as outfile:
+                for chunk in response.iter_content():
+                    outfile.write(chunk)
+
+            if settings.DAP:
+                url = settings.DAP_URL.format(file_name=file_name)
+            else:
+                url = settings.OUTPUT_URL.format(file_name=file_name)
+
+            logger.info('Output url {}'.format(url))
+            
+            output.append(url)
+
+    return output
 
 @shared_task()
-def avg(data_inputs):
+def avg(data_inputs, result=None):
     operations, domains, inputs = cwt.WPS.parse_data_inputs(data_inputs)
 
-    op = operations[0]
+    find_by_name = lambda x: [y for y in operations if y.name == x][0]
+
+    if result is not None:
+        op = find_by_name(result)
+    else:
+        op = operations[0]
 
     temp_inputs = dict((x.name, x) for x in inputs)
 
@@ -72,14 +100,18 @@ def avg(data_inputs):
     if len(op.inputs) < 1:
         raise Exception('Expecting a single input file')
 
+    logger.info('AVG inputs {}'.format(op.inputs))
+
     child_tasks = []
 
     for p in op.inputs:
         if not isinstance(p, cwt.Variable):
-            new_data_inputs = dummy_wps.prepare_data_inputs(p, inputs, domains)
+            new_data_inputs = dummy_wps.prepare_data_inputs(p, p.inputs, domains)
 
             if p.identifier == 'CDAT.avg':
                 child_tasks.append(avg.s(new_data_inputs))
+
+    input_data = [x.uri for x in op.inputs if isinstance(x, cwt.Variable)]
 
     if len(child_tasks) > 0:
         logger.info('Calling children')
@@ -91,16 +123,29 @@ def avg(data_inputs):
         while not child_group.ready():
             time.sleep(1)
 
-        logger.info('HELP!! {}'.format(child_group))
+        for c in child_group:
+            file_name = c.result.split('/')[-1]
 
-    input_data = [x.uri for x in op.inputs if isinstance(x, cwt.Variable)]
+            local_file_path = '{}/{}'.format(settings.OUTPUT_LOCAL_PATH, file_name)
 
-    logger.info(input_data)
+            logger.info('Localizing result {}'.format(c.result))
 
-    with closing(cdms2.open(op.inputs[0].uri, 'r')) as f:
-        logger.info('Reading data from %s', op.inputs[0].uri)        
+            response = requests.get(c.result)
 
-        var_name = op.inputs[0].var_name
+            if response.status_code != 200:
+                raise Exception('Failed to download file, status_code {}'.format(response.status_code))
+
+            with open(local_file_path, 'w') as outfile:
+                for chunk in response.iter_content():
+                    outfile.write(chunk)
+
+            input_data.append('file://{}'.format(local_file_path))
+
+    with closing(cdms2.open(input_data[0], 'r')) as f:
+        logger.info('Reading data from %s', input_data[0])        
+
+        var_name = 'tas'
+        #var_name = op.inputs[0].var_name
 
         n = f[var_name].shape[0]
 
@@ -110,7 +155,9 @@ def avg(data_inputs):
 
     logger.info('Local file path {}'.format(file_path))
 
-    inps = [cdms2.open(x.uri, 'r') for x in op.inputs]
+    logger.info('Averaging files {}'.format(input_data))
+
+    inps = [cdms2.open(x, 'r') for x in input_data]
 
     n_inps = len(inps)
 
