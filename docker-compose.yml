@@ -11,7 +11,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - /data
       - ./:/var/www
       - ./../esgf-compute-api:/esgf-compute-api
     networks:
@@ -45,8 +44,6 @@ services:
     expose:
       - "4356"
       - "4357"
-    volumes_from:
-      - wps
     networks:
       backend:
 
