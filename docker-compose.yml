@@ -36,7 +36,6 @@ services:
       - REDIS_HOST=redis
     volumes_from:
       - wps
-    command: sleep infinity
     networks:
       frontend:
       backend:
