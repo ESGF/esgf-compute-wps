@@ -88,6 +88,9 @@ def list_model(args, key):
             if hasattr(m, f.name):
                 value = getattr(m, f.name)
 
+                if isinstance(f, django.db.models.fields.TextField):
+                    value = value[:100]
+
                 print '\t', f.name, '=', value
 
 def process_cmd(args):
