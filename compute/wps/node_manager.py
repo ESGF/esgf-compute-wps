@@ -20,6 +20,7 @@ from lxml import etree
 
 from wps import models
 from wps import settings as local_settings
+from wps import wps_xml
 from wps.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,19 @@ class NodeManager(object):
         oauth2.save()
 
         return user.oauth2.api_key
+
+    def create_job(self, server, status=None):
+        """ Create a job entry. """
+        if status is None:
+            status = metadata.ProcessStarted()
+
+        job = models.Job(server=server)
+
+        job.save()
+
+        job.status_set.create(status=wps_xml.status_to_int(status))
+
+        return job
 
     def get_parameter(self, params, name):
         """ Gets a parameter from a django QueryDict """

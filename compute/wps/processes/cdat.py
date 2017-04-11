@@ -16,6 +16,7 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 
 from wps import models
+from wps import node_manager
 from wps import settings
 
 logger = get_task_logger(__name__)
@@ -154,6 +155,8 @@ def avg(data_inputs, result=None):
 
     idx = 0
 
+    manager = node_manager.NodeManager()
+
     for p in op.inputs:
         if not isinstance(p, cwt.Variable):
             new_data_inputs = dummy_wps.prepare_data_inputs(p, p.inputs, domains)
@@ -170,6 +173,8 @@ def avg(data_inputs, result=None):
             if p.identifier == 'CDAT.avg':
                 if s.host == 'default':
                     child_tasks.append(avg.s(new_data_inputs))
+
+                    manager.create_job(s)
                 else:
                     child_tasks.append(remote.s(s.id, data_inputs, p.name))
 
