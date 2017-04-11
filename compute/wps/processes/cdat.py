@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import json
 import uuid
 from collections import deque
 from contextlib import closing
@@ -14,6 +15,7 @@ from celery import group
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
+from wps import models
 from wps import settings
 
 logger = get_task_logger(__name__)
@@ -81,6 +83,49 @@ def workflow(data_inputs):
     return output
 
 @shared_task()
+def remote(server_id, data_inputs, result):
+    try:
+        server = models.Server.objects.get(pk=server_id)
+    except models.Server.DoesNotExist:
+        raise Exception('Server does not exist {}'.format(server_id))
+
+    logger.info('Sending remote request to {}'.format(server.host))
+
+    operations, domains, inputs = cwt.WPS.parse_data_inputs(data_inputs)
+
+    find_by_name = lambda x: [y for y in operations if y.name == x][0]
+
+    op = find_by_name(result)
+
+    temp_inputs = dict((x.name, x) for x in inputs)
+
+    temp_operations = dict((x.name, x) for x in operations)
+
+    op.resolve_inputs(temp_inputs, temp_operations)
+
+    logger.info('Remove inputs {}'.format(op.inputs))
+
+    wps = cwt.WPS(server.host)
+
+    for p in wps.processes():
+        logger.info(p.identifier)
+
+    wps.execute(op, inputs=op.inputs)
+
+    import time
+
+    while op.processing:
+        logger.info(op.status)
+
+        time.sleep(1)
+
+    logger.info(op.status)
+
+    output = json.loads(op.output[0].data.value)
+
+    return output
+
+@shared_task()
 def avg(data_inputs, result=None):
     operations, domains, inputs = cwt.WPS.parse_data_inputs(data_inputs)
 
@@ -104,12 +149,29 @@ def avg(data_inputs, result=None):
 
     child_tasks = []
 
+    # Normally the node_manager would make the decision of which server to execute on
+    servers = models.Server.objects.all()
+
+    idx = 0
+
     for p in op.inputs:
         if not isinstance(p, cwt.Variable):
             new_data_inputs = dummy_wps.prepare_data_inputs(p, p.inputs, domains)
 
+            if idx >= len(servers):
+                idx = 0
+
+            s = servers[idx]
+
+            idx += 1
+
+            logger.info('SERVER {}'.format(s.host))
+
             if p.identifier == 'CDAT.avg':
-                child_tasks.append(avg.s(new_data_inputs))
+                if s.host == 'default':
+                    child_tasks.append(avg.s(new_data_inputs))
+                else:
+                    child_tasks.append(remote.s(s.id, data_inputs, p.name))
 
     input_data = [x.uri for x in op.inputs if isinstance(x, cwt.Variable)]
 
