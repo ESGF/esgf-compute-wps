@@ -41,11 +41,25 @@ def workflow(data_inputs):
 
     child_tasks = []
 
+    servers = models.Server.objects.all()
+
+    idx = 0
+
     for p in workflow.inputs:
         new_data_inputs = dummy_wps.prepare_data_inputs(p, p.inputs, domains)
+    
+        if idx >= len(servers):
+            idx = 0
+
+        s = servers[idx]
+
+        idx += 1
 
         if p.identifier == 'CDAT.avg':
-            child_tasks.append(avg.s(new_data_inputs, p.name))
+            if s.host == 'default':
+                child_tasks.append(avg.s(new_data_inputs, p.name))
+            else:
+                child_tasks.append(remote.s(s.id, new_data_inputs, p.name))
 
     output = []
 
