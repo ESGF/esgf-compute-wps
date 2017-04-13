@@ -20,7 +20,6 @@ class WpsConfig(AppConfig):
         # Need to import after app is ready
         from wps import models
         from wps import tasks
-        from wps.processes import registry
 
         logger = logging.getLogger(__name__)
 
@@ -38,28 +37,6 @@ class WpsConfig(AppConfig):
             logger.info('Database has not been initialized yet')
 
             return
-
-        logger.info('Registering local processes')
-
-        for identifier, _ in registry.iteritems():
-            desc_proc = wps_xml.describe_process_response(identifier,
-                                                          identifier.title(),
-                                                          '')
-
-            proc = models.Process(identifier=identifier,
-                                  backend='local',
-                                  description=desc_proc.xml())
-
-            try:
-                proc.save()
-            except db.IntegrityError:
-                logger.debug('Process entry "{}" already exists'.format(identifier))
-
-                continue
-
-            logger.info('Registered process "{}"'.format(identifier))
-
-            proc.server_set.add(server)
 
         logger.info('Registering CDAS2 processes')
 

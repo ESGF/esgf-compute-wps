@@ -19,7 +19,6 @@ from cwt.wps_lib import operations
 
 from wps import models
 from wps import wps_xml
-from wps.processes import get_process
 
 logger = get_task_logger(__name__)
 
@@ -247,21 +246,6 @@ def describe(server_id, identifiers):
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
 @shared_task
-def handle_local_execute_output(url, job_id):
-    """ Handles a local execute output. """
-    try:
-        job = models.Job.objects.get(pk=job_id)
-    except models.Job.DoesNotExist:
-        raise Exception('Job {} does not exist')
-
-    latest = job.status_set.all().latest('created_date')
-
-    response = wps_xml.update_execute_response(latest.result, json.dumps(url))
-
-    job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessSucceeded()),
-                          result=response.xml())
-
-@shared_task
 def execute(identifier, data_inputs, hostname, port):
     """ Handles an execute request. """
     process = models.Process.objects.get(identifier=identifier)
@@ -278,21 +262,12 @@ def execute(identifier, data_inputs, hostname, port):
 
     status.save()
 
-    if process.backend == 'local':
-        process = get_process(identifier)
+    instances = models.Instance.objects.all()
 
-        operations, domains, variables = cwt.WPS.parse_data_inputs(data_inputs)
+    if len(instances) == 0:
+        raise Exception('There are no CDAS2 instances available')
 
-        chain = process.s(data_inputs) | handle_local_execute_output.s(job.id)
-
-        chain()
-    else:
-        instances = models.Instance.objects.all()
-
-        if len(instances) == 0:
-            raise Exception('There are no CDAS2 instances available')
-
-        with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
-            request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
+    with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
+        request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
     return status.result
