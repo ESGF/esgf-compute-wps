@@ -146,9 +146,13 @@ def capabilities_response(data, add_procs=None):
 def describe_process_response(identifier, title, abstract):
     fmt = metadata.Format(mime_type='text/json')
 
-    complex_data = metadata.ComplexDataDescription(default=format,
-                                                    supported=[format],
-                                                    maximum_megabytes=0)
+    cdd = {
+           'default': fmt,
+           'supported': [fmt],
+           'maximum_megabytes': 0,
+          }
+
+    complex_data = metadata.ComplexDataDescription(**cdd)
 
     inputs = []
 
