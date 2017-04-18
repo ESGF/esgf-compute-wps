@@ -19,6 +19,8 @@ from cwt.wps_lib import operations
 
 from wps import models
 from wps import wps_xml
+from wps.processes import get_process
+from wps.processes import handle_output
 
 logger = get_task_logger(__name__)
 
@@ -262,12 +264,27 @@ def execute(identifier, data_inputs, hostname, port):
 
     status.save()
 
-    instances = models.Instance.objects.all()
+    if process.backend == 'local':
+        o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
 
-    if len(instances) == 0:
-        raise Exception('There are no CDAS2 instances available')
+        operations = dict((x.name, x.parameterize()) for x in o)
 
-    with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
-        request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
+        domains = dict((x.name, x.parameterize()) for x in d)
+
+        variables = dict((x.name, x.parameterize()) for x in v)
+
+        process = get_process(identifier)
+
+        chain = (process.s(variables, operations, domains) | handle_output.s(job.id))
+
+        chain()
+    else:
+        instances = models.Instance.objects.all()
+
+        if len(instances) == 0:
+            raise Exception('There are no CDAS2 instances available')
+
+        with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
+            request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
     return status.result
