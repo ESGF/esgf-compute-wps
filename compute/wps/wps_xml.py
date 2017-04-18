@@ -15,34 +15,8 @@ VERSION = '1.0.0'
 UPDATE_SEQUENCE = 0
 LANG = 'en-US'
 
-STATUS_MAP = {
-        metadata.ProcessAccepted: 1,
-        metadata.ProcessStarted: 2,
-        metadata.ProcessPaused: 3,
-        metadata.ProcessSucceeded: 4,
-        metadata.ProcessFailed: 5,
-        }
-
-STATUS_LIST = (
-        metadata.ProcessAccepted,
-        metadata.ProcessStarted,
-        metadata.ProcessPaused,
-        metadata.ProcessSucceeded,
-        metadata.ProcessFailed
-        )
-
 class CDAS2ConversionError(Exception):
     pass
-
-def status_to_int(status):
-    if not isinstance(status, STATUS_LIST):
-        raise Exception('Expecting status to be type %s', STATUS_LIST)
-
-    for status_cls, i in STATUS_MAP.iteritems():
-        if isinstance(status, status_cls):
-            return i
-
-    return None
 
 def create_identification():
     id = metadata.ServiceIdentification()

@@ -36,7 +36,7 @@ def create_job(server, status=None, result=None):
 
     job.save()
 
-    job.status_set.create(status=wps_xml.status_to_int(status))
+    job.status_set.create(status=str(status))
     
     return job
 
@@ -109,8 +109,7 @@ def handle_response(data):
 
         message = wps_xml.update_execute_response_exception(latest.result, error)
 
-        job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessFailed()),
-                result=message.xml())
+        job.status_set.create(status=str(message.status), result=message.xml())
 
         return
 
@@ -137,7 +136,7 @@ def handle_response(data):
 
             result = wps_xml.update_execute_response_exception(latest_response.result, exc_report)
 
-            job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessFailed()), result=result.xml())
+            job.status_set.create(status=str(result.status), result=result.xml())
 
             return
 
@@ -169,7 +168,7 @@ def handle_response(data):
 
         result = wps_xml.update_execute_cdas2_response(latest_response.result, response)
 
-    job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessSucceeded()), result=result.xml())
+    job.status_set.create(status=str(result.status), result=result.xml())
 
 @shared_task
 def monitor_cdas(instance_id):
