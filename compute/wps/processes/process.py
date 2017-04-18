@@ -54,5 +54,4 @@ def handle_output(variable, job_id):
     
     updated = wps_xml.update_execute_response(latest.result, json.dumps(variable))
 
-    job.status_set.create(status=wps_xml.status_to_int(metadata.ProcessSucceeded()),
-                          result=updated.xml())
+    job.status_set.create(status=str(updated.status), result=updated.xml())
