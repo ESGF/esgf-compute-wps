@@ -9,7 +9,7 @@ export default class Debug extends Component {
 
   componentDidMount () {
     $.ajax({
-      url: 'http://0.0.0.0:8000/wps/servers',
+      url: 'http://0.0.0.0:8000/wps/api/servers',
       datatype: 'json',
       success: (data) => {
         this.setState({ servers: data });

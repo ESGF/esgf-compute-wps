@@ -9,7 +9,7 @@ export default class Jobs extends Component {
 
   componentDidMount () {
     $.ajax({
-      url: 'http://0.0.0.0:8000/wps/jobs',
+      url: 'http://0.0.0.0:8000/wps/api/jobs',
       dataType: 'json',
       success: (data) => {
         this.setState({ jobs: data });

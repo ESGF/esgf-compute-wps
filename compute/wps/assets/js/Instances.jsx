@@ -9,7 +9,7 @@ export default class Instances extends Component {
 
   componentDidMount () {
     $.ajax({
-      url: 'http://0.0.0.0:8000/wps/instances',
+      url: 'http://0.0.0.0:8000/wps/api/instances',
       dataType: 'json',
       success: (data) => {
         this.setState({ instances: data });        

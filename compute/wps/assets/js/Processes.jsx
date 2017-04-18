@@ -9,7 +9,7 @@ export default class Processes extends Component {
 
   componentDidMount () {
     $.ajax({
-      url: 'http://0.0.0.0:8000/wps/processes',
+      url: 'http://0.0.0.0:8000/wps/api/processes',
       dataType: 'json',
       success: (data) => {
         this.setState({ processes: data });
