@@ -19,9 +19,8 @@ from django.contrib.auth import models as dj_models
 from lxml import etree
 
 from wps import models
-from wps import settings as local_settings
+from wps import settings
 from wps import wps_xml
-from wps.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class NodeManagerError(Exception):
 
 class NodeManagerWPSError(Exception):
     def __init__(self, exc_type, message):
-        self.exc_report = metadata.ExceptionReport(settings.WPS_VERSION)
+        self.exc_report = metadata.ExceptionReport(settings.VERSION)
 
         self.exc_report.add_exception(exc_type, message)
 

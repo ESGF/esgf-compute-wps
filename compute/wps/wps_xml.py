@@ -3,43 +3,39 @@
 import datetime
 import logging
 
-from lxml import etree
-
 from cwt.wps_lib import metadata
 from cwt.wps_lib import operations
+from lxml import etree
+
+from wps import settings
 
 logger = logging.getLogger(__name__)
-
-SERVICE = 'WPS'
-VERSION = '1.0.0'
-UPDATE_SEQUENCE = 0
-LANG = 'en-US'
 
 class CDAS2ConversionError(Exception):
     pass
 
 def create_identification():
-    id = metadata.ServiceIdentification()
+    ident = metadata.ServiceIdentification()
 
-    id.service_type = 'WPS'
-    id.service_type_version = ['1.0.0']
-    id.title = 'LLNL WPS'
+    ident.service_type = settings.SERVICE
+    ident.service_type_version = [settings.VERSION]
+    ident.title = settings.TITLE
 
-    return id
+    return ident
 
 def create_provider():
     provider = metadata.ServiceProvider()
 
-    provider.provider_name = 'Lawerence Livermore National Laboratory'
-    provider.provider_site = 'https://llnl.gov'
+    provider.provider_name = settings.NAME
+    provider.provider_site = settings.SITE
 
     return provider
 
 def create_languages():
     languages = metadata.Languages()
 
-    languages.default = 'en-CA'
-    languages.supported = ['en-CA']
+    languages.default = settings.LANG
+    languages.supported = [settings.LANG]
 
     return languages
 
@@ -47,18 +43,18 @@ def create_operations():
     # TODO make the addresses host specific
     get_capabilities = metadata.Operation()
     get_capabilities.name = 'GetCapabilities'
-    get_capabilities.get = 'http://0.0.0.0:8000/wps'
-    get_capabilities.post = 'http://0.0.0.0:8000/wps'
+    get_capabilities.get = settings.WPS_ENDPOINT
+    get_capabilities.post = settings.WPS_ENDPOINT
     
     describe_process = metadata.Operation()
     describe_process.name = 'DescribeProcess'
-    describe_process.get = 'http://0.0.0.0:8000/wps'
-    describe_process.post = 'http://0.0.0.0:8000/wps'
+    describe_process.get = settings.WPS_ENDPOINT
+    describe_process.post = settings.WPS_ENDPOINT
 
     execute = metadata.Operation()
     execute.name = 'Execute'
-    execute.get = 'http://0.0.0.0:8000/wps'
-    execute.post = 'http://0.0.0.0:8000/wps'
+    execute.get = settings.WPS_ENDPOINT
+    execute.post = settings.WPS_ENDPOINT
 
     return [get_capabilities, describe_process, execute]
 
@@ -84,10 +80,10 @@ def capabilities_response(data, add_procs=None):
 
     cap = operations.GetCapabilitiesResponse()
 
-    cap.service = SERVICE
-    cap.version = VERSION
-    cap.update_sequence = UPDATE_SEQUENCE
-    cap.lang = LANG
+    cap.service = settings.SERVICE
+    cap.version = settings.VERSION
+    cap.update_sequence = 0
+    cap.lang = settings.LANG
     cap.service_identification = IDENTIFICATION
     cap.service_provider = PROVIDER
     cap.languages = LANGUAGES
@@ -164,9 +160,9 @@ def describe_process_response(identifier, title, abstract):
 
     dct = {
         'process_description': [proc_desc],
-        'service': SERVICE,
+        'service': settings.SERVICE,
         'version': '1.0.0',
-        'lang': LANG,
+        'lang': settings.LANG,
     }
 
     desc = operations.DescribeProcessResponse(**dct)
@@ -193,10 +189,10 @@ def execute_response(status_location, status, identifier):
 
     ex = operations.ExecuteResponse()
 
-    ex.service = SERVICE
+    ex.service = settings.SERVICE
     ex.service_instance = 'http://0.0.0.0:8000'
-    ex.version = VERSION
-    ex.lang = LANG
+    ex.version = settings.VERSION
+    ex.lang = settings.LANG
     ex.status_location = status_location
     ex.process = p
     ex.status = status
