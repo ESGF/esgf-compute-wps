@@ -17,7 +17,6 @@ from wps import models
 from wps import node_manager
 from wps import settings
 from wps import tasks
-from wps import wps_xml
 from wps.auth import openid
 from wps.auth import oauth2
 
@@ -125,7 +124,7 @@ def wps(request):
         # Custom WPS error
         response = e.exc_report.xml()
     except django.db.ProgrammingError:
-        exc_report = metadata.ExceptionReport(wps_xml.VERSION)
+        exc_report = metadata.ExceptionReport(settings.VERSION)
 
         exc_report.add_exception(metadata.NoApplicableCode, 'Database has not been initialized')
 
@@ -133,7 +132,7 @@ def wps(request):
     except Exception as e:
         logger.exception('General WPS error')
 
-        exc_report = metadata.ExceptionReport(wps_xml.VERSION)
+        exc_report = metadata.ExceptionReport(settings.VERSION)
         
         exc_report.add_exception(metadata.NoApplicableCode, e.message)
 
