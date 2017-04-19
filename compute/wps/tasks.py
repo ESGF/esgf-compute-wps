@@ -245,29 +245,3 @@ def describe(server_id, identifiers):
             job = create_job(server)
 
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
-
-@shared_task
-def execute_local(job_id, identifier, data_inputs):
-    o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
-
-    operations = dict((x.name, x.parameterize()) for x in o)
-
-    domains = dict((x.name, x.parameterize()) for x in d)
-
-    variables = dict((x.name, x.parameterize()) for x in v)
-
-    process = get_process(identifier)
-
-    chain = (process.s(variables, operations, domains) | handle_output.s(job_id))
-
-    chain()
-
-@shared_task
-def execute_cdas2(job_id, identifier, data_inputs):
-    instances = models.Instance.objects.all()
-
-    if len(instances) == 0:
-        raise Exception('There are no CDAS2 instances available')
-
-    with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
-        request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job_id)))

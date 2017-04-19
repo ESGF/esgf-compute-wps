@@ -11,6 +11,7 @@ import random
 import string
 import time
 
+import cwt
 import django
 import redis
 from cwt import wps_lib
@@ -21,6 +22,7 @@ from wps import models
 from wps import settings
 from wps import tasks
 from wps import wps_xml
+from wps.processes import get_process
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +124,32 @@ class NodeManager(object):
 
         return process.description
 
+    def execute_local(self, job, identifier, data_inputs):
+        o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
+
+        operations = dict((x.name, x.parameterize()) for x in o)
+
+        domains = dict((x.name, x.parameterize()) for x in d)
+
+        variables = dict((x.name, x.parameterize()) for x in v)
+
+        process = get_process(identifier)
+
+        chain = (process.s(variables, operations, domains) | tasks.handle_output.s(job.id))
+
+        chain()
+
+    def execute_cdas2(self, job, identifier, data_inputs):
+        instances = models.Instance.objects.all()
+
+        if len(instances) == 0:
+            job.failed()
+
+            raise Exception('There are no CDAS2 instances available')
+
+        with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
+            request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
+
     def execute(self, identifier, data_inputs):
         """ WPS execute operation """
         try:
@@ -140,9 +168,9 @@ class NodeManager(object):
         job.update_latest_status(response)
 
         if process.backend == 'local':
-            tasks.execute_local.delay(job.id, identifier, data_inputs)
+            self.execute_local(job, identifier, data_inputs)
         elif process.backend == 'CDAS2':
-            tasks.execute_cdas2.delay(job.id, identifier, data_inputs)
+            self.execute_cdas2(job, identifier, data_inputs)
         else:
             job.failed()
 
