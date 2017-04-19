@@ -43,6 +43,8 @@ services:
     expose:
       - "4356"
       - "4357"
+    volumes_from:
+      - wps
     networks:
       backend:
 
