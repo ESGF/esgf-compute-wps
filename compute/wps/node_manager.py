@@ -14,6 +14,7 @@ import time
 import cwt
 import django
 import redis
+from celery import group
 from cwt import wps_lib
 from django.contrib.auth.models import User
 from lxml import etree
@@ -127,6 +128,10 @@ class NodeManager(object):
     def execute_local(self, job, identifier, data_inputs):
         o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
 
+        op_by_id = lambda x: [y for y in o if y.identifier == x][0]
+
+        op = op_by_id(identifier)
+
         operations = dict((x.name, x.parameterize()) for x in o)
 
         domains = dict((x.name, x.parameterize()) for x in d)
@@ -135,7 +140,9 @@ class NodeManager(object):
 
         process = get_process(identifier)
 
-        chain = (process.s(variables, operations, domains) | tasks.handle_output.s(job.id))
+        inputs = group(tasks.check_input.s(variables[x]) for x in op.inputs)
+
+        chain = (inputs | process.s(operations, domains) | tasks.handle_output.s(job.id))
 
         chain()
 

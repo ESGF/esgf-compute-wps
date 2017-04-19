@@ -7,9 +7,11 @@ import os
 import json
 from contextlib import closing
 
+import cdms2
 import cwt
 import django
 import redis
+import requests
 import zmq
 from celery import shared_task
 from celery.signals import celeryd_init
@@ -18,6 +20,7 @@ from cwt.wps_lib import metadata
 from cwt.wps_lib import operations
 
 from wps import models
+from wps import settings
 from wps import wps_xml
 from wps.processes import get_process
 from wps.processes import handle_output
@@ -245,3 +248,37 @@ def describe(server_id, identifiers):
             job = create_job(server)
 
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
+
+@shared_task
+def check_input(variable):
+    localize = False
+    var = cwt.Variable.from_dict(variable)
+
+    if 'file://' not in var.uri:
+        logger.info('Handling non local file')
+
+        try:
+            f = cdms2.open(var.uri, 'r') 
+        except cdms2.CDMSError:
+            localize = True
+
+        # Must not be an OpenDAP, try regular HTTP GET request
+        if localize:
+            response = requests.get(var.uri)
+
+            if response.status_code != 200:
+                raise Exception('Failed to connect to server')
+
+            file_name = var.uri.split('/')[-1]
+
+            local_file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
+
+            with open(local_file_path, 'w') as infile:
+                for chunk in response.iter_content(2048):
+                    infile.write(chunk)
+
+            var.uri = 'file://{}'.format(local_file_path)
+
+            variable = var.parameterize()
+
+    return variable

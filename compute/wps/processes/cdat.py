@@ -17,7 +17,9 @@ __all__ = ['avg']
 @register_process('CDAT.avg')
 @shared_task
 def avg(variables, operations, domains):
-    v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
+    var_objects = [cwt.Variable.from_dict(x) for x in variables]
+
+    v = dict((x.name, x) for x in var_objects)
 
     o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
 
