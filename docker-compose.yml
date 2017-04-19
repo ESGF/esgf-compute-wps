@@ -1,7 +1,7 @@
 version: '2'
 services:
   wps:
-    image: jasonb87/esgf_wps:latest
+    image: jasonb87/cwt_wps:latest
     environment:
       - CELERY_BROKER=redis://redis/0
       - CELERY_BACKEND=redis://redis/0
@@ -11,8 +11,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./:/var/www
-      - ./../esgf-compute-api:/esgf-compute-api
+      - /data
     networks:
       frontend:
   postgres:
@@ -22,11 +21,11 @@ services:
     networks:
       frontend:
   redis:
-    image: redis:latest
+    image: redis:3.2.8
     networks:
       frontend:
   celery:
-    image: jasonb87/celery:latest
+    image: jasonb87/cwt_celery:latest
     environment:
       - WPS_NO_INIT=1
       - CELERY_BROKER=redis://redis/0
