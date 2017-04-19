@@ -3,6 +3,8 @@ from __future__ import unicode_literals
 from django.contrib.auth.models import User
 from django.db import models
 
+from cwt import wps_lib
+
 class OAuth2(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
@@ -39,6 +41,30 @@ class Server(models.Model):
 
 class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
+
+    @property
+    def status(self):
+        status = self.status_set.all().latest('created_date')
+
+        return status.status
+
+    @property
+    def result(self):
+        status = self.status_set.all().latest('created_date')
+
+        return status.result
+
+    def failed(self):
+        self.status_set.create(status=str(wps_lib.failed))
+
+    def update_latest_status(self, response):
+        status = self.status_set.all().latest('created_date')
+
+        status.result = response.xml()
+
+        status.save()
+
+        return status.result
 
 class Status(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)

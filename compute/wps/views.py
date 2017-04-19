@@ -112,13 +112,7 @@ def wps(request):
         elif op == 'describeprocess':
             response = manager.describe_process(identifier)
         else:
-            hostname = settings.HOSTNAME
-
-            port = settings.PORT
-
-            task = tasks.execute.delay(identifier, data_inputs, hostname, port)
-
-            response = task.get()
+            response = manager.execute(identifier, data_inputs)
     except node_manager.NodeManagerWPSError as e:
         logger.exception('Specific WPS error')
         # Custom WPS error

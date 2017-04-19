@@ -43,18 +43,18 @@ def create_operations():
     # TODO make the addresses host specific
     get_capabilities = metadata.Operation()
     get_capabilities.name = 'GetCapabilities'
-    get_capabilities.get = settings.WPS_ENDPOINT
-    get_capabilities.post = settings.WPS_ENDPOINT
+    get_capabilities.get = settings.ENDPOINT
+    get_capabilities.post = settings.ENDPOINT
     
     describe_process = metadata.Operation()
     describe_process.name = 'DescribeProcess'
-    describe_process.get = settings.WPS_ENDPOINT
-    describe_process.post = settings.WPS_ENDPOINT
+    describe_process.get = settings.ENDPOINT
+    describe_process.post = settings.ENDPOINT
 
     execute = metadata.Operation()
     execute.name = 'Execute'
-    execute.get = settings.WPS_ENDPOINT
-    execute.post = settings.WPS_ENDPOINT
+    execute.get = settings.ENDPOINT
+    execute.post = settings.ENDPOINT
 
     return [get_capabilities, describe_process, execute]
 
@@ -259,3 +259,4 @@ def check_cdas2_error(response):
         return exc_report
 
     return None
+

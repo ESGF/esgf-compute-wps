@@ -12,7 +12,8 @@ OAUTH2_CALLBACK = setting('WPS_OAUTH2_CALLBACK', 'https://aims2.llnl.gov/auth/ca
 HOSTNAME = setting('WPS_EXTERNAL_HOSTNAME', 'aims2.llnl.gov')
 PORT = setting('WPS_EXTERNAL_PORT', None)
 
-WPS_ENDPOINT = setting('WPS_ENDPOINT', 'http://0.0.0.0:8000/wps')
+ENDPOINT = setting('WPS_ENDPOINT', 'http://0.0.0.0:8000/wps')
+STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'http://0.0.0.0:8000/wps/job/{job_id}')
 
 OUTPUT_LOCAL_PATH = setting('WPS_OUTPUT_LOCAL_PATH', '/data')
 OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_name}')

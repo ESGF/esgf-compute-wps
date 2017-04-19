@@ -13,13 +13,13 @@ import time
 
 import django
 import redis
-from cwt.wps_lib import metadata
-from cwt.wps_lib import operations
-from django.contrib.auth import models as dj_models
+from cwt import wps_lib
+from django.contrib.auth.models import User
 from lxml import etree
 
 from wps import models
 from wps import settings
+from wps import tasks
 from wps import wps_xml
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class NodeManagerError(Exception):
 
 class NodeManagerWPSError(Exception):
     def __init__(self, exc_type, message):
-        self.exc_report = metadata.ExceptionReport(settings.VERSION)
+        self.exc_report = wps_lib.ExceptionReport(settings.VERSION)
 
         self.exc_report.add_exception(exc_type, message)
 
@@ -37,7 +37,7 @@ class NodeManager(object):
 
     def create_user(self, openid_url, token):
         """ Create a new user. """
-        user = dj_models.User() 
+        user = User()
 
         user.username = openid_url
 
@@ -64,13 +64,13 @@ class NodeManager(object):
     def create_job(self, server, status=None):
         """ Create a job entry. """
         if status is None:
-            status = metadata.ProcessStarted()
+            status = wps_lib.started
 
         job = models.Job(server=server)
 
         job.save()
 
-        job.status_set.create(status=wps_xml.status_to_int(status))
+        job.status_set.create(status=str(status))
 
         return job
 
@@ -83,7 +83,7 @@ class NodeManager(object):
         if name.lower() not in temp:
             logger.info('Missing required parameter %s', name)
 
-            raise NodeManagerWPSError(metadata.MissingParameterValue, name)
+            raise NodeManagerWPSError(wps_lib.MissingParameterValue, name)
 
         return temp[name.lower()]
 
@@ -122,6 +122,34 @@ class NodeManager(object):
 
         return process.description
 
+    def execute(self, identifier, data_inputs):
+        """ WPS execute operation """
+        try:
+            process = models.Process.objects.get(identifier=identifier)
+        except models.Process.DoesNotExist:
+            raise Exception('Process "{}" does not exist.'.format(ientifier))
+
+        server = models.Server.objects.get(host='default')
+
+        job = self.create_job(server)
+
+        status_location = settings.STATUS_LOCATION.format(job_id=job.id)
+
+        response = wps_xml.execute_response(status_location, wps_lib.started, identifier)
+
+        job.update_latest_status(response)
+
+        if process.backend == 'local':
+            tasks.execute_local.delay(job.id, identifier, data_inputs)
+        elif process.backend == 'CDAS2':
+            tasks.execute_cdas2.delay(job.id, identifier, data_inputs)
+        else:
+            job.failed()
+
+            raise Exception('Process backend "{}" is unknown'.format(process.backend))
+
+        return job.result
+
     def handle_get(self, params):
         """ Handle an HTTP GET request. """
         logger.info('Received GET request %s', params)
@@ -153,7 +181,7 @@ class NodeManager(object):
         logger.info('Received POST request %s', data)
 
         try:
-            request = operations.ExecuteRequest.from_xml(data)
+            request = wps_lib.ExecuteRequest.from_xml(data)
         except etree.XMLSyntaxError:
             logger.exception('Failed to parse xml request')
 
