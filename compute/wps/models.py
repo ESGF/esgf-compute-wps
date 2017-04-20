@@ -1,9 +1,10 @@
 from __future__ import unicode_literals
 
+from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
 
-from cwt import wps_lib
+from wps import wps_xml
 
 class OAuth2(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -56,6 +57,13 @@ class Job(models.Model):
 
     def failed(self):
         self.status_set.create(status=str(wps_lib.failed))
+
+    def update_progress(self, msg=None, percent=None):
+        status = self.status_set.all().latest('created_date')
+
+        new_status = wps_xml.update_execute_response_status(status.result, msg, percent)
+
+        self.status_set.create(status=str(new_status.status), result=new_status.xml())
 
     def update_latest_status(self, response):
         status = self.status_set.all().latest('created_date')

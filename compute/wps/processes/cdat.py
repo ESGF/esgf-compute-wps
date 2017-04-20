@@ -7,6 +7,7 @@ import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
+from wps import models
 from wps import settings
 from wps.processes import register_process
 
@@ -16,7 +17,7 @@ __all__ = ['avg']
 
 @register_process('CDAT.avg')
 @shared_task
-def avg(variables, operations, domains):
+def avg(variables, operations, domains, **kwargs):
     var_objects = [cwt.Variable.from_dict(x) for x in variables]
 
     v = dict((x.name, x) for x in var_objects)

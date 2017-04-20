@@ -210,6 +210,15 @@ def update_execute_response_exception(old_response, exception):
 
     return ex
 
+def update_execute_response_status(old_response, msg, percent):
+    ex = operations.ExecuteResponse.from_xml(old_response)
+
+    ex.status.value = msg
+
+    ex.status.percent_completed = percent
+
+    return ex
+
 def update_execute_response(old_response, output):
     ex = operations.ExecuteResponse.from_xml(old_response)
 

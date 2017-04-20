@@ -142,7 +142,7 @@ class NodeManager(object):
 
         inputs = group(tasks.check_input.s(variables[x]) for x in op.inputs)
 
-        chain = (inputs | process.s(operations, domains) | tasks.handle_output.s(job.id))
+        chain = (inputs | process.s(operations, domains, job_id=job.id) | tasks.handle_output.s(job.id))
 
         chain()
 
