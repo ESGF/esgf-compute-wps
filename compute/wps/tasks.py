@@ -264,18 +264,21 @@ def check_input(variable):
 
         # Must not be an OpenDAP, try regular HTTP GET request
         if localize:
-            response = requests.get(var.uri)
-
-            if response.status_code != 200:
-                raise Exception('Failed to connect to server')
-
             file_name = var.uri.split('/')[-1]
 
             local_file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
 
-            with open(local_file_path, 'w') as infile:
-                for chunk in response.iter_content(2048):
-                    infile.write(chunk)
+            if not os.path.exists(local_file_path):
+                response = requests.get(var.uri)
+
+                if response.status_code != 200:
+                    raise Exception('Could not localize file {}'.format(var.uri))
+
+                with open(local_file_path, 'w') as infile:
+                    for chunk in response.iter_content(512000):
+                        logger.info('Writiing chunk size {}'.format(len(chunk)))
+
+                        infile.write(chunk)
 
             var.uri = 'file://{}'.format(local_file_path)
 
