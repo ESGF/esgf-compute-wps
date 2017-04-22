@@ -15,6 +15,98 @@ logger = get_task_logger(__name__)
 
 __all__ = ['avg']
 
+def int_or_float(value):
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+@register_process('CDAT.subset')
+@shared_task
+def subset(variables, operations, domains, **kwargs):
+    d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
+
+    if isinstance(variables, dict):
+        variables = [variables]
+
+    var_objects = [cwt.Variable.from_dict(x) for x in variables]
+
+    v = dict((x.name, x) for x in var_objects)
+
+    for var in v.values():
+        var.resolve_domains(d)
+
+    o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
+
+    op_by_id = lambda x: [y for y in o.values() if y.identifier == x][0]
+
+    op = op_by_id('CDAT.subset')
+
+    op.resolve_inputs(v, o)
+
+    out_file_name = '{}.nc'.format(uuid.uuid4())
+
+    out_file_path = '{}/{}'.format(settings.OUTPUT_LOCAL_PATH, out_file_name)
+
+    var_name = op.inputs[0].var_name
+
+    # Only process first inputs
+    inp = cdms2.open(op.inputs[0].uri, 'r')
+
+    # Only process first domain
+    dom = op.inputs[0].domains[0]
+
+    dom_kw = {}
+
+    for dim in dom.dimensions:
+        args = None
+
+        if dim.crs == cwt.INDICES:
+            # Single slice or range
+            if dim.start == dim.end:
+                args = slice(dim.start, dim.end+1, dim.step)
+            else:
+                args = slice(dim.start, dim.end, dim.step)
+        elif dim.crs == cwt.VALUES:
+            if dim.start == dim.end:
+                args = dim.start
+            else:
+                if dim.name == 'time':
+                    args = (str(dim.start), str(dim.end))
+                else:
+                    axis_index = inp[var_name].getAxisIndex(dim.name)
+
+                    axis = inp[var_name].getAxis(axis_index)
+
+                    args = axis.mapInterval((int_or_float(dim.start), int_or_float(dim.end)))
+        else:
+            raise Exception('Unknown CRS {}'.format(dim.crs))
+
+        dom_kw[dim.name] = args
+
+    logger.info('Domain {}'.format(dom_kw))
+
+    out = cdms2.open(out_file_path, 'w')
+
+    logger.info(inp[var_name].shape)
+
+    data = inp(var_name, **dom_kw)
+
+    out.write(data, id=var_name)
+
+    logger.info(out[var_name].shape)
+
+    out.close()
+
+    out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_file_name), var_name)
+
+    return out_var.parameterize()
+
 @register_process('CDAT.aggregate')
 @shared_task
 def aggregate(variables, operations, domains, **kwargs):
