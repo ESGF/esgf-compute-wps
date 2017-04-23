@@ -126,7 +126,7 @@ class NodeManager(object):
 
         process = get_process(identifier)
 
-        inputs = group(tasks.check_input.s(variables[x]) for x in set(op.inputs))
+        inputs = group(tasks.check_input.s(variables[x], job_id=job.id) for x in set(op.inputs))
 
         chain = (inputs | process.s(operations, domains, job_id=job.id) | tasks.handle_output.s(job.id))
 

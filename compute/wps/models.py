@@ -60,6 +60,17 @@ class Job(models.Model):
 
         self.status_set.create(status=wps_lib.started, result=response.xml())
 
+    def status_failed(self, exception):
+        exc_report = wps_lib.ExceptionReport(settings.VERSION)
+
+        exc_report.add_exception(wps_lib.NoApplicableCode, exception)
+
+        status = self.status_set.all().latest('created_date')
+
+        response = wps_xml.update_execute_response_exception(status.result, exc_report)
+
+        self.status_set.create(status=wps_lib.failed, result=response.xml())
+
 class Status(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 

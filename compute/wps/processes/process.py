@@ -2,6 +2,7 @@
 
 import json
 
+import celery
 import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -11,7 +12,7 @@ from cwt.wps_lib import metadata
 from wps import models
 from wps import wps_xml
 
-__all__ = ['REGISTRY', 'register_process', 'get_process', 'handle_output']
+__all__ = ['REGISTRY', 'register_process', 'get_process', 'CWTBaseTask', 'handle_output']
 
 logger = get_task_logger(__name__)
 
@@ -42,6 +43,17 @@ if settings.DEBUG:
         logger.info('Variables {}'.format(variables))
 
         return cwt.Variable('file:///demo.nc', 'tas').parameterize()
+
+class CWTBaseTask(celery.Task):
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        try:
+            job = models.Job.objects.get(pk=kwargs['job_id'])
+        except KeyError:
+            raise Exception('Job id was not passed to the task')
+        except models.Job.DoesNotExist:
+            raise Exception('Job {} does not exist'.format(kwargs['job_id']))
+
+        job.status_failed(exc)
 
 @shared_task
 def handle_output(variable, job_id):

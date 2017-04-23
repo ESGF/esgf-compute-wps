@@ -23,6 +23,7 @@ from wps import models
 from wps import settings
 from wps import wps_xml
 from wps.processes import get_process
+from wps.processes import CWTBaseTask
 from wps.processes import handle_output
 
 logger = get_task_logger(__name__)
@@ -249,8 +250,8 @@ def describe(server_id, identifiers):
 
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
-@shared_task
-def check_input(variable):
+@shared_task(base=CWTBaseTask)
+def check_input(variable, job_id):
     localize = False
     var = cwt.Variable.from_dict(variable)
 
