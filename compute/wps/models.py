@@ -4,6 +4,7 @@ from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
 
+from wps import settings
 from wps import wps_xml
 
 class OAuth2(models.Model):
@@ -44,35 +45,20 @@ class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
 
     @property
-    def status(self):
-        status = self.status_set.all().latest('created_date')
-
-        return status.status
-
-    @property
     def result(self):
         status = self.status_set.all().latest('created_date')
 
         return status.result
 
     def failed(self):
-        self.status_set.create(status=str(wps_lib.failed))
+        self.status_set.create(status=wps_lib.failed)
 
-    def update_progress(self, msg=None, percent=None):
-        status = self.status_set.all().latest('created_date')
+    def status_started(self, identifier):
+        status_location = settings.STATUS_LOCATION.format(job_id=self.id)
 
-        new_status = wps_xml.update_execute_response_status(status.result, msg, percent)
+        response = wps_xml.execute_response(status_location, wps_lib.started, identifier)
 
-        self.status_set.create(status=str(new_status.status), result=new_status.xml())
-
-    def update_latest_status(self, response):
-        status = self.status_set.all().latest('created_date')
-
-        status.result = response.xml()
-
-        status.save()
-
-        return status.result
+        self.status_set.create(status=wps_lib.started, result=response.xml())
 
 class Status(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)

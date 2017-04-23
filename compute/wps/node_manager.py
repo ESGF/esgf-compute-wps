@@ -22,7 +22,6 @@ from lxml import etree
 from wps import models
 from wps import settings
 from wps import tasks
-from wps import wps_xml
 from wps.processes import get_process
 
 logger = logging.getLogger(__name__)
@@ -63,19 +62,6 @@ class NodeManager(object):
         oauth2.save()
 
         return user.oauth2.api_key
-
-    def create_job(self, server, status=None):
-        """ Create a job entry. """
-        if status is None:
-            status = wps_lib.started
-
-        job = models.Job(server=server)
-
-        job.save()
-
-        job.status_set.create(status=str(status))
-
-        return job
 
     def get_parameter(self, params, name):
         """ Gets a parameter from a django QueryDict """
@@ -166,13 +152,11 @@ class NodeManager(object):
 
         server = models.Server.objects.get(host='default')
 
-        job = self.create_job(server)
+        job = models.Job(server=server)
 
-        status_location = settings.STATUS_LOCATION.format(job_id=job.id)
+        job.save()
 
-        response = wps_xml.execute_response(status_location, wps_lib.started, identifier)
-
-        job.update_latest_status(response)
+        job.status_started(identifier)
 
         if process.backend == 'local':
             self.execute_local(job, identifier, data_inputs)
