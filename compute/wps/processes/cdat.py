@@ -9,6 +9,7 @@ from celery.utils.log import get_task_logger
 
 from wps import models
 from wps import settings
+from wps.processes import CWTBaseTask
 from wps.processes import register_process
 
 logger = get_task_logger(__name__)
@@ -27,7 +28,7 @@ def int_or_float(value):
         return None
 
 @register_process('CDAT.subset')
-@shared_task
+@shared_task(base=CWTBaseTask)
 def subset(variables, operations, domains, **kwargs):
     d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
 
@@ -111,7 +112,7 @@ def subset(variables, operations, domains, **kwargs):
     return out_var.parameterize()
 
 @register_process('CDAT.aggregate')
-@shared_task
+@shared_task(base=CWTBaseTask)
 def aggregate(variables, operations, domains, **kwargs):
     if isinstance(variables, dict):
         variables = [variables]
@@ -166,7 +167,7 @@ def aggregate(variables, operations, domains, **kwargs):
     return out_var.parameterize()
 
 @register_process('CDAT.avg')
-@shared_task
+@shared_task(base=CWTBaseTask)
 def avg(variables, operations, domains, **kwargs):
     if isinstance(variables, dict):
         variables = [variables]

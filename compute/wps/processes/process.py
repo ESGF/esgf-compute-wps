@@ -55,7 +55,7 @@ class CWTBaseTask(celery.Task):
 
         job.status_failed(exc)
 
-@shared_task
+@shared_task(base=CWTBaseTask)
 def handle_output(variable, job_id):
     try:
         job = models.Job.objects.get(pk=job_id)
