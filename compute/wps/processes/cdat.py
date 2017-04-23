@@ -59,7 +59,10 @@ def subset(variables, operations, domains, **kwargs):
     inp = cdms2.open(op.inputs[0].uri, 'r')
 
     # Only process first domain
-    dom = op.inputs[0].domains[0]
+    try:
+        dom = op.inputs[0].domains[0]
+    except IndexError:
+        raise Exception('Input has not domain defined.')
 
     dom_kw = {}
 
