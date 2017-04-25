@@ -8,14 +8,10 @@ from wps import settings
 from wps import wps_xml
 
 class OAuth2(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
 
-    openid = models.CharField(max_length=256)
-    token_type = models.CharField(max_length=64)
-    refresh_token = models.CharField(max_length=64)
-    access_token = models.CharField(max_length=64)
-    scope = models.CharField(max_length=128)
-    expires_at = models.DateField()
+    openid = models.TextField()
+    token = models.TextField()
     api_key = models.CharField(max_length=256)
 
 class Instance(models.Model):

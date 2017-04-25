@@ -47,9 +47,18 @@ class OpenID(object):
 
     def __init__(self):
         self.services = {}
+        self.response = None
 
     @classmethod
-    def parse(cls, url):
+    def parse(cls, response):
+        obj = cls()
+
+        obj._parse(str(response))
+
+        return obj
+
+    @classmethod
+    def retrieve_and_parse(cls, url):
         obj = cls()
 
         obj._retrieve_and_parse(url)
@@ -65,10 +74,15 @@ class OpenID(object):
         if response.status_code not in (200,):
             raise OpenIDError('Server returned status code {}'.format(response.status_code))
 
+        self._parse(str(response.text))
+
+    def _parse(self, response):
         try:
-            tree = etree.fromstring(str(response.text))
+            tree = etree.fromstring(response)
         except etree.XMLSyntaxError:
             raise OpenIDError('Failed to load XRDI document')
+
+        self.response = response
 
         services = tree.findall('.//{xri://$xrd*($v*2.0)}Service')
 

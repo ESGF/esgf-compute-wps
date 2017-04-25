@@ -31,6 +31,8 @@ def oauth2_callback(request):
     try:
         openid_url = request.session.pop('openid')
 
+        openid_response = request.session.pop('openid_response')
+
         oauth_state = request.session.pop('oauth_state')
     except KeyError as e:
         logger.debug('Session did not contain key "%s"', e.message)
@@ -40,21 +42,18 @@ def oauth2_callback(request):
     request_url = '{0}?{1}'.format(settings.OAUTH2_CALLBACK,
             request.META['QUERY_STRING'])
 
-    try:
-        oid = openid.OpenID.parse(openid_url)
+    oid = openid.OpenID.parse(openid_response)
 
-        token_service = oid.find(URN_ACCESS)
-    except openid.OpenIDError:
-        return http.HttpResponseBadRequest('Unable to retrieve token url from OpenID metadata')
+    token_service = oid.find(URN_ACCESS)
 
     try:
-        token = oauth2.token_from_openid(token_service.uri, request_url, oauth_state) 
+        token = oauth2.get_token(token_service.uri, request_url, oauth_state) 
     except oauth2.OAuth2Error:
         return http.HttpResponseBadRequest('OAuth2 callback was not passed the correct parameters')
 
     manager = node_manager.NodeManager()
 
-    api_key = manager.create_user(openid_url, token)
+    api_key = manager.create_user(openid_url, openid_response, token)
 
     return http.HttpResponse('Your new api key: {}'.format(api_key))
 
@@ -67,7 +66,7 @@ def oauth2_login(request):
             openid_url = form.cleaned_data['openid']
 
             try:
-                oid = openid.OpenID.parse(openid_url)
+                oid = openid.OpenID.retrieve_and_parse(openid_url)
 
                 auth_service = oid.find(URN_AUTHORIZE)
 
@@ -80,15 +79,11 @@ def oauth2_login(request):
             except oauth2.OAuth2Error:
                 return http.HttpResponseBadRequest('Could not retrieve the OAuth2 authorization url')
 
-            if 'oauth_state' in request.session:
-                del request.session['oauth_state']
-
             request.session['oauth_state'] = state
 
-            if 'openid' in request.session:
-                del request.session['openid']
-
             request.session['openid'] = openid_url
+
+            request.session['openid_response'] = oid.response 
 
             return redirect(auth_url)
     else:
@@ -102,17 +97,19 @@ def wps(request):
     manager = node_manager.NodeManager()
 
     try:
-        op, identifier, data_inputs = manager.handle_request(request)
+        api_key, op, identifier, data_inputs = manager.handle_request(request)
 
         logger.info('Transformed WPS request Operation: %s Identifier: %s '
                 'DataInputs: %s', op, identifier, data_inputs)
+
+        user = models.User.objects.all()[0]
 
         if op == 'getcapabilities':
             response = manager.get_capabilities()
         elif op == 'describeprocess':
             response = manager.describe_process(identifier)
         else:
-            response = manager.execute(identifier, data_inputs)
+            response = manager.execute(user, identifier, data_inputs)
     except node_manager.NodeManagerWPSError as e:
         logger.exception('Specific WPS error')
         # Custom WPS error

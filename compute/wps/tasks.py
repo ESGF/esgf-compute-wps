@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 import os
 import json
+import tempfile
 from contextlib import closing
 
 import cdms2
@@ -22,6 +23,8 @@ from cwt.wps_lib import operations
 from wps import models
 from wps import settings
 from wps import wps_xml
+from wps.auth import oauth2
+from wps.auth import openid
 from wps.processes import get_process
 from wps.processes import CWTBaseTask
 from wps.processes import handle_output
@@ -251,7 +254,33 @@ def describe(server_id, identifiers):
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
 @shared_task(base=CWTBaseTask)
-def check_input(variable, job_id):
+def oauth2_certificate(user_id, **kwargs):
+    try:
+        user = models.User.objects.get(pk=user_id)
+    except models.User.DoesNotExist:
+        raise Exception('User {} could not be found'.format(user_id))
+
+    oid = openid.OpenID.parse(user.oauth2.openid)
+
+    URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
+    URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
+
+    token_url = oid.find(URN_ACCESS)
+
+    cert_url = oid.find(URN_RESOURCE)
+
+    token = json.loads(user.oauth2.token)
+
+    cert, key, token = oauth2.get_certificate(token, token_url.uri, cert_url.uri)
+
+    user.oauth2.token = json.dumps(token)
+
+    user.oauth2.save()
+
+    return cert, key
+
+@shared_task(base=CWTBaseTask)
+def check_input(certificate, variable, job_id):
     localize = False
     var = cwt.Variable.from_dict(variable)
 
@@ -270,7 +299,17 @@ def check_input(variable, job_id):
             local_file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
 
             if not os.path.exists(local_file_path):
-                response = requests.get(var.uri)
+                pem_file = tempfile.NamedTemporaryFile(delete=False)
+
+                pem_file.write(''.join(certificate))
+
+                pem_file.write('/n')
+
+                pem_file.close()
+
+                response = requests.get(var.uri, cert=pem_file.name)
+
+                os.remove(pem_file.name)
 
                 if response.status_code != 200:
                     raise Exception('Could not localize file {}'.format(var.uri))

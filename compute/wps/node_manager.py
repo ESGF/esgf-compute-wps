@@ -16,7 +16,6 @@ import django
 import redis
 from celery import group
 from cwt import wps_lib
-from django.contrib.auth.models import User
 from lxml import etree
 
 from wps import models
@@ -37,29 +36,18 @@ class NodeManagerWPSError(Exception):
 
 class NodeManager(object):
 
-    def create_user(self, openid_url, token):
+    def create_user(self, openid_url, openid_response, token):
         """ Create a new user. """
-        user = User()
+        user, created = models.User.objects.get_or_create(username=openid_url)
 
-        user.username = openid_url
+        if created:
+            oauth2 = models.OAuth2(user=user)
 
-        try:
-            user.save()
-        except django.db.IntegrityError as e:
-            raise NodeManagerError('Failed to create user: {}'.format(e.message))
+            oauth2.openid = openid_response
+            oauth2.token = json.dumps(token)
+            oauth2.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
 
-        oauth2 = models.OAuth2()
-
-        oauth2.user = user
-        oauth2.openid = openid_url
-        oauth2.token_type = token['token_type']
-        oauth2.refresh_token = token['refresh_token']
-        oauth2.access_token = token['access_token']
-        oauth2.scope = json.dumps(token['scope'])
-        oauth2.expires_at = datetime.datetime.fromtimestamp(token['expires_at'])
-        oauth2.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
-
-        oauth2.save()
+            oauth2.save()
 
         return user.oauth2.api_key
 
@@ -111,7 +99,7 @@ class NodeManager(object):
 
         return process.description
 
-    def execute_local(self, job, identifier, data_inputs):
+    def execute_local(self, user, job, identifier, data_inputs):
         o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
 
         op_by_id = lambda x: [y for y in o if y.identifier == x][0]
@@ -128,7 +116,9 @@ class NodeManager(object):
 
         inputs = group(tasks.check_input.s(variables[x], job_id=job.id) for x in set(op.inputs))
 
-        chain = (inputs | process.s(operations, domains, job_id=job.id) | tasks.handle_output.s(job.id))
+        chain = (tasks.oauth2_certificate.s(user.id, job_id=job.id) | inputs)
+
+        chain = (chain | process.s(operations, domains, job_id=job.id) | tasks.handle_output.s(job.id))
 
         chain()
 
@@ -143,7 +133,7 @@ class NodeManager(object):
         with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
             request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
-    def execute(self, identifier, data_inputs):
+    def execute(self, user, identifier, data_inputs):
         """ WPS execute operation """
         try:
             process = models.Process.objects.get(identifier=identifier)
@@ -159,7 +149,7 @@ class NodeManager(object):
         job.status_started(identifier)
 
         if process.backend == 'local':
-            self.execute_local(job, identifier, data_inputs)
+            self.execute_local(user, job, identifier, data_inputs)
         elif process.backend == 'CDAS2':
             self.execute_cdas2(job, identifier, data_inputs)
         else:
@@ -177,6 +167,8 @@ class NodeManager(object):
 
         service = self.get_parameter(params, 'service')
 
+        api_key = params.get('api_key')
+
         operation = request.lower()
 
         identifier = None
@@ -190,7 +182,7 @@ class NodeManager(object):
 
             data_inputs = self.get_parameter(params, 'datainputs')
 
-        return operation, identifier, data_inputs
+        return api_key, operation, identifier, data_inputs
 
     def handle_post(self, data, params):
         """ Handle an HTTP POST request. 
@@ -214,7 +206,9 @@ class NodeManager(object):
         # CDAS doesn't like single quotes
         data_inputs = data_inputs.replace('\'', '\"')
 
-        return 'execute', request.identifier, data_inputs
+        api_key = params.get('api_key')
+
+        return api_key, 'execute', request.identifier, data_inputs
 
     def handle_request(self, request):
         """ Convert HTTP request to intermediate format. """

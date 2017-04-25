@@ -1,10 +1,16 @@
 #! /usr/bin/env python
 
+import logging
 import os
+import subprocess
+from base64 import b64encode
 
+from OpenSSL import crypto
 from requests_oauthlib import OAuth2Session
 
 from wps import settings
+
+logger = logging.getLogger(__name__)
 
 class OAuth2Error(Exception):
     pass
@@ -14,6 +20,46 @@ def get_env(key):
         return os.getenv(key)
     except KeyError:
         raise OAuth2Error('Environment variable "{}" has not been set'.format(key))
+
+def get_certificate(token, refresh_url, cert_url):
+    client_id = get_env('OAUTH_CLIENT')
+
+    secret = get_env('OAUTH_SECRET')
+
+    logger.info('Before Token {}'.format(token))
+    
+    slcs = OAuth2Session(client_id,
+                         token=token,
+                         auto_refresh_url=refresh_url,
+                         auto_refresh_kwargs = {
+                                                'client_id': client_id,
+                                                'client_secret': secret,
+                                               },
+                         token_updater = lambda t: token.update(t))
+
+    key_pair = crypto.PKey()
+    key_pair.generate_key(crypto.TYPE_RSA, 2048)
+
+    private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key_pair).decode('utf-8')
+
+    cert_request = crypto.X509Req()
+    cert_request.set_pubkey(key_pair)
+    cert_request.sign(key_pair, 'md5')
+    cert_request = crypto.dump_certificate_request(crypto.FILETYPE_ASN1, cert_request)
+
+    if cert_url[-1] != '/':
+        cert_url = '{}/'.format(cert_url)
+
+    response = slcs.post(cert_url,
+                         data={ 'certificate_request': b64encode(cert_request) },
+                         verify=False)
+
+    if response.status_code != 200:
+        raise Exception('Failed to retrieve certificate {}'.format(response.reason))
+
+    logger.info('After Token {}'.format(token))
+
+    return response.text, private_key, token
 
 def get_token(token_uri, request_url, oauth_state):
     client_id = get_env('OAUTH_CLIENT')
@@ -25,11 +71,12 @@ def get_token(token_uri, request_url, oauth_state):
             state=oauth_state)
 
     try:
-        token = slcs.fetch_token(token.uri,
-                client_secret=secret,
-                authorization_response=request_url)
-    except Exception as e:
-        raise OAuth2Error('Failed to fetch token')
+        token = slcs.fetch_token(token_uri,
+                                 client_secret=secret,
+                                 authorization_response=request_url,
+                                 verify=False)
+    except Exception:
+        raise OAuth2Error('Failed to retrieve token')
 
     return token
 
