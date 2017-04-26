@@ -102,7 +102,10 @@ def wps(request):
         logger.info('Transformed WPS request Operation: %s Identifier: %s '
                 'DataInputs: %s', op, identifier, data_inputs)
 
-        user = models.User.objects.all()[0]
+        try:
+            user = models.User.objects.filter(oauth2__api_key=api_key)[0]
+        except IndexError:
+            raise Exception('No valid user found')
 
         if op == 'getcapabilities':
             response = manager.get_capabilities()
