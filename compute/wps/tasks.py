@@ -291,11 +291,10 @@ def check_input(certificate, variable, job_id):
     if 'file://' not in var.uri:
         logger.info('Handling remote file')
 
-    #    try:
-    #        f = cdms2.open(var.uri, 'r') 
-    #    except Exception:
-    #        localize = True
-        localize = True
+        try:
+            f = cdms2.open(var.uri, 'r') 
+        except Exception:
+            localize = True
 
         # Must not be an OpenDAP, try regular HTTP GET request
         if localize:
