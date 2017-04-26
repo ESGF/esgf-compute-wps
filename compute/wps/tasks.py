@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 import os
 import json
+import signal
 import tempfile
 from contextlib import closing
 
@@ -255,6 +256,9 @@ def describe(server_id, identifiers):
 
 @shared_task(base=CWTBaseTask)
 def oauth2_certificate(user_id, **kwargs):
+    if user_id is None:
+        return None
+
     try:
         user = models.User.objects.get(pk=user_id)
     except models.User.DoesNotExist:
@@ -285,40 +289,79 @@ def check_input(certificate, variable, job_id):
     var = cwt.Variable.from_dict(variable)
 
     if 'file://' not in var.uri:
-        logger.info('Handling non local file')
+        logger.info('Handling remote file')
 
-        try:
-            f = cdms2.open(var.uri, 'r') 
-        except cdms2.CDMSError:
-            localize = True
+    #    try:
+    #        f = cdms2.open(var.uri, 'r') 
+    #    except Exception:
+    #        localize = True
+        localize = True
 
         # Must not be an OpenDAP, try regular HTTP GET request
         if localize:
+            done = False
+
             file_name = var.uri.split('/')[-1]
 
             local_file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
 
             if not os.path.exists(local_file_path):
-                pem_file = tempfile.NamedTemporaryFile(delete=False)
+                try:
+                    response = requests.get(var.uri, timeout=4)
+                except requests.Timeout:
+                    logger.info('HTTP Get timed out')
+                else:
+                    if response.status_code == 200:
+                        with open(local_file_path, 'w') as infile:
+                            for chunk in response.iter_content(512000):
+                                logger.info('Writiing chunk size {}'.format(len(chunk)))
 
-                pem_file.write(''.join(certificate))
+                                infile.write(chunk)
 
-                pem_file.write('/n')
+                        logger.info('Successfully localized file.')
 
-                pem_file.close()
+                        done = True
 
-                response = requests.get(var.uri, cert=pem_file.name)
+                if not done and certificate is not None: 
+                    logger.info('Attempting to localize using certificate')
 
-                os.remove(pem_file.name)
+                    pem_file = tempfile.NamedTemporaryFile(delete=False)
 
-                if response.status_code != 200:
-                    raise Exception('Could not localize file {}'.format(var.uri))
+                    pem_file.write(''.join(certificate))
 
-                with open(local_file_path, 'w') as infile:
-                    for chunk in response.iter_content(512000):
-                        logger.info('Writiing chunk size {}'.format(len(chunk)))
+                    pem_file.write('/n')
 
-                        infile.write(chunk)
+                    pem_file.close()
+
+                    try:
+                        response = requests.get(var.uri, cert=pem_file.name, timeout=4)
+                    except requests.Timeout:
+                        logger.info('HTTP Get with certificate timed out')
+
+                        raise Exception('Failed to localize file {}'.format(var.uri))
+                    else:
+                        if response.status_code == 200:
+                            with open(local_file_path, 'w') as infile:
+                                for chunk in response.iter_content(512000):
+                                    logger.info('Writiing chunk size {}'.format(len(chunk)))
+
+                                    infile.write(chunk)
+
+                            logger.info('Successfully localized file.')
+                        else:
+                            logger.info('Failed to localize file {}'.format(var.uri))
+
+                            raise Exception('Failed to localize {}'.format(var.uri))
+                    finally:
+                        logger.info('Cleanup')
+
+                        os.remove(pem_file.name)
+                elif not done:
+                    logger.info('No options left, must die')
+
+                    raise Exception('Failed to localize {}'.format(var.uri))
+            else:
+                logger.info('File has already been cached')
 
             var.uri = 'file://{}'.format(local_file_path)
 

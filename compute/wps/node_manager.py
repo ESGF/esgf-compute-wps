@@ -116,7 +116,11 @@ class NodeManager(object):
 
         inputs = group(tasks.check_input.s(variables[x], job_id=job.id) for x in set(op.inputs))
 
-        chain = (tasks.oauth2_certificate.s(user.id, job_id=job.id) | inputs)
+        # Just continue if no user and running in DEBUG mode
+        if user is None and django.conf.settings.DEBUG:
+            chain = (tasks.oauth2_certificate.s(None, job_id=job.id) | inputs)
+        else:
+            chain = (tasks.oauth2_certificate.s(user.id, job_id=job.id) | inputs)
 
         chain = (chain | process.s(operations, domains, job_id=job.id) | tasks.handle_output.s(job.id))
 

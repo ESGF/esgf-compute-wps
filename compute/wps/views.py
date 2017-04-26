@@ -105,7 +105,11 @@ def wps(request):
         try:
             user = models.User.objects.filter(oauth2__api_key=api_key)[0]
         except IndexError:
-            raise Exception('No valid user found')
+            # Always want to check for a user, just not error in DEBUG mode
+            if django.conf.settings.DEBUG:
+                user = None
+            else:
+                raise Exception('No valid user found')
 
         if op == 'getcapabilities':
             response = manager.get_capabilities()
