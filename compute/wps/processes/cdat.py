@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from contextlib import closing
 
 import cdms2
 import cwt
@@ -29,31 +30,15 @@ def int_or_float(value):
         return None
 
 @register_process('CDAT.subset')
-@shared_task(base=CWTBaseTask)
-def subset(variables, operations, domains, **kwargs):
-    cwd = kwargs.get('cwd')
+@shared_task(bind=True, base=CWTBaseTask)
+def subset(self, variables, operations, domains, **kwargs):
+    self.initialize(**kwargs)
 
-    if cwd is not None:
-        os.chdir(cwd)
+    v, d, o = self.load(variables, domains, operations)
 
-    d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
+    op = self.op_by_id('CDAT.subset')
 
-    v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
-
-    for var in v.values():
-        var.resolve_domains(d)
-
-    o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
-
-    op_by_id = lambda x: [y for y in o.values() if y.identifier == x][0]
-
-    op = op_by_id('CDAT.subset')
-
-    op.resolve_inputs(v, o)
-
-    out_file_name = '{}.nc'.format(uuid.uuid4())
-
-    out_file_path = '{}/{}'.format(settings.OUTPUT_LOCAL_PATH, out_file_name)
+    out_name, out_path = self.create_output()
 
     var_name = op.inputs[0].var_name
 
@@ -94,43 +79,23 @@ def subset(variables, operations, domains, **kwargs):
 
         dom_kw[dim.name] = args
 
-    logger.info('Domain {}'.format(dom_kw))
+    with closing(cdms2.open(out_file_path, 'w')) as out:
+        data = inp(var_name, **dom_kw)
 
-    out = cdms2.open(out_file_path, 'w')
-
-    logger.info(inp[var_name].shape)
-
-    data = inp(var_name, **dom_kw)
-
-    out.write(data, id=var_name)
-
-    logger.info(out[var_name].shape)
-
-    out.close()
+        out.write(data, id=var_name)
 
     out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_file_name), var_name)
 
     return out_var.parameterize()
 
 @register_process('CDAT.aggregate')
-@shared_task(base=CWTBaseTask)
-def aggregate(variables, operations, domains, **kwargs):
-    cwd = kwargs.get('cwd')
+@shared_task(bind=True, base=CWTBaseTask)
+def aggregate(self, variables, operations, domains, **kwargs):
+    self.initialize(**kwargs)
 
-    if cwd is not None:
-        os.chdir(cwd)
+    v, d, o = self.load(variables, domains, operations)
 
-    v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
-
-    o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
-
-    d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
-
-    op_by_id = lambda x: [y for y in o.values() if y.identifier == x][0]
-
-    op = op_by_id('CDAT.aggregate')
-
-    op.resolve_inputs(v, o)
+    op = self.op_by_id('CDAT.aggregate')
 
     sort_inputs = sorted(op.inputs, key=lambda x: x.uri.split('/')[-1])
 
@@ -138,80 +103,56 @@ def aggregate(variables, operations, domains, **kwargs):
 
     inputs = [cdms2.open(x.uri, 'r') for x in sort_inputs]
 
-    out_file_name = '{}.nc'.format(uuid.uuid4())
+    out_name, out_path = self.create_output()
 
-    out_file_path = '{}/{}'.format(settings.OUTPUT_LOCAL_PATH, out_file_name)
+    with closing(cdms2.open(out_file_path, 'w')) as out:
+        units = None
 
-    out = cdms2.open(out_file_path, 'w')
+        for a in inputs:
+            n = a[var_name].getTime()
 
-    units = None
+            if units is None:
+                units = n.units
 
-    for a in inputs:
-        n = a[var_name].getTime()
+            for b in xrange(0, len(n), 200):
+                data = a(var_name, time=slice(b, b+200))
 
-        if units is None:
-            units = n.units
+                data.getTime().toRelativeTime(units)
 
-        for b in xrange(0, len(n), 200):
-            data = a(var_name, time=slice(b, b+200))
+                out.write(data, id=var_name)
 
-            data.getTime().toRelativeTime(units)
-
-            out.write(data, id=var_name)
-
-        a.close()
-
-    out.close()
+            a.close()
 
     out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_file_name), var_name)
 
     return out_var.parameterize()
 
 @register_process('CDAT.avg')
-@shared_task(base=CWTBaseTask)
-def avg(variables, operations, domains, **kwargs):
-    cwd = kwargs.get('cwd')
+@shared_task(bind=True, base=CWTBaseTask)
+def avg(self, variables, operations, domains, **kwargs):
+    self.initialize(**kwargs)
 
-    if cwd is not None:
-        os.chdir(cwd)
+    v, d, o = self.load(variables, domains, operations)
 
-    v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
-
-    o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
-
-    d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
-
-    op_by_id = lambda x: [y for y in o.values() if y.identifier == x][0]
-
-    op = op_by_id('CDAT.avg')
-
-    op.resolve_inputs(v, o)
+    op = self.op_by_id('CDAT.avg', o)
 
     var_name = op.inputs[0].var_name
-
-    logger.info([x.uri for x in op.inputs])
 
     inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
 
     n = inputs[0][var_name].shape[0]
 
-    out_file_name = '{}.nc'.format(uuid.uuid4())
+    out_name, out_path = self.create_output()
 
-    out_file_path = '{}/{}'.format(settings.OUTPUT_LOCAL_PATH, out_file_name)
+    with closing(cdms2.open(out_path, 'w')) as out:
+        for i in xrange(0, n, 200):
+            data = sum(x(var_name, slice(i, i+200)) for x in inputs) / len(inputs)
 
-    out = cdms2.open(out_file_path, 'w')
+            out.write(data, id=var_name)
 
-    for i in xrange(0, n, 200):
-        data = sum(x(var_name, slice(i, i+200)) for x in inputs) / len(inputs)
-
-        out.write(data, id=var_name)
-
-    # Clean up
     for x in inputs:
         x.close()
 
-    out.close()
-
-    out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_file_name), var_name)
+    out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_name), var_name)
 
     return out_var.parameterize()
