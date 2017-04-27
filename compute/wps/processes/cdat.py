@@ -18,17 +18,6 @@ logger = get_task_logger(__name__)
 
 __all__ = ['avg']
 
-def int_or_float(value):
-    try:
-        return int(value)
-    except ValueError:
-        pass
-
-    try:
-        return float(value)
-    except ValueError:
-        return None
-
 @register_process('CDAT.subset')
 @shared_task(bind=True, base=CWTBaseTask)
 def subset(self, variables, operations, domains, **kwargs):
@@ -45,46 +34,14 @@ def subset(self, variables, operations, domains, **kwargs):
     # Only process first inputs
     inp = cdms2.open(op.inputs[0].uri, 'r')
 
-    # Only process first domain
-    try:
-        dom = op.inputs[0].domains[0]
-    except IndexError:
-        raise Exception('Input has not domain defined.')
+    dom_kw = self.build_domain(op.inputs, var_name)
 
-    dom_kw = {}
-
-    for dim in dom.dimensions:
-        args = None
-
-        if dim.crs == cwt.INDICES:
-            # Single slice or range
-            if dim.start == dim.end:
-                args = slice(dim.start, dim.end+1, dim.step)
-            else:
-                args = slice(dim.start, dim.end, dim.step)
-        elif dim.crs == cwt.VALUES:
-            if dim.start == dim.end:
-                args = dim.start
-            else:
-                if dim.name == 'time':
-                    args = (str(dim.start), str(dim.end))
-                else:
-                    axis_index = inp[var_name].getAxisIndex(dim.name)
-
-                    axis = inp[var_name].getAxis(axis_index)
-
-                    args = axis.mapInterval((int_or_float(dim.start), int_or_float(dim.end)))
-        else:
-            raise Exception('Unknown CRS {}'.format(dim.crs))
-
-        dom_kw[dim.name] = args
-
-    with closing(cdms2.open(out_file_path, 'w')) as out:
+    with closing(cdms2.open(out_path, 'w')) as out:
         data = inp(var_name, **dom_kw)
 
         out.write(data, id=var_name)
 
-    out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_file_name), var_name)
+    out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_name), var_name)
 
     return out_var.parameterize()
 
@@ -105,7 +62,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     out_name, out_path = self.create_output()
 
-    with closing(cdms2.open(out_file_path, 'w')) as out:
+    with closing(cdms2.open(out_path, 'w')) as out:
         units = None
 
         for a in inputs:
@@ -123,7 +80,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
             a.close()
 
-    out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_file_name), var_name)
+    out_var = cwt.Variable(settings.OUTPUT_URL.format(file_name=out_name), var_name)
 
     return out_var.parameterize()
 

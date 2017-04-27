@@ -3,7 +3,9 @@
 import os
 import json
 import uuid
+from contextlib import closing
 
+import cdms2
 import celery
 import cwt
 from celery import shared_task
@@ -47,6 +49,17 @@ if global_settings.DEBUG:
 
         return cwt.Variable('file:///demo.nc', 'tas').parameterize()
 
+def int_or_float(value):
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
 class CWTBaseTask(celery.Task):
     def initialize(self, **kwargs):
         cwd = kwargs.get('cwd')
@@ -68,6 +81,40 @@ class CWTBaseTask(celery.Task):
             op.resolve_inputs(v, o)
 
         return v, d, o
+
+    def build_domain(self, inputs, var_name):
+        dom = inputs[0].domains[0]
+
+        dom_kw = {}
+
+        with closing(cdms2.open(inputs[0].uri, 'r')) as f:
+            for dim in dom.dimensions:
+                args = None
+
+                if dim.crs == cwt.INDICES:
+                    # Single slice or range
+                    if dim.start == dim.end:
+                        args = slice(dim.start, dim.end+1, dim.step)
+                    else:
+                        args = slice(dim.start, dim.end, dim.step)
+                elif dim.crs == cwt.VALUES:
+                    if dim.start == dim.end:
+                        args = dim.start
+                    else:
+                        if dim.name == 'time':
+                            args = (str(dim.start), str(dim.end))
+                        else:
+                            axis_index = f[var_name].getAxisIndex(dim.name)                
+
+                            axis = f[var_name].getAxis(axis_index)
+
+                            args = axis.mapInterval((int_or_float(dim.start), int_or_float(dim.end)))
+                else:
+                    raise Exception('Unknown CRS {}'.format(dim.crs))
+
+                dom_kw[dim.name] = args
+
+        return dom_kw
 
     def op_by_id(self, name, operations):
         try:
