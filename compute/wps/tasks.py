@@ -267,7 +267,7 @@ def setup_auth(user_id, temp, **kwargs):
         raise Exception('Could not find user')
 
     with open(temp, 'w') as f:
-        f.write(''.join(user.mpc.cert))
+        f.write(''.join(user.auth.cert))
 
     cwd_dodsrc = os.path.join(os.getcwd(), '.dodsrc')
 

@@ -24,17 +24,12 @@ from wps.auth import mpc
 
 logger = logging.getLogger(__name__)
 
-URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
-URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
-URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
-URN_MPC = 'urn:esg:security:myproxy-service'
-
 @require_http_methods(['GET'])
 def oauth2_callback(request):
     try:
-        openid_url = request.session.pop('openid')
+        oid = request.session.pop('openid')
 
-        openid_response = request.session.pop('openid_response')
+        oid_response = request.session.pop('openid_response')
 
         oauth_state = request.session.pop('oauth_state')
     except KeyError as e:
@@ -42,21 +37,9 @@ def oauth2_callback(request):
 
         return redirect('login')
 
-    request_url = '{0}?{1}'.format(settings.OAUTH2_CALLBACK,
-            request.META['QUERY_STRING'])
-
-    oid = openid.OpenID.parse(openid_response)
-
-    token_service = oid.find(URN_ACCESS)
-
-    try:
-        token = oauth2.get_token(token_service.uri, request_url, oauth_state) 
-    except oauth2.OAuth2Error:
-        return http.HttpResponseBadRequest('OAuth2 callback was not passed the correct parameters')
-
     manager = node_manager.NodeManager()
 
-    api_key = manager.create_user('oauth2', openid_url, openid_response, token, None)
+    api_key = manager.auth_oauth2_callback(oid, oid_response, request.META['QUERY_STRING'], oauth_state)
 
     return http.HttpResponse('Your new api key: {}'.format(api_key))
 
@@ -66,60 +49,31 @@ def oauth2_login(request):
         form = forms.OpenIDForm(request.POST)
 
         if form.is_valid():
-            openid_url = form.cleaned_data['openid']
+            oid_url = form.cleaned_data.get('openid')
 
-            service = form.cleaned_data['service']
+            service = form.cleaned_data.get('service')
+
+            manager = node_manager.NodeManager()
 
             if service == 'myproxyclient':
-                username = form.cleaned_data['username']
+                username = form.cleaned_data.get('username')
 
-                password = form.cleaned_data['password']
+                password = form.cleaned_data.get('password')
 
-                try:
-                    oid = openid.OpenID.retrieve_and_parse(openid_url)
+                if username is None or password is None:
+                    raise Exception('Must provider username and password for MyProxyClient')
 
-                    mpc_service = oid.find(URN_MPC)
-                except openid.OpenIDError:
-                    return http.HttpResponseBadRequest('Unable to retrieve authorization and certificate urls from OpenID metadata')
+                api_key = manager.auth_mpc(oid_url, username, password)
 
-                m = re.match('socket://(.*):(.*)', mpc_service.uri)
-
-                if m is None:
-                    raise Exception('Could not parse host and port')
-
-                host, port = m.groups()
-
-                certs = mpc.get_certificate(username, password, host, port)
-
-                manager = node_manager.NodeManager()
-
-                api_key = manager.create_user('myproxyclient', openid_url, oid.response, None, ''.join(certs))
-
-                return http.HttpResponse('Your new api key: {}'.format(api_key))
+                return http.HttpResponse('You new api key: {}'.format(api_key))
             elif service == 'oauth2':
-                try:
-                    oid = openid.OpenID.retrieve_and_parse(openid_url)
+                redirect_url, session = manager.auth_oauth2(oid_url)
 
-                    auth_service = oid.find(URN_AUTHORIZE)
+                request.session.update(session)
 
-                    cert_service = oid.find(URN_RESOURCE)
-                except openid.OpenIDError:
-                    return http.HttpResponseBadRequest('Unable to retrieve authorization and certificate urls from OpenID metadata')
-
-                try:
-                    auth_url, state = oauth2.get_authorization_url(auth_service.uri, cert_service.uri)
-                except oauth2.OAuth2Error:
-                    return http.HttpResponseBadRequest('Could not retrieve the OAuth2 authorization url')
-
-                request.session['oauth_state'] = state
-
-                request.session['openid'] = openid_url
-
-                request.session['openid_response'] = oid.response 
-
-                return redirect(auth_url)
+                return redirect(redirect_url)
             else:
-                raise Exception('Unknown service type')
+                raise Exception('Unknown service type {}'.format(service))
     else:
         form = forms.OpenIDForm()
 
@@ -137,15 +91,9 @@ def wps(request):
                 'DataInputs: %s', op, identifier, data_inputs)
 
         try:
-            user = models.User.objects.filter(oauth2__api_key=api_key)[0]
+            user = models.User.objects.filter(auth__api_key=api_key)[0]
         except IndexError:
-            user = None
-
-        if user is None:
-            try:
-                user = models.User.objects.filter(mpc__api_key=api_key)[0]
-            except IndexError:
-                raise Exception('Could not find user for api key {}'.format(api_key))
+            raise Exception('Unabled to find a user with the api key {}'.format(api_key))
 
         if op == 'getcapabilities':
             response = manager.get_capabilities()

@@ -7,19 +7,14 @@ from django.db import models
 from wps import settings
 from wps import wps_xml
 
-class OAuth2(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
-
-    openid = models.TextField()
-    token = models.TextField()
-    api_key = models.CharField(max_length=256)
-
-class MPC(models.Model):
+class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
     openid = models.TextField()
-    api_key = models.CharField(max_length=256)
+    type = models.CharField(max_length=64)
     cert = models.TextField()
+    api_key = models.CharField(max_length=128)
+    extra = models.TextField()
 
 class Instance(models.Model):
     host = models.CharField(max_length=128, unique=True, blank=False, null=False)

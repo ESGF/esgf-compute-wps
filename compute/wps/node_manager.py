@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import random
+import re
 import string
 import tempfile
 import time
@@ -18,13 +19,21 @@ import redis
 from celery import group
 from cwt import wps_lib
 from lxml import etree
+from myproxy.client import MyProxyClient
 
 from wps import models
 from wps import settings
 from wps import tasks
+from wps.auth import oauth2
+from wps.auth import openid
 from wps.processes import get_process
 
 logger = logging.getLogger(__name__)
+
+URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
+URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
+URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
+URN_MPC = 'urn:esg:security:myproxy-service'
 
 class NodeManagerError(Exception):
     pass
@@ -37,32 +46,82 @@ class NodeManagerWPSError(Exception):
 
 class NodeManager(object):
 
-    def create_user(self, service, openid_url, openid_response, token, certs):
+    def create_user(self, service, openid_response, username, certs, **extra):
         """ Create a new user. """
-        user, created = models.User.objects.get_or_create(username=openid_url)
+        user, created = models.User.objects.get_or_create(username=username)
 
-        if service == 'oauth2':
-            oauth2 = models.OAuth2(user=user)
+        if not hasattr(user, 'auth'):
+            auth = models.Auth(user=user)
 
-            oauth2.openid = openid_response
-            oauth2.token = json.dumps(token)
-            oauth2.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+            auth.openid = openid_response
+            auth.type = service
+            auth.cert = ''.join(certs)
+            auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+            auth.extra = json.dumps(extra)
 
-            oauth2.save()
-
-            return user.oauth2.api_key
-        elif service == 'myproxyclient':
-            mpc = models.MPC(user=user)
-
-            mpc.openid = openid_response
-            mpc.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
-            mpc.cert = certs
-
-            mpc.save()
-
-            return user.mpc.api_key
+            auth.save()
         else:
-            raise Exception('Could not create user')
+            user.auth.type = service
+            user.auth.cert = ''.join(certs)
+            user.auth.extra = json.dumps(extra)
+
+            user.auth.save()
+
+        return user.auth.api_key
+
+    def auth_mpc(self, oid_url, username, password):
+        oid = openid.OpenID.retrieve_and_parse(oid_url)
+
+        mpc_service = oid.find(URN_MPC)
+
+        g = re.match('socket://(.*):(.*)', mpc_service.uri)
+        
+        if g is None:
+            raise Exception('Failed to parse MyProxyClient endpoint')
+
+        host, port = g.groups()
+
+        m = MyProxyClient(hostname=host, caCertDir=settings.CA_PATH)
+
+        c = m.logon(username, password, bootstrap=True)
+
+        api_key = self.create_user('myproxyclient', oid.response, username, c, password=password)
+
+        return api_key
+
+    def auth_oauth2(self, oid_url):
+        oid = openid.OpenID.retrieve_and_parse(oid_url)
+
+        auth_service = oid.find(URN_AUTHORIZE)
+
+        cert_service = oid.find(URN_RESOURCE)
+
+        redirect_url, state = oauth2.get_authorization_url(auth_service.uri, cert_service.uri)
+
+        session = {
+                   'oauth_state': state,
+                   'openid': oid_url,
+                   'openid_response': oid.response
+                  }
+
+        return redirect_url, session
+
+    def auth_oauth2_callback(self, oid_url, oid_response, query, state):
+        oid = openid.OpenID.parse(oid_response)
+
+        token_service = oid.find(URN_ACCESS)
+
+        cert_service = oid.find(URN_RESOURCE)
+
+        request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK, query)
+
+        token = oauth2.get_token(token_service.uri, request_url, state)
+
+        cert, key, new_token = oauth2.get_certificate(token, token_service.uri, cert_service.uri)
+
+        api_key = self.create_user('oauth2', oid.response, oid_url, cert, token=new_token)
+
+        return api_key
 
     def get_parameter(self, params, name):
         """ Gets a parameter from a django QueryDict """
