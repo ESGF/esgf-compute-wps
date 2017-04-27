@@ -41,43 +41,53 @@ def oauth2_callback(request):
 
     api_key = manager.auth_oauth2_callback(oid, oid_response, request.META['QUERY_STRING'], oauth_state)
 
-    return http.HttpResponse('Your new api key: {}'.format(api_key))
+    return render(request, 'wps/login_result.html', { 'api_key': api_key })
+
+@require_http_methods(['GET'])
+def login(request):
+    return render(request, 'wps/login.html')
 
 @require_http_methods(['GET', 'POST'])
-def oauth2_login(request):
+def login_oauth2(request):
     if request.method == 'POST':
         form = forms.OpenIDForm(request.POST)
 
         if form.is_valid():
             oid_url = form.cleaned_data.get('openid')
 
-            service = form.cleaned_data.get('service')
-
             manager = node_manager.NodeManager()
 
-            if service == 'myproxyclient':
-                username = form.cleaned_data.get('username')
+            redirect_url, session = manager.auth_oauth2(oid_url)
 
-                password = form.cleaned_data.get('password')
+            request.session.update(session)
 
-                if username is None or password is None:
-                    raise Exception('Must provider username and password for MyProxyClient')
-
-                api_key = manager.auth_mpc(oid_url, username, password)
-
-                return http.HttpResponse('You new api key: {}'.format(api_key))
-            elif service == 'oauth2':
-                redirect_url, session = manager.auth_oauth2(oid_url)
-
-                request.session.update(session)
-
-                return redirect(redirect_url)
-            else:
-                raise Exception('Unknown service type {}'.format(service))
+            return redirect(redirect_url)
     else:
         form = forms.OpenIDForm()
 
-    return render(request, 'wps/login.html', { 'form': form })
+    return render(request, 'wps/login_form.html', { 'form': form, 'action': 'oauth2' })
+
+@require_http_methods(['GET', 'POST'])
+def login_mpc(request):
+    if request.method == 'POST':
+        form = forms.MPCForm(request.POST)
+
+        if form.is_valid():
+            oid_url = form.cleaned_data.get('openid')
+
+            username = form.cleaned_data.get('username')
+
+            password = form.cleaned_data.get('password')
+
+            manager = node_manager.NodeManager()
+
+            api_key = manager.auth_mpc(oid_url, username, password)
+
+            return render(request, 'wps/login_result.html', { 'api_key': api_key })
+    else:
+        form = forms.MPCForm()
+
+    return render(request, 'wps/login_form.html', { 'form': form, 'action': 'mpc' })
 
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie

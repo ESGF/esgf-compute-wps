@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>OpenID login</title>
+    <title>WPS Login</title>
   </head>
   <body>
-    <form action="/auth/login/" method="post">
-      {% csrf_token %}
-      {{ form }}
-      <input type="submit" value="Login" />
-    </form>
+    <ul>
+      <li><a href="{% url 'oauth2' %}">OAuth2</a></li>
+      <li><a href="{% url 'mpc' %}">MyProxyClient</a></li>
+    </ul>
   </body>
 </html>
