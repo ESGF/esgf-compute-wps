@@ -9,6 +9,7 @@ import logging
 import os
 import random
 import string
+import tempfile
 import time
 
 import cwt
@@ -36,11 +37,11 @@ class NodeManagerWPSError(Exception):
 
 class NodeManager(object):
 
-    def create_user(self, openid_url, openid_response, token):
+    def create_user(self, service, openid_url, openid_response, token, certs):
         """ Create a new user. """
         user, created = models.User.objects.get_or_create(username=openid_url)
 
-        if created:
+        if service == 'oauth2':
             oauth2 = models.OAuth2(user=user)
 
             oauth2.openid = openid_response
@@ -49,7 +50,19 @@ class NodeManager(object):
 
             oauth2.save()
 
-        return user.oauth2.api_key
+            return user.oauth2.api_key
+        elif service == 'myproxyclient':
+            mpc = models.MPC(user=user)
+
+            mpc.openid = openid_response
+            mpc.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+            mpc.cert = certs
+
+            mpc.save()
+
+            return user.mpc.api_key
+        else:
+            raise Exception('Could not create user')
 
     def get_parameter(self, params, name):
         """ Gets a parameter from a django QueryDict """
@@ -114,15 +127,15 @@ class NodeManager(object):
 
         process = get_process(identifier)
 
-        inputs = group(tasks.check_input.s(variables[x], job_id=job.id) for x in set(op.inputs))
+        uid, temp = tempfile.mkstemp()
 
-        # Just continue if no user and running in DEBUG mode
-        if user is None and django.conf.settings.DEBUG:
-            chain = (tasks.oauth2_certificate.s(None, job_id=job.id) | inputs)
-        else:
-            chain = (tasks.oauth2_certificate.s(user.id, job_id=job.id) | inputs)
+        chain = tasks.setup_auth.s(user_id=user.id, temp=temp, cwd='/tmp', job_id=job.id)
 
-        chain = (chain | process.s(operations, domains, job_id=job.id) | tasks.handle_output.s(job.id))
+        chain = (chain | process.si(variables, operations, domains, cwd='/tmp', job_id=job.id))
+
+        chain = (chain | tasks.handle_output.s(job.id))
+        
+        chain = (chain | tasks.cleanup_auth.si(temp=temp, cwd='/tmp', job_id=job.id))
 
         chain()
 

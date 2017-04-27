@@ -23,6 +23,8 @@ OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_nam
 DAP = setting('WPS_DAP', False)
 DAP_URL = setting('WPS_DAP_URL', 'https://aims2.llnl.gov/{file_name}')
 
+CA_PATH = setting('WPS_CA_PATH', '/etc/wps_certs')
+
 # WPS Settings
 VERSION = setting('WPS_VERSION', '1.0.0')
 SERVICE = setting('WPS_SERVICE', 'WPS')

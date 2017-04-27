@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import django
 from django import http
@@ -19,12 +20,14 @@ from wps import settings
 from wps import tasks
 from wps.auth import openid
 from wps.auth import oauth2
+from wps.auth import mpc
 
 logger = logging.getLogger(__name__)
 
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
+URN_MPC = 'urn:esg:security:myproxy-service'
 
 @require_http_methods(['GET'])
 def oauth2_callback(request):
@@ -53,7 +56,7 @@ def oauth2_callback(request):
 
     manager = node_manager.NodeManager()
 
-    api_key = manager.create_user(openid_url, openid_response, token)
+    api_key = manager.create_user('oauth2', openid_url, openid_response, token, None)
 
     return http.HttpResponse('Your new api key: {}'.format(api_key))
 
@@ -65,27 +68,58 @@ def oauth2_login(request):
         if form.is_valid():
             openid_url = form.cleaned_data['openid']
 
-            try:
-                oid = openid.OpenID.retrieve_and_parse(openid_url)
+            service = form.cleaned_data['service']
 
-                auth_service = oid.find(URN_AUTHORIZE)
+            if service == 'myproxyclient':
+                username = form.cleaned_data['username']
 
-                cert_service = oid.find(URN_RESOURCE)
-            except openid.OpenIDError:
-                return http.HttpResponseBadRequest('Unable to retrieve authorization and certificate urls from OpenID metadata')
+                password = form.cleaned_data['password']
 
-            try:
-                auth_url, state = oauth2.get_authorization_url(auth_service.uri, cert_service.uri)
-            except oauth2.OAuth2Error:
-                return http.HttpResponseBadRequest('Could not retrieve the OAuth2 authorization url')
+                try:
+                    oid = openid.OpenID.retrieve_and_parse(openid_url)
 
-            request.session['oauth_state'] = state
+                    mpc_service = oid.find(URN_MPC)
+                except openid.OpenIDError:
+                    return http.HttpResponseBadRequest('Unable to retrieve authorization and certificate urls from OpenID metadata')
 
-            request.session['openid'] = openid_url
+                m = re.match('socket://(.*):(.*)', mpc_service.uri)
 
-            request.session['openid_response'] = oid.response 
+                if m is None:
+                    raise Exception('Could not parse host and port')
 
-            return redirect(auth_url)
+                host, port = m.groups()
+
+                certs = mpc.get_certificate(username, password, host, port)
+
+                manager = node_manager.NodeManager()
+
+                api_key = manager.create_user('myproxyclient', openid_url, oid.response, None, ''.join(certs))
+
+                return http.HttpResponse('Your new api key: {}'.format(api_key))
+            elif service == 'oauth2':
+                try:
+                    oid = openid.OpenID.retrieve_and_parse(openid_url)
+
+                    auth_service = oid.find(URN_AUTHORIZE)
+
+                    cert_service = oid.find(URN_RESOURCE)
+                except openid.OpenIDError:
+                    return http.HttpResponseBadRequest('Unable to retrieve authorization and certificate urls from OpenID metadata')
+
+                try:
+                    auth_url, state = oauth2.get_authorization_url(auth_service.uri, cert_service.uri)
+                except oauth2.OAuth2Error:
+                    return http.HttpResponseBadRequest('Could not retrieve the OAuth2 authorization url')
+
+                request.session['oauth_state'] = state
+
+                request.session['openid'] = openid_url
+
+                request.session['openid_response'] = oid.response 
+
+                return redirect(auth_url)
+            else:
+                raise Exception('Unknown service type')
     else:
         form = forms.OpenIDForm()
 
@@ -105,11 +139,13 @@ def wps(request):
         try:
             user = models.User.objects.filter(oauth2__api_key=api_key)[0]
         except IndexError:
-            # Always want to check for a user, just not error in DEBUG mode
-            if django.conf.settings.DEBUG:
-                user = None
-            else:
-                raise Exception('No valid user found')
+            user = None
+
+        if user is None:
+            try:
+                user = models.User.objects.filter(mpc__api_key=api_key)[0]
+            except IndexError:
+                raise Exception('Could not find user for api key {}'.format(api_key))
 
         if op == 'getcapabilities':
             response = manager.get_capabilities()

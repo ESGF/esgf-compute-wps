@@ -14,6 +14,13 @@ class OAuth2(models.Model):
     token = models.TextField()
     api_key = models.CharField(max_length=256)
 
+class MPC(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+
+    openid = models.TextField()
+    api_key = models.CharField(max_length=256)
+    cert = models.TextField()
+
 class Instance(models.Model):
     host = models.CharField(max_length=128, unique=True, blank=False, null=False)
     added_date = models.DateTimeField(auto_now_add=True)

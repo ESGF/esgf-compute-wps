@@ -254,116 +254,41 @@ def describe(server_id, identifiers):
 
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
-@shared_task(base=CWTBaseTask)
-def oauth2_certificate(user_id, **kwargs):
-    if user_id is None:
-        return None
+@shared_task(base=CWTBaseTask, ignore_result=True)
+def setup_auth(user_id, temp, **kwargs):
+    cwd = kwargs.get('cwd')
+
+    if cwd is not None:
+        os.chdir(cwd)
 
     try:
         user = models.User.objects.get(pk=user_id)
     except models.User.DoesNotExist:
-        raise Exception('User {} could not be found'.format(user_id))
+        raise Exception('Could not find user')
 
-    oid = openid.OpenID.parse(user.oauth2.openid)
+    with open(temp, 'w') as f:
+        f.write(''.join(user.mpc.cert))
 
-    URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
-    URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
+    cwd_dodsrc = os.path.join(os.getcwd(), '.dodsrc')
 
-    token_url = oid.find(URN_ACCESS)
+    cwd_dods_cookies = os.path.join(os.getcwd(), '.dods_cookies')
 
-    cert_url = oid.find(URN_RESOURCE)
+    if os.path.exists(cwd_dods_cookies):
+        os.remove(cwd_dods_cookies)
 
-    token = json.loads(user.oauth2.token)
+    with open(cwd_dodsrc, 'w') as f:
+        f.write('HTTP.COOKIEJAR=.dods_cookies\n')
+        f.write('HTTP.SSL.CERTIFICATE={}\n'.format(temp))
+        f.write('HTTP.SSL.KEY={}\n'.format(temp))
+        f.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
+        f.write('HTTP.SSL.VERIFY=0\n')
 
-    cert, key, token = oauth2.get_certificate(token, token_url.uri, cert_url.uri)
+@shared_task(base=CWTBaseTask, ignore_result=True)
+def cleanup_auth(temp, **kwargs):
+    cwd = kwargs.get('cwd')
 
-    user.oauth2.token = json.dumps(token)
+    if cwd is not None:
+        os.chdir(cwd)
 
-    user.oauth2.save()
-
-    return cert, key
-
-@shared_task(base=CWTBaseTask)
-def check_input(certificate, variable, job_id):
-    localize = False
-    var = cwt.Variable.from_dict(variable)
-
-    if 'file://' not in var.uri:
-        logger.info('Handling remote file')
-
-        try:
-            f = cdms2.open(var.uri, 'r') 
-        except Exception:
-            localize = True
-
-        # Must not be an OpenDAP, try regular HTTP GET request
-        if localize:
-            done = False
-
-            file_name = var.uri.split('/')[-1]
-
-            local_file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
-
-            if not os.path.exists(local_file_path):
-                try:
-                    response = requests.get(var.uri, timeout=4)
-                except requests.Timeout:
-                    logger.info('HTTP Get timed out')
-                else:
-                    if response.status_code == 200:
-                        with open(local_file_path, 'w') as infile:
-                            for chunk in response.iter_content(512000):
-                                logger.info('Writiing chunk size {}'.format(len(chunk)))
-
-                                infile.write(chunk)
-
-                        logger.info('Successfully localized file.')
-
-                        done = True
-
-                if not done and certificate is not None: 
-                    logger.info('Attempting to localize using certificate')
-
-                    pem_file = tempfile.NamedTemporaryFile(delete=False)
-
-                    pem_file.write(''.join(certificate))
-
-                    pem_file.write('/n')
-
-                    pem_file.close()
-
-                    try:
-                        response = requests.get(var.uri, cert=pem_file.name, timeout=4)
-                    except requests.Timeout:
-                        logger.info('HTTP Get with certificate timed out')
-
-                        raise Exception('Failed to localize file {}'.format(var.uri))
-                    else:
-                        if response.status_code == 200:
-                            with open(local_file_path, 'w') as infile:
-                                for chunk in response.iter_content(512000):
-                                    logger.info('Writiing chunk size {}'.format(len(chunk)))
-
-                                    infile.write(chunk)
-
-                            logger.info('Successfully localized file.')
-                        else:
-                            logger.info('Failed to localize file {}'.format(var.uri))
-
-                            raise Exception('Failed to localize {}'.format(var.uri))
-                    finally:
-                        logger.info('Cleanup')
-
-                        os.remove(pem_file.name)
-                elif not done:
-                    logger.info('No options left, must die')
-
-                    raise Exception('Failed to localize {}'.format(var.uri))
-            else:
-                logger.info('File has already been cached')
-
-            var.uri = 'file://{}'.format(local_file_path)
-
-            variable = var.parameterize()
-
-    return variable
+    if os.path.exists(temp):
+        os.remove(temp)

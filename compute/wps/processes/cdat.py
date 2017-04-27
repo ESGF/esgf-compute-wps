@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import os
 import uuid
 
 import cdms2
@@ -30,14 +31,14 @@ def int_or_float(value):
 @register_process('CDAT.subset')
 @shared_task(base=CWTBaseTask)
 def subset(variables, operations, domains, **kwargs):
+    cwd = kwargs.get('cwd')
+
+    if cwd is not None:
+        os.chdir(cwd)
+
     d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
 
-    if isinstance(variables, dict):
-        variables = [variables]
-
-    var_objects = [cwt.Variable.from_dict(x) for x in variables]
-
-    v = dict((x.name, x) for x in var_objects)
+    v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
 
     for var in v.values():
         var.resolve_domains(d)
@@ -114,12 +115,12 @@ def subset(variables, operations, domains, **kwargs):
 @register_process('CDAT.aggregate')
 @shared_task(base=CWTBaseTask)
 def aggregate(variables, operations, domains, **kwargs):
-    if isinstance(variables, dict):
-        variables = [variables]
-    
-    var_objects = [cwt.Variable.from_dict(x) for x in variables]
+    cwd = kwargs.get('cwd')
 
-    v = dict((x.name, x) for x in var_objects)
+    if cwd is not None:
+        os.chdir(cwd)
+
+    v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
 
     o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
 
@@ -169,12 +170,12 @@ def aggregate(variables, operations, domains, **kwargs):
 @register_process('CDAT.avg')
 @shared_task(base=CWTBaseTask)
 def avg(variables, operations, domains, **kwargs):
-    if isinstance(variables, dict):
-        variables = [variables]
-    
-    var_objects = [cwt.Variable.from_dict(x) for x in variables]
+    cwd = kwargs.get('cwd')
 
-    v = dict((x.name, x) for x in var_objects)
+    if cwd is not None:
+        os.chdir(cwd)
+
+    v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
 
     o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
 
@@ -184,11 +185,13 @@ def avg(variables, operations, domains, **kwargs):
 
     op = op_by_id('CDAT.avg')
 
-    inputs = [v[x] for x in op.inputs]
+    op.resolve_inputs(v, o)
 
-    var_name = inputs[0].var_name
+    var_name = op.inputs[0].var_name
 
-    inputs = [cdms2.open(x.uri) for x in inputs]
+    logger.info([x.uri for x in op.inputs])
+
+    inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
 
     n = inputs[0][var_name].shape[0]
 
