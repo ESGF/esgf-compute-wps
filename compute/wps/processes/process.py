@@ -122,13 +122,23 @@ class CWTBaseTask(celery.Task):
         except IndexError:
             raise Exception('Could not find operation {}'.format(name))
 
-    def create_output(self, name=None):
+    def generate_local_output(self, name=None):
         if name is None:
             name = '{}.nc'.format(uuid.uuid4())
 
         path = os.path.join(settings.OUTPUT_LOCAL_PATH, name)
 
-        return name, path
+        return path
+
+    def generate_output(self, local_path, **kwargs):
+        if kwargs.get('local') is None:
+            out_name = local_path.split('/')[-1]
+
+            output = settings.OUTPUT_URL.format(file_name=out_name)
+        else:
+            output = 'file://{}'.format(local_path)
+
+        return output
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         try:
