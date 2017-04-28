@@ -20,7 +20,6 @@ from wps import settings
 from wps import tasks
 from wps.auth import openid
 from wps.auth import oauth2
-from wps.auth import mpc
 
 logger = logging.getLogger(__name__)
 
