@@ -148,17 +148,17 @@ class CWTBaseTask(celery.Task):
         except models.Job.DoesNotExist:
             raise Exception('Job {} does not exist'.format(kwargs['job_id']))
 
-        job.status_failed(exc)
+        job.failed(str(exc))
 
-@shared_task(base=CWTBaseTask)
-def handle_output(variable, job_id):
+@shared_task(bind=True, base=CWTBaseTask)
+def handle_output(self, variable, **kwargs):
+    self.initialize(**kwargs)
+
+    job_id = kwargs.get('job_id')
+
     try:
         job = models.Job.objects.get(pk=job_id)
     except models.Job.DoesNotExist:
         raise Exception('Job does not exist {}'.format(job_id))
 
-    latest = job.status_set.all().latest('created_date')
-    
-    updated = wps_xml.update_execute_response(latest.result, json.dumps(variable))
-
-    job.status_set.create(status=str(updated.status), result=updated.xml())
+    job.succeeded(json.dumps(variable))

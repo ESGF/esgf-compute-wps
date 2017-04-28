@@ -143,12 +143,7 @@ class NodeManager(object):
         except models.Job.DoesNotExist:
             raise NodeManagerError('Job {0} does not exist'.format(job_id))
 
-        try:
-            latest_status = job.status_set.all().latest('created_date')
-        except models.Status.DoesNotExist:
-            raise NodeManagerError('Job {0} has not states'.format(job_id))
-
-        return latest_status.result
+        return job.latest.xml()
 
     def get_capabilities(self):
         """ Retrieves WPS GetCapabilities. """
@@ -192,7 +187,7 @@ class NodeManager(object):
 
         chain = (chain | process.si(variables, operations, domains, cwd='/tmp', job_id=job.id))
 
-        chain = (chain | tasks.handle_output.s(job.id))
+        chain = (chain | tasks.handle_output.s(job_id=job.id))
         
         chain = (chain | tasks.cleanup_auth.si(temp=temp, cwd='/tmp', job_id=job.id))
 
@@ -222,7 +217,7 @@ class NodeManager(object):
 
         job.save()
 
-        job.status_started(identifier)
+        job.set_report(identifier)
 
         if process.backend == 'local':
             self.execute_local(user, job, identifier, data_inputs)
@@ -233,7 +228,7 @@ class NodeManager(object):
 
             raise Exception('Process backend "{}" is unknown'.format(process.backend))
 
-        return job.result
+        return job.report
 
     def handle_get(self, params):
         """ Handle an HTTP GET request. """

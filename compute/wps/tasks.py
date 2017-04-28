@@ -113,11 +113,7 @@ def handle_response(data):
     error = wps_xml.check_cdas2_error(response)
 
     if error is not None:
-        latest = job.status_set.all().latest('created_date')
-
-        message = wps_xml.update_execute_response_exception(latest.result, error)
-
-        job.status_set.create(status=str(message.status), result=message.xml())
+        job.failed(error)
 
         return
 
@@ -136,15 +132,7 @@ def handle_response(data):
         except Exception as e:
             logger.exception('Failed to convert CDAS2 response: %s', e.message)
 
-            exc_report = metadata.ExceptionReport(wps_xml.VERSION)
-
-            exc_report.add_exception(metadata.NoApplicableCode, e.message)
-
-            latest_response = job.status_set.all().latest('created_date')
-
-            result = wps_xml.update_execute_response_exception(latest_response.result, exc_report)
-
-            job.status_set.create(status=str(result.status), result=result.xml())
+            job.failed(e.message)
 
             return
 
@@ -171,12 +159,10 @@ def handle_response(data):
             process.save()
 
             server.processes.add(process)
+
+        job.succeeded()
     else:
-        latest_response = job.status_set.all().latest('created_date')
-
-        result = wps_xml.update_execute_cdas2_response(latest_response.result, response)
-
-    job.status_set.create(status=str(result.status), result=result.xml())
+        job.update_report_cdas(response)
 
 @shared_task
 def monitor_cdas(instance_id):
@@ -254,12 +240,9 @@ def describe(server_id, identifiers):
 
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
-@shared_task(base=CWTBaseTask, ignore_result=True)
-def setup_auth(user_id, temp, **kwargs):
-    cwd = kwargs.get('cwd')
-
-    if cwd is not None:
-        os.chdir(cwd)
+@shared_task(bind=True, base=CWTBaseTask)
+def setup_auth(self, user_id, temp, **kwargs):
+    self.initialize(**kwargs)
 
     try:
         user = models.User.objects.get(pk=user_id)
@@ -283,12 +266,9 @@ def setup_auth(user_id, temp, **kwargs):
         f.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
         f.write('HTTP.SSL.VERIFY=0\n')
 
-@shared_task(base=CWTBaseTask, ignore_result=True)
-def cleanup_auth(temp, **kwargs):
-    cwd = kwargs.get('cwd')
-
-    if cwd is not None:
-        os.chdir(cwd)
+@shared_task(bind=True, base=CWTBaseTask)
+def cleanup_auth(self, temp, **kwargs):
+    self.initialize(**kwargs)
 
     if os.path.exists(temp):
         os.remove(temp)

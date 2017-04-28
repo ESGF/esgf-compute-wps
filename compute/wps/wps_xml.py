@@ -200,6 +200,22 @@ def execute_response(status_location, status, identifier):
 
     return ex
 
+def generate_status(status, message=None, percent=None, exception=None):
+    if 'Accepted' in status:
+        obj = metadata.ProcessAccepted()
+    elif 'Started' in status:
+        obj = metadata.ProcessStarted()
+    elif 'Paused' in status:
+        obj = metadata.ProcessPaused()
+    elif 'Succeeded' in status:
+        obj = metadata.ProcessSucceeded()
+    elif 'Failed' in status:
+        exc_report = metadata.ExceptionReport.from_xml(exception)
+
+        obj = metadata.ProcessFailed(exception_report=exc_report)
+
+    return obj
+
 def update_execute_response_exception(old_response, exception):
     ex = operations.ExecuteResponse.from_xml(old_response)
 
@@ -210,12 +226,10 @@ def update_execute_response_exception(old_response, exception):
 
     return ex
 
-def update_execute_response_status(old_response, msg, percent):
+def update_execute_response_status(old_response, status):
     ex = operations.ExecuteResponse.from_xml(old_response)
 
-    ex.status.value = msg
-
-    ex.status.percent_completed = percent
+    ex.status = status
 
     return ex
 

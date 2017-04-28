@@ -41,37 +41,88 @@ class Server(models.Model):
 
 class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True)
+
+    report = models.TextField()
 
     @property
-    def result(self):
-        status = self.status_set.all().latest('created_date')
+    def latest(self):
+        latest = self.status_set.all().latest('created_date')
 
-        return status.result
+        status = wps_xml.update_execute_response_status(self.report, latest())
 
-    def failed(self):
-        self.status_set.create(status=wps_lib.failed)
+        return status
 
-    def status_started(self, identifier):
-        status_location = settings.STATUS_LOCATION.format(job_id=self.id)
+    def set_report(self, identifier):
+        location = settings.STATUS_LOCATION.format(job_id=self.id)
 
-        response = wps_xml.execute_response(status_location, wps_lib.started, identifier)
+        report = wps_xml.execute_response(location, wps_lib.started, identifier)
 
-        self.status_set.create(status=wps_lib.started, result=response.xml())
+        self.report = report.xml()
 
-    def status_failed(self, exception):
-        exc_report = wps_lib.ExceptionReport(settings.VERSION)
+        self.save()
 
-        exc_report.add_exception(wps_lib.NoApplicableCode, exception)
+        status = self.status_set.create(status=wps_lib.started)
 
-        status = self.status_set.all().latest('created_date')
+        status.set_message('Job Started')
 
-        response = wps_xml.update_execute_response_exception(status.result, exc_report)
+    def update_report_cdas(self, response):
+        report = wps_xml.update_execute_cdas2_response(self.report, response)
 
-        self.status_set.create(status=wps_lib.failed, result=response.xml())
+        self.report = report.xml()
+
+        self.status_set.create(status=report.status)
+
+    def succeeded(self, output=None):
+        if output is not None:
+            report = wps_xml.update_execute_response(self.report, output) 
+
+            self.report = report.xml()
+
+            self.save()
+
+        self.status_set.create(status=wps_lib.succeeded)
+
+    def failed(self, exception=None):
+        status = self.status_set.create(status=wps_lib.failed)
+
+        if exception is not None:
+            status.set_exception(exception)
 
 class Status(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
-    status = models.CharField(max_length=64)
     created_date = models.DateTimeField(auto_now_add=True)
-    result = models.TextField()
+    status = models.CharField(max_length=128)
+
+    def __call__(self):
+        try:
+            latest = self.message_set.all().latest('created_date')
+        except Message.DoesNotExist:
+            latest = None
+
+        if latest is not None:
+            return wps_xml.generate_status(self.status, latest.message, latest.percent, latest.exception)
+        else:
+            return wps_xml.generate_status(self.status)
+
+    def set_message(self, message):
+        self.message_set.create(message=message)
+
+    def set_exception(self, exception):
+        if isinstance(exception, (str, unicode)):
+            exc_report = wps_lib.ExceptionReport(settings.VERSION)
+
+            exc_report.add_exception(wps_lib.NoApplicableCode, exception)
+
+            self.message_set.create(exception=exc_report.xml()) 
+        else:
+            self.message_set.create(exception=exception.xml())
+
+class Message(models.Model):
+    status = models.ForeignKey(Status, on_delete=models.CASCADE)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    percent = models.PositiveIntegerField(null=True)
+    message = models.TextField(null=True)
+    exception = models.TextField(null=True)
