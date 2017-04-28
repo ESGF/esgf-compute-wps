@@ -91,9 +91,11 @@ def aggregate(self, variables, operations, domains, **kwargs):
 @register_process('CDAT.avg')
 @shared_task(bind=True, base=CWTBaseTask)
 def avg(self, variables, operations, domains, **kwargs):
-    self.initialize(**kwargs)
+    status = self.initialize(**kwargs)
 
     v, d, o = self.load(variables, domains, operations)
+
+    status.update('Loaded variables')
 
     op = self.op_by_id('CDAT.avg', o)
 
@@ -105,6 +107,8 @@ def avg(self, variables, operations, domains, **kwargs):
 
     out_local_path = self.generate_local_output()
 
+    status.update('Averager {} inputs'.format(len(inputs)))
+
     with closing(cdms2.open(out_local_path, 'w')) as out:
         for i in xrange(0, n, 200):
             data = sum(x(var_name, time=slice(i, i+200)) for x in inputs) / len(inputs)
@@ -113,6 +117,8 @@ def avg(self, variables, operations, domains, **kwargs):
 
     for x in inputs:
         x.close()
+
+    status.update('Done averagering files')
 
     out_path = self.generate_output(out_local_path, **kwargs)
 

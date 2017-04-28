@@ -66,6 +66,11 @@ class Job(models.Model):
 
         status.set_message('Job Started')
 
+    def update_progress(self, message, percent):
+        status = self.status_set.all().latest('created_date')
+
+        status.message_set.create(message=message, percent=percent)
+
     def update_report_cdas(self, response):
         report = wps_xml.update_execute_cdas2_response(self.report, response)
 

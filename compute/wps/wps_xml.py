@@ -204,7 +204,7 @@ def generate_status(status, message=None, percent=None, exception=None):
     if 'Accepted' in status:
         obj = metadata.ProcessAccepted()
     elif 'Started' in status:
-        obj = metadata.ProcessStarted()
+        obj = metadata.ProcessStarted(value=message, percent_completed=percent)
     elif 'Paused' in status:
         obj = metadata.ProcessPaused()
     elif 'Succeeded' in status:

@@ -60,12 +60,40 @@ def int_or_float(value):
     except ValueError:
         return None
 
+class Status(object):
+    def __init__(self, job):
+        self.job = job
+        self.message = None
+        self.percent = 0
+
+    @classmethod
+    def from_job_id(cls, job_id):
+        try:
+            job = models.Job.objects.get(pk=job_id)
+        except models.Job.DoesNotExist:
+            raise Exception('Could not find job')
+
+        return cls(job)
+
+    def update(self, message=None, percent=None):
+        if message is not None:
+            self.message = message
+
+        if percent is not None:
+            self.percent = percent
+
+        logger.info('Update status {} {} %'.format(self.message, self.percent))
+
+        self.job.update_progress(self.message, self.percent)
+
 class CWTBaseTask(celery.Task):
     def initialize(self, **kwargs):
         cwd = kwargs.get('cwd')
 
         if cwd is not None:
             os.chdir(cwd)
+
+        return Status.from_job_id(kwargs.get('job_id'))
 
     def load(self, variables, domains, operations):
         v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
