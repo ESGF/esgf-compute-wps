@@ -2,7 +2,6 @@
 
 import logging
 import os
-import subprocess
 from base64 import b64encode
 
 from OpenSSL import crypto
@@ -26,8 +25,6 @@ def get_certificate(token, refresh_url, cert_url):
 
     secret = get_env('OAUTH_SECRET')
 
-    logger.info('Before Token {}'.format(token))
-    
     slcs = OAuth2Session(client_id,
                          token=token,
                          auto_refresh_url=refresh_url,
@@ -50,14 +47,15 @@ def get_certificate(token, refresh_url, cert_url):
     if cert_url[-1] != '/':
         cert_url = '{}/'.format(cert_url)
 
-    response = slcs.post(cert_url,
-                         data={ 'certificate_request': b64encode(cert_request) },
-                         verify=False)
+    try:
+        response = slcs.post(cert_url,
+                             data={ 'certificate_request': b64encode(cert_request) },
+                             verify=False)
+    except Exception:
+        raise OAuth2Error('Failed to contact authentication server.')
 
     if response.status_code != 200:
-        raise Exception('Failed to retrieve certificate {}'.format(response.reason))
-
-    logger.info('After Token {}'.format(token))
+        raise OAuth2Error('Failed to retrieve certificate {}'.format(response.reason))
 
     return response.text, private_key, token
 
