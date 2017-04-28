@@ -5,5 +5,6 @@ gunicorn
 redis
 psycopg2
 requests_oauthlib
+MyProxyClient
 django-webpack-loader
 git+https://github.com/esgf/esgf-compute-api
