@@ -71,7 +71,7 @@ class Status(object):
         try:
             job = models.Job.objects.get(pk=job_id)
         except models.Job.DoesNotExist:
-            raise Exception('Could not find job')
+            job = None
 
         return cls(job)
 
@@ -84,7 +84,8 @@ class Status(object):
 
         logger.info('Update status {} {} %'.format(self.message, self.percent))
 
-        self.job.update_progress(self.message, self.percent)
+        if self.job is not None:
+            self.job.update_progress(self.message, self.percent)
 
 class CWTBaseTask(celery.Task):
     def initialize(self, **kwargs):
