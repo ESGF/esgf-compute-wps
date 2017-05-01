@@ -114,12 +114,12 @@ class CWTBaseTask(celery.Task):
 
         return v, d, o
 
-    def build_domain(self, inputs, domain, var_name):
-        temporal = (0, len(inputs[0][var_name]), 1)
+    def build_domain(self, inp, domain, var_name):
+        temporal = (0, len(inp[var_name]), 1)
         spatial = {}
 
         if domain is not None:
-            axes = dict((x.id, x) for x in inputs[0][var_name].getAxisList())
+            axes = dict((x.id, x) for x in inp[var_name].getAxisList())
 
             for dim in domain.dimensions:
                 if dim.name == 'time' or (dim.name in axes and axes[dim.name].isTime()):

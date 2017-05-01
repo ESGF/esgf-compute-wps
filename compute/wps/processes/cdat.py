@@ -33,7 +33,7 @@ def subset(self, variables, operations, domains, **kwargs):
     out_local_path = self.generate_local_output()
 
     with closing(cdms2.open(op.inputs[0].uri)) as inp:
-        temporal, spatial = self.build_domain([inp], op.domain, var_name)
+        temporal, spatial = self.build_domain(inp, op.domain, var_name)
 
         tstart, tstop, tstep = temporal
 
@@ -102,7 +102,7 @@ def avg(self, variables, operations, domains, **kwargs):
               for x in op.inputs]
 
     with nested(*inputs) as inputs:
-        temporal, spatial = self.build_domain(inputs, op.domain, var_name)
+        temporal, spatial = self.build_domain(inputs[0], op.domain, var_name)
 
         tstart, tstop, tstep = temporal
 
