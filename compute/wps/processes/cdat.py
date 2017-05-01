@@ -22,7 +22,7 @@ __all__ = ['avg']
 @register_process('CDAT.subset')
 @shared_task(bind=True, base=CWTBaseTask)
 def subset(self, variables, operations, domains, **kwargs):
-    self.initialize(**kwargs)
+    status = self.initialize(**kwargs)
 
     v, d, o = self.load(variables, domains, operations)
 
@@ -38,12 +38,21 @@ def subset(self, variables, operations, domains, **kwargs):
         tstart, tstop, tstep = temporal
 
         step = tstop - tstart if (tstop - tstart) < 200 else 200
+
+        status.update('Subsetting {}'.format(var_name))
+
+        current = 0
+        total = (tstop - tstart)
             
         with closing(cdms2.open(out_local_path, 'w')) as out:
             for i in xrange(tstart, tstop, step):
                 data = inp(var_name, time=slice(i, i+step, tstep), **spatial)
 
                 out.write(data, id=var_name)
+
+                current += step
+
+                status.update(percent=(current * 100) / total)
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
