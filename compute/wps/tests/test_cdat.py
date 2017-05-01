@@ -47,6 +47,23 @@ class TestCDAT(test.TestCase):
         self.v.update(self.gen_variable(10, time, lat, lon, 'tas', 'tas_365_10'))
         self.v.update(self.gen_variable(20, time, lat, lon, 'tas', 'tas_365_20'))
 
+    def test_subset(self):
+        o = {'CDAT.subset': {'name': 'CDAT.subset', 'domain': 'd0', 'input': ['tas_365_10']}}
+
+        d = {'d0': {
+                    'id': 'd0', 
+                    'time': {'start': 200, 'end': 300, 'crs': 'indices'},
+                    'latitude': {'start': 0, 'end': 90, 'crs': 'values'},
+                    'longitude': {'start': 45, 'end': 224, 'crs': 'values'},
+                   }}
+        
+        result = cdat.subset(self.v, o, d, local=True)
+
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (100, 180, 90))
+
     def test_avg_domain_spatial_values(self):
         o = {'CDAT.avg': {'name': 'CDAT.avg', 'domain': 'd0', 'input': ['tas_365_10', 'tas_365_20']}}
 

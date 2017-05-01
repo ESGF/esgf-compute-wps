@@ -26,21 +26,25 @@ def subset(self, variables, operations, domains, **kwargs):
 
     v, d, o = self.load(variables, domains, operations)
 
-    op = self.op_by_id('CDAT.subset')
+    op = self.op_by_id('CDAT.subset', o)
 
     var_name = op.inputs[0].var_name
 
-    # Only process first inputs
-    inp = cdms2.open(op.inputs[0].uri, 'r')
-
-    start, stop, dom_kw = self.build_domain(op.inputs, var_name)
-
     out_local_path = self.generate_local_output()
 
-    with closing(cdms2.open(out_path, 'w')) as out:
-        data = inp(var_name, **dom_kw)
+    # Only process first inputs
+    with closing(cdms2.open(op.inputs[0].uri)) as inp:
+        temporal, spatial = self.build_domain([inp], op.domain, var_name)
 
-        out.write(data, id=var_name)
+        tstart, tstop, tstep = temporal
+
+        step = tstop - tstart if (tstop - tstart) < 200 else 200
+            
+        with closing(cdms2.open(out_local_path, 'w')) as out:
+            for i in xrange(tstart, tstop, step):
+                data = inp(var_name, time=slice(i, i+step, tstep), **spatial)
+
+                out.write(data, id=var_name)
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
