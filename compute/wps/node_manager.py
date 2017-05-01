@@ -119,7 +119,7 @@ class NodeManager(object):
 
         cert, key, new_token = oauth2.get_certificate(token, token_service.uri, cert_service.uri)
 
-        api_key = self.create_user('oauth2', oid.response, oid_url, cert, token=new_token)
+        api_key = self.create_user('oauth2', oid.response, oid_url, ''.join([cert, key]), token=new_token)
 
         return api_key
 
