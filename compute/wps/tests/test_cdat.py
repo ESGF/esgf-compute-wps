@@ -12,54 +12,121 @@ from wps.processes import cdat
 
 class TestCDAT(test.TestCase):
 
+    def gen_time(self, start, stop, units):
+        time = cdms2.createAxis([x for x in xrange(start, stop)])
+        time.id = 'time'
+        time.units = units
+        time.designateTime()
+
+        return time
+
+    def gen_variable(self, value, time, lat, lon, var_name, identifier):
+        name = '{}_{}_{}_{}_{}.nc'.format(var_name, value, len(time), len(lat), len(lon))
+
+        path = os.path.join(os.getcwd(), name)
+
+        with closing(cdms2.open(path, 'w')) as f:
+            data = np.array([[[value
+                               for _ in xrange(len(lat))]
+                              for _ in xrange(len(lon))]
+                             for _ in xrange(len(time))])
+
+            f.write(data, axes=(time, lon, lat), id=var_name)
+
+        return [(identifier, {'uri': path, 'id': '{}|{}'.format(var_name, identifier)})]
+
     def setUp(self):
-        lon = cdms2.createAxis(np.array([x for x in xrange(0, 180)]))
+        lat = cdms2.createUniformLatitudeAxis(-89.5, 180, 1.0)
 
-        lat = cdms2.createAxis(np.array([x for x in xrange(-90, 90)]))
+        lon = cdms2.createUniformLongitudeAxis(0, 360, 1.0)
 
-        time1 = cdms2.createAxis(np.array([x for x in xrange(0, 365)]))
-        time1.units = 'days since 2016-1-1'
+        time = self.gen_time(1, 366, 'days since 2000-1-1')
 
-        time2 = cdms2.createAxis(np.array([x for x in xrange(0, 730)]))
-        time2.units = 'days since 2015-1-1'
+        self.v = {}
+        
+        self.v.update(self.gen_variable(10, time, lat, lon, 'tas', 'tas_365_10'))
+        self.v.update(self.gen_variable(20, time, lat, lon, 'tas', 'tas_365_20'))
 
-        self.tas_365_10 = os.path.join(os.getcwd(), 'tas_365_10.nc')
+    def test_avg_domain_spatial_values(self):
+        o = {'CDAT.avg': {'name': 'CDAT.avg', 'domain': 'd0', 'input': ['tas_365_10', 'tas_365_20']}}
 
-        with closing(cdms2.open(self.tas_365_10, 'w')) as f:
-            tas_365_10 = cdms2.createVariable(np.array([[[10 for _ in xrange(180)] for _ in xrange(180)] for _ in xrange(365)]), axes=(time1, lat, lon), id='tas')
+        d = {'d0': {
+                    'id': 'd0', 
+                    'latitude': {'start': 0, 'end': 90, 'crs': 'values'},
+                    'longitude': {'start': 45, 'end': 224, 'crs': 'values'},
+                   }}
 
-            f.write(tas_365_10)
+        result = cdat.avg(self.v, o, d, local=True)
+   
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
 
-        self.tas_365_20 = os.path.join(os.getcwd(), 'tas_365_20.nc')
+            self.assertEqual(tas.shape, (365, 180, 90))
 
-        with closing(cdms2.open(self.tas_365_20, 'w')) as f:
-            tas_365_20 = cdms2.createVariable(np.array([[[20 for _ in xrange(180)] for _ in xrange(180)] for _ in xrange(365)]), axes=(time1, lat, lon), id='tas')
+    def test_avg_domain_spatial_indices(self):
+        o = {'CDAT.avg': {'name': 'CDAT.avg', 'domain': 'd0', 'input': ['tas_365_10', 'tas_365_20']}}
 
-            f.write(tas_365_20)
+        d = {'d0': {
+                    'id': 'd0', 
+                    'latitude': {'start': 90, 'end': 135, 'crs': 'indices'},
+                    'longitude': {'start': 45, 'end': 225, 'crs': 'indices'},
+                   }}
 
-        self.tas_730_20 = os.path.join(os.getcwd(), 'tas_730_20.nc')
+        result = cdat.avg(self.v, o, d, local=True)
+   
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
 
-        with closing(cdms2.open(self.tas_730_20, 'w')) as f:
-            tas_730_20 = cdms2.createVariable(np.array([[[20 for _ in xrange(180)] for _ in xrange(180)] for _ in xrange(730)]), axes=(time2, lat, lon), id='tas')
+            self.assertEqual(tas.shape, (365, 180, 45))
 
-            f.write(tas_730_20)
+    def test_avg_domain_time_values(self):
+        o = {'CDAT.avg': {'name': 'CDAT.avg', 'domain': 'd0', 'input': ['tas_365_10', 'tas_365_20']}}
 
-        self.v = {
-                  'tas1': {'uri': self.tas_365_10, 'id': 'tas|tas1'},
-                  'tas2': {'uri': self.tas_365_20, 'id': 'tas|tas2'},
-                  'tas3': {'uri': self.tas_730_20, 'id': 'tas|tas3'},
-                 }
+        d = {'d0': {'id': 'd0', 'time': {'start': 10, 'end': 110, 'crs': 'values' }}}
+
+        result = cdat.avg(self.v, o, d, local=True)
+   
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (100, 360, 180))
+            self.assertEqual(tas.getTime()[0], 10)
+
+    def test_avg_domain_time_indices_step(self):
+        o = {'CDAT.avg': {'name': 'CDAT.avg', 'domain': 'd0', 'input': ['tas_365_10', 'tas_365_20']}}
+
+        d = {'d0': {'id': 'd0', 'time': {'start': 10, 'end': 110, 'crs': 'indices', 'step': 2 }}}
+
+        result = cdat.avg(self.v, o, d, local=True)
+   
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (50, 360, 180))
+            self.assertEqual(tas.getTime()[0], 11)
+
+    def test_avg_domain_time_indices(self):
+        o = {'CDAT.avg': {'name': 'CDAT.avg', 'domain': 'd0', 'input': ['tas_365_10', 'tas_365_20']}}
+
+        d = {'d0': {'id': 'd0', 'time': {'start': 10, 'end': 110, 'crs': 'indices' }}}
+
+        result = cdat.avg(self.v, o, d, local=True)
+   
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (100, 360, 180))
+            self.assertEqual(tas.getTime()[0], 11)
 
     def test_avg(self):
-        o = {'avg': {'name': 'CDAT.avg', 'input': ['tas1', 'tas2'] }}
+        o = {'CDAT.avg': {'name': 'CDAT.avg', 'input': ['tas_365_10', 'tas_365_20']}}
 
         d = {}
 
         result = cdat.avg(self.v, o, d, local=True)
-        
-        f = cdms2.open(result['uri'])
+   
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
 
-        v = f['tas']
-
-        self.assertEqual(v.shape, (365, 180, 180))
-        self.assertEqual(v[0][0][0], 15)
+            self.assertEqual(tas.shape, (365, 360, 180))
+            self.assertEqual(tas[0][0][0], 15)

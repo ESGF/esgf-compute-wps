@@ -3,6 +3,7 @@
 import os
 import uuid
 from contextlib import closing
+from contextlib import nested
 
 import cdms2
 import cwt
@@ -32,7 +33,7 @@ def subset(self, variables, operations, domains, **kwargs):
     # Only process first inputs
     inp = cdms2.open(op.inputs[0].uri, 'r')
 
-    dom_kw = self.build_domain(op.inputs, var_name)
+    start, stop, dom_kw = self.build_domain(op.inputs, var_name)
 
     out_local_path = self.generate_local_output()
 
@@ -95,30 +96,28 @@ def avg(self, variables, operations, domains, **kwargs):
 
     v, d, o = self.load(variables, domains, operations)
 
-    status.update('Loaded variables')
-
     op = self.op_by_id('CDAT.avg', o)
 
     var_name = op.inputs[0].var_name
 
-    inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
-
-    n = inputs[0][var_name].shape[0]
-
     out_local_path = self.generate_local_output()
 
-    status.update('Averager {} inputs'.format(len(inputs)))
+    inputs = [closing(cdms2.open(x.uri.replace('https', 'http')))
+              for x in op.inputs]
 
-    with closing(cdms2.open(out_local_path, 'w')) as out:
-        for i in xrange(0, n, 200):
-            data = sum(x(var_name, time=slice(i, i+200)) for x in inputs) / len(inputs)
+    with nested(*inputs) as inputs:
+        temporal, spatial = self.build_domain(inputs, op.domain, var_name)
 
-            out.write(data, id=var_name)
+        tstart, tstop, tstep = temporal
 
-    for x in inputs:
-        x.close()
+        step = tstop - tstart if (tstop - tstart) < 200 else 200
 
-    status.update('Done averagering files')
+        with closing(cdms2.open(out_local_path, 'w')) as f:
+            for i in xrange(tstart, tstop, step):
+                data = sum(x(var_name, time=slice(i, i+step, tstep), **spatial)
+                           for x in inputs) / len(inputs)
+
+                f.write(data, id=var_name)
 
     out_path = self.generate_output(out_local_path, **kwargs)
 

@@ -109,41 +109,39 @@ class CWTBaseTask(celery.Task):
         for op in o.values():
             op.resolve_inputs(v, o)
 
+        if op.domain is not None:
+            op.domain = d[op.domain]
+
         return v, d, o
 
-    def build_domain(self, inputs, var_name):
-        dom = inputs[0].domains[0]
+    def build_domain(self, inputs, domain, var_name):
+        temporal = (0, len(inputs[0][var_name]), 1)
+        spatial = {}
 
-        dom_kw = {}
+        if domain is not None:
+            axes = dict((x.id, x) for x in inputs[0][var_name].getAxisList())
 
-        with closing(cdms2.open(inputs[0].uri, 'r')) as f:
-            for dim in dom.dimensions:
-                args = None
+            for dim in domain.dimensions:
+                if dim.name == 'time' or (dim.name in axes and axes[dim.name].isTime()):
+                    if dim.crs == cwt.INDICES:
+                        temporal = (dim.start, dim.end, dim.step)
+                    elif dim.crs == cwt.VALUES:
+                        start, stop = axes[dim.name].mapInterval((dim.start, dim.end))
 
-                if dim.crs == cwt.INDICES:
-                    # Single slice or range
-                    if dim.start == dim.end:
-                        args = slice(dim.start, dim.end+1, dim.step)
+                        temporal = (start, stop-1, dim.step)
                     else:
-                        args = slice(dim.start, dim.end, dim.step)
-                elif dim.crs == cwt.VALUES:
-                    if dim.start == dim.end:
-                        args = dim.start
-                    else:
-                        if dim.name == 'time':
-                            args = (str(dim.start), str(dim.end))
-                        else:
-                            axis_index = f[var_name].getAxisIndex(dim.name)                
-
-                            axis = f[var_name].getAxis(axis_index)
-
-                            args = axis.mapInterval((int_or_float(dim.start), int_or_float(dim.end)))
+                        raise Exception('Unknown CRS value {}'.format(dim.crs))
                 else:
-                    raise Exception('Unknown CRS {}'.format(dim.crs))
+                    if dim.crs == cwt.INDICES:
+                        spatial[dim.name] = slice(dim.start, dim.end, dim.step)
+                    elif dim.crs == cwt.VALUES:
+                        start, stop = axes[dim.name].mapInterval((dim.start, dim.end))
 
-                dom_kw[dim.name] = args
+                        spatial[dim.name] = slice(start, stop, dim.step)
+                    else:
+                        raise Exception('Unknown CRS value {}'.format(dim.crs))
 
-        return dom_kw
+        return temporal, spatial
 
     def op_by_id(self, name, operations):
         try:
