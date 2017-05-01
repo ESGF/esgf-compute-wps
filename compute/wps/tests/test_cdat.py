@@ -13,15 +13,15 @@ from wps.processes import cdat
 class TestCDAT(test.TestCase):
 
     def gen_time(self, start, stop, units):
-        time = cdms2.createAxis([x for x in xrange(start, stop)])
+        time = cdms2.createAxis([x for x in xrange(start, stop+1)])
         time.id = 'time'
-        time.units = units
+        time.units = '{} 0'.format(units)
         time.designateTime()
 
         return time
 
     def gen_variable(self, value, time, lat, lon, var_name, identifier):
-        name = '{}_{}_{}_{}_{}.nc'.format(var_name, value, len(time), len(lat), len(lon))
+        name = '{}.nc'.format(identifier)
 
         path = os.path.join(os.getcwd(), name)
 
@@ -40,12 +40,40 @@ class TestCDAT(test.TestCase):
 
         lon = cdms2.createUniformLongitudeAxis(0, 360, 1.0)
 
-        time = self.gen_time(1, 366, 'days since 2000-1-1')
+        time = self.gen_time(1, 365, 'days since 2000-1-1')
+
+        time2 = self.gen_time(1, 365, 'days since 2001-1-1')
 
         self.v = {}
         
         self.v.update(self.gen_variable(10, time, lat, lon, 'tas', 'tas_365_10'))
+        self.v.update(self.gen_variable(10, time, lat, lon, 'tas', 'tas_365_10_3'))
+        self.v.update(self.gen_variable(10, time2, lat, lon, 'tas', 'tas_365_10_1'))
         self.v.update(self.gen_variable(20, time, lat, lon, 'tas', 'tas_365_20'))
+
+    def test_aggregate_bad_filename_order(self):
+        o = {'CDAT.aggregate': {'name': 'CDAT.aggregate', 'input': ['tas_365_10_3', 'tas_365_10_1']}}
+
+        d = {}
+
+        result = cdat.aggregate(self.v, o, d, local=True)
+
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (730, 360, 180))
+
+    def test_aggregate(self):
+        o = {'CDAT.aggregate': {'name': 'CDAT.aggregate', 'input': ['tas_365_10', 'tas_365_10_1']}}
+
+        d = {}
+
+        result = cdat.aggregate(self.v, o, d, local=True)
+
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (730, 360, 180))
 
     def test_subset(self):
         o = {'CDAT.subset': {'name': 'CDAT.subset', 'domain': 'd0', 'input': ['tas_365_10']}}

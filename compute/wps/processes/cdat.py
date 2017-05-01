@@ -32,7 +32,6 @@ def subset(self, variables, operations, domains, **kwargs):
 
     out_local_path = self.generate_local_output()
 
-    # Only process first inputs
     with closing(cdms2.open(op.inputs[0].uri)) as inp:
         temporal, spatial = self.build_domain([inp], op.domain, var_name)
 
@@ -59,33 +58,26 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     v, d, o = self.load(variables, domains, operations)
 
-    op = self.op_by_id('CDAT.aggregate')
+    op = self.op_by_id('CDAT.aggregate', o)
 
-    sort_inputs = sorted(op.inputs, key=lambda x: x.uri.split('/')[-1])
-
-    var_name = sort_inputs[0].var_name
-
-    inputs = [cdms2.open(x.uri, 'r') for x in sort_inputs]
+    var_name = op.inputs[0].var_name
 
     out_local_path = self.generate_local_output()
 
-    with closing(cdms2.open(out_path, 'w')) as out:
-        units = None
+    inputs = [cdms2.open(x.uri) for x in op.inputs]
 
-        for a in inputs:
-            n = a[var_name].getTime()
+    inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
-            if units is None:
-                units = n.units
+    with nested(*[closing(x) for x in inputs]) as inputs:
+        with closing(cdms2.open(out_local_path, 'w')) as out:
+            units = sorted([x[var_name].getTime().units for x in inputs])[0]
 
-            for b in xrange(0, len(n), 200):
-                data = a(var_name, time=slice(b, b+200))
+            for inp in inputs:
+                data = inp(var_name)
 
                 data.getTime().toRelativeTime(units)
 
                 out.write(data, id=var_name)
-
-            a.close()
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
