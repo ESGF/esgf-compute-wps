@@ -45,22 +45,10 @@ def subset(self, variables, operations, domains, **kwargs):
 
         current = 0
         total = (tstop - tstart)
-        grid = None
-
-        if 'grid' in op.parameters:
-            tool = op.parameters['tool'].values
-
-            method = op.parameters['method'].values
-
-            if op.parameters['grid'].values == 't21':
-                grid = cdms2.createGaussianGridGrid(32)
             
         with closing(cdms2.open(out_local_path, 'w')) as out:
             for i in xrange(tstart, tstop, step):
                 data = inp(var_name, time=slice(i, i+step, tstep), **spatial[0])
-
-                if grid is not None:
-                    data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
                 out.write(data, id=var_name)
 
@@ -102,6 +90,22 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
+    grid = None
+    gridder = op.parameters.get('gridder')
+
+    if gridder is not None:
+        logger.info(gridder)
+
+        regrid_kwargs = {
+                         'regridTool': gridder.tool,
+                         'regridMethod': gridder.method,
+                        }
+
+        if gridder.grid.lower() == 't42':
+            grid = cdms2.createGaussianGrid(64)
+        elif gridder.grid.lower() == 't21':
+            grid = cdms2.createGaussianGrid(32)
+
     with nested(*[closing(x) for x in inputs]) as inputs:
         with closing(cdms2.open(out_local_path, 'w')) as out:
             units = sorted([x[var_name].getTime().units for x in inputs])[0]
@@ -117,6 +121,9 @@ def aggregate(self, variables, operations, domains, **kwargs):
                     data = inp(var_name, time=slice(i, i+step, tstep), **spatial)
 
                     data.getTime().toRelativeTime(units)
+
+                    if grid is not None:
+                        data = data.regrid(grid, **regrid_kwargs)
 
                     out.write(data, id=var_name)
 
