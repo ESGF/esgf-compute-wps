@@ -45,10 +45,22 @@ def subset(self, variables, operations, domains, **kwargs):
 
         current = 0
         total = (tstop - tstart)
+        grid = None
+
+        if 'grid' in op.parameters:
+            tool = op.parameters['tool'].values
+
+            method = op.parameters['method'].values
+
+            if op.parameters['grid'].values == 't21':
+                grid = cdms2.createGaussianGridGrid(32)
             
         with closing(cdms2.open(out_local_path, 'w')) as out:
             for i in xrange(tstart, tstop, step):
                 data = inp(var_name, time=slice(i, i+step, tstep), **spatial[0])
+
+                if grid is not None:
+                    data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
                 out.write(data, id=var_name)
 
