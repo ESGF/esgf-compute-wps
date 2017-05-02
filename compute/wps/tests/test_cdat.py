@@ -44,12 +44,30 @@ class TestCDAT(test.TestCase):
 
         time2 = self.gen_time(1, 365, 'days since 2001-1-1')
 
+        time3 = self.gen_time(1, 365, 'days since 2002-1-1')
+
         self.v = {}
         
         self.v.update(self.gen_variable(10, time, lat, lon, 'tas', 'tas_365_10'))
         self.v.update(self.gen_variable(10, time, lat, lon, 'tas', 'tas_365_10_3'))
         self.v.update(self.gen_variable(10, time2, lat, lon, 'tas', 'tas_365_10_1'))
+        self.v.update(self.gen_variable(10, time3, lat, lon, 'tas', 'tas_365_10_2'))
         self.v.update(self.gen_variable(20, time, lat, lon, 'tas', 'tas_365_20'))
+
+    def test_aggregate_domain_global_indices(self):
+        o = {'CDAT.aggregate': {'name': 'CDAT.aggregate',
+                                'domain': 'd0',
+                                'input': ['tas_365_10', 'tas_365_10_1', 'tas_365_10_2']}}
+
+        d = {'d0': {'id': 'd0',
+                    'time': {'start': 265, 'end': 830, 'crs': 'indices'}}}
+
+        result = cdat.aggregate(self.v, o, d, local=True)
+
+        with closing(cdms2.open(result['uri'])) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (565, 360, 180))
 
     def test_aggregate_domain_single_input(self):
         o = {'CDAT.aggregate': {'name': 'CDAT.aggregate', 'input': ['tas_365_10_3', 'tas_365_10_1']}}

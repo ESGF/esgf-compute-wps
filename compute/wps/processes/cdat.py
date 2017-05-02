@@ -73,7 +73,16 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     out_local_path = self.generate_local_output()
 
-    domain = dict((x.uri, x.domains[0]) for x in op.inputs if x.domains is not None)
+    domain = {}
+
+    if op.domain is not None:
+        domain['global'] = op.domain
+    
+    for i in op.inputs:
+        if i.domains is None:
+            domain[i.uri] = None
+        else:
+            domain[i.uri] = i.domains[0]
 
     inputs = [cdms2.open(x.uri) for x in op.inputs]
 
@@ -83,12 +92,9 @@ def aggregate(self, variables, operations, domains, **kwargs):
         with closing(cdms2.open(out_local_path, 'w')) as out:
             units = sorted([x[var_name].getTime().units for x in inputs])[0]
 
-            for inp in inputs:
-                if inp.id in domain:
-                    temporal, spatial = self.build_domain(inp, domain[inp.id], var_name)
-                else:
-                    temporal, spatial = self.build_domain(inp, None, var_name)
+            gtemporal, gspatial = self.build_domain(inputs, domain, var_name)
 
+            for inp, temporal, spatial in zip(inputs, gtemporal, gspatial):
                 tstart, tstop, tstep = temporal
 
                 step = tstop - tstart if (tstop - tstart) < 200 else 200
