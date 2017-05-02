@@ -148,44 +148,6 @@ def status(request, job_id):
 
     return http.HttpResponse(status, content_type='text/xml')
 
-@require_http_methods(['GET'])
-def jobs(request):
-    jobs = get_list_or_404(models.Job)
-
-    data = []
-
-    for j in jobs:
-        history = [dict(pk=x.pk, status=x.status, created_date=x.created_date, result=x.result)
-                for x in j.status_set.all()]
-
-        data.append(dict(pk=j.pk, server=j.server.host, history=history))
-
-    return http.JsonResponse(data, safe=False)
-
-@require_http_methods(['GET'])
-def processes(request):
-    processes = get_list_or_404(models.Process)
-
-    data = serializers.serialize('json', processes)
-
-    return http.HttpResponse(data, content_type='application/json')
-
-@require_http_methods(['GET'])
-def instances(request):
-    instances = get_list_or_404(models.Instance)
-
-    data = serializers.serialize('json', instances)
-
-    return http.HttpResponse(data, content_type='application/json')
-
-@require_http_methods(['GET'])
-def servers(request):
-    servers = get_list_or_404(models.Server)
-
-    data = serializers.serialize('json', servers)
-
-    return http.HttpResponse(data, content_type='application/json')
-
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)
 
