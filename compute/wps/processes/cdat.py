@@ -33,9 +33,11 @@ def subset(self, variables, operations, domains, **kwargs):
     out_local_path = self.generate_local_output()
 
     with closing(cdms2.open(op.inputs[0].uri)) as inp:
-        temporal, spatial = self.build_domain(inp, op.domain, var_name)
+        domain = { inp.id: op.domain }
 
-        tstart, tstop, tstep = temporal
+        temporal, spatial = self.build_domain([inp], domain, var_name)
+
+        tstart, tstop, tstep = temporal[0]
 
         step = tstop - tstart if (tstop - tstart) < 200 else 200
 
@@ -46,7 +48,7 @@ def subset(self, variables, operations, domains, **kwargs):
             
         with closing(cdms2.open(out_local_path, 'w')) as out:
             for i in xrange(tstart, tstop, step):
-                data = inp(var_name, time=slice(i, i+step, tstep), **spatial)
+                data = inp(var_name, time=slice(i, i+step, tstep), **spatial[0])
 
                 out.write(data, id=var_name)
 
