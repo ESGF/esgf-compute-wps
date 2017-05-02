@@ -114,6 +114,34 @@ class CWTBaseTask(celery.Task):
 
         return v, d, o
 
+    def generate_grid(self, operation):
+        gridder = operation.parameters.get('gridder')
+
+        grid = None
+        tool = None
+        method = None
+
+        if gridder is not None:
+            tool = gridder.tool
+
+            method = gridder.method
+
+            if isinstance(gridder.grid, (str, unicode)):
+                grid_type, arg = gridder.grid.split('~')
+
+                if grid_type == 'gaussian':
+                    grid = cdms2.createGaussianGrid(int(arg))
+                elif grid_type == 'uniform':
+                    lat_step, lon_step = arg.split('x')
+
+                    lat_step = int_or_float(lat_step)
+
+                    lon_step = int_or_float(lon_step)
+
+                    grid = cdms2.createUniformGrid(90.0, 180/lat_step, -lat_step, 0.0, 360/lon_step, lon_step)
+
+        return grid, tool, method
+
     def build_domain(self, inputs, domains, var_name):
         temporal = []
         spatial = []
