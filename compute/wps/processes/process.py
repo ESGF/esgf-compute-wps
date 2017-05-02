@@ -149,7 +149,14 @@ class CWTBaseTask(celery.Task):
                         elif dim.crs == cwt.VALUES:
                             start, stop = axes[dim.name].mapInterval((dim.start, dim.end))
 
-                            temporal[idx] = (start, stop-1, dim.step)
+                            dim.start -= start
+
+                            if dim.start < 0:
+                                dim.start = 0
+
+                            dim.end -= stop
+
+                            temporal[idx] = (start, stop, dim.step)
                         else:
                             raise Exception('Unknown CRS value {}'.format(dim.crs))
                     else:
