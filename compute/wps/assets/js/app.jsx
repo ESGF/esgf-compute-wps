@@ -5,12 +5,16 @@ import {
   Switch,
 } from 'react-router-dom';
 
+import LoginMPC from './login_mpc.jsx';
+
 class App extends Component {
   render() {
     return (
       <Router>
         <Switch>
-          <Route path='/' component={Home} />
+          <Route exact path='/wps/debug/' component={Home} />
+          <Route path='/wps/debug/login/mpc/' component={LoginMPC} />
+          <Route component={NotFound} />
         </Switch>
       </Router>
     )
@@ -18,5 +22,6 @@ class App extends Component {
 }
 
 const Home = () => <h1>Hello from Home!</h1>
+const NotFound = () => <h1>404 Page is not found!</h1>
 
 export default App

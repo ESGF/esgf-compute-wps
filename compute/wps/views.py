@@ -69,6 +69,8 @@ def login_oauth2(request):
 @require_http_methods(['GET', 'POST'])
 def login_mpc(request):
     if request.method == 'POST':
+        logger.info(request.POST)
+
         form = forms.MPCForm(request.POST)
 
         if form.is_valid():
