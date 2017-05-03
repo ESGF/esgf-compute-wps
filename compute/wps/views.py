@@ -4,6 +4,10 @@ import re
 
 import django
 from django import http
+from django.contrib.auth import authenticate
+from django.contrib.auth import login as dlogin
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required
 from django.core import serializers
 from django.shortcuts import render
 from django.shortcuts import redirect
@@ -61,9 +65,35 @@ def create(request):
 
     return http.JsonResponse({ 'status': 'success' })
 
-@require_http_methods(['GET'])
+@require_http_methods(['GET', 'POST'])
 def login(request):
+    if request.method == 'POST':
+        form = forms.LoginForm(request.POST)
+
+        if form.is_valid():
+            username = form.cleaned_data['username']
+
+            password = form.cleaned_data['password']
+
+            user = authenticate(request, username=username, password=password)
+
+            if user is not None:
+                dlogin(request, user)
+
+                return http.JsonResponse({ 'status': 'success' })
+            else:
+                return http.JsonResponse({ 'status': 'failure', 'errors': 'bad login' })
+        else:
+            return http.JsonResponse({ 'status': 'failure', 'errors': form.errors })
+
     return render(request, 'wps/login.html')
+
+@require_http_methods(['GET'])
+@login_required
+def logout_view(request):
+    logout(request)
+
+    return http.JsonResponse({'status': 'success'})
 
 @require_http_methods(['GET', 'POST'])
 def login_oauth2(request):
@@ -86,6 +116,7 @@ def login_oauth2(request):
     return render(request, 'wps/login_form.html', { 'form': form, 'action': 'oauth2' })
 
 @require_http_methods(['GET', 'POST'])
+@login_required
 def login_mpc(request):
     if request.method == 'POST':
         logger.info(request.POST)
