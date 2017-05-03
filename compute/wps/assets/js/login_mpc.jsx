@@ -52,8 +52,6 @@ class LoginMPC extends Component {
 
     const csrfToken = this.getCookie('csrftoken');
 
-    const data = Object.assign({}, this.state, { csrfmiddlewaretoken: csrfToken });
-
     axios.post(postLocation, querystring.stringify({
         openid: [this.state.openid],
         username: [this.state.username],

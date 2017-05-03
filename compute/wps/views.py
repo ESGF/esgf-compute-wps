@@ -42,6 +42,25 @@ def oauth2_callback(request):
 
     return render(request, 'wps/login_result.html', { 'api_key': api_key })
 
+@require_http_methods(['POST'])
+def create(request):
+    form = forms.CreateForm(request.POST)
+
+    if not form.is_valid():
+        return http.JsonResponse({ 'status': 'failure', 'errors': form.errors })
+
+    username = form.cleaned_data['username']
+
+    email = form.cleaned_data['email']
+
+    password = form.cleaned_data['password']
+
+    user = models.User.objects.create_user(username, email, password)
+
+    user.save()
+
+    return http.JsonResponse({ 'status': 'success' })
+
 @require_http_methods(['GET'])
 def login(request):
     return render(request, 'wps/login.html')
