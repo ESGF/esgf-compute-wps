@@ -200,6 +200,19 @@ def status(request, job_id):
 
     return http.HttpResponse(status, content_type='text/xml')
 
+@require_http_methods(['GET'])
+def servers(request):
+    servers = models.Server.objects.all()
+
+    data = dict((x.id, {
+                        'host': x.host,
+                        'added': x.added_date,
+                        'status': x.status,
+                        'capabilities': x.capabilities
+                       }) for x in servers)
+
+    return http.JsonResponse(data)
+
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)
 

@@ -10,6 +10,8 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns.extend([
+                        url(r'^servers/$', views.servers),
+
                         url(r'^debug/', views.debug),
 
                         url(r'^regen_capabilities/$', views.regen_capabilities),
