@@ -1,13 +1,18 @@
 import React, { Component } from 'react';
-import { Router, Route } from 'react-router';
-import { HashRouter } from 'react-router-dom';
+import { 
+  BrowserRouter as Router,
+  Route,
+  Switch,
+} from 'react-router-dom';
 
 class App extends Component {
   render() {
     return (
-      <HashRouter>
-        <Route path='/' component={Home} />
-      </HashRouter>
+      <Router>
+        <Switch>
+          <Route path='/' component={Home} />
+        </Switch>
+      </Router>
     )
   }
 }
