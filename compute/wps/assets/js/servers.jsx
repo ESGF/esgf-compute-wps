@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { Link } from 'react-router-dom';
 
 import axios from 'axios';
 
@@ -36,7 +37,6 @@ class Servers extends Component {
     this.setState({ servers: servers });
   }
 
-
   render() {
     const servers = this.state.servers;
     const style = { border: '1px solid black' };
@@ -58,6 +58,9 @@ class Servers extends Component {
                     <td style={style}>{server.status}</td>
                     <td style={style}>
                       <button name={key} onClick={this.handleShowGetCapabilities}>GetCapabilities</button>
+                    </td>
+                    <td style={style}>
+                      <Link to={'/wps/debug/servers/' + key}><button>Processes</button></Link>
                     </td>
                   </tr>
                   <tr key={key+'_2'}>
