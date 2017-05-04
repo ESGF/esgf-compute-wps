@@ -213,7 +213,7 @@ class NodeManager(object):
 
         server = models.Server.objects.get(host='default')
 
-        job = models.Job(server=server)
+        job = models.Job(server=server, user=user)
 
         job.save()
 

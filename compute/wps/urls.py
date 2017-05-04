@@ -10,6 +10,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns.extend([
+                        url(r'^jobs/(?P<user_id>[0-9]*)$', views.jobs),
                         url(r'^servers/$', views.servers),
                         url(r'^servers/(?P<server_id>[0-9]*)$', views.processes),
 

@@ -149,7 +149,7 @@ def wps(request):
         api_key, op, identifier, data_inputs = manager.handle_request(request)
 
         logger.info('Transformed WPS request Operation: %s Identifier: %s '
-                'DataInputs: %s', op, identifier, data_inputs)
+                    'DataInputs: %s', op, identifier, data_inputs)
 
         try:
             user = models.User.objects.filter(auth__api_key=api_key)[0]
@@ -176,7 +176,7 @@ def wps(request):
         logger.exception('General WPS error')
 
         exc_report = metadata.ExceptionReport(settings.VERSION)
-        
+
         exc_report.add_exception(metadata.NoApplicableCode, e.message)
 
         response = exc_report.xml()
@@ -219,7 +219,7 @@ def processes(request, server_id):
         server = models.Server.objects.get(pk=server_id)
     except models.Server.DoesNotExist as e:
         raise http.JsonResponse({'status': 'failed', 'errors': e.message})
-       
+
     data = dict((x.id, {
                         'identifier': x.identifier,
                         'backend': x.backend,
@@ -237,6 +237,7 @@ def user(request):
         return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
 
     data = {
+            'id': user.id,
             'username': user.username,
             'email': user.email,
            }
@@ -247,6 +248,30 @@ def user(request):
         data['openid'] = oid.find('urn:esg:security:myproxy-service').local_id
         data['type'] = user.auth.type
         data['api_key'] = user.auth.api_key
+
+    return http.JsonResponse(data)
+
+@require_http_methods(['GET'])
+@login_required
+def jobs(request, user_id):
+    try:
+        user = models.User.objects.get(pk=user_id)
+    except models.User.DoesNotExist as e:
+        return http.JsonResponse({'status': 'failed', 'errors': e.message})
+
+    data = dict((x.id, {
+                        'server': x.server.id,
+                        'status': dict((y.id, {
+                                               'created': y.created_date,
+                                               'status': y.status,
+                                               'messages': dict((z.id, {
+                                                                       'created': z.created_date,
+                                                                       'percent': z.percent,
+                                                                       'message': z.message,
+                                                                       'exception': z.exception,
+                                                                      }) for z in y.message_set.all())
+                                              }) for y in x.status_set.all())
+                       }) for x in user.job_set.all())
 
     return http.JsonResponse(data)
 

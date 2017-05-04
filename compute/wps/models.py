@@ -41,6 +41,7 @@ class Server(models.Model):
 
 class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True)
 
     report = models.TextField()
