@@ -35,7 +35,7 @@ class App extends Component {
               <Route exact path='/wps/debug/' component={Home} />
               <Route path='/wps/debug/create/' component={CreateAccount} />
               <Route path='/wps/debug/user/' component={User} />
-              <Route path='/wps/debug/login/' component={Login} />
+              <Route exact path='/wps/debug/login/' component={Login} />
               <Route path='/wps/debug/logout/' component={Logout} />
               <Route path='/wps/debug/login/mpc/' component={LoginMPC} />
               <Route exact path='/wps/debug/servers/' component={Servers} />
