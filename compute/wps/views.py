@@ -259,21 +259,24 @@ def jobs(request, user_id):
     except models.User.DoesNotExist as e:
         return http.JsonResponse({'status': 'failed', 'errors': e.message})
 
-    data = dict((x.id, {
-                        'server': x.server.id,
-                        'status': dict((y.id, {
-                                               'created': y.created_date,
-                                               'status': y.status,
-                                               'messages': dict((z.id, {
-                                                                       'created': z.created_date,
-                                                                       'percent': z.percent,
-                                                                       'message': z.message,
-                                                                       'exception': z.exception,
-                                                                      }) for z in y.message_set.all())
-                                              }) for y in x.status_set.all())
-                       }) for x in user.job_set.all())
+    jobs = [{
+             'id': x.id,
+             'server': x.server.id,
+             'status': [{
+                         'id': y.id,
+                         'created': y.created_date,
+                         'status': y.status,
+                         'messages': [{
+                                       'id': z.id,
+                                       'created': z.created_date,
+                                       'message': z.message,
+                                       'percent': z.percent,
+                                       'exception': z.exception,
+                                      } for z in y.message_set.all()]
+                        } for y in x.status_set.all()]
+            } for x in user.job_set.all()]
 
-    return http.JsonResponse(data)
+    return http.JsonResponse(dict(jobs=jobs))
 
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)
