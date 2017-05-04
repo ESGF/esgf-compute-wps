@@ -10,7 +10,7 @@ class LoginMPC extends Component {
       openid: '',
       username: '',
       password: '',
-      response: ''
+      status: null,
     };
 
     this.handleChange = this.handleChange.bind(this);
@@ -63,7 +63,11 @@ class LoginMPC extends Component {
         }
       })
       .then(res => {
-        this.setState({ response: res.data });
+        if (res.data.status === 'success') {
+          window.location = location.origin + '/wps/debug/user';
+        } else{
+          this.setState({status: JSON.stringify(res.data.errors)});
+        }
       })
       .catch(err => {
         console.log(err);
@@ -91,7 +95,9 @@ class LoginMPC extends Component {
           <input type="submit" value="Submit" />
         </form>
         <div>
-          {this.state.response}
+          {this.state.status && 
+              this.state.status
+          }
         </div>
       </div>
     )

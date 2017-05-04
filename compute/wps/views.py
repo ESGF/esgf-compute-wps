@@ -7,7 +7,6 @@ from django import http
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as dlogin
 from django.contrib.auth import logout
-from django.contrib.auth.decorators import login_required
 from django.core import serializers
 from django.shortcuts import render
 from django.shortcuts import redirect
@@ -89,15 +88,17 @@ def login(request):
     return render(request, 'wps/login.html')
 
 @require_http_methods(['GET'])
-@login_required
 def logout_view(request):
-    logout(request)
+    if request.user.is_authenticated():
+        logout(request)
 
-    return http.JsonResponse({'status': 'success'})
+        return http.JsonResponse({'status': 'success'})
 
-@require_http_methods(['GET', 'POST'])
+    return http.JsonResponse({'status': 'failed', 'errors': 'User not authenticated'})
+
+@require_http_methods(['POST'])
 def login_oauth2(request):
-    if request.method == 'POST':
+    if request.user.is_authenticated():
         form = forms.OpenIDForm(request.POST)
 
         if form.is_valid():
@@ -109,18 +110,17 @@ def login_oauth2(request):
 
             request.session.update(session)
 
-            return http.HttpResponse(redirect_url)
+            return http.JsonResponse({'status': 'success', 'redirect': redirect_url})
+        else:
+            errors = form.errors
     else:
-        form = forms.OpenIDForm()
+        errors = 'User not authenticated'
 
-    return render(request, 'wps/login_form.html', { 'form': form, 'action': 'oauth2' })
+    return http.JsonResponse({'status': 'failed', 'errors': errors})
 
-@require_http_methods(['GET', 'POST'])
-@login_required
+@require_http_methods(['POST'])
 def login_mpc(request):
-    if request.method == 'POST':
-        logger.info(request.POST)
-
+    if request.user.is_authenticated():
         form = forms.MPCForm(request.POST)
 
         if form.is_valid():
@@ -134,11 +134,13 @@ def login_mpc(request):
 
             api_key = manager.auth_mpc(oid_url, username, password)
 
-            return render(request, 'wps/login_result.html', { 'api_key': api_key })
+            return http.JsonResponse({'status': 'success'})
+        else:
+            errors = form.errors
     else:
-        form = forms.MPCForm()
+        errors = 'User not authenticated'
 
-    return render(request, 'wps/login_form.html', { 'form': form, 'action': 'mpc' })
+    return http.JsonResponse({'status': 'failed', 'errors': errors})
 
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie
@@ -229,11 +231,10 @@ def processes(request, server_id):
     return http.JsonResponse(data)
 
 @require_http_methods(['GET'])
-@login_required
 def user(request):
     user = request.user
 
-    if user is None:
+    if not user.is_authenticated():
         return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
 
     data = {
@@ -252,8 +253,10 @@ def user(request):
     return http.JsonResponse(data)
 
 @require_http_methods(['GET'])
-@login_required
 def jobs(request, user_id):
+    if not request.user.is_authenticated():
+        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
+
     try:
         user = models.User.objects.get(pk=user_id)
     except models.User.DoesNotExist as e:

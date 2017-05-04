@@ -9,7 +9,8 @@ class LoginOAuth2 extends Component {
     super(props);
 
     this.state = {
-      openid: ''
+      openid: '',
+      status: null
     }
 
     this.handleChange = this.handleChange.bind(this);
@@ -56,9 +57,11 @@ class LoginOAuth2 extends Component {
         }
       })
       .then(res => {
-        console.log(res);
-
-        window.location = res.data;
+        if (res.data.status === 'success') {
+          window.location = res.data.redirect;
+        } else {
+          this.setState({status: JSON.stringify(res.data.errors)});
+        }
       })
       .catch(err => {
         console.log(err);
@@ -78,6 +81,11 @@ class LoginOAuth2 extends Component {
           </label>
           <input type="submit" value="Submit" />
         </form>
+        <div>
+          {this.state.status &&
+              this.state.status
+          }
+        </div>
       </div>
     )
   }
