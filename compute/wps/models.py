@@ -11,6 +11,7 @@ class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
     openid = models.TextField()
+    openid_url = models.CharField(max_length=256)
     type = models.CharField(max_length=64)
     cert = models.TextField()
     api_key = models.CharField(max_length=128)

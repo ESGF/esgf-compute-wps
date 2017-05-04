@@ -56,11 +56,17 @@ def create(request):
 
     email = form.cleaned_data['email']
 
+    openid = forms.cleaned_data['openid']
+
     password = form.cleaned_data['password']
 
     user = models.User.objects.create_user(username, email, password)
 
     user.save()
+
+    user.auth = models.Auth(openid_url=openid)
+
+    user.auth.save()
 
     return http.JsonResponse({ 'status': 'success' })
 

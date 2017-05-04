@@ -6,6 +6,7 @@ class CreateForm(forms.Form):
     username = forms.CharField(label='Username', max_length=128)
     email = forms.EmailField(label='Email')
     password = forms.CharField(label='Password', max_length=128, widget=forms.PasswordInput)
+    openid = forms.CharField(label='OpenID', max_length=128)
 
 class LoginForm(forms.Form):
     username = forms.CharField(label='Username', max_length=128)

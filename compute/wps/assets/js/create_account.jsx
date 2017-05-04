@@ -10,7 +10,9 @@ class CreateAccount extends Component {
     this.state = {
       username: '',
       email: '',
+      openid: '',
       password: '',
+      status: '',
     };
 
     this.handleChange = this.handleChange.bind(this);
@@ -53,6 +55,7 @@ class CreateAccount extends Component {
     axios.post(postLocation, querystring.stringify({
       username: [this.state.username],
       email: [this.state.email],
+      openid: [this.state.openid],
       password: [this.state.password],
     }), {
       headers: {
@@ -61,7 +64,11 @@ class CreateAccount extends Component {
       }
     })
     .then(res => {
-      console.log(res);
+      if (res.data.status == 'success') {
+        window.location = location.origin + '/wps/debug/user';
+      } else {
+        this.setState({status: JSON.stringify(res.data.errors)}); 
+      }
     })
     .catch(err => {
       console.log(err);
@@ -72,21 +79,32 @@ class CreateAccount extends Component {
 
   render() {
     return (
-      <form onSubmit={this.handleSubmit}>
-        <label>
-          Username:
-          <input name="username" type="text" value={this.state.username} onChange={this.handleChange} />
-        </label>
-        <label>
-          Email:
-          <input name="email" type="text" value={this.state.email} onChange={this.handleChange} />
-        </label>
-        <label>
-          Password:
-          <input name="password" type="password" value={this.state.password} onChange={this.handleChange} />
-        </label>
-        <input type="submit" value="Submit" />
-      </form>
+      <div>
+        <form onSubmit={this.handleSubmit}>
+          <label>
+            Username:
+            <input name="username" type="text" value={this.state.username} onChange={this.handleChange} />
+          </label>
+          <label>
+            Email:
+            <input name="email" type="text" value={this.state.email} onChange={this.handleChange} />
+          </label>
+          <label>
+            OpenID:
+            <input name="openid" type="text" value={this.state.openid} onChange={this.handleChange} />
+          </label>
+          <label>
+            Password:
+            <input name="password" type="password" value={this.state.password} onChange={this.handleChange} />
+          </label>
+          <input type="submit" value="Submit" />
+        </form>
+        <div>
+          {this.state.status && 
+              this.state.status
+          }
+        </div>
+      </div>
     )
   }
 }

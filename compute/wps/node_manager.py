@@ -46,28 +46,19 @@ class NodeManagerWPSError(Exception):
 
 class NodeManager(object):
 
-    def create_user(self, service, openid_response, username, certs, **extra):
+    def update_user(self, service, openid_response, oid_url, certs, **extra):
         """ Create a new user. """
-        user, created = models.User.objects.get_or_create(username=username)
+        try:
+            user = models.User.objects.get(auth__openid_url=oid_url)
+        except models.User.DoesNotExist:
+            raise Exception('User does not exist')
 
-        if not hasattr(user, 'auth'):
-            auth = models.Auth(user=user)
-
-            auth.openid = openid_response
-            auth.type = service
-            auth.cert = ''.join(certs)
-            auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
-            auth.extra = json.dumps(extra)
-
-            auth.save()
-        else:
-            user.auth.type = service
-            user.auth.cert = ''.join(certs)
-            user.auth.extra = json.dumps(extra)
-
-            user.auth.save()
-
-        return user.auth.api_key
+        user.auth.openid_response = openid_response
+        user.auth.type = service
+        user.auth.cert = ''.join(certs)
+        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+        user.auth.extra = json.dumps(extra)
+        user.auth.save()
 
     def auth_mpc(self, oid_url, username, password):
         oid = openid.OpenID.retrieve_and_parse(oid_url)
@@ -85,9 +76,7 @@ class NodeManager(object):
 
         c = m.logon(username, password, bootstrap=True)
 
-        api_key = self.create_user('myproxyclient', oid.response, username, c, password=password)
-
-        return api_key
+        self.update_user('myproxyclient', oid.response, oid_url, c)
 
     def auth_oauth2(self, oid_url):
         oid = openid.OpenID.retrieve_and_parse(oid_url)
@@ -119,9 +108,7 @@ class NodeManager(object):
 
         cert, key, new_token = oauth2.get_certificate(token, token_service.uri, cert_service.uri)
 
-        api_key = self.create_user('oauth2', oid.response, oid_url, ''.join([cert, key]), token=new_token)
-
-        return api_key
+        self.update_user('oauth2', oid.response, oid_url, [cert, key], token=new_token)
 
     def get_parameter(self, params, name):
         """ Gets a parameter from a django QueryDict """
