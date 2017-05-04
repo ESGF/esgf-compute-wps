@@ -20,7 +20,7 @@ class Message extends Component {
         <tr key={msg.id}>
           <td style={style}>{msg.message}</td>
           <td style={style}>{msg.percent}</td>
-          <td style={style}><text>{msg.exception}</text></td>
+          <td style={{border: '1px solid black', width: '80%'}}><textarea style={{width: '100%'}} readOnly="true" rows="10" value={msg.exception} /></td>
           <td style={style}>{msg.created}</td>
         </tr>
       </tbody>
