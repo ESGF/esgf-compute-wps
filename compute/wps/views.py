@@ -109,7 +109,7 @@ def login_oauth2(request):
 
             request.session.update(session)
 
-            return redirect(redirect_url)
+            return http.HttpResponse(redirect_url)
     else:
         form = forms.OpenIDForm()
 
