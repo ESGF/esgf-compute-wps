@@ -228,6 +228,28 @@ def processes(request, server_id):
 
     return http.JsonResponse(data)
 
+@require_http_methods(['GET'])
+@login_required
+def user(request):
+    user = request.user
+
+    if user is None:
+        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
+
+    data = {
+            'username': user.username,
+            'email': user.email,
+           }
+
+    if user.auth is not None:
+        oid = openid.OpenID.parse(user.auth.openid)
+
+        data['openid'] = oid.find('urn:esg:security:myproxy-service').local_id
+        data['type'] = user.auth.type
+        data['api_key'] = user.auth.api_key
+
+    return http.JsonResponse(data)
+
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)
 

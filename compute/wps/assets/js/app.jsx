@@ -11,6 +11,7 @@ import LoginMPC from './login_mpc.jsx';
 import CreateAccount from './create_account.jsx';
 import Servers from './servers.jsx';
 import Processes from './processes.jsx';
+import User from './user.jsx';
 
 class App extends Component {
   render() {
@@ -19,6 +20,7 @@ class App extends Component {
         <Switch>
           <Route exact path='/wps/debug/' component={Home} />
           <Route path='/wps/debug/create/' component={CreateAccount} />
+          <Route path='/wps/debug/user/' component={User} />
           <Route path='/wps/debug/login/' component={Login} />
           <Route path='/wps/debug/logout/' component={Logout} />
           <Route path='/wps/debug/login/mpc/' component={LoginMPC} />
