@@ -10,6 +10,7 @@ import Logout from './logout.jsx';
 import LoginMPC from './login_mpc.jsx';
 import CreateAccount from './create_account.jsx';
 import Servers from './servers.jsx';
+import Processes from './processes.jsx';
 
 class App extends Component {
   render() {
@@ -21,7 +22,8 @@ class App extends Component {
           <Route path='/wps/debug/login/' component={Login} />
           <Route path='/wps/debug/logout/' component={Logout} />
           <Route path='/wps/debug/login/mpc/' component={LoginMPC} />
-          <Route path='/wps/debug/servers/' component={Servers} />
+          <Route exact path='/wps/debug/servers/' component={Servers} />
+          <Route path='/wps/debug/servers/:server_id' component={Processes} />
           <Route component={NotFound} />
         </Switch>
       </Router>

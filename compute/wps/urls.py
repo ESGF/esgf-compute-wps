@@ -11,6 +11,7 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns.extend([
                         url(r'^servers/$', views.servers),
+                        url(r'^servers/(?P<server_id>[0-9]*)$', views.processes),
 
                         url(r'^debug/', views.debug),
 

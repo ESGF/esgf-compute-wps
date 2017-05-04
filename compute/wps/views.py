@@ -213,6 +213,21 @@ def servers(request):
 
     return http.JsonResponse(data)
 
+@require_http_methods(['GET'])
+def processes(request, server_id):
+    try:
+        server = models.Server.objects.get(pk=server_id)
+    except models.Server.DoesNotExist as e:
+        raise http.JsonResponse({'status': 'failed', 'errors': e.message})
+       
+    data = dict((x.id, {
+                        'identifier': x.identifier,
+                        'backend': x.backend,
+                        'description': x.description,
+                       }) for x in server.processes.all())
+
+    return http.JsonResponse(data)
+
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)
 
