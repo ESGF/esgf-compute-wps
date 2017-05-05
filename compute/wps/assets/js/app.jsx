@@ -3,6 +3,7 @@ import { withRouter } from 'react-router';
 import { 
   Route,
   Link,
+  Redirect,
   Switch,
 } from 'react-router-dom';
 
@@ -15,6 +16,17 @@ import CreateAccount from './create_account.jsx';
 import Servers from './servers.jsx';
 import Processes from './processes.jsx';
 import User from './user.jsx';
+
+const PrivateRoute = ({ component: Component, logged, ...rest }) => {
+  return <Route {...rest} render={props => (
+    logged ? 
+    <Component {...props} /> :
+    <Redirect to={{
+      pathname: '/wps/debug/login',
+      state: { from: props.location }
+    }} />
+  )} />
+}
 
 class App extends Component {
   constructor(props) {
@@ -72,7 +84,7 @@ class App extends Component {
           <ul>
             <li><Link to="/wps/debug">Home</Link></li>
             {this.state.logged &&
-              <li><Link to="/wps/debug/user">Profile</Link></li>
+                <li><Link to="/wps/debug/user">Profile</Link></li>
             }
           </ul>
           <ul>
@@ -83,19 +95,19 @@ class App extends Component {
               }
             </li>
             {!this.state.logged &&
-              <li>
-                <button name="create" onClick={(e) => this.handleAction(e)} >Create Account</button>
-              </li>
+                <li>
+                  <button name="create" onClick={(e) => this.handleAction(e)} >Create Account</button>
+                </li>
             }
           </ul>
         </nav>
         <Switch>
           <Route exact path='/wps/debug/' component={Home} />
           <Route path='/wps/debug/create/' component={CreateAccount} />
-          <Route path='/wps/debug/user/' component={User} />
+          <PrivateRoute path='/wps/debug/user/' logged={this.state.logged} component={User} />
           <Route exact path='/wps/debug/login/' component={() => <Login handleLogin={(e) => this.handleLogin(e)} />} />
-          <Route path='/wps/debug/login/mpc/' component={LoginMPC} />
-          <Route path='/wps/debug/login/oauth2' component={LoginOAuth2} />
+          <PrivateRoute path='/wps/debug/login/mpc/' component={LoginMPC} />
+          <PrivateRoute path='/wps/debug/login/oauth2' component={LoginOAuth2} />
           <Route exact path='/wps/debug/servers/' component={Servers} />
           <Route path='/wps/debug/servers/:server_id' component={Processes} />
           <Route component={NotFound} />
