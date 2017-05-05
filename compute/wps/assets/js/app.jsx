@@ -13,13 +13,15 @@ import Login from './login.jsx';
 import LoginMPC from './login_mpc.jsx';
 import LoginOAuth2 from './login_oauth2.jsx';
 import CreateAccount from './create_account.jsx';
-import Servers from './servers.jsx';
-import Processes from './processes.jsx';
 import User from './user.jsx';
 
-const PrivateRoute = ({ component: Component, logged, ...rest }) => {
+import Servers from './servers.jsx';
+import Processes from './processes.jsx';
+import Jobs from './jobs.jsx';
+
+const PrivateRoute = ({ component: Component, isLogged, ...rest }) => {
   return <Route {...rest} render={props => (
-    logged ? 
+    isLogged() ? 
     <Component {...props} /> :
     <Redirect to={{
       pathname: '/wps/debug/login',
@@ -102,14 +104,15 @@ class App extends Component {
           </ul>
         </nav>
         <Switch>
-          <Route exact path='/wps/debug/' component={Home} />
-          <Route path='/wps/debug/create/' component={CreateAccount} />
-          <PrivateRoute path='/wps/debug/user/' logged={this.state.logged} component={User} />
-          <Route exact path='/wps/debug/login/' component={() => <Login handleLogin={(e) => this.handleLogin(e)} />} />
-          <PrivateRoute path='/wps/debug/login/mpc/' component={LoginMPC} />
+          <Route exact path='/wps/debug' component={Home} />
+          <Route path='/wps/debug/create' component={CreateAccount} />
+          <PrivateRoute exact path='/wps/debug/user' isLogged={() => this.state.logged} component={User} />
+          <Route exact path='/wps/debug/login' component={() => <Login handleLogin={(e) => this.handleLogin(e)} />} />
+          <PrivateRoute path='/wps/debug/login/mpc' component={LoginMPC} />
           <PrivateRoute path='/wps/debug/login/oauth2' component={LoginOAuth2} />
-          <Route exact path='/wps/debug/servers/' component={Servers} />
+          <Route exact path='/wps/debug/servers' component={Servers} />
           <Route path='/wps/debug/servers/:server_id' component={Processes} />
+          <PrivateRoute path='/wps/debug/user/:user_id/jobs' isLogged={() => this.state.logged} component={Jobs} />
           <Route component={NotFound} />
         </Switch>
       </div>
