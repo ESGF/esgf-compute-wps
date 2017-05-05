@@ -10,8 +10,6 @@ import {
 import axios from 'axios';
 
 import Login from './login.jsx';
-import LoginMPC from './login_mpc.jsx';
-import LoginOAuth2 from './login_oauth2.jsx';
 import CreateAccount from './create_account.jsx';
 import User from './user.jsx';
 
@@ -112,8 +110,6 @@ class App extends Component {
           <Route path='/wps/debug/create' component={CreateAccount} />
           <PrivateRoute exact path='/wps/debug/user' isLogged={() => this.state.logged} component={User} />
           <Route exact path='/wps/debug/login' component={() => <Login handleLogin={(e) => this.handleLogin(e)} />} />
-          <PrivateRoute path='/wps/debug/login/mpc' component={LoginMPC} />
-          <PrivateRoute path='/wps/debug/login/oauth2' component={LoginOAuth2} />
           <Route exact path='/wps/debug/servers' component={Servers} />
           <Route path='/wps/debug/servers/:server_id' component={Processes} />
           <PrivateRoute path='/wps/debug/user/:user_id/jobs' isLogged={() => this.state.logged} component={Jobs} />

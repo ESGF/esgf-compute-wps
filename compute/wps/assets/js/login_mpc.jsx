@@ -79,6 +79,7 @@ class LoginMPC extends Component {
   render() {
     return (
       <div>
+        <h1>MyProxyClient</h1>
         <form onSubmit={this.handleSubmit}>
           <label>
             OpenID:

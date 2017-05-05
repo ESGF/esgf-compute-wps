@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 
 import axios from 'axios';
 
+import LoginMPC from './login_mpc.jsx';
+import LoginOAuth2 from './login_oauth2.jsx';
+
 class User extends Component {
   constructor(props) {
     super(props);
@@ -55,8 +58,18 @@ class User extends Component {
     return (
       <div>
         <h1>User</h1>
-        {user_data}
         <button onClick={(e) => this.handleShowJobs(e)}>Jobs</button>
+        <br />
+        {user_data}
+        <div>
+          <div>
+            <LoginOAuth2 />
+          </div>
+          <br />
+          <div>
+            <LoginMPC />
+          </div>
+        </div>
       </div>
     )
   }
