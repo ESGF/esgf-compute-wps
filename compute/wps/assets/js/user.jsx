@@ -42,25 +42,37 @@ class User extends Component {
       const user = this.state.user;
 
       user_data = (
-        <table style={{border: '1px solid black', width: '100%'}}>
-          <tbody>
-            <tr>
-              <td style={style}>{user.username}</td>
-              <td style={style}>{user.email}</td>
-              <td style={style}>{user.type}</td>
-              <td style={style}>{user.api_key}</td>
-            </tr>
-          </tbody>
-        </table>
+        <form>
+          <label>
+            Username:
+            <input type="text" value={user.username} readOnly="true" />
+          </label>
+          <label>
+            Email:
+            <input type="text" value={user.email} readOnly="true" />
+          </label>
+          <label>
+            Type:
+            <input type="text" value={user.type} readOnly="true" />
+          </label>
+          <label>
+            API Key:
+            <input type="text" value={user.api_key} readOnly="trie" />
+          </label>
+        </form>
       )
     }
 
     return (
       <div>
         <h1>User</h1>
-        <button onClick={(e) => this.handleShowJobs(e)}>Jobs</button>
+        <div>
+          <button onClick={(e) => this.handleShowJobs(e)}>Jobs</button>
+        </div>
         <br />
-        {user_data}
+        <div>
+          {user_data}
+        </div>
         <div>
           <div>
             <LoginOAuth2 />
