@@ -11,11 +11,6 @@ module.exports = {
   },
   plugins: [
     new BundleTracker({filename: './webpack-stats.json'}),
-    new webpack.ProvidePlugin({
-      $: 'jquery',
-      jQuery: 'jquery',
-      'window.jQuery': 'jquery'
-    })
   ],
   module: {
     loaders: [
@@ -24,9 +19,12 @@ module.exports = {
         exclude: /node_modules/, 
         loader: 'babel-loader',
         query: {
-          presets: ['react']
+          presets: ['react', 'es2015']
         }
       }
     ]
+  },
+  resolve: {
+    extensions: ['.js', '.jsx']
   },
 }
