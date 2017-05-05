@@ -12,6 +12,8 @@ class Login extends Component {
       password: ''
     }
 
+    this.handleLogin = props.handleLogin
+
     this.handleChange = this.handleChange.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
   }
@@ -59,7 +61,7 @@ class Login extends Component {
       }
     })
     .then(res => {
-      console.log(res);
+      this.handleLogin();
     })
     .catch(err => {
       console.log(err);

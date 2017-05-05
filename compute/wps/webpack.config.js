@@ -13,18 +13,17 @@ module.exports = {
     new BundleTracker({filename: './webpack-stats.json'}),
   ],
   module: {
-    loaders: [
+    rules: [
       {
-        test: /\.jsx?$/, 
-        exclude: /node_modules/, 
-        loader: 'babel-loader',
-        query: {
-          presets: ['react', 'es2015']
+        test: /\.jsx$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['react', 'es2015'],
+          }
         }
       }
     ]
-  },
-  resolve: {
-    extensions: ['.js', '.jsx']
   },
 }
