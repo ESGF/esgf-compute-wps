@@ -35,7 +35,7 @@ class App extends Component {
     super(props);
 
     this.state = {
-      logged: false,
+      logged: localStorage.getItem('logged') || false
     }
 
     this.history = props.history;
@@ -57,6 +57,8 @@ class App extends Component {
         axios.get(logoutURL)
           .then(res => {
             this.setState({ logged: false });
+
+            localStorage.setItem('logged', this.state.logged)
           })
           .catch(err => {
             console.log(err);
@@ -75,6 +77,8 @@ class App extends Component {
 
   handleLogin(e) {
     this.setState({ logged: true });
+
+    localStorage.setItem('logged', this.state.logged)
 
     this.history.push('/wps/debug/user');
   }
