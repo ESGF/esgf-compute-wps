@@ -3,6 +3,17 @@ import { Link } from 'react-router-dom';
 
 import axios from 'axios';
 
+import Card from 'material-ui/Card';
+import RaisedButton from 'material-ui/RaisedButton';
+import TextField from 'material-ui/TextField';
+import { List, ListItem } from 'material-ui/List';
+import {
+  Table,
+  TableBody,
+  TableRow,
+  TableRowColumn
+} from 'material-ui/Table';
+
 import LoginMPC from './login_mpc.jsx';
 import LoginOAuth2 from './login_oauth2.jsx';
 
@@ -43,45 +54,46 @@ class User extends Component {
 
       user_data = (
         <form>
-          <label>
-            Username:
-            <input type="text" value={user.username} readOnly="true" />
-          </label>
-          <label>
-            Email:
-            <input type="text" value={user.email} readOnly="true" />
-          </label>
-          <label>
-            Type:
-            <input type="text" value={user.type} readOnly="true" />
-          </label>
-          <label>
-            API Key:
-            <input type="text" value={user.api_key} readOnly="trie" />
-          </label>
+          <List>
+            <ListItem>
+              <TextField name="username" value={user.username} readOnly="true" />
+            </ListItem>
+            <ListItem>
+              <TextField name="email" value={user.email} readOnly="true" />
+            </ListItem>
+            <ListItem>
+              <TextField name="type" value={user.type} readOnly="true" />
+            </ListItem>
+            <ListItem>
+              <TextField name="api_key" value={user.api_key} readOnly="true" />
+            </ListItem>
+          </List>
         </form>
       )
     }
 
     return (
       <div>
-        <h1>User</h1>
-        <div>
-          <button onClick={(e) => this.handleShowJobs(e)}>Jobs</button>
-        </div>
-        <br />
-        <div>
-          {user_data}
-        </div>
-        <div>
-          <div>
-            <LoginOAuth2 />
-          </div>
-          <br />
-          <div>
-            <LoginMPC />
-          </div>
-        </div>
+        <Card>
+          <Table>
+            <TableBody displayRowCheckbox={false}>
+              <TableRow>
+                <TableRowColumn>
+                  {user_data}
+                </TableRowColumn>
+                <TableRowColumn>
+                  <RaisedButton onClick={(e) => this.handleShowJobs(e)} label="Jobs" />
+                </TableRowColumn>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </Card>
+        <Card>
+          <LoginOAuth2 />
+        </Card>
+        <Card>
+          <LoginMPC />
+        </Card>
       </div>
     )
   }

@@ -3,6 +3,11 @@ import React, { Component } from 'react';
 import querystring from 'querystring';
 import axios from 'axios';
 
+import Card from 'material-ui/Card';
+import { List, ListItem } from 'material-ui/List';
+import TextField from 'material-ui/TextField';
+import RaisedButton from 'material-ui/RaisedButton';
+
 class Login extends Component {
   constructor(props) {
     super(props);
@@ -72,17 +77,21 @@ class Login extends Component {
 
   render() {
     return (
-      <form onSubmit={this.handleSubmit}>
-        <label>
-          Username:
-          <input name="username" type="text" value={this.state.username} onChange={this.handleChange} />
-        </label>
-        <label>
-          Password:
-          <input name="password" type="password" value={this.state.password} onChange={this.handleChange} />
-        </label>
-        <input type="submit" value="Submit" />
-      </form>
+      <Card>
+        <form onSubmit={this.handleSubmit}>
+          <List>
+            <ListItem>
+              <TextField name="username" value={this.state.username} onChange={this.handleChange} hintText="Username" />
+            </ListItem>
+            <ListItem>
+              <TextField type="password" name="password" value={this.state.password} onChange={this.handleChange} hintText="Password" />
+            </ListItem>
+            <ListItem>
+              <RaisedButton type="submit" label="Submit" />
+            </ListItem>
+          </List>
+        </form>
+      </Card>
     )
   }
 }

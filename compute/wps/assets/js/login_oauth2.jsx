@@ -4,6 +4,10 @@ import { Redirect } from 'react-router-dom';
 import querystring from 'querystring';
 import axios from 'axios';
 
+import { List, ListItem } from 'material-ui/List';
+import TextField from 'material-ui/TextField';
+import RaisedButton from 'material-ui/RaisedButton';
+
 class LoginOAuth2 extends Component {
   constructor(props) {
     super(props);
@@ -73,13 +77,16 @@ class LoginOAuth2 extends Component {
   render() {
     return (
       <div>
-        <h1>Login OAuth2</h1>
+        <h1 style={{textAlign: 'center' }}>OAuth2</h1>
         <form onSubmit={this.handleSubmit}>
-          <label>
-            OpenID:
-            <input type="text" value={this.state.openid} onChange={this.handleChange} />
-          </label>
-          <input type="submit" value="Submit" />
+          <List>
+            <ListItem>
+              <TextField hintText="OpenID" value={this.state.opendid} onChange={this.handleChange} />
+            </ListItem>
+            <ListItem>
+              <RaisedButton type="submit" label="Submit" />
+            </ListItem>
+          </List>
         </form>
         <div>
           {this.state.status &&

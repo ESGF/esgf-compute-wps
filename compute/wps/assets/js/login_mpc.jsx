@@ -2,6 +2,10 @@ import React, { Component } from 'react';
 import querystring from 'querystring';
 import axios from 'axios';
 
+import { List, ListItem } from 'material-ui/List';
+import TextField from 'material-ui/TextField';
+import RaisedButton from 'material-ui/RaisedButton';
+
 class LoginMPC extends Component { 
   constructor(props) {
     super(props);
@@ -79,21 +83,22 @@ class LoginMPC extends Component {
   render() {
     return (
       <div>
-        <h1>MyProxyClient</h1>
+        <h1 style={{textAlign: 'center'}}>MyProxyClient</h1>
         <form onSubmit={this.handleSubmit}>
-          <label>
-            OpenID:
-            <input name="openid" type="text" value={this.state.openid} onChange={this.handleChange} />
-          </label>
-          <label>
-            Username:
-            <input name="username" type="text" value={this.state.username} onChange={this.handleChange} />
-          </label>
-          <label>
-            Password:
-            <input name="password" type="password" value={this.state.password} onChange={this.handleChange} />
-          </label>
-          <input type="submit" value="Submit" />
+          <List>
+            <ListItem>
+              <TextField name="openid" value={this.state.openid} hintText="OpenID" onChange={this.handleChange} />
+            </ListItem>
+            <ListItem>
+              <TextField name="username" value={this.state.username} hintText="Username" onChange={this.handleChange} />
+            </ListItem>
+            <ListItem>
+              <TextField type="password" name="password" value={this.state.password} hintText="Password" onChange={this.handleChange} />
+            </ListItem>
+            <ListItem>
+              <RaisedButton type="submit" label="Submit" />
+            </ListItem>
+          </List>
         </form>
         <div>
           {this.state.status && 
