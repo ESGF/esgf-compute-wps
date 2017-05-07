@@ -2,17 +2,57 @@ import React, { Component } from 'react';
 
 import axios from 'axios';
 
+import {
+  Table,
+  TableBody,
+  TableRow,
+  TableRowColumn
+} from 'material-ui/Table';
+
+import Dialog from 'material-ui/Dialog';
+import TextField from 'material-ui/TextField';
+import RaisedButton from 'material-ui/RaisedButton';
+
+class Process extends Component {
+  constructor(props) {
+    super(props);
+
+    this.process = props.process;
+    this.handleShowProcess = props.handleShowProcess;
+  }
+
+  render() {
+    return (
+      <Table>
+        <TableBody displayRowCheckbox={false}>
+          <TableRow>
+            <TableRowColumn>{this.process.identifier}</TableRowColumn>
+            <TableRowColumn>{this.process.backend}</TableRowColumn>
+            <TableRowColumn>
+              <RaisedButton
+                label="Describe"
+                primary={true}
+                onTouchTap={e => this.handleShowProcess(this.process.description)}
+              />
+            </TableRowColumn>
+          </TableRow>
+        </TableBody>
+      </Table>
+    )
+  }
+}
+
 class Processes extends Component {
   constructor(props) {
     super(props);
 
-    this.server_id = props.match.params.server_id;
-
     this.state = {
-      processes: null
+      processes: null,
+      open: false,
+      process: null,
     }
 
-    this.handleShowDescribeProcess = this.handleShowDescribeProcess.bind(this);
+    this.server_id = props.match.params.server_id;
   }
 
   componentDidMount() {
@@ -27,59 +67,36 @@ class Processes extends Component {
       });
   }
 
-  handleShowDescribeProcess(event) {
-    const target = event.target;
-    const name = target.name;
-
-    let processes = this.state.processes;
-
-    processes[name].show = !processes[name].show;
-
-    this.setState({processes: processes});
-  }
-
   render() {
-    let data = null;
-
-    const style = {border: '1px solid black'};
-
-    if (this.state.processes) {
-      data = Object.keys(this.state.processes).map((key) => {
-        const process = this.state.processes[key]; 
-
-        return (
-          <tr key={key}>
-            <td>
-              <table>
-                <tbody>
-                  <tr key={key+'_1'}>
-                    <td style={{border: '1px solid black', width: '100%'}}>{process.identifier}</td>
-                    <td style={style}>{process.backend}</td>
-                    <td style={style}>
-                      <button name={key} onClick={this.handleShowDescribeProcess}>DescribeProcess</button>
-                    </td>
-                  </tr>
-                  <tr key={key+'_2'}>
-                    <td>
-                      {process.show ? process.description : ''}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
-        )
-      });
-    }
-
     return (
       <div>
-        <h1>Processes</h1>
-        <table style={{border: '1px solid black', width: '100%'}}>
-          <tbody>
-            {data}
-          </tbody>
-        </table>
+        <h1 style={{textAlign: 'center'}}>Processes</h1>
+        <Table>
+          <TableBody displayRowCheckbox={false}>
+            {this.state.processes && (
+              Object.keys(this.state.processes).map(key => {
+                return (
+                  <TableRow key={key}>
+                    <TableRowColumn>
+                      <Process
+                        process={this.state.processes[key]}
+                        handleShowProcess={proc => this.setState({open: true, process: proc})}
+                      />
+                    </TableRowColumn>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+        <Dialog
+          title="Description"
+          modal={false}
+          open={this.state.open}
+          onRequestClose={e => this.setState({open: false})}
+        >
+          <TextField id="description" value={this.state.process} fullWidth={true} multiLine={true} />
+        </Dialog>
       </div>
     )
   }
