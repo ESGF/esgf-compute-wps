@@ -53,10 +53,12 @@ class NodeManager(object):
         except models.User.DoesNotExist:
             raise Exception('User does not exist')
 
+        if user.auth.api_key is None:
+            user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+
         user.auth.openid_response = openid_response
         user.auth.type = service
         user.auth.cert = ''.join(certs)
-        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
         user.auth.extra = json.dumps(extra)
         user.auth.save()
 
