@@ -3,10 +3,6 @@ import { Link } from 'react-router-dom';
 
 import axios from 'axios';
 
-import Card from 'material-ui/Card';
-import RaisedButton from 'material-ui/RaisedButton';
-import TextField from 'material-ui/TextField';
-import { List, ListItem } from 'material-ui/List';
 import {
   Table,
   TableBody,
@@ -14,8 +10,11 @@ import {
   TableRowColumn
 } from 'material-ui/Table';
 
-import LoginMPC from './login_mpc.jsx';
-import LoginOAuth2 from './login_oauth2.jsx';
+import Card from 'material-ui/Card';
+import Dialog from 'material-ui/Dialog';
+import FlatButton from 'material-ui/FlatButton';
+import RaisedButton from 'material-ui/RaisedButton';
+import TextField from 'material-ui/TextField';
 
 class User extends Component {
   constructor(props) {
@@ -23,9 +22,12 @@ class User extends Component {
 
     this.state = {
       user: null,
+      auth: 'mpc',
+      open: false,
+      username: '',
+      password: '',
+      openid: '',
     }
-
-    this.history = props.history;
   }
 
   componentDidMount() {
@@ -40,54 +42,166 @@ class User extends Component {
       });
   }
 
-  render() {
-    let user_data = null;
+  getCookie(name) {
+    let cookieValue = null;
 
-    const style = {border: '1px solid black'};
+    if (document.cookie && document.cookie != '') {
+      const cookies = document.cookie.split(';');
 
-    if (this.state.user) {
-      const user = this.state.user;
+      for (let i = 0; i < cookies.length; i++) {
+        var cookie = jQuery.trim(cookies[i]);
 
-      user_data = (
-        <form>
-          <List>
-            <ListItem>
-              <TextField name="username" value={user.username} readOnly="true" />
-            </ListItem>
-            <ListItem>
-              <TextField name="email" value={user.email} readOnly="true" />
-            </ListItem>
-            <ListItem>
-              <TextField name="type" value={user.type} readOnly="true" />
-            </ListItem>
-            <ListItem>
-              <TextField name="api_key" value={user.api_key} readOnly="true" />
-            </ListItem>
-          </List>
-        </form>
-      )
+        if (cookie.substring(0, name.length + 1) == (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+
+          break;
+        }
+      }
     }
 
+    return cookieValue;
+  }
+
+  handleLogin(e) {
+    if (this.state.auth == 'mpc') {
+      const postURL = location.origin + '/auth/login/mpc/';
+
+      const data = {
+        openid: [this.state.openid],
+        username: [this.state.username],
+        password: [this.state.password],
+      };
+    } else {
+      const postURL = location.origin + '/auth/login/oauth2/';
+
+      const data = { openid: [this.state.openid] }
+    }
+
+    const csrfToken = this.getCookie('csrftoken');
+
+    axios.post(postURL, querystring.stringify(data), {
+        headers: {
+          'X-CSRFToken': csrfToken,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      })
+      .then(res => {
+        if (res.data.status === 'success') {
+          window.location = location.origin + '/wps/debug/user';
+        } else{
+          this.setState({status: JSON.stringify(res.data.errors)});
+        }
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  }
+
+  handleChange(e) {
+    const target = e.target;
+    const name = target.name;
+    const value = target.value;
+
+    this.setState({[name]: value});
+  }
+
+  render() {
+    const style = {
+      field: {
+        width: '650px'
+      }
+    };
+
+    const actions = [
+      <FlatButton
+        label="Submit"
+        primary={true}
+      />,
+      <FlatButton
+        label="Cancel"
+        primary={true}
+        onTouchTap={e => this.setState({open: false})}
+      />
+    ];
+
     return (
-      <div>
-        <Card>
-          <Table>
-            <TableBody displayRowCheckbox={false}>
-              <TableRow>
-                <TableRowColumn>
-                  {user_data}
-                </TableRowColumn>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </Card>
-        <Card>
-          <LoginOAuth2 />
-        </Card>
-        <Card>
-          <LoginMPC />
-        </Card>
-      </div>
+      <Card>
+        <Table>
+          <TableBody displayRowCheckbox={false}>
+            <TableRow>
+              <TableRowColumn>
+                {this.state.user && (
+                  <form>
+                    <TextField
+                      name="username"
+                      value={this.state.user.username}
+                      readOnly="true" />
+                    <br />
+                    <TextField
+                      name="email"
+                      value={this.state.user.email}
+                      readOnly="true" />
+                    <br />
+                    <TextField
+                      name="type"
+                      value={this.state.user.type}
+                      readOnly="true" />
+                    <br />
+                    <TextField
+                      style={style.field}
+                      name="api_key"
+                      value={this.state.user.api_key}
+                      readOnly="true" />
+                  </form>
+                )}
+              </TableRowColumn>
+              <TableRowColumn>
+                <RaisedButton
+                  primary={true}
+                  label="MyProxyClient"
+                  onTouchTap={e => this.setState({open: true, auth: 'mpc'})}
+                />
+                <br />
+                <br />
+                <RaisedButton
+                  primary={true}
+                  label="OAuth2"
+                  onTouchTap={e => this.setState({open: true, auth: 'oauth2' })}
+                />
+              </TableRowColumn>
+            </TableRow>
+          </TableBody>
+        </Table>
+        <Dialog
+          actions={actions}
+          model={true}
+          open={this.state.open}
+          onRequestClose={e => this.setState({open: false})}
+        >
+          <TextField
+            name="openid"
+            hintText="OpenID"
+            value={this.state.openid}
+          />
+          <br />
+          {this.state.auth == 'mpc' && 
+              <TextField
+                name="username"
+                hintText="Username"
+                value={this.state.username}
+              />
+          }
+          <br/>
+          {this.state.auth == 'mpc' && 
+              <TextField
+                name="password"
+                hintText="password"
+                value={this.state.password}
+                type="password"
+              />
+          }
+        </Dialog>
+      </Card>
     )
   }
 }
