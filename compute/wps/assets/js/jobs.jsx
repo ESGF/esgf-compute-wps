@@ -25,14 +25,16 @@ class Message extends Component {
     const msg = this.message;
 
     return (
-      <TableBody displayRowCheckbox={false}>
-        <TableRow>
-          <TableRowColumn>{msg.message}</TableRowColumn>
-          <TableRowColumn>{msg.percent}</TableRowColumn>
-          <TableRowColumn>{msg.exception}</TableRowColumn>
-          <TableRowColumn>{msg.created}</TableRowColumn>
-        </TableRow>
-      </TableBody>
+      <Table>
+        <TableBody displayRowCheckbox={false}>
+          <TableRow>
+            <TableRowColumn>{msg.message || 'No Message'}</TableRowColumn>
+            <TableRowColumn>{msg.percent || '0'}</TableRowColumn>
+            <TableRowColumn>{msg.exception || 'No Exception'}</TableRowColumn>
+            <TableRowColumn>{msg.created}</TableRowColumn>
+          </TableRow>
+        </TableBody>
+      </Table>
     )
   }
 }
@@ -49,29 +51,33 @@ class Status extends Component {
   }
 
   render() {
-    const message_data = this.status.messages.map((message) => {
-      return <Message key={message.id} message={message} />
-    });
-
-    const status = this.status;
-
     return (
-      <TableBody displayRowCheckbox={false}>
-        <TableRow>
-          <TableRowColumn>{status.status}</TableRowColumn>
-          <TableRowColumn>{status.created}</TableRowColumn>
-          <TableRowColumn><RaisedButton label="Show Messages" onTouchTap={(e) => { this.setState({show: !this.state.show})}}/></TableRowColumn>
-        </TableRow>
-        {this.state.show && (
+      <Table>
+        <TableBody displayRowCheckbox={false}>
           <TableRow>
+            <TableRowColumn>{this.status.status}</TableRowColumn>
+            <TableRowColumn>{this.status.created}</TableRowColumn>
             <TableRowColumn>
-              <Table>
-                {message_data}
-              </Table>
+              <RaisedButton 
+                primary={true}
+                label="Messages"
+                onTouchTap={e => { this.setState({show: !this.state.show})}}
+              />
             </TableRowColumn>
           </TableRow>
-        )}
-      </TableBody>
+          {this.state.show && (
+            this.status.messages.map(message => {
+              return (
+                <TableRow key={message.id}>
+                  <TableRowColumn colSpan="3" style={{paddingLeft: '0px', paddingRight: '0px'}}>
+                    <Message message={message} />
+                  </TableRowColumn>
+                </TableRow>
+              )
+            })
+          )}
+        </TableBody>
+      </Table>
     )
   }
 }
@@ -88,26 +94,33 @@ class Job extends Component {
   }
 
   render() {
-    const status_data = this.job.status.map((status) => {
-      return <Status key={status.id} status={status} />
-    });
-
     return (
-      <TableBody displayRowCheckbox={false}>
-        <TableRow>
-          <TableRowColumn>{this.job.server}</TableRowColumn>
-          <TableRowColumn><RaisedButton label="Show Status" onTouchTap={(e) => { this.setState({show: !this.state.show})}} /></TableRowColumn>
-        </TableRow>
-        {this.state.show && (
+      <Table>
+        <TableBody displayRowCheckbox={false}>
           <TableRow>
+            <TableRowColumn>{this.job.server}</TableRowColumn>
             <TableRowColumn>
-              <Table>
-                {status_data}
-              </Table>
+              <RaisedButton
+                style={{marginLeft: 'auto', marginRight: '0px'}}
+                primary={true}
+                label="status"
+                onTouchTap={(e) => this.setState({ show: !this.state.show })}
+              />
             </TableRowColumn>
           </TableRow>
-        )}
-      </TableBody>
+          {this.state.show && (
+            this.job.status.map(status => {
+              return (
+                <TableRow key={status.id}>
+                  <TableRowColumn colSpan="2" style={{paddingLeft: '0px', paddingRight: '0px'}}>
+                    <Status status={status} />
+                  </TableRowColumn>
+                </TableRow>
+              )
+            })
+          )}
+        </TableBody>
+      </Table>
     )
   }
 }
@@ -128,7 +141,7 @@ class Jobs extends Component {
 
     axios.get(jobsURL)
       .then(res => {
-        this.setState({ jobs: res.data });
+        this.setState({ jobs: res.data.jobs });
       })
       .catch(err => {
         console.log(err);
@@ -140,11 +153,19 @@ class Jobs extends Component {
       <div>
         <h1 style={{textAlign: 'center'}}>Jobs</h1>
         <Table>
-          {this.state.jobs &&
-            this.state.jobs.jobs.map((job) => {
-              return <Job key={job.id} job={job} />
-            })
-          }
+          <TableBody displayRowCheckbox={false}>
+            {this.state.jobs &&
+              this.state.jobs.map(job => {
+                return (
+                  <TableRow key={job.id}>
+                    <TableRowColumn>
+                      <Job job={job} />
+                    </TableRowColumn>
+                  </TableRow>
+                )
+              })
+            }
+          </TableBody>
         </Table>
       </div>
     )
