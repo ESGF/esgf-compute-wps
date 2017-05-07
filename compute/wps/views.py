@@ -237,24 +237,33 @@ def processes(request, server_id):
     return http.JsonResponse(data)
 
 @require_http_methods(['GET'])
-def user(request):
-    user = request.user
+def regenerate_api_key(request, user_id):
+    if not request.user.is_authenticated():
+        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
 
-    if not user.is_authenticated():
+    manager = node_manager.NodeManager()
+
+    api_key = manager.regenerate_api_key(user_id)
+
+    return http.JsonResponse({'api_key': api_key})
+
+@require_http_methods(['GET'])
+def user(request):
+    if not request.user.is_authenticated():
         return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
 
     data = {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
            }
 
-    if user.auth is not None:
-        oid = openid.OpenID.parse(user.auth.openid)
+    if request.user.auth is not None:
+        oid = openid.OpenID.parse(request.user.auth.openid)
 
         data['openid'] = oid.find('urn:esg:security:myproxy-service').local_id
-        data['type'] = user.auth.type
-        data['api_key'] = user.auth.api_key
+        data['type'] = request.user.auth.type
+        data['api_key'] = request.user.auth.api_key
 
     return http.JsonResponse(data)
 

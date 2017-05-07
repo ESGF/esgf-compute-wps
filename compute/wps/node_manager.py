@@ -46,6 +46,18 @@ class NodeManagerWPSError(Exception):
 
 class NodeManager(object):
 
+    def regenerate_api_key(self, user_id):
+        try:
+            user = models.User.objects.get(pk=user_id)
+        except models.User.DoesNotExist:
+            raise Exception('User does not exist')
+
+        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+
+        user.auth.save()
+
+        return user.auth.api_key
+
     def update_user(self, service, openid_response, oid_url, certs, **extra):
         """ Create a new user. """
         try:

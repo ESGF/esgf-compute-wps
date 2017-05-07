@@ -97,6 +97,22 @@ class User extends Component {
       });
   }
 
+  handleRegenerate(e) {
+    const regenURL = location.origin + '/auth/user/' + this.state.user.id + '/regenerate';
+
+    axios.get(regenURL)
+      .then(res => {
+        let user = this.state.user;
+
+        user.api_key = res.data.api_key;
+
+        this.setState({user: user});
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  }
+
   handleChange(e) {
     const target = e.target;
     const name = target.name;
@@ -167,6 +183,13 @@ class User extends Component {
                   primary={true}
                   label="OAuth2"
                   onTouchTap={e => this.setState({open: true, auth: 'oauth2' })}
+                />
+                <br />
+                <br />
+                <RaisedButton
+                  primary={true}
+                  label="Regenerate"
+                  onTouchTap={e => this.handleRegenerate(e)}
                 />
               </TableRowColumn>
             </TableRow>

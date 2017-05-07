@@ -7,6 +7,7 @@ import views
 urlpatterns = [
     url(r'^create/$', views.create, name='create'),
     url(r'^user/$', views.user, name='user'),
+    url(r'^user/(?P<user_id>[0-9]*)/regenerate/$', views.regenerate_api_key),
     url(r'^login/$', views.login, name='login'),
     url(r'^logout/$', views.logout_view, name='logout'),
     url(r'^login/oauth2/$', views.login_oauth2, name='oauth2'),
