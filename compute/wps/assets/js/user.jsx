@@ -40,10 +40,6 @@ class User extends Component {
       });
   }
 
-  handleShowJobs(e) {
-    this.history.push('/wps/debug/user/' + this.state.user.id + '/jobs');
-  }
-
   render() {
     let user_data = null;
 
@@ -80,9 +76,6 @@ class User extends Component {
               <TableRow>
                 <TableRowColumn>
                   {user_data}
-                </TableRowColumn>
-                <TableRowColumn>
-                  <RaisedButton onClick={(e) => this.handleShowJobs(e)} label="Jobs" />
                 </TableRowColumn>
               </TableRow>
             </TableBody>

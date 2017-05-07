@@ -55,16 +55,39 @@ class App extends Component {
 
     this.state = {
       open: false,
-      logged: localStorage.getItem('logged') || false
+      user: null,
+      logged: localStorage.getItem('logged') === 'true' || false
     }
 
     this.history = props.history;
   }
 
+  componentDidMount() {
+    const userURL = location.origin + '/auth/user';
+
+    axios.get(userURL)
+      .then(res => {
+        if ('status' in res.data) {
+          console.info('not logged');
+
+          localStorage.setItem('logged', false);
+        } else {
+          console.log('logged');
+
+          this.setState({user: res.data, logged: true});
+
+          localStorage.setItem('logged', true);
+        }
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  }
+
   handleLogin(e) {
     this.setState({ logged: true });
 
-    localStorage.setItem('logged', this.state.logged)
+    localStorage.setItem('logged', true);
 
     this.history.push('/wps/debug/user');
   }
@@ -76,7 +99,7 @@ class App extends Component {
       .then(res => {
         this.setState({ logged: false });
 
-        localStorage.setItem('logged', this.state.logged)
+        localStorage.setItem('logged', false);
       })
       .catch(err => {
         console.log(err);
@@ -100,22 +123,26 @@ class App extends Component {
           onRequestChange={(open) => this.setState({open})}
         >
           <MenuItem primaryText="Servers" onTouchTap={(e) => this.history.push('/wps/debug/servers')} />
-          {this.state.logged &&
+          {this.state.logged && (
             <MenuItem primaryText="Profile" onTouchTap={(e) => this.history.push('/wps/debug/user')} />
-          }
+          )}
+          {this.state.logged && (
+            <MenuItem
+              primaryText="Jobs"
+              onTouchTap={(e) => this.history.push('/wps/debug/user/' + this.state.user.id + '/jobs')}
+            />
+          )}
         </Drawer>
-        <div>
-          <Switch>
-            <Route exact path='/wps/debug' component={Home} />
-            <Route path='/wps/debug/create' component={CreateAccount} />
-            <PrivateRoute exact path='/wps/debug/user' isLogged={() => this.state.logged} component={User} />
-            <Route exact path='/wps/debug/login' component={() => <LoginComponent handleLogin={(e) => this.handleLogin(e)} />} />
-            <Route exact path='/wps/debug/servers' component={Servers} />
-            <Route path='/wps/debug/servers/:server_id' component={Processes} />
-            <PrivateRoute path='/wps/debug/user/:user_id/jobs' isLogged={() => this.state.logged} component={Jobs} />
-            <Route component={NotFound} />
-          </Switch>
-        </div>
+        <Switch>
+          <Route exact path='/wps/debug' component={Home} />
+          <Route path='/wps/debug/create' component={CreateAccount} />
+          <PrivateRoute exact path='/wps/debug/user' isLogged={() => this.state.logged} component={User} />
+          <Route exact path='/wps/debug/login' component={() => <LoginComponent handleLogin={(e) => this.handleLogin(e)} />} />
+          <Route exact path='/wps/debug/servers' component={Servers} />
+          <Route path='/wps/debug/servers/:server_id' component={Processes} />
+          <PrivateRoute path='/wps/debug/user/:user_id/jobs' isLogged={() => this.state.logged} component={Jobs} />
+          <Route component={NotFound} />
+        </Switch>
       </div>
     )
   }
