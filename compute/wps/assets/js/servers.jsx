@@ -3,15 +3,71 @@ import { Link } from 'react-router-dom';
 
 import axios from 'axios';
 
+import {
+  Table,
+  TableBody,
+  TableRow,
+  TableRowColumn
+} from 'material-ui/Table';
+
+import Dialog from 'material-ui/Dialog';
+import TextField from 'material-ui/TextField';
+import RaisedButton from 'material-ui/RaisedButton';
+
+class Server extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      show: false,
+    }
+
+    this.handleShowCapabilities = props.handleShowCapabilities;
+    this.server = props.server;
+    this.history = props.history;
+    this.id = props.id;
+  }
+
+  render() {
+    return (
+      <Table>
+        <TableBody displayRowCheckbox={false}>
+          <TableRow>
+            <TableRowColumn>{this.server.host}</TableRowColumn>
+            <TableRowColumn>{this.server.added}</TableRowColumn>
+            <TableRowColumn>{this.server.status}</TableRowColumn>
+            <TableRowColumn>
+              <RaisedButton
+                label="Capabilities"
+                primary={true}
+                onTouchTap={e => this.handleShowCapabilities(this.server.capabilities)}
+              />
+            </TableRowColumn>
+            <TableRowColumn>
+              <RaisedButton
+                label="Processes"
+                primary={true}
+                onTouchTap={e => this.history.push('/wps/debug/servers/' + this.id)}
+              />
+            </TableRowColumn>
+          </TableRow>
+        </TableBody>
+      </Table>
+    )
+  }
+}
+
 class Servers extends Component {
   constructor(props) {
     super(props);
 
     this.state = {
       servers: null,
+      open: false,
+      capabilities: null,
     }
 
-    this.handleShowGetCapabilities = this.handleShowGetCapabilities.bind(this);
+    this.history = props.history;
   }
 
   componentDidMount() {
@@ -26,66 +82,38 @@ class Servers extends Component {
       });
   }
 
-  handleShowGetCapabilities(event) {
-    const target = event.target;
-    const key = target.name;
-
-    let servers = this.state.servers;
-
-    servers[key].show = !servers[key].show;
-
-    this.setState({ servers: servers });
-  }
-
   render() {
-    const servers = this.state.servers;
-    const style = { border: '1px solid black' };
-
-    let data = null;
-
-    if (this.state.servers) {
-      data = Object.keys(servers).map((key) => {
-        let server = servers[key];
-
-        return (
-          <tr key={key}>
-            <td>
-              <table>
-                <tbody>
-                  <tr key={key+'_1'}>
-                    <td style={{border: '1px solid black', width: '100%'}}>{server.host}</td>
-                    <td style={style}>{server.added}</td>
-                    <td style={style}>{server.status}</td>
-                    <td style={style}>
-                      <button name={key} onClick={this.handleShowGetCapabilities}>GetCapabilities</button>
-                    </td>
-                    <td style={style}>
-                      <Link to={'/wps/debug/servers/' + key}><button>Processes</button></Link>
-                    </td>
-                  </tr>
-                  <tr key={key+'_2'}>
-                    <td>
-                      {server.show ? server.capabilities : '' }
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </td> 
-          </tr>
-        )
-      });
-    }
-
     return (
       <div>
-        <div>
-          <h1>Servers</h1>
-        </div>
-        <table style={{border: '1px solid black', width: '100%'}}>
-          <tbody>
-            {data}
-          </tbody>
-        </table>
+        <h1 style={{textAlign: 'center'}}>Servers</h1>
+        <Table>
+          <TableBody displayRowCheckbox={false}>
+            {this.state.servers && 
+                Object.keys(this.state.servers).map(key => {
+                  return (
+                    <TableRow key={key}>
+                      <TableRowColumn>
+                        <Server
+                          id={key}
+                          history={this.history}
+                          server={this.state.servers[key]}
+                          handleShowCapabilities={cap => this.setState({open: true, capabilities: cap})}
+                        />
+                      </TableRowColumn>
+                    </TableRow>
+                  )
+                })
+            }
+          </TableBody>
+        </Table>
+        <Dialog
+          title="Capabilities"
+          modal={false}
+          open={this.state.open}
+          onRequestClose={e => this.setState({open: false})}
+        >
+          <TextField id="capabilities" fullWidth={true} multiLine={true} value={this.state.capabilities} />
+        </Dialog>
       </div>
     )
   }
