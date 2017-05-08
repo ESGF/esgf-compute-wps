@@ -8,6 +8,7 @@ import json
 import signal
 import tempfile
 from contextlib import closing
+from datetime import datetime
 
 import cdms2
 import cwt
@@ -20,6 +21,7 @@ from celery.signals import celeryd_init
 from celery.utils.log import get_task_logger
 from cwt.wps_lib import metadata
 from cwt.wps_lib import operations
+from OpenSSL import crypto
 
 from wps import models
 from wps import settings
@@ -31,6 +33,9 @@ from wps.processes import CWTBaseTask
 from wps.processes import handle_output
 
 logger = get_task_logger(__name__)
+
+URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
+URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
 
 class WPSTaskError(Exception):
     pass
@@ -239,6 +244,43 @@ def describe(server_id, identifiers):
             job = create_job(server)
 
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
+
+@shared_task(bind=True, base=CWTBaseTask)
+def check_auth(self, user_id, **kwargs):
+    self.initialize(**kwargs)
+
+    try:
+        user = models.User.objects.get(pk=user_id)
+    except models.User.DoesNotExist:
+        raise Exception('Could not find user')
+
+    cert = crypto.load_certificate(cryto.FILETYPE_PEM, user.auth.cert)
+
+    fmt = '%Y%m%d%H%M%SZ'
+
+    before = datetime.strptime(cert.get_notBefore(), fmt)
+
+    after = datetime.strptime(cert.get_notAfter(), fmt)
+
+    now = datetime.now()
+
+    if (now < before or now > after):
+        if user.auth.backend == 'mpc':
+            raise Exception('Please relog into MyProxyClient from your user account page.')
+        
+        oid = openid.OpenID.parse(user.auth.openid)
+
+        access = oid.find(URN_ACCESS)
+
+        resource = oid.find(URN_RESOURCE)
+
+        cert, key, new_token = oauth2.get_certificate(user.auth.token, access.uri, resource.uri)
+
+        user.auth.token = new_token
+
+        user.auth.cert = ''.join([cert, key])
+
+        user.auth.save()
 
 @shared_task(bind=True, base=CWTBaseTask)
 def setup_auth(self, user_id, temp, **kwargs):

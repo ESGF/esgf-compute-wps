@@ -80,7 +80,7 @@ class NodeManager(object):
         mpc_service = oid.find(URN_MPC)
 
         g = re.match('socket://(.*):(.*)', mpc_service.uri)
-        
+
         if g is None:
             raise Exception('Failed to parse MyProxyClient endpoint')
 
@@ -184,13 +184,17 @@ class NodeManager(object):
 
         uid, temp = tempfile.mkstemp()
 
-        chain = tasks.setup_auth.s(user_id=user.id, temp=temp, cwd='/tmp', job_id=job.id)
+        params = { 'cwd': '/tmp', 'job_id': job.id }
 
-        chain = (chain | process.si(variables, operations, domains, cwd='/tmp', job_id=job.id))
+        chain = tasks.check_auth.s(user_id=user.id)
 
-        chain = (chain | tasks.handle_output.s(job_id=job.id))
-        
-        chain = (chain | tasks.cleanup_auth.si(temp=temp, cwd='/tmp', job_id=job.id))
+        chain = (chain | tasks.setup_auth.si(user_id=user.id, temp=temp, **params))
+
+        chain = (chain | process.si(variables, operations, domains, **params))
+
+        chain = (chain | tasks.handle_output.s(**params))
+
+        chain = (chain | tasks.cleanup_auth.si(temp=temp, **params))
 
         chain()
 
@@ -234,7 +238,7 @@ class NodeManager(object):
     def handle_get(self, params):
         """ Handle an HTTP GET request. """
         logger.info('Received GET request %s', params)
-        
+
         request = self.get_parameter(params, 'request')
 
         service = self.get_parameter(params, 'service')
@@ -272,8 +276,8 @@ class NodeManager(object):
 
         # Build to format [variable=[];domain=[];operation=[]]
         data_inputs = '[{0}]'.format(
-                ';'.join('{0}={1}'.format(x.identifier, x.data.value)
-                    for x in request.data_inputs))
+                                     ';'.join('{0}={1}'.format(x.identifier, x.data.value)
+                                              for x in request.data_inputs))
 
         # CDAS doesn't like single quotes
         data_inputs = data_inputs.replace('\'', '\"')

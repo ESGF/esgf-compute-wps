@@ -56,7 +56,7 @@ def create(request):
 
     email = form.cleaned_data['email']
 
-    openid = forms.cleaned_data['openid']
+    openid = form.cleaned_data['openid']
 
     password = form.cleaned_data['password']
 
