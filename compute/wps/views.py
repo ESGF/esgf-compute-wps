@@ -265,10 +265,8 @@ def user(request):
             request.user.auth.openid = oid.response
 
             request.user.auth.save()
-        else:
-            oid = openid.OpenID.parse(request.user.auth.openid)
 
-        data['openid'] = oid.find('urn:esg:security:myproxy-service').local_id
+        data['openid'] = request.user.auth.openid_url
         data['type'] = request.user.auth.type
         data['api_key'] = request.user.auth.api_key
 

@@ -127,9 +127,12 @@ class User extends Component {
 
   render() {
     const style = {
+      column: {
+        width: '50%',
+      },
       field: {
-        width: '650px'
-      }
+        width: '100%',
+      },
     };
 
     const actions = [
@@ -150,20 +153,30 @@ class User extends Component {
         <Table>
           <TableBody displayRowCheckbox={false}>
             <TableRow>
-              <TableRowColumn>
+              <TableRowColumn style={style.column}>
                 {this.state.user && (
                   <form>
                     <TextField
+                      style={style.field}
                       name="username"
                       value={this.state.user.username}
                       readOnly="true" />
                     <br />
                     <TextField
+                      style={style.field}
                       name="email"
                       value={this.state.user.email}
                       readOnly="true" />
                     <br />
                     <TextField
+                      style={style.field}
+                      name="openid"
+                      value={this.state.user.openid}
+                      readOnly="true"
+                    />
+                    <br />
+                    <TextField
+                      style={style.field}
                       name="type"
                       value={this.state.user.type}
                       readOnly="true" />
