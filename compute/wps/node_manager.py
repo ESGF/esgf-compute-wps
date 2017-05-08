@@ -52,6 +52,9 @@ class NodeManager(object):
         except models.User.DoesNotExist:
             raise Exception('User does not exist')
 
+        if user.auth.api_key == '':
+            raise Exception('Need to generate an api_key, log into either OAuth2 or MyProxyClient')
+
         user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
 
         user.auth.save()
@@ -65,7 +68,7 @@ class NodeManager(object):
         except models.User.DoesNotExist:
             raise Exception('User does not exist')
 
-        if user.auth.api_key is None:
+        if user.auth.api_key == '':
             user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
 
         user.auth.openid_response = openid_response
