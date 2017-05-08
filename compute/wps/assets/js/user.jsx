@@ -150,12 +150,12 @@ class User extends Component {
 
     return (
       <Card>
-        <Table>
+        <Table selectable={false}>
           <TableBody displayRowCheckbox={false}>
             <TableRow>
               <TableRowColumn style={style.column}>
                 {this.state.user && (
-                  <form>
+                  <div>
                     <TextField
                       style={style.field}
                       name="username"
@@ -186,7 +186,7 @@ class User extends Component {
                       name="api_key"
                       value={this.state.user.api_key}
                       readOnly="true" />
-                  </form>
+                  </div>
                 )}
               </TableRowColumn>
               <TableRowColumn>
