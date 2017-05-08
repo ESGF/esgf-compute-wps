@@ -254,7 +254,7 @@ def check_auth(self, user_id, **kwargs):
     except models.User.DoesNotExist:
         raise Exception('Could not find user')
 
-    cert = crypto.load_certificate(cryto.FILETYPE_PEM, user.auth.cert)
+    cert = crypto.load_certificate(crypto.FILETYPE_PEM, user.auth.cert)
 
     fmt = '%Y%m%d%H%M%SZ'
 
