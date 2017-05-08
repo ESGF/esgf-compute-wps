@@ -259,7 +259,14 @@ def user(request):
            }
 
     if request.user.auth is not None:
-        oid = openid.OpenID.parse(request.user.auth.openid)
+        if request.user.auth.openid == '':
+            oid = openid.OpenID.retrieve_and_parse(request.user.auth.openid_url)
+
+            request.user.auth.openid = oid.response
+
+            request.user.auth.save()
+        else:
+            oid = openid.OpenID.parse(request.user.auth.openid)
 
         data['openid'] = oid.find('urn:esg:security:myproxy-service').local_id
         data['type'] = request.user.auth.type
