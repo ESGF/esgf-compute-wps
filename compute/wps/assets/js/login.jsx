@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 
+import { Link } from 'react-router-dom';
+
 import querystring from 'querystring';
 import axios from 'axios';
 
 import Card from 'material-ui/Card';
-import { List, ListItem } from 'material-ui/List';
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 
@@ -65,12 +66,12 @@ class Login extends Component {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     })
-    .then(res => {
-      this.handleLogin();
-    })
-    .catch(err => {
-      console.log(err);
-    });
+      .then(res => {
+        this.handleLogin();
+      })
+      .catch(err => {
+        console.log(err);
+      });
 
     event.preventDefault();
   }
@@ -78,19 +79,34 @@ class Login extends Component {
   render() {
     return (
       <Card>
-        <form onSubmit={this.handleSubmit}>
-          <List>
-            <ListItem>
-              <TextField name="username" value={this.state.username} onChange={this.handleChange} hintText="Username" />
-            </ListItem>
-            <ListItem>
-              <TextField type="password" name="password" value={this.state.password} onChange={this.handleChange} hintText="Password" />
-            </ListItem>
-            <ListItem>
-              <RaisedButton type="submit" label="Submit" />
-            </ListItem>
-          </List>
-        </form>
+        <div>
+          <TextField
+            name="username"
+            value={this.state.username}
+            onChange={this.handleChange}
+            hintText="Username"
+          />
+        </div>
+        <div>
+          <TextField
+            type="password"
+            name="password"
+            value={this.state.password}
+            onChange={this.handleChange}
+            hintText="Password"
+          />
+        </div>
+        <div>
+          <RaisedButton
+            primary={true}
+            type="submit"
+            label="Submit"
+            onTouchTap={e => this.handleSubmit(e)}
+          />
+        </div>
+        <div>
+          <Link to="/wps/debug/create">Create an account</Link>
+        </div>
       </Card>
     )
   }
