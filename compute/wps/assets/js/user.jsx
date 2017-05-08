@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { Link } from 'react-router-dom';
 
+import querystring from 'querystring';
 import axios from 'axios';
 
 import {
@@ -63,18 +64,21 @@ class User extends Component {
   }
 
   handleLogin(e) {
-    if (this.state.auth == 'mpc') {
-      const postURL = location.origin + '/auth/login/mpc/';
+    let postURL = '';
+    let data = null;
 
-      const data = {
+    if (this.state.auth == 'mpc') {
+      postURL = location.origin + '/auth/login/mpc/';
+
+      data = {
         openid: [this.state.openid],
         username: [this.state.username],
         password: [this.state.password],
       };
     } else {
-      const postURL = location.origin + '/auth/login/oauth2/';
+      postURL = location.origin + '/auth/login/oauth2/';
 
-      const data = { openid: [this.state.openid] }
+      data = { openid: [this.state.openid] }
     }
 
     const csrfToken = this.getCookie('csrftoken');
@@ -87,7 +91,7 @@ class User extends Component {
       })
       .then(res => {
         if (res.data.status === 'success') {
-          window.location = location.origin + '/wps/debug/user';
+          this.setState({open: false});
         } else{
           this.setState({status: JSON.stringify(res.data.errors)});
         }
@@ -132,6 +136,7 @@ class User extends Component {
       <FlatButton
         label="Submit"
         primary={true}
+        onTouchTap={e => this.handleLogin(e)}
       />,
       <FlatButton
         label="Cancel"
@@ -205,6 +210,7 @@ class User extends Component {
             name="openid"
             hintText="OpenID"
             value={this.state.openid}
+            onChange={e => this.handleChange(e)}
           />
           <br />
           {this.state.auth == 'mpc' && 
@@ -212,6 +218,7 @@ class User extends Component {
                 name="username"
                 hintText="Username"
                 value={this.state.username}
+                onChange={e => this.handleChange(e)}
               />
           }
           <br/>
@@ -221,6 +228,7 @@ class User extends Component {
                 hintText="password"
                 value={this.state.password}
                 type="password"
+                onChange={e => this.handleChange(e)}
               />
           }
         </Dialog>
