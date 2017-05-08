@@ -189,7 +189,7 @@ class NodeManager(object):
 
         params = { 'cwd': '/tmp', 'job_id': job.id }
 
-        chain = tasks.check_auth.s(user_id=user.id)
+        chain = tasks.check_auth.s(user_id=user.id, **params)
 
         chain = (chain | tasks.setup_auth.si(user_id=user.id, temp=temp, **params))
 
