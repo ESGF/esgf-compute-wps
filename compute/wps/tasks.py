@@ -264,23 +264,31 @@ def check_auth(self, user_id, **kwargs):
 
     now = datetime.now()
 
-    if (now < before or now > after):
-        if user.auth.backend == 'mpc':
-            raise Exception('Please relog into MyProxyClient from your user account page.')
-        
-        oid = openid.OpenID.parse(user.auth.openid)
+    if (now >= before and now <= after):
+        logger.info('Certificate is still valid')
 
-        access = oid.find(URN_ACCESS)
+        return
 
-        resource = oid.find(URN_RESOURCE)
+    logger.info('Certificate has expired, renewing')
 
-        cert, key, new_token = oauth2.get_certificate(user.auth.token, access.uri, resource.uri)
+    if user.auth.backend == 'mpc':
+        raise Exception('Please relog into MyProxyClient from your user account page.')
+    
+    oid = openid.OpenID.parse(user.auth.openid)
 
-        user.auth.token = new_token
+    access = oid.find(URN_ACCESS)
 
-        user.auth.cert = ''.join([cert, key])
+    resource = oid.find(URN_RESOURCE)
 
-        user.auth.save()
+    cert, key, new_token = oauth2.get_certificate(user.auth.token, access.uri, resource.uri)
+
+    logger.info('Recieved new token {}, updating certificate'.format(new_token))
+
+    user.auth.token = new_token
+
+    user.auth.cert = ''.join([cert, key])
+
+    user.auth.save()
 
 @shared_task(bind=True, base=CWTBaseTask)
 def setup_auth(self, user_id, temp, **kwargs):
@@ -291,15 +299,16 @@ def setup_auth(self, user_id, temp, **kwargs):
     except models.User.DoesNotExist:
         raise Exception('Could not find user')
 
-    with open(temp, 'w') as f:
-        f.write(''.join(user.auth.cert))
-
     cwd_dodsrc = os.path.join(os.getcwd(), '.dodsrc')
 
     cwd_dods_cookies = os.path.join(os.getcwd(), '.dods_cookies')
 
     if os.path.exists(cwd_dods_cookies):
+        logger.info('Removing old .dods_cookies file')
+
         os.remove(cwd_dods_cookies)
+
+    logger.info('Writing .dodsrc file to {}'.format(cwd_dodsrc))
 
     with open(cwd_dodsrc, 'w') as f:
         f.write('HTTP.COOKIEJAR=.dods_cookies\n')
@@ -307,10 +316,17 @@ def setup_auth(self, user_id, temp, **kwargs):
         f.write('HTTP.SSL.KEY={}\n'.format(temp))
         f.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
         f.write('HTTP.SSL.VERIFY=0\n')
+    
+    logger.info('Writing temporary certificate {}'.format(temp))
+
+    with open(temp, 'w') as f:
+        f.write(''.join(user.auth.cert))
 
 @shared_task(bind=True, base=CWTBaseTask)
 def cleanup_auth(self, temp, **kwargs):
     self.initialize(**kwargs)
 
     if os.path.exists(temp):
+        logger.info('Removing temporary certificate {}'.format(temp))  
+
         os.remove(temp)
