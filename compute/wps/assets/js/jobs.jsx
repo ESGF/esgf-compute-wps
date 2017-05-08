@@ -25,9 +25,9 @@ class Message extends Component {
     const msg = this.message;
 
     return (
-      <Table>
+      <Table selectable={false}>
         <TableBody displayRowCheckbox={false}>
-          <TableRow>
+          <TableRow displayBorder={false}>
             <TableRowColumn>{msg.message || 'No Message'}</TableRowColumn>
             <TableRowColumn>{msg.percent || '0'}</TableRowColumn>
             <TableRowColumn>{msg.exception || 'No Exception'}</TableRowColumn>
@@ -52,17 +52,19 @@ class Status extends Component {
 
   render() {
     return (
-      <Table>
+      <Table selectable={false}>
         <TableBody displayRowCheckbox={false}>
-          <TableRow>
+          <TableRow displayBorder={this.state.show}>
             <TableRowColumn>{this.status.status}</TableRowColumn>
             <TableRowColumn>{this.status.created}</TableRowColumn>
             <TableRowColumn>
-              <RaisedButton 
-                primary={true}
-                label="Messages"
-                onTouchTap={e => { this.setState({show: !this.state.show})}}
-              />
+              {this.status.status == 'ProcessStarted' && 
+                <RaisedButton 
+                  primary={true}
+                  label="Messages"
+                  onTouchTap={e => { this.setState({show: !this.state.show})}}
+                />
+              }
             </TableRowColumn>
           </TableRow>
           {this.state.show && (
@@ -95,9 +97,9 @@ class Job extends Component {
 
   render() {
     return (
-      <Table>
+      <Table selectable={false}>
         <TableBody displayRowCheckbox={false}>
-          <TableRow>
+          <TableRow displayBorder={this.state.show}>
             <TableRowColumn>{this.job.server}</TableRowColumn>
             <TableRowColumn>
               <RaisedButton
@@ -152,7 +154,7 @@ class Jobs extends Component {
     return (
       <div>
         <h1 style={{textAlign: 'center'}}>Jobs</h1>
-        <Table>
+        <Table selectable={false}>
           <TableBody displayRowCheckbox={false}>
             {this.state.jobs &&
               this.state.jobs.map(job => {
