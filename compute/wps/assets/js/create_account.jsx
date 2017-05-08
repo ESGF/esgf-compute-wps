@@ -3,6 +3,10 @@ import React, { Component } from 'react';
 import querystring from 'querystring';
 import axios from 'axios';
 
+import Card from 'material-ui/Card';
+import TextField from 'material-ui/TextField';
+import RaisedButton from 'material-ui/RaisedButton';
+
 class CreateAccount extends Component {
   constructor(props) {
     super(props);
@@ -14,9 +18,6 @@ class CreateAccount extends Component {
       password: '',
       status: '',
     };
-
-    this.handleChange = this.handleChange.bind(this);
-    this.handleSubmit = this.handleSubmit.bind(this);
   }
 
   getCookie(name) {
@@ -73,38 +74,51 @@ class CreateAccount extends Component {
     .catch(err => {
       console.log(err);
     });
-
-    event.preventDefault();
   }
 
   render() {
     return (
-      <div>
-        <form onSubmit={this.handleSubmit}>
-          <label>
-            Username:
-            <input name="username" type="text" value={this.state.username} onChange={this.handleChange} />
-          </label>
-          <label>
-            Email:
-            <input name="email" type="text" value={this.state.email} onChange={this.handleChange} />
-          </label>
-          <label>
-            OpenID:
-            <input name="openid" type="text" value={this.state.openid} onChange={this.handleChange} />
-          </label>
-          <label>
-            Password:
-            <input name="password" type="password" value={this.state.password} onChange={this.handleChange} />
-          </label>
-          <input type="submit" value="Submit" />
-        </form>
+      <Card>
         <div>
-          {this.state.status && 
-              this.state.status
-          }
+          <TextField
+            name="username"
+            value={this.state.username}
+            onChange={e => this.handleChange(e)}
+            hintText="Username"
+          />
         </div>
-      </div>
+        <div>
+          <TextField
+            name="email"
+            value={this.state.email}
+            onChange={e => this.handleChange(e)}
+            hintText="Email"
+          />
+        </div>
+        <div>
+          <TextField
+            name="openid"
+            value={this.state.openid}
+            onChange={e => this.handleChange(e)}
+            hintText="OpenID"
+          />
+        </div>
+        <div>
+          <TextField
+            name="password"
+            value={this.state.password}
+            onChange={e => this.handleChange(e)}
+            hintText="Password"
+          />
+        </div>
+        <div>
+          <RaisedButton
+            primary={true}
+            label="Create"
+            onTouchTap={e => this.handleSubmit(e)}
+          />
+        </div>
+      </Card>
     )
   }
 }
