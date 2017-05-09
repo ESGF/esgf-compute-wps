@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models.query_utils import Q
 
 from wps import settings
 from wps import wps_xml
@@ -54,6 +55,19 @@ class Job(models.Model):
         status = wps_xml.update_execute_response_status(self.report, latest())
 
         return status
+
+    @property
+    def elapsed(self):
+        started = self.status_set.filter(status='ProcessStarted')
+
+        ended = self.status_set.filter(Q(status='ProcessSucceeded') | Q(status='ProcessFailed'))
+
+        if len(started) == 0 or len(ended) == 0:
+            return 'No elapsed'
+
+        elapsed = ended[0].created_date - started[0].created_date
+
+        return '{}.{}'.format(elapsed.seconds, elapsed.microseconds)
 
     def set_report(self, identifier):
         location = settings.STATUS_LOCATION.format(job_id=self.id)

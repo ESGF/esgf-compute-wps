@@ -30,7 +30,7 @@ class Message extends Component {
         <TableBody displayRowCheckbox={false}>
           <TableRow displayBorder={false}>
             <TableRowColumn>{msg.message || 'No Message'}</TableRowColumn>
-            <TableRowColumn>{msg.percent || '0'}</TableRowColumn>
+            <TableRowColumn>{(msg.percent || '0') + ' %'}</TableRowColumn>
             <TableRowColumn>{msg.created}</TableRowColumn>
           </TableRow>
         </TableBody>
@@ -110,6 +110,7 @@ class Job extends Component {
         <TableBody displayRowCheckbox={false}>
           <TableRow displayBorder={this.state.show}>
             <TableRowColumn>{this.job.server}</TableRowColumn>
+            <TableRowColumn>{this.job.elapsed}</TableRowColumn>
             <TableRowColumn>
               <RaisedButton
                 style={{marginLeft: 'auto', marginRight: '0px'}}
@@ -123,7 +124,7 @@ class Job extends Component {
             this.job.status.map(status => {
               return (
                 <TableRow key={status.id}>
-                  <TableRowColumn colSpan="2" style={{paddingLeft: '0px', paddingRight: '0px'}}>
+                  <TableRowColumn colSpan="3" style={{paddingLeft: '0px', paddingRight: '0px'}}>
                     <Status
                       status={status}
                       onShowDialog={this.onShowDialog}

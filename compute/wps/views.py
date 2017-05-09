@@ -285,6 +285,7 @@ def jobs(request, user_id):
     jobs = [{
              'id': x.id,
              'server': x.server.id,
+             'elapsed': x.elapsed,
              'status': [{
                          'id': y.id,
                          'created': y.created_date,
