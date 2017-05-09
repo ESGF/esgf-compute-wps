@@ -44,7 +44,7 @@ def subset(self, variables, operations, domains, **kwargs):
         current = 0
         total = (tstop - tstart)
 
-        grid, tool, method = self.generate_grid(op)
+        grid, tool, method = self.generate_grid(op, v)
             
         with closing(cdms2.open(out_local_path.replace('https', 'http'), 'w')) as out:
             status.update('Subsetting {}'.format('w/regridding' if grid is not None else ''))
@@ -69,6 +69,8 @@ def subset(self, variables, operations, domains, **kwargs):
                 status.update('Subsetting', percent=(current * 100) / total)
 
     status.update('Done subsetting')
+
+    self.cleanup()
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
@@ -104,7 +106,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
-    grid, tool, method = self.generate_grid(op)
+    grid, tool, method = self.generate_grid(op, v)
 
     with nested(*[closing(x) for x in inputs]) as inputs:
         with closing(cdms2.open(out_local_path, 'w')) as out:
@@ -133,6 +135,8 @@ def aggregate(self, variables, operations, domains, **kwargs):
                         data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
                     out.write(data, id=var_name)
+
+    self.cleanup()
 
     out_path = self.generate_output(out_local_path, **kwargs)
 

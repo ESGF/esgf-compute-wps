@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import copy
 import os
 import json
 import uuid
@@ -94,6 +95,8 @@ class CWTBaseTask(celery.Task):
         if cwd is not None:
             os.chdir(cwd)
 
+        self.grid_file = None
+
         return Status.from_job_id(kwargs.get('job_id'))
 
     def load(self, variables, domains, operations):
@@ -114,7 +117,11 @@ class CWTBaseTask(celery.Task):
 
         return v, d, o
 
-    def generate_grid(self, operation):
+    def cleanup(self):
+        if self.grid_file is not None:
+            self.grid_file.close()
+
+    def generate_grid(self, operation, variables):
         gridder = operation.parameters.get('gridder')
 
         grid = None
@@ -127,18 +134,25 @@ class CWTBaseTask(celery.Task):
             method = gridder.method
 
             if isinstance(gridder.grid, (str, unicode)):
-                grid_type, arg = gridder.grid.split('~')
+                if gridder.grid in variables:
+                    v = variables[gridder.grid]
 
-                if grid_type == 'gaussian':
-                    grid = cdms2.createGaussianGrid(int(arg))
-                elif grid_type == 'uniform':
-                    lat_step, lon_step = arg.split('x')
+                    self.grid_file = cdms2.open(v.uri)
 
-                    lat_step = int_or_float(lat_step)
+                    grid = self.grid_file[v.var_name].getGrid()
+                else:
+                    grid_type, arg = gridder.grid.split('~')
 
-                    lon_step = int_or_float(lon_step)
+                    if grid_type == 'gaussian':
+                        grid = cdms2.createGaussianGrid(int(arg))
+                    elif grid_type == 'uniform':
+                        lat_step, lon_step = arg.split('x')
 
-                    grid = cdms2.createUniformGrid(90.0, 180/lat_step, -lat_step, 0.0, 360/lon_step, lon_step)
+                        lat_step = int_or_float(lat_step)
+
+                        lon_step = int_or_float(lon_step)
+
+                        grid = cdms2.createUniformGrid(90.0, 180/lat_step, -lat_step, 0.0, 360/lon_step, lon_step)
 
         return grid, tool, method
 

@@ -36,6 +36,20 @@ def generate_variable(value, time, lat, lon, var_name, identifier):
 
     return [(identifier, {'uri':file_path,'id': '{}|{}'.format(var_name, identifier)})]
 
+def generate_grid(value, var_name, identifier):
+    file_name = '{}.nc'.format(identifier)
+
+    file_path = '{}/{}'.format(os.path.dirname(__file__), file_name)
+
+    grid, arg = value.split('~')
+
+    if grid == 'gaussian':
+        g = cdms2.createGaussianGrid(int(arg))
+
+        g.writeToFile(file_path)
+
+    return [(identifier, {'uri':file_path,'id': '{}|{}'.format(var_name, identifier)})]
+
 class TestCDAT(test.TestCase):
 
     def setUp(self):
@@ -48,6 +62,7 @@ class TestCDAT(test.TestCase):
         self.v = {}
 
         self.v.update(generate_variable(10, time1, lat_1, lon_1, 'tas', 'tas_10_365_180_360'))
+        self.v.update(generate_grid('gaussian~32', 'tas', 'weird_grid'))
 
     def test_subset_bad_time_indices(self):
         o = {'CDAT.subset':{'name':'CDAT.subset','domain':'d0','input':['tas_10_365_180_360']}}
@@ -62,6 +77,25 @@ class TestCDAT(test.TestCase):
             tas = f['tas']
 
             self.assertEqual(tas.shape, (365, 180, 360))
+
+    def test_subset_regrid_file(self):
+        o = {'CDAT.subset':{'name':'CDAT.subset',
+                            'domain':'d0',
+                            'input':['tas_10_365_180_360'],
+                            'gridder':{'tool':'esmf','method':'linear','grid':'weird_grid'}}}
+
+        d = {'d0':{'id':'d0',
+                   'time':{'start':100,'end':300,'crs':'indices'},
+                   'latitude':{'start':0,'end':90,'crs':'indices'},
+                   'longitude':{'start':180,'end':270,'crs':'indices'},
+                  }}
+
+        r = cdat.subset(self.v, o, d, local=True)
+
+        with closing(cdms2.open(r['uri'], 'r')) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (200, 64, 32))
 
     def test_subset_regrid(self):
         o = {'CDAT.subset':{'name':'CDAT.subset',
