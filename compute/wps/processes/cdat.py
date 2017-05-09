@@ -50,7 +50,14 @@ def subset(self, variables, operations, domains, **kwargs):
             status.update('Subsetting {}'.format('w/regridding' if grid is not None else ''))
 
             for i in xrange(tstart, tstop, step):
-                data = inp(var_name, time=slice(i, i+step, tstep), **spatial[0])
+                end = i + step
+
+                if end > tstop:
+                    end = tstop
+
+                logger.info('Time slice {}:{}'.format(i, end))
+
+                data = inp(var_name, time=slice(i, end, tstep), **spatial[0])
 
                 if grid is not None:
                     data = data.regrid(grid, regridTool=tool, regridMethod=method)
@@ -111,7 +118,14 @@ def aggregate(self, variables, operations, domains, **kwargs):
                 step = tstop - tstart if (tstop - tstart) < 200 else 200
 
                 for i in xrange(tstart, tstop, step):
-                    data = inp(var_name, time=slice(i, i+step, tstep), **spatial)
+                    end = i + step
+
+                    if end > tstop:
+                        end = tstop
+
+                    logger.info('Time slice {}:{}'.format(i, end))
+
+                    data = inp(var_name, time=slice(i, end, tstep), **spatial)
 
                     data.getTime().toRelativeTime(units)
 
