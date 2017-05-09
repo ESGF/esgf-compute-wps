@@ -49,6 +49,39 @@ class TestCDAT(test.TestCase):
 
         self.v.update(generate_variable(10, time1, lat_1, lon_1, 'tas', 'tas_10_365_180_360'))
 
+    def test_subset_bad_time_indices(self):
+        o = {'CDAT.subset':{'name':'CDAT.subset','domain':'d0','input':['tas_10_365_180_360']}}
+
+        d = {'d0':{'id':'d0',
+                   'time':{'start':0,'end':500,'crs':'indices'}
+                  }}
+
+        r = cdat.subset(self.v, o, d, local=True)
+
+        with closing(cdms2.open(r['uri'], 'r')) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (365, 180, 360))
+
+    def test_subset_regrid(self):
+        o = {'CDAT.subset':{'name':'CDAT.subset',
+                            'domain':'d0',
+                            'input':['tas_10_365_180_360'],
+                            'gridder':{'tool':'esmf','method':'linear','grid':'gaussian~32'}}}
+
+        d = {'d0':{'id':'d0',
+                   'time':{'start':100,'end':300,'crs':'indices'},
+                   'latitude':{'start':0,'end':90,'crs':'indices'},
+                   'longitude':{'start':180,'end':270,'crs':'indices'},
+                  }}
+
+        r = cdat.subset(self.v, o, d, local=True)
+
+        with closing(cdms2.open(r['uri'], 'r')) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (200, 32, 64))
+
     def test_subset_values(self):
         o = {'CDAT.subset':{'name':'CDAT.subset','domain':'d0','input':['tas_10_365_180_360']}}
 
