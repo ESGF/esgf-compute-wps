@@ -9,6 +9,7 @@ import {
   TableRowColumn
 } from 'material-ui/Table';
 
+import Dialog from 'material-ui/Dialog';
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 
@@ -30,7 +31,6 @@ class Message extends Component {
           <TableRow displayBorder={false}>
             <TableRowColumn>{msg.message || 'No Message'}</TableRowColumn>
             <TableRowColumn>{msg.percent || '0'}</TableRowColumn>
-            <TableRowColumn>{msg.exception || 'No Exception'}</TableRowColumn>
             <TableRowColumn>{msg.created}</TableRowColumn>
           </TableRow>
         </TableBody>
@@ -48,6 +48,7 @@ class Status extends Component {
     }
 
     this.status = props.status;
+    this.onShowDialog = props.onShowDialog;
   }
 
   render() {
@@ -63,6 +64,13 @@ class Status extends Component {
                   primary={true}
                   label="Messages"
                   onTouchTap={e => { this.setState({show: !this.state.show})}}
+                />
+              }
+              {this.status.status == 'ProcessFailed' &&
+                <RaisedButton
+                  primary={true}
+                  label="Exception"
+                  onTouchTap={e => this.onShowDialog(this.status.messages[0].exception)}
                 />
               }
             </TableRowColumn>
@@ -93,6 +101,7 @@ class Job extends Component {
     }
 
     this.job = props.job;
+    this.onShowDialog = props.onShowDialog;
   }
 
   render() {
@@ -115,7 +124,10 @@ class Job extends Component {
               return (
                 <TableRow key={status.id}>
                   <TableRowColumn colSpan="2" style={{paddingLeft: '0px', paddingRight: '0px'}}>
-                    <Status status={status} />
+                    <Status
+                      status={status}
+                      onShowDialog={this.onShowDialog}
+                    />
                   </TableRowColumn>
                 </TableRow>
               )
@@ -132,7 +144,9 @@ class Jobs extends Component {
     super(props);
 
     this.state = {
-      jobs: null
+      jobs: null,
+      open: false,
+      dialogText: '',
     };
 
     this.user_id = props.match.params.user_id;
@@ -161,7 +175,10 @@ class Jobs extends Component {
                 return (
                   <TableRow key={job.id}>
                     <TableRowColumn>
-                      <Job job={job} />
+                      <Job
+                        job={job}
+                        onShowDialog={text => this.setState({open: true, dialogText: text})}
+                      />
                     </TableRowColumn>
                   </TableRow>
                 )
@@ -169,6 +186,18 @@ class Jobs extends Component {
             }
           </TableBody>
         </Table>
+        <Dialog
+          modal={false}
+          open={this.state.open}
+          onRequestClose={e => this.setState({open: false})}
+        >
+          <TextField
+            name='exception'
+            fullWidth={true}
+            multiLine={true}
+            value={this.state.dialogText}
+          />
+        </Dialog>
       </div>
     )
   }
