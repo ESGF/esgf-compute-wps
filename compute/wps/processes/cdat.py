@@ -41,14 +41,14 @@ def subset(self, variables, operations, domains, **kwargs):
 
         step = tstop - tstart if (tstop - tstart) < 200 else 200
 
-        status.update('Subsetting {}'.format(var_name))
-
         current = 0
         total = (tstop - tstart)
 
         grid, tool, method = self.generate_grid(op)
             
-        with closing(cdms2.open(out_local_path, 'w')) as out:
+        with closing(cdms2.open(out_local_path.replace('https', 'http'), 'w')) as out:
+            status.update('Subsetting {}'.format('w/regridding' if grid is not None else ''))
+
             for i in xrange(tstart, tstop, step):
                 data = inp(var_name, time=slice(i, i+step, tstep), **spatial[0])
 
@@ -59,7 +59,9 @@ def subset(self, variables, operations, domains, **kwargs):
 
                 current += step
 
-                status.update(percent=(current * 100) / total)
+                status.update('Subsetting', percent=(current * 100) / total)
+
+    status.update('Done subsetting')
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
@@ -91,7 +93,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
         else:
             domain[i.uri] = i.domains[0]
 
-    inputs = [cdms2.open(x.uri) for x in op.inputs]
+    inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
 
     inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
