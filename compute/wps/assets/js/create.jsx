@@ -71,7 +71,7 @@ class CreateAccount extends Component {
     })
     .then(res => {
       if (res.data.status == 'success') {
-        this.history.push('/wps/debug/user');
+        this.history.push('/wps/home/user');
       } else {
         const errors = res.data.errors;
 
@@ -144,6 +144,7 @@ class CreateAccount extends Component {
           <TextField
             name="password"
             value={this.state.password}
+	    type="password"
             onChange={e => this.handleChange(e)}
             style={style.field}
             hintText="Password"
