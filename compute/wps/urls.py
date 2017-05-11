@@ -6,7 +6,7 @@ import views
 urlpatterns = [
                url(r'^$', views.wps),
                url(r'^job/(?P<job_id>[0-9]*)/$', views.status),
-               url(r'^jobs/(?p<user_id>[0-9]*)$', views.jobs),
+               url(r'^jobs/(?P<user_id>[0-9]*)$', views.jobs),
                url(r'^servers/$', views.servers),
                url(r'^servers/(?P<server_id>[0-9]*)$', views.processes),
                url(r'^home/', views.home),
