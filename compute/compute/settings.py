@@ -22,9 +22,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '+a#&@l4!^)i5cn=!*ye^!42xcmyqs3l&j368ow^-y=3fs-txq6'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['0.0.0.0', 'aims2.llnl.gov']
+ALLOWED_HOSTS = []
 
 # Application definition
 
@@ -125,7 +125,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'assets')
+STATIC_ROOT = os.path.join(BASE_DIR, 'wps', 'assets')
 
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'wps', 'assets'),
