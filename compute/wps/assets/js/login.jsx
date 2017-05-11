@@ -140,7 +140,7 @@ class Login extends Component {
         <div>
           <Link
             style={style.field}
-            to="/wps/debug/create"
+            to="/wps/home/create"
           >
             Create an account
           </Link>
