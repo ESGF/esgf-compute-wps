@@ -41,7 +41,11 @@ class User extends Component {
 
     axios.get(userLocation)
       .then(res => {
-        this.setState({user: res.data});
+        this.setState({
+	  user: res.data,
+	  username: res.data.username,
+	  openid: res.data.openid,
+	});
       })
       .catch(err => {
         console.log(err);
