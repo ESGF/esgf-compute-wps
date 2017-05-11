@@ -14,7 +14,7 @@ class WpsConfig(AppConfig):
     name = 'wps'
 
     def ready(self):
-        if os.getenv('WPS_NO_INIT') is not None:
+        if os.getenv('WPS_INIT') is None:
             return
 
         # Need to import after app is ready
