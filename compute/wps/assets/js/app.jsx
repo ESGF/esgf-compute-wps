@@ -10,7 +10,7 @@ import {
 import axios from 'axios';
 
 import LoginComponent from './login.jsx';
-import CreateAccount from './create_account.jsx';
+import CreateAccount from './create.jsx';
 import User from './user.jsx';
 
 import Servers from './servers.jsx';
@@ -31,7 +31,7 @@ const PrivateRoute = ({ component: Component, isLogged, ...rest }) => {
     isLogged() ? 
     <Component {...props} /> :
     <Redirect to={{
-      pathname: '/wps/debug/login',
+      pathname: '/wps/home/login',
       state: { from: props.location }
     }} />
   )} />
@@ -68,12 +68,8 @@ class App extends Component {
     axios.get(userURL)
       .then(res => {
         if ('status' in res.data) {
-          console.info('not logged');
-
           localStorage.setItem('logged', false);
         } else {
-          console.log('logged');
-
           this.setState({user: res.data, logged: true});
 
           localStorage.setItem('logged', true);
@@ -89,7 +85,7 @@ class App extends Component {
 
     localStorage.setItem('logged', true);
 
-    this.history.push('/wps/debug/user');
+    this.history.push('/wps/home/user');
   }
 
   handleLogout(e) {
@@ -112,35 +108,35 @@ class App extends Component {
         <AppBar
           title='LLNL WPS'
           onLeftIconButtonTouchTap={(e) => this.setState({ open: !this.state.open })}
-          onTitleTouchTap={(e) => this.history.push('/wps/debug')}
+          onTitleTouchTap={(e) => this.history.push('/wps/home')}
           iconElementRight={this.state.logged ? 
               <Logged onTouchTap={(e) => this.handleLogout(e)} /> : 
-              <Login onTouchTap={() => this.history.push('/wps/debug/login')} />}
+              <Login onTouchTap={() => this.history.push('/wps/home/login')} />}
         />
         <Drawer
           docked={false}
           open={this.state.open}
           onRequestChange={(open) => this.setState({open})}
         >
-          <MenuItem primaryText="Servers" onTouchTap={(e) => this.history.push('/wps/debug/servers')} />
+          <MenuItem primaryText="Servers" onTouchTap={(e) => this.history.push('/wps/home/servers')} />
           {this.state.logged && (
-            <MenuItem primaryText="Profile" onTouchTap={(e) => this.history.push('/wps/debug/user')} />
+            <MenuItem primaryText="Profile" onTouchTap={(e) => this.history.push('/wps/home/user')} />
           )}
           {this.state.logged && (
             <MenuItem
               primaryText="Jobs"
-              onTouchTap={(e) => this.history.push('/wps/debug/user/' + this.state.user.id + '/jobs')}
+              onTouchTap={(e) => this.history.push('/wps/home/user/' + this.state.user.id + '/jobs')}
             />
           )}
         </Drawer>
         <Switch>
-          <Route exact path='/wps/debug' component={Home} />
-          <Route path='/wps/debug/create' component={CreateAccount} />
-          <PrivateRoute exact path='/wps/debug/user' isLogged={() => this.state.logged} component={User} />
-          <Route exact path='/wps/debug/login' component={() => <LoginComponent handleLogin={(e) => this.handleLogin(e)} />} />
-          <Route exact path='/wps/debug/servers' component={Servers} />
-          <Route path='/wps/debug/servers/:server_id' component={Processes} />
-          <PrivateRoute path='/wps/debug/user/:user_id/jobs' isLogged={() => this.state.logged} component={Jobs} />
+          <Route exact path='/wps/home' component={Home} />
+          <Route path='/wps/home/create' component={CreateAccount} />
+          <PrivateRoute exact path='/wps/home/user' isLogged={() => this.state.logged} component={User} />
+          <Route exact path='/wps/home/login' component={() => <LoginComponent handleLogin={(e) => this.handleLogin(e)} />} />
+          <Route exact path='/wps/home/servers' component={Servers} />
+          <Route path='/wps/home/servers/:server_id' component={Processes} />
+          <PrivateRoute path='/wps/home/user/:user_id/jobs' isLogged={() => this.state.logged} component={Jobs} />
           <Route component={NotFound} />
         </Switch>
       </div>

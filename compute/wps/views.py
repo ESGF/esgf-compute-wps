@@ -308,5 +308,5 @@ def jobs(request, user_id):
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)
 
-def debug(request):
+def home(request):
     return render(request, 'wps/debug.html')

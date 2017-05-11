@@ -47,7 +47,7 @@ class Server extends Component {
               <RaisedButton
                 label="Processes"
                 primary={true}
-                onTouchTap={e => this.history.push('/wps/debug/servers/' + this.id)}
+                onTouchTap={e => this.history.push('/wps/home/servers/' + this.id)}
               />
             </TableRowColumn>
           </TableRow>
