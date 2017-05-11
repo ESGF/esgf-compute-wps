@@ -15,7 +15,9 @@ class Login extends Component {
 
     this.state = {
       username: '',
-      password: ''
+      usernameError: '',
+      password: '',
+      passwordError: '',
     }
 
     this.handleLogin = props.handleLogin
@@ -67,7 +69,27 @@ class Login extends Component {
       }
     })
       .then(res => {
-        this.handleLogin();
+        if (res.data.status == 'failure') {
+          let newState = {};
+
+          if (typeof(res.data.errors) == 'string') {
+            newState.usernameError = ''
+
+            newState.passwordError = res.data.errors;
+          } else {
+            if ('username' in res.data.errors) {
+              newState.usernameError = res.data.errors['username'][0]; 
+            }
+
+            if ('password' in res.data.errors) {
+              newState.passwordError = res.data.errors['password'][0];
+            }
+          }
+
+          this.setState(newState);
+        } else {
+          this.handleLogin();
+        }
       })
       .catch(err => {
         console.log(err);
@@ -77,6 +99,12 @@ class Login extends Component {
   }
 
   render() {
+    const style = {
+      field: {
+        margin: '8px',
+      },
+    };
+
     return (
       <Card>
         <div>
@@ -85,6 +113,8 @@ class Login extends Component {
             value={this.state.username}
             onChange={this.handleChange}
             hintText="Username"
+            errorText={this.state.usernameError}
+            style={style.field}
           />
         </div>
         <div>
@@ -94,6 +124,8 @@ class Login extends Component {
             value={this.state.password}
             onChange={this.handleChange}
             hintText="Password"
+            errorText={this.state.passwordError}
+            style={style.field}
           />
         </div>
         <div>
@@ -102,10 +134,16 @@ class Login extends Component {
             type="submit"
             label="Submit"
             onTouchTap={e => this.handleSubmit(e)}
+            style={style.field}
           />
         </div>
         <div>
-          <Link to="/wps/debug/create">Create an account</Link>
+          <Link
+            style={style.field}
+            to="/wps/debug/create"
+          >
+            Create an account
+          </Link>
         </div>
       </Card>
     )
