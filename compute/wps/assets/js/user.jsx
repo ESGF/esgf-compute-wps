@@ -26,9 +26,14 @@ class User extends Component {
       auth: 'mpc',
       open: false,
       username: '',
+      usernameError: '',
       password: '',
+      passwordError: '',
       openid: '',
+      openidError: '',
     }
+
+    this.history = props.history;
   }
 
   componentDidMount() {
@@ -92,8 +97,34 @@ class User extends Component {
       .then(res => {
         if (res.data.status === 'success') {
           this.setState({open: false});
+
+          this.forceUpdate();
         } else{
-          this.setState({status: JSON.stringify(res.data.errors)});
+          if (typeof(res.data.errors) == 'string') {
+            let newState = {
+              usernameError: '',
+              passwordError: res.data.errors,
+              openidError: '',
+            };
+
+            this.setState(newState);
+          } else {
+            let newState = {};
+
+            if ('username' in res.data.errors) {
+              newState.usernameError = res.data.errors['username'][0];
+            }
+
+            if ('password' in res.data.errors) {
+              newState.passwordError = res.data.errors['password'][0];
+            }
+
+            if ('openid' in res.data.errors) {
+              newState.openidError = res.data.errors['openid'][0];
+            }
+
+            this.setState(newState);
+          }
         }
       })
       .catch(err => {
@@ -222,6 +253,7 @@ class User extends Component {
           <TextField
             name="openid"
             hintText="OpenID"
+            errorText={this.state.openidError}
             value={this.state.openid}
             onChange={e => this.handleChange(e)}
           />
@@ -230,6 +262,7 @@ class User extends Component {
               <TextField
                 name="username"
                 hintText="Username"
+                errorText={this.state.usernameError}
                 value={this.state.username}
                 onChange={e => this.handleChange(e)}
               />
@@ -239,6 +272,7 @@ class User extends Component {
               <TextField
                 name="password"
                 hintText="password"
+                errorText={this.state.passwordError}
                 value={this.state.password}
                 type="password"
                 onChange={e => this.handleChange(e)}

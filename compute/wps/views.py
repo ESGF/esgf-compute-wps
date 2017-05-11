@@ -138,7 +138,10 @@ def login_mpc(request):
 
             manager = node_manager.NodeManager()
 
-            api_key = manager.auth_mpc(oid_url, username, password)
+            try:
+                api_key = manager.auth_mpc(oid_url, username, password)
+            except Exception as e:
+                return http.JsonResponse({'status': 'failed', 'errors': e.message})
 
             return http.JsonResponse({'status': 'success'})
         else:
