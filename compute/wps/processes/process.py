@@ -121,7 +121,7 @@ class CWTBaseTask(celery.Task):
         if self.grid_file is not None:
             self.grid_file.close()
 
-    def generate_grid(self, operation, variables):
+    def generate_grid(self, operation, variables, domains):
         gridder = operation.parameters.get('gridder')
 
         grid = None
@@ -140,6 +140,20 @@ class CWTBaseTask(celery.Task):
                     self.grid_file = cdms2.open(v.uri)
 
                     grid = self.grid_file[v.var_name].getGrid()
+                elif gridder.grid in domains:
+                    d = domains[gridder.grid]
+                    
+                    lat = d.get_dimension(('latitude', 'lat', 'y'))
+
+                    lon = d.get_dimension(('longitude', 'lon', 'x'))
+
+                    lat_val = [int_or_float(x) for x in [lat.start, lat.end, lat.step]]
+
+                    lon_val = [int_or_float(x) for x in [lon.start, lon.end, lon.step]]
+                   
+                    grid = cdms2.createUniformGrid(
+                                                   lat_val[0], lat_val[1]-lat_val[0], lat_val[2],
+                                                   lon_val[0], lon_val[1]-lon_val[0], lon_val[2])
                 else:
                     grid_type, arg = gridder.grid.split('~')
 

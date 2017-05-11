@@ -78,6 +78,30 @@ class TestCDAT(test.TestCase):
 
             self.assertEqual(tas.shape, (365, 180, 360))
 
+    def test_subset_regrid_domain(self):
+        o = {'CDAT.subset':{'name':'CDAT.subset',
+                            'domain':'d0',
+                            'input':['tas_10_365_180_360'],
+                            'gridder':{'tool':'esmf','method':'linear','grid':'grid'}}}
+
+        d = {'d0':{'id':'d0',
+                   'time':{'start':100,'end':300,'crs':'indices'},
+                   'latitude':{'start':0,'end':90,'crs':'indices'},
+                   'longitude':{'start':180,'end':270,'crs':'indices'},
+                  },
+             'grid':{'id':'grid',
+                     'latitude':{'start':0,'end':32,'crs':'values'},
+                     'longitude':{'start':0,'end':64,'crs':'values'},
+                    },
+            }
+
+        r = cdat.subset(self.v, o, d, local=True)
+
+        with closing(cdms2.open(r['uri'], 'r')) as f:
+            tas = f['tas']
+
+            self.assertEqual(tas.shape, (200, 32, 64))
+
     def test_subset_regrid_file(self):
         o = {'CDAT.subset':{'name':'CDAT.subset',
                             'domain':'d0',

@@ -44,7 +44,7 @@ def subset(self, variables, operations, domains, **kwargs):
         current = 0
         total = (tstop - tstart)
 
-        grid, tool, method = self.generate_grid(op, v)
+        grid, tool, method = self.generate_grid(op, v, d)
             
         with closing(cdms2.open(out_local_path.replace('https', 'http'), 'w')) as out:
             status.update('Subsetting {}'.format('w/regridding' if grid is not None else ''))
@@ -106,7 +106,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
-    grid, tool, method = self.generate_grid(op, v)
+    grid, tool, method = self.generate_grid(op, v, d)
 
     with nested(*[closing(x) for x in inputs]) as inputs:
         with closing(cdms2.open(out_local_path, 'w')) as out:
