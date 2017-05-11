@@ -158,7 +158,9 @@ class Jobs extends Component {
 
     axios.get(jobsURL)
       .then(res => {
-        this.setState({ jobs: res.data.jobs });
+        if (res.data.jobs.length > 0) {
+          this.setState({ jobs: res.data.jobs });
+        }
       })
       .catch(err => {
         console.log(err);
@@ -169,24 +171,29 @@ class Jobs extends Component {
     return (
       <div>
         <h1 style={{textAlign: 'center'}}>Jobs</h1>
-        <Table selectable={false}>
-          <TableBody displayRowCheckbox={false}>
-            {this.state.jobs &&
-              this.state.jobs.map(job => {
-                return (
-                  <TableRow key={job.id}>
-                    <TableRowColumn>
-                      <Job
-                        job={job}
-                        onShowDialog={text => this.setState({open: true, dialogText: text})}
-                      />
-                    </TableRowColumn>
-                  </TableRow>
-                )
-              })
-            }
-          </TableBody>
-        </Table>
+        {this.state.jobs ? (
+          <Table selectable={false}>
+            <TableBody displayRowCheckbox={false}>
+              {this.state.jobs &&
+                this.state.jobs.map(job => {
+                  return (
+                    <TableRow key={job.id}>
+                      <TableRowColumn>
+                        <Job
+                          job={job}
+                          onShowDialog={text => this.setState({open: true, dialogText: text})}
+                        />
+                      </TableRowColumn>
+                    </TableRow>
+                  )
+                })
+              }
+            </TableBody>
+          </Table>
+        ) : (
+          <h2 style={{textAlign: 'center'}}>No Jobs</h2>
+        )
+        }
         <Dialog
           modal={false}
           open={this.state.open}
