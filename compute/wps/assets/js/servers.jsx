@@ -112,7 +112,12 @@ class Servers extends Component {
           open={this.state.open}
           onRequestClose={e => this.setState({open: false})}
         >
-          <TextField id="capabilities" fullWidth={true} multiLine={true} value={this.state.capabilities} />
+          <TextField 
+            id="capabilities"
+            fullWidth={true}
+            multiLine={true}
+            value={this.state.capabilities}
+            rowsMax={16} />
         </Dialog>
       </div>
     )

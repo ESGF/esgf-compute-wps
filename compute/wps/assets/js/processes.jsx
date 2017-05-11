@@ -95,7 +95,13 @@ class Processes extends Component {
           open={this.state.open}
           onRequestClose={e => this.setState({open: false})}
         >
-          <TextField id="description" value={this.state.process} fullWidth={true} multiLine={true} />
+          <TextField
+            id="description"
+            value={this.state.process}
+            fullWidth={true}
+            multiLine={true}
+            rowsMax={16}
+          />
         </Dialog>
       </div>
     )
