@@ -148,7 +148,22 @@ class App extends Component {
   }
 }
 
-const Home = () => <h1>Hello from Home!</h1>
+const Home = () => (
+<div>
+  <p>
+    Welcome to LLNL's WPS Server.
+  </p>
+  <p>
+    To get started create an account. In the user page you can authenticate using
+    OAuth2 or MyProxyClient. With your API_KEY you can now access the server.
+  </p>
+  <p>
+    Use your new API_KEY with <a href="https://github.com/ESGF/esgf-compute-api">esgf-compute-api</a> to access
+    the server.
+  </p>
+</div>
+);
+
 const NotFound = () => <h1>404 Page is not found!</h1>
 
 export default withRouter(App)
