@@ -95,10 +95,15 @@ class User extends Component {
         }
       })
       .then(res => {
+	console.log(res.data);
         if (res.data.status === 'success') {
           this.setState({open: false});
 
-          this.forceUpdate();
+	  if ('redirect' in res.data) {
+	    window.location = res.data.redirect;
+	  } else {
+            this.forceUpdate();
+	  }
         } else{
           if (typeof(res.data.errors) == 'string') {
             let newState = {
