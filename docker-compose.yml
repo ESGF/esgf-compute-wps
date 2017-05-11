@@ -5,6 +5,7 @@ services:
     environment:
       - OAUTH_CLIENT
       - OAUTH_SECRET
+      - WPS_INIT=1
       - CELERY_BROKER=redis://redis/0
       - CELERY_BACKEND=redis://redis/0
       - POSTGRES_PASSWORD=1234
@@ -31,7 +32,6 @@ services:
     environment:
       - OAUTH_CLIENT
       - OAUTH_SECRET
-      - WPS_NO_INIT=1
       - CELERY_BROKER=redis://redis/0
       - CELERY_BACKEND=redis://redis/0
       - POSTGRES_PASSWORD=1234
