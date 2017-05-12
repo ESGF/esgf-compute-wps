@@ -43,7 +43,7 @@ def oauth2_callback(request):
 
     api_key = manager.auth_oauth2_callback(oid, oid_response, request.META['QUERY_STRING'], oauth_state)
 
-    return render(request, 'wps/login_result.html', { 'api_key': api_key })
+    return redirect('home')
 
 @require_http_methods(['POST'])
 def create(request):
