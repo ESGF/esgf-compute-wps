@@ -89,15 +89,66 @@ class Status(object):
             self.job.update_progress(self.message, self.percent)
 
 class CWTBaseTask(celery.Task):
-    def initialize(self, **kwargs):
-        cwd = kwargs.get('cwd')
+    def __init__(self):
+        self.task_data = {}
 
-        if cwd is not None:
-            os.chdir(cwd)
+    def initialize(self, **kwargs):
+        task_id = self.request.id
+
+        self.__set_user_creds(**kwargs)
 
         self.grid_file = None
 
         return Status.from_job_id(kwargs.get('job_id'))
+
+    def __set_user_creds(self, **kwargs):
+        cwd = kwargs.get('cwd')
+
+        # Write the user credentials
+        user_id = kwargs.get('user_id')
+
+        user_path = os.path.join(cwd, str(user_id))
+
+        if not os.path.exists(user_path):
+            os.mkdir(user_path)
+
+        # Change the process working directory
+        os.chdir(user_path)
+
+        logger.info('Changed working directory to {}'.format(user_path))
+
+        cred_path = os.path.join(user_path, 'creds.pem')
+
+        try:
+            user = models.User.objects.get(pk=user_id)
+        except models.User.DoesNotExist:
+            raise Exception('User {} does not exist'.format(user_id))
+
+        with open(cred_path, 'w') as f:
+            f.write(user.auth.cert)
+
+        logger.info('Updated user credentials')
+
+        # Clean up the old cookie file incase the previous attempt failed
+        dods_cookies_path = os.path.join(user_path, '.dods_cookies')
+
+        if os.path.exists(dods_cookies_path):
+            logger.info('Cleared old cookies file.')
+
+            os.remove(dods_cookies_path)
+
+        # Write the dodsrc file if does not exist
+        dodsrc_path = os.path.join(user_path, '.dodsrc')
+
+        if not os.path.exists(dodsrc_path):
+            with open(dodsrc_path, 'w') as f:
+                f.write('HTTP.COOKIEJAR=.dods_cookies\n')
+                f.write('HTTP.SSL.CERTIFICATE={}\n'.format(cred_path))
+                f.write('HTTP.SSL.KEY={}\n'.format(cred_path))
+                f.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
+                f.write('HTTP.SSL.VERIFY=0\n')
+
+            logger.info('Wrote .dodsrc file')
 
     def load(self, variables, domains, operations):
         v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())

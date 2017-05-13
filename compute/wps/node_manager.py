@@ -199,19 +199,17 @@ class NodeManager(object):
 
         process = get_process(identifier)
 
-        uid, temp = tempfile.mkstemp()
+        params = {
+                'cwd': '/tmp',
+                'job_id': job.id,
+                'user_id': user.id,
+                }
 
-        params = { 'cwd': '/tmp', 'job_id': job.id }
-
-        chain = tasks.check_auth.s(user_id=user.id, **params)
-
-        chain = (chain | tasks.setup_auth.si(user_id=user.id, temp=temp, **params))
+        chain = tasks.check_auth.s(**params)
 
         chain = (chain | process.si(variables, operations, domains, **params))
 
         chain = (chain | tasks.handle_output.s(**params))
-
-        chain = (chain | tasks.cleanup_auth.si(temp=temp, **params))
 
         chain()
 

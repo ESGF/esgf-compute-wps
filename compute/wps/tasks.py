@@ -246,8 +246,10 @@ def describe(server_id, identifiers):
             request.send(str('{0}!describeProcess!{1}'.format(job.id, identifier)))
 
 @shared_task(bind=True, base=CWTBaseTask)
-def check_auth(self, user_id, **kwargs):
+def check_auth(self, **kwargs):
     self.initialize(**kwargs)
+
+    user_id = kwargs.get('user_id')
 
     try:
         user = models.User.objects.get(pk=user_id)
@@ -289,44 +291,3 @@ def check_auth(self, user_id, **kwargs):
     user.auth.cert = ''.join([cert, key])
 
     user.auth.save()
-
-@shared_task(bind=True, base=CWTBaseTask)
-def setup_auth(self, user_id, temp, **kwargs):
-    self.initialize(**kwargs)
-
-    try:
-        user = models.User.objects.get(pk=user_id)
-    except models.User.DoesNotExist:
-        raise Exception('Could not find user')
-
-    cwd_dodsrc = os.path.join(os.getcwd(), '.dodsrc')
-
-    cwd_dods_cookies = os.path.join(os.getcwd(), '.dods_cookies')
-
-    if os.path.exists(cwd_dods_cookies):
-        logger.info('Removing old .dods_cookies file')
-
-        os.remove(cwd_dods_cookies)
-
-    logger.info('Writing .dodsrc file to {}'.format(cwd_dodsrc))
-
-    with open(cwd_dodsrc, 'w') as f:
-        f.write('HTTP.COOKIEJAR=.dods_cookies\n')
-        f.write('HTTP.SSL.CERTIFICATE={}\n'.format(temp))
-        f.write('HTTP.SSL.KEY={}\n'.format(temp))
-        f.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
-        f.write('HTTP.SSL.VERIFY=0\n')
-    
-    logger.info('Writing temporary certificate {}'.format(temp))
-
-    with open(temp, 'w') as f:
-        f.write(''.join(user.auth.cert))
-
-@shared_task(bind=True, base=CWTBaseTask)
-def cleanup_auth(self, temp, **kwargs):
-    self.initialize(**kwargs)
-
-    if os.path.exists(temp):
-        logger.info('Removing temporary certificate {}'.format(temp))  
-
-        os.remove(temp)
