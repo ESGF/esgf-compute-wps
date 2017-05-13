@@ -89,13 +89,11 @@ class Status(object):
             self.job.update_progress(self.message, self.percent)
 
 class CWTBaseTask(celery.Task):
-    def __init__(self):
-        self.task_data = {}
-
-    def initialize(self, **kwargs):
+    def initialize(self, credentials=False, **kwargs):
         task_id = self.request.id
 
-        self.__set_user_creds(**kwargs)
+        if credentials:
+            self.__set_user_creds(**kwargs)
 
         self.grid_file = None
 
