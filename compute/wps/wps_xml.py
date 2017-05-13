@@ -74,7 +74,7 @@ def xpath_result(tree, path):
 
     return result[0]
 
-def capabilities_response(data, add_procs=None):
+def capabilities_response(data=None, add_procs=None):
     if add_procs is None:
         add_procs = []
 
@@ -88,20 +88,20 @@ def capabilities_response(data, add_procs=None):
     cap.service_provider = PROVIDER
     cap.languages = LANGUAGES
     cap.operations_metadata = OPERATIONS
-
-    tree = etree.fromstring(data)
-
-    proc_elems = tree.xpath('/capabilities/processes/process/description')
-
     cap.process_offerings = []
 
-    for p in proc_elems:
-        proc = metadata.Process()
-        proc.identifier = p.attrib.get('id')
-        proc.title = p.attrib.get('title')
-        proc.abstract = p.text
+    if data is not None:
+        tree = etree.fromstring(data)
 
-        cap.process_offerings.append(proc)
+        proc_elems = tree.xpath('/capabilities/processes/process/description')
+
+        for p in proc_elems:
+            proc = metadata.Process()
+            proc.identifier = p.attrib.get('id')
+            proc.title = p.attrib.get('title')
+            proc.abstract = p.text
+
+            cap.process_offerings.append(proc)
 
     for p in add_procs:
         proc = metadata.Process()

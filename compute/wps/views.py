@@ -196,10 +196,9 @@ def wps(request):
 
 @require_http_methods(['GET'])
 def regen_capabilities(request):
-    servers = models.Server.objects.all()
+    manager = node_manager.NodeManager()
 
-    for s in servers:
-        tasks.capabilities.delay(s.id)
+    manager.generate_capabilities()
 
     return http.HttpResponse('Regenerated capabilities')
 

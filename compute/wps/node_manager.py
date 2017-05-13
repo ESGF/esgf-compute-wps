@@ -24,6 +24,7 @@ from myproxy.client import MyProxyClient
 from wps import models
 from wps import settings
 from wps import tasks
+from wps import wps_xml
 from wps.auth import oauth2
 from wps.auth import openid
 from wps.processes import get_process
@@ -148,6 +149,19 @@ class NodeManager(object):
             raise NodeManagerError('Job {0} does not exist'.format(job_id))
 
         return job.latest.xml()
+
+    def generate_capabilities(self):
+        """ Generates capabilites for each server. """
+        servers = models.Server.objects.all()
+
+        for s in servers:
+            processes = s.processes.all()
+
+            cap = wps_xml.capabilities_response(add_procs=processes)
+
+            s.capabilities = cap.xml()
+
+            s.save()
 
     def get_capabilities(self):
         """ Retrieves WPS GetCapabilities. """
