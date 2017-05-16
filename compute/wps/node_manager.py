@@ -12,10 +12,12 @@ import re
 import string
 import tempfile
 import time
+from contextlib import closing
 
 import cwt
 import django
 import redis
+import zmq
 from celery import group
 from cwt import wps_lib
 from lxml import etree
@@ -61,6 +63,16 @@ class NodeManager(object):
         user.auth.save()
 
         return user.auth.api_key
+
+    def create_socket(self, host, port, socket_type):
+        """ Create a ZMQ socket. """
+        context = zmq.Context.instance()
+
+        socket = context.socket(socket_type)
+
+        socket.connect('tcp://{0}:{1}'.format(host, port))
+
+        return socket
 
     def update_user(self, service, openid_response, oid_url, certs, **extra):
         """ Create a new user. """
@@ -163,6 +175,13 @@ class NodeManager(object):
 
             s.save()
 
+    def cdas2_capabilities(self):
+        """ Queries for CDAS capabilities. """
+        servers = models.Server.objects.all()
+
+        for s in servers:
+            tasks.capabilities.delay(s.id)
+
     def get_capabilities(self):
         """ Retrieves WPS GetCapabilities. """
         try:
@@ -221,7 +240,9 @@ class NodeManager(object):
 
             raise Exception('There are no CDAS2 instances available')
 
-        with closing(create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
+        with closing(self.create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
+            logger.info('Sending CDAS2 execute request')
+
             request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
 
     def execute(self, user, identifier, data_inputs):

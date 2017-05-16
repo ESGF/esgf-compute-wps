@@ -12,4 +12,5 @@ urlpatterns = [
                url(r'^home/', views.home, name='home'),
                url(r'^output/(?P<file_name>.*)$', views.output),
                url(r'^regen_capabilities/$', views.regen_capabilities),
+               url(r'^cdas2_capabilities/$', views.cdas2_capabilities),
               ]

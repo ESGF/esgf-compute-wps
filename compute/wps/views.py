@@ -20,7 +20,6 @@ from wps import forms
 from wps import models
 from wps import node_manager
 from wps import settings
-from wps import tasks
 from wps.auth import openid
 from wps.auth import oauth2
 
@@ -201,6 +200,14 @@ def regen_capabilities(request):
     manager.generate_capabilities()
 
     return http.HttpResponse('Regenerated capabilities')
+
+@require_http_methods(['GET'])
+def cdas2_capabilities(request):
+    manager = node_manager.NodeManager()
+
+    manager.cdas2_capabilities()
+
+    return http.HttpResponse('CDAS capabilities')
 
 @require_http_methods(['GET'])
 def status(request, job_id):
