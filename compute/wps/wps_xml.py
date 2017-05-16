@@ -275,7 +275,7 @@ def check_cdas2_error(response):
     error = tree.xpath('/response/exceptions/exception')
 
     if len(error) > 0:
-        exc_report = metadata.ExceptionReport(VERSION)
+        exc_report = metadata.ExceptionReport(settings.VERSION)
 
         exc_report.add_exception(metadata.NoApplicableCode, error[0].text)
 
