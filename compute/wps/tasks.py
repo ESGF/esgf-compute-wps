@@ -273,12 +273,12 @@ def check_auth(self, **kwargs):
 
     logger.info('Certificate has expired, renewing')
 
-    if user.auth.backend == 'mpc':
+    if user.auth.type == 'myproxyclient':
         raise Exception('Please relog into MyProxyClient from your user account page.')
     
     oid = openid.OpenID.parse(user.auth.openid)
 
-    access = oid.find(URN_ACCESS)
+    access = oid.find(URN_AUTHORIZE)
 
     resource = oid.find(URN_RESOURCE)
 
