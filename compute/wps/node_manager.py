@@ -241,9 +241,13 @@ class NodeManager(object):
             raise Exception('There are no CDAS2 instances available')
 
         with closing(self.create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
-            logger.info('Sending CDAS2 execute request')
+            request_cmd = '{0}!execute!{1}!{2}'.format(job.id, identifier, data_inputs)
 
-            request.send(str('{2}!execute!{0}!{1}'.format(identifier, data_inputs, job.id)))
+            request_cmd += '!{"result":"cdms"}'
+
+            logger.info('Sending CDAS2 execute request {}'.format(request_cmd))
+
+            request.send(str(request_cmd))
 
     def execute(self, user, identifier, data_inputs):
         """ WPS execute operation """
