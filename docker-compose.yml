@@ -17,6 +17,7 @@ services:
       - /data
     networks:
       frontend:
+      backend:
   postgres:
     image: postgres:9.6.2
     environment: 
@@ -43,7 +44,7 @@ services:
       frontend:
       backend:
   cdas:
-    image: jasonb87/cdas2:latest
+    image: jasonb87/cwt_cdas2:latest
     expose:
       - "4356"
       - "4357"
