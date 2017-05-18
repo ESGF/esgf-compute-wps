@@ -10,13 +10,13 @@ RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | te
 	apt-get install -y --no-install-recommends oracle-java8-installer scala sbt &&\
 	apt-get clean
 
+RUN conda install -c conda-forge -c uvcdat cdms2 genutil cdutil nco pyzmq psutil lxml
+
 ENV CONDA_PREFIX /opt/conda
 
-RUN conda install -c conda-forge cdms2 cdutil genutil nco pyzmq psutil lxml
-
-RUN git clone --depth=1 https://github.com/nasa-nccs-cds/CDAS2.git && \
+RUN git clone --depth=1 https://github.com/nasa-nccs-cds/CDAS2 && \
 	cd CDAS2 && \
-	sbt package; exit 0
+	sbt publish; exit 0
 
 RUN cd CDAS2 && \
 	sbt package && \
@@ -24,9 +24,11 @@ RUN cd CDAS2 && \
 
 WORKDIR /CDAS2
 
-COPY entrypoint.sh entrypoint.sh
+RUN python setup.py install
 
 ENV CDAS_REQUEST_PORT 4356
 ENV CDAS_RESPONSE_PORT 4357
+
+COPY entrypoint.sh entrypoint.sh
 
 ENTRYPOINT ["./entrypoint.sh"]
