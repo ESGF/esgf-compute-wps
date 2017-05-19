@@ -31,7 +31,7 @@ from wps.auth import oauth2
 from wps.auth import openid
 from wps.processes import get_process
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('wps.node_manager')
 
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
@@ -277,8 +277,6 @@ class NodeManager(object):
 
     def handle_get(self, params):
         """ Handle an HTTP GET request. """
-        logger.info('Received GET request %s', params)
-
         request = self.get_parameter(params, 'request')
 
         service = self.get_parameter(params, 'service')
@@ -305,8 +303,6 @@ class NodeManager(object):
 
         NOTE: we only support execute requests as POST for the moment
         """
-        logger.info('Received POST request %s', data)
-
         try:
             request = wps_lib.ExecuteRequest.from_xml(data)
         except etree.XMLSyntaxError:

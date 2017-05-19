@@ -23,7 +23,7 @@ from wps import settings
 from wps.auth import openid
 from wps.auth import oauth2
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('wps.views')
 
 @require_http_methods(['GET'])
 def oauth2_callback(request):

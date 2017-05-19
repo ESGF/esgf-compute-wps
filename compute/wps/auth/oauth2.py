@@ -9,7 +9,7 @@ from requests_oauthlib import OAuth2Session
 
 from wps import settings
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('wps.auth.oauth2')
 
 class OAuth2Error(Exception):
     pass

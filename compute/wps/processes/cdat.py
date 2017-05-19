@@ -15,7 +15,7 @@ from wps import settings
 from wps.processes import CWTBaseTask
 from wps.processes import register_process
 
-logger = get_task_logger(__name__)
+logger = get_task_logger('wps.processes.cdat')
 
 __all__ = ['avg']
 

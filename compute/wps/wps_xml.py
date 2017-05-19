@@ -9,7 +9,7 @@ from lxml import etree
 
 from wps import settings
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('wps.wps_xml')
 
 class CDAS2ConversionError(Exception):
     pass

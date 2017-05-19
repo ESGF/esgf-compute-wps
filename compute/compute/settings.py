@@ -152,9 +152,22 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
+        'cwt_rotating': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'verbose',
+            'filename': '/var/log/wps_cwt.txt',
+            'maxBytes': 1024000,
+            'backupCount': 2,
+        },
     },
     'loggers': {
-        '': {
+        'cwt': {
+            'handlers': ['cwt_rotating'],
+            'propagate': False,
+            'level': 'DEBUG',
+        },
+        'wps': {
             'handlers': ['console'],
             'propagate': True,
             'level': 'DEBUG',

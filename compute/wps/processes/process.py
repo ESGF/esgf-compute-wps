@@ -20,7 +20,7 @@ from wps import settings
 
 __all__ = ['REGISTRY', 'register_process', 'get_process', 'CWTBaseTask', 'handle_output']
 
-logger = get_task_logger(__name__)
+logger = get_task_logger('wps.processes.process')
 
 REGISTRY = {}
 

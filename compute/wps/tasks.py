@@ -32,7 +32,7 @@ from wps.processes import get_process
 from wps.processes import CWTBaseTask
 from wps.processes import handle_output
 
-logger = get_task_logger(__name__)
+logger = get_task_logger('wps.tasks')
 
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'

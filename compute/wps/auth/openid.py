@@ -5,7 +5,7 @@ import logging
 import requests
 from lxml import etree
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('wps.auth.openid')
 
 class OpenIDError(Exception):
     pass
