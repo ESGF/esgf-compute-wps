@@ -2,8 +2,9 @@
 
 import collections
 import copy
-import os
+import hashlib
 import json
+import os
 import uuid
 from contextlib import closing
 
@@ -99,6 +100,25 @@ class CWTBaseTask(celery.Task):
         self.grid_file = None
 
         return Status.from_job_id(kwargs.get('job_id'))
+
+    def cache_file(self, domain_map):
+        m = hashlib.sha256()
+
+        for i, domain in domain_map.iteritems():
+            temporal, spatial = domain
+
+            t_id = ':'.join(str(x) for x in temporal)
+
+            m.update('{}{}'.format(t_id, i))
+
+        file_name = '{}.nc'.format(m.hexdigest())
+
+        file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
+
+        if os.path.exists(file_path):
+            return file_path, True
+
+        return file_path, False
 
     def __set_user_creds(self, **kwargs):
         cwd = kwargs.get('cwd')
