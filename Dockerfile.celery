@@ -1,24 +1,7 @@
-FROM continuumio/miniconda:4.2.12
+FROM jasonb87/cwt_wps:latest
 
-COPY requirements.txt requirements.txt
-
-RUN conda install -c conda-forge -c uvcdat cdms2 pyzmq lxml && \
-	pip install -r requirements.txt
-
-RUN apt-get update --fix-missing && \
-	apt-get install -y --no-install-recommends git libpq-dev gcc && \
-	git clone https://github.com/esgf/esgf-compute-api && \
-	cd esgf-compute-api &&  \
-	pip install -e . && \
-	apt-get clean -y
-
+ENV C_FORCE_ROOT 'true'
 ENV CELERY_BROKER redis://0.0.0.0
-
-RUN useradd -m -s /bin/bash celery
-
-USER celery
-
-COPY . /var/www
 
 WORKDIR /var/www/compute
 
