@@ -183,6 +183,9 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
                     data = infile(var_name, time=slice(i, end, tstep), **spatial)
 
+                    if any(x == 0 for x in data.shape):
+                        raise Exception('Read bad data, shape {}, check your domain'.format(data.shape))
+
                     data.getTime().toRelativeTime(units)
 
                     if not exists:
