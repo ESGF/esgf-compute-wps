@@ -95,7 +95,7 @@ class CWTBaseTask(celery.Task):
         task_id = self.request.id
 
         if credentials:
-            self.__set_user_creds(**kwargs)
+            self.set_user_creds(**kwargs)
 
         self.grid_file = None
 
@@ -120,7 +120,7 @@ class CWTBaseTask(celery.Task):
 
         return file_path, False
 
-    def __set_user_creds(self, **kwargs):
+    def set_user_creds(self, **kwargs):
         cwd = kwargs.get('cwd')
 
         # Write the user credentials
@@ -241,7 +241,7 @@ class CWTBaseTask(celery.Task):
         return grid, tool, method
 
     def build_domain(self, inputs, domains, var_name):
-        domains = collections.OrderedDict()
+        domain_map = collections.OrderedDict()
         current = 0
 
         for idx, i in enumerate(inputs):
@@ -274,7 +274,10 @@ class CWTBaseTask(celery.Task):
 
                             temporal = (start, end, dim.step)
                         elif dim.crs == cwt.VALUES:
-                            start, stop = axes[dim.name].mapInterval((dim.start, dim.end))
+                            try:
+                                start, stop = axes[dim.name].mapInterval((dim.start, dim.end), 'co')
+                            except KeyError:
+                                raise Exception('Dimension {} could not be mapped, does not exist'.format(dim.name))
 
                             dim.start -= start
 
@@ -290,17 +293,20 @@ class CWTBaseTask(celery.Task):
                         if dim.crs == cwt.INDICES:
                             spatial[dim.name] = slice(dim.start, dim.end, dim.step)
                         elif dim.crs == cwt.VALUES:
-                            start, stop = axes[dim.name].mapInterval((dim.start, dim.end))
+                            try:
+                                start, stop = axes[dim.name].mapInterval((dim.start, dim.end), 'co')
+                            except KeyError:
+                                raise Exception('Dimension {} could not be mapped, does not exist'.format(dim.name))
 
                             spatial[dim.name] = slice(start, stop, dim.step)
                         else:
                             raise Exception('Unknown CRS value {}'.format(dim.crs))
 
-            domains[i.id] = (temporal, spatial)
+            domain_map[i.id] = (temporal, spatial)
 
             current += len(i[var_name])
 
-        return domains
+        return domain_map
 
     def op_by_id(self, name, operations):
         try:
