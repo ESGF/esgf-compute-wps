@@ -50,6 +50,10 @@ class TestCDAT(test.TestCase):
 
         time1 = generate_time(0, 365, 'days since 1990-1-1')
 
+        time2 = generate_time(0, 365, 'days since 1991-1-1')
+
+        time3 = generate_time(0, 365, 'days since 1992-1-1')
+
         lat_1 = cdms2.createUniformLatitudeAxis(-89.5, 180, 1)
 
         lon_1 = cdms2.createUniformLongitudeAxis(0.5, 360, 1)
@@ -67,17 +71,35 @@ class TestCDAT(test.TestCase):
                   'd2': {'id': 'd2',
                          'latitude': {'start': 90, 'end': 0, 'crs': 'values'},
                         },
+                  'd3': {'id': 'd3',
+                         'time': {'start': 200, 'end': 850, 'crs': 'indices'},
+                        },
                  }
 
         self.v = {}
 
         self.v.update(generate_variable(10, time1, lat_1, lon_1, 'tas', 'tas_10_365_180_360'))
+        self.v.update(generate_variable(10, time2, lat_1, lon_1, 'tas', 'tas_10_365_180_360_2'))
+        self.v.update(generate_variable(10, time3, lat_1, lon_1, 'tas', 'tas_10_365_180_360_3'))
 
     def tearDown(self):
         #for v in self.v.values():
         #    os.remove(v['uri'])
 
         shutil.rmtree(self.cache) 
+
+    @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
+    def test_aggregate(self, mock):
+        o = {'CDAT.aggregate': {'name': 'CDAT.aggregate',
+                                'input': ['tas_10_365_180_360', 'tas_10_365_180_360_2', 'tas_10_365_180_360_3'],
+                                'domain': 'd3',
+                               }
+            }
+
+        result = cdat.aggregate(self.v, o, self.d, local=True)
+
+        with closing(cdms2.open(result['uri'])) as f:
+            self.assertEqual(f['tas'].shape, (650, 180, 360))
 
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
     def test_subset_bad_domain_indexes(self, mock):
