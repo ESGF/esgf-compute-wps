@@ -35,7 +35,10 @@ def subset(self, variables, operations, domains, **kwargs):
     if op.domain is not None:
         domains['global'] = op.domain
 
-    infile = cdms2.open(op.inputs[0].uri)    
+    try:
+        infile = cdms2.open(op.inputs[0].uri)    
+    except cdms2.CDMSError:
+        raise Exception('Failed to open file {}'.format(op.inputs[0].uri))
 
     domain_map = self.build_domain([infile], domains, var_name)
 
@@ -116,7 +119,10 @@ def aggregate(self, variables, operations, domains, **kwargs):
     if op.domain is not None:
         domains['global'] = op.domain
 
-    inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
+    try:
+        inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
+    except cdms2.CDMSError:
+        raise Exception('Failed to open file {}'.format(op.inputs[0].uri))
 
     inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
