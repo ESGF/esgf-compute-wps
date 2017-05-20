@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import collections
 import copy
 import os
 import json
@@ -220,22 +221,23 @@ class CWTBaseTask(celery.Task):
         return grid, tool, method
 
     def build_domain(self, inputs, domains, var_name):
-        temporal = []
-        spatial = []
+        domains = collections.OrderedDict()
         current = 0
 
         for idx, i in enumerate(inputs):
-            temporal.append((0, len(i[var_name]), 1))
+            temporal = (0, len(i[var_name]), 1)
 
-            spatial.append({})
+            spatial = {}
 
-            if (i.id in domains and domains[i.id] is not None) or 'global' in domains:
+            dimensions = None
+                        
+            if 'global' in domains:
+                dimensions = domains.get('global').dimensions
+            elif i.id in domains:
+                dimensions = domains[i.id].dimensions
+
+            if dimensions is not None:
                 axes = dict((x.id, x) for x in i[var_name].getAxisList())
-
-                if 'global' in domains:
-                    dimensions = domains.get('global').dimensions
-                else:
-                    dimensions = domains[i.id].dimensions
 
                 for dim in dimensions:
                     if dim.name == 'time' or (dim.name in axes and axes[dim.name].isTime()):
@@ -250,7 +252,7 @@ class CWTBaseTask(celery.Task):
                             else:
                                 end = len(i[var_name])
 
-                            temporal[idx] = (start, end, dim.step)
+                            temporal = (start, end, dim.step)
                         elif dim.crs == cwt.VALUES:
                             start, stop = axes[dim.name].mapInterval((dim.start, dim.end))
 
@@ -261,22 +263,24 @@ class CWTBaseTask(celery.Task):
 
                             dim.end -= stop
 
-                            temporal[idx] = (start, stop, dim.step)
+                            temporal = (start, stop, dim.step)
                         else:
                             raise Exception('Unknown CRS value {}'.format(dim.crs))
                     else:
                         if dim.crs == cwt.INDICES:
-                            spatial[idx][dim.name] = slice(dim.start, dim.end, dim.step)
+                            spatial[dim.name] = slice(dim.start, dim.end, dim.step)
                         elif dim.crs == cwt.VALUES:
                             start, stop = axes[dim.name].mapInterval((dim.start, dim.end))
 
-                            spatial[idx][dim.name] = slice(start, stop, dim.step)
+                            spatial[dim.name] = slice(start, stop, dim.step)
                         else:
                             raise Exception('Unknown CRS value {}'.format(dim.crs))
 
+            domains[i.id] = (temporal, spatial)
+
             current += len(i[var_name])
 
-        return temporal, spatial
+        return domains
 
     def op_by_id(self, name, operations):
         try:

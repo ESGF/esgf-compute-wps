@@ -32,12 +32,15 @@ def subset(self, variables, operations, domains, **kwargs):
 
     out_local_path = self.generate_local_output()
 
-    with closing(cdms2.open(op.inputs[0].uri)) as inp:
-        domain = { inp.id: op.domain }
+    if op.domain is not None:
+        domains['global'] = op.domain
 
-        temporal, spatial = self.build_domain([inp], domain, var_name)
+    with closing(cdms2.open(op.inputs[0].uri)) as infile:
+        domain_map = self.build_domain([infile], domains, var_name)
 
-        tstart, tstop, tstep = temporal[0]
+        temporal, spatial = domain_map[op.inputs[0].uri]
+
+        tstart, tstop, tstep = temporal
 
         step = tstop - tstart if (tstop - tstart) < 200 else 200
 
@@ -57,7 +60,7 @@ def subset(self, variables, operations, domains, **kwargs):
 
                 logger.info('Time slice {}:{}'.format(i, end))
 
-                data = inp(var_name, time=slice(i, end, tstep), **spatial[0])
+                data = infile(var_name, time=slice(i, end, tstep), **spatial)
 
                 if grid is not None:
                     data = data.regrid(grid, regridTool=tool, regridMethod=method)
@@ -91,30 +94,26 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     out_local_path = self.generate_local_output()
 
-    domain = {}
-
     if op.domain is not None:
-        domain['global'] = op.domain
-    
-    for i in op.inputs:
-        if i.domains is None:
-            domain[i.uri] = None
-        else:
-            domain[i.uri] = i.domains[0]
+        domains['global'] = op.domain
 
     inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
 
     inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
-    grid, tool, method = self.generate_grid(op, v, d)
-
     with nested(*[closing(x) for x in inputs]) as inputs:
+        domain_map = self.build_domain(inputs, domains, var_name)
+
+        grid, tool, method = self.generate_grid(op, v, d)
+
         with closing(cdms2.open(out_local_path, 'w')) as out:
             units = sorted([x[var_name].getTime().units for x in inputs])[0]
 
-            gtemporal, gspatial = self.build_domain(inputs, domain, var_name)
+            for infile in inputs:
+                temporal, spatial = domain_map[infile.id]
 
-            for inp, temporal, spatial in zip(inputs, gtemporal, gspatial):
+                logger.info('Temporal {} Spatial {}'.format(temporal, spatial))
+
                 tstart, tstop, tstep = temporal
 
                 step = tstop - tstart if (tstop - tstart) < 200 else 200
@@ -127,7 +126,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
                     logger.info('Time slice {}:{}'.format(i, end))
 
-                    data = inp(var_name, time=slice(i, end, tstep), **spatial)
+                    data = infile(var_name, time=slice(i, end, tstep), **spatial)
 
                     data.getTime().toRelativeTime(units)
 
@@ -160,8 +159,15 @@ def avg(self, variables, operations, domains, **kwargs):
     inputs = [closing(cdms2.open(x.uri.replace('https', 'http')))
               for x in op.inputs]
 
+    if op.domain is not None:
+        domains['global'] = op.domain
+
     with nested(*inputs) as inputs:
-        temporal, spatial = self.build_domain(inputs[0], op.domain, var_name)
+        domain_map = self.build_domain([inputs[0]], domains, var_name)
+
+        temporal, spatial = domain_map[inputs[0].id]
+
+        logger.info('Temporal {} Spatial {}'.format(temporal, spatial))
 
         tstart, tstop, tstep = temporal
 
