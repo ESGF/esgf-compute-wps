@@ -64,6 +64,9 @@ class TestCDAT(test.TestCase):
                          'latitude': {'start': -90, 'end': 0, 'crs': 'values'},
                          'longitude': {'start': 180, 'end': 360, 'crs': 'values'},
                         },
+                  'd2': {'id': 'd2',
+                         'latitude': {'start': 90, 'end': 0, 'crs': 'values'},
+                        },
                  }
 
         self.v = {}
@@ -71,13 +74,37 @@ class TestCDAT(test.TestCase):
         self.v.update(generate_variable(10, time1, lat_1, lon_1, 'tas', 'tas_10_365_180_360'))
 
     def tearDown(self):
-        for v in self.v.values():
-            os.remove(v['uri'])
+        #for v in self.v.values():
+        #    os.remove(v['uri'])
 
         shutil.rmtree(self.cache) 
+
+    @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
+    def test_subset_bad_domain_indexes(self, mock):
+        o = {'CDAT.subset': {'name': 'CDAT.subset',
+                             'input': ['tas_10_365_180_360'],
+                             'domain': 'd2',
+                            },
+            }
+
+        with self.assertRaises(Exception): 
+            cdat.subset(self.v, o, self.d, local=True)
+
+    @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
+    def test_subset_missing_variable(self, mock):
+        o = {'CDAT.subset': {'name': 'CDAT.subset',
+                             'input': ['tas_10_365_180_360'],
+                             'domain': 'd0',
+                            },
+            }
+
+        self.v['tas_10_365_180_360']['id'] = 'tas1|tas_10_365_180_360'
+
+        with self.assertRaises(Exception):
+            cdat.subset(self.v, o, self.d, local=True)
     
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
-    def test_subset_bad_input(self, mock):
+    def test_subset_missing_input_file(self, mock):
         o = {'CDAT.subset': {'name': 'CDAT.subset',
                              'input': ['tas'],
                              'domain': 'd0',

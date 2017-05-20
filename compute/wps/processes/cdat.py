@@ -40,6 +40,9 @@ def subset(self, variables, operations, domains, **kwargs):
     except cdms2.CDMSError:
         raise Exception('Failed to open file {}'.format(op.inputs[0].uri))
 
+    if var_name not in infile.variables.keys():
+        raise Exception('Variable {} is not present in {}'.format(var_name, op.inputs[0].uri))
+
     domain_map = self.build_domain([infile], domains, var_name)
 
     logger.info('Build domain map {}'.format(domain_map))
@@ -84,6 +87,9 @@ def subset(self, variables, operations, domains, **kwargs):
 
                 data = infile(var_name, time=slice(i, end, tstep), **spatial)
 
+                if any(x == 0 for x in data.shape):
+                    raise Exception('Read bad data, shape {}, check your domain'.format(data.shape))
+
                 if not exists:
                     cache.write(data, id=var_name)
 
@@ -123,6 +129,9 @@ def aggregate(self, variables, operations, domains, **kwargs):
         inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
     except cdms2.CDMSError:
         raise Exception('Failed to open file {}'.format(op.inputs[0].uri))
+
+    if not all(var_name in x.variables.keys() for x in inputs):
+        raise Exception('Variable {} is not present in all input files'.format(var_name))
 
     inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
