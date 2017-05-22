@@ -7,6 +7,7 @@ from contextlib import nested
 
 import cdms2
 import cwt
+import numpy as np
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
@@ -249,6 +250,8 @@ def avg(self, variables, operations, domains, **kwargs):
             fin = cdms2.open(cache_file)
 
             inputs.append(fin)
+
+            domain_map[fin.id] = ((0, len(fin[var_name]), 1), {})
         else:
             logger.info('{} does not exist in the cache'.format(key))
 
@@ -257,20 +260,16 @@ def avg(self, variables, operations, domains, **kwargs):
     with nested(*[closing(x) for x in inputs]) as inputs:
         temporal, spatial = domain_map[inputs[0].id]
          
-        if inputs[0].id in cache_map:
-            tstart, tstop, tstep = temporal
-        else:
-            tstart = 0
-
-            tstart = len(inputs[0][var_name])
-
-            tstep = 1
-
-            spatial = {}
+        tstart, tstop, tstep = temporal
 
         step = tstop - tstart if (tstop - tstart) < 200 else 200
 
         with closing(cdms2.open(out_local_path, 'w')) as f:
+            if len(inputs) == 1:
+                axes = op.get_parameter('axes', True)
+
+                axes_ids = [inputs[0][var_name].getAxisIndex(x) for x in axes.values]
+
             for i in xrange(tstart, tstop, step):
                 begin = i
 
@@ -279,20 +278,28 @@ def avg(self, variables, operations, domains, **kwargs):
                 if end > tstop:
                     end = tstop
 
-                for idx, inp in enumerate(inputs):
-                    data = inp(var_name, time=slice(begin, end, tstep), **spatial)
+                if len(inputs) == 1:
+                    data = inputs[0](var_name, time=slice(begin, end, tstep), **spatial)
 
-                    if inp.id in cache_map:
-                        cache_map[inp.id].write(data, id=var_name)
+                    for axis in axes_ids:
+                        data = np.average(data, axis=axis)
 
-                    if idx == 0:
-                        data_sum = data
-                    else:
-                        data_sum += data
+                    f.write(data, id=var_name)
+                else:
+                    for idx, inp in enumerate(inputs):
+                        data = inp(var_name, time=slice(begin, end, tstep), **spatial)
 
-                data_sum /= len(inputs)
+                        if inp.id in cache_map:
+                            cache_map[inp.id].write(data, id=var_name)
 
-                f.write(data_sum, id=var_name)
+                        if idx == 0:
+                            data_sum = data
+                        else:
+                            data_sum += data
+
+                    data_sum /= len(inputs)
+
+                    f.write(data_sum, id=var_name)
 
     for value in cache_map.values():
         value.close()
