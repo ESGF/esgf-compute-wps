@@ -113,13 +113,23 @@ class CWTBaseTask(celery.Task):
 
         for lat_id in ['latitude', 'lat', 'y']:
             if lat_id in spatial:
-                lat = ':'.join(str(x) for x in spatial[lat_id])
+                s = spatial[lat_id]
+
+                if isinstance(s, slice):
+                    lat = '{}:{}:{}'.format(s.start, s.stop, s.step)
+                else:
+                    lat = ':'.join(str(x) for x in s)
 
                 break
 
         for lon_id in ['longitude', 'lon', 'x']:
             if lon_id in spatial:
-                lon = ':'.join(str(x) for x in spatial[lon_id])
+                s = spatial[lon_id]
+
+                if isinstance(s, slice):
+                    lat = '{}:{}:{}'.format(s.start, s.stop, s.step)
+                else:
+                    lon = ':'.join(str(x) for x in s)
 
                 break
 

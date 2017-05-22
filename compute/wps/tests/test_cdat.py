@@ -79,12 +79,13 @@ class TestCDAT(test.TestCase):
         self.v = {}
 
         self.v.update(generate_variable(10, time1, lat_1, lon_1, 'tas', 'tas_10_365_180_360'))
+        self.v.update(generate_variable(10, time2, lat_1, lon_1, 'tas', 'tas_20_365_180_360'))
         self.v.update(generate_variable(10, time2, lat_1, lon_1, 'tas', 'tas_10_365_180_360_2'))
         self.v.update(generate_variable(10, time3, lat_1, lon_1, 'tas', 'tas_10_365_180_360_3'))
 
     def tearDown(self):
-        #for v in self.v.values():
-        #    os.remove(v['uri'])
+        for v in self.v.values():
+            os.remove(v['uri'])
 
         shutil.rmtree(self.cache) 
 

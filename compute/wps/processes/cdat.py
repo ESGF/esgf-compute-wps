@@ -48,7 +48,7 @@ def subset(self, variables, operations, domains, **kwargs):
 
     logger.info('Build domain map {}'.format(domain_map))
 
-    cache_file, exists = self.cache_file(domain_map)
+    cache_file, exists = self.cache_file(infile.id, domain_map)
 
     if exists:
         logger.info('File exists in cache')
@@ -140,7 +140,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     logger.info('Generated domain map {}'.format(domain_map))
 
-    cache_file, exists = self.cache_file(domain_map)
+    cache_file, exists = self.cache_file(inputs[0].id, domain_map)
 
     if exists:
         logger.info('File exists in cache')
