@@ -46,6 +46,9 @@ class TestCDAT(test.TestCase):
 
         self.cache = settings.CACHE_PATH
 
+        if os.path.exists(settings.CACHE_PATH):
+            shutil.rmtree(self.cache)
+
         os.mkdir(settings.CACHE_PATH)
 
         time1 = generate_time(0, 365, 'days since 1990-1-1')
@@ -88,6 +91,29 @@ class TestCDAT(test.TestCase):
             os.remove(v['uri'])
 
         shutil.rmtree(self.cache) 
+
+    @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
+    def test_avg_single_file(self, mock):
+        o = {'CDAT.avg': {'name': 'CDAT.avg',
+                          'input': ['tas_10_365_180_360'],
+                          'axes': 'time',
+                         }
+            }
+
+        result = cdat.avg(self.v, o, self.d, local=True)
+
+        with closing(cdms2.open(result['uri'])) as f:
+            self.assertEqual(f['tas'].shape, (180, 360))
+
+    @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
+    def test_avg_single_file_missing_axis(self, mock):
+        o = {'CDAT.avg': {'name': 'CDAT.avg',
+                          'input': ['tas_10_365_180_360']
+                         }
+            }
+
+        with self.assertRaises(Exception):
+            cdat.avg(self.v, o, self.d, local=True)
 
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
     def test_aggregate(self, mock):
