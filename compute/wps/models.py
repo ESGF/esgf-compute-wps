@@ -92,6 +92,8 @@ class Job(models.Model):
 
         self.report = report.xml()
 
+        self.save()
+
         self.status_set.create(status=report.status)
 
     def succeeded(self, output=None):
