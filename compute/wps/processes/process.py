@@ -101,15 +101,29 @@ class CWTBaseTask(celery.Task):
 
         return Status.from_job_id(kwargs.get('job_id'))
 
-    def cache_file(self, domain_map):
+    def cache_file(self, file_name, domain_map):
         m = hashlib.sha256()
 
-        for i, domain in domain_map.iteritems():
-            temporal, spatial = domain
+        temporal, spatial = domain_map[file_name]
 
-            t_id = ':'.join(str(x) for x in temporal)
+        time = ':'.join(str(x) for x in temporal)
 
-            m.update('{}{}'.format(t_id, i))
+        lat = None
+        lon = None
+
+        for lat_id in ['latitude', 'lat', 'y']:
+            if lat_id in spatial:
+                lat = ':'.join(str(x) for x in spatial[lat_id])
+
+                break
+
+        for lon_id in ['longitude', 'lon', 'x']:
+            if lon_id in spatial:
+                lon = ':'.join(str(x) for x in spatial[lon_id])
+
+                break
+
+        m.update('{}~{}~{}~{}'.format(file_name, time, lat, lon))
 
         file_name = '{}.nc'.format(m.hexdigest())
 
