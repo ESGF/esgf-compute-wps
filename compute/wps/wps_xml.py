@@ -1,8 +1,10 @@
 #! /usr/bin/env python
 
 import datetime
+import json
 import logging
 
+import cwt
 from cwt.wps_lib import metadata
 from cwt.wps_lib import operations
 from lxml import etree
@@ -258,7 +260,15 @@ def update_execute_cdas2_response(old_response, response):
     output_data = tree.xpath('/response/outputs/data')
 
     if len(output_data) > 0:
-        data = metadata.ComplexData(value=output_data[0].text)
+        file_path = output_data[0].attrib.get('file')
+
+        file_name = file_path.split('/')[-1]
+
+        new_file_path = settings.OUTPUT_URL.format(file_name=file_name)
+
+        var = cwt.Variable(new_file_path, 'Nd4jMaskedTensor')
+
+        data = metadata.ComplexData(value=json.dumps(var.parameterize()))
 
         output = metadata.Output(identifier='output', title='Output', data=data)
 

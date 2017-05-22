@@ -243,7 +243,7 @@ class NodeManager(object):
         with closing(self.create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
             request_cmd = '{0}!execute!{1}!{2}'.format(job.id, identifier, data_inputs)
 
-            request_cmd += '!{"result":"cdms"}'
+            request_cmd += '!{"response":"file"}'
 
             logger.info('Sending CDAS2 execute request {}'.format(request_cmd))
 
