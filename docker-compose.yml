@@ -52,6 +52,14 @@ services:
       - wps
     networks:
       backend:
+  thredds:
+    image: jasonb87/cwt_thredds
+    expose:
+      - "8080"
+    volumes_from:
+      - wps
+    networks:
+      backend:
 
 networks:
   frontend:
