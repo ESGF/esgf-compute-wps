@@ -210,6 +210,9 @@ def aggregate(self, variables, operations, domains, **kwargs):
 @register_process('CDAT.avg')
 @shared_task(bind=True, base=CWTBaseTask)
 def avg(self, variables, operations, domains, **kwargs):
+    # Currently all files are considered either cached or not cached,
+    # we need to make this abit more robust to handle situations where
+    # only a portion of the input files are cached.
     status = self.initialize(credentials=True, **kwargs)
 
     v, d, o = self.load(variables, domains, operations)
@@ -220,29 +223,79 @@ def avg(self, variables, operations, domains, **kwargs):
 
     out_local_path = self.generate_local_output()
 
-    inputs = [closing(cdms2.open(x.uri.replace('https', 'http')))
-              for x in op.inputs]
+    inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
 
     if op.domain is not None:
         domains['global'] = op.domain
 
-    with nested(*inputs) as inputs:
-        domain_map = self.build_domain([inputs[0]], domains, var_name)
+    domain_map = self.build_domain(inputs, domains, var_name)
 
+    logger.info('Generated domain map {}'.format(domain_map))
+
+    cache_map = {}
+
+    for key in domain_map.keys():
+        cache_file, exists = self.cache_file(key, domain_map)
+
+        if exists:
+            logger.info('{} does exist in the cache'.format(key))
+
+            found = [x for x in inputs if x.id == key][0]
+
+            found.close()
+
+            inputs.remove(found)
+
+            fin = cdms2.open(cache_file)
+
+            inputs.append(fin)
+        else:
+            logger.info('{} does not exist in the cache'.format(key))
+
+            cache_map[key] = cdms2.open(cache_file, 'w')
+
+    with nested(*[closing(x) for x in inputs]) as inputs:
         temporal, spatial = domain_map[inputs[0].id]
+         
+        if inputs[0].id in cache_map:
+            tstart, tstop, tstep = temporal
+        else:
+            tstart = 0
 
-        logger.info('Temporal {} Spatial {}'.format(temporal, spatial))
+            tstart = len(inputs[0][var_name])
 
-        tstart, tstop, tstep = temporal
+            tstep = 1
+
+            spatial = {}
 
         step = tstop - tstart if (tstop - tstart) < 200 else 200
 
         with closing(cdms2.open(out_local_path, 'w')) as f:
             for i in xrange(tstart, tstop, step):
-                data = sum(x(var_name, time=slice(i, i+step, tstep), **spatial)
-                           for x in inputs) / len(inputs)
+                begin = i
+
+                end = i + step
+
+                if end > tstop:
+                    end = tstop
+
+                for idx, inp in enumerate(inputs):
+                    data = inp(var_name, time=slice(begin, end, tstep), **spatial)
+
+                    if inp.id in cache_map:
+                        cache_map[inp.id].write(data, id=var_name)
+
+                    if idx == 0:
+                        data_sum = data
+                    else:
+                        data_sum += data
+
+                data /= len(inputs)
 
                 f.write(data, id=var_name)
+
+    for value in cache_map.values():
+        value.close()
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
