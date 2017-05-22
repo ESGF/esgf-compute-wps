@@ -290,9 +290,9 @@ def avg(self, variables, operations, domains, **kwargs):
                     else:
                         data_sum += data
 
-                data /= len(inputs)
+                data_sum /= len(inputs)
 
-                f.write(data, id=var_name)
+                f.write(data_sum, id=var_name)
 
     for value in cache_map.values():
         value.close()
