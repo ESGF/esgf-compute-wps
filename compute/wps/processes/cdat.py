@@ -29,55 +29,43 @@ def subset(self, variables, operations, domains, **kwargs):
 
     op = self.op_by_id('CDAT.subset', o)
 
-    var_name = op.inputs[0].var_name
+    input_var = op.inputs[0]
+
+    var_name = input_var.var_name
+
+    try:
+        input_file = cdms2.open(input_var.uri)
+    except cdms2.CDMSError:
+        raise Exception('Failed to open file {}'.format(input_var.uri))
+
+    if var_name not in input_file.variables.keys():
+        raise Exception('Variable {} is not present in {}'.format(var_name, input_var.uri))
+
+    temporal, spatial = self.map_domain(input_file, var_name, op.domain)
+
+    cache_file, exists = self.check_cache(input_var.uri, temporal, spatial)
+
+    if exists:
+        temporal = slice(0, len(input_file[var_name]), 1)
+
+        spatial = {}
+
+        input_file.close()
+
+        input_file = cdms2.open(cache_file)
+    else:
+        cache = cdms2.open(cache_file, 'w')
 
     out_local_path = self.generate_local_output()
 
-    if op.domain is not None:
-        domains['global'] = op.domain
-
-    try:
-        infile = cdms2.open(op.inputs[0].uri)    
-    except cdms2.CDMSError:
-        raise Exception('Failed to open file {}'.format(op.inputs[0].uri))
-
-    if var_name not in infile.variables.keys():
-        raise Exception('Variable {} is not present in {}'.format(var_name, op.inputs[0].uri))
-
-    domain_map = self.build_domain([infile], domains, var_name)
-
-    logger.info('Build domain map {}'.format(domain_map))
-
-    cache_file, exists = self.cache_file(infile.id, domain_map)
-
-    if exists:
-        logger.info('File exists in cache')
-
-        infile.close()
-
-        infile = cdms2.open(cache_file)
-    else:
-        logger.info('File does not exist in cache')
-
-        cache = cdms2.open(cache_file, 'w')
-
-    with closing(infile) as infile:
+    with closing(input_file) as input_file:
         grid, tool, method = self.generate_grid(op, v, d)
 
-        if exists:
-            tstart = 0
+        tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
-            tstop = len(infile[var_name])
+        diff = tstop - tstart
 
-            tstep = 1
-
-            spatial = {}
-        else:
-            temporal, spatial = domain_map[op.inputs[0].uri]
-
-            tstart, tstop, tstep = temporal
-
-        step = tstop - tstart if (tstop - tstart) < 200 else 200
+        step = diff if diff < 200 else 200
 
         with closing(cdms2.open(out_local_path, 'w')) as out:
             for i in xrange(tstart, tstop, step):
@@ -86,7 +74,7 @@ def subset(self, variables, operations, domains, **kwargs):
                 if end > tstop:
                     end = tstop
 
-                data = infile(var_name, time=slice(i, end, tstep), **spatial)
+                data = input_file(var_name, time=slice(i, end, tstep), **spatial)
 
                 if any(x == 0 for x in data.shape):
                     raise Exception('Read bad data, shape {}, check your domain'.format(data.shape))
@@ -99,10 +87,8 @@ def subset(self, variables, operations, domains, **kwargs):
 
                 out.write(data, id=var_name)
 
-            if not exists:
-                cache.close()
-
-    self.cleanup()
+    if not exists:
+        cache.close()
 
     out_path = self.generate_output(out_local_path, **kwargs)
 

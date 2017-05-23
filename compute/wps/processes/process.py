@@ -101,6 +101,78 @@ class CWTBaseTask(celery.Task):
 
         return Status.from_job_id(kwargs.get('job_id'))
 
+    def slice_to_str(self, s):
+        return '{}:{}:{}'.format(s.start, s.stop, s.step)
+
+    def check_cache(self, uri, temporal, spatial):
+        m = hashlib.sha256()
+
+        m.update(uri)
+
+        m.update(self.slice_to_str(temporal))
+
+        for k in ['latitude', 'lat', 'y']:
+            if k in spatial:
+                m.update(self.slice_to_str(spatial[k]))
+
+        for k in ['longitude', 'lon', 'x']:
+            if k in spatial:
+                m.update(self.slice_to_str(spatial[k]))
+
+        file_name = '{}.nc'.format(m.hexdigest())
+
+        file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
+
+        if os.path.exists(file_path):
+            return file_path, True
+
+        return file_path, False
+
+    def map_axis(self, axis, dim):
+        if dim.crs == cwt.INDICES:
+            n = len(axis)
+
+            if dim.start < 0 or dim.start > n:
+                raise Exception('Starting index for dimension {} is out of bounds'.format(dim.name))
+
+            if dim.end < 0 or dim.end > n:
+                raise Exception('Ending index for dimension {} is out of bounds'.format(dim.name))
+
+            if dim.start > dim.end:
+                raise Exception('Start and end indexes are invalid for dimension'.format(dim.name))
+
+            axis_slice = slice(dim.start, dim.end, dim.step)
+        elif dim.crs == cwt.VALUES:
+            start, stop = axis.mapInterval((dim.start, dim.end), indicator='co')
+
+            axis_slice = slice(start, stop, dim.step)
+        else:
+            raise Exception('Unknown CRS {}'.format(dim.crs))
+
+        return axis_slice
+
+    def map_domain(self, var, var_name, domain):
+        temporal = None
+        spatial = {}
+
+        if domain is None:
+            return slice(0, len(var[var_name]), 1), spatial
+
+        for dim in domain.dimensions:
+            axis_idx = var[var_name].getAxisIndex(dim.name)
+
+            if axis_idx == -1:
+                raise Exception('Axis {} does not exist'.format(dim.name))
+
+            axis = var[var_name].getAxis(axis_idx)
+            
+            if axis.isTime():
+                temporal = self.map_axis(axis, dim)
+            else:
+                spatial[dim.name] = self.map_axis(axis, dim)
+
+        return temporal, spatial
+
     def cache_file(self, file_name, domain_map):
         m = hashlib.sha256()
 
