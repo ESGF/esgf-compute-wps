@@ -22,13 +22,34 @@ class CWTBaseTaskTestCase(test.TestCase):
         lon = cdms2_utils.generate_longitude(360)
 
         time = cdms2_utils.generate_time(0, 365, 'days since 1990-1-1')
+        time2 = cdms2_utils.generate_time(0, 365, 'days since 1991-1-1')
+        time3 = cdms2_utils.generate_time(0, 365, 'days since 1992-1-1')
 
         self.var = cdms2_utils.generate_variable(10, (time, lat, lon), 'tas', 'tas_1')
+        self.var1 = cdms2_utils.generate_variable(10, (time2, lat, lon), 'tas', 'tas_2')
+        self.var2 = cdms2_utils.generate_variable(10, (time3, lat, lon), 'tas', 'tas_3')
 
         self.task = CWTBaseTask()
 
     def tearDown(self):
         os.remove(self.var[1]['uri'])
+        os.remove(self.var1[1]['uri'])
+        os.remove(self.var2[1]['uri'])
+
+    def test_map_domain_multiple_indices(self):
+        dom = cwt.Domain([
+            cwt.Dimension('time', 100, 900, cwt.INDICES),
+            cwt.Dimension('lat', 45, 90, cwt.INDICES),
+            cwt.Dimension('lon', 90, 270, cwt.INDICES),
+        ])
+
+        f = [self.cdms2_open(x) for x in [self.var, self.var1, self.var2]]
+
+        domain_map = self.task.map_domain_multiple(f, 'tas', dom)
+
+        self.assertEqual(domain_map[self.var[1]['uri']][0], slice(100, 365, 1))
+        self.assertEqual(domain_map[self.var1[1]['uri']][0], slice(0, 365, 1))
+        self.assertEqual(domain_map[self.var2[1]['uri']][0], slice(0, 270, 1))
 
     def test_check_cache(self):
         t = slice(0, 100, 1)
