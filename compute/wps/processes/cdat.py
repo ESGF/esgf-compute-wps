@@ -46,14 +46,18 @@ def subset(self, variables, operations, domains, **kwargs):
     cache_file, exists = self.check_cache(input_var.uri, temporal, spatial)
 
     if exists:
-        temporal = slice(0, len(input_file[var_name]), 1)
+        logger.info('{} has been cached'.format(input_file.id))
 
         spatial = {}
 
         input_file.close()
 
         input_file = cdms2.open(cache_file)
+
+        temporal = slice(0, len(input_file[var_name]), 1)
     else:
+        logger.info('{} has not been cached'.format(input_file.id))
+
         cache = cdms2.open(cache_file, 'w')
 
     out_local_path = self.generate_local_output()
