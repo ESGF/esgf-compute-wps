@@ -159,27 +159,32 @@ class CWTBaseTask(celery.Task):
     def map_domain_multiple(self, inputs, var_name, domain):
         domain_map = {}
 
+        inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
+
         for inp in inputs:
             temporal = None
             spatial = {}
 
-            for dim in domain.dimensions:
-                axis_idx = inp[var_name].getAxisIndex(dim.name)
+            if domain is None:
+                temporal = slice(0, len(inp[var_name]), 1)
+            else:
+                for dim in domain.dimensions:
+                    axis_idx = inp[var_name].getAxisIndex(dim.name)
 
-                if axis_idx == -1:
-                    raise Exception('Axis {} does not exist'.format(dim.name))
+                    if axis_idx == -1:
+                        raise Exception('Axis {} does not exist'.format(dim.name))
 
-                axis = inp[var_name].getAxis(axis_idx)
+                    axis = inp[var_name].getAxis(axis_idx)
 
-                if axis.isTime():
-                    temporal = self.map_axis(axis, dim, clamp_upper=False)
-                    
-                    if dim.crs == cwt.INDICES:
-                        dim.start -= temporal.start
+                    if axis.isTime():
+                        temporal = self.map_axis(axis, dim, clamp_upper=False)
+                        
+                        if dim.crs == cwt.INDICES:
+                            dim.start -= temporal.start
 
-                        dim.end -= (temporal.stop - temporal.start)
-                else:
-                    spatial[dim.name] = self.map_axis(axis, dim)
+                            dim.end -= (temporal.stop - temporal.start)
+                    else:
+                        spatial[dim.name] = self.map_axis(axis, dim)
 
             domain_map[inp.id] = (temporal, spatial)
 
