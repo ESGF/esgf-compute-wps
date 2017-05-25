@@ -11,197 +11,185 @@ from contextlib import closing
 from django import test
 
 from wps import settings
+from wps.processes import CWTBaseTask
 from wps.processes import cdat
-
-def generate_time(start, stop, units):
-    time = cdms2.createAxis(np.array([x for x in xrange(start, stop)]))
-
-    time.designateTime()
-
-    time.id = 'time'
-
-    time.units = '{} 0'.format(units)
-
-    return time
-
-def generate_variable(value, time, lat, lon, var_name, identifier):
-    file_name = '{}.nc'.format(identifier)
-
-    file_path = '{}/{}'.format(os.path.dirname(__file__), file_name)
-
-    with closing(cdms2.open(file_path, 'w')) as f:
-        data = np.array([[[value
-                           for _ in xrange(len(lon))]
-                          for _ in xrange(len(lat))]
-                         for _ in xrange(len(time))])
-
-        f.write(data, axes=(time, lat, lon), id=var_name)
-
-    return [(identifier, {'uri':file_path,'id': '{}|{}'.format(var_name, identifier)})]
+from wps.tests import cdms2_utils
 
 class TestCDAT(test.TestCase):
 
-    def setUp(self):
-        settings.CACHE_PATH = os.path.join(os.path.dirname(__file__), 'cache')
+    @classmethod
+    def setUpClass(cls):
+        time1 = cdms2_utils.generate_time(0, 365, 'days since 1990-1-1')
 
-        self.cache = settings.CACHE_PATH
+        time2 = cdms2_utils.generate_time(0, 365, 'days since 1991-1-1')
 
-        if os.path.exists(settings.CACHE_PATH):
-            shutil.rmtree(self.cache)
+        time3 = cdms2_utils.generate_time(0, 365, 'days since 1992-1-1')
 
-        os.mkdir(settings.CACHE_PATH)
+        lat_1 = cdms2_utils.generate_latitude(180, -89.5)
 
-        time1 = generate_time(0, 365, 'days since 1990-1-1')
+        lon_1 = cdms2_utils.generate_longitude(360, 0)
 
-        time2 = generate_time(0, 365, 'days since 1991-1-1')
+        cls.d = {
+            'd0': {
+                'id': 'd0',
+                'time': {'start': 100, 'end': 200, 'crs': 'indices'},
+                'lat': {'start': 45, 'end': 90, 'crs': 'indices'},
+                'lon': {'start': 180, 'end': 270, 'crs': 'indices'},
+            },
+            'd1': {
+                'id': 'd1',
+                'time': {'start': 100, 'end': 200, 'crs': 'values'},
+                'lat': {'start': 45, 'end': 90, 'crs': 'values'},
+                'lon': {'start': 180, 'end': 270, 'crs': 'values'},
+            },
+            'd2': {
+                'id': 'd2',
+                'time': {'start': 100, 'end': 900, 'crs': 'indices'},
+            },
+            'd3': {
+                'id': 'd3',
+                'time': {'start': 100, 'end': 900, 'crs': 'values'},
+            },
+        }
 
-        time3 = generate_time(0, 365, 'days since 1992-1-1')
+        cls.v = {}
 
-        lat_1 = cdms2.createUniformLatitudeAxis(-89.5, 180, 1)
+        cls.v.update([cdms2_utils.generate_variable(10, (time1, lat_1, lon_1), 'tas', 'tas_1')])
+        cls.v.update([cdms2_utils.generate_variable(10, (time2, lat_1, lon_1), 'tas', 'tas_2')])
+        cls.v.update([cdms2_utils.generate_variable(10, (time3, lat_1, lon_1), 'tas', 'tas_3')])
 
-        lon_1 = cdms2.createUniformLongitudeAxis(0.5, 360, 1)
+        cls.cache_path = os.path.join(os.path.dirname(__file__), 'cache')
 
-        self.d = {'d0': {'id': 'd0',
-                         'time': {'start': 100, 'end': 200, 'crs': 'indices'},
-                         'lat': {'start': 0, 'end': 90, 'crs': 'indices'},
-                         'lon': {'start': 180, 'end': 360, 'crs': 'indices'},
-                        },
-                  'd1': {'id': 'd1',
-                         'time': {'start': 100, 'end': 200, 'crs': 'values'},
-                         'latitude': {'start': -90, 'end': 0, 'crs': 'values'},
-                         'longitude': {'start': 180, 'end': 360, 'crs': 'values'},
-                        },
-                  'd2': {'id': 'd2',
-                         'latitude': {'start': 90, 'end': 0, 'crs': 'values'},
-                        },
-                  'd3': {'id': 'd3',
-                         'time': {'start': 200, 'end': 850, 'crs': 'indices'},
-                        },
-                 }
+        settings.CACHE_PATH = cls.cache_path
 
-        self.v = {}
-
-        self.v.update(generate_variable(10, time1, lat_1, lon_1, 'tas', 'tas_10_365_180_360'))
-        self.v.update(generate_variable(10, time2, lat_1, lon_1, 'tas', 'tas_20_365_180_360'))
-        self.v.update(generate_variable(10, time2, lat_1, lon_1, 'tas', 'tas_10_365_180_360_2'))
-        self.v.update(generate_variable(10, time3, lat_1, lon_1, 'tas', 'tas_10_365_180_360_3'))
-
-    def tearDown(self):
-        for v in self.v.values():
+    @classmethod
+    def tearDownClass(cls):
+        for v in cls.v.values():
             os.remove(v['uri'])
 
-        shutil.rmtree(self.cache) 
+    def setUp(self):
+        os.mkdir(self.cache_path)
+
+    def tearDown(self):
+        shutil.rmtree(self.cache_path)
 
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
-    def test_avg_single_file(self, mock):
-        o = {'CDAT.avg': {'name': 'CDAT.avg',
-                          'input': ['tas_10_365_180_360'],
-                          'axes': 'time',
-                         }
+    def test_aggregate_regrid(self, mock):
+        o = {
+            'CDAT.aggregate': {
+                'name': 'CDAT.aggregate',
+                'input': ['tas_1', 'tas_2', 'tas_3'],
+                'gridder': {'tool': 'esmf', 'method': 'linear', 'grid': 'gaussian~32'},
             }
-
-        result = cdat.avg(self.v, o, self.d, local=True)
-
-        with closing(cdms2.open(result['uri'])) as f:
-            self.assertEqual(f['tas'].shape, (180, 360))
-
-    @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
-    def test_avg_single_file_missing_axis(self, mock):
-        o = {'CDAT.avg': {'name': 'CDAT.avg',
-                          'input': ['tas_10_365_180_360']
-                         }
-            }
-
-        with self.assertRaises(Exception):
-            cdat.avg(self.v, o, self.d, local=True)
-
-    @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
-    def test_aggregate(self, mock):
-        o = {'CDAT.aggregate': {'name': 'CDAT.aggregate',
-                                'input': ['tas_10_365_180_360', 'tas_10_365_180_360_2', 'tas_10_365_180_360_3'],
-                                'domain': 'd3',
-                               }
-            }
+        }
 
         result = cdat.aggregate(self.v, o, self.d, local=True)
 
         with closing(cdms2.open(result['uri'])) as f:
-            self.assertEqual(f['tas'].shape, (650, 180, 360))
+            self.assertEqual(f['tas'].shape, (1095, 32, 64))
 
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
-    def test_subset_bad_domain_indexes(self, mock):
-        o = {'CDAT.subset': {'name': 'CDAT.subset',
-                             'input': ['tas_10_365_180_360'],
-                             'domain': 'd2',
-                            },
+    def test_aggregate_values(self, mock):
+        o = {
+            'CDAT.aggregate': {
+                'name': 'CDAT.aggregate',
+                'input': ['tas_1', 'tas_2', 'tas_3'],
+                'domain': 'd3',
             }
+        }
 
-        with self.assertRaises(Exception): 
-            cdat.subset(self.v, o, self.d, local=True)
+        result = cdat.aggregate(self.v, o, self.d, local=True)
+
+        with closing(cdms2.open(result['uri'])) as f:
+            self.assertEqual(f['tas'].shape, (795, 180, 360))
 
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
-    def test_subset_missing_variable(self, mock):
-        o = {'CDAT.subset': {'name': 'CDAT.subset',
-                             'input': ['tas_10_365_180_360'],
-                             'domain': 'd0',
-                            },
+    def test_aggregate_indices(self, mock):
+        o = {
+            'CDAT.aggregate': {
+                'name': 'CDAT.aggregate',
+                'input': ['tas_1', 'tas_2', 'tas_3'],
+                'domain': 'd2',
             }
+        }
 
-        self.v['tas_10_365_180_360']['id'] = 'tas1|tas_10_365_180_360'
+        result = cdat.aggregate(self.v, o, self.d, local=True)
 
-        with self.assertRaises(Exception):
-            cdat.subset(self.v, o, self.d, local=True)
-    
+        with closing(cdms2.open(result['uri'])) as f:
+            self.assertEqual(f['tas'].shape, (800, 180, 360))
+
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
-    def test_subset_missing_input_file(self, mock):
-        o = {'CDAT.subset': {'name': 'CDAT.subset',
-                             'input': ['tas'],
-                             'domain': 'd0',
-                            },
+    @mock.patch('__builtin__.xrange')
+    def test_subset_cache(self, mock, mock2):
+        o = {
+            'CDAT.subset': {
+                'name': 'CDAT.subset',
+                'input': ['tas_1'],
             }
+        }
 
-        v = {'tas': {'uri': 'file:///no.nc',
-                     'id': 'tas|tas',
-                    }
-            }
+        task = CWTBaseTask()
 
-        with self.assertRaises(Exception):
-            cdat.subset(v, o, self.d, local=True)
+        file_path = self.v['tas_1']['uri']
 
+        with closing(cdms2.open(file_path)) as f:
+            temporal, spatial = task.map_domain(f, 'tas', None)
+
+        cache_file, exists = task.check_cache(file_path, temporal, spatial)
+
+        self.assertFalse(exists)
+
+        shutil.copy(file_path, cache_file)
+
+        cache_file, exists = task.check_cache(file_path, temporal, spatial)
+
+        self.assertTrue(exists)
+
+        result = cdat.subset(self.v, o, self.d, local=True)
+
+        mock.assert_called_with(0, 365, 200)
+        
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
     def test_subset_regrid(self, mock):
-        o = {'CDAT.subset': {'name': 'CDAT.subset',
-                             'input': ['tas_10_365_180_360'],
-                             'domain': 'd1',
-                             'gridder': {'tool': 'esmf', 'method': 'linear', 'grid': 'gaussian~32'}
-                            },
+        o = {
+            'CDAT.subset': {
+                'name': 'CDAT.subset',
+                'input': ['tas_1'],
+                'gridder': {'tool': 'esmf', 'method': 'linear', 'grid': 'gaussian~32'},
             }
+        }
 
         result = cdat.subset(self.v, o, self.d, local=True)
 
-        with cdms2.open(result['uri']) as f:
-            self.assertEqual(f['tas'].shape, (100, 32, 64))
-
+        with closing(cdms2.open(result['uri'])) as f:
+            self.assertEqual(f['tas'].shape, (365, 32, 64))
+    
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
     def test_subset_values(self, mock):
-        o = {'CDAT.subset': {'name': 'CDAT.subset',
-                             'input': ['tas_10_365_180_360'],
-                             'domain': 'd1'},
+        o = {
+            'CDAT.subset': {
+                'name': 'CDAT.subset',
+                'input': ['tas_1'],
+                'domain': 'd1',
             }
+        }
 
         result = cdat.subset(self.v, o, self.d, local=True)
 
-        with cdms2.open(result['uri']) as f:
-            self.assertEqual(f['tas'].shape, (100, 90, 180))
+        with closing(cdms2.open(result['uri'])) as f:
+            self.assertEqual(f['tas'].shape, (100, 45, 90))
 
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
     def test_subset_indices(self, mock):
-        o = {'CDAT.subset': {'name': 'CDAT.subset',
-                             'input': ['tas_10_365_180_360'],
-                             'domain': 'd0'},
+        o = {
+            'CDAT.subset': {
+                'name': 'CDAT.subset',
+                'input': ['tas_1'],
+                'domain': 'd0',
             }
+        }
 
         result = cdat.subset(self.v, o, self.d, local=True)
 
-        with cdms2.open(result['uri']) as f:
-            self.assertEqual(f['tas'].shape, (100, 90, 180))
+        with closing(cdms2.open(result['uri'])) as f:
+            self.assertEqual(f['tas'].shape, (100, 45, 90))
