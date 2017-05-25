@@ -182,7 +182,7 @@ class CWTBaseTask(celery.Task):
                         if dim.crs == cwt.INDICES:
                             dim.start -= temporal.start
 
-                            dim.end -= (temporal.stop - temporal.start)
+                            dim.end -= (temporal.stop - temporal.start) + temporal.start
                     else:
                         spatial[dim.name] = self.map_axis(axis, dim)
 

@@ -49,7 +49,7 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         self.assertEqual(domain_map[self.var[1]['uri']][0], slice(100, 365, 1))
         self.assertEqual(domain_map[self.var1[1]['uri']][0], slice(0, 365, 1))
-        self.assertEqual(domain_map[self.var2[1]['uri']][0], slice(0, 270, 1))
+        self.assertEqual(domain_map[self.var2[1]['uri']][0], slice(0, 170, 1))
 
     def test_check_cache(self):
         t = slice(0, 100, 1)

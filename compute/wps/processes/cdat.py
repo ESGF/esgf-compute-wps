@@ -105,62 +105,64 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     op = self.op_by_id('CDAT.aggregate', o)
 
-    var_name = op.inputs[0].var_name
+    var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in op.inputs])
+
+    if var_name is None:
+        raise Exception('Input variable names do not match.')
+
+    inputs = {}
+
+    try:
+        for i in op.inputs:
+            inputs[i.uri] = cdms2.open(i.uri)
+    except cdms2.CDMSError as e:
+        # Cleanup files
+        for v in inputs.values():
+            v.close()
+
+        raise Exception(e.message)
+
+    if not all(var_name in x.variables.keys() for x in inputs.values()):
+        raise Exception('Variable {} is not present in all input files'.format(var_name))
+
+    domain_map = self.map_domain_multiple(inputs.values(), var_name, op.domain)
+
+    cache_map = {}
+   
+    for file_path, domain in domain_map.iteritems():
+        temporal, spatial = domain
+
+        cache_file, exists = self.check_cache(file_path, temporal, spatial)
+
+        if exists:
+            inputs[file_path].close()
+
+            inputs[file_path] = cdms2.open(cache_file)
+
+            n = len(inputs[file_path][var_name])
+
+            domain = (slice(0, n, 1), {})
+        else:
+            cache_map[file_path] = cdms2.open(cache_file, 'w')
 
     out_local_path = self.generate_local_output()
 
-    if op.domain is not None:
-        domains['global'] = op.domain
-
-    try:
-        inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
-    except cdms2.CDMSError:
-        raise Exception('Failed to open file {}'.format(op.inputs[0].uri))
-
-    if not all(var_name in x.variables.keys() for x in inputs):
-        raise Exception('Variable {} is not present in all input files'.format(var_name))
-
-    inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
-
-    domain_map = self.build_domain(inputs, domains, var_name)
-
-    logger.info('Generated domain map {}'.format(domain_map))
-
-    cache_file, exists = self.cache_file(inputs[0].id, domain_map)
-
-    if exists:
-        logger.info('File exists in cache')
-
-        for i in inputs:
-            i.close()
-
-        inputs = [cdms2.open(cache_file)]
-    else:
-        logger.info('File does not exist in cache')
-
-        cache = cdms2.open(cache_file, 'w')
-
-    with nested(*[closing(x) for x in inputs]) as inputs:
+    with nested(*[closing(x) for x in inputs.values()]) as inputs:
         grid, tool, method = self.generate_grid(op, v, d)
 
         with closing(cdms2.open(out_local_path, 'w')) as out:
             units = sorted([x[var_name].getTime().units for x in inputs])[0]
 
-            for infile in inputs:
-                if exists:
-                    tstart = 0
+            inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
-                    tstop = len(infile[var_name])
+            for inp in inputs:
+                temporal, spatial = domain_map[inp.id]
 
-                    tstep = 1
+                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
-                    spatial = {}
-                else:
-                    temporal, spatial = domain_map[infile.id]
+                diff = tstop - tstart
 
-                    tstart, tstop, tstep = temporal
-
-                step = tstop - tstart if (tstop - tstart) < 200 else 200
+                step = diff if diff < 200 else 200
 
                 for i in xrange(tstart, tstop, step):
                     end = i + step
@@ -168,25 +170,23 @@ def aggregate(self, variables, operations, domains, **kwargs):
                     if end > tstop:
                         end = tstop
 
-                    data = infile(var_name, time=slice(i, end, tstep), **spatial)
+                    data = inp(var_name, time=slice(i, end, tstep), **spatial)
 
                     if any(x == 0 for x in data.shape):
                         raise Exception('Read bad data, shape {}, check your domain'.format(data.shape))
 
                     data.getTime().toRelativeTime(units)
 
-                    if not exists:
-                        cache.write(data, id=var_name)
+                    if inp.id in cache_map:
+                        cache_map[inp.id].write(data, id=var_name)
 
                     if grid is not None:
                         data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
                     out.write(data, id=var_name)
 
-            if not exists:
-                cache.close()
-
-    self.cleanup()
+    for v in cache_map.values():
+        v.close()
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
