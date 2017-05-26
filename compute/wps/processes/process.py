@@ -104,7 +104,9 @@ class CWTBaseTask(celery.Task):
     def slice_to_str(self, s):
         return '{}:{}:{}'.format(s.start, s.stop, s.step)
 
-    def check_cache(self, uri, temporal, spatial):
+    def check_cache(self, uri, var_name, temporal, spatial):
+        logger.info('Checking cache for file {} with domain {} {}'.format(uri, temporal, spatial))
+
         m = hashlib.sha256()
 
         m.update(uri)
@@ -123,10 +125,39 @@ class CWTBaseTask(celery.Task):
 
         file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
 
-        if os.path.exists(file_path):
-            return file_path, True
+        exists = False
 
-        return file_path, False
+        if os.path.exists(file_path):
+            logger.info('{} exists in the cache'.format(file_path))
+
+            try:
+                cache = cdms2.open(file_path)
+            except cdms2.CDMSError:
+                logger.info('Failed to open cache file')
+            else:
+                logger.info('Validating cache file')
+
+                # Check for a valid cache file that is missing the variable
+                if var_name in cache.variables:
+                    time = cache[var_name].getTime().shape[0]
+
+                    diff = temporal.stop - temporal.start
+
+                    if diff < time or diff > time:
+                        logger.info('Cache file is invalid expecting time {} got {}'.format(temporal.stop - temporal.start, time))
+
+                        cache.close()
+
+                        os.remove(file_path)
+                    else:
+                        exists = True
+            
+        if not exists:
+            logger.info('{} does not exist in the cache'.format(file_path))
+
+            cache = cdms2.open(file_path, 'w')
+
+        return cache, exists
 
     def map_axis(self, axis, dim, clamp_upper=True):
         if dim.crs == cwt.INDICES:
@@ -148,11 +179,16 @@ class CWTBaseTask(celery.Task):
 
             axis_slice = slice(dim.start, end, dim.step)
         elif dim.crs == cwt.VALUES:
-            start, stop = axis.mapInterval((dim.start, dim.end), indicator='co')
-
-            axis_slice = slice(start, stop, dim.step)
+            try:
+                start, stop = axis.mapInterval((dim.start, dim.end), indicator='con')
+            except Exception:
+                axis_slice = None
+            else:
+                axis_slice = slice(start, stop, dim.step)
         else:
             raise Exception('Unknown CRS {}'.format(dim.crs))
+
+        logger.info('Mapped dimension {} to slice {}'.format(dim, axis_slice))
 
         return axis_slice
 
@@ -161,11 +197,15 @@ class CWTBaseTask(celery.Task):
 
         inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
+        base = inputs[0][var_name].getTime()
+
         for inp in inputs:
             temporal = None
             spatial = {}
 
             if domain is None:
+                logger.info('No domain defined, grabbing entire time axis')
+
                 temporal = slice(0, len(inp[var_name]), 1)
             else:
                 for dim in domain.dimensions:
@@ -177,7 +217,11 @@ class CWTBaseTask(celery.Task):
                     axis = inp[var_name].getAxis(axis_idx)
 
                     if axis.isTime():
-                        temporal = self.map_axis(axis, dim, clamp_upper=False)
+                        clone_axis = axis.clone()
+
+                        clone_axis.toRelativeTime(base.units)
+
+                        temporal = self.map_axis(clone_axis, dim, clamp_upper=False)
                         
                         if dim.crs == cwt.INDICES:
                             dim.start -= temporal.start
@@ -188,6 +232,8 @@ class CWTBaseTask(celery.Task):
 
             domain_map[inp.id] = (temporal, spatial)
 
+            logger.info('Mapped domain {} to {} {}'.format(domain.name, inp.id, domain_map[inp.id]))
+
         return domain_map
 
     def map_domain(self, var, var_name, domain):
@@ -195,6 +241,8 @@ class CWTBaseTask(celery.Task):
         spatial = {}
 
         if domain is None:
+            logger.info('No domain defined, grabbing entire time axis') 
+
             return slice(0, len(var[var_name]), 1), spatial
 
         for dim in domain.dimensions:
@@ -210,6 +258,8 @@ class CWTBaseTask(celery.Task):
             else:
                 spatial[dim.name] = self.map_axis(axis, dim)
 
+        logger.info('Mapped domain {} to {} {}'.format(domain.name, var.id, (temporal, spatial)))
+        
         return temporal, spatial
 
     def cache_file(self, file_name, domain_map):
@@ -338,8 +388,12 @@ class CWTBaseTask(celery.Task):
 
             method = gridder.method
 
+            logger.info('Using {} of regridder {}'.format(method, tool))
+
             if isinstance(gridder.grid, (str, unicode)):
                 if gridder.grid in variables:
+                    logger.info('Loading grid from {}'.format(v.uri))
+
                     v = variables[gridder.grid]
 
                     self.grid_file = cdms2.open(v.uri)
@@ -359,11 +413,15 @@ class CWTBaseTask(celery.Task):
                     grid = cdms2.createUniformGrid(
                                                    lat_val[0], lat_val[1]-lat_val[0], lat_val[2],
                                                    lon_val[0], lon_val[1]-lon_val[0], lon_val[2])
+
+                    logger.info('Created uniform grid for {}'.format(d))
                 else:
                     grid_type, arg = gridder.grid.split('~')
 
                     if grid_type == 'gaussian':
                         grid = cdms2.createGaussianGrid(int(arg))
+
+                        logger.info('Created gaussian grid {}'.format(arg))
                     elif grid_type == 'uniform':
                         lat_step, lon_step = arg.split('x')
 
@@ -372,6 +430,8 @@ class CWTBaseTask(celery.Task):
                         lon_step = int_or_float(lon_step)
 
                         grid = cdms2.createUniformGrid(90.0, 180/lat_step, -lat_step, 0.0, 360/lon_step, lon_step)
+
+                        logger.info('Created uniform grid {}x{}'.format(lat_step, lon_step))
 
         return grid, tool, method
 
