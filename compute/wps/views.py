@@ -26,7 +26,10 @@ from wps.auth import oauth2
 logger = logging.getLogger('wps.views')
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def oauth2_callback(request):
+    logger.info('OAuth2 callback')
+
     try:
         oid = request.session.pop('openid')
 
@@ -40,15 +43,18 @@ def oauth2_callback(request):
 
     manager = node_manager.NodeManager()
 
-    api_key = manager.auth_oauth2_callback(oid, oid_response, request.META['QUERY_STRING'], oauth_state)
+    manager.auth_oauth2_callback(oid, oid_response, request.META['QUERY_STRING'], oauth_state)
 
     return redirect('home')
 
 @require_http_methods(['POST'])
+@ensure_csrf_cookie
 def create(request):
     form = forms.CreateForm(request.POST)
 
     if not form.is_valid():
+        logger.info('Form is not valid')
+
         return http.JsonResponse({ 'status': 'failure', 'errors': form.errors })
 
     username = form.cleaned_data['username']
@@ -58,6 +64,8 @@ def create(request):
     openid = form.cleaned_data['openid']
 
     password = form.cleaned_data['password']
+
+    logger.info('Creating new account for {}'.format(username))
 
     user = models.User.objects.create_user(username, email, password)
 
@@ -70,6 +78,7 @@ def create(request):
     return http.JsonResponse({ 'status': 'success' })
 
 @require_http_methods(['GET', 'POST'])
+@ensure_csrf_cookie
 def login(request):
     if request.method == 'POST':
         form = forms.LoginForm(request.POST)
@@ -79,22 +88,33 @@ def login(request):
 
             password = form.cleaned_data['password']
 
+            logger.info('Attempting to login user {}'.format(username))
+
             user = authenticate(request, username=username, password=password)
 
             if user is not None:
+                logger.info('Authenticate user {}, logging in'.format(username))
+
                 dlogin(request, user)
 
                 return http.JsonResponse({ 'status': 'success' })
             else:
+                logger.warning('Failed to authenticate user')
+
                 return http.JsonResponse({ 'status': 'failure', 'errors': 'bad login' })
         else:
+            logger.info('Login form is invalid')
+
             return http.JsonResponse({ 'status': 'failure', 'errors': form.errors })
 
     return render(request, 'wps/login.html')
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def logout_view(request):
     if request.user.is_authenticated():
+        logger.info('Logging user {} out'.format(request.user.username))
+
         logout(request)
 
         return http.JsonResponse({'status': 'success'})
@@ -102,12 +122,15 @@ def logout_view(request):
     return http.JsonResponse({'status': 'failed', 'errors': 'User not authenticated'})
 
 @require_http_methods(['POST'])
+@ensure_csrf_cookie
 def login_oauth2(request):
     if request.user.is_authenticated():
         form = forms.OpenIDForm(request.POST)
 
         if form.is_valid():
             oid_url = form.cleaned_data.get('openid')
+
+            logger.info('Authenticating OAuth2 for {}'.format(oid_url))
 
             manager = node_manager.NodeManager()
 
@@ -117,13 +140,18 @@ def login_oauth2(request):
 
             return http.JsonResponse({'status': 'success', 'redirect': redirect_url})
         else:
+            logger.warning('OAuth2 login form is invalid')
+
             errors = form.errors
     else:
+        logger.warning('User is not authenticated')
+
         errors = 'User not authenticated'
 
     return http.JsonResponse({'status': 'failed', 'errors': errors})
 
 @require_http_methods(['POST'])
+@ensure_csrf_cookie
 def login_mpc(request):
     if request.user.is_authenticated():
         form = forms.MPCForm(request.POST)
@@ -135,6 +163,8 @@ def login_mpc(request):
 
             password = form.cleaned_data.get('password')
 
+            logger.info('Authenticating MyProxyClient for {}'.format(oid_url))
+
             manager = node_manager.NodeManager()
 
             try:
@@ -144,8 +174,12 @@ def login_mpc(request):
 
             return http.JsonResponse({'status': 'success'})
         else:
+            logger.warning('MyProxyClient login form is invalid')
+
             errors = form.errors
     else:
+        logger.warning('User is not authenticated')
+
         errors = 'User not authenticated'
 
     return http.JsonResponse({'status': 'failed', 'errors': errors})
@@ -158,13 +192,14 @@ def wps(request):
     try:
         api_key, op, identifier, data_inputs = manager.handle_request(request)
 
-        logger.info('Transformed WPS request Operation: %s Identifier: %s '
-                    'DataInputs: %s', op, identifier, data_inputs)
+        logger.info('Handling WPS request {} for api key {}'.format(op, api_key))
 
         try:
             user = models.User.objects.filter(auth__api_key=api_key)[0]
         except IndexError:
-            raise Exception('Unabled to find a user with the api key {}'.format(api_key))
+            logger.exception('Unable to find user with api key {}'.format(api_key))
+
+            raise Exception('Unable to find a user with the api key {}'.format(api_key))
 
         if op == 'getcapabilities':
             response = manager.get_capabilities()
@@ -174,16 +209,18 @@ def wps(request):
             response = manager.execute(user, identifier, data_inputs)
     except node_manager.NodeManagerWPSError as e:
         logger.exception('Specific WPS error')
-        # Custom WPS error
+
         response = e.exc_report.xml()
     except django.db.ProgrammingError:
+        logger.exception('Handling Django exception')
+
         exc_report = metadata.ExceptionReport(settings.VERSION)
 
         exc_report.add_exception(metadata.NoApplicableCode, 'Database has not been initialized')
 
         response = exc_report.xml()
     except Exception as e:
-        logger.exception('General WPS error')
+        logger.exception('Handling WPS general exception')
 
         exc_report = metadata.ExceptionReport(settings.VERSION)
 
@@ -194,6 +231,7 @@ def wps(request):
     return http.HttpResponse(response, content_type='text/xml')
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def regen_capabilities(request):
     manager = node_manager.NodeManager()
 
@@ -202,6 +240,7 @@ def regen_capabilities(request):
     return http.HttpResponse('Regenerated capabilities')
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def cdas2_capabilities(request):
     manager = node_manager.NodeManager()
 
@@ -210,6 +249,7 @@ def cdas2_capabilities(request):
     return http.HttpResponse('CDAS capabilities')
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def status(request, job_id):
     manager = node_manager.NodeManager()
 
@@ -218,6 +258,7 @@ def status(request, job_id):
     return http.HttpResponse(status, content_type='text/xml')
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def servers(request):
     servers = models.Server.objects.all()
 
@@ -231,6 +272,7 @@ def servers(request):
     return http.JsonResponse(data)
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def processes(request, server_id):
     try:
         server = models.Server.objects.get(pk=server_id)
@@ -246,6 +288,7 @@ def processes(request, server_id):
     return http.JsonResponse(data)
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def regenerate_api_key(request, user_id):
     if not request.user.is_authenticated():
         return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
@@ -257,6 +300,7 @@ def regenerate_api_key(request, user_id):
     return http.JsonResponse({'api_key': api_key})
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def user(request):
     if not request.user.is_authenticated():
         return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
@@ -282,6 +326,7 @@ def user(request):
     return http.JsonResponse(data)
 
 @require_http_methods(['GET'])
+@ensure_csrf_cookie
 def jobs(request, user_id):
     if not request.user.is_authenticated():
         return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
@@ -311,8 +356,10 @@ def jobs(request, user_id):
 
     return http.JsonResponse(dict(jobs=jobs))
 
+@ensure_csrf_cookie
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)
 
+@ensure_csrf_cookie
 def home(request):
     return render(request, 'wps/debug.html')

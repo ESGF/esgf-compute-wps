@@ -62,6 +62,8 @@ class NodeManager(object):
 
         user.auth.save()
 
+        logger.info('Regenerated API_KEY for user {}'.format(user.username))
+
         return user.auth.api_key
 
     def create_socket(self, host, port, socket_type):
@@ -90,6 +92,8 @@ class NodeManager(object):
         user.auth.extra = json.dumps(extra)
         user.auth.save()
 
+        logger.info('Updated auth settings for user {}'.format(user.username))
+
     def auth_mpc(self, oid_url, username, password):
         oid = openid.OpenID.retrieve_and_parse(oid_url)
 
@@ -106,6 +110,8 @@ class NodeManager(object):
 
         c = m.logon(username, password, bootstrap=True)
 
+        logger.info('Authenticated with MyProxyClient backend for user {}'.format(username))
+
         self.update_user('myproxyclient', oid.response, oid_url, c)
 
     def auth_oauth2(self, oid_url):
@@ -116,6 +122,8 @@ class NodeManager(object):
         cert_service = oid.find(URN_RESOURCE)
 
         redirect_url, state = oauth2.get_authorization_url(auth_service.uri, cert_service.uri)
+
+        logger.info('Retrieved authorization url for OpenID {}'.format(oid_url))
 
         session = {
                    'oauth_state': state,
@@ -136,7 +144,11 @@ class NodeManager(object):
 
         token = oauth2.get_token(token_service.uri, request_url, state)
 
+        logger.info('Retrieved OAuth2 token for OpenID {}'.format(oid_url))
+
         cert, key, new_token = oauth2.get_certificate(token, token_service.uri, cert_service.uri)
+
+        logger.info('Retrieved Certificated for OpenID {}'.format(oid_url))
 
         self.update_user('oauth2', oid.response, oid_url, [cert, key], token=new_token)
 
@@ -167,6 +179,8 @@ class NodeManager(object):
         servers = models.Server.objects.all()
 
         for s in servers:
+            logger.info('Generating capabilities for server {}'.format(s.host))
+
             processes = s.processes.all()
 
             cap = wps_xml.capabilities_response(add_procs=processes)
@@ -180,6 +194,8 @@ class NodeManager(object):
         servers = models.Server.objects.all()
 
         for s in servers:
+            logger.info('Querying capabilities for CDAS backend {}'.format(s.host))
+
             tasks.capabilities.delay(s.id)
 
     def get_capabilities(self):
@@ -204,11 +220,15 @@ class NodeManager(object):
         return process.description
 
     def execute_local(self, user, job, identifier, data_inputs):
+        logger.info('Job {} Executing local WPS process "{}"'.format(job.id, identifier))
+
         o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
 
         op_by_id = lambda x: [y for y in o if y.identifier == x][0]
 
         op = op_by_id(identifier)
+
+        logger.info('Job {} Preparing process inputs'.format(job.id))
 
         operations = dict((x.name, x.parameterize()) for x in o)
 
@@ -224,15 +244,21 @@ class NodeManager(object):
                 'user_id': user.id,
                 }
 
+        logger.info('Job {} Building celery workflow'.format(job.id))
+
         chain = tasks.check_auth.s(**params)
 
         chain = (chain | process.si(variables, operations, domains, **params))
 
         chain = (chain | tasks.handle_output.s(**params))
 
+        logger.info('Job {} Executing celery workflow'.format(job.id))
+
         chain()
 
     def execute_cdas2(self, job, identifier, data_inputs):
+        logger.info('Job {} Executing CDAS2 process "{}"'.format(job.id, identifier))
+
         instances = models.Instance.objects.all()
 
         if len(instances) == 0:
@@ -241,11 +267,13 @@ class NodeManager(object):
             raise Exception('There are no CDAS2 instances available')
 
         with closing(self.create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
+            logger.info('Job {} Queuing CDAS2 request'.format(job.id))
+
             request_cmd = '{0}!execute!{1}!{2}'.format(job.id, identifier, data_inputs)
 
             request_cmd += '!{"response":"file"}'
 
-            logger.info('Sending CDAS2 execute request {}'.format(request_cmd))
+            logger.debug('Job {} Request {}'.format(job.id, request_cmd))
 
             request.send(str(request_cmd))
 
@@ -261,6 +289,8 @@ class NodeManager(object):
         job = models.Job(server=server, user=user)
 
         job.save()
+
+        logger.info('Accepted job {}'.format(job.id))
 
         job.set_report(identifier)
 
