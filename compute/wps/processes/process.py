@@ -151,6 +151,10 @@ class CWTBaseTask(celery.Task):
                         os.remove(file_path)
                     else:
                         exists = True
+                else:
+                    cache.close()
+
+                    logger.info('Cache invalid variable {} not found in files {}'.format(var_name, cache.variables))
             
         if not exists:
             logger.info('{} does not exist in the cache'.format(file_path))

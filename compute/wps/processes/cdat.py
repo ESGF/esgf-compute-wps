@@ -7,9 +7,11 @@ from contextlib import nested
 
 import cdms2
 import cwt
+import dask.array as da
 import numpy as np
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from dask import delayed
 
 from wps import models
 from wps import settings
@@ -246,98 +248,92 @@ def aggregate(self, variables, operations, domains, **kwargs):
 @register_process('CDAT.avg')
 @shared_task(bind=True, base=CWTBaseTask)
 def avg(self, variables, operations, domains, **kwargs):
-    # Currently all files are considered either cached or not cached,
-    # we need to make this abit more robust to handle situations where
-    # only a portion of the input files are cached.
     status = self.initialize(credentials=True, **kwargs)
 
     v, d, o = self.load(variables, domains, operations)
 
     op = self.op_by_id('CDAT.avg', o)
 
-    var_name = op.inputs[0].var_name
-
     out_local_path = self.generate_local_output()
 
-    inputs = [cdms2.open(x.uri.replace('https', 'http')) for x in op.inputs]
+    if len(op.inputs) == 1:
+        input_var = op.inputs[0]
 
-    if op.domain is not None:
-        domains['global'] = op.domain
+        var_name = input_var.var_name
 
-    domain_map = self.build_domain(inputs, domains, var_name)
+        axes = op.get_parameter('axes', True)
 
-    logger.info('Generated domain map {}'.format(domain_map))
+        if axes is None:
+            raise Exception('axes parameter was not defined')
 
-    cache_map = {}
+        try:
+            input_file = cdms2.open(input_var.uri)
+        except cdms2.CDMSError:
+            raise Exception('Failed to open input {}'.format(input_var.uri))
 
-    for key in domain_map.keys():
-        cache_file, exists = self.cache_file(key, domain_map)
+        logger.info('Processing input {}'.format(input_file.id))
+
+        temporal, spatial = self.map_domain(input_file, var_name, op.domain)
+
+        cache, exists = self.check_cache(input_file.id, var_name, temporal, spatial)
 
         if exists:
-            logger.info('{} does exist in the cache'.format(key))
+            input_file.close()
 
-            found = [x for x in inputs if x.id == key][0]
-
-            found.close()
-
-            inputs.remove(found)
-
-            fin = cdms2.open(cache_file)
-
-            inputs.append(fin)
-
-            domain_map[fin.id] = ((0, len(fin[var_name]), 1), {})
+            input_file = cache
         else:
-            logger.info('{} does not exist in the cache'.format(key))
+            tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
-            cache_map[key] = cdms2.open(cache_file, 'w')
+            diff = tstop - tstart
 
-    with nested(*[closing(x) for x in inputs]) as inputs:
-        temporal, spatial = domain_map[inputs[0].id]
-         
-        tstart, tstop, tstep = temporal
+            step = diff if diff < 200 else 200
 
-        step = tstop - tstart if (tstop - tstart) < 200 else 200
+            with input_file as input_file, cache as cache:
+                for begin in xrange(tstart, tstop, step):
+                    end = begin + step
 
-        with closing(cdms2.open(out_local_path, 'w')) as f:
-            if len(inputs) == 1:
-                axes = op.get_parameter('axes', True)
+                    if end > tstop:
+                        end = tstop
 
-                axes_ids = [inputs[0][var_name].getAxisIndex(x) for x in axes.values]
+                    time_slice = slice(begin, end, tstep)
 
-            for i in xrange(tstart, tstop, step):
-                begin = i
+                    data = input_file(var_name, time=time_slice, **spatial)
 
-                end = i + step
+                    if any(x == 0 for x in data.shape):
+                        raise Exception('Read bad chunk of data {}'.format(data.shape))
 
-                if end > tstop:
-                    end = tstop
+                    cache.write(data, id=var_name)
+            
+            input_file = cdms2.open(cache.id)
 
-                if len(inputs) == 1:
-                    data = inputs[0](var_name, time=slice(begin, end, tstep), **spatial)
+        with input_file as input_file:
+            axis_indexes = [input_file[var_name].getAxisIndex(x) for x in axes.values]
 
-                    for axis in axes_ids:
-                        data = np.average(data, axis=axis)
+            if any(x == -1 for x in axis_indexes):
+                truth = zip(axes.values, [True if x != -1 else False
+                                          for x in axis_indexes])
 
-                    f.write(data, id=var_name)
-                else:
-                    for idx, inp in enumerate(inputs):
-                        data = inp(var_name, time=slice(begin, end, tstep), **spatial)
+                raise Exception('An axis does not exist {}'.format(truth))
 
-                        if inp.id in cache_map:
-                            cache_map[inp.id].write(data, id=var_name)
+            shape = input_file[var_name].shape
 
-                        if idx == 0:
-                            data_sum = data
-                        else:
-                            data_sum += data
+            chunk = [shape[0] / 10] + list(shape[1:])
 
-                    data_sum /= len(inputs)
+            chunk = tuple(chunk)
 
-                    f.write(data_sum, id=var_name)
+            mean = da.from_array(input_file[var_name], chunks=chunk)
 
-    for value in cache_map.values():
-        value.close()
+            for axis in axis_indexes:
+                mean = mean.mean(axis=axis)
+
+            result = mean.compute()
+
+            axes = [x for x in input_file.axes.values() if x.id not in axes.values and x.id != 'bound']
+
+            with cdms2.open(out_local_path, 'w') as output_file:
+                output_file.write(result, id=var_name, axes=axes)
+    else:
+        raise Exception('Average between multiple files is not supported yet.')
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
