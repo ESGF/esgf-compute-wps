@@ -104,6 +104,54 @@ class CWTBaseTask(celery.Task):
     def slice_to_str(self, s):
         return '{}:{}:{}'.format(s.start, s.stop, s.step)
 
+    def cache_input(self, input_var, domain):
+        uri = input_var.uri
+
+        var_name = input_var.var_name
+
+        logger.info('Caching {} from input {}'.format(var_name, uri))
+
+        with cdms2.open(input_var.uri) as input_file:
+            temporal, spatial = self.map_domain(input_file, var_name, domain)
+
+            cache, exists = self.check_cache(input_file.id, var_name, temporal, spatial) 
+
+            if not exists:
+                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+
+                diff = tstop - tstart
+
+                step = diff if diff < 200 else 200
+
+                logger.info('Beginning to localize data')
+
+                for begin in xrange(tstart, tstop, step):
+                    end = begin + step
+
+                    if end > tstop:
+                        end = tstop
+
+                    time_slice = slice(begin, end, tstep)
+
+                    logger.info('Read chunk {}'.format(time_slice))
+
+                    data = input_file(var_name, time=time_slice, **spatial)
+
+                    if any(x == 0 for x in data.shape):
+                        cache.close()
+
+                        raise Exception('Read invalid data with shape {}'.format(data.shape))
+
+                    cache.write(data, id=var_name)
+
+                cache_file = cache.id
+
+                cache.close()
+
+                cache = cdms2.open(cache_file)
+
+        return cache
+
     def check_cache(self, uri, var_name, temporal, spatial):
         logger.info('Checking cache for file {} with domain {} {}'.format(uri, temporal, spatial))
 

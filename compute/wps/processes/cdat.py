@@ -261,50 +261,12 @@ def avg(self, variables, operations, domains, **kwargs):
 
         var_name = input_var.var_name
 
+        input_file = self.cache_input(input_var, op.domain)
+
         axes = op.get_parameter('axes', True)
 
         if axes is None:
             raise Exception('axes parameter was not defined')
-
-        try:
-            input_file = cdms2.open(input_var.uri)
-        except cdms2.CDMSError:
-            raise Exception('Failed to open input {}'.format(input_var.uri))
-
-        logger.info('Processing input {}'.format(input_file.id))
-
-        temporal, spatial = self.map_domain(input_file, var_name, op.domain)
-
-        cache, exists = self.check_cache(input_file.id, var_name, temporal, spatial)
-
-        if exists:
-            input_file.close()
-
-            input_file = cache
-        else:
-            tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
-
-            diff = tstop - tstart
-
-            step = diff if diff < 200 else 200
-
-            with input_file as input_file, cache as cache:
-                for begin in xrange(tstart, tstop, step):
-                    end = begin + step
-
-                    if end > tstop:
-                        end = tstop
-
-                    time_slice = slice(begin, end, tstep)
-
-                    data = input_file(var_name, time=time_slice, **spatial)
-
-                    if any(x == 0 for x in data.shape):
-                        raise Exception('Read bad chunk of data {}'.format(data.shape))
-
-                    cache.write(data, id=var_name)
-            
-            input_file = cdms2.open(cache.id)
 
         with input_file as input_file:
             axis_indexes = [input_file[var_name].getAxisIndex(x) for x in axes.values]
