@@ -67,121 +67,30 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in op.inputs])
 
-    if var_name is None:
-        raise Exception('Input variable names do not match.')
-
-    inputs = {}
-
-    try:
-        for i in op.inputs:
-            inputs[i.uri] = cdms2.open(i.uri)
-    except cdms2.CDMSError as e:
-        # Cleanup files
-        for v in inputs.values():
-            v.close()
-
-        raise Exception(e)
-
-    if not all(var_name in x.variables.keys() for x in inputs.values()):
-        raise Exception('Variable {} is not present in all input files'.format(var_name))
-
-    logger.info('Processing inputs {}'.format(inputs.keys()))
-
-    domain_map = self.map_domain_multiple(inputs.values(), var_name, op.domain)
-
-    cache_map = {}
-   
-    for file_path in domain_map.keys():
-        temporal, spatial = domain_map[file_path]
-
-        if temporal is None:
-            inputs[file_path].close()
-
-            inputs.pop(file_path)
-
-            domain_map.pop(file_path)
-
-            continue
-
-        cache, exists = self.check_cache(file_path, var_name, temporal, spatial)
-
-        if exists:
-            inputs[file_path].close()
-            
-            inputs[file_path] = cache
-
-            domain_map[cache.id] = domain_map.pop(file_path)
-
-            n = len(inputs[file_path][var_name])
-
-            domain = (slice(0, n, 1), {})
-
-            logger.info('Adjusting domain to {}'.format(domain))
-        else:
-            cache_map[file_path] = cache
-
-    logger.info(domain_map)
-
     out_local_path = self.generate_local_output()
 
-    with nested(*[closing(x) for x in inputs.values()]) as inputs:
-        grid, tool, method = self.generate_grid(op, v, d)
+    grid, tool, method = self.generate_grid(op, v, d)
 
-        with closing(cdms2.open(out_local_path, 'w')) as out:
-            logger.info('Writing to output {}'.format(out_local_path))
+    try:
+        with nested(*[cdms2.open(x.uri) for x in op.inputs]) as inputs:
+            time_axes = [x[var_name].getTime() for x in inputs]
+    except cdms2.CDMSError:
+        raise Exception('Failed to gather time axes')
 
-            units = sorted([x[var_name].getTime().units for x in inputs])[0]
+    base_time = sorted(time_axes, key=lambda x: x.units)[0]
 
-            logger.info('Using base unit "{}"'.format(units))
+    with closing(cdms2.open(out_local_path, 'w')) as out:
+        logger.info('Writing to output {}'.format(out_local_path))
 
-            inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
+        def read_callback(data):
+            data.getTime().toRelativeTime(base_time.units)
 
-            for inp in inputs:
-                logger.info('Processing input {}'.format(inp.id))
+            if grid is not None:
+                data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
-                temporal, spatial = domain_map[inp.id]
+            out.write(data, id=var_name)
 
-                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
-
-                diff = tstop - tstart
-
-                step = diff if diff < 200 else 200
-
-                for i in xrange(tstart, tstop, step):
-                    end = i + step
-
-                    if end > tstop:
-                        end = tstop
-
-                    time_slice = slice(i, end, tstep)
-
-                    logger.info('Reading chunk {}'.format(time_slice))
-
-                    data = inp(var_name, time=slice(i, end, tstep), **spatial)
-
-                    if any(x == 0 for x in data.shape):
-                        raise Exception('Read bad data, shape {}, check your domain'.format(data.shape))
-
-                    data.getTime().toRelativeTime(units)
-
-                    if inp.id in cache_map:
-                        logger.info('Writing to cache file {}'.format(cache_map[inp.id].id))
-
-                        cache_map[inp.id].write(data, id=var_name)
-
-                    if grid is not None:
-                        before = data.shape
-
-                        data = data.regrid(grid, regridTool=tool, regridMethod=method)
-
-                        logger.info('Regridder {} => {}'.format(before, data.shape))
-
-                    out.write(data, id=var_name)
-
-    logger.info('Closing up cache files {}'.format([x.id for x in cache_map.values()]))
-
-    for v in cache_map.values():
-        v.close()
+        self.cache_multiple_input(op.inputs, op.domain, read_callback)
 
     out_path = self.generate_output(out_local_path, **kwargs)
 

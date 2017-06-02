@@ -7,6 +7,7 @@ import json
 import os
 import uuid
 from contextlib import closing
+from contextlib import nested
 
 import cdms2
 import celery
@@ -103,6 +104,105 @@ class CWTBaseTask(celery.Task):
 
     def slice_to_str(self, s):
         return '{}:{}:{}'.format(s.start, s.stop, s.step)
+
+    def cache_multiple_input(self, input_vars, domain, read_callback=None):
+        var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in input_vars])
+
+        if var_name is None:
+            raise Exception('Variable name is not the same for all inputs')
+
+        logger.info('Aggregating {} files for variable {}'.format(len(input_vars), var_name))
+
+        inputs = []
+
+        for input_var in input_vars:
+            try:
+                inputs.append(cdms2.open(input_var.uri))
+            except cdms2.CDMSError:
+                raise Exception('Failed to open file {}'.format(input_var.uri))
+
+        inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
+
+        logger.info('Sorted inputs by units')
+
+        input_files = collections.OrderedDict([(x.id, x) for x in inputs])
+
+        domain_map = self.map_domain_multiple(input_files.values(), var_name, domain)
+
+        cache_map = {}
+
+        for input_url in domain_map.keys():
+            temporal, spatial = domain_map[input_url]
+
+            cache, exists = self.check_cache(input_url, var_name, temporal, spatial)
+
+            if exists:
+                logger.info('Swapping {} for cached {}'.format(input_files[input_url].id, cache.id))
+
+                input_files[input_url].close()
+
+                input_files[input_url] = cache
+
+                domain_map[input_url] = (slice(0, len(cache[var_name]), 1), {})
+            else:
+                logger.info('Caching {}'.format(input_url))
+
+                cache_map[input_url] = cache
+
+        if len(cache_map) > 0 or read_callback is not None:
+            for input_url, input_file in input_files.iteritems():
+                logger.info('Processing input {}'.format(input_file.id))
+
+                temporal, spatial = domain_map[input_url]
+
+                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+
+                diff = tstop - tstart
+
+                step = diff if diff < 200 else 200
+
+                with input_file as input_file:
+                    for begin in xrange(tstart, tstop, step):
+                        end = begin + step
+
+                        if end > tstop:
+                            end = tstop
+
+                        time_slice = slice(begin, end, tstep)
+
+                        logger.info('Retrieving chunk {}'.format(time_slice))
+
+                        data = input_file(var_name, time=time_slice, **spatial)
+
+                        if any(x == 0 for x in data.shape):
+                            for cache in cache_map.values():
+                                cache.close()
+
+                            raise Exception('Read invalid data with shape {}'.format(data.shape))
+
+                        if input_url in cache_map:
+                            logger.info('Caching chunk {}'.format(data.shape))
+
+                            cache_map[input_url].write(data, id=var_name)
+
+                        if read_callback is not None:
+                            logger.info('Post processing chunk {}'.format(data.shape))
+
+                            read_callback(data)
+
+            logger.info('Closing cache files {}'.format(cache_map.keys()))
+
+            for cache in cache_map.values():
+                cache.close()
+
+        if read_callback is None:
+            logger.info('Passing back input files')
+
+            return input_files.values()
+        else:
+            logger.info('Closing input files')
+            for input_file in input_files.values():
+                input_file.close()
 
     def cache_input(self, input_var, domain, read_callback=None):
         uri = input_var.uri
@@ -207,6 +307,8 @@ class CWTBaseTask(celery.Task):
 
                         os.remove(file_path)
                     else:
+                        logger.info('Cache exists and is valid')
+
                         exists = True
                 else:
                     cache.close()
@@ -293,7 +395,7 @@ class CWTBaseTask(celery.Task):
 
             domain_map[inp.id] = (temporal, spatial)
 
-            logger.info('Mapped domain {} to {} {}'.format(domain.name, inp.id, domain_map[inp.id]))
+            logger.info('Mapped domain {} to {} {}'.format(domain, inp.id, domain_map[inp.id]))
 
         return domain_map
 
