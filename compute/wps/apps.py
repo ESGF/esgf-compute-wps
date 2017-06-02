@@ -59,10 +59,17 @@ class WpsConfig(AppConfig):
 
                 proc.save()
 
+        logger.info('Starting CDAS2 instance monitors')
+
+        instances = models.Instance.objects.all()
+
+        for i in instances:
+            tasks.monitor_cdas.delay(i.id)
+
         logger.info('Registering CDAS2 processes')
 
         servers = models.Server.objects.all()
 
         # Queue capabilities tasks for uninitialized servers
         celery.group(tasks.capabilities.s(x.id)
-                for x in servers if x.capabilities == '')()
+                     for x in servers if x.capabilities == '')()

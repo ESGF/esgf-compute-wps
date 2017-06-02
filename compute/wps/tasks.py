@@ -81,7 +81,6 @@ def default_server():
     except models.Server.DoesNotExist:
         raise WPSTaskError('Default server does not exist')
 
-@celeryd_init.connect
 def monitor_handler(**kwargs):
     """ Monitor CDAS2 queue.
 
