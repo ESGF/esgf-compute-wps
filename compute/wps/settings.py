@@ -23,7 +23,7 @@ OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_nam
 DAP = setting('WPS_DAP', False)
 DAP_URL = setting('WPS_DAP_URL', 'https://0.0.0.0:8000/{file_name}')
 
-CA_PATH = setting('WPS_CA_PATH', '/etc/wps_certs')
+CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
 
 # WPS Settings
 VERSION = setting('WPS_VERSION', '1.0.0')
