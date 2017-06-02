@@ -5,14 +5,10 @@ ENV CELERY_BROKER redis://0.0.0.0
 
 WORKDIR /var/www/compute
 
-RUN useradd -M -N -r -s /bin/bash celery
-
 RUN wget https://github.com/ESGF/esgf-dist/raw/master/installer/certs/esg_trusted_certificates.tar && \
 	mkdir /tmp/certs && \
 	tar -xvf esg_trusted_certificates.tar -C /tmp/certs --strip 1 && \
 	rm esg_trusted_certificates.tar 
-
-USER celery
 
 EXPOSE 4356 4357
 
