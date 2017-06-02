@@ -35,76 +35,20 @@ def subset(self, variables, operations, domains, **kwargs):
 
     var_name = input_var.var_name
 
-    try:
-        input_file = cdms2.open(input_var.uri)
-    except cdms2.CDMSError:
-        raise Exception('Failed to open file {}'.format(input_var.uri))
-
-    if var_name not in input_file.variables.keys():
-        raise Exception('Variable {} is not present in {}'.format(var_name, input_var.uri))
-
-    logger.info('Processing input {}'.format(input_file.id))
-
-    temporal, spatial = self.map_domain(input_file, var_name, op.domain)
-
-    cache, exists = self.check_cache(input_var.uri, var_name, temporal, spatial)
-
-    if exists:
-        spatial = {}
-
-        input_file = cache
-
-        temporal = slice(0, len(input_file[var_name]), 1)
-
-        logger.info('Adjusted time slice to {}'.format(temporal))
+    grid, tool, method = self.generate_grid(op, v, d)
 
     out_local_path = self.generate_local_output()
 
-    with closing(input_file) as input_file:
-        grid, tool, method = self.generate_grid(op, v, d)
+    with closing(cdms2.open(out_local_path, 'w')) as out:
+        logger.info('Writing to output {}'.format(out_local_path))
 
-        tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+        def read_callback(data):
+            if grid is not None:
+                data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
-        diff = tstop - tstart
+            out.write(data, id=var_name)
 
-        step = diff if diff < 200 else 200
-
-        with closing(cdms2.open(out_local_path, 'w')) as out:
-            logger.info('Writing to output {}'.format(out_local_path))
-
-            for i in xrange(tstart, tstop, step):
-                end = i + step
-
-                if end > tstop:
-                    end = tstop
-
-                time_slice = slice(i, end, tstep)
-
-                logger.info('Read chunk {}'.format(time_slice))
-
-                data = input_file(var_name, time=time_slice, **spatial)
-
-                if any(x == 0 for x in data.shape):
-                    raise Exception('Read bad data, shape {}, check your domain'.format(data.shape))
-
-                if not exists:
-                    logger.info('Writing to cache file {}'.format(cache.id))
-
-                    cache.write(data, id=var_name)
-
-                if grid is not None:
-                    before = data.shape
-
-                    data = data.regrid(grid, regridTool=tool, regridMethod=method)
-
-                    logger.info('Regridded {} => {}'.format(before, data.shape))
-
-                out.write(data, id=var_name)
-
-    if not exists:
-        logger.info('Closing cache file.')
-
-        cache.close()
+        self.cache_input(input_var, op.domain, read_callback)
 
     out_path = self.generate_output(out_local_path, **kwargs)
 

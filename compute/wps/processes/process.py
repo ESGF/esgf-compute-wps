@@ -104,53 +104,62 @@ class CWTBaseTask(celery.Task):
     def slice_to_str(self, s):
         return '{}:{}:{}'.format(s.start, s.stop, s.step)
 
-    def cache_input(self, input_var, domain):
+    def cache_input(self, input_var, domain, read_callback=None):
         uri = input_var.uri
 
         var_name = input_var.var_name
 
-        logger.info('Caching {} from input {}'.format(var_name, uri))
+        input_file = cdms2.open(input_var.uri)
 
-        with cdms2.open(input_var.uri) as input_file:
-            temporal, spatial = self.map_domain(input_file, var_name, domain)
+        temporal, spatial = self.map_domain(input_file, var_name, domain)
 
-            cache, exists = self.check_cache(input_file.id, var_name, temporal, spatial) 
+        cache, exists = self.check_cache(input_file.id, var_name, temporal, spatial) 
 
-            if not exists:
-                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+        if not exists:
+            tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+        elif read_callback is not None:
+            input_file.close()
 
-                diff = tstop - tstart
+            input_file = cache
 
-                step = diff if diff < 200 else 200
+            tstart, tstop, tstep = 0, len(input_file[var_name]), 1
+        else:
+            return cache
 
-                logger.info('Beginning to localize data')
+        diff = tstop - tstart
 
-                for begin in xrange(tstart, tstop, step):
-                    end = begin + step
+        step = diff if diff < 200 else 200
 
-                    if end > tstop:
-                        end = tstop
+        with input_file as input_file:
+            for begin in xrange(tstart, tstop, step):
+                end = begin + step
 
-                    time_slice = slice(begin, end, tstep)
+                if end > tstop:
+                    end = tstop
 
-                    logger.info('Read chunk {}'.format(time_slice))
+                time_slice = slice(begin, end, tstep)
 
-                    data = input_file(var_name, time=time_slice, **spatial)
+                data = input_file(var_name, time=time_slice, **spatial)
 
-                    if any(x == 0 for x in data.shape):
-                        cache.close()
+                if any(x == 0 for x in data.shape):
+                    cache.close()
 
-                        raise Exception('Read invalid data with shape {}'.format(data.shape))
+                    raise Exception('Read invalid data with shape {}'.format(data.shape))
 
+                if not exists:
                     cache.write(data, id=var_name)
 
-                cache_file = cache.id
+                if read_callback is not None:
+                    read_callback(data)
 
-                cache.close()
+        if not exists and read_callback is None:
+            cache_file = cache.id
 
-                cache = cdms2.open(cache_file)
+            cache.close()
 
-        return cache
+            cache = cdms2.open(cache_file)
+
+            return cache
 
     def check_cache(self, uri, var_name, temporal, spatial):
         logger.info('Checking cache for file {} with domain {} {}'.format(uri, temporal, spatial))
