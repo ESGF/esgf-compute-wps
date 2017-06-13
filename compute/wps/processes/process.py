@@ -28,12 +28,36 @@ logger = get_task_logger('wps.processes.process')
 REGISTRY = {}
 
 def get_process(name):
+    """ Returns a process.
+
+    Retrieves a process from a global registry.
+
+    Args:
+        name: A string name of the process.
+
+    Returns:
+        A method that has been wrapped as a celery task.
+
+    Raises:
+        Exception: A process of name does not exist.
+    """
     try:
         return REGISTRY[name]
     except KeyError:
         raise Exception('Process {} does not exist'.format(name))
 
 def register_process(name):
+    """ Process decorator.
+
+    Registers a process with the global dictionary.
+
+    @register_process('Demo')
+    def demo(a, b, c):
+        return a+b+c
+
+    Args:
+        name: A unique string name for the process.
+    """
     def wrapper(func):
         REGISTRY[name] = func
 
@@ -65,6 +89,16 @@ def int_or_float(value):
         return None
 
 class Status(object):
+    """ Job Status interface.
+
+    This interface wraps a Job model instance to provide access to updating
+    its current message and percent completed.
+    
+    Attributes:
+        job: A Job model instance.
+        message: A string message.
+        percent: A float value of the percent completed.
+    """
     def __init__(self, job):
         self.job = job
         self.message = None
@@ -72,6 +106,14 @@ class Status(object):
 
     @classmethod
     def from_job_id(cls, job_id):
+        """ Wraps a Job object.
+        
+        Args:
+            job_id: The int id of the Job to wrap.
+
+        Returns:
+            An instance of Status.
+        """
         try:
             job = models.Job.objects.get(pk=job_id)
         except models.Job.DoesNotExist:
@@ -80,6 +122,15 @@ class Status(object):
         return cls(job)
 
     def update(self, message=None, percent=None):
+        """ Updates a Jobs status.
+
+        Update a jobs status. If message or percent are None then the last
+        value of each will be used.
+
+        Args:
+            message: A string message.
+            percent: A float value of the percent completed.
+        """
         if message is not None:
             self.message = message
 
@@ -92,7 +143,27 @@ class Status(object):
             self.job.update_progress(self.message, self.percent)
 
 class CWTBaseTask(celery.Task):
+    """ Compute Working Team (CWT) base celery task.
+
+    This class provides common functionality for all CWT WPS Processes.
+
+    *Note*
+    This class is only instantiated once thus any state is shared between 
+    all celery task decorators it is passed to.
+    """
+
     def initialize(self, credentials=False, **kwargs):
+        """ Initialize task.
+
+        **kwargs has the following known values:
+            job_id: An integer key of the current job.
+            user_id: An integer key of the jobs user.
+            cwd: A string path to change the current working directory to.
+        
+        Args:
+            credentials: A boolean requesting credentials for the current task.
+            **kwargs: A dict containing additional arguments.
+        """
         task_id = self.request.id
 
         if credentials:
@@ -103,9 +174,22 @@ class CWTBaseTask(celery.Task):
         return Status.from_job_id(kwargs.get('job_id'))
 
     def slice_to_str(self, s):
+        """ Format a slice. """
         return '{}:{}:{}'.format(s.start, s.stop, s.step)
 
     def cache_multiple_input(self, input_vars, domain, read_callback=None):
+        """ Cache multiple inputs.
+
+        Map a domain over multiple inputs. The subset of each input is then 
+        chunked and read_callback is called on each chunk. The subset of each 
+        input will be inserted into the cache.
+
+        Args:
+            input_vars: A list of Variable objects.
+            domain: A Domain object.
+            read_callback: A method which takes a single argument which is a 
+                numpy array.
+        """
         var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in input_vars])
 
         if var_name is None:
@@ -131,6 +215,7 @@ class CWTBaseTask(celery.Task):
 
         cache_map = {}
 
+        # Check if each inputs subset has been cached.
         for input_url in domain_map.keys():
             temporal, spatial = domain_map[input_url]
 
@@ -161,6 +246,7 @@ class CWTBaseTask(celery.Task):
 
                 step = diff if diff < 200 else 200
 
+                # Use a context on the input
                 with input_file as input_file:
                     for begin in xrange(tstart, tstop, step):
                         end = begin + step
@@ -196,6 +282,18 @@ class CWTBaseTask(celery.Task):
                 cache.close()
 
     def cache_input(self, input_var, domain, read_callback=None):
+        """ Cache input.
+
+        Map a domain over an input. The subset of the input is then chunked
+        and read_callback is called  on each chunk. The subset of input will
+        be inserted into the cache.
+
+        Args:
+            input_vars: A list of Variable objects.
+            domain: A Domain object.
+            read_callback: A method which takes a single argument which is a 
+                numpy array.
+        """
         uri = input_var.uri
 
         var_name = input_var.var_name
@@ -246,6 +344,22 @@ class CWTBaseTask(celery.Task):
                     read_callback(data)
 
     def check_cache(self, uri, var_name, temporal, spatial):
+        """ Check cache for a file.
+
+        Create a unique identifier using the URI of the input and the domain
+        of the input it covers. If the file exists in the cache we validate
+        it by checking the variable name and its shape. If the cache file is
+        invalid, it is removed and a new one is created.
+
+        Args:
+            uri: A string path to the input.
+            var_name: A string variable name in the input.
+            temporal: A slice for the temporal axis.
+            spatial: A dict of slices for the spatial axis.
+
+        Returns:
+            A FileVariable from CDMS2.
+        """
         logger.info('Checking cache for file {} with domain {} {}'.format(uri, temporal, spatial))
 
         m = hashlib.sha256()
@@ -307,6 +421,18 @@ class CWTBaseTask(celery.Task):
         return cache, exists
 
     def map_axis(self, axis, dim, clamp_upper=True):
+        """ Map a dimension to an axis.
+
+        Attempts to map a Dimension to a CoordinateAxis.
+
+        Args:
+            axis: A CoordinateAxis object.
+            dim: A Dimension object.
+            clamp_upper: A boolean indicating whether to include the last value.
+
+        Raises:
+            Exception: Could not map the Dimension to CoordinateAxis.
+        """
         if dim.crs == cwt.INDICES:
             n = len(axis)
 
@@ -340,6 +466,21 @@ class CWTBaseTask(celery.Task):
         return axis_slice
 
     def map_domain_multiple(self, inputs, var_name, domain):
+        """ Map a Domain over multiple inputs.
+
+        Maps each Dimension of a Domain over multiple inputs.
+
+        Args:
+            inputs: A list of FileVariable objects.
+            var_name: A string variable name.
+            domain: A Domain object.
+
+        Returns:
+            A dict mapping the input URIs to their subsets. Each subset is a 
+            tuple of a 2 values. The first is the slice over the temporal axis.
+            The second is a dictionary mapping each spatial axis name to a
+            slice.
+        """
         domain_map = {}
 
         inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
@@ -384,6 +525,20 @@ class CWTBaseTask(celery.Task):
         return domain_map
 
     def map_domain(self, var, var_name, domain):
+        """ Map a domain over an input.
+
+        Map each Dimension of a Domain to the axis in the FileVariable.
+
+        Args:
+            var: A FileVariable object.
+            var_name: A string variable name.
+            domain: A Domain object.
+
+        Returns:
+            A tuple of 2 values. The first is a slice over the temporal axis.
+            The seconda is a dictionary mapping spatial axis names to their
+            slices.
+        """
         temporal = None
         spatial = {}
 
@@ -410,6 +565,7 @@ class CWTBaseTask(celery.Task):
         return temporal, spatial
 
     def cache_file(self, file_name, domain_map):
+        """ Deprecated method, check cache_input and cache_multiple_input. """
         m = hashlib.sha256()
 
         temporal, spatial = domain_map[file_name]
@@ -453,6 +609,15 @@ class CWTBaseTask(celery.Task):
         return file_path, False
 
     def set_user_creds(self, **kwargs):
+        """ Set the user credentials.
+
+        Switches the current working directory then writes the user credentials
+        in the current directory. A .dodsrc file is created to provide 
+        credential access to underlying netCDF libraries.
+
+        Args:
+            **kwargs: A dict of options.
+        """
         cwd = kwargs.get('cwd')
 
         # Write the user credentials
@@ -502,6 +667,19 @@ class CWTBaseTask(celery.Task):
             logger.info('Wrote .dodsrc file')
 
     def load(self, variables, domains, operations):
+        """ Load a processes inputs.
+
+        Loads each value into their associated container class.
+
+        Args:
+            variables: A dict mapping names of Variables to their representations.
+            domains: A dict mapping names of Domains to their representations.
+            operations: A dict mapping names of Processes to their representations.
+
+        Returns:
+            A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
+            object of their respective container type.
+        """
         v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
 
         d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
@@ -524,6 +702,17 @@ class CWTBaseTask(celery.Task):
             self.grid_file.close()
 
     def generate_grid(self, operation, variables, domains):
+        """ Generate a grid.
+
+        Args:
+            operation: A Process object.
+            variables: A dict mapping variable names to their respective object.
+            domains: A dict mapping domain names to their respective objects.
+        
+        Returns:
+            A tuple of 3 values. A TransientVariable containing the grid,
+            a string of the tool, and a string of the method.
+        """
         gridder = operation.parameters.get('gridder')
 
         grid = None
@@ -583,6 +772,7 @@ class CWTBaseTask(celery.Task):
         return grid, tool, method
 
     def build_domain(self, inputs, domains, var_name):
+        """ Deprecated see map_domain and map_multiple_domain. """
         domain_map = collections.OrderedDict()
         current = 0
 
@@ -651,12 +841,14 @@ class CWTBaseTask(celery.Task):
         return domain_map
 
     def op_by_id(self, name, operations):
+        """ Retrieve an operation. """
         try:
             return [x for x in operations.values() if x.identifier == name][0]
         except IndexError:
             raise Exception('Could not find operation {}'.format(name))
 
     def generate_local_output(self, name=None):
+        """ Format the file path for a local output. """
         if name is None:
             name = '{}.nc'.format(uuid.uuid4())
 
@@ -665,6 +857,7 @@ class CWTBaseTask(celery.Task):
         return path
 
     def generate_output(self, local_path, **kwargs):
+        """ Format the file path for a remote output. """
         if kwargs.get('local') is None:
             out_name = local_path.split('/')[-1]
 
@@ -675,6 +868,7 @@ class CWTBaseTask(celery.Task):
         return output
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
+        """ Handle a failure. """
         try:
             job = models.Job.objects.get(pk=kwargs['job_id'])
         except KeyError:
