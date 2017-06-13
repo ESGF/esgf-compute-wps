@@ -214,6 +214,8 @@ class CWTBaseTask(celery.Task):
             input_file = cache
 
             tstart, tstop, tstep = 0, len(input_file[var_name]), 1
+
+            spatial = {}
         else:
             return cache
 
