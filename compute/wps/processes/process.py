@@ -195,15 +195,6 @@ class CWTBaseTask(celery.Task):
             for cache in cache_map.values():
                 cache.close()
 
-        if read_callback is None:
-            logger.info('Passing back input files')
-
-            return input_files.values()
-        else:
-            logger.info('Closing input files')
-            for input_file in input_files.values():
-                input_file.close()
-
     def cache_input(self, input_var, domain, read_callback=None):
         uri = input_var.uri
 
@@ -230,7 +221,7 @@ class CWTBaseTask(celery.Task):
 
         step = diff if diff < 200 else 200
 
-        with input_file as input_file:
+        with input_file as input_file, cache as cache:
             for begin in xrange(tstart, tstop, step):
                 end = begin + step
 
@@ -251,15 +242,6 @@ class CWTBaseTask(celery.Task):
 
                 if read_callback is not None:
                     read_callback(data)
-
-        if not exists and read_callback is None:
-            cache_file = cache.id
-
-            cache.close()
-
-            cache = cdms2.open(cache_file)
-
-            return cache
 
     def check_cache(self, uri, var_name, temporal, spatial):
         logger.info('Checking cache for file {} with domain {} {}'.format(uri, temporal, spatial))
