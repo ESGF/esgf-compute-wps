@@ -21,7 +21,7 @@ from wps import models
 from wps import wps_xml
 from wps import settings
 
-__all__ = ['REGISTRY', 'register_process', 'get_process', 'CWTBaseTask', 'handle_output']
+__all__ = ['REGISTRY', 'register_process', 'get_process', 'CWTBaseTask', 'Status', 'handle_output']
 
 logger = get_task_logger('wps.processes.process')
 
@@ -164,14 +164,126 @@ class CWTBaseTask(celery.Task):
             credentials: A boolean requesting credentials for the current task.
             **kwargs: A dict containing additional arguments.
         """
-        task_id = self.request.id
-
         if credentials:
             self.set_user_creds(**kwargs)
 
-        self.grid_file = None
-
         return Status.from_job_id(kwargs.get('job_id'))
+
+    def set_user_creds(self, **kwargs):
+        """ Set the user credentials.
+
+        Switches the current working directory then writes the user credentials
+        in the current directory. A .dodsrc file is created to provide 
+        credential access to underlying netCDF libraries.
+
+        Args:
+            **kwargs: A dict of options.
+        """
+        cwd = kwargs.get('cwd')
+
+        # Write the user credentials
+        user_id = kwargs.get('user_id')
+
+        user_path = os.path.join(cwd, str(user_id))
+
+        if not os.path.exists(user_path):
+            os.mkdir(user_path)
+
+        # Change the process working directory
+        os.chdir(user_path)
+
+        logger.info('Changed working directory to {}'.format(user_path))
+
+        cred_path = os.path.join(user_path, 'creds.pem')
+
+        try:
+            user = models.User.objects.get(pk=user_id)
+        except models.User.DoesNotExist:
+            raise Exception('User {} does not exist'.format(user_id))
+
+        with open(cred_path, 'w') as f:
+            f.write(user.auth.cert)
+
+        logger.info('Updated user credentials')
+
+        # Clean up the old cookie file incase the previous attempt failed
+        dods_cookies_path = os.path.join(user_path, '.dods_cookies')
+
+        if os.path.exists(dods_cookies_path):
+            logger.info('Cleared old cookies file.')
+
+            os.remove(dods_cookies_path)
+
+        # Write the dodsrc file if does not exist
+        dodsrc_path = os.path.join(user_path, '.dodsrc')
+
+        if not os.path.exists(dodsrc_path):
+            with open(dodsrc_path, 'w') as f:
+                f.write('HTTP.COOKIEJAR=.dods_cookies\n')
+                f.write('HTTP.SSL.CERTIFICATE={}\n'.format(cred_path))
+                f.write('HTTP.SSL.KEY={}\n'.format(cred_path))
+                f.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
+                f.write('HTTP.SSL.VERIFY=0\n')
+
+            logger.info('Wrote .dodsrc file')
+
+    def load(self, variables, domains, operations):
+        """ Load a processes inputs.
+
+        Loads each value into their associated container class.
+
+        Args:
+            variables: A dict mapping names of Variables to their representations.
+            domains: A dict mapping names of Domains to their representations.
+            operations: A dict mapping names of Processes to their representations.
+
+        Returns:
+            A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
+            object of their respective container type.
+        """
+        v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
+
+        d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
+
+        for var in v.values():
+            var.resolve_domains(d)
+
+        o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
+
+        for op in o.values():
+            op.resolve_inputs(v, o)
+
+        if op.domain is not None:
+            op.domain = d[op.domain]
+
+        return v, d, o
+
+    def op_by_id(self, name, operations):
+        """ Retrieve an operation. """
+        try:
+            return [x for x in operations.values() if x.identifier == name][0]
+        except IndexError:
+            raise Exception('Could not find operation {}'.format(name))
+
+    def generate_local_output(self, name=None):
+        """ Format the file path for a local output. """
+        if name is None:
+            name = '{}.nc'.format(uuid.uuid4())
+
+        path = os.path.join(settings.OUTPUT_LOCAL_PATH, name)
+
+        return path
+
+    def generate_output(self, local_path, **kwargs):
+        """ Format the file path for a remote output. """
+        if kwargs.get('local') is None:
+            out_name = local_path.split('/')[-1]
+
+            output = settings.OUTPUT_URL.format(file_name=out_name)
+        else:
+            output = 'file://{}'.format(local_path)
+
+        return output
 
     def slice_to_str(self, s):
         """ Format a slice. """
@@ -218,6 +330,13 @@ class CWTBaseTask(celery.Task):
         # Check if each inputs subset has been cached.
         for input_url in domain_map.keys():
             temporal, spatial = domain_map[input_url]
+
+            if temporal.stop == 0:
+                logger.info('Skipping {}, not included in domain'.format(input_url))
+
+                del input_files[input_url]
+
+                continue
 
             cache, exists = self.check_cache(input_url, var_name, temporal, spatial)
 
@@ -343,6 +462,33 @@ class CWTBaseTask(celery.Task):
                 if read_callback is not None:
                     read_callback(data)
 
+    def generate_cache_name(self, uri, temporal, spatial):
+        """ Create a cacheaable name.
+
+        Args:
+            uri: A string file uri.
+            temporal: A slice over the temporal axis.
+            spatial: A dict mapping axis names to slices.
+
+        Returns:
+            A unique cacheable name.
+        """
+        m = hashlib.sha256()
+
+        m.update(uri)
+
+        m.update(self.slice_to_str(temporal))
+
+        for k in ['latitude', 'lat', 'y']:
+            if k in spatial:
+                m.update(self.slice_to_str(spatial[k]))
+
+        for k in ['longitude', 'lon', 'x']:
+            if k in spatial:
+                m.update(self.slice_to_str(spatial[k]))
+
+        return m.hexdigest()
+
     def check_cache(self, uri, var_name, temporal, spatial):
         """ Check cache for a file.
 
@@ -362,21 +508,9 @@ class CWTBaseTask(celery.Task):
         """
         logger.info('Checking cache for file {} with domain {} {}'.format(uri, temporal, spatial))
 
-        m = hashlib.sha256()
+        file_name = self.generate_cache_name(uri, temporal, spatial)
 
-        m.update(uri)
-
-        m.update(self.slice_to_str(temporal))
-
-        for k in ['latitude', 'lat', 'y']:
-            if k in spatial:
-                m.update(self.slice_to_str(spatial[k]))
-
-        for k in ['longitude', 'lon', 'x']:
-            if k in spatial:
-                m.update(self.slice_to_str(spatial[k]))
-
-        file_name = '{}.nc'.format(m.hexdigest())
+        file_name = '{}.nc'.format(file_name)
 
         file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
 
@@ -564,143 +698,6 @@ class CWTBaseTask(celery.Task):
         
         return temporal, spatial
 
-    def cache_file(self, file_name, domain_map):
-        """ Deprecated method, check cache_input and cache_multiple_input. """
-        m = hashlib.sha256()
-
-        temporal, spatial = domain_map[file_name]
-
-        time = ':'.join(str(x) for x in temporal)
-
-        lat = None
-        lon = None
-
-        for lat_id in ['latitude', 'lat', 'y']:
-            if lat_id in spatial:
-                s = spatial[lat_id]
-
-                if isinstance(s, slice):
-                    lat = '{}:{}:{}'.format(s.start, s.stop, s.step)
-                else:
-                    lat = ':'.join(str(x) for x in s)
-
-                break
-
-        for lon_id in ['longitude', 'lon', 'x']:
-            if lon_id in spatial:
-                s = spatial[lon_id]
-
-                if isinstance(s, slice):
-                    lat = '{}:{}:{}'.format(s.start, s.stop, s.step)
-                else:
-                    lon = ':'.join(str(x) for x in s)
-
-                break
-
-        m.update('{}~{}~{}~{}'.format(file_name, time, lat, lon))
-
-        file_name = '{}.nc'.format(m.hexdigest())
-
-        file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
-
-        if os.path.exists(file_path):
-            return file_path, True
-
-        return file_path, False
-
-    def set_user_creds(self, **kwargs):
-        """ Set the user credentials.
-
-        Switches the current working directory then writes the user credentials
-        in the current directory. A .dodsrc file is created to provide 
-        credential access to underlying netCDF libraries.
-
-        Args:
-            **kwargs: A dict of options.
-        """
-        cwd = kwargs.get('cwd')
-
-        # Write the user credentials
-        user_id = kwargs.get('user_id')
-
-        user_path = os.path.join(cwd, str(user_id))
-
-        if not os.path.exists(user_path):
-            os.mkdir(user_path)
-
-        # Change the process working directory
-        os.chdir(user_path)
-
-        logger.info('Changed working directory to {}'.format(user_path))
-
-        cred_path = os.path.join(user_path, 'creds.pem')
-
-        try:
-            user = models.User.objects.get(pk=user_id)
-        except models.User.DoesNotExist:
-            raise Exception('User {} does not exist'.format(user_id))
-
-        with open(cred_path, 'w') as f:
-            f.write(user.auth.cert)
-
-        logger.info('Updated user credentials')
-
-        # Clean up the old cookie file incase the previous attempt failed
-        dods_cookies_path = os.path.join(user_path, '.dods_cookies')
-
-        if os.path.exists(dods_cookies_path):
-            logger.info('Cleared old cookies file.')
-
-            os.remove(dods_cookies_path)
-
-        # Write the dodsrc file if does not exist
-        dodsrc_path = os.path.join(user_path, '.dodsrc')
-
-        if not os.path.exists(dodsrc_path):
-            with open(dodsrc_path, 'w') as f:
-                f.write('HTTP.COOKIEJAR=.dods_cookies\n')
-                f.write('HTTP.SSL.CERTIFICATE={}\n'.format(cred_path))
-                f.write('HTTP.SSL.KEY={}\n'.format(cred_path))
-                f.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
-                f.write('HTTP.SSL.VERIFY=0\n')
-
-            logger.info('Wrote .dodsrc file')
-
-    def load(self, variables, domains, operations):
-        """ Load a processes inputs.
-
-        Loads each value into their associated container class.
-
-        Args:
-            variables: A dict mapping names of Variables to their representations.
-            domains: A dict mapping names of Domains to their representations.
-            operations: A dict mapping names of Processes to their representations.
-
-        Returns:
-            A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
-            object of their respective container type.
-        """
-        v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
-
-        d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
-
-        for var in v.values():
-            var.resolve_domains(d)
-
-        o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
-
-        for op in o.values():
-            op.resolve_inputs(v, o)
-
-        if op.domain is not None:
-            op.domain = d[op.domain]
-
-        return v, d, o
-
-    def cleanup(self):
-        if self.grid_file is not None:
-            self.grid_file.close()
-
     def generate_grid(self, operation, variables, domains):
         """ Generate a grid.
 
@@ -728,9 +725,9 @@ class CWTBaseTask(celery.Task):
 
             if isinstance(gridder.grid, (str, unicode)):
                 if gridder.grid in variables:
-                    logger.info('Loading grid from {}'.format(v.uri))
-
                     v = variables[gridder.grid]
+
+                    logger.info('Loading grid from {}'.format(v.uri))
 
                     self.grid_file = cdms2.open(v.uri)
 
@@ -770,102 +767,6 @@ class CWTBaseTask(celery.Task):
                         logger.info('Created uniform grid {}x{}'.format(lat_step, lon_step))
 
         return grid, tool, method
-
-    def build_domain(self, inputs, domains, var_name):
-        """ Deprecated see map_domain and map_multiple_domain. """
-        domain_map = collections.OrderedDict()
-        current = 0
-
-        for idx, i in enumerate(inputs):
-            temporal = (0, len(i[var_name]), 1)
-
-            spatial = {}
-
-            dimensions = None
-                        
-            if 'global' in domains:
-                dimensions = domains.get('global').dimensions
-            elif i.id in domains:
-                dimensions = domains[i.id].dimensions
-
-            if dimensions is not None:
-                axes = dict((x.id, x) for x in i[var_name].getAxisList())
-
-                for dim in dimensions:
-                    if dim.name == 'time' or (dim.name in axes and axes[dim.name].isTime()):
-                        if dim.crs == cwt.INDICES:
-                            if dim.start > current:
-                                start = dim.start
-                            else:
-                                start = 0
-
-                            if (current + len(i[var_name])) > dim.end:
-                                end = dim.end - current
-                            else:
-                                end = len(i[var_name])
-
-                            temporal = (start, end, dim.step)
-                        elif dim.crs == cwt.VALUES:
-                            try:
-                                start, stop = axes[dim.name].mapInterval((dim.start, dim.end), 'co')
-                            except KeyError:
-                                raise Exception('Dimension {} could not be mapped, does not exist'.format(dim.name))
-
-                            dim.start -= start
-
-                            if dim.start < 0:
-                                dim.start = 0
-
-                            dim.end -= stop
-
-                            temporal = (start, stop, dim.step)
-                        else:
-                            raise Exception('Unknown CRS value {}'.format(dim.crs))
-                    else:
-                        if dim.crs == cwt.INDICES:
-                            spatial[dim.name] = slice(dim.start, dim.end, dim.step)
-                        elif dim.crs == cwt.VALUES:
-                            try:
-                                start, stop = axes[dim.name].mapInterval((dim.start, dim.end), 'co')
-                            except KeyError:
-                                raise Exception('Dimension {} could not be mapped, does not exist'.format(dim.name))
-
-                            spatial[dim.name] = slice(start, stop, dim.step)
-                        else:
-                            raise Exception('Unknown CRS value {}'.format(dim.crs))
-
-            domain_map[i.id] = (temporal, spatial)
-
-            current += len(i[var_name])
-
-        return domain_map
-
-    def op_by_id(self, name, operations):
-        """ Retrieve an operation. """
-        try:
-            return [x for x in operations.values() if x.identifier == name][0]
-        except IndexError:
-            raise Exception('Could not find operation {}'.format(name))
-
-    def generate_local_output(self, name=None):
-        """ Format the file path for a local output. """
-        if name is None:
-            name = '{}.nc'.format(uuid.uuid4())
-
-        path = os.path.join(settings.OUTPUT_LOCAL_PATH, name)
-
-        return path
-
-    def generate_output(self, local_path, **kwargs):
-        """ Format the file path for a remote output. """
-        if kwargs.get('local') is None:
-            out_name = local_path.split('/')[-1]
-
-            output = settings.OUTPUT_URL.format(file_name=out_name)
-        else:
-            output = 'file://{}'.format(local_path)
-
-        return output
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """ Handle a failure. """
