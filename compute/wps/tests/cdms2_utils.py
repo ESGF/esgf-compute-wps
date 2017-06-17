@@ -37,4 +37,4 @@ def generate_variable(value, axes, var_name, identifier):
     with closing(cdms2.open(file_path, 'w')) as f:
         f.write(np.array(data), axes=axes, id=var_name)
 
-    return (identifier, {'uri':file_path,'id':'{}|{}'.format(var_name, identifier)})
+    return (identifier, {'uri':file_path,'id':'{0}|{1}'.format(var_name, identifier)})

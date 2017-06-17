@@ -70,6 +70,9 @@ class TestCDAT(test.TestCase):
             os.remove(v['uri'])
 
     def setUp(self):
+        if os.path.exists(self.cache_path):
+            shutil.rmtree(self.cache_path)
+
         os.mkdir(self.cache_path)
 
     def tearDown(self):
@@ -101,9 +104,9 @@ class TestCDAT(test.TestCase):
         for inp, domain in domain_map.iteritems():
             temporal, spatial = domain
 
-            cache_file, exists = task.check_cache(inp, temporal, spatial)
+            cache_file, exists = task.check_cache(inp, 'tas', temporal, spatial)
 
-            self.assertFalse(os.path.exists(cache_file))
+            self.assertFalse(os.path.exists(cache_file.id))
 
             tstart, tstop = temporal.start, temporal.stop
 
@@ -145,7 +148,7 @@ class TestCDAT(test.TestCase):
         result = cdat.aggregate(self.v, o, self.d, local=True)
 
         with closing(cdms2.open(result['uri'])) as f:
-            self.assertEqual(f['tas'].shape, (795, 180, 360))
+            self.assertEqual(f['tas'].shape, (800, 180, 360))
 
     @mock.patch('wps.processes.process.CWTBaseTask.set_user_creds')
     def test_aggregate_indices(self, mock):
@@ -181,7 +184,7 @@ class TestCDAT(test.TestCase):
         with closing(cdms2.open(file_path)) as f:
             temporal, spatial = task.map_domain(f, 'tas', dom)
 
-        cache_file, exists = task.check_cache(file_path, temporal, spatial)
+        cache_file, exists = task.check_cache(file_path, 'tas', temporal, spatial)
 
         self.assertFalse(os.path.exists(cache_file)) 
 
