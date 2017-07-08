@@ -166,7 +166,9 @@ def handle_response(data):
 
         job.succeeded()
     else:
-        job.update_report_cdas(response)
+        output = wps_xml.cdas2_output(response)
+
+        job.succeeded(output)
 
 @shared_task
 def monitor_cdas(instance_id):

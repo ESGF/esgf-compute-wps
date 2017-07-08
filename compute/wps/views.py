@@ -349,7 +349,6 @@ def jobs(request, user_id):
                                        'created': z.created_date,
                                        'message': z.message,
                                        'percent': z.percent,
-                                       'exception': z.exception,
                                       } for z in y.message_set.all()]
                         } for y in x.status_set.all()]
             } for x in user.job_set.all()]

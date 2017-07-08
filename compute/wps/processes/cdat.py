@@ -27,6 +27,8 @@ __all__ = ['avg']
 def subset(self, variables, operations, domains, **kwargs):
     status = self.initialize(credentials=True, **kwargs)
 
+    status.job.started()
+
     v, d, o = self.load(variables, domains, operations)
 
     op = self.op_by_id('CDAT.subset', o)
@@ -38,6 +40,8 @@ def subset(self, variables, operations, domains, **kwargs):
     grid, tool, method = self.generate_grid(op, v, d)
 
     out_local_path = self.generate_local_output()
+
+    status.update('Beginning retrieval of subset data')
 
     with closing(cdms2.open(out_local_path, 'w')) as out:
         logger.info('Writing to output {}'.format(out_local_path))
@@ -78,6 +82,8 @@ def aggregate(self, variables, operations, domains, **kwargs):
         raise Exception('Failed to gather time axes')
 
     base_time = sorted(time_axes, key=lambda x: x.units)[0]
+
+    status.update('Beginning retrieval of aggregated data')
 
     with closing(cdms2.open(out_local_path, 'w')) as out:
         logger.info('Writing to output {}'.format(out_local_path))

@@ -172,7 +172,7 @@ class NodeManager(object):
         except models.Job.DoesNotExist:
             raise NodeManagerError('Job {0} does not exist'.format(job_id))
 
-        return job.latest.xml()
+        return job.report
 
     def generate_capabilities(self):
         """ Generates capabilites for each server. """
@@ -286,13 +286,13 @@ class NodeManager(object):
 
         server = models.Server.objects.get(host='default')
 
-        job = models.Job(server=server, user=user)
+        job = models.Job(server=server, user=user, process=process)
 
         job.save()
 
         logger.info('Accepted job {}'.format(job.id))
 
-        job.set_report(identifier)
+        job.accepted()
 
         if process.backend == 'local':
             self.execute_local(user, job, identifier, data_inputs)
