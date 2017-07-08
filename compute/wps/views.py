@@ -77,37 +77,34 @@ def create(request):
 
     return http.JsonResponse({ 'status': 'success' })
 
-@require_http_methods(['GET', 'POST'])
+@require_http_methods(['POST'])
 @ensure_csrf_cookie
 def login(request):
-    if request.method == 'POST':
-        form = forms.LoginForm(request.POST)
+    form = forms.LoginForm(request.POST)
 
-        if form.is_valid():
-            username = form.cleaned_data['username']
+    if form.is_valid():
+        username = form.cleaned_data['username']
 
-            password = form.cleaned_data['password']
+        password = form.cleaned_data['password']
 
-            logger.info('Attempting to login user {}'.format(username))
+        logger.info('Attempting to login user {}'.format(username))
 
-            user = authenticate(request, username=username, password=password)
+        user = authenticate(request, username=username, password=password)
 
-            if user is not None:
-                logger.info('Authenticate user {}, logging in'.format(username))
+        if user is not None:
+            logger.info('Authenticate user {}, logging in'.format(username))
 
-                dlogin(request, user)
+            dlogin(request, user)
 
-                return http.JsonResponse({ 'status': 'success' })
-            else:
-                logger.warning('Failed to authenticate user')
-
-                return http.JsonResponse({ 'status': 'failure', 'errors': 'bad login' })
+            return http.JsonResponse({ 'status': 'success' })
         else:
-            logger.info('Login form is invalid')
+            logger.warning('Failed to authenticate user')
 
-            return http.JsonResponse({ 'status': 'failure', 'errors': form.errors })
+            return http.JsonResponse({ 'status': 'failure', 'errors': 'bad login' })
+    else:
+        logger.info('Login form is invalid')
 
-    return render(request, 'wps/login.html')
+        return http.JsonResponse({ 'status': 'failure', 'errors': form.errors })
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
