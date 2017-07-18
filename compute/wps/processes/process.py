@@ -766,7 +766,7 @@ class CWTBaseTask(celery.Task):
 
                         logger.info('Created uniform grid {}x{}'.format(lat_step, lon_step))
 
-        return grid, tool, method
+        return grid, str(tool), str(method)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """ Handle a failure. """
