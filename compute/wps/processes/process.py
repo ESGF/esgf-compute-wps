@@ -626,6 +626,13 @@ class CWTBaseTask(celery.Task):
                 axis_slice = None
             else:
                 axis_slice = slice(start, stop, dim.step)
+        elif dim.crs == cwt.CRS('timestamps'):
+            try:
+                start, stop = axis.mapInterval((str(dim.start), str(dim.end)))
+            except Exception:
+                axis_slice = None
+            else:
+                axis_slice = slice(start, stop, dim.step)
         else:
             raise Exception('Unknown CRS {}'.format(dim.crs))
 
@@ -800,7 +807,7 @@ class CWTBaseTask(celery.Task):
 
                         logger.info('Created uniform grid {}x{}'.format(lat_step, lon_step))
 
-        return grid, tool, method
+        return grid, str(tool), str(method)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """ Handle a failure. """
