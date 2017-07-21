@@ -20,6 +20,7 @@ from wps import forms
 from wps import models
 from wps import node_manager
 from wps import settings
+from wps import wps_xml
 from wps.auth import openid
 from wps.auth import oauth2
 
@@ -215,7 +216,11 @@ def wps(request):
 
         exc_report.add_exception(metadata.NoApplicableCode, 'Database has not been initialized')
 
-        response = exc_report.xml()
+        failure = metadata.ProcessFailed(exception_report=exc_report)
+
+        exc_response = wps_xml.execute_response('', failure, '')
+
+        response = exc_response.xml()
     except Exception as e:
         logger.exception('Handling WPS general exception')
 
@@ -223,7 +228,11 @@ def wps(request):
 
         exc_report.add_exception(metadata.NoApplicableCode, e.message)
 
-        response = exc_report.xml()
+        failure = metadata.ProcessFailed(exception_report=exc_report)
+
+        exc_response = wps_xml.execute_response('', failure, '')
+
+        response = exc_response.xml()
 
     return http.HttpResponse(response, content_type='text/xml')
 
