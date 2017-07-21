@@ -191,18 +191,18 @@ def wps(request):
 
         logger.info('Handling WPS request {} for api key {}'.format(op, api_key))
 
-        try:
-            user = models.User.objects.filter(auth__api_key=api_key)[0]
-        except IndexError:
-            logger.exception('Unable to find user with api key {}'.format(api_key))
-
-            raise Exception('Unable to find a user with the api key {}'.format(api_key))
-
         if op == 'getcapabilities':
             response = manager.get_capabilities()
         elif op == 'describeprocess':
             response = manager.describe_process(identifier)
         else:
+            try:
+                user = models.User.objects.filter(auth__api_key=api_key)[0]
+            except IndexError:
+                logger.exception('Unable to find user with api key {}'.format(api_key))
+
+                raise Exception('Unable to find a user with the api key {}'.format(api_key))
+
             response = manager.execute(user, identifier, data_inputs)
     except node_manager.NodeManagerWPSError as e:
         logger.exception('Specific WPS error')
