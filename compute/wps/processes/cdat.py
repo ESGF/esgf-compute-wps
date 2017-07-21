@@ -15,7 +15,7 @@ from dask import delayed
 
 from wps import models
 from wps import settings
-from wps.processes import CWTBaseTask
+from wps.processes import cwt_shared_task
 from wps.processes import register_process
 
 logger = get_task_logger('wps.processes.cdat')
@@ -23,7 +23,7 @@ logger = get_task_logger('wps.processes.cdat')
 __all__ = ['avg']
 
 @register_process('CDAT.subset')
-@shared_task(bind=True, base=CWTBaseTask)
+@cwt_shared_task()
 def subset(self, variables, operations, domains, **kwargs):
     status = self.initialize(credentials=True, **kwargs)
 
@@ -61,7 +61,7 @@ def subset(self, variables, operations, domains, **kwargs):
     return out_var.parameterize()
 
 @register_process('CDAT.aggregate')
-@shared_task(bind=True, base=CWTBaseTask)
+@cwt_shared_task()
 def aggregate(self, variables, operations, domains, **kwargs):
     self.initialize(credentials=True, **kwargs)
 
@@ -105,7 +105,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
     return out_var.parameterize()
 
 @register_process('CDAT.avg')
-@shared_task(bind=True, base=CWTBaseTask)
+@cwt_shared_task()
 def avg(self, variables, operations, domains, **kwargs):
     status = self.initialize(credentials=True, **kwargs)
 

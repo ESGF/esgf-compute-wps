@@ -8,6 +8,7 @@ import os
 import uuid
 from contextlib import closing
 from contextlib import nested
+from functools import partial
 
 import cdms2
 import celery
@@ -21,11 +22,25 @@ from wps import models
 from wps import wps_xml
 from wps import settings
 
-__all__ = ['REGISTRY', 'register_process', 'get_process', 'CWTBaseTask', 'Status', 'handle_output']
+__all__ = [
+    'REGISTRY',
+    'register_process',
+    'get_process',
+    'CWTBaseTask', 
+    'Status',
+    'handle_output',
+    'cwt_shared_task',
+]
 
 logger = get_task_logger('wps.processes.process')
 
 REGISTRY = {}
+
+class AccessError(Exception):
+    pass
+
+class InvalidShapeError(Exception):
+    pass
 
 def get_process(name):
     """ Returns a process.
@@ -311,11 +326,14 @@ class CWTBaseTask(celery.Task):
 
         inputs = []
 
-        for input_var in input_vars:
-            try:
+        try:
+            for input_var in input_vars:
                 inputs.append(cdms2.open(input_var.uri))
-            except cdms2.CDMSError:
-                raise Exception('Failed to open file {}'.format(input_var.uri))
+        except Exception:
+            for i in inputs:
+                i.close()
+
+            raise AccessError()
 
         inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
@@ -354,46 +372,54 @@ class CWTBaseTask(celery.Task):
                 cache_map[input_url] = cache
 
         if len(cache_map) > 0 or read_callback is not None:
-            for input_url, input_file in input_files.iteritems():
-                logger.info('Processing input {}'.format(input_file.id))
+            try:
+                for input_url, input_file in input_files.iteritems():
+                    logger.info('Processing input {}'.format(input_file.id))
 
-                temporal, spatial = domain_map[input_url]
+                    temporal, spatial = domain_map[input_url]
 
-                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+                    tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
-                diff = tstop - tstart
+                    diff = tstop - tstart
 
-                step = diff if diff < 200 else 200
+                    step = diff if diff < 200 else 200
 
-                # Use a context on the input
-                with input_file as input_file:
-                    for begin in xrange(tstart, tstop, step):
-                        end = begin + step
+                    # Use a context on the input
+                    with input_file as input_file:
+                        for begin in xrange(tstart, tstop, step):
+                            end = begin + step
 
-                        if end > tstop:
-                            end = tstop
+                            if end > tstop:
+                                end = tstop
 
-                        time_slice = slice(begin, end, tstep)
+                            time_slice = slice(begin, end, tstep)
 
-                        logger.info('Retrieving chunk {}'.format(time_slice))
+                            logger.info('Retrieving chunk {}'.format(time_slice))
 
-                        data = input_file(var_name, time=time_slice, **spatial)
+                            data = input_file(var_name, time=time_slice, **spatial)
 
-                        if any(x == 0 for x in data.shape):
-                            for cache in cache_map.values():
-                                cache.close()
+                            if any(x == 0 for x in data.shape):
+                                for cache in cache_map.values():
+                                    cache.close()
 
-                            raise Exception('Read invalid data with shape {}'.format(data.shape))
+                                raise InvalidShapeError('Data has shape {}'.format(data.shape))
 
-                        if input_url in cache_map:
-                            logger.info('Caching chunk {}'.format(data.shape))
+                            if input_url in cache_map:
+                                logger.info('Caching chunk {}'.format(data.shape))
 
-                            cache_map[input_url].write(data, id=var_name)
+                                cache_map[input_url].write(data, id=var_name)
 
-                        if read_callback is not None:
-                            logger.info('Post processing chunk {}'.format(data.shape))
+                            if read_callback is not None:
+                                logger.info('Post processing chunk {}'.format(data.shape))
 
-                            read_callback(data)
+                                read_callback(data)
+            except InvalidShapeError:
+                raise
+            except Exception:
+                for v in input_files.values():
+                    v.close()
+
+                raise AccessError()
 
             logger.info('Closing cache files {}'.format(cache_map.keys()))
 
@@ -417,7 +443,10 @@ class CWTBaseTask(celery.Task):
 
         var_name = input_var.var_name
 
-        input_file = cdms2.open(input_var.uri)
+        try:
+            input_file = cdms2.open(input_var.uri)
+        except:
+            raise AccessError()
 
         temporal, spatial = self.map_domain(input_file, var_name, domain)
 
@@ -440,27 +469,32 @@ class CWTBaseTask(celery.Task):
 
         step = diff if diff < 200 else 200
 
-        with input_file as input_file, cache as cache:
-            for begin in xrange(tstart, tstop, step):
-                end = begin + step
+        try:
+            with input_file as input_file, cache as cache:
+                for begin in xrange(tstart, tstop, step):
+                    end = begin + step
 
-                if end > tstop:
-                    end = tstop
+                    if end > tstop:
+                        end = tstop
 
-                time_slice = slice(begin, end, tstep)
+                    time_slice = slice(begin, end, tstep)
 
-                data = input_file(var_name, time=time_slice, **spatial)
+                    data = input_file(var_name, time=time_slice, **spatial)
 
-                if any(x == 0 for x in data.shape):
-                    cache.close()
+                    if any(x == 0 for x in data.shape):
+                        cache.close()
 
-                    raise Exception('Read invalid data with shape {}'.format(data.shape))
+                        raise InvalidShapeError('Read data with shape {}'.format(data.shape))
 
-                if not exists:
-                    cache.write(data, id=var_name)
+                    if not exists:
+                        cache.write(data, id=var_name)
 
-                if read_callback is not None:
-                    read_callback(data)
+                    if read_callback is not None:
+                        read_callback(data)
+        except InvalidShapeError:
+            raise
+        except Exception:
+            raise AccessError()
 
     def generate_cache_name(self, uri, temporal, spatial):
         """ Create a cacheaable name.
@@ -778,6 +812,13 @@ class CWTBaseTask(celery.Task):
             raise Exception('Job {} does not exist'.format(kwargs['job_id']))
 
         job.failed(str(exc))
+
+# Define after CWTBaseTask is declared
+cwt_shared_task = partial(shared_task,
+                          bind=True,
+                          base=CWTBaseTask,
+                          autoretry_for=(AccessError,),
+                          retry_kwargs={'max_retries': 5})
 
 @shared_task(bind=True, base=CWTBaseTask)
 def handle_output(self, variable, **kwargs):
