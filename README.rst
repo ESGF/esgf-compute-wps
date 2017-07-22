@@ -45,28 +45,28 @@ Environment variables
 When starting the WPS Django application environment variables are checked first
 otherwise values are loaded from the Djago configuration file.
 
-OAUTH_CLIENT: OAuth2.0 Client value
-OAUTH_SECRET: OAuth2.0 Secret value
-CELERY_BROKER: Celery Broker URI
-CELERY_BACKEND: Celery Backend URI 
-POSTGRES_HOST: PostgreSQL server address
-POSTGRES_PASSWORD: PostgresSQL password
-REDIS_HOST: Redis Host URI
+- OAUTH_CLIENT: OAuth2.0 Client value
+- OAUTH_SECRET: OAuth2.0 Secret value
+- CELERY_BROKER: Celery Broker URI
+- CELERY_BACKEND: Celery Backend URI 
+- POSTGRES_HOST: PostgreSQL server address
+- POSTGRES_PASSWORD: PostgresSQL password
+- REDIS_HOST: Redis Host URI
 
 ***************
 Django settings
 ***************
 
-OAUTH2_CALLBACK: Oauth2.0 callback URL
+- OAUTH2_CALLBACK: Oauth2.0 callback URL
 
-HOSTNAME: Server hostname
-PORT: Server port
+- HOSTNAME: Server hostname
+- PORT: Server port
 
-CACHE_PATH: Server cache path
-OUTPUT_LOCAL_PATH: The path that data will be stored
+- CACHE_PATH: Server cache path
+- OUTPUT_LOCAL_PATH: The path that data will be stored
 
-DAP: Enable/disable output as DAP url
-CA_PATH: Path to store MyProxyClient/OAuth2.0 trust certificates
+- DAP: Enable/disable output as DAP url
+- CA_PATH: Path to store MyProxyClient/OAuth2.0 trust certificates
 
 Docker
 ######
