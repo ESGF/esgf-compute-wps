@@ -63,7 +63,9 @@ def subset(self, variables, operations, domains, **kwargs):
 @register_process('CDAT.aggregate')
 @cwt_shared_task()
 def aggregate(self, variables, operations, domains, **kwargs):
-    self.initialize(credentials=True, **kwargs)
+    status = self.initialize(credentials=True, **kwargs)
+
+    status.job.started()
 
     v, d, o = self.load(variables, domains, operations)
 
@@ -108,6 +110,8 @@ def aggregate(self, variables, operations, domains, **kwargs):
 @cwt_shared_task()
 def avg(self, variables, operations, domains, **kwargs):
     status = self.initialize(credentials=True, **kwargs)
+
+    status.job.started()
 
     v, d, o = self.load(variables, domains, operations)
 
