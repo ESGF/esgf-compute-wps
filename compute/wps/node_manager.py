@@ -286,7 +286,7 @@ class NodeManager(object):
 
         server = models.Server.objects.get(host='default')
 
-        job = models.Job(server=server, user=user, process=process)
+        job = models.Job(server=server, user=user, process=process, extra=data_inputs)
 
         job.save()
 
