@@ -294,7 +294,10 @@ class CWTBaseTask(celery.Task):
         if kwargs.get('local') is None:
             out_name = local_path.split('/')[-1]
 
-            output = settings.OUTPUT_URL.format(file_name=out_name)
+            if settings.DAP:
+                output = settings.DAP_URL.format(file_name=out_name)
+            else:
+                output = settings.OUTPUT_URL.format(file_name=out_name)
         else:
             output = 'file://{}'.format(local_path)
 
