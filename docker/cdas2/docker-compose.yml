@@ -71,6 +71,24 @@ services:
     networks:
       frontend:
       backend:
+  cdas:
+    image: jasonb87/cwt_cdas2:latest
+    expose:
+      - "4356"
+      - "4357"
+    volumes:
+      - data-volume:/data/public
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '0.5'
+    networks:
+      backend:
   thredds:
     image: jasonb87/cwt_thredds:latest
     expose:
