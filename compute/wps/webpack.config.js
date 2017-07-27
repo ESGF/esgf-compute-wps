@@ -6,7 +6,7 @@ module.exports = {
   context: __dirname,
   entry: './assets/js/main.jsx',
   output: {
-    path: path.resolve('/var/wwww/static/js'),
+    path: path.resolve('/var/www/static/js'),
     filename: '[name]-[hash].js',
   },
   plugins: [
