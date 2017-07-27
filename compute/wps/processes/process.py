@@ -361,18 +361,23 @@ class CWTBaseTask(celery.Task):
 
             cache, exists = self.check_cache(input_url, var_name, temporal, spatial)
 
+            try:
+                cached_file = cdms2.open(cache.local_path)
+            except:
+                raise AccessError()
+
             if exists:
                 logger.info('Swapping {} for cached {}'.format(input_files[input_url].id, cache.id))
 
                 input_files[input_url].close()
 
-                input_files[input_url] = cache
+                input_files[input_url] = cached_file
 
-                domain_map[input_url] = (slice(0, len(cache[var_name]), 1), {})
+                domain_map[input_url] = (slice(0, len(cached_file[var_name]), 1), {})
             else:
                 logger.info('Caching {}'.format(input_url))
 
-                cache_map[input_url] = cache
+                cache_map[input_url] = cached_file
 
         if len(cache_map) > 0 or read_callback is not None:
             try:
@@ -451,53 +456,57 @@ class CWTBaseTask(celery.Task):
         except:
             raise AccessError()
 
-        temporal, spatial = self.map_domain(input_file, var_name, domain)
+        with input_file as input_file:
+            temporal, spatial = self.map_domain(input_file, var_name, domain)
 
-        cache, exists = self.check_cache(input_file.id, var_name, temporal, spatial) 
+            cache, exists = self.check_cache(input_file.id, var_name, temporal, spatial) 
 
-        if not exists:
-            tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
-        elif read_callback is not None:
-            input_file.close()
+            try:
+                cache_file = cdms2.open(cache.local_path, 'r' if exists else 'w')
+            except:
+                raise AccessError()
 
-            input_file = cache
+            with cache_file as cache_file:
+                if exists:
+                    tstart, tstop, tstep = 0, len(cache_file[var_name]), 1
+                else:
+                    tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
-            tstart, tstop, tstep = 0, len(input_file[var_name]), 1
+                diff = tstop - tstart
 
-            spatial = {}
-        else:
-            return cache
+                step = diff if diff < 200 else 200
 
-        diff = tstop - tstart
+                try:
+                    for begin in xrange(tstart, tstop, step):
+                        end = begin + step
 
-        step = diff if diff < 200 else 200
+                        if end > tstop:
+                            end = tstop
 
-        try:
-            with input_file as input_file, cache as cache:
-                for begin in xrange(tstart, tstop, step):
-                    end = begin + step
+                        time_slice = slice(begin, end, tstep)
 
-                    if end > tstop:
-                        end = tstop
+                        data = input_file(var_name, time=time_slice, **spatial)
 
-                    time_slice = slice(begin, end, tstep)
+                        if any(x == 0 for x in data.shape):
+                            cache.close()
 
-                    data = input_file(var_name, time=time_slice, **spatial)
+                            raise InvalidShapeError('Read data with shape {}'.format(data.shape))
 
-                    if any(x == 0 for x in data.shape):
-                        cache.close()
+                        if not exists:
+                            cache.write(data, id=var_name)
 
-                        raise InvalidShapeError('Read data with shape {}'.format(data.shape))
+                        if read_callback is not None:
+                            read_callback(data)
+                except InvalidShapeError:
+                    raise
+                except Exception:
+                    raise AccessError()
 
-                    if not exists:
-                        cache.write(data, id=var_name)
+        cache.size = os.path.getsize(cache.local_path)
 
-                    if read_callback is not None:
-                        read_callback(data)
-        except InvalidShapeError:
-            raise
-        except Exception:
-            raise AccessError()
+        cache.save()
+
+        return cache.local_path
 
     def generate_cache_name(self, uri, temporal, spatial):
         """ Create a cacheaable name.
@@ -545,51 +554,46 @@ class CWTBaseTask(celery.Task):
         """
         logger.info('Checking cache for file {} with domain {} {}'.format(uri, temporal, spatial))
 
-        file_name = self.generate_cache_name(uri, temporal, spatial)
+        uid = self.generate_cache_name(uri, temporal, spatial)
 
-        file_name = '{}.nc'.format(file_name)
-
-        file_path = '{}/{}'.format(settings.CACHE_PATH, file_name)
+        cached, created = models.Cache.objects.get_or_create(uid=uid)
 
         exists = False
 
-        if os.path.exists(file_path):
-            logger.info('{} exists in the cache'.format(file_path))
+        if created:
+            cached.uid = uid
 
-            try:
-                cache = cdms2.open(file_path)
-            except cdms2.CDMSError:
-                logger.info('Failed to open cache file')
-            else:
-                logger.info('Validating cache file')
+            cached.url = uri
 
-                # Check for a valid cache file that is missing the variable
-                if var_name in cache.variables:
-                    time = cache[var_name].getTime().shape[0]
+            cached.save()
+        else:
+            cached.save()
 
-                    diff = temporal.stop - temporal.start
+            local_path = cached.local_path
 
-                    if diff < time or diff > time:
-                        logger.info('Cache file is invalid expecting time {} got {}'.format(temporal.stop - temporal.start, time))
-
-                        cache.close()
-
-                        os.remove(file_path)
-                    else:
-                        logger.info('Cache exists and is valid')
-
-                        exists = True
+            if os.path.exists(local_path):
+                try:
+                    cached_file = cdms2.open(local_path)
+                except Exception:
+                    logger.exception('Failed to open local cached file')
                 else:
-                    cache.close()
+                    # Validate the cached file
+                    with cached_file as cached_file:
+                        if var_name in cached_file.variables:
+                            time = cached_file[var_name].getTime().shape[0]
 
-                    logger.info('Cache invalid variable {} not found in files {}'.format(var_name, cache.variables))
-            
-        if not exists:
-            logger.info('{} does not exist in the cache'.format(file_path))
+                            expected_time = temporal.stop = temporal.start
 
-            cache = cdms2.open(file_path, 'w')
+                            if time != expected_time:
+                                logger.info('Cached file is invalid due to differing time, expecting {} got {} time steps'.format(expected_time, time))
 
-        return cache, exists
+                                os.remove(local_path)
+                            else:
+                                logger.info('Cached file is valid')
+
+                                exists = True
+
+        return cached, exists
 
     def map_axis(self, axis, dim, clamp_upper=True):
         """ Map a dimension to an axis.

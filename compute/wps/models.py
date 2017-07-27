@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import os
 import logging
 
 logger = logging.getLogger('wps.models')
@@ -19,6 +20,19 @@ STATUS = {
     'ProcessSucceeded': wps_lib.ProcessSucceeded,
     'ProcessFailed': wps_lib.ProcessFailed,
 }
+
+class Cache(models.Model):
+    uid = models.CharField(max_length=256)
+
+    url = models.CharField(max_length=512)
+    dimensions = models.TextField()
+    added_date = models.DateTimeField(auto_now_add=True)
+    accessed_date = models.DateTimeField(auto_now=True)
+    size = models.PositiveIntegerField(null=True)
+
+    @property
+    def local_path(self):
+        return os.path.join(settings.CACHE_PATH, self.uid)
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
