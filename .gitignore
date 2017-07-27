@@ -2,6 +2,7 @@ node_modules/
 compute/assets/
 webpack-stats.json
 compute/wps/assets/bundles/
+compute/compute/settings.py
 
 *.nc
 
