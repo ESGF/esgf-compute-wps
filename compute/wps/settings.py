@@ -14,13 +14,13 @@ PORT = setting('WPS_EXTERNAL_PORT', '8000')
 
 CACHE_PATH = setting('WPS_CACHE_PATH', '/data/cache')
 
-ENDPOINT = setting('WPS_ENDPOINT', 'https://aims2.llnl.gov/wps')
-STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'https://aims2.llnl.gov/wps/job/{job_id}')
+ENDPOINT = setting('WPS_ENDPOINT', 'http://0.0.0.0:8000/wps')
+STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'http://0.0.0.0:8000/wps/job/{job_id}')
 
 OUTPUT_LOCAL_PATH = setting('WPS_OUTPUT_LOCAL_PATH', '/data/public')
 OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_name}')
 
-DAP = setting('WPS_DAP', True)
+DAP = setting('WPS_DAP', False)
 DAP_URL = setting('WPS_DAP_URL', 'https://0.0.0.0:8000/{file_name}')
 
 CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
