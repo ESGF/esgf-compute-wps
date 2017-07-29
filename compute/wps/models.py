@@ -32,7 +32,9 @@ class Cache(models.Model):
 
     @property
     def local_path(self):
-        return os.path.join(settings.CACHE_PATH, self.uid)
+        file_name = '{}.nc'.format(self.uid)
+
+        return os.path.join(settings.CACHE_PATH, file_name)
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)

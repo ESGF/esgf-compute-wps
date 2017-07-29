@@ -320,119 +320,107 @@ class CWTBaseTask(celery.Task):
             read_callback: A method which takes a single argument which is a 
                 numpy array.
         """
-        var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in input_vars])
-
-        if var_name is None:
-            raise Exception('Variable name is not the same for all inputs')
-
-        logger.info('Aggregating {} files for variable {}'.format(len(input_vars), var_name))
-
-        inputs = []
-
         try:
-            for input_var in input_vars:
-                inputs.append(cdms2.open(input_var.uri))
-        except Exception:
-            for i in inputs:
-                i.close()
+            var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in input_vars])
 
-            raise AccessError()
+            if var_name is None:
+                raise Exception('Variable name is not the same for all inputs')
 
-        inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
+            logger.info('Aggregating "{}" over {} files'.format(var_name, len(input_vars)))
 
-        logger.info('Sorted inputs by units')
-
-        input_files = collections.OrderedDict([(x.id, x) for x in inputs])
-
-        domain_map = self.map_domain_multiple(input_files.values(), var_name, domain)
-
-        cache_map = {}
-
-        # Check if each inputs subset has been cached.
-        for input_url in domain_map.keys():
-            temporal, spatial = domain_map[input_url]
-
-            if temporal.stop == 0:
-                logger.info('Skipping {}, not included in domain'.format(input_url))
-
-                del input_files[input_url]
-
-                continue
-
-            cache, exists = self.check_cache(input_url, var_name, temporal, spatial)
+            inputs = []
+            cache_file = None
+            cache_map = {}
 
             try:
-                cached_file = cdms2.open(cache.local_path)
+                for i in input_vars:
+                    inputs.append(cdms2.open(i.uri))
             except:
                 raise AccessError()
 
-            if exists:
-                logger.info('Swapping {} for cached {}'.format(input_files[input_url].id, cache.id))
+            inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
-                input_files[input_url].close()
+            input_files = collections.OrderedDict([(x.id, x) for x in inputs])
 
-                input_files[input_url] = cached_file
+            domain_map = self.map_domain_multiple(input_files.values(), var_name, domain)
 
-                domain_map[input_url] = (slice(0, len(cached_file[var_name]), 1), {})
-            else:
-                logger.info('Caching {}'.format(input_url))
+            for url in domain_map.keys():
+                temporal, spatial = domain_map[url]
 
-                cache_map[input_url] = cached_file
+                if temporal.stop == 0:
+                    logger.info('Skipping input {}, not covered by the domain'.format(url))
 
-        if len(cache_map) > 0 or read_callback is not None:
-            try:
-                for input_url, input_file in input_files.iteritems():
-                    logger.info('Processing input {}'.format(input_file.id))
+                    del input_files[url]
 
-                    temporal, spatial = domain_map[input_url]
+                    continue
 
-                    tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+                cache, exists = self.check_cache(url, var_name, temporal, spatial)
 
-                    diff = tstop - tstart
 
-                    step = diff if diff < 200 else 200
+                if exists:
+                    input_files[url].close()
 
-                    # Use a context on the input
-                    with input_file as input_file:
-                        for begin in xrange(tstart, tstop, step):
-                            end = begin + step
+                    try:
+                        input_files[url] = cdms2.open(cache.local_path)
+                    except:
+                        raise AccessError()
 
-                            if end > tstop:
-                                end = tstop
+                    domain_map[url] = (slice(0, len(input_files[url][var_name]), 1), {})
+                else:
+                    cache_map[url] = cache
 
-                            time_slice = slice(begin, end, tstep)
+            for url in input_files.keys():
+                cache_file = None
 
-                            logger.info('Retrieving chunk {}'.format(time_slice))
+                if url in cache_map:
+                    try:
+                        cache_file = cdms2.open(cache_map[url].local_path, 'w')
+                    except:
+                        raise AccessError()
 
-                            data = input_file(var_name, time=time_slice, **spatial)
+                temporal, spatial = domain_map[url]
 
-                            if any(x == 0 for x in data.shape):
-                                for cache in cache_map.values():
-                                    cache.close()
+                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
-                                raise InvalidShapeError('Data has shape {}'.format(data.shape))
+                diff = tstop - tstart
 
-                            if input_url in cache_map:
-                                logger.info('Caching chunk {}'.format(data.shape))
+                step = diff if diff < 200 else 200
 
-                                cache_map[input_url].write(data, id=var_name)
+                logger.info('Beginning to retrieve file {}'.format(url))
 
-                            if read_callback is not None:
-                                logger.info('Post processing chunk {}'.format(data.shape))
+                for begin in xrange(tstart, tstop, step):
+                    end = begin + step
 
-                                read_callback(data)
-            except InvalidShapeError:
-                raise
-            except Exception:
-                for v in input_files.values():
-                    v.close()
+                    if end > tstop:
+                        end = tstop
 
-                raise AccessError()
+                    time_slice = slice(begin, end, tstep)
 
-            logger.info('Closing cache files {}'.format(cache_map.keys()))
+                    data = input_files[url](var_name, time=time_slice, **spatial)
 
-            for cache in cache_map.values():
-                cache.close()
+                    logger.info('Retrieving chunk for time slice {}'.format(time_slice))
+
+                    if any(x == 0 for x in data.shape):
+                        raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+                    if cache_file is not None:
+                        cache_file.write(data, id=var_name)
+
+                    if read_callback is not None:
+                        read_callback(data)
+
+                input_files[url].close()
+
+                if cache_file is not None:
+                    cache_file.close()
+        except:
+            raise
+        finally:
+            if cache_file is not None:
+                cache_file.close()
+
+            for i in input_files.values():
+                i.close()
 
     def cache_input(self, input_var, domain, read_callback=None):
         """ Cache input.
@@ -447,64 +435,69 @@ class CWTBaseTask(celery.Task):
             read_callback: A method which takes a single argument which is a 
                 numpy array.
         """
-        uri = input_var.uri
-
-        var_name = input_var.var_name
-
         try:
-            input_file = cdms2.open(input_var.uri)
-        except:
-            raise AccessError()
-
-        with input_file as input_file:
-            temporal, spatial = self.map_domain(input_file, var_name, domain)
-
-            cache, exists = self.check_cache(input_file.id, var_name, temporal, spatial) 
+            cache_file = None
 
             try:
-                cache_file = cdms2.open(cache.local_path, 'r' if exists else 'w')
+                input_file = cdms2.open(input_var.uri)
             except:
                 raise AccessError()
 
-            with cache_file as cache_file:
-                if exists:
-                    tstart, tstop, tstep = 0, len(cache_file[var_name]), 1
-                else:
-                    tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+            temporal, spatial = self.map_domain(input_file, input_var.var_name, domain)
 
-                diff = tstop - tstart
+            cache, exists = self.check_cache(input_file.id, input_var.var_name, temporal, spatial)
 
-                step = diff if diff < 200 else 200
+            if exists:
+                input_file.close()
 
                 try:
-                    for begin in xrange(tstart, tstop, step):
-                        end = begin + step
-
-                        if end > tstop:
-                            end = tstop
-
-                        time_slice = slice(begin, end, tstep)
-
-                        data = input_file(var_name, time=time_slice, **spatial)
-
-                        if any(x == 0 for x in data.shape):
-                            cache.close()
-
-                            raise InvalidShapeError('Read data with shape {}'.format(data.shape))
-
-                        if not exists:
-                            cache.write(data, id=var_name)
-
-                        if read_callback is not None:
-                            read_callback(data)
-                except InvalidShapeError:
-                    raise
-                except Exception:
+                    input_file = cdms2.open(cache.local_path)
+                except:
                     raise AccessError()
 
-        cache.size = os.path.getsize(cache.local_path)
+                tstart, tstop, tstep = 0, len(input_file[input_var.var_name]), 1
+            else:
+                cache_file = cdms2.open(cache.local_path, 'w')
 
-        cache.save()
+                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+
+            diff = tstop - tstart
+
+            step = diff if diff < 200 else 200
+
+            logger.info('Beginning to retrieve file {}'.format(input_var.uri))
+
+            for begin in xrange(tstart, tstop, step):
+                end = begin + step
+
+                if end > tstop:
+                    end = tstop
+
+                time_slice = slice(begin, end, tstep)
+
+                logger.info('Retrieving chunk for time slice {}'.format(time_slice))
+
+                data = input_file(input_var.var_name, time=time_slice, **spatial)
+
+                if any(x == 0 for x in data.shape):
+                    raise InvalidShapeError('Read data with shape {}'.format(data.shape))
+
+                if cache_file is not None:
+                    cache_file.write(data, id=input_var.var_name)
+
+                if read_callback is not None:
+                    read_callback(data)
+        except:
+            raise
+        else:
+            cache.size = os.path.getsize(cache.local_path)
+
+            cache.save()
+        finally:
+            input_file.close()
+
+            if cache_file is not None:
+                cache_file.close()
 
         return cache.local_path
 
@@ -580,9 +573,9 @@ class CWTBaseTask(celery.Task):
                     # Validate the cached file
                     with cached_file as cached_file:
                         if var_name in cached_file.variables:
-                            time = cached_file[var_name].getTime().shape[0]
+                            time = cached_file[var_name].shape[0]
 
-                            expected_time = temporal.stop = temporal.start
+                            expected_time = temporal.stop - temporal.start
 
                             if time != expected_time:
                                 logger.info('Cached file is invalid due to differing time, expecting {} got {} time steps'.format(expected_time, time))
