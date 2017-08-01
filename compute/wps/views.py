@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login as dlogin
 from django.contrib.auth import logout
 from django.core import serializers
+from django.db import IntegrityError
 from django.shortcuts import render
 from django.shortcuts import redirect
 from django.shortcuts import get_list_or_404
@@ -68,7 +69,10 @@ def create(request):
 
     logger.info('Creating new account for {}'.format(username))
 
-    user = models.User.objects.create_user(username, email, password)
+    try:
+        user = models.User.objects.create_user(username, email, password)
+    except IntegrityError:
+        return http.JsonResponse({'status': 'failure', 'errors': 'User already exists'})
 
     user.save()
 
