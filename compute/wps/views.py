@@ -367,4 +367,4 @@ def output(request, file_name):
 
 @ensure_csrf_cookie
 def home(request):
-    return render(request, 'wps/debug.html')
+    return render(request, 'wps/index.html')
