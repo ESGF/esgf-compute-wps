@@ -24,6 +24,10 @@ module.exports = {
             options: { configFileName: helpers.root('wps', 'assets', 'tsconfig.json') }
           }, 'angular2-template-loader'
         ]
+      },
+      {
+        test: /\.html$/,
+        loader: 'html-loader'
       }
     ]
   },

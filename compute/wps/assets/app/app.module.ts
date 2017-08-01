@@ -5,6 +5,7 @@ import { HttpModule } from '@angular/http';
 import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
+import { CreateUserFormComponent } from './create-user-form.component';
 
 @NgModule({
   imports: [
@@ -15,12 +16,17 @@ import { AppComponent } from './app.component';
       {
         path: 'wps/home',
         children: [
+          {
+            path: 'create',
+            component: CreateUserFormComponent
+          }
         ]
       }
     ])
   ],
   declarations: [
-    AppComponent
+    AppComponent,
+    CreateUserFormComponent
   ],
   bootstrap: [ AppComponent ]
 })

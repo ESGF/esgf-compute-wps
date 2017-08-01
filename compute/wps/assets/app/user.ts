@@ -3,5 +3,4 @@ export class User {
   openID: string;
   email: string;
   password: string;
-  passwordVerify: string;
 }
