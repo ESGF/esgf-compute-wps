@@ -129,6 +129,18 @@ export class AuthService {
       .catch(this.handleError);
   }
 
+  oauth2(openid: string): Promise<string> {
+    return this.http.get('auth/login/oauth2', {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      })
+    })
+      .toPromise()
+      .then(response => response.json())
+      .catch(this.handleError);
+  }
+
   private handleLoginResponse(response: any): any {
     if (response.status && response.status === 'success') {
       localStorage.setItem('wps_expires', response.expires);

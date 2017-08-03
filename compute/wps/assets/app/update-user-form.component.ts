@@ -35,4 +35,15 @@ export class UpdateUserFormComponent {
     this.authService.regenerateKey(this.model)
       .then(key => this.model.api_key = key);
   }
+
+  onOAuth2(): void {
+    this.authService.oauth2(this.model.openID)
+      .then(response => this.handleOAuth2(response));
+  }
+
+  handleOAuth2(response: any): void {
+    if (response.status && response.status === 'success') {
+      this.router.navigateByUrl(response.redirect);
+    }
+  }
 }
