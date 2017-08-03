@@ -1,6 +1,5 @@
 var webpack = require('webpack');
 var BundleTracker = require('webpack-bundle-tracker');
-var ExtractTextPlugin = require('extract-text-webpack-plugin');
 var helpers = require('./helpers');
 
 module.exports = {
@@ -28,6 +27,11 @@ module.exports = {
       {
         test: /\.html$/,
         loader: 'html-loader'
+      },
+      {
+        test: /\.css$/,
+        include: helpers.root('wps', 'assets', 'app'),
+        loader: 'raw-loader'
       }
     ]
   },
@@ -37,7 +41,7 @@ module.exports = {
 
     new webpack.ContextReplacementPlugin(
       /angular(\\|\/)core(\\|\/)@angular/,
-      helpers.root('./assets'),
+      helpers.root('./wps/assets'),
       {}
     ),
 

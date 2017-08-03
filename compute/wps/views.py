@@ -101,11 +101,11 @@ def login(request):
 
             dlogin(request, user)
 
-            return http.JsonResponse({ 'status': 'success' })
+            return http.JsonResponse({ 'status': 'success', 'expires': request.session.get_expiry_date() })
         else:
             logger.warning('Failed to authenticate user')
 
-            return http.JsonResponse({ 'status': 'failure', 'errors': 'bad login' })
+            return http.JsonResponse({ 'status': 'failure', 'errors': 'Authentication failed.' })
     else:
         logger.info('Login form is invalid')
 

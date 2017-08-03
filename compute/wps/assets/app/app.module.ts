@@ -6,6 +6,10 @@ import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
 import { CreateUserFormComponent } from './create-user-form.component';
+import { LoginFormComponent } from './login-form.component';
+import { LogoutComponent } from './logout.component';
+
+import { AuthService } from './auth.service';
 
 @NgModule({
   imports: [
@@ -19,6 +23,14 @@ import { CreateUserFormComponent } from './create-user-form.component';
           {
             path: 'create',
             component: CreateUserFormComponent
+          },
+          {
+            path: 'login',
+            component: LoginFormComponent
+          },
+          {
+            path: 'logout',
+            component: LogoutComponent
           }
         ]
       }
@@ -26,7 +38,12 @@ import { CreateUserFormComponent } from './create-user-form.component';
   ],
   declarations: [
     AppComponent,
-    CreateUserFormComponent
+    CreateUserFormComponent,
+    LoginFormComponent,
+    LogoutComponent,
+  ],
+  providers: [
+    AuthService 
   ],
   bootstrap: [ AppComponent ]
 })
