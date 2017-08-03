@@ -18,6 +18,7 @@ export class LoginFormComponent {
   ) { }
 
   onSubmit(): void {
-    this.authService.login(this.model);
+    this.authService.login(this.model)
+      .then(response => this.location.go('/wps/home'));
   }
 }

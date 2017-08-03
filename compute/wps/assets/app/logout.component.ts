@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { Location } from '@angular/common';
 
 import { AuthService } from './auth.service';
 
@@ -7,7 +8,11 @@ import { AuthService } from './auth.service';
 })
 
 export class LogoutComponent {
-  constructor(private authService: AuthService) {
-    this.authService.logout();
+  constructor(
+    private authService: AuthService,
+    private location: Location
+  ) {
+    this.authService.logout()
+      .then(response => this.location.go('/wps/home'));
   }
 }

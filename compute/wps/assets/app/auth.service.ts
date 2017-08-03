@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@angular/core';
 import { Http, Headers } from '@angular/http';
 import { DOCUMENT } from '@angular/platform-browser';
-import { Subject } from 'rxjs/Subject';
+import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 
 import 'rxjs/add/operator/toPromise';
 
@@ -9,18 +9,24 @@ import { User } from './user';
 
 @Injectable()
 export class AuthService {
-  logged = new Subject<boolean>();
+  logged = this.isLogged();
 
-  logged$ = this.logged.asObservable();
+  logged$ = new BehaviorSubject(this.logged);
 
-  constructor(@Inject(DOCUMENT) private doc: any, private http: Http) { 
+  constructor(@Inject(DOCUMENT) private doc: any, private http: Http) { }
+
+  isLogged(): boolean {
     let expires = localStorage.getItem('wps_expires');
 
     if (expires != null) {
       let expiresDate = new Date(expires);
 
-      this.logged.next(expiresDate.getTime() > Date.now());
+      if (expiresDate.getTime() > Date.now()) {
+          return true
+      }
     }
+
+    return false;
   }
 
   getCookie(name: string): string {
@@ -91,7 +97,7 @@ export class AuthService {
     if (response.status && response.status === 'success') {
       localStorage.setItem('wps_expires', response.expires);
 
-      this.logged.next(true);
+      this.logged$.next(true);
     } else {
       this.handleLogoutResponse(response);
     }
@@ -100,7 +106,7 @@ export class AuthService {
   private handleLogoutResponse(response: any): any {
     localStorage.removeItem('wps_expires');
 
-    this.logged.next(false);
+    this.logged$.next(false);
   }
 
   private handleError(error: any): Promise<any> {
