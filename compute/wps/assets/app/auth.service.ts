@@ -130,7 +130,7 @@ export class AuthService {
   }
 
   oauth2(openid: string): Promise<string> {
-    return this.http.get('auth/login/oauth2', {
+    return this.http.post('auth/login/oauth2/', `openid=${openid}`, {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
         'Content-Type': 'application/x-www-form-urlencoded'
