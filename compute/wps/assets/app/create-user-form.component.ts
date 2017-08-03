@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Location } from '@angular/common';
+import { Router } from '@angular/router';
 
 import { User } from './user';
 import { AuthService } from './auth.service';
@@ -14,7 +14,7 @@ export class CreateUserFormComponent {
 
   constructor(
     private authService: AuthService,
-    private location: Location
+    private router: Router
   ) { }
 
   onSubmit(): void {
@@ -22,7 +22,9 @@ export class CreateUserFormComponent {
       .then(response => this.handleResponse(response));
   }
 
-  handleResponse(response: string): void {
-    this.location.go('wps/home/login');
+  handleResponse(response: any): void {
+    if (response.status && response.status === 'success') {
+      this.router.navigate(['/wps/home/login']);
+    }
   }
 }

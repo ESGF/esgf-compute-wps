@@ -6,6 +6,7 @@ import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
 import { CreateUserFormComponent } from './create-user-form.component';
+import { UpdateUserFormComponent } from './update-user-form.component';
 import { LoginFormComponent } from './login-form.component';
 import { LogoutComponent } from './logout.component';
 
@@ -25,6 +26,10 @@ import { AuthService } from './auth.service';
             component: CreateUserFormComponent
           },
           {
+            path: 'profile',
+            component: UpdateUserFormComponent
+          },
+          {
             path: 'login',
             component: LoginFormComponent
           },
@@ -39,6 +44,7 @@ import { AuthService } from './auth.service';
   declarations: [
     AppComponent,
     CreateUserFormComponent,
+    UpdateUserFormComponent,
     LoginFormComponent,
     LogoutComponent,
   ],

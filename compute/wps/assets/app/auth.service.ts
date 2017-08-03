@@ -69,6 +69,18 @@ export class AuthService {
       .catch(this.handleError);
   }
 
+  update(user: User): Promise<string> {
+    return this.http.post('auth/update/', this.userToUrlEncoded(user), {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      })
+    })
+      .toPromise()
+      .then(response => response.json())
+      .catch(this.handleError);
+  }
+
   login(user: User): Promise<string> {
     return this.http.post('auth/login/', this.userToUrlEncoded(user), {
       headers: new Headers({
@@ -90,6 +102,18 @@ export class AuthService {
     })
       .toPromise()
       .then(response => this.handleLogoutResponse(response.json()))
+      .catch(this.handleError);
+  }
+
+  user(): Promise<User> {
+    return this.http.get('auth/user/', {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      })
+    })
+      .toPromise()
+      .then(response => response.json() as User)
       .catch(this.handleError);
   }
 

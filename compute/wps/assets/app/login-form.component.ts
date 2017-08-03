@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Location } from '@angular/common';
+import { Router } from '@angular/router';
 
 import { User } from './user';
 import { AuthService } from './auth.service';
@@ -14,11 +14,11 @@ export class LoginFormComponent {
 
   constructor(
     private authService: AuthService,
-    private location: Location
+    private router: Router
   ) { }
 
   onSubmit(): void {
     this.authService.login(this.model)
-      .then(response => this.location.go('/wps/home'));
+      .then(response => this.router.navigate(['/wps/home/profile']));
   }
 }

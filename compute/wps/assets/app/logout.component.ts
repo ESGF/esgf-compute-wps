@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Location } from '@angular/common';
+import { Router } from '@angular/router';
 
 import { AuthService } from './auth.service';
 
@@ -10,9 +10,9 @@ import { AuthService } from './auth.service';
 export class LogoutComponent {
   constructor(
     private authService: AuthService,
-    private location: Location
+    private router: Router,
   ) {
     this.authService.logout()
-      .then(response => this.location.go('/wps/home'));
+      .then(response => this.router.navigate(['/wps/home']));
   }
 }

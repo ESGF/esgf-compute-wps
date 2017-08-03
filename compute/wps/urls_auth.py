@@ -6,6 +6,7 @@ import views
 
 urlpatterns = [
     url(r'^create/$', views.create, name='create'),
+    url(r'^update/$', views.update, name='update'),
     url(r'^user/$', views.user, name='user'),
     url(r'^user/(?P<user_id>[0-9]*)/regenerate/$', views.regenerate_api_key),
     url(r'^login/$', views.login, name='login'),

@@ -82,6 +82,89 @@ def create(request):
 
     return http.JsonResponse({ 'status': 'success' })
 
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def user(request):
+    if not request.user.is_authenticated():
+        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
+
+    data = {
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+           }
+
+    if request.user.auth is not None:
+        if request.user.auth.openid == '':
+            oid = openid.OpenID.retrieve_and_parse(request.user.auth.openid_url)
+
+            request.user.auth.openid = oid.response
+
+            request.user.auth.save()
+
+        data['openid'] = request.user.auth.openid_url
+        data['type'] = request.user.auth.type
+        data['api_key'] = request.user.auth.api_key
+
+    return http.JsonResponse(data)
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def update(request):
+    if not request.user.is_authenticated():
+        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
+
+    form = forms.UpdateForm(request.POST)
+
+    if form.is_valid():
+        email = form.cleaned_data['email']
+
+        openid = form.cleaned_data['openid']
+
+        password = form.cleaned_data['password']
+
+        modified = False
+
+        if email != u'':
+            request.user.email = email
+
+            modified = True
+
+        if openid != u'':
+            request.user.auth.openid = openid
+
+            modified = True
+
+        if password != u'':
+            request.user.set_password(password)
+
+            modified = True
+
+        if modified:
+            logger.info('User modified');
+
+            request.user.auth.save()
+
+            request.user.save()
+    else:
+        logger.error('Update form is invalid')
+
+        return http.JsonResponse({ 'status': 'failure', 'errors': form.errors })
+
+    return http.JsonResponse({'status': 'success'})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def regenerate_api_key(request, user_id):
+    if not request.user.is_authenticated():
+        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
+
+    manager = node_manager.NodeManager()
+
+    api_key = manager.regenerate_api_key(user_id)
+
+    return http.JsonResponse({'api_key': api_key})
+
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def login(request):
@@ -294,44 +377,6 @@ def processes(request, server_id):
                         'backend': x.backend,
                         'description': x.description,
                        }) for x in server.processes.all())
-
-    return http.JsonResponse(data)
-
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
-def regenerate_api_key(request, user_id):
-    if not request.user.is_authenticated():
-        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
-
-    manager = node_manager.NodeManager()
-
-    api_key = manager.regenerate_api_key(user_id)
-
-    return http.JsonResponse({'api_key': api_key})
-
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
-def user(request):
-    if not request.user.is_authenticated():
-        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
-
-    data = {
-            'id': request.user.id,
-            'username': request.user.username,
-            'email': request.user.email,
-           }
-
-    if request.user.auth is not None:
-        if request.user.auth.openid == '':
-            oid = openid.OpenID.retrieve_and_parse(request.user.auth.openid_url)
-
-            request.user.auth.openid = oid.response
-
-            request.user.auth.save()
-
-        data['openid'] = request.user.auth.openid_url
-        data['type'] = request.user.auth.type
-        data['api_key'] = request.user.auth.api_key
 
     return http.JsonResponse(data)
 
