@@ -117,6 +117,18 @@ export class AuthService {
       .catch(this.handleError);
   }
 
+  regenerateKey(user: User): Promise<string> {
+    return this.http.get(`auth/user/${user.id}/regenerate/`, {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      })
+    })
+      .toPromise()
+      .then(response => response.json().api_key)
+      .catch(this.handleError);
+  }
+
   private handleLoginResponse(response: any): any {
     if (response.status && response.status === 'success') {
       localStorage.setItem('wps_expires', response.expires);

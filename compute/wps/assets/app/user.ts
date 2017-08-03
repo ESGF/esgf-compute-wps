@@ -4,4 +4,5 @@ export class User {
   openID: string;
   email: string;
   password: string;
+  api_key: string;
 }

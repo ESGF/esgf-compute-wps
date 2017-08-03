@@ -30,4 +30,9 @@ export class UpdateUserFormComponent {
 
     this.authService.update(user);
   }
+
+  onRegenerateKey(): void {
+    this.authService.regenerateKey(this.model)
+      .then(key => this.model.api_key = key);
+  }
 }
