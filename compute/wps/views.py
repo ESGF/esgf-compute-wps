@@ -340,7 +340,7 @@ def login_oauth2(request):
 
             redirect_url, session = manager.auth_oauth2(oid_url)
 
-            request.session.update(session)
+            #request.session.update(session)
 
             return http.JsonResponse({'status': 'success', 'redirect': redirect_url})
         else:
