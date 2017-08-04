@@ -141,6 +141,18 @@ export class AuthService {
       .catch(this.handleError);
   }
 
+  myproxyclient(user: User): Promise<string> {
+    return this.http.post('auth/login/mpc/', `username=${user.username}&password=${user.password}`, {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      })
+    })
+      .toPromise()
+      .then(response => response.json())
+      .catch(this.handleError);
+  }
+
   private handleLoginResponse(response: any): any {
     if (response.status && response.status === 'success') {
       localStorage.setItem('wps_expires', response.expires);

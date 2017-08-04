@@ -5,11 +5,13 @@ import { User } from './user';
 import { AuthService } from './auth.service';
 
 @Component({
-  templateUrl: './update-user-form.component.html'
+  templateUrl: './update-user-form.component.html',
+  styleUrls: ['./forms.css']
 })
 
 export class UpdateUserFormComponent { 
   model: User = new User();
+  mpc: User = new User();
 
   constructor(
     private authService: AuthService,
@@ -41,9 +43,20 @@ export class UpdateUserFormComponent {
       .then(response => this.handleOAuth2(response));
   }
 
+  onMPCSubmit(): void {
+    this.authService.myproxyclient(this.mpc)
+      .then(response => this.handleMPC(response));
+  }
+
   handleOAuth2(response: any): void {
     if (response.status && response.status === 'success') {
       this.router.navigateByUrl(response.redirect);
+    }
+  }
+
+  handleMPC(response: any): void {
+    if (response.status && response.status === 'success') {
+      window.location.reload();
     }
   }
 }

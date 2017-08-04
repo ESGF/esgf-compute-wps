@@ -242,18 +242,16 @@ def login_mpc(request):
         form = forms.MPCForm(request.POST)
 
         if form.is_valid():
-            oid_url = form.cleaned_data.get('openid')
-
             username = form.cleaned_data.get('username')
 
             password = form.cleaned_data.get('password')
 
-            logger.info('Authenticating MyProxyClient for {}'.format(oid_url))
+            logger.info('Authenticating MyProxyClient for {}'.format(username))
 
             manager = node_manager.NodeManager()
 
             try:
-                api_key = manager.auth_mpc(oid_url, username, password)
+                api_key = manager.auth_mpc(request.user.auth.openid_url, username, password)
             except Exception as e:
                 return http.JsonResponse({'status': 'failed', 'errors': e.message})
 
