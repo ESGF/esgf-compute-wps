@@ -9,6 +9,7 @@ import { CreateUserFormComponent } from './create-user-form.component';
 import { UpdateUserFormComponent } from './update-user-form.component';
 import { LoginFormComponent } from './login-form.component';
 import { LogoutComponent } from './logout.component';
+import { ConfigureComponent } from './configure.component';
 
 import { AuthService } from './auth.service';
 
@@ -36,6 +37,10 @@ import { AuthService } from './auth.service';
           {
             path: 'logout',
             component: LogoutComponent
+          },
+          {
+            path: 'configure',
+            component: ConfigureComponent
           }
         ]
       }
@@ -47,6 +52,7 @@ import { AuthService } from './auth.service';
     UpdateUserFormComponent,
     LoginFormComponent,
     LogoutComponent,
+    ConfigureComponent
   ],
   providers: [
     AuthService 

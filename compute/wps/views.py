@@ -1,8 +1,10 @@
 import json
 import logging
 import re
+import StringIO
 
 import django
+import requests
 from django import http
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as dlogin
@@ -26,6 +28,123 @@ from wps.auth import openid
 from wps.auth import oauth2
 
 logger = logging.getLogger('wps.views')
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def search_esgf(request):
+    if not request.user.is_authenticated():
+        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
+
+    dataset_id = request.GET.get('dataset_id', None)
+
+    index_node = request.GET.get('index_node', None)
+
+    shard = request.GET.get('shard', None)
+
+    query = request.GET.get('query', None)
+
+    params = {
+              'type': 'File',
+              'dataset_id': dataset_id,
+              'format': 'application/solr+json',
+              'offset': 0,
+              'limit': 8000
+             }
+
+    if query is not None and len(query.strip()) > 0:
+        params['query'] = query.strip()
+
+    if shard is not None and len(shard.strip()) > 0:
+        params['shards'] = '{}/solr'.format(shard.strip())
+    else:
+        params['distrib'] = 'false'
+
+    url = 'http://{}/esg-search/search'.format(index_node)
+
+    try:
+        response = requests.get(url, params)
+    except:
+        return http.JsonResponse({'status': 'failure', 'errors': 'Failed to search ESGF'})
+
+    try:
+        data = json.loads(response.content)
+    except:
+        return http.JsonResponse({'status': 'failure', 'errors': 'Failed to load ESGF results'})
+
+    files = []
+    variables = []
+
+    for doc in data['response']['docs']:
+        file_url = None
+
+        for item in doc['url']:
+            url, mime, text = item.split('|')
+
+            if text == 'OPENDAP':
+                file_url = url
+
+                break
+
+        if file_url is not None:
+            files.append(file_url.replace('.html', '')) 
+
+            variables.append(doc['variable'][0])
+
+    data = {
+            'files': files,
+            'variables': list(set(variables))
+           }
+
+    return http.JsonResponse({'status': 'success', 'data': data})
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def generate(request):
+    if not request.user.is_authenticated():
+        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
+
+    process = request.POST['process']
+
+    variable = request.POST['variable']
+
+    files = request.POST['files']
+
+    files = files.split(',')
+
+    buf = StringIO.StringIO()
+
+    buf.write("import cwt\nimport time\n\n")
+
+    buf.write("key = 'YOUR KEY'\n\n")
+
+    buf.write("wps = cwt.WPS('', api_key=key)\n\n")
+
+    buf.write("files = [\n")
+
+    for f in files:
+        buf.write("\tcwt.Variable('{}', '{}'),\n".format(f, variable))
+
+    buf.write("]\n\n")
+
+    buf.write("proc = wps.get_process('{}')\n\n".format(process))
+
+    buf.write("wps.execute(proc, inputs=files)\n\n")
+
+    buf.write("while proc.processing:\n")
+
+    buf.write("\tprint proc.status\n\n")
+
+    buf.write("\ttime.sleep(1)\n\n")
+
+    buf.write("print proc.status")
+
+    _, kernel = process.split('.')
+
+    response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
+
+    response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
+
+    return response
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
