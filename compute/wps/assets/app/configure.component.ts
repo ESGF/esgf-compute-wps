@@ -119,17 +119,15 @@ export class ConfigureComponent implements OnInit  {
 
   handleLoadData(response: any): void {
     if (response.status && response.status === 'success') {
+      let time = response.data.time;
+
       this.files = response.data.files;
 
       this.variables = response.data.variables;
 
+      this.dimensions.unshift(new Dimension('time', response.data.time_units, time[0], time[1], 1));
+
       this.config.variable = this.variables[0];
-    } else {
-      if (response.errors) {
-        if (response.errors === 'User not logged in.') {
-          this.authService.logged$.next(false);
-        }
-      }
-    }
+    } 
   }
 }

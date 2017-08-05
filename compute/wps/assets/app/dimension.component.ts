@@ -26,12 +26,35 @@ export class Dimension {
     }
   }
   
-  valid(): boolean {
+  valid(): any {
+    let error = '';
     let values = [this.name, this.start, this.stop, this.step];  
 
-    return values.every((element, index, array) => {
+    let result = values.every((element, index, array) => {
       return element !== undefined && element !== '';
     });
+
+    if (!result) {
+      error = 'Dimension is missing a value';
+    }
+
+    let name = this.name.toLowerCase();
+
+    let time_pattern = /^t(ime)?.*$/;
+
+    if (time_pattern.test(name)) {
+      let pattern = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1}/;
+
+      let start = this.start + '';
+
+      let stop = this.stop + '';
+
+      if (!pattern.test(start) || !pattern.test(stop)) {
+        return { result: false, error: 'Time must match format "YYYY-MM-DD HH:MM:SS.S"' };
+      }
+    }
+
+    return { result: result, error: error };
   }
 
   toString(): string {

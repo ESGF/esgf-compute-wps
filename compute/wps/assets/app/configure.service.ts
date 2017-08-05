@@ -47,11 +47,19 @@ export class ConfigureService {
       return;
     }
 
-    if (!config.dimensions.every((e: any, i: number, a: Array<any>) => { return e.valid(); })) {
-      this.error.emit('Invalid dimension.');
+    let failed = false;
 
-      return;
-    }
+    config.dimensions.forEach((element: any) => {
+      let result = element.valid();
+
+      if (!result.result) {
+        this.error.emit(result.error);
+
+        failed = true;
+      }
+    });
+
+    if (failed) return;
 
     for (let k in config) {
       data += `${k}=${config[k]}&`;

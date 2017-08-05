@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import re
@@ -28,6 +29,28 @@ from wps.auth import openid
 from wps.auth import oauth2
 
 logger = logging.getLogger('wps.views')
+
+TIME_FREQ = {
+             '3hr': '3 Hours',
+             '6hr': '6 Hours',
+             'day': 'Daily',
+             'mon': 'Monthly',
+             'monClim': 'Monthly',
+             'subhr': 'Sub Hourly',
+             'yr': 'Yearly'
+            }
+
+TIME_FMT = {
+            '3hr': '%Y%m%d%H%M',
+            '6hr': '%Y%m%d%H',
+            'day': '%Y%m%d',
+            'mon': '%Y%m',
+            'monClim': '%Y%m',
+            'subhr': '%Y%m%d%H%M%S',
+            'yr': '%Y'
+           }
+
+CDAT_TIME_FMT = '{0.year:04d}-{0.month:02d}-{0.day:02d} {0.hour:02d}:{0.minute:02d}:{0.second:02d}.0'
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -73,9 +96,13 @@ def search_esgf(request):
 
     files = []
     variables = []
+    time_freq = None
 
     for doc in data['response']['docs']:
         file_url = None
+
+        if time_freq is None:
+            time_freq = doc['time_frequency'][0]
 
         for item in doc['url']:
             url, mime, text = item.split('|')
@@ -90,8 +117,21 @@ def search_esgf(request):
 
             variables.append(doc['variable'][0])
 
+    def parse_time(x):
+        return re.match('.*_([0-9]*)-([0-9]*)\.nc', x).groups()
+
+    time = sorted(set(y for x in files for y in parse_time(x.split('/')[-1])))
+
+    time_fmt = TIME_FMT.get(time_freq, None)
+
+    start = datetime.datetime.strptime(time[0], time_fmt)
+
+    stop = datetime.datetime.strptime(time[-1], time_fmt)
+
     data = {
             'files': files,
+            'time': (CDAT_TIME_FMT.format(start), CDAT_TIME_FMT.format(stop)),
+            'time_units': TIME_FREQ.get(time_freq, None),
             'variables': list(set(variables))
            }
 
@@ -137,7 +177,10 @@ def generate(request):
         for d in dimensions:
             name = d['name'].split(' ')[0]
 
-            buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
+            if name.lower() in ('time', 't'):
+                buf.write("\tcwt.Dimension('{}', '{start}', '{stop}', step={step}, crs=cwt.CRS('timestamps')),\n".format(name, **d))
+            else:
+                buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
 
         buf.write("])\n\n")
 
