@@ -20,6 +20,18 @@ export class Dimension {
     if (this.unit !== undefined) {
       this.name = `${this.name} (${this.unit})`;
     }
+
+    if (this.step === undefined) {
+      this.step = 1;
+    }
+  }
+  
+  valid(): boolean {
+    let values = [this.name, this.start, this.stop, this.step];  
+
+    return values.every((element, index, array) => {
+      return element !== undefined && element !== '';
+    });
   }
 
   toString(): string {
@@ -29,7 +41,8 @@ export class Dimension {
 
 @Component({
   selector: 'dimension',
-  templateUrl: './dimension.component.html'
+  templateUrl: './dimension.component.html',
+  styleUrls: ['./forms.css']
 })
 export class DimensionComponent {
   @Input() dimension: Dimension;

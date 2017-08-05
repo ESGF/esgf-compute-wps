@@ -1,9 +1,11 @@
 import { Http, Headers } from '@angular/http';
-import { Injectable, Inject } from '@angular/core';
+import { Injectable, Inject, EventEmitter } from '@angular/core';
 import { DOCUMENT } from '@angular/platform-browser';
 
 @Injectable()
 export class ConfigureService {
+  error: EventEmitter<string> = new EventEmitter();
+
   constructor(
     @Inject(DOCUMENT) private doc: any,
     private http: Http
@@ -38,6 +40,18 @@ export class ConfigureService {
 
   downloadScript(config: any): Promise<any> {
     let data = '';
+
+    if (config.variable === undefined || config.variable === '') {
+      this.error.emit('Missing variable.');
+
+      return;
+    }
+
+    if (!config.dimensions.every((e: any, i: number, a: Array<any>) => { return e.valid(); })) {
+      this.error.emit('Invalid dimension.');
+
+      return;
+    }
 
     for (let k in config) {
       data += `${k}=${config[k]}&`;

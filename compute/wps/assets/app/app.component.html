@@ -13,5 +13,9 @@
   </nav>
 </div>
 <div>
+  <div class="alert alert-dismissible" [class.alert-danger]="error" [class.show]="error" [class.hidden]="!error" role="alert">
+    <button type="button" class="close" (click)="onHideError()"><span aria-hidden="true">&times;</span></button>
+    {{message}}
+  </div>
   <router-outlet></router-outlet>
 </div>

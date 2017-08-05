@@ -17,7 +17,6 @@ class Config {
 
 @Component({
   templateUrl: './configure.component.html',
-  providers: [ConfigureService],
   styleUrls: ['./map.css'],
   encapsulation: ViewEncapsulation.None
 })

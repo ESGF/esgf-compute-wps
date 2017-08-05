@@ -7,7 +7,7 @@
             <label for="name">Name</label>
           </div>
           <div class="col-md-10">
-            <input type="text" class="form-control" [(ngModel)]="dimension.name" id="name" [readonly]="dimension.nameEdit">
+            <input type="text" class="form-control" [(ngModel)]="dimension.name" id="name" [readonly]="dimension.nameEdit" required>
             <button *ngIf="!dimension.nameEdit" type="button" class="close" (click)="onRemoveDimension(dimension.uuid)">&times;</button>
           </div>
         </div>
@@ -18,7 +18,7 @@
             <label for="start">Start</label>
           </div>
           <div class="col-md-10">
-            <input type="text" class="form-control" [(ngModel)]="dimension.start" id="start">
+            <input type="text" class="form-control" [(ngModel)]="dimension.start" id="start" required>
           </div>
         </div>
       </div>
@@ -28,7 +28,7 @@
             <label for="stop">Stop</label>
           </div>
           <div class="col-md-10">
-            <input type="text" class="form-control" [(ngModel)]="dimension.stop" id="stop">
+            <input type="text" class="form-control" [(ngModel)]="dimension.stop" id="stop" required>
           </div>
         </div>
       </div>
@@ -38,7 +38,7 @@
             <label for="step">Step</label>
           </div>
           <div class="col-md-10">
-            <input type="text" class="form-control" [(ngModel)]="dimension.step" id="step">
+            <input type="text" class="form-control" [(ngModel)]="dimension.step" id="step" required>
           </div>
         </div>
       </div>
