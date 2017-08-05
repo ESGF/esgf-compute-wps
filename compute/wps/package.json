@@ -18,10 +18,14 @@
     "zone.js": "^0.8.16"
   },
   "devDependencies": {
+    "@types/d3": "^4.10.0",
     "@types/node": "^8.0.17",
+    "@types/topojson": "^3.0.2",
     "angular2-template-loader": "^0.6.2",
     "awesome-typescript-loader": "^3.2.2",
+    "d3": "^4.10.0",
     "html-loader": "^0.5.0",
+    "topojson": "^3.0.0",
     "typescript": "^2.4.2",
     "webpack": "^3.4.1",
     "webpack-bundle-tracker": "^0.2.0",

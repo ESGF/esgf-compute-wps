@@ -32,7 +32,7 @@ logger = logging.getLogger('wps.views')
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def search_esgf(request):
-    if not request.user.is_authenticated():
+    if not request.user.is_authenticated:
         return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
 
     dataset_id = request.GET.get('dataset_id', None)
@@ -109,6 +109,9 @@ def generate(request):
 
     files = request.POST['files']
 
+    # Javascript stringify on an array creates list without brackets
+    dimensions = json.loads('[{}]'.format(request.POST['dimensions']))
+
     files = files.split(',')
 
     buf = StringIO.StringIO()
@@ -128,7 +131,22 @@ def generate(request):
 
     buf.write("proc = wps.get_process('{}')\n\n".format(process))
 
-    buf.write("wps.execute(proc, inputs=files)\n\n")
+    if len(dimensions) > 0:
+        buf.write("domain = cwt.Domain([\n")
+
+        for d in dimensions:
+            name = d['name'].split(' ')[0]
+
+            buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
+
+        buf.write("])\n\n")
+
+    buf.write("wps.execute(proc, inputs=files")
+
+    if len(dimensions) > 0:
+        buf.write(", domain=domain")
+    
+    buf.write(")\n\n")
 
     buf.write("while proc.processing:\n")
 
@@ -204,7 +222,7 @@ def create(request):
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def user(request):
-    if not request.user.is_authenticated():
+    if not request.user.is_authenticated:
         return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
 
     data = {

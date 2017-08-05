@@ -1,0 +1,47 @@
+<div class="panel panel-default">
+  <div class="panel-body form-inline">
+    <div class="container">
+      <div class="row">
+        <div class="form-group form-group-sm">
+          <div class="col-md-2">
+            <label for="name">Name</label>
+          </div>
+          <div class="col-md-10">
+            <input type="text" class="form-control" [(ngModel)]="dimension.name" id="name" [readonly]="dimension.nameEdit">
+            <button *ngIf="!dimension.nameEdit" type="button" class="close" (click)="onRemoveDimension(dimension.uuid)">&times;</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group form-group-sm">
+          <div class="col-md-2">
+            <label for="start">Start</label>
+          </div>
+          <div class="col-md-10">
+            <input type="text" class="form-control" [(ngModel)]="dimension.start" id="start">
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group form-group-sm">
+          <div class="col-md-2">
+            <label for="stop">Stop</label>
+          </div>
+          <div class="col-md-10">
+            <input type="text" class="form-control" [(ngModel)]="dimension.stop" id="stop">
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group form-group-sm">
+          <div class="col-md-2">
+            <label for="step">Step</label>
+          </div>
+          <div class="col-md-10">
+            <input type="text" class="form-control" [(ngModel)]="dimension.step" id="step">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -10,6 +10,7 @@ import { UpdateUserFormComponent } from './update-user-form.component';
 import { LoginFormComponent } from './login-form.component';
 import { LogoutComponent } from './logout.component';
 import { ConfigureComponent } from './configure.component';
+import { DimensionComponent } from './dimension.component';
 
 import { AuthService } from './auth.service';
 
@@ -52,7 +53,8 @@ import { AuthService } from './auth.service';
     UpdateUserFormComponent,
     LoginFormComponent,
     LogoutComponent,
-    ConfigureComponent
+    ConfigureComponent,
+    DimensionComponent
   ],
   providers: [
     AuthService 
