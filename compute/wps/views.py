@@ -158,9 +158,7 @@ def generate(request):
 
     buf.write("import cwt\nimport time\n\n")
 
-    buf.write("key = 'YOUR KEY'\n\n")
-
-    buf.write("wps = cwt.WPS('', api_key=key)\n\n")
+    buf.write("wps = cwt.WPS('{}', api_key='{}')\n\n".format(settings.ENDPOINT, request.user.auth.api_key))
 
     buf.write("files = [\n")
 
