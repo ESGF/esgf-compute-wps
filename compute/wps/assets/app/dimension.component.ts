@@ -36,21 +36,21 @@ export class Dimension {
 
     if (!result) {
       error = 'Dimension is missing a value';
-    }
+    } else {
+      let name = this.name.toLowerCase();
 
-    let name = this.name.toLowerCase();
+      let time_pattern = /^t(ime)?.*$/;
 
-    let time_pattern = /^t(ime)?.*$/;
+      if (time_pattern.test(name)) {
+        let pattern = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1}/;
 
-    if (time_pattern.test(name)) {
-      let pattern = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{1}/;
+        let start = this.start + '';
 
-      let start = this.start + '';
+        let stop = this.stop + '';
 
-      let stop = this.stop + '';
-
-      if (!pattern.test(start) || !pattern.test(stop)) {
-        return { result: false, error: 'Time must match format "YYYY-MM-DD HH:MM:SS.S"' };
+        if (!pattern.test(start) || !pattern.test(stop)) {
+          return { result: false, error: 'Time must match format "YYYY-MM-DD HH:MM:SS.S"' };
+        }
       }
     }
 
