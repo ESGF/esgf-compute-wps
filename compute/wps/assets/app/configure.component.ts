@@ -28,6 +28,8 @@ export class ConfigureComponent implements OnInit  {
   config: Config = new Config();
   variables: string[] = [];
   files: string[] = [];
+  roiMove: boolean = false;
+  roiResize: boolean[] = [false, false, false, false];
   svg: any;
   roi: any;
   projection: any;
@@ -61,17 +63,31 @@ export class ConfigureComponent implements OnInit  {
     let latitude = this.dimensions.filter(this.filterDimensionByName('latitude'));
 
     if (start !== null) {
-      let geoStart = this.projection.invert(start);
+      if (start[0] !== -1) {
+        let geo = this.projection.invert([start[0], 0]);
 
-      longitude[0].start = geoStart[0];
-      latitude[0].start = geoStart[1];
+        longitude[0].start = geo[0];
+      }
+
+      if (start[1] !== -1) {
+        let geo = this.projection.invert([0, start[1]]);
+
+        latitude[0].start = geo[1];
+      }
     }
 
     if (stop !== null) {
-      let geoStop = this.projection.invert(stop);
+      if (stop[0] !== -1) {
+        let geo = this.projection.invert([stop[0], 0]);
 
-      longitude[0].stop = geoStop[0];
-      latitude[0].stop = geoStop[1];
+        longitude[0].stop = geo[0];
+      }
+
+      if (stop[1] !== -1) {
+        let geo = this.projection.invert([0, stop[1]]);
+
+        latitude[0].stop = geo[1];
+      }
     }
   }
 
@@ -108,6 +124,126 @@ export class ConfigureComponent implements OnInit  {
     }
   }
 
+  isTrue(e: boolean, index: number, array: Array<boolean>): boolean {
+    return e;
+  }
+
+  onROIDragStart() {
+    return () => {
+      const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
+      const bar = 20;
+
+      let coord = d3.mouse(this.svg.node());
+
+      let x = +this.roi.attr('x');
+      let y = +this.roi.attr('y');
+      let width = +this.roi.attr('width');
+      let height = +this.roi.attr('height');
+
+      this.roiResize[0] = (coord[1] > (y + height - bar));
+      this.roiResize[1] = (coord[0] < (x + bar));
+      this.roiResize[2] = (coord[1] < (y + bar));
+      this.roiResize[3] = (coord[0] > (x + width - bar));
+
+      if (this.roiResize.some(this.isTrue)) {
+        this.roiMove = false;
+      } else {
+        this.roiMove = true;
+      }
+    }
+  }
+
+  onROIDrag() {
+    return () => {
+      const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
+
+      let dx = event.dx;
+      let dy = event.dy;
+
+      if (this.roiMove) {
+        let bboxStart = this.projection([-180, 90]);
+        let bboxStop = this.projection([180, -90]);
+
+        let x = +this.roi.attr('x');
+        let y = +this.roi.attr('y');
+        let width = +this.roi.attr('width');
+        let height = +this.roi.attr('height');
+
+        if ((dx <= -1 && x != bboxStart[0]) || (dx >= 1 && (x + width) != bboxStop[0])) {
+          x += dx;
+
+          this.roi.attr('x', x);
+        }
+
+        if ((dy <= -1 && y != bboxStart[1]) || (dy >= 1 && (y + height) != bboxStop[1])) {
+          y += dy;
+
+          this.roi.attr('y', y);
+        }
+
+        this.updateDimensions([x, y], [x + width, y + height]);
+      } else {
+        if (dx !== 0) {
+          let x = +this.roi.attr('x');
+          let width = +this.roi.attr('width');
+
+          if (this.roiResize[1]) {
+            x += dx;
+            width -= dx;
+
+            this.roi.attr('x', x);
+            this.roi.attr('width', width);
+
+            this.updateDimensions([x, -1], null);
+          }
+
+          if (this.roiResize[3]) {
+            width += dx;
+
+            this.roi.attr('width', width);
+
+            this.updateDimensions(null, [width, -1]);
+          }
+        }
+
+        if (dy !== 0) {
+          let y = +this.roi.attr('y');
+          let height = +this.roi.attr('height');
+
+          if (this.roiResize[0]) {
+            height += dy;
+
+            this.roi.attr('height', height);
+
+            this.updateDimensions(null, [-1, height]);
+          }
+
+          if (this.roiResize[2]) {
+            y += dy;
+            height -= dy;
+
+            this.roi.attr('y', y);
+            this.roi.attr('height', height);
+            
+            this.updateDimensions([-1, y], null);
+          }
+        }
+      }
+    }
+  }
+
+  onROIDragEnd() {
+    return () => {
+      const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
+
+      this.roiMove = false;
+
+      for (let i = 0; i < this.roiResize.length; i++) {
+        this.roiResize[i] = false;
+      }
+    }
+  }
+
   loadMap(): void {
     this.svg = d3.select('svg')
       .attr('width', 960)
@@ -131,7 +267,12 @@ export class ConfigureComponent implements OnInit  {
       .attr('x', 0)
       .attr('y', 0)
       .attr('width', 0)
-      .attr('height', 0);
+      .attr('height', 0)
+      .call(d3.drag()
+        .on('start', this.onROIDragStart())
+        .on('drag', this.onROIDrag())
+        .on('end', this.onROIDragEnd())
+      );
 
     this.svg.call(d3.drag()
       .on('start', this.onDragStart())
