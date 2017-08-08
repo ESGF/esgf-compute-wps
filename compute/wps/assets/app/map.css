@@ -15,3 +15,10 @@
 .country {
 	fill: #777;
 }
+
+.roi {
+	fill: #08f;
+	fill-opacity: 0.5;
+	stroke: black;
+	stroke-width: 0.5px;
+}
