@@ -5,3 +5,4 @@ export * from 'd3-scale';
 export * from 'd3-array';
 export * from 'd3-dispatch';
 export * from 'd3-drag';
+export * from 'd3-format';

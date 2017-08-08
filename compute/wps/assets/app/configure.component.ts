@@ -33,6 +33,7 @@ export class ConfigureComponent implements OnInit  {
   svg: any;
   roi: any;
   projection: any;
+  nfmt: any;
   dimensions: Dimension[] = [
     new Dimension('longitude', 'Degree', -180, 180, 1),
     new Dimension('latitude', 'Degree', 90, -90, 1)
@@ -66,13 +67,13 @@ export class ConfigureComponent implements OnInit  {
       if (start[0] !== -1) {
         let geo = this.projection.invert([start[0], 0]);
 
-        longitude[0].start = geo[0];
+        longitude[0].start = this.nfmt(geo[0]);
       }
 
       if (start[1] !== -1) {
         let geo = this.projection.invert([0, start[1]]);
 
-        latitude[0].start = geo[1];
+        latitude[0].start = this.nfmt(geo[1]);
       }
     }
 
@@ -80,13 +81,13 @@ export class ConfigureComponent implements OnInit  {
       if (stop[0] !== -1) {
         let geo = this.projection.invert([stop[0], 0]);
 
-        longitude[0].stop = geo[0];
+        longitude[0].stop = this.nfmt(geo[0]);
       }
 
       if (stop[1] !== -1) {
         let geo = this.projection.invert([0, stop[1]]);
 
-        latitude[0].stop = geo[1];
+        latitude[0].stop = this.nfmt(geo[1]);
       }
     }
   }
@@ -202,7 +203,7 @@ export class ConfigureComponent implements OnInit  {
 
             this.roi.attr('width', width);
 
-            this.updateDimensions(null, [width, -1]);
+            this.updateDimensions(null, [x + width, -1]);
           }
         }
 
@@ -215,7 +216,7 @@ export class ConfigureComponent implements OnInit  {
 
             this.roi.attr('height', height);
 
-            this.updateDimensions(null, [-1, height]);
+            this.updateDimensions(null, [-1, y + height]);
           }
 
           if (this.roiResize[2]) {
@@ -245,6 +246,8 @@ export class ConfigureComponent implements OnInit  {
   }
 
   loadMap(): void {
+    this.nfmt = d3.format('.2f');
+
     this.svg = d3.select('svg')
       .attr('width', 960)
       .attr('height', 500);
