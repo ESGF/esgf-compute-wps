@@ -28,8 +28,9 @@ export class ConfigureComponent implements OnInit  {
   config: Config = new Config();
   variables: string[] = [];
   files: string[] = [];
-  svg: any = null;
-  roi: any = null;
+  svg: any;
+  roi: any;
+  projection: any;
   dimensions: Dimension[] = [
     new Dimension('longitude', 'Degree', -180, 180, 1),
     new Dimension('latitude', 'Degree', 90, -90, 1)
@@ -49,6 +50,31 @@ export class ConfigureComponent implements OnInit  {
     this.loadMap();
   }
 
+  filterDimensionByName(v: string){
+    return (d: Dimension) => {
+      return d.name.indexOf(v) > -1;
+    }
+  }
+
+  updateDimensions(start: [number, number], stop: [number, number]): void {
+    let longitude = this.dimensions.filter(this.filterDimensionByName('longitude'));
+    let latitude = this.dimensions.filter(this.filterDimensionByName('latitude'));
+
+    if (start !== null) {
+      let geoStart = this.projection.invert(start);
+
+      longitude[0].start = geoStart[0];
+      latitude[0].start = geoStart[1];
+    }
+
+    if (stop !== null) {
+      let geoStop = this.projection.invert(stop);
+
+      longitude[0].stop = geoStop[0];
+      latitude[0].stop = geoStop[1];
+    }
+  }
+
   onDragStart() {
     return () => {
       const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
@@ -60,6 +86,8 @@ export class ConfigureComponent implements OnInit  {
 
       this.roi.attr('width', 0);
       this.roi.attr('height', 0);
+
+      this.updateDimensions(coord, null);
     }
   }
 
@@ -67,11 +95,16 @@ export class ConfigureComponent implements OnInit  {
     return () => {
       const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
 
-      let width = +this.roi.attr('width');
-      let height = +this.roi.attr('height');
+      let x = +this.roi.attr('x');
+      let y = +this.roi.attr('y');
 
-      this.roi.attr('width', width + e.dx);
-      this.roi.attr('height', height + e.dy);
+      let width = +this.roi.attr('width') + e.dx;
+      let height = +this.roi.attr('height') + e.dy;
+
+      this.roi.attr('width', width);
+      this.roi.attr('height', height);
+
+      this.updateDimensions(null, [x + width, y + height]);
     }
   }
 
@@ -82,9 +115,9 @@ export class ConfigureComponent implements OnInit  {
 
     let color = d3.scaleOrdinal(d3.schemeCategory20);
 
-    let projection = d3.geoEquirectangular();
+    this.projection = d3.geoEquirectangular();
 
-    let path = d3.geoPath(projection);
+    let path = d3.geoPath(this.projection);
 
     let graticule = d3.geoGraticule();
 
