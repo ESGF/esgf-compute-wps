@@ -140,87 +140,96 @@ def search_esgf(request):
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def generate(request):
-    if not request.user.is_authenticated():
-        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
+    try:
+        if not request.user.is_authenticated():
+            raise Exception('User not logged in');
 
-    process = request.POST['process']
+        process = request.POST['process']
 
-    variable = request.POST['variable']
+        variable = request.POST['variable']
 
-    files = request.POST['files']
+        files = request.POST['files']
 
-    regrid = request.POST['regrid']
+        regrid = request.POST['regrid']
 
-    latitudes = request.POST.get('latitudes', None)
+        latitudes = request.POST.get('latitudes', None)
 
-    longitudes = request.POST.get('longitudes', None)
+        longitudes = request.POST.get('longitudes', None)
 
-    # Javascript stringify on an array creates list without brackets
-    dimensions = json.loads('[{}]'.format(request.POST['dimensions']))
+        # Javascript stringify on an array creates list without brackets
+        dimensions = json.loads('[{}]'.format(request.POST['dimensions']))
 
-    files = files.split(',')
+        files = files.split(',')
 
-    buf = StringIO.StringIO()
+        buf = StringIO.StringIO()
 
-    buf.write("import cwt\nimport time\n\n")
+        buf.write("import cwt\nimport time\n\n")
 
-    buf.write("wps = cwt.WPS('{}', api_key='{}')\n\n".format(settings.ENDPOINT, request.user.auth.api_key))
+        buf.write("wps = cwt.WPS('{}', api_key='{}')\n\n".format(settings.ENDPOINT, request.user.auth.api_key))
 
-    buf.write("files = [\n")
+        buf.write("files = [\n")
 
-    for f in files:
-        buf.write("\tcwt.Variable('{}', '{}'),\n".format(f, variable))
+        for f in files:
+            buf.write("\tcwt.Variable('{}', '{}'),\n".format(f, variable))
 
-    buf.write("]\n\n")
+        buf.write("]\n\n")
 
-    buf.write("proc = wps.get_process('{}')\n\n".format(process))
+        buf.write("proc = wps.get_process('{}')\n\n".format(process))
 
-    if len(dimensions) > 0:
-        buf.write("domain = cwt.Domain([\n")
+        if len(dimensions) > 0:
+            buf.write("domain = cwt.Domain([\n")
 
-        for d in dimensions:
-            name = d['name'].split(' ')[0]
+            for d in dimensions:
+                name = d['name'].split(' ')[0]
 
-            if name.lower() in ('time', 't'):
-                buf.write("\tcwt.Dimension('{}', '{start}', '{stop}', step={step}, crs=cwt.CRS('timestamps')),\n".format(name, **d))
-            else:
-                buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
+                if name.lower() in ('time', 't'):
+                    buf.write("\tcwt.Dimension('{}', '{start}', '{stop}', step={step}, crs=cwt.CRS('timestamps')),\n".format(name, **d))
+                else:
+                    buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
 
-        buf.write("])\n\n")
+            buf.write("])\n\n")
 
-    if regrid != 'None':
-        if regrid == 'Gaussian':
-            grid = 'gaussian~{}'.format(latitudes)
-        elif regrid == 'Uniform':
-            grid = 'uniform~{}x{}'.format(longitudes, latitudes)
+        if regrid != 'None':
+            if regrid == 'Gaussian':
+                if latitudes is None:
+                    raise Exception('Must provide the number of latitudes for the Gaussian grid')
 
-        buf.write("regrid = cwt.Gridder(grid='{}')\n\n".format(grid))
+                grid = 'gaussian~{}'.format(latitudes)
+            elif regrid == 'Uniform':
+                if latitudes is None or longitudes is None:
+                    raise Exception('Must provide the number of latitudes and longitudes for the Uniform grid')
 
-    buf.write("wps.execute(proc, inputs=files")
+                grid = 'uniform~{}x{}'.format(longitudes, latitudes)
 
-    if len(dimensions) > 0:
-        buf.write(", domain=domain")
+            buf.write("regrid = cwt.Gridder(grid='{}')\n\n".format(grid))
 
-    if regrid != 'None':
-        buf.write(", gridder=grid")
-    
-    buf.write(")\n\n")
+        buf.write("wps.execute(proc, inputs=files")
 
-    buf.write("while proc.processing:\n")
+        if len(dimensions) > 0:
+            buf.write(", domain=domain")
 
-    buf.write("\tprint proc.status\n\n")
+        if regrid != 'None':
+            buf.write(", gridder=grid")
+        
+        buf.write(")\n\n")
 
-    buf.write("\ttime.sleep(1)\n\n")
+        buf.write("while proc.processing:\n")
 
-    buf.write("print proc.status")
+        buf.write("\tprint proc.status\n\n")
 
-    _, kernel = process.split('.')
+        buf.write("\ttime.sleep(1)\n\n")
 
-    response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
+        buf.write("print proc.status")
 
-    response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
+        _, kernel = process.split('.')
 
-    return response
+        response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
+
+        response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
+
+        return response
+    except Exception as e:
+        return http.JsonResponse({'status': 'failed', 'errors': e.message})
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
