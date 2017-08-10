@@ -5,3 +5,7 @@
 .ng-invalid:not(form) {
 	border-left: 5px solid #a94442;
 }
+
+.form-group {
+	margin-bottom: 5px !important;
+}

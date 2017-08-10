@@ -55,7 +55,7 @@ export class ConfigureComponent implements OnInit  {
 
   filterDimensionByName(v: string){
     return (d: Dimension) => {
-      return d.name.indexOf(v) > -1;
+      return d.name !== undefined && d.name.indexOf(v) > -1;
     }
   }
 

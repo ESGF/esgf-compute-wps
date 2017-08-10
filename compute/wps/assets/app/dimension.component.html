@@ -1,46 +1,30 @@
 <div class="panel panel-default">
-  <div class="panel-body form-inline">
-    <div class="container">
-      <div class="row">
-        <div class="form-group form-group-sm">
-          <div class="col-md-2">
-            <label for="name">Name</label>
-          </div>
-          <div class="col-md-10">
-            <input type="text" class="form-control" [(ngModel)]="dimension.name" id="name" [readonly]="dimension.nameEdit" required>
-            <button *ngIf="!dimension.nameEdit" type="button" class="close" (click)="onRemoveDimension(dimension.uuid)">&times;</button>
-          </div>
-        </div>
+  <div class="panel-body form-horizontal">
+    <div class="form-group form-group-sm">
+      <label for="name" class="col-md-2 control-label">Name</label>
+      <div class="col-md-8">
+        <input type="text" class="form-control" [(ngModel)]="dimension.name" id="name" [readonly]="dimension.nameEdit" required>
       </div>
-      <div class="row">
-        <div class="form-group form-group-sm">
-          <div class="col-md-2">
-            <label for="start">Start</label>
-          </div>
-          <div class="col-md-10">
-            <input type="text" class="form-control" [(ngModel)]="dimension.start" id="start" required>
-          </div>
-        </div>
+      <div class="col-md-1">
+        <button *ngIf="!dimension.nameEdit" type="button" class="close" (click)="onRemoveDimension(dimension.uuid)">&times;</button>
       </div>
-      <div class="row">
-        <div class="form-group form-group-sm">
-          <div class="col-md-2">
-            <label for="stop">Stop</label>
-          </div>
-          <div class="col-md-10">
-            <input type="text" class="form-control" [(ngModel)]="dimension.stop" id="stop" required>
-          </div>
-        </div>
+    </div>
+    <div class="form-group form-group-sm">
+      <label for="start" class="col-md-2 control-label">Start</label>
+      <div class="col-md-8">
+        <input type="text" class="form-control" [(ngModel)]="dimension.start" id="start" required>
       </div>
-      <div class="row">
-        <div class="form-group form-group-sm">
-          <div class="col-md-2">
-            <label for="step">Step</label>
-          </div>
-          <div class="col-md-10">
-            <input type="text" class="form-control" [(ngModel)]="dimension.step" id="step" required>
-          </div>
-        </div>
+    </div>
+    <div class="form-group form-group-sm">
+      <label for="stop" class="col-md-2 control-label">Stop</label>
+      <div class="col-md-8">
+        <input type="text" class="form-control" [(ngModel)]="dimension.stop" id="stop" required>
+      </div>
+    </div>
+    <div class="form-group form-group-sm">
+      <label for="step" class="col-md-2 control-label">Step</label>
+      <div class="col-md-8">
+        <input type="text" class="form-control" [(ngModel)]="dimension.step" id="step" required>
       </div>
     </div>
   </div>
