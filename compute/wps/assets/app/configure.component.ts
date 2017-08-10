@@ -160,11 +160,10 @@ export class ConfigureComponent implements OnInit  {
 
       let dx = event.dx;
       let dy = event.dy;
+      let bboxStart = this.projection([-180, 90]);
+      let bboxStop = this.projection([180, -90]);
 
       if (this.roiMove) {
-        let bboxStart = this.projection([-180, 90]);
-        let bboxStop = this.projection([180, -90]);
-
         let x = +this.roi.attr('x');
         let y = +this.roi.attr('y');
         let width = +this.roi.attr('width');
@@ -173,11 +172,19 @@ export class ConfigureComponent implements OnInit  {
         if ((dx <= -1 && x != bboxStart[0]) || (dx >= 1 && (x + width) != bboxStop[0])) {
           x += dx;
 
+          if (x < bboxStart[0]) x = bboxStart[0]
+
+          if (x + width > bboxStop[0]) x = bboxStop[0] - width;
+
           this.roi.attr('x', x);
         }
 
         if ((dy <= -1 && y != bboxStart[1]) || (dy >= 1 && (y + height) != bboxStop[1])) {
           y += dy;
+
+          if (y < bboxStart[1]) y = bboxStart[1]
+
+          if (y + height > bboxStop[1]) y = bboxStop[1] - height;
 
           this.roi.attr('y', y);
         }
@@ -189,8 +196,10 @@ export class ConfigureComponent implements OnInit  {
           let width = +this.roi.attr('width');
 
           if (this.roiResize[1]) {
-            x += dx;
-            width -= dx;
+            if ((x + dx) >= bboxStart[0]) {
+              x += dx;
+              width -= dx;
+            }
 
             this.roi.attr('x', x);
             this.roi.attr('width', width);
@@ -199,7 +208,9 @@ export class ConfigureComponent implements OnInit  {
           }
 
           if (this.roiResize[3]) {
-            width += dx;
+            if ((x + width + dx) <= bboxStop[0]) {
+              width += dx;
+            }
 
             this.roi.attr('width', width);
 
@@ -212,7 +223,9 @@ export class ConfigureComponent implements OnInit  {
           let height = +this.roi.attr('height');
 
           if (this.roiResize[0]) {
-            height += dy;
+            if ((y + height + dy) <= bboxStop[1]) {
+              height += dy;
+            }
 
             this.roi.attr('height', height);
 
@@ -220,8 +233,10 @@ export class ConfigureComponent implements OnInit  {
           }
 
           if (this.roiResize[2]) {
-            y += dy;
-            height -= dy;
+            if ((y + dy) >= bboxStart[1]) {
+              y += dy;
+              height -= dy;
+            }
 
             this.roi.attr('y', y);
             this.roi.attr('height', height);
