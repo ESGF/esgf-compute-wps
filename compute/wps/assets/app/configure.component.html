@@ -17,6 +17,27 @@
           </select>
         </div>
       </div>
+      <div class="col-md-2">
+        <div class="form-group form-group-sm">
+          <label for="regrid">Regrid</label>
+          <select id="regrid" class="form-control" [(ngModel)]="config.regrid" name="regrid">
+            <option>None</option>
+            <option>Gaussian</option>
+            <option>Uniform</option>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <div class="form-group form-group-sm">
+          <label>&nbsp;</label>
+          <div *ngIf="config.regrid !== 'None'">
+            <input type="number" class="form-control" placeholder="Latitudes" [(ngModel)]="config.latitudes" name="latitudes" required>
+            <div *ngIf="config.regrid === 'Uniform'">
+              <input type="number" class="form-control" placeholder="Longitudes" [(ngModel)]="config.longitudes" name="longitudes" required>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="row">
       <div class="col-md-2">

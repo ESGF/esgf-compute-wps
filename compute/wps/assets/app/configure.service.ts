@@ -61,6 +61,23 @@ export class ConfigureService {
 
     if (failed) return;
 
+    switch(config.regrid) {
+      case 'Gaussian': {
+        if (config.latitudes === undefined) {
+          this.error.emit('Provide the number of latitudes for the Gaussian grid')
+          
+          return;
+        }
+      }
+      case 'Uniform': {
+        if (config.latitudes === undefined || config.longitudes === undefined) {
+          this.error.emit('Provide the number of latitudes and longitudes for the Uniform grid');
+
+          return;
+        }
+      }
+    }
+
     for (let k in config) {
       data += `${k}=${config[k]}&`;
     }

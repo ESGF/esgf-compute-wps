@@ -149,6 +149,12 @@ def generate(request):
 
     files = request.POST['files']
 
+    regrid = request.POST['regrid']
+
+    latitudes = request.POST.get('latitudes', None)
+
+    longitudes = request.POST.get('longitudes', None)
+
     # Javascript stringify on an array creates list without brackets
     dimensions = json.loads('[{}]'.format(request.POST['dimensions']))
 
@@ -182,10 +188,21 @@ def generate(request):
 
         buf.write("])\n\n")
 
+    if regrid != 'None':
+        if regrid == 'Gaussian':
+            grid = 'gaussian~{}'.format(latitudes)
+        elif regrid == 'Uniform':
+            grid = 'uniform~{}x{}'.format(longitudes, latitudes)
+
+        buf.write("regrid = cwt.Gridder(grid='{}')\n\n".format(grid))
+
     buf.write("wps.execute(proc, inputs=files")
 
     if len(dimensions) > 0:
         buf.write(", domain=domain")
+
+    if regrid != 'None':
+        buf.write(", gridder=grid")
     
     buf.write(")\n\n")
 

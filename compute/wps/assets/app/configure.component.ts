@@ -14,6 +14,9 @@ class Config {
   process: string;
   variable: string;
   files: string;
+  regrid: string;
+  latitudes: number;
+  longitudes: number;
   dimensions: Dimension[];
 }
 
@@ -49,6 +52,8 @@ export class ConfigureComponent implements OnInit  {
     this.route.queryParams.subscribe(params => this.loadData(params));
 
     this.config.process = this.PROCESSES[0];
+
+    this.config.regrid = 'None';
 
     this.loadMap();
   }
