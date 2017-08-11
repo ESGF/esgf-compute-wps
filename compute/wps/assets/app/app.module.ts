@@ -13,6 +13,7 @@ import { ConfigureComponent } from './configure.component';
 import { DimensionComponent } from './dimension.component';
 
 import { AuthService } from './auth.service';
+import { AuthGuard } from './auth-guard.service';
 
 @NgModule({
   imports: [
@@ -28,12 +29,18 @@ import { AuthService } from './auth.service';
             component: CreateUserFormComponent
           },
           {
-            path: 'profile',
-            component: UpdateUserFormComponent
-          },
-          {
             path: 'login',
             component: LoginFormComponent
+          }
+        ]
+      },
+      {
+        path: 'wps/home',
+        canActivate: [AuthGuard],
+        children: [
+          {
+            path: 'profile',
+            component: UpdateUserFormComponent
           },
           {
             path: 'logout',
@@ -57,7 +64,8 @@ import { AuthService } from './auth.service';
     DimensionComponent
   ],
   providers: [
-    AuthService 
+    AuthService,
+    AuthGuard
   ],
   bootstrap: [ AppComponent ]
 })
