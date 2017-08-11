@@ -47,8 +47,11 @@
     <br>
     <div class="row">
       <div class="col-md-2">
-        <div>
-          <button type="button" class="btn btn-default" (click)="onAddDimension()">Add</button>
+        <div class="form-inline form-group-sm">
+          <button type="button" class="btn btn-default" (click)="onAddDimension()">Add Dimension</button>
+          <select (change)="onDomainChange()" class="form-control" [(ngModel)]="domain" name="domain">
+            <option *ngFor="let d of domains">{{d.name}}</option>
+          </select>
         </div>
         <br>
         <ul class="list-unstyled">

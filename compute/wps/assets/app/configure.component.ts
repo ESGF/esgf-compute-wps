@@ -20,6 +20,14 @@ class Config {
   dimensions: Dimension[];
 }
 
+class Domain {
+  constructor(
+    public name: string,
+    public start: [number, number],
+    public end: [number, number]
+  ) { }
+}
+
 @Component({
   templateUrl: './configure.component.html',
   styleUrls: ['./map.css'],
@@ -41,6 +49,22 @@ export class ConfigureComponent implements OnInit  {
     new Dimension('longitude', 'Degree', -180, 180, 1),
     new Dimension('latitude', 'Degree', 90, -90, 1)
   ];
+  domain: string;
+  domains: Domain[] = [
+    new Domain('World', [-180, 90], [180, -90]),
+    new Domain('North America', [-180, 84], [-10.0, 6.0]),
+    new Domain('South America', [-84.0, 14.0], [-30.0, -56.0]),
+    new Domain('Africa', [-18.0, 38.0], [52.0, -36.0]),
+    new Domain('Europe', [-24.0, 68.0], [52.0, 30.0]),
+    new Domain('Asia', [26.0, 84.0], [180.0, -10.0]),
+    new Domain('Australia', [112.0, -10.0], [156.0, -48.0]),
+    new Domain('Antarctica', [-180.0, -60.0], [180.0, -90.0]),
+    new Domain('Northern Hemisphere', [-180, 90], [180, 0]),
+    new Domain('Southern Hemisphere', [-180, 0], [180, -90]),
+    new Domain('Tropics', [-180.0, 23.4], [180.0, -23.4]),
+    new Domain('Antarctic Zone', [-180.0, -66.6], [180.0, -90.0]),
+    new Domain('Arctic Zone', [-180.0, 90.0], [66.6, 180.0])
+  ];
 
   constructor(
     private route: ActivatedRoute,
@@ -55,7 +79,42 @@ export class ConfigureComponent implements OnInit  {
 
     this.config.regrid = 'None';
 
+    this.domain = this.domains[0].name;
+
     this.loadMap();
+  }
+
+  onDomainChange(): void {
+    let domain = this.domains.filter((v: Domain, i: number, a: Domain[]) => {
+      return v.name === this.domain;
+    })[0];
+
+    if (domain.name === 'World') {
+      this.roi.classed('hidden', true);
+
+      this.roi.classed('show', false);
+    } else {
+      this.roi.classed('hidden', false);
+
+      this.roi.classed('show', true);
+
+      let start = this.projection(domain.start);
+      let stop = this.projection(domain.end);
+
+      this.roi.attr('x', start[0])
+        .attr('y', start[1])
+        .attr('width', stop[0] - start[0])
+        .attr('height', stop[1] - start[1]);
+    }
+
+    let longitude = this.dimensions.filter(this.filterDimensionByName('longitude'));
+    let latitude = this.dimensions.filter(this.filterDimensionByName('latitude'));
+
+    longitude[0].start = domain.start[0];
+    longitude[0].stop = domain.end[0];
+
+    latitude[0].start = domain.start[1];
+    latitude[0].stop = domain.end[1];
   }
 
   filterDimensionByName(v: string){
@@ -100,6 +159,10 @@ export class ConfigureComponent implements OnInit  {
   onDragStart() {
     return () => {
       const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
+
+      this.roi.classed('hidden', false);
+
+      this.roi.classed('show', true);
 
       let coord = d3.mouse(this.svg.node());
 
