@@ -1,0 +1,74 @@
+<div class="container">
+  <div class="row">
+    <div class="col-md-2">
+      <ul class="jobs list-unstyled">
+        <li *ngFor="let j of jobs" (click)="onClick(j)" [class.selected]="j === selectedJob">{{j.accepted.created_date | date:'short'}}</li>
+      </ul>
+    </div>
+    <div class="col-md-8">
+      <div *ngIf="selectedJob">
+        <div class="row">
+          <div class="col-md-12">
+            <h1>Job Info</h1>
+            <table class="table">
+              <tr>
+                <td>Accepted</td>
+                <td>{{selectedJob.accepted.created_date | date:'short'}}</td>
+              </tr>
+              <tr>
+                <td>Elapsed</td>
+                <td>{{selectedJob.elapsed}}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <div *ngIf="selectedJob.status" class="row">
+          <div class="col-md-12">
+            <h1>Job Status History</h1>
+            <table class="table tabel-hover">
+              <tr *ngFor="let s of selectedJob.status">
+                <td>
+                  <div class="row">
+                    <div class="col-md-2">
+                      {{s.status}}
+                    </div>
+                    <div class="col-md-4">
+                      <strong>{{s.created_date | date:'short'}}</strong>
+                    </div>
+                  </div>
+                  <div *ngIf="s.output !== null" class="row message">
+                    <div class="col-md-12">
+                      <code>
+                        {{s.output}}
+                      </code>
+                    </div>
+                  </div>
+                  <div *ngIf="s.exception !== null" class="row message">
+                    <div class="col-md-12">
+                      <code>
+                        {{s.exception}}
+                      </code>
+                    </div>
+                  </div>
+                  <div *ngFor="let m of s.messages" class="row message">
+                    <div class="col-md-3">
+                      {{m.created_date | date:'short'}}
+                    </div>
+                    <div class="col-md-1">
+                      <div *ngIf="m.percent !== null">
+                        {{m.percent}} %
+                      </div>
+                    </div>
+                    <div class="col-md-8">
+                      {{m.message}}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

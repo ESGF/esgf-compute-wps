@@ -2,6 +2,9 @@
   <nav class="navbar navbar-default">
     <div class="container-fluid">
       <a class="navbar-brand" href="wps/home">WPS</a>
+      <ul *ngIf="logged" class="nav navbar-nav navbar-left">
+        <li><a routerLink="/wps/home/jobs">Jobs</a></li>
+      </ul>
       <ul class="nav navbar-nav navbar-right">
         <li *ngIf="!logged; else elseBlock"><a routerLink="/wps/home/login">Login</a></li>
         <ng-template #elseBlock>

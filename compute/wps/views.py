@@ -584,33 +584,47 @@ def processes(request, server_id):
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
-def jobs(request, user_id):
-    if not request.user.is_authenticated():
-        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
-
+def job(request, job_id):
     try:
-        user = models.User.objects.get(pk=user_id)
-    except models.User.DoesNotExist as e:
+        if not request.user.is_authenticated:
+            raise Exception('User not logged in')
+
+        status = [
+            {
+                'created_date': x.created_date,
+                'status': x.status,
+                'exception': x.exception,
+                'output': x.output,
+                'messages': [{
+                    'created_date': y.created_date,
+                    'percent': y.percent,
+                    'message': y.message
+                } for y in x.message_set.all().order_by('created_date')]
+            } for x in models.Job.objects.get(pk=job_id).status_set.all().order_by('created_date')
+        ]
+
+        return http.JsonResponse(dict(data=status))
+    except Exception as e:
         return http.JsonResponse({'status': 'failed', 'errors': e.message})
 
-    jobs = [{
-             'id': x.id,
-             'server': x.server.id,
-             'elapsed': x.elapsed,
-             'status': [{
-                         'id': y.id,
-                         'created': y.created_date,
-                         'status': y.status,
-                         'messages': [{
-                                       'id': z.id,
-                                       'created': z.created_date,
-                                       'message': z.message,
-                                       'percent': z.percent,
-                                      } for z in y.message_set.all()]
-                        } for y in x.status_set.all()]
-            } for x in user.job_set.all()]
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def jobs(request):
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('User not logged in')
 
-    return http.JsonResponse(dict(jobs=jobs))
+        jobs = list(reversed([
+            {
+                'id': x.id,
+                'elapsed': x.elapsed,
+                'accepted': x.status_set.all().values('created_date').order_by('created_date').first()
+            } for x in models.Job.objects.filter(user_id=request.user.id)
+        ]))
+
+        return http.JsonResponse(dict(data=jobs))
+    except Exception as e:
+        return http.JsonResponse({'status': 'failed', 'errors': e.message})
 
 @ensure_csrf_cookie
 def output(request, file_name):

@@ -76,6 +76,17 @@ class Job(models.Model):
     extra = models.TextField(null=True)
 
     @property
+    def status(self):
+        return [
+            {
+                'create_date':  x.created_date,
+                'status': x.status,
+                'exception': x.exception,
+                'output': x.output
+            } for x in self.status_set.all().order_by('created_date')
+        ]
+
+    @property
     def elapsed(self):
         started = self.status_set.filter(status='ProcessStarted')
 

@@ -11,6 +11,7 @@ import { LoginFormComponent } from './login-form.component';
 import { LogoutComponent } from './logout.component';
 import { ConfigureComponent } from './configure.component';
 import { DimensionComponent } from './dimension.component';
+import { JobsComponent } from './jobs.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
@@ -39,6 +40,10 @@ import { AuthGuard } from './auth-guard.service';
         canActivate: [AuthGuard],
         children: [
           {
+            path: 'jobs',
+            component: JobsComponent
+          },
+          {
             path: 'profile',
             component: UpdateUserFormComponent
           },
@@ -61,7 +66,8 @@ import { AuthGuard } from './auth-guard.service';
     LoginFormComponent,
     LogoutComponent,
     ConfigureComponent,
-    DimensionComponent
+    DimensionComponent,
+    JobsComponent
   ],
   providers: [
     AuthService,
