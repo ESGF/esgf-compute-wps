@@ -12,6 +12,32 @@ export class Job {
     public accepted: string[]
   ) { }
 
+  reformatStatus(status: Status): Status {
+    let p = new DOMParser();
+
+    if (status.exception) {
+      let xmlDoc = p.parseFromString(status.exception, 'text/xml');
+
+      let elements = xmlDoc.getElementsByTagName('ows:ExceptionText');
+
+      if (elements.length > 0) {
+        status.exception = elements[0].innerHTML;
+      }
+    } else if (status.output) {
+      let xmlDoc = p.parseFromString(status.output, 'text/xml');
+
+      let elements = xmlDoc.getElementsByTagName('ows:ComplexData');
+
+      if (elements.length > 0) {
+        let variable = JSON.parse(elements[0].innerHTML);
+
+        status.output = variable.uri;
+      }
+    }
+
+    return status;
+  }
+
   update(updates: Status[]): string {
     if (this.status === undefined) {
       this.status = new Array<Status>();
@@ -23,6 +49,8 @@ export class Job {
       if (match !== undefined) {
         s.messages.forEach((m: Message) => match.messages.push(m));
       } else {
+        s = this.reformatStatus(s);
+
         this.status.push(s);
       }
     });
