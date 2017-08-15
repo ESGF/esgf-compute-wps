@@ -38,7 +38,11 @@ export class JobsComponent implements OnInit {
 
   ngOnInit() {
     this.wps.jobs()
-      .then(response => this.jobs = response);
+      .then(response => {
+        this.jobs = response;
+
+        if (this.jobs.length > 0) this.onClick(this.jobs[0]);
+      });
   }
 
   onClick(job: Job) {
