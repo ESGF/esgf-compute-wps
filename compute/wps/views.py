@@ -50,7 +50,7 @@ TIME_FMT = {
             'yr': '%Y'
            }
 
-TIME_FMT = '%Y%m%d%H%M%S'
+SESSION_TIME_FMT = '%Y%m%d%H%M%S'
 CDAT_TIME_FMT = '{0.year:04d}-{0.month:02d}-{0.day:02d} {0.hour:02d}:{0.minute:02d}:{0.second:02d}.0'
 
 @require_http_methods(['GET'])
@@ -568,7 +568,7 @@ def job(request, job_id):
             if updated is None:
                 updated = datetime.datetime.now()
             else:
-                updated = datetime.datetime.strptime(updated, TIME_FMT)
+                updated = datetime.datetime.strptime(updated, SESSION_TIME_FMT)
 
             status = [
                 {
@@ -597,7 +597,7 @@ def job(request, job_id):
                 } for x in models.Job.objects.get(pk=job_id).status_set.all().order_by('created_date')
             ]
 
-        request.session['updated'] = datetime.datetime.now().strftime(TIME_FMT)
+        request.session['updated'] = datetime.datetime.now().strftime(SESSION_TIME_FMT)
 
         return http.JsonResponse(dict(data=status))
     except Exception as e:
