@@ -109,6 +109,10 @@ class Job(models.Model):
             exc_report = wps_lib.ExceptionReport.from_xml(latest.exception)
 
             status = STATUS.get(latest.status)(exception_report=exc_report)
+        elif latest.status == 'ProcessStarted':
+            message = latest.message_set.latest('created_date')
+
+            status = STATUS.get(latest.status)(value=message.message, percent_completed=message.percent)
         else:
             status = STATUS.get(latest.status)()
 
