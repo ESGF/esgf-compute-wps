@@ -5,6 +5,7 @@ import copy
 import hashlib
 import json
 import os
+import time
 import uuid
 from contextlib import closing
 from contextlib import nested
@@ -79,18 +80,6 @@ def register_process(name):
         return func
 
     return wrapper
-
-if global_settings.DEBUG:
-    @register_process('wps.demo')
-    @shared_task
-    def demo(variables, operations, domains):
-        logger.info('Operations {}'.format(operations))
-
-        logger.info('Domains {}'.format(domains))
-
-        logger.info('Variables {}'.format(variables))
-
-        return cwt.Variable('file:///demo.nc', 'tas').parameterize()
 
 def int_or_float(value):
     try:
@@ -826,6 +815,50 @@ cwt_shared_task = partial(shared_task,
                           base=CWTBaseTask,
                           autoretry_for=(AccessError,),
                           retry_kwargs={'max_retries': 5})
+
+if global_settings.DEBUG:
+    @register_process('dev.echo')
+    @cwt_shared_task()
+    def dev_echo(self, variables, operations, domains, **kwargs):
+        status = self.initialize(credentials=False, **kwargs)
+
+        status.job.started()
+
+        logger.info('Operations {}'.format(operations))
+
+        logger.info('Domains {}'.format(domains))
+
+        logger.info('Variables {}'.format(variables))
+
+        return cwt.Variable('variables={};domains={};operations={};'.format(variables, domains, operations), 'tas').parameterize()
+
+    @register_process('dev.sleep')
+    @cwt_shared_task()
+    def dev_sleep(self, variables, operations, domains, **kwargs):
+        status = self.initialize(credentials=False, **kwargs)
+
+        status.job.started()
+
+        v, d, o = self.load(variables, domains, operations)
+
+        op = self.op_by_id('dev.sleep', o)
+
+        count = op.get_parameter('count')
+
+        if count is None:
+            count = 6
+
+        timeout = op.get_parameter('timeout')
+
+        if timeout is None:
+            timeout = 10
+
+        for i in xrange(count):
+            status.update(percent=i*100/count)
+
+            time.sleep(timeout)
+
+        return cwt.Variable('Slept {} times for {} seconds, total time {} seconds'.format(count, timeout, count*timeout), 'tas').parameterize()
 
 @shared_task(bind=True, base=CWTBaseTask)
 def handle_output(self, variable, **kwargs):
