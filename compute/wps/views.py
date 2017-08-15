@@ -181,9 +181,17 @@ def execute(request):
 
         proc.identifier = process
 
+        kwargs = {}
+
+        if regrid != 'None':
+            if regrid == 'Gaussian':
+                kwargs['gridder'] = cwt.Gridder(grid='gaussian~{}'.format(latitudes))
+            elif regrid == 'Uniform':
+                kwargs['gridder'] = cwt.Gridder(grid='uniform~{}x{}'.format(longitudes, latitudes))
+
         wps = cwt.WPS('')
 
-        datainputs = wps.prepare_data_inputs(proc, inputs, domain)
+        datainputs = wps.prepare_data_inputs(proc, inputs, domain, **kwargs)
 
         manager = node_manager.NodeManager()
 

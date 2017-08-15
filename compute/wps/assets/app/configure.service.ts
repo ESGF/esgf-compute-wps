@@ -69,6 +69,8 @@ export class ConfigureService {
           
           return null;
         }
+
+        break;
       }
       case 'Uniform': {
         if (config.latitudes === undefined || config.longitudes === undefined) {
@@ -76,6 +78,8 @@ export class ConfigureService {
 
           return null;
         }
+
+        break;
       }
     }
 
