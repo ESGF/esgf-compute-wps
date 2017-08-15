@@ -5,7 +5,7 @@
         <li *ngFor="let j of jobs" (click)="onClick(j)" [class.selected]="j === selectedJob">{{j.accepted.created_date | date:'short'}}</li>
       </ul>
     </div>
-    <div class="col-md-8">
+    <div class="col-md-10">
       <div *ngIf="selectedJob">
         <div class="row">
           <div class="col-md-12">
