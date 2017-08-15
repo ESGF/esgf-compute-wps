@@ -3,9 +3,8 @@ import { Http, Headers } from '@angular/http';
 import { DOCUMENT } from '@angular/platform-browser';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 
-import 'rxjs/add/operator/toPromise';
-
 import { User } from './user';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class AuthService {
@@ -13,7 +12,11 @@ export class AuthService {
 
   logged$ = new BehaviorSubject(this.logged);
 
-  constructor(@Inject(DOCUMENT) private doc: any, private http: Http) { }
+  constructor(
+    private notificationService: NotificationService,
+    @Inject(DOCUMENT) private doc: any,
+    private http: Http
+  ) { }
 
   isLogged(): boolean {
     let expires = localStorage.getItem('wps_expires');
@@ -66,7 +69,11 @@ export class AuthService {
     })
       .toPromise()
       .then(response => response.json())
-      .catch(this.handleError);
+      .catch(response => {
+        this.notificationService.error(`Failed to create account`);
+
+        return this.handleError(response);
+      });
   }
 
   update(user: User): Promise<string> {
@@ -78,7 +85,11 @@ export class AuthService {
     })
       .toPromise()
       .then(response => response.json())
-      .catch(this.handleError);
+      .catch(response => {
+        this.notificationService.error(`Failed to update account`);
+
+        return this.handleError(response);
+      });
   }
 
   login(user: User): Promise<string> {
@@ -90,7 +101,11 @@ export class AuthService {
     })
       .toPromise()
       .then(response => this.handleLoginResponse(response.json()))
-      .catch(this.handleError);
+      .catch(response => {
+        this.notificationService.error(`Failed to login`);
+
+        return this.handleError(response);
+      });
   }
 
   logout(): Promise<string> {
@@ -102,7 +117,11 @@ export class AuthService {
     })
       .toPromise()
       .then(response => this.handleLogoutResponse(response.json()))
-      .catch(this.handleError);
+      .catch(response => {
+        this.notificationService.error(`Failed to logout`);
+
+        return this.handleError(response);
+      });
   }
 
   user(): Promise<User> {
@@ -114,7 +133,11 @@ export class AuthService {
     })
       .toPromise()
       .then(response => response.json() as User)
-      .catch(this.handleError);
+      .catch(response => {
+        this.notificationService.error(`Failed to retrieve account details`);
+
+        return this.handleError(response);
+      });
   }
 
   regenerateKey(user: User): Promise<string> {
@@ -126,7 +149,11 @@ export class AuthService {
     })
       .toPromise()
       .then(response => response.json().api_key)
-      .catch(this.handleError);
+      .catch(response => {
+        this.notificationService.error(`Failed to regenerate key`);
+
+        return this.handleError(response);
+      });
   }
 
   oauth2(openid: string): Promise<string> {
@@ -138,7 +165,11 @@ export class AuthService {
     })
       .toPromise()
       .then(response => response.json())
-      .catch(this.handleError);
+      .catch(response => {
+        this.notificationService.error(`Failed to authenticate through OAuth2`);
+
+        return this.handleError(response);
+      });
   }
 
   myproxyclient(user: User): Promise<string> {
@@ -150,7 +181,11 @@ export class AuthService {
     })
       .toPromise()
       .then(response => response.json())
-      .catch(this.handleError);
+      .catch(response => {
+        this.notificationService.error(`Failed to authenticate through MyProxyClient`);
+
+        return this.handleError(response);
+      });
   }
 
   private handleLoginResponse(response: any): any {

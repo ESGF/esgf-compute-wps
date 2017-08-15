@@ -15,6 +15,7 @@ import { JobsComponent } from './jobs.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
+import { NotificationService } from './notification.service';
 
 @NgModule({
   imports: [
@@ -71,7 +72,8 @@ import { AuthGuard } from './auth-guard.service';
   ],
   providers: [
     AuthService,
-    AuthGuard
+    AuthGuard,
+    NotificationService
   ],
   bootstrap: [ AppComponent ]
 })

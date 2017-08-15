@@ -6,13 +6,20 @@ import {
 } from '@angular/router';
 
 import { AuthService } from './auth.service';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private authService: AuthService, private router: Router) { }
+  constructor(
+    private authService: AuthService,
+    private notificationService: NotificationService,
+    private router: Router
+  ) { }
 
   canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean {
     if (this.authService.isLogged()) { return true; }
+
+    this.notificationService.error('Access denied, please login');
 
     this.router.navigate(['/wps/home/login']);
 

@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Http } from '@angular/http';
 
+import { NotificationService } from './notification.service';
+
 export class Job {
   status: Status[];
 
@@ -45,7 +47,10 @@ export interface Message {
 
 @Injectable()
 export class WPSService {
-  constructor(private http: Http) { }
+  constructor(
+    private notificationService: NotificationService,
+    private http: Http
+  ) { }
 
   status(jobID: number): Promise<Status[]> {
     return this.http.get(`/wps/jobs/${jobID}`)
@@ -69,6 +74,8 @@ export class WPSService {
   }
   
   private handleError(error: any): Promise<any> {
+    this.notificationService.error(error.message || error);
+
     return Promise.reject(error.message || error);
   }
 }

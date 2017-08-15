@@ -1,13 +1,14 @@
 import { Http, Headers } from '@angular/http';
-import { Injectable, Inject, EventEmitter } from '@angular/core';
+import { Injectable, Inject} from '@angular/core';
 import { DOCUMENT } from '@angular/platform-browser';
+
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class ConfigureService {
-  error: EventEmitter<string> = new EventEmitter();
-
   constructor(
     @Inject(DOCUMENT) private doc: any,
+    private notificationService: NotificationService,
     private http: Http
   ) { }
 
@@ -42,9 +43,9 @@ export class ConfigureService {
     let data = '';
 
     if (config.variable === undefined || config.variable === '') {
-      this.error.emit('Missing variable.');
+      this.notificationService.error('Must select a variable');
 
-      return;
+      return null;
     }
 
     let failed = false;
@@ -53,27 +54,27 @@ export class ConfigureService {
       let result = element.valid();
 
       if (!result.result) {
-        this.error.emit(result.error);
+        this.notificationService.error(result.error);
 
         failed = true;
       }
     });
 
-    if (failed) return;
+    if (failed) return null;
 
     switch(config.regrid) {
       case 'Gaussian': {
         if (config.latitudes === undefined) {
-          this.error.emit('Provide the number of latitudes for the Gaussian grid')
+          this.notificationService.error('Provide the number of latitudes for the Gaussian grid')
           
-          return;
+          return null;
         }
       }
       case 'Uniform': {
         if (config.latitudes === undefined || config.longitudes === undefined) {
-          this.error.emit('Provide the number of latitudes and longitudes for the Uniform grid');
+          this.notificationService.error('Provide the number of latitudes and longitudes for the Uniform grid');
 
-          return;
+          return null;
         }
       }
     }
@@ -88,6 +89,8 @@ export class ConfigureService {
   execute(config: any): Promise<string> {
     let data = this.prepareData(config);
 
+    if (data === null) return Promise.reject('Error');
+
     return this.http.post('/wps/execute/', data, {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -101,6 +104,8 @@ export class ConfigureService {
 
   downloadScript(config: any): Promise<any> {
     let data = this.prepareData(config);
+
+    if (data === null) return Promise.reject('Error');
 
     return this.http.post('/wps/generate/', data, {
       headers: new Headers({
@@ -129,6 +134,8 @@ export class ConfigureService {
   }
 
   private handleError(error: any): Promise<any> {
+    this.notificationService.error(error.message || error);
+
     return Promise.reject(error.message || error);
   }
 }

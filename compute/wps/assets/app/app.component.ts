@@ -1,35 +1,47 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
+
+import { Subscription } from 'rxjs/Subscription';
 
 import { AuthService } from './auth.service';
-import { ConfigureService } from './configure.service';
+import { NotificationService } from './notification.service';
 
 @Component({
   selector: 'my-app',
   templateUrl: './app.component.html',
   providers: [
     AuthService,
-    ConfigureService,
   ]
 })
 
-export class AppComponent implements OnInit { 
+export class AppComponent implements OnDestroy { 
   logged: boolean = false;
+  loggedSub: Subscription;
+
   error: boolean = false;
-  message: string = '';
+  errorMessage: string = undefined;
+  errorSub: Subscription;
 
   constructor(
     private authService: AuthService,
-    private configService: ConfigureService
-  ) { }
-
-  ngOnInit(): void {
-    this.authService.logged$.subscribe((data: boolean) => this.logged = data);
-
-    this.configService.error.subscribe((data: string) => {
-      this.error = true;
-
-      this.message = data;
+    private notificationService: NotificationService
+  ) { 
+    this.loggedSub = this.authService.logged$.subscribe(
+      logged => {
+        this.logged = logged;
     });
+
+    this.errorSub = this.notificationService.error$.subscribe(
+      text => {
+        this.error = true;
+
+        this.errorMessage = text;
+      });
+  }
+
+  ngOnDestroy() {
+    this.loggedSub.unsubscribe();
+
+    this.errorSub.unsubscribe();
   }
 
   onHideError(): void {

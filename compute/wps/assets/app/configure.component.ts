@@ -31,7 +31,8 @@ class Domain {
 @Component({
   templateUrl: './configure.component.html',
   styleUrls: ['./map.css'],
-  encapsulation: ViewEncapsulation.None
+  encapsulation: ViewEncapsulation.None,
+  providers: [ConfigureService]
 })
 export class ConfigureComponent implements OnInit  { 
   PROCESSES = ['CDAT.aggregate', 'CDAT.subset'];
