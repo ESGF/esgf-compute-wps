@@ -38,7 +38,7 @@ export class ConfigureService {
       .catch(this.handleError);
   }
 
-  downloadScript(config: any): Promise<any> {
+  prepareData(config: any): string {
     let data = '';
 
     if (config.variable === undefined || config.variable === '') {
@@ -81,6 +81,26 @@ export class ConfigureService {
     for (let k in config) {
       data += `${k}=${config[k]}&`;
     }
+
+    return data;
+  }
+
+  execute(config: any): Promise<string> {
+    let data = this.prepareData(config);
+
+    return this.http.post('/wps/execute/', data, {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      })
+    })
+      .toPromise()
+      .then(response => response.json())
+      .catch(this.handleError);
+  }
+
+  downloadScript(config: any): Promise<any> {
+    let data = this.prepareData(config);
 
     return this.http.post('/wps/generate/', data, {
       headers: new Headers({

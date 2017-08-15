@@ -1,5 +1,5 @@
 import { Component, OnInit, ViewEncapsulation } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 
 import { AuthService } from './auth.service';
 import { ConfigureService } from './configure.service';
@@ -68,6 +68,7 @@ export class ConfigureComponent implements OnInit  {
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private authService: AuthService,
     private configService: ConfigureService
   ) { }
@@ -403,6 +404,21 @@ export class ConfigureComponent implements OnInit  {
     });
 
     this.dimensions.unshift(dim);
+  }
+
+  onExecute(): void {
+    this.config.files = this.files.filter((x) => { return (x.indexOf(`/${this.config.variable}_`) > 0); }).join(',');
+
+    this.config.dimensions = this.dimensions;
+
+    this.configService.execute(this.config)
+      .then(response => this.handleExecute(response));
+  }
+
+  handleExecute(response: any): void {
+    if (response.status && response.status === 'success') {
+      this.router.navigate(['/wps/home/jobs']);
+    }
   }
 
   onSubmit(): void {

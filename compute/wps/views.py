@@ -4,6 +4,7 @@ import logging
 import re
 import StringIO
 
+import cwt
 import django
 import requests
 from django import http
@@ -137,6 +138,60 @@ def search_esgf(request):
            }
 
     return http.JsonResponse({'status': 'success', 'data': data})
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def execute(request):
+    try:
+        if not request.user.is_authenticated():
+            raise Exception('User not logged in');
+
+        process = request.POST['process']
+
+        variable = request.POST['variable']
+
+        files = request.POST['files']
+
+        regrid = request.POST['regrid']
+
+        latitudes = request.POST.get('latitudes', None)
+
+        longitudes = request.POST.get('longitudes', None)
+
+        # Javascript stringify on an array creates list without brackets
+        dimensions = json.loads('[{}]'.format(request.POST['dimensions']))
+
+        files = files.split(',')
+
+        inputs = [cwt.Variable(x, variable) for x in files]
+
+        dims = []
+
+        for d in dimensions:
+            name = d['name'].split(' ')[0]
+
+            if name in ('time', 't'):
+                dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1), crs=cwt.CRS('timestamps')))
+            else:
+                dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1)))
+
+        domain = cwt.Domain(dims)
+
+        proc = cwt.Process(None)
+
+        proc.identifier = process
+
+        wps = cwt.WPS('')
+
+        datainputs = wps.prepare_data_inputs(proc, inputs, domain)
+
+        manager = node_manager.NodeManager()
+
+        result = manager.execute(request.user, process, datainputs)
+
+        return http.JsonResponse({'status': 'success', 'report': result})
+    except Exception as e:
+        return http.JsonResponse({'status': 'failed', 'errors': e.message})
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie

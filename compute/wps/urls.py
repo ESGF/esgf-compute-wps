@@ -7,6 +7,7 @@ urlpatterns = [
     url(r'^$', views.wps),
     url(r'^search/$', views.search_esgf),
     url(r'^generate/$', views.generate),
+    url(r'^execute/$', views.execute),
     url(r'^job/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^jobs/$', views.jobs),
     url(r'^jobs/(?P<job_id>[0-9]*)/$', views.job),
