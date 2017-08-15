@@ -9,6 +9,7 @@ from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.query_utils import Q
+from django.utils import timezone
 
 from wps import settings
 from wps import wps_xml
@@ -162,12 +163,17 @@ class Status(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
     created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=128)
     exception = models.TextField(null=True)
     output = models.TextField(null=True)
 
     def set_message(self, message, percent=None):
         self.message_set.create(message=message, percent=percent)
+
+        self.updated_date = timezone.now()
+
+        self.save()
 
 class Message(models.Model):
     status = models.ForeignKey(Status, on_delete=models.CASCADE)

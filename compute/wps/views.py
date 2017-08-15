@@ -50,6 +50,7 @@ TIME_FMT = {
             'yr': '%Y'
            }
 
+TIME_FMT = '%Y%m%d%H%M%S'
 CDAT_TIME_FMT = '{0.year:04d}-{0.month:02d}-{0.day:02d} {0.hour:02d}:{0.minute:02d}:{0.second:02d}.0'
 
 @require_http_methods(['GET'])
@@ -554,54 +555,49 @@ def status(request, job_id):
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
-def servers(request):
-    servers = models.Server.objects.all()
-
-    data = dict((x.id, {
-                        'host': x.host,
-                        'added': x.added_date,
-                        'status': x.status,
-                        'capabilities': x.capabilities
-                       }) for x in servers)
-
-    return http.JsonResponse(data)
-
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
-def processes(request, server_id):
-    try:
-        server = models.Server.objects.get(pk=server_id)
-    except models.Server.DoesNotExist as e:
-        raise http.JsonResponse({'status': 'failed', 'errors': e.message})
-
-    data = dict((x.id, {
-                        'identifier': x.identifier,
-                        'backend': x.backend,
-                        'description': x.description,
-                       }) for x in server.processes.all())
-
-    return http.JsonResponse(data)
-
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
 def job(request, job_id):
     try:
         if not request.user.is_authenticated:
             raise Exception('User not logged in')
 
-        status = [
-            {
-                'created_date': x.created_date,
-                'status': x.status,
-                'exception': x.exception,
-                'output': x.output,
-                'messages': [{
-                    'created_date': y.created_date,
-                    'percent': y.percent,
-                    'message': y.message
-                } for y in x.message_set.all().order_by('created_date')]
-            } for x in models.Job.objects.get(pk=job_id).status_set.all().order_by('created_date')
-        ]
+        update = request.GET.get('update', False)
+
+        if update:
+            updated = request.session.get('updated', None)
+
+            if updated is None:
+                updated = datetime.datetime.now()
+            else:
+                updated = datetime.datetime.strptime(updated, TIME_FMT)
+
+            status = [
+                {
+                    'exception': x.exception,
+                    'output': x.output,
+                    'status': x.status,
+                    'messages': [{
+                        'created_date': y.created_date,
+                        'percent': y.percent,
+                        'message': y.message
+                    } for y in x.message_set.filter(created_date__gt=updated)]
+                } for x in models.Job.objects.get(pk=job_id).status_set.filter(updated_date__gt=updated)
+            ]
+        else:
+            status = [
+                {
+                    'created_date': x.created_date,
+                    'status': x.status,
+                    'exception': x.exception,
+                    'output': x.output,
+                    'messages': [{
+                        'created_date': y.created_date,
+                        'percent': y.percent,
+                        'message': y.message
+                    } for y in x.message_set.all().order_by('created_date')]
+                } for x in models.Job.objects.get(pk=job_id).status_set.all().order_by('created_date')
+            ]
+
+        request.session['updated'] = datetime.datetime.now().strftime(TIME_FMT)
 
         return http.JsonResponse(dict(data=status))
     except Exception as e:

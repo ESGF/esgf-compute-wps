@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 
 import { Job, Status, WPSService } from './wps.service';
 
@@ -33,6 +33,7 @@ import { Job, Status, WPSService } from './wps.service';
 export class JobsComponent implements OnInit { 
   selectedJob: Job;
   jobs: Job[] = new Array<Job>();
+  updateTimer: any;
 
   constructor(private wps: WPSService) { }
 
@@ -41,16 +42,51 @@ export class JobsComponent implements OnInit {
       .then(response => {
         this.jobs = response;
 
-        if (this.jobs.length > 0) this.onClick(this.jobs[0]);
+        if (this.jobs.length > 0) this.setJob(this.jobs[0]);
       });
   }
 
+  ngOnDestroy() {
+    clearInterval(this.updateTimer);
+  }
+
+  startJobMonitor() {
+    this.updateTimer = setInterval(() => this.updateJob(), 4000);
+  }
+
+  updateJob() {
+    if (this.selectedJob !== undefined) {
+      this.wps.update(this.selectedJob.id)
+        .then(response => this.handleStatusUpdate(response));
+    }
+  }
+
   onClick(job: Job) {
+    this.setJob(job);
+  }
+
+  setJob(job: Job) {
     this.selectedJob = job;
 
     if (this.selectedJob.status === undefined) {
       this.wps.status(job.id)
-        .then(response => this.selectedJob.status = response);
+        .then(response => this.handleStatus(response));
+    }
+  }
+
+  handleStatus(status: Status[]) {
+    let latest = this.selectedJob.update(status);
+
+    if (latest !== 'ProcessSucceeded' && latest !== 'ProcessFailed') {
+      this.startJobMonitor();
+    }
+  }
+
+  handleStatusUpdate(updates: Status[]) {
+    let latest = this.selectedJob.update(updates);
+
+    if (latest === 'ProcessSucceeded' || latest === 'ProcessFailed') {
+      clearInterval(this.updateTimer);
     }
   }
 }
