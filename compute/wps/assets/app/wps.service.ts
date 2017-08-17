@@ -3,6 +3,14 @@ import { Http } from '@angular/http';
 
 import { NotificationService } from './notification.service';
 
+export interface WPSResponse {
+  status: string;
+  errors: string;
+  api_key: string;
+  expires: string;
+  redirect: string;
+}
+
 export class Job {
   status: Status[];
 

@@ -4,7 +4,7 @@ import { DOCUMENT } from '@angular/platform-browser';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 
 import { User } from './user';
-import { NotificationService } from './notification.service';
+import { WPSResponse } from './wps.service';
 
 @Injectable()
 export class AuthService {
@@ -13,7 +13,6 @@ export class AuthService {
   logged$ = new BehaviorSubject(this.logged);
 
   constructor(
-    private notificationService: NotificationService,
     @Inject(DOCUMENT) private doc: any,
     private http: Http
   ) { }
@@ -60,7 +59,7 @@ export class AuthService {
     return params;
   }
 
-  create(user: User): Promise<string> {
+  create(user: User): Promise<WPSResponse> {
     return this.http.post('auth/create/', this.userToUrlEncoded(user), {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -68,15 +67,11 @@ export class AuthService {
       })
     })
       .toPromise()
-      .then(response => response.json())
-      .catch(response => {
-        this.notificationService.error(`Failed to create account`);
-
-        return this.handleError(response);
-      });
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
   }
 
-  update(user: User): Promise<string> {
+  update(user: User): Promise<WPSResponse> {
     return this.http.post('auth/update/', this.userToUrlEncoded(user), {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -84,15 +79,11 @@ export class AuthService {
       })
     })
       .toPromise()
-      .then(response => response.json())
-      .catch(response => {
-        this.notificationService.error(`Failed to update account`);
-
-        return this.handleError(response);
-      });
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
   }
 
-  login(user: User): Promise<string> {
+  login(user: User): Promise<WPSResponse> {
     return this.http.post('auth/login/', this.userToUrlEncoded(user), {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -100,15 +91,11 @@ export class AuthService {
       })
     })
       .toPromise()
-      .then(response => this.handleLoginResponse(response.json()))
-      .catch(response => {
-        this.notificationService.error(`Failed to login`);
-
-        return this.handleError(response);
-      });
+      .then(response => this.handleLoginResponse(response.json() as WPSResponse))
+      .catch(this.handleError);
   }
 
-  logout(): Promise<string> {
+  logout(): Promise<WPSResponse> {
     return this.http.get('auth/logout/', {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -116,15 +103,11 @@ export class AuthService {
       })
     })
       .toPromise()
-      .then(response => this.handleLogoutResponse(response.json()))
-      .catch(response => {
-        this.notificationService.error(`Failed to logout`);
-
-        return this.handleError(response);
-      });
+      .then(response => this.handleLogoutResponse(response.json() as WPSResponse))
+      .catch(this.handleError);
   }
 
-  user(): Promise<User> {
+  user(): Promise<any> {
     return this.http.get('auth/user/', {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -132,15 +115,11 @@ export class AuthService {
       })
     })
       .toPromise()
-      .then(response => response.json() as User)
-      .catch(response => {
-        this.notificationService.error(`Failed to retrieve account details`);
-
-        return this.handleError(response);
-      });
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
   }
 
-  regenerateKey(user: User): Promise<string> {
+  regenerateKey(user: User): Promise<WPSResponse> {
     return this.http.get(`auth/user/${user.id}/regenerate/`, {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -148,15 +127,11 @@ export class AuthService {
       })
     })
       .toPromise()
-      .then(response => response.json().api_key)
-      .catch(response => {
-        this.notificationService.error(`Failed to regenerate key`);
-
-        return this.handleError(response);
-      });
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
   }
 
-  oauth2(openid: string): Promise<string> {
+  oauth2(openid: string): Promise<WPSResponse> {
     return this.http.post('auth/login/oauth2/', `openid=${openid}`, {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -164,15 +139,11 @@ export class AuthService {
       })
     })
       .toPromise()
-      .then(response => response.json())
-      .catch(response => {
-        this.notificationService.error(`Failed to authenticate through OAuth2`);
-
-        return this.handleError(response);
-      });
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
   }
 
-  myproxyclient(user: User): Promise<string> {
+  myproxyclient(user: User): Promise<WPSResponse> {
     return this.http.post('auth/login/mpc/', `username=${user.username}&password=${user.password}`, {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -180,31 +151,33 @@ export class AuthService {
       })
     })
       .toPromise()
-      .then(response => response.json())
-      .catch(response => {
-        this.notificationService.error(`Failed to authenticate through MyProxyClient`);
-
-        return this.handleError(response);
-      });
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
   }
 
-  private handleLoginResponse(response: any): any {
-    if (response.status && response.status === 'success') {
+  private handleLoginResponse(response: WPSResponse): WPSResponse {
+    if (response.status === 'success') {
       localStorage.setItem('wps_expires', response.expires);
 
       this.logged$.next(true);
     } else {
       this.handleLogoutResponse(response);
     }
+
+    return response
   }
 
-  private handleLogoutResponse(response: any): any {
+  private handleLogoutResponse(response: WPSResponse): WPSResponse {
     localStorage.removeItem('wps_expires');
 
     this.logged$.next(false);
+
+    return response;
   }
 
   private handleError(error: any): Promise<any> {
+    console.log(error);
+
     return Promise.reject(error.message || error);
   }
 }
