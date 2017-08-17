@@ -30,7 +30,6 @@ from wps.auth import oauth2
 from wps.auth import openid
 from wps.processes import get_process
 from wps.processes import CWTBaseTask
-from wps.processes import handle_output
 
 logger = get_task_logger('wps.tasks')
 

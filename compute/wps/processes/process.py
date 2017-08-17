@@ -29,7 +29,6 @@ __all__ = [
     'get_process',
     'CWTBaseTask', 
     'Status',
-    'handle_output',
     'cwt_shared_task',
 ]
 
