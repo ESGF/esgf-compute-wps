@@ -171,7 +171,14 @@ class CWTBaseTask(celery.Task):
         if credentials:
             self.set_user_creds(**kwargs)
 
-        return Status.from_job_id(kwargs.get('job_id'))
+        try:
+            job = models.Job.objects.get(pk=kwargs.get('job_id'))
+        except models.Job.DoesNotExist:
+            raise
+        except KeyError:
+            raise Exception('Must pass job_id to initialize method')
+
+        return job, Status(job)
 
     def set_user_creds(self, **kwargs):
         """ Set the user credentials.
@@ -820,9 +827,9 @@ if global_settings.DEBUG:
     @register_process('dev.echo')
     @cwt_shared_task()
     def dev_echo(self, variables, operations, domains, **kwargs):
-        status = self.initialize(credentials=False, **kwargs)
+        job, status = self.initialize(credentials=False, **kwargs)
 
-        status.job.started()
+        job.started()
 
         logger.info('Operations {}'.format(operations))
 
@@ -835,9 +842,9 @@ if global_settings.DEBUG:
     @register_process('dev.sleep')
     @cwt_shared_task()
     def dev_sleep(self, variables, operations, domains, **kwargs):
-        status = self.initialize(credentials=False, **kwargs)
+        job, status = self.initialize(credentials=False, **kwargs)
 
-        status.job.started()
+        job.started()
 
         v, d, o = self.load(variables, domains, operations)
 
@@ -862,13 +869,6 @@ if global_settings.DEBUG:
 
 @shared_task(bind=True, base=CWTBaseTask)
 def handle_output(self, variable, **kwargs):
-    self.initialize(**kwargs)
-
-    job_id = kwargs.get('job_id')
-
-    try:
-        job = models.Job.objects.get(pk=job_id)
-    except models.Job.DoesNotExist:
-        raise Exception('Job does not exist {}'.format(job_id))
+    job, status = self.initialize(**kwargs)
 
     job.succeeded(json.dumps(variable))
