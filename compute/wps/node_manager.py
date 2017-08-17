@@ -250,8 +250,6 @@ class NodeManager(object):
 
         chain = (chain | process.si(variables, operations, domains, **params))
 
-        chain = (chain | tasks.handle_output.s(**params))
-
         logger.info('Job {} Executing celery workflow'.format(job.id))
 
         chain()

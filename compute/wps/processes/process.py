@@ -33,6 +33,8 @@ __all__ = [
     'cwt_shared_task',
 ]
 
+counter = 0
+
 logger = get_task_logger('wps.processes.process')
 
 REGISTRY = {}
@@ -171,6 +173,11 @@ class CWTBaseTask(celery.Task):
         if credentials:
             self.set_user_creds(**kwargs)
 
+        job = self.get_job(kwargs)
+
+        return job, Status(job)
+
+    def get_job(self, kwargs):
         try:
             job = models.Job.objects.get(pk=kwargs.get('job_id'))
         except models.Job.DoesNotExist:
@@ -178,7 +185,7 @@ class CWTBaseTask(celery.Task):
         except KeyError:
             raise Exception('Must pass job_id to initialize method')
 
-        return job, Status(job)
+        return job
 
     def set_user_creds(self, **kwargs):
         """ Set the user credentials.
@@ -805,16 +812,33 @@ class CWTBaseTask(celery.Task):
 
         return grid, str(tool), str(method)
 
+    def on_retry(self, exc, task_id, args, kwargs, einfo):
+        """ Handle a retry. """
+        logger.warning('Retry {} {}'.format(exc, args))
+
+        try:
+            job = self.get_job(kwargs)
+        except Exception:
+            pass
+        else:
+            job.update_progress('Retrying process', 0)
+
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """ Handle a failure. """
-        try:
-            job = models.Job.objects.get(pk=kwargs['job_id'])
-        except KeyError:
-            raise Exception('Job id was not passed to the task')
-        except models.Job.DoesNotExist:
-            raise Exception('Job {} does not exist'.format(kwargs['job_id']))
+        logger.warning('Failed {} {}'.format(exc, args))
+
+        job = self.get_job(kwargs)
 
         job.failed(str(exc))
+
+    def on_success(self, retval, task_id, args, kwargs):
+        """ Handle a success. """
+        try:
+            job = self.get_job(kwargs)
+        except Exception:
+            pass
+        else:
+            job.succeeded(json.dumps(retval))
 
 # Define after CWTBaseTask is declared
 cwt_shared_task = partial(shared_task,
@@ -867,8 +891,41 @@ if global_settings.DEBUG:
 
         return cwt.Variable('Slept {} times for {} seconds, total time {} seconds'.format(count, timeout, count*timeout), 'tas').parameterize()
 
-@shared_task(bind=True, base=CWTBaseTask)
-def handle_output(self, variable, **kwargs):
-    job, status = self.initialize(**kwargs)
+    @register_process('dev.retry')
+    @cwt_shared_task()
+    def dev_retry(self, variables, operations, domains, **kwargs):
+        global counter
 
-    job.succeeded(json.dumps(variable))
+        job, status = self.initialize(credentials=False, **kwargs)
+
+        job.started()
+
+        for i in xrange(3):
+            status.update(percent=i*100/3)
+
+            time.sleep(5)
+
+            counter += 1
+
+            if counter >= 2:
+                counter = 0
+
+                break
+            else:
+                raise AccessError('Something went wrong')
+
+        return cwt.Variable('I recovered from a retry', 'tas').parameterize()
+
+    @register_process('dev.failure')
+    @cwt_shared_task()
+    def dev_failure(self, variables, operations, domains, **kwargs):
+        job, status = self.initialize(credentials=False, **kwargs)
+
+        job.started()
+
+        for i in xrange(3):
+            status.update(percent=i*100/3)
+
+            time.sleep(5)         
+
+        raise Exception('An error occurred')
