@@ -174,6 +174,8 @@ class CWTBaseTask(celery.Task):
 
         job = self.get_job(kwargs)
 
+        job.started()
+
         return job, Status(job)
 
     def get_job(self, kwargs):
@@ -820,7 +822,7 @@ class CWTBaseTask(celery.Task):
         except Exception:
             pass
         else:
-            job.update_progress('Retrying process', 0)
+            job.retry()
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """ Handle a failure. """
@@ -852,8 +854,6 @@ if global_settings.DEBUG:
     def dev_echo(self, variables, operations, domains, **kwargs):
         job, status = self.initialize(credentials=False, **kwargs)
 
-        job.started()
-
         logger.info('Operations {}'.format(operations))
 
         logger.info('Domains {}'.format(domains))
@@ -866,8 +866,6 @@ if global_settings.DEBUG:
     @cwt_shared_task()
     def dev_sleep(self, variables, operations, domains, **kwargs):
         job, status = self.initialize(credentials=False, **kwargs)
-
-        job.started()
 
         v, d, o = self.load(variables, domains, operations)
 
@@ -897,8 +895,6 @@ if global_settings.DEBUG:
 
         job, status = self.initialize(credentials=False, **kwargs)
 
-        job.started()
-
         for i in xrange(3):
             status.update(percent=i*100/3)
 
@@ -919,8 +915,6 @@ if global_settings.DEBUG:
     @cwt_shared_task()
     def dev_failure(self, variables, operations, domains, **kwargs):
         job, status = self.initialize(credentials=False, **kwargs)
-
-        job.started()
 
         for i in xrange(3):
             status.update(percent=i*100/3)

@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import datetime
 import os
 import logging
 
@@ -8,6 +9,7 @@ logger = logging.getLogger('wps.models')
 from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import F
 from django.db.models.query_utils import Q
 from django.utils import timezone
 
@@ -61,6 +63,56 @@ class Process(models.Model):
     identifier = models.CharField(max_length=128, unique=True)
     backend = models.CharField(max_length=128)
     description = models.TextField()
+
+    def __get_usage(self):
+        try:
+            latest = self.processusage_set.latest('created_date')
+        except ProcessUsage.DoesNotExist:
+            latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
+
+        now = datetime.datetime.now()
+
+        if now.month > latest.created_date.month:
+            latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
+
+        return latest
+
+    def executed(self):
+        usage = self.__get_usage()
+
+        usage.executed = F('executed') + 1
+
+        usage.save()
+
+    def success(self):
+        usage = self.__get_usage()
+
+        usage.success = F('success') + 1
+
+        usage.save()
+
+    def failed(self):
+        usage = self.__get_usage()
+
+        usage.failed = F('failed') + 1
+
+        usage.save()
+
+    def retry(self):
+        usage = self.__get_usage()
+
+        usage.retry = F('retry') + 1
+
+        usage.save()
+
+class ProcessUsage(models.Model):
+    process = models.ForeignKey(Process, on_delete=models.CASCADE)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    executed = models.PositiveIntegerField()
+    success = models.PositiveIntegerField()
+    failed = models.PositiveIntegerField()
+    retry = models.PositiveIntegerField()
 
 class Server(models.Model):
     host = models.CharField(max_length=128)
@@ -127,6 +179,8 @@ class Job(models.Model):
         return report.xml()
 
     def accepted(self):
+        self.process.executed()
+
         self.status_set.create(status=wps_lib.ProcessAccepted())
 
     def started(self):
@@ -135,6 +189,8 @@ class Job(models.Model):
         status.set_message('Job Started')
 
     def succeeded(self, output=None):
+        self.process.success()
+
         status = self.status_set.create(status=wps_lib.ProcessSucceeded())
 
         if output is not None:
@@ -143,6 +199,8 @@ class Job(models.Model):
             status.save()
 
     def failed(self, exception=None):
+        self.process.failed()
+
         status = self.status_set.create(status=wps_lib.ProcessFailed())
 
         if exception is not None:
@@ -153,6 +211,11 @@ class Job(models.Model):
             status.exception = exc_report.xml()
 
             status.save()
+
+    def retry(self):
+        self.process.retry()
+
+        self.update_process('Retrying...', 0)
 
     def update_progress(self, message, percent):
         started = self.status_set.filter(status='ProcessStarted').latest('created_date')
