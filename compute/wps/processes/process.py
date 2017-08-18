@@ -16,6 +16,7 @@ import celery
 import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.db.models import F
 from django.conf import settings as global_settings
 from cwt.wps_lib import metadata
 
@@ -177,6 +178,23 @@ class CWTBaseTask(celery.Task):
         job.started()
 
         return job, Status(job)
+
+    def track_files(self, variables):
+        for v in variables.values():
+            uri = v.uri
+
+            splits = uri.split('/')
+
+            try:
+                tracked = models.Files.objects.get(name=splits[-1], host=splits[2])
+            except models.Files.DoesNotExist:
+                tracked = models.Files(name=splits[-1], host=splits[2], requested=0, url=uri)
+                
+                tracked.save()
+                
+            tracked.requested = F('requested') + 1
+
+            tracked.save()
 
     def get_job(self, kwargs):
         try:
@@ -853,6 +871,10 @@ if global_settings.DEBUG:
     @cwt_shared_task()
     def dev_echo(self, variables, operations, domains, **kwargs):
         job, status = self.initialize(credentials=False, **kwargs)
+
+        v, d, o = self.load(variables, domains, operations)
+
+        self.track_files(v)
 
         logger.info('Operations {}'.format(operations))
 

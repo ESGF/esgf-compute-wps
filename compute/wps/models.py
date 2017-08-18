@@ -24,6 +24,16 @@ STATUS = {
     'ProcessFailed': wps_lib.ProcessFailed,
 }
 
+class Files(models.Model):
+    name = models.CharField(max_length=256)
+    host = models.CharField(max_length=256)
+    variable = models.CharField(max_length=64)
+    url = models.TextField()
+    requested = models.PositiveIntegerField()
+
+    class Meta:
+        unique_together = ('name', 'host')
+
 class Cache(models.Model):
     uid = models.CharField(max_length=256)
 
