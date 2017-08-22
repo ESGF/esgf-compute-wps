@@ -57,87 +57,99 @@ CDAT_TIME_FMT = '{0.year:04d}-{0.month:02d}-{0.day:02d} {0.hour:02d}:{0.minute:0
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def search_esgf(request):
-    if not request.user.is_authenticated:
-        return http.JsonResponse({'status': 'failed', 'errors': 'User not logged in.'})
-
-    dataset_id = request.GET.get('dataset_id', None)
-
-    index_node = request.GET.get('index_node', None)
-
-    shard = request.GET.get('shard', None)
-
-    query = request.GET.get('query', None)
-
-    params = {
-              'type': 'File',
-              'dataset_id': dataset_id,
-              'format': 'application/solr+json',
-              'offset': 0,
-              'limit': 8000
-             }
-
-    if query is not None and len(query.strip()) > 0:
-        params['query'] = query.strip()
-
-    if shard is not None and len(shard.strip()) > 0:
-        params['shards'] = '{}/solr'.format(shard.strip())
-    else:
-        params['distrib'] = 'false'
-
-    url = 'http://{}/esg-search/search'.format(index_node)
-
     try:
-        response = requests.get(url, params)
-    except:
-        return http.JsonResponse({'status': 'failure', 'errors': 'Failed to search ESGF'})
+        if not request.user.is_authenticated:
+            raise Exception('User is not logged in')
 
-    try:
-        data = json.loads(response.content)
-    except:
-        return http.JsonResponse({'status': 'failure', 'errors': 'Failed to load ESGF results'})
+        dataset_ids = request.GET.get('dataset_id', None)
 
-    files = []
-    variables = []
-    time_freq = None
+        index_node = request.GET.get('index_node', None)
 
-    for doc in data['response']['docs']:
-        file_url = None
+        shard = request.GET.get('shard', None)
 
-        if time_freq is None:
-            time_freq = doc['time_frequency'][0]
+        query = request.GET.get('query', None)
 
-        for item in doc['url']:
-            url, mime, text = item.split('|')
+        dataset_ids = dataset_ids.split(',')
 
-            if text == 'OPENDAP':
-                file_url = url
+        files = []
+        variables = []
+        time_freq = None
 
-                break
+        for dataset_id in dataset_ids:
+            logger.info('Searching for dataset {}'.format(dataset_id))
 
-        if file_url is not None:
-            files.append(file_url.replace('.html', '')) 
+            params = {
+                      'type': 'File',
+                      'dataset_id': dataset_id,
+                      'format': 'application/solr+json',
+                      'offset': 0,
+                      'limit': 8000
+                     }
 
-            variables.append(doc['variable'][0])
+            if query is not None and len(query.strip()) > 0:
+                params['query'] = query.strip()
 
-    def parse_time(x):
-        return re.match('.*_([0-9]*)-([0-9]*)\.nc', x).groups()
+            if shard is not None and len(shard.strip()) > 0:
+                params['shards'] = '{}/solr'.format(shard.strip())
+            else:
+                params['distrib'] = 'false'
 
-    time = sorted(set(y for x in files for y in parse_time(x.split('/')[-1])))
+            url = 'http://{}/esg-search/search'.format(index_node)
 
-    time_fmt = TIME_FMT.get(time_freq, None)
+            try:
+                response = requests.get(url, params)
+            except:
+                raise Exception('Failed to retrieve search results')
 
-    start = datetime.datetime.strptime(time[0], time_fmt)
+            try:
+                data = json.loads(response.content)
+            except:
+                raise Exception('Failed to load JSON response')
 
-    stop = datetime.datetime.strptime(time[-1], time_fmt)
+            for doc in data['response']['docs']:
+                file_url = None
 
-    data = {
-            'files': files,
-            'time': (CDAT_TIME_FMT.format(start), CDAT_TIME_FMT.format(stop)),
-            'time_units': TIME_FREQ.get(time_freq, None),
-            'variables': list(set(variables))
-           }
+                if time_freq is None:
+                    time_freq = doc['time_frequency'][0]
+                elif time_freq != doc['time_frequency'][0]:
+                    raise Exception('Time frequencies between files do not match')                    
 
-    return http.JsonResponse({'status': 'success', 'data': data})
+                for item in doc['url']:
+                    url, mime, text = item.split('|')
+
+                    if text == 'OPENDAP':
+                        file_url = url
+
+                        logger.info(file_url)
+
+                        break
+
+                if file_url is not None:
+                    files.append(file_url.replace('.html', '')) 
+
+                    variables.append(doc['variable'][0])
+        
+            def parse_time(x):
+                return re.match('.*_([0-9]*)-([0-9]*)\.nc', x).groups()
+
+            time = sorted(set(y for x in files for y in parse_time(x.split('/')[-1])))
+
+            time_fmt = TIME_FMT.get(time_freq, None)
+
+            start = datetime.datetime.strptime(time[0], time_fmt)
+
+            stop = datetime.datetime.strptime(time[-1], time_fmt)
+
+            data = {
+                    'files': files,
+                    'time': (CDAT_TIME_FMT.format(start), CDAT_TIME_FMT.format(stop)),
+                    'time_units': TIME_FREQ.get(time_freq, None),
+                    'variables': list(set(variables))
+                   }
+
+            return http.JsonResponse({'status': 'success', 'data': data})
+        except Exception as e:
+            return http.JsonResponse({'status': 'failure', 'errors': e.message))
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
