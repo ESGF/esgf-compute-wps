@@ -616,7 +616,7 @@ class CWTBaseTask(celery.Task):
 
         return cached, exists
 
-    def map_axis(self, axis, dim, clamp_upper=True):
+    def map_time_axis(self, axis, dim):
         """ Map a dimension to an axis.
 
         Attempts to map a Dimension to a CoordinateAxis.
@@ -630,26 +630,10 @@ class CWTBaseTask(celery.Task):
             Exception: Could not map the Dimension to CoordinateAxis.
         """
         if dim.crs == cwt.INDICES:
-            n = len(axis)
-
-            end = dim.end
-
-            if dim.start < 0 or dim.start > n:
-                raise Exception('Starting index {} for dimension {} is out of bounds'.format(dim.start, dim.name))
-
-            if dim.end < 0 or dim.end > n:
-                if clamp_upper:
-                    raise Exception('Ending index {} for dimension {} is out of bounds'.format(dim.end, dim.name))
-                else:
-                    end = n
-
-            if dim.start > dim.end:
-                raise Exception('Start and end indexes are invalid for dimension'.format(dim.name))
-
-            axis_slice = slice(dim.start, end, dim.step)
+            axis_slice = slice(dim.start, dim.end, dim.step)
         elif dim.crs == cwt.VALUES:
             try:
-                start, stop = axis.mapInterval((dim.start, dim.end), indicator='con')
+                start, stop = axis.mapInterval((dim.start, dim.end))
             except Exception:
                 axis_slice = None
             else:
@@ -712,14 +696,14 @@ class CWTBaseTask(celery.Task):
 
                         clone_axis.toRelativeTime(base.units)
 
-                        temporal = self.map_axis(clone_axis, dim, clamp_upper=False)
-                        
+                        temporal = self.map_time_axis(clone_axis, dim)
+
                         if dim.crs == cwt.INDICES:
                             dim.start -= temporal.start
 
                             dim.end -= (temporal.stop - temporal.start) + temporal.start
                     else:
-                        spatial[dim.name] = self.map_axis(axis, dim)
+                        spatial[axis.id] = (dim.start, dim.end)
 
             domain_map[inp.id] = (temporal, spatial)
 
@@ -759,9 +743,9 @@ class CWTBaseTask(celery.Task):
             axis = var[var_name].getAxis(axis_idx)
             
             if axis.isTime():
-                temporal = self.map_axis(axis, dim)
+                temporal = self.map_time_axis(axis, dim)
             else:
-                spatial[dim.name] = self.map_axis(axis, dim)
+                spatial[axis.id] = (dim.start, dim.end)
 
         logger.info('Mapped domain {} to {} {}'.format(domain.name, var.id, (temporal, spatial)))
         
