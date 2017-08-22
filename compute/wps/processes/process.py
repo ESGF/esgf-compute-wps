@@ -289,6 +289,9 @@ class CWTBaseTask(celery.Task):
             op.resolve_inputs(v, o)
 
         if op.domain is not None:
+            if op.domain not in d:
+                raise Exception('Domain "{}" was never defined'.format(op.domain))
+
             op.domain = d[op.domain]
 
         return v, d, o
@@ -303,7 +306,9 @@ class CWTBaseTask(celery.Task):
     def generate_local_output(self, name=None):
         """ Format the file path for a local output. """
         if name is None:
-            name = '{}.nc'.format(uuid.uuid4())
+            name = uuid.uuid4()
+
+        name = '{}.nc'.format(name)
 
         path = os.path.join(settings.OUTPUT_LOCAL_PATH, name)
 
@@ -319,7 +324,10 @@ class CWTBaseTask(celery.Task):
             else:
                 output = settings.OUTPUT_URL.format(file_name=out_name)
         else:
-            output = 'file://{}'.format(local_path)
+            if 'file://' in local_path:
+                output = local_path
+            else:
+                output = 'file://{}'.format(local_path)
 
         return output
 
