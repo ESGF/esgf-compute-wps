@@ -222,7 +222,7 @@ class CWTBaseTask(celery.Task):
         user_path = os.path.join(cwd, str(user_id))
 
         if not os.path.exists(user_path):
-            os.mkdir(user_path)
+            os.makedirs(user_path)
 
         # Change the process working directory
         os.chdir(user_path)
