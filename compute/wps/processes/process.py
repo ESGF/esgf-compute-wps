@@ -186,15 +186,13 @@ class CWTBaseTask(celery.Task):
             splits = uri.split('/')
 
             try:
-                tracked = models.Files.objects.get(name=splits[-1], host=splits[2])
+                tracked = models.Files.objects.get(name=splits[-1], host=splits[2], variable=v.var_name)
             except models.Files.DoesNotExist:
-                tracked = models.Files(name=splits[-1], host=splits[2], requested=0, url=uri)
-                
-                tracked.save()
-                
-            tracked.requested = F('requested') + 1
+                tracked = models.Files.objects.create(name=splits[-1], host=splits[2], requested=1, url=uri, variable=v.var_name)
+            else:
+                tracked.requested = F('requested') + 1
 
-            tracked.save()
+                tracked.save()
 
     def get_job(self, kwargs):
         try:
