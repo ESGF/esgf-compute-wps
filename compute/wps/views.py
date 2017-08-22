@@ -147,9 +147,9 @@ def search_esgf(request):
                     'variables': list(set(variables))
                    }
 
-            return http.JsonResponse({'status': 'success', 'data': data})
-        except Exception as e:
-            return http.JsonResponse({'status': 'failure', 'errors': e.message))
+        return http.JsonResponse({'status': 'success', 'data': data})
+    except Exception as e:
+        return http.JsonResponse({'status': 'failure', 'errors': e.message})
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
