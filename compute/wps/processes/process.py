@@ -355,6 +355,10 @@ class CWTBaseTask(celery.Task):
             read_callback: A method which takes a single argument which is a 
                 numpy array.
         """
+        cached = []
+        cache_file = None
+        input_files = {}
+
         try:
             var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in input_vars])
 
@@ -364,7 +368,6 @@ class CWTBaseTask(celery.Task):
             logger.info('Aggregating "{}" over {} files'.format(var_name, len(input_vars)))
 
             inputs = []
-            cache_file = None
             cache_map = {}
 
             try:
@@ -390,7 +393,6 @@ class CWTBaseTask(celery.Task):
                     continue
 
                 cache, exists = self.check_cache(url, var_name, temporal, spatial)
-
 
                 if exists:
                     input_files[url].close()
@@ -470,6 +472,8 @@ class CWTBaseTask(celery.Task):
             read_callback: A method which takes a single argument which is a 
                 numpy array.
         """
+        input_file = None
+
         try:
             cache_file = None
 
@@ -524,12 +528,9 @@ class CWTBaseTask(celery.Task):
                     read_callback(data)
         except:
             raise
-        else:
-            cache.size = os.path.getsize(cache.local_path)
-
-            cache.save()
         finally:
-            input_file.close()
+            if input_file:
+                input_file.close()
 
             if cache_file is not None:
                 cache_file.close()
