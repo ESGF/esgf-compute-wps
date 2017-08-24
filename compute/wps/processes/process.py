@@ -378,6 +378,8 @@ class CWTBaseTask(celery.Task):
 
             inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
+            base_units = inputs[0][var_name].getTime().units
+
             input_files = collections.OrderedDict([(x.id, x) for x in inputs])
 
             domain_map = self.map_domain_multiple(input_files.values(), var_name, domain)
@@ -439,6 +441,8 @@ class CWTBaseTask(celery.Task):
 
                     if any(x == 0 for x in data.shape):
                         raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+                    data.getTime().toRelativeTime(base_units)
 
                     if cache_file is not None:
                         cache_file.write(data, id=var_name)
