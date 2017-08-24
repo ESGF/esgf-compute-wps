@@ -333,7 +333,14 @@ class CWTBaseTask(celery.Task):
 
     def slice_to_str(self, s):
         """ Format a slice. """
-        return '{}:{}:{}'.format(s.start, s.stop, s.step)
+        fmt = '{}:{}:{}'
+
+        if isinstance(s, tuple):
+            slice_str = fmt.format(s[0], s[1], 1)
+        else:
+            slice_str = fmt.format(s.start, s.stop, s.step)
+        
+        return slice_str
 
     def cache_multiple_input(self, input_vars, domain, read_callback=None):
         """ Cache multiple inputs.
