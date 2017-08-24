@@ -635,6 +635,10 @@ class CWTBaseTask(celery.Task):
                                 logger.info('Cached file is valid')
 
                                 exists = True
+            else:
+                logger.warning('Cached file "{}" does not exist on disk'.format(cached.url))
+
+                exists = False
 
         return cached, exists
 
