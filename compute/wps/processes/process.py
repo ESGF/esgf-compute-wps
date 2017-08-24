@@ -387,6 +387,9 @@ class CWTBaseTask(celery.Task):
             for url in domain_map.keys():
                 temporal, spatial = domain_map[url]
 
+                if temporal is None:
+                    continue
+
                 if temporal.stop == 0:
                     logger.info('Skipping input {}, not covered by the domain'.format(url))
 
@@ -411,13 +414,20 @@ class CWTBaseTask(celery.Task):
             for url in input_files.keys():
                 cache_file = None
 
+                temporal, spatial = domain_map[url]
+
+                if temporal is None:
+                    logger.info('Skipping {} not included in domain'.format(url))
+
+                    continue
+
                 if url in cache_map:
                     try:
                         cache_file = cdms2.open(cache_map[url].local_path, 'w')
                     except:
                         raise AccessError()
 
-                temporal, spatial = domain_map[url]
+                    cached.append(cache_map[url].local_path)
 
                 tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
@@ -462,6 +472,8 @@ class CWTBaseTask(celery.Task):
 
             for i in input_files.values():
                 i.close()
+
+        return cached
 
     def cache_input(self, input_var, domain, read_callback=None):
         """ Cache input.
