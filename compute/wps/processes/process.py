@@ -612,8 +612,6 @@ class CWTBaseTask(celery.Task):
 
             cached.save()
         else:
-            cached.save()
-
             local_path = cached.local_path
 
             if os.path.exists(local_path):
