@@ -75,11 +75,11 @@ def failed(error=None):
 def search_esgf(request):
     try:
         if not request.user.is_authenticated:
-            raise Exception('User is not logged in')
+            raise Exception('Must be logged in to search ESGF')
 
-        dataset_ids = request.GET.get('dataset_id', None)
+        dataset_ids = request.GET['dataset_id']
 
-        index_node = request.GET.get('index_node', None)
+        index_node = request.GET['index_node']
 
         shard = request.GET.get('shard', None)
 
@@ -162,17 +162,19 @@ def search_esgf(request):
                     'time_units': TIME_FREQ.get(time_freq, None),
                     'variables': list(set(variables))
                    }
-
-        return http.JsonResponse({'status': 'success', 'data': data})
+    except KeyError as e:
+        return failed({'message': 'Mising required parameter "{}"'.format(e.message)})
     except Exception as e:
-        return http.JsonResponse({'status': 'failure', 'errors': e.message})
+        return failed(e.message)
+    else:
+        return success(data)
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def execute(request):
     try:
-        if not request.user.is_authenticated():
-            raise Exception('User not logged in');
+        if not request.user.is_authenticated:
+            raise Exception('Must be logged in to execute a job');
 
         process = request.POST['process']
 
@@ -187,7 +189,7 @@ def execute(request):
         longitudes = request.POST.get('longitudes', None)
 
         # Javascript stringify on an array creates list without brackets
-        dimensions = json.loads('[{}]'.format(request.POST['dimensions']))
+        dimensions = json.loads('[{}]'.format(request.POST.get('dimensions', '')))
 
         files = files.split(',')
 
@@ -205,9 +207,7 @@ def execute(request):
 
         domain = cwt.Domain(dims)
 
-        proc = cwt.Process(None)
-
-        proc.identifier = process
+        proc = cwt.Process(identifier=process)
 
         kwargs = {}
 
@@ -224,17 +224,17 @@ def execute(request):
         manager = node_manager.NodeManager()
 
         result = manager.execute(request.user, process, datainputs)
-
-        return http.JsonResponse({'status': 'success', 'report': result})
     except Exception as e:
-        return http.JsonResponse({'status': 'failed', 'errors': e.message})
+        return failed(e.message)
+    else:
+        return success({'report': result})
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def generate(request):
     try:
         if not request.user.is_authenticated():
-            raise Exception('User not logged in');
+            raise Exception('Must be logged in to generate a script');
 
         process = request.POST['process']
 
@@ -249,7 +249,7 @@ def generate(request):
         longitudes = request.POST.get('longitudes', None)
 
         # Javascript stringify on an array creates list without brackets
-        dimensions = json.loads('[{}]'.format(request.POST['dimensions']))
+        dimensions = json.loads('[{}]'.format(request.POST.get('dimensions', '')))
 
         files = files.split(',')
 
@@ -318,10 +318,10 @@ def generate(request):
         response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
 
         response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
-
-        return response
     except Exception as e:
-        return http.JsonResponse({'status': 'failed', 'errors': e.message})
+        return failed(e.message)
+    else:
+        return response
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -379,7 +379,8 @@ def user_to_json(user):
         'email': user.email,
         'openid': user.auth.openid_url,
         'type': user.auth.type,
-        'api_key': user.auth.api_key
+        'api_key': user.auth.api_key,
+        'admin': user.is_superuser
     }
 
     return data
@@ -484,11 +485,17 @@ def user_login(request):
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def user_logout(request):
-    logger.info('Logging user {} out'.format(request.user.username))
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('Must be logged in')
 
-    logout(request)
+        logger.info('Logging user {} out'.format(request.user.username))
 
-    return success('Logged out')
+        logout(request)
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success('Logged out')
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -536,9 +543,9 @@ def login_mpc(request):
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie
 def wps(request):
-    manager = node_manager.NodeManager()
-
     try:
+        manager = node_manager.NodeManager()
+
         api_key, op, identifier, data_inputs = manager.handle_request(request)
 
         logger.info('Handling WPS request {} for api key {}'.format(op, api_key))
@@ -590,20 +597,38 @@ def wps(request):
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def regen_capabilities(request):
-    manager = node_manager.NodeManager()
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('Must be logged in to regenerate capabilities')
 
-    manager.generate_capabilities()
+        if not request.user.is_superuser:
+            raise Exception('Must be an admin to regenerate capabilities')
 
-    return http.HttpResponse('Regenerated capabilities')
+        manager = node_manager.NodeManager()
+
+        manager.generate_capabilities()
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success('Regenerated capabilities')
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def cdas2_capabilities(request):
-    manager = node_manager.NodeManager()
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('Must be logged in to regenerate capabilities')
 
-    manager.cdas2_capabilities()
+        if not request.user.is_superuser:
+            raise Exception('Must be an admin to regenerate capabilities')
 
-    return http.HttpResponse('CDAS capabilities')
+        manager = node_manager.NodeManager()
+
+        manager.cdas2_capabilities()
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success('Regenerated EDAS capabilities')
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -619,7 +644,7 @@ def status(request, job_id):
 def job(request, job_id):
     try:
         if not request.user.is_authenticated:
-            raise Exception('User not logged in')
+            raise Exception('Must be logged in to view job details')
 
         update = request.GET.get('update', False)
 
@@ -659,17 +684,17 @@ def job(request, job_id):
             ]
 
         request.session['updated'] = datetime.datetime.now().strftime(SESSION_TIME_FMT)
-
-        return http.JsonResponse(dict(data=status))
     except Exception as e:
-        return http.JsonResponse({'status': 'failed', 'errors': e.message})
+        return failed(e.message)
+    else:
+        return success(status)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def jobs(request):
     try:
         if not request.user.is_authenticated:
-            raise Exception('User not logged in')
+            raise Exception('Must be logged in to view job history')
 
         jobs = list(reversed([
             {
@@ -678,10 +703,10 @@ def jobs(request):
                 'accepted': x.status_set.all().values('created_date').order_by('created_date').first()
             } for x in models.Job.objects.filter(user_id=request.user.id)
         ]))
-
-        return http.JsonResponse(dict(data=jobs))
     except Exception as e:
-        return http.JsonResponse({'status': 'failed', 'errors': e.message})
+        return failed(e.message)
+    else:
+        return success(jobs)
 
 @ensure_csrf_cookie
 def output(request, file_name):

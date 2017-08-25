@@ -6,9 +6,149 @@ from wps import views
 class APITestCase(test.TestCase):
 
     def setUp(self):
+        self.admin = models.User.objects.create_superuser('admin0', 'admin0@test.com', '1234')
+
+        models.Auth.objects.create(openid_url='http://test.com/openid/admin0', user=self.admin)
+
         self.user = models.User.objects.create_user('test0', 'test0@test.com', '1234')
 
         models.Auth.objects.create(openid_url='http://test.com/openid/test0', user=self.user)
+
+        server = models.Server.objects.create(host='default')
+
+        process = server.processes.create(identifier='CDAT.subset', backend='local')
+
+        self.job = models.Job.objects.create(server=server, user=self.user, process=process)
+
+        self.job.accepted()
+
+        self.job.started()
+
+        self.job.succeeded()
+        
+    def test_job_not_logged_in(self):
+        response = self.client.get('/wps/jobs/{}/'.format(self.job.pk))
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'Must be logged in to view job details')
+
+    def test_job(self):
+        self.client.login(username='test0', password='1234')
+
+        response = self.client.get('/wps/jobs/{}/'.format(self.job.pk))
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+
+    def test_jobs_not_logged_in(self):
+        response = self.client.get('/wps/jobs/')
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'Must be logged in to view job history')
+
+    def test_jobs(self):
+        self.client.login(username='test0', password='1234')
+
+        response = self.client.get('/wps/jobs/')
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+
+    def test_generate_not_logged_in(self):
+        query = {
+            'process': 'CDAT.subset',
+            'variable': 'tas',
+            'files': 'file:///test.nc',
+            'regrid': 'None'
+        }
+
+        response = self.client.post('/wps/generate/', query)
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+
+    def test_generate(self):
+        query = {
+            'process': 'CDAT.subset',
+            'variable': 'tas',
+            'files': 'file:///test.nc',
+            'regrid': 'None'
+        }
+
+        self.client.login(username='test0', password='1234')
+
+        response = self.client.post('/wps/generate/', query)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_execute_not_logged_in(self):
+        query = {
+            'process': 'CDAT.subset',
+            'variable': 'tas',
+            'files': 'file:///test.nc',
+            'regrid': 'None'
+        }
+
+        response = self.client.post('/wps/execute/', query)
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'Must be logged in to execute a job')
+
+    def test_execute(self):
+        query = {
+            'process': 'CDAT.subset',
+            'variable': 'tas',
+            'files': 'file:///test.nc',
+            'regrid': 'None'
+        }
+
+        self.client.login(username='test0', password='1234')
+
+        response = self.client.post('/wps/execute/', query)
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+        self.assertTrue('report' in data['data'])
+
+    def test_search_not_logged_in(self):
+        response = self.client.get('/wps/search/')
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+
+    def test_search(self):
+        self.client.login(username='test0', password='1234')
+
+        response = self.client.get('/wps/search/')
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+
+    def test_wps(self):
+        response = self.client.get('/wps/')
+
+        self.assertEqual(response.status_code, 200)
 
     def test_mpc_not_logged_in(self):
         query = {
@@ -58,7 +198,7 @@ class APITestCase(test.TestCase):
 
         data = response.json()
 
-        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['status'], 'failed')
 
     def test_logout(self):
         self.client.login(username='test0', password='1234')
@@ -120,6 +260,16 @@ class APITestCase(test.TestCase):
         self.assertEqual(data['status'], 'failed')
         self.assertEqual(data['error'], 'Must be logged in to retieve user details')
 
+    def test_user_admin(self):
+        self.client.login(username='admin0', password='1234')
+
+        response = self.client.get('/auth/user/')
+
+        data = response.json()
+
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['data']['admin'], True)
+
     def test_user(self):
         self.client.login(username='test0', password='1234')
 
@@ -128,6 +278,7 @@ class APITestCase(test.TestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['data']['admin'], False)
         
     def test_update_not_logged_in(self):
         query = {

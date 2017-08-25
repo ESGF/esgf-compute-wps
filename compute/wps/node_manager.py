@@ -215,7 +215,7 @@ class NodeManager(object):
         try:
             process = models.Process.objects.get(identifier=identifier)
         except models.Process.DoesNotExist:
-            raise Exception('Process "{}" does not exist.'.format(ientifier))
+            raise Exception('Process "{}" does not exist.'.format(identifier))
 
         return process.description
 
@@ -280,7 +280,7 @@ class NodeManager(object):
         try:
             process = models.Process.objects.get(identifier=identifier)
         except models.Process.DoesNotExist:
-            raise Exception('Process "{}" does not exist.'.format(ientifier))
+            raise Exception('Process "{}" does not exist.'.format(identifier))
 
         server = models.Server.objects.get(host='default')
 
