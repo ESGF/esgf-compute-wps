@@ -868,6 +868,9 @@ class CWTBaseTask(celery.Task):
 
     def on_success(self, retval, task_id, args, kwargs):
         """ Handle a success. """
+        if retval is None:
+            return
+
         try:
             job = self.get_job(kwargs)
         except Exception:
