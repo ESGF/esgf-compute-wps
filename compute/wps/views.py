@@ -225,6 +225,8 @@ def execute(request):
 
         result = manager.execute(request.user, process, datainputs)
     except Exception as e:
+        logger.exception('Execute failed')
+
         return failed(e.message)
     else:
         return success({'report': result})
@@ -521,7 +523,7 @@ def login_mpc(request):
         if not request.user.is_authenticated:
             raise Exception('Must be logged in to authenticate using ESGF MyProxyClient')
 
-        form = forms.MPCForm(request.post)
+        form = forms.MPCForm(request.POST)
 
         if not form.is_valid():
             raise Exception(form.errors)
