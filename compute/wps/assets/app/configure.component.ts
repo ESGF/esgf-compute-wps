@@ -4,6 +4,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from './auth.service';
 import { ConfigureService } from './configure.service';
 import { Dimension } from './dimension.component';
+import { NotificationService } from './notification.service';
 
 import * as d3 from './d3.bundle';
 import * as topojson from 'topojson';
@@ -71,7 +72,8 @@ export class ConfigureComponent implements OnInit  {
     private route: ActivatedRoute,
     private router: Router,
     private authService: AuthService,
-    private configService: ConfigureService
+    private configService: ConfigureService,
+    private notificationService: NotificationService
   ) { }
 
   ngOnInit() {
@@ -432,11 +434,18 @@ export class ConfigureComponent implements OnInit  {
 
   loadData(params: any): void {
     this.configService.searchESGF(params)
-      .then(response => this.handleLoadData(response));
+      .then(response => this.handleLoadData(response))
+      .catch(error => this.handleError(error));
+  }
+
+  handleError(error: string) {
+    console.log(error);
+
+    this.notificationService.error(error); 
   }
 
   handleLoadData(response: any): void {
-    if (response.status && response.status === 'success') {
+    if (response.status === 'success') {
       let time = response.data.time;
 
       this.files = response.data.files;
@@ -446,6 +455,8 @@ export class ConfigureComponent implements OnInit  {
       this.dimensions.unshift(new Dimension('time', response.data.time_units, time[0], time[1], 1));
 
       this.config.variable = this.variables[0];
-    } 
+    } else {
+      this.notificationService.error('ESGF search for dataset failed');
+    }
   }
 }
