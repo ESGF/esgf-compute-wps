@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 
 import { Job, Status, WPSService } from './wps.service';
 
+interface InitDestroy extends OnInit, OnDestroy { }
+
 @Component({
   templateUrl: './jobs.component.html',
   styles: [`
@@ -30,7 +32,7 @@ import { Job, Status, WPSService } from './wps.service';
   `],
   providers: [WPSService]
 })
-export class JobsComponent implements OnInit { 
+export class JobsComponent implements InitDestroy { 
   selectedJob: Job;
   jobs: Job[] = new Array<Job>();
   updateTimer: any;
@@ -40,6 +42,7 @@ export class JobsComponent implements OnInit {
   ngOnInit() {
     this.wps.jobs()
       .then(response => {
+        console.log(response);
         this.jobs = response;
 
         if (this.jobs.length > 0) this.setJob(this.jobs[0]);

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { User } from './user';
@@ -6,12 +6,14 @@ import { WPSResponse } from './wps.service';
 import { AuthService } from './auth.service';
 import { NotificationService } from './notification.service';
 
+declare var jQuery: any;
+
 @Component({
   templateUrl: './update-user-form.component.html',
   styleUrls: ['./forms.css']
 })
 
-export class UpdateUserFormComponent { 
+export class UpdateUserFormComponent implements OnInit { 
   model: User = new User();
   mpc: User = new User();
   error: boolean = false;
@@ -21,13 +23,15 @@ export class UpdateUserFormComponent {
     private authService: AuthService,
     private notificationService: NotificationService,
     private router: Router
-  ) {
+  ) { }
+
+  ngOnInit() {
     this.authService.user()
       .then(response => {
-        if (response.status === 'failed') {
-          this.notificationService.error('Failed to retrieve account details');
+        if (response.status === 'success') {
+          this.model = response.data as User;
         } else {
-          this.model = response;
+          this.notificationService.error('Failed to retrieve account details');
         }
       });
   }
@@ -43,7 +47,9 @@ export class UpdateUserFormComponent {
 
     this.authService.update(user)
       .then(response => {
-        if (response.status === 'failed') {
+        if (response.status === 'success') {
+          this.model = response.data as User;
+        } else {
           this.notificationService.error('Failed to update account details');
         }
       });
@@ -65,28 +71,37 @@ export class UpdateUserFormComponent {
   }
 
   handleRegenerateKey(response: WPSResponse) {
-    if (response.status === 'failed') {
-      this.notificationService.error('Failed to generate a new API key'); 
+    if (response.status === 'success') {
+      this.model.api_key = response.data.api_key;
     } else {
-      this.model.api_key = response.api_key;
+      this.notificationService.error('Failed to generate a new API key'); 
     }
   }
 
   handleOAuth2(response: WPSResponse) {
-    if (response.status === 'failed') {
-      this.notificationService.error('Failed to authenticate');
+    if (response.status === 'success') {
+      this.router.navigateByUrl(response.data.redirect);
     } else {
-      this.router.navigateByUrl(response.redirect);
+      this.notificationService.error('Failed to authenticate');
     }
   }
 
   handleMPC(response: WPSResponse) {
-    if (response.status === 'failed') {
+    if (response.status === 'success') {
+      this.authService.user()
+        .then(response => {
+          if (response.status === 'success') {
+            this.model = response.data as User;
+          } else {
+            this.notificationService.error('Failed to retrieve account details');
+          }
+        });
+
+      jQuery('#myproxyclient').modal('hide');
+    } else {
       this.error = true;
 
-      this.errorMessage = response.errors;
-    } else {
-      window.location.reload();
+      this.errorMessage = response.error;
     }
   }
 }

@@ -120,7 +120,7 @@ export class AuthService {
   }
 
   regenerateKey(user: User): Promise<WPSResponse> {
-    return this.http.get(`auth/user/${user.id}/regenerate/`, {
+    return this.http.get(`auth/user/regenerate/`, {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -157,7 +157,7 @@ export class AuthService {
 
   private handleLoginResponse(response: WPSResponse): WPSResponse {
     if (response.status === 'success') {
-      localStorage.setItem('wps_expires', response.expires);
+      localStorage.setItem('wps_expires', response.data.expires);
 
       this.logged$.next(true);
     } else {
@@ -176,8 +176,6 @@ export class AuthService {
   }
 
   private handleError(error: any): Promise<any> {
-    console.log(error);
-
     return Promise.reject(error.message || error);
   }
 }

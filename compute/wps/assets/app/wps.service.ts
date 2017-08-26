@@ -5,10 +5,8 @@ import { NotificationService } from './notification.service';
 
 export interface WPSResponse {
   status: string;
-  errors: string;
-  api_key: string;
-  expires: string;
-  redirect: string;
+  error: string;
+  data: any;
 }
 
 export class Job {
@@ -50,6 +48,8 @@ export class Job {
     if (this.status === undefined) {
       this.status = new Array<Status>();
     }
+
+    console.log(updates);
 
     updates.forEach((s: Status) => {
       let match = this.status.find((i: Status) => i.status === s.status);
