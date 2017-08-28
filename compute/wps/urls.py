@@ -11,6 +11,8 @@ urlpatterns = [
     url(r'^job/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^jobs/$', views.jobs),
     url(r'^jobs/(?P<job_id>[0-9]*)/$', views.job),
+    url(r'^jobs/remove/$', views.job_remove_all),
+    url(r'^jobs/(?P<job_id>[0-9]*)/remove/$', views.job_remove),
     url(r'^home/', views.home, name='home'),
     url(r'^regen_capabilities/$', views.regen_capabilities),
     url(r'^cdas2_capabilities/$', views.cdas2_capabilities),

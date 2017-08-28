@@ -49,8 +49,6 @@ export class Job {
       this.status = new Array<Status>();
     }
 
-    console.log(updates);
-
     updates.forEach((s: Status) => {
       let match = this.status.find((i: Status) => i.status === s.status);
 
@@ -100,6 +98,20 @@ export class WPSService {
       .toPromise()
       .then(response => response.json().data as Status[])
       .catch(this.handleError);
+  }
+
+  removeAll(): Promise<number> {
+    return this.http.get('/wps/jobs/remove')
+      .toPromise()
+      .then(response => response.json())
+      .catch(error => this.handleError(error));
+  }
+
+  remove(jobID: number): Promise<number> {
+    return this.http.get(`/wps/jobs/${jobID}/remove`)
+      .toPromise()
+      .then(response => response.json())
+      .catch(error => this.handleError(error));
   }
 
   jobs(): Promise<Job[]> {

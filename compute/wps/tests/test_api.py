@@ -1,3 +1,5 @@
+import json
+
 from django import test
 
 from wps import models
@@ -25,6 +27,57 @@ class APITestCase(test.TestCase):
         self.job.started()
 
         self.job.succeeded()
+
+    def test_job_remove_all_not_logged_in(self):
+        response = self.client.get('/wps/jobs/remove/')
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'Must be logged in to remove jobs')
+
+    def test_job_remove_all(self):
+        self.client.login(username='test0', password='1234')
+
+        response = self.client.get('/wps/jobs/remove/')
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['data'], u'Removed all jobs')
+
+    def test_job_remove_not_owner(self):
+        self.client.login(username='admin0', password='1234')
+
+        response = self.client.get('/wps/jobs/{}/remove/'.format(self.job.pk))
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'Must be the owner of the job to remove')
+
+    def test_job_remove_not_logged_in(self):
+        response = self.client.get('/wps/jobs/{}/remove/'.format(self.job.pk))
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'Must be logged in to remove a job')
+
+    def test_job_remove(self):
+        self.client.login(username='test0', password='1234')
+
+        response = self.client.get('/wps/jobs/{}/remove/'.format(self.job.pk))
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+        self.assertDictEqual(data['data'], {u'job': unicode(self.job.pk)})
         
     def test_job_not_logged_in(self):
         response = self.client.get('/wps/jobs/{}/'.format(self.job.pk))

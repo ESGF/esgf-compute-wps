@@ -710,6 +710,39 @@ def jobs(request):
     else:
         return success(jobs)
 
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def job_remove_all(request):
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('Must be logged in to remove jobs')
+
+        request.user.job_set.all().delete()
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success('Removed all jobs')
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def job_remove(request, job_id):
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('Must be logged in to remove a job')
+
+        job = models.Job.objects.get(pk=job_id)
+
+        if job.user != request.user:
+            raise Exception('Must be the owner of the job to remove')
+
+        job.delete()
+    except models.Job.DoesNotExist:
+        return failed('Job does not exists')
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success({'job': job_id})
+
 @ensure_csrf_cookie
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)
@@ -717,3 +750,4 @@ def output(request, file_name):
 @ensure_csrf_cookie
 def home(request):
     return render(request, 'wps/index.html')
+

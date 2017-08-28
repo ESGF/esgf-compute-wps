@@ -14,7 +14,7 @@ interface InitDestroy extends OnInit, OnDestroy { }
     .jobs li {
       cursor: pointer;
       background-color: #EEE;
-      margin: .5em;
+      margin: .2em;
       padding: .3em;
       border-radius: 4px;
     }
@@ -42,7 +42,6 @@ export class JobsComponent implements InitDestroy {
   ngOnInit() {
     this.wps.jobs()
       .then(response => {
-        console.log(response);
         this.jobs = response;
 
         if (this.jobs.length > 0) this.setJob(this.jobs[0]);
@@ -68,12 +67,38 @@ export class JobsComponent implements InitDestroy {
     this.setJob(job);
   }
 
+  onRemoveAll() {
+    this.wps.removeAll()
+      .then(response => this.handleRemoveAll());
+  }
+
   setJob(job: Job) {
     this.selectedJob = job;
 
     if (this.selectedJob.status === undefined) {
       this.wps.status(job.id)
         .then(response => this.handleStatus(response));
+    }
+  }
+
+  onRemoveJob(jobID: number) {
+    this.wps.remove(this.selectedJob.id)
+      .then(response => this.handleRemoveJob(this.selectedJob.id));
+  }
+
+  handleRemoveAll() {
+    this.selectedJob = null;
+
+    this.jobs = new Array<Job>();
+  }
+
+  handleRemoveJob(jobID: number) {
+    for (let i = 0; i < this.jobs.length; i++) {
+      if (this.jobs[0].id === jobID) {
+        this.jobs.splice(i, 1);
+
+        break;
+      }
     }
   }
 
