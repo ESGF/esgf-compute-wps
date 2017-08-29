@@ -25,6 +25,17 @@ DAP_URL = setting('WPS_DAP_URL', 'https://0.0.0.0:8000/{file_name}')
 
 CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
 
+ADMIN_EMAIL = 'admin@wps.llnl.gov'
+
+LOGIN_URL = 'http://0.0.0.0:8000/wps/home/login'
+
+CREATE_SUBJECT = 'Welcome to ESGF compute server'
+CREATE_MESSAGE = """
+Thank you for creating an account for the ESGF compute server. Please login into your account <a href="{login_url}">here</a>.
+
+If you have any questions or concerns please email the <a href="mailto:{admin_email}">server admin</a>.
+"""
+
 # WPS Settings
 VERSION = setting('WPS_VERSION', '1.0.0')
 SERVICE = setting('WPS_SERVICE', 'WPS')

@@ -12,6 +12,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from django.contrib.auth import logout
 from django.core import serializers
+from django.core.mail import send_mail
 from django.db import IntegrityError
 from django.shortcuts import render
 from django.shortcuts import redirect
@@ -370,6 +371,12 @@ def create(request):
             raise Exception('User already exists')
 
         models.Auth.objects.create(openid_url=openid, user=user)
+
+        send_mail(settings.CREATE_SUBJECT,
+                  settings.CREATE_MESSAGE,
+                  settings.ADMIN_EMAIL.format(login_url=settings.LOGIN_URL, admin_email=settings.ADMIN_EMAIL),
+                  [user.email],
+                  html_message=True)
     except Exception as e:
         return failed(e.message)
     else:
