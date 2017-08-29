@@ -459,10 +459,10 @@ class CWTBaseTask(celery.Task):
                     if any(x == 0 for x in data.shape):
                         raise InvalidShapeError('Data has shape {}'.format(data.shape))
 
-                    data.getTime().toRelativeTime(base_units)
-
                     if cache_file is not None:
                         cache_file.write(data, id=var_name)
+
+                    data.getTime().toRelativeTime(base_units)
 
                     if read_callback is not None:
                         read_callback(data)

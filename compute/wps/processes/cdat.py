@@ -83,8 +83,6 @@ def aggregate(self, variables, operations, domains, **kwargs):
         logger.info('Writing to output {}'.format(out_local_path))
 
         def read_callback(data):
-            data.getTime().toRelativeTime(base_time.units)
-
             if grid is not None:
                 data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
