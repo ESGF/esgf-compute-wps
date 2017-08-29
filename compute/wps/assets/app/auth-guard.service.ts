@@ -21,7 +21,7 @@ export class AuthGuard implements CanActivate {
 
     this.notificationService.error('Access denied, please login');
 
-    this.router.navigate(['/wps/home/login']);
+    this.router.navigate(['/wps/home/login'], { queryParams: { next: state.url }});
 
     return false;
   }
