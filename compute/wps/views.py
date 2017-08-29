@@ -372,12 +372,17 @@ def create(request):
 
         models.Auth.objects.create(openid_url=openid, user=user)
 
-        send_mail(settings.CREATE_SUBJECT,
-                  settings.CREATE_MESSAGE,
-                  settings.ADMIN_EMAIL.format(login_url=settings.LOGIN_URL, admin_email=settings.ADMIN_EMAIL),
-                  [user.email],
-                  html_message=True)
+        try:
+            send_mail(settings.CREATE_SUBJECT,
+                      settings.CREATE_MESSAGE,
+                      settings.ADMIN_EMAIL.format(login_url=settings.LOGIN_URL, admin_email=settings.ADMIN_EMAIL),
+                      [user.email],
+                      html_message=True)
+        except Exception:
+            pass
     except Exception as e:
+        logger.exception('Error creating account')
+
         return failed(e.message)
     else:
         return success('Successfully created account for "{}"'.format(username))
