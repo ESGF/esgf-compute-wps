@@ -5,6 +5,7 @@ import { HttpModule } from '@angular/http';
 import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
+import { HomeComponent } from './home.component';
 import { CreateUserFormComponent } from './create-user-form.component';
 import { UpdateUserFormComponent } from './update-user-form.component';
 import { LoginFormComponent } from './login-form.component';
@@ -26,6 +27,10 @@ import { NotificationService } from './notification.service';
       {
         path: 'wps/home',
         children: [
+          {
+            path: '',
+            component: HomeComponent
+          },
           {
             path: 'create',
             component: CreateUserFormComponent
@@ -62,6 +67,7 @@ import { NotificationService } from './notification.service';
   ],
   declarations: [
     AppComponent,
+    HomeComponent,
     CreateUserFormComponent,
     UpdateUserFormComponent,
     LoginFormComponent,
