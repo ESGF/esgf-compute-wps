@@ -3,6 +3,7 @@
 import collections
 import copy
 import hashlib
+import math
 import json
 import os
 import time
@@ -342,7 +343,7 @@ class CWTBaseTask(celery.Task):
         
         return slice_str
 
-    def cache_multiple_input(self, input_vars, domain, read_callback=None):
+    def cache_multiple_input(self, input_vars, domain, status, read_callback=None):
         """ Cache multiple inputs.
 
         Map a domain over multiple inputs. The subset of each input is then 
@@ -376,6 +377,8 @@ class CWTBaseTask(celery.Task):
             except:
                 raise AccessError()
 
+            logger.info('Units [{}]'.format(', '.join(x[var_name].getTime().units for x in inputs)))
+
             inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
 
             base_units = inputs[0][var_name].getTime().units
@@ -384,6 +387,8 @@ class CWTBaseTask(celery.Task):
 
             domain_map = self.map_domain_multiple(input_files.values(), var_name, domain)
 
+            status.update('Mapping domain and checking cache for inputs')
+
             for url in domain_map.keys():
                 temporal, spatial = domain_map[url]
 
@@ -391,7 +396,7 @@ class CWTBaseTask(celery.Task):
                     continue
 
                 if temporal.stop == 0:
-                    logger.info('Skipping input {}, not covered by the domain'.format(url))
+                    status.update('Skipping input "{}", not included in domain'.format(url.split('/')[-1]))
 
                     del input_files[url]
 
@@ -435,9 +440,13 @@ class CWTBaseTask(celery.Task):
 
                 step = diff if diff < 200 else 200
 
-                logger.info('Beginning to retrieve file {}'.format(url))
+                step_count = math.floor((tstop - tstart) / step)
 
-                for begin in xrange(tstart, tstop, step):
+                status.update('Processing input "{}"'.format(url.split('/')[-1]), 0)
+
+                for i, begin in enumerate(xrange(tstart, tstop, step)):
+                    status.update('Retrieving chunk starting at {} {}'.format(begin, base_units), float(i*100/step_count))
+
                     end = begin + step
 
                     if end > tstop:
@@ -446,8 +455,6 @@ class CWTBaseTask(celery.Task):
                     time_slice = slice(begin, end, tstep)
 
                     data = input_files[url](var_name, time=time_slice, **spatial)
-
-                    logger.info('Retrieving chunk for time slice {}'.format(time_slice))
 
                     if any(x == 0 for x in data.shape):
                         raise InvalidShapeError('Data has shape {}'.format(data.shape))
@@ -459,6 +466,8 @@ class CWTBaseTask(celery.Task):
 
                     if read_callback is not None:
                         read_callback(data)
+
+                status.update('Finished retrieving input "{}"'.format(url.split('/')[-1]), 100)
 
                 input_files[url].close()
 
@@ -475,7 +484,7 @@ class CWTBaseTask(celery.Task):
 
         return cached
 
-    def cache_input(self, input_var, domain, read_callback=None):
+    def cache_input(self, input_var, domain, status, read_callback=None):
         """ Cache input.
 
         Map a domain over an input. The subset of the input is then chunked
@@ -498,6 +507,8 @@ class CWTBaseTask(celery.Task):
             except:
                 raise AccessError()
 
+            status.update('Mapping domain and checking cache for inputs')
+
             temporal, spatial = self.map_domain(input_file, input_var.var_name, domain)
 
             cache, exists = self.check_cache(input_file.id, input_var.var_name, temporal, spatial)
@@ -516,13 +527,19 @@ class CWTBaseTask(celery.Task):
 
                 tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
+            base_units = input_file[input_var.var_name].getTime().units
+
             diff = tstop - tstart
 
             step = diff if diff < 200 else 200
 
-            logger.info('Beginning to retrieve file {}'.format(input_var.uri))
+            step_count = math.floor((tstop - tstart) / step)
 
-            for begin in xrange(tstart, tstop, step):
+            status.update('Processing input "{}"'.format(input_var.uri.split('/')[-1]), 0)
+
+            for i, begin in enumerate(xrange(tstart, tstop, step)):
+                status.update('Retrieving chunk starting at {} {}'.format(begin, base_units), float(i*100/step_count))
+
                 end = begin + step
 
                 if end > tstop:
@@ -542,6 +559,8 @@ class CWTBaseTask(celery.Task):
 
                 if read_callback is not None:
                     read_callback(data)
+
+            status.update('Finished retrieving input "{}"'.format(input_var.uri.split('/')[-1]), 100)
         except:
             raise
         finally:

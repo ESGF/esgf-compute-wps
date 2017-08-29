@@ -39,8 +39,6 @@ def subset(self, variables, operations, domains, **kwargs):
 
     out_local_path = self.generate_local_output()
 
-    status.update('Beginning retrieval of subset data')
-
     with closing(cdms2.open(out_local_path, 'w')) as out:
         logger.info('Writing to output {}'.format(out_local_path))
 
@@ -50,7 +48,7 @@ def subset(self, variables, operations, domains, **kwargs):
 
             out.write(data, id=var_name)
 
-        self.cache_input(input_var, op.domain, read_callback)
+        self.cache_input(input_var, op.domain, status, read_callback)
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
@@ -81,8 +79,6 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     base_time = sorted(time_axes, key=lambda x: x.units)[0]
 
-    status.update('Beginning retrieval of aggregated data')
-
     with closing(cdms2.open(out_local_path, 'w')) as out:
         logger.info('Writing to output {}'.format(out_local_path))
 
@@ -94,7 +90,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
             out.write(data, id=var_name)
 
-        self.cache_multiple_input(op.inputs, op.domain, read_callback)
+        self.cache_multiple_input(op.inputs, op.domain, status, read_callback)
 
     out_path = self.generate_output(out_local_path, **kwargs)
 
