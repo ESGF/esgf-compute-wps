@@ -247,7 +247,7 @@ def describe(server_id, identifiers):
 
 @shared_task(bind=True, base=CWTBaseTask)
 def check_auth(self, **kwargs):
-    self.initialize(**kwargs)
+    self.set_user_creds(**kwargs)
 
     user_id = kwargs.get('user_id')
 
