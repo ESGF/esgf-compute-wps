@@ -5,11 +5,11 @@ import { User } from './user';
 import { AuthService } from './auth.service';
 
 @Component({
-  templateUrl: './create-user-form.component.html',
+  templateUrl: './create-user.component.html',
   styleUrls: ['./forms.css']
 })
 
-export class CreateUserFormComponent {
+export class CreateUserComponent {
   model: User = new User();
 
   constructor(

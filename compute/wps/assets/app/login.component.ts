@@ -5,11 +5,11 @@ import { User } from './user';
 import { AuthService } from './auth.service';
 
 @Component({
-  templateUrl: './login-form.component.html',
+  templateUrl: './login.component.html',
   styleUrls: ['./forms.css']
 })
 
-export class LoginFormComponent implements OnInit {
+export class LoginComponent implements OnInit {
   model: User = new User();
   next: string;
 

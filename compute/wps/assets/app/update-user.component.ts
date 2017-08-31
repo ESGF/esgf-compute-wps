@@ -9,11 +9,11 @@ import { NotificationService } from './notification.service';
 declare var jQuery: any;
 
 @Component({
-  templateUrl: './update-user-form.component.html',
+  templateUrl: './update-user.component.html',
   styleUrls: ['./forms.css']
 })
 
-export class UpdateUserFormComponent implements OnInit { 
+export class UpdateUserComponent implements OnInit { 
   model: User = new User();
   mpc: User = new User();
   error: boolean = false;
