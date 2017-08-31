@@ -377,17 +377,11 @@ class CWTBaseTask(celery.Task):
             except:
                 raise AccessError()
 
-            logger.info('Units [{}]'.format(', '.join(x[var_name].getTime().units for x in inputs)))
-
-            inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
-
-            base_units = inputs[0][var_name].getTime().units
-
-            input_files = collections.OrderedDict([(x.id, x) for x in inputs])
+            input_files = dict([(x.id, x) for x in inputs])
 
             domain_map = self.map_domain_multiple(input_files.values(), var_name, domain)
 
-            status.update('Mapping domain and checking cache for inputs')
+            logger.info(domain_map)
 
             for url in domain_map.keys():
                 temporal, spatial = domain_map[url]
@@ -415,6 +409,8 @@ class CWTBaseTask(celery.Task):
                     domain_map[url] = (slice(0, len(input_files[url][var_name]), 1), {})
                 else:
                     cache_map[url] = cache
+
+            base_units = input_files.values()[0][var_name].getTime().units
 
             for url in input_files.keys():
                 cache_file = None
@@ -473,7 +469,9 @@ class CWTBaseTask(celery.Task):
 
                 if cache_file is not None:
                     cache_file.close()
-        except:
+        except Exception:
+            logger.exception('Error caching multiple files')
+
             raise
         finally:
             if cache_file is not None:
@@ -715,9 +713,11 @@ class CWTBaseTask(celery.Task):
         """
         domain_map = {}
 
-        inputs = sorted(inputs, key=lambda x: x[var_name].getTime().units)
+        logger.info('Mapping domain {} over {} files'.format(domain, len(inputs)))
 
-        base = inputs[0][var_name].getTime()
+        inputs = sorted(inputs, key=lambda x: str(x[var_name].getTime().asComponentTime()[0]))
+
+        base = inputs[0][var_name].getTime().units
 
         for inp in inputs:
             temporal = None
@@ -739,7 +739,7 @@ class CWTBaseTask(celery.Task):
                     if axis.isTime():
                         clone_axis = axis.clone()
 
-                        clone_axis.toRelativeTime(base.units)
+                        clone_axis.toRelativeTime(base)
 
                         temporal = self.map_time_axis(clone_axis, dim)
 

@@ -71,14 +71,6 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     grid, tool, method = self.generate_grid(op, v, d)
 
-    try:
-        with nested(*[cdms2.open(x.uri) for x in op.inputs]) as inputs:
-            time_axes = [x[var_name].getTime() for x in inputs]
-    except cdms2.CDMSError:
-        raise Exception('Failed to gather time axes')
-
-    base_time = sorted(time_axes, key=lambda x: x.units)[0]
-
     with closing(cdms2.open(out_local_path, 'w')) as out:
         logger.info('Writing to output {}'.format(out_local_path))
 
