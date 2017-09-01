@@ -14,6 +14,7 @@ from django.contrib.auth import logout
 from django.core import serializers
 from django.core.mail import send_mail
 from django.db import IntegrityError
+from django.db.models import Max
 from django.shortcuts import render
 from django.shortcuts import redirect
 from django.shortcuts import get_list_or_404
@@ -710,17 +711,33 @@ def jobs(request):
         if not request.user.is_authenticated:
             raise Exception('Must be logged in to view job history')
 
+        jobs_count = models.Job.objects.filter(user_id=request.user.id).count()
+
+        index = int(request.GET.get('index', 0))
+
+        limit = int(request.GET.get('limit', jobs_count))
+
+        jobs_qs = models.Job.objects.filter(user_id=request.user.id, pk__gt=index)
+        
+        jobs_qs = jobs_qs.annotate(accepted=Max('status__created_date'))
+
+        jobs_qs = jobs_qs.order_by('accepted')
+
+        if limit is not None:
+            jobs_qs = jobs_qs[index: limit-1]
+
         jobs = list(reversed([
             {
                 'id': x.id,
                 'elapsed': x.elapsed,
                 'accepted': x.status_set.all().values('created_date').order_by('created_date').first()
-            } for x in models.Job.objects.filter(user_id=request.user.id)
+            } for x in jobs_qs
         ]))
     except Exception as e:
+        logger.exception('')
         return failed(e.message)
     else:
-        return success(jobs)
+        return success({'count': jobs_count, 'jobs': jobs})
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie

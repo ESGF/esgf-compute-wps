@@ -1,13 +1,42 @@
 <div class="container">
   <div *ngIf="jobs.length > 0; else elseNoJobs" class="row">
     <div class="col-md-2">
-      <button type="button" class="btn btn-default" (click)="onRemoveAll()">Clear</button>
-      <ul class="jobs list-unstyled">
-        <li *ngFor="let j of jobs" (click)="onClick(j)" [class.selected]="j === selectedJob">
-          {{j.accepted.created_date | date:'short'}}
-          <button type="button" class="close" aria-label="Close" (click)="onRemoveJob(j.id)"><span aria-hidden="true">&times;</span></button>
-        </li>
-      </ul>
+      <div class="row">
+        <div class="col-md-12">
+          <button type="button" class="btn btn-default" (click)="onRemoveAll()">Clear</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-12" style="height: 320px;">
+          <ul class="jobs list-unstyled">
+            <li *ngFor="let j of jobs|slice:page*ITEMS_PER_PAGE:(page*ITEMS_PER_PAGE)+ITEMS_PER_PAGE" (click)="onClick(j)" [class.selected]="j === selectedJob">
+              {{j.accepted.created_date | date:'short'}}
+              <button type="button" class="close" aria-label="Close" (click)="onRemoveJob(j.id)"><span aria-hidden="true">&times;</span></button>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div *ngIf="pageNumbers.length > 1" class="row">
+        <div class="col-md-12">
+          <nav aria-label="Page navigation">
+            <ul class="pagination">
+              <li>
+                <a aria-label="previous" (click)="onChangePage(-1)">
+                  <span aria-hidden="true">&laquo;</span>
+                </a>
+              </li>
+              <li *ngFor="let i of pageNumbers|slice:pageIndex:pageIndex+PAGES; index as i" [class.active]="i-1 === page">
+                <a (click)="setPage(i - 1)">{{i}}</a>
+              </li>
+              <li>
+                <a aria-label="next" (click)="onChangePage(1)">
+                  <span aria-hidden="true">&raquo;</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
     </div>
     <div class="col-md-10">
       <div *ngIf="selectedJob">
