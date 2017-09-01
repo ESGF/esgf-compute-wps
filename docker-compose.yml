@@ -9,7 +9,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - conf-volume:/var/www/compute/compute
+      - conf-volume:/var/www
     deploy:
       restart_policy:
         condition: on-failure
@@ -55,7 +55,7 @@ services:
     env_file:
       - ./common.env
     volumes:
-      - conf-volume:/var/www/compute/compute
+      - conf-volume:/var/www/compute
       - data-volume:/data/public
       - cache-volume:/data/cache
     deploy:
