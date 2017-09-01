@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 
 import os
 
+SESSION_COOKIE_NAME = 'wps_sessionid'
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -27,6 +29,8 @@ DEBUG = False
 ALLOWED_HOSTS = []
 
 # Application definition
+
+SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
 INSTALLED_APPS = [
     'wps',
@@ -125,10 +129,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-STATIC_ROOT = '/var/www/static'
+STATIC_ROOT = os.path.join(BASE_DIR, 'assets')
 
 STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'wps', 'assets'),
+    os.path.join(BASE_DIR, 'assets'),
 )
 
 WEBPACK_LOADER = {

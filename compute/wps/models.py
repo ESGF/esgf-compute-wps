@@ -12,6 +12,7 @@ from django.db import models
 from django.db.models import F
 from django.db.models.query_utils import Q
 from django.utils import timezone
+from openid.store import interface
 
 from wps import settings
 from wps import wps_xml
@@ -23,6 +24,46 @@ STATUS = {
     'ProcessSucceeded': wps_lib.ProcessSucceeded,
     'ProcessFailed': wps_lib.ProcessFailed,
 }
+
+class DjangoOpenIDStore(interface.OpenIDStore):
+    def storeAssociation(self, server_url, association):
+        pass
+
+    def getAssociation(self, server_url, handle=None):
+        pass
+
+    def removeAssociation(self, server_url, handle):
+        pass
+
+    def useNonce(self, server_url, timestamp, salt):
+        pass
+
+    def cleanupNonces(self):
+        pass
+
+    def cleanupAssociations(self):
+        pass
+
+class OpenIDNonce(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    server_url = models.CharField(max_length=2048)
+    timestamp = models.IntegerField()
+    salt = models.CharField(max_length=40)
+
+    class Meta:
+        unique_together = ('server_url', 'timestamp', 'salt')
+
+class OpenIDAssociation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    server_url = models.CharField(max_length=2048)
+    handle = models.CharField(max_length=256)
+    secret = models.TextField(max_length=256)
+    issued = models.IntegerField()
+    lifetime = models.IntegerField()
+    assoc_type = models.TextField(max_length=64)
+
+    class Meta:
+        unique_together = ('server_url', 'handle')
 
 class Files(models.Model):
     name = models.CharField(max_length=256)

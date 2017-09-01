@@ -1,0 +1,10 @@
+<div class="container">
+  <h1>OpenID</h1>
+  <form (ngSubmit)="onLogin()" #loginForm="ngForm">
+    <div class="form-group">
+      <label for="openid_url">OpenID URL</label>
+      <input type="url" class="form-control" id="openid_url" [(ngModel)]="model.openidURL" name="openidURL" placehold="OpenID URL" required>
+    </div>
+    <button type="submit" class="btn btn-default">Login</button>
+  </form>
+</div>

@@ -95,6 +95,18 @@ export class AuthService {
       .catch(this.handleError);
   }
 
+  loginOpenID(openidURL: string): Promise<WPSResponse> {
+    return this.http.post('auth/login/openid/', `openid_url=${openidURL}`, {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      })
+    })
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
+  }
+
   logout(): Promise<WPSResponse> {
     return this.http.get('auth/logout/', {
       headers: new Headers({

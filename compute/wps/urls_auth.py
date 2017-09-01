@@ -10,6 +10,7 @@ urlpatterns = [
     url(r'^user/$', views.user_details, name='user'),
     url(r'^user/regenerate/$', views.regenerate),
     url(r'^login/$', views.user_login, name='login'),
+    url(r'^login/openid/$', views.user_login_openid, name='login_openid'),
     url(r'^logout/$', views.user_logout, name='logout'),
     url(r'^login/oauth2/$', views.login_oauth2, name='oauth2'),
     url(r'^login/mpc/$', views.login_mpc, name='mpc'),

@@ -1,5 +1,4 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
 
 import { User } from './user';
 import { WPSResponse } from './wps.service';
@@ -21,8 +20,7 @@ export class UpdateUserComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
-    private notificationService: NotificationService,
-    private router: Router
+    private notificationService: NotificationService
   ) { }
 
   ngOnInit() {
@@ -80,7 +78,7 @@ export class UpdateUserComponent implements OnInit {
 
   handleOAuth2(response: WPSResponse) {
     if (response.status === 'success') {
-      this.router.navigateByUrl(response.data.redirect);
+      window.location.replace(response.data.redirect);
     } else {
       this.notificationService.error('Failed to authenticate');
     }

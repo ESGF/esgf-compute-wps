@@ -9,4 +9,5 @@ dask
 toolz
 MyProxyClient
 django-webpack-loader
+python-openid
 git+https://github.com/esgf/esgf-compute-api

@@ -7,6 +7,7 @@ import StringIO
 import cwt
 import django
 import requests
+from cwt.wps_lib import metadata
 from django import http
 from django.contrib.auth import authenticate
 from django.contrib.auth import login
@@ -21,7 +22,9 @@ from django.shortcuts import get_list_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from django.views.static import serve
-from cwt.wps_lib import metadata
+from openid.consumer import consumer
+from openid.consumer.discover import DiscoveryFailure
+from openid.extensions import ax, sreg
 
 from wps import forms
 from wps import models
@@ -468,6 +471,89 @@ def regenerate(request):
         return failed(e.message)
     else:
         return success({'api_key': api_key})
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def user_login_openid(request):
+    try:
+        form = forms.OpenIDForm(request.POST)
+
+        if not form.is_valid():
+            raise Exception(form.errors)
+
+        openid_url = form.cleaned_data['openid_url']
+
+        logger.info('Attempting to login user "{}"'.format(openid_url))
+
+        c = consumer.Consumer(request.session, models.DjangoOpenIDStore()) 
+
+        try:
+            auth_request = c.begin(openid_url)
+        except DiscoveryError as e:
+            raise Exception('OpenID discovery error {}'.format(e.message))
+
+        sreg_request = sreg.SRegRequest()
+
+        auth_request.addExtension(sreg_request)
+
+        ax_request = ax.FetchRequest()
+
+        auth_request.addExtension(ax_request)
+
+        url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success({'redirect': url})
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def user_login_openid_callback(request):
+    try:
+        c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
+
+        response = c.complete(request.POST, settings.OPENID_RETURN_TO)
+
+        sreg_response = {}
+        ax_response = {}
+
+        if request.status == consumer.SUCCESS:
+            sreg_response = sreg.SRegResponse.fromSuccessResponse(response)
+
+            logger.info('SReg response {}'.format(sreg_response))
+
+            ax_response = ax.FetchResponse.fromSuccessResponse(response)
+
+            logger.info('AX response {}'.format(ax_response))
+
+        if consumer.CANCEL:
+            reason = 'Unknown'
+
+            if isinstance(response, consumer.FailureResponse):
+                reason = response.message
+
+            raise Exception('OpenID authentication cancelled: {}'.format(reason))
+
+        if consumer.FAILURE:
+            reason = 'Unknown'
+
+            if isinstance(response, consumer.FailureResponse):
+                reason = response.message
+
+            raise Exception('OpenID authentication failed: {}'.format(reason))
+
+        # Get OpenID url. Check if user exists, if not create. Log user in.
+
+        result = {
+            'message': 'OpenID authentication success',
+            'url': response.getDisplayIdentifier(),
+            'sreg': sreg_response and sreg_response.items(),
+            'ax': ax_response 
+        }
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success(result)
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie

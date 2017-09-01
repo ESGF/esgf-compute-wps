@@ -29,6 +29,9 @@ ADMIN_EMAIL = 'admin@wps.llnl.gov'
 
 LOGIN_URL = 'http://0.0.0.0:8000/wps/home/login'
 
+OPENID_TRUST_ROOT = 'http://0.0.0.0:8000/wps/home/login/openid'
+OPENID_RETURN_TO = 'http://0.0.0.0:8000/auth/callback/openid'
+
 CREATE_SUBJECT = 'Welcome to ESGF compute server'
 CREATE_MESSAGE = """
 Thank you for creating an account for the ESGF compute server. Please login into your account <a href="{login_url}">here</a>.
