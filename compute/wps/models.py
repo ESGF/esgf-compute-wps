@@ -1,8 +1,10 @@
 from __future__ import unicode_literals
 
+import base64
 import datetime
-import os
 import logging
+import os
+import time
 
 logger = logging.getLogger('wps.models')
 
@@ -12,7 +14,9 @@ from django.db import models
 from django.db.models import F
 from django.db.models.query_utils import Q
 from django.utils import timezone
+from openid import association
 from openid.store import interface
+from openid.store import nonce
 
 from wps import settings
 from wps import wps_xml
@@ -26,22 +30,91 @@ STATUS = {
 }
 
 class DjangoOpenIDStore(interface.OpenIDStore):
+    # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py
+
     def storeAssociation(self, server_url, association):
-        pass
+        try:
+            assoc = OpenIDAssociation.objects.get(server_url=server_url,
+                                                 handle=assocation.handle)
+        except OpenIDAssociation.DoesNotExist:
+            assoc = OpenIDAssociation(server_url=server_url,
+                                      handle=association.handle,
+                                      secret=base64.encodestring(association.secret),
+                                      issued=association.issued,
+                                      lifetime=association.lifetime,
+                                      assoc_type=association.assoc_type)
+        else:
+            assoc.secret = base64.encodestring(association.secret)
+            assoc.issued = association.issued
+            assoc.lifetime = association.lifetime
+            assoc.assoc_type = association.assoc_type
+
+        assoc.save()
 
     def getAssociation(self, server_url, handle=None):
-        pass
+        if handle is not None:
+            assocs = OpenIDAssociation.objects.filter(server_url=server_url,
+                                                     handle=handle)
+        else:
+            assocs = OpenIDAssociation.objects.filter(server_url=server_url)
+
+        active = []
+        expired = []
+
+        for a in assocs:
+            assoc = association.Association(a.handle,
+                                            base64.encodestring(a.secret.encode('utf-8')),
+                                            a.issued,
+                                            a.lifetime,
+                                            a.assoc_type)
+
+            expires_in = assoc.getExpiresIn()
+
+            if expires_in == 0:
+                expired.append(a)
+            else:
+                active.append((assoc.issued, assoc))
+
+        for e in expired:
+            e.delete()
+
+        if len(active) == 0:
+            return None
+
+        active.sort()
+
+        return active[-1][1]
 
     def removeAssociation(self, server_url, handle):
-        pass
+        assocs = OpenIDAssociations.objects.filter(server_url=server_url, handle=handle)
+
+        for a in assocs:
+            a.delete()
+
+        return len(assocs) > 0
 
     def useNonce(self, server_url, timestamp, salt):
-        pass
+        if abs(timestamp - time.time()) > nonce.SKEW:
+            return False
+
+        try:
+            ononce = OpenIDNonce.objects.get(server_url__exact=server_url,
+                                             timestamp__exact=timestamp,
+                                             salt__exact=salt)
+        except OpenIDNonce.DoesNotExist:
+            ononce = OpenIDNonce.objects.create(server_url=server_url,
+                                                timestamp=timestamp,
+                                                salt=salt)
+            return True
+
+        return False
 
     def cleanupNonces(self):
+        # Will implement later since it's not called
         pass
 
     def cleanupAssociations(self):
+        # Will implement later since it's not called
         pass
 
 class OpenIDNonce(models.Model):
