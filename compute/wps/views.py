@@ -489,16 +489,26 @@ def user_login_openid(request):
 
         try:
             auth_request = c.begin(openid_url)
-        except DiscoveryError as e:
+        except DiscoveryFailure as e:
             raise Exception('OpenID discovery error {}'.format(e.message))
 
-        sreg_request = sreg.SRegRequest()
+        fetch_request = ax.FetchRequest()
 
-        auth_request.addExtension(sreg_request)
+        attributes = [
+            ('http://axschema.org/contact/email', 'email'),
+            ('http://axschema.org/namePerson', 'fullname'),
+            ('http://axschema.org/namePerson/first', 'firstname'),
+            ('http://axschema.org/namePerson/last', 'lastname'),
+            ('http://axschema.org/namePerson/friendly', 'nickname'),
+            ('http://schema.openid.net/contact/email', 'old_email'),
+            ('http://schema.openid.net/namePerson', 'old_fullname'),
+            ('http://schema.openid.net/namePerson/friendly', 'old_nickname')
+        ]
 
-        ax_request = ax.FetchRequest()
+        for attr, alias in attributes:
+            fetch_request.add(ax.AttrInfo(attr, alias=alias, required=True))
 
-        auth_request.addExtension(ax_request)
+        auth_request.addExtension(fetch_request)
 
         url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
     except Exception as e:
@@ -506,50 +516,49 @@ def user_login_openid(request):
     else:
         return success({'redirect': url})
 
-@require_http_methods(['POST'])
+@require_http_methods(['GET'])
 @ensure_csrf_cookie
 def user_login_openid_callback(request):
     try:
         c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
 
-        response = c.complete(request.POST, settings.OPENID_RETURN_TO)
+        response = c.complete(request.GET, settings.OPENID_RETURN_TO)
 
-        sreg_response = {}
-        ax_response = {}
-
-        if request.status == consumer.SUCCESS:
-            sreg_response = sreg.SRegResponse.fromSuccessResponse(response)
-
-            logger.info('SReg response {}'.format(sreg_response))
-
-            ax_response = ax.FetchResponse.fromSuccessResponse(response)
-
-            logger.info('AX response {}'.format(ax_response))
-
-        if consumer.CANCEL:
+        if response.status == consumer.CANCEL:
             reason = 'Unknown'
 
             if isinstance(response, consumer.FailureResponse):
                 reason = response.message
 
             raise Exception('OpenID authentication cancelled: {}'.format(reason))
-
-        if consumer.FAILURE:
+        elif response.status == consumer.FAILURE:
             reason = 'Unknown'
 
             if isinstance(response, consumer.FailureResponse):
                 reason = response.message
 
             raise Exception('OpenID authentication failed: {}'.format(reason))
+        
+        email = ''
+        openid_url = response.getDisplayIdentifier()
 
-        # Get OpenID url. Check if user exists, if not create. Log user in.
+        ax_response = ax.FetchResponse.fromSuccessResponse(response)
 
-        result = {
-            'message': 'OpenID authentication success',
-            'url': response.getDisplayIdentifier(),
-            'sreg': sreg_response and sreg_response.items(),
-            'ax': ax_response 
-        }
+        if ax_response:
+            email = ax_response.get('http://axschema.org/contact/email')[0]
+
+        try:
+            user = models.User.objects.get(auth__openid_url=openid_url)
+        except models.User.DoesNotExist:
+            username = openid_url.split('/')[-1]
+
+            user = models.User.objects.create_user(username, email)
+
+            models.Auth.objects.create(openid_url=openid_url, user=user)
+
+        login(request, user)
+
+        return redirect('https://aims2.llnl.gov/wps/home/login/callback?expires={}'.format(request.session.get_expiry_date()))
     except Exception as e:
         return failed(e.message)
     else:

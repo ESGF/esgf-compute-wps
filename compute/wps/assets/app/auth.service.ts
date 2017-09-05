@@ -31,6 +31,10 @@ export class AuthService {
     return false;
   }
 
+  setExpires(expires: string) {
+    localStorage.setItem('wps_expires', expires);
+  }
+
   getCookie(name: string): string {
     let cookieValue: string = null;
 

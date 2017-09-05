@@ -35,7 +35,7 @@ class DjangoOpenIDStore(interface.OpenIDStore):
     def storeAssociation(self, server_url, association):
         try:
             assoc = OpenIDAssociation.objects.get(server_url=server_url,
-                                                 handle=assocation.handle)
+                                                 handle=association.handle)
         except OpenIDAssociation.DoesNotExist:
             assoc = OpenIDAssociation(server_url=server_url,
                                       handle=association.handle,
@@ -63,7 +63,7 @@ class DjangoOpenIDStore(interface.OpenIDStore):
 
         for a in assocs:
             assoc = association.Association(a.handle,
-                                            base64.encodestring(a.secret.encode('utf-8')),
+                                            base64.decodestring(a.secret.encode('utf-8')),
                                             a.issued,
                                             a.lifetime,
                                             a.assoc_type)
@@ -118,7 +118,7 @@ class DjangoOpenIDStore(interface.OpenIDStore):
         pass
 
 class OpenIDNonce(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     server_url = models.CharField(max_length=2048)
     timestamp = models.IntegerField()
     salt = models.CharField(max_length=40)
@@ -127,7 +127,7 @@ class OpenIDNonce(models.Model):
         unique_together = ('server_url', 'timestamp', 'salt')
 
 class OpenIDAssociation(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     server_url = models.CharField(max_length=2048)
     handle = models.CharField(max_length=256)
     secret = models.TextField(max_length=256)

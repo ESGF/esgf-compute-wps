@@ -8,7 +8,7 @@ import { AppComponent } from './app.component';
 import { HomeComponent } from './home.component';
 import { CreateUserComponent } from './create-user.component';
 import { UpdateUserComponent } from './update-user.component';
-import { LoginComponent } from './login.component';
+import { LoginComponent, LoginCallbackComponent } from './login.component';
 import { LoginOpenIDComponent } from './login-openid.component';
 import { LogoutComponent } from './logout.component';
 import { ConfigureComponent } from './configure.component';
@@ -43,6 +43,10 @@ import { NotificationService } from './notification.service';
           {
             path: 'login/openid',
             component: LoginOpenIDComponent
+          },
+          {
+            path: 'login/callback',
+            component: LoginCallbackComponent
           }
         ]
       },
@@ -76,6 +80,7 @@ import { NotificationService } from './notification.service';
     CreateUserComponent,
     UpdateUserComponent,
     LoginComponent,
+    LoginCallbackComponent,
     LoginOpenIDComponent,
     LogoutComponent,
     ConfigureComponent,
