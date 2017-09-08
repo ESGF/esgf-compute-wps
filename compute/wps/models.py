@@ -308,7 +308,7 @@ class Job(models.Model):
         self.status_set.create(status=wps_lib.ProcessAccepted())
 
     def started(self):
-        status = self.status_set.create(status=wps_lib.ProcessStarted())
+        status = self.status_set.create(status=str(wps_lib.ProcessStarted()).split(' ')[0])
 
         status.set_message('Job Started')
 

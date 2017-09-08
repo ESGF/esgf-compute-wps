@@ -17,13 +17,10 @@ from wps import settings
 class CWTBaseTaskTestCase(test.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.user = models.User.objects.create(username='test')
+        if os.path.exists(settings.CACHE_PATH):
+            shutil.rmtree(settings.CACHE_PATH)
 
-        models.Auth.objects.create(user=cls.user, cert='test')
-
-        server = models.Server.objects.create(host='test', status=0)
-
-        cls.job = models.Job.objects.create(server=server, user=cls.user)
+        os.makedirs(settings.CACHE_PATH)
 
         cls.longitude = cdms2.createUniformLongitudeAxis(-180.0, 360.0, 1.0)
 
@@ -53,10 +50,22 @@ class CWTBaseTaskTestCase(test.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        shutil.rmtree(settings.CACHE_PATH)
 
     def setUp(self):
         self.task = processes.CWTBaseTask()
+
+        self.user = models.User.objects.create(username='test')
+
+        models.Auth.objects.create(user=self.user, cert='test')
+
+        server = models.Server.objects.create(host='test', status=0)
+
+        process = models.Process.objects.create(identifier='CDAT.subset', backend='local')
+
+        self.job = models.Job.objects.create(server=server, user=self.user, process=process)
+
+        self.job.accepted()
 
     def test_cache_multiple_input_partial(self):
         variables = [
@@ -70,12 +79,16 @@ class CWTBaseTaskTestCase(test.TestCase):
             cwt.Dimension('lon', -90, 90)
         ])
 
+        status = process.Status.from_job_id(self.job.pk)
+
+        status.job.started()
+
         with cdms2.open('./multiple.nc', 'w') as outfile:
             def callback(data):
                 outfile.write(data, id='tas')
 
-            with self.assertNumQueries(5):
-                cached = self.task.cache_multiple_input(variables, domain, callback)
+            with self.assertNumQueries(14):
+                cached = self.task.cache_multiple_input(variables, domain, status, callback)
 
             for c in cached: self.assertTrue(os.path.exists(c))
 
@@ -91,12 +104,16 @@ class CWTBaseTaskTestCase(test.TestCase):
             cwt.Dimension('lon', -90, 90)
         ])
 
+        status = process.Status.from_job_id(self.job.pk)
+
+        status.job.started()
+
         with cdms2.open('./multiple.nc', 'w') as outfile:
             def callback(data):
                 outfile.write(data, id='tas')
 
-            with self.assertNumQueries(10):
-                cached = self.task.cache_multiple_input(variables, domain, callback)
+            with self.assertNumQueries(28):
+                cached = self.task.cache_multiple_input(variables, domain, status, callback)
 
             for c in cached: self.assertTrue(os.path.exists(c))
 
@@ -124,14 +141,18 @@ class CWTBaseTaskTestCase(test.TestCase):
             cwt.Dimension('lon', -90, 90),
         ])
 
+        status = process.Status.from_job_id(self.job.pk)
+
+        status.job.started()
+
         with cdms2.open('./output1.nc', 'w') as outfile:
             def callback(data):
                 outfile.write(data, id='tas')
 
-            self.task.cache_input(variable, domain, callback)
+            self.task.cache_input(variable, domain, status, callback)
 
-            with self.assertNumQueries(1):
-                cache = self.task.cache_input(variable, domain, callback)
+            with self.assertNumQueries(13):
+                cache = self.task.cache_input(variable, domain, status, callback)
 
     def test_cache_input(self):
         variable = cwt.Variable('./test1.nc', 'tas')
@@ -142,12 +163,16 @@ class CWTBaseTaskTestCase(test.TestCase):
             cwt.Dimension('lon', -90, 90),
         ])
 
+        status = process.Status.from_job_id(self.job.pk)
+
+        status.job.started()
+
         with cdms2.open('./output1.nc', 'w') as outfile:
             def callback(data):
                 outfile.write(data, id='tas')
 
-            with self.assertNumQueries(5):
-                cache = self.task.cache_input(variable, domain, callback)
+            with self.assertNumQueries(17):
+                cache = self.task.cache_input(variable, domain, status, callback)
 
             self.assertEqual(outfile['tas'].shape, (6, 91, 181))
 
@@ -393,7 +418,7 @@ class CWTBaseTaskTestCase(test.TestCase):
     def test_generate_output(self):
         output = self.task.generate_output('file:///test.nc')
 
-        self.assertEqual(settings.OUTPUT_URL.format(file_name='test.nc'), output)
+        self.assertRegexpMatches(output, '.*/thredds/dodsC/test/public/test.nc')
 
     def test_generate_local_output_custom_name(self):
         output = self.task.generate_local_output('test')
@@ -511,5 +536,5 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertIsInstance(job, models.Job)
         self.assertIsInstance(status, processes.Status)
 
-        self.assertQuerysetEqual(self.job.status_set.all(), ['ProcessStarted'], lambda x: x.status, ordered=False)
+        self.assertQuerysetEqual(self.job.status_set.all(), ['ProcessAccepted', 'ProcessStarted'], lambda x: x.status, ordered=False)
         self.assertQuerysetEqual(self.job.status_set.latest('created_date').message_set.all(), ['Job Started'], lambda x: x.message, ordered=False)
