@@ -490,7 +490,9 @@ def user_login_openid(request):
         try:
             auth_request = c.begin(openid_url)
         except DiscoveryFailure as e:
-            raise Exception('OpenID discovery error {}'.format(e.message))
+            logger.exception('OpenID discovery error')
+
+            raise Exception('OpenID discovery error')
 
         fetch_request = ax.FetchRequest()
 
@@ -516,6 +518,18 @@ def user_login_openid(request):
     else:
         return success({'redirect': url})
 
+def __handle_openid_attribute_exchange(response):
+    attrs = {
+        'email': None
+    }
+
+    ax_response = ax.FetchResponse.fromSuccessResponse(response)
+
+    if ax_response:
+        attrs['email'] = ax_response.get('http://axschema.org/contact/email')[0]
+
+    return attrs
+
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def user_login_openid_callback(request):
@@ -525,44 +539,30 @@ def user_login_openid_callback(request):
         response = c.complete(request.GET, settings.OPENID_RETURN_TO)
 
         if response.status == consumer.CANCEL:
-            reason = 'Unknown'
-
-            if isinstance(response, consumer.FailureResponse):
-                reason = response.message
-
-            raise Exception('OpenID authentication cancelled: {}'.format(reason))
+            raise Exception('OpenID authentication cancelled')
         elif response.status == consumer.FAILURE:
-            reason = 'Unknown'
-
-            if isinstance(response, consumer.FailureResponse):
-                reason = response.message
-
-            raise Exception('OpenID authentication failed: {}'.format(reason))
+            raise Exception('OpenID authentication failed')
         
-        email = ''
         openid_url = response.getDisplayIdentifier()
 
-        ax_response = ax.FetchResponse.fromSuccessResponse(response)
-
-        if ax_response:
-            email = ax_response.get('http://axschema.org/contact/email')[0]
+        attrs = __handle_openid_attribute_exchange(request)
 
         try:
             user = models.User.objects.get(auth__openid_url=openid_url)
         except models.User.DoesNotExist:
             username = openid_url.split('/')[-1]
 
-            user = models.User.objects.create_user(username, email)
+            user = models.User.objects.create_user(username, attrs['email'])
 
             models.Auth.objects.create(openid_url=openid_url, user=user)
 
         login(request, user)
-
-        return redirect('https://aims2.llnl.gov/wps/home/login/callback?expires={}'.format(request.session.get_expiry_date()))
     except Exception as e:
+        logger.exception('OpenID callback error')
+
         return failed(e.message)
     else:
-        return success(result)
+        return redirect('{}?expires={}'.format(settings.OPENID_CALLBACK_SUCCESS, request.session.get_expiry_date()))
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie

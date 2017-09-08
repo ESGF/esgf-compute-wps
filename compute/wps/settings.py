@@ -31,6 +31,7 @@ LOGIN_URL = setting('WPS_LOGIN_URL', 'http://0.0.0.0:8000/wps/home/login')
 
 OPENID_TRUST_ROOT = setting('WPS_OPENID_TRUST_ROOT', 'http://0.0.0.0:8000/wps/home/login/openid')
 OPENID_RETURN_TO = setting('WPS_OPENID_RETURN_TO', 'http://0.0.0.0:8000/auth/callback/openid')
+OPENID_CALLBACK_SUCCESS = setting('WPS_OPENID_CALLBACK_SUCCESS', 'http://0.0.0.0:8000/wps/home/login/callback')
 
 CREATE_SUBJECT = 'Welcome to ESGF compute server'
 CREATE_MESSAGE = """
