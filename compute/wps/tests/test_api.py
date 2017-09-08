@@ -1,5 +1,6 @@
 import json
 
+import mock
 from django import test
 
 from wps import models
@@ -27,6 +28,85 @@ class APITestCase(test.TestCase):
         self.job.started()
 
         self.job.succeeded()
+
+    @mock.patch('wps.views.consumer.Consumer')
+    def test_user_login_openid_callback_failure(self, consumer):
+        complete_attrs = {'status': 'failure'}
+
+        complete = mock.Mock(**complete_attrs)
+
+        consumer_attrs = {'complete.return_value': complete}  
+
+        consumer.return_value = mock.Mock(**consumer_attrs)
+
+        response = self.client.get('/auth/callback/openid/')
+
+        data = response.json()
+
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'OpenID authentication failed')
+
+    @mock.patch('wps.views.consumer.Consumer')
+    def test_user_login_openid_callback_cancelled(self, consumer):
+        complete_attrs = {'status': 'cancel'}
+
+        complete = mock.Mock(**complete_attrs)
+
+        consumer_attrs = {'complete.return_value': complete}  
+
+        consumer.return_value = mock.Mock(**consumer_attrs)
+
+        response = self.client.get('/auth/callback/openid/')
+
+        data = response.json()
+
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'OpenID authentication cancelled')
+
+    @mock.patch('wps.views.consumer.Consumer')
+    def test_user_login_openid_callback(self, consumer):
+        complete_attrs = {'getDisplayIdentifier.return_value': 'openid_url'}
+
+        complete = mock.Mock(**complete_attrs)
+
+        consumer_attrs = {'complete.return_value': complete}  
+
+        consumer.return_value = mock.Mock(**consumer_attrs)
+
+        with mock.patch('wps.views.__handle_openid_attribute_exchange') as handle:
+            handle.return_value = {'email': 'test@home.gov'}
+
+            with self.assertNumQueries(11):
+                response = self.client.get('/auth/callback/openid/')
+
+        self.assertTrue('http://0.0.0.0:8000/wps/home/login/callback?expires' in response.url)
+
+    def test_user_login_openid_discovery_error(self):
+        response = self.client.post('/auth/login/openid/', {'openid_url': 'http://wps.gov/openid/username'})
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data['error'], 'OpenID discovery error')
+
+    @mock.patch('wps.views.consumer.Consumer')
+    def test_user_login_openid(self, consumer):
+        auth_request_attrs = {'redirectURL.return_value': 'redirect'}
+
+        auth_request = mock.Mock(**auth_request_attrs)
+
+        consumer_attrs = {'begin.return_value': auth_request}
+
+        consumer.return_value = mock.Mock(**consumer_attrs)
+
+        response = self.client.post('/auth/login/openid/', {'openid_url': 'http://wps.gov/openid/username'})
+
+        data = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+        self.assertDictEqual(data['data'], {'redirect': 'redirect'})
 
     def test_job_remove_all_not_logged_in(self):
         response = self.client.get('/wps/jobs/remove/')
