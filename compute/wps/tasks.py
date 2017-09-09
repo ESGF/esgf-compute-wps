@@ -21,13 +21,13 @@ from celery.signals import celeryd_init
 from celery.utils.log import get_task_logger
 from cwt.wps_lib import metadata
 from cwt.wps_lib import operations
+from openid.consumer import discover
 from OpenSSL import crypto
 
 from wps import models
 from wps import settings
 from wps import wps_xml
 from wps.auth import oauth2
-from wps.auth import openid
 from wps.processes import get_process
 from wps.processes import CWTBaseTask
 
@@ -35,6 +35,13 @@ logger = get_task_logger('wps.tasks')
 
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
+
+def openid_find_service_by_type(services, uri):
+    for s in services:
+        if uri in s.type_uris:
+            return s
+
+    return None
 
 class WPSTaskError(Exception):
     pass
@@ -275,14 +282,14 @@ def check_auth(self, **kwargs):
 
     if user.auth.type == 'myproxyclient':
         raise Exception('Please relog into MyProxyClient from your user account page.')
-    
-    oid = openid.OpenID.parse(user.auth.openid)
 
-    access = oid.find(URN_AUTHORIZE)
+    url, services = discover.discoverYadis(user.auth.openid_url)
 
-    resource = oid.find(URN_RESOURCE)
+    auth_service = openid_find_service_by_type(URN_AUTHORIZE)
 
-    cert, key, new_token = oauth2.get_certificate(user.auth.token, access.uri, resource.uri)
+    cert_service = openid_find_service_by_type(URN_RESOURCE)
+
+    cert, key, new_token = oauth2.get_certificate(user.auth.token, auth_service.server_url, cert_service.server_url)
 
     logger.info('Recieved new token {}, updating certificate'.format(new_token))
 

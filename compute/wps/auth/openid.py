@@ -5,6 +5,8 @@ import logging
 import requests
 from lxml import etree
 
+raise Exception('This module is deprecated, replaced with python-openid')
+
 logger = logging.getLogger('wps.auth.openid')
 
 class OpenIDError(Exception):

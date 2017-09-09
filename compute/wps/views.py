@@ -31,7 +31,6 @@ from wps import models
 from wps import node_manager
 from wps import settings
 from wps import wps_xml
-from wps.auth import openid
 from wps.auth import oauth2
 
 logger = logging.getLogger('wps.views')

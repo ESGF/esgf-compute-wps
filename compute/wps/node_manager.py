@@ -22,13 +22,13 @@ from celery import group
 from cwt import wps_lib
 from lxml import etree
 from myproxy.client import MyProxyClient
+from openid.consumer import discover
 
 from wps import models
 from wps import settings
 from wps import tasks
 from wps import wps_xml
 from wps.auth import oauth2
-from wps.auth import openid
 from wps.processes import get_process
 
 logger = logging.getLogger('wps.node_manager')
@@ -37,6 +37,20 @@ URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
 URN_MPC = 'urn:esg:security:myproxy-service'
+
+discover.OpenIDServiceEndpoint.openid_type_uris.extend([
+    URN_AUTHORIZE,
+    URN_ACCESS,
+    URN_RESOURCE,
+    URN_MPC
+])
+
+def openid_find_service_by_type(services, uri):
+    for s in services:
+        if uri in s.type_uris:
+            return s
+
+    return None
 
 class NodeManagerError(Exception):
     pass
@@ -76,7 +90,7 @@ class NodeManager(object):
 
         return socket
 
-    def update_user(self, service, openid_response, oid_url, certs, **extra):
+    def update_user(self, service, oid_url, certs, **extra):
         """ Create a new user. """
         try:
             user = models.User.objects.get(auth__openid_url=oid_url)
@@ -86,7 +100,6 @@ class NodeManager(object):
         if user.auth.api_key == '':
             user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
 
-        user.auth.openid_response = openid_response
         user.auth.type = service
         user.auth.cert = ''.join(certs)
         user.auth.extra = json.dumps(extra)
@@ -95,11 +108,11 @@ class NodeManager(object):
         logger.info('Updated auth settings for user {}'.format(user.username))
 
     def auth_mpc(self, oid_url, username, password):
-        oid = openid.OpenID.retrieve_and_parse(oid_url)
+        url, services = discover.discoverYadis(oid_url)
 
-        mpc_service = oid.find(URN_MPC)
+        mpc_service = openid_find_service_by_type(services, URN_MPC)
 
-        g = re.match('socket://(.*):(.*)', mpc_service.uri)
+        g = re.match('socket://(.*):(.*)', mpc_service.server_url)
 
         if g is None:
             raise Exception('Failed to parse MyProxyClient endpoint')
@@ -112,45 +125,45 @@ class NodeManager(object):
 
         logger.info('Authenticated with MyProxyClient backend for user {}'.format(username))
 
-        self.update_user('myproxyclient', oid.response, oid_url, c)
+        self.update_user('myproxyclient', oid_url, c)
 
     def auth_oauth2(self, oid_url):
-        oid = openid.OpenID.retrieve_and_parse(oid_url)
+        url, services = discover.discoverYadis(oid_url)
 
-        auth_service = oid.find(URN_AUTHORIZE)
+        auth_service = openid_find_service_by_type(services, URN_AUTHORIZE)
 
-        cert_service = oid.find(URN_RESOURCE)
+        cert_service = openid_find_service_by_type(services, URN_RESOURCE)
 
-        redirect_url, state = oauth2.get_authorization_url(auth_service.uri, cert_service.uri)
+        redirect_url, state = oauth2.get_authorization_url(auth_service.server_url, cert_service.server_url)
 
         logger.info('Retrieved authorization url for OpenID {}'.format(oid_url))
 
         session = {
-                   'oauth_state': state,
-                   'openid': oid_url,
-                   'openid_response': oid.response
-                  }
+            'oauth_state': state,
+            'openid': oid_url,
+            'openid_response': oid.response
+        }
 
         return redirect_url, session
 
     def auth_oauth2_callback(self, oid_url, oid_response, query, state):
-        oid = openid.OpenID.parse(oid_response)
+        url, services = discover.discoverYadis(oid_url)
 
-        token_service = oid.find(URN_ACCESS)
+        token_service = openid_find_service_by_type(URN_ACCESS)
 
-        cert_service = oid.find(URN_RESOURCE)
+        cert_service = openid_find_service_by_type(URN_RESOURCE)
 
         request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK, query)
 
-        token = oauth2.get_token(token_service.uri, request_url, state)
+        token = oauth2.get_token(token_service.server_url, request_url, state)
 
         logger.info('Retrieved OAuth2 token for OpenID {}'.format(oid_url))
 
-        cert, key, new_token = oauth2.get_certificate(token, token_service.uri, cert_service.uri)
+        cert, key, new_token = oauth2.get_certificate(token, token_service.server_url, cert_service.server_url)
 
         logger.info('Retrieved Certificated for OpenID {}'.format(oid_url))
 
-        self.update_user('oauth2', oid.response, oid_url, [cert, key], token=new_token)
+        self.update_user('oauth2', oid_url, [cert, key], token=new_token)
 
     def get_parameter(self, params, name):
         """ Gets a parameter from a django QueryDict """
