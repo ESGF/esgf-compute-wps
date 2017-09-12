@@ -28,7 +28,7 @@ services:
     environment: 
       - POSTGRES_PASSWORD=1234
     volumes:
-      - db-volume: /var/lib/postgresql/data
+      - db-volume:/var/lib/postgresql/data
     deploy:
       restart_policy:
         condition: on-failure
@@ -98,9 +98,9 @@ networks:
 
 volumes:
   static-volume:
-    #  driver: local-persist
-    #  driver_opts: 
-    #    mountpoint: /var/www/static
+  #  driver: local-persist
+  #  driver_opts: 
+  #    mountpoint: /var/www/static
   db-volume:
   conf-volume:
   data-volume:
