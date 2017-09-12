@@ -1,17 +1,14 @@
 #! /bin/bash
 
-cd wps
-
-
-cd ..
-
 python manage.py collectstatic --no-input
 
 if [ ! -z "$POSTGRES_HOST" ]
 then
-  while [$(ping -c1 postgres > /dev/null | echo $?) -eq 0]
+  until $(ping -c1 "$POSTGRES_HOST" 2> /dev/null && echo $?)
   do
-    sleep 1
+    echo "Waiting for database at $POSTGRES_HOST"
+
+    sleep 4
   done
 
   python manage.py migrate
