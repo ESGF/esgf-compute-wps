@@ -544,7 +544,7 @@ def user_login_openid_callback(request):
         
         openid_url = response.getDisplayIdentifier()
 
-        attrs = __handle_openid_attribute_exchange(request)
+        attrs = __handle_openid_attribute_exchange(response)
 
         try:
             user = models.User.objects.get(auth__openid_url=openid_url)
