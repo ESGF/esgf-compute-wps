@@ -810,20 +810,24 @@ def jobs(request):
         if not request.user.is_authenticated:
             raise Exception('Must be logged in to view job history')
 
-        jobs_count = models.Job.objects.filter(user_id=request.user.id).count()
-
         index = int(request.GET.get('index', 0))
 
-        limit = int(request.GET.get('limit', jobs_count))
+        limit = request.GET.get('limit', None)
 
         jobs_qs = models.Job.objects.filter(user_id=request.user.id, pk__gt=index)
+
+        job_count = len(jobs_qs)
         
         jobs_qs = jobs_qs.annotate(accepted=Max('status__created_date'))
 
         jobs_qs = jobs_qs.order_by('accepted')
 
         if limit is not None:
+            limit = int(limit)
+
             jobs_qs = jobs_qs[index: limit-1]
+        else:
+            jobs_qs = jobs_qs[index:]
 
         jobs = list(reversed([
             {
@@ -833,10 +837,11 @@ def jobs(request):
             } for x in jobs_qs
         ]))
     except Exception as e:
-        logger.exception('')
+        logger.exception('Error retrieving user "{}" jobs'.format(request.user.username))
+
         return failed(e.message)
     else:
-        return success({'count': jobs_count, 'jobs': jobs})
+        return success({'count': job_count, 'jobs': jobs})
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
