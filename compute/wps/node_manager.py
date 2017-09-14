@@ -141,17 +141,16 @@ class NodeManager(object):
         session = {
             'oauth_state': state,
             'openid': oid_url,
-            'openid_response': oid.response
         }
 
         return redirect_url, session
 
-    def auth_oauth2_callback(self, oid_url, oid_response, query, state):
+    def auth_oauth2_callback(self, oid_url, query, state):
         url, services = discover.discoverYadis(oid_url)
 
-        token_service = openid_find_service_by_type(URN_ACCESS)
+        token_service = openid_find_service_by_type(services, URN_ACCESS)
 
-        cert_service = openid_find_service_by_type(URN_RESOURCE)
+        cert_service = openid_find_service_by_type(services, URN_RESOURCE)
 
         request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK, query)
 

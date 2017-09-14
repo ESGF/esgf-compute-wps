@@ -337,19 +337,22 @@ def oauth2_callback(request):
     try:
         oid = request.session.pop('openid')
 
-        oid_response = request.session.pop('openid_response')
-
         oauth_state = request.session.pop('oauth_state')
     except KeyError as e:
         logger.debug('Session did not contain key "%s"', e.message)
 
-        return redirect('login')
+        return redirect(settings.LOGIN_URL)
 
     manager = node_manager.NodeManager()
 
-    manager.auth_oauth2_callback(oid, oid_response, request.META['QUERY_STRING'], oauth_state)
+    try:
+        manager.auth_oauth2_callback(oid, request.META['QUERY_STRING'], oauth_state)
+    except Exception:
+        logger.exception('OAuth2 error')
 
-    return redirect('home')
+        return redirect(settings.LOGIN_URL)
+
+    return redirect(settings.PROFILE_URL)
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -544,7 +547,7 @@ def user_login_openid_callback(request):
         
         openid_url = response.getDisplayIdentifier()
 
-        attrs = __handle_openid_attribute_exchange(request)
+        attrs = __handle_openid_attribute_exchange(response)
 
         try:
             user = models.User.objects.get(auth__openid_url=openid_url)
@@ -618,6 +621,8 @@ def login_oauth2(request):
         manager = node_manager.NodeManager()
 
         redirect_url, session = manager.auth_oauth2(request.user.auth.openid_url)
+
+        request.session.update(session)
     except Exception as e:
         return failed(e.message)
     else:

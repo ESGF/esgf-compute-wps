@@ -7,8 +7,6 @@ from django.conf import settings
 setting = partial(getattr, settings)
 
 # General Settings
-OAUTH2_CALLBACK = setting('WPS_OAUTH2_CALLBACK', 'https://aims2.llnl.gov/auth/callback')
-
 HOSTNAME = setting('WPS_EXTERNAL_HOSTNAME', '0.0.0.0')
 PORT = setting('WPS_EXTERNAL_PORT', '8000')
 
@@ -28,6 +26,9 @@ CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
 ADMIN_EMAIL = setting('WPS_ADMIN_EMAIL', 'admin@wps.llnl.gov')
 
 LOGIN_URL = setting('WPS_LOGIN_URL', 'http://0.0.0.0:8000/wps/home/login')
+PROFILE_URL = setting('WPS_PROFILE_URL', 'http://0.0.0.0:8000/wps/home/profile')
+
+OAUTH2_CALLBACK = setting('WPS_OAUTH2_CALLBACK', 'https://aims2.llnl.gov/auth/callback')
 
 OPENID_TRUST_ROOT = setting('WPS_OPENID_TRUST_ROOT', 'http://0.0.0.0:8000/wps/home/login/openid')
 OPENID_RETURN_TO = setting('WPS_OPENID_RETURN_TO', 'http://0.0.0.0:8000/auth/callback/openid')

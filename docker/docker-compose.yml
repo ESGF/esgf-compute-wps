@@ -1,4 +1,4 @@
-version: '3.3'
+version: '3.2'
 services:
   wps:
     image: jasonb87/cwt_wps:latest
@@ -6,11 +6,11 @@ services:
       - ./common.env
     environment:
       - WPS_INIT=1
-    configs:
-      - source: wps_config
-        target: /var/www/compute/compute/settings.py
     ports:
       - "8000:8000"
+    volumes:
+      - conf-volume:/var/www/compute/compute/compute
+      - static-volume:/var/www/static
     deploy:
       restart_policy:
         condition: on-failure
@@ -27,6 +27,8 @@ services:
     image: postgres:9.6.2
     environment: 
       - POSTGRES_PASSWORD=1234
+    volumes:
+      - db-volume:/var/lib/postgresql/data
     deploy:
       restart_policy:
         condition: on-failure
@@ -55,10 +57,8 @@ services:
     image: jasonb87/cwt_celery:latest
     env_file:
       - ./common.env
-    configs:
-      - source: wps_config
-        target: /var/www/compute/compute/settings.py
     volumes:
+      - conf-volume:/var/www/compute/compute/compute
       - data-volume:/data/public
       - cache-volume:/data/cache
     deploy:
@@ -92,14 +92,16 @@ services:
     networks:
       backend:
 
-configs:
-  wps_config:
-    file: ../compute/compute/settings.py
-
 networks:
   frontend:
   backend:
 
 volumes:
+  static-volume:
+  #  driver: local-persist
+  #  driver_opts: 
+  #    mountpoint: /var/www/static
+  db-volume:
+  conf-volume:
   data-volume:
   cache-volume:
