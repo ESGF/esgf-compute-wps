@@ -167,8 +167,12 @@ def search_esgf(request):
                     'variables': list(set(variables))
                    }
     except KeyError as e:
+        logger.exception('Missing required parameter')
+
         return failed({'message': 'Mising required parameter "{}"'.format(e.message)})
     except Exception as e:
+        logger.exception('Error retrieving ESGF search results')
+
         return failed(e.message)
     else:
         return success(data)
@@ -229,7 +233,7 @@ def execute(request):
 
         result = manager.execute(request.user, process, datainputs)
     except Exception as e:
-        logger.exception('Execute failed')
+        logger.exception('Error executing job')
 
         return failed(e.message)
     else:
@@ -325,6 +329,8 @@ def generate(request):
 
         response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
     except Exception as e:
+        logger.exception('Error generating script using CWT End-user API')
+
         return failed(e.message)
     else:
         return response
@@ -339,7 +345,7 @@ def oauth2_callback(request):
 
         oauth_state = request.session.pop('oauth_state')
     except KeyError as e:
-        logger.debug('Session did not contain key "%s"', e.message)
+        logger.exception('Session did not contain excepted keys (openid, oauth_state)')
 
         return redirect(settings.LOGIN_URL)
 
@@ -348,7 +354,7 @@ def oauth2_callback(request):
     try:
         manager.auth_oauth2_callback(oid, request.META['QUERY_STRING'], oauth_state)
     except Exception:
-        logger.exception('OAuth2 error')
+        logger.exception('Error handling OAuth2 callback')
 
         return redirect(settings.LOGIN_URL)
 
@@ -385,7 +391,7 @@ def create(request):
                       [user.email],
                       html_message=True)
         except Exception:
-            pass
+            logger.exception('Error sending user account creation notice')
     except Exception as e:
         logger.exception('Error creating account')
 
@@ -411,13 +417,9 @@ def user_details(request):
     try:
         if not request.user.is_authenticated:
             raise Exception('Must be logged in to retieve user details')
-
-        #oid = openid.OpenID.retrieve_and_parse(request.user.auth.openid_url)
-
-        #request.user.auth.openid = oid.response
-
-        #request.user.auth.save()
     except Exception as e:
+        logging.exception('Error retrieving user details')
+
         return failed(e.message)
     else:
         return success(user_to_json(request.user))
@@ -455,6 +457,8 @@ def update(request):
 
             request.user.save()
     except Exception as e:
+        logger.exception('Error updating user details')
+
         return failed(e.message)
     else:
         return success(user_to_json(request.user))
@@ -470,6 +474,8 @@ def regenerate(request):
 
         api_key = manager.regenerate_api_key(request.user.pk)
     except Exception as e:
+        logger.exception('Error regenerating API key')
+
         return failed(e.message)
     else:
         return success({'api_key': api_key})
@@ -516,6 +522,8 @@ def user_login_openid(request):
 
         url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
     except Exception as e:
+        logger.exception('Error logging user in with OpenID')
+
         return failed(e.message)
     else:
         return success({'redirect': url})
@@ -560,7 +568,7 @@ def user_login_openid_callback(request):
 
         login(request, user)
     except Exception as e:
-        logger.exception('OpenID callback error')
+        logger.exception('Error handling OpenID callback')
 
         return failed(e.message)
     else:
@@ -588,8 +596,10 @@ def user_login(request):
 
             login(request, user)
         else:
-            raise Exception('Failed to authenticate user')
+            raise Exception('Authentication failed')
     except Exception as e:
+        logger.exception('Error logging user in')
+
         return failed(e.message)
     else:
         return success({'expires': request.session.get_expiry_date()})
@@ -605,6 +615,8 @@ def user_logout(request):
 
         logout(request)
     except Exception as e:
+        logger.exception('Error logging user out')
+
         return failed(e.message)
     else:
         return success('Logged out')
@@ -624,6 +636,8 @@ def login_oauth2(request):
 
         request.session.update(session)
     except Exception as e:
+        logger.exception('Error authenticating OAuth2')
+
         return failed(e.message)
     else:
         return success({'redirect': redirect_url})
@@ -650,6 +664,8 @@ def login_mpc(request):
 
         manager.auth_mpc(request.user.auth.openid_url, username, password)
     except Exception as e:
+        logger.exception('Error authenticating MyProxyClient')
+
         return failed(e.message)
     else:
         return success('Successfully logged into ESGF using MyProxyClient')
@@ -672,17 +688,15 @@ def wps(request):
             try:
                 user = models.User.objects.filter(auth__api_key=api_key)[0]
             except IndexError:
-                logger.exception('Unable to find user with api key {}'.format(api_key))
-
                 raise Exception('Unable to find a user with the api key {}'.format(api_key))
 
             response = manager.execute(user, identifier, data_inputs)
     except node_manager.NodeManagerWPSError as e:
-        logger.exception('Specific WPS error')
+        logger.exception('NodeManager error')
 
         response = e.exc_report.xml()
     except django.db.ProgrammingError:
-        logger.exception('Handling Django exception')
+        logger.exception('Django error')
 
         exc_report = metadata.ExceptionReport(settings.VERSION)
 
@@ -694,7 +708,7 @@ def wps(request):
 
         response = exc_response.xml()
     except Exception as e:
-        logger.exception('Handling WPS general exception')
+        logger.exception('WPS Error')
 
         exc_report = metadata.ExceptionReport(settings.VERSION)
 
@@ -722,6 +736,8 @@ def regen_capabilities(request):
 
         manager.generate_capabilities()
     except Exception as e:
+        logger.exception('Error generating capabilities')
+
         return failed(e.message)
     else:
         return success('Regenerated capabilities')
@@ -740,6 +756,8 @@ def cdas2_capabilities(request):
 
         manager.cdas2_capabilities()
     except Exception as e:
+        logger.exception('Error retrieving CDAS2 capabilities')
+
         return failed(e.message)
     else:
         return success('Regenerated EDAS capabilities')
@@ -799,6 +817,8 @@ def job(request, job_id):
 
         request.session['updated'] = datetime.datetime.now().strftime(SESSION_TIME_FMT)
     except Exception as e:
+        logger.exception('Error retrieving job details')
+
         return failed(e.message)
     else:
         return success(status)
@@ -837,7 +857,7 @@ def jobs(request):
             } for x in jobs_qs
         ]))
     except Exception as e:
-        logger.exception('Error retrieving user "{}" jobs'.format(request.user.username))
+        logger.exception('Error retrieving jobs')
 
         return failed(e.message)
     else:
@@ -852,6 +872,8 @@ def job_remove_all(request):
 
         request.user.job_set.all().delete()
     except Exception as e:
+        logger.exception('Error removing jobs')
+
         return failed(e.message)
     else:
         return success('Removed all jobs')
@@ -869,9 +891,9 @@ def job_remove(request, job_id):
             raise Exception('Must be the owner of the job to remove')
 
         job.delete()
-    except models.Job.DoesNotExist:
-        return failed('Job does not exists')
     except Exception as e:
+        logger.exception('Error removing job')
+
         return failed(e.message)
     else:
         return success({'job': job_id})
