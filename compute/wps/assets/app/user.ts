@@ -5,4 +5,5 @@ export class User {
   email: string;
   password: string;
   api_key: string;
+  type: string;
 }

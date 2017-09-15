@@ -668,7 +668,10 @@ def login_mpc(request):
 
         return failed(e.message)
     else:
-        return success('Successfully logged into ESGF using MyProxyClient')
+        return success({
+            'type': request.user.auth.type,
+            'api_key': request.user.auth.api_key
+        })
 
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie

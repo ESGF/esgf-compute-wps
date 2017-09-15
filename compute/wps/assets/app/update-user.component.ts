@@ -83,14 +83,9 @@ export class UpdateUserComponent implements OnInit {
     this.authService.myproxyclient(this.mpc)
       .then(response => {
         if (response.status === 'success') {
-          this.authService.user()
-            .then(response => {
-              if (response.status === 'success') {
-                this.model = response.data as User;
-              } else {
-                this.notificationService.error('Failed to retrieve updated account details');
-              }
-            });
+          this.model.type = response.data.type;
+
+          this.model.api_key = response.data.api_key;
 
           jQuery('#myproxyclient').modal('hide');
 
