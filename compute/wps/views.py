@@ -12,6 +12,7 @@ from django import http
 from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from django.contrib.auth import logout
+from django.contrib.auth import update_session_auth_hash
 from django.core import serializers
 from django.core.mail import send_mail
 from django.db import IntegrityError
@@ -456,6 +457,8 @@ def update(request):
             request.user.set_password(password)
 
             request.user.save()
+
+            update_session_auth_hash(request, request.user)
     except Exception as e:
         logger.exception('Error updating user details')
 
