@@ -1,6 +1,9 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Router, NavigationEnd } from '@angular/router';
 
 import { Subscription } from 'rxjs/Subscription';
+
+import 'rxjs/add/operator/filter';
 
 import { AuthService } from './auth.service';
 import { NotificationService } from './notification.service';
@@ -29,11 +32,17 @@ export class AppComponent implements OnInit, OnDestroy {
   clearSub: Subscription;
 
   constructor(
+    private router: Router,
     private authService: AuthService,
     private notificationService: NotificationService
   ) { }
 
   ngOnInit() {
+    this.router.events.filter((event) => event instanceof NavigationEnd)
+      .subscribe((event) => {
+        this.notificationService.clear();
+      });
+
     this.loggedSub = this.authService.logged$.subscribe((logged) => {
       this.logged = logged;
     });
