@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 
 import { Subscription } from 'rxjs/Subscription';
 
@@ -13,38 +13,77 @@ import { NotificationService } from './notification.service';
   ]
 })
 
-export class AppComponent implements OnDestroy { 
+export class AppComponent implements OnInit, OnDestroy { 
   logged: boolean = false;
   loggedSub: Subscription;
 
+  text: string = '';
+  notification: boolean = false;
+
   error: boolean = false;
-  errorMessage: string = undefined;
   errorSub: Subscription;
+
+  message: boolean = false;
+  messageSub: Subscription;
+
+  clearSub: Subscription;
 
   constructor(
     private authService: AuthService,
     private notificationService: NotificationService
-  ) { 
-    this.loggedSub = this.authService.logged$.subscribe(
-      logged => {
-        this.logged = logged;
+  ) { }
+
+  ngOnInit() {
+    this.loggedSub = this.authService.logged$.subscribe((logged) => {
+      this.logged = logged;
     });
 
-    this.errorSub = this.notificationService.error$.subscribe(
-      text => {
-        this.error = true;
+    this.errorSub = this.notificationService.error$.subscribe((text) => {
+      this.clear();
+    
+      this.setText(text);
 
-        this.errorMessage = text;
-      });
+      this.error = true;
+
+      console.log(`Error notification ${text}`);
+    });
+
+    this.messageSub = this.notificationService.message$.subscribe((text) => {
+      this.clear();
+
+      this.setText(text);
+
+      this.message = true;
+
+      console.log(`Message notification ${text}`);
+    });
+
+    this.clearSub = this.notificationService.clear$.subscribe(() => {
+      this.notification = false;
+    });
   }
 
   ngOnDestroy() {
     this.loggedSub.unsubscribe();
 
     this.errorSub.unsubscribe();
+
+    this.messageSub.unsubscribe();
   }
 
-  onHideError(): void {
-    if (this.error) this.error = false;
+  setText(text: string) {
+    this.notification = true;
+
+    this.text = text;
+  }
+
+  clear() {
+    this.error = false;
+
+    this.message = false;
+  }
+
+  onHide() {
+    this.notification = false;
   }
 }

@@ -1,8 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Http, URLSearchParams } from '@angular/http';
 
-import { NotificationService } from './notification.service';
-
 export interface WPSResponse {
   status: string;
   error: string;
@@ -82,7 +80,6 @@ export interface Message {
 @Injectable()
 export class WPSService {
   constructor(
-    private notificationService: NotificationService,
     private http: Http
   ) { }
 
@@ -125,19 +122,26 @@ export class WPSService {
     })
       .toPromise()
       .then(response => {
-        let res = response.json();
+        let data = response.json();
 
-        return {
-          count: res.data.count,
-          jobs: res.data.jobs.map((x: any) => new Job(x.id, x.elapsed, x.accepted))
+        let result: any = {
+          status: data.status,
         };
+
+        if (data.data) {
+          result.count = data.data.count;
+
+          result.jobs = data.data.jobs.map((x: any) => new Job(x.id, x.elapsed, x.accepted));
+        } else {
+          result.error = data.error;
+        }
+
+        return result;
       })
       .catch(error => this.handleError(error));
   }
   
   private handleError(error: any): Promise<any> {
-    this.notificationService.error(error.message || error);
-
     return Promise.reject(error.message || error);
   }
 }

@@ -1,8 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 
 import { Job, Status, WPSService } from './wps.service';
-
-interface InitDestroy extends OnInit, OnDestroy { }
+import { NotificationService } from './notification.service';
 
 @Component({
   templateUrl: './jobs.component.html',
@@ -32,7 +31,7 @@ interface InitDestroy extends OnInit, OnDestroy { }
   `],
   providers: [WPSService]
 })
-export class JobsComponent implements InitDestroy { 
+export class JobsComponent implements OnInit, OnDestroy { 
   PAGES: number = 3;
   ITEMS_PER_PAGE: number = 10;
 
@@ -45,20 +44,27 @@ export class JobsComponent implements InitDestroy {
   jobs: Job[] = new Array<Job>();
   updateTimer: any;
 
-  constructor(private wps: WPSService) { }
+  constructor(
+    private wps: WPSService,
+    private notificationService: NotificationService
+  ) { }
 
   ngOnInit() {
     this.wps.jobs(0, null)
       .then(response => {
-        this.itemCount = response.count;
+        if (response.status === 'success') {
+          this.itemCount = response.count;
 
-        let pageCount = Math.ceil(this.itemCount / this.ITEMS_PER_PAGE);
+          let pageCount = Math.ceil(this.itemCount / this.ITEMS_PER_PAGE);
 
-        this.pageNumbers = new Array(pageCount).fill(0).map((x: number, i: number) => i + 1);
+          this.pageNumbers = new Array(pageCount).fill(0).map((x: number, i: number) => i + 1);
 
-        this.jobs = response.jobs;
+          this.jobs = response.jobs;
 
-        if (this.jobs.length > 0) this.setJob(this.jobs[0]);
+          if (this.jobs.length > 0) this.setJob(this.jobs[0]);
+        } else {
+          this.notificationService.error(`Failed to retrieve jobs: "${response.erorr}"`);
+        }
       });
   }
 
@@ -107,7 +113,7 @@ export class JobsComponent implements InitDestroy {
 
   onRemoveAll() {
     this.wps.removeAll()
-      .then(response => this.handleRemoveAll());
+      .then(response => this.handleRemoveAll(response));
   }
 
   setJob(job: Job) {
@@ -121,22 +127,34 @@ export class JobsComponent implements InitDestroy {
 
   onRemoveJob(jobID: number) {
     this.wps.remove(this.selectedJob.id)
-      .then(response => this.handleRemoveJob(this.selectedJob.id));
+      .then(response => this.handleRemoveJob(response, this.selectedJob.id));
   }
 
-  handleRemoveAll() {
-    this.selectedJob = null;
+  handleRemoveAll(response: any) {
+    if (response.status === 'success') {
+      this.selectedJob = null;
 
-    this.jobs = new Array<Job>();
+      this.jobs = new Array<Job>();
+
+      this.notificationService.message('Successfully removed all jobs');
+    } else {
+      this.notificationService.error(`Failed to remove all jobs: "${response.error}"`); 
+    }
   }
 
-  handleRemoveJob(jobID: number) {
-    for (let i = 0; i < this.jobs.length; i++) {
-      if (this.jobs[0].id === jobID) {
-        this.jobs.splice(i, 1);
+  handleRemoveJob(response: any, jobID: number) {
+    if (response.status === 'success') {
+      for (let i = 0; i < this.jobs.length; i++) {
+        if (this.jobs[0].id === jobID) {
+          this.jobs.splice(i, 1);
 
-        break;
+          break;
+        }
       }
+      
+      this.notificationService.message('Successfully remove job');
+    } else {
+      this.notificationService.error(`Error removing job: ${response.error}`);
     }
   }
 

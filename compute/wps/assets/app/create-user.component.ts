@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 
 import { User } from './user';
 import { AuthService } from './auth.service';
+import { NotificationService } from './notification.service';
 
 @Component({
   templateUrl: './create-user.component.html',
@@ -14,6 +15,7 @@ export class CreateUserComponent {
 
   constructor(
     private authService: AuthService,
+    private notificationService: NotificationService,
     private router: Router
   ) { }
 
@@ -23,8 +25,10 @@ export class CreateUserComponent {
   }
 
   handleResponse(response: any): void {
-    if (response.status && response.status === 'success') {
+    if (response.status === 'success') {
       this.router.navigate(['/wps/home/login']);
+    } else {
+      this.notificationService.error(`Failed creating account: "${response.error}"`);
     }
   }
 }

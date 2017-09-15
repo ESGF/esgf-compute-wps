@@ -77,7 +77,7 @@ export class LoginOpenIDComponent {
     if (response.status === 'success') {
       window.location.replace(response.data.redirect);
     } else if (response.status === 'failed') {
-      this.notificationService.error(response.error);
+      this.notificationService.error(`OpenID authentication failed: "${response.error}"`);
     }
   }
 }

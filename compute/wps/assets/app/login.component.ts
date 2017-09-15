@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import { User } from './user';
 import { AuthService } from './auth.service';
+import { NotificationService } from './notification.service';
 
 @Component({ 
   template: '',
@@ -10,6 +11,7 @@ import { AuthService } from './auth.service';
 export class LoginCallbackComponent implements OnInit {
   constructor(
     private authService: AuthService,
+    private notificationService: NotificationService,
     private route: ActivatedRoute,
     private router: Router
   ) { }
@@ -18,6 +20,8 @@ export class LoginCallbackComponent implements OnInit {
     this.authService.setExpires(this.route.snapshot.queryParams.expires);
 
     this.router.navigate(['/wps/home/profile']);
+
+    this.notificationService.message('Successfully authenticated to ESGF OpenID');
   }
 }
 
@@ -31,6 +35,7 @@ export class LoginComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
+    private notificationService: NotificationService,
     private route: ActivatedRoute,
     private router: Router
   ) { }
@@ -41,7 +46,15 @@ export class LoginComponent implements OnInit {
 
   onSubmit() {
     this.authService.login(this.model)
-      .then(response => this.router.navigateByUrl(this.next))
+      .then(response => {
+        if (response.status === 'success') {
+          this.router.navigateByUrl(this.next)
+
+          this.notificationService.message('Login success');
+        } else {
+          this.notificationService.error(`Login failed: "${response.error}"`);
+        }
+      })
       .catch(error => console.log(error));
   }
 }

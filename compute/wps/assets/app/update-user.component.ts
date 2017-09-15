@@ -47,6 +47,8 @@ export class UpdateUserComponent implements OnInit {
       .then(response => {
         if (response.status === 'success') {
           this.model = response.data as User;
+
+          this.notificationService.message('Successfully updated user details');
         } else {
           this.notificationService.error('Failed to update account details');
         }
@@ -55,51 +57,47 @@ export class UpdateUserComponent implements OnInit {
 
   onRegenerateKey() {
     this.authService.regenerateKey(this.model)
-      .then(response => this.handleRegenerateKey(response));
+      .then(response => {
+        if (response.status === 'success') {
+          this.model.api_key = response.data.api_key;
+
+          this.notificationService.message('Successfully generated a new API key');
+        } else {
+          this.notificationService.error('Failed to generate a new API key'); 
+        }
+      });
   }
 
   onOAuth2() {
     this.authService.oauth2(this.model.openID)
-      .then(response => this.handleOAuth2(response));
+      .then(response => {
+        if (response.status === 'success') {
+          window.location.replace(response.data.redirect);
+        } else {
+          this.notificationService.error(`OAuth2 failed with server error "${response.error}"`);
+        }
+      });
   }
 
   onMPCSubmit() {
     this.authService.myproxyclient(this.mpc)
-      .then(response => this.handleMPC(response));
-  }
+      .then(response => {
+        if (response.status === 'success') {
+          this.authService.user()
+            .then(response => {
+              if (response.status === 'success') {
+                this.model = response.data as User;
+              } else {
+                this.notificationService.error('Failed to retrieve updated account details');
+              }
+            });
 
-  handleRegenerateKey(response: WPSResponse) {
-    if (response.status === 'success') {
-      this.model.api_key = response.data.api_key;
-    } else {
-      this.notificationService.error('Failed to generate a new API key'); 
-    }
-  }
+          jQuery('#myproxyclient').modal('hide');
 
-  handleOAuth2(response: WPSResponse) {
-    if (response.status === 'success') {
-      window.location.replace(response.data.redirect);
-    } else {
-      this.notificationService.error('Failed to authenticate');
-    }
-  }
-
-  handleMPC(response: WPSResponse) {
-    if (response.status === 'success') {
-      this.authService.user()
-        .then(response => {
-          if (response.status === 'success') {
-            this.model = response.data as User;
-          } else {
-            this.notificationService.error('Failed to retrieve account details');
-          }
-        });
-
-      jQuery('#myproxyclient').modal('hide');
-    } else {
-      this.error = true;
-
-      this.errorMessage = response.error;
-    }
+          this.notificationService.message('Successfully authenticated using ESGF MyProxyClient');
+        } else {
+          this.notificationService.error(`MyProxyClient failed with server error "${response.error}"`);
+        }
+      });
   }
 }
