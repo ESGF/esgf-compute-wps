@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs/Subscription';
 import 'rxjs/add/operator/filter';
 
 import { AuthService } from './auth.service';
-import { NotificationService } from './notification.service';
+import { NotificationType, NotificationService } from './notification.service';
 
 @Component({
   selector: 'my-app',
@@ -17,19 +17,18 @@ import { NotificationService } from './notification.service';
 })
 
 export class AppComponent implements OnInit, OnDestroy { 
+  MESSAGE_TIMEOUT: number = 10 * 1000;
+
   logged: boolean = false;
   loggedSub: Subscription;
 
-  text: string = '';
-  notification: boolean = false;
+  notificationSub: Subscription;
 
-  error: boolean = false;
-  errorSub: Subscription;
+  message: string = '';
+  warn: string = '';
+  error: string = '';
 
-  message: boolean = false;
-  messageSub: Subscription;
-
-  clearSub: Subscription;
+  clearTimer: any;
 
   constructor(
     private router: Router,
@@ -40,59 +39,76 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.router.events.filter((event) => event instanceof NavigationEnd)
       .subscribe((event) => {
-        this.notificationService.clear();
+        this.clear();
       });
 
     this.loggedSub = this.authService.logged$.subscribe((logged) => {
       this.logged = logged;
     });
 
-    this.errorSub = this.notificationService.error$.subscribe((text) => {
-      this.clear();
-    
-      this.setText(text);
+    this.notificationSub = this.notificationService.notification$.subscribe((value: any) => {
+      switch(value.type) {
+      case NotificationType.Message:
+          this.message = value.text;
 
-      this.error = true;
+          this.startTimer();
 
-      console.log(`Error notification ${text}`);
-    });
+          break;
+      case NotificationType.Warn:
+          this.warn = value.text;
 
-    this.messageSub = this.notificationService.message$.subscribe((text) => {
-      this.clear();
+          break;
+      case NotificationType.Error:
+          this.error = value.text;
 
-      this.setText(text);
-
-      this.message = true;
-
-      console.log(`Message notification ${text}`);
-    });
-
-    this.clearSub = this.notificationService.clear$.subscribe(() => {
-      this.notification = false;
+          break;
+      }
     });
   }
 
   ngOnDestroy() {
-    this.loggedSub.unsubscribe();
+    this.stopTimer();
 
-    this.errorSub.unsubscribe();
-
-    this.messageSub.unsubscribe();
+    this.notificationSub.unsubscribe();
   }
 
-  setText(text: string) {
-    this.notification = true;
+  startTimer() {
+    if (this.clearTimer) {
+      this.stopTimer();
+    }
 
-    this.text = text;
+    this.clearTimer = setInterval(() => {
+      this.message = '';
+
+      this.stopTimer();
+    }, this.MESSAGE_TIMEOUT);
   }
 
-  clear() {
-    this.error = false;
+  stopTimer() {
+    if (this.clearTimer) {
+      clearInterval(this.clearTimer);
 
-    this.message = false;
+      this.clearTimer = null;
+    }
   }
 
-  onHide() {
-    this.notification = false;
+  clear() { 
+    this.hideMessage();
+
+    this.hideWarning();
+
+    this.hideError();
+  }
+
+  hideMessage() {
+    this.message = '';
+  }
+
+  hideWarning() {
+    this.warn = '';
+  }
+
+  hideError() {
+    this.error = '';
   }
 }

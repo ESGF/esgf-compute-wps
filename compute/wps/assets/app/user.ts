@@ -6,4 +6,5 @@ export class User {
   password: string;
   api_key: string;
   type: string;
+  local_init: boolean;
 }

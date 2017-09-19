@@ -407,7 +407,8 @@ def user_to_json(user):
         'openid': user.auth.openid_url,
         'type': user.auth.type,
         'api_key': user.auth.api_key,
-        'admin': user.is_superuser
+        'admin': user.is_superuser,
+        'local_init': not (user.password == '')
     }
 
     return data

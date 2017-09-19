@@ -28,6 +28,10 @@ export class UpdateUserComponent implements OnInit {
       .then(response => {
         if (response.status === 'success') {
           this.model = response.data as User;
+
+          if (!this.model.local_init) {
+            this.notificationService.warn('Please set a password if you would like to login locally');
+          }
         } else {
           this.notificationService.error('Failed to retrieve account details');
         }

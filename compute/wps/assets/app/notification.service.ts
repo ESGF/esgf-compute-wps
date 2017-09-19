@@ -1,51 +1,27 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs/Subject';
 
+export enum NotificationType {
+  Message,
+  Warn,
+  Error
+}
+
 @Injectable()
 export class NotificationService {
-  // default timeout 10 seconds
-  TIMEOUT = 10 * 1000;
+  private notificationSource = new Subject<any>();
 
-  private errorSource = new Subject<string>();
-  private messageSource = new Subject<string>();
-  private clearSource = new Subject<null>();
+  notification$ = this.notificationSource.asObservable();
 
-  error$ = this.errorSource.asObservable();
-  message$ = this.messageSource.asObservable();
-  clear$ = this.clearSource.asObservable();
-
-  clearTimer: any = null;
-
-  startTimer() {
-    // Check if timer is already running and reset
-    if (this.clearTimer) {
-      this.stopTimer();
-    }
-
-    this.clearTimer = setInterval(() => this.clear(), this.TIMEOUT); 
+  message(text: string) {
+    this.notificationSource.next({type: NotificationType.Message, text: text});
   }
 
-  stopTimer() {
-    if (this.clearTimer) {
-      clearInterval(this.clearTimer);
-
-      this.clearTimer = null;
-    }
-  }
-
-  clear() {
-    this.clearSource.next();
+  warn(text: string) {
+    this.notificationSource.next({type: NotificationType.Warn, text: text});
   }
 
   error(text: string) {
-    this.errorSource.next(text);
-
-    this.startTimer();
-  }
-
-  message(text: string) {
-    this.messageSource.next(text);
-
-    this.startTimer();
+    this.notificationSource.next({type: NotificationType.Error, text: text});
   }
 }

@@ -15,16 +15,18 @@
     </div>
   </nav>
 </div>
-<div>
-  <div
-    class="alert alert-dismissible" 
-    [class.alert-success]="message"
-    [class.alert-danger]="error" 
-    [class.show]="notification" 
-    [class.hidden]="!notification" 
-    role="alert">
-    <button type="button" class="close" (click)="onError()"><span aria-hidden="true">&times;</span></button>
-    {{text}}
+<div class="container-fluid">
+  <div class="alert alert-dismissible alert-success" [class.hidden]="message === ''" role="alert">
+    <button type="button" class="close" (click)="hideMessage();"><span aria-hidden="true">&times;</span></button>
+    {{message}}
+  </div>
+  <div class="alert alert-dismissible alert-warning" [class.hidden]="warn === ''" role="alert">
+    <button type="button" class="close" (click)="hideWarn();"><span aria-hidden="true">&times;</span></button>
+    {{warn}}
+  </div>
+  <div class="alert alert-dismissible alert-danger" [class.hidden]="error === ''" role="alert">
+    <button type="button" class="close" (click)="hideError();"><span aria-hidden="true">&times;</span></button>
+    {{error}}
   </div>
   <router-outlet></router-outlet>
 </div>
