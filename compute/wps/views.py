@@ -554,7 +554,7 @@ def user_login_openid_callback(request):
         if response.status == consumer.CANCEL:
             raise Exception('OpenID authentication cancelled')
         elif response.status == consumer.FAILURE:
-            raise Exception('OpenID authentication failed')
+            raise Exception('OpenID authentication failed: {}'.format(response))
         
         openid_url = response.getDisplayIdentifier()
 
