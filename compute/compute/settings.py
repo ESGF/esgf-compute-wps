@@ -129,7 +129,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-STATIC_ROOT = '/var/www/static/js'
+if DEBUG:
+    STATIC_ROOT = os.path.join(BASE_DIR, 'assets')
+else:
+    STATIC_ROOT = '/var/www/static/js'
 
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'assets'),

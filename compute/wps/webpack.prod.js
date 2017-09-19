@@ -7,7 +7,7 @@ process.env.NODE_ENV = process.env.ENV = 'production';
 
 module.exports = webpackMerge(commonConfig, {
   output: {
-    path: helpers.root('assets'),
+    path: helpers.root('assets/js'),
     filename: '[name]-[hash].js'
   }
 });
