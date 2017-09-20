@@ -423,8 +423,10 @@ export class ConfigureComponent implements OnInit  {
   }
 
   handleExecute(response: any): void {
-    if (response.status && response.status === 'success') {
+    if (response.status === 'success') {
       this.router.navigate(['/wps/home/jobs']);
+    } else {
+      this.notificationService.error(`Error submitting job for execution "${response.error}"`);
     }
   }
 
