@@ -489,46 +489,6 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         self.assertIsInstance(job, models.Job)
 
-    def test_track_files_increment_requested(self):
-        variables = {
-            'test1': cwt.Variable('http://test1.com/test1.nc', 'tas'),
-        }
-
-        for _ in range(2):
-            self.task.track_files(variables)
-
-        qs = models.Files.objects.get(name='test1.nc')
-
-        self.assertEqual(qs.requested, 2)
-
-    def test_track_files(self):
-        variables = {
-            'test1': cwt.Variable('http://test1.com/test1.nc', 'tas'),
-            'test2': cwt.Variable('http://test1.com/test2.nc', 'tas'),
-            'test3': cwt.Variable('http://test2.com/test1.nc', 'tas'),
-            'test4': cwt.Variable('http://test3.com/test3.nc', 'clt'),
-        }
-
-        self.assertNumQueries(8, self.task.track_files(variables))
-
-        expected_names = ['test1.nc', 'test2.nc']
-
-        filter_host_qs = models.Files.objects.filter(host='test1.com')
-
-        self.assertQuerysetEqual(filter_host_qs, expected_names, lambda x: x.name, ordered=False)
-
-        expected_hosts = ['test1.com', 'test2.com']
-
-        filter_name_qs = models.Files.objects.filter(name='test1.nc')
-
-        self.assertQuerysetEqual(filter_name_qs, expected_hosts, lambda x: x.host, ordered=False)
-
-        expected_variables = ['tas', 'clt']
-
-        group_variable_qs = models.Files.objects.values('variable').annotate(count=Count('variable'))
-
-        self.assertQuerysetEqual(group_variable_qs, expected_variables, lambda x: x.values()[0], ordered=False)
-
     def test_initialize(self):
         with self.assertNumQueries(4):
             job, status = self.task.initialize(credentials=False, job_id=self.job.pk)

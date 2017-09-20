@@ -180,21 +180,6 @@ class CWTBaseTask(celery.Task):
 
         return job, Status(job)
 
-    def track_files(self, variables):
-        for v in variables.values():
-            uri = v.uri
-
-            splits = uri.split('/')
-
-            try:
-                tracked = models.Files.objects.get(name=splits[-1], host=splits[2], variable=v.var_name)
-            except models.Files.DoesNotExist:
-                tracked = models.Files.objects.create(name=splits[-1], host=splits[2], requested=1, url=uri, variable=v.var_name)
-            else:
-                tracked.requested = F('requested') + 1
-
-                tracked.save()
-
     def get_job(self, kwargs):
         try:
             job = models.Job.objects.get(pk=kwargs.get('job_id'))
@@ -911,8 +896,6 @@ if global_settings.DEBUG:
         job, status = self.initialize(credentials=False, **kwargs)
 
         v, d, o = self.load(variables, domains, operations)
-
-        self.track_files(v)
 
         logger.info('Operations {}'.format(operations))
 
