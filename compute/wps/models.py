@@ -148,6 +148,12 @@ class File(models.Model):
     class Meta:
         unique_together = ('name', 'host')
 
+class UserFile(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    file = models.ForeignKey(File, on_delete=models.CASCADE)
+    requested_date = models.DateTimeField(auto_now=True)
+    requested = models.PositiveIntegerField()
+
 class Cache(models.Model):
     uid = models.CharField(max_length=256)
 
@@ -228,6 +234,12 @@ class Process(models.Model):
         usage.retry = F('retry') + 1
 
         usage.save()
+
+class UserProcess(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    process = models.ForeignKey(Process, on_delete=models.CASCADE)
+    requested_date = models.DateTimeField(auto_now=True)
+    requested = models.PositiveIntegerField()
 
 class ProcessUsage(models.Model):
     process = models.ForeignKey(Process, on_delete=models.CASCADE)
