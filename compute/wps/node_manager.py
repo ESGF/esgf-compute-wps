@@ -231,22 +231,8 @@ class NodeManager(object):
 
         return process.description
 
-    def execute_local(self, user, job, identifier, data_inputs):
+    def execute_local(self, user, job, identifier, variables, operations, domains):
         logger.info('Job {} Executing local WPS process "{}"'.format(job.id, identifier))
-
-        o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
-
-        op_by_id = lambda x: [y for y in o if y.identifier == x][0]
-
-        op = op_by_id(identifier)
-
-        logger.info('Job {} Preparing process inputs'.format(job.id))
-
-        operations = dict((x.name, x.parameterize()) for x in o)
-
-        domains = dict((x.name, x.parameterize()) for x in d)
-
-        variables = dict((x.name, x.parameterize()) for x in v)
 
         process = get_process(identifier)
 
@@ -294,18 +280,30 @@ class NodeManager(object):
         except models.Process.DoesNotExist:
             raise Exception('Process "{}" does not exist.'.format(identifier))
 
+        o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
+
         server = models.Server.objects.get(host='default')
 
-        job = models.Job(server=server, user=user, process=process, extra=data_inputs)
-
-        job.save()
-
-        logger.info('Accepted job {}'.format(job.id))
+        job = models.Job.objects.create(
+            server=server,
+            user=user,
+            process=process,
+            extra=data_inputs)
 
         job.accepted()
 
+        logger.info('Accepted job {}'.format(job.id))
+
         if process.backend == 'local':
-            self.execute_local(user, job, identifier, data_inputs)
+            logger.info('Job {} Preparing process inputs'.format(job.id))
+
+            operations = dict((x.name, x.parameterize()) for x in o)
+
+            domains = dict((x.name, x.parameterize()) for x in d)
+
+            variables = dict((x.name, x.parameterize()) for x in v)
+
+            self.execute_local(user, job, identifier, variables, operations, domains)
         elif process.backend == 'CDAS2':
             self.execute_cdas2(job, identifier, data_inputs)
         else:
