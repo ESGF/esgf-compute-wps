@@ -138,7 +138,7 @@ class OpenIDAssociation(models.Model):
     class Meta:
         unique_together = ('server_url', 'handle')
 
-class Files(models.Model):
+class File(models.Model):
     name = models.CharField(max_length=256)
     host = models.CharField(max_length=256)
     variable = models.CharField(max_length=64)
