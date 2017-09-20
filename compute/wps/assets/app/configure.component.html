@@ -40,14 +40,14 @@
       </div>
     </div>
     <div class="row">
-      <div class="col-md-2">
+      <div class="col-md-2 col-lg-3">
         <button type="submit" class="btn btn-default">Download</button>
         <button type="button" class="btn btn-default" (click)="onExecute()">Execute</button>
       </div>
     </div>
     <br>
     <div class="row">
-      <div class="col-md-2">
+      <div class="col-md-2 col-lg-3">
         <div class="form-inline form-group-sm">
           <button type="button" class="btn btn-default" (click)="onAddDimension()">Add Dimension</button>
           <select (change)="onDomainChange()" class="form-control" [(ngModel)]="domain" name="domain">
@@ -59,7 +59,7 @@
           <li *ngFor="let d of dimensions"><dimension [dimension]="d"></dimension>
         </ul>
       </div>
-      <div class="col-md-7">
+      <div class="col-md-10 col-lg-9">
         <div class="panel panel-default">
           <div class="panel-body">
             <svg class="center-block"></svg>

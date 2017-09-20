@@ -370,7 +370,11 @@ export class ConfigureComponent implements OnInit  {
     );
 
     d3.json('/static/data/ne_50m_admin_0.json', (error: any, world: any) => {
-      if (error) throw error;
+      if (error) {
+        this.notificationService.error('Failed to load map data');
+
+        return;
+      }
 
       let countries = topojson.feature(world, world.objects.countries);
       let neighbors = topojson.neighbors(world.objects.countries.geometries);
@@ -456,7 +460,7 @@ export class ConfigureComponent implements OnInit  {
 
       this.config.variable = this.variables[0];
     } else {
-      this.notificationService.error('ESGF search for dataset failed');
+      this.notificationService.error(`ESGF search for dataset failed: ${response.error}`);
     }
   }
 }
