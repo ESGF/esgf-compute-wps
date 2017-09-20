@@ -44,7 +44,7 @@ class APITestCase(test.TestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'OpenID authentication failed')
+        self.assertRegexpMatches(data['error'], 'OpenID authentication failed: .*')
 
     @mock.patch('wps.views.consumer.Consumer')
     def test_user_login_openid_callback_cancelled(self, consumer):
@@ -353,7 +353,7 @@ class APITestCase(test.TestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Failed to authenticate user')
+        self.assertEqual(data['error'], 'Authentication failed')
 
     def test_login(self):
         query = {
