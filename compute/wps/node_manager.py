@@ -280,7 +280,12 @@ class NodeManager(object):
         except models.Process.DoesNotExist:
             raise Exception('Process "{}" does not exist.'.format(identifier))
 
-        o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
+        process.track(user)
+
+        operations, domains, variables = cwt.WPS.parse_data_inputs(data_inputs)
+
+        for variable in variables:
+            models.File.track(user, variable)
 
         server = models.Server.objects.get(host='default')
 
@@ -297,13 +302,13 @@ class NodeManager(object):
         if process.backend == 'local':
             logger.info('Job {} Preparing process inputs'.format(job.id))
 
-            operations = dict((x.name, x.parameterize()) for x in o)
+            operation_dict = dict((x.name, x.parameterize()) for x in operations)
 
-            domains = dict((x.name, x.parameterize()) for x in d)
+            domain_dict = dict((x.name, x.parameterize()) for x in domains)
 
-            variables = dict((x.name, x.parameterize()) for x in v)
+            variable_dict = dict((x.name, x.parameterize()) for x in variables)
 
-            self.execute_local(user, job, identifier, variables, operations, domains)
+            self.execute_local(user, job, identifier, variable_dict, operation_dict, domain_dict)
         elif process.backend == 'CDAS2':
             self.execute_cdas2(job, identifier, data_inputs)
         else:

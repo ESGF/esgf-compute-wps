@@ -5,6 +5,7 @@ import datetime
 import logging
 import os
 import time
+from urlparse import urlparse
 
 logger = logging.getLogger('wps.models')
 
@@ -143,16 +144,39 @@ class File(models.Model):
     host = models.CharField(max_length=256)
     variable = models.CharField(max_length=64)
     url = models.TextField()
-    requested = models.PositiveIntegerField()
+    requested = models.PositiveIntegerField(default=0)
 
     class Meta:
         unique_together = ('name', 'host')
+
+    @staticmethod
+    def track(user, variable):
+        url_parts = urlparse(variable.uri)
+
+        parts = url_parts[2].split('/')
+
+        file_obj, _ = File.objects.get_or_create(
+            name=parts[-1],
+            host=url_parts[1],
+            variable=parts[-2],
+            url=variable.uri
+        )
+
+        file_obj.requested = F('requested') + 1
+
+        file_obj.save()
+
+        user_file_obj, _ = UserFile.objects.get_or_create(user=user, file=file_obj)
+
+        user_file_obj.requested = F('requested') + 1
+
+        user_file_obj.save()
 
 class UserFile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     file = models.ForeignKey(File, on_delete=models.CASCADE)
     requested_date = models.DateTimeField(auto_now=True)
-    requested = models.PositiveIntegerField()
+    requested = models.PositiveIntegerField(default=0)
 
 class Cache(models.Model):
     uid = models.CharField(max_length=256)
@@ -235,11 +259,18 @@ class Process(models.Model):
 
         usage.save()
 
+    def track(self, user):
+        user_process_obj, _ = UserProcess.objects.get_or_create(user=user, process=self)
+
+        user_process_obj.requested = F('requested') + 1
+
+        user_process_obj.save()
+
 class UserProcess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     process = models.ForeignKey(Process, on_delete=models.CASCADE)
     requested_date = models.DateTimeField(auto_now=True)
-    requested = models.PositiveIntegerField()
+    requested = models.PositiveIntegerField(default=0)
 
 class ProcessUsage(models.Model):
     process = models.ForeignKey(Process, on_delete=models.CASCADE)
