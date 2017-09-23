@@ -426,6 +426,24 @@ def user_details(request):
     else:
         return success(user_to_json(request.user))
 
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def user_stats(request):
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('Must be logged in to retrieve user stats')
+
+        data = {}
+
+        files = data['files'] = []
+
+        for file_obj in request.user.userfile_set.all():
+            files.append(file_obj.to_json())
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success(data)
+
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def update(request):
@@ -904,7 +922,7 @@ def job_remove(request, job_id):
         return failed(e.message)
     else:
         return success({'job': job_id})
-
+    
 @ensure_csrf_cookie
 def output(request, file_name):
     return serve(request, file_name, document_root=settings.OUTPUT_LOCAL_PATH)

@@ -1,0 +1,22 @@
+<div class="container">
+  <div class="pane">
+    <table *ngIf="stats !== null" class="table">
+      <thead>
+        <tr>
+          <td>Name</td>
+          <td>Host</td>
+          <td>Requested</td>
+          <td>Variable</td>
+          <td>Requested Date</td>
+        </tr>
+      </thead>
+      <tr *ngFor="let file of stats.files">
+        <td><a href="{{file.url | thredds}}" target="_blank">{{file.name}}</a></td>
+        <td>{{file.host}}</td>
+        <td>{{file.requested}}</td>
+        <td>{{file.variable}}</td>
+        <td>{{file.requested_date | date:'medium'}}</td>
+      </tr>
+    </table>
+  </div>
+</div>

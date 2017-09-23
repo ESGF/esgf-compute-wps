@@ -1,0 +1,67 @@
+ <div class="content">
+  <div class="pane">
+    <form (ngSubmit)="onSubmit(userForm)" #userForm="ngForm">
+      <input type="hidden" [(ngModel)]="model.id" name="id">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <p class="form-control-static" id="username">{{model.username}}</p>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="text" class="form-control" id="email"
+          [(ngModel)]="model.email" name="email">
+      </div>
+      <div class="form-group">
+        <label for="openid">OpenID</label>
+        <input type="text" class="form-control" id="openid"
+          [(ngModel)]="model.openid" name="openid">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" class="form-control" id="password"
+          [(ngModel)]="model.password" name="password">
+      </div>
+      <div class="form-group">
+        <label for="type">Authenticated</label>
+        <p class="form-control-static" id="type">{{model.type}}</p>
+      </div>
+      <div class="form-group">
+        <label for="api_key">API Key</label>
+        <p class="form-control-static" id="api_key">{{model.api_key}}</p>
+      </div>
+      <button type="submit" class="btn btn-default">Update</button>
+      <button (click)="onRegenerateKey()" class="btn btn-default">Regenerate Key</button>
+      <button (click)="onOAuth2()" class="btn btn-default">OAuth2</button>
+      <button class="btn btn-default" data-toggle="modal" data-target="#myproxyclient">MyProxyClient</button>
+    </form>
+  </div>
+  <div class="modal fade" id="myproxyclient" tabindex="1" role="dialog" aria-labelledby="myproxyclientLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title" id="myproxyclientLabel">MyProxyClient Login</h4>
+        </div>
+        <div class="alert alert-danger" [hidden]="!error">{{errorMessage}}</div>
+        <form (ngSubmit)="onMPCSubmit()" #mpcForm="ngForm">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="mpc-username">Username</label>
+              <input type="text" class="form-control" id="mpc-username" required
+                [(ngModel)]="mpc.username" name="username">
+            </div>
+            <div class="form-group">
+              <label for="mpc-password">Password</label>
+              <input type="password" class="form-control" id="mpc-password" required
+                [(ngModel)]="mpc.password" name="password">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-default">Login</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

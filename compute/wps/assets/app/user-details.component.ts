@@ -1,18 +1,17 @@
 import { Component, OnInit } from '@angular/core';
 
-import { User } from './user';
 import { WPSResponse } from './wps.service';
-import { AuthService } from './auth.service';
+import { AuthService, User } from './auth.service';
 import { NotificationService } from './notification.service';
 
 declare var jQuery: any;
 
 @Component({
-  templateUrl: './update-user.component.html',
+  selector: 'user-details',
+  templateUrl: './user-details.component.html',
   styleUrls: ['./forms.css']
 })
-
-export class UpdateUserComponent implements OnInit { 
+export class UserDetailsComponent { 
   model: User = new User();
   mpc: User = new User();
   error: boolean = false;

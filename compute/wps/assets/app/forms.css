@@ -1,3 +1,7 @@
+.pane {
+	padding: 1em;
+}
+
 .ng-valid[required], .ng-valid.required {
 	border-left: 5px solid #42a948;
 }

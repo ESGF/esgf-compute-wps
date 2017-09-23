@@ -3,8 +3,18 @@ import { Http, Headers } from '@angular/http';
 import { DOCUMENT } from '@angular/platform-browser';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 
-import { User } from './user';
 import { WPSResponse } from './wps.service';
+
+export class User {
+  id: number;
+  username: string;
+  openID: string;
+  email: string;
+  password: string;
+  api_key: string;
+  type: string;
+  local_init: boolean;
+}
 
 @Injectable()
 export class AuthService {

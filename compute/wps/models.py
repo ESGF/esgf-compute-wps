@@ -172,11 +172,29 @@ class File(models.Model):
 
         user_file_obj.save()
 
+    def to_json(self):
+        return {
+            'name': self.name,
+            'host': self.host,
+            'variable': self.variable,
+            'url': self.url,
+            'requested': self.requested
+        }
+
 class UserFile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     file = models.ForeignKey(File, on_delete=models.CASCADE)
     requested_date = models.DateTimeField(auto_now=True)
     requested = models.PositiveIntegerField(default=0)
+
+    def to_json(self):
+        data = self.file.to_json()
+
+        data['requested'] = self.requested
+
+        data['requested_date'] = self.requested_date
+
+        return data
 
 class Cache(models.Model):
     uid = models.CharField(max_length=256)

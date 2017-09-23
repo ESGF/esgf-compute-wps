@@ -7,17 +7,23 @@ import { RouterModule } from '@angular/router';
 import { AppComponent } from './app.component';
 import { HomeComponent } from './home.component';
 import { CreateUserComponent } from './create-user.component';
-import { UpdateUserComponent } from './update-user.component';
+import { UserProfileComponent } from './user-profile.component';
+import { UserDetailsComponent } from './user-details.component';
+import { UserFilesComponent } from './user-files.component';
 import { LoginComponent, LoginCallbackComponent } from './login.component';
 import { LoginOpenIDComponent } from './login-openid.component';
 import { LogoutComponent } from './logout.component';
 import { ConfigureComponent } from './configure.component';
 import { DimensionComponent } from './dimension.component';
 import { JobsComponent } from './jobs.component';
+import { TabComponent, TabsComponent } from './tab.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
+import { StatsService } from './stats.service';
 import { NotificationService } from './notification.service';
+
+import { ThreddsPipe } from './user-files.component';
 
 @NgModule({
   imports: [
@@ -60,7 +66,7 @@ import { NotificationService } from './notification.service';
           },
           {
             path: 'profile',
-            component: UpdateUserComponent
+            component: UserProfileComponent
           },
           {
             path: 'logout',
@@ -78,19 +84,25 @@ import { NotificationService } from './notification.service';
     AppComponent,
     HomeComponent,
     CreateUserComponent,
-    UpdateUserComponent,
+    UserProfileComponent,
+    UserDetailsComponent,
+    UserFilesComponent,
     LoginComponent,
     LoginCallbackComponent,
     LoginOpenIDComponent,
     LogoutComponent,
     ConfigureComponent,
     DimensionComponent,
-    JobsComponent
+    JobsComponent,
+    TabComponent,
+    TabsComponent,
+    ThreddsPipe
   ],
   providers: [
     AuthService,
     AuthGuard,
-    NotificationService
+    NotificationService,
+    StatsService
   ],
   bootstrap: [ AppComponent ]
 })
