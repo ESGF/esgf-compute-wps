@@ -433,12 +433,20 @@ def user_stats(request):
         if not request.user.is_authenticated:
             raise Exception('Must be logged in to retrieve user stats')
 
+        stat = request.GET.get('stat', None)
+
         data = {}
 
-        files = data['files'] = []
+        if stat == 'process':
+            processes = data['processes'] = []
 
-        for file_obj in request.user.userfile_set.all():
-            files.append(file_obj.to_json())
+            for process_obj in request.user.userprocess_set.all():
+                processes.append(process_obj.to_json())
+        else:
+            files = data['files'] = []
+
+            for file_obj in request.user.userfile_set.all():
+                files.append(file_obj.to_json())
     except Exception as e:
         return failed(e.message)
     else:

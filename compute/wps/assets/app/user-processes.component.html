@@ -1,0 +1,20 @@
+<div class="container">
+  <div class="pane">
+    <table *ngIf="stats !== null" class="table">
+      <thead>
+        <tr>
+          <td>Identifier</td>
+          <td>Backend</td>
+          <td>Requested</td>
+          <td>Requested Date</td>
+        </tr>
+      </thead>
+      <tr *ngFor="let process of stats.processes">
+        <td>{{process.identifier}}</td>
+        <td>{{process.backend}}</td>
+        <td>{{process.requested}}</td>
+        <td>{{process.requested_date | date:'medium'}}</td>
+      </tr>
+    </table>
+  </div>
+</div>

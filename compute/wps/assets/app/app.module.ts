@@ -10,6 +10,7 @@ import { CreateUserComponent } from './create-user.component';
 import { UserProfileComponent } from './user-profile.component';
 import { UserDetailsComponent } from './user-details.component';
 import { UserFilesComponent } from './user-files.component';
+import { UserProcessesComponent } from './user-processes.component';
 import { LoginComponent, LoginCallbackComponent } from './login.component';
 import { LoginOpenIDComponent } from './login-openid.component';
 import { LogoutComponent } from './logout.component';
@@ -87,6 +88,7 @@ import { ThreddsPipe } from './user-files.component';
     UserProfileComponent,
     UserDetailsComponent,
     UserFilesComponent,
+    UserProcessesComponent,
     LoginComponent,
     LoginCallbackComponent,
     LoginOpenIDComponent,

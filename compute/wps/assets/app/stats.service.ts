@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Http } from '@angular/http';
+import { Http, URLSearchParams } from '@angular/http';
 
 export interface FileStat {
   name: string;
@@ -10,8 +10,16 @@ export interface FileStat {
   requested_date: any;
 }
 
+export interface ProcessStat {
+  identifier: string;
+  backend: string;
+  requested: number;
+  requested_date: any;
+}
+
 export interface Stats {
-  files: Array<FileStat>;
+  files?: Array<FileStat>;
+  processes?: Array<ProcessStat>;
 }
 
 @Injectable()
@@ -22,6 +30,19 @@ export class StatsService {
 
   stats(): Promise<Stats> {
     return this.http.get('auth/user/stats')
+      .toPromise()
+      .then(response => response.json().data as Stats)
+      .catch(this.handleError);
+  }
+
+  processes(): Promise<Stats> {
+    let params = new URLSearchParams();
+
+    params.set('stat', 'process');
+
+    return this.http.get('auth/user/stats', {
+      params: params
+    })
       .toPromise()
       .then(response => response.json().data as Stats)
       .catch(this.handleError);

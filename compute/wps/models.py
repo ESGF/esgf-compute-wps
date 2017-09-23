@@ -284,11 +284,26 @@ class Process(models.Model):
 
         user_process_obj.save()
 
+    def to_json(self):
+        return {
+            'identifier': self.identifier,
+            'backend': self.backend
+        }
+
 class UserProcess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     process = models.ForeignKey(Process, on_delete=models.CASCADE)
     requested_date = models.DateTimeField(auto_now=True)
     requested = models.PositiveIntegerField(default=0)
+
+    def to_json(self):
+        data = self.process.to_json()
+
+        data['requested'] = self.requested
+
+        data['requested_date'] = self.requested_date
+
+        return data
 
 class ProcessUsage(models.Model):
     process = models.ForeignKey(Process, on_delete=models.CASCADE)
