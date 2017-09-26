@@ -1,10 +1,10 @@
 <div>
   <nav class="navbar navbar-default">
-    <div *ngIf="authService.user$ | async as user" class="container-fluid">
+    <div class="container-fluid">
       <a class="navbar-brand" href="wps/home">WPS</a>
       <ul *ngIf="logged" class="nav navbar-nav navbar-left">
         <li><a routerLink="/wps/home/jobs">Jobs</a></li>
-        <li *ngIf="user.admin">
+        <li *ngIf="authService.admin$ | async">
           <a routerLink="/wps/home/stats">Stats</a>
         </li>
       </ul>

@@ -15,14 +15,15 @@ export class User {
   api_key: string;
   type: string;
   local_init: boolean;
+  admin: boolean;
 }
 
 @Injectable()
 export class AuthService {
-  userDetails = new Subject<User>();
+  admin = new Subject<boolean>();
   logged = this.isLogged();
 
-  user$ = this.userDetails.asObservable();
+  admin$ = this.admin.asObservable();
   logged$ = new BehaviorSubject(this.logged);
 
   constructor(
@@ -35,7 +36,9 @@ export class AuthService {
         let response = data as WPSResponse;
 
         if (response.status === 'success') {
-          this.userDetails.next(response.data as User);
+          let userObj = response.data as User;
+
+          this.admin.next(userObj.admin);
         }
       });
   }
