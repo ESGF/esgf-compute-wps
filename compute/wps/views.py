@@ -1,7 +1,9 @@
 import datetime
 import json
 import logging
+import random
 import re
+import string
 import StringIO
 
 import cwt
@@ -1012,6 +1014,109 @@ def forgot_username(request):
         return failed('There is not user associated with the email "{}"'.format(request.GET['email']))
     except Exception as e:
         logger.exception('Error recovering username')
+
+        return failed(e.message)
+    else:
+        return success({'redirect': settings.LOGIN_URL})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def forgot_password(request):
+    try:
+        if 'username' not in request.GET:
+            raise Exception('Please provide the username you are trying to reset the password for')
+
+        username = request.GET['username']
+
+        logger.info('Starting password reset process for user "{}"'.format(username))
+
+        user = models.User.objects.get(username=username)
+
+        extra = json.loads(user.auth.extra)
+
+        token = extra['reset_token'] = ''.join(random.choice(string.ascii_letters + string.digits) for _ in xrange(64))
+
+        extra['reset_expire'] = datetime.datetime.now() + datetime.timedelta(1)
+
+        user.auth.extra = json.dumps(extra, default=lambda x: x.strftime('%x %X'))
+
+        user.auth.save()
+
+        reset_url = '{}?token={}&username={}'.format(settings.PASSWORD_RESET_URL, token, user.username)
+
+        try:
+            send_mail(settings.FORGOT_PASSWORD_SUBJECT,
+                      '',
+                      settings.ADMIN_EMAIL,
+                      [user.email],
+                      html_message=settings.FORGOT_PASSWORD_MESSAGE.format(username=user.username,
+                                                              reset_url=reset_url)
+                      )
+        except:
+            logger.exception('Mail error')
+
+            raise Exception('Error sending reset password email')
+    except models.User.DoesNotExist:
+        logger.exception('User does not exist with username "{}"'.format(request.GET['username']))
+
+        return failed('Username "{}" does not exist'.format(request.GET['username']))
+    except Exception as e:
+        logger.exception('Error resetting password for user "{}"'.format(request.GET['username']))
+
+        return failed(e.message)
+    else:
+        return success({'redirect': settings.LOGIN_URL})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def reset_password(request):
+    try:
+        token = str(request.GET['token'])
+
+        username = str(request.GET['username'])
+
+        password = str(request.GET['password'])
+
+        logger.info('Resetting password for "{}"'.format(username))
+
+        user = models.User.objects.get(username=username)
+
+        extra = json.loads(user.auth.extra)
+
+        if 'reset_token' not in extra or 'reset_expire' not in extra:
+            raise Exception('Invalid reset state')
+
+        expires = datetime.datetime.strptime(extra['reset_expire'], '%x %X')
+
+        if datetime.datetime.now() > expires:
+            raise Exception('Reset token has expired')
+
+        if extra['reset_token'] != token:
+            raise Exception('Tokens do not match')
+
+        del extra['reset_token']
+
+        del extra['reset_expire']
+
+        user.auth.extra = json.dunps(extra)
+
+        user.auth.save()
+
+        user.set_password(password)
+
+        user.save()
+
+        logger.info('Successfully reset password for "{}"'.format(username))
+    except KeyError as e:
+        logger.exception('Missing key {}'.format(e))
+
+        return failed('Missing required parameter {}'.format(e))
+    except models.User.DoesNotExist:
+        logger.exception('User does not exist with username "{}"'.format(request.GET['username']))
+
+        return failed('Username "{}" does not exist'.format(request.GET['username']))
+    except Exception as e:
+        logger.exception('Error resetting password for user "{}"'.format(request.GET['username']))
 
         return failed(e.message)
     else:

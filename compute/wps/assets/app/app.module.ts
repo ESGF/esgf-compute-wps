@@ -22,6 +22,7 @@ import { StatsComponent } from './stats.component';
 import { StatsFilesComponent } from './stats-files.component';
 import { StatsProcessesComponent } from './stats-processes.component';
 import { ForgotUsernameComponent } from './forgot-username.component';
+import { ForgotPasswordComponent, ResetPasswordComponent } from './forgot-password.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
@@ -62,6 +63,14 @@ import { ThreddsPipe } from './user-files.component';
           {
             path: 'login/forgot/username',
             component: ForgotUsernameComponent
+          },
+          {
+            path: 'login/forgot/password',
+            component: ForgotPasswordComponent
+          },
+          {
+            path: 'login/reset',
+            component: ResetPasswordComponent
           }
         ]
       },
@@ -114,7 +123,9 @@ import { ThreddsPipe } from './user-files.component';
     StatsComponent,
     StatsFilesComponent,
     StatsProcessesComponent,
-    ForgotUsernameComponent
+    ForgotUsernameComponent,
+    ForgotPasswordComponent,
+    ResetPasswordComponent
   ],
   providers: [
     AuthService,

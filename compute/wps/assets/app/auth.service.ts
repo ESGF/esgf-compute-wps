@@ -91,6 +91,42 @@ export class AuthService {
     return params;
   }
 
+  resetPassword(data: any) {
+    let params = new URLSearchParams();
+
+    params.set('username', data.username);
+    params.set('token', data.token);
+    params.set('password', data.password);
+
+    return this.http.get('auth/reset', {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }),
+      params: params
+    })
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
+  }
+
+  forgotPassword(username: string): Promise<WPSResponse> {
+    let params = new URLSearchParams();
+
+    params.set('username', username);
+
+    return this.http.get('auth/forgot/password', {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }),
+      params: params
+    })
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
+  }
+
   forgotUsername(email: string): Promise<WPSResponse> {
     let params = new URLSearchParams();
 
