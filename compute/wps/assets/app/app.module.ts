@@ -21,6 +21,7 @@ import { TabComponent, TabsComponent } from './tab.component';
 import { StatsComponent } from './stats.component';
 import { StatsFilesComponent } from './stats-files.component';
 import { StatsProcessesComponent } from './stats-processes.component';
+import { ForgotUsernameComponent } from './forgot-username.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
@@ -57,6 +58,10 @@ import { ThreddsPipe } from './user-files.component';
           {
             path: 'login/callback',
             component: LoginCallbackComponent
+          },
+          {
+            path: 'login/forgot/username',
+            component: ForgotUsernameComponent
           }
         ]
       },
@@ -108,7 +113,8 @@ import { ThreddsPipe } from './user-files.component';
     ThreddsPipe,
     StatsComponent,
     StatsFilesComponent,
-    StatsProcessesComponent
+    StatsProcessesComponent,
+    ForgotUsernameComponent
   ],
   providers: [
     AuthService,

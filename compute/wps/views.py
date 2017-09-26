@@ -987,6 +987,35 @@ def notification(request):
         return success({'notification': None})
     else:
         return success({'notification': notification.message})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def forgot_username(request):
+    try:
+        if 'email' not in request.GET:
+            raise Exception('Please provide the email address of the account')
+
+        logger.info('Recovering username for "{}"'.format(request.GET['email']))
+
+        user = models.User.objects.get(email=request.GET['email'])
+
+        try:
+            send_mail(settings.FORGOT_USERNAME_SUBJECT,
+                      settings.FORGOT_USERNAME_MESSAGE.format(username=user.username, login_url=settings.LOGIN_URL),
+                      settings.ADMIN_EMAIL,
+                      [user.email])
+        except:
+            pass
+    except models.User.DoesNotExist:
+        logger.exception('User does not exist with email "{}"'.format(request.GET['email']))
+
+        return failed('There is not user associated with the email "{}"'.format(request.GET['email']))
+    except Exception as e:
+        logger.exception('Error recovering username')
+
+        return failed(e.message)
+    else:
+        return success({'redirect': settings.LOGIN_URL})
     
 @ensure_csrf_cookie
 def output(request, file_name):

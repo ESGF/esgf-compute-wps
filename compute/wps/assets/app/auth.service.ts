@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@angular/core';
-import { Http, Headers } from '@angular/http';
+import { Http, Headers, URLSearchParams } from '@angular/http';
 import { DOCUMENT } from '@angular/platform-browser';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { Subject } from 'rxjs/Subject';
@@ -89,6 +89,23 @@ export class AuthService {
     }
 
     return params;
+  }
+
+  forgotUsername(email: string): Promise<WPSResponse> {
+    let params = new URLSearchParams();
+
+    params.set('email', email);
+
+    return this.http.get('auth/forgot/username', {
+      headers: new Headers({
+        'X-CSRFToken': this.getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }),
+      params: params
+    })
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
   }
 
   create(user: User): Promise<WPSResponse> {
