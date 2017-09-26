@@ -1,6 +1,6 @@
 <div class="container">
   <div class="pane">
-    <table *ngIf="stats !== null" class="table">
+    <table *ngIf="stats !== null && stats.files.length > 0; else noFiles" class="table">
       <thead>
         <tr>
           <td>Name</td>
@@ -18,5 +18,10 @@
         <td>{{file.requested_date | date:'medium'}}</td>
       </tr>
     </table>
+    <ng-template #noFiles>
+      <div class="text-center">
+        <h3>No File Stats</h3>
+      </div>
+    </ng-template>
   </div>
 </div>

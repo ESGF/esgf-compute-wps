@@ -1,6 +1,6 @@
 <div class="container">
   <div class="pane">
-    <table *ngIf="stats !== null" class="table">
+    <table *ngIf="stats !== null && stats.data.processes.length > 0; else noProcesses" class="table">
       <thead>
         <tr>
           <td>Identifier</td>
@@ -16,5 +16,10 @@
         <td>{{process.requested_date | date:'medium'}}</td>
       </tr>
     </table>
+    <ng-template #noProcesses>
+      <div class="text-center">
+        <h3>No Process Stats</h3>
+      </div>
+    </ng-template>
   </div>
 </div>
