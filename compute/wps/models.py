@@ -30,6 +30,12 @@ STATUS = {
     'ProcessFailed': wps_lib.ProcessFailed,
 }
 
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    created_date = models.DateTimeField(auto_now_add=True)
+    enabled = models.BooleanField(default=True)
+
 class DjangoOpenIDStore(interface.OpenIDStore):
     # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py
 

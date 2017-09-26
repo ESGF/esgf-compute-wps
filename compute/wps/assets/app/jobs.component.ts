@@ -28,8 +28,7 @@ import { NotificationService } from './notification.service';
     .message {
       margin: 0px 4px;
     }
-  `],
-  providers: [WPSService]
+  `]
 })
 export class JobsComponent implements OnInit, OnDestroy { 
   PAGES: number = 3;

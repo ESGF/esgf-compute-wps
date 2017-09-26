@@ -930,6 +930,16 @@ def job_remove(request, job_id):
         return failed(e.message)
     else:
         return success({'job': job_id})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def notification(request):
+    try:
+        notification = models.Notification.objects.filter(enabled=True).latest('created_date')
+    except models.Notification.DoesNotExist:
+        return success({'notification': None})
+    else:
+        return success({'notification': notification.message})
     
 @ensure_csrf_cookie
 def output(request, file_name):

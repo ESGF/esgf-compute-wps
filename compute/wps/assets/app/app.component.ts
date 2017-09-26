@@ -7,33 +7,39 @@ import 'rxjs/add/operator/filter';
 
 import { AuthService } from './auth.service';
 import { NotificationType, NotificationService } from './notification.service';
+import { WPSService, WPSResponse } from './wps.service';
 
 @Component({
   selector: 'my-app',
   templateUrl: './app.component.html',
   providers: [
     AuthService,
+    WPSService
   ]
 })
 
 export class AppComponent implements OnInit, OnDestroy { 
   MESSAGE_TIMEOUT: number = 10 * 1000;
+  NOTIFICATION_TIMEOUT: number = 10 * 1000;
 
   logged: boolean = false;
   loggedSub: Subscription;
 
   notificationSub: Subscription;
 
+  notification: string = '';
   message: string = '';
   warn: string = '';
   error: string = '';
 
   clearTimer: any;
+  notificationTimer: any;
 
   constructor(
     private router: Router,
     private authService: AuthService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private wpsService: WPSService
   ) { }
 
   ngOnInit() {
@@ -64,9 +70,13 @@ export class AppComponent implements OnInit, OnDestroy {
           break;
       }
     });
+
+    this.startNotificationTimer();
   }
 
   ngOnDestroy() {
+    this.stopNotificationTimer();
+
     this.stopTimer();
 
     this.notificationSub.unsubscribe();
@@ -90,6 +100,31 @@ export class AppComponent implements OnInit, OnDestroy {
 
       this.clearTimer = null;
     }
+  }
+
+  startNotificationTimer() {
+    this.getNotification();
+
+    this.notificationTimer = setInterval(() => this.getNotification(), this.NOTIFICATION_TIMEOUT);
+  }
+
+  stopNotificationTimer() {
+    if (this.notificationTimer) {
+      clearInterval(this.notificationTimer);
+
+      this.notificationTimer = null;
+    }
+  }
+
+  getNotification() {
+    this.wpsService.notification()
+      .then(response => {
+        if (response.status === 'success') {
+          this.notification = response.data.notification || '';
+        } else {
+          this.notification = '';
+        }
+      });
   }
 
   clear() { 

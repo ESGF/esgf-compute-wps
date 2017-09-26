@@ -83,6 +83,13 @@ export class WPSService {
     private http: Http
   ) { }
 
+  notification(): Promise<WPSResponse> {
+    return this.http.get('/wps/notification')
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
+  }
+
   status(jobID: number): Promise<Status[]> {
     return this.http.get(`/wps/jobs/${jobID}`)
       .toPromise()

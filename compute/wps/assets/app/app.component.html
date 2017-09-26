@@ -16,6 +16,9 @@
   </nav>
 </div>
 <div class="container-fluid">
+  <div class="alert alert-dismissible alert-info" [class.hidden]="notification === ''" role="alert">
+    {{notification}}
+  </div>
   <div class="alert alert-dismissible alert-success" [class.hidden]="message === ''" role="alert">
     <button type="button" class="close" (click)="hideMessage();"><span aria-hidden="true">&times;</span></button>
     {{message}}
