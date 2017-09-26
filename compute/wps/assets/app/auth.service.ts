@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@angular/core';
 import { Http, Headers } from '@angular/http';
 import { DOCUMENT } from '@angular/platform-browser';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
+import { Subject } from 'rxjs/Subject';
 
 import { WPSResponse } from './wps.service';
 
@@ -18,14 +19,26 @@ export class User {
 
 @Injectable()
 export class AuthService {
+  userDetails = new Subject<User>();
   logged = this.isLogged();
 
+  user$ = this.userDetails.asObservable();
   logged$ = new BehaviorSubject(this.logged);
 
   constructor(
     @Inject(DOCUMENT) private doc: any,
     private http: Http
-  ) { }
+  ) { 
+
+    this.user()
+      .then(data => {
+        let response = data as WPSResponse;
+
+        if (response.status === 'success') {
+          this.userDetails.next(response.data as User);
+        }
+      });
+  }
 
   isLogged(): boolean {
     let expires = localStorage.getItem('wps_expires');

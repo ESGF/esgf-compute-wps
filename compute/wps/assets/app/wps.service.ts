@@ -83,6 +83,20 @@ export class WPSService {
     private http: Http
   ) { }
 
+  statsFiles(): Promise<WPSResponse> {
+    return this.http.get('/wps/stats/files')
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
+  }
+
+  statsProcesses(): Promise<WPSResponse> {
+    return this.http.get('/wps/stats/processes')
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
+  }
+
   notification(): Promise<WPSResponse> {
     return this.http.get('/wps/notification')
       .toPromise()

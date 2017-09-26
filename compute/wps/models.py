@@ -290,11 +290,26 @@ class Process(models.Model):
 
         user_process_obj.save()
 
-    def to_json(self):
-        return {
+    def to_json(self, usage=False):
+        data = {
             'identifier': self.identifier,
             'backend': self.backend
         }
+
+        if usage:
+            try:
+                usage_obj = self.processusage_set.latest('created_date')
+            except ProcessUsage.DoesNotExist:
+                data.update({
+                    'executed': None,
+                    'success': None,
+                    'failed': None,
+                    'retry': None
+                })
+            else:
+                data.update(usage_obj.to_json())
+
+        return data
 
 class UserProcess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -319,6 +334,14 @@ class ProcessUsage(models.Model):
     success = models.PositiveIntegerField()
     failed = models.PositiveIntegerField()
     retry = models.PositiveIntegerField()
+
+    def to_json(self):
+        return {
+            'executed': self.executed,
+            'success': self.success,
+            'failed': self.failed,
+            'retry': self.retry
+        }
 
 class Server(models.Model):
     host = models.CharField(max_length=128)

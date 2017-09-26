@@ -9,6 +9,8 @@ urlpatterns = [
     url(r'^generate/$', views.generate),
     url(r'^execute/$', views.execute),
     url(r'^notification/$', views.notification),
+    url(r'^stats/files/$', views.stats_files),
+    url(r'^stats/processes/$', views.stats_processes),
     url(r'^job/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^jobs/$', views.jobs),
     url(r'^jobs/(?P<job_id>[0-9]*)/$', views.job),

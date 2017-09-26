@@ -1,0 +1,31 @@
+<div class="container">
+  <div class="pane">
+    <table *ngIf="processes !== null && processes.length > 0; else noProcesses" class="table">
+      <thead>
+        <tr>
+          <th>Identifier</th>
+          <th>Backend</th>
+          <th>Executed</th>
+          <th>Success</th>
+          <th>Failed</th>
+          <th>Retry</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let process of processes">
+          <td>{{process.identifier}}</td>
+          <td>{{process.backend}}</td>
+          <td>{{process.executed}}
+          <td>{{process.success}}</td>
+          <td>{{process.failed}}</td>
+          <td>{{process.retry}}</td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #noProcesses>
+      <div class="text-center">
+        <h3>No Process Stats</h3>
+      </div>
+    </ng-template>
+  </div>
+</div>

@@ -18,6 +18,9 @@ import { ConfigureComponent } from './configure.component';
 import { DimensionComponent } from './dimension.component';
 import { JobsComponent } from './jobs.component';
 import { TabComponent, TabsComponent } from './tab.component';
+import { StatsComponent } from './stats.component';
+import { StatsFilesComponent } from './stats-files.component';
+import { StatsProcessesComponent } from './stats-processes.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
@@ -62,6 +65,10 @@ import { ThreddsPipe } from './user-files.component';
         canActivate: [AuthGuard],
         children: [
           {
+            path: 'stats',
+            component: StatsComponent
+          },
+          {
             path: 'jobs',
             component: JobsComponent
           },
@@ -98,7 +105,10 @@ import { ThreddsPipe } from './user-files.component';
     JobsComponent,
     TabComponent,
     TabsComponent,
-    ThreddsPipe
+    ThreddsPipe,
+    StatsComponent,
+    StatsFilesComponent,
+    StatsProcessesComponent
   ],
   providers: [
     AuthService,

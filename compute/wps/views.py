@@ -17,6 +17,7 @@ from django.core import serializers
 from django.core.mail import send_mail
 from django.db import IntegrityError
 from django.db.models import Max
+from django.db.models import Sum
 from django.shortcuts import render
 from django.shortcuts import redirect
 from django.shortcuts import get_list_or_404
@@ -930,6 +931,52 @@ def job_remove(request, job_id):
         return failed(e.message)
     else:
         return success({'job': job_id})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def stats_files(request):
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('User must be authenticated to retrieve stats')
+
+        if not request.user.is_superuser:
+            raise Exception('User must be an admin to retrieve stats')
+
+        data = {}
+
+        files = data['files'] = []
+
+        files_qs = models.File.objects.annotate(count=Sum('requested'))
+
+        for file_obj in files_qs:
+            files.append(file_obj.to_json())
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success(data)
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def stats_processes(request):
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('User must be authenticated to retrieve stats')
+
+        if not request.user.is_superuser:
+            raise Exception('User must be an admin to retrieve stats')
+
+        data = {}
+
+        processes = data['processes'] = []
+
+        processes_qs = models.Process.objects.all()
+
+        for process_obj in processes_qs:
+            processes.append(process_obj.to_json(True))
+    except Exception as e:
+        return failed(e.message)
+    else:
+        return success(data)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
