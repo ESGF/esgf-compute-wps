@@ -23,7 +23,7 @@ DAP_URL = setting('WPS_DAP_URL', 'https://aims2.llnl.gov/thredds/dodsC/test/publ
 
 CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
 
-ADMIN_EMAIL = setting('WPS_ADMIN_EMAIL', 'admin@wps.llnl.gov')
+ADMIN_EMAIL = setting('WPS_ADMIN_EMAIL', 'admin@aims2.llnl.gov')
 
 LOGIN_URL = setting('WPS_LOGIN_URL', 'http://0.0.0.0:8000/wps/home/login')
 PROFILE_URL = setting('WPS_PROFILE_URL', 'http://0.0.0.0:8000/wps/home/profile')
@@ -33,6 +33,28 @@ OAUTH2_CALLBACK = setting('WPS_OAUTH2_CALLBACK', 'https://aims2.llnl.gov/auth/ca
 OPENID_TRUST_ROOT = setting('WPS_OPENID_TRUST_ROOT', 'http://0.0.0.0:8000/wps/home/login/openid')
 OPENID_RETURN_TO = setting('WPS_OPENID_RETURN_TO', 'http://0.0.0.0:8000/auth/callback/openid')
 OPENID_CALLBACK_SUCCESS = setting('WPS_OPENID_CALLBACK_SUCCESS', 'http://0.0.0.0:8000/wps/home/login/callback')
+
+PASSWORD_RESET_URL = setting('WPS_PASSWORD_RESET_URL', 'http://0.0.0.0:8000/wps/home/login/reset')
+
+FORGOT_USERNAME_SUBJECT = setting('WPS_FORGOT_USERNAME_SUBJECT', 'CWT WPS Username Recovery')
+FORGOT_USERNAME_MESSAGE = setting('WPS_FORGOT_USERNAME_MESSAGE', """
+Hello {username},
+
+You've requested the recovery of your username: {username}.
+
+Thank you,
+ESGF CWT Team
+                                  """)
+
+FORGOT_PASSWORD_SUBJECT = setting('WPS_FORGOT_PASSWORD_SUBJECT', 'CWT WPS Password Reset')
+FORGOT_PASSWORD_MESSAGE = setting('WPS_FORGOT_PASSWORD_MESSAGE', """
+Hello {username},
+<br><br>
+You've request the reset of you password. Please follow this <a href="{reset_url}">link</a> to reset you password.
+<br><br>
+Thank you,
+ESGF CWT Team
+                                  """)
 
 CREATE_SUBJECT = 'Welcome to ESGF compute server'
 CREATE_MESSAGE = """
