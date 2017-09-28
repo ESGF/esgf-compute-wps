@@ -1,7 +1,7 @@
 #! /bin/bash
 
-python manage.py collectstatic --no-input
+python compute/manage.py collectstatic --no-input
 
-python manage.py migrate
+python compute/manage.py migrate
 
-exec $@
+gunicorn -b 0.0.0.0:8000 --reload --chdir compute/ compute.wsgi $@

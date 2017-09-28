@@ -9,7 +9,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - conf-volume:/var/www/compute/compute/compute
+      - conf-volume:/var/www/compute/compute
       - static-volume:/var/www/static
     deploy:
       restart_policy:
@@ -58,7 +58,7 @@ services:
     env_file:
       - ./common.env
     volumes:
-      - conf-volume:/var/www/compute/compute/compute
+      - conf-volume:/var/www/compute/compute
       - data-volume:/data/public
       - cache-volume:/data/cache
     deploy:
