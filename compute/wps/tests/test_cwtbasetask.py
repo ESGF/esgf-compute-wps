@@ -27,6 +27,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         cls.latitude = cdms2.createUniformLatitudeAxis(-90.0, 180.0, 1.0)
 
         cls.time1 = cdms2.createAxis(np.array([x for x in xrange(24)]))
+        cls.time1.id = 'time'
         cls.time1.designateTime()
         cls.time1.units = 'months since 1990-1-1'
 
@@ -38,6 +39,7 @@ class CWTBaseTaskTestCase(test.TestCase):
             )
 
         cls.time2 = cdms2.createAxis(np.array([x for x in xrange(24)]))
+        cls.time2.id = 'time'
         cls.time2.designateTime()
         cls.time2.units = 'months since 1992-1-1'
 
@@ -51,6 +53,26 @@ class CWTBaseTaskTestCase(test.TestCase):
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(settings.CACHE_PATH)
+
+#        try:
+#            os.remove('./test1.nc')
+#        except:
+#            pass
+#
+#        try:
+#            os.remove('./test2.nc')
+#        except:
+#            pass
+
+        try:
+            os.remove('./output1.nc')
+        except:
+            pass
+
+        try:
+            os.remove('./multiple.nc')
+        except:
+            pass
 
     def setUp(self):
         self.task = processes.CWTBaseTask()
@@ -112,10 +134,20 @@ class CWTBaseTaskTestCase(test.TestCase):
             def callback(data):
                 outfile.write(data, id='tas')
 
-            with self.assertNumQueries(28):
+            with self.assertNumQueries(30):
                 cached = self.task.cache_multiple_input(variables, domain, status, callback)
 
-            for c in cached: self.assertTrue(os.path.exists(c))
+            for c in cached:
+                self.assertTrue(os.path.exists(c))
+
+        for c in cached:
+            uid = c.split('/')[-1].replace('.nc', '')
+
+            cache = models.Cache.objects.get(uid=uid)
+
+            size = os.stat(cache.local_path).st_size
+
+            self.assertEqual(cache.size, size)
 
     def test_cache_input_access_error(self):
         variable = cwt.Variable('./test10.nc', 'tas')
@@ -171,10 +203,18 @@ class CWTBaseTaskTestCase(test.TestCase):
             def callback(data):
                 outfile.write(data, id='tas')
 
-            with self.assertNumQueries(17):
+            with self.assertNumQueries(18):
                 cache = self.task.cache_input(variable, domain, status, callback)
 
             self.assertEqual(outfile['tas'].shape, (6, 91, 181))
+
+        uid = cache.split('/')[-1].replace('.nc', '')
+
+        cache = models.Cache.objects.get(uid=uid)
+
+        size = os.stat(cache.local_path).st_size
+
+        self.assertEqual(cache.size, size)
 
     def test_check_cache_fail_time_validation(self):
         uri = './test1.nc'
@@ -231,8 +271,11 @@ class CWTBaseTaskTestCase(test.TestCase):
         with self.assertNumQueries(5):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
 
+        uid = '126ba7a96e7d2a76608adafcc1da0e387a98eebf4b28c38805c36eb481682384'
+
         self.assertFalse(exists)
-        self.assertEqual(cached.uid, '126ba7a96e7d2a76608adafcc1da0e387a98eebf4b28c38805c36eb481682384')
+        self.assertEqual(cached.dimensions, 'time:10:20:1|latitude:-45:45:1|longitude:-90:90:1')
+        self.assertEqual(cached.uid, uid)
         self.assertEqual(cached.url, './test1.nc')
 
     def test_generate_cache_name(self):

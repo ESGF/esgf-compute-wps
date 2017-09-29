@@ -8,6 +8,7 @@ import json
 import os
 import time
 import uuid
+from collections import OrderedDict
 from contextlib import closing
 from contextlib import nested
 from functools import partial
@@ -397,7 +398,8 @@ class CWTBaseTask(celery.Task):
 
             base_units = input_files.values()[0][var_name].getTime().units
 
-            for url in input_files.keys():
+            for url in domain_map.keys():
+            #for url in input_files.keys():
                 cache_file = None
 
                 temporal, spatial = domain_map[url]
@@ -454,6 +456,12 @@ class CWTBaseTask(celery.Task):
 
                 if cache_file is not None:
                     cache_file.close()
+
+                    cache = cache_map[url]
+
+                    cache.size = os.stat(cache.local_path).st_size
+
+                    cache.save()
         except Exception:
             logger.exception('Error caching multiple files')
 
@@ -553,7 +561,34 @@ class CWTBaseTask(celery.Task):
             if cache_file is not None:
                 cache_file.close()
 
+                cache.size = os.stat(cache_file.id).st_size
+
+                cache.save()
+
         return cache.local_path
+
+    def generate_dimension_id(self, temporal, spatial):
+        """ Create a string describing the dimensions.
+
+        Args:
+            temporal: A slice over temporal axis.
+            spatial: A dict mapping axis names to slices.
+
+        Returns:
+            A string unique to the dimensions.
+        """
+
+        dim_id = ''
+
+        if temporal is None:
+            dim_id = 'time:None'
+        else:
+            dim_id = 'time:{}'.format(self.slice_to_str(temporal))
+
+        for name, dim in spatial.iteritems():
+            dim_id += '|{}:{}'.format(name, self.slice_to_str(dim))
+
+        return dim_id
 
     def generate_cache_name(self, uri, temporal, spatial):
         """ Create a cacheaable name.
@@ -603,7 +638,9 @@ class CWTBaseTask(celery.Task):
 
         uid = self.generate_cache_name(uri, temporal, spatial)
 
-        cached, created = models.Cache.objects.get_or_create(uid=uid)
+        dimensions = self.generate_dimension_id(temporal, spatial)
+
+        cached, created = models.Cache.objects.get_or_create(uid=uid, dimensions=dimensions)
 
         exists = False
 
@@ -696,7 +733,8 @@ class CWTBaseTask(celery.Task):
             The second is a dictionary mapping each spatial axis name to a
             slice.
         """
-        domain_map = {}
+        domains = []
+        #domain_map = {}
 
         logger.info('Mapping domain {} over {} files'.format(domain, len(inputs)))
 
@@ -735,11 +773,17 @@ class CWTBaseTask(celery.Task):
                     else:
                         spatial[axis.id] = (dim.start, dim.end)
 
-            domain_map[inp.id] = (temporal, spatial)
+            domains.append((temporal, spatial))
 
-            logger.info('Mapped domain {} to {} {}'.format(domain, inp.id, domain_map[inp.id]))
+            #domain_map[inp.id] = (temporal, spatial)
 
-        return domain_map
+            logger.info('Mapped domain {} to {} {}'.format(domain, inp.id, (temporal, spatial)))
+
+        files = [x.id for x in inputs]
+
+        return OrderedDict(zip(files, domains))
+
+        #return domain_map
 
     def map_domain(self, var, var_name, domain):
         """ Map a domain over an input.
