@@ -51,7 +51,16 @@ export class Job {
       let match = this.status.find((i: Status) => i.status === s.status);
 
       if (match !== undefined) {
-        s.messages.forEach((m: Message) => match.messages.push(m));
+        s.messages.forEach((m: Message) => {
+          if (!match.messages.some((v: Message, i: number, a: Array<Message>) => {
+            if (v.created_date === m.created_date && v.message === m.message) {
+              return true;
+            }
+            return false;
+          })) {
+            match.messages.push(m)
+          }
+        });
       } else {
         s = this.reformatStatus(s);
 
