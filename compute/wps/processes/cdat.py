@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import os
+import re
 import uuid
 from contextlib import closing
 from contextlib import nested
@@ -22,6 +23,21 @@ logger = get_task_logger('wps.processes.cdat')
 
 __all__ = ['avg']
 
+def sort_inputs_by_time(variables):
+    input_dict = {}
+    time_pattern = '.*_(\d+)-(\d+)\.nc'
+
+    for v in variables:
+        result = re.search(time_pattern, v.uri)
+
+        start, _ = result.groups()
+
+        input_dict[start] = v
+
+    sorted_keys = reversed(sorted(input_dict.keys()))
+
+    return [input_dict[x] for x in sorted_keys]
+
 @register_process('CDAT.subset')
 @cwt_shared_task()
 def subset(self, variables, operations, domains, **kwargs):
@@ -31,7 +47,13 @@ def subset(self, variables, operations, domains, **kwargs):
 
     op = self.op_by_id('CDAT.subset', o)
 
-    input_var = op.inputs[0]
+    # Sort the files by time an select the first one,
+    # this may not always be the correct choice
+    inputs = sort_inputs_by_time(op.inputs)
+
+    input_var = inputs[0]
+
+    logger.info('Selected input "{}"'.format(input_var.uri))
 
     var_name = input_var.var_name
 
