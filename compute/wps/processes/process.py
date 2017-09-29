@@ -459,7 +459,7 @@ class CWTBaseTask(celery.Task):
 
                     cache = cache_map[url]
 
-                    cache.size = os.stat(cache.local_path).st_size
+                    cache.size = os.stat(cache.local_path).st_size / 1073741824.0
 
                     cache.save()
         except Exception:
@@ -561,7 +561,7 @@ class CWTBaseTask(celery.Task):
             if cache_file is not None:
                 cache_file.close()
 
-                cache.size = os.stat(cache_file.id).st_size
+                cache.size = os.stat(cache.local_path).st_size / 1073741824.0
 
                 cache.save()
 

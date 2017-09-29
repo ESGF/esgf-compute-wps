@@ -209,7 +209,7 @@ class Cache(models.Model):
     dimensions = models.TextField()
     added_date = models.DateTimeField(auto_now_add=True)
     accessed_date = models.DateTimeField(auto_now=True)
-    size = models.PositiveIntegerField(null=True)
+    size = models.DecimalField(null=True, max_digits=16, decimal_places=8)
 
     @property
     def local_path(self):
