@@ -54,15 +54,15 @@ class CWTBaseTaskTestCase(test.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(settings.CACHE_PATH)
 
-#        try:
-#            os.remove('./test1.nc')
-#        except:
-#            pass
-#
-#        try:
-#            os.remove('./test2.nc')
-#        except:
-#            pass
+        try:
+            os.remove('./test1.nc')
+        except:
+            pass
+
+        try:
+            os.remove('./test2.nc')
+        except:
+            pass
 
         try:
             os.remove('./output1.nc')
