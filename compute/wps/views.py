@@ -854,7 +854,8 @@ def job(request, job_id):
                 } for x in models.Job.objects.get(pk=job_id).status_set.all().order_by('created_date')
             ]
 
-            request.session['updated'] = status[-1]['messages'][-1]['created_date'].strftime(SESSION_TIME_FMT)
+            if len(status) > 0 and len(status[-1]['messages']) > 0:
+                request.session['updated'] = status[-1]['messages'][-1]['created_date'].strftime(SESSION_TIME_FMT)
 
     except Exception as e:
         logger.exception('Error retrieving job details')
