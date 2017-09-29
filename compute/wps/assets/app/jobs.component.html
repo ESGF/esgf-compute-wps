@@ -71,7 +71,7 @@
                   </div>
                   <div *ngIf="s.output !== null" class="row message">
                     <div class="col-md-12">
-                      <a href="{{s.output}}">{{s.output}}</a>
+                      <a href="{{s.output|thredds}}" target="_blank">{{s.output|thredds}}</a>
                     </div>
                   </div>
                   <div *ngIf="s.exception !== null" class="row message">
