@@ -12,14 +12,14 @@ PORT = setting('WPS_EXTERNAL_PORT', '8000')
 
 CACHE_PATH = setting('WPS_CACHE_PATH', '/data/cache')
 
-ENDPOINT = setting('WPS_ENDPOINT', 'https://aims2.llnl.gov/wps')
-STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'https://aims2.llnl.gov/wps/job/{job_id}')
+ENDPOINT = setting('WPS_ENDPOINT', 'http://0.0.0.0:8000/wps')
+STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'http://0.0.0.0:8000/wps/job/{job_id}')
 
 OUTPUT_LOCAL_PATH = setting('WPS_OUTPUT_LOCAL_PATH', '/data/public')
 OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_name}')
 
 DAP = setting('WPS_DAP', True)
-DAP_URL = setting('WPS_DAP_URL', 'https://aims2.llnl.gov/thredds/dodsC/test/public/{file_name}')
+DAP_URL = setting('WPS_DAP_URL', 'http://0.0.0.0:8000/thredds/dodsC/test/public/{file_name}')
 
 CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
 
@@ -28,7 +28,7 @@ ADMIN_EMAIL = setting('WPS_ADMIN_EMAIL', 'admin@aims2.llnl.gov')
 LOGIN_URL = setting('WPS_LOGIN_URL', 'http://0.0.0.0:8000/wps/home/login')
 PROFILE_URL = setting('WPS_PROFILE_URL', 'http://0.0.0.0:8000/wps/home/profile')
 
-OAUTH2_CALLBACK = setting('WPS_OAUTH2_CALLBACK', 'https://aims2.llnl.gov/auth/callback')
+OAUTH2_CALLBACK = setting('WPS_OAUTH2_CALLBACK', 'http://0.0.0.0:8000/auth/callback')
 
 OPENID_TRUST_ROOT = setting('WPS_OPENID_TRUST_ROOT', 'http://0.0.0.0:8000/wps/home/login/openid')
 OPENID_RETURN_TO = setting('WPS_OPENID_RETURN_TO', 'http://0.0.0.0:8000/auth/callback/openid')
