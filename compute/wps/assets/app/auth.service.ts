@@ -9,7 +9,7 @@ import { WPSResponse } from './wps.service';
 export class User {
   id: number;
   username: string;
-  openID: string;
+  openid: string;
   email: string;
   password: string;
   api_key: string;
@@ -17,6 +17,11 @@ export class User {
   local_init: boolean;
   admin: boolean;
   expires: any;
+}
+
+interface Options {
+  params: URLSearchParams,
+  headers: Headers
 }
 
 @Injectable()
@@ -103,6 +108,42 @@ export class AuthService {
     return params;
   }
 
+  methodGet(url: string, params: URLSearchParams = null, headers: any = {}) {
+    headers['X-CSRFToken'] = this.getCookie('csrftoken');
+
+    let options: Options = {
+      params: params,
+      headers: new Headers(headers)
+    };
+
+    options.headers = headers;
+
+    if (params !== null) {
+      options.params = params;
+    }
+
+    return this.http.get(url, options)
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
+  }
+
+  methodPost(url: string, data: string = '', headers: any = {}) {
+    headers['X-CSRFToken'] = this.getCookie('csrftoken');
+
+    headers['Content-Type'] = 'application/x-www-form-urlencoded'; 
+
+    let options: Options = {
+      params: null,
+      headers: new Headers(headers)
+    };
+
+    return this.http.post(url, data, options)
+      .toPromise()
+      .then(response => response.json() as WPSResponse)
+      .catch(this.handleError);
+  }
+
   resetPassword(data: any) {
     let params = new URLSearchParams();
 
@@ -110,16 +151,7 @@ export class AuthService {
     params.set('token', data.token);
     params.set('password', data.password);
 
-    return this.http.get('auth/reset', {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }),
-      params: params
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodGet('auth/reset', params);
   }
 
   forgotPassword(username: string): Promise<WPSResponse> {
@@ -127,16 +159,7 @@ export class AuthService {
 
     params.set('username', username);
 
-    return this.http.get('auth/forgot/password', {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }),
-      params: params
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodGet('auth/forgot/password', params);
   }
 
   forgotUsername(email: string): Promise<WPSResponse> {
@@ -144,124 +167,45 @@ export class AuthService {
 
     params.set('email', email);
 
-    return this.http.get('auth/forgot/username', {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }),
-      params: params
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodGet('auth/forgot/username', params);
   }
 
   create(user: User): Promise<WPSResponse> {
-    return this.http.post('auth/create/', this.userToUrlEncoded(user), {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodPost('auth/create/', this.userToUrlEncoded(user));
   }
 
   update(user: User): Promise<WPSResponse> {
-    return this.http.post('auth/update/', this.userToUrlEncoded(user), {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodPost('auth/update/', this.userToUrlEncoded(user));
   }
 
   login(user: User): Promise<WPSResponse> {
-    return this.http.post('auth/login/', this.userToUrlEncoded(user), {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => this.handleLoginResponse(response.json() as WPSResponse))
-      .catch(this.handleError);
+    return this.methodPost('auth/login/', this.userToUrlEncoded(user))
+      .then(response => this.handleLoginResponse(response));
   }
 
   loginOpenID(openidURL: string): Promise<WPSResponse> {
-    return this.http.post('auth/login/openid/', `openid_url=${openidURL}`, {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodPost('auth/login/openid/', `openid_url=${openidURL}`);
   }
 
   logout(): Promise<WPSResponse> {
-    return this.http.get('auth/logout/', {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => this.handleLogoutResponse(response.json() as WPSResponse))
-      .catch(this.handleError);
+    return this.methodGet('auth/logout/');
   }
 
   userDetails(): Promise<any> {
-    return this.http.get('auth/user/', {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodGet('auth/user/');
   }
 
   regenerateKey(user: User): Promise<WPSResponse> {
-    return this.http.get(`auth/user/regenerate/`, {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodGet('auth/user/regenerate/');
   }
 
   oauth2(openid: string): Promise<WPSResponse> {
-    return this.http.post('auth/login/oauth2/', `openid=${openid}`, {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodPost('auth/login/oauth2/', `openid=${openid}`);
   }
 
   myproxyclient(user: User): Promise<WPSResponse> {
-    return this.http.post('auth/login/mpc/', `username=${user.username}&password=${user.password}`, {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+    return this.methodPost('auth/login/mpc/',
+      `username=${user.username}&password=${user.password}`);
   }
 
   private handleLoginResponse(response: WPSResponse): WPSResponse {
