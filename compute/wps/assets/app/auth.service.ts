@@ -188,7 +188,8 @@ export class AuthService {
   }
 
   logout(): Promise<WPSResponse> {
-    return this.methodGet('auth/logout/');
+    return this.methodGet('auth/logout/')
+      .then(response => this.handleLogoutResponse(response));
   }
 
   userDetails(): Promise<any> {
