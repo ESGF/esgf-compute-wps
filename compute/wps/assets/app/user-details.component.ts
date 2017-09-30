@@ -23,18 +23,15 @@ export class UserDetailsComponent {
   ) { }
 
   ngOnInit() {
-    this.authService.user()
-      .then(response => {
-        if (response.status === 'success') {
-          this.model = response.data as User;
+    if (this.authService.isLogged()) {
+      if (this.authService.user) {
+        this.model = this.authService.user;
 
-          if (!this.model.local_init) {
-            this.notificationService.warn('Please set a password if you would like to login locally');
-          }
-        } else {
-          this.notificationService.error('Failed to retrieve account details');
+        if (!this.model.local_init) {
+          this.notificationService.warn('Please set a password if you would like to login locally');
         }
-      });
+      }
+    }
   }
 
   onSubmit(form: any) {

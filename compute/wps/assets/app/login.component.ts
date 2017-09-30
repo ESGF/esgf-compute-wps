@@ -11,12 +11,11 @@ export class LoginCallbackComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private notificationService: NotificationService,
-    private route: ActivatedRoute,
     private router: Router
   ) { }
 
   ngOnInit() {
-    this.authService.setExpires(this.route.snapshot.queryParams.expires);
+    this.authService.getUserDetails();
 
     this.router.navigate(['/wps/home/profile']);
 

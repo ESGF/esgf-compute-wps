@@ -22,7 +22,9 @@ export class AppComponent implements OnInit, OnDestroy {
   MESSAGE_TIMEOUT: number = 10 * 1000;
   NOTIFICATION_TIMEOUT: number = 10 * 1000;
 
+  admin: boolean = false;
   logged: boolean = false;
+
   loggedSub: Subscription;
 
   notificationSub: Subscription;
@@ -48,8 +50,16 @@ export class AppComponent implements OnInit, OnDestroy {
         this.clear();
       });
 
-    this.loggedSub = this.authService.logged$.subscribe((logged) => {
-      this.logged = logged;
+    this.loggedSub = this.authService.logged.subscribe((user) => {
+      if (user !== null) {
+        this.logged = true;
+
+        this.admin = user.admin;
+      } else {
+        this.logged = false;
+
+        this.admin = false;
+      }
     });
 
     this.notificationSub = this.notificationService.notification$.subscribe((value: any) => {

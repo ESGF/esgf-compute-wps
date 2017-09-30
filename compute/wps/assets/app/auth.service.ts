@@ -16,51 +16,63 @@ export class User {
   type: string;
   local_init: boolean;
   admin: boolean;
+  expires: any;
 }
 
 @Injectable()
 export class AuthService {
-  admin = new Subject<boolean>();
-  logged = this.isLogged();
+  user: User;
 
-  admin$ = this.admin.asObservable();
-  logged$ = new BehaviorSubject(this.logged);
+  logged$ = new BehaviorSubject<User>(new User());
+
+  logged = this.logged$.asObservable();
 
   constructor(
     @Inject(DOCUMENT) private doc: any,
     private http: Http
   ) { 
+    this.getUserDetails();
+  }
 
-    this.user()
+  getUserDetails() {
+    this.userDetails()
       .then(data => {
         let response = data as WPSResponse;
 
         if (response.status === 'success') {
-          let userObj = response.data as User;
+          this.user = response.data as User;
 
-          this.admin.next(userObj.admin);
+          localStorage.setItem('expires', this.user.expires);
+
+          this.logged$.next(this.user);
+        } else {
+          localStorage.removeItem('expires');
+
+          this.logged$.next(null);
         }
       });
   }
 
   isLogged(): boolean {
-    let expires = localStorage.getItem('wps_expires');
-
-    if (expires != null) {
-      let expiresDate = new Date(expires);
-
-      if (expiresDate.getTime() > Date.now()) {
-          return true
-      }
+    if (this.user || this.sessionValid()) {
+      return true;
     }
 
     return false;
   }
 
-  setExpires(expires: string) {
-    localStorage.setItem('wps_expires', expires);
+  sessionValid(): boolean {
+    if (this.user) {
+      return Date.now() < this.user.expires;
+    } else {
+      let expires = localStorage.getItem('expires');
 
-    this.logged$.next(true);
+      if (Date.now() < Date.parse(expires)) {
+        return true;
+      }
+    }
+  
+    return false;
   }
 
   getCookie(name: string): string {
@@ -204,7 +216,7 @@ export class AuthService {
       .catch(this.handleError);
   }
 
-  user(): Promise<any> {
+  userDetails(): Promise<any> {
     return this.http.get('auth/user/', {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
@@ -254,9 +266,11 @@ export class AuthService {
 
   private handleLoginResponse(response: WPSResponse): WPSResponse {
     if (response.status === 'success') {
-      localStorage.setItem('wps_expires', response.data.expires);
+      this.user = response.data as User;
 
-      this.logged$.next(true);
+      localStorage.setItem('expires', this.user.expires);
+
+      this.logged$.next(this.user);
     } else {
       this.handleLogoutResponse(response);
     }
@@ -265,9 +279,9 @@ export class AuthService {
   }
 
   private handleLogoutResponse(response: WPSResponse): WPSResponse {
-    localStorage.removeItem('wps_expires');
+    localStorage.removeItem('expires');
 
-    this.logged$.next(false);
+    this.logged$.next(null);
 
     return response;
   }

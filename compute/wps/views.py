@@ -427,7 +427,11 @@ def user_details(request):
 
         return failed(e.message)
     else:
-        return success(user_to_json(request.user))
+        data = user_to_json(request.user)
+
+        data['expires'] = request.session.get_expiry_date()
+
+        return success(data)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -635,7 +639,11 @@ def user_login(request):
 
         return failed(e.message)
     else:
-        return success({'expires': request.session.get_expiry_date()})
+        data = user_to_json(user)
+
+        data['expires'] = request.session.get_expiry_date();
+
+        return success(data)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
