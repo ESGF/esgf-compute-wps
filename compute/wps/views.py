@@ -1111,7 +1111,7 @@ def reset_password(request):
 
         del extra['reset_expire']
 
-        user.auth.extra = json.dunps(extra)
+        user.auth.extra = json.dumps(extra)
 
         user.auth.save()
 
