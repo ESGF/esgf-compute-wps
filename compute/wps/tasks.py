@@ -285,9 +285,9 @@ def check_auth(self, **kwargs):
 
     url, services = discover.discoverYadis(user.auth.openid_url)
 
-    auth_service = openid_find_service_by_type(URN_AUTHORIZE)
+    auth_service = openid_find_service_by_type(services, URN_AUTHORIZE)
 
-    cert_service = openid_find_service_by_type(URN_RESOURCE)
+    cert_service = openid_find_service_by_type(services, URN_RESOURCE)
 
     cert, key, new_token = oauth2.get_certificate(user.auth.token, auth_service.server_url, cert_service.server_url)
 
