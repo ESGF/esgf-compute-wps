@@ -9,7 +9,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - conf-volume:/var/www/compute/compute
+      - conf-volume:/var/www/compute
       - static-volume:/var/www/static
     deploy:
       restart_policy:
@@ -58,7 +58,7 @@ services:
     env_file:
       - ./common.env
     volumes:
-      - conf-volume:/var/www/compute/compute
+      - conf-volume:/var/www/compute
       - data-volume:/data/public
       - cache-volume:/data/cache
     deploy:
@@ -76,8 +76,8 @@ services:
       backend:
   thredds:
     image: jasonb87/cwt_thredds:latest
-    expose:
-      - "8080"
+    ports:
+      - "8080:8080"
     volumes:
       - data-volume:/data/public
     deploy:

@@ -17,7 +17,7 @@ RUN conda install -c conda-forge gunicorn django celery dask && \
 
 RUN pip install django-webpack-loader
 
-WORKDIR /var/www/compute
+WORKDIR /
 
 COPY entrypoint.sh entrypoint.sh
 

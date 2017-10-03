@@ -1,5 +1,7 @@
 #! /bin/bash
 
-cd /var/www/compute/compute
+root_path="/var/www/compute/compute"
 
-celery -A compute -b $CELERY_BROKER worker $@
+cd $root_path
+
+celery worker -A compute -b $CELERY_BROKWER $@

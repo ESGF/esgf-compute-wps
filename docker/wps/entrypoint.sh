@@ -1,7 +1,9 @@
 #! /bin/bash
 
-python compute/manage.py collectstatic --no-input
+app_root="/var/www/compute/compute"
 
-python compute/manage.py migrate
+python $app_root/manage.py collectstatic --no-input
 
-gunicorn -b 0.0.0.0:8000 --reload --chdir compute/ compute.wsgi $@
+python $app_root/manage.py migrate
+
+gunicorn -b 0.0.0.0:8000 --reload --chdir $app_root/ compute.wsgi $@
