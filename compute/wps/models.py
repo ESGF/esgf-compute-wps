@@ -444,7 +444,7 @@ class Job(models.Model):
     def retry(self):
         self.process.retry()
 
-        self.update_process('Retrying...', 0)
+        self.update_progress('Retrying...', 0)
 
     def update_progress(self, message, percent):
         started = self.status_set.filter(status='ProcessStarted').latest('created_date')
