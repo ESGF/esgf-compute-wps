@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "test": "karma start"
+  },
   "dependencies": {
     "@angular/common": "^4.3.2",
     "@angular/compiler": "^4.3.2",
@@ -19,12 +22,18 @@
   },
   "devDependencies": {
     "@types/d3": "^4.10.0",
+    "@types/jasmine": "^2.6.0",
     "@types/node": "^8.0.17",
     "@types/topojson": "^3.0.2",
     "angular2-template-loader": "^0.6.2",
     "awesome-typescript-loader": "^3.2.2",
     "d3": "^4.10.0",
     "html-loader": "^0.5.0",
+    "jasmine-core": "^2.8.0",
+    "karma": "^1.7.1",
+    "karma-jasmine-html-reporter": "^0.2.2",
+    "karma-sourcemap-loader": "^0.3.7",
+    "karma-webpack": "^2.0.4",
     "topojson": "^3.0.0",
     "typescript": "^2.4.2",
     "webpack": "^3.4.1",
