@@ -144,7 +144,7 @@ export class AuthService {
       .catch(this.handleError);
   }
 
-  resetPassword(data: any) {
+  resetPassword(data: any): Promise<WPSResponse> {
     let params = new URLSearchParams();
 
     params.set('username', data.username);

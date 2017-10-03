@@ -15,7 +15,7 @@ module.exports = {
         loaders: [
           {
             loader: 'awesome-typescript-loader',
-            options: { configFileName: helpers.root('src','tsconfig.json') }
+            options: { configFileName: helpers.root('wps', 'assets', 'tsconfig.json') }
           }, 'angular2-template-loader'
         ]
       },
@@ -25,12 +25,12 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        exclude: helpers.root('src', 'app'),
+        exclude: helpers.root('wps', 'assets', 'app'),
         loader: 'null-loader'
       },
       {
         test: /\.css$/,
-        include: helpers.root('src', 'app'),
+        include: helpers.root('wps', 'assets', 'app'),
         loader: 'raw-loader'
       }
     ]
