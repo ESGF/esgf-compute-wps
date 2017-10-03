@@ -1,6 +1,6 @@
 <div class="container">
   <div class="pane">
-    <table *ngIf="stats !== null && stats.files.length > 0; else noFiles" class="table">
+    <table class="table">
       <thead>
         <tr>
           <td>Name</td>
@@ -10,7 +10,7 @@
           <td>Requested Date</td>
         </tr>
       </thead>
-      <tr *ngFor="let file of stats.files">
+      <tr *ngFor="let file of stats | async">
         <td><a href="{{file.url | thredds}}" target="_blank">{{file.name}}</a></td>
         <td>{{file.host}}</td>
         <td>{{file.requested}}</td>
@@ -18,10 +18,5 @@
         <td>{{file.requested_date | date:'medium'}}</td>
       </tr>
     </table>
-    <ng-template #noFiles>
-      <div class="text-center">
-        <h3>No File Stats</h3>
-      </div>
-    </ng-template>
   </div>
 </div>

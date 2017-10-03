@@ -1,6 +1,6 @@
 import { Component, OnInit, Pipe, PipeTransform } from '@angular/core';
 
-import { Stats, StatsService } from './stats.service';
+import { FileStat, Stats, StatsService } from './stats.service';
 
 @Pipe({name: 'thredds'})
 export class ThreddsPipe implements PipeTransform {
@@ -17,15 +17,14 @@ export class ThreddsPipe implements PipeTransform {
   templateUrl: './user-files.component.html', 
 })
 export class UserFilesComponent implements OnInit {
-  stats: Stats = null;
+  stats: Promise<FileStat[]> = null;
 
   constructor(
     private statsService: StatsService
   ) { }
 
   ngOnInit() {
-    this.statsService.stats()
-      .then(stats => this.stats = stats)
-      .catch(error => console.log(error));
+    this.stats = this.statsService.stats()
+      .then(response => response.files);
   }
 }

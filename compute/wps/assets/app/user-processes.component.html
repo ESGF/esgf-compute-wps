@@ -1,6 +1,6 @@
 <div class="container">
   <div class="pane">
-    <table *ngIf="stats !== null && stats.data.processes.length > 0; else noProcesses" class="table">
+    <table class="table">
       <thead>
         <tr>
           <td>Identifier</td>
@@ -9,17 +9,12 @@
           <td>Requested Date</td>
         </tr>
       </thead>
-      <tr *ngFor="let process of stats.processes">
+      <tr *ngFor="let process of stats | async">
         <td>{{process.identifier}}</td>
         <td>{{process.backend}}</td>
         <td>{{process.requested}}</td>
         <td>{{process.requested_date | date:'medium'}}</td>
       </tr>
     </table>
-    <ng-template #noProcesses>
-      <div class="text-center">
-        <h3>No Process Stats</h3>
-      </div>
-    </ng-template>
   </div>
 </div>
