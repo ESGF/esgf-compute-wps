@@ -289,11 +289,20 @@ def check_auth(self, **kwargs):
 
     cert_service = openid_find_service_by_type(services, URN_RESOURCE)
 
-    cert, key, new_token = oauth2.get_certificate(user.auth.token, auth_service.server_url, cert_service.server_url)
+    extra = json.loads(user.auth.extra)
+
+    try:
+        token = extra['token']
+    except KeyError:
+        raise Exception('Missing OAuth2 token, try OAuth2 authentication again')
+
+    cert, key, new_token = oauth2.get_certificate(token, auth_service.server_url, cert_service.server_url)
 
     logger.info('Recieved new token {}, updating certificate'.format(new_token))
 
-    user.auth.token = new_token
+    extra['token'] = new_token
+
+    user.auth.extra = json.dumps(extra)
 
     user.auth.cert = ''.join([cert, key])
 
