@@ -5,6 +5,7 @@ compute/wps/assets/bundles/
 compute/compute/settings.py
 
 *.nc
+*.sql
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
