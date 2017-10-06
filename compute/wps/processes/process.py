@@ -962,7 +962,7 @@ cwt_shared_task = partial(shared_task,
                           bind=True,
                           base=CWTBaseTask,
                           autoretry_for=(AccessError,),
-                          retry_kwargs={'max_retries': 5})
+                          retry_kwargs={'max_retries': 3})
 
 if global_settings.DEBUG:
     @register_process('dev.echo')
