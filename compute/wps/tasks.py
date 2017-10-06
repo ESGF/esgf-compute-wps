@@ -28,6 +28,7 @@ from wps import models
 from wps import settings
 from wps import wps_xml
 from wps.auth import oauth2
+from wps.processes import process
 from wps.processes import get_process
 from wps.processes import CWTBaseTask
 
@@ -254,6 +255,8 @@ def describe(server_id, identifiers):
 
 @shared_task(bind=True, base=CWTBaseTask)
 def check_auth(self, **kwargs):
+    self.PUBLISH = process.RETRY | process.FAILURE
+
     self.set_user_creds(**kwargs)
 
     user_id = kwargs.get('user_id')

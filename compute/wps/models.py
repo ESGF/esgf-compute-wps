@@ -242,42 +242,43 @@ class Process(models.Model):
     backend = models.CharField(max_length=128)
     description = models.TextField()
 
-    def __get_usage(self):
+    def get_usage(self, rollover=True):
         try:
             latest = self.processusage_set.latest('created_date')
         except ProcessUsage.DoesNotExist:
             latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
 
-        now = datetime.datetime.now()
+        if rollover:
+            now = datetime.datetime.now()
 
-        if now.month > latest.created_date.month:
-            latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
+            if now.month > latest.created_date.month:
+                latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
 
         return latest
 
     def executed(self):
-        usage = self.__get_usage()
+        usage = self.get_usage()
 
         usage.executed = F('executed') + 1
 
         usage.save()
 
     def success(self):
-        usage = self.__get_usage()
+        usage = self.get_usage()
 
         usage.success = F('success') + 1
 
         usage.save()
 
     def failed(self):
-        usage = self.__get_usage()
+        usage = self.get_usage()
 
         usage.failed = F('failed') + 1
 
         usage.save()
 
     def retry(self):
-        usage = self.__get_usage()
+        usage = self.get_usage()
 
         usage.retry = F('retry') + 1
 

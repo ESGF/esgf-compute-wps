@@ -33,7 +33,16 @@ __all__ = [
     'CWTBaseTask', 
     'Status',
     'cwt_shared_task',
+    'FAILURE',
+    'RETRY',
+    'SUCCESS',
+    'ALL'
 ]
+
+FAILURE = 1
+RETRY = 2
+SUCCESS = 4
+ALL = FAILURE | RETRY | SUCCESS
 
 counter = 0
 
@@ -895,34 +904,56 @@ class CWTBaseTask(celery.Task):
 
         return grid, str(tool), str(method)
 
+    def __can_publish(self, pub_type):
+        publish = getattr(self, 'PUBLISH', None)
+
+        if publish is None:
+            return False
+
+        return (publish & pub_type) > 0
+
     def on_retry(self, exc, task_id, args, kwargs, einfo):
         """ Handle a retry. """
+        if not self.__can_publish(RETRY):
+            return
+
         logger.warning('Retry {} {}'.format(exc, args))
 
         try:
             job = self.get_job(kwargs)
         except Exception:
-            pass
+            logger.exception('Failed to retrieve job')
         else:
             job.retry()
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """ Handle a failure. """
-        logger.warning('Failed {} {}'.format(exc, args))
-
-        job = self.get_job(kwargs)
-
-        job.failed(str(exc))
-
-    def on_success(self, retval, task_id, args, kwargs):
-        """ Handle a success. """
-        if retval is None:
+        if not self.__can_publish(FAILURE):
             return
+
+        logger.warning('Failed {} {}'.format(exc, args))
 
         try:
             job = self.get_job(kwargs)
         except Exception:
-            pass
+            logger.exception('Failed to retrieve job')
+        else:
+            job.failed(str(exc))
+
+    def on_success(self, retval, task_id, args, kwargs):
+        """ Handle a success. """
+        if not self.__can_publish(SUCCESS):
+            return
+
+        logger.info('Success with result "{}"'.format(retval))
+
+        #if retval is None:
+        #    return
+
+        try:
+            job = self.get_job(kwargs)
+        except Exception:
+            logger.exception('Failed to retrieve job')
         else:
             job.succeeded(json.dumps(retval))
 
@@ -937,6 +968,8 @@ if global_settings.DEBUG:
     @register_process('dev.echo')
     @cwt_shared_task()
     def dev_echo(self, variables, operations, domains, **kwargs):
+        self.PUBLISH = ALL
+
         job, status = self.initialize(credentials=False, **kwargs)
 
         v, d, o = self.load(variables, domains, operations)
@@ -952,6 +985,8 @@ if global_settings.DEBUG:
     @register_process('dev.sleep')
     @cwt_shared_task()
     def dev_sleep(self, variables, operations, domains, **kwargs):
+        self.PUBLISH = ALL
+
         job, status = self.initialize(credentials=False, **kwargs)
 
         v, d, o = self.load(variables, domains, operations)
@@ -978,6 +1013,8 @@ if global_settings.DEBUG:
     @register_process('dev.retry')
     @cwt_shared_task()
     def dev_retry(self, variables, operations, domains, **kwargs):
+        self.PUBLISH = ALL
+
         global counter
 
         job, status = self.initialize(credentials=False, **kwargs)
@@ -1001,6 +1038,8 @@ if global_settings.DEBUG:
     @register_process('dev.failure')
     @cwt_shared_task()
     def dev_failure(self, variables, operations, domains, **kwargs):
+        self.PUBLISH = ALL
+
         job, status = self.initialize(credentials=False, **kwargs)
 
         for i in xrange(3):

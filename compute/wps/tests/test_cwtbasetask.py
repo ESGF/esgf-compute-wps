@@ -5,6 +5,7 @@ import shutil
 
 import cdms2
 import cwt
+import mock
 import numpy as np
 from django import test
 from django.db.models import Count
@@ -13,6 +14,30 @@ from wps import models
 from wps import processes
 from wps.processes import process
 from wps import settings
+
+@process.cwt_shared_task()
+def task_cannot_publish(self, **kwargs):
+    self.PUBLISH = process.FAILURE | process.RETRY
+
+    self.on_success('', '', (), kwargs)
+
+@process.cwt_shared_task()
+def task_success(self, **kwargs):
+    self.PUBLISH = process.SUCCESS
+
+    self.on_success('', '', (), kwargs)
+
+@process.cwt_shared_task()
+def task_failure(self, **kwargs):
+    self.PUBLISH = process.FAILURE
+
+    self.on_failure(Exception('failed'), '', (), kwargs, None)
+
+@process.cwt_shared_task()
+def task_retry(self, **kwargs):
+    self.PUBLISH = process.RETRY
+
+    self.on_retry(Exception('retry'), '', (), kwargs, None)
 
 class CWTBaseTaskTestCase(test.TestCase):
     @classmethod
@@ -88,6 +113,46 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.job = models.Job.objects.create(server=server, user=self.user, process=process)
 
         self.job.accepted()
+
+    def test_task_cannot_publish(self):
+        with self.assertNumQueries(0):
+            task_cannot_publish(job_id=self.job.pk)
+
+        usage = self.job.process.get_usage(rollover=False)
+
+        self.assertEqual(usage.executed, 1)
+        self.assertEqual(usage.retry, 0)
+        self.assertEqual(usage.failed, 0)
+        self.assertEqual(usage.success, 0)
+
+    def test_task_retry(self):
+        self.job.started()
+
+        with self.assertNumQueries(7):
+            task_retry(job_id=self.job.pk)
+
+        usage = self.job.process.get_usage(rollover=False)
+
+        self.assertEqual(usage.executed, 1)
+        self.assertEqual(usage.retry, 1)
+
+    def test_task_failure(self):
+        with self.assertNumQueries(6):
+            task_failure(job_id=self.job.pk)
+
+        usage = self.job.process.get_usage(rollover=False)
+
+        self.assertEqual(usage.executed, 1)
+        self.assertEqual(usage.failed, 1)
+
+    def test_task_success(self):
+        with self.assertNumQueries(6):
+            task_success(job_id=self.job.pk)
+
+        usage = self.job.process.get_usage(rollover=False)
+
+        self.assertEqual(usage.executed, 1)
+        self.assertEqual(usage.success, 1)
 
     def test_cache_multiple_input_partial(self):
         variables = [

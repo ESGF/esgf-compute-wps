@@ -16,6 +16,7 @@ from dask import delayed
 
 from wps import models
 from wps import settings
+from wps.processes import process
 from wps.processes import cwt_shared_task
 from wps.processes import register_process
 
@@ -41,6 +42,8 @@ def sort_inputs_by_time(variables):
 @register_process('CDAT.subset')
 @cwt_shared_task()
 def subset(self, variables, operations, domains, **kwargs):
+    self.PUBLISH = process.ALL
+
     job, status = self.initialize(credentials=True, **kwargs)
 
     v, d, o = self.load(variables, domains, operations)
@@ -81,6 +84,8 @@ def subset(self, variables, operations, domains, **kwargs):
 @register_process('CDAT.aggregate')
 @cwt_shared_task()
 def aggregate(self, variables, operations, domains, **kwargs):
+    self.PUBLISH = process.ALL
+
     job, status = self.initialize(credentials=True, **kwargs)
 
     v, d, o = self.load(variables, domains, operations)
@@ -113,6 +118,8 @@ def aggregate(self, variables, operations, domains, **kwargs):
 @register_process('CDAT.avg')
 @cwt_shared_task()
 def avg(self, variables, operations, domains, **kwargs):
+    self.PUBLISH = process.ALL
+
     job, status = self.initialize(credentials=True, **kwargs)
 
     v, d, o = self.load(variables, domains, operations)
