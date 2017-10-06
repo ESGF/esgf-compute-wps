@@ -1,4 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
+from django.db import IntegrityError
+
 from wps import models
 
 class Command(BaseCommand):
@@ -25,7 +27,10 @@ class Command(BaseCommand):
         if options['add']:
             host = self.__get_required_option('host', options)
 
-            models.Server.objects.create(host=host)
+            try:
+                models.Server.objects.create(host=host)
+            except IntegrityError:
+                raise CommandError('Server with hostname "{}" already exists'.format(host))
 
             self.stdout.write(self.style.SUCCESS('Successfully added backend with host "{}"'.format(host)))
         elif options['remove']:
