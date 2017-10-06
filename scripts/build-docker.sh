@@ -5,7 +5,7 @@ function usage {
   echo -e "\t--wps \t\tBuilds WPS image"
   echo -e "\t--celery: \tBuilds Celery image"
   echo -e "\t--thredds: \tBuilds Thredds image"
-  echo -e "\t--cdas: \tBuilds CDAS2 image"
+  echo -e "\t--edas: \tBuilds EDAS2 image"
   echo -e "\t--push: \tPush built images"
   echo -e "\t--no-cache: \tBuild without using cached images"
 }
@@ -34,8 +34,8 @@ do
       THREDDS=1
       shift
       ;;
-    --cdas)
-      CDAS=1
+    --edas)
+      EDAS=1
       shift
       ;;
     --push)
@@ -98,14 +98,14 @@ then
   fi
 fi
 
-if [[ -n $CDAS ]]
+if [[ -n $EDAS ]]
 then
-  echo "Building CDAS image"
+  echo "Building EDAS image"
 
-  docker build ${NOCACHE} -t ${repo}/cwt_cdas:latest -f ../docker/cdas2/Dockerfile ../docker/cdas2/
+  docker build ${NOCACHE} -t ${repo}/cwt_edas:latest -f ../docker/edas/Dockerfile ../docker/edas/
   
   if [[ -n $PUSH ]]
   then
-      docker push ${repo}/cwt_cdas:latest 
+      docker push ${repo}/cwt_edas:latest 
   fi
 fi
