@@ -30,6 +30,7 @@ from wps import tasks
 from wps import wps_xml
 from wps.auth import oauth2
 from wps.processes import get_process
+from wps.backends import backend
 
 logger = logging.getLogger('wps.node_manager')
 
@@ -231,27 +232,6 @@ class NodeManager(object):
 
         return process.description
 
-    def execute_local(self, user, job, identifier, variables, operations, domains):
-        logger.info('Job {} Executing local WPS process "{}"'.format(job.id, identifier))
-
-        process = get_process(identifier)
-
-        params = {
-                'cwd': '/tmp',
-                'job_id': job.id,
-                'user_id': user.id,
-                }
-
-        logger.info('Job {} Building celery workflow'.format(job.id))
-
-        chain = tasks.check_auth.s(**params)
-
-        chain = (chain | process.si(variables, operations, domains, **params))
-
-        logger.info('Job {} Executing celery workflow'.format(job.id))
-
-        chain()
-
     def execute(self, user, identifier, data_inputs):
         """ WPS execute operation """
         try:
@@ -268,32 +248,20 @@ class NodeManager(object):
 
         server = models.Server.objects.get(host='default')
 
-        job = models.Job.objects.create(
-            server=server,
-            user=user,
-            process=process,
-            extra=data_inputs)
+        job = models.Job.objects.create(server=server, user=user, process=process, extra=data_inputs)
 
         job.accepted()
 
         logger.info('Accepted job {}'.format(job.id))
 
-        if process.backend == 'local':
-            logger.info('Job {} Preparing process inputs'.format(job.id))
+        process_backend = backend.Backend.get_backend(process.backend)
 
-            operation_dict = dict((x.name, x.parameterize()) for x in operations)
-
-            domain_dict = dict((x.name, x.parameterize()) for x in domains)
-
-            variable_dict = dict((x.name, x.parameterize()) for x in variables)
-
-            self.execute_local(user, job, identifier, variable_dict, operation_dict, domain_dict)
-        elif process.backend == 'CDAS2':
-            self.execute_cdas2(job, identifier, data_inputs)
-        else:
+        if process_backend is None:
             job.failed()
 
-            raise Exception('Process backend "{}" is unknown'.format(process.backend))
+            raise Exception('Process backend "{}" does not exist'.format(process.backend))
+
+        process_backend.execute(identifier, data_inputs, user=user, job=job)
 
         return job.report
 
@@ -334,8 +302,8 @@ class NodeManager(object):
 
         # Build to format [variable=[];domain=[];operation=[]]
         data_inputs = '[{0}]'.format(
-                                     ';'.join('{0}={1}'.format(x.identifier, x.data.value)
-                                              for x in request.data_inputs))
+            ';'.join('{0}={1}'.format(x.identifier, x.data.value) 
+                     for x in request.data_inputs))
 
         # CDAS doesn't like single quotes
         data_inputs = data_inputs.replace('\'', '\"')
