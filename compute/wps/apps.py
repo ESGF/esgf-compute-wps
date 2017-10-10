@@ -37,4 +37,6 @@ class WpsConfig(AppConfig):
             return
 
         for backend in backends.Backend.registry.values():
+            backend.initialize()
+
             backend.populate_processes()

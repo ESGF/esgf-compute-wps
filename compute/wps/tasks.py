@@ -78,6 +78,19 @@ def default_server():
     except models.Server.DoesNotExist:
         raise WPSTaskError('Default server does not exist')
 
+@shared_task(bind=True)
+def edas_listen(self, address, response_port):
+    context = zmq.Context.instance()
+
+    socket = context.socket(zmq.SUB)
+
+    socket.connect('tcp://{}:{}'.format(address, response_port))
+
+    while True:
+        data = socket.recv()
+
+        logger.info(data)
+
 @shared_task(bind=True, base=CWTBaseTask)
 def check_auth(self, **kwargs):
     self.PUBLISH = process.RETRY | process.FAILURE

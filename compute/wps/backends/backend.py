@@ -7,6 +7,8 @@ class BackendMeta(type):
         else:
             cls.registry[name] = cls()
 
+        cls.name = name
+
         return type.__init__(cls, name, bases, dict)
 
     def get_backend(cls, name):
