@@ -227,16 +227,6 @@ class Auth(models.Model):
     api_key = models.CharField(max_length=128)
     extra = models.TextField()
 
-class Instance(models.Model):
-    host = models.CharField(max_length=128, unique=True, blank=False, null=False)
-    added_date = models.DateTimeField(auto_now_add=True)
-    request = models.PositiveIntegerField(default=4356)
-    response = models.PositiveIntegerField(default=4357)
-    status = models.IntegerField(default=1)
-    checked_date = models.DateTimeField(auto_now=True)
-    queue = models.PositiveIntegerField(default=0)
-    queue_size = models.PositiveIntegerField(default=0)
-
 class Process(models.Model):
     identifier = models.CharField(max_length=128, unique=True)
     backend = models.CharField(max_length=128)

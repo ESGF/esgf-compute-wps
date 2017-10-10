@@ -252,27 +252,6 @@ class NodeManager(object):
 
         chain()
 
-    def execute_cdas2(self, job, identifier, data_inputs):
-        logger.info('Job {} Executing CDAS2 process "{}"'.format(job.id, identifier))
-
-        instances = models.Instance.objects.all()
-
-        if len(instances) == 0:
-            job.failed()
-
-            raise Exception('There are no CDAS2 instances available')
-
-        with closing(self.create_socket(instances[0].host, instances[0].request, zmq.PUSH)) as request:
-            logger.info('Job {} Queuing CDAS2 request'.format(job.id))
-
-            request_cmd = '{0}!execute!{1}!{2}'.format(job.id, identifier, data_inputs)
-
-            request_cmd += '!{"response":"file"}'
-
-            logger.debug('Job {} Request {}'.format(job.id, request_cmd))
-
-            request.send(str(request_cmd))
-
     def execute(self, user, identifier, data_inputs):
         """ WPS execute operation """
         try:
