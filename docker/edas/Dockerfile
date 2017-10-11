@@ -12,7 +12,7 @@ RUN apt-get update && \
 	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && \
 	apt-get update && \
 	apt-get install --no-install-recommends -y default-jdk build-essential sbt scala && \
-	conda install -c conda-forge -c uvcdat uvcdat pyzmq psutil lxml && \
+	conda create -n edas -c conda-forge -c uvcdat uvcdat pyzmq psutil lxml && \
 	conda clean --yes --all && \
 	apt-get remove -y build-essential && \
 	apt-get autoremove -y && \
@@ -30,7 +30,9 @@ RUN curl -SL https://d3kbcqa49mib13.cloudfront.net/spark-1.6.2-bin-hadoop2.6.tgz
 	mv spark-1.6.2-bin-hadoop2.6 spark 
 
 RUN cd /edas && \
-	python setup.py install
+	python setup.py install && \
+	mkdir -p ~/.edas/sbin && \
+	cp -rf /edas/bin/* ~/.edas/sbin
 
 ENV PATH /spark/bin:$PATH
 
