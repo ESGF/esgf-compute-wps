@@ -1,5 +1,7 @@
 #! /bin/bash
 
+source activate edas
+
 source edas/bin/setup_runtime.sh
 
 cd edas

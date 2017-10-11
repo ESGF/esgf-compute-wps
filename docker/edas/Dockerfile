@@ -29,12 +29,12 @@ WORKDIR /
 RUN curl -SL https://d3kbcqa49mib13.cloudfront.net/spark-1.6.2-bin-hadoop2.6.tgz | tar xvzf - && \
 	mv spark-1.6.2-bin-hadoop2.6 spark 
 
+ENV PATH /spark/bin:/opt/conda/envs/edas/bin:$PATH
+
 RUN cd /edas && \
 	python setup.py install && \
 	mkdir -p ~/.edas/sbin && \
 	cp -rf /edas/bin/* ~/.edas/sbin
-
-ENV PATH /spark/bin:$PATH
 
 COPY edas.properties /root/.edas/cache/
 
