@@ -3,34 +3,16 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import os
 import json
-import signal
-import tempfile
-from contextlib import closing
 from datetime import datetime
 
-import cdms2
-import cwt
-import django
-import redis
-import requests
-import zmq
-from celery import shared_task
-from celery.signals import celeryd_init
 from celery.utils.log import get_task_logger
-from cwt.wps_lib import metadata
-from cwt.wps_lib import operations
 from openid.consumer import discover
 from OpenSSL import crypto
 
 from wps import models
-from wps import settings
-from wps import wps_xml
+from wps import processes
 from wps.auth import oauth2
-from wps.processes import process
-from wps.processes import get_process
-from wps.processes import CWTBaseTask
 
 logger = get_task_logger('wps.tasks')
 
@@ -44,56 +26,9 @@ def openid_find_service_by_type(services, uri):
 
     return None
 
-class WPSTaskError(Exception):
-    pass
-
-def create_job(server, status=None, result=None):
-    """ Creates a Job entry. """
-    if status is None:
-        status = metadata.ProcessStarted()
-
-    job = models.Job(server=server)
-
-    job.save()
-
-    job.status_set.create(status=str(status))
-    
-    return job
-
-def create_status_location(host, job_id, port=None):
-    """ Format status location. """
-    loc = 'http://{0}'.format(host)
-
-    if port is not None:
-        loc = '{0}:{1}'.format(loc, port)
-
-    loc = '{0}/wps/job/{1}'.format(loc, job_id)
-
-    return loc
-
-def default_server():
-    """ Retreives the default server. """
-    try:
-        return models.Server.objects.get(host='default')
-    except models.Server.DoesNotExist:
-        raise WPSTaskError('Default server does not exist')
-
-@shared_task(bind=True)
-def edas_listen(self, address, response_port):
-    context = zmq.Context.instance()
-
-    socket = context.socket(zmq.SUB)
-
-    socket.connect('tcp://{}:{}'.format(address, response_port))
-
-    while True:
-        data = socket.recv()
-
-        logger.info(data)
-
-@shared_task(bind=True, base=CWTBaseTask)
+@processes.cwt_shared_task()
 def check_auth(self, **kwargs):
-    self.PUBLISH = process.RETRY | process.FAILURE
+    self.PUBLISH = processes.RETRY | processes.FAILURE
 
     self.set_user_creds(**kwargs)
 
