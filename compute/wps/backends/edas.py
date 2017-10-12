@@ -76,3 +76,17 @@ class EDAS(backend.Backend):
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         logger.info('Executing process "{}"'.format(identifier))
+
+        params = {
+            'cwd': '/tmp',
+            'user_id': kwargs.get('user').id,
+            'job_id': kwargs.get('job').id
+        }
+
+        chain = tasks.check_auth.s(**params)
+
+        chain = chain | tasks.cache_variable.si(identifier, variables, domains, operations, **params)
+
+        chain = chain | tasks.edas_submit.s(identifier, **params)
+
+        chain()

@@ -19,7 +19,7 @@ OUTPUT_LOCAL_PATH = setting('WPS_OUTPUT_LOCAL_PATH', '/data/public')
 OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_name}')
 
 DAP = setting('WPS_DAP', True)
-DAP_URL = setting('WPS_DAP_URL', 'http://0.0.0.0:8000/thredds/dodsC/test/public/{file_name}')
+DAP_URL = setting('WPS_DAP_URL', 'http://thredds:8080/thredds/dodsC/test/public/{file_name}')
 
 CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
 
@@ -35,6 +35,11 @@ OPENID_RETURN_TO = setting('WPS_OPENID_RETURN_TO', 'http://0.0.0.0:8000/auth/cal
 OPENID_CALLBACK_SUCCESS = setting('WPS_OPENID_CALLBACK_SUCCESS', 'http://0.0.0.0:8000/wps/home/login/callback')
 
 PASSWORD_RESET_URL = setting('WPS_PASSWORD_RESET_URL', 'http://0.0.0.0:8000/wps/home/login/reset')
+
+# EDAS Settings
+EDAS_HOST = setting('WPS_EDAS_HOST', 'edas')
+EDAS_REQ_PORT = setting('WPS_EDAS_REQ_PORT', 5670)
+EDAS_RES_PORT = setting('WPS_EDAS_RES_PORT', 5671)
 
 FORGOT_USERNAME_SUBJECT = setting('WPS_FORGOT_USERNAME_SUBJECT', 'CWT WPS Username Recovery')
 FORGOT_USERNAME_MESSAGE = setting('WPS_FORGOT_USERNAME_MESSAGE', """
