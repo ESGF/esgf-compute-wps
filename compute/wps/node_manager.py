@@ -261,7 +261,13 @@ class NodeManager(object):
 
             raise Exception('Process backend "{}" does not exist'.format(process.backend))
 
-        process_backend.execute(identifier, data_inputs, user=user, job=job)
+        operation_dict = dict((x.name, x.parameterize()) for x in operations)
+
+        domain_dict = dict((x.name, x.parameterize()) for x in domains)
+
+        variable_dict = dict((x.name, x.parameterize()) for x in variables)
+
+        process_backend.execute(identifier, variable_dict, domain_dict, operation_dict, user=user, job=job)
 
         return job.report
 

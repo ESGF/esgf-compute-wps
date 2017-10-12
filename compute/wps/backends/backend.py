@@ -23,5 +23,5 @@ class Backend(object):
     def populate_processes(self):
         pass
 
-    def execute(self, identifier, data_inputs, **kwargs):
+    def execute(self, identifier, variables, domains, operations, **kwargs):
         pass

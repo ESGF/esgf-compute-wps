@@ -15,25 +15,9 @@ __ALL__ = ['EDAS']
 
 logger = logging.getLogger('wps.backends')
 
-def get_task(name):
-    i = inspect().active()
-
-    return [y for x in i.values() for y in x if y['name'] == name]
-
 class EDAS(backend.Backend):
     def initialize(self):
-        logger.info('Initializing EDAS backend')
-
-        existing_tasks = get_task('wps.tasks.edas_listen')
-
-        for task in existing_tasks:
-            logger.info('Killing EDAS listener task "{}"'.format(task['id']))
-
-            revoke(task['id'], terminate=True)
-
-        logger.info('Starting EDAS listener task')
-
-        tasks.edas_listen.delay('edas', '5671')
+        pass
 
     def populate_processes(self):
         server = models.Server.objects.get(host='default')
@@ -90,28 +74,5 @@ class EDAS(backend.Backend):
 
                 proc.save()
 
-    def execute(self, identifier, data_inputs, **kwargs):
-        job = kwargs.get('job')
-
-        # CDAS doesn't understand timestamps, so we'll need to rewrite them
-        operations, domains, variables = cwt.WPS.parse_data_inputs(data_inputs)
-
-        operations[0].inputs = []
-
-        data_inputs = cwt.WPS('').prepare_data_inputs(operations[0], variables, None)
-
-        job.started()
-
-        context = zmq.Context.instance()
-
-        socket = context.socket(zmq.REQ)
-
-        socket.connect('tcp://{}:{}'.format('edas', 5670))
-
-        extra = '{"response":"file"}'
-
-        request = '{}!execute!{}!{}!{}'.format(0, identifier, data_inputs, extra)
-
-        socket.send(request)
-
-        socket.close()
+    def execute(self, identifier, variables, domains, operations, **kwargs):
+        logger.info('Executing process "{}"'.format(identifier))

@@ -41,15 +41,7 @@ class Local(backend.Backend):
 
                 proc.save()
 
-    def execute(self, identifier, data_inputs, **kwargs):
-        operations, domains, variables = cwt.WPS.parse_data_inputs(data_inputs)
-
-        operation_dict = dict((x.name, x.parameterize()) for x in operations)
-
-        domain_dict = dict((x.name, x.parameterize()) for x in domains)
-
-        variable_dict = dict((x.name, x.parameterize()) for x in variables)
-
+    def execute(self, identifier, variables, domains, operations, **kwargs):
         process = get_process(identifier)
 
         logger.info('Retrieved process "{}"'.format(identifier))
