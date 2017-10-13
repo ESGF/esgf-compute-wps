@@ -1,3 +1,4 @@
+import json
 import random
 import string
 
@@ -14,6 +15,7 @@ class Command(BaseCommand):
         parser.add_argument('--files', type=int)
         parser.add_argument('--usage', action='store_true')
         parser.add_argument('--process', type=int)
+        parser.add_argument('--jobs', action='store_true')
         parser.add_argument('--clear', action='store_true')
 
     def __get_required_option(self, key, options):
@@ -38,6 +40,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options['clear']:
+            models.Job.objects.all().delete()
+
             models.User.objects.filter(username__contains='fake').delete()
 
             models.File.objects.all().delete()
@@ -52,7 +56,10 @@ class Command(BaseCommand):
                 for i in xrange(options['users']):
                     username = 'fake{}'.format(i)
 
-                    user = models.User.objects.create_user(username, 'fake1@test.com', username)
+                    try:
+                        user = models.User.objects.create_user(username, 'fake1@test.com', username)
+                    except:
+                        continue
 
                     models.Auth.objects.create(user=user)
 
@@ -62,13 +69,41 @@ class Command(BaseCommand):
 
                 self.stdout.write(self.style.SUCCESS('Successfully created "{}" fake users'.format(options['users'])))
             else:
-                user = models.User.objects.create_user('fake1', 'fake1@test.com', 'fake1')
+                try:
+                    user = models.User.objects.create_user('fake1', 'fake1@test.com', 'fake1')
+                except:
+                    pass
+                else:
+                    models.Auth.objects.create(user=user)
 
-                models.Auth.objects.create(user=user)
+                    users.append(user)
 
-                users.append(user)
+                    self.stdout.write(self.style.SUCCESS('Successfully created fake user "fake1" with password "fake1"'))
 
-                self.stdout.write(self.style.SUCCESS('Successfully created fake user "fake1" with password "fake1"'))
+            if options['jobs']:
+                server = models.Server.objects.get(host='default')
+
+                processes = models.Process.objects.all()
+
+                for user in users:
+                    for _ in xrange(random.randint(20, 50)):
+                        job = models.Job.objects.create(server=server, user=user, process=random.choice(processes))
+
+                        job.accepted()
+
+                        job.started()
+
+                        for i in xrange(random.randint(0, 5)):
+                            job.update_progress('Status update {}'.format(i), 10)
+
+                        if random.random() > 0.5:
+                            job.failed('Some random failure')
+                        else:
+                            var = cwt.Variable('http://data-server.com/data/file.nc', 'tas')
+
+                            job.succeeded(json.dumps(var.parameterize()))
+
+                self.stdout.write(self.style.SUCCESS('Successfully created fake jobs'))
 
             if options['files'] is not None:
                 var_name = self.random_string_length(3, 5)
