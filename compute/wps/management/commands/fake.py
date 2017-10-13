@@ -46,7 +46,7 @@ class Command(BaseCommand):
 
             self.stdout.write(self.style.SUCCESS('Successfully cleared all files and processes'))
         else:
-            users = []
+            users = list(models.User.objects.all())
 
             if options['users'] is not None:
                 for i in xrange(options['users']):
@@ -95,9 +95,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS('Successfully created "{}" fake processes'.format(options['process'])))
 
             if options['usage']:
-                for p in models.Process.objects.all():
-                    user = random.choice(users)
-
-                    models.UserProcess.objects.create(user=user, process=p, requested=random.randint(10, 60))
+                for user in users:
+                    for p in models.Process.objects.all():
+                        models.UserProcess.objects.create(user=user, process=p, requested=random.randint(10, 60))
 
                 self.stdout.write(self.style.SUCCESS('Successfully created fake process usage'))
