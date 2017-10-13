@@ -902,7 +902,7 @@ def jobs(request):
             {
                 'id': x.id,
                 'elapsed': x.elapsed,
-                'accepted': x.status_set.all().values('created_date').order_by('created_date').first()
+                'created': x.status_set.all().values('created_date').order_by('created_date').first()['created_date']
             } for x in jobs_qs
         ]))
     except Exception as e:
