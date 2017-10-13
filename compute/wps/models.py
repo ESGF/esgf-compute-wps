@@ -164,7 +164,7 @@ class File(models.Model):
         file_obj, _ = File.objects.get_or_create(
             name=parts[-1],
             host=url_parts[1],
-            variable=parts[-2],
+            variable=variable.var_name,
             url=variable.uri
         )
 
