@@ -41,7 +41,7 @@ def edas_submit(self, data_inputs, identifier, **kwargs):
 
     sub_sock.subscribe('{}'.format(job_id))
 
-    extra = '{"reponse":"file"}'
+    extra = '{"response":"file"}'
 
     req_sock.send(str('{}!execute!{}!{}!{}'.format(job_id, identifier, data_inputs, extra)))
 
