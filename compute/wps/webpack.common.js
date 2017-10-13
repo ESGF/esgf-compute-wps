@@ -32,6 +32,14 @@ module.exports = {
         test: /\.css$/,
         include: helpers.root('wps', 'assets', 'app'),
         loader: 'raw-loader'
+      },
+      { 
+        test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
+        loader: "url-loader?limit=10000&mimetype=application/font-woff" 
+      },
+      { 
+        test: /\.(ttf|eot|svg|woff(2)?)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
+        loader: "file-loader?outputPath=static/js/"
       }
     ]
   },
