@@ -14,12 +14,12 @@ export class Header {
   styleUrls: ['./forms.css'],
   template: `
   <div>
-    <div class="input-group">
+    <div *ngIf="searchEnabled" class="input-group">
       <span class="input-group-addon"><span class="glyphicon glyphicon-search"></span></span>
       <input type="text" class="form-control" placeholder="Search" (keyup)="search($event)">
     </div>
     <table class="table">
-      <thead>
+      <thead *ngIf="headers !== undefined">
         <tr>
           <th *ngFor="let h of headers" (click)="sort(h.key)">
             <a>
@@ -43,8 +43,9 @@ export class Header {
   </div>
   `
 })
-export class PaginationComponent {
+export class PaginationTableComponent {
   @Input() headers: Header[];
+  @Input('search') searchEnabled = true;
   @ContentChild(TemplateRef) content: TemplateRef<any>;
 
   IPP = 20;
@@ -71,7 +72,9 @@ export class PaginationComponent {
     this._itemsStore = this._items = data;
 
     if (this._items !== null) {
-      this.sort(this.headers[0].key);
+      if (this.headers !== undefined) {
+        this.sort(this.headers[0].key);
+      }
 
       this.maxPage = Math.ceil(this._items.length / this.IPP)-1;
     }
