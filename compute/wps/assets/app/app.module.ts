@@ -23,6 +23,7 @@ import { StatsFilesComponent } from './stats-files.component';
 import { StatsProcessesComponent } from './stats-processes.component';
 import { ForgotUsernameComponent } from './forgot-username.component';
 import { ForgotPasswordComponent, ResetPasswordComponent } from './forgot-password.component';
+import { PaginationComponent } from './pagination.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
@@ -125,7 +126,8 @@ import { ThreddsPipe } from './user-files.component';
     StatsProcessesComponent,
     ForgotUsernameComponent,
     ForgotPasswordComponent,
-    ResetPasswordComponent
+    ResetPasswordComponent,
+    PaginationComponent
   ],
   providers: [
     AuthService,

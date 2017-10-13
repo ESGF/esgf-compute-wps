@@ -1,20 +1,14 @@
 <div class="container">
   <div class="pane">
-    <table class="table">
-      <thead>
+    <pagination-table [headers]="headers" [items]="stats | async">
+      <ng-template let-item>
         <tr>
-          <td>Identifier</td>
-          <td>Backend</td>
-          <td>Requested</td>
-          <td>Requested Date</td>
-        </tr>
-      </thead>
-      <tr *ngFor="let process of stats | async">
-        <td>{{process.identifier}}</td>
-        <td>{{process.backend}}</td>
-        <td>{{process.requested}}</td>
-        <td>{{process.requested_date | date:'medium'}}</td>
-      </tr>
-    </table>
+          <td>{{item.identifier}}</td>
+          <td>{{item.backend}}</td>
+          <td>{{item.requested}}</td>
+          <td>{{item.requested_date}}</td>
+        </tr> 
+      </ng-template>
+    </pagination-table>
   </div>
 </div>

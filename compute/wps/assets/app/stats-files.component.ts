@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 
+import { Header } from './pagination.component';
 import { WPSService } from './wps.service';
 
 @Component({
@@ -8,16 +9,20 @@ import { WPSService } from './wps.service';
   templateUrl: './stats-files.component.html'
 })
 export class StatsFilesComponent implements OnInit {
-  files: Array<any> = null;
+  files: Promise<any[]>;
+  headers = [
+    new Header('Name', 'name'),
+    new Header('Host', 'host'),
+    new Header('Requested', 'requested'),
+    new Header('Variable', 'variable')
+  ];
 
   constructor(
     private wpsService: WPSService
   ) { }
 
   ngOnInit() {
-    this.wpsService.statsFiles()
-      .then(response => {
-        this.files = response.data.files;
-      });
+    this.files = this.wpsService.statsFiles()
+      .then(response => response.data.files);
   }
 }

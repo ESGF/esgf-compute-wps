@@ -1,4 +1,10 @@
-import { AfterContentInit, Component, ContentChildren, QueryList, Input } from '@angular/core';
+import { 
+  AfterContentInit, 
+  Component, 
+  ContentChild, 
+  ContentChildren, 
+  QueryList, 
+  Input } from '@angular/core';
 
 @Component({
   selector: 'tab',

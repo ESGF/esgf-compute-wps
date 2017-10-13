@@ -1,22 +1,15 @@
 <div class="container">
   <div class="pane">
-    <table class="table">
-      <thead>
+    <pagination-table [headers]="headers" [items]="stats | async">
+      <ng-template let-item>
         <tr>
-          <td>Name</td>
-          <td>Host</td>
-          <td>Requested</td>
-          <td>Variable</td>
-          <td>Requested Date</td>
+          <td><a href="{{item.url | thredds}}" target="_blank">{{item.name}}</a></td>
+          <td>{{item.host}}</td>
+          <td>{{item.requested}}</td>
+          <td>{{item.variable}}</td>
+          <td>{{item.requested_date | date:'medium'}}</td>
         </tr>
-      </thead>
-      <tr *ngFor="let file of stats | async">
-        <td><a href="{{file.url | thredds}}" target="_blank">{{file.name}}</a></td>
-        <td>{{file.host}}</td>
-        <td>{{file.requested}}</td>
-        <td>{{file.variable}}</td>
-        <td>{{file.requested_date | date:'medium'}}</td>
-      </tr>
-    </table>
+      </ng-template>
+    </pagination-table>
   </div>
 </div>

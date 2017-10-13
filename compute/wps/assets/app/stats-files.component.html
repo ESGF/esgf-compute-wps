@@ -1,27 +1,14 @@
 <div class="container">
   <div class="pane">
-    <table *ngIf="files !== null && files.length > 0; else noFiles" class="table">
-      <thead>
+    <pagination-table [headers]="headers" [items]="files | async">
+      <ng-template let-item>
         <tr>
-          <th>Name</th>
-          <th>Host</th>
-          <th>Requested</th>
-          <th>Variable</th>
+          <td><a href="{{item.url | thredds}}" target="_blank">{{item.name}}</a></td>
+          <td>{{item.host}}</td>
+          <td>{{item.requested}}</td>
+          <td>{{item.variable}}</td>
         </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let file of files">
-          <td><a href="{{file.url|thredds}}" target="_blank">{{file.name}}</a></td>
-          <td>{{file.host}}</td>
-          <td>{{file.requested}}</td>
-          <td>{{file.variable}}</td>
-        </tr>
-      </tbody>
-    </table>
-    <ng-template #noFiles>
-      <div class="text-center">
-        <h3>No File Stats</h3>
-      </div>
-    </ng-template>
+      </ng-template>
+    </pagination-table>
   </div>
 </div>
