@@ -168,7 +168,7 @@ def search_esgf(request):
                     'files': files,
                     'time': (CDAT_TIME_FMT.format(start), CDAT_TIME_FMT.format(stop)),
                     'time_units': TIME_FREQ.get(time_freq, None),
-                    'variables': list(set(variables))
+                    'variables': list({'name': x } for x in set(variables))
                    }
     except KeyError as e:
         logger.exception('Missing required parameter')
@@ -1134,6 +1134,23 @@ def reset_password(request):
         return failed(e.message)
     else:
         return success({'redirect': settings.LOGIN_URL})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def processes(request):
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('User must be authenticated to retrieve processes')
+
+        data = [{
+            'identifier': x.identifier
+        } for x in models.Process.objects.all()]
+    except Exception as e:
+        logger.excpetion('Error retrieving processes')
+
+        return failed(e.message)
+    else:
+        return success(data)
     
 @ensure_csrf_cookie
 def output(request, file_name):
