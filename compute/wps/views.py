@@ -6,6 +6,7 @@ import re
 import string
 import StringIO
 
+import cdms2
 import cwt
 import django
 import requests
@@ -35,6 +36,7 @@ from wps import models
 from wps import node_manager
 from wps import settings
 from wps import wps_xml
+from wps import processes as process
 from wps.auth import oauth2
 
 logger = logging.getLogger('wps.views')
@@ -130,46 +132,81 @@ def search_esgf(request):
             except:
                 raise Exception('Failed to load JSON response')
 
-            for doc in data['response']['docs']:
-                file_url = None
+            docs = data['response']['docs']
 
-                if time_freq is None:
-                    time_freq = doc['time_frequency'][0]
-                elif time_freq != doc['time_frequency'][0]:
-                    raise Exception('Time frequencies between files do not match')                    
+            logger.debug('ESGF search returned keys {}'.format(docs[0].keys()))
 
-                for item in doc['url']:
-                    url, mime, text = item.split('|')
+            files = []
+            variables = []
+            time_freqs = []
 
-                    if text == 'OPENDAP':
-                        file_url = url
+            for doc in docs:
+                files.extend(doc['url'])
 
-                        logger.info(file_url)
+                variables.extend(doc['variable'])
+                
+                time_freqs.extend(doc['time_frequency'])
 
-                        break
+            uniq_files = []
+            time_ranges = []
 
-                if file_url is not None:
-                    files.append(file_url.replace('.html', '')) 
+            time_pattern = re.compile('.*_([0-9]*)-([0-9]*)\.nc')
 
-                    variables.append(doc['variable'][0])
-        
-            def parse_time(x):
-                return re.match('.*_([0-9]*)-([0-9]*)\.nc', x).groups()
+            for f in files:
+                if 'opendap' in f.lower():
+                    url = f.split('|')[0].replace('.html', '')
 
-            time = sorted(set(y for x in files for y in parse_time(x.split('/')[-1])))
+                    try:
+                        time_ranges.extend(time_pattern.match(url).groups())
+                    except:
+                        raise Exception('Failed to parse time range from url "{}"'.format(url))
 
-            time_fmt = TIME_FMT.get(time_freq, None)
+                    uniq_files.append(url)
 
-            start = datetime.datetime.strptime(time[0], time_fmt)
+            uniq_files = list(uniq_files)
 
-            stop = datetime.datetime.strptime(time[-1], time_fmt)
+            time_ranges = sorted(set(time_ranges))
+
+            variables = list(set(variables))
+
+            time_freqs = list(set(time_freqs))
+
+            time_fmt = TIME_FMT.get(time_freqs[0], None)
+
+            if time_fmt is None:
+                raise Exception('Could not parse time formats for time frequency "{}"'.format(time_freqs))
+
+            time_units = TIME_FREQ.get(time_freqs[0], None)
+
+            if time_units is None:
+                raise Exception('Could not map time frequency "{}" to a name'.format(time_freqs[0]))
+
+            time_start = datetime.datetime.strptime(time_ranges[0], time_fmt)
+
+            time_stop = datetime.datetime.strptime(time_ranges[-1], time_fmt)
+
+            base = process.CWTBaseTask()
+
+            base.set_user_creds(cwd='/tmp', user_id=request.user.id)
+
+            axes = []
+
+            with cdms2.open(uniq_files[0]) as infile:
+                axes.extend({
+                    'id': x.id,
+                    'id_alt': x.attributes['axis'].lower(),
+                    'start': x[0],
+                    'stop': x[-1]
+                } for x in infile.axes.values() if 'axis' in x.attributes)
 
             data = {
-                    'files': files,
-                    'time': (CDAT_TIME_FMT.format(start), CDAT_TIME_FMT.format(stop)),
-                    'time_units': TIME_FREQ.get(time_freq, None),
-                    'variables': list({'name': x } for x in set(variables))
-                   }
+                'files': uniq_files,
+                'time_start': CDAT_TIME_FMT.format(time_start),
+                'time_stop': CDAT_TIME_FMT.format(time_stop),
+                'time_units': time_units,
+                'variables': variables,
+                'axes': axes
+            }
     except KeyError as e:
         logger.exception('Missing required parameter')
 
