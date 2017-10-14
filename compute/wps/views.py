@@ -176,11 +176,6 @@ def search_esgf(request):
             if time_fmt is None:
                 raise Exception('Could not parse time formats for time frequency "{}"'.format(time_freqs))
 
-            time_units = TIME_FREQ.get(time_freqs[0], None)
-
-            if time_units is None:
-                raise Exception('Could not map time frequency "{}" to a name'.format(time_freqs[0]))
-
             time_start = datetime.datetime.strptime(time_ranges[0], time_fmt)
 
             time_stop = datetime.datetime.strptime(time_ranges[-1], time_fmt)
@@ -189,23 +184,29 @@ def search_esgf(request):
 
             base.set_user_creds(cwd='/tmp', user_id=request.user.id)
 
-            axes = []
+            axes = {}
 
             with cdms2.open(uniq_files[0]) as infile:
-                axes.extend({
-                    'id': x.id,
-                    'id_alt': x.attributes['axis'].lower(),
-                    'start': x[0],
-                    'stop': x[-1]
-                } for x in infile.axes.values() if 'axis' in x.attributes)
+                for x in infile.axes.values():
+                    if 'axis' in x.attributes:
+                        axes[x.id] = {
+                            'id': x.id,
+                            'id_alt': x.attributes['axis'].lower(),
+                            'start': x[0],
+                            'stop': x[-1],
+                            'units': x.attributes['units']
+                        }
+
+            axes['time']['start'] = CDAT_TIME_FMT.format(time_start)
+
+            axes['time']['stop'] = CDAT_TIME_FMT.format(time_stop)
+
+            axes['time']['units'] = time_freqs[0]
 
             data = {
                 'files': uniq_files,
-                'time_start': CDAT_TIME_FMT.format(time_start),
-                'time_stop': CDAT_TIME_FMT.format(time_stop),
-                'time_units': time_units,
                 'variables': variables,
-                'axes': axes
+                'axes': axes.values()
             }
     except KeyError as e:
         logger.exception('Missing required parameter')
@@ -1179,9 +1180,7 @@ def processes(request):
         if not request.user.is_authenticated:
             raise Exception('User must be authenticated to retrieve processes')
 
-        data = [{
-            'identifier': x.identifier
-        } for x in models.Process.objects.all()]
+        data = [x.identifier for x in models.Process.objects.all()]
     except Exception as e:
         logger.excpetion('Error retrieving processes')
 
