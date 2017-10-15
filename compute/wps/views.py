@@ -182,20 +182,24 @@ def search_esgf(request):
 
             base = process.CWTBaseTask()
 
+            # TODO check if certificate is still valid
             base.set_user_creds(cwd='/tmp', user_id=request.user.id)
 
             axes = {}
 
-            with cdms2.open(uniq_files[0]) as infile:
-                for x in infile.axes.values():
-                    if 'axis' in x.attributes:
-                        axes[x.id] = {
-                            'id': x.id,
-                            'id_alt': x.attributes['axis'].lower(),
-                            'start': x[0],
-                            'stop': x[-1],
-                            'units': x.attributes['units']
-                        }
+            try:
+                with cdms2.open(uniq_files[0]) as infile:
+                    for x in infile.axes.values():
+                        if 'axis' in x.attributes:
+                            axes[x.id] = {
+                                'id': x.id,
+                                'id_alt': x.attributes['axis'].lower(),
+                                'start': x[0],
+                                'stop': x[-1],
+                                'units': x.attributes['units']
+                            }
+            except:
+                raise Exception('Failed to open netcdf file, might need to check certificate')
 
             axes['time']['start'] = CDAT_TIME_FMT.format(time_start)
 
