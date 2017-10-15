@@ -1,38 +1,40 @@
 <div>
-  <nav class="navbar navbar-default">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="wps/home">WPS</a>
-      <ul *ngIf="logged" class="nav navbar-nav navbar-left">
-        <li><a routerLink="/wps/home/jobs">Jobs</a></li>
-        <li *ngIf="admin">
-          <a routerLink="/wps/home/stats">Stats</a>
-        </li>
-      </ul>
-      <ul class="nav navbar-nav navbar-right">
-        <li *ngIf="!logged; else elseBlock"><a routerLink="/wps/home/login">Login</a></li>
-        <ng-template #elseBlock>
-          <li><a routerLink="/wps/home/profile">Profile</a></li>
-          <li><a routerLink="/wps/home/logout">Logout</a></li>
-        </ng-template>
-      </ul>
+  <div>
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="wps/home">WPS</a>
+        <ul *ngIf="logged" class="nav navbar-nav navbar-left">
+          <li><a routerLink="/wps/home/jobs">Jobs</a></li>
+          <li *ngIf="admin">
+            <a routerLink="/wps/home/stats">Stats</a>
+          </li>
+        </ul>
+        <ul class="nav navbar-nav navbar-right">
+          <li *ngIf="!logged; else elseBlock"><a routerLink="/wps/home/login">Login</a></li>
+          <ng-template #elseBlock>
+            <li><a routerLink="/wps/home/profile">Profile</a></li>
+            <li><a routerLink="/wps/home/logout">Logout</a></li>
+          </ng-template>
+        </ul>
+      </div>
+    </nav>
+  </div>
+  <div class="container-fluid">
+    <div class="alert alert-dismissible alert-info" [class.hidden]="notification === ''" role="alert">
+      {{notification}}
     </div>
-  </nav>
-</div>
-<div class="container-fluid">
-  <div class="alert alert-dismissible alert-info" [class.hidden]="notification === ''" role="alert">
-    {{notification}}
+    <div class="alert alert-dismissible alert-success" [class.hidden]="message === ''" role="alert">
+      <button type="button" class="close" (click)="hideMessage();"><span aria-hidden="true">&times;</span></button>
+      {{message}}
+    </div>
+    <div class="alert alert-dismissible alert-warning" [class.hidden]="warn === ''" role="alert">
+      <button type="button" class="close" (click)="hideWarning();"><span aria-hidden="true">&times;</span></button>
+      {{warn}}
+    </div>
+    <div class="alert alert-dismissible alert-danger" [class.hidden]="error === ''" role="alert">
+      <button type="button" class="close" (click)="hideError();"><span aria-hidden="true">&times;</span></button>
+      {{error}}
+    </div>
+    <router-outlet></router-outlet>
   </div>
-  <div class="alert alert-dismissible alert-success" [class.hidden]="message === ''" role="alert">
-    <button type="button" class="close" (click)="hideMessage();"><span aria-hidden="true">&times;</span></button>
-    {{message}}
-  </div>
-  <div class="alert alert-dismissible alert-warning" [class.hidden]="warn === ''" role="alert">
-    <button type="button" class="close" (click)="hideWarning();"><span aria-hidden="true">&times;</span></button>
-    {{warn}}
-  </div>
-  <div class="alert alert-dismissible alert-danger" [class.hidden]="error === ''" role="alert">
-    <button type="button" class="close" (click)="hideError();"><span aria-hidden="true">&times;</span></button>
-    {{error}}
-  </div>
-  <router-outlet></router-outlet>
 </div>

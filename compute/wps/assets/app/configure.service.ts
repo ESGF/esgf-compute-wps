@@ -2,13 +2,10 @@ import { Http, Headers } from '@angular/http';
 import { Injectable, Inject} from '@angular/core';
 import { DOCUMENT } from '@angular/platform-browser';
 
-import { NotificationService } from './notification.service';
-
 @Injectable()
 export class ConfigureService {
   constructor(
     @Inject(DOCUMENT) private doc: any,
-    private notificationService: NotificationService,
     private http: Http
   ) { }
 
@@ -30,7 +27,14 @@ export class ConfigureService {
     return cookieValue;
   }
 
-  searchESGF(params: any): Promise<string> {
+  processes(): Promise<any> {
+    return this.http.get('/wps/processes')
+      .toPromise()
+      .then(response => response.json())
+      .catch(this.handleError);
+  }
+
+  searchESGF(params: any): Promise<any> {
     return this.http.get('/wps/search', {
       params: params 
     })
@@ -39,63 +43,8 @@ export class ConfigureService {
       .catch(this.handleError);
   }
 
-  prepareData(config: any): string {
-    let data = '';
-
-    if (config.variable === undefined || config.variable === '') {
-      this.notificationService.error('Must select a variable');
-
-      return null;
-    }
-
-    let failed = false;
-
-    config.dimensions.forEach((element: any) => {
-      let result = element.valid();
-
-      if (!result.result) {
-        this.notificationService.error(result.error);
-
-        failed = true;
-      }
-    });
-
-    if (failed) return null;
-
-    switch(config.regrid) {
-      case 'Gaussian': {
-        if (config.latitudes === undefined) {
-          this.notificationService.error('Provide the number of latitudes for the Gaussian grid')
-          
-          return null;
-        }
-
-        break;
-      }
-      case 'Uniform': {
-        if (config.latitudes === undefined || config.longitudes === undefined) {
-          this.notificationService.error('Provide the number of latitudes and longitudes for the Uniform grid');
-
-          return null;
-        }
-
-        break;
-      }
-    }
-
-    for (let k in config) {
-      data += `${k}=${config[k]}&`;
-    }
-
-    return data;
-  }
-
-  execute(config: any): Promise<string> {
-    let data = this.prepareData(config);
-
-    if (data === null) return Promise.reject('Error');
-
-    return this.http.post('/wps/execute/', data, {
+  execute(config: string): Promise<any> {
+    return this.http.post('/wps/execute/', config, {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -106,40 +55,19 @@ export class ConfigureService {
       .catch(this.handleError);
   }
 
-  downloadScript(config: any): Promise<any> {
-    let data = this.prepareData(config);
-
-    if (data === null) return Promise.reject('Error');
-
-    return this.http.post('/wps/generate/', data, {
+  downloadScript(config: string): Promise<any> {
+    return this.http.post('/wps/generate/', config, {
       headers: new Headers({
         'X-CSRFToken': this.getCookie('csrftoken'),
         'Content-Type': 'application/x-www-form-urlencoded'
       })
     })
       .toPromise()
-      .then(response => {
-        let pattern = /\"(.*)\"/;
-        let url = URL.createObjectURL(new Blob([response.text()]));
-
-        let cd = response.headers.get('Content-Disposition');
-
-        let filename = cd.split(' ')[1].split('=')[1]; 
-
-        let a = this.doc.createElement('a');
-
-        a.href = url;
-        a.target = '_blank';
-        a.download = filename.match(pattern)[1];
-
-        a.click();
-      })
+      .then(response => response.json())
       .catch(this.handleError);
   }
 
   private handleError(error: any): Promise<any> {
-    this.notificationService.error(error.message || error);
-
     return Promise.reject(error.message || error);
   }
 }

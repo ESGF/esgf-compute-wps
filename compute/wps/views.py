@@ -243,7 +243,7 @@ def execute(request):
         longitudes = request.POST.get('longitudes', None)
 
         # Javascript stringify on an array creates list without brackets
-        dimensions = json.loads('[{}]'.format(request.POST.get('dimensions', '')))
+        dimensions = json.loads(request.POST.get('dimensions', ''))
 
         files = files.split(',')
 
@@ -252,7 +252,7 @@ def execute(request):
         dims = []
 
         for d in dimensions:
-            name = d['name'].split(' ')[0]
+            name = d['id'].split(' ')[0]
 
             if name in ('time', 't'):
                 dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1), crs=cwt.CRS('timestamps')))
@@ -305,7 +305,7 @@ def generate(request):
         longitudes = request.POST.get('longitudes', None)
 
         # Javascript stringify on an array creates list without brackets
-        dimensions = json.loads('[{}]'.format(request.POST.get('dimensions', '')))
+        dimensions = json.loads(request.POST.get('dimensions', ''))
 
         files = files.split(',')
 
@@ -328,7 +328,8 @@ def generate(request):
             buf.write("domain = cwt.Domain([\n")
 
             for d in dimensions:
-                name = d['name'].split(' ')[0]
+                logger.info(d.keys())
+                name = d['id'].split(' ')[0]
 
                 if name.lower() in ('time', 't'):
                     buf.write("\tcwt.Dimension('{}', '{start}', '{stop}', step={step}, crs=cwt.CRS('timestamps')),\n".format(name, **d))
@@ -371,6 +372,11 @@ def generate(request):
 
         _, kernel = process.split('.')
 
+        data = {
+            'filename': '{}.py'.format(kernel),
+            'text': buf.getvalue()
+        }
+
         response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
 
         response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
@@ -379,7 +385,8 @@ def generate(request):
 
         return failed(e.message)
     else:
-        return response
+        #return response
+        return success(data)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie

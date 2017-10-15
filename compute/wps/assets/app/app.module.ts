@@ -14,7 +14,7 @@ import { UserProcessesComponent } from './user-processes.component';
 import { LoginComponent, LoginCallbackComponent } from './login.component';
 import { LoginOpenIDComponent } from './login-openid.component';
 import { LogoutComponent } from './logout.component';
-import { ConfigureComponent } from './configure.component';
+import { ConfigureComponent, AxisComponent } from './configure.component';
 import { DimensionComponent } from './dimension.component';
 import { JobsComponent } from './jobs.component';
 import { TabComponent, TabsComponent } from './tab.component';
@@ -116,6 +116,7 @@ import { ThreddsPipe } from './user-files.component';
     LoginOpenIDComponent,
     LogoutComponent,
     ConfigureComponent,
+    AxisComponent,
     DimensionComponent,
     JobsComponent,
     TabComponent,
