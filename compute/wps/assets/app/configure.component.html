@@ -59,8 +59,11 @@
             </div>
             <div id="collapseDomain" class="panel-collapse collapse">
               <div class="panel-body">
+                <select [(ngModel)]="domainModel.value" (change)="domainChange()" class="form-control" name="value">
+                  <option *ngFor="let domain of domains">{{domain.name}}</option>
+                </select>
                 <div class="panel-group" id="accordionAxis">
-                  <axis *ngFor="let axis of result?.axes; index as i" [axisIndex]="i" [axis]="axis"></axis>
+                  <axis *ngFor="let axis of config?.axes; index as i" [axisIndex]="i" [axis]="axis"></axis>
                 </div>
               </div>
             </div>
