@@ -76,6 +76,8 @@ services:
       backend:
   thredds:
     image: jasonb87/cwt_thredds:latest
+    ports:
+      - "8080:8080"
     expose:
       - "8080"
     volumes:
@@ -91,6 +93,12 @@ services:
           cpus: '0.5'
     networks:
       backend:
+  edas:
+    image: jasonb87/cwt_edas:latest
+    volumes:
+      - data-volume:/data/public
+    networks:
+      backend:
 
 networks:
   frontend:
@@ -98,16 +106,19 @@ networks:
 
 volumes:
   static-volume:
-  #  driver: local-persist
-  #  driver_opts: 
-  #    mountpoint: /var/www/static
+    driver: local-persist
+    driver_opts: 
+      mountpoint: /var/www/static
   db-volume:
-  #  driver: local-persist
-  #  driver_opts: 
-  #    mountpoint: /usr/local/cwt/db
+    driver: local-persist
+    driver_opts: 
+      mountpoint: /usr/local/cwt/db
   conf-volume:
   data-volume:
-  #  driver: local-persist
-  #  driver_opts: 
-  #    mountpoint: /usr/local/cwt/data
+    driver: local-persist
+    driver_opts: 
+      mountpoint: /usr/local/cwt/data
   cache-volume:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /usr/local/cwt/cache

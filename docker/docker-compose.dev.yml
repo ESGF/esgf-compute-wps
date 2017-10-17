@@ -105,16 +105,7 @@ networks:
 
 volumes:
   static-volume:
-  #  driver: local-persist
-  #  driver_opts: 
-  #    mountpoint: /var/www/static
   db-volume:
-  #  driver: local-persist
-  #  driver_opts: 
-  #    mountpoint: /usr/local/cwt/db
   conf-volume:
   data-volume:
-  #  driver: local-persist
-  #  driver_opts: 
-  #    mountpoint: /usr/local/cwt/data
   cache-volume:
