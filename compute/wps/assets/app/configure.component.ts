@@ -1,72 +1,258 @@
-import { Component, OnInit, ViewEncapsulation } from '@angular/core';
+import { Input, Component, OnInit, ViewChild, ViewChildren, QueryList, AfterViewInit } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
+
+import * as L from 'leaflet';
+
+require('leaflet/dist/leaflet.css');
 
 import { AuthService } from './auth.service';
 import { ConfigureService } from './configure.service';
-import { Dimension } from './dimension.component';
 import { NotificationService } from './notification.service';
 
-import * as d3 from './d3.bundle';
-import * as topojson from 'topojson';
+class CornerMarker extends L.Marker {
+  constructor(
+    public index: number,
+    latlng: L.LatLngExpression,
+    options?: L.MarkerOptions
+  ) {
+    super(latlng, options);
+  }
+}
 
-import { event } from 'd3-selection';
+class Selection extends L.Rectangle {
+  icon: L.DivIcon;
 
-class Config {
+  originPoint: L.Point;
+  boundsOrigin: L.Point[];
+
+  moveMarker: L.Marker;
+  resizeMarkers: CornerMarker[];
+
+  constructor(private map: L.Map, latLngBounds: L.LatLngBoundsExpression, options?: L.PolylineOptions) { 
+    super(latLngBounds, options);
+
+    this.icon = L.divIcon({
+      iconSize: [10, 10]
+    });
+
+    this.initMoveMarker();
+
+    this.initResizeMarkers();
+  }
+
+  initMoveMarker() {
+    let bounds = this.getBounds(),
+      center = bounds.getCenter();
+
+    this.moveMarker = L.marker(center, {
+      icon: this.icon,
+      draggable: true
+    })
+      .on('dragstart', (e: any) => this.onMarkerDragStart(e))
+      .on('drag', (e: any) => this.onMarkerDrag(e))
+      .on('dragend', (e: any) => this.onMarkerDragEnd(e))
+  }
+
+  initResizeMarkers() {
+    this.resizeMarkers = this.boundsToArray().map((latlng: L.LatLng, i: number) => {
+      return new CornerMarker(i, latlng, {
+        icon: this.icon,
+        draggable: true
+      })
+        .on('drag', (e: any) => this.onResizeDrag(e))
+        .on('dragend', (e: any) => this.onMarkerDragEnd(e));
+    });
+  }
+
+  onAdd(map: L.Map): any {
+    super.onAdd(map); 
+
+    this.moveMarker.addTo(map);
+
+    this.resizeMarkers.forEach((marker: CornerMarker) => {
+      marker.addTo(map);
+    });
+
+    this.fire('updatedomain', this.getBounds());
+
+    return this;
+  }
+
+  onRemove(map: L.Map): any {
+    super.onRemove(map);
+
+    this.moveMarker.removeFrom(map);
+
+    this.resizeMarkers.forEach((marker: CornerMarker) => {
+      marker.removeFrom(map);
+    });
+
+    return this;
+  }
+
+  boundsToArray() {
+    let bounds = this.getBounds(),
+      sw = bounds.getSouthWest(),
+      nw = bounds.getNorthWest(),
+      ne = bounds.getNorthEast(),
+      se = bounds.getSouthEast();
+
+    return [sw, nw, ne, se];
+  }
+
+  onResizeDrag(e: any) {
+    let marker = e.target,
+      index = marker.index,
+      bounds = this.boundsToArray(),
+      opposite = bounds[(index+2)%4];
+
+    this.setBounds(L.latLngBounds(marker.getLatLng(), opposite));
+
+    this.repositionResizeMarkers();
+
+    bounds = this.boundsToArray();
+
+    this.moveMarker.setLatLng(this.getCenter());
+  }
+
+  onMarkerDragStart(e: any) {
+    this.originPoint = this.map.latLngToLayerPoint(e.target.getLatLng());
+
+    this.boundsOrigin = this.boundsToArray().map((latlng: L.LatLng) => {
+      return this.map.latLngToLayerPoint(latlng);
+    });
+  }
+
+  onMarkerDrag(e: any) {
+    let marker = e.target,
+      position = this.map.latLngToLayerPoint(marker.getLatLng()),
+      offset = position.subtract(this.originPoint);
+
+    let newBounds = this.boundsOrigin.map((point: L.Point) => {
+      return this.map.layerPointToLatLng(point.add(offset));
+    });
+
+    this.setLatLngs(newBounds);
+
+    this.repositionResizeMarkers();
+  }
+
+  onMarkerDragEnd(e: any) {
+    this.fire('updatedomain', this.getBounds());
+  }
+
+  repositionResizeMarkers() {
+    let bounds = this.boundsToArray();
+
+    this.resizeMarkers.forEach((marker: CornerMarker, i: number) => {
+      marker.setLatLng(bounds[i]);
+    });
+  }
+}
+
+interface Axis {
+  id: string;
+  id_alt: string;
+  start: number;
+  stop: number;
+  step: number;
+}
+
+interface SearchResult {
+  axes: Axis[];
+  files: string[];
+  variables: string[];
+}
+
+class RegridOptions {
+  lats: number;
+  lons: number;
+}
+
+class Configuration {
   process: string;
+  axes: Axis[];
+  files: string[];
   variable: string;
-  files: string;
   regrid: string;
-  latitudes: number;
-  longitudes: number;
-  dimensions: Dimension[];
+  regridOptions: RegridOptions;
+
+  constructor() {
+    this.regridOptions = new RegridOptions();
+  }
 }
 
 class Domain {
   constructor(
     public name: string,
-    public start: [number, number],
-    public end: [number, number]
+    public bounds?: L.LatLngBoundsExpression
   ) { }
 }
 
 @Component({
+  selector: 'axis',
+  template: `
+  <br>
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a role="button" data-toggle="collapse" data-parent="#accordionAxis" href="#collapse{{axisIndex}}">
+          <span>{{axis.id}} ({{axis.units}})</span>
+        </a>
+      </div>
+    </div>
+    <div id="collapse{{axisIndex}}" class="panel-collapse collapse">
+      <div class="panel-body">
+        <form #dimForm{{axisIndex}}="ngForm">
+          <label for="start{{axisIndex}}">Start</label>     
+          <input [(ngModel)]="axis.start" name="start" class="form-control" type="string" id="start{{axisIndex}}">
+          <label for="stop{{axisIndex}}">Stop</label> 
+          <input [(ngModel)]="axis.stop" name="stop" class="form-control" type="string" id="stop{{axisIndex}}">
+          <label for="step{{axisIndex}}">Step</label> 
+          <input [(ngModel)]="axis.step" name="step" class="form-control" type="string" id="step{{axisIndex}}">
+        </form>
+      </div>
+    </div>
+  </div>
+  `
+})
+export class AxisComponent {
+  @Input() axis: Axis;
+  @Input() axisIndex: number;
+}
+
+@Component({
   templateUrl: './configure.component.html',
-  styleUrls: ['./map.css'],
-  encapsulation: ViewEncapsulation.None,
+  styles: [`
+  .fill { 
+    height: 100%;
+  }
+
+  .map-container {
+    min-height: calc(100vh - 100px);
+  }
+  `],
   providers: [ConfigureService]
 })
-export class ConfigureComponent implements OnInit  { 
-  PROCESSES = ['CDAT.aggregate', 'CDAT.subset'];
+export class ConfigureComponent implements OnInit, AfterViewInit { 
+  @ViewChild('mapContainer') mapContainer: any;
+  @ViewChildren(AxisComponent) axes: QueryList<AxisComponent>;
 
-  config: Config = new Config();
-  variables: string[] = [];
-  files: string[] = [];
-  roiMove: boolean = false;
-  roiResize: boolean[] = [false, false, false, false];
-  svg: any;
-  roi: any;
-  projection: any;
-  nfmt: any;
-  dimensions: Dimension[] = [
-    new Dimension('longitude', 'Degree', -180, 180, 1),
-    new Dimension('latitude', 'Degree', 90, -90, 1)
+  lngNames = ['x', 'lon', 'longitude'];
+  latNames = ['y', 'lat', 'latitude'];
+
+  domains = [
+    new Domain('World'),
+    new Domain('Custom')
   ];
-  domain: string;
-  domains: Domain[] = [
-    new Domain('World', [-180, 90], [180, -90]),
-    new Domain('North America', [-180, 84], [-10.0, 6.0]),
-    new Domain('South America', [-84.0, 14.0], [-30.0, -56.0]),
-    new Domain('Africa', [-18.0, 38.0], [52.0, -36.0]),
-    new Domain('Europe', [-24.0, 68.0], [52.0, 30.0]),
-    new Domain('Asia', [26.0, 84.0], [180.0, -10.0]),
-    new Domain('Australia', [112.0, -10.0], [156.0, -48.0]),
-    new Domain('Antarctica', [-180.0, -60.0], [180.0, -90.0]),
-    new Domain('Northern Hemisphere', [-180, 90], [180, 0]),
-    new Domain('Southern Hemisphere', [-180, 0], [180, -90]),
-    new Domain('Tropics', [-180.0, 23.4], [180.0, -23.4]),
-    new Domain('Antarctic Zone', [-180.0, -66.6], [180.0, -90.0]),
-    new Domain('Arctic Zone', [-180.0, 90.0], [66.6, 180.0])
-  ];
+
+  map: L.Map;
+  domainModel = {value: 'World'};
+  config: Configuration;
+  result: SearchResult;
+  selection: Selection;
+
+  processes: Promise<any>;
 
   constructor(
     private route: ActivatedRoute,
@@ -74,395 +260,197 @@ export class ConfigureComponent implements OnInit  {
     private authService: AuthService,
     private configService: ConfigureService,
     private notificationService: NotificationService
-  ) { }
-
-  ngOnInit() {
-    this.route.queryParams.subscribe(params => this.loadData(params));
-
-    this.config.process = this.PROCESSES[0];
+  ) { 
+    this.config = new Configuration();
 
     this.config.regrid = 'None';
-
-    this.domain = this.domains[0].name;
-
-    this.loadMap();
   }
 
-  onDomainChange(): void {
-    let domain = this.domains.filter((v: Domain, i: number, a: Domain[]) => {
-      return v.name === this.domain;
-    })[0];
+  ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      this.configService.searchESGF(params)
+        .then(response => {
+          if (response.status === 'success') {
+            this.result = response.data as SearchResult;
 
-    if (domain.name === 'World') {
-      this.roi.classed('hidden', true);
+            // Set default step value
+            this.result.axes.map((axis: Axis) => {
+              axis.step = 1;
+            });
 
-      this.roi.classed('show', false);
-    } else {
-      this.roi.classed('hidden', false);
+            this.config.variable = this.result.variables[0];
 
-      this.roi.classed('show', true);
-
-      let start = this.projection(domain.start);
-      let stop = this.projection(domain.end);
-
-      this.roi.attr('x', start[0])
-        .attr('y', start[1])
-        .attr('width', stop[0] - start[0])
-        .attr('height', stop[1] - start[1]);
-    }
-
-    let longitude = this.dimensions.filter(this.filterDimensionByName('longitude'));
-    let latitude = this.dimensions.filter(this.filterDimensionByName('latitude'));
-
-    longitude[0].start = domain.start[0];
-    longitude[0].stop = domain.end[0];
-
-    latitude[0].start = domain.start[1];
-    latitude[0].stop = domain.end[1];
-  }
-
-  filterDimensionByName(v: string){
-    return (d: Dimension) => {
-      return d.name !== undefined && d.name.indexOf(v) > -1;
-    }
-  }
-
-  updateDimensions(start: [number, number], stop: [number, number]): void {
-    let longitude = this.dimensions.filter(this.filterDimensionByName('longitude'));
-    let latitude = this.dimensions.filter(this.filterDimensionByName('latitude'));
-
-    if (start !== null) {
-      if (start[0] !== -1) {
-        let geo = this.projection.invert([start[0], 0]);
-
-        longitude[0].start = this.nfmt(geo[0]);
-      }
-
-      if (start[1] !== -1) {
-        let geo = this.projection.invert([0, start[1]]);
-
-        latitude[0].start = this.nfmt(geo[1]);
-      }
-    }
-
-    if (stop !== null) {
-      if (stop[0] !== -1) {
-        let geo = this.projection.invert([stop[0], 0]);
-
-        longitude[0].stop = this.nfmt(geo[0]);
-      }
-
-      if (stop[1] !== -1) {
-        let geo = this.projection.invert([0, stop[1]]);
-
-        latitude[0].stop = this.nfmt(geo[1]);
-      }
-    }
-  }
-
-  onDragStart() {
-    return () => {
-      const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
-
-      this.roi.classed('hidden', false);
-
-      this.roi.classed('show', true);
-
-      let coord = d3.mouse(this.svg.node());
-
-      this.roi.attr('x', coord[0])
-        .attr('y', coord[1]);
-
-      this.roi.attr('width', 0);
-      this.roi.attr('height', 0);
-
-      this.updateDimensions(coord, null);
-    }
-  }
-
-  onDrag() {
-    return () => {
-      const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
-
-      let x = +this.roi.attr('x');
-      let y = +this.roi.attr('y');
-
-      let width = +this.roi.attr('width') + e.dx;
-      let height = +this.roi.attr('height') + e.dy;
-
-      this.roi.attr('width', width);
-      this.roi.attr('height', height);
-
-      this.updateDimensions(null, [x + width, y + height]);
-    }
-  }
-
-  isTrue(e: boolean, index: number, array: Array<boolean>): boolean {
-    return e;
-  }
-
-  onROIDragStart() {
-    return () => {
-      const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
-      const bar = 20;
-
-      let coord = d3.mouse(this.svg.node());
-
-      let x = +this.roi.attr('x');
-      let y = +this.roi.attr('y');
-      let width = +this.roi.attr('width');
-      let height = +this.roi.attr('height');
-
-      this.roiResize[0] = (coord[1] > (y + height - bar));
-      this.roiResize[1] = (coord[0] < (x + bar));
-      this.roiResize[2] = (coord[1] < (y + bar));
-      this.roiResize[3] = (coord[0] > (x + width - bar));
-
-      if (this.roiResize.some(this.isTrue)) {
-        this.roiMove = false;
-      } else {
-        this.roiMove = true;
-      }
-    }
-  }
-
-  onROIDrag() {
-    return () => {
-      const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
-
-      let dx = event.dx;
-      let dy = event.dy;
-      let bboxStart = this.projection([-180, 90]);
-      let bboxStop = this.projection([180, -90]);
-
-      if (this.roiMove) {
-        let x = +this.roi.attr('x');
-        let y = +this.roi.attr('y');
-        let width = +this.roi.attr('width');
-        let height = +this.roi.attr('height');
-
-        if ((dx <= -1 && x != bboxStart[0]) || (dx >= 1 && (x + width) != bboxStop[0])) {
-          x += dx;
-
-          if (x < bboxStart[0]) x = bboxStart[0]
-
-          if (x + width > bboxStop[0]) x = bboxStop[0] - width;
-
-          this.roi.attr('x', x);
-        }
-
-        if ((dy <= -1 && y != bboxStart[1]) || (dy >= 1 && (y + height) != bboxStop[1])) {
-          y += dy;
-
-          if (y < bboxStart[1]) y = bboxStart[1]
-
-          if (y + height > bboxStop[1]) y = bboxStop[1] - height;
-
-          this.roi.attr('y', y);
-        }
-
-        this.updateDimensions([x, y], [x + width, y + height]);
-      } else {
-        if (dx !== 0) {
-          let x = +this.roi.attr('x');
-          let width = +this.roi.attr('width');
-
-          if (this.roiResize[1]) {
-            if ((x + dx) >= bboxStart[0]) {
-              x += dx;
-              width -= dx;
-            }
-
-            this.roi.attr('x', x);
-            this.roi.attr('width', width);
-
-            this.updateDimensions([x, -1], null);
+            // clone each axis so search result holds original values
+            this.config.axes = this.result.axes.map((axis: Axis) => {
+              return {...axis}; 
+            });
+          } else {
+            this.notificationService.error(response.error);
           }
+        });
+    });
 
-          if (this.roiResize[3]) {
-            if ((x + width + dx) <= bboxStop[0]) {
-              width += dx;
+    this.processes = this.configService.processes()
+      .then(response => {
+        if (response.status === 'success') {
+          let p = response.data.sort((a: string, b: string) => {
+            if (a > b) {
+              return 1;
+            } else if (a < b) {
+              return -1;
+            } else {
+              return 0;
             }
-
-            this.roi.attr('width', width);
-
-            this.updateDimensions(null, [x + width, -1]);
-          }
-        }
-
-        if (dy !== 0) {
-          let y = +this.roi.attr('y');
-          let height = +this.roi.attr('height');
-
-          if (this.roiResize[0]) {
-            if ((y + height + dy) <= bboxStop[1]) {
-              height += dy;
-            }
-
-            this.roi.attr('height', height);
-
-            this.updateDimensions(null, [-1, y + height]);
-          }
-
-          if (this.roiResize[2]) {
-            if ((y + dy) >= bboxStart[1]) {
-              y += dy;
-              height -= dy;
-            }
-
-            this.roi.attr('y', y);
-            this.roi.attr('height', height);
-            
-            this.updateDimensions([-1, y], null);
-          }
-        }
-      }
-    }
-  }
-
-  onROIDragEnd() {
-    return () => {
-      const e = <d3.D3DragEvent<SVGRectElement, any, any>> event;
-
-      this.roiMove = false;
-
-      for (let i = 0; i < this.roiResize.length; i++) {
-        this.roiResize[i] = false;
-      }
-    }
-  }
-
-  loadMap(): void {
-    this.nfmt = d3.format('.2f');
-
-    this.svg = d3.select('svg')
-      .attr('width', 960)
-      .attr('height', 500);
-
-    let color = d3.scaleOrdinal(d3.schemeCategory20);
-
-    this.projection = d3.geoEquirectangular();
-
-    let path = d3.geoPath(this.projection);
-
-    let graticule = d3.geoGraticule();
-
-    this.svg.append('path')
-      .datum(graticule)
-      .attr('class', 'graticule')
-      .attr('d', path);
-
-    this.roi = this.svg.append('rect')
-      .attr('class', 'roi')
-      .attr('x', 0)
-      .attr('y', 0)
-      .attr('width', 0)
-      .attr('height', 0)
-      .call(d3.drag()
-        .on('start', this.onROIDragStart())
-        .on('drag', this.onROIDrag())
-        .on('end', this.onROIDragEnd())
-      );
-
-    this.svg.call(d3.drag()
-      .on('start', this.onDragStart())
-      .on('drag', this.onDrag())
-    );
-
-    d3.json('/static/data/ne_50m_admin_0.json', (error: any, world: any) => {
-      if (error) {
-        this.notificationService.error('Failed to load map data');
-
-        return;
-      }
-
-      let countries = topojson.feature(world, world.objects.countries);
-      let neighbors = topojson.neighbors(world.objects.countries.geometries);
-
-      this.svg.selectAll('.country')
-        .data(countries.features)
-        .enter().insert('path', '.graticule')
-          .attr('class', 'country')
-          .attr('d', path)
-          .style('fill', (d: any, i: number) => {
-            return color((d.color = d3.max(neighbors[i], (n: number): number => {
-              return countries.features[n].color;
-            }) + 1 | 0) + '');
           });
 
-      this.svg.insert('path', '.graticule')
-        .datum(topojson.mesh(world, world.objects.countries, (a: number, b: number): boolean => { return a !== b; }))
-        .attr('class', 'boundary')
-        .attr('d', path);
-    });
-  }
+          this.config.process = p[0];
 
-  onAddDimension(): void {
-    let dim = new Dimension();
+          return p;
+        } else {
+          this.notificationService.error(response.error);
 
-    dim.remove.subscribe((dimension: Dimension) => {
-      for (let i = 0; i < this.dimensions.length; i++) {
-        if (this.dimensions[i].uuid === dimension.uuid) {
-          this.dimensions.splice(i, 1);
-          
-          break;
+          return [];
         }
-      }
+      });
+
+    this.map = L.map(this.mapContainer.nativeElement).setView(L.latLng(0.0, 0.0), 1);
+
+    L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(this.map);
+
+    this.selection = new Selection(this.map, [[0, 0], [20, 20]], {color: '#4db8ff'});
+
+    this.selection.on('updatedomain', (data: any) => {
+      let nw = data.getNorthWest(),
+        se = data.getSouthEast();
+
+      this.axes.forEach((axisComponent: AxisComponent) => {
+        let axis = axisComponent.axis;
+
+        if (this.lngNames.some((x: string) => x === axis.id)) {
+          axis.start = nw.lng;
+
+          axis.stop = se.lng;
+        } else if (this.latNames.some((x: string) => x === axis.id)) {
+          axis.start = nw.lat;
+
+          axis.stop = se.lat;
+        }
+      });
     });
-
-    this.dimensions.unshift(dim);
   }
 
-  onExecute(): void {
-    this.config.files = this.files.filter((x) => { return (x.indexOf(`/${this.config.variable}_`) > 0); }).join(',');
-
-    this.config.dimensions = this.dimensions;
-
-    this.configService.execute(this.config)
-      .then(response => this.handleExecute(response));
+  ngAfterViewInit() {
+    this.map.invalidateSize();
   }
 
-  handleExecute(response: any): void {
-    if (response.status === 'success') {
-      this.router.navigate(['/wps/home/jobs']);
-    } else {
-      this.notificationService.error(`Error submitting job for execution "${response.error}"`);
+  domainChange() {
+    switch (this.domainModel.value) {
+      case 'World':
+        if (this.map.hasLayer(this.selection)) {
+          this.selection.removeFrom(this.map);
+        }
+
+        this.axes.forEach((axisComponent: AxisComponent) => {
+          let filtered = this.result.axes.filter((axis: Axis) => {
+            return axis.id == axisComponent.axis.id;
+          });
+
+          if (filtered.length > 0) {
+            axisComponent.axis.start = filtered[0].start;
+
+            axisComponent.axis.stop = filtered[0].stop;
+          }
+        });
+
+        break;
+      case 'Custom':
+        if (!this.map.hasLayer(this.selection)) {
+          this.selection.addTo(this.map);
+        }
+
+        break;
     }
   }
 
-  onSubmit(): void {
-    this.config.files = this.files.filter((x) => { return (x.indexOf(`/${this.config.variable}_`) > 0); }).join(',');
+  prepareData(): string {
+    let data = '';
+    let numberPattern = /\d+\.?\d+/;
 
-    this.config.dimensions = this.dimensions;
+    data += `process=${this.config.process}&`;
 
-    this.configService.downloadScript(this.config);
+    data += `variable=${this.config.variable}&`;
+
+    data += `regrid=${this.config.regrid}&`;
+
+    if (this.config.regrid !== 'None') {
+      if (this.config.regrid === 'Uniform') {
+        if (this.config.regridOptions.lons === undefined) {
+          this.notificationService.error('Regrid longitudes must have a value set');
+
+          return null;
+        }
+      }
+
+      if (this.config.regridOptions.lats === undefined) {
+        this.notificationService.error('Regrid latitudes must have a value set');
+
+        return null;
+      }
+
+      data += `longitudes=${this.config.regridOptions.lons}&`;
+
+      data += `latitudes=${this.config.regridOptions.lats}&`;
+    }
+
+    let files = this.result.files.filter((value: string) => {
+      return value.indexOf(`/${this.config.variable}/`) >= 0;
+    });
+
+    data += `files=${files}&`;
+
+    data += 'dimensions=' + JSON.stringify(this.axes.map((axis: any) => { return axis.axis; }));
+
+    return data;
   }
 
-  loadData(params: any): void {
-    this.configService.searchESGF(params)
-      .then(response => this.handleLoadData(response))
-      .catch(error => this.handleError(error));
+  onDownload() {
+    let data = this.prepareData();
+
+    if (data !== null) {
+      this.configService.downloadScript(data)
+        .then(response => {
+          if (response.status === 'success') {
+            let url = URL.createObjectURL(new Blob([response.data.text]));
+
+            let a = document.createElement('a');
+
+            a.href = url;
+            a.target = '_blank';
+            a.download = response.data.filename;
+
+            a.click();
+          } else {
+            this.notificationService.error(`Failed to download script: ${response.error}`);
+          }
+        });
+    }
   }
 
-  handleError(error: string) {
-    console.log(error);
+  onExecute() {
+    let data = this.prepareData();
 
-    this.notificationService.error(error); 
-  }
+    if (data !== null) {
+      this.configService.execute(data)
+        .then(response => {
+          if (response.status === 'success') {
 
-  handleLoadData(response: any): void {
-    if (response.status === 'success') {
-      let time = response.data.time;
-
-      this.files = response.data.files;
-
-      this.variables = response.data.variables;
-
-      this.dimensions.unshift(new Dimension('time', response.data.time_units, time[0], time[1], 1));
-
-      this.config.variable = this.variables[0];
-    } else {
-      this.notificationService.error(`ESGF search for dataset failed: ${response.error}`);
+          } else {
+            this.notificationService.error(`Failed to execute process: ${response.error}`);
+          }
+        });
     }
   }
 }

@@ -13,7 +13,7 @@ export class Job {
   constructor(
     public id: number,
     public elapsed: string,
-    public accepted: string[]
+    public created: string[]
   ) { }
 
   reformatStatus(status: Status): Status {
@@ -161,7 +161,7 @@ export class WPSService {
         if (data.data) {
           result.count = data.data.count;
 
-          result.jobs = data.data.jobs.map((x: any) => new Job(x.id, x.elapsed, x.accepted));
+          result.jobs = data.data.jobs.map((x: any) => new Job(x.id, x.elapsed, x.created));
         } else {
           result.error = data.error;
         }

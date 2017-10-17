@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 
+import { Header } from './pagination.component';
 import { ProcessStat, Stats, StatsService } from './stats.service';
 
 @Component({
@@ -9,6 +10,12 @@ import { ProcessStat, Stats, StatsService } from './stats.service';
 })
 export class UserProcessesComponent implements OnInit {
   stats: Promise<ProcessStat[]> = null;
+  headers = [
+    new Header('Identifier', 'identifier'),
+    new Header('Backend', 'backend'),
+    new Header('Requested', 'requested'),
+    new Header('Last Requested', 'requested_date')
+  ];
 
   constructor(
     private statsService: StatsService

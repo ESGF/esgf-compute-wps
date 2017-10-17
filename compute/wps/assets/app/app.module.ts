@@ -14,8 +14,7 @@ import { UserProcessesComponent } from './user-processes.component';
 import { LoginComponent, LoginCallbackComponent } from './login.component';
 import { LoginOpenIDComponent } from './login-openid.component';
 import { LogoutComponent } from './logout.component';
-import { ConfigureComponent } from './configure.component';
-import { DimensionComponent } from './dimension.component';
+import { ConfigureComponent, AxisComponent } from './configure.component';
 import { JobsComponent } from './jobs.component';
 import { TabComponent, TabsComponent } from './tab.component';
 import { StatsComponent } from './stats.component';
@@ -23,6 +22,7 @@ import { StatsFilesComponent } from './stats-files.component';
 import { StatsProcessesComponent } from './stats-processes.component';
 import { ForgotUsernameComponent } from './forgot-username.component';
 import { ForgotPasswordComponent, ResetPasswordComponent } from './forgot-password.component';
+import { PaginationTableComponent } from './pagination.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
@@ -115,7 +115,7 @@ import { ThreddsPipe } from './user-files.component';
     LoginOpenIDComponent,
     LogoutComponent,
     ConfigureComponent,
-    DimensionComponent,
+    AxisComponent,
     JobsComponent,
     TabComponent,
     TabsComponent,
@@ -125,7 +125,8 @@ import { ThreddsPipe } from './user-files.component';
     StatsProcessesComponent,
     ForgotUsernameComponent,
     ForgotPasswordComponent,
-    ResetPasswordComponent
+    ResetPasswordComponent,
+    PaginationTableComponent
   ],
   providers: [
     AuthService,

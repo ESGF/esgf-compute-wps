@@ -10,7 +10,7 @@ import { NotificationService } from './notification.service';
 })
 
 export class CreateUserComponent {
-  model: User = new User();
+  model: User = {} as User;
 
   constructor(
     private authService: AuthService,

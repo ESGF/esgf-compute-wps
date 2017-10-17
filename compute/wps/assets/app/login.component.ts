@@ -28,7 +28,7 @@ export class LoginCallbackComponent implements OnInit {
   styleUrls: ['./forms.css']
 })
 export class LoginComponent implements OnInit {
-  model: User = new User();
+  model: User = {} as User;
   next: string;
 
   constructor(

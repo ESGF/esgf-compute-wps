@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 
+import { Header } from './pagination.component';
 import { WPSService } from './wps.service';
 
 @Component({
@@ -8,16 +9,24 @@ import { WPSService } from './wps.service';
   templateUrl: './stats-processes.component.html'
 })
 export class StatsProcessesComponent implements OnInit {
-  processes: Array<any> = null;
+  processes: Promise<any[]>;
+  headers = [
+    new Header('Identifier', 'identifier'),
+    new Header('Backend', 'backend'),
+    new Header('Executed', 'executed'),
+    new Header('Success', 'success'),
+    new Header('Failed', 'failed'),
+    new Header('Retry', 'retry')
+  ];
 
   constructor(
     private wpsService: WPSService
   ) { }
 
   ngOnInit() {
-    this.wpsService.statsProcesses()
+    this.processes = this.wpsService.statsProcesses()
       .then(response => {
-        this.processes = response.data.processes.map((value: any) => {
+        return response.data.processes.map((value: any) => {
           for (let key in value) {
             if (value[key] === null) {
               value[key] = 'None';

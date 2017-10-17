@@ -5,6 +5,7 @@ import views
 
 urlpatterns = [
     url(r'^$', views.wps),
+    url(r'^processes/$', views.processes),
     url(r'^search/$', views.search_esgf),
     url(r'^generate/$', views.generate),
     url(r'^execute/$', views.execute),

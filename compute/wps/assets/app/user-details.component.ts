@@ -12,8 +12,8 @@ declare var jQuery: any;
   styleUrls: ['./forms.css']
 })
 export class UserDetailsComponent { 
-  model: User = new User();
-  mpc: User = new User();
+  model: User = {} as User;
+  mpc: User = {} as User;
   error: boolean = false;
   errorMessage: string;
 
@@ -23,19 +23,19 @@ export class UserDetailsComponent {
   ) { }
 
   ngOnInit() {
-    if (this.authService.isLogged()) {
-      if (this.authService.user) {
-        this.model = this.authService.user;
+    this.authService.logged.subscribe((user: User) => {
+      if (user != null) {
+        this.model = user;
 
-        if (!this.model.local_init) {
+        if (this.model.local_init === false) {
           this.notificationService.warn('Please set a password if you would like to login locally');
         }
       }
-    }
+    });
   }
 
   onSubmit(form: any) {
-    let user = new User();
+    let user = {} as User;
 
     for (let control in form.controls) {
       if (form.controls[control].dirty) {

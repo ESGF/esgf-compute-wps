@@ -6,17 +6,16 @@ import { Subject } from 'rxjs/Subject';
 
 import { WPSResponse } from './wps.service';
 
-export class User {
-  id: number;
+export interface User {
   username: string;
   openid: string;
   email: string;
-  password: string;
   api_key: string;
   type: string;
-  local_init: boolean;
   admin: boolean;
-  expires: any;
+  local_init: boolean;
+  expires?: number;
+  password?: string;
 }
 
 interface Options {
@@ -28,7 +27,7 @@ interface Options {
 export class AuthService {
   user: User;
 
-  logged$ = new BehaviorSubject<User>(new User());
+  logged$ = new BehaviorSubject<User>({} as User);
 
   logged = this.logged$.asObservable();
 
@@ -47,7 +46,7 @@ export class AuthService {
         if (response.status === 'success') {
           this.user = response.data as User;
 
-          localStorage.setItem('expires', this.user.expires);
+          localStorage.setItem('expires', this.user.expires.toString());
 
           this.logged$.next(this.user);
         } else {
@@ -213,7 +212,7 @@ export class AuthService {
     if (response.status === 'success') {
       this.user = response.data as User;
 
-      localStorage.setItem('expires', this.user.expires);
+      localStorage.setItem('expires', this.user.expires.toString());
 
       this.logged$.next(this.user);
     } else {

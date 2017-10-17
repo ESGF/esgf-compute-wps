@@ -6,6 +6,7 @@ import re
 import string
 import StringIO
 
+import cdms2
 import cwt
 import django
 import requests
@@ -35,6 +36,7 @@ from wps import models
 from wps import node_manager
 from wps import settings
 from wps import wps_xml
+from wps import processes as process
 from wps.auth import oauth2
 
 logger = logging.getLogger('wps.views')
@@ -130,46 +132,86 @@ def search_esgf(request):
             except:
                 raise Exception('Failed to load JSON response')
 
-            for doc in data['response']['docs']:
-                file_url = None
+            docs = data['response']['docs']
 
-                if time_freq is None:
-                    time_freq = doc['time_frequency'][0]
-                elif time_freq != doc['time_frequency'][0]:
-                    raise Exception('Time frequencies between files do not match')                    
+            logger.debug('ESGF search returned keys {}'.format(docs[0].keys()))
 
-                for item in doc['url']:
-                    url, mime, text = item.split('|')
+            files = []
+            variables = []
+            time_freqs = []
 
-                    if text == 'OPENDAP':
-                        file_url = url
+            for doc in docs:
+                files.extend(doc['url'])
 
-                        logger.info(file_url)
+                variables.extend(doc['variable'])
+                
+                time_freqs.extend(doc['time_frequency'])
 
-                        break
+            uniq_files = []
+            time_ranges = []
 
-                if file_url is not None:
-                    files.append(file_url.replace('.html', '')) 
+            time_pattern = re.compile('.*_([0-9]*)-([0-9]*)\.nc')
 
-                    variables.append(doc['variable'][0])
-        
-            def parse_time(x):
-                return re.match('.*_([0-9]*)-([0-9]*)\.nc', x).groups()
+            for f in files:
+                if 'opendap' in f.lower():
+                    url = f.split('|')[0].replace('.html', '')
 
-            time = sorted(set(y for x in files for y in parse_time(x.split('/')[-1])))
+                    try:
+                        time_ranges.extend(time_pattern.match(url).groups())
+                    except:
+                        raise Exception('Failed to parse time range from url "{}"'.format(url))
 
-            time_fmt = TIME_FMT.get(time_freq, None)
+                    uniq_files.append(url)
 
-            start = datetime.datetime.strptime(time[0], time_fmt)
+            uniq_files = list(uniq_files)
 
-            stop = datetime.datetime.strptime(time[-1], time_fmt)
+            time_ranges = sorted(set(time_ranges))
+
+            variables = list(set(variables))
+
+            time_freqs = list(set(time_freqs))
+
+            time_fmt = TIME_FMT.get(time_freqs[0], None)
+
+            if time_fmt is None:
+                raise Exception('Could not parse time formats for time frequency "{}"'.format(time_freqs))
+
+            time_start = datetime.datetime.strptime(time_ranges[0], time_fmt)
+
+            time_stop = datetime.datetime.strptime(time_ranges[-1], time_fmt)
+
+            base = process.CWTBaseTask()
+
+            # TODO check if certificate is still valid
+            base.set_user_creds(cwd='/tmp', user_id=request.user.id)
+
+            axes = {}
+
+            try:
+                with cdms2.open(uniq_files[0]) as infile:
+                    for x in infile.axes.values():
+                        if 'axis' in x.attributes:
+                            axes[x.id] = {
+                                'id': x.id,
+                                'id_alt': x.attributes['axis'].lower(),
+                                'start': x[0],
+                                'stop': x[-1],
+                                'units': x.attributes['units']
+                            }
+            except:
+                raise Exception('Failed to open netcdf file, might need to check certificate')
+
+            axes['time']['start'] = CDAT_TIME_FMT.format(time_start)
+
+            axes['time']['stop'] = CDAT_TIME_FMT.format(time_stop)
+
+            axes['time']['units'] = time_freqs[0]
 
             data = {
-                    'files': files,
-                    'time': (CDAT_TIME_FMT.format(start), CDAT_TIME_FMT.format(stop)),
-                    'time_units': TIME_FREQ.get(time_freq, None),
-                    'variables': list(set(variables))
-                   }
+                'files': uniq_files,
+                'variables': variables,
+                'axes': axes.values()
+            }
     except KeyError as e:
         logger.exception('Missing required parameter')
 
@@ -201,7 +243,7 @@ def execute(request):
         longitudes = request.POST.get('longitudes', None)
 
         # Javascript stringify on an array creates list without brackets
-        dimensions = json.loads('[{}]'.format(request.POST.get('dimensions', '')))
+        dimensions = json.loads(request.POST.get('dimensions', ''))
 
         files = files.split(',')
 
@@ -210,7 +252,7 @@ def execute(request):
         dims = []
 
         for d in dimensions:
-            name = d['name'].split(' ')[0]
+            name = d['id'].split(' ')[0]
 
             if name in ('time', 't'):
                 dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1), crs=cwt.CRS('timestamps')))
@@ -263,7 +305,7 @@ def generate(request):
         longitudes = request.POST.get('longitudes', None)
 
         # Javascript stringify on an array creates list without brackets
-        dimensions = json.loads('[{}]'.format(request.POST.get('dimensions', '')))
+        dimensions = json.loads(request.POST.get('dimensions', ''))
 
         files = files.split(',')
 
@@ -286,7 +328,8 @@ def generate(request):
             buf.write("domain = cwt.Domain([\n")
 
             for d in dimensions:
-                name = d['name'].split(' ')[0]
+                logger.info(d.keys())
+                name = d['id'].split(' ')[0]
 
                 if name.lower() in ('time', 't'):
                     buf.write("\tcwt.Dimension('{}', '{start}', '{stop}', step={step}, crs=cwt.CRS('timestamps')),\n".format(name, **d))
@@ -329,6 +372,11 @@ def generate(request):
 
         _, kernel = process.split('.')
 
+        data = {
+            'filename': '{}.py'.format(kernel),
+            'text': buf.getvalue()
+        }
+
         response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
 
         response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
@@ -337,7 +385,8 @@ def generate(request):
 
         return failed(e.message)
     else:
-        return response
+        #return response
+        return success(data)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -902,7 +951,7 @@ def jobs(request):
             {
                 'id': x.id,
                 'elapsed': x.elapsed,
-                'accepted': x.status_set.all().values('created_date').order_by('created_date').first()
+                'created': x.status_set.all().values('created_date').order_by('created_date').first()['created_date']
             } for x in jobs_qs
         ]))
     except Exception as e:
@@ -1134,6 +1183,21 @@ def reset_password(request):
         return failed(e.message)
     else:
         return success({'redirect': settings.LOGIN_URL})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def processes(request):
+    try:
+        if not request.user.is_authenticated:
+            raise Exception('User must be authenticated to retrieve processes')
+
+        data = [x.identifier for x in models.Process.objects.all()]
+    except Exception as e:
+        logger.excpetion('Error retrieving processes')
+
+        return failed(e.message)
+    else:
+        return success(data)
     
 @ensure_csrf_cookie
 def output(request, file_name):
