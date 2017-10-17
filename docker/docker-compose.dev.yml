@@ -94,6 +94,9 @@ services:
       backend:
   edas:
     image: jasonb87/cwt_edas:latest
+    expose:
+      - "5670"
+      - "5671"
     volumes:
       - data-volume:/data/public
     networks:
