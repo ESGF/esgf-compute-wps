@@ -1,27 +1,32 @@
 #!/bin/bash
 
-data="/data"
+data=/data
+public=${data}/public
+cache=${data}/cache
 thredds="content/thredds"
-catalog="$thredds/catalog.xml"
 
-if [[ ! -e "$data" ]]
+if [[ ! -e "$public" ]]
 then
-  mkdir -p "$data"
+  mkdir -p $public
 fi
 
-if [[ ! -e "$catalog" ]]
+if [[ ! -e "$cache" ]]
 then
-  mkdir -p "$thredds" 
-
-cat << EOF > content/thredds/catalog.xml
-<?xml version="1.0" ?>
-<catalog xmlns="http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0" >
-  <service name="odap" serviceType="OpenDAP" base="/threddsCWT/dodsC/" />
-  <datasetScan name="public" path="public" location="/data/public" >
-    <serviceName>odap</serviceName>
-  </datasetScan >
-</catalog>
-EOF
+  mkdir -p $cache
 fi
 
-exec "$@"
+if [[ ! -e "$thredds" ]]
+then
+  mkdir -p $thredds
+
+  cp -f catalog.xml $thredds
+fi
+
+if [[ ! -e "./webapps/threddsCWT" ]]
+then
+  ./bin/catalina.sh start && sleep 10 && ./bin/catalina.sh stop
+
+  sed -ibak s/\<param\-value\>thredds/\<param\-value\>threddsCWT/ ./webapps/threddsCWT/WEB-INF/web.xml
+fi
+
+exec sh -c "./bin/catalina.sh run $@"
