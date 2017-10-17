@@ -16,8 +16,8 @@ then
 cat << EOF > content/thredds/catalog.xml
 <?xml version="1.0" ?>
 <catalog xmlns="http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0" >
-  <service name="odap" serviceType="OpenDAP" base="/thredds/dodsC/" />
-  <datasetScan name="Default" path="test" location="/data/" >
+  <service name="odap" serviceType="OpenDAP" base="/threddsCWT/dodsC/" />
+  <datasetScan name="public" path="public" location="/data/public" >
     <serviceName>odap</serviceName>
   </datasetScan >
 </catalog>
