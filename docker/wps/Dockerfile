@@ -9,8 +9,11 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 
 WORKDIR /var/www/compute/compute/wps
 
+#RUN yarn install && \
+#	./node_modules/.bin/webpack --config webpack.prod
+
 RUN yarn install && \
-	./node_modules/.bin/webpack --config webpack.prod
+	./node_modules/.bin/webpack
 
 RUN conda install -c conda-forge gunicorn django celery dask && \
 	conda clean --all -y
