@@ -187,9 +187,26 @@ def search_esgf(request):
 
             axes = {}
 
+            logger.info('Checking file "{}"'.format(uniq_files[0]))
+
             try:
                 with cdms2.open(uniq_files[0]) as infile:
-                    for x in infile.axes.values():
+                    variableHeader = None
+                    fileVariables = infile.getVariables()
+
+                    for v in fileVariables:
+                        if v.id in variables:
+                            variableHeader = v
+
+                            break
+
+                    if variableHeader is None:
+                        raise Exception('Failed to match variables in dataset')
+
+                    for x in variableHeader.getAxisList():
+                        if x.id not in ('time', 'lat', 'lon'):
+                            continue
+
                         if 'axis' in x.attributes:
                             axes[x.id] = {
                                 'id': x.id,
@@ -199,6 +216,8 @@ def search_esgf(request):
                                 'units': x.attributes['units']
                             }
             except:
+                logger.exception('Failed to open netcdf file')
+
                 raise Exception('Failed to open netcdf file, might need to check certificate')
 
             axes['time']['start'] = CDAT_TIME_FMT.format(time_start)
