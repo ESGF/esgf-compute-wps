@@ -43,6 +43,8 @@ def cache_variable(self, identifier, variables, domains, operations, **kwargs):
 
     op.inputs = [out_var]
 
+    op.parameters['axes'] = cwt.NamedParameter('axes', 'xy')
+
     data_inputs = cwt.WPS('').prepare_data_inputs(op, [], None)
 
     return data_inputs
