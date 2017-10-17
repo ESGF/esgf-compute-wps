@@ -2,6 +2,7 @@
 
 function usage {
   echo -e "Available arguments:"
+  echo -e "\t--all \t\tBuild all images"
   echo -e "\t--wps \t\tBuilds WPS image"
   echo -e "\t--celery: \tBuilds Celery image"
   echo -e "\t--thredds: \tBuilds Thredds image"
@@ -13,7 +14,6 @@ function usage {
 if [[ $# -eq 0 ]]
 then
   usage
-
   exit
 fi
 
@@ -22,6 +22,17 @@ do
   key="$1"
 
   case $key in
+    --help|-h)
+      usage
+      exit
+      ;;
+    --all)
+      WPS=1
+      CELERY=1
+      THREDDS=1
+      EDAS=1
+      shift
+      ;;
     --wps)
       WPS=1
       shift
@@ -46,6 +57,10 @@ do
       NOCACHE="--no-cache"
       shift
       ;;
+      *)
+      usage
+      exit
+      ;;
   esac
 done
 
@@ -55,57 +70,41 @@ echo "Building images and pushing to repo ${repo}"
 
 docker -v
 
-docker build ${NOCACHE} -t ${repo}/cwt_common:latest -f ../docker/common/Dockerfile ../docker/common/
+function build {
+  docker build ${NOCACHE} -t ${repo}/${1}:latest -f ${2}/Dockerfile ${2}
 
-if [[ -n $PUSH ]]
-then
-    docker push ${repo}/cwt_common:latest 
-fi
+  if [[ -n $PUSH ]]
+  then
+    docker push ${repo}/${1}:latest
+  fi
+}
+
+build cwt_common ../docker/common/
 
 if [[ -n $WPS ]]
 then
   echo "Building WPS image"
 
-  docker build ${NOCACHE} -t ${repo}/cwt_wps:latest -f ../docker/wps/Dockerfile ../docker/wps/
-
-  if [[ -n $PUSH ]]
-  then
-      docker push ${repo}/cwt_wps:latest 
-  fi
+  build cwt_wps ../docker/wps
 fi
 
 if [[ -n $CELERY ]]
 then
   echo "Building Celery image"
 
-  docker build ${NOCACHE} -t ${repo}/cwt_celery:latest -f ../docker/celery/Dockerfile ../docker/celery/
-  
-  if [[ -n $PUSH ]]
-  then
-      docker push ${repo}/cwt_celery:latest 
-  fi
+  build cwt_celery ../docker/celery
 fi
 
 if [[ -n $THREDDS ]]
 then
   echo "Building Thredds image"
 
-  docker build ${NOCACHE} -t ${repo}/cwt_thredds:latest -f ../docker/thredds/Dockerfile ../docker/thredds/
-  
-  if [[ -n $PUSH ]]
-  then
-      docker push ${repo}/cwt_thredds:latest 
-  fi
+  build cwt_thredds ../docker/thredds
 fi
 
 if [[ -n $EDAS ]]
 then
   echo "Building EDAS image"
 
-  docker build ${NOCACHE} -t ${repo}/cwt_edas:latest -f ../docker/edas/Dockerfile ../docker/edas/
-  
-  if [[ -n $PUSH ]]
-  then
-      docker push ${repo}/cwt_edas:latest 
-  fi
+  build cwt_edas ../docker/edas
 fi
