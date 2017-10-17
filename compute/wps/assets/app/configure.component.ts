@@ -377,6 +377,7 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
   prepareData(): string {
     let data = '';
+    let numberPattern = /\d+\.?\d+/;
 
     data += `process=${this.config.process}&`;
 
@@ -385,6 +386,20 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
     data += `regrid=${this.config.regrid}&`;
 
     if (this.config.regrid !== 'None') {
+      if (this.config.regrid === 'Uniform') {
+        if (this.config.regridOptions.lons === undefined) {
+          this.notificationService.error('Regrid longitudes must have a value set');
+
+          return null;
+        }
+      }
+
+      if (this.config.regridOptions.lats === undefined) {
+        this.notificationService.error('Regrid latitudes must have a value set');
+
+        return null;
+      }
+
       data += `longitudes=${this.config.regridOptions.lons}&`;
 
       data += `latitudes=${this.config.regridOptions.lats}&`;
@@ -402,32 +417,40 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
   }
 
   onDownload() {
-    this.configService.downloadScript(this.prepareData())
-      .then(response => {
-        if (response.status === 'success') {
-          let url = URL.createObjectURL(new Blob([response.data.text]));
+    let data = this.prepareData();
 
-          let a = document.createElement('a');
+    if (data !== null) {
+      this.configService.downloadScript(data)
+        .then(response => {
+          if (response.status === 'success') {
+            let url = URL.createObjectURL(new Blob([response.data.text]));
 
-          a.href = url;
-          a.target = '_blank';
-          a.download = response.data.filename;
+            let a = document.createElement('a');
 
-          a.click();
-        } else {
-          this.notificationService.error(`Failed to download script: ${response.error}`);
-        }
-      });
+            a.href = url;
+            a.target = '_blank';
+            a.download = response.data.filename;
+
+            a.click();
+          } else {
+            this.notificationService.error(`Failed to download script: ${response.error}`);
+          }
+        });
+    }
   }
 
   onExecute() {
-    this.configService.execute(this.prepareData())
-      .then(response => {
-        if (response.status === 'success') {
+    let data = this.prepareData();
 
-        } else {
-          this.notificationService.error(`Failed to execute process: ${response.error}`);
-        }
-      });
+    if (data !== null) {
+      this.configService.execute(data)
+        .then(response => {
+          if (response.status === 'success') {
+
+          } else {
+            this.notificationService.error(`Failed to execute process: ${response.error}`);
+          }
+        });
+    }
   }
 }
