@@ -35,7 +35,7 @@ class Backend(object):
         except db.IntegrityError:
             pass
         else:
-            process.server_set.add(server)
+            process.server_set.add(self.server)
 
             process.save()
 
