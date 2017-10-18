@@ -16,10 +16,6 @@ def cache_variable(self, identifier, variables, domains, operations, **kwargs):
 
     variables, domains, operations = self.load(variables, domains, operations)
 
-    logger.info(variables)
-    logger.info(domains)
-    logger.info(operations)
-
     op = self.op_by_id(identifier, operations)
 
     var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in op.inputs])

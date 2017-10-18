@@ -42,7 +42,7 @@ class Local(backend.Backend):
 
         chain = tasks.check_auth.s(**params)
 
-        chain = (chain | process.si(variable_dict, operation_dict, domain_dict, **params))
+        chain = (chain | process.si(variables, operations, domains, **params))
 
         logger.info('Executing task chain')
 
