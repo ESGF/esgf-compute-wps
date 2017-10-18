@@ -61,18 +61,7 @@ class EDAS(backend.Backend):
 
             logger.info('Registering process "{}"'.format(identifier))
 
-            desc = wps_xml.describe_process_response(identifier, title, abstract)
-
-            try:
-                proc = models.Process.objects.get(identifier=identifier, backend=self.name)
-            except models.Process.DoesNotExist:
-                proc = models.Process.objects.create(identifier=identifier, backend=self.name, description=desc.xml())
-
-                proc.server_set.add(server)
-            else:
-                proc.description = desc.xml()
-
-                proc.save()
+            self.add_process(identifier, title, self.name, abstract)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         logger.info('Executing process "{}"'.format(identifier))

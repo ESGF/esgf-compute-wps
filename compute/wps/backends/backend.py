@@ -1,3 +1,8 @@
+from django import db
+
+from wps import models
+from wps import wps_xml
+
 __all__ = ['Backend']
 
 class BackendMeta(type):
@@ -16,6 +21,23 @@ class BackendMeta(type):
 
 class Backend(object):
     __metaclass__ = BackendMeta
+
+    server = models.Server.objects.get(host='default')
+
+    def add_process(self, identifier, name, backend, abstract=None):
+        if abstract is None:
+            abstract = ''
+
+        desc = wps_xml.describe_process_response(identifier, name, abstract)
+
+        try:
+            process = models.Process.objects.create(identifier=identifier, backend=backend, description=desc.xml())
+        except db.IntegrityError:
+            pass
+        else:
+            process.server_set.add(server)
+
+            process.save()
 
     def initialize(self):
         pass
