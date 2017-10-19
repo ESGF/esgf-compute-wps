@@ -35,7 +35,7 @@ def sort_inputs_by_time(variables):
 
         input_dict[start] = v
 
-    sorted_keys = reversed(sorted(input_dict.keys()))
+    sorted_keys = sorted(input_dict.keys())
 
     return [input_dict[x] for x in sorted_keys]
 
@@ -44,78 +44,63 @@ def sort_inputs_by_time(variables):
 def subset(self, variables, operations, domains, **kwargs):
     self.PUBLISH = process.ALL
 
-    job, status = self.initialize(credentials=True, **kwargs)
+    user, job = self.initialize(credentials=True, **kwargs)
+
+    job.started()
 
     v, d, o = self.load(variables, domains, operations)
 
     op = self.op_by_id('CDAT.subset', o)
 
-    # Sort the files by time an select the first one,
-    # this may not always be the correct choice
     inputs = sort_inputs_by_time(op.inputs)
-
-    input_var = inputs[0]
-
-    logger.info('Selected input "{}"'.format(input_var.uri))
-
-    var_name = input_var.var_name
 
     grid, tool, method = self.generate_grid(op, v, d)
 
-    out_local_path = self.generate_local_output()
+    def post_process(data):
+        if grid is not None:
+            data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
-    with closing(cdms2.open(out_local_path, 'w')) as out:
-        logger.info('Writing to output {}'.format(out_local_path))
+        return data
 
-        def read_callback(data):
-            if grid is not None:
-                data = data.regrid(grid, regridTool=tool, regridMethod=method)
+    output_path = self.retrieve_variable([inputs[0]], op.domain, job, post_process=post_process)
 
-            out.write(data, id=var_name)
+    output_url = self.generate_output_url(output_path, **kwargs)
 
-        self.cache_input(input_var, op.domain, status, read_callback)
+    output_var = cwt.Variable(output_url, inputs[0].var_name)
 
-    out_path = self.generate_output(out_local_path, **kwargs)
-
-    out_var = cwt.Variable(out_path, var_name)
-
-    return out_var.parameterize()
+    return output_var.parameterize()
 
 @register_process('CDAT.aggregate')
 @cwt_shared_task()
 def aggregate(self, variables, operations, domains, **kwargs):
     self.PUBLISH = process.ALL
 
-    job, status = self.initialize(credentials=True, **kwargs)
+    user, job = self.initialize(credentials=True, **kwargs)
+
+    job.started()
 
     v, d, o = self.load(variables, domains, operations)
 
     op = self.op_by_id('CDAT.aggregate', o)
 
-    var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in op.inputs])
-
-    out_local_path = self.generate_local_output()
+    inputs = sort_inputs_by_time(op.inputs)
 
     grid, tool, method = self.generate_grid(op, v, d)
 
-    with closing(cdms2.open(out_local_path, 'w')) as out:
-        logger.info('Writing to output {}'.format(out_local_path))
+    def post_process(data):
+        if grid is not None:
+            data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
-        def read_callback(data):
-            if grid is not None:
-                data = data.regrid(grid, regridTool=tool, regridMethod=method)
+        out.write(data, id=var_name)
 
-            out.write(data, id=var_name)
+    output_path = self.retrieve_variable(inputs, op.domain, job, post_process=post_process)
 
-        self.cache_multiple_input(op.inputs, op.domain, status, read_callback)
+    output_url = self.generate_output_url(output_path, **kwargs)
 
-    out_path = self.generate_output(out_local_path, **kwargs)
+    output_var = cwt.Variable(output_url, inputs[0].var_name)
 
-    out_var = cwt.Variable(out_path, var_name)
+    return output_var.parameterize()
 
-    return out_var.parameterize()
-
-@register_process('CDAT.avg')
 @cwt_shared_task()
 def avg(self, variables, operations, domains, **kwargs):
     self.PUBLISH = process.ALL

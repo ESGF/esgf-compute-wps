@@ -182,8 +182,7 @@ def search_esgf(request):
 
             base = process.CWTBaseTask()
 
-            # TODO check if certificate is still valid
-            base.set_user_creds(cwd='/tmp', user_id=request.user.id)
+            base.load_certificate(request.user)
 
             axes = {}
 

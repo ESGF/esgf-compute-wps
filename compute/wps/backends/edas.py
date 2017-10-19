@@ -72,9 +72,7 @@ class EDAS(backend.Backend):
             'job_id': kwargs.get('job').id
         }
 
-        chain = tasks.check_auth.s(**params)
-
-        chain = chain | tasks.cache_variable.si(identifier, variables, domains, operations, **params)
+        tasks.cache_variable.si(identifier, variables, domains, operations, **params)
 
         chain = chain | tasks.edas_submit.s(identifier, **params)
 

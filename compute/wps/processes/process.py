@@ -1,16 +1,12 @@
 #! /usr/bin/env python
 
-import collections
-import copy
 import hashlib
 import math
 import json
 import os
-import time
 import uuid
-from collections import OrderedDict
-from contextlib import closing
-from contextlib import nested
+import collections
+from datetime import datetime
 from functools import partial
 
 import cdms2
@@ -18,20 +14,19 @@ import celery
 import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from django.db.models import F
 from django.conf import settings as global_settings
-from cwt.wps_lib import metadata
+from openid.consumer import discover
+from OpenSSL import crypto
 
 from wps import models
-from wps import wps_xml
 from wps import settings
+from wps.auth import oauth2
 
 __all__ = [
     'REGISTRY',
     'register_process',
     'get_process',
     'CWTBaseTask', 
-    'Status',
     'cwt_shared_task',
     'FAILURE',
     'RETRY',
@@ -44,11 +39,23 @@ RETRY = 2
 SUCCESS = 4
 ALL = FAILURE | RETRY | SUCCESS
 
+CERT_DATE_FMT = '%Y%m%d%H%M%SZ'
+
 counter = 0
 
 logger = get_task_logger('wps.processes.process')
 
 REGISTRY = {}
+
+URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
+URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
+
+def openid_find_service_by_type(services, uri):
+    for s in services:
+        if uri in s.type_uris:
+            return s
+
+    return None
 
 class AccessError(Exception):
     pass
@@ -105,60 +112,6 @@ def int_or_float(value):
     except ValueError:
         return None
 
-class Status(object):
-    """ Job Status interface.
-
-    This interface wraps a Job model instance to provide access to updating
-    its current message and percent completed.
-    
-    Attributes:
-        job: A Job model instance.
-        message: A string message.
-        percent: A float value of the percent completed.
-    """
-    def __init__(self, job):
-        self.job = job
-        self.message = None
-        self.percent = 0
-
-    @classmethod
-    def from_job_id(cls, job_id):
-        """ Wraps a Job object.
-        
-        Args:
-            job_id: The int id of the Job to wrap.
-
-        Returns:
-            An instance of Status.
-        """
-        try:
-            job = models.Job.objects.get(pk=job_id)
-        except models.Job.DoesNotExist:
-            job = None
-
-        return cls(job)
-
-    def update(self, message=None, percent=None):
-        """ Updates a Jobs status.
-
-        Update a jobs status. If message or percent are None then the last
-        value of each will be used.
-
-        Args:
-            message: A string message.
-            percent: A float value of the percent completed.
-        """
-        if message is not None:
-            self.message = message
-
-        if percent is not None:
-            self.percent = percent
-
-        logger.info('Update status {} {} %'.format(self.message, self.percent))
-
-        if self.job is not None:
-            self.job.update_progress(self.message, self.percent)
-
 class CWTBaseTask(celery.Task):
     """ Compute Working Team (CWT) base celery task.
 
@@ -169,7 +122,7 @@ class CWTBaseTask(celery.Task):
     all celery task decorators it is passed to.
     """
 
-    def initialize(self, credentials=False, **kwargs):
+    def initialize(self, user_id, job_id, credentials=False):
         """ Initialize task.
 
         **kwargs has the following known values:
@@ -181,82 +134,165 @@ class CWTBaseTask(celery.Task):
             credentials: A boolean requesting credentials for the current task.
             **kwargs: A dict containing additional arguments.
         """
+        try:
+            user = models.User.objects.get(pk=user_id)
+        except models.User.DoesNotExist:
+            raise Exception('User "{}" requesting process does not exist'.format(user_id))
+
+        try:
+            job = models.Job.objects.get(pk=job_id)
+        except models.Job.DoesNotExist:
+            raise Exception('Job "{}" does not exist'.format(job_id))
+
         if credentials:
-            self.set_user_creds(**kwargs)
+            self.load_certificate(user)
 
-        job = self.get_job(kwargs)
-
-        job.started()
-
-        return job, Status(job)
+        return user, job
 
     def get_job(self, kwargs):
+        job_id = kwargs.get('job_id')
+
         try:
-            job = models.Job.objects.get(pk=kwargs.get('job_id'))
+            job = models.Job.objects.get(pk=job_id)
         except models.Job.DoesNotExist:
-            raise
-        except KeyError:
-            raise Exception('Must pass job_id to initialize method')
+            raise Exception('Job "{}" does not exist'.format(job_id))
 
         return job
+    
+    def check_certificate(self, user):
+        """ Check user certificate.
 
-    def set_user_creds(self, **kwargs):
-        """ Set the user credentials.
-
-        Switches the current working directory then writes the user credentials
-        in the current directory. A .dodsrc file is created to provide 
-        credential access to underlying netCDF libraries.
+        Loads current certificate and checks if it has valid date range.
 
         Args:
-            **kwargs: A dict of options.
+            user: User object.
+
+        Return:
+            returns true if valid otherwise false.
         """
-        cwd = kwargs.get('cwd')
+        try:
+            cert = crypto.load_certificate(crypto.FILETYPE_PEM, user.auth.cert)
+        except Exception as e:
+            logger.info('Error loading certificate')
 
-        # Write the user credentials
-        user_id = kwargs.get('user_id')
+            raise Exception('Error loading certificate "{}"'.format(e.message))
 
-        user_path = os.path.join(cwd, str(user_id))
+        before = datetime.strptime(cert.get_notBefore(), CERT_DATE_FMT)
+
+        after = datetime.strptime(cert.get_notAfter(), CERT_DATE_FMT)
+
+        now = datetime.now()
+
+        if (now >= before and now <= after):
+            logger.info('Certificate is still valid, not before {}, not after {}'.format(before, after))
+
+            return True
+
+        logger.info('Certificate is invalid')
+
+        return False
+
+    def refresh_certificate(self, user):
+        """ Refresh user certificate
+
+        Will try to refresh a users certificate if authenticated using OAuth2.
+
+        Args:
+            user: User object.
+
+        Return:
+            returns new certificate
+        """
+        logger.info('Refreshing user certificate')
+
+        if user.auth.type == 'myproxyclient':
+            raise Exception('Certificate has expired, authenticate with MyProxyClient')
+
+        url, services = discover.discoverYadis(user.auth.openid_url)
+
+        auth_service = openid_find_service_by_type(services, URN_AUTHORIZE)
+
+        if auth_service is None:
+            raise Exception('OpenID has no authentication service endpoint')
+
+        cert_service = openid_find_service_by_type(services, URN_RESOURCE)
+
+        if cert_service is None:
+            raise Exception('OpenID has no certificate service endpoint')
+
+        extra = json.loads(user.auth.extra)
+
+        if 'token' not in extra:
+            raise Exception('Invalid OAuth2 state, missing token. Try authenticating with OAuth2')
+
+        try:
+            cert, key, new_token = oauth2.get_certificate(extra['token'], auth_service.server_url, cert_service.server_url)
+        except Exception as e:
+            logger.exception('Certificate refresh failed')
+
+            raise Exception('Failed to retrieve certificate: "{}"'.format(e.message))
+
+        logger.info('Retrieved certificate and new token')
+
+        extra['token'] = new_token
+
+        user.auth.extra = json.dumps(extra)
+
+        user.auth.cert = ''.join([cert, key])
+
+        user.auth.save()
+
+        return user.auth.cert
+
+    def load_certificate(self, user):
+        """ Loads a user certificate.
+
+        First the users certificate is checked and refreshed if needed. It's
+        then written to disk and the processes current working directory is 
+        set, allowing calls to NetCDF library to use the certificate.
+
+        Args:
+            user: User object.
+        """
+        if not self.check_certificate(user):
+            self.refresh_certificate(user)
+
+        user_path = os.path.join(settings.USER_TEMP_PATH, str(user.id))
 
         if not os.path.exists(user_path):
             os.makedirs(user_path)
 
-        # Change the process working directory
+            logger.info('Created user directory {}'.format(user_path))
+
         os.chdir(user_path)
 
         logger.info('Changed working directory to {}'.format(user_path))
 
-        cred_path = os.path.join(user_path, 'creds.pem')
+        cert_path = os.path.join(user_path, 'cert.pem')
 
-        try:
-            user = models.User.objects.get(pk=user_id)
-        except models.User.DoesNotExist:
-            raise Exception('User {} does not exist'.format(user_id))
+        with open(cert_path, 'w') as outfile:
+            outfile.write(user.auth.cert)
 
-        with open(cred_path, 'w') as f:
-            f.write(user.auth.cert)
+        logger.info('Wrote user certificate')
 
-        logger.info('Updated user credentials')
-
-        # Clean up the old cookie file incase the previous attempt failed
         dods_cookies_path = os.path.join(user_path, '.dods_cookies')
 
         if os.path.exists(dods_cookies_path):
-            logger.info('Cleared old cookies file.')
-
             os.remove(dods_cookies_path)
 
-        # Write the dodsrc file if does not exist
+            logger.info('Removed stale dods_cookies file')
+
         dodsrc_path = os.path.join(user_path, '.dodsrc')
 
         if not os.path.exists(dodsrc_path):
-            with open(dodsrc_path, 'w') as f:
-                f.write('HTTP.COOKIEJAR=.dods_cookies\n')
-                f.write('HTTP.SSL.CERTIFICATE={}\n'.format(cred_path))
-                f.write('HTTP.SSL.KEY={}\n'.format(cred_path))
-                f.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
-                f.write('HTTP.SSL.VERIFY=0\n')
+            with open(dodsrc_path, 'w') as outfile:
+                outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+                outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+                outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+                outfile.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
+                outfile.write('HTTP.SSL.VERIFY=0\n')
 
-            logger.info('Wrote .dodsrc file')
+            logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
 
     def load(self, variables, domains, operations):
         """ Load a processes inputs.
@@ -299,20 +335,18 @@ class CWTBaseTask(celery.Task):
         except IndexError:
             raise Exception('Could not find operation {}'.format(name))
 
-    def generate_local_output(self, name=None):
+    def generate_output_path(self, name=None):
         """ Format the file path for a local output. """
         if name is None:
             name = uuid.uuid4()
 
-        name = '{}.nc'.format(name)
+        filename = '{}.nc'.format(name)
 
-        path = os.path.join(settings.OUTPUT_LOCAL_PATH, name)
+        return os.path.join(settings.LOCAL_OUTPUT_PATH, filename)
 
-        return path
-
-    def generate_output(self, local_path, **kwargs):
+    def generate_output_url(self, local_path, **kwargs):
         """ Format the file path for a remote output. """
-        if kwargs.get('local') is None:
+        if kwargs.get('local', None) is None:
             out_name = local_path.split('/')[-1]
 
             if settings.DAP:
@@ -331,250 +365,237 @@ class CWTBaseTask(celery.Task):
         """ Format a slice. """
         fmt = '{}:{}:{}'
 
-        if isinstance(s, tuple):
-            slice_str = fmt.format(s[0], s[1], 1)
-        else:
+        if isinstance(s, (tuple, list)):
+            if len(s) == 2:
+                slice_str = fmt.format(s[0], s[1], 1)
+            elif len(s) >= 3:
+                slice_str = fmt.format(s[0], s[1], s[2])
+        elif isinstance(s, slice):
             slice_str = fmt.format(s.start, s.stop, s.step)
+        else:
+            raise Exception('Failed to convert slice to string for "{}"'.format(type(s)))
         
         return slice_str
 
-    def cache_multiple_input(self, input_vars, domain, status, read_callback=None):
-        """ Cache multiple inputs.
+    def generate_cache_map(self, file_map, var_map, domain_map, job):
+        """ Generates a cache map.
 
-        Map a domain over multiple inputs. The subset of each input is then 
-        chunked and read_callback is called on each chunk. The subset of each 
-        input will be inserted into the cache.
+        Iterate over files checking if the file subset is located in the cache.
+        If the file exists in the cache we replace it in the original file_map.
+        If the file does not exist the Cache object is added to the dict.
 
         Args:
-            input_vars: A list of Variable objects.
-            domain: A Domain object.
-            read_callback: A method which takes a single argument which is a 
-                numpy array.
+            file_map: A dict mapping urls to cdms2.FileObj.
+            var_map: A dict mapping urls to string variable names.
+            domain_map: A dict mapping urls to dicts describing ROI.
+            job: A Job object.
+
+        Returns:
+            returns a dict mapping urls to Cache objects.
         """
-        cached = []
-        cache_file = None
-        input_files = {}
+        caches = {}
 
+        job.update_status('Checking for cached inputs')
+
+        for url in domain_map.keys():
+            var_name = var_map[url]
+
+            temporal, spatial = domain_map[url]
+
+            if temporal is None or temporal.stop == 0:
+                logger.debug('File "{}" is not contained in the domain'.format(url))
+
+                files[url].close()
+
+                del files[url]
+
+                continue
+
+            cache, exists = self.check_cache(url, var_name, temporal, spatial)
+
+            if exists:
+                file_map[url].close()
+
+                try:
+                    file_map[url] = cdms2.open(cache.local_path)
+                except:
+                    raise AccessError()
+
+                domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), {})
+
+                logger.debug('File has been cached updated files dict')
+            else:
+                caches[url] = cache
+
+        return caches
+
+    def download(self, input_file, var_name, base_units, temporal, spatial, cache_file, out_file, post_process, job):
+        """ Downloads file. 
+
+        This iterates over the list of partitions. For each chunk the following
+        occurs: If a cache_file is passed, the data is written. Next the chunk
+        has its time axis remapped to base_units. If post_processing is provided
+        then its applied to the data before it's written to the output otherwise
+        it is written unmodified.
+
+        Args:
+            input_file: A cdms2.FileObj.
+            var_name: A string variable name.
+            base_units: A string with the units to remap the time axis.
+            temporal: A list or tuple of slice objects.
+            spatial: A dict mapping axis to slices.
+            cache_file: A cdms2.FileObj. Can be None if not caching file.
+            out_file: A cdms2.FileObj to write data to.
+            post_process: A function to apply to data before writing to output.
+                Can be None if no post processing is required.
+            job: A Job object.
+        """
+        steps = len(temporal)
+
+        for i, time_slice in enumerate(temporal):
+            data = input_file(var_name, time=time_slice, **spatial)
+
+            if any(x == 0 for x in data.shape):
+                raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+            if cache_file is not None:
+                cache_file.write(data, id=var_name)
+
+            data.getTime().toRelativeTime(base_units)
+
+            if post_process is None:
+                out_file.write(post_process(data), id=var_name)
+            else:
+                out_file.write(data, id=var_name)
+
+            percent = (i+1)*100/steps
+
+            job.update_status('Retrieved chunk {} to {} from {}'.format(time_slice.start, time_slice.stop, base_units), percent)
+
+    def retrieve_variable(self, variables, domain, job, output_path=None, post_process=None, **kwargs):
+        """ Retrieve a variable.
+
+        The input files are opened and the domain is mapped over the files.
+        Each input file is checked if its in the cache. Then non-cached files
+        are downloaded and cached. Each chunk of data that is read is passed
+        to post_process if provided.
+
+        Args:
+            variables: A List or tuple of cwt.Variable objects
+            domain: A cwt.Domain describing the ROI
+            job: A Job object.
+            output_path: A string path that the data will be written.
+            post_process: A function handle to call after each chunk is read.
+        """
+        files = {}
+        file_var_map = {}
+
+        # Open the input files
         try:
-            var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in input_vars])
+            for var in variables:
+                files[var.uri] = cdms2.open(var.uri)
 
-            if var_name is None:
-                raise Exception('Variable name is not the same for all inputs')
+                file_var_map[var.uri] = var.var_name
+        except Exception as e:
+            logger.exception('Error accessing file: "{}"'.format(e.message))
 
-            logger.info('Aggregating "{}" over {} files'.format(var_name, len(input_vars)))
+            for f in files.values():
+                f.close()
 
-            inputs = []
-            cache_map = {}
+            raise AccessError()
 
-            try:
-                for i in input_vars:
-                    inputs.append(cdms2.open(i.uri))
-            except:
-                raise AccessError()
+        job.update_status('Mapping domain to input files')
 
-            input_files = dict([(x.id, x) for x in inputs])
+        # Map the domain
+        domain_map = self.map_domain(files.values(), file_var_map, domain)
 
-            domain_map = self.map_domain_multiple(input_files.values(), var_name, domain)
+        logger.debug('Mapped domain {}'.format(domain_map))
 
-            logger.info(domain_map)
+        cache_map = self.generate_cache_map(files, file_var_map, domain_map, job)
 
-            for url in domain_map.keys():
-                temporal, spatial = domain_map[url]
+        logger.debug('Files to be cached "{}"'.format(cache_map.keys()))
 
-                if temporal is None:
-                    continue
+        partition_map = self.generate_partitions(domain_map)
 
-                if temporal.stop == 0:
-                    status.update('Skipping input "{}", not included in domain'.format(url.split('/')[-1]))
+        logger.debug('Partition map "{}"'.format(partition_map))
 
-                    del input_files[url]
+        var_name = file_var_map[domain_map.keys()[0]]
 
-                    continue
+        base_units = files.values()[0][var_name].getTime().units
 
-                cache, exists = self.check_cache(url, var_name, temporal, spatial)
+        output_path = self.generate_output_path()
 
-                if exists:
-                    input_files[url].close()
+        job.update_status('Retrieving files')
 
-                    try:
-                        input_files[url] = cdms2.open(cache.local_path)
-                    except:
-                        raise AccessError()
+        # Download chunked files
+        with cdms2.open(output_path, 'w') as out_file:
+            for url in files.keys():
+                job.update_status('Processing input "{}"'.format(url))
 
-                    domain_map[url] = (slice(0, len(input_files[url][var_name]), 1), {})
-                else:
-                    cache_map[url] = cache
-
-            base_units = input_files.values()[0][var_name].getTime().units
-
-            for url in domain_map.keys():
-            #for url in input_files.keys():
                 cache_file = None
 
-                temporal, spatial = domain_map[url]
-
-                if temporal is None:
-                    logger.info('Skipping {} not included in domain'.format(url))
-
-                    continue
-
                 if url in cache_map:
+                    logger.debug('Opening cache file "{}"'.format(cache_map[url].local_path))
+
                     try:
                         cache_file = cdms2.open(cache_map[url].local_path, 'w')
                     except:
                         raise AccessError()
 
-                    cached.append(cache_map[url].local_path)
+                temporal, spatial = partition_map[url]
 
-                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+                self.download(files[url], var_name, base_units, temporal, spatial, cache_file, out_file, post_process, job)
 
-                diff = tstop - tstart
+                files[url].close()
 
-                step = diff if diff < 200 else 200
-
-                step_count = math.floor((tstop - tstart) / step)
-
-                status.update('Processing input "{}"'.format(url.split('/')[-1]), 0)
-
-                for i, begin in enumerate(xrange(tstart, tstop, step)):
-                    status.update('Retrieving chunk starting at {} {}'.format(begin, base_units), float(i*100/step_count))
-
-                    end = begin + step
-
-                    if end > tstop:
-                        end = tstop
-
-                    time_slice = slice(begin, end, tstep)
-
-                    data = input_files[url](var_name, time=time_slice, **spatial)
-
-                    if any(x == 0 for x in data.shape):
-                        raise InvalidShapeError('Data has shape {}'.format(data.shape))
-
-                    if cache_file is not None:
-                        cache_file.write(data, id=var_name)
-
-                    data.getTime().toRelativeTime(base_units)
-
-                    if read_callback is not None:
-                        read_callback(data)
-
-                status.update('Finished retrieving input "{}"'.format(url.split('/')[-1]), 100)
-
-                input_files[url].close()
+                job.update_status('Finished retrieving "{}"'.format(url))
 
                 if cache_file is not None:
                     cache_file.close()
 
-                    cache = cache_map[url]
+                    cache_map[url].size = os.stat(cache_map[url].local_path).st_size / 1073741824.0
 
-                    cache.size = os.stat(cache.local_path).st_size / 1073741824.0
+                    cache_mpa[url].save()
 
-                    cache.save()
-        except Exception:
-            logger.exception('Error caching multiple files')
+                    logger.debug('Updating cache entry with file size "{}" GB'.format(cache_map[url].size))
 
-            raise
-        finally:
-            if cache_file is not None:
-                cache_file.close()
+        return output_path
 
-            for i in input_files.values():
-                i.close()
-
-        return cached
-
-    def cache_input(self, input_var, domain, status, read_callback=None):
-        """ Cache input.
-
-        Map a domain over an input. The subset of the input is then chunked
-        and read_callback is called  on each chunk. The subset of input will
-        be inserted into the cache.
+    def generate_partitions(self, domain_map, **kwargs):
+        """ Generates a partition map from a domain map.
 
         Args:
-            input_vars: A list of Variable objects.
-            domain: A Domain object.
-            read_callback: A method which takes a single argument which is a 
-                numpy array.
+            domain_map: A dict whose keys are urls and values are dicts describing
+                an ROI.
+            **kwargs: A dict containing extra parameters. Check description for
+                known values.
+
+        Returns:
+            returns a dict mapping urls to partition map.
         """
-        input_file = None
+        partitions = {}
 
-        try:
-            cache_file = None
+        for url in domain_map.keys():
+            chunks = []
 
-            try:
-                input_file = cdms2.open(input_var.uri)
-            except:
-                raise AccessError()
+            logger.debug('Partitioning input "{}"'.format(url))
 
-            status.update('Mapping domain and checking cache for inputs')
+            temporal, spatial = domain_map[url]
 
-            temporal, spatial = self.map_domain(input_file, input_var.var_name, domain)
-
-            cache, exists = self.check_cache(input_file.id, input_var.var_name, temporal, spatial)
-
-            if exists:
-                input_file.close()
-
-                try:
-                    input_file = cdms2.open(cache.local_path)
-                except:
-                    raise AccessError()
-
-                tstart, tstop, tstep = 0, len(input_file[input_var.var_name]), 1
-            else:
-                cache_file = cdms2.open(cache.local_path, 'w')
-
-                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
-
-            base_units = input_file[input_var.var_name].getTime().units
+            tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
 
             diff = tstop - tstart
 
-            step = diff if diff < 200 else 200
+            step = min(diff, settings.PARTITION_SIZE)
 
-            step_count = math.floor((tstop - tstart) / step)
+            for begin in xrange(tstart, tstop, step):
+                end = min(begin + step, tstop)
 
-            status.update('Processing input "{}"'.format(input_var.uri.split('/')[-1]), 0)
+                chunks.append(slice(begin, end, tstep))
 
-            for i, begin in enumerate(xrange(tstart, tstop, step)):
-                status.update('Retrieving chunk starting at {} {}'.format(begin, base_units), float(i*100/step_count))
+            partitions[url] = (chunks, spatial)
 
-                end = begin + step
-
-                if end > tstop:
-                    end = tstop
-
-                time_slice = slice(begin, end, tstep)
-
-                logger.info('Retrieving chunk for time slice {}'.format(time_slice))
-
-                data = input_file(input_var.var_name, time=time_slice, **spatial)
-
-                if any(x == 0 for x in data.shape):
-                    raise InvalidShapeError('Read data with shape {}'.format(data.shape))
-
-                if cache_file is not None:
-                    cache_file.write(data, id=input_var.var_name)
-
-                if read_callback is not None:
-                    read_callback(data)
-
-            status.update('Finished retrieving input "{}"'.format(input_var.uri.split('/')[-1]), 100)
-        except:
-            raise
-        finally:
-            if input_file:
-                input_file.close()
-
-            if cache_file is not None:
-                cache_file.close()
-
-                cache.size = os.stat(cache.local_path).st_size / 1073741824.0
-
-                cache.save()
-
-        return cache.local_path
+        return partitions
 
     def generate_dimension_id(self, temporal, spatial):
         """ Create a string describing the dimensions.
@@ -726,113 +747,66 @@ class CWTBaseTask(celery.Task):
 
         return axis_slice
 
-    def map_domain_multiple(self, inputs, var_name, domain):
-        """ Map a Domain over multiple inputs.
+    def map_domain(self, files, file_var_map, domain):
+        """ Maps a domain to a set of files.
 
-        Maps each Dimension of a Domain over multiple inputs.
+        Sort files by their first time value. For each file we determine which
+        portion of the domain belongs to the file. A dict mapping URLs to these
+        domains is returned.
 
         Args:
-            inputs: A list of FileVariable objects.
-            var_name: A string variable name.
-            domain: A Domain object.
+            files: A list or tuple of cdms2 FileObj.
+            file_var_map: A dict of urls mapped to a variable name.
+            domain: A cwt.Domain describing the ROI.
 
         Returns:
-            A dict mapping the input URIs to their subsets. Each subset is a 
-            tuple of a 2 values. The first is the slice over the temporal axis.
-            The second is a dictionary mapping each spatial axis name to a
-            slice.
+            returns an OrderedDict whose key is a URL and value is a dict
+            describing the portion of domain contained in the URL.
         """
-        domains = []
-        #domain_map = {}
+        domains = collections.OrderedDict()
 
-        logger.info('Mapping domain {} over {} files'.format(domain, len(inputs)))
+        files = sorted(files, key=lambda x: x[file_var_map[x.id]].getTime().asComponentTime()[0])
 
-        inputs = sorted(inputs, key=lambda x: str(x[var_name].getTime().asComponentTime()[0]))
+        file_obj = files[0]
 
-        base = inputs[0][var_name].getTime().units
+        var_name = file_var_map[file_obj.id]
 
-        for inp in inputs:
+        base_units = file_obj[var_name].getTime().units
+
+        for file_obj in files:
+            var_name = file_var_map[file_obj.id]
+            file_header = file_obj[var_name]
             temporal = None
             spatial = {}
 
             if domain is None:
-                logger.info('No domain defined, grabbing entire time axis')
-
-                temporal = slice(0, len(inp[var_name]), 1)
+                temporal = slice(0, file_header.getTime().shape[0], 1)
             else:
                 for dim in domain.dimensions:
-                    axis_idx = inp[var_name].getAxisIndex(dim.name)
+                    axis_index = file_header.getAxisIndex(dim.name)
 
-                    if axis_idx == -1:
-                        raise Exception('Axis {} does not exist'.format(dim.name))
+                    if axis_index == -1:
+                        raise Exception('Axis {} does not exist in "{}"'.format(dim.name, file_obj.id))
 
-                    axis = inp[var_name].getAxis(axis_idx)
+                    axis = file_header.getAxis(axis_index)
 
                     if axis.isTime():
                         clone_axis = axis.clone()
 
-                        clone_axis.toRelativeTime(base)
+                        clone_axis.toRelativeTime(base_units)
 
                         temporal = self.map_time_axis(clone_axis, dim)
 
                         if dim.crs == cwt.INDICES:
                             dim.start -= temporal.start
 
-                            dim.end -= (temporal.stop - temporal.start) + temporal.start
+                            dim.end -= (temporal.stop-temporal.start)+temporal.start
                     else:
                         spatial[axis.id] = (dim.start, dim.end)
 
-            domains.append((temporal, spatial))
+            domains[file_obj.id] = (temporal, spatial)
 
-            #domain_map[inp.id] = (temporal, spatial)
-
-            logger.info('Mapped domain {} to {} {}'.format(domain, inp.id, (temporal, spatial)))
-
-        files = [x.id for x in inputs]
-
-        return OrderedDict(zip(files, domains))
-
-        #return domain_map
-
-    def map_domain(self, var, var_name, domain):
-        """ Map a domain over an input.
-
-        Map each Dimension of a Domain to the axis in the FileVariable.
-
-        Args:
-            var: A FileVariable object.
-            var_name: A string variable name.
-            domain: A Domain object.
-
-        Returns:
-            A tuple of 2 values. The first is a slice over the temporal axis.
-            The seconda is a dictionary mapping spatial axis names to their
-            slices.
-        """
-        temporal = None
-        spatial = {}
-
-        if domain is None:
-            logger.info('No domain defined, grabbing entire time axis') 
-
-            return slice(0, len(var[var_name]), 1), spatial
-
-        for dim in domain.dimensions:
-            axis_idx = var[var_name].getAxisIndex(dim.name)
-
-            if axis_idx == -1:
-                raise Exception('Axis {} does not exist'.format(dim.name))
-
-            axis = var[var_name].getAxis(axis_idx)
-            
-            if axis.isTime():
-                temporal = self.map_time_axis(axis, dim)
-            else:
-                spatial[axis.id] = (dim.start, dim.end)
-
-        logger.info('Mapped domain {} to {} {}'.format(domain.name, var.id, (temporal, spatial)))
-        
-        return temporal, spatial
+        return domains
 
     def generate_grid(self, operation, variables, domains):
         """ Generate a grid.

@@ -33,17 +33,14 @@ class Local(backend.Backend):
         user = kwargs.get('user')
 
         params = {
-            'cwd': '/tmp',
             'job_id': job.id,
             'user_id': user.id
         }
 
         logger.info('Building task chain')
 
-        chain = tasks.check_auth.s(**params)
-
-        chain = (chain | process.si(variables, operations, domains, **params))
+        chain = process.si(variables, operations, domains, **params)
 
         logger.info('Executing task chain')
 
-        chain()
+        chain.delay()

@@ -15,7 +15,7 @@ CACHE_PATH = setting('WPS_CACHE_PATH', '/data/cache')
 ENDPOINT = setting('WPS_ENDPOINT', 'http://0.0.0.0:8000/wps')
 STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'http://0.0.0.0:8000/wps/job/{job_id}')
 
-OUTPUT_LOCAL_PATH = setting('WPS_OUTPUT_LOCAL_PATH', '/data/public')
+LOCAL_OUTPUT_PATH = setting('WPS_LOCAL_OUTPUT_PATH', '/data/public')
 OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_name}')
 
 DAP = setting('WPS_DAP', True)
@@ -35,6 +35,10 @@ OPENID_RETURN_TO = setting('WPS_OPENID_RETURN_TO', 'http://0.0.0.0:8000/auth/cal
 OPENID_CALLBACK_SUCCESS = setting('WPS_OPENID_CALLBACK_SUCCESS', 'http://0.0.0.0:8000/wps/home/login/callback')
 
 PASSWORD_RESET_URL = setting('WPS_PASSWORD_RESET_URL', 'http://0.0.0.0:8000/wps/home/login/reset')
+
+USER_TEMP_PATH = setting('WPS_USER_TEMP_PATH', '/tmp')
+
+PARTITION_SIZE = setting('WPS_PARTITION_SIZE', 200)
 
 # EDAS Settings
 EDAS_HOST = setting('WPS_EDAS_HOST', 'edas')
