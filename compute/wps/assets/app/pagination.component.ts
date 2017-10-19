@@ -51,7 +51,7 @@ export class PaginationComponent {
     this.dataStore = this.data = data;
 
     if (this.data !== null) {
-      this.maxPage = Math.ceil(this.data.length / this.IPP)-1;
+      this.maxPage = Math.max(Math.ceil(this.data.length / this.IPP)-1, 0);
     }
   }
 
@@ -87,8 +87,8 @@ export class PaginationComponent {
           <th *ngFor="let h of headers" (click)="sort(h.key)">
             <a>
               {{h.display}}
-              <i *ngIf="sortKey === h.key && !sortDirection" class="fa fa-sort-asc" aria-hidden="true"></i>
-              <i *ngIf="sortKey === h.key && sortDirection" class="fa fa-sort-desc" aria-hidden="true"></i>
+              <i *ngIf="sortKey === h.key && sortDirection" class="fa fa-sort-asc" aria-hidden="true"></i>
+              <i *ngIf="sortKey === h.key && !sortDirection" class="fa fa-sort-desc" aria-hidden="true"></i>
             </a>
           </th>
         </tr>
@@ -122,7 +122,7 @@ export class PaginationTableComponent extends PaginationComponent {
         this.sort(this.headers[0].key);
       }
 
-      this.maxPage = Math.ceil(this.data.length / this.IPP)-1;
+      this.maxPage = Math.max(Math.ceil(this.data.length / this.IPP)-1, 0);
     }
   }
 
