@@ -6,9 +6,9 @@ import { WPSService } from './wps.service';
 @Component({
   selector: 'stats-files',
   styleUrls: ['./forms.css'],
-  templateUrl: './stats-files.component.html'
+  templateUrl: './admin-files.component.html'
 })
-export class StatsFilesComponent implements OnInit {
+export class AdminFilesComponent implements OnInit {
   files: Promise<any[]>;
   headers = [
     new Header('Name', 'name'),

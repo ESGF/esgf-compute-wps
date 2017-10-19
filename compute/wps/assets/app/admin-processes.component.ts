@@ -6,9 +6,9 @@ import { WPSService } from './wps.service';
 @Component({
   selector: 'stats-processes',
   styleUrls: ['./forms.css'],
-  templateUrl: './stats-processes.component.html'
+  templateUrl: './admin-processes.component.html'
 })
-export class StatsProcessesComponent implements OnInit {
+export class AdminProcessesComponent implements OnInit {
   processes: Promise<any[]>;
   headers = [
     new Header('Identifier', 'identifier'),

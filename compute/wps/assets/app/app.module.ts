@@ -17,8 +17,8 @@ import { LogoutComponent } from './logout.component';
 import { ConfigureComponent, AxisComponent } from './configure.component';
 import { JobsComponent } from './jobs.component';
 import { TabComponent, TabsComponent } from './tab.component';
-import { StatsFilesComponent } from './stats-files.component';
-import { StatsProcessesComponent } from './stats-processes.component';
+import { AdminFilesComponent } from './admin-files.component';
+import { AdminProcessesComponent } from './admin-processes.component';
 import { ForgotUsernameComponent } from './forgot-username.component';
 import { ForgotPasswordComponent, ResetPasswordComponent } from './forgot-password.component';
 import { PaginationComponent, PaginationTableComponent } from './pagination.component';
@@ -120,8 +120,8 @@ import { ThreddsPipe } from './user-files.component';
     TabComponent,
     TabsComponent,
     ThreddsPipe,
-    StatsFilesComponent,
-    StatsProcessesComponent,
+    AdminFilesComponent,
+    AdminProcessesComponent,
     ForgotUsernameComponent,
     ForgotPasswordComponent,
     ResetPasswordComponent,
