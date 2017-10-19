@@ -74,6 +74,7 @@ services:
       backend:
   thredds:
     image: jasonb87/cwt_thredds:latest
+    cmd: ['--proxy_name', 'aims2.llnl.gov', '--proxy_port', '443']
     ports:
       - "8080:8080"
     expose:

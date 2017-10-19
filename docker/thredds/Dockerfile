@@ -9,6 +9,8 @@ COPY entrypoint.sh entrypoint.sh
 
 COPY catalog.xml catalog.xml
 
+COPY server.xml conf/server.xml
+
 EXPOSE 8080
 
 ENTRYPOINT ["./entrypoint.sh"]

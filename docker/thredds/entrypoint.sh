@@ -1,5 +1,21 @@
 #!/bin/bash
 
+while [[ $# -gt 0 ]]
+do
+  case $1 in
+  --proxy_name|-h)
+    shift
+    proxy_name=$1
+    shift
+    ;;
+  --proxy_port|-p)
+    shift
+    proxy_port=$1
+    shift
+    ;;
+  esac
+done
+
 data=/data
 public=${data}/public
 cache=${data}/cache
@@ -27,6 +43,16 @@ then
   ./bin/catalina.sh start && sleep 10 && ./bin/catalina.sh stop
 
   sed -ibak s/\<param\-value\>thredds/\<param\-value\>threddsCWT/ ./webapps/threddsCWT/WEB-INF/web.xml
+fi
+
+if [[ -n $proxy_name ]]
+then
+  sed -ibak s/proxyName=\"0\.0\.0\.0\"/proxyName=\"${proxy_name}\"/g conf/server.xml
+fi
+
+if [[ -n $proxy_port ]]
+then
+  sed -ibak s/proxyPort=\"80\"/proxyPort=\"${proxy_port}\"/g conf/server.xml
 fi
 
 exec sh -c "./bin/catalina.sh run $@"
