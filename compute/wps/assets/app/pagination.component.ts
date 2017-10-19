@@ -10,6 +10,69 @@ export class Header {
 }
 
 @Component({
+  selector: 'pagination',
+  styleUrls: ['./forms.css'],
+  template: `
+  <div>
+    <div>
+      <ng-template ngFor [ngForOf]="data | slice:sliceStart:sliceEnd" [ngForTemplate]="content"></ng-template>
+    </div>
+    <nav aria-label="Page navigation">
+      <ul class="pager">
+        <li [class.disabled]="page === 0" (click)="changePage(-1)"><a>Previous</a></li>
+        <li [class.disabled]="page === maxPage" (click)="changePage(1)"><a>Next</a></li>
+      </ul>
+    </nav>
+  </div>
+  `
+})
+export class PaginationComponent {
+  @ContentChild(TemplateRef) content: TemplateRef<any>;
+
+  IPP = 20;
+
+  data: any[];
+  dataStore: any[];
+  sliceStart: number;
+  sliceEnd: number;
+  page: number;
+  maxPage: number;
+
+  constructor() {
+    this.updateSlice(0);
+  }
+
+  get items(): any[] {
+    return this.data;
+  }
+
+  @Input()
+  set items(data: any[]) {
+    this.dataStore = this.data = data;
+
+    if (this.data !== null) {
+      this.maxPage = Math.ceil(this.data.length / this.IPP)-1;
+    }
+  }
+
+  updateSlice(page: number) {
+    this.page = page;
+
+    this.sliceStart = this.page * this.IPP;
+
+    this.sliceEnd = this.IPP + this.sliceStart;
+  }
+
+  changePage(delta: number) {
+    let newPage = this.page + delta;
+
+    if (newPage >= 0 && newPage <= this.maxPage) {
+      this.updateSlice(newPage);
+    }
+  }
+}
+
+@Component({
   selector: 'pagination-table',
   styleUrls: ['./forms.css'],
   template: `
@@ -31,7 +94,7 @@ export class Header {
         </tr>
       </thead>
       <tbody>
-        <ng-template ngFor [ngForOf]="items | slice:sliceStart:sliceEnd" [ngForTemplate]="content"></ng-template>
+        <ng-template ngFor [ngForOf]="data | slice:sliceStart:sliceEnd" [ngForTemplate]="content"></ng-template>
       </tbody>
     </table>
     <nav aria-label="Page navigation">
@@ -43,53 +106,36 @@ export class Header {
   </div>
   `
 })
-export class PaginationTableComponent {
+export class PaginationTableComponent extends PaginationComponent {
   @Input() headers: Header[];
   @Input('search') searchEnabled = true;
-  @ContentChild(TemplateRef) content: TemplateRef<any>;
 
-  IPP = 20;
-
-  _items: any[];
-  _itemsStore: any[];
-  sliceStart: number;
-  sliceEnd: number;
-  page: number;
-  maxPage: number;
   sortKey: string;
   sortDirection = true;
 
-  constructor() {
-    this.updateSlice(0);
-  }
-
-  get items(): any[] {
-    return this._items;
-  }
-
   @Input()
   set items(data: any[]) {
-    this._itemsStore = this._items = data;
+    this.dataStore = this.data = data;
 
-    if (this._items !== null) {
+    if (this.data !== null) {
       if (this.headers !== undefined) {
         this.sort(this.headers[0].key);
       }
 
-      this.maxPage = Math.ceil(this._items.length / this.IPP)-1;
+      this.maxPage = Math.ceil(this.data.length / this.IPP)-1;
     }
   }
 
   search(event: any) {
     let value = event.target.value;
 
-    this._items = this._itemsStore.filter((item: any) => {
+    this.data = this.dataStore.filter((item: any) => {
       return this.headers.some((h: Header, i: number, a: Header[]) => {
         return item[h.key].toString().indexOf(value) >= 0;
       });
     });
 
-    this.maxPage = Math.ceil(this._items.length / this.IPP)-1;
+    this.maxPage = Math.ceil(this.data.length / this.IPP)-1;
 
     this.sort(this.sortKey);
   }
@@ -101,38 +147,24 @@ export class PaginationTableComponent {
 
     this.sortKey = key;
 
-    this.items.sort((a: any, b: any) => {
-      if (a[key] > b[key]) {
-        return 1;
-      } else if (a[key] < b[key]) {
-        return -1;
-      } else {
-        return 0;
-      }
-    });
+    if (this.data != undefined) {
+      this.data.sort((a: any, b: any) => {
+        if (a[key] > b[key]) {
+          return 1;
+        } else if (a[key] < b[key]) {
+          return -1;
+        } else {
+          return 0;
+        }
+      });
+    }
 
     if (this.sortDirection) {
       this.sortDirection = false;
     } else {
       this.sortDirection = true;
 
-      this.items.reverse();
-    }
-  }
-
-  updateSlice(page: number) {
-    this.page = page;
-
-    this.sliceStart = this.page * this.IPP;
-
-    this.sliceEnd = this.IPP + this.sliceStart;
-  }
-
-  changePage(delta: number) {
-    let newPage = this.page + delta;
-
-    if (newPage >= 0 && newPage <= this.maxPage) {
-      this.updateSlice(newPage);
+      this.data.reverse();
     }
   }
 }
