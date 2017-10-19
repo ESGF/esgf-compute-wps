@@ -17,12 +17,12 @@ import { LogoutComponent } from './logout.component';
 import { ConfigureComponent, AxisComponent } from './configure.component';
 import { JobsComponent } from './jobs.component';
 import { TabComponent, TabsComponent } from './tab.component';
-import { StatsComponent } from './stats.component';
 import { StatsFilesComponent } from './stats-files.component';
 import { StatsProcessesComponent } from './stats-processes.component';
 import { ForgotUsernameComponent } from './forgot-username.component';
 import { ForgotPasswordComponent, ResetPasswordComponent } from './forgot-password.component';
 import { PaginationComponent, PaginationTableComponent } from './pagination.component';
+import { AdminComponent } from './admin.component';
 
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth-guard.service';
@@ -79,8 +79,8 @@ import { ThreddsPipe } from './user-files.component';
         canActivate: [AuthGuard],
         children: [
           {
-            path: 'stats',
-            component: StatsComponent
+            path: 'admin',
+            component: AdminComponent
           },
           {
             path: 'jobs',
@@ -120,14 +120,14 @@ import { ThreddsPipe } from './user-files.component';
     TabComponent,
     TabsComponent,
     ThreddsPipe,
-    StatsComponent,
     StatsFilesComponent,
     StatsProcessesComponent,
     ForgotUsernameComponent,
     ForgotPasswordComponent,
     ResetPasswordComponent,
     PaginationComponent,
-    PaginationTableComponent
+    PaginationTableComponent,
+    AdminComponent
   ],
   providers: [
     AuthService,

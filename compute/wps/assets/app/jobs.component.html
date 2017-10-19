@@ -1,4 +1,4 @@
-<div class="container">
+<div class="container-fluid">
   <div class="panel panel-default">
     <div class="panel-heading">
       Status
@@ -14,10 +14,9 @@
               </div>
               <br>
               <div *ngFor="let message of current.messages" class="row">
-                <div class="col-md-1"></div>
-                <div class="col-md-3">{{message.created_date|date:'medium'}}</div>
-                <div class="col-md-2">{{message.message}}</div>
-                <div class="col-md-2">{{message.percent}} %</div>
+                <div class="col-md-2 col-md-offset-1">{{message.created_date|date:'medium'}}</div>
+                <div class="col-md-1">{{message.percent}} %</div>
+                <div class="col-md-8">{{message.message}}</div>
               </div>
               <div *ngIf="current.output !== null" class="row">
                 <div class="col-md-1"></div>

@@ -1,16 +1,14 @@
-<div class="container">
-  <div class="pane">
-    <pagination-table [headers]="headers" [items]="processes | async">
-      <ng-template let-item>
-        <tr>
-          <td>{{item.identifier}}</td>
-          <td>{{item.backend}}</td>
-          <td>{{item.executed}}</td>
-          <td>{{item.success}}</td>
-          <td>{{item.failed}}</td>
-          <td>{{item.retry}}</td>
-        </tr>
-      </ng-template>
-    </pagination-table>
-  </div>
+<div class="pane">
+  <pagination-table [headers]="headers" [items]="processes | async">
+    <ng-template let-item>
+      <tr>
+        <td>{{item.identifier}}</td>
+        <td>{{item.backend}}</td>
+        <td>{{item.executed}}</td>
+        <td>{{item.success}}</td>
+        <td>{{item.failed}}</td>
+        <td>{{item.retry}}</td>
+      </tr>
+    </ng-template>
+  </pagination-table>
 </div>
