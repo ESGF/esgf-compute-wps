@@ -2,7 +2,6 @@ from django.core.management.base import BaseCommand, CommandError
 
 from wps import node_manager
 
-
 class Command(BaseCommand):
     help = 'Generates WPS capabilities document'
 

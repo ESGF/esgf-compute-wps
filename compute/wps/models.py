@@ -231,6 +231,7 @@ class Process(models.Model):
     identifier = models.CharField(max_length=128, unique=True)
     backend = models.CharField(max_length=128)
     description = models.TextField()
+    enabled = models.BooleanField(default=True)
 
     def get_usage(self, rollover=True):
         try:
@@ -284,7 +285,8 @@ class Process(models.Model):
     def to_json(self, usage=False):
         data = {
             'identifier': self.identifier,
-            'backend': self.backend
+            'backend': self.backend,
+            'enabled': self.enabled
         }
 
         if usage:

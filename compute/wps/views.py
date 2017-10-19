@@ -1209,7 +1209,7 @@ def processes(request):
         if not request.user.is_authenticated:
             raise Exception('User must be authenticated to retrieve processes')
 
-        data = [x.identifier for x in models.Process.objects.all()]
+        data = [x.identifier for x in models.Process.objects.all() if x.enabled]
     except Exception as e:
         logger.excpetion('Error retrieving processes')
 
