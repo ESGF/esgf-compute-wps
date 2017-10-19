@@ -13,4 +13,6 @@ COPY server.xml conf/server.xml
 
 EXPOSE 8080
 
+HEALTHCHECK CMD curl --silent --location --fail http://0.0.0.0:8080/threddsCWT || exit 1
+
 ENTRYPOINT ["./entrypoint.sh"]

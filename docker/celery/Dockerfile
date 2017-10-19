@@ -18,7 +18,11 @@ WORKDIR /
 
 COPY entrypoint.sh entrypoint.sh
 
+COPY healthcheck.sh healthcheck.sh
+
 EXPOSE 4356 4357
+
+HEALTHCHECK CMD ./healthcheck.sh
 
 ENTRYPOINT ["./entrypoint.sh"]
 

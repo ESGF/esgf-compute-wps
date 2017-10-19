@@ -40,7 +40,7 @@ fi
 
 if [[ ! -e "./webapps/threddsCWT" ]]
 then
-  ./bin/catalina.sh start && sleep 10 && ./bin/catalina.sh stop
+  ./bin/catalina.sh start && sleep 10 && ./bin/catalina.sh stop && sleep 10
 
   sed -ibak s/\<param\-value\>thredds/\<param\-value\>threddsCWT/ ./webapps/threddsCWT/WEB-INF/web.xml
 fi

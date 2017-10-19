@@ -40,6 +40,10 @@ COPY edas.properties /root/.edas/cache/
 
 COPY entrypoint.sh entrypoint.sh
 
-ENTRYPOINT './entrypoint.sh'
+COPY healthcheck.py healthcheck.py
 
 EXPOSE 5670 5671
+
+HEALTHCHECK CMD python healthcheck.py
+
+ENTRYPOINT './entrypoint.sh'
