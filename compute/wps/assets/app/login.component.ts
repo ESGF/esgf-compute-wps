@@ -15,11 +15,11 @@ export class LoginCallbackComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    this.authService.getUserDetails();
+    this.authService.logged.subscribe((user: User) => {
+      this.router.navigate(['/wps/home/profile']);
 
-    this.router.navigate(['/wps/home/profile']);
-
-    this.notificationService.message('Successfully authenticated to ESGF OpenID');
+      this.notificationService.message('Successfully authenticated to ESGF OpenID');
+    });
   }
 }
 
