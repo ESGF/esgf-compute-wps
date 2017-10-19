@@ -87,8 +87,8 @@ export class PaginationComponent {
           <th *ngFor="let h of headers" (click)="sort(h.key)">
             <a>
               {{h.display}}
-              <i *ngIf="sortKey === h.key && sortDirection" class="fa fa-sort-asc" aria-hidden="true"></i>
-              <i *ngIf="sortKey === h.key && !sortDirection" class="fa fa-sort-desc" aria-hidden="true"></i>
+              <i *ngIf="sortKey === h.key && sortAsc" class="fa fa-sort-asc" aria-hidden="true"></i>
+              <i *ngIf="sortKey === h.key && !sortAsc" class="fa fa-sort-desc" aria-hidden="true"></i>
             </a>
           </th>
         </tr>
@@ -111,7 +111,7 @@ export class PaginationTableComponent extends PaginationComponent {
   @Input('search') searchEnabled = true;
 
   sortKey: string;
-  sortDirection = true;
+  sortAsc = false;
 
   @Input()
   set items(data: any[]) {
@@ -135,35 +135,29 @@ export class PaginationTableComponent extends PaginationComponent {
       });
     });
 
-    this.maxPage = Math.ceil(this.data.length / this.IPP)-1;
+    this.maxPage = Math.max(Math.ceil(this.data.length / this.IPP)-1, 0);
 
     this.sort(this.sortKey);
   }
 
   sort(key: string) {
-    if (this.sortKey != key) {
-      this.sortDirection = true;
-    }
+    if (this.data === null) return;
 
     this.sortKey = key;
 
-    if (this.data != undefined) {
-      this.data.sort((a: any, b: any) => {
-        if (a[key] > b[key]) {
-          return 1;
-        } else if (a[key] < b[key]) {
-          return -1;
-        } else {
-          return 0;
-        }
-      });
-    }
+    this.sortAsc = !this.sortAsc;
 
-    if (this.sortDirection) {
-      this.sortDirection = false;
-    } else {
-      this.sortDirection = true;
+    this.data.sort((a: any, b: any) => {
+      if (a[key] > b[key]) {
+        return 1;
+      } else if (a[key] < b[key]) {
+        return -1;
+      } else {
+        return 0;
+      }
+    });
 
+    if (!this.sortAsc) {
       this.data.reverse();
     }
   }
