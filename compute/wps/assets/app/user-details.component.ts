@@ -83,11 +83,11 @@ export class UserDetailsComponent {
     this.authService.myproxyclient(this.mpc)
       .then(response => {
         if (response.status === 'success') {
+          jQuery('#myproxyclient').modal('hide');
+
           this.model.type = response.data.type;
 
           this.model.api_key = response.data.api_key;
-
-          jQuery('#myproxyclient').modal('hide');
 
           this.notificationService.message('Successfully authenticated using ESGF MyProxyClient');
         } else {
