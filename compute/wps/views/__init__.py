@@ -1,4 +1,3 @@
-from .views import *
 from .auth import *
 from .esgf import *
 from .job import *
