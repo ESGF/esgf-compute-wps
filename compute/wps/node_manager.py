@@ -109,7 +109,10 @@ class NodeManager(object):
         logger.info('Updated auth settings for user {}'.format(user.username))
 
     def auth_mpc(self, oid_url, username, password):
-        url, services = discover.discoverYadis(oid_url)
+        try:
+            url, services = discover.discoverYadis(oid_url)
+        except Exception:
+            raise Exception('Failed to retrieve OpenID')
 
         mpc_service = openid_find_service_by_type(services, URN_MPC)
 
@@ -129,7 +132,10 @@ class NodeManager(object):
         self.update_user('myproxyclient', oid_url, c)
 
     def auth_oauth2(self, oid_url):
-        url, services = discover.discoverYadis(oid_url)
+        try:
+            url, services = discover.discoverYadis(oid_url)
+        except Exception:
+            raise Exception('Failed to retrieve OpenID')
 
         auth_service = openid_find_service_by_type(services, URN_AUTHORIZE)
 
@@ -147,7 +153,10 @@ class NodeManager(object):
         return redirect_url, session
 
     def auth_oauth2_callback(self, oid_url, query, state):
-        url, services = discover.discoverYadis(oid_url)
+        try:
+            url, services = discover.discoverYadis(oid_url)
+        except Exception:
+            raise Exception('Failed to retrieve OpenID')
 
         token_service = openid_find_service_by_type(services, URN_ACCESS)
 
@@ -201,15 +210,6 @@ class NodeManager(object):
             s.capabilities = cap.xml()
 
             s.save()
-
-    def cdas2_capabilities(self):
-        """ Queries for CDAS capabilities. """
-        servers = models.Server.objects.all()
-
-        for s in servers:
-            logger.info('Querying capabilities for CDAS backend {}'.format(s.host))
-
-            tasks.capabilities.delay(s.id)
 
     def get_capabilities(self):
         """ Retrieves WPS GetCapabilities. """

@@ -22,9 +22,9 @@ class BackendMeta(type):
 class Backend(object):
     __metaclass__ = BackendMeta
 
-    server = models.Server.objects.get(host='default')
-
     def add_process(self, identifier, name, backend, abstract=None):
+        server = models.Server.objects.get(host='default')
+
         if abstract is None:
             abstract = ''
 
