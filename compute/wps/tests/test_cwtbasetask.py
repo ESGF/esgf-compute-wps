@@ -13,6 +13,7 @@ from django import test
 from django.db.models import Count
 from OpenSSL import crypto, SSL
 
+from . import helpers
 from wps import models
 from wps import processes
 from wps.processes import process
@@ -45,51 +46,8 @@ def task_retry(self, **kwargs):
 class CWTBaseTaskTestCase(test.TestCase):
     @classmethod
     def setUpClass(cls):
-        from socket import gethostname
-
-        k = crypto.PKey()
-        k.generate_key(crypto.TYPE_RSA, 2048)
-
-        cert = crypto.X509()
-        cert.get_subject().C = "US"
-        cert.get_subject().ST = "CA"
-        cert.get_subject().O = "test"
-        cert.get_subject().OU = "test"
-        cert.get_subject().CN = gethostname()
-        cert.set_serial_number(1000)
-        cert.gmtime_adj_notBefore(0)
-        cert.gmtime_adj_notAfter(10*365*24*60*60)  # 10 years expiry date
-        cert.set_issuer(cert.get_subject())  # self-sign this certificate
-
-        cert.set_pubkey(k)
-        cert.sign(k, 'sha256')
-
-        cert_text = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
-        key_text = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
-
-        cls.cert = ''.join([cert_text, key_text])
-
-        k = crypto.PKey()
-        k.generate_key(crypto.TYPE_RSA, 2048)
-
-        cert = crypto.X509()
-        cert.get_subject().C = "US"
-        cert.get_subject().ST = "CA"
-        cert.get_subject().O = "test"
-        cert.get_subject().OU = "test"
-        cert.get_subject().CN = gethostname()
-        cert.set_serial_number(1000)
-        cert.gmtime_adj_notBefore(0)
-        cert.gmtime_adj_notAfter(-10)  # 10 years expiry date
-        cert.set_issuer(cert.get_subject())  # self-sign this certificate
-
-        cert.set_pubkey(k)
-        cert.sign(k, 'sha256')
-
-        cert_text = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
-        key_text = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
-
-        cls.cert_expired = ''.join([cert_text, key_text])
+        cls.cert = helpers.generate_certificate()
+        cls.cert_expired = helpers.generate_certificate(0, -10)
 
         if os.path.exists(settings.CACHE_PATH):
             shutil.rmtree(settings.CACHE_PATH)
@@ -101,35 +59,15 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         os.makedirs(settings.LOCAL_OUTPUT_PATH)
 
-        cls.longitude = cdms2.createUniformLongitudeAxis(-180.0, 360.0, 1.0)
+        cls.longitude = helpers.longitude
+        cls.latitude = helpers.latitude
 
-        cls.latitude = cdms2.createUniformLatitudeAxis(-90.0, 180.0, 1.0)
+        cls.time1 = helpers.generate_time('months since 1990-1-1', 24)
+        cls.time2 = helpers.generate_time('months since 1992-1-1', 24)
 
-        random.seed(1987)
+        helpers.write_file('./test1.nc', (cls.time1, cls.latitude, cls.longitude), 'tas')
 
-        cls.time1 = cdms2.createAxis(np.array([x for x in xrange(24)]))
-        cls.time1.id = 'time'
-        cls.time1.designateTime()
-        cls.time1.units = 'months since 1990-1-1'
-
-        with cdms2.open('./test1.nc', 'w') as outfile:
-            outfile.write(
-                np.array([[[random.random() for _ in xrange(360)] for _ in xrange(180)] for _ in xrange(24)]),
-                axes=(cls.time1, cls.latitude, cls.longitude),
-                id='tas'
-            )
-
-        cls.time2 = cdms2.createAxis(np.array([x for x in xrange(24)]))
-        cls.time2.id = 'time'
-        cls.time2.designateTime()
-        cls.time2.units = 'months since 1992-1-1'
-
-        with cdms2.open('./test2.nc', 'w') as outfile:
-            outfile.write(
-                np.array([[[random.random() for _ in xrange(360)] for _ in xrange(180)] for _ in xrange(24)]),
-                axes=(cls.time2, cls.latitude, cls.longitude),
-                id='tas'
-            )
+        helpers.write_file('./test2.nc', (cls.time2, cls.latitude, cls.longitude), 'tas')
 
     @classmethod
     def tearDownClass(cls):

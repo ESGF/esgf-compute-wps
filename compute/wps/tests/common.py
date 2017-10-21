@@ -3,6 +3,7 @@ import random
 
 from django import test
 
+from . import helpers
 from wps import models
 
 def random_str(n):
@@ -12,9 +13,14 @@ class CommonTestCase(test.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.user = models.User.objects.create_user('test', 'test@gmail.com', 'test')
+        try:
+            cls.user = models.User.objects.create_user('test', 'test@gmail.com', 'test')
 
-        models.Auth.objects.create(user=cls.user)
+            cert = helpers.generate_certificate()
+
+            models.Auth.objects.create(user=cls.user, cert=cert)
+        except Exception:
+            cls.user = models.User.objects.get(username='test')
 
         cls.server = models.Server.objects.create(host='default')
 

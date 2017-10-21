@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 
-import cdms2
 import cwt
 from celery.utils.log import get_task_logger
 
@@ -12,32 +11,19 @@ logger = get_task_logger('wps.tasks.cdat')
 def cache_variable(self, identifier, variables, domains, operations, **kwargs):
     self.PUBLISH = processes.RETRY | processes.FAILURE
 
-    job, status = self.initialize(credentials=True, **kwargs)
+    user, job = self.initialize(kwargs.get('user_id'), kwargs.get('job_id'), credentials=True)
 
-    variables, domains, operations = self.load(variables, domains, operations)
+    job.started()
 
-    op = self.op_by_id(identifier, operations)
+    v, d, o = self.load(variables, domains, operations)
 
-    var_name = reduce(lambda x, y: x if x == y else None, [x.var_name for x in op.inputs])
+    op = self.op_by_id(identifier, o)
 
-    out_local_path = self.generate_local_output()
+    output_path = self.retrieve_variable([op.inputs[0]], op.domain, job, **kwargs)
 
-    grid, tool, method = self.generate_grid(op, variables, domains)
+    output_url = self.generate_output_url(output_path, **kwargs)
 
-    with cdms2.open(out_local_path, 'w') as out:
-        def read_callback(data):
-            if grid is not None:
-                data = data.regrid(grid, regridTool=tool, regridMethod=method)
-
-            out.write(data, id=var_name)
-
-        self.cache_multiple_input(op.inputs, op.domain, status, read_callback)
-
-    out_path = self.generate_output(out_local_path, **kwargs)
-
-    out_var = cwt.Variable(out_path, var_name)
-
-    op.inputs = [out_var]
+    op.inputs = [cwt.Variable(output_url, op.inputs[0].var_name)]
 
     op.parameters['axes'] = cwt.NamedParameter('axes', 'xy')
 
