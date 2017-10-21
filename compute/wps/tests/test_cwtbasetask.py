@@ -1,3 +1,4 @@
+import datetime
 import os
 import random
 import re
@@ -7,8 +8,10 @@ import cdms2
 import cwt
 import mock
 import numpy as np
+from contextlib import nested
 from django import test
 from django.db.models import Count
+from OpenSSL import crypto, SSL
 
 from wps import models
 from wps import processes
@@ -42,14 +45,67 @@ def task_retry(self, **kwargs):
 class CWTBaseTaskTestCase(test.TestCase):
     @classmethod
     def setUpClass(cls):
+        from socket import gethostname
+
+        k = crypto.PKey()
+        k.generate_key(crypto.TYPE_RSA, 2048)
+
+        cert = crypto.X509()
+        cert.get_subject().C = "US"
+        cert.get_subject().ST = "CA"
+        cert.get_subject().O = "test"
+        cert.get_subject().OU = "test"
+        cert.get_subject().CN = gethostname()
+        cert.set_serial_number(1000)
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(10*365*24*60*60)  # 10 years expiry date
+        cert.set_issuer(cert.get_subject())  # self-sign this certificate
+
+        cert.set_pubkey(k)
+        cert.sign(k, 'sha256')
+
+        cert_text = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+        key_text = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
+
+        cls.cert = ''.join([cert_text, key_text])
+
+        k = crypto.PKey()
+        k.generate_key(crypto.TYPE_RSA, 2048)
+
+        cert = crypto.X509()
+        cert.get_subject().C = "US"
+        cert.get_subject().ST = "CA"
+        cert.get_subject().O = "test"
+        cert.get_subject().OU = "test"
+        cert.get_subject().CN = gethostname()
+        cert.set_serial_number(1000)
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(-10)  # 10 years expiry date
+        cert.set_issuer(cert.get_subject())  # self-sign this certificate
+
+        cert.set_pubkey(k)
+        cert.sign(k, 'sha256')
+
+        cert_text = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+        key_text = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
+
+        cls.cert_expired = ''.join([cert_text, key_text])
+
         if os.path.exists(settings.CACHE_PATH):
             shutil.rmtree(settings.CACHE_PATH)
 
         os.makedirs(settings.CACHE_PATH)
 
+        if os.path.exists(settings.LOCAL_OUTPUT_PATH):
+            shutil.rmtree(settings.LOCAL_OUTPUT_PATH)
+
+        os.makedirs(settings.LOCAL_OUTPUT_PATH)
+
         cls.longitude = cdms2.createUniformLongitudeAxis(-180.0, 360.0, 1.0)
 
         cls.latitude = cdms2.createUniformLatitudeAxis(-90.0, 180.0, 1.0)
+
+        random.seed(1987)
 
         cls.time1 = cdms2.createAxis(np.array([x for x in xrange(24)]))
         cls.time1.id = 'time'
@@ -79,6 +135,8 @@ class CWTBaseTaskTestCase(test.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(settings.CACHE_PATH)
 
+        shutil.rmtree(settings.LOCAL_OUTPUT_PATH)
+
         try:
             os.remove('./test1.nc')
         except:
@@ -89,22 +147,12 @@ class CWTBaseTaskTestCase(test.TestCase):
         except:
             pass
 
-        try:
-            os.remove('./output1.nc')
-        except:
-            pass
-
-        try:
-            os.remove('./multiple.nc')
-        except:
-            pass
-
     def setUp(self):
         self.task = processes.CWTBaseTask()
 
         self.user = models.User.objects.create(username='test')
 
-        models.Auth.objects.create(user=self.user, cert='test')
+        models.Auth.objects.create(user=self.user, cert=self.cert)
 
         server = models.Server.objects.create(host='test', status=0)
 
@@ -113,6 +161,498 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.job = models.Job.objects.create(server=server, user=self.user, process=process)
 
         self.job.accepted()
+
+    def test_map_domain_timestamps(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+
+        var_map = dict((x.id, 'tas') for x in file_handles)
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', '1990-1-1 00:00:00.0', '1993-1-1 00:00:00.0', cwt.CRS('timestamps')),
+        ])
+
+        domain_map = self.task.map_domain(file_handles, var_map, domain)
+
+        file_path = file_handles[0].id
+
+        self.assertIn(file_path, domain_map)
+        self.assertEqual(domain_map[file_path][0], slice(0, 24, 1))
+        self.assertEqual(domain_map[file_path][1], {})
+
+        file_path = file_handles[1].id
+
+        self.assertIn(file_path, domain_map)
+        self.assertEqual(domain_map[file_path][0], slice(0, 13, 1))
+        self.assertEqual(domain_map[file_path][1], {})
+
+    def test_map_domain_indices(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+
+        var_map = dict((x.id, 'tas') for x in file_handles)
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 10, 40, cwt.INDICES),
+        ])
+
+        domain_map = self.task.map_domain(file_handles, var_map, domain)
+
+        file_path = file_handles[0].id
+
+        self.assertIn(file_path, domain_map)
+        self.assertEqual(domain_map[file_path][0], slice(10, 24, 1))
+        self.assertEqual(domain_map[file_path][1], {})
+
+        file_path = file_handles[1].id
+
+        self.assertIn(file_path, domain_map)
+        self.assertEqual(domain_map[file_path][0], slice(0, 16, 1))
+        self.assertEqual(domain_map[file_path][1], {})
+
+    def test_map_domain_multiple(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+
+        var_map = dict((x.id, 'tas') for x in file_handles)
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 10, 40),
+        ])
+
+        domain_map = self.task.map_domain(file_handles, var_map, domain)
+
+        file_path = file_handles[0].id
+
+        self.assertIn(file_path, domain_map)
+        self.assertEqual(domain_map[file_path][0], slice(10, 24, 1))
+        self.assertEqual(domain_map[file_path][1], {})
+
+        file_path = file_handles[1].id
+
+        self.assertIn(file_path, domain_map)
+        self.assertEqual(domain_map[file_path][0], slice(0, 17, 1))
+        self.assertEqual(domain_map[file_path][1], {})
+
+    def test_map_domain(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+
+        var_map = dict((x.id, 'tas') for x in file_handles)
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 10, 20),
+        ])
+
+        domain_map = self.task.map_domain(file_handles, var_map, domain)
+
+        file_path = file_handles[0].id
+
+        self.assertIn(file_path, domain_map)
+        self.assertEqual(domain_map[file_path][0], slice(10, 21, 1))
+        self.assertEqual(domain_map[file_path][1], {})
+
+    def test_generate_partitions(self):
+        domain_map = {
+            'test1.nc': (slice(100, 1000, 1), {}),
+        }
+
+        partition_map = self.task.generate_partitions(domain_map)
+
+        self.assertEqual(len(partition_map['test1.nc'][0]), 5)
+
+    def test_retrieve_variable_cached(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        files = [
+            cwt.Variable(os.path.abspath('./test1.nc'), 'tas'),
+            cwt.Variable(os.path.abspath('./test2.nc'), 'tas'),
+        ]
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 0, 40),
+        ])
+
+        self.job.started()
+
+        cached, exists = self.task.check_cache(files[0].uri, 'tas', slice(0, 24, 1), {})
+
+        shutil.copyfile('./test1.nc', cached.local_path)
+
+        with self.assertNumQueries(34):
+            output_path = self.task.retrieve_variable(files, domain, self.job)
+
+        self.assertRegexpMatches(output_path, '/data/public/.*\.nc')
+
+        with cdms2.open(output_path) as testfile:
+            self.assertEqual(testfile['tas'].getTime().shape[0], 41)
+
+    def test_retrieve_variable_partial(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        files = [
+            cwt.Variable(os.path.abspath('./test1.nc'), 'tas'),
+            cwt.Variable(os.path.abspath('./test2.nc'), 'tas'),
+        ]
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 10, 20),
+        ])
+
+        self.job.started()
+
+        with self.assertNumQueries(24):
+            output_path = self.task.retrieve_variable(files, domain, self.job)
+
+        self.assertRegexpMatches(output_path, '/data/public/.*\.nc')
+
+        with cdms2.open(output_path) as testfile:
+            self.assertEqual(testfile['tas'].getTime().shape[0], 11)
+
+    def test_retrieve_variable_multiple(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        files = [
+            cwt.Variable(os.path.abspath('./test1.nc'), 'tas'),
+            cwt.Variable(os.path.abspath('./test2.nc'), 'tas'),
+        ]
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 10, 40),
+        ])
+
+        self.job.started()
+
+        with self.assertNumQueries(39):
+            output_path = self.task.retrieve_variable(files, domain, self.job)
+
+        self.assertRegexpMatches(output_path, '/data/public/.*\.nc')
+
+        with cdms2.open(output_path) as testfile:
+            self.assertEqual(testfile['tas'].getTime().shape[0], 31)
+
+    def test_retrieve_variable_access_error(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        files = [
+            cwt.Variable(os.path.abspath('./test12.nc'), 'tas')
+        ]
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 10, 20)
+        ])
+
+        self.job.started()
+
+        with self.assertNumQueries(0), self.assertRaises(processes.AccessError):
+            self.task.retrieve_variable(files, domain, self.job)
+
+    def test_retrieve_variable(self):
+        os.chdir(os.path.join(os.path.dirname(__file__), '..'))
+
+        files = [
+            cwt.Variable(os.path.abspath('./test1.nc'), 'tas')
+        ]
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 10, 20)
+        ])
+
+        self.job.started()
+
+        with self.assertNumQueries(24):
+            output_path = self.task.retrieve_variable(files, domain, self.job)
+
+        self.assertRegexpMatches(output_path, '/data/public/.*\.nc')
+
+        with cdms2.open(output_path) as testfile:
+            self.assertEqual(testfile['tas'].getTime().shape[0], 11)
+
+    def test_download_with_post_process(self):
+        var_name = 'tas'
+        base_units = 'months since 1800-1-1 1'
+        temporal = (slice(0, 4, 1), slice(4, 8, 1))
+        spatial = {}
+
+        files = [
+            cdms2.open('./test1.nc'),
+            cdms2.open('./output.nc', 'w'),
+            cdms2.open('./cache.nc', 'w')
+        ]
+
+        def post_process(data):
+            return data + 10
+
+        self.job.started()
+
+        with nested(*files) as (infile, outfile, cachefile):
+            self.task.download(infile, var_name, base_units, temporal, spatial, cachefile, outfile, post_process, self.job)
+
+        files = [
+            cdms2.open('./test1.nc'),
+            cdms2.open('./output.nc'),
+            cdms2.open('./cache.nc')
+        ]
+
+        with nested(*files) as (infile, outfile, cachefile):
+            self.assertFalse((infile['tas'][0]==outfile['tas'][0]).all())
+            self.assertTrue(((infile['tas'][0]+10)==outfile['tas'][0]).all())
+            self.assertTrue((infile['tas'][0]==cachefile['tas'][0]).all())
+
+        os.remove('./output.nc')
+        os.remove('./cache.nc')
+
+    def test_download_with_cache(self):
+        var_name = 'tas'
+        base_units = 'months since 1800-1-1 1'
+        temporal = (slice(0, 4, 1), slice(4, 8, 1))
+        spatial = {}
+
+        files = [
+            cdms2.open('./test1.nc'),
+            cdms2.open('./output.nc', 'w'),
+            cdms2.open('./cache.nc', 'w')
+        ]
+
+        self.job.started()
+
+        with nested(*files) as (infile, outfile, cachefile):
+            self.task.download(infile, var_name, base_units, temporal, spatial, cachefile, outfile, None, self.job)
+
+        with cdms2.open('./output.nc') as testfile:
+            self.assertEqual(testfile['tas'].getTime().shape[0], 8)
+
+            self.assertEqual(testfile['tas'].getTime().units, 'months since 1800-1-1 1')
+
+        with cdms2.open('./cache.nc') as testfile:
+            self.assertEqual(testfile['tas'].getTime().shape[0], 8)
+
+            self.assertEqual(testfile['tas'].getTime().units, 'months since 1990-1-1')
+
+        os.remove('./output.nc')
+        os.remove('./cache.nc')
+
+    def test_download_with_cache(self):
+        var_name = 'tas'
+        base_units = 'months since 1800-1-1 1'
+        temporal = (slice(0, 4, 1), slice(4, 8, 1))
+        spatial = {}
+
+        files = [
+            cdms2.open('./test1.nc'),
+            cdms2.open('./output.nc', 'w'),
+        ]
+
+        self.job.started()
+
+        with nested(*files) as (infile, outfile):
+            self.task.download(infile, var_name, base_units, temporal, spatial, None, outfile, None, self.job)
+
+        with cdms2.open('./output.nc') as testfile:
+            self.assertEqual(testfile['tas'].getTime().shape[0], 8)
+
+            self.assertEqual(testfile['tas'].getTime().units, 'months since 1800-1-1 1')
+
+        os.remove('./output.nc')
+
+    def test_generate_cache_map_not_in_domain(self):
+        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+
+        time_slice = slice(0, 24, 1)
+
+        cached, exists = self.task.check_cache(file_handles[0].id, 'tas', time_slice, {})
+
+        shutil.copyfile('./test1.nc', cached.local_path)
+
+        with nested(*file_handles):
+            file_map = dict((x.id, x) for x in file_handles)
+
+            var_map = dict((x.id, 'tas') for x in file_handles)
+
+            domain_map = {
+                file_handles[0].id: (time_slice, {}),
+                file_handles[1].id: (None, {})
+            }
+
+            self.job.started()
+
+            with self.assertNumQueries(4):
+                cache_map = self.task.generate_cache_map(file_map, var_map, domain_map, self.job)
+
+        self.assertNotIn(file_handles[1].id, file_map)
+
+    def test_generate_cache_map_exists(self):
+        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+
+        time_slice = slice(0, 24, 1)
+
+        cached, exists = self.task.check_cache(file_handles[0].id, 'tas', time_slice, {})
+
+        shutil.copyfile('./test1.nc', cached.local_path)
+
+        with nested(*file_handles):
+            file_map = dict((x.id, x) for x in file_handles)
+
+            var_map = dict((x.id, 'tas') for x in file_handles)
+
+            domain_map = {
+                file_handles[0].id: (time_slice, {})
+            }
+
+            self.job.started()
+
+            with self.assertNumQueries(4):
+                cache_map = self.task.generate_cache_map(file_map, var_map, domain_map, self.job)
+
+        file_path = file_handles[0].id
+
+        self.assertNotIn(file_path, cache_map)
+
+    def test_generate_cache_map_multiple(self):
+        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+
+        with nested(*file_handles):
+            file_map = dict((x.id, x) for x in file_handles)
+
+            var_map = dict((x.id, 'tas') for x in file_handles)
+
+            domain_map = {
+                file_handles[0].id: (slice(0, 24, 1), {}),
+                file_handles[1].id: (slice(0, 24, 1), {})
+            }
+
+            self.job.started()
+
+            with self.assertNumQueries(13):
+                cache_map = self.task.generate_cache_map(file_map, var_map, domain_map, self.job)
+
+        file_path = file_handles[0].id
+
+        self.assertIn(file_path, cache_map)
+
+        file_path = file_handles[1].id
+
+        self.assertIn(file_path, cache_map)
+
+    def test_generate_cache_map_single(self):
+        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+
+        with nested(*file_handles):
+            file_map = dict((x.id, x) for x in file_handles)
+
+            var_map = dict((x.id, 'tas') for x in file_handles)
+
+            domain_map = {
+                file_handles[0].id: (slice(0, 24, 1), {})
+            }
+
+            self.job.started()
+
+            with self.assertNumQueries(8):
+                cache_map = self.task.generate_cache_map(file_map, var_map, domain_map, self.job)
+
+        file_path = file_handles[0].id
+
+        self.assertIn(file_path, cache_map)
+
+    def test_generate_output_file(self):
+        settings.DAP = False
+
+        output_url = self.task.generate_output_url('/data/test.nc')
+
+        self.assertEqual(output_url, 'http://0.0.0.0:8000/wps/output/test.nc')
+
+    def test_generate_output_dap(self):
+        settings.DAP = True
+
+        output_url = self.task.generate_output_url('/data/test.nc')
+
+        self.assertEqual(output_url, 'http://thredds:8080/thredds/dodsC/test/public/test.nc')
+
+    def test_generate_output_url(self):
+        output_url = self.task.generate_output_url('/data/test', local=True)
+
+        self.assertEqual(output_url, 'file:///data/test')
+
+    def test_generate_output_url(self):
+        output_url = self.task.generate_output_url('file:///data/test', local=True)
+
+        self.assertEqual(output_url, 'file:///data/test')
+
+    def test_generate_output_path_name(self):
+        output_path = self.task.generate_output_path('test')
+
+        self.assertRegexpMatches(output_path, '/data/public/test.nc')
+
+    def test_generate_output_path(self):
+        output_path = self.task.generate_output_path()
+
+        self.assertRegexpMatches(output_path, '/data/public/.*\.nc')
+
+    def test_load_certificate(self):
+        self.user.auth.type = 'oauth2'
+
+        self.user.auth.cert = self.cert
+
+        self.user.auth.save()
+
+        self.task.load_certificate(self.user)
+
+        self.assertTrue(os.path.exists('/tmp/{}/.dodsrc'.format(self.user.id)))
+
+        self.assertTrue(os.path.exists('/tmp/{}/cert.pem'.format(self.user.id)))
+
+        shutil.rmtree('/tmp/{}'.format(self.user.id))
+
+    def test_refresh_certificate_mpc(self):
+        self.user.auth.type = 'mpc'
+        
+        self.user.auth.save()
+
+        with self.assertRaises(Exception):
+            self.task.refresh_certificate(self.user)
+
+    def test_refresh_certificate_oauth2(self):
+        with self.assertRaises(Exception):
+            self.task.refresh_certificate(self.user)
+
+    def test_check_certificate_corrupt(self):
+        self.user.auth.cert = 'test'
+        
+        self.user.auth.save()
+
+        with self.assertNumQueries(0), self.assertRaises(Exception):
+            self.assertFalse(self.task.check_certificate(self.user))
+
+    def test_check_certificate_expired(self):
+        self.user.auth.cert = self.cert_expired
+        
+        self.user.auth.save()
+
+        with self.assertNumQueries(0):
+            self.assertFalse(self.task.check_certificate(self.user))
+
+    def test_check_certificate(self):
+        with self.assertNumQueries(0):
+            self.assertTrue(self.task.check_certificate(self.user))
+
+    def test_initialize_credentials(self):
+        with self.assertNumQueries(3):
+            user, job = self.task.initialize(user_id=self.user.id, job_id=self.job.id, credentials=True)
+
+        self.assertEqual(self.user, user)
+        self.assertEqual(self.job, job)
+
+    def test_initialize(self):
+        with self.assertNumQueries(2):
+            user, job = self.task.initialize(user_id=self.user.id, job_id=self.job.id)
+
+        self.assertEqual(self.user, user)
+        self.assertEqual(self.job, job)
 
     def test_task_cannot_publish(self):
         with self.assertNumQueries(0):
@@ -153,133 +693,6 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         self.assertEqual(usage.executed, 1)
         self.assertEqual(usage.success, 1)
-
-    def test_cache_multiple_input_partial(self):
-        variables = [
-            cwt.Variable('./test1.nc', 'tas'),
-            cwt.Variable('./test2.nc', 'tas')
-        ]
-
-        domain = cwt.Domain([
-            cwt.Dimension('time', 10, 15),
-            cwt.Dimension('lat', -45, 45),
-            cwt.Dimension('lon', -90, 90)
-        ])
-
-        status = process.Status.from_job_id(self.job.pk)
-
-        status.job.started()
-
-        with cdms2.open('./multiple.nc', 'w') as outfile:
-            def callback(data):
-                outfile.write(data, id='tas')
-
-            with self.assertNumQueries(14):
-                cached = self.task.cache_multiple_input(variables, domain, status, callback)
-
-            for c in cached: self.assertTrue(os.path.exists(c))
-
-    def test_cache_multiple_input(self):
-        variables = [
-            cwt.Variable('./test1.nc', 'tas'),
-            cwt.Variable('./test2.nc', 'tas')
-        ]
-
-        domain = cwt.Domain([
-            cwt.Dimension('time', 10, 40),
-            cwt.Dimension('lat', -45, 45),
-            cwt.Dimension('lon', -90, 90)
-        ])
-
-        status = process.Status.from_job_id(self.job.pk)
-
-        status.job.started()
-
-        with cdms2.open('./multiple.nc', 'w') as outfile:
-            def callback(data):
-                outfile.write(data, id='tas')
-
-            with self.assertNumQueries(30):
-                cached = self.task.cache_multiple_input(variables, domain, status, callback)
-
-            for c in cached:
-                self.assertTrue(os.path.exists(c))
-
-        for c in cached:
-            uid = c.split('/')[-1].replace('.nc', '')
-
-            cache = models.Cache.objects.get(uid=uid)
-
-            size = os.stat(cache.local_path).st_size
-
-            self.assertEqual(cache.size, size)
-
-    def test_cache_input_access_error(self):
-        variable = cwt.Variable('./test10.nc', 'tas')
-
-        domain = cwt.Domain([
-            cwt.Dimension('time', 10, 15),
-            cwt.Dimension('lat', -45, 45),
-            cwt.Dimension('lon', -90, 90),
-        ])
-
-        with cdms2.open('./output1.nc', 'w') as outfile, self.assertRaises(process.AccessError):
-            def callback(data):
-                outfile.write(data, id='tas')
-
-            self.task.cache_input(variable, domain, callback)
-
-    def test_cache_input_exists(self):
-        variable = cwt.Variable('./test1.nc', 'tas')
-
-        domain = cwt.Domain([
-            cwt.Dimension('time', 10, 15),
-            cwt.Dimension('lat', -45, 45),
-            cwt.Dimension('lon', -90, 90),
-        ])
-
-        status = process.Status.from_job_id(self.job.pk)
-
-        status.job.started()
-
-        with cdms2.open('./output1.nc', 'w') as outfile:
-            def callback(data):
-                outfile.write(data, id='tas')
-
-            self.task.cache_input(variable, domain, status, callback)
-
-            with self.assertNumQueries(13):
-                cache = self.task.cache_input(variable, domain, status, callback)
-
-    def test_cache_input(self):
-        variable = cwt.Variable('./test1.nc', 'tas')
-
-        domain = cwt.Domain([
-            cwt.Dimension('time', 10, 15),
-            cwt.Dimension('lat', -45, 45),
-            cwt.Dimension('lon', -90, 90),
-        ])
-
-        status = process.Status.from_job_id(self.job.pk)
-
-        status.job.started()
-
-        with cdms2.open('./output1.nc', 'w') as outfile:
-            def callback(data):
-                outfile.write(data, id='tas')
-
-            with self.assertNumQueries(18):
-                cache = self.task.cache_input(variable, domain, status, callback)
-
-            self.assertEqual(outfile['tas'].shape, (6, 91, 181))
-
-        uid = cache.split('/')[-1].replace('.nc', '')
-
-        cache = models.Cache.objects.get(uid=uid)
-
-        size = os.stat(cache.local_path).st_size
-
-        self.assertEqual(cache.size, size)
 
     def test_check_cache_fail_time_validation(self):
         uri = './test1.nc'
@@ -403,82 +816,6 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         self.assertEqual(grid.shape, (32, 64))
 
-    def test_map_domain_multiple_partial(self):
-        domain = cwt.Domain([
-            cwt.Dimension('time', 5, 10),
-        ])
-
-        with cdms2.open('./test1.nc') as infile1, cdms2.open('./test2.nc') as infile2:
-            domain_map = self.task.map_domain_multiple([infile1, infile2], 'tas', domain)
-
-        test1 = [x for x in domain_map.keys() if 'test1' in x][0]
-        test2 = [x for x in domain_map.keys() if 'test2' in x][0]
-
-        temporal1, spatial1 = domain_map[test1]
-
-        self.assertEqual(temporal1, slice(5, 11, 1))
-
-        temporal2, spatial2 = domain_map[test2]
-
-        self.assertEqual(temporal2, None)
-
-    def test_map_domain_multiple_whole(self):
-        with cdms2.open('./test1.nc') as infile1, cdms2.open('./test2.nc') as infile2:
-            domain_map = self.task.map_domain_multiple([infile1, infile2], 'tas', None)
-
-        for v in domain_map.values():
-            self.assertEqual(v[0], slice(0, 24, 1))
-
-    def test_map_domain_multiple(self):
-        domain = cwt.Domain([
-            cwt.Dimension('time', 5, 35),
-            cwt.Dimension('lat', -45, 45),
-        ])
-
-        with cdms2.open('./test1.nc') as infile1, cdms2.open('./test2.nc') as infile2:
-            domain_map = self.task.map_domain_multiple([infile1, infile2], 'tas', domain)
-
-        test1 = [x for x in domain_map.keys() if 'test1' in x][0]
-        test2 = [x for x in domain_map.keys() if 'test2' in x][0]
-
-        temporal1, spatial1 = domain_map[test1]
-
-        self.assertEqual(temporal1, slice(5, 24, 1))
-        self.assertDictEqual(spatial1, { 'latitude': (-45, 45) })
-
-        temporal2, spatial2 = domain_map[test2]
-
-        self.assertEqual(temporal2, slice(0, 12, 1))
-        self.assertDictEqual(spatial1, { 'latitude': (-45, 45) })
-
-    def test_map_domain_dimension_does_not_exist(self):
-        domain = cwt.Domain([
-            cwt.Dimension('level', 5, 20),
-        ])
-
-        with cdms2.open('./test1.nc') as infile, self.assertRaises(Exception):
-            temporal, spatial = self.task.map_domain(infile, 'tas', domain)
-
-    def test_map_domain_whole(self):
-        with cdms2.open('./test1.nc') as infile:
-            temporal, spatial = self.task.map_domain(infile, 'tas', None)
-
-        self.assertEqual(temporal, slice(0, 24, 1))
-        self.assertDictEqual(spatial, {})
-
-    def test_map_domain(self):
-        domain = cwt.Domain([
-            cwt.Dimension('time', 5, 20),
-            cwt.Dimension('lat', -45, 45),
-            cwt.Dimension('lon', -90, 90)
-        ])
-
-        with cdms2.open('./test1.nc') as infile:
-            temporal, spatial = self.task.map_domain(infile, 'tas', domain)
-
-        self.assertEqual(temporal, slice(5, 21, 1))
-        self.assertDictEqual(spatial, { 'latitude': (-45, 45), 'longitude': (-90, 90) })
-
     def test_map_time_unknown(self):
         dimension = cwt.Dimension('time', 0, 10, crs=cwt.CRS('custom'))
 
@@ -508,35 +845,6 @@ class CWTBaseTaskTestCase(test.TestCase):
 
     def test_slice_to_string(self):
         self.assertEqual(self.task.slice_to_str(slice(10, 200, 1)), '10:200:1')
-
-    def test_generate_output_local(self):
-        output = self.task.generate_output('file:///test.nc', local=True)
-
-        self.assertEqual('file:///test.nc', output)
-
-    def test_generate_output_dap(self):
-        settings.DAP = True
-
-        output = self.task.generate_output('file:///test.nc')
-
-        self.assertEqual(settings.DAP_URL.format(file_name='test.nc'), output)
-
-        settings.DAP = False
-
-    def test_generate_output(self):
-        output = self.task.generate_output('file:///test.nc')
-
-        self.assertRegexpMatches(output, '.*/thredds/dodsC/test/public/test.nc')
-
-    def test_generate_local_output_custom_name(self):
-        output = self.task.generate_local_output('test')
-
-        self.assertEqual(output, '{}/test.nc'.format(settings.OUTPUT_LOCAL_PATH))
-
-    def test_generate_local_output(self):
-        output = self.task.generate_local_output()
-
-        self.assertRegexpMatches(output, '{}/.*\.nc'.format(settings.OUTPUT_LOCAL_PATH))
 
     def test_op_by_id_missing(self):
         with self.assertRaises(Exception):
@@ -574,21 +882,12 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertIsNotNone(o['subset'].domain)
         self.assertIsInstance(o['subset'].domain, cwt.Domain)
 
-    def test_set_user_cred(self):
-        self.task.set_user_creds(cwd='/users', user_id=self.user.pk)
-
-        user_path = os.path.join('/', 'users', str(self.user.pk))
-
-        self.assertTrue(os.path.exists(user_path))
-        self.assertTrue(os.path.exists(os.path.join(user_path, '.dodsrc')))
-        self.assertTrue(os.path.exists(os.path.join(user_path, 'creds.pem')))
-
     def test_get_job_missing_key(self):
         with self.assertRaises(Exception):
             self.task.get_job()
 
     def test_get_job_does_not_exist(self):
-        with self.assertRaises(models.Job.DoesNotExist):
+        with self.assertRaises(Exception):
             self.task.get_job({'job_id': 10})
 
     def test_get_job(self):
@@ -596,13 +895,3 @@ class CWTBaseTaskTestCase(test.TestCase):
             job = self.task.get_job({'job_id': self.job.pk})
 
         self.assertIsInstance(job, models.Job)
-
-    def test_initialize(self):
-        with self.assertNumQueries(4):
-            job, status = self.task.initialize(credentials=False, job_id=self.job.pk)
-
-        self.assertIsInstance(job, models.Job)
-        self.assertIsInstance(status, processes.Status)
-
-        self.assertQuerysetEqual(self.job.status_set.all(), ['ProcessAccepted', 'ProcessStarted'], lambda x: x.status, ordered=False)
-        self.assertQuerysetEqual(self.job.status_set.latest('created_date').message_set.all(), ['Job Started'], lambda x: x.message, ordered=False)

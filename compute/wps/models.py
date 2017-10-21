@@ -7,8 +7,6 @@ import os
 import time
 from urlparse import urlparse
 
-logger = logging.getLogger('wps.models')
-
 from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
@@ -21,6 +19,8 @@ from openid.store import nonce
 
 from wps import settings
 from wps import wps_xml
+
+logger = logging.getLogger('wps.models')
 
 STATUS = {
     'ProcessAccepted': wps_lib.ProcessAccepted,
@@ -437,7 +437,7 @@ class Job(models.Model):
     def retry(self):
         self.process.retry()
 
-        self.update_progress('Retrying...', 0)
+        self.update_status('Retrying...', 0)
 
     def update_status(self, message, percent=0):
         logger.info('Updating job "{}" status with "{}" percent {} %'.format(self.id, message, percent))

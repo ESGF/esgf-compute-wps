@@ -31,7 +31,9 @@ __all__ = [
     'FAILURE',
     'RETRY',
     'SUCCESS',
-    'ALL'
+    'ALL',
+    'AccessError',
+    'InvalidShapeError',
 ]
 
 FAILURE = 1
@@ -208,7 +210,10 @@ class CWTBaseTask(celery.Task):
         if user.auth.type == 'myproxyclient':
             raise Exception('Certificate has expired, authenticate with MyProxyClient')
 
-        url, services = discover.discoverYadis(user.auth.openid_url)
+        try:
+            url, services = discover.discoverYadis(user.auth.openid_url)
+        except:
+            raise Exception('Failed to discover OpenID')
 
         auth_service = openid_find_service_by_type(services, URN_AUTHORIZE)
 
@@ -405,9 +410,9 @@ class CWTBaseTask(celery.Task):
             if temporal is None or temporal.stop == 0:
                 logger.debug('File "{}" is not contained in the domain'.format(url))
 
-                files[url].close()
+                file_map[url].close()
 
-                del files[url]
+                del file_map[url]
 
                 continue
 
@@ -464,9 +469,9 @@ class CWTBaseTask(celery.Task):
             data.getTime().toRelativeTime(base_units)
 
             if post_process is None:
-                out_file.write(post_process(data), id=var_name)
-            else:
                 out_file.write(data, id=var_name)
+            else:
+                out_file.write(post_process(data), id=var_name)
 
             percent = (i+1)*100/steps
 
@@ -509,6 +514,8 @@ class CWTBaseTask(celery.Task):
         # Map the domain
         domain_map = self.map_domain(files.values(), file_var_map, domain)
 
+        print domain_map
+
         logger.debug('Mapped domain {}'.format(domain_map))
 
         cache_map = self.generate_cache_map(files, file_var_map, domain_map, job)
@@ -529,7 +536,7 @@ class CWTBaseTask(celery.Task):
 
         # Download chunked files
         with cdms2.open(output_path, 'w') as out_file:
-            for url in files.keys():
+            for url in domain_map.keys():
                 job.update_status('Processing input "{}"'.format(url))
 
                 cache_file = None
@@ -555,7 +562,7 @@ class CWTBaseTask(celery.Task):
 
                     cache_map[url].size = os.stat(cache_map[url].local_path).st_size / 1073741824.0
 
-                    cache_mpa[url].save()
+                    cache_map[url].save()
 
                     logger.debug('Updating cache entry with file size "{}" GB'.format(cache_map[url].size))
 
@@ -670,6 +677,8 @@ class CWTBaseTask(celery.Task):
 
         dimensions = self.generate_dimension_id(temporal, spatial)
 
+        logger.info('Generated uid "{}" dimensions "{}"'.format(uid, dimensions))
+
         cached, created = models.Cache.objects.get_or_create(uid=uid, dimensions=dimensions)
 
         exists = False
@@ -688,11 +697,13 @@ class CWTBaseTask(celery.Task):
                     cached_file = cdms2.open(local_path)
                 except Exception:
                     logger.exception('Failed to open local cached file')
+
+                    raise AccessError('File exists, but cannot be open')
                 else:
                     # Validate the cached file
                     with cached_file as cached_file:
                         if var_name in cached_file.variables:
-                            time = cached_file[var_name].shape[0]
+                            time = cached_file[var_name].getTime().shape[0]
 
                             expected_time = temporal.stop - temporal.start
 
@@ -725,7 +736,9 @@ class CWTBaseTask(celery.Task):
             Exception: Could not map the Dimension to CoordinateAxis.
         """
         if dim.crs == cwt.INDICES:
-            axis_slice = slice(dim.start, dim.end, dim.step)
+            n = axis.shape[0]
+
+            axis_slice = slice(dim.start, min(n, dim.end), dim.step)
         elif dim.crs == cwt.VALUES:
             try:
                 start, stop = axis.mapInterval((dim.start, dim.end))
@@ -778,6 +791,7 @@ class CWTBaseTask(celery.Task):
             file_header = file_obj[var_name]
             temporal = None
             spatial = {}
+            skip = False
 
             if domain is None:
                 temporal = slice(0, file_header.getTime().shape[0], 1)
@@ -797,6 +811,15 @@ class CWTBaseTask(celery.Task):
 
                         temporal = self.map_time_axis(clone_axis, dim)
 
+                        if temporal is None:
+                            logger.info('Skipping "{}" not included in domain'.format(file_obj.id))
+
+                            skip = True
+
+                            break
+
+                        print temporal
+
                         if dim.crs == cwt.INDICES:
                             dim.start -= temporal.start
 
@@ -804,7 +827,8 @@ class CWTBaseTask(celery.Task):
                     else:
                         spatial[axis.id] = (dim.start, dim.end)
 
-            domains[file_obj.id] = (temporal, spatial)
+            if not skip:
+                domains[file_obj.id] = (temporal, spatial)
 
         return domains
 
