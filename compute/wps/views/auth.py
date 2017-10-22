@@ -4,6 +4,7 @@ import string
 import json
 
 from django import http
+from django.core.mail import send_mail
 from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from django.contrib.auth import logout
@@ -213,6 +214,8 @@ def user_login(request):
         return common.failed(e.message)
     else:
         data = common.user_to_json(user)
+
+        data['expires'] = request.session.get_expiry_date()
 
         return common.success(data)
 

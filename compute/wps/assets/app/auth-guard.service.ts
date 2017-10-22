@@ -16,12 +16,14 @@ export class AuthGuard implements CanActivate {
     private router: Router
   ) { }
 
-  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean {
-    if (this.authService.isLogged()) { return true; }
+  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot) : boolean {
+    let url = state.url;
 
-    this.notificationService.error('Access denied, please login');
+    if (this.authService.isLoggedIn) { return true; }
 
-    this.router.navigate(['/wps/home/login'], { queryParams: { next: state.url }});
+    this.authService.redirectUrl = url;
+
+    this.router.navigate(['/wps/home/login']);
 
     return false;
   }

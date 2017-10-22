@@ -23,14 +23,8 @@ export class UserDetailsComponent {
   ) { }
 
   ngOnInit() {
-    this.authService.logged.subscribe((user: User) => {
-      if (user != null) {
-        this.model = user;
-
-        if (this.model.local_init === false) {
-          this.notificationService.warn('Please set a password if you would like to login locally');
-        }
-      }
+    this.authService.user$.subscribe((value: User) => {
+      this.model = value;
     });
   }
 

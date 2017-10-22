@@ -13,6 +13,7 @@ export class LogoutComponent {
     private router: Router,
   ) {
     this.authService.logout()
-      .then(response => this.router.navigate(['/wps/home']));
+    
+    this.router.navigate(['/wps/home']);
   }
 }

@@ -50,16 +50,8 @@ export class AppComponent implements OnInit, OnDestroy {
         this.clear();
       });
 
-    this.loggedSub = this.authService.logged.subscribe((user) => {
-      if (user !== null) {
-        this.logged = true;
-
-        this.admin = user.admin;
-      } else {
-        this.logged = false;
-
-        this.admin = false;
-      }
+    this.loggedSub = this.authService.isLoggedIn$.subscribe((value: boolean) => {
+      this.logged = value;
     });
 
     this.notificationSub = this.notificationService.notification$.subscribe((value: any) => {

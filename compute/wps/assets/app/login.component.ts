@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, NavigationExtras } from '@angular/router';
 
 import { AuthService, User } from './auth.service';
 import { NotificationService } from './notification.service';
@@ -15,10 +15,12 @@ export class LoginCallbackComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    this.authService.logged.subscribe((user: User) => {
-      this.router.navigate(['/wps/home/profile']);
+    this.authService.isLoggedIn$.subscribe((value: boolean) => {
+      if (value) {
+        this.router.navigate(['/wps/home/profile']);
 
-      this.notificationService.message('Successfully authenticated to ESGF OpenID');
+        this.notificationService.message('Successfully authenticated to ESGF OpenID');
+      }
     });
   }
 }
@@ -38,21 +40,22 @@ export class LoginComponent implements OnInit {
     private router: Router
   ) { }
 
-  ngOnInit() {
-    this.next = this.route.snapshot.queryParams['next'] || '/wps/home/profile';
+  ngOnInit() { 
+    this.authService.isLoggedIn$.subscribe((value: boolean) => {
+      if (value) {
+        let redirect = this.authService.redirectUrl || '/wps/home/profile';
+
+        let navigationExtras: NavigationExtras = {
+          queryParamsHandling: 'preserve',
+          preserveFragment: true
+        };
+
+        this.router.navigate([redirect], navigationExtras);
+      }
+    });
   }
 
   onSubmit() {
-    this.authService.login(this.model)
-      .then(response => {
-        if (response.status === 'success') {
-          this.router.navigateByUrl(this.next)
-
-          this.notificationService.message('Login success');
-        } else {
-          this.notificationService.error(`Login failed: "${response.error}"`);
-        }
-      })
-      .catch(error => console.log(error));
+    this.authService.login(this.model);
   }
 }

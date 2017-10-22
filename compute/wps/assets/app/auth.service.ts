@@ -25,58 +25,47 @@ interface Options {
 
 @Injectable()
 export class AuthService {
+  isLoggedIn: boolean;
+  isLoggedIn$ = new BehaviorSubject<boolean>(this.isLoggedIn);
+
   user: User;
+  user$ = new BehaviorSubject<User>(this.user);
 
-  logged$ = new BehaviorSubject<User>({} as User);
-
-  logged = this.logged$.asObservable();
+  redirectUrl: string;
 
   constructor(
     @Inject(DOCUMENT) private doc: any,
     private http: Http
   ) { 
-    this.getUserDetails();
+    if (this.authenticated) {
+      this.setLoggedIn(true);
+
+      this.userDetails();
+    }
   }
 
-  getUserDetails() {
-    this.userDetails()
-      .then(data => {
-        let response = data as WPSResponse;
+  get authenticated() {
+    let expires = localStorage.getItem('expires');
 
-        if (response.status === 'success') {
-          this.user = response.data as User;
+    if (expires !== null) {
+      let expiresDate = Date.parse(expires);
 
-          localStorage.setItem('expires', this.user.expires.toString());
-
-          this.logged$.next(this.user);
-        } else {
-          localStorage.removeItem('expires');
-
-          this.logged$.next(null);
-        }
-      });
-  }
-
-  isLogged(): boolean {
-    if (this.user || this.sessionValid()) {
-      return true;
+      return Date.now() <= expiresDate;
     }
 
-    return false;
+    return false; 
   }
 
-  sessionValid(): boolean {
-    if (this.user) {
-      return Date.now() < this.user.expires;
-    } else {
-      let expires = localStorage.getItem('expires');
+  setLoggedIn(value: boolean) {
+    this.isLoggedIn$.next(value);
 
-      if (Date.now() < Date.parse(expires)) {
-        return true;
-      }
-    }
-  
-    return false;
+    this.isLoggedIn = value;
+  }
+
+  setUser(value: User) {
+    this.user$.next(value);
+
+    this.user = value;
   }
 
   getCookie(name: string): string {
@@ -177,22 +166,42 @@ export class AuthService {
     return this.methodPost('auth/update/', this.userToUrlEncoded(user));
   }
 
-  login(user: User): Promise<WPSResponse> {
-    return this.methodPost('auth/login/', this.userToUrlEncoded(user))
-      .then(response => this.handleLoginResponse(response));
+  login(user: User) {
+    this.methodPost('auth/login/', this.userToUrlEncoded(user))
+      .then(response => {
+        if (response.status === 'success') {
+          this.user = response.data as User;
+
+          localStorage.setItem('expires', this.user.expires.toString());
+
+          this.setLoggedIn(true);
+
+        } else {
+          this.setLoggedIn(false);
+        }
+      });
   }
 
   loginOpenID(openidURL: string): Promise<WPSResponse> {
     return this.methodPost('auth/login/openid/', `openid_url=${openidURL}`);
   }
 
-  logout(): Promise<WPSResponse> {
-    return this.methodGet('auth/logout/')
-      .then(response => this.handleLogoutResponse(response));
+  logout() {
+    this.methodGet('auth/logout/')
+      .then(response => {
+        this.setLoggedIn(false);
+
+        localStorage.removeItem('expires');
+      });
   }
 
-  userDetails(): Promise<any> {
-    return this.methodGet('auth/user/');
+  userDetails() {
+    this.methodGet('auth/user/')
+      .then(response => {
+        if (response.status === 'success') {
+          this.setUser(response.data as User);
+        }
+      });
   }
 
   regenerateKey(user: User): Promise<WPSResponse> {
@@ -206,28 +215,6 @@ export class AuthService {
   myproxyclient(user: User): Promise<WPSResponse> {
     return this.methodPost('auth/login/mpc/',
       `username=${user.username}&password=${user.password}`);
-  }
-
-  private handleLoginResponse(response: WPSResponse): WPSResponse {
-    if (response.status === 'success') {
-      this.user = response.data as User;
-
-      localStorage.setItem('expires', this.user.expires.toString());
-
-      this.logged$.next(this.user);
-    } else {
-      this.handleLogoutResponse(response);
-    }
-
-    return response
-  }
-
-  private handleLogoutResponse(response: WPSResponse): WPSResponse {
-    localStorage.removeItem('expires');
-
-    this.logged$.next(null);
-
-    return response;
   }
 
   private handleError(error: any): Promise<any> {
