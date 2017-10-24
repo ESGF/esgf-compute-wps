@@ -16,6 +16,11 @@ class EDASBackendTestCase(test.TestCase):
 
         self.backend = backends.Backend.get_backend('EDAS')
 
+    def tearDown(self):
+        self.server.delete()
+
+        self.user.delete()
+
     def test_execute(self):
         settings.EDAS_HOST = 'Unknown'
 
@@ -43,6 +48,11 @@ class LocalBackendTestCase(test.TestCase):
         self.user = models.User.objects.create_user('local', 'local@gmail.com', 'local')
 
         self.backend = backends.Backend.get_backend('Local')
+
+    def tearDown(self):
+        self.server.delete()
+
+        self.user.delete()
 
     @mock.patch('wps.backends.local.get_process')
     def test_execute(self, get_process_mock):

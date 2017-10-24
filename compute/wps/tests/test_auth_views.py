@@ -1,8 +1,9 @@
 import datetime
 import json
 
-from .common import CommonTestCase
+import mock
 
+from .common import CommonTestCase
 from wps import models
 from wps import settings
 
@@ -16,6 +17,9 @@ class AuthViewsTestCase(CommonTestCase):
         models.Auth.objects.create(user=self.auth_user,
                                    openid_url='http://doesnotexist.com/openid/doesnotexist',
                                    extra={})
+
+    def tearDonw(self):
+        self.auth_user.delete()
 
     def test_create_complete(self):
         params = {
@@ -204,7 +208,10 @@ class AuthViewsTestCase(CommonTestCase):
         self.assertEqual(data['status'], 'failed')
         self.assertEqual(data['error'], 'Username "doesnotexist" does not exist')
 
-    def test_forgot_password_username(self):
+    @mock.patch('wps.views.auth.send_mail')
+    def test_forgot_password_username(self, send_mail_mock):
+        send_mail_mock.side_effect = Exception()
+
         response = self.client.get('/auth/forgot/password/', {'username': 'auth_user'})
 
         self.assertEqual(response.status_code, 200)
@@ -234,7 +241,10 @@ class AuthViewsTestCase(CommonTestCase):
         self.assertEqual(data['status'], 'failed')
         self.assertEqual(data['error'], 'There is not user associated with the email "doesntexist@gmail.com"')
 
-    def test_forgot_username_email(self):
+    @mock.patch('wps.views.auth.send_mail')
+    def test_forgot_username_email(self, send_mail_mock):
+        send_mail_mock.side_effect = Exception()
+
         response = self.client.get('/auth/forgot/username/', {'email': 'auth_user@gmail.com'})
 
         self.assertEqual(response.status_code, 200)

@@ -61,6 +61,9 @@ class CDATTaskTestCase(CommonTestCase):
         if os.path.exists('./test1.nc'):
             os.remove('./test1.nc')
 
+    def setUp(self):
+        settings.DAP = True
+
     def test_cache_variable(self):
         server = models.Server.objects.create(host='default')
 

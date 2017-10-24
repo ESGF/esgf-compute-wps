@@ -21,6 +21,11 @@ class UserViewsTestCase(CommonTestCase):
 
             models.UserProcess.objects.create(user=self.update, process=process_obj)
 
+    def tearDown(self):
+        self.update.delete()
+
+        models.UserProcess.objects.all().delete()
+        
     def test_user_stats_process_auth(self):
         self.client.login(username='update', password='update')
 

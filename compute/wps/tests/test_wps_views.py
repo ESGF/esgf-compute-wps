@@ -23,6 +23,11 @@ class WPSViewsTestCase(CommonTestCase):
 
         self.job.succeeded('success')
 
+    def tearDown(self):
+        self.wps_user.delete()
+
+        self.job.delete()
+
     def test_execute_auth(self):
         self.client.login(username='wps', password='wps')
 

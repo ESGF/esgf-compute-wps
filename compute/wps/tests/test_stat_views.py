@@ -5,13 +5,18 @@ from .common import CommonTestCase
 class StatsViewTestCase(CommonTestCase):
 
     def setUp(self):
-        user = models.User.objects.create_user('stats', 'stats@gmail.com', 'stats')
+        self.user = models.User.objects.create_user('stats', 'stats@gmail.com', 'stats')
 
-        admin = models.User.objects.create_user('stats_admin', 'stats@gmail.com', 'stats_admin')
+        self.admin = models.User.objects.create_user('stats_admin', 'stats@gmail.com', 'stats_admin')
 
-        admin.is_superuser = True
+        self.admin.is_superuser = True
 
-        admin.save()
+        self.admin.save()
+
+    def tearDown(self):
+        self.user.delete()
+
+        self.admin.delete()
 
     def test_stats_processes_authorized(self):
         self.client.login(username='stats_admin', password='stats_admin') 

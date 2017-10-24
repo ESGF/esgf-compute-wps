@@ -13,12 +13,3 @@ class ModelsTest(test.TestCase):
                                     url='http://test/test2',
                                     dimensions='',
                                     size=50000)
-
-    def test_cache_free(self):
-        models.Cache.free(65000)
-
-
-    def test_cache_size(self):
-        size = models.Cache.total_size()
-
-        self.assertEqual(size, 1050000)

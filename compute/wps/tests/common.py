@@ -52,4 +52,10 @@ class CommonTestCase(test.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        models.User.objects.all().delete()
+
+        models.Server.objects.all().delete()
+
+        models.Process.objects.all().delete()
+
+        models.File.objects.all().delete()

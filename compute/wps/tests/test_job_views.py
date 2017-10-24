@@ -9,13 +9,13 @@ from .common import CommonTestCase
 class JobViewsTestCase(CommonTestCase):
 
     def setUp(self):
-        user = models.User.objects.create_user('job', 'job@gmail.com', 'job')
+        self.job_user = models.User.objects.create_user('job', 'job@gmail.com', 'job')
 
         self.jobs = []
 
         for _ in xrange(20):
             job = models.Job.objects.create(server=self.server,
-                                      user=user,
+                                      user=self.job_user,
                                       process=random.choice(self.processes))
 
             job.accepted()
@@ -31,6 +31,11 @@ class JobViewsTestCase(CommonTestCase):
                 job.failed('Error')
 
             self.jobs.append(job)
+
+    def tearDown(self):
+        self.job_user.delete()
+
+        models.Job.objects.all().delete()
 
     def test_job_auth(self):
         self.client.login(username='job', password='job')

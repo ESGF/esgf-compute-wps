@@ -7,6 +7,7 @@ from celery.task.control import inspect
 from celery.task.control import revoke
 
 from wps import models
+from wps import settings
 from wps import tasks
 from wps import wps_xml
 from wps.backends import backend
@@ -28,7 +29,7 @@ class EDAS(backend.Backend):
 
         socket = context.socket(zmq.REQ)
 
-        socket.connect('tcp://{}:{}'.format('edas', 5670))
+        socket.connect('tcp://{}:{}'.format(settings.EDAS_HOST, settings.EDAS_REQ_PORT))
 
         socket.send(str('0!getCapabilities!WPS'))
 

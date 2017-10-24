@@ -44,6 +44,7 @@ def task_retry(self, **kwargs):
     self.on_retry(Exception('retry'), '', (), kwargs, None)
 
 class CWTBaseTaskTestCase(test.TestCase):
+
     @classmethod
     def setUpClass(cls):
         cls.cert = helpers.generate_certificate()
@@ -65,9 +66,11 @@ class CWTBaseTaskTestCase(test.TestCase):
         cls.time1 = helpers.generate_time('months since 1990-1-1', 24)
         cls.time2 = helpers.generate_time('months since 1992-1-1', 24)
 
-        helpers.write_file('./test1.nc', (cls.time1, cls.latitude, cls.longitude), 'tas')
+        cls.test1 = os.path.join(os.getcwd(), 'test1.nc')
+        cls.test2 = os.path.join(os.getcwd(), 'test2.nc')
 
-        helpers.write_file('./test2.nc', (cls.time2, cls.latitude, cls.longitude), 'tas')
+        helpers.write_file(cls.test1, (cls.time1, cls.latitude, cls.longitude), 'tas')
+        helpers.write_file(cls.test2, (cls.time2, cls.latitude, cls.longitude), 'tas')
 
     @classmethod
     def tearDownClass(cls):
@@ -76,12 +79,12 @@ class CWTBaseTaskTestCase(test.TestCase):
         shutil.rmtree(settings.LOCAL_OUTPUT_PATH)
 
         try:
-            os.remove('./test1.nc')
+            os.remove(cls.test1)
         except:
             pass
 
         try:
-            os.remove('./test2.nc')
+            os.remove(cls.test2)
         except:
             pass
 
@@ -92,18 +95,29 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         models.Auth.objects.create(user=self.user, cert=self.cert)
 
-        server = models.Server.objects.create(host='test', status=0)
+        self.server = models.Server.objects.create(host='test', status=0)
 
-        process = models.Process.objects.create(identifier='CDAT.subset', backend='local')
+        self.process = models.Process.objects.create(identifier='CDAT.subset', backend='local')
 
-        self.job = models.Job.objects.create(server=server, user=self.user, process=process)
+        self.job = models.Job.objects.create(server=self.server, user=self.user, process=self.process)
 
         self.job.accepted()
+
+    def tearDown(self):
+        self.task = None
+
+        self.user.delete()
+
+        self.job.delete()
+
+        self.server.delete()
+
+        self.process.delete()
 
     def test_map_domain_timestamps(self):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
-        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+        file_handles = [cdms2.open(self.test1), cdms2.open(self.test2)]
 
         var_map = dict((x.id, 'tas') for x in file_handles)
 
@@ -128,7 +142,7 @@ class CWTBaseTaskTestCase(test.TestCase):
     def test_map_domain_indices(self):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
-        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+        file_handles = [cdms2.open(self.test1), cdms2.open(self.test2)]
 
         var_map = dict((x.id, 'tas') for x in file_handles)
 
@@ -153,7 +167,7 @@ class CWTBaseTaskTestCase(test.TestCase):
     def test_map_domain_multiple(self):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
-        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+        file_handles = [cdms2.open(self.test1), cdms2.open(self.test2)]
 
         var_map = dict((x.id, 'tas') for x in file_handles)
 
@@ -178,7 +192,7 @@ class CWTBaseTaskTestCase(test.TestCase):
     def test_map_domain(self):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
-        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+        file_handles = [cdms2.open(self.test1), cdms2.open(self.test2)]
 
         var_map = dict((x.id, 'tas') for x in file_handles)
 
@@ -207,8 +221,8 @@ class CWTBaseTaskTestCase(test.TestCase):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
         files = [
-            cwt.Variable(os.path.abspath('./test1.nc'), 'tas'),
-            cwt.Variable(os.path.abspath('./test2.nc'), 'tas'),
+            cwt.Variable(self.test1, 'tas'),
+            cwt.Variable(self.test2, 'tas'),
         ]
 
         domain = cwt.Domain([
@@ -233,8 +247,8 @@ class CWTBaseTaskTestCase(test.TestCase):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
         files = [
-            cwt.Variable(os.path.abspath('./test1.nc'), 'tas'),
-            cwt.Variable(os.path.abspath('./test2.nc'), 'tas'),
+            cwt.Variable(self.test1, 'tas'),
+            cwt.Variable(self.test2, 'tas'),
         ]
 
         domain = cwt.Domain([
@@ -255,8 +269,8 @@ class CWTBaseTaskTestCase(test.TestCase):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
         files = [
-            cwt.Variable(os.path.abspath('./test1.nc'), 'tas'),
-            cwt.Variable(os.path.abspath('./test2.nc'), 'tas'),
+            cwt.Variable(self.test1, 'tas'),
+            cwt.Variable(self.test2, 'tas'),
         ]
 
         domain = cwt.Domain([
@@ -277,7 +291,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
         files = [
-            cwt.Variable(os.path.abspath('./test12.nc'), 'tas')
+            cwt.Variable('file:///doesnotexist', 'tas')
         ]
 
         domain = cwt.Domain([
@@ -293,7 +307,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
 
         files = [
-            cwt.Variable(os.path.abspath('./test1.nc'), 'tas')
+            cwt.Variable(self.test1, 'tas')
         ]
 
         domain = cwt.Domain([
@@ -316,10 +330,13 @@ class CWTBaseTaskTestCase(test.TestCase):
         temporal = (slice(0, 4, 1), slice(4, 8, 1))
         spatial = {}
 
+        output = os.path.join(os.getcwd(), 'output.nc')
+        cache = os.path.join(os.getcwd(), 'cache.nc')
+
         files = [
-            cdms2.open('./test1.nc'),
-            cdms2.open('./output.nc', 'w'),
-            cdms2.open('./cache.nc', 'w')
+            cdms2.open(self.test1),
+            cdms2.open(output, 'w'),
+            cdms2.open(cache, 'w')
         ]
 
         def post_process(data):
@@ -330,10 +347,14 @@ class CWTBaseTaskTestCase(test.TestCase):
         with nested(*files) as (infile, outfile, cachefile):
             self.task.download(infile, var_name, base_units, temporal, spatial, cachefile, outfile, post_process, self.job)
 
+        import time
+
+        time.sleep(2)
+
         files = [
-            cdms2.open('./test1.nc'),
-            cdms2.open('./output.nc'),
-            cdms2.open('./cache.nc')
+            cdms2.open(self.test1),
+            cdms2.open(output),
+            cdms2.open(cache)
         ]
 
         with nested(*files) as (infile, outfile, cachefile):
@@ -341,8 +362,8 @@ class CWTBaseTaskTestCase(test.TestCase):
             self.assertTrue(((infile['tas'][0]+10)==outfile['tas'][0]).all())
             self.assertTrue((infile['tas'][0]==cachefile['tas'][0]).all())
 
-        os.remove('./output.nc')
-        os.remove('./cache.nc')
+        os.remove(output)
+        os.remove(cache)
 
     def test_download_with_cache(self):
         var_name = 'tas'
@@ -350,10 +371,13 @@ class CWTBaseTaskTestCase(test.TestCase):
         temporal = (slice(0, 4, 1), slice(4, 8, 1))
         spatial = {}
 
+        output = os.path.join(os.getcwd(), 'output.nc')
+        cache = os.path.join(os.getcwd(), 'cache.nc')
+
         files = [
-            cdms2.open('./test1.nc'),
-            cdms2.open('./output.nc', 'w'),
-            cdms2.open('./cache.nc', 'w')
+            cdms2.open(self.test1),
+            cdms2.open(output, 'w'),
+            cdms2.open(cache, 'w')
         ]
 
         self.job.started()
@@ -361,18 +385,18 @@ class CWTBaseTaskTestCase(test.TestCase):
         with nested(*files) as (infile, outfile, cachefile):
             self.task.download(infile, var_name, base_units, temporal, spatial, cachefile, outfile, None, self.job)
 
-        with cdms2.open('./output.nc') as testfile:
+        with cdms2.open(output) as testfile:
             self.assertEqual(testfile['tas'].getTime().shape[0], 8)
 
             self.assertEqual(testfile['tas'].getTime().units, 'months since 1800-1-1 1')
 
-        with cdms2.open('./cache.nc') as testfile:
+        with cdms2.open(cache) as testfile:
             self.assertEqual(testfile['tas'].getTime().shape[0], 8)
 
             self.assertEqual(testfile['tas'].getTime().units, 'months since 1990-1-1')
 
-        os.remove('./output.nc')
-        os.remove('./cache.nc')
+        os.remove(output)
+        os.remove(cache)
 
     def test_download_with_cache(self):
         var_name = 'tas'
@@ -380,9 +404,11 @@ class CWTBaseTaskTestCase(test.TestCase):
         temporal = (slice(0, 4, 1), slice(4, 8, 1))
         spatial = {}
 
+        output = os.path.join(os.getcwd(), 'output.nc')
+
         files = [
-            cdms2.open('./test1.nc'),
-            cdms2.open('./output.nc', 'w'),
+            cdms2.open(self.test1),
+            cdms2.open(output, 'w'),
         ]
 
         self.job.started()
@@ -390,21 +416,21 @@ class CWTBaseTaskTestCase(test.TestCase):
         with nested(*files) as (infile, outfile):
             self.task.download(infile, var_name, base_units, temporal, spatial, None, outfile, None, self.job)
 
-        with cdms2.open('./output.nc') as testfile:
+        with cdms2.open(output) as testfile:
             self.assertEqual(testfile['tas'].getTime().shape[0], 8)
 
             self.assertEqual(testfile['tas'].getTime().units, 'months since 1800-1-1 1')
 
-        os.remove('./output.nc')
+        os.remove(output)
 
     def test_generate_cache_map_not_in_domain(self):
-        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+        file_handles = [cdms2.open(self.test1), cdms2.open(self.test2)]
 
         time_slice = slice(0, 24, 1)
 
         cached, exists = self.task.check_cache(file_handles[0].id, 'tas', time_slice, {})
 
-        shutil.copyfile('./test1.nc', cached.local_path)
+        shutil.copyfile(self.test1, cached.local_path)
 
         with nested(*file_handles):
             file_map = dict((x.id, x) for x in file_handles)
@@ -424,13 +450,13 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertNotIn(file_handles[1].id, file_map)
 
     def test_generate_cache_map_exists(self):
-        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+        file_handles = [cdms2.open(self.test1), cdms2.open(self.test2)]
 
         time_slice = slice(0, 24, 1)
 
         cached, exists = self.task.check_cache(file_handles[0].id, 'tas', time_slice, {})
 
-        shutil.copyfile('./test1.nc', cached.local_path)
+        shutil.copyfile(self.test1, cached.local_path)
 
         with nested(*file_handles):
             file_map = dict((x.id, x) for x in file_handles)
@@ -451,7 +477,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertNotIn(file_path, cache_map)
 
     def test_generate_cache_map_multiple(self):
-        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+        file_handles = [cdms2.open(self.test1), cdms2.open(self.test2)]
 
         with nested(*file_handles):
             file_map = dict((x.id, x) for x in file_handles)
@@ -477,7 +503,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertIn(file_path, cache_map)
 
     def test_generate_cache_map_single(self):
-        file_handles = [cdms2.open('./test1.nc'), cdms2.open('./test2.nc')]
+        file_handles = [cdms2.open(self.test1), cdms2.open(self.test2)]
 
         with nested(*file_handles):
             file_map = dict((x.id, x) for x in file_handles)
@@ -633,7 +659,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertEqual(usage.success, 1)
 
     def test_check_cache_fail_time_validation(self):
-        uri = './test1.nc'
+        uri = self.test1
         var_name = 'tas'
         temporal = slice(0, 16, 1)
         spatial = { 'latitude': (-90, 90), 'longitude': (-180, 180) }
@@ -641,7 +667,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         with self.assertNumQueries(5):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
 
-        shutil.copyfile('./test1.nc', cached.local_path)
+        shutil.copyfile(self.test1, cached.local_path)
 
         with self.assertNumQueries(1):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
@@ -649,7 +675,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertFalse(exists)
 
     def test_check_cache_exists(self):
-        uri = './test1.nc'
+        uri = self.test1
         var_name = 'tas'
         temporal = slice(0, 24, 1)
         spatial = { 'latitude': (-90, 90), 'longitude': (-180, 180) }
@@ -657,7 +683,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         with self.assertNumQueries(5):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
 
-        shutil.copyfile('./test1.nc', cached.local_path)
+        shutil.copyfile(self.test1, cached.local_path)
 
         with self.assertNumQueries(1):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
@@ -665,7 +691,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertTrue(exists)
 
     def test_check_cache_file_missing(self):
-        uri = './test1.nc'
+        uri = self.test1
         var_name = 'tas'
         temporal = slice(10, 20, 1)
         spatial = { 'latitude': (-45, 45), 'longitude': (-90, 90) }
@@ -679,7 +705,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         self.assertFalse(exists)
 
     def test_check_cache(self):
-        uri = './test1.nc'
+        uri = self.test1
         var_name = 'tas'
         temporal = slice(10, 20, 1)
         spatial = { 'latitude': (-45, 45), 'longitude': (-90, 90) }
@@ -687,21 +713,23 @@ class CWTBaseTaskTestCase(test.TestCase):
         with self.assertNumQueries(5):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
 
-        uid = '126ba7a96e7d2a76608adafcc1da0e387a98eebf4b28c38805c36eb481682384'
+        uid = '1aab2f18f3399d965cf328acde534239466a14791ae93095721bdaccdacd030a'
 
         self.assertFalse(exists)
         self.assertEqual(cached.dimensions, 'time:10:20:1|latitude:-45:45:1|longitude:-90:90:1')
         self.assertEqual(cached.uid, uid)
-        self.assertEqual(cached.url, './test1.nc')
+        self.assertEqual(cached.url, self.test1)
 
     def test_generate_cache_name(self):
-        file_name = './test1.nc'
+        file_name = self.test1
         temporal = slice(10, 200, 1)
         spatial = { 'latitude': (-45, 45), 'longitude': (-90, 90) }
 
         name = self.task.generate_cache_name(file_name, temporal, spatial)
 
-        self.assertEqual(name, 'dda6042243143d8193fc902bd9ceeef19219d6b55cde3c84eed469ae18bd9e7e')
+        expected = 'c4744dff278a0d3a21f8a7143672f13ee78ea3cab52fe930c60faec8d76a95a1'
+
+        self.assertEqual(name, expected)
 
     def test_generate_grid_from_domain(self):
         gridder = cwt.Gridder(grid='d0')
