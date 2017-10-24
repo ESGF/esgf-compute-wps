@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+import re
+
 import cwt
 from celery.utils.log import get_task_logger
 
