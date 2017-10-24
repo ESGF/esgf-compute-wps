@@ -172,6 +172,9 @@ class CWTBaseTask(celery.Task):
         Return:
             returns true if valid otherwise false.
         """
+        if user.auth.cert == '':
+            raise Exception('No certificate available, please authenticate with MyProxyClient or OAuth2')
+
         try:
             cert = crypto.load_certificate(crypto.FILETYPE_PEM, user.auth.cert)
         except Exception as e:
