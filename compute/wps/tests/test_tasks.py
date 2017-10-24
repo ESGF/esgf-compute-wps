@@ -16,6 +16,8 @@ class EDASTaskTestCase(CommonTestCase):
     def setUp(self):
         settings.EDAS_TIMEOUT = 5
 
+        settings.EDAS_HOST = 'unknown'
+
         self.edas_process = models.Process.objects.create(identifier='CDAT.subset', backend='Local') 
 
         self.edas_job = models.Job.objects.create(server=self.server, user=self.user, process=self.edas_process)
@@ -23,6 +25,11 @@ class EDASTaskTestCase(CommonTestCase):
         self.edas_job.accepted()
 
         self.edas_job.started()
+
+    def tearDown(self):
+        self.edas_process.delete()
+
+        self.edas_job.delete()
 
     def test_listen_edas_output(self):
         expected_path = '/data/temp.nc'
@@ -61,7 +68,7 @@ class EDASTaskTestCase(CommonTestCase):
 
         data_inputs = cwt.WPS('').prepare_data_inputs(operation, variables, None)
 
-        with self.assertNumQueries(8), self.assertRaises(Exception):
+        with self.assertNumQueries(5), self.assertRaises(Exception):
             edas.edas_submit(data_inputs, 'CDSpark.max', **params)
 
 class CDATTaskTestCase(CommonTestCase):
@@ -124,4 +131,4 @@ class CDATTaskTestCase(CommonTestCase):
 
         data_inputs = cdat.cache_variable('CDAT.subset', variables, domains, operations, **params)
 
-        self.assertRegexpMatches(data_inputs, 'http://thredds:8080/thredds/dodsC/test/public/.*\.nc')
+        self.assertRegexpMatches(data_inputs, '.*http://thredds:8080/threddsCWT/dodsC/public/.*\.nc.*')

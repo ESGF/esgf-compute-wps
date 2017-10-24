@@ -42,7 +42,7 @@ def listen_edas_output(poller, job):
         events = dict(poller.poll(settings.EDAS_TIMEOUT * 1000))
 
         if len(events) == 0:
-            raise Exception('EDAS timed out')
+            raise Exception('EDAS timed out waiting for heartbeat or output message')
 
         data = events.keys()[0].recv()
 
@@ -93,6 +93,9 @@ def edas_submit(self, data_inputs, identifier, **kwargs):
         req_sock.send(str('{}!execute!{}!{}!{}'.format(job.id, identifier, data_inputs, extra)))
 
         job.update_status('Sent requested to EDAS backend')
+
+        if (req_sock.poll(settings.EDAS_TIMEOUT * 1000) == 0):
+            raise Exception('EDAS timed out waiting for initial response')
 
         data = req_sock.recv()
 

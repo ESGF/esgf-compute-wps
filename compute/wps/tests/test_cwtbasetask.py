@@ -535,7 +535,7 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         output_url = self.task.generate_output_url('/data/test.nc')
 
-        self.assertEqual(output_url, 'http://thredds:8080/thredds/dodsC/test/public/test.nc')
+        self.assertEqual(output_url, 'http://thredds:8080/threddsCWT/dodsC/public/test.nc')
 
     def test_generate_output_url(self):
         output_url = self.task.generate_output_url('/data/test', local=True)
@@ -713,11 +713,11 @@ class CWTBaseTaskTestCase(test.TestCase):
         with self.assertNumQueries(5):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
 
-        uid = '1aab2f18f3399d965cf328acde534239466a14791ae93095721bdaccdacd030a'
+        expected = 'e9879eb53d27b677dd90b7b90f0da792765cc2bc6292848ce9c52160ab4f8dfb'
 
         self.assertFalse(exists)
         self.assertEqual(cached.dimensions, 'time:10:20:1|latitude:-45:45:1|longitude:-90:90:1')
-        self.assertEqual(cached.uid, uid)
+        self.assertEqual(cached.uid, expected)
         self.assertEqual(cached.url, self.test1)
 
     def test_generate_cache_name(self):
@@ -727,7 +727,7 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         name = self.task.generate_cache_name(file_name, temporal, spatial)
 
-        expected = 'c4744dff278a0d3a21f8a7143672f13ee78ea3cab52fe930c60faec8d76a95a1'
+        expected = '7f2aafa1761f59ea0ee455c7764386079b7f99dda150caa2ff75efa4f7049df9'
 
         self.assertEqual(name, expected)
 

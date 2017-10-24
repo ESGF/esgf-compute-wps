@@ -23,8 +23,6 @@ def cache_variable(self, identifier, variables, domains, operations, **kwargs):
 
     output_url = self.generate_output_url(output_path, **kwargs)
     
-    print output_url
-
     op.inputs = [cwt.Variable(output_url, op.inputs[0].var_name)]
 
     op.parameters['axes'] = cwt.NamedParameter('axes', 'xy')
