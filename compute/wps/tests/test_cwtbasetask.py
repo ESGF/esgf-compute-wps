@@ -599,6 +599,20 @@ class CWTBaseTaskTestCase(test.TestCase):
         with self.assertNumQueries(0):
             self.assertFalse(self.task.check_certificate(self.user))
 
+    def test_check_certificate_missing(self):
+        cert = self.user.auth.cert
+
+        self.user.auth.cert = ''
+
+        self.user.auth.save()
+
+        with self.assertNumQueries(0), self.assertRaises(Exception):
+            self.assertTrue(self.task.check_certificate(self.user))
+
+        self.user.auth.cert = cert
+
+        self.user.auth.save()
+
     def test_check_certificate(self):
         with self.assertNumQueries(0):
             self.assertTrue(self.task.check_certificate(self.user))
