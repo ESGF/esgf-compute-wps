@@ -172,7 +172,7 @@ def execute(request):
             name = d['id'].split(' ')[0]
 
             if name in ('time', 't'):
-                dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1), crs=cwt.CRS('timestamps')))
+                dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1)))
             else:
                 dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1)))
 
