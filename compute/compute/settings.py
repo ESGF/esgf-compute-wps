@@ -50,6 +50,15 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
+try:
+    import django_nose
+except:
+    pass
+else:
+    INSTALLED_APPS.append('django_nose')
+
+    TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

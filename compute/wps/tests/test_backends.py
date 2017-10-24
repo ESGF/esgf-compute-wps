@@ -79,7 +79,7 @@ class LocalBackendTestCase(test.TestCase):
         self.assertEqual(len(si_mock.method_calls), 1)
 
     def test_populate_processes(self):
-        with self.assertNumQueries(10):
+        with self.assertNumQueries(30):
             self.backend.populate_processes()
 
     def test_initialize(self):

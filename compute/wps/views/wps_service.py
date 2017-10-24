@@ -31,7 +31,7 @@ class WPSException(Exception):
 
         return exception_report
 
-def get_parameter(self, params, name):
+def get_parameter(params, name):
     """ Gets a parameter from a django QueryDict """
 
     # Case insesitive
@@ -85,9 +85,9 @@ def wps_execute(user, identifier, data_inputs):
 
 def handle_get(params):
     """ Handle an HTTP GET request. """
-    request = self.get_parameter(params, 'request')
+    request = get_parameter(params, 'request')
 
-    service = self.get_parameter(params, 'service')
+    service = get_parameter(params, 'service')
 
     api_key = params.get('api_key')
 
@@ -98,11 +98,11 @@ def handle_get(params):
     data_inputs = None
 
     if operation == 'describeprocess':
-        identifier = self.get_parameter(params, 'identifier')
+        identifier = get_parameter(params, 'identifier')
     elif operation == 'execute':
-        identifier = self.get_parameter(params, 'identifier')
+        identifier = get_parameter(params, 'identifier')
 
-        data_inputs = self.get_parameter(params, 'datainputs')
+        data_inputs = get_parameter(params, 'datainputs')
 
     return api_key, operation, identifier, data_inputs
 
@@ -133,9 +133,9 @@ def handle_post(data, params):
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
     if request.method == 'GET':
-        return self.handle_get(request.GET)
+        return handle_get(request.GET)
     elif request.method == 'POST':
-        return self.handle_post(request.body, request.GET)
+        return handle_post(request.body, request.GET)
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -355,18 +355,15 @@ def regen_capabilities(request):
 
         common.authorization_required(request)
 
-        servers = models.Server.objects.all()
+        server = models.Server.objects.get(host='default')
 
-        for s in servers:
-            logger.info('Generating capabilities for server {}'.format(s.host))
+        processes = server.processes.all()
 
-            processes = s.processes.all()
+        cap = wps_xml.capabilities_response(add_procs=processes)
 
-            cap = wps_xml.capabilities_response(add_procs=processes)
+        server.capabilities = cap.xml()
 
-            s.capabilities = cap.xml()
-
-            s.save()
+        server.save()
     except Exception as e:
         logger.exception('Error generating capabilities')
 
