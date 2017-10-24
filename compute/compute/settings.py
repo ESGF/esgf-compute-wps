@@ -32,6 +32,13 @@ ALLOWED_HOSTS = []
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/var/tmp/django_cache'
+    }
+}
+
 INSTALLED_APPS = [
     'wps',
     'webpack_loader',
