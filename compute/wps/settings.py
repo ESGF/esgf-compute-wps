@@ -19,7 +19,7 @@ LOCAL_OUTPUT_PATH = setting('WPS_LOCAL_OUTPUT_PATH', '/data/public')
 OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_name}')
 
 DAP = setting('WPS_DAP', True)
-DAP_URL = setting('WPS_DAP_URL', 'http://thredds:8080/thredds/dodsC/test/public/{file_name}')
+DAP_URL = setting('WPS_DAP_URL', 'http://thredds:8080/threddsCWT/dodsC/public/{file_name}')
 
 CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
 
