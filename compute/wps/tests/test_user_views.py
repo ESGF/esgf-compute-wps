@@ -143,7 +143,7 @@ class UserViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Need to generate an api_key, log into either OAuth2 or MyProxyClient')
+        self.assertEqual(data['error'], 'Initial API key has not been generate yet, authenticate with MyProxyClient or OAuth2')
 
     def test_regenerate(self):
         response = self.client.get('/auth/user/regenerate/')

@@ -8,12 +8,134 @@ from django import http
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
-from wps import wps_xml
-from wps import node_manager
-from wps import settings
 from . import common
+from wps import models
+from wps import wps_xml
+from wps import settings
 
 logger = common.logger
+
+class WPSException(Exception):
+    def __init__(self, message, exception_type=None):
+        if exception_type is None:
+            exception_type = wps_lib.NoApplicableCode
+
+        self.message = message
+
+        self.exception_type = exception_type
+
+    def report(self):
+        exception_report = wps_lib.ExceptionReport(settings.VERSION)
+
+        exception_report.add_exception(self.exception_type, self.message)
+
+        return exception_report
+
+def get_parameter(self, params, name):
+    """ Gets a parameter from a django QueryDict """
+
+    # Case insesitive
+    temp = dict((x.lower(), y) for x, y in params.iteritems())
+
+    if name.lower() not in temp:
+        logger.info('Missing required parameter %s', name)
+
+        raise WPSException(name.lower(), wps_lib.MissingParameterValue)
+
+    return temp[name.lower()]
+
+def wps_execute(user, identifier, data_inputs):
+    """ WPS execute operation """
+    try:
+        process = models.Process.objects.get(identifier=identifier)
+    except models.Process.DoesNotExist:
+        raise Exception('Process "{}" does not exist.'.format(identifier))
+
+    process.track(user)
+
+    operations, domains, variables = cwt.WPS.parse_data_inputs(data_inputs)
+
+    for variable in variables:
+        models.File.track(user, variable)
+
+    server = models.Server.objects.get(host='default')
+
+    job = models.Job.objects.create(server=server, user=user, process=process, extra=data_inputs)
+
+    job.accepted()
+
+    logger.info('Accepted job {}'.format(job.id))
+
+    process_backend = backend.Backend.get_backend(process.backend)
+
+    if process_backend is None:
+        job.failed()
+
+        raise Exception('Process backend "{}" does not exist'.format(process.backend))
+
+    operation_dict = dict((x.name, x.parameterize()) for x in operations)
+
+    domain_dict = dict((x.name, x.parameterize()) for x in domains)
+
+    variable_dict = dict((x.name, x.parameterize()) for x in variables)
+
+    process_backend.execute(identifier, variable_dict, domain_dict, operation_dict, user=user, job=job)
+
+    return job.report
+
+def handle_get(params):
+    """ Handle an HTTP GET request. """
+    request = self.get_parameter(params, 'request')
+
+    service = self.get_parameter(params, 'service')
+
+    api_key = params.get('api_key')
+
+    operation = request.lower()
+
+    identifier = None
+
+    data_inputs = None
+
+    if operation == 'describeprocess':
+        identifier = self.get_parameter(params, 'identifier')
+    elif operation == 'execute':
+        identifier = self.get_parameter(params, 'identifier')
+
+        data_inputs = self.get_parameter(params, 'datainputs')
+
+    return api_key, operation, identifier, data_inputs
+
+def handle_post(data, params):
+    """ Handle an HTTP POST request. 
+
+    NOTE: we only support execute requests as POST for the moment
+    """
+    try:
+        request = wps_lib.ExecuteRequest.from_xml(data)
+    except etree.XMLSyntaxError:
+        logger.exception('Failed to parse xml request')
+
+        raise Exception('POST request only supported for Execure operation')
+
+    # Build to format [variable=[];domain=[];operation=[]]
+    data_inputs = '[{0}]'.format(
+        ';'.join('{0}={1}'.format(x.identifier, x.data.value) 
+                 for x in request.data_inputs))
+
+    # CDAS doesn't like single quotes
+    data_inputs = data_inputs.replace('\'', '\"')
+
+    api_key = params.get('api_key')
+
+    return api_key, 'execute', request.identifier, data_inputs
+
+def handle_request(request):
+    """ Convert HTTP request to intermediate format. """
+    if request.method == 'GET':
+        return self.handle_get(request.GET)
+    elif request.method == 'POST':
+        return self.handle_post(request.body, request.GET)
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -69,9 +191,7 @@ def execute(request):
 
         datainputs = wps.prepare_data_inputs(proc, inputs, domain, **kwargs)
 
-        manager = node_manager.NodeManager()
-
-        result = manager.execute(request.user, process, datainputs)
+        result = wps_execute(request.user, process, datainputs)
     except Exception as e:
         logger.exception('Error executing job')
 
@@ -187,16 +307,18 @@ def generate(request):
 @ensure_csrf_cookie
 def wps(request):
     try:
-        manager = node_manager.NodeManager()
-
-        api_key, op, identifier, data_inputs = manager.handle_request(request)
+        api_key, op, identifier, data_inputs = handle_request(request)
 
         logger.info('Handling WPS request {} for api key {}'.format(op, api_key))
 
         if op == 'getcapabilities':
-            response = manager.get_capabilities()
+            server = models.Server.objects.get(host='default')
+
+            response = server.capabilities
         elif op == 'describeprocess':
-            response = manager.describe_process(identifier)
+            process = models.Process.objects.get(identifier=identifier)
+
+            response = process.description
         else:
             try:
                 user = models.User.objects.filter(auth__api_key=api_key)[0]
@@ -204,24 +326,14 @@ def wps(request):
                 raise Exception('Unable to find a user with the api key {}'.format(api_key))
 
             response = manager.execute(user, identifier, data_inputs)
-    except node_manager.NodeManagerWPSError as e:
-        logger.exception('NodeManager error')
-
-        response = e.exc_report.xml()
-    except django.db.ProgrammingError:
-        logger.exception('Django error')
-
-        exc_report = metadata.ExceptionReport(settings.VERSION)
-
-        exc_report.add_exception(metadata.NoApplicableCode, 'Database has not been initialized')
-
-        failure = metadata.ProcessFailed(exception_report=exc_report)
+    except WPSException as e:
+        failure = metadata.ProcessFailed(exception_report=e.report)
 
         exc_response = wps_xml.execute_response('', failure, '')
 
         response = exc_response.xml()
     except Exception as e:
-        logger.exception('WPS Error')
+        logger.exception('Anonymous exception converting to WPS Exception Report')
 
         exc_report = metadata.ExceptionReport(settings.VERSION)
 
@@ -243,9 +355,18 @@ def regen_capabilities(request):
 
         common.authorization_required(request)
 
-        manager = node_manager.NodeManager()
+        servers = models.Server.objects.all()
 
-        manager.generate_capabilities()
+        for s in servers:
+            logger.info('Generating capabilities for server {}'.format(s.host))
+
+            processes = s.processes.all()
+
+            cap = wps_xml.capabilities_response(add_procs=processes)
+
+            s.capabilities = cap.xml()
+
+            s.save()
     except Exception as e:
         logger.exception('Error generating capabilities')
 
@@ -256,8 +377,9 @@ def regen_capabilities(request):
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def status(request, job_id):
-    manager = node_manager.NodeManager()
+    try:
+        job = models.Job.objects.get(pk=job_id)
+    except models.Job.DoesNotExist:
+        raise NodeManagerError('Job {0} does not exist'.format(job_id))
 
-    status = manager.get_status(job_id)
-
-    return http.HttpResponse(status, content_type='text/xml')
+    return http.HttpResponse(job.report, content_type='text/xml')

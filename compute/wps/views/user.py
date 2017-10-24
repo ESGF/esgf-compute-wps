@@ -4,7 +4,6 @@ from django.views.decorators.http import require_http_methods
 
 from . import common
 from wps import forms
-from wps import node_manager
 
 logger = common.logger
 
@@ -91,12 +90,17 @@ def regenerate(request):
     try:
         common.authentication_required(request)
 
-        manager = node_manager.NodeManager()
+        if request.user.auth.api_key == '':
+            raise Exception('Initial API key has not been generate yet, authenticate with MyProxyClient or OAuth2')
 
-        api_key = manager.regenerate_api_key(request.user.pk)
+        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+
+        user.auth.save()
+
+        logger.info('Regenerated API key for "{}"'.format(request.user.username))
     except Exception as e:
         logger.exception('Error regenerating API key')
 
         return common.failed(e.message)
     else:
-        return common.success({'api_key': api_key})
+        return common.success({'api_key': request.user.auth.api_key})

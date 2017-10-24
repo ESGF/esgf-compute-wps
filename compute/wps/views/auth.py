@@ -12,15 +12,35 @@ from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from openid.consumer import consumer
+from openid.consumer import discover
 from openid.consumer.discover import DiscoveryFailure
+from myproxy.client import MyProxyClient
 
 from wps import forms
 from wps import models
-from wps import node_manager
 from wps import settings
 from wps.views import common
 
 logger = common.logger
+
+URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
+URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
+URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
+URN_MPC = 'urn:esg:security:myproxy-service'
+
+discover.OpenIDServiceEndpoint.openid_type_uris.extend([
+    URN_AUTHORIZE,
+    URN_ACCESS,
+    URN_RESOURCE,
+    URN_MPC
+])
+
+def openid_find_service_by_type(services, uri):
+    for s in services:
+        if uri in s.type_uris:
+            return s
+
+    return None
 
 FORGOT_USERNAME_SUBJECT = 'CWT WPS Username Recovery'
 FORGOT_USERNAME_MESSAGE = """
@@ -235,6 +255,23 @@ def user_logout(request):
     else:
         return common.success('Logged out')
 
+def update_user(self, service, oid_url, certs, **extra):
+    """ Create a new user. """
+    try:
+        user = models.User.objects.get(auth__openid_url=oid_url)
+    except models.User.DoesNotExist:
+        raise Exception('User does not exist')
+
+    if user.auth.api_key == '':
+        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+
+    user.auth.type = service
+    user.auth.cert = ''.join(certs)
+    user.auth.extra = json.dumps(extra)
+    user.auth.save()
+
+    logger.info('Updated auth settings for user {}'.format(user.username))
+
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def login_oauth2(request):
@@ -243,9 +280,23 @@ def login_oauth2(request):
 
         logger.info('Authenticating OAuth2 for {}'.format(request.user.auth.openid_url))
 
-        manager = node_manager.NodeManager()
+        try:
+            url, services = discover.discoverYadis(request.user.auth.openid_url)
+        except Exception:
+            raise Exception('Failed to retrieve OpenID')
 
-        redirect_url, session = manager.auth_oauth2(request.user.auth.openid_url)
+        auth_service = openid_find_service_by_type(services, URN_AUTHORIZE)
+
+        cert_service = openid_find_service_by_type(services, URN_RESOURCE)
+
+        redirect_url, state = oauth2.get_authorization_url(auth_service.server_url, cert_service.server_url)
+
+        logger.info('Retrieved authorization url for OpenID {}'.format(oid_url))
+
+        session = {
+            'oauth_state': state,
+            'openid': oid_url,
+        }
 
         request.session.update(session)
     except Exception as e:
@@ -267,14 +318,26 @@ def oauth2_callback(request):
 
         return redirect(settings.LOGIN_URL)
 
-    manager = node_manager.NodeManager()
-
     try:
-        manager.auth_oauth2_callback(oid, request.META['QUERY_STRING'], oauth_state)
+        url, services = discover.discoverYadis(oid)
     except Exception:
-        logger.exception('Error handling OAuth2 callback')
+        raise Exception('Failed to retrieve OpenID')
 
-        return redirect(settings.LOGIN_URL)
+    token_service = openid_find_service_by_type(services, URN_ACCESS)
+
+    cert_service = openid_find_service_by_type(services, URN_RESOURCE)
+
+    request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK, request.META['QUERY_STRING'])
+
+    token = oauth2.get_token(token_service.server_url, request_url, oauth_state)
+
+    logger.info('Retrieved OAuth2 token for OpenID {}'.format(oid))
+
+    cert, key, new_token = oauth2.get_certificate(token, token_service.server_url, cert_service.server_url)
+
+    logger.info('Retrieved Certificated for OpenID {}'.format(oid))
+
+    self.update_user('oauth2', oid, [cert, key], token=new_token)
 
     return redirect(settings.PROFILE_URL)
 
@@ -295,18 +358,38 @@ def login_mpc(request):
 
         logger.info('Authenticating MyProxyClient for {}'.format(username))
 
-        manager = node_manager.NodeManager()
+        try:
+            url, services = discover.discoverYadis(request.user.auth.openid_url)
+        except Exception:
+            raise Exception('Failed to retrieve OpenID')
 
-        manager.auth_mpc(request.user.auth.openid_url, username, password)
+        mpc_service = openid_find_service_by_type(services, URN_MPC)
+
+        g = re.match('socket://(.*):(.*)', mpc_service.server_url)
+
+        if g is None:
+            raise Exception('Failed to parse MyProxyClient endpoint')
+
+        host, port = g.groups()
+
+        m = MyProxyClient(hostname=host, caCertDir=settings.CA_PATH)
+
+        c = m.logon(username, password, bootstrap=True)
+
+        logger.info('Authenticated with MyProxyClient backend for user {}'.format(username))
+
+        update_user('myproxyclient', oid_url, c)
+
+        data = {
+            'type': request.user.auth.type,
+            'api_key': request.user.auth.api_key
+        }
     except Exception as e:
         logger.exception('Error authenticating MyProxyClient')
 
         return common.failed(e.message)
     else:
-        return common.success({
-            'type': request.user.auth.type,
-            'api_key': request.user.auth.api_key
-        })
+        return common.success(data)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
