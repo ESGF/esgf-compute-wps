@@ -81,21 +81,31 @@ def job(request, job_id):
             else:
                 updated = datetime.datetime.strptime(updated, SESSION_TIME_FMT)
 
-            status = [
-                {
+            status = []
+
+            for x in models.Job.objects.get(pk=job_id).status_set.filter(updated_date__gt=updated):
+                data = {
                     'exception': x.exception,
                     'output': x.output,
                     'status': x.status,
-                    'messages': [{
+                    'messages': []
+                }
+                
+                for y in x.message_set.filter(created_date__gt=updated):
+                    msg_data = {
                         'created_date': y.created_date,
                         'percent': y.percent,
                         'message': y.message
-                    } for y in x.message_set.filter(created_date__gt=updated)]
-                } for x in models.Job.objects.get(pk=job_id).status_set.filter(updated_date__gt=updated)
-            ]
+                    }
 
-            if len(status[-1]['messages']) > 0:
+                    data['messages'].append(msg_data)
+
+                status.append(data)
+
+            if len(status) > 0 and len(status[-1]['messages']) > 0:
                 request.session['updated'] = status[-1]['messages'][-1]['created_date'].strftime(SESSION_TIME_FMT)
+            else:
+                request.session['updated'] = datetime.datetime.now().strftime(SESSION_TIME_FMT)
         else:
             status = []
 
