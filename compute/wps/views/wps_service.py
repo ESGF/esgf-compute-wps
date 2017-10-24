@@ -9,6 +9,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
+from wps import backends
 from wps import models
 from wps import wps_xml
 from wps import settings
@@ -66,7 +67,7 @@ def wps_execute(user, identifier, data_inputs):
 
     logger.info('Accepted job {}'.format(job.id))
 
-    process_backend = backend.Backend.get_backend(process.backend)
+    process_backend = backends.Backend.get_backend(process.backend)
 
     if process_backend is None:
         job.failed()

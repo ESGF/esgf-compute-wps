@@ -1,7 +1,8 @@
 import datetime
+import json
+import re
 import random
 import string
-import json
 
 from django import http
 from django.core.mail import send_mail
@@ -255,19 +256,18 @@ def user_logout(request):
     else:
         return common.success('Logged out')
 
-def update_user(self, service, oid_url, certs, **extra):
-    """ Create a new user. """
-    try:
-        user = models.User.objects.get(auth__openid_url=oid_url)
-    except models.User.DoesNotExist:
-        raise Exception('User does not exist')
+def update_user(user, service_type, certs, **extra):
+    """ Updates users auth settings """
 
     if user.auth.api_key == '':
         user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
 
-    user.auth.type = service
+    user.auth.type = service_type
+
     user.auth.cert = ''.join(certs)
+
     user.auth.extra = json.dumps(extra)
+
     user.auth.save()
 
     logger.info('Updated auth settings for user {}'.format(user.username))
@@ -337,7 +337,12 @@ def oauth2_callback(request):
 
     logger.info('Retrieved Certificated for OpenID {}'.format(oid))
 
-    self.update_user('oauth2', oid, [cert, key], token=new_token)
+    try:
+        user = models.User.objects.get(auth__openid_url = oid)
+    except:
+        raise Exception('User does not exist for "{}"'.format(oid))
+
+    update_user(user, 'oauth2', [cert, key], token=new_token)
 
     return redirect(settings.PROFILE_URL)
 
@@ -378,7 +383,7 @@ def login_mpc(request):
 
         logger.info('Authenticated with MyProxyClient backend for user {}'.format(username))
 
-        update_user('myproxyclient', oid_url, c)
+        update_user(request.user, 'myproxyclient', c)
 
         data = {
             'type': request.user.auth.type,
