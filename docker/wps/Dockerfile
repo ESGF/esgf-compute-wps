@@ -5,15 +5,14 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 	curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
 	echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list && \
 	apt-get update && \
-	apt-get install -y --no-install-recommends yarn
+	apt-get install -y --no-install-recommends yarn && \
+	apt-get autoclean -y && \
+	apt-get autoremove -y
 
-WORKDIR /var/www/compute/compute/wps
-
-#RUN yarn install && \
-#	./node_modules/.bin/webpack --config webpack.prod
+WORKDIR /var/www/compute/compute/wps/webapp
 
 RUN yarn install && \
-	./node_modules/.bin/webpack
+	./node_modules/.bin/webpack --config config/webpack.prod
 
 RUN conda install -c conda-forge gunicorn django celery dask && \
 	conda clean --all -y
