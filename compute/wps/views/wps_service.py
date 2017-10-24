@@ -3,7 +3,7 @@ import StringIO
 
 import cwt
 import django
-from cwt.wps_lib import metadata
+from cwt import wps_lib
 from django import http
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
@@ -328,7 +328,7 @@ def wps(request):
 
             response = manager.execute(user, identifier, data_inputs)
     except WPSException as e:
-        failure = metadata.ProcessFailed(exception_report=e.report)
+        failure = wps_lib.ProcessFailed(exception_report=e.report())
 
         exc_response = wps_xml.execute_response('', failure, '')
 
@@ -336,11 +336,11 @@ def wps(request):
     except Exception as e:
         logger.exception('Anonymous exception converting to WPS Exception Report')
 
-        exc_report = metadata.ExceptionReport(settings.VERSION)
+        exc_report = wps_lib.ExceptionReport(settings.VERSION)
 
-        exc_report.add_exception(metadata.NoApplicableCode, e.message)
+        exc_report.add_exception(wps_lib.NoApplicableCode, e.message)
 
-        failure = metadata.ProcessFailed(exception_report=exc_report)
+        failure = wps_lib.ProcessFailed(exception_report=exc_report)
 
         exc_response = wps_xml.execute_response('', failure, '')
 
