@@ -6,9 +6,9 @@ var helpers = require('./helpers');
 
 module.exports = {
   entry: {
-    'polyfills': './assets/polyfills.ts',
-    'vendor': './assets/vendor.ts',
-    'app': './assets/main.ts'
+    'polyfills': './src/polyfills.ts',
+    'vendor': './src/vendor.ts',
+    'app': './src/main.ts'
   },
 
   resolve: {
@@ -22,7 +22,7 @@ module.exports = {
         loaders: [
           {
             loader: 'awesome-typescript-loader',
-            options: { configFileName: helpers.root('wps', 'assets', 'tsconfig.json') }
+            options: { configFileName: helpers.root('src', 'tsconfig.json') }
           }, 'angular2-template-loader'
         ]
       },
@@ -36,12 +36,12 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        exclude: helpers.root('wps', 'assets', 'app'),
+        exclude: helpers.root('src', 'app'),
         loader: ExtractTextPlugin.extract({ fallback: 'style-loader', use: 'css-loader?sourceMap' })
       },
       {
         test: /\.css$/,
-        include: helpers.root('wps', 'assets', 'app'),
+        include: helpers.root('src', 'app'),
         loader: 'raw-loader'
       },
     ]
@@ -52,7 +52,7 @@ module.exports = {
 
     new webpack.ContextReplacementPlugin(
       /angular(\\|\/)core(\\|\/)@angular/,
-      helpers.root('./wps/assets'),
+      helpers.root('./src'),
       {}
     ),
 

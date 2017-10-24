@@ -7,7 +7,7 @@ module.exports = webpackMerge(commonConfig, {
   devtool: 'cheap-module-eval-sourcemap',
 
   output: {
-    path: helpers.root('assets', 'js'),
+    path: helpers.root('..', '..', 'assets', 'js'),
     filename: '[name].js',
     chunkFilename: '[id].chunk.js'
   },
