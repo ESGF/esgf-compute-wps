@@ -58,6 +58,14 @@ export class JobsComponent implements OnInit, OnDestroy {
     if (this.selectedJob.status === undefined) {
       this.wps.status(job.id)
         .then(response => this.handleStatus(response));
+    } else {
+      if (this.updateTimer) {
+        let latest = this.selectedJob.latest()
+
+        if (latest === 'ProcessSucceeded' || latest === 'ProcessFailed') {
+          clearInterval(this.updateTimer);
+        }
+      }
     }
   }
 

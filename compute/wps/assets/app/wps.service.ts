@@ -42,6 +42,10 @@ export class Job {
     return status;
   }
 
+  latest(): string {
+    return this.status[this.status.length-1].status || undefined;
+  }
+
   update(updates: Status[]): string {
     if (this.status === undefined) {
       this.status = new Array<Status>();
