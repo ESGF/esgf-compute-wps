@@ -54,7 +54,7 @@ class LocalBackendTestCase(test.TestCase):
 
         self.user.delete()
 
-    @mock.patch('wps.backends.local.get_process')
+    @mock.patch('wps.backends.local.process.get_process')
     def test_execute(self, get_process_mock):
         si_mock = mock.Mock(**{'delay.return_value': True})
 

@@ -12,7 +12,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
-from wps.processes import process
+from wps.tasks import process
 
 logger = common.logger
 

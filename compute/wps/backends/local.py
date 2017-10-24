@@ -3,9 +3,8 @@ import logging
 import cwt
 
 from wps import tasks
-from wps.processes import REGISTRY
-from wps.processes import get_process
 from wps.backends import backend
+from wps.tasks import process
 
 __ALL__ = ['Local']
 
@@ -18,13 +17,13 @@ class Local(backend.Backend):
     def populate_processes(self):
         logger.info('Registering processes for backend "local"')
 
-        for name, proc in REGISTRY.iteritems():
+        for name, proc in process.REGISTRY.iteritems():
             logger.info('Registering "{}" process'.format(name))
 
             self.add_process(name, name.title(), 'Local')
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
-        process = get_process(identifier)
+        target_process = process.get_process(identifier)
 
         logger.info('Retrieved process "{}"'.format(identifier))
 
@@ -39,7 +38,7 @@ class Local(backend.Backend):
 
         logger.info('Building task chain')
 
-        chain = process.si(variables, operations, domains, **params)
+        chain = target_process.si(variables, operations, domains, **params)
 
         logger.info('Executing task chain')
 

@@ -9,7 +9,7 @@ import zmq
 from celery.utils.log import get_task_logger
 
 from wps import settings
-from wps import processes
+from wps.tasks import process
 
 logger = get_task_logger('wps.tasks.edas')
 
@@ -63,9 +63,9 @@ def listen_edas_output(poller, job):
 
     return edas_output_path
 
-@processes.cwt_shared_task()
+@process.cwt_shared_task()
 def edas_submit(self, data_inputs, identifier, **kwargs):
-    self.PUBLISH = processes.ALL
+    self.PUBLISH = process.ALL
 
     req_sock = None
 

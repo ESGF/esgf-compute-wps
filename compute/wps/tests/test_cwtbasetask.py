@@ -15,9 +15,8 @@ from OpenSSL import crypto, SSL
 
 from . import helpers
 from wps import models
-from wps import processes
-from wps.processes import process
 from wps import settings
+from wps.tasks import process
 
 @process.cwt_shared_task()
 def task_cannot_publish(self, **kwargs):
@@ -89,7 +88,7 @@ class CWTBaseTaskTestCase(test.TestCase):
             pass
 
     def setUp(self):
-        self.task = processes.CWTBaseTask()
+        self.task = process.CWTBaseTask()
 
         self.user = models.User.objects.create(username='test')
 
@@ -300,7 +299,7 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         self.job.started()
 
-        with self.assertNumQueries(0), self.assertRaises(processes.AccessError):
+        with self.assertNumQueries(0), self.assertRaises(process.AccessError):
             self.task.retrieve_variable(files, domain, self.job)
 
     def test_retrieve_variable(self):

@@ -29,8 +29,8 @@ from wps import settings
 from wps import tasks
 from wps import wps_xml
 from wps.auth import oauth2
-from wps.processes import get_process
 from wps.backends import backend
+from wps.tasks import process
 
 logger = logging.getLogger('wps.node_manager')
 
