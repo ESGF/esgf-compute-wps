@@ -20,7 +20,7 @@ import { WPSService, WPSResponse } from './wps.service';
 
 export class AppComponent implements OnInit, OnDestroy { 
   MESSAGE_TIMEOUT: number = 10 * 1000;
-  NOTIFICATION_TIMEOUT: number = 10 * 1000;
+  NOTIFICATION_TIMEOUT: number = 60 * 1000;
 
   admin: boolean = false;
   logged: boolean = false;

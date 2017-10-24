@@ -20,7 +20,7 @@
                 <div class="form-group">
                   <label for="variable">Variable</label>
                   <select [(ngModel)]="config.variable" class="form-control" id="variable" name="variable">
-                    <option *ngFor="let v of result?.variables">{{v}}</option>
+                    <option *ngFor="let v of variables" [value]="v">{{v}} ({{result[v].files.length}})</option>
                   </select>
                 </div>
                 <div class="form-group">

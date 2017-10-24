@@ -158,10 +158,13 @@ interface Axis {
   step: number;
 }
 
-interface SearchResult {
+interface Dataset {
   axes: Axis[];
   files: string[];
-  variables: string[];
+}
+
+interface SearchResult {
+  [index: string]: Dataset;
 }
 
 class RegridOptions {
@@ -251,6 +254,7 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
   config: Configuration;
   result: SearchResult;
   selection: Selection;
+  variables: string[];
 
   processes: Promise<any>;
 
@@ -273,16 +277,12 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
           if (response.status === 'success') {
             this.result = response.data as SearchResult;
 
-            // Set default step value
-            this.result.axes.map((axis: Axis) => {
-              axis.step = 1;
-            });
+            this.variables = Object.keys(this.result);
 
-            this.config.variable = this.result.variables[0];
+            this.config.variable = this.variables[0];
 
-            // clone each axis so search result holds original values
-            this.config.axes = this.result.axes.map((axis: Axis) => {
-              return {...axis}; 
+            this.config.axes = this.result[this.config.variable].axes.map((axis: Axis) => {
+              return {step: 1, ...axis};
             });
           } else {
             this.notificationService.error(response.error);
@@ -353,15 +353,19 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
           this.selection.removeFrom(this.map);
         }
 
+        const timeAxis = ['time', 't'];
+
         this.axes.forEach((axisComponent: AxisComponent) => {
-          let filtered = this.result.axes.filter((axis: Axis) => {
-            return axis.id == axisComponent.axis.id;
-          });
+          if (timeAxis.indexOf(axisComponent.axis.id) < 0) {
+            let filtered = this.result[this.config.variable].axes.filter((axis: Axis) => {
+              return axis.id === axisComponent.axis.id;
+            });
 
-          if (filtered.length > 0) {
-            axisComponent.axis.start = filtered[0].start;
+            if (filtered.length > 0) {
+              axisComponent.axis.start = filtered[0].start;
 
-            axisComponent.axis.stop = filtered[0].stop;
+              axisComponent.axis.stop = filtered[0].stop;
+            }
           }
         });
 
@@ -405,9 +409,7 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
       data += `latitudes=${this.config.regridOptions.lats}&`;
     }
 
-    let files = this.result.files.filter((value: string) => {
-      return value.indexOf(`/${this.config.variable}/`) >= 0;
-    });
+    let files = this.result[this.config.variable].files;
 
     data += `files=${files}&`;
 
