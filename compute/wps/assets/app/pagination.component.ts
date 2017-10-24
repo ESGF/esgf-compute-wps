@@ -111,7 +111,7 @@ export class PaginationTableComponent extends PaginationComponent {
   @Input('search') searchEnabled = true;
 
   sortKey: string;
-  sortAsc = false;
+  sortAsc = true;
 
   @Input()
   set items(data: any[]) {
