@@ -1,0 +1,13 @@
+<div class="pane">
+  <pagination-table [headers]="headers" [items]="files | async">
+    <ng-template let-item>
+      <tr>
+        <td><a href="{{item.url | thredds}}" target="_blank">{{item.name}}</a></td>
+        <td>{{item.host}}</td>
+        <td>{{item.requested}}</td>
+        <td>{{item.variable}}</td>
+        <td>{{item.requested_date | date:'medium'}}</td>
+      </tr>
+    </ng-template>
+  </pagination-table>
+</div>

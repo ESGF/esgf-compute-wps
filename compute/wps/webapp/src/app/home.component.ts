@@ -8,7 +8,7 @@ import { Component } from '@angular/core';
       <div class="col-md-12">
         <br>
         <p>
-          To get started either create an <a [routerLink]="['/wps/home/create']">account</a> or login into using your <a [routerLink]="['/wps/home/login/openid']">IDP</a>.
+          To get started either create an <a routerLink="/wps/home/auth/create">account</a> or login into using your <a [routerLink]="['/wps/home/login/openid']">IDP</a>.
         </p>
       </div>
     </div>

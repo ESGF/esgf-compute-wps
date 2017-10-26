@@ -1,0 +1,12 @@
+<div class="pane">
+  <pagination-table [headers]="headers" [items]="processes | async">
+    <ng-template let-item>
+      <tr>
+        <td>{{item.identifier}}</td>
+        <td>{{item.backend}}</td>
+        <td>{{item.requested}}</td>
+        <td>{{item.requested_date}}</td>
+      </tr> 
+    </ng-template>
+  </pagination-table>
+</div>

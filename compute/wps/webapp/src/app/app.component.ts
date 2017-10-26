@@ -5,17 +5,14 @@ import { Subscription } from 'rxjs/Subscription';
 
 import 'rxjs/add/operator/filter';
 
-import { AuthService } from './auth.service';
-import { NotificationType, NotificationService } from './notification.service';
-import { WPSService, WPSResponse } from './wps.service';
+import { AuthService } from './core/auth.service';
+import { NotificationType, NotificationService } from './core/notification.service';
+import { User } from './core/auth.service';
+import { WPSService, WPSResponse } from './core/wps.service';
 
 @Component({
   selector: 'my-app',
   templateUrl: './app.component.html',
-  providers: [
-    AuthService,
-    WPSService
-  ]
 })
 
 export class AppComponent implements OnInit, OnDestroy { 
@@ -49,6 +46,12 @@ export class AppComponent implements OnInit, OnDestroy {
       .subscribe((event) => {
         this.clear();
       });
+
+    this.authService.user$.subscribe((user: User) => {
+      if (user !== undefined) {
+        this.admin = user.admin;
+      }
+    });
 
     this.loggedSub = this.authService.isLoggedIn$.subscribe((value: boolean) => {
       this.logged = value;
