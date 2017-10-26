@@ -4,10 +4,5 @@ services:
   - docker
 
 install:
-  - docker build -t wps -f docker/wps .
-  - docker build -t celery -f docker/celery .
-  - docker build -t thredds -f docker/thredds . 
-  - docker run -d -p 8000:8000 --name wps wps
 
 script:
-  - docker ps -a
