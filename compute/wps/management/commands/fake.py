@@ -94,7 +94,7 @@ class Command(BaseCommand):
                         job.started()
 
                         for i in xrange(random.randint(0, 5)):
-                            job.update_progress('Status update {}'.format(i), 10)
+                            job.update_status('Status update {}'.format(i), 10)
 
                         if random.random() > 0.5:
                             job.failed('Some random failure')
