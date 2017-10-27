@@ -58,7 +58,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'OpenID discovery error')
+        self.assertEqual(data['error'], 'Failed to begin OpenID process "HTTP Response status from identity URL host is not 200. Got status 404"')
 
     def test_user_login_openid(self):
         response = self.client.post('/auth/login/openid/')
@@ -78,7 +78,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'OpenID authentication failed')
+        self.assertEqual(data['error'], 'Failed to complete OpenID process "OpenID authentication failed"')
 
     def test_logout_auth(self):
         self.client.login(username='auth_user', password='auth_user')
@@ -151,7 +151,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Failed to retrieve OpenID')
+        self.assertEqual(data['error'], 'OpenID discovery failed "HTTP Response status from identity URL host is not 200. Got status 404"')
 
     def test_login_mpc_auth(self):
         self.client.login(username='auth_user', password='auth_user')
@@ -186,7 +186,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Failed to retrieve OpenID')
+        self.assertEqual(data['error'], 'OpenID discovery failed "HTTP Response status from identity URL host is not 200. Got status 404"')
 
     def test_login_oauth2(self):
         response = self.client.post('/auth/login/oauth2/')
@@ -206,7 +206,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Username "doesnotexist" does not exist')
+        self.assertEqual(data['error'], 'No registered user "doesnotexist"')
 
     @mock.patch('wps.views.auth.send_mail')
     def test_forgot_password_username(self, send_mail_mock):
@@ -219,7 +219,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Error sending reset password email')
+        self.assertEqual(data['error'], 'Failed to send password recovery email')
 
     def test_forgot_pasword(self):
         response = self.client.get('/auth/forgot/password/')
@@ -229,7 +229,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Please provide the username you are trying to reset the password for')
+        self.assertEqual(data['error'], 'Missing parameter "\'username\'"')
 
     def test_forgot_username_invalid_email(self):
         response = self.client.get('/auth/forgot/username/', {'email': 'doesntexist@gmail.com'})
@@ -239,7 +239,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'There is not user associated with the email "doesntexist@gmail.com"')
+        self.assertEqual(data['error'], 'No registered user for "doesntexist@gmail.com"')
 
     @mock.patch('wps.views.auth.send_mail')
     def test_forgot_username_email(self, send_mail_mock):
@@ -252,7 +252,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Failed sending reset link to accounts email')
+        self.assertEqual(data['error'], 'Failed to send username recovery email')
 
     def test_forgot_username(self):
         response = self.client.get('/auth/forgot/username/')
@@ -262,7 +262,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Please provide the email address of the account')
+        self.assertEqual(data['error'], 'Missing parameter "\'email\'"')
 
     def test_reset_password_expired(self):
         token = common.random_str(10)
@@ -289,7 +289,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Reset token has expired')
+        self.assertEqual(data['error'], 'Reset token has expire, request again')
 
     def test_reset_password_params(self):
         token = common.random_str(10)
@@ -327,4 +327,4 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Missing required parameter "\'token\'"')
+        self.assertEqual(data['error'], 'Missing parameter "\'token\'"')

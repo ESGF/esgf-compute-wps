@@ -1,10 +1,12 @@
 import datetime
+import collections
 import json
 import re
 import random
 import string
 
 from django import http
+from django import db
 from django.core.mail import send_mail
 from django.contrib.auth import authenticate
 from django.contrib.auth import login
@@ -15,11 +17,13 @@ from django.views.decorators.http import require_http_methods
 from openid.consumer import consumer
 from openid.consumer import discover
 from openid.consumer.discover import DiscoveryFailure
+from openid.extensions import ax
 from myproxy.client import MyProxyClient
 
 from wps import forms
 from wps import models
 from wps import settings
+from wps.auth import oauth2
 from wps.views import common
 
 logger = common.logger
@@ -35,13 +39,6 @@ discover.OpenIDServiceEndpoint.openid_type_uris.extend([
     URN_RESOURCE,
     URN_MPC
 ])
-
-def openid_find_service_by_type(services, uri):
-    for s in services:
-        if uri in s.type_uris:
-            return s
-
-    return None
 
 FORGOT_USERNAME_SUBJECT = 'CWT WPS Username Recovery'
 FORGOT_USERNAME_MESSAGE = """
@@ -70,66 +67,52 @@ Thank you for creating an account for the ESGF compute server. Please login into
 If you have any questions or concerns please email the <a href="mailto:{admin_email}">server admin</a>.
 """
 
-@require_http_methods(['POST'])
-@ensure_csrf_cookie
-def create(request):
+def update_user(user, service_type, certs, **extra):
+    """ Updates users auth settings """
+
+    if user.auth.api_key == '':
+        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+
+    user.auth.type = service_type
+
+    user.auth.cert = ''.join(certs)
+
+    user.auth.extra = json.dumps(extra)
+
+    user.auth.save()
+
+    logger.info('Updated auth settings for user {}'.format(user.username))
+
+def openid_find_service_by_type(services, uri):
+    for s in services:
+        if uri in s.type_uris:
+            return s
+
+    return None
+
+def openid_services(openid_url, service_urns):
+    requested = collections.OrderedDict()
+
     try:
-        form = forms.CreateForm(request.POST)
-
-        if not form.is_valid():
-            raise Exception(form.errors)
-
-        username = form.cleaned_data['username']
-
-        email = form.cleaned_data['email']
-
-        openid = form.cleaned_data['openid']
-
-        password = form.cleaned_data['password']
-
-        try:
-            user = models.User.objects.create_user(username, email, password)
-        except IntegrityError:
-            raise Exception('User already exists')
-
-        models.Auth.objects.create(openid_url=openid, user=user)
-
-        try:
-            send_mail(CREATE_SUBJECT,
-                      '',
-                      settings.ADMIN_EMAIL,
-                      [user.email],
-                      html_message=CREATE_MESSAGE.format(login_url=settings.LOGIN_URL, admin_email=settings.ADMIN_EMAIL))
-        except Exception:
-            logger.exception('Error sending user account creation notice')
+        url, services = discover.discoverYadis(openid_url)
     except Exception as e:
-        logger.exception('Error creating account')
+        raise Exception('OpenID discovery failed "{}"'.format(e.message))
 
-        return common.failed(e.message)
-    else:
-        return common.success('Successfully created account for "{}"'.format(username))
+    for urn in service_urns:
+        requested[urn] = openid_find_service_by_type(services, urn)
 
-@require_http_methods(['POST'])
-@ensure_csrf_cookie
-def user_login_openid(request):
+        if requested[urn] is None:
+            raise Exception('OpenID IDP for "{}" does not support service "{}"'.format(openid_url, urn))
+
+    return requested.values()
+
+def openid_begin(request, openid_url):
     try:
-        form = forms.OpenIDForm(request.POST)
-
-        if not form.is_valid():
-            raise Exception(form.errors)
-
-        openid_url = form.cleaned_data['openid_url']
-
         logger.info('Attempting to login user "{}"'.format(openid_url))
 
         c = consumer.Consumer(request.session, models.DjangoOpenIDStore()) 
 
-        try:
-            auth_request = c.begin(openid_url)
-        except DiscoveryFailure as e:
-            logger.exception('OpenID discovery error')
-
-            raise Exception('OpenID discovery error')
+        auth_request = c.begin(openid_url)
 
         fetch_request = ax.FetchRequest()
 
@@ -151,34 +134,13 @@ def user_login_openid(request):
 
         url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
     except Exception as e:
-        logger.exception('Error logging user in with OpenID')
+        raise common.ViewError('Failed to begin OpenID process "{}"'.format(e.message))
 
-        return common.failed(e.message)
-    else:
-        return common.success({'redirect': url})
-
-def __handle_openid_attribute_exchange(response):
-    attrs = {
-        'email': None
-    }
-
-    ax_response = ax.FetchResponse.fromSuccessResponse(response)
-
-    if ax_response:
-        attrs['email'] = ax_response.get('http://axschema.org/contact/email')[0]
-
-    return attrs
-
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
-def user_login_openid_callback(request):
+def openid_complete(request):
     try:
         c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
 
-        try:
-            response = c.complete(request.GET, settings.OPENID_RETURN_TO)
-        except:
-            raise Exception('Failed to complete OpenID')
+        response = c.complete(request.GET, settings.OPENID_RETURN_TO)
 
         if response.status == consumer.CANCEL:
             raise Exception('OpenID authentication cancelled')
@@ -188,6 +150,72 @@ def user_login_openid_callback(request):
         openid_url = response.getDisplayIdentifier()
 
         attrs = __handle_openid_attribute_exchange(response)
+    except Exception as e:
+        raise common.ViewError('Failed to complete OpenID process "{}"'.format(e.message))
+    else:
+        return openid_url, attrs
+
+def handle_openid_attribute_exchange(response):
+    attrs = {'email': None}
+
+    ax_response = ax.FetchResponse.fromSuccessResponse(response)
+
+    if ax_response:
+        attrs['email'] = ax_response.get('http://axschema.org/contact/email')[0]
+
+    return attrs
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def create(request):
+    try:
+        form = forms.CreateForm(request.POST)
+
+        data = common.validate_form(form, ('username', 'email', 'openid', 'password'))
+
+        try:
+            user = models.User.objects.create_user(data['username'], data['email'], data['password'])
+        except db.IntegrityError:
+            raise common.DuplicateUserError(username=data['username'])
+
+        models.Auth.objects.create(openid_url=data['openid'], user=user)
+
+        try:
+            send_mail(CREATE_SUBJECT,
+                      '',
+                      settings.ADMIN_EMAIL,
+                      [user.email],
+                      html_message=CREATE_MESSAGE.format(login_url=settings.LOGIN_URL, admin_email=settings.ADMIN_EMAIL))
+        except Exception:
+            raise common.ViewError('Error sending confirmation email')
+    except Exception as e:
+        logger.exception('Error creating account')
+
+        return common.failed(e.message)
+    else:
+        return common.success('Successfully created account for "{}"'.format(data['username']))
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def user_login_openid(request):
+    try:
+        form = forms.OpenIDForm(request.POST)
+
+        data = common.validate_form(form, ('openid_url',))
+
+        openid_begin(request, data['openid_url'])
+    except Exception as e:
+        logger.exception('Error logging user in with OpenID')
+
+        return common.failed(e.message)
+    else:
+        return common.success({'redirect': url})
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def user_login_openid_callback(request):
+    try:
+        openid_url, attrs = openid_complete(request)
 
         try:
             user = models.User.objects.get(auth__openid_url=openid_url)
@@ -212,23 +240,16 @@ def user_login(request):
     try:
         form = forms.LoginForm(request.POST)
 
-        if not form.is_valid():
-            raise Exception(form.errors)
+        data = common.validate_form(form, ('username', 'password'))
 
-        username = form.cleaned_data['username']
+        logger.info('Attempting to login user {}'.format(data['username']))
 
-        password = form.cleaned_data['password']
+        user = authenticate(request, username=data['username'], password=data['password'])
 
-        logger.info('Attempting to login user {}'.format(username))
+        if user is None:
+            raise common.ViewError('Failed to authenticate user')
 
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None:
-            logger.info('Authenticate user {}, logging in'.format(username))
-
-            login(request, user)
-        else:
-            raise Exception('Authentication failed')
+        login(request, user)
     except Exception as e:
         logger.exception('Error logging user in')
 
@@ -256,22 +277,6 @@ def user_logout(request):
     else:
         return common.success('Logged out')
 
-def update_user(user, service_type, certs, **extra):
-    """ Updates users auth settings """
-
-    if user.auth.api_key == '':
-        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
-
-    user.auth.type = service_type
-
-    user.auth.cert = ''.join(certs)
-
-    user.auth.extra = json.dumps(extra)
-
-    user.auth.save()
-
-    logger.info('Updated auth settings for user {}'.format(user.username))
-
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def login_oauth2(request):
@@ -280,25 +285,16 @@ def login_oauth2(request):
 
         logger.info('Authenticating OAuth2 for {}'.format(request.user.auth.openid_url))
 
-        try:
-            url, services = discover.discoverYadis(request.user.auth.openid_url)
-        except Exception:
-            raise Exception('Failed to retrieve OpenID')
-
-        auth_service = openid_find_service_by_type(services, URN_AUTHORIZE)
-
-        cert_service = openid_find_service_by_type(services, URN_RESOURCE)
+        auth_service, cert_service = openid_services(request.user.auth.openid_url, (URN_AUTHORIZE, URN_RESOURCE))
 
         redirect_url, state = oauth2.get_authorization_url(auth_service.server_url, cert_service.server_url)
 
-        logger.info('Retrieved authorization url for OpenID {}'.format(oid_url))
+        logger.info('Retrieved authorization url for OpenID {}'.format(request.user.auth.openid_url))
 
-        session = {
+        request.session.update({
             'oauth_state': state,
-            'openid': oid_url,
-        }
-
-        request.session.update(session)
+            'openid': request.user.auth.openid_url
+        })
     except Exception as e:
         logger.exception('Error authenticating OAuth2')
 
@@ -309,42 +305,43 @@ def login_oauth2(request):
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def oauth2_callback(request):
+    user = None
+
     try:
-        oid = request.session.pop('openid')
+        openid_url = request.session.pop('openid')
 
         oauth_state = request.session.pop('oauth_state')
-    except KeyError as e:
-        logger.exception('Invalid session state')
 
-        return redirect(settings.LOGIN_URL)
+        user = models.User.objects.get(auth__openid_url = openid_url)
 
-    try:
-        url, services = discover.discoverYadis(oid)
-    except Exception:
-        raise Exception('Failed to retrieve OpenID')
+        token_service, cert_service = openid_services(openid_url, (URN_ACCESS, URN_RESOURCE))
 
-    token_service = openid_find_service_by_type(services, URN_ACCESS)
+        request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK, request.META['QUERY_STRING'])
 
-    cert_service = openid_find_service_by_type(services, URN_RESOURCE)
+        token = oauth2.get_token(token_service.server_url, request_url, oauth_state)
 
-    request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK, request.META['QUERY_STRING'])
+        logger.info('Retrieved OAuth2 token for OpenID {}'.format(oid))
 
-    token = oauth2.get_token(token_service.server_url, request_url, oauth_state)
+        cert, key, new_token = oauth2.get_certificate(token, token_service.server_url, cert_service.server_url)
 
-    logger.info('Retrieved OAuth2 token for OpenID {}'.format(oid))
+        logger.info('Retrieved Certificated for OpenID {}'.format(oid))
 
-    cert, key, new_token = oauth2.get_certificate(token, token_service.server_url, cert_service.server_url)
+        update_user(user, 'oauth2', [cert, key], token=new_token)
+    except Exception as e:
+        logger.exception('OAuth2 callback failed')
 
-    logger.info('Retrieved Certificated for OpenID {}'.format(oid))
+        if user is not None:
+            extra = json.loads(user.auth.extra)
 
-    try:
-        user = models.User.objects.get(auth__openid_url = oid)
-    except:
-        raise Exception('User does not exist for "{}"'.format(oid))
+            extra['error'] = 'OAuth2 callback failed "{}"'.format(e.message)
 
-    update_user(user, 'oauth2', [cert, key], token=new_token)
+            user.auth.extra = json.dumps(extra)
 
-    return redirect(settings.PROFILE_URL)
+            user.auth.save()
+
+        return redirect(settings.PROFILE_URL)
+    else:
+        return redirect(settings.PROFILE_URL)
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -354,58 +351,57 @@ def login_mpc(request):
 
         form = forms.MPCForm(request.POST)
 
-        if not form.is_valid():
-            raise Exception(form.errors)
+        data = common.validate_form(form, ('username', 'password'))
 
-        username = form.cleaned_data['username']
+        logger.info('Authenticating MyProxyClient for {}'.format(data['username']))
 
-        password = form.cleaned_data['password']
-
-        logger.info('Authenticating MyProxyClient for {}'.format(username))
+        mpc_service = openid_services(request.user.auth.openid_url, (URN_MPC,))[0]
 
         try:
-            url, services = discover.discoverYadis(request.user.auth.openid_url)
-        except Exception:
-            raise Exception('Failed to retrieve OpenID')
+            g = re.match('socket://(.*):(.*)', mpc_service.server_url)
+        except re.error:
+            raise common.ViewError('Failed to parse MyProxyClient host and port')
 
-        mpc_service = openid_find_service_by_type(services, URN_MPC)
-
-        g = re.match('socket://(.*):(.*)', mpc_service.server_url)
-
-        if g is None:
+        if g is None or len(g.groups()) != 2:
             raise Exception('Failed to parse MyProxyClient endpoint')
 
         host, port = g.groups()
 
-        m = MyProxyClient(hostname=host, caCertDir=settings.CA_PATH)
+        try:
+            m = MyProxyClient(hostname=host, caCertDir=settings.CA_PATH)
 
-        c = m.logon(username, password, bootstrap=True)
+            c = m.logon(data['username'], data['password'], bootstrap=True)
+        except Exception as e:
+            raise common.ViewError('MyProxyClient failed "{}"'.format(e.message))
 
-        logger.info('Authenticated with MyProxyClient backend for user {}'.format(username))
+        logger.info('Authenticated with MyProxyClient backend for user {}'.format(data['username']))
 
         update_user(request.user, 'myproxyclient', c)
-
-        data = {
-            'type': request.user.auth.type,
-            'api_key': request.user.auth.api_key
-        }
     except Exception as e:
         logger.exception('Error authenticating MyProxyClient')
 
         return common.failed(e.message)
     else:
-        return common.success(data)
+        return common.success({
+            'type': request.user.auth.type,
+            'api_key': request.user.auth.api_key
+        })
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def forgot_username(request):
     try:
-        if 'email' not in request.GET:
-            raise Exception('Please provide the email address of the account')
+        try:
+            email = request.GET['email']
+        except KeyError as e:
+            raise common.MissingParameterError(parameter=e.message)
 
-        logger.info('Recovering username for "{}"'.format(request.GET['email']))
+        logger.info('Recovering username for "{}"'.format(email))
 
-        user = models.User.objects.get(email=request.GET['email'])
+        try:
+            user = models.User.objects.get(email=email)
+        except models.User.DoesNotExist:
+            raise common.ViewError('No registered user for "{}"'.format(email))
 
         try:
             send_mail(FORGOT_USERNAME_SUBJECT,
@@ -413,11 +409,7 @@ def forgot_username(request):
                       settings.ADMIN_EMAIL,
                       [user.email])
         except:
-            raise Exception('Failed sending reset link to accounts email')
-    except models.User.DoesNotExist:
-        logger.exception('User does not exist with email "{}"'.format(request.GET['email']))
-
-        return common.failed('There is not user associated with the email "{}"'.format(request.GET['email']))
+            raise common.ViewError('Failed to send username recovery email')
     except Exception as e:
         logger.exception('Error recovering username')
 
@@ -429,18 +421,24 @@ def forgot_username(request):
 @ensure_csrf_cookie
 def forgot_password(request):
     try:
-        if 'username' not in request.GET:
-            raise Exception('Please provide the username you are trying to reset the password for')
-
-        username = request.GET['username']
+        try:
+            username = request.GET['username']
+        except KeyError as e:
+            raise common.MissingParameterError(parameter=e.message)
 
         logger.info('Starting password reset process for user "{}"'.format(username))
 
-        user = models.User.objects.get(username=username)
+        try:
+            user = models.User.objects.get(username=username)
+        except models.User.DoesNotExist:
+            raise common.ViewError('No registered user "{}"'.format(username))
 
-        extra = json.loads(user.auth.extra)
+        try:
+            extra = json.loads(user.auth.extra)
+        except Exception:
+            extra = {}
 
-        token = extra['reset_token'] = ''.join(random.choice(string.ascii_letters + string.digits) for _ in xrange(64))
+        extra['reset_token'] = ''.join(random.choice(string.ascii_letters + string.digits) for _ in xrange(64))
 
         extra['reset_expire'] = datetime.datetime.now() + datetime.timedelta(1)
 
@@ -448,7 +446,7 @@ def forgot_password(request):
 
         user.auth.save()
 
-        reset_url = '{}?token={}&username={}'.format(settings.PASSWORD_RESET_URL, token, user.username)
+        reset_url = '{}?token={}&username={}'.format(settings.PASSWORD_RESET_URL, extra['reset_token'], user.username)
 
         try:
             send_mail(FORGOT_PASSWORD_SUBJECT,
@@ -459,9 +457,7 @@ def forgot_password(request):
                                                               reset_url=reset_url)
                       )
         except:
-            raise Exception('Error sending reset password email')
-    except models.User.DoesNotExist:
-        return common.failed('Username "{}" does not exist'.format(request.GET['username']))
+            raise common.ViewError('Failed to send password recovery email')
     except Exception as e:
         return common.failed(e.message)
     else:
@@ -471,32 +467,45 @@ def forgot_password(request):
 @ensure_csrf_cookie
 def reset_password(request):
     try:
-        token = str(request.GET['token'])
+        try:
+            token = str(request.GET['token'])
 
-        username = str(request.GET['username'])
+            username = str(request.GET['username'])
 
-        password = str(request.GET['password'])
+            password = str(request.GET['password'])
+        except KeyError as e:
+            raise common.MissingParameterError(parameter=e.message)
 
         logger.info('Resetting password for "{}"'.format(username))
 
-        user = models.User.objects.get(username=username)
+        try:
+            user = models.User.objects.get(username=username)
+        except models.User.DoesNotExist:
+            raise common.ViewError('User "{}" does not exist'.format(username))
 
-        extra = json.loads(user.auth.extra)
+        try:
+            extra = json.loads(user.auth.extra)
+        except Exception:
+            extra = {}
 
-        if 'reset_token' not in extra or 'reset_expire' not in extra:
-            raise Exception('Invalid reset state')
+        try:
+            reset_token = extra['reset_token']
 
-        expires = datetime.datetime.strptime(extra['reset_expire'], '%x %X')
+            reset_expire = extra['reset_expire']
+        except KeyError as e:
+            raise common.ViewError('Invalid reset state, request again')
+        finally:
+            del extra['reset_token']
+
+            del extra['reset_expire']
+
+        expires = datetime.datetime.strptime(reset_expire, '%x %X')
 
         if datetime.datetime.now() > expires:
-            raise Exception('Reset token has expired')
+            raise common.ViewError('Reset token has expire, request again')
 
-        if extra['reset_token'] != token:
-            raise Exception('Tokens do not match')
-
-        del extra['reset_token']
-
-        del extra['reset_expire']
+        if reset_token != token:
+            raise common.ViewError('Tokens do not match, request again')
 
         user.auth.extra = json.dumps(extra)
 
@@ -507,17 +516,7 @@ def reset_password(request):
         user.save()
 
         logger.info('Successfully reset password for "{}"'.format(username))
-    except KeyError as e:
-        logger.exception('Missing key {}'.format(e))
-
-        return common.failed('Missing required parameter {}'.format(e))
-    except models.User.DoesNotExist:
-        logger.exception('User does not exist with username "{}"'.format(request.GET['username']))
-
-        return common.failed('Username "{}" does not exist'.format(request.GET['username']))
     except Exception as e:
-        logger.exception('Error resetting password for user "{}"'.format(request.GET['username']))
-
         return common.failed(e.message)
     else:
         return common.success({'redirect': settings.LOGIN_URL})
