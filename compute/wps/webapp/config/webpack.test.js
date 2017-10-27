@@ -15,7 +15,7 @@ module.exports = {
         loaders: [
           {
             loader: 'awesome-typescript-loader',
-            options: { configFileName: helpers.root('wps', 'assets', 'tsconfig.json') }
+            options: { configFileName: helpers.root('src', 'tsconfig.json') }
           }, 'angular2-template-loader'
         ]
       },
@@ -24,13 +24,17 @@ module.exports = {
         loader: 'html-loader'
       },
       {
-        test: /\.css$/,
-        exclude: helpers.root('wps', 'assets', 'app'),
+        test: /\.(png|jpe?g|gif|svg|woff|woff2|ttf|eot|ico)$/,
         loader: 'null-loader'
       },
       {
         test: /\.css$/,
-        include: helpers.root('wps', 'assets', 'app'),
+        exclude: helpers.root('src', 'app'),
+        loader: 'null-loader'
+      },
+      {
+        test: /\.css$/,
+        include: helpers.root('src', 'app'),
         loader: 'raw-loader'
       }
     ]
@@ -39,7 +43,7 @@ module.exports = {
   plugins: [
     new webpack.ContextReplacementPlugin(
       /angular(\\|\/)core(\\|\/)@angular/,
-      helpers.root('wps', 'assets', 'app'),
+      helpers.root('src', 'app'),
       {}
     )
   ]
