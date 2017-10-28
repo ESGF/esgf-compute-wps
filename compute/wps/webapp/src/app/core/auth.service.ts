@@ -4,7 +4,7 @@ import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { Subject } from 'rxjs/Subject';
 
 import { WPSService, WPSResponse } from './wps.service';
-import { UserService, User } from '../user/user.service';
+import { User } from '../user/user.service';
 
 @Injectable()
 export class AuthService extends WPSService {
@@ -18,7 +18,6 @@ export class AuthService extends WPSService {
 
   constructor(
     http: Http,
-    private userService: UserService
   ) { 
     super(http);
 
@@ -89,11 +88,11 @@ export class AuthService extends WPSService {
   }
 
   create(user: User): Promise<WPSResponse> {
-    return this.postCSRF('auth/create/', this.userService.userToUrlEncoded(user));
+    return this.postCSRF('auth/create/', user.toUrlEncoded());
   }
 
   login(user: User) {
-    this.postCSRF('auth/login/', this.userService.userToUrlEncoded(user))
+    this.postCSRF('auth/login/', user.toUrlEncoded())
       .then(response => {
         if (response.status === 'success') {
           this.user = response.data as User;

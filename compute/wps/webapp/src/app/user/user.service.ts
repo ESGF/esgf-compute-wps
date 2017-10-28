@@ -5,7 +5,7 @@ import { WPSService, WPSResponse } from '../core/wps.service';
 import { AuthService } from '../core/auth.service';
 import { Job, Status, Message } from './job';
 
-export interface User {
+export class User {
   username: string;
   openid: string;
   email: string;
@@ -15,6 +15,16 @@ export interface User {
   local_init: boolean;
   expires?: number;
   password?: string;
+
+  toUrlEncoded(): string {
+    let params: string = '';
+
+    for (let k in this) {
+      params += `${k.toLowerCase()}=${this[k]}&`;
+    }
+
+    return params;
+  }
 }
 
 @Injectable()
@@ -24,16 +34,6 @@ export class UserService extends WPSService {
     private authService: AuthService
   ) { 
     super(http); 
-  }
-
-  userToUrlEncoded(user: User): string {
-    let params: string = '';
-
-    for (let k in user) {
-      params += `${k.toLowerCase()}=${user[k]}&`;
-    }
-
-    return params;
   }
 
   formatStatus(value: Status) {
@@ -89,16 +89,7 @@ export class UserService extends WPSService {
   }
 
   update(user: User): Promise<WPSResponse> {
-    return this.postCSRF('auth/update/', this.userToUrlEncoded(user));
-  }
-
-  userDetails() {
-    this.getCSRF('auth/user/')
-      .then(response => {
-        if (response.status === 'success') {
-          this.authService.setUser(response.data as User);
-        }
-      });
+    return this.postCSRF('auth/update/', user.toUrlEncoded());
   }
 
   regenerateKey(user: User): Promise<WPSResponse> {
