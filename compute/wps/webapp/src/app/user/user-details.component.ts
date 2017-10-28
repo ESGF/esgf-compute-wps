@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 
 import { WPSResponse } from '../core/wps.service';
-import { AuthService, User } from '../core/auth.service';
+import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
-import { UserService } from './user.service';
+import { UserService, User } from './user.service';
 
 declare var jQuery: any;
 

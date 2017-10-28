@@ -7,7 +7,7 @@ import 'rxjs/add/operator/filter';
 
 import { AuthService } from './core/auth.service';
 import { NotificationType, NotificationService } from './core/notification.service';
-import { User } from './core/auth.service';
+import { User } from './user/user.service';
 import { WPSService, WPSResponse } from './core/wps.service';
 
 @Component({

@@ -1,8 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Http, URLSearchParams, RequestOptionsArgs, Headers } from '@angular/http';
 
-import { User } from '../core/auth.service';
-
 export interface WPSResponse {
   status: string;
   error?: string;
@@ -33,16 +31,6 @@ export class WPSService {
     return cookieValue;
   }
 
-  userToUrlEncoded(user: User): string {
-    let params: string = '';
-
-    for (let k in user) {
-      params += `${k.toLowerCase()}=${user[k]}&`;
-    }
-
-    return params;
-  }
-
   getCSRF(url: string, params: URLSearchParams = null, headers: Headers = new Headers()) {
     headers.append('X-CSRFToken', this.getCookie('csrftoken'));
 
@@ -62,12 +50,12 @@ export class WPSService {
   postCSRF(url: string, data: string = '', headers: Headers = new Headers()) {
     headers.append('X-CSRFToken', this.getCookie('csrftoken'));
 
-    headers.append('Content-Type', 'application/x-www-form-urlencoded');
-
     return this.post(url, data, headers);
   }
 
-  post(url: string, data: string = '', headers: any = new Headers()) {
+  post(url: string, data: string = '', headers: Headers = new Headers()) {
+    headers.append('Content-Type', 'application/x-www-form-urlencoded');
+
     return this.http.post(url, data, {
       headers: headers 
     })

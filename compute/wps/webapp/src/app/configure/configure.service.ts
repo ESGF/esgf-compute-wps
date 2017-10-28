@@ -1,30 +1,14 @@
 import { Http, Headers } from '@angular/http';
-import { Injectable, Inject} from '@angular/core';
-import { DOCUMENT } from '@angular/platform-browser';
+import { Injectable } from '@angular/core';
+
+import { WPSService, WPSResponse } from '../core/wps.service';
 
 @Injectable()
-export class ConfigureService {
+export class ConfigureService extends WPSService {
   constructor(
-    @Inject(DOCUMENT) private doc: any,
-    private http: Http
-  ) { }
-
-  getCookie(name: string): string {
-    let cookieValue: string = null;
-
-    if (this.doc.cookie && this.doc.cookie !== '') {
-      let cookies: string[] = this.doc.cookie.split(';');
-
-      for (let cookie of cookies) {
-        if (cookie.trim().substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.trim().substring(name.length + 1));
-
-          break;
-        }
-      }
-    }
-
-    return cookieValue;
+    http: Http
+  ) { 
+    super(http); 
   }
 
   processes(): Promise<any> {
@@ -65,9 +49,5 @@ export class ConfigureService {
       .toPromise()
       .then(response => response.json())
       .catch(this.handleError);
-  }
-
-  private handleError(error: any): Promise<any> {
-    return Promise.reject(error.message || error);
   }
 }

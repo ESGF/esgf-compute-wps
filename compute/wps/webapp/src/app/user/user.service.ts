@@ -2,8 +2,20 @@ import { Injectable } from '@angular/core';
 import { Http } from '@angular/http';
 
 import { WPSService, WPSResponse } from '../core/wps.service';
-import { AuthService, User } from '../core/auth.service';
+import { AuthService } from '../core/auth.service';
 import { Job, Status, Message } from './job';
+
+export interface User {
+  username: string;
+  openid: string;
+  email: string;
+  api_key: string;
+  type: string;
+  admin: boolean;
+  local_init: boolean;
+  expires?: number;
+  password?: string;
+}
 
 @Injectable()
 export class UserService extends WPSService {
@@ -12,6 +24,16 @@ export class UserService extends WPSService {
     private authService: AuthService
   ) { 
     super(http); 
+  }
+
+  userToUrlEncoded(user: User): string {
+    let params: string = '';
+
+    for (let k in user) {
+      params += `${k.toLowerCase()}=${user[k]}&`;
+    }
+
+    return params;
   }
 
   formatStatus(value: Status) {

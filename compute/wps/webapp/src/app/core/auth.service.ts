@@ -4,18 +4,7 @@ import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { Subject } from 'rxjs/Subject';
 
 import { WPSService, WPSResponse } from './wps.service';
-
-export interface User {
-  username: string;
-  openid: string;
-  email: string;
-  api_key: string;
-  type: string;
-  admin: boolean;
-  local_init: boolean;
-  expires?: number;
-  password?: string;
-}
+import { UserService, User } from '../user/user.service';
 
 @Injectable()
 export class AuthService extends WPSService {
@@ -28,7 +17,8 @@ export class AuthService extends WPSService {
   redirectUrl: string;
 
   constructor(
-    http: Http
+    http: Http,
+    private userService: UserService
   ) { 
     super(http);
 
@@ -99,11 +89,11 @@ export class AuthService extends WPSService {
   }
 
   create(user: User): Promise<WPSResponse> {
-    return this.postCSRF('auth/create/', this.userToUrlEncoded(user));
+    return this.postCSRF('auth/create/', this.userService.userToUrlEncoded(user));
   }
 
   login(user: User) {
-    this.postCSRF('auth/login/', this.userToUrlEncoded(user))
+    this.postCSRF('auth/login/', this.userService.userToUrlEncoded(user))
       .then(response => {
         if (response.status === 'success') {
           this.user = response.data as User;
