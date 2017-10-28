@@ -21,7 +21,7 @@ class StatsViewTestCase(CommonTestCase):
     def test_stats_processes_authorized(self):
         self.client.login(username='stats_admin', password='stats_admin') 
 
-        response = self.client.get('/wps/stats/processes/')
+        response = self.client.get('/wps/admin/stats')
 
         self.assertEqual(response.status_code, 200)
 
@@ -34,7 +34,7 @@ class StatsViewTestCase(CommonTestCase):
     def test_stats_processes_not_authorized(self):
         self.client.login(username='stats', password='stats') 
 
-        response = self.client.get('/wps/stats/processes/')
+        response = self.client.get('/wps/admin/stats')
 
         self.assertEqual(response.status_code, 200)
 
@@ -44,7 +44,7 @@ class StatsViewTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Forbidden access')
 
     def test_stats_processes(self):
-        response = self.client.get('/wps/stats/processes/')
+        response = self.client.get('/wps/admin/stats')
 
         self.assertEqual(response.status_code, 200)
 
@@ -56,7 +56,7 @@ class StatsViewTestCase(CommonTestCase):
     def test_stats_files_authorized(self):
         self.client.login(username='stats_admin', password='stats_admin') 
 
-        response = self.client.get('/wps/stats/files/')
+        response = self.client.get('/wps/admin/stats', {'type': 'files'})
 
         self.assertEqual(response.status_code, 200)
 
@@ -69,7 +69,7 @@ class StatsViewTestCase(CommonTestCase):
     def test_stats_files_not_authorized(self):
         self.client.login(username='stats', password='stats') 
 
-        response = self.client.get('/wps/stats/files/')
+        response = self.client.get('/wps/admin/stats', {'type': 'files'})
 
         self.assertEqual(response.status_code, 200)
 
@@ -79,7 +79,7 @@ class StatsViewTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Forbidden access')
 
     def test_stats_files(self):
-        response = self.client.get('/wps/stats/files/')
+        response = self.client.get('/wps/admin/stats', {'type': 'files'})
 
         self.assertEqual(response.status_code, 200)
 

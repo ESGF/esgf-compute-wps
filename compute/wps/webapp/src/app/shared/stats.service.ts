@@ -54,7 +54,11 @@ export class StatsService extends WPSService {
   }
 
   files(): Promise<FileStat[]> {
-    return this.get('wps/stats/files')
+    let params = new URLSearchParams();
+
+    params.set('type', 'files');
+
+    return this.get('wps/admin/stats', params)
       .then((response: WPSResponse) => {
         if (response.status === 'success') {
           return response.data.files as FileStat[];
@@ -65,7 +69,7 @@ export class StatsService extends WPSService {
   }
 
   processes(): Promise<ProcessStat[]> {
-    return this.get('wps/stats/processes')
+    return this.get('wps/admin/stats')
       .then((response: WPSResponse) => {
         if (response.status === 'success') {
           return response.data.processes as ProcessStat[];
