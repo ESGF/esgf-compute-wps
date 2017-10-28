@@ -13,7 +13,7 @@ PORT = setting('WPS_EXTERNAL_PORT', '8000')
 CACHE_PATH = setting('WPS_CACHE_PATH', '/data/cache')
 
 ENDPOINT = setting('WPS_ENDPOINT', 'http://0.0.0.0:8000/wps')
-STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'http://0.0.0.0:8000/wps/job/{job_id}')
+STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'http://0.0.0.0:8000/wps/status/{job_id}')
 
 LOCAL_OUTPUT_PATH = setting('WPS_LOCAL_OUTPUT_PATH', '/data/public')
 OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_name}')

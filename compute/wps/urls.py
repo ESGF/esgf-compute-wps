@@ -12,7 +12,7 @@ urlpatterns = [
     url(r'^notification/$', views.notification),
     url(r'^stats/files/$', views.stats_files),
     url(r'^stats/processes/$', views.stats_processes),
-    url(r'^job/(?P<job_id>[0-9]*)/$', views.status),
+    url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^jobs/$', views.jobs),
     url(r'^jobs/(?P<job_id>[0-9]*)/$', views.job),
     url(r'^home/', views.home, name='home'),
