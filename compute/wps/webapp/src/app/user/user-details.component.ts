@@ -13,10 +13,8 @@ declare var jQuery: any;
   styleUrls: ['../forms.css']
 })
 export class UserDetailsComponent { 
-  model: User = {} as User;
+  model: User = new User();
   mpc: any = { username: '', password: '' };
-  error: boolean = false;
-  errorMessage: string;
 
   constructor(
     private authService: AuthService,
@@ -26,6 +24,8 @@ export class UserDetailsComponent {
 
   ngOnInit() {
     this.authService.user$.subscribe((value: User) => {
+      console.log(value);
+
       this.model = value;
     });
   }

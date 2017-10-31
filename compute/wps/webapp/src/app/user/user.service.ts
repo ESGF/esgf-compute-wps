@@ -6,15 +6,27 @@ import { AuthService } from '../core/auth.service';
 import { Job, Status, Message } from './job';
 
 export class User {
-  username: string;
-  openid: string;
-  email: string;
-  api_key: string;
-  type: string;
-  admin: boolean;
-  local_init: boolean;
-  expires?: number;
-  password?: string;
+  constructor(
+    public username: string = '',
+    public openid: string = '',
+    public email: string = '',
+    public api_key: string = '',
+    public type: string = '',
+    public admin?: boolean,
+    public local_init?: boolean,
+    public expires?: number,
+    public password?: string
+  ) { }
+
+  //username: string;
+  //openid: string;
+  //email: string;
+  //api_key: string;
+  //type: string;
+  //admin: boolean;
+  //local_init: boolean;
+  //expires?: number;
+  //password?: string;
 
   toUrlEncoded(): string {
     let params = '';
