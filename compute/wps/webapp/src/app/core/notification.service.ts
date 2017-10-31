@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Subject } from 'rxjs/Subject';
+import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 
 export enum NotificationType {
   Message,
@@ -9,19 +9,17 @@ export enum NotificationType {
 
 @Injectable()
 export class NotificationService {
-  private notificationSource = new Subject<any>();
-
-  notification$ = this.notificationSource.asObservable();
+  notification$ = new BehaviorSubject<any>(null);
 
   message(text: string) {
-    this.notificationSource.next({type: NotificationType.Message, text: text});
+    this.notification$.next({type: NotificationType.Message, text: text});
   }
 
   warn(text: string) {
-    this.notificationSource.next({type: NotificationType.Warn, text: text});
+    this.notification$.next({type: NotificationType.Warn, text: text});
   }
 
   error(text: string) {
-    this.notificationSource.next({type: NotificationType.Error, text: text});
+    this.notification$.next({type: NotificationType.Error, text: text});
   }
 }

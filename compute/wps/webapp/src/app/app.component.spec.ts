@@ -47,12 +47,70 @@ describe('App Component', () => {
     this.comp = this.fixture.componentInstance;
   });
 
+  it('should display a error', () => {
+    let text = 'text';
+
+    this.notification.error(text);
+
+    this.fixture.detectChanges()
+
+    let de = this.fixture.debugElement.query(By.css('.alert-danger'));
+
+    expect(de.classes.hidden).toBe(false);
+  });
+
+  it('should display a warning', () => {
+    let text = 'text';
+
+    this.notification.warn(text);
+
+    this.fixture.detectChanges()
+
+    let de = this.fixture.debugElement.query(By.css('.alert-warning'));
+
+    expect(de.classes.hidden).toBe(false);
+  });
+
+  it('should display a message', () => {
+    let text = 'text';
+
+    this.notification.message(text);
+
+    this.fixture.detectChanges()
+
+    let de = this.fixture.debugElement.query(By.css('.alert-success'));
+
+    expect(de.classes.hidden).toBe(false);
+  });
+
+  it('should display no messages, warnings or errors', () => {
+    this.fixture.detectChanges();
+
+    let notification = this.fixture.debugElement.query(By.css('.alert-info'))
+
+    expect(notification.classes.hidden).toBe(true);
+
+    let message = this.fixture.debugElement.query(By.css('.alert-success'));
+
+    expect(message.classes.hidden).toBe(true);
+
+    let warning = this.fixture.debugElement.query(By.css('.alert-warning'));
+
+    expect(message.classes.hidden).toBe(true);
+
+    let error = this.fixture.debugElement.query(By.css('.alert-danger'));
+
+    expect(error.classes.hidden).toBe(true);
+  });
+
   it('should show admin link', () => {
     let user = new User();
 
     user.admin = true;
 
     this.auth.setUser(user);
+
+    this.auth.setLoggedIn(true);
 
     this.fixture.detectChanges();
 

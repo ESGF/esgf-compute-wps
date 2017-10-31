@@ -60,6 +60,8 @@ export class AppComponent implements OnInit, OnDestroy {
     });
 
     this.notificationSub = this.notificationService.notification$.subscribe((value: any) => {
+      if (value ===  null) return;
+
       switch(value.type) {
       case NotificationType.Message:
           this.message = value.text;
