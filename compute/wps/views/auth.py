@@ -135,6 +135,8 @@ def openid_begin(request, openid_url):
         url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
     except Exception as e:
         raise common.ViewError('Failed to begin OpenID process "{}"'.format(e.message))
+    else:
+        return url
 
 def openid_complete(request):
     try:
@@ -203,7 +205,7 @@ def user_login_openid(request):
 
         data = common.validate_form(form, ('openid_url',))
 
-        openid_begin(request, data['openid_url'])
+        url = openid_begin(request, data['openid_url'])
     except Exception as e:
         logger.exception('Error logging user in with OpenID')
 
