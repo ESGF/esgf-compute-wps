@@ -14,7 +14,7 @@ declare var jQuery: any;
 })
 export class UserDetailsComponent { 
   model: User = {} as User;
-  mpc: User = {} as User;
+  mpc: any = { username: '', password: '' };
   error: boolean = false;
   errorMessage: string;
 
@@ -76,7 +76,7 @@ export class UserDetailsComponent {
   }
 
   onMPCSubmit() {
-    this.authService.myproxyclient(this.mpc)
+    this.authService.myproxyclient(this.mpc.username, this.mpc.password)
       .then(response => {
         if (response.status === 'success') {
           jQuery('#myproxyclient').modal('hide');

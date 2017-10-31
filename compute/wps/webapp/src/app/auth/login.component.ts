@@ -31,7 +31,7 @@ export class LoginCallbackComponent implements OnInit {
   styleUrls: ['../forms.css']
 })
 export class LoginComponent implements OnInit {
-  model: User = {} as User;
+  model: any = { username: '', password: '' };
   next: string;
 
   constructor(
@@ -52,6 +52,6 @@ export class LoginComponent implements OnInit {
   }
 
   onSubmit() {
-    this.authService.login(this.model);
+    this.authService.login(this.model.username, this.model.password);
   }
 }

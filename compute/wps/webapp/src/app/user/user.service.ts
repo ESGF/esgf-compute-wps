@@ -17,10 +17,13 @@ export class User {
   password?: string;
 
   toUrlEncoded(): string {
-    let params: string = '';
+    let params = '';
+    let fields = ['username', 'openid', 'email', 'password'];
 
-    for (let k in this) {
-      params += `${k.toLowerCase()}=${this[k]}&`;
+    for (let k of fields) {
+      if (this[k] != undefined) {
+        params += `${k.toLowerCase()}=${this[k]}&`;
+      }
     }
 
     return params;

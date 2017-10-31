@@ -91,8 +91,10 @@ export class AuthService extends WPSService {
     return this.postCSRF('auth/create/', user.toUrlEncoded());
   }
 
-  login(user: User) {
-    this.postCSRF('auth/login/', user.toUrlEncoded())
+  login(username: string, password: string) {
+    let data = `username=${username}&password=${password}`;
+
+    this.postCSRF('auth/login/', data)
       .then(response => {
         if (response.status === 'success') {
           this.user = response.data as User;
@@ -100,9 +102,10 @@ export class AuthService extends WPSService {
           localStorage.setItem('expires', this.user.expires.toString());
 
           this.setLoggedIn(true);
-
         } else {
           this.setLoggedIn(false);
+
+          localStorage.removeItem('expires');
         }
       });
   }
@@ -124,8 +127,8 @@ export class AuthService extends WPSService {
     return this.postCSRF('auth/login/oauth2/', `openid=${openid}`);
   }
 
-  myproxyclient(user: User): Promise<WPSResponse> {
+  myproxyclient(username: string, password: string): Promise<WPSResponse> {
     return this.postCSRF('auth/login/mpc/',
-      `username=${user.username}&password=${user.password}`);
+      `username=${username}&password=${password}`);
   }
 }
