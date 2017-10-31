@@ -8,7 +8,15 @@ import { Component } from '@angular/core';
       <div class="col-md-12">
         <br>
         <p>
-          To get started either create an <a routerLink="/wps/home/auth/create">account</a> or login into using your <a routerLink="/wps/home/auth/login/openid">IDP</a>.
+          To get started, login using <a routerLink="/wps/home/auth/login/openid">OpenID</a>.
+        </p>
+        <p>
+          To access ESGF data you will need to retrieve a certificate through OAuth2 or MyProxyClient.
+          These options are found on the bottom of the user <a routerLink="/wps/home/user/profile">Profile</a> page.
+        </p>
+        <p>
+          After requesting a certificate, you will find your API key on the user <a routerLink="/wps/home/user/profile">Profile</a>.
+          You can use this to access the ESGF WPS services through then ESGF CWT End-user API which can be install from <a href="https://anaconda.org/uvcdat/esgf-compute-api">Conda</a>. Examples of the API can be found <a href="https://github.com/ESGF/esgf-compute-api/tree/master/examples">here</a>.
         </p>
       </div>
     </div>

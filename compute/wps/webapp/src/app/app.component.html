@@ -10,7 +10,7 @@
           </li>
         </ul>
         <ul class="nav navbar-nav navbar-right">
-          <li *ngIf="!logged; else elseBlock"><a class="login" routerLink="/wps/home/auth/login">Login</a></li>
+          <li *ngIf="!logged; else elseBlock"><a class="login" routerLink="/wps/home/auth/login/openid">Login</a></li>
           <ng-template #elseBlock>
             <li><a class="profile" routerLink="/wps/home/user/profile">Profile</a></li>
             <li><a class="logout" routerLink="/wps/home/auth/logout">Logout</a></li>
