@@ -36,4 +36,6 @@ do
   rm -f ${backup_dir}/$f
 done
 
-docker-compose -f ${compose_dir}/docker-compose.yml exec postgres pg_dumpall -c -U postgres > ${backup_dir}/${prefix}_`date +%d-%m-%Y"_"%H_%M_%S`.sql
+cd ${compose-dir}
+
+/usr/local/bin/docker-compose -f docker-compose.yml exec -T postgres pg_dumpall -c -U postgres > ${backup_dir}/${prefix}_`date +%d-%m-%Y"_"%H_%M_%S`.sql
