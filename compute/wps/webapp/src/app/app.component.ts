@@ -42,10 +42,12 @@ export class AppComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit() {
-    this.router.events.filter((event) => event instanceof NavigationEnd)
-      .subscribe((event) => {
-        this.clear();
-      });
+    if (this.router.events) {
+      this.router.events.filter((event) => event instanceof NavigationEnd)
+        .subscribe((event) => {
+          this.clear();
+        });
+    }
 
     this.authService.user$.subscribe((user: User) => {
       if (user !== undefined) {
@@ -75,16 +77,14 @@ export class AppComponent implements OnInit, OnDestroy {
           break;
       }
     });
-
-    this.startNotificationTimer();
   }
 
   ngOnDestroy() {
-    this.stopNotificationTimer();
-
     this.stopTimer();
 
-    this.notificationSub.unsubscribe();
+    if (this.notificationSub) {
+      this.notificationSub.unsubscribe();
+    }
   }
 
   startTimer() {
@@ -105,31 +105,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
       this.clearTimer = null;
     }
-  }
-
-  startNotificationTimer() {
-    this.getNotification();
-
-    this.notificationTimer = setInterval(() => this.getNotification(), this.NOTIFICATION_TIMEOUT);
-  }
-
-  stopNotificationTimer() {
-    if (this.notificationTimer) {
-      clearInterval(this.notificationTimer);
-
-      this.notificationTimer = null;
-    }
-  }
-
-  getNotification() {
-    this.wpsService.notification()
-      .then(response => {
-        if (response.status === 'success') {
-          this.notification = response.data.notification || '';
-        } else {
-          this.notification = '';
-        }
-      });
   }
 
   clear() { 
