@@ -24,8 +24,6 @@ export class UserDetailsComponent {
 
   ngOnInit() {
     this.authService.user$.subscribe((value: User) => {
-      console.log(value);
-
       this.model = value;
     });
   }
