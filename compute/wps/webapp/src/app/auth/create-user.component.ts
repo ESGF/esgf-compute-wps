@@ -11,7 +11,12 @@ import { NotificationService } from '../core/notification.service';
 })
 
 export class CreateUserComponent {
-  model: User = {} as User;
+  model: any = {
+    username: '',
+    openID: '',
+    email: '',
+    password: '',
+  };
 
   constructor(
     private authService: AuthService,

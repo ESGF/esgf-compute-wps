@@ -1,4 +1,5 @@
-import { TestBed, async } from '@angular/core/testing';
+import { DebugElement } from '@angular/core';
+import { TestBed, ComponentFixture, async } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { By } from '@angular/platform-browser';
@@ -9,60 +10,90 @@ import { NotificationService } from '../core/notification.service';
 import { CreateUserComponent } from './create-user.component';
 
 describe('Create User Component', () => {
+  let router: any;
+  let notification: any;
+  let auth: any;
+
+  let fixture: ComponentFixture<CreateUserComponent>;
+  let comp: CreateUserComponent;
+
+  let username: DebugElement;
+  let openid: DebugElement;
+  let email: DebugElement;
+  let password: DebugElement;
+  let submit: DebugElement;
+
   beforeEach(async(() => {
-    this.router = jasmine.createSpyObj('router', ['navigate']);
-    this.notification = jasmine.createSpy('notification');
-    this.auth = jasmine.createSpy('auth');
+    router = jasmine.createSpyObj('router', ['navigate']);
+    notification = jasmine.createSpy('notification');
+    auth = jasmine.createSpyObj('auth', ['create']);
 
     TestBed.configureTestingModule({
       imports: [FormsModule],
       declarations: [CreateUserComponent],
       providers: [
-        {provide: Router, useValue: this.router},
-        {provide: NotificationService, useValue: this.notification},
-        {provide: AuthService, useValue: this.auth},
+        {provide: Router, useValue: router},
+        {provide: NotificationService, useValue: notification},
+        {provide: AuthService, useValue: auth},
       ]
     })
     .compileComponents();
   }));
 
   beforeEach(() => {
-    this.fixture = TestBed.createComponent(CreateUserComponent);
+    fixture = TestBed.createComponent(CreateUserComponent);
 
-    this.comp = this.fixture.componentInstance;
+    comp = fixture.componentInstance;
 
-    this.username = this.fixture.debugElement.query(By.css('#username'));
+    username = fixture.debugElement.query(By.css('#username'));
 
-    this.openid = this.fixture.debugElement.query(By.css('#openID'));
+    openid = fixture.debugElement.query(By.css('#openID'));
 
-    this.email = this.fixture.debugElement.query(By.css('#email'));
+    email = fixture.debugElement.query(By.css('#email'));
 
-    this.password = this.fixture.debugElement.query(By.css('#password'));
+    password = fixture.debugElement.query(By.css('#password'));
 
-    this.submit = this.fixture.debugElement.query(By.css('.btn-success'));
+    submit = fixture.debugElement.query(By.css('.btn-success'));
   });
 
-  it('should submit', () => {
-    this.submit.nativeElement.dispatchEvent(new Event('click'));
-  });
+  it('should be valid', () => {
+    fixture.detectChanges();
+    
+    fixture.whenStable().then(() => {
+      username.nativeElement.value = 'test';
+      username.nativeElement.dispatchEvent(new Event('input'));
 
-  it('should enable submit', () => {
-    this.username.value = 'test';
-    this.username.triggerEventHandler('input', null);
+      openid.nativeElement.value = 'http://test.com/openid/test';
+      openid.nativeElement.dispatchEvent(new Event('input'));
 
-    this.openid.value = 'http://test.com/openid/test';
-    this.openid.nativeElement.dispatchEvent(new Event('input'));
+      email.nativeElement.value = 'test@gmail.com';
+      email.nativeElement.dispatchEvent(new Event('input'));
 
-    this.email.value = 'test@gmail.com';
-    this.email.nativeElement.dispatchEvent(new Event('input'));
+      password.nativeElement.value = 'test_password';
+      password.nativeElement.dispatchEvent(new Event('input'));
 
-    this.password.value = 'testPassword';
-    this.password.nativeElement.dispatchEvent(new Event('input'));
+      expect(submit.properties.disabled).toBe(false);
 
-    this.fixture.detectChanges();
+      submit.nativeElement.click();
 
-    this.fixture.whenStable().then(() => {
-      expect(this.submit.properties.disabled).toBe(false);
+      expect(auth.create).toHaveBeenCalled();
     });
+  });
+
+  it('should set username value', () => {
+    fixture.detectChanges();
+    
+    fixture.whenStable().then(() => {
+      username.nativeElement.value = 'test';
+      username.nativeElement.dispatchEvent(new Event('input'));
+
+      expect(comp.model.username).toBe('test');
+    });
+  });
+
+  it('should initialize with blank values', () => {
+    fixture.detectChanges();
+
+    expect(username.nativeElement.value).toBe('');
   });
 });
