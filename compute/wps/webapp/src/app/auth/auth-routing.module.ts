@@ -7,7 +7,8 @@ import { LoginComponent, LoginCallbackComponent } from './login.component';
 import { LoginOpenIDComponent } from './login-openid.component';
 import { LogoutComponent } from './logout.component';
 import { ForgotUsernameComponent } from './forgot-username.component';
-import { ForgotPasswordComponent, ResetPasswordComponent } from './forgot-password.component';
+import { ForgotPasswordComponent } from './forgot-password.component';
+import { ResetPasswordComponent } from './reset-password.component';
 
 import { AuthGuard } from '../auth/auth-guard.service';
 
