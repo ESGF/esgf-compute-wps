@@ -18,16 +18,6 @@ export class User {
     public password?: string
   ) { }
 
-  //username: string;
-  //openid: string;
-  //email: string;
-  //api_key: string;
-  //type: string;
-  //admin: boolean;
-  //local_init: boolean;
-  //expires?: number;
-  //password?: string;
-
   toUrlEncoded(): string {
     let params = '';
     let fields = ['username', 'openid', 'email', 'password'];
