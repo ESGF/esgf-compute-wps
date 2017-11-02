@@ -1,5 +1,5 @@
 <div class="container">
-  <form (ngSubmit)="onLogin()" #loginForm="ngForm">
+  <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
     <div class="form-group">
       <label for="openid_url">OpenID Provider</label>
       <select id="openid_url" class="form-control" [(ngModel)]="model.idp" name="idp">

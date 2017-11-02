@@ -11,12 +11,7 @@ import { NotificationService } from '../core/notification.service';
 })
 
 export class CreateUserComponent {
-  model: any = {
-    username: '',
-    openID: '',
-    email: '',
-    password: '',
-  };
+  model: User = new User();
 
   constructor(
     private authService: AuthService,
@@ -26,14 +21,12 @@ export class CreateUserComponent {
 
   onSubmit(): void {
     this.authService.create(this.model)
-      .then(response => this.handleResponse(response));
-  }
-
-  handleResponse(response: any): void {
-    if (response.status === 'success') {
-      this.router.navigate(['/wps/home/auth/login']);
-    } else {
-      this.notificationService.error(`Failed creating account: "${response.error}"`);
-    }
+      .then(response => {
+        if (response.status === 'success') {
+          this.router.navigate(['/wps/home/auth/login']);
+        } else {
+          this.notificationService.error(`Failed creating account: "${response.error}"`);
+        }
+      });
   }
 }

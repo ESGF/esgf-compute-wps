@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Params } from '@angular/router';
 
+import { User } from '../user/user.service';
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
 
@@ -18,7 +19,7 @@ import { NotificationService } from '../core/notification.service';
   `
 })
 export class ForgotPasswordComponent {
-  model: any = {};
+  model: User = new User();
 
   constructor(
     private authService: AuthService,

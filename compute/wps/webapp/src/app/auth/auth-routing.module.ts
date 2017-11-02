@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { Routes, RouterModule } from '@angular/router';
 
 import { CreateUserComponent } from './create-user.component';
-import { LoginComponent, LoginCallbackComponent } from './login.component';
+import { LoginComponent } from './login.component';
+import { LoginCallbackComponent } from './login-callback.component';
 import { LoginOpenIDComponent } from './login-openid.component';
 import { LogoutComponent } from './logout.component';
 import { ForgotUsernameComponent } from './forgot-username.component';

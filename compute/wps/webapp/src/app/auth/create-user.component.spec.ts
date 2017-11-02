@@ -1,8 +1,9 @@
 import { DebugElement } from '@angular/core';
-import { TestBed, ComponentFixture, async } from '@angular/core/testing';
+import { TestBed, async, fakeAsync, tick, ComponentFixture } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { By } from '@angular/platform-browser';
+import { Http } from '@angular/http';
 
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
@@ -11,11 +12,12 @@ import { CreateUserComponent } from './create-user.component';
 
 describe('Create User Component', () => {
   let router: any;
-  let notification: any;
-  let auth: any;
 
   let fixture: ComponentFixture<CreateUserComponent>;
   let comp: CreateUserComponent;
+
+  let auth: AuthService;
+  let notification: NotificationService;
 
   let username: DebugElement;
   let openid: DebugElement;
@@ -25,16 +27,15 @@ describe('Create User Component', () => {
 
   beforeEach(async(() => {
     router = jasmine.createSpyObj('router', ['navigate']);
-    notification = jasmine.createSpy('notification');
-    auth = jasmine.createSpyObj('auth', ['create']);
 
     TestBed.configureTestingModule({
       imports: [FormsModule],
       declarations: [CreateUserComponent],
       providers: [
         {provide: Router, useValue: router},
-        {provide: NotificationService, useValue: notification},
-        {provide: AuthService, useValue: auth},
+        {provide: Http, useValue: jasmine.createSpy('http')},
+        AuthService,
+        NotificationService,
       ]
     })
     .compileComponents();
@@ -44,6 +45,14 @@ describe('Create User Component', () => {
     fixture = TestBed.createComponent(CreateUserComponent);
 
     comp = fixture.componentInstance;
+
+    auth = fixture.debugElement.injector.get(AuthService);
+
+    notification = fixture.debugElement.injector.get(NotificationService);
+
+    spyOn(notification, 'message');
+
+    spyOn(notification, 'error');
 
     username = fixture.debugElement.query(By.css('#username'));
 
@@ -56,33 +65,39 @@ describe('Create User Component', () => {
     submit = fixture.debugElement.query(By.css('.btn-success'));
   });
 
-  it('should be valid', () => {
+  it('should be valid', fakeAsync(() => {
+    spyOn(auth, 'create').and.returnValue(Promise.resolve({
+      status: 'success'
+    }));
+
+    username.nativeElement.value = 'test';
+    username.nativeElement.dispatchEvent(new Event('input'));
+
+    openid.nativeElement.value = 'http://test.com/openid/test';
+    openid.nativeElement.dispatchEvent(new Event('input'));
+
+    email.nativeElement.value = 'test@gmail.com';
+    email.nativeElement.dispatchEvent(new Event('input'));
+
+    password.nativeElement.value = 'test_password';
+    password.nativeElement.dispatchEvent(new Event('input'));
+
+    fixture.detectChanges();
+
+    expect(submit.properties.disabled).toBe(false);
+
+    comp.onSubmit();
+
+    tick();
+
     fixture.detectChanges();
     
-    fixture.whenStable().then(() => {
-      username.nativeElement.value = 'test';
-      username.nativeElement.dispatchEvent(new Event('input'));
-
-      openid.nativeElement.value = 'http://test.com/openid/test';
-      openid.nativeElement.dispatchEvent(new Event('input'));
-
-      email.nativeElement.value = 'test@gmail.com';
-      email.nativeElement.dispatchEvent(new Event('input'));
-
-      password.nativeElement.value = 'test_password';
-      password.nativeElement.dispatchEvent(new Event('input'));
-
-      expect(submit.properties.disabled).toBe(false);
-
-      submit.nativeElement.click();
-
-      expect(auth.create).toHaveBeenCalled();
-    });
-  });
+    expect(auth.create).toHaveBeenCalled();
+  }));
 
   it('should set username value', () => {
     fixture.detectChanges();
-    
+
     fixture.whenStable().then(() => {
       username.nativeElement.value = 'test';
       username.nativeElement.dispatchEvent(new Event('input'));

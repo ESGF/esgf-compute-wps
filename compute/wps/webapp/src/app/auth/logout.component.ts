@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { AuthService } from '../core/auth.service';
@@ -7,11 +7,13 @@ import { AuthService } from '../core/auth.service';
   template: ''
 })
 
-export class LogoutComponent {
+export class LogoutComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private router: Router,
-  ) {
+  ) { }
+
+  ngOnInit() {
     this.authService.logout()
     
     this.router.navigate(['/wps/home']);

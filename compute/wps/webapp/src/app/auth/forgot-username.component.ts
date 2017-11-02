@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 
+import { User } from '../user/user.service';
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
 
@@ -17,7 +18,7 @@ import { NotificationService } from '../core/notification.service';
   `
 })
 export class ForgotUsernameComponent {
-  model: any = {};
+  model: User = new User();
 
   constructor(
     private authService: AuthService,
@@ -30,10 +31,14 @@ export class ForgotUsernameComponent {
         if (response.status === 'success') {
           this.notificationService.message(`Email with username sent to "${this.model.email}"`);
 
-          window.location.replace(response.data.redirect);
+          this.redirect(response.data.redirect);
         } else {
           this.notificationService.error(response.error);
         }
       });
+  }
+
+  redirect(url: string) {
+    window.location.replace(url);
   }
 }

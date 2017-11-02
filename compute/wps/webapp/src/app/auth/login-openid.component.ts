@@ -67,17 +67,18 @@ export class LoginOpenIDComponent {
     private notificationService: NotificationService,
   ) { }
 
-  onLogin() {
+  onSubmit() {
     this.authService.loginOpenID(this.model.idp.url)
-      .then(response => this.handleLogin(response))
-      .catch(error => console.log(error));
+      .then(response => {
+        if (response.status === 'success') {
+          this.redirect(response.data.redirect);
+        } else if (response.status === 'failed') {
+          this.notificationService.error(`OpenID authentication failed: "${response.error}"`);
+        }
+      });
   }
 
-  handleLogin(response: any) {
-    if (response.status === 'success') {
-      window.location.replace(response.data.redirect);
-    } else if (response.status === 'failed') {
-      this.notificationService.error(`OpenID authentication failed: "${response.error}"`);
-    }
+  redirect(url: string) {
+    window.location.replace(url);
   }
 }
