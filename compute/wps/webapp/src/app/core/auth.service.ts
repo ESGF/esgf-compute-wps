@@ -97,7 +97,7 @@ export class AuthService extends WPSService {
     this.postCSRF('auth/login/', data)
       .then(response => {
         if (response.status === 'success') {
-          this.user = response.data as User;
+          this.setUser(response.data as User);
 
           localStorage.setItem('expires', this.user.expires.toString());
 
