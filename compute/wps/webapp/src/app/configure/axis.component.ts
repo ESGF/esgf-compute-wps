@@ -3,11 +3,11 @@ import { Component, Input } from '@angular/core';
 export interface Axis {
   id: string;
   id_alt: string;
+  units: string;
   start: number;
   stop: number;
   step: number;
 }
-
 
 @Component({
   selector: 'axis',
@@ -17,7 +17,7 @@ export interface Axis {
     <div class="panel-heading">
       <div class="panel-title">
         <a role="button" data-toggle="collapse" data-parent="#accordionAxis" href="#collapse{{axisIndex}}">
-          <span>{{axis.id}} ({{axis.units}})</span>
+          <span id="title">{{axis.id}} ({{axis.units}})</span>
         </a>
       </div>
     </div>
@@ -40,4 +40,3 @@ export class AxisComponent {
   @Input() axis: Axis;
   @Input() axisIndex: number;
 }
-
