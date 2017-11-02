@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { Http } from '@angular/http';
 
 import { WPSService, WPSResponse } from '../core/wps.service';
-import { AuthService } from '../core/auth.service';
 import { Job, Status, Message } from './job';
 
 export class User {
@@ -36,7 +35,6 @@ export class User {
 export class UserService extends WPSService {
   constructor(
     http: Http,
-    private authService: AuthService
   ) { 
     super(http); 
   }
@@ -94,10 +92,10 @@ export class UserService extends WPSService {
   }
 
   update(user: User): Promise<WPSResponse> {
-    return this.postCSRF('auth/update/', user.toUrlEncoded());
+    return this.postCSRF('auth/update', user.toUrlEncoded());
   }
 
-  regenerateKey(user: User): Promise<WPSResponse> {
-    return this.getCSRF('auth/user/regenerate/');
+  regenerateKey(): Promise<WPSResponse> {
+    return this.getCSRF('auth/user/regenerate');
   }
 }

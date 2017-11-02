@@ -50,7 +50,7 @@ export class UserDetailsComponent {
   }
 
   onRegenerateKey() {
-    this.userService.regenerateKey(this.model)
+    this.userService.regenerateKey()
       .then(response => {
         if (response.status === 'success') {
           this.model.api_key = response.data.api_key;
