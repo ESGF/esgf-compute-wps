@@ -16,7 +16,7 @@ import { Component } from '@angular/core';
         </p>
         <p>
           After requesting a certificate, you will find your API key on the user <a routerLink="/wps/home/user/profile">Profile</a>.
-          You can use this to access the ESGF WPS services through then ESGF CWT End-user API which can be install from <a href="https://anaconda.org/uvcdat/esgf-compute-api">Conda</a>. Examples of the API can be found <a href="https://github.com/ESGF/esgf-compute-api/tree/master/examples">here</a>.
+          You can use this to access the ESGF WPS services through then ESGF CWT End-user API which can be install from <a target="_blank" href="https://anaconda.org/uvcdat/esgf-compute-api">Conda</a>. Examples of the API can be found <a target="_blank" href="https://github.com/ESGF/esgf-compute-api/tree/master/examples">here</a>.
         </p>
       </div>
     </div>
