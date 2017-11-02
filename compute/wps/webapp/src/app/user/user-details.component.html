@@ -1,6 +1,6 @@
  <div class="content">
   <div class="pane">
-    <form *ngIf="model !== undefined" (ngSubmit)="onSubmit(userForm)" #userForm="ngForm">
+    <form (ngSubmit)="onSubmit(userForm)" #userForm="ngForm">
       <div class="form-group">
         <label for="username">Username</label>
         <p class="form-control-static" id="username">{{model.username}}</p>
