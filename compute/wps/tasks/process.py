@@ -819,8 +819,6 @@ class CWTBaseTask(celery.Task):
 
                             break
 
-                        print temporal
-
                         if dim.crs == cwt.INDICES:
                             dim.start -= temporal.start
 
