@@ -132,7 +132,7 @@ class ESGFViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Dataset contains no variables')
+        self.assertEqual(data['error'], 'No variables were found in dataset "dataset_id"')
 
     def test_search_dataset_missing_dataset(self):
         self.client.login(username='test', password='test')
@@ -144,7 +144,7 @@ class ESGFViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], {u'message': u'Mising required parameter "\'dataset_id\'"'})
+        self.assertEqual(data['error'], 'Missing parameter "\'dataset_id\'"')
 
     def test_search_dataset(self):
         response = self.client.get('/wps/search/')

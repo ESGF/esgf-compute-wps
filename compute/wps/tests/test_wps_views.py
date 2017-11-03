@@ -162,6 +162,6 @@ class WPSViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Unauthorized access')
 
     def test_status(self):
-        response = self.client.get('/wps/job/{}/'.format(self.job.id))
+        response = self.client.get('/wps/status/{}/'.format(self.job.id))
 
         self.assertEqual(response.status_code, 200)
