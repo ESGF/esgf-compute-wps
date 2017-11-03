@@ -6,6 +6,7 @@ import json
 import re
 
 import cdms2
+import cdtime
 import requests
 from django.core.cache import cache
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -24,10 +25,12 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
     axes = cache.get(cache_id)
 
     if axes is None:
-        logger.debug('Dataset variable "{}" not in cache'.format(cache_id))
+        logger.info('Dataset variable "{}" not in cache'.format(cache_id))
 
-        if len(query_files) == 0:
-            raise Exception('No files to retrieve axes for')
+        try:
+            query_files_reduced = [query_files[0], query_files[-1]]
+        except IndexError:
+            raise common.ViewError('No files associated with variable "{}" of dataset "{}"'.format(query_variable, dataset_id))
 
         start = datetime.datetime.now()
 
@@ -37,8 +40,14 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
 
         task.load_certificate(user)
 
-        for i, url in enumerate([query_files[0], query_files[-1]]):
+        logger.info('Retrieving axis range for dataset "{}"'.format(dataset_id))
+
+        base_units = None
+
+        for i, url in enumerate(query_files_reduced):
             try:
+                logger.debug('Opening file "{}"'.format(url))
+
                 with cdms2.open(url) as infile:
                     header = infile[query_variable]
 
@@ -46,26 +55,45 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
                         for x in header.getAxisList():
                             axis_data = {
                                 'id': x.id,
-                                'start': x[0],
-                                'stop': x[-1],
-                                'id_alt': x.attributes['axis'].lower(),
-                                'units': x.attributes['units']
+                                # Need to convert start/stop to str otherwise Django JsonResponse throws up
+                                'start': str(x[0]),
+                                'stop': str(x[-1]),
+                                'id_alt': (x.attributes.get('axis', None) or x.id).lower(),
+                                'units': x.attributes.get('units', None)
                             }
 
                             axes[x.id] = axis_data
+
+                            if x.isTime():
+                                base_units = axis_data['units']
+
+                            logger.info(x)
                     else:
                         time = header.getAxisList(axes=('time'))
 
-                        if len(time) > 0:
-                            time = time[0]
+                        if len(time) == 0:
+                            logger.debug('No time axis to set stop value')
 
-                            axes[time.id]['stop'] = time[-1]
-            except:
-                raise Exception('Error accessing OpenDAP url: "{}"'.format(url))
+                            continue
+
+                        # Convert last time value to be relative to the first files units
+                        remapped_time = cdtime.reltime(time[0][-1], time[0].attributes.get('units', None))
+
+                        remapped_time = remapped_time.torel(base_units, time[0].getCalendar())
+
+                        old_stop = axes[time[0].id]['stop']
+
+                        axes[time[0].id]['stop'] = remapped_time.value
+
+                        logger.info('Extending time from "{}" to "{}"'.format(old_stop, remapped_time))
+            except cdms2.CDMSError as e:
+                raise common.ViewError('CDMS2 error "{}"'.format(e.message))
 
         cache.set(cache_id, axes, 24*60*60)
 
         logger.debug('retrieve_axes elapsed time {}'.format(datetime.datetime.now()-start))
+    else:
+        logger.info('Axes for "{}" retrieved from cache'.format(cache_id))
 
     return axes
 
@@ -73,7 +101,7 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
     data = cache.get(dataset_id)
 
     if data is None:
-        logger.debug('Dataset "{}" not in cache'.format(dataset_id))
+        logger.info('Dataset "{}" not in cache'.format(dataset_id))
 
         start = datetime.datetime.now()
 
@@ -95,6 +123,8 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
 
         url = 'http://{}/esg-search/search'.format(index_node)
 
+        logger.info('Requesting "{}"'.format(url))
+
         try:
             response = requests.get(url, params)
         except requests.ConnectionError:
@@ -111,6 +141,8 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
         cache.set(dataset_id, data, 24*60*60)
 
         logger.debug('search_solr elapsed time {}'.format(datetime.datetime.now()-start))
+    else:
+        logger.info('Dataset "{}" retrieved from cache'.format(dataset_id))
 
     return data['response']['docs']
 
@@ -135,15 +167,18 @@ def parse_solr_docs(docs):
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
-def search_axes(request):
+def search_variable(request):
     try:
         common.authentication_required(request)
 
-        dataset_id = request.GET['dataset_id']
+        try:
+            dataset_id = request.GET['dataset_id']
 
-        index_node = request.GET['index_node']
+            index_node = request.GET['index_node']
 
-        query_variable = request.GET['variable']
+            query_variable = request.GET['variable']
+        except KeyError as e:
+            raise common.MissingParameterError(parameter=e.message)
 
         shard = request.GET.get('shard', None)
 
@@ -156,10 +191,6 @@ def search_axes(request):
         query_files = dataset_variables[query_variable]['files']
 
         axes = retrieve_axes(request.user, dataset_id, query_variable, query_files)
-    except KeyError as e:
-        logger.exception('Missing required parameter')
-
-        return common.failed({'message': 'Mising required parameter "{}"'.format(e.message)})
     except Exception as e:
         logger.exception('Error retrieving ESGF search results')
 
@@ -173,9 +204,12 @@ def search_dataset(request):
     try:
         common.authentication_required(request)
 
-        dataset_id = request.GET['dataset_id']
+        try:
+            dataset_id = request.GET['dataset_id']
 
-        index_node = request.GET['index_node']
+            index_node = request.GET['index_node']
+        except KeyError as e:
+            raise common.MissingParameterError(parameter=e.message)
 
         shard = request.GET.get('shard', None)
 
@@ -185,20 +219,19 @@ def search_dataset(request):
 
         dataset_variables = parse_solr_docs(docs)
 
-        if len(dataset_variables.keys()) == 0:
-            raise Exception('Dataset contains no variables')
+        try:
+            query_variable = dataset_variables.keys()[0]
+        except IndexError as e:
+            raise common.ViewError('No variables were found in dataset "{}"'.format(dataset_id))
 
-        query_variable = dataset_variables.keys()[0]
-
-        query_files = dataset_variables[query_variable]['files']
+        try:
+            query_files = dataset_variables[query_variable]['files']
+        except KeyError as e:
+            raise common.ViewError('Key "{}" not found in retrieved variables'.format(e.message))
 
         axes = retrieve_axes(request.user, dataset_id, query_variable, query_files)
 
         dataset_variables[query_variable]['axes'] = axes.values()
-    except KeyError as e:
-        logger.exception('Missing required parameter')
-
-        return common.failed({'message': 'Mising required parameter "{}"'.format(e.message)})
     except Exception as e:
         logger.exception('Error retrieving ESGF search results')
 
