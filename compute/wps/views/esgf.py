@@ -196,7 +196,7 @@ def search_variable(request):
 
         return common.failed(e.message)
     else:
-        return common.success(axes)
+        return common.success(axes.values())
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie

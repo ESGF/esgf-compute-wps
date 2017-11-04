@@ -76,11 +76,13 @@ describe('Authentication Service', () => {
   });
 
   it('should set isLoggedIn false and remove localStorage expires', fakeAsync(() => {
+    let errorText: string;
     let logged: boolean;
 
     this.service.isLoggedIn$.subscribe((value: boolean) => logged = value);
 
-    this.service.login('test', 'password');
+    this.service.login('test', 'password')
+      .catch((error: any) => errorText = error);
 
     this.lastConnection.mockRespond(new Response(new ResponseOptions({
       body: JSON.stringify({
@@ -159,10 +161,12 @@ describe('Authentication Service', () => {
 
   it('should not emit user from userDetails', fakeAsync(() => {
     let result: User;
+    let errorText: string;
 
     this.service.user$.subscribe((value: User) => result = value);
 
-    this.service.userDetails();
+    this.service.userDetails()
+      .catch((error: any) => errorText = error);
 
     this.lastConnection.mockRespond(new Response(new ResponseOptions({
       body: JSON.stringify({
@@ -173,7 +177,8 @@ describe('Authentication Service', () => {
 
     tick();
 
-    expect(result).toBeUndefined();
+    expect(result).toBeNull();
+    expect(errorText).toBe('some error');
   }));
 
   it('should emit user from userDetails', fakeAsync(() => {

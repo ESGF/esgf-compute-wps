@@ -1,7 +1,73 @@
-import { Http, Headers } from '@angular/http';
+import { Http, Headers, URLSearchParams } from '@angular/http';
 import { Injectable } from '@angular/core';
+import { Params } from '@angular/router';
 
+import { Axis } from './axis.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
+
+export interface Dataset {
+  axes: Axis[];
+  files: string[];
+}
+
+export interface SearchResult {
+  [index: string]: Dataset;
+}
+
+export class RegridOptions {
+  lats: number;
+  lons: number;
+}
+
+export class Configuration {
+  process: string;
+  dataset: Dataset;
+  variable: string;
+  regrid: string;
+  regridOptions: RegridOptions;
+  params: Params;
+
+  constructor() {
+    this.regrid = 'None';
+
+    this.regridOptions = new RegridOptions();
+
+    this.dataset = { axes: [], files: [] } as Dataset;
+  }
+
+  prepareData(): string {
+    let data = '';
+    let numberPattern = /\d+\.?\d+/;
+
+    data += `process=${this.process}&`;
+
+    data += `variable=${this.variable}&`;
+
+    data += `regrid=${this.regrid}&`;
+
+    if (this.regrid !== 'None') {
+      if (this.regrid === 'Uniform') {
+        if (this.regridOptions.lons === undefined) {
+          throw `Regrid option "${this.regrid}" requires Longitude to be set`;
+        }
+      }
+
+      if (this.regridOptions.lats === undefined) {
+        throw `Regrid option "${this.regrid}" require Latitude to be set`;
+      }
+
+      data += `longitudes=${this.regridOptions.lons}&`;
+
+      data += `latitudes=${this.regridOptions.lats}&`;
+    }
+
+    data += `files=${this.dataset.files}&`;
+
+    data += 'dimensions=' + JSON.stringify(this.dataset.axes.map((axis: any) => { return axis; }));
+
+    return data;
+  }
+}
 
 @Injectable()
 export class ConfigureService extends WPSService {
@@ -11,43 +77,62 @@ export class ConfigureService extends WPSService {
     super(http); 
   }
 
-  processes(): Promise<any> {
-    return this.http.get('/wps/processes')
-      .toPromise()
-      .then(response => response.json())
-      .catch(this.handleError);
+  processes(): Promise<string[]> {
+    return this.get('/wps/processes')
+      .then(response => {
+        return response.data;
+      });
   }
 
-  searchESGF(params: any): Promise<any> {
-    return this.http.get('/wps/search', {
-      params: params 
-    })
-      .toPromise()
-      .then(response => response.json())
-      .catch(this.handleError);
+  searchESGF(params: Params): Promise<SearchResult> { 
+    return this.get('/wps/search', params)
+      .then(response => {
+        return response.data as SearchResult;
+      });
   }
 
-  execute(config: string): Promise<any> {
-    return this.http.post('/wps/execute/', config, {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json())
-      .catch(this.handleError);
+  searchVariable(config: Configuration): Promise<Axis[]> {
+    let searchParams = new URLSearchParams();
+
+    for (let x of Object.keys(config.params)) {
+      searchParams.append(x, config.params[x]);
+    }
+
+    searchParams.append('variable', config.variable);
+
+    return this.get('/wps/search/variable', searchParams)
+      .then(response => {
+        return response.data as Axis[];
+      });
   }
 
-  downloadScript(config: string): Promise<any> {
-    return this.http.post('/wps/generate/', config, {
-      headers: new Headers({
-        'X-CSRFToken': this.getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
-    })
-      .toPromise()
-      .then(response => response.json())
-      .catch(this.handleError);
+  execute(config: Configuration): Promise<string> {
+    let preparedData: string;
+    
+    try {
+      preparedData = config.prepareData();
+    } catch (e) {
+      return Promise.reject(e);
+    }
+
+    return this.postCSRF('/wps/execute/', preparedData).
+      then(response => {
+        return response.data;
+      });
+  }
+
+  downloadScript(config: Configuration): Promise<any> {
+    let preparedData: string;
+    
+    try {
+      preparedData = config.prepareData();
+    } catch (e) {
+      return Promise.reject(e);
+    }
+
+    return this.postCSRF('/wps/generate/', preparedData)
+      .then(response => {
+        return response.data;
+      });
   }
 }

@@ -19,7 +19,7 @@
                 </div>
                 <div class="form-group">
                   <label for="variable">Variable</label>
-                  <select [(ngModel)]="config.variable" class="form-control" id="variable" name="variable">
+                  <select [(ngModel)]="config.variable" (change)="variableChange()" class="form-control" id="variable" name="variable">
                     <option *ngFor="let v of variables" [value]="v">{{v}} ({{result[v].files.length}})</option>
                   </select>
                 </div>
@@ -63,7 +63,7 @@
                   <option *ngFor="let domain of domains">{{domain.name}}</option>
                 </select>
                 <div class="panel-group" id="accordionAxis">
-                  <axis *ngFor="let axis of config?.axes; index as i" [axisIndex]="i" [axis]="axis"></axis>
+                  <axis *ngFor="let axis of config?.dataset.axes; index as i" [axisIndex]="i" [axis]="axis"></axis>
                 </div>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Http, URLSearchParams, RequestOptionsArgs, Headers } from '@angular/http';
+import { Params } from '@angular/router';
 
 export interface WPSResponse {
   status: string;
@@ -37,14 +38,21 @@ export class WPSService {
     return this.get(url, params, headers);
   }
 
-  get(url: string, params: URLSearchParams = null, headers: Headers = new Headers()) {
+  get(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
     return this.http.get(url, {
       params: params,
       headers: headers 
     })
       .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+      .then(result => {
+        let response = result.json() as WPSResponse;
+
+        if (response.status === 'failed') {
+          throw response.error;
+        }
+     
+        return response;
+      });
   }
 
   postCSRF(url: string, data: string = '', headers: Headers = new Headers()) {
@@ -60,8 +68,15 @@ export class WPSService {
       headers: headers 
     })
       .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
+      .then(result => {
+        let response = result.json() as WPSResponse;
+
+        if (response.status === 'failed') {
+          throw response.error;
+        }
+
+        return response;
+      });
   }
 
   notification(): Promise<WPSResponse> {

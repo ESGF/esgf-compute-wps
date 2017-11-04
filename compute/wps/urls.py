@@ -7,6 +7,7 @@ urlpatterns = [
     url(r'^$', views.wps),
     url(r'^processes/$', views.processes),
     url(r'^search/$', views.search_dataset),
+    url(r'^search/variable$', views.search_variable),
     url(r'^generate/$', views.generate),
     url(r'^execute/$', views.execute),
     url(r'^notification/$', views.notification),

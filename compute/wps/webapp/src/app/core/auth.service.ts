@@ -53,11 +53,14 @@ export class AuthService extends WPSService {
   }
 
   userDetails() {
-    this.getCSRF('auth/user/')
+    return this.getCSRF('auth/user/')
       .then(response => {
-        if (response.status === 'success') {
-          this.setUser(response.data as User);
-        }
+        this.setUser(response.data as User);
+      })
+      .catch(error => {
+        this.setUser(null);
+
+        throw error;
       });
   }
 
@@ -94,7 +97,7 @@ export class AuthService extends WPSService {
   login(username: string, password: string) {
     let data = `username=${username}&password=${password}`;
 
-    this.postCSRF('auth/login/', data)
+    return this.postCSRF('auth/login/', data)
       .then(response => {
         if (response.status === 'success') {
           this.setUser(response.data as User);
@@ -107,6 +110,13 @@ export class AuthService extends WPSService {
 
           localStorage.removeItem('expires');
         }
+      })
+      .catch(error => {
+        this.setLoggedIn(false);
+
+        localStorage.removeItem('expires');
+
+        throw error;
       });
   }
 

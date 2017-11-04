@@ -1,43 +1,16 @@
 import { Input, Component, OnInit, ViewChild, ViewChildren, QueryList, AfterViewInit } from '@angular/core';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, Params } from '@angular/router';
 
 import * as L from 'leaflet';
 
 require('leaflet/dist/leaflet.css');
 
 import { AuthService } from '../core/auth.service';
-import { ConfigureService } from './configure.service';
+import { Configuration, SearchResult, ConfigureService } from './configure.service';
 import { NotificationService } from '../core/notification.service';
 
 import { Selection } from './selection';
 import { Axis, AxisComponent } from './axis.component';
-
-interface Dataset {
-  axes: Axis[];
-  files: string[];
-}
-
-interface SearchResult {
-  [index: string]: Dataset;
-}
-
-class RegridOptions {
-  lats: number;
-  lons: number;
-}
-
-class Configuration {
-  process: string;
-  axes: Axis[];
-  files: string[];
-  variable: string;
-  regrid: string;
-  regridOptions: RegridOptions;
-
-  constructor() {
-    this.regridOptions = new RegridOptions();
-  }
-}
 
 class Domain {
   constructor(
@@ -70,15 +43,15 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
     new Domain('World'),
     new Domain('Custom')
   ];
+  domainModel = { value: this.domains[0].name };
 
   map: L.Map;
-  domainModel = {value: 'World'};
   config: Configuration;
   result: SearchResult;
   selection: Selection;
   variables: string[];
 
-  processes: Promise<any>;
+  processes: Promise<string[]>;
 
   constructor(
     private route: ActivatedRoute,
@@ -88,59 +61,61 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
     private notificationService: NotificationService
   ) { 
     this.config = new Configuration();
-
-    this.config.regrid = 'None';
   }
 
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
+      this.config.params = params;
+
       this.configService.searchESGF(params)
-        .then(response => {
-          if (response.status === 'success') {
-            this.result = response.data as SearchResult;
+        .then(data => {
+          this.result = data;
 
-            this.variables = Object.keys(this.result);
+          this.variables = Object.keys(this.result);
 
-            this.config.variable = this.variables[0];
+          this.config.variable = this.variables[0];
 
-            this.config.axes = this.result[this.config.variable].axes.map((axis: Axis) => {
-              return {step: 1, ...axis};
-            });
-          } else {
-            this.notificationService.error(response.error);
-          }
+          this.config.dataset = this.result[this.config.variable];
+          
+          this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
+            return {step: 1, ...axis};
+          });
+        })
+        .catch(error => {
+          this.notificationService.error(error); 
         });
     });
 
     this.processes = this.configService.processes()
-      .then(response => {
-        if (response.status === 'success') {
-          let p = response.data.sort((a: string, b: string) => {
-            if (a > b) {
-              return 1;
-            } else if (a < b) {
-              return -1;
-            } else {
-              return 0;
-            }
-          });
+      .then(data => {
+        let p = data.sort((a: string, b: string) => {
+          if (a > b) {
+            return 1;
+          } else if (a < b) {
+            return -1;
+          } else {
+            return 0;
+          }
+        });
 
-          this.config.process = p[0];
+        this.config.process = p[0];
 
-          return p;
-        } else {
-          this.notificationService.error(response.error);
+        return p;
+      })
+      .catch(error => {
+        this.notificationService.error(error); 
 
-          return [];
-        }
+        return [];
       });
 
-    this.map = L.map(this.mapContainer.nativeElement).setView(L.latLng(0.0, 0.0), 1);
+    if (this.map === undefined) {
+      this.map = L.map(this.mapContainer.nativeElement).setView(L.latLng(0.0, 0.0), 1);
 
-    L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(this.map);
+      L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(this.map);
+    }
 
     this.selection = new Selection(this.map, [[0, 0], [20, 20]], {color: '#4db8ff'});
 
@@ -166,6 +141,24 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit() {
     this.map.invalidateSize();
+  }
+
+  variableChange() {
+    this.config.dataset = this.result[this.config.variable];
+
+    if (this.config.dataset.axes === undefined) {
+      this.configService.searchVariable(this.config)
+        .then(data => {
+          this.config.dataset.axes = data;
+
+          this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
+            return {step: 1, ...axis}; 
+          });
+        })
+        .catch(error => {
+          this.notificationService.error(error);
+        });
+    }
   }
 
   domainChange() {
@@ -201,80 +194,35 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
     }
   }
 
-  prepareData(): string {
-    let data = '';
-    let numberPattern = /\d+\.?\d+/;
-
-    data += `process=${this.config.process}&`;
-
-    data += `variable=${this.config.variable}&`;
-
-    data += `regrid=${this.config.regrid}&`;
-
-    if (this.config.regrid !== 'None') {
-      if (this.config.regrid === 'Uniform') {
-        if (this.config.regridOptions.lons === undefined) {
-          this.notificationService.error('Regrid longitudes must have a value set');
-
-          return null;
-        }
-      }
-
-      if (this.config.regridOptions.lats === undefined) {
-        this.notificationService.error('Regrid latitudes must have a value set');
-
-        return null;
-      }
-
-      data += `longitudes=${this.config.regridOptions.lons}&`;
-
-      data += `latitudes=${this.config.regridOptions.lats}&`;
-    }
-
-    let files = this.result[this.config.variable].files;
-
-    data += `files=${files}&`;
-
-    data += 'dimensions=' + JSON.stringify(this.axes.map((axis: any) => { return axis.axis; }));
-
-    return data;
-  }
-
   onDownload() {
-    let data = this.prepareData();
+    this.config.dataset = this.result[this.config.variable];
 
-    if (data !== null) {
-      this.configService.downloadScript(data)
-        .then(response => {
-          if (response.status === 'success') {
-            let url = URL.createObjectURL(new Blob([response.data.text]));
+    this.configService.downloadScript(this.config)
+      .then(data => {
+          let url = URL.createObjectURL(new Blob([data.text]));
 
-            let a = document.createElement('a');
+          let a = document.createElement('a');
 
-            a.href = url;
-            a.target = '_blank';
-            a.download = response.data.filename;
+          a.href = url;
+          a.target = '_blank';
+          a.download = data.filename;
 
-            a.click();
-          } else {
-            this.notificationService.error(`Failed to download script: ${response.error}`);
-          }
-        });
-    }
+          a.click();
+      })
+      .catch(error => {
+        this.notificationService.error(error); 
+      });
   }
 
   onExecute() {
-    let data = this.prepareData();
+    this.config.dataset = this.result[this.config.variable];
 
-    if (data !== null) {
-      this.configService.execute(data)
-        .then(response => {
-          if (response.status === 'success') {
-
-          } else {
-            this.notificationService.error(`Failed to execute process: ${response.error}`);
-          }
-        });
-    }
+    this.configService.execute(this.config)
+      .then(data => {
+        console.log(data);
+      })
+      .catch(error => {
+        this.notificationService.error(error); 
+      });
   }
 }
