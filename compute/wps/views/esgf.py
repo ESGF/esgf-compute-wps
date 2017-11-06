@@ -66,8 +66,6 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
 
                             if x.isTime():
                                 base_units = axis_data['units']
-
-                            logger.info(x)
                     else:
                         time = header.getAxisList(axes=('time'))
 
