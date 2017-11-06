@@ -21,6 +21,7 @@ module.exports = function (config) {
     colors: true,
     logLevel: config.LOG_INFO,
     autoWatch: true,
+    autoWatchBatchDelay: 1000,
     //browsers: ['Chrome'],
     singleRun: false
   };
