@@ -63,7 +63,7 @@ export class UserDetailsComponent {
   }
 
   onOAuth2() {
-    this.authService.oauth2(this.model.openid)
+    this.authService.oauth2(this.model.openID)
       .then(response => {
         if (response.status === 'success') {
           window.location.replace(response.data.redirect);

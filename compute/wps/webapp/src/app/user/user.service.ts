@@ -7,7 +7,7 @@ import { Job, Status, Message } from './job';
 export class User {
   constructor(
     public username: string = '',
-    public openid: string = '',
+    public openID: string = '',
     public email: string = '',
     public api_key: string = '',
     public type: string = '',
@@ -19,7 +19,7 @@ export class User {
 
   toUrlEncoded(): string {
     let params = '';
-    let fields = ['username', 'openid', 'email', 'password'];
+    let fields = ['username', 'openID', 'email', 'password'];
 
     for (let k of fields) {
       if (this[k] != undefined) {
