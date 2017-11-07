@@ -66,21 +66,17 @@ export class UserService extends WPSService {
   jobDetails(id: number): Promise<Status[]> {
     return this.get(`wps/jobs/${id}`)
       .then((response: WPSResponse) => {
-        if (response.status === 'success') {
-          let status = response.data as Status[];
+        let status = response.data as Status[];
 
-          status.forEach((value: Status) => {
-            this.formatStatus(value);
-          });
+        status.forEach((value: Status) => {
+          this.formatStatus(value);
+        });
 
-          return status;
-        }
-
-        return null;
+        return status;
       });
   }
 
-  jobs(offset: number, items: number): Promise<Job[]> {
+  jobs(): Promise<Job[]> {
     return this.get('wps/jobs')
       .then((response: WPSResponse) => {
         return response.data as Job[];

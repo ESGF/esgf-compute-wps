@@ -357,17 +357,19 @@ class Job(models.Model):
             'server': self.server.host,
             'process': self.process.identifier,
             'elapsed': self.elapsed,
-            'status': self.status
+            #'status': self.status
         }
 
     @property
     def status(self):
         return [
             {
-                'create_date':  x.created_date,
+                'created_date': x.created_date,
+                'updated_date': x.updated_date,
                 'status': x.status,
                 'exception': x.exception,
-                'output': x.output
+                'output': x.output,
+                'messages': [y.details for y in x.message_set.all().order_by('created_date')]
             } for x in self.status_set.all().order_by('created_date')
         ]
 
@@ -478,3 +480,11 @@ class Message(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)
     percent = models.PositiveIntegerField(null=True)
     message = models.TextField(null=True)
+
+    @property
+    def details(self):
+        return {
+            'created_date': self.created_date,
+            'percent': self.percent or 0,
+            'message': self.message
+        }
