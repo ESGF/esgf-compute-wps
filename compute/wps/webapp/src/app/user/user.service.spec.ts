@@ -32,7 +32,7 @@ describe('WPS Service', () => {
     let user = new User();
 
     user.username = 'test';
-    user.openid = 'http://test.com/openid/test';
+    user.openID = 'http://test.com/openid/test';
     user.email = 'test@gmail.com';
 
     spyOn(service, 'postCSRF');

@@ -42,7 +42,6 @@ CACHES = {
 INSTALLED_APPS = [
     'wps',
     'webpack_loader',
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',

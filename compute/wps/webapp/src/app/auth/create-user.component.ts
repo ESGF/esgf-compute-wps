@@ -22,11 +22,10 @@ export class CreateUserComponent {
   onSubmit(): void {
     this.authService.create(this.model)
       .then(response => {
-        if (response.status === 'success') {
-          this.router.navigate(['/wps/home/auth/login']);
-        } else {
-          this.notificationService.error(`Failed creating account: "${response.error}"`);
-        }
+        this.router.navigate(['/wps/home/auth/login']);
+      })
+      .catch(error => {
+        this.notificationService.error(`Failed creating account: "${error}"`);
       });
   }
 }
