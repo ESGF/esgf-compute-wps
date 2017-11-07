@@ -16,7 +16,7 @@ module.exports = function (config) {
 
     webpack: webpackConfig,
 
-    reporters: ['progress'],
+    reporters: ['progress', 'kjhtml'],
     port: 8000,
     colors: true,
     logLevel: config.LOG_INFO,
