@@ -218,8 +218,21 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
     this.config.dataset = this.result[this.config.variable];
 
     this.configService.execute(this.config)
-      .then(data => {
-        console.log(data);
+      .then((data: any) => {
+        let parser = new DOMParser();
+        let xml = parser.parseFromString(data.report, 'text/xml');
+        let el = xml.getElementsByTagName('wps:ExecuteResponse');
+        let link = '';
+
+        if (el.length > 0) {
+          let statusLocation = el[0].attributes.getNamedItem('statusLocation').value;
+
+          let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
+
+          link = `/wps/home/user/jobs?selected=${jobID}`;
+        }
+        
+        this.notificationService.message('Succesfully submitted job', link);
       })
       .catch(error => {
         this.notificationService.error(error); 
