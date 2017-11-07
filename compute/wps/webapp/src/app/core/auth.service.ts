@@ -94,7 +94,7 @@ export class AuthService extends WPSService {
     return this.postCSRF('auth/create/', user.toUrlEncoded());
   }
 
-  login(username: string, password: string) {
+  login(username: string, password: string): Promise<WPSResponse> {
     let data = `username=${username}&password=${password}`;
 
     return this.postCSRF('auth/login/', data)
@@ -110,6 +110,8 @@ export class AuthService extends WPSService {
 
           localStorage.removeItem('expires');
         }
+
+        return response;
       })
       .catch(error => {
         this.setLoggedIn(false);

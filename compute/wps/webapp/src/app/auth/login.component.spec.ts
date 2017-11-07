@@ -52,8 +52,36 @@ describe('Forgot Password Component', () => {
     password = fixture.debugElement.query(By.css('#password'));
   });
 
+  it('should emit an error notification', fakeAsync(() => {
+    spyOn(auth, 'login').and.returnValue(Promise.reject({
+      status: 'failed',
+      error: 'some error',
+    }));
+
+    fixture.detectChanges();
+
+    fixture.whenStable().then(() => {
+      username.nativeElement.value = 'test';
+      username.nativeElement.dispatchEvent(new Event('input'));
+
+      password.nativeElement.value = 'test_password';
+      password.nativeElement.dispatchEvent(new Event('input'));
+
+      fixture.detectChanges();
+
+      comp.onSubmit();
+
+      tick();
+
+      expect(auth.login).toHaveBeenCalledWith('test', 'test_password');
+      expect(notification.error).toHaveBeenCalled();
+    });
+  }));
+
   it('should login', fakeAsync(() => {
-    spyOn(auth, 'login');
+    spyOn(auth, 'login').and.returnValue(Promise.resolve({
+      status: 'success' 
+    }));
 
     fixture.detectChanges();
 

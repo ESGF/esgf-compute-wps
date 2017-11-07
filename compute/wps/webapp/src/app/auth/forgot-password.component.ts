@@ -29,11 +29,10 @@ export class ForgotPasswordComponent {
   onSubmit() {
     this.authService.forgotPassword(this.model.username)
       .then(response => {
-        if (response.status === 'success') {
-          this.notificationService.message('Sent reset password email');
-        } else {
-          this.notificationService.error(response.error);
-        }
+        this.notificationService.message('Sent reset password email');
+      })
+      .catch(error => {
+        this.notificationService.error(error);
       });
   }
 }

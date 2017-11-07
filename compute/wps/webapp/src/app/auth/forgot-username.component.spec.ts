@@ -56,7 +56,7 @@ describe('Forgot Password Component', () => {
   }));
 
   it('should emit an error notification', fakeAsync(() => {
-    spyOn(auth, 'forgotUsername').and.returnValue(Promise.resolve({ status: 'failed' }));
+    spyOn(auth, 'forgotUsername').and.returnValue(Promise.reject({ status: 'failed' }));
 
     comp.onSubmit();
 

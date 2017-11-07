@@ -30,6 +30,9 @@ export class LoginComponent implements OnInit {
   }
 
   onSubmit() {
-    this.authService.login(this.model.username, this.model.password);
+    this.authService.login(this.model.username, this.model.password)
+      .catch(error => {
+        this.notificationService.error(error); 
+      });
   }
 }

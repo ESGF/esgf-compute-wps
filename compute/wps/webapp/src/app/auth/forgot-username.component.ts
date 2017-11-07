@@ -28,13 +28,12 @@ export class ForgotUsernameComponent {
   onSubmit() {
     this.authService.forgotUsername(this.model.email)
       .then(response => {
-        if (response.status === 'success') {
-          this.notificationService.message(`Email with username sent to "${this.model.email}"`);
+        this.notificationService.message(`Email with username sent to "${this.model.email}"`);
 
-          this.redirect(response.data.redirect);
-        } else {
-          this.notificationService.error(response.error);
-        }
+        this.redirect(response.data.redirect);
+      })
+      .catch(error => {
+        this.notificationService.error(error); 
       });
   }
 

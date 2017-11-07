@@ -70,11 +70,10 @@ export class LoginOpenIDComponent {
   onSubmit() {
     this.authService.loginOpenID(this.model.idp.url)
       .then(response => {
-        if (response.status === 'success') {
-          this.redirect(response.data.redirect);
-        } else if (response.status === 'failed') {
-          this.notificationService.error(`OpenID authentication failed: "${response.error}"`);
-        }
+        this.redirect(response.data.redirect);
+      })
+      .catch(error => {
+        this.notificationService.error(`OpenID authentication failed: ${error}`);
       });
   }
 

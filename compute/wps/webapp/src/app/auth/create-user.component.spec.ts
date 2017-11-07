@@ -50,8 +50,6 @@ describe('Create User Component', () => {
 
     notification = fixture.debugElement.injector.get(NotificationService);
 
-    spyOn(notification, 'message');
-
     spyOn(notification, 'error');
 
     username = fixture.debugElement.query(By.css('#username'));
@@ -65,7 +63,21 @@ describe('Create User Component', () => {
     submit = fixture.debugElement.query(By.css('.btn-success'));
   });
 
-  it('should be valid', fakeAsync(() => {
+  it('should emit error notification', () => {
+    spyOn(auth, 'create').and.returnValue(Promise.reject({
+      status: 'failed'
+    }));
+
+    comp.onSubmit();
+
+    fixture.detectChanges();
+
+    fixture.whenStable().then(() => {
+      expect(notification.error).toHaveBeenCalled(); 
+    });
+  });
+
+  it('should redirect', fakeAsync(() => {
     spyOn(auth, 'create').and.returnValue(Promise.resolve({
       status: 'success'
     }));
@@ -93,6 +105,7 @@ describe('Create User Component', () => {
     fixture.detectChanges();
     
     expect(auth.create).toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalled();
   }));
 
   it('should set username value', () => {

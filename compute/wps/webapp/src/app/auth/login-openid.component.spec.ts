@@ -59,7 +59,7 @@ describe('Forgot Password Component', () => {
   }));
 
   it('should emit an error notification', fakeAsync(() => {
-    spyOn(auth, 'loginOpenID').and.returnValue(Promise.resolve({ status: 'failed' }));
+    spyOn(auth, 'loginOpenID').and.returnValue(Promise.reject({ status: 'failed' }));
 
     comp.onSubmit();
 
