@@ -25,7 +25,8 @@
     </div>
     <div class="alert alert-dismissible alert-success" [class.hidden]="message === ''" role="alert">
       <button type="button" class="close" (click)="hideMessage();"><span aria-hidden="true">&times;</span></button>
-      {{message}}
+      <a *ngIf="messageLink !== ''; else noLink" href="{{messageLink}}" class="alert-link">{{message}}</a>
+      <ng-template #noLink>{{message}}</ng-template>
     </div>
     <div class="alert alert-dismissible alert-warning" [class.hidden]="warn === ''" role="alert">
       <button type="button" class="close" (click)="hideWarning();"><span aria-hidden="true">&times;</span></button>

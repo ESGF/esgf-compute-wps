@@ -28,6 +28,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   notification: string = '';
   message: string = '';
+  messageLink: string = '';
   warn: string = '';
   error: string = '';
 
@@ -65,6 +66,7 @@ export class AppComponent implements OnInit, OnDestroy {
       switch(value.type) {
       case NotificationType.Message:
           this.message = value.text;
+          this.messageLink = value.link;
 
           this.startTimer();
 

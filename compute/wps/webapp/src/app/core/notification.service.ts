@@ -11,8 +11,8 @@ export enum NotificationType {
 export class NotificationService {
   notification$ = new BehaviorSubject<any>(null);
 
-  message(text: string) {
-    this.notification$.next({type: NotificationType.Message, text: text});
+  message(text: string, link: string = null) {
+    this.notification$.next({type: NotificationType.Message, text: text, link: link});
   }
 
   warn(text: string) {
