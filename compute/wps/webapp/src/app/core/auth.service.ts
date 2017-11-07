@@ -23,9 +23,12 @@ export class AuthService extends WPSService {
 
     if (this.authenticated) {
       this.setLoggedIn(true);
-
-      this.userDetails();
     }
+
+    this.userDetails()
+      .then(response => {
+        this.setLoggedIn(true)
+      });
   }
 
   get authenticated() {

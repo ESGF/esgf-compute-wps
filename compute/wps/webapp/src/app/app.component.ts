@@ -28,7 +28,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   notification: string = '';
   message: string = '';
-  messageLink: string = '';
+  messageLink: string = null;
   warn: string = '';
   error: string = '';
 
