@@ -1,6 +1,6 @@
 import { DebugElement } from '@angular/core';
 import { By } from '@angular/platform-browser';
-import { TestBed, ComponentFixture, fakeAsync } from '@angular/core/testing';
+import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 
 import { AxisComponent, Axis } from './axis.component';
@@ -26,7 +26,7 @@ describe('Axis Component', () => {
     comp = fixture.componentInstance;
   });
 
-  it('should set axis values', fakeAsync(() => {
+  it('should set axis values', () => {
     comp.axisIndex = 0;
 
     comp.axis = {
@@ -53,5 +53,5 @@ describe('Axis Component', () => {
 
       expect(step.nativeElement.value).toBe('2');
     });
-  }));
+  });
 });

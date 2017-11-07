@@ -23,6 +23,22 @@ describe('Configure Component', () => {
 
   let config: ConfigureService;
 
+  let mockResult = {
+    tas: {
+      files: ['file1', 'file2'],
+      axes: [
+        {
+          id: 'time',
+          id_alt: 't',
+          start: 0,
+          stop: 3650,
+          step: 2,
+          units: 'days since 1990-1-1',
+        }
+      ]
+    }
+  };
+
   class MockActivatedRoute {
     queryParams = Observable.of({dataset_id: 'mockDatasetID', index_node: 'mockIndexNode'});
   }
@@ -57,28 +73,20 @@ describe('Configure Component', () => {
     router = fixture.debugElement.injector.get(Router);
   });
 
-  it('should initialize', fakeAsync(() => {
-    spyOn(config, 'searchESGF').and.returnValue(Promise.resolve({
-      tas: {
-        files: ['file1', 'file2'],
-        axes: [
-          {
-            id: 'time',
-            id_alt: 't',
-            start: 0,
-            stop: 2000,
-            step: 2,
-            units: 'days since 1990-1-1',
-          }
-        ]
-      }
-    }));
+  it('should retrieve axes for selected variable', () => {
+    comp.result = mockResult;
+
+    comp.config.variable = 'tas';
+
+    comp.variableChange();
+  });
+
+  it('should initialize', () => {
+    spyOn(config, 'searchESGF').and.returnValue(Promise.resolve(mockResult));
 
     spyOn(config, 'processes').and.returnValue(Promise.resolve(['test1', 'test2']));
 
     comp.ngOnInit();
-
-    tick();
 
     fixture.detectChanges();
 
@@ -92,5 +100,5 @@ describe('Configure Component', () => {
       expect(variables.children.length).toBe(1);
       expect(comp.axes.length).toBe(1);
     });
-  }));
+  });
 });

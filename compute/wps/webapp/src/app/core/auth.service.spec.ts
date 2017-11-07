@@ -124,6 +124,8 @@ describe('Authentication Service', () => {
   it('should pass user details', fakeAsync(() => {
     this.service.create(this.userMock);
 
+    tick();
+
     let data = this.lastConnection.request._body;
 
     expect(data).toContain('username=test');
@@ -132,6 +134,8 @@ describe('Authentication Service', () => {
   it('should pass email', fakeAsync(() => {
     this.service.forgotUsername('test_user@gmail.com');
 
+    tick();
+
     let url = this.lastConnection.request.url;
 
     expect(url).toContain('email=test_user@gmail.com');
@@ -139,6 +143,8 @@ describe('Authentication Service', () => {
 
   it('should pass username', fakeAsync(() => {
     this.service.forgotPassword('test_user');
+
+    tick();
 
     let url = this.lastConnection.request.url;
 
@@ -151,6 +157,8 @@ describe('Authentication Service', () => {
       token: 'token',
       password: 'password',
     });
+
+    tick();
 
     let url = this.lastConnection.request.url;
 
