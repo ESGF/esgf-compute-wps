@@ -82,7 +82,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
         if grid is not None:
             data = data.regrid(grid, regridTool=tool, regridMethod=method)
 
-        out.write(data, id=var_name)
+        return data
 
     output_path = self.retrieve_variable(inputs, op.domain, job, post_process=post_process)
 
