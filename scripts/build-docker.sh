@@ -9,6 +9,7 @@ function usage {
   echo -e "\t--edas: \tBuilds EDAS2 image"
   echo -e "\t--push: \tPush built images"
   echo -e "\t--no-cache: \tBuild without using cached images"
+  echo -e "\t--test: \tRuns E2E test"
 }
 
 if [[ $# -eq 0 ]]
@@ -21,41 +22,47 @@ while [[ $# -gt 0 ]]
 do
   key="$1"
 
+  shift
+
   case $key in
     --help|-h)
       usage
       exit
+      ;;
+    --test)
+      TEST=1
       ;;
     --all)
       WPS=1
       CELERY=1
       THREDDS=1
       EDAS=1
-      shift
       ;;
     --wps)
       WPS=1
-      shift
       ;;
     --celery)
       CELERY=1
-      shift
       ;;
     --thredds)
       THREDDS=1
-      shift
       ;;
     --edas)
       EDAS=1
-      shift
+      if [[ "$1" == "--tag" ]]
+      then
+        shift
+        EDAS_TAG="--build-arg TAG=$1"
+        shift
+      else
+        EDAS_TAG=""
+      fi
       ;;
     --push)
       PUSH=1
-      shift
       ;;
     --no-cache)
       NOCACHE="--no-cache"
-      shift
       ;;
       *)
       usage
@@ -71,7 +78,9 @@ echo "Building images and pushing to repo ${repo}"
 docker -v
 
 function build {
-  docker build ${NOCACHE} -t ${repo}/${1}:latest -f ${2}/Dockerfile ${2}
+  echo $*
+
+  docker build ${NOCACHE} -t ${repo}/${1}:latest -f ${2}/Dockerfile ${3} ${2}
 
   if [[ -n $PUSH ]]
   then
@@ -104,7 +113,18 @@ fi
 
 if [[ -n $EDAS ]]
 then
-  echo "Building EDAS image"
+  echo "Building EDAS image $EDAS_TAG"
 
-  build cwt_edas ../docker/edas
+  build cwt_edas ../docker/edas "$EDAS_TAG"
+fi
+
+if [[ -n $TEST ]]
+then
+  echo "Testing images"
+
+  docker-compose -f ../docker/docker-compose.yml down -v --remove-orphans
+
+  docker-compose -f ../docker/docker-compose.yml up -d
+
+  docker-compose -f ../docker/docker-compose.yml ps
 fi

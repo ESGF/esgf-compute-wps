@@ -2,16 +2,14 @@ FROM continuumio/miniconda:4.3.11
 
 ARG TAG="master"
 
-RUN git clone --depth=1 https://github.com/nasa-nccs-cds/EDAS.git edas && \
-	cd edas && \
-	git checkout $TAG
+RUN git clone --branch $TAG https://github.com/nasa-nccs-cds/EDAS.git edas
 
 RUN apt-get update && \
 	apt-get install --no-install-recommends -y apt-transport-https && \
        	echo "deb https://dl.bintray.com/sbt/debian /" |  tee -a /etc/apt/sources.list.d/sbt.list && \
 	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && \
 	apt-get update && \
-	apt-get install --no-install-recommends -y default-jdk build-essential sbt scala && \
+	apt-get install --no-install-recommends -y default-jdk build-essential sbt scala bc && \
 	conda create -n edas -c conda-forge -c uvcdat uvcdat pyzmq psutil lxml && \
 	conda clean --yes --all && \
 	apt-get remove -y build-essential && \
@@ -44,6 +42,6 @@ COPY healthcheck.py healthcheck.py
 
 EXPOSE 5670 5671
 
-HEALTHCHECK CMD python healthcheck.py
+#HEALTHCHECK CMD python healthcheck.py
 
 ENTRYPOINT './entrypoint.sh'
