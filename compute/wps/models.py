@@ -351,6 +351,16 @@ class Job(models.Model):
     extra = models.TextField(null=True)
 
     @property
+    def details(self):
+        return {
+            'id': self.id,
+            'server': self.server.host,
+            'process': self.process.identifier,
+            'elapsed': self.elapsed,
+            'status': self.status
+        }
+
+    @property
     def status(self):
         return [
             {

@@ -11,7 +11,7 @@ import { Job, Status, Message } from './job';
 })
 export class JobsComponent implements OnInit, OnDestroy { 
   headers = [
-    new Header('Created', 'created'),
+    new Header('Created', 'created_date'),
     new Header('Elapsed', 'elapsed')
   ];
 

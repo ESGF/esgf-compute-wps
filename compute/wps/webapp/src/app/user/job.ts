@@ -1,7 +1,9 @@
 export interface Job {
-  created: Date;
-  id: number;
   elapsed: string;
+  id: number;
+  process: string;
+  server: string;
+  created_date: Date;
   status: Status[];
 }
 

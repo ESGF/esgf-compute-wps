@@ -21,49 +21,24 @@ def jobs(request):
     try:
         common.authentication_required(request)
 
-        index = int(request.GET.get('index', 0))
+        jobs_qs = models.Job.objects.filter(user_id=request.user.id)
 
-        limit = request.GET.get('limit', None)
-
-        jobs_qs = models.Job.objects.filter(user_id=request.user.id, pk__gt=index)
-
-        jobs_qs = jobs_qs.annotate(accepted=Max('status__created_date'))
-
-        jobs_qs = jobs_qs.order_by('accepted')
-
-        if limit is not None:
-            limit = int(limit)
-
-            jobs_qs = jobs_qs[index: index+limit]
-        else:
-            jobs_qs = jobs_qs[index:]
-
-        job_count = len(jobs_qs)
+        jobs_qs = jobs_qs.annotate(created_date=Max('status__created_date')).order_by('-created_date')
 
         jobs = []
 
         for x in jobs_qs:
-            data = {
-                'id': x.id,
-                'elapsed': x.elapsed,
-            }
+            data = x.details
 
-            created = x.status_set.all().values('created_date').order_by('created_date').first()
-
-            if created is not None:
-                data['created'] = created['created_date']
-            else:
-                data['created'] = None
+            data.update({'created_date': x.created_date})
 
             jobs.append(data)
-
-        jobs = list(reversed(jobs))
     except Exception as e:
         logger.exception('Error retrieving jobs')
 
         return common.failed(e.message)
     else:
-        return common.success({'count': job_count, 'jobs': jobs})
+        return common.success(jobs)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie

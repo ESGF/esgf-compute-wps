@@ -83,11 +83,7 @@ export class UserService extends WPSService {
   jobs(offset: number, items: number): Promise<Job[]> {
     return this.get('wps/jobs')
       .then((response: WPSResponse) => {
-        if (response.status === 'success') {
-          return response.data.jobs as Job[];
-        }
-
-        return [];
+        return response.data as Job[];
       });
   }
 

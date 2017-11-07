@@ -34,7 +34,7 @@
     <pagination-table [search]="false" [headers]="headers" [items]="jobs | async">
       <ng-template let-item>
         <tr [class.selected]="selectedJob === item" (click)="selectJob(item)" class="job">
-          <td>{{item.created|date:'medium'}}</td>
+          <td>{{item.created_date|date:'medium'}}</td>
           <td>{{item.elapsed}}</td>
         </tr>
       </ng-template>
