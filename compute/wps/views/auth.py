@@ -151,7 +151,7 @@ def openid_complete(request):
         
         openid_url = response.getDisplayIdentifier()
 
-        attrs = __handle_openid_attribute_exchange(response)
+        attrs = handle_openid_attribute_exchange(response)
     except Exception as e:
         raise common.ViewError('Failed to complete OpenID process "{}"'.format(e.message))
     else:
@@ -189,7 +189,9 @@ def create(request):
                       [user.email],
                       html_message=CREATE_MESSAGE.format(login_url=settings.LOGIN_URL, admin_email=settings.ADMIN_EMAIL))
         except Exception:
-            raise common.ViewError('Error sending confirmation email')
+            logger.exception('Error sending confirmation email')
+            
+            pass
     except Exception as e:
         logger.exception('Error creating account')
 
