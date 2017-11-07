@@ -31,6 +31,11 @@ export class JobsComponent implements OnInit, OnDestroy {
         }
 
         return jobs;
+      })
+      .catch(error => {
+        this.notificationService.error(error);
+
+        return [];
       });
   }
 
@@ -42,6 +47,9 @@ export class JobsComponent implements OnInit, OnDestroy {
     this.userService.jobDetails(this.selectedJob.id)
       .then(details => {
         this.selectedJob.status = details;
+      })
+      .catch(error => {
+        this.notificationService.error(`Failed to retrieve job details: ${error}`); 
       });
   }
 }
