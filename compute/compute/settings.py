@@ -30,6 +30,23 @@ ALLOWED_HOSTS = ['0.0.0.0']
 
 # Application definition
 
+if not DEBUG:
+    ALLOWED_HOSTS.append('aims2.llnl.gov')
+
+    WPS_EXTERNAL_HOSTNAME = 'aims2.llnl.gov'
+    WPS_EXTERNAL_PORT = None
+    WPS_ENDPOINT = 'https://aims2.llnl.gov/wps'
+    WPS_STATUS_LOCATION = 'https://aims2.llnl.gov/wps/status/{job_id}'
+    WPS_DAP = True
+    WPS_DAP_URL = 'https://aims2.llnl.gov/threddsCWT/dodsC/public/{file_name}'
+    WPS_LOGIN_URL = 'https://aims2.llnl.gov/wps/home/auth/login/openid'
+    WPS_PROFILE_URL = 'https://aims2.llnl.gov/wps/home/user/profile'
+    WPS_OAUTH2_CALLBACK = 'https://aims2.llnl.gov/auth/callback'
+    WPS_OPENID_TRUST_ROOT = 'https://aims2.llnl.gov/'
+    WPS_OPENID_RETURN_TO = 'https://aims2.llnl.gov/auth/callback/openid'
+    WPS_OPENID_CALLBACK_SUCCESS = 'https://aims2.llnl.gov/wps/home/auth/login/callback'
+    WPS_PASSWORD_RESET_URL = 'https://aims2.llnl.gov/wps/home/auth/reset'
+
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
 CACHES = {
