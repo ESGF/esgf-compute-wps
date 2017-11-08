@@ -229,7 +229,7 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
           let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
 
-          link = `/wps/home/user/jobs?selected=${jobID}`;
+          link = `/wps/home/user/jobs`;
         }
         
         this.notificationService.message('Succesfully submitted job', link);
