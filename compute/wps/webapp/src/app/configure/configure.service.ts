@@ -39,6 +39,10 @@ export class Configuration {
     let data = '';
     let numberPattern = /\d+\.?\d+/;
 
+    if (this.dataset.axes === undefined) {
+      throw 'Missing domain axes, wait until the domain has loaded';
+    }
+
     data += `process=${this.process}&`;
 
     data += `variable=${this.variable}&`;
