@@ -458,6 +458,18 @@ class Job(models.Model):
 
         started.set_message(message, percent)
 
+    def statusSince(self, date):
+        return [
+            {
+                'created_date': x.created_date,
+                'updated_date': x.updated_date,
+                'status': x.status,
+                'exception': x.exception,
+                'output': x.output,
+                'messages': [y.details for y in x.message_set.all().order_by('created_date')]
+            } for x in self.status_set.filter(updated_date__gt=date)
+        ]
+
 class Status(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 

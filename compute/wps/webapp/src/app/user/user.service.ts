@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Http } from '@angular/http';
+import { Http, URLSearchParams } from '@angular/http';
 
 import { WPSService, WPSResponse } from '../core/wps.service';
 import { Job, Status, Message } from './job';
@@ -63,8 +63,12 @@ export class UserService extends WPSService {
     }
   }
 
-  jobDetails(id: number): Promise<Status[]> {
-    return this.get(`wps/jobs/${id}`)
+  jobDetails(id: number, update: boolean = false): Promise<Status[]> {
+    let params = new URLSearchParams();
+
+    params.append('update', update.toString());
+
+    return this.get(`wps/jobs/${id}`, params)
       .then((response: WPSResponse) => {
         let status = response.data as Status[];
 
@@ -79,7 +83,7 @@ export class UserService extends WPSService {
   jobs(): Promise<Job[]> {
     return this.get('wps/jobs')
       .then((response: WPSResponse) => {
-        return response.data as Job[];
+        return response.data.map((data: any) => new Job(data));
       });
   }
 

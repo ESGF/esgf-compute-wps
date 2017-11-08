@@ -46,14 +46,34 @@ def job(request, job_id):
     try:
         common.authentication_required(request)
 
-        update = request.GET.get('update', False)
+        update = request.GET.get('update', 'false')
+
+        if update.lower() == 'false':
+            update = False
+        else:
+            update = True
 
         job = models.Job.objects.get(pk=job_id)
 
         if update:
-            pass
+            updated = request.session['updated']
+
+            if updated is None:
+                status = job.status
+            else:
+                status = job.statusSince(updated)
+
+            logger.info(status)
+
+            if len(status) > 0:
+                request.session['updated'] = status[-1]['updated_date']
         else:
             status = job.status
+
+            if len(status) > 0:
+                request.session['updated'] = status[-1]['updated_date']
+            else:
+                request.session['updated'] = None
 
     except Exception as e:
         logger.exception('Error retrieving job details')
