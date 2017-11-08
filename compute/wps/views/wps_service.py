@@ -326,7 +326,7 @@ def wps(request):
             except IndexError:
                 raise Exception('Unable to find a user with the api key {}'.format(api_key))
 
-            response = manager.execute(user, identifier, data_inputs)
+            response = wps_execute(user, identifier, data_inputs)
     except WPSException as e:
         failure = wps_lib.ProcessFailed(exception_report=e.report())
 
