@@ -51,7 +51,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     this.authService.user$.subscribe((user: User) => {
-      if (user !== undefined) {
+      if (user != null) {
         this.admin = user.admin;
       }
     });

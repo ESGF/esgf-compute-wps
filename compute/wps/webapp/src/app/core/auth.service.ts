@@ -8,10 +8,10 @@ import { User } from '../user/user.service';
 
 @Injectable()
 export class AuthService extends WPSService {
-  isLoggedIn: boolean;
+  isLoggedIn: boolean = false;
   isLoggedIn$ = new BehaviorSubject<boolean>(this.isLoggedIn);
 
-  user: User;
+  user: User = null;
   user$ = new BehaviorSubject<User>(this.user);
 
   redirectUrl: string;
@@ -27,8 +27,9 @@ export class AuthService extends WPSService {
 
     this.userDetails()
       .then(response => {
-        this.setLoggedIn(true)
-      });
+        this.setLoggedIn(true);
+      })
+      .catch(error => { });
   }
 
   get authenticated() {
@@ -63,7 +64,7 @@ export class AuthService extends WPSService {
       .catch(error => {
         this.setUser(null);
 
-        throw error;
+        return Promise.reject(error);
       });
   }
 
