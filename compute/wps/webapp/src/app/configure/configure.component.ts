@@ -164,41 +164,44 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
         this.config.variable = this.variables[0];
 
-        this.configService.searchVariable(this.config)
-          .then(data => {
-            this.result[this.config.variable]['axes'] = data;
+        this.loadVariable();
+        //this.configService.searchVariable(this.config)
+        //  .then(data => {
+        //    this.result[this.config.variable]['axes'] = data;
 
-            this.config.dataset = Object.assign({}, this.result[this.config.variable]);
-
-            this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
-              return {step: 1, ...axis}; 
-            });
-          })
-          .catch(error => {
-            this.notificationService.error(error);
-          });
+        //    this.setDataset();
+        //  })
+        //  .catch(error => {
+        //    this.notificationService.error(error);
+        //  });
       })
       .catch(error => {
         this.notificationService.error(error); 
       });
   }
 
-  variableChange() {
-    this.config.dataset = Object.assign({}, this.result[this.config.variable]);
-
-    if (this.config.dataset.axes === undefined) {
+  loadVariable() {
+    if (this.result[this.config.variable].axes === undefined) {
       this.configService.searchVariable(this.config)
         .then(data => {
-          this.config.dataset.axes = data;
+          this.result[this.config.variable]['axes'] = data;
 
-          this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
-            return {step: 1, ...axis}; 
-          });
+          this.setDataset();
         })
         .catch(error => {
           this.notificationService.error(error);
         });
+    } else {
+      this.setDataset();
     }
+  }
+
+  setDataset() {
+    this.config.dataset = Object.assign({}, this.result[this.config.variable]);
+
+    this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
+      return {step: 1, ...axis}; 
+    });
   }
 
   domainChange() {

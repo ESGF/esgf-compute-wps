@@ -78,7 +78,7 @@ describe('Configure Component', () => {
 
     comp.config.variable = 'tas';
 
-    comp.variableChange();
+    comp.loadVariable();
   });
 
   it('should initialize', () => {
