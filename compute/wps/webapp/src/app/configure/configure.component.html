@@ -29,6 +29,21 @@
                     <option *ngFor="let v of variables" [value]="v">{{v}} ({{result[v].files.length}})</option>
                   </select>
                 </div>
+                <div>
+                  <button (click)="onDownload()" type="submit" class="btn btn-default">Download</button>
+                  <button (click)="onExecute()" type="submit" class="btn btn-default">Execute</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default fill">
+            <div class="panel-heading">
+              <div class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseRegrid">Regrid</a>
+              </div>
+            </div>
+            <div id="collapseRegrid" class="panel-collapse collapse">
+              <div class="panel-body">
                 <div class="form-group">
                   <label for="regrid">Regrid</label>
                   <select [(ngModel)]="config.regrid" class="form-control" id="regrid" name="regrid">
@@ -49,10 +64,6 @@
                       </div>
                     </div>
                   </div>
-                </div>
-                <div>
-                  <button (click)="onDownload()" type="submit" class="btn btn-default">Download</button>
-                  <button (click)="onExecute()" type="submit" class="btn btn-default">Execute</button>
                 </div>
               </div>
             </div>
