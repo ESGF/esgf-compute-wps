@@ -1,4 +1,13 @@
-import { Component, Input } from '@angular/core';
+import { 
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  OnChanges,
+  SimpleChanges 
+} from '@angular/core';
+
+import { Subject } from 'rxjs/Subject';
 
 export interface Axis {
   id: string;
@@ -25,11 +34,11 @@ export interface Axis {
       <div class="panel-body">
         <form #dimForm{{axisIndex}}="ngForm">
           <label for="start{{axisIndex}}">Start</label>     
-          <input [(ngModel)]="axis.start" name="start" class="form-control" type="string" id="start{{axisIndex}}">
+          <input [ngModel]="axis.start" (ngModelChange)="start.next($event)" name="start" class="form-control" type="string" id="start{{axisIndex}}">
           <label for="stop{{axisIndex}}">Stop</label> 
-          <input [(ngModel)]="axis.stop" name="stop" class="form-control" type="string" id="stop{{axisIndex}}">
+          <input [ngModel]="axis.stop" (ngModelChange)="stop.next($event)" name="stop" class="form-control" type="string" id="stop{{axisIndex}}">
           <label for="step{{axisIndex}}">Step</label> 
-          <input [(ngModel)]="axis.step" name="step" class="form-control" type="string" id="step{{axisIndex}}">
+          <input [ngModel]="axis.step" (ngModelChange)="step.next($event)" name="step" class="form-control" type="string" id="step{{axisIndex}}">
         </form>
       </div>
     </div>
@@ -39,4 +48,38 @@ export interface Axis {
 export class AxisComponent {
   @Input() axis: Axis;
   @Input() axisIndex: number;
+  @Output() axisChange: EventEmitter<string> = new EventEmitter<string>();
+
+  start: Subject<number> = new Subject<number>();
+  stop: Subject<number> = new Subject<number>();
+  step: Subject<number> = new Subject<number>();
+
+  constructor() {
+    this.start
+      .debounceTime(1000)
+      .distinctUntilChanged()
+      .subscribe(value => {
+        this.axis.start = +value;
+
+        this.axisChange.emit(this.axis.id);
+      });
+
+    this.stop
+      .debounceTime(1000)
+      .distinctUntilChanged()
+      .subscribe(value => {
+        this.axis.stop = +value;
+
+        this.axisChange.emit(this.axis.id);
+      });
+
+    this.step
+      .debounceTime(1000)
+      .distinctUntilChanged()
+      .subscribe(value => {
+        this.axis.step = +value;
+
+        this.axisChange.emit(this.axis.id);
+      });
+  }
 }

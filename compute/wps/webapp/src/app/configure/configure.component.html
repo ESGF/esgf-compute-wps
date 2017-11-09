@@ -63,7 +63,7 @@
                   <option *ngFor="let domain of domains">{{domain.name}}</option>
                 </select>
                 <div class="panel-group" id="accordionAxis">
-                  <axis *ngFor="let axis of config?.dataset.axes; index as i" [axisIndex]="i" [axis]="axis"></axis>
+                  <axis *ngFor="let axis of config?.dataset.axes; index as i" [axisIndex]="i" [axis]="axis" (axisChange)="onAxisChange($event)"></axis>
                 </div>
               </div>
             </div>

@@ -47,6 +47,14 @@ export class Selection extends L.Rectangle {
     });
   }
 
+  updateBounds(newBounds: L.LatLngBoundsExpression) {
+    this.setBounds(newBounds);
+
+    this.moveMarker.setLatLng(this.getCenter());
+
+    this.repositionResizeMarkers();
+  }
+
   onAdd(map: L.Map): any {
     super.onAdd(map); 
 

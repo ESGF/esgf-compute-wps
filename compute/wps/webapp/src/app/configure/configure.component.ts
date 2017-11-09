@@ -36,7 +36,7 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
   @ViewChild('mapContainer') mapContainer: any;
   @ViewChildren(AxisComponent) axes: QueryList<AxisComponent>;
 
-  lngNames = ['x', 'lon', 'longitude'];
+  lonNames = ['x', 'lon', 'longitude'];
   latNames = ['y', 'lat', 'latitude'];
 
   domains = [
@@ -75,7 +75,7 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
           this.config.variable = this.variables[0];
 
-          this.config.dataset = this.result[this.config.variable];
+          this.config.dataset = Object.assign({}, this.result[this.config.variable]);
           
           this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
             return {step: 1, ...axis};
@@ -119,32 +119,57 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
     this.selection = new Selection(this.map, [[0, 0], [20, 20]], {color: '#4db8ff'});
 
-    this.selection.on('updatedomain', (data: any) => {
-      let nw = data.getNorthWest(),
-        se = data.getSouthEast();
-
-      this.axes.forEach((axisComponent: AxisComponent) => {
-        let axis = axisComponent.axis;
-
-        if (this.lngNames.some((x: string) => x === axis.id)) {
-          axis.start = nw.lng;
-
-          axis.stop = se.lng;
-        } else if (this.latNames.some((x: string) => x === axis.id)) {
-          axis.start = nw.lat;
-
-          axis.stop = se.lat;
-        }
-      });
-    });
+    this.selection.on('updatedomain', (data: any) => this.updateDomain(data));
   }
 
   ngAfterViewInit() {
     this.map.invalidateSize();
   }
 
+  updateDomain(data: any) {
+    let nw = data.getNorthWest(),
+      se = data.getSouthEast();
+
+    this.axes.forEach((axisComponent: AxisComponent) => {
+      let axis = axisComponent.axis;
+
+      if (this.lonNames.some((x: string) => x === axis.id)) {
+        axis.start = nw.lng;
+
+        axis.stop = se.lng;
+      } else if (this.latNames.some((x: string) => x === axis.id)) {
+        axis.start = se.lat;
+
+        axis.stop = nw.lat;
+      }
+    });
+  }
+
+  onAxisChange(id: string) {
+    if (this.lonNames.indexOf(id) === -1 && this.latNames.indexOf(id) === -1) {
+      return;
+    }
+    
+    if (this.domainModel.value !== 'Custom') {
+      this.domainModel.value = 'Custom';
+    }
+
+    let lon = this.axes.find((axis: AxisComponent) => this.lonNames.indexOf(axis.axis.id) >= 0);
+    let lat = this.axes.find((axis: AxisComponent) => this.latNames.indexOf(axis.axis.id) >= 0);
+
+    this.selection.off('updatedomain');
+
+    if (!this.map.hasLayer(this.selection)) {
+      this.selection.addTo(this.map);
+    }
+
+    this.selection.updateBounds([[lat.axis.stop, lon.axis.start], [lat.axis.start, lon.axis.stop]]);
+
+    this.selection.on('updatedomain', (data: any) => this.updateDomain(data));
+  }
+
   variableChange() {
-    this.config.dataset = this.result[this.config.variable];
+    this.config.dataset = Object.assign({}, this.result[this.config.variable]);
 
     if (this.config.dataset.axes === undefined) {
       this.configService.searchVariable(this.config)
