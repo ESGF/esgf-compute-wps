@@ -25,7 +25,12 @@ export class Configuration {
   variable: string;
   regrid: string;
   regridOptions: RegridOptions;
-  params: Params;
+
+  // ESGF search parameters
+  datasetID: string;
+  indexNode: string;
+  query: string;
+  shard: string;
 
   constructor() {
     this.regrid = 'None';
@@ -88,7 +93,14 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  searchESGF(params: Params): Promise<SearchResult> { 
+  searchESGF(config: Configuration): Promise<SearchResult> { 
+    let params = new URLSearchParams();
+
+    params.append('dataset_id', config.datasetID);
+    params.append('index_node', config.indexNode);
+    params.append('query', config.query);
+    params.append('shard', config.shard);
+
     return this.get('/wps/search', params)
       .then(response => {
         return response.data as SearchResult;
@@ -96,15 +108,15 @@ export class ConfigureService extends WPSService {
   }
 
   searchVariable(config: Configuration): Promise<Axis[]> {
-    let searchParams = new URLSearchParams();
+    let params = new URLSearchParams();
 
-    for (let x of Object.keys(config.params)) {
-      searchParams.append(x, config.params[x]);
-    }
+    params.append('dataset_id', config.datasetID);
+    params.append('index_node', config.indexNode);
+    params.append('query', config.query);
+    params.append('shard', config.shard);
+    params.append('variable', config.variable);
 
-    searchParams.append('variable', config.variable);
-
-    return this.get('/wps/search/variable', searchParams)
+    return this.get('/wps/search/variable', params)
       .then(response => {
         return response.data as Axis[];
       });

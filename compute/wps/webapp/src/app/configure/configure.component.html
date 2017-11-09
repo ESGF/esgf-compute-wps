@@ -12,6 +12,12 @@
             <div id="collapseConfig" class="panel-collapse collapse in">
               <div class="panel-body">
                 <div class="form-group">
+                  <label for="process">Dataset</label>
+                  <select [(ngModel)]="config.datasetID" (change)="loadDataset()" class="form-control" id="datasetID" name="datasetID">
+                    <option *ngFor="let dataset of datasetIDs">{{dataset}}</option>
+                  </select>
+                </div>
+                <div class="form-group">
                   <label for="process">Process</label>
                   <select [(ngModel)]="config.process" class="form-control" id="process" name="process">
                     <option *ngFor="let proc of processes | async">{{proc}}</option>

@@ -221,15 +221,6 @@ def search_dataset(request):
             query_variable = dataset_variables.keys()[0]
         except IndexError as e:
             raise common.ViewError('No variables were found in dataset "{}"'.format(dataset_id))
-
-        try:
-            query_files = dataset_variables[query_variable]['files']
-        except KeyError as e:
-            raise common.ViewError('Key "{}" not found in retrieved variables'.format(e.message))
-
-        axes = retrieve_axes(request.user, dataset_id, query_variable, query_files)
-
-        dataset_variables[query_variable]['axes'] = axes.values()
     except Exception as e:
         logger.exception('Error retrieving ESGF search results')
 

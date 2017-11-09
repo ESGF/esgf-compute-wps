@@ -50,6 +50,7 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
   result: SearchResult;
   selection: Selection;
   variables: string[];
+  datasetIDs: string[];
 
   processes: Promise<string[]>;
 
@@ -65,38 +66,24 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
-      this.config.params = params;
+      this.datasetIDs = (params['dataset_id'] === undefined) ? [] : params['dataset_id'].split(',');
 
-      this.configService.searchESGF(params)
-        .then(data => {
-          this.result = data;
+      if (this.datasetIDs.length > 0) {
+        this.config.datasetID = this.datasetIDs[0];
+      }
 
-          this.variables = Object.keys(this.result);
+      this.config.indexNode = params['index_node'] || '';
 
-          this.config.variable = this.variables[0];
+      this.config.query = params['query'] || '';
 
-          this.config.dataset = Object.assign({}, this.result[this.config.variable]);
-          
-          this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
-            return {step: 1, ...axis};
-          });
-        })
-        .catch(error => {
-          this.notificationService.error(error); 
-        });
+      this.config.shard = params['shard'] || '';
+
+      this.loadDataset();
     });
 
     this.processes = this.configService.processes()
       .then(data => {
-        let p = data.sort((a: string, b: string) => {
-          if (a > b) {
-            return 1;
-          } else if (a < b) {
-            return -1;
-          } else {
-            return 0;
-          }
-        });
+        let p = data.sort();
 
         this.config.process = p[0];
 
@@ -166,6 +153,34 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
     this.selection.updateBounds([[lat.axis.stop, lon.axis.start], [lat.axis.start, lon.axis.stop]]);
 
     this.selection.on('updatedomain', (data: any) => this.updateDomain(data));
+  }
+
+  loadDataset() {
+    this.configService.searchESGF(this.config)
+      .then(data => {
+        this.result = data;
+
+        this.variables = Object.keys(this.result).sort();
+
+        this.config.variable = this.variables[0];
+
+        this.configService.searchVariable(this.config)
+          .then(data => {
+            this.result[this.config.variable]['axes'] = data;
+
+            this.config.dataset = Object.assign({}, this.result[this.config.variable]);
+
+            this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
+              return {step: 1, ...axis}; 
+            });
+          })
+          .catch(error => {
+            this.notificationService.error(error);
+          });
+      })
+      .catch(error => {
+        this.notificationService.error(error); 
+      });
   }
 
   variableChange() {

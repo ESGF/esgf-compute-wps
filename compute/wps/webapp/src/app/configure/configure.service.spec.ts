@@ -123,8 +123,10 @@ describe('Configuration Service', () => {
     let axisResult: Axis[];
 
     let config = new Configuration();
+
     config.variable = 'tas';
-    config.params = {dataset_id: 'mockDatasetID', index_nodex: 'mockIndexNode'};
+    config.datasetID = 'mockDatasetID';
+    config.indexNode = 'mockIndexNode';
 
     service.searchVariable(config)
       .then((result: Axis[]) => axisResult = result);
@@ -159,7 +161,12 @@ describe('Configuration Service', () => {
     };
     let searchResult: SearchResult;
 
-    service.searchESGF({dataset_id: 'mockID', index_node: 'mockIndexNod'})
+    let config: Configuration = new Configuration();
+
+    config.datasetID = 'mockID';
+    config.indexNode = 'mockIndexNode';
+
+    service.searchESGF(config)
       .then((result: SearchResult) => searchResult = result);
 
     lastConnection.mockRespond(new Response(new ResponseOptions({
