@@ -1,3 +1,6 @@
+import random
+import string
+
 from django.contrib.auth import update_session_auth_hash
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
@@ -93,9 +96,9 @@ def regenerate(request):
         if request.user.auth.api_key == '':
             raise Exception('Initial API key has not been generate yet, authenticate with MyProxyClient or OAuth2')
 
-        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+        request.user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
 
-        user.auth.save()
+        request.user.auth.save()
 
         logger.info('Regenerated API key for "{}"'.format(request.user.username))
     except Exception as e:
