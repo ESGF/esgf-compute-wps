@@ -169,8 +169,6 @@ def cache_variable(self, identifier, variables, domains, operations, **kwargs):
     
     op.inputs = [cwt.Variable(output_url, op.inputs[0].var_name)]
 
-    op.parameters['axes'] = cwt.NamedParameter('axes', 'xy')
-
     data_inputs = cwt.WPS('').prepare_data_inputs(op, [], None)
 
     return data_inputs

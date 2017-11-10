@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Params } from '@angular/router';
 
 import { Axis } from './axis.component';
+import { Parameter } from './parameter.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
 
 export interface Dataset {
@@ -25,6 +26,7 @@ export class Configuration {
   variable: string;
   regrid: string;
   regridOptions: RegridOptions;
+  params: Parameter[];
 
   // ESGF search parameters
   datasetID: string;
@@ -38,21 +40,14 @@ export class Configuration {
     this.regridOptions = new RegridOptions();
 
     this.dataset = { axes: [], files: [] } as Dataset;
+
+    this.params = [];
   }
 
-  prepareData(): string {
-    let data = '';
-    let numberPattern = /\d+\.?\d+/;
-
+  validate() { 
     if (this.dataset.axes === undefined) {
       throw 'Missing domain axes, wait until the domain has loaded';
     }
-
-    data += `process=${this.process}&`;
-
-    data += `variable=${this.variable}&`;
-
-    data += `regrid=${this.regrid}&`;
 
     if (this.regrid !== 'None') {
       if (this.regrid === 'Uniform') {
@@ -64,7 +59,28 @@ export class Configuration {
       if (this.regridOptions.lats === undefined) {
         throw `Regrid option "${this.regrid}" require Latitude to be set`;
       }
+    }
 
+    this.params.forEach((param: Parameter) => {
+      if (param.key === '' || param.value === '') {
+        throw 'Parameters are invalid';
+      }
+    });
+  }
+
+  prepareData(): string {
+    let data = '';
+    let numberPattern = /\d+\.?\d+/;
+
+    this.validate();
+
+    data += `process=${this.process}&`;
+
+    data += `variable=${this.variable}&`;
+
+    data += `regrid=${this.regrid}&`;
+
+    if (this.regrid !== 'None') {
       data += `longitudes=${this.regridOptions.lons}&`;
 
       data += `latitudes=${this.regridOptions.lats}&`;
@@ -72,7 +88,13 @@ export class Configuration {
 
     data += `files=${this.dataset.files}&`;
 
-    data += 'dimensions=' + JSON.stringify(this.dataset.axes.map((axis: any) => { return axis; }));
+    let dimensions = JSON.stringify(this.dataset.axes.map((axis: Axis) => { return axis; }));
+
+    data += `dimensions=${dimensions}&`;
+
+    let parameters = this.params.map((param: Parameter) => { return `${param.key}=${param.value}`; }).join(',');
+
+    data += `parameters=${parameters}`;
 
     return data;
   }

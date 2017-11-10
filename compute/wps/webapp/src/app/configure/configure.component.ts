@@ -11,6 +11,7 @@ import { NotificationService } from '../core/notification.service';
 
 import { Selection } from './selection';
 import { Axis, AxisComponent } from './axis.component';
+import { Parameter } from './parameter.component';
 
 class Domain {
   constructor(
@@ -111,6 +112,16 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit() {
     this.map.invalidateSize();
+  }
+
+  addParameter() {
+    this.config.params.push({key: '', value: ''} as Parameter);
+  }
+
+  removeParameter(param: Parameter) {
+    this.config.params = this.config.params.filter((value: Parameter) => {
+      return !(param.key === value.key && param.value === value.value);
+    });
   }
 
   updateDomain(data: any) {

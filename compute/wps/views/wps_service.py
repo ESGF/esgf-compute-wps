@@ -152,6 +152,8 @@ def execute(request):
             files = request.POST['files']
 
             regrid = request.POST['regrid']
+
+            parameters = request.POST['parameters']
         except KeyError as e:
             raise Exception('Missing required parameter "{}"'.format(e.message))
 
@@ -179,6 +181,13 @@ def execute(request):
         domain = cwt.Domain(dims)
 
         proc = cwt.Process(identifier=process)
+
+        parameters = parameters.split(',')
+
+        for param in parameters:
+            key, value = str(param).split('=')
+
+            proc.add_parameters(cwt.NamedParameter(key, value))
 
         kwargs = {}
 
@@ -214,6 +223,8 @@ def generate(request):
             files = request.POST['files']
 
             regrid = request.POST['regrid']
+
+            parameters = request.POST['parameters']
         except KeyError as e:
             raise Exception('Missing required key "{}"'.format(e.message))
 
@@ -276,6 +287,14 @@ def generate(request):
 
         if regrid != 'None':
             buf.write(", gridder=grid")
+
+        parameters = parameters.split(',')
+
+        if len(parameters) > 0:
+            for param in parameters:
+                key, value = str(param).split('=')
+
+                buf.write(", {}='{}'".format(key, value))
         
         buf.write(")\n\n")
 

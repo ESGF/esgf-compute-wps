@@ -71,6 +71,25 @@
           <div class="panel panel-default fill">
             <div class="panel-heading">
               <div class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseParameter">Parameters</a>
+              </div>
+            </div>
+            <div id="collapseParameter" class="panel-collapse collapse">
+              <div class="panel-body">
+                <div>
+                  <ul class="list-unstyled">
+                    <li *ngFor="let param of config?.params">
+                      <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
+                    </li>
+                  </ul>
+                </div>
+                <button type="button" (click)="addParameter()">Add</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default fill">
+            <div class="panel-heading">
+              <div class="panel-title">
                 <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseDomain">Domain</a>
               </div>
             </div>
