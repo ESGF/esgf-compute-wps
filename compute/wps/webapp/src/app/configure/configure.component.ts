@@ -30,6 +30,14 @@ class Domain {
   .map-container {
     min-height: calc(100vh - 100px);
   }
+
+  .select-spacer {
+    margin-bottom: 10px;
+  }
+
+  .list-item-axis {
+    margin: 5px 0px 5px 0px;
+  }
   `],
   providers: [ConfigureService]
 })

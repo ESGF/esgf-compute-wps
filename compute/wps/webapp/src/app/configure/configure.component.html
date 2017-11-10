@@ -44,24 +44,20 @@
             </div>
             <div id="collapseRegrid" class="panel-collapse collapse">
               <div class="panel-body">
-                <div class="form-group">
-                  <label for="regrid">Regrid</label>
-                  <select [(ngModel)]="config.regrid" class="form-control" id="regrid" name="regrid">
-                    <option>None</option>
-                    <option>Gaussian</option>
-                    <option>Uniform</option>
-                  </select>
-                  <br *ngIf="config.regrid !== 'None'">
-                  <div *ngIf="config.regrid !== 'None'" class="panel panel-default">
-                    <div class="panel-body">
-                      <div class="form-group">
-                        <label for="lats">Latitudes</label>
-                        <input [(ngModel)]="config.regridOptions.lats" type="number" class="form-control" id="lats" placeholder="Latitudes" name="lats">
-                      </div>
-                      <div *ngIf="config.regrid === 'Uniform'" class="form-group">
-                        <label for="lons">Longituds</label>
-                        <input [(ngModel)]="config.regridOptions.lons" type="number" class="form-control" id="lons" placeholder="Longitudes" name="lons">
-                      </div>
+                <select [(ngModel)]="config.regrid" class="form-control select-spacer" id="regrid" name="regrid">
+                  <option>None</option>
+                  <option>Gaussian</option>
+                  <option>Uniform</option>
+                </select>
+                <div *ngIf="config.regrid !== 'None'" class="panel panel-default">
+                  <div class="panel-body">
+                    <div class="form-group">
+                      <label for="lats">Latitudes</label>
+                      <input [(ngModel)]="config.regridOptions.lats" type="number" class="form-control" id="lats" placeholder="Latitudes" name="lats">
+                    </div>
+                    <div *ngIf="config.regrid === 'Uniform'" class="form-group">
+                      <label for="lons">Longituds</label>
+                      <input [(ngModel)]="config.regridOptions.lons" type="number" class="form-control" id="lons" placeholder="Longitudes" name="lons">
                     </div>
                   </div>
                 </div>
@@ -95,11 +91,15 @@
             </div>
             <div id="collapseDomain" class="panel-collapse collapse">
               <div class="panel-body">
-                <select [(ngModel)]="domainModel.value" (change)="domainChange()" class="form-control" name="value">
+                <select [(ngModel)]="domainModel.value" (change)="domainChange()" class="form-control select-spacer" name="value">
                   <option *ngFor="let domain of domains">{{domain.name}}</option>
                 </select>
                 <div class="panel-group" id="accordionAxis">
-                  <axis *ngFor="let axis of config?.dataset.axes; index as i" [axisIndex]="i" [axis]="axis" (axisChange)="onAxisChange($event)"></axis>
+                  <ul class="list-unstyled">
+                    <li *ngFor="let axis of config?.dataset.axes; index as i" class="list-item-axis">
+                      <axis [axisIndex]="i" [axis]="axis" (axisChange)="onAxisChange($event)"></axis>
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>

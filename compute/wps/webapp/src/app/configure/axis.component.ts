@@ -21,7 +21,6 @@ export interface Axis {
 @Component({
   selector: 'axis',
   template: `
-  <br>
   <div class="panel panel-default">
     <div class="panel-heading">
       <div class="panel-title">
