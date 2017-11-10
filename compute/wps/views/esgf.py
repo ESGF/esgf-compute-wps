@@ -22,10 +22,13 @@ TIME_AXIS_IDS = ('time', 't')
 def retrieve_axes(user, dataset_id, query_variable, query_files):
     cache_id = '{}|{}'.format(dataset_id, query_variable)
 
+    cache.delete(cache_id)
     axes = cache.get(cache_id)
 
     if axes is None:
         logger.info('Dataset variable "{}" not in cache'.format(cache_id))
+
+        query_files = sorted(query_files)
 
         try:
             query_files_reduced = [query_files[0], query_files[-1]]
