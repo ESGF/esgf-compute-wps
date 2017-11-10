@@ -26,7 +26,7 @@
                 <div class="form-group">
                   <label for="variable">Variable</label>
                   <select [(ngModel)]="config.variable" (change)="loadVariable()" class="form-control" id="variable" name="variable">
-                    <option *ngFor="let v of variables" [value]="v">{{v}} ({{result[v].files.length}})</option>
+                    <option *ngFor="let v of variables" [value]="v">{{v}}</option>
                   </select>
                 </div>
                 <div>
