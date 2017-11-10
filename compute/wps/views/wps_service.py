@@ -152,10 +152,10 @@ def execute(request):
             files = request.POST['files']
 
             regrid = request.POST['regrid']
-
-            parameters = request.POST['parameters']
         except KeyError as e:
             raise Exception('Missing required parameter "{}"'.format(e.message))
+
+        parameters = request.POST.get('parameters', None)
 
         latitudes = request.POST.get('latitudes', None)
 
@@ -173,21 +173,19 @@ def execute(request):
         for d in dimensions:
             name = d['id'].split(' ')[0]
 
-            if name in ('time', 't'):
-                dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1)))
-            else:
-                dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1)))
+            dims.append(cwt.Dimension(name, d['start'], d['stop'], step=d.get('step', 1)))
 
         domain = cwt.Domain(dims)
 
         proc = cwt.Process(identifier=process)
 
-        parameters = parameters.split(',')
+        if parameters is not None:
+            parameters = parameters.split(',')
 
-        for param in parameters:
-            key, value = str(param).split('=')
+            for param in parameters:
+                key, value = str(param).split('=')
 
-            proc.add_parameters(cwt.NamedParameter(key, value))
+                proc.add_parameters(cwt.NamedParameter(key, value))
 
         kwargs = {}
 
@@ -256,13 +254,9 @@ def generate(request):
             buf.write("domain = cwt.Domain([\n")
 
             for d in dimensions:
-                logger.info(d.keys())
                 name = d['id'].split(' ')[0]
 
-                if name.lower() in ('time', 't'):
-                    buf.write("\tcwt.Dimension('{}', '{start}', '{stop}', step={step}, crs=cwt.CRS('timestamps')),\n".format(name, **d))
-                else:
-                    buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
+                buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
 
             buf.write("])\n\n")
 
