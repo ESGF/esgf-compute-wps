@@ -1,9 +1,7 @@
-import { Input, Component, OnInit, ViewChild, ViewChildren, QueryList, AfterViewInit } from '@angular/core';
-import { Router, ActivatedRoute, Params } from '@angular/router';
+import { Component, OnInit, ViewChild } from '@angular/core';
+import { Router, ActivatedRoute } from '@angular/router';
 
 import * as L from 'leaflet';
-
-require('leaflet/dist/leaflet.css');
 
 import { AuthService } from '../core/auth.service';
 import { Configuration, SearchResult, ConfigureService } from './configure.service';
@@ -12,6 +10,7 @@ import { NotificationService } from '../core/notification.service';
 import { Selection } from './selection';
 import { Axis, AxisComponent } from './axis.component';
 import { Parameter } from './parameter.component';
+import { MapComponent } from './map.component';
 
 class Domain {
   constructor(
@@ -27,10 +26,6 @@ class Domain {
     height: 100%;
   }
 
-  .map-container {
-    min-height: calc(100vh - 100px);
-  }
-
   .select-spacer {
     margin-bottom: 10px;
   }
@@ -41,20 +36,14 @@ class Domain {
   `],
   providers: [ConfigureService]
 })
-export class ConfigureComponent implements OnInit, AfterViewInit { 
-  @ViewChild('mapContainer') mapContainer: any;
-  @ViewChildren(AxisComponent) axes: QueryList<AxisComponent>;
-
-  lonNames = ['x', 'lon', 'longitude'];
-  latNames = ['y', 'lat', 'latitude'];
+export class ConfigureComponent implements OnInit { 
+  @ViewChild(MapComponent) map: MapComponent;
 
   domains = [
     new Domain('World'),
     new Domain('Custom')
   ];
-  domainModel = { value: this.domains[0].name };
 
-  map: L.Map;
   config: Configuration;
   result: SearchResult;
   selection: Selection;
@@ -74,6 +63,8 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit() {
+    this.map.domain = 'World'
+    
     this.route.queryParams.subscribe(params => {
       this.datasetIDs = (params['dataset_id'] === undefined) ? [] : params['dataset_id'].split(',');
 
@@ -103,23 +94,6 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
 
         return [];
       });
-
-    if (this.map === undefined) {
-      this.map = L.map(this.mapContainer.nativeElement).setView(L.latLng(0.0, 0.0), 1);
-
-      L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(this.map);
-    }
-
-    this.selection = new Selection(this.map, [[0, 0], [20, 20]], {color: '#4db8ff'});
-
-    this.selection.on('updatedomain', (data: any) => this.updateDomain(data));
-  }
-
-  ngAfterViewInit() {
-    this.map.invalidateSize();
   }
 
   addParameter() {
@@ -132,46 +106,24 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
     });
   }
 
-  updateDomain(data: any) {
-    let nw = data.getNorthWest(),
-      se = data.getSouthEast();
+  domainChange() {
+    if (this.map.domain === 'World' && this.config.dataset.axes !== undefined) {
+      this.config.dataset.axes.forEach((axis: Axis) => {
+        if (this.map.latNames.indexOf(axis.id) >= 0 || this.map.lonNames.indexOf(axis.id) >= 0) {
+          let filtered = this.result[this.config.variable].axes.filter((value: Axis) => {
+            return axis.id === value.id;
+          });
 
-    this.axes.forEach((axisComponent: AxisComponent) => {
-      let axis = axisComponent.axis;
+          if (filtered.length > 0) {
+            axis.start = filtered[0].start;
 
-      if (this.lonNames.some((x: string) => x === axis.id)) {
-        axis.start = nw.lng;
-
-        axis.stop = se.lng;
-      } else if (this.latNames.some((x: string) => x === axis.id)) {
-        axis.start = se.lat;
-
-        axis.stop = nw.lat;
-      }
-    });
-  }
-
-  onAxisChange(id: string) {
-    if (this.lonNames.indexOf(id) === -1 && this.latNames.indexOf(id) === -1) {
-      return;
-    }
-    
-    if (this.domainModel.value !== 'Custom') {
-      this.domainModel.value = 'Custom';
+            axis.stop = filtered[0].stop;
+          }
+        }
+      });
     }
 
-    let lon = this.axes.find((axis: AxisComponent) => this.lonNames.indexOf(axis.axis.id) >= 0);
-    let lat = this.axes.find((axis: AxisComponent) => this.latNames.indexOf(axis.axis.id) >= 0);
-
-    this.selection.off('updatedomain');
-
-    if (!this.map.hasLayer(this.selection)) {
-      this.selection.addTo(this.map);
-    }
-
-    this.selection.updateBounds([[lat.axis.stop, lon.axis.start], [lat.axis.start, lon.axis.stop]]);
-
-    this.selection.on('updatedomain', (data: any) => this.updateDomain(data));
+    this.map.domainChange();
   }
 
   loadDataset() {
@@ -184,15 +136,6 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
         this.config.variable = this.variables[0];
 
         this.loadVariable();
-        //this.configService.searchVariable(this.config)
-        //  .then(data => {
-        //    this.result[this.config.variable]['axes'] = data;
-
-        //    this.setDataset();
-        //  })
-        //  .catch(error => {
-        //    this.notificationService.error(error);
-        //  });
       })
       .catch(error => {
         this.notificationService.error(error); 
@@ -221,39 +164,6 @@ export class ConfigureComponent implements OnInit, AfterViewInit {
     this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
       return {step: 1, ...axis}; 
     });
-  }
-
-  domainChange() {
-    switch (this.domainModel.value) {
-      case 'World':
-        if (this.map.hasLayer(this.selection)) {
-          this.selection.removeFrom(this.map);
-        }
-
-        const timeAxis = ['time', 't'];
-
-        this.axes.forEach((axisComponent: AxisComponent) => {
-          if (timeAxis.indexOf(axisComponent.axis.id) < 0) {
-            let filtered = this.result[this.config.variable].axes.filter((axis: Axis) => {
-              return axis.id === axisComponent.axis.id;
-            });
-
-            if (filtered.length > 0) {
-              axisComponent.axis.start = filtered[0].start;
-
-              axisComponent.axis.stop = filtered[0].stop;
-            }
-          }
-        });
-
-        break;
-      case 'Custom':
-        if (!this.map.hasLayer(this.selection)) {
-          this.selection.addTo(this.map);
-        }
-
-        break;
-    }
   }
 
   onDownload() {

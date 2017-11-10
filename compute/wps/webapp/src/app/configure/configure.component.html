@@ -91,13 +91,13 @@
             </div>
             <div id="collapseDomain" class="panel-collapse collapse">
               <div class="panel-body">
-                <select [(ngModel)]="domainModel.value" (change)="domainChange()" class="form-control select-spacer" name="value">
+                <select [(ngModel)]="map.domain" (change)="domainChange()" class="form-control select-spacer" name="value">
                   <option *ngFor="let domain of domains">{{domain.name}}</option>
                 </select>
                 <div class="panel-group" id="accordionAxis">
                   <ul class="list-unstyled">
                     <li *ngFor="let axis of config?.dataset.axes; index as i" class="list-item-axis">
-                      <axis [axisIndex]="i" [axis]="axis" (axisChange)="onAxisChange($event)"></axis>
+                      <axis [axisIndex]="i" [axis]="axis" (axisChange)="map.onAxisChange($event)"></axis>
                     </li>
                   </ul>
                 </div>
@@ -108,7 +108,7 @@
       </form>
     </div>
     <div class="col-md-10 fill">
-      <div #mapContainer class="map-container"></div>
+      <domain-map [axes]="config?.dataset.axes"></domain-map>
     </div>
   </div>
 </div>

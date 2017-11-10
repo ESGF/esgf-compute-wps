@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 
 import { AxisComponent } from './axis.component';
 import { ParameterComponent } from './parameter.component';
+import { MapComponent } from './map.component';
 import { ConfigureComponent } from './configure.component';
 
 import { ConfigureService } from './configure.service';
@@ -20,6 +21,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     ConfigureComponent,
     AxisComponent,
     ParameterComponent,
+    MapComponent,
   ],
   exports: [],
   providers: [
