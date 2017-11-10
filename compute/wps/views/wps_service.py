@@ -223,10 +223,10 @@ def generate(request):
             files = request.POST['files']
 
             regrid = request.POST['regrid']
-
-            parameters = request.POST['parameters']
         except KeyError as e:
             raise Exception('Missing required key "{}"'.format(e.message))
+
+        parameters = request.POST.get('parameters', None)
 
         latitudes = request.POST.get('latitudes', None)
 
@@ -288,13 +288,14 @@ def generate(request):
         if regrid != 'None':
             buf.write(", gridder=grid")
 
-        parameters = parameters.split(',')
+        if parameters is not None:
+            parameters = parameters.split(',')
 
-        if len(parameters) > 0:
-            for param in parameters:
-                key, value = str(param).split('=')
+            if len(parameters) > 0:
+                for param in parameters:
+                    key, value = str(param).split('=')
 
-                buf.write(", {}='{}'".format(key, value))
+                    buf.write(", {}='{}'".format(key, value))
         
         buf.write(")\n\n")
 

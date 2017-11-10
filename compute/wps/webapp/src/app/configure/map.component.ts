@@ -2,6 +2,7 @@ import { Component, Input, OnInit, ViewChild } from '@angular/core';
 
 import { Axis } from './axis.component';
 import { Selection } from './selection';
+import { LAT_NAMES, LNG_NAMES } from './configure.service';
 
 import * as L from 'leaflet';
 
@@ -22,9 +23,6 @@ export class MapComponent implements OnInit {
   @ViewChild('mapContainer') mapContainer: any;
 
   @Input() axes: Axis[];
-
-  lonNames = ['x', 'lon', 'longitude'];
-  latNames = ['y', 'lat', 'latitude'];
 
   domain: string;
   map: L.Map;
@@ -48,11 +46,11 @@ export class MapComponent implements OnInit {
       se = data.getSouthEast();
 
     this.axes.forEach((axis: Axis) => {
-      if (this.lonNames.some((x: string) => x === axis.id)) {
+      if (LNG_NAMES.some((x: string) => x === axis.id)) {
         axis.start = nw.lng;
 
         axis.stop = se.lng;
-      } else if (this.latNames.some((x: string) => x === axis.id)) {
+      } else if (LAT_NAMES.some((x: string) => x === axis.id)) {
         axis.start = se.lat;
 
         axis.stop = nw.lat;
@@ -61,7 +59,7 @@ export class MapComponent implements OnInit {
   }
 
   onAxisChange(id: string) {
-    if (this.lonNames.indexOf(id) === -1 && this.latNames.indexOf(id) === -1) {
+    if (LNG_NAMES.indexOf(id) === -1 && LAT_NAMES.indexOf(id) === -1) {
       return;
     }
     
@@ -69,8 +67,8 @@ export class MapComponent implements OnInit {
       this.domain = 'Custom';
     }
 
-    let lon = this.axes.find((axis: Axis) => this.lonNames.indexOf(axis.id) >= 0);
-    let lat = this.axes.find((axis: Axis) => this.latNames.indexOf(axis.id) >= 0);
+    let lon = this.axes.find((axis: Axis) => LNG_NAMES.indexOf(axis.id) >= 0);
+    let lat = this.axes.find((axis: Axis) => LAT_NAMES.indexOf(axis.id) >= 0);
 
     this.selection.off('updatedomain');
 

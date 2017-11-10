@@ -74,11 +74,7 @@ describe('Configure Component', () => {
   });
 
   it('should retrieve axes for selected variable', () => {
-    comp.result = mockResult;
-
     comp.config.variable = 'tas';
-
-    comp.loadVariable();
   });
 
   it('should initialize', () => {

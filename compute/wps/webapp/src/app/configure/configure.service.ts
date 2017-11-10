@@ -6,6 +6,9 @@ import { Axis } from './axis.component';
 import { Parameter } from './parameter.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
 
+export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
+export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
+
 export interface Dataset {
   axes: Axis[];
   files: string[];
@@ -92,9 +95,11 @@ export class Configuration {
 
     data += `dimensions=${dimensions}&`;
 
-    let parameters = this.params.map((param: Parameter) => { return `${param.key}=${param.value}`; }).join(',');
+    if (this.params.length > 0) {
+      let parameters = this.params.map((param: Parameter) => { return `${param.key}=${param.value}`; }).join(',');
 
-    data += `parameters=${parameters}`;
+      data += `parameters=${parameters}`;
+    }
 
     return data;
   }
