@@ -136,6 +136,11 @@ export class AuthService extends WPSService {
         this.setLoggedIn(false);
 
         localStorage.removeItem('expires');
+      })
+      .catch(error => {
+        this.setLoggedIn(false);
+
+        localStorage.removeItem('expires');
       });
   }
 
