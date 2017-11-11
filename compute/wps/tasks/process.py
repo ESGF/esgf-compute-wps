@@ -1,11 +1,12 @@
 #! /usr/bin/env python
 
+import collections
 import hashlib
-import math
 import json
+import math
+import time
 import os
 import uuid
-import collections
 from datetime import datetime
 from functools import partial
 
@@ -921,7 +922,7 @@ class CWTBaseTask(celery.Task):
         except Exception:
             logger.exception('Failed to retrieve job')
         else:
-            job.retry()
+            job.retry(exc)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """ Handle a failure. """
@@ -967,15 +968,17 @@ if global_settings.DEBUG:
     def dev_echo(self, variables, operations, domains, **kwargs):
         self.PUBLISH = ALL
 
-        job, status = self.initialize(credentials=False, **kwargs)
+        user, job = self.initialize(credentials=False, **kwargs)
+
+        job.started()
 
         v, d, o = self.load(variables, domains, operations)
 
-        logger.info('Operations {}'.format(operations))
+        job.update_status('Operations {}'.format(operations))
 
-        logger.info('Domains {}'.format(domains))
+        job.update_status('Domains {}'.format(domains))
 
-        logger.info('Variables {}'.format(variables))
+        job.update_status('Variables {}'.format(variables))
 
         return cwt.Variable('variables={};domains={};operations={};'.format(variables, domains, operations), 'tas').parameterize()
 
@@ -984,7 +987,9 @@ if global_settings.DEBUG:
     def dev_sleep(self, variables, operations, domains, **kwargs):
         self.PUBLISH = ALL
 
-        job, status = self.initialize(credentials=False, **kwargs)
+        user, job = self.initialize(credentials=False, **kwargs)
+
+        job.started()
 
         v, d, o = self.load(variables, domains, operations)
 
@@ -1014,12 +1019,14 @@ if global_settings.DEBUG:
 
         global counter
 
-        job, status = self.initialize(credentials=False, **kwargs)
+        user, job = self.initialize(credentials=False, **kwargs)
+
+        job.started()
 
         for i in xrange(3):
-            status.update(percent=i*100/3)
+            job.update_status('{}'.format(i*100/3), i*100/3)
 
-            time.sleep(5)
+            time.sleep(2)
 
             counter += 1
 
@@ -1037,11 +1044,15 @@ if global_settings.DEBUG:
     def dev_failure(self, variables, operations, domains, **kwargs):
         self.PUBLISH = ALL
 
-        job, status = self.initialize(credentials=False, **kwargs)
+        user, job = self.initialize(credentials=False, **kwargs)
+
+        job.started()
 
         for i in xrange(3):
-            status.update(percent=i*100/3)
+            percent = i*100/3
 
-            time.sleep(5)         
+            job.update_status('Percent {}'.format(percent), percent)
+
+            time.sleep(2)         
 
         raise Exception('An error occurred')

@@ -446,10 +446,10 @@ class Job(models.Model):
 
             status.save()
 
-    def retry(self):
+    def retry(self, exception):
         self.process.retry()
 
-        self.update_status('Retrying...', 0)
+        self.update_status('Retrying... {}'.format(exception), 0)
 
     def update_status(self, message, percent=0):
         logger.info('Updating job "{}" status with "{}" percent {} %'.format(self.id, message, percent))
