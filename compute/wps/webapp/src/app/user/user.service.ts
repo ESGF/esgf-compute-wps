@@ -72,9 +72,11 @@ export class UserService extends WPSService {
       .then((response: WPSResponse) => {
         let status = response.data as Status[];
 
-        status.forEach((value: Status) => {
-          this.formatStatus(value);
-        });
+        try {
+          status.forEach((value: Status) => {
+            this.formatStatus(value);
+          });
+        } catch(err) { }
 
         return status;
       });
