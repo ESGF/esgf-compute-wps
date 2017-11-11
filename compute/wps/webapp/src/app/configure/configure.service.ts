@@ -18,7 +18,7 @@ export interface SearchResult {
   [index: string]: Dataset;
 }
 
-export class RegridOptions {
+export interface RegridOptions {
   lats: number;
   lons: number;
 }
@@ -40,7 +40,7 @@ export class Configuration {
   constructor() {
     this.regrid = 'None';
 
-    this.regridOptions = new RegridOptions();
+    this.regridOptions = { lats: 0, lons: 0 } as RegridOptions;
 
     this.dataset = { axes: [], files: [] } as Dataset;
 

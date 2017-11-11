@@ -6,7 +6,7 @@ import { AxisComponent } from './axis.component';
 import { ParameterComponent } from './parameter.component';
 import { MapComponent } from './map.component';
 import { GeneralConfigComponent } from './general-config.component';
-
+import { RegridComponent } from './regrid.component';
 import { ConfigureComponent } from './configure.component';
 
 import { ConfigureService } from './configure.service';
@@ -25,6 +25,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     ParameterComponent,
     MapComponent,
     GeneralConfigComponent,
+    RegridComponent,
   ],
   exports: [],
   providers: [
