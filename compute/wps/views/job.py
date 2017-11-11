@@ -63,8 +63,6 @@ def job(request, job_id):
             else:
                 status = job.statusSince(updated)
 
-            logger.info(status)
-
             if len(status) > 0:
                 request.session['updated'] = status[-1]['updated_date']
         else:
