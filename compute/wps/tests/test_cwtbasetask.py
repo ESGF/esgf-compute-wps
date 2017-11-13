@@ -1,4 +1,5 @@
 import datetime
+import mock
 import os
 import random
 import re
@@ -6,7 +7,6 @@ import shutil
 
 import cdms2
 import cwt
-import mock
 import numpy as np
 from contextlib import nested
 from django import test
@@ -43,9 +43,12 @@ def task_retry(self, **kwargs):
     self.on_retry(Exception('retry'), '', (), kwargs, None)
 
 class CWTBaseTaskTestCase(test.TestCase):
+    fixtures = ['users.json', 'servers.json', 'processes.json']
 
     @classmethod
     def setUpClass(cls):
+        super(CWTBaseTaskTestCase, cls).setUpClass()
+
         cls.cert = helpers.generate_certificate()
         cls.cert_expired = helpers.generate_certificate(0, -10)
 
@@ -73,6 +76,8 @@ class CWTBaseTaskTestCase(test.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        super(CWTBaseTaskTestCase, cls).tearDownClass()
+
         shutil.rmtree(settings.CACHE_PATH)
 
         shutil.rmtree(settings.LOCAL_OUTPUT_PATH)
@@ -90,28 +95,19 @@ class CWTBaseTaskTestCase(test.TestCase):
     def setUp(self):
         self.task = process.CWTBaseTask()
 
-        self.user = models.User.objects.create(username='test')
+        self.user = models.User.objects.all()[0]
 
-        models.Auth.objects.create(user=self.user, cert=self.cert)
+        self.user.auth.cert = self.cert
 
-        self.server = models.Server.objects.create(host='test', status=0)
+        self.user.auth.save()
 
-        self.process = models.Process.objects.create(identifier='CDAT.subset', backend='local')
+        self.server = models.Server.objects.all()[0]
+
+        self.process = models.Process.objects.all()[0]
 
         self.job = models.Job.objects.create(server=self.server, user=self.user, process=self.process)
 
         self.job.accepted()
-
-    def tearDown(self):
-        self.task = None
-
-        self.user.delete()
-
-        self.job.delete()
-
-        self.server.delete()
-
-        self.process.delete()
 
     def test_map_domain_timestamps(self):
         os.chdir(os.path.join(os.path.dirname(__file__), '..'))
@@ -232,7 +228,7 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         cached, exists = self.task.check_cache(files[0].uri, 'tas', slice(0, 24, 1), {})
 
-        shutil.copyfile('./test1.nc', cached.local_path)
+        shutil.copyfile(self.test1, cached.local_path)
 
         with self.assertNumQueries(34):
             output_path = self.task.retrieve_variable(files, domain, self.job)
@@ -637,10 +633,10 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         usage = self.job.process.get_usage(rollover=False)
 
-        self.assertEqual(usage.executed, 1)
-        self.assertEqual(usage.retry, 0)
-        self.assertEqual(usage.failed, 0)
-        self.assertEqual(usage.success, 0)
+        self.assertEqual(usage.executed, 7)
+        self.assertEqual(usage.retry, 1)
+        self.assertEqual(usage.failed, 2)
+        self.assertEqual(usage.success, 3)
 
     def test_task_retry(self):
         self.job.started()
@@ -650,8 +646,8 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         usage = self.job.process.get_usage(rollover=False)
 
-        self.assertEqual(usage.executed, 1)
-        self.assertEqual(usage.retry, 1)
+        self.assertEqual(usage.executed, 7)
+        self.assertEqual(usage.retry, 2)
 
     def test_task_failure(self):
         with self.assertNumQueries(6):
@@ -659,8 +655,8 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         usage = self.job.process.get_usage(rollover=False)
 
-        self.assertEqual(usage.executed, 1)
-        self.assertEqual(usage.failed, 1)
+        self.assertEqual(usage.executed, 7)
+        self.assertEqual(usage.failed, 3)
 
     def test_task_success(self):
         with self.assertNumQueries(6):
@@ -668,8 +664,8 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         usage = self.job.process.get_usage(rollover=False)
 
-        self.assertEqual(usage.executed, 1)
-        self.assertEqual(usage.success, 1)
+        self.assertEqual(usage.executed, 7)
+        self.assertEqual(usage.success, 4)
 
     def test_check_cache_fail_time_validation(self):
         uri = self.test1
@@ -726,7 +722,7 @@ class CWTBaseTaskTestCase(test.TestCase):
         with self.assertNumQueries(5):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
 
-        expected = 'e9879eb53d27b677dd90b7b90f0da792765cc2bc6292848ce9c52160ab4f8dfb'
+        expected = 'a28247841178aa228b8e40453e1e4546cfff5dc7a0382d0701fa571ec438bdf0'
 
         self.assertFalse(exists)
         self.assertEqual(cached.dimensions, 'time:10:20:1|latitude:-45:45:1|longitude:-90:90:1')
@@ -740,7 +736,7 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         name = self.task.generate_cache_name(file_name, temporal, spatial)
 
-        expected = '7f2aafa1761f59ea0ee455c7764386079b7f99dda150caa2ff75efa4f7049df9'
+        expected = '69f73f39f848bdbeb7a9eddfbe38d95577c775b245a8830af9c1b9f210fed550'
 
         self.assertEqual(name, expected)
 

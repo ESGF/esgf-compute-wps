@@ -96,7 +96,9 @@ def openid_services(openid_url, service_urns):
     try:
         url, services = discover.discoverYadis(openid_url)
     except Exception as e:
-        raise Exception('OpenID discovery failed "{}"'.format(e.message))
+        logger.exception('OpenID discovery failed')
+
+        raise Exception('OpenID discovery failed')
 
     for urn in service_urns:
         requested[urn] = openid_find_service_by_type(services, urn)

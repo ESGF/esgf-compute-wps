@@ -1,25 +1,14 @@
 import datetime
-import json
-
 import mock
+import json
+from django import test
 
-from .common import CommonTestCase
+from . import helpers
 from wps import models
 from wps import settings
 
-from . import common
-
-class AuthViewsTestCase(CommonTestCase):
-
-    def setUp(self):
-        self.auth_user = models.User.objects.create_user('auth_user', 'auth_user@gmail.com', 'auth_user')
-
-        models.Auth.objects.create(user=self.auth_user,
-                                   openid_url='http://doesnotexist.com/openid/doesnotexist',
-                                   extra={})
-
-    def tearDonw(self):
-        self.auth_user.delete()
+class AuthViewsTestCase(test.TestCase):
+    fixtures = ['users.json']
 
     def test_create_complete(self):
         params = {
@@ -81,7 +70,10 @@ class AuthViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Failed to complete OpenID process "OpenID authentication failed"')
 
     def test_logout_auth(self):
-        self.client.login(username='auth_user', password='auth_user')
+        user = models.User.objects.all()[0]
+
+        # Password is the username
+        self.client.login(username=user.username, password=user.username)
 
         response = self.client.get('/auth/logout/')
 
@@ -102,8 +94,10 @@ class AuthViewsTestCase(CommonTestCase):
         self.assertEqual(data['status'], 'failed')
         self.assertEqual(data['error'], 'Unauthorized access')
 
-    def test_login_auth(self):
-        response = self.client.post('/auth/login/', {'username': 'auth_user', 'password': 'auth_user'})
+    def test_login_auth(self):  
+        user = models.User.objects.all()[0]
+
+        response = self.client.post('/auth/login/', {'username': user.username, 'password': user.username})
 
         self.assertEqual(response.status_code, 200)
 
@@ -142,7 +136,9 @@ class AuthViewsTestCase(CommonTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_login_mpc_credentials(self):
-        self.client.login(username='auth_user', password='auth_user')
+        user = models.User.objects.all()[0]
+
+        self.client.login(username=user.username, password=user.username)
 
         response = self.client.post('/auth/login/mpc/', {'username': 'test', 'password': 'test'})
 
@@ -151,10 +147,12 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'OpenID discovery failed "HTTP Response status from identity URL host is not 200. Got status 404"')
+        self.assertEqual(data['error'], 'OpenID discovery failed')
 
     def test_login_mpc_auth(self):
-        self.client.login(username='auth_user', password='auth_user')
+        user = models.User.objects.all()[0]
+
+        self.client.login(username=user.username, password=user.username)
 
         response = self.client.post('/auth/login/mpc/')
 
@@ -177,7 +175,10 @@ class AuthViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Unauthorized access')
 
     def test_login_oauth2_auth(self):
-        self.client.login(username='auth_user', password='auth_user')
+        user = models.User.objects.all()[0]
+
+        # Password is username
+        self.client.login(username=user.username, password=user.username)
 
         response = self.client.post('/auth/login/oauth2/')
 
@@ -186,7 +187,7 @@ class AuthViewsTestCase(CommonTestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'OpenID discovery failed "HTTP Response status from identity URL host is not 200. Got status 404"')
+        self.assertEqual(data['error'], 'OpenID discovery failed')
 
     def test_login_oauth2(self):
         response = self.client.post('/auth/login/oauth2/')
@@ -210,9 +211,11 @@ class AuthViewsTestCase(CommonTestCase):
 
     @mock.patch('wps.views.auth.send_mail')
     def test_forgot_password_username(self, send_mail_mock):
+        user = models.User.objects.all()[0]
+
         send_mail_mock.side_effect = Exception()
 
-        response = self.client.get('/auth/forgot/password/', {'username': 'auth_user'})
+        response = self.client.get('/auth/forgot/password/', {'username': user.username})
 
         self.assertEqual(response.status_code, 200)
 
@@ -243,9 +246,11 @@ class AuthViewsTestCase(CommonTestCase):
 
     @mock.patch('wps.views.auth.send_mail')
     def test_forgot_username_email(self, send_mail_mock):
+        user = models.User.objects.all()[0]
+
         send_mail_mock.side_effect = Exception()
 
-        response = self.client.get('/auth/forgot/username/', {'email': 'auth_user@gmail.com'})
+        response = self.client.get('/auth/forgot/username/', {'email': user.email})
 
         self.assertEqual(response.status_code, 200)
 
@@ -265,21 +270,23 @@ class AuthViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Missing parameter "\'email\'"')
 
     def test_reset_password_expired(self):
-        token = common.random_str(10)
+        user = models.User.objects.all()[0]
+
+        token = helpers.random_str(10)
 
         extra = {
             'reset_token': token,
             'reset_expire': datetime.datetime.now()-datetime.timedelta(10)
         }
 
-        self.auth_user.auth.extra = json.dumps(extra, default=lambda x: x.strftime('%x %X'))
+        user.auth.extra = json.dumps(extra, default=lambda x: x.strftime('%x %X'))
 
-        self.auth_user.auth.save()
+        user.auth.save()
 
         params = {
             'token': token,
-            'username': 'auth_user',
-            'password': 'new_password'
+            'username': user.username,
+            'password': user.username
         }
 
         response = self.client.get('/auth/reset/', params)
@@ -292,21 +299,23 @@ class AuthViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Reset token has expire, request again')
 
     def test_reset_password_params(self):
-        token = common.random_str(10)
+        token = helpers.random_str(10)
 
         extra = {
             'reset_token': token,
             'reset_expire': datetime.datetime.now()+datetime.timedelta(10)
         }
 
-        self.auth_user.auth.extra = json.dumps(extra, default=lambda x: x.strftime('%x %X'))
+        user = models.User.objects.all()[0]
 
-        self.auth_user.auth.save()
+        user.auth.extra = json.dumps(extra, default=lambda x: x.strftime('%x %X'))
+
+        user.auth.save()
 
         params = {
             'token': token,
-            'username': 'auth_user',
-            'password': 'new_password'
+            'username': user.username,
+            'password': user.username
         }
 
         response = self.client.get('/auth/reset/', params)

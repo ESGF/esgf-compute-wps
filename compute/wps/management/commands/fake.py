@@ -30,6 +30,9 @@ class Command(BaseCommand):
     def random_url(self):
         return 'https://{}.com/thredds/{}.nc'.format(self.random_str(16), self.random_str(32))
 
+    def random_openid_url(self, username):
+        return 'https://{}.com/openid/{}'.format(self.random_str(16), username)
+
     def clear(self):
         total = 0
 
@@ -57,7 +60,7 @@ class Command(BaseCommand):
 
             user = models.User.objects.create_user(username, self.random_email(), username)
 
-            models.Auth.objects.create(user=user)
+            models.Auth.objects.create(user=user, openid_url=self.random_openid_url(username))
 
         self.stdout.write(self.style.SUCCESS('Created {} users'.format(count)))
 
@@ -170,7 +173,7 @@ class Command(BaseCommand):
                 elif end_state == 1:
                     job.failed('Job Failed')
                 else:
-                    job.retry()
+                    job.retry('AccessError')
 
     def handle(self, *args, **options):
         if options['clear']:

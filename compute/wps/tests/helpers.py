@@ -1,12 +1,16 @@
 #! /usr/bin/env python
 
 import random
+import string
 
 import cdms2
 import numpy as np
 from OpenSSL import crypto
 from OpenSSL import SSL
 from socket import gethostname
+
+def random_str(count):
+    return ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(count))
 
 random.seed(1987)
 

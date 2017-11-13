@@ -1,0 +1,446 @@
+[
+{
+  "model": "wps.process",
+  "pk": 1063,
+  "fields": {
+    "identifier": "dev.failure",
+    "backend": "Local",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Dev.Failure</ows:Title>\n    <ows:Abstract></ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>dev.failure</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1064,
+  "fields": {
+    "identifier": "dev.echo",
+    "backend": "Local",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Dev.Echo</ows:Title>\n    <ows:Abstract></ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>dev.echo</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1065,
+  "fields": {
+    "identifier": "CDAT.subset",
+    "backend": "Local",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Cdat.Subset</ows:Title>\n    <ows:Abstract></ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDAT.subset</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1066,
+  "fields": {
+    "identifier": "dev.sleep",
+    "backend": "Local",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Dev.Sleep</ows:Title>\n    <ows:Abstract></ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>dev.sleep</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1067,
+  "fields": {
+    "identifier": "dev.retry",
+    "backend": "Local",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Dev.Retry</ows:Title>\n    <ows:Abstract></ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>dev.retry</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1068,
+  "fields": {
+    "identifier": "CDAT.aggregate",
+    "backend": "Local",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Cdat.Aggregate</ows:Title>\n    <ows:Abstract></ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDAT.aggregate</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1069,
+  "fields": {
+    "identifier": "CDSpark.min",
+    "backend": "EDAS",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Space/Time Minimum</ows:Title>\n    <ows:Abstract> Computes minimum element value from input variable data over specified axes and roi </ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDSpark.min</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1070,
+  "fields": {
+    "identifier": "CDSpark.sum",
+    "backend": "EDAS",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Space/Time Sum</ows:Title>\n    <ows:Abstract> Computes sums of element values from input variable data over specified axes and roi </ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDSpark.sum</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1071,
+  "fields": {
+    "identifier": "CDSpark.rms",
+    "backend": "EDAS",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Element-wise Root Mean Square</ows:Title>\n    <ows:Abstract> Computes root mean square of input variable over specified axes and roi </ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDSpark.rms</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1072,
+  "fields": {
+    "identifier": "CDSpark.average",
+    "backend": "EDAS",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Space/Time Mean</ows:Title>\n    <ows:Abstract> Computes (weighted) means of element values from input variable data over specified axes and roi </ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDSpark.average</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1073,
+  "fields": {
+    "identifier": "CDSpark.max",
+    "backend": "EDAS",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Space/Time Maximum</ows:Title>\n    <ows:Abstract> Computes maximum element value from input variable data over specified axes and roi </ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDSpark.max</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.process",
+  "pk": 1074,
+  "fields": {
+    "identifier": "CDSpark.diff2",
+    "backend": "EDAS",
+    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Element-wise Difference</ows:Title>\n    <ows:Abstract> Computes element-wise diffs for a pair of input variables over specified roi </ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDSpark.diff2</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "enabled": true
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 1,
+  "fields": {
+    "user": 76,
+    "process": 1063,
+    "requested_date": "2017-11-11T10:14:06.482Z",
+    "requested": 756
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 2,
+  "fields": {
+    "user": 76,
+    "process": 1073,
+    "requested_date": "2017-11-11T10:14:06.487Z",
+    "requested": 290
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 3,
+  "fields": {
+    "user": 76,
+    "process": 1065,
+    "requested_date": "2017-11-11T10:14:06.490Z",
+    "requested": 185
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 4,
+  "fields": {
+    "user": 76,
+    "process": 1071,
+    "requested_date": "2017-11-11T10:14:06.494Z",
+    "requested": 112
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 5,
+  "fields": {
+    "user": 76,
+    "process": 1067,
+    "requested_date": "2017-11-11T10:14:06.497Z",
+    "requested": 983
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 6,
+  "fields": {
+    "user": 76,
+    "process": 1068,
+    "requested_date": "2017-11-11T10:14:06.501Z",
+    "requested": 941
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 7,
+  "fields": {
+    "user": 77,
+    "process": 1067,
+    "requested_date": "2017-11-11T10:14:06.505Z",
+    "requested": 316
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 8,
+  "fields": {
+    "user": 77,
+    "process": 1071,
+    "requested_date": "2017-11-11T10:14:06.508Z",
+    "requested": 683
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 9,
+  "fields": {
+    "user": 77,
+    "process": 1069,
+    "requested_date": "2017-11-11T10:14:06.511Z",
+    "requested": 252
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 10,
+  "fields": {
+    "user": 77,
+    "process": 1074,
+    "requested_date": "2017-11-11T10:14:06.514Z",
+    "requested": 751
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 11,
+  "fields": {
+    "user": 77,
+    "process": 1070,
+    "requested_date": "2017-11-11T10:14:06.517Z",
+    "requested": 879
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 12,
+  "fields": {
+    "user": 77,
+    "process": 1066,
+    "requested_date": "2017-11-11T10:14:06.521Z",
+    "requested": 210
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 13,
+  "fields": {
+    "user": 77,
+    "process": 1063,
+    "requested_date": "2017-11-11T10:14:06.524Z",
+    "requested": 727
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 14,
+  "fields": {
+    "user": 77,
+    "process": 1065,
+    "requested_date": "2017-11-11T10:14:06.527Z",
+    "requested": 651
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 15,
+  "fields": {
+    "user": 77,
+    "process": 1073,
+    "requested_date": "2017-11-11T10:14:06.531Z",
+    "requested": 207
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 16,
+  "fields": {
+    "user": 77,
+    "process": 1068,
+    "requested_date": "2017-11-11T10:14:06.534Z",
+    "requested": 814
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 17,
+  "fields": {
+    "user": 77,
+    "process": 1064,
+    "requested_date": "2017-11-11T10:14:06.538Z",
+    "requested": 845
+  }
+},
+{
+  "model": "wps.userprocess",
+  "pk": 18,
+  "fields": {
+    "user": 77,
+    "process": 1072,
+    "requested_date": "2017-11-11T10:14:06.541Z",
+    "requested": 491
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 1,
+  "fields": {
+    "process": 1069,
+    "created_date": "2017-11-11T10:14:06.561Z",
+    "executed": 7,
+    "success": 2,
+    "failed": 1,
+    "retry": 4
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 2,
+  "fields": {
+    "process": 1064,
+    "created_date": "2017-11-11T10:14:06.608Z",
+    "executed": 4,
+    "success": 1,
+    "failed": 3,
+    "retry": 0
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 3,
+  "fields": {
+    "process": 1072,
+    "created_date": "2017-11-11T10:14:06.756Z",
+    "executed": 6,
+    "success": 2,
+    "failed": 4,
+    "retry": 0
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 4,
+  "fields": {
+    "process": 1066,
+    "created_date": "2017-11-11T10:14:06.899Z",
+    "executed": 7,
+    "success": 1,
+    "failed": 2,
+    "retry": 4
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 5,
+  "fields": {
+    "process": 1063,
+    "created_date": "2017-11-11T10:14:06.993Z",
+    "executed": 6,
+    "success": 3,
+    "failed": 2,
+    "retry": 1
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 6,
+  "fields": {
+    "process": 1068,
+    "created_date": "2017-11-11T10:14:07.136Z",
+    "executed": 7,
+    "success": 2,
+    "failed": 5,
+    "retry": 0
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 7,
+  "fields": {
+    "process": 1071,
+    "created_date": "2017-11-11T10:14:07.188Z",
+    "executed": 5,
+    "success": 1,
+    "failed": 2,
+    "retry": 2
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 8,
+  "fields": {
+    "process": 1067,
+    "created_date": "2017-11-11T10:14:07.281Z",
+    "executed": 6,
+    "success": 3,
+    "failed": 2,
+    "retry": 1
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 9,
+  "fields": {
+    "process": 1065,
+    "created_date": "2017-11-11T10:14:07.364Z",
+    "executed": 5,
+    "success": 0,
+    "failed": 3,
+    "retry": 2
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 10,
+  "fields": {
+    "process": 1070,
+    "created_date": "2017-11-11T10:14:07.529Z",
+    "executed": 6,
+    "success": 4,
+    "failed": 0,
+    "retry": 2
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 11,
+  "fields": {
+    "process": 1074,
+    "created_date": "2017-11-11T10:14:07.580Z",
+    "executed": 4,
+    "success": 1,
+    "failed": 3,
+    "retry": 0
+  }
+},
+{
+  "model": "wps.processusage",
+  "pk": 12,
+  "fields": {
+    "process": 1073,
+    "created_date": "2017-11-11T10:14:08.103Z",
+    "executed": 4,
+    "success": 0,
+    "failed": 3,
+    "retry": 1
+  }
+}
+]

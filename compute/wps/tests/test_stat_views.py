@@ -1,25 +1,21 @@
+from django import test
+
 from wps import models
 
-from .common import CommonTestCase
-
-class StatsViewTestCase(CommonTestCase):
+class StatsViewTestCase(test.TestCase):
+    fixtures = ['users.json', 'processes.json', 'files.json']
 
     def setUp(self):
-        self.user = models.User.objects.create_user('stats', 'stats@gmail.com', 'stats')
+        self.user = models.User.objects.all()[0]
 
-        self.admin = models.User.objects.create_user('stats_admin', 'stats@gmail.com', 'stats_admin')
+        self.admin = models.User.objects.all()[1]
 
         self.admin.is_superuser = True
 
         self.admin.save()
 
-    def tearDown(self):
-        self.user.delete()
-
-        self.admin.delete()
-
     def test_stats_processes_authorized(self):
-        self.client.login(username='stats_admin', password='stats_admin') 
+        self.client.login(username=self.admin.username, password=self.admin.username) 
 
         response = self.client.get('/wps/admin/stats')
 
@@ -29,10 +25,10 @@ class StatsViewTestCase(CommonTestCase):
 
         self.assertEqual(data['status'], 'success')
         self.assertIn('processes', data['data'])
-        self.assertEqual(len(data['data']['processes']), 20)
+        self.assertEqual(len(data['data']['processes']), 12)
 
     def test_stats_processes_not_authorized(self):
-        self.client.login(username='stats', password='stats') 
+        self.client.login(username=self.user.username, password=self.user.username) 
 
         response = self.client.get('/wps/admin/stats')
 
@@ -54,7 +50,7 @@ class StatsViewTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Unauthorized access')
 
     def test_stats_files_authorized(self):
-        self.client.login(username='stats_admin', password='stats_admin') 
+        self.client.login(username=self.admin.username, password=self.admin.username) 
 
         response = self.client.get('/wps/admin/stats', {'type': 'files'})
 
@@ -64,10 +60,10 @@ class StatsViewTestCase(CommonTestCase):
 
         self.assertEqual(data['status'], 'success')
         self.assertIn('files', data['data'])
-        self.assertEqual(len(data['data']['files']), 50)
+        self.assertEqual(len(data['data']['files']), 652)
 
     def test_stats_files_not_authorized(self):
-        self.client.login(username='stats', password='stats') 
+        self.client.login(username=self.user.username, password=self.user.username) 
 
         response = self.client.get('/wps/admin/stats', {'type': 'files'})
 

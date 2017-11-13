@@ -3,35 +3,35 @@ import shutil
 
 import cwt
 import mock
+from django import test
 
 from . import helpers
-from .common import CommonTestCase
 from wps import models
 from wps import settings
 from wps.tasks import cdat
 from wps.tasks import edas
 
-class EDASTaskTestCase(CommonTestCase):
+class EDASTaskTestCase(test.TestCase):
+    fixtures = ['processes.json', 'servers.json', 'users.json']
 
     def setUp(self):
         settings.EDAS_TIMEOUT = 5
 
         settings.EDAS_HOST = 'unknown'
 
-        self.edas_process = models.Process.objects.create(identifier='CDAT.subset', backend='Local') 
+        self.user = models.User.objects.all()[0]
 
-        self.edas_job = models.Job.objects.create(server=self.server, user=self.user, process=self.edas_process)
+        self.server = models.Server.objects.all()[0]
 
-        self.edas_job.accepted()
-
-        self.edas_job.started()
-
-    def tearDown(self):
-        self.edas_process.delete()
-
-        self.edas_job.delete()
+        self.process = models.Process.objects.all()[0]
 
     def test_listen_edas_output(self):
+        job = models.Job.objects.create(server=self.server, user=self.user, process=self.process)
+
+        job.accepted()
+
+        job.started()
+
         expected_path = '/data/temp.nc'
 
         mock_socket = mock.Mock()
@@ -42,7 +42,7 @@ class EDASTaskTestCase(CommonTestCase):
 
         poller.poll.return_value = [tuple([mock_socket, 1])]
 
-        edas_output_path = edas.listen_edas_output(poller, self.edas_job)
+        edas_output_path = edas.listen_edas_output(poller, job)
 
         self.assertEqual(edas_output_path, expected_path)
 
@@ -53,9 +53,11 @@ class EDASTaskTestCase(CommonTestCase):
             edas.check_exceptions(data)
 
     def test_edas_submit(self):
+        job = models.Job.objects.create(server=self.server, user=self.user, process=self.process)
+
         params = {
             'user_id': self.user.id,
-            'job_id': self.edas_job.id,
+            'job_id': job,
         }
 
         operation = cwt.Process(identifier='CDSpark.max')
@@ -68,10 +70,11 @@ class EDASTaskTestCase(CommonTestCase):
 
         data_inputs = cwt.WPS('').prepare_data_inputs(operation, variables, None)
 
-        with self.assertNumQueries(5), self.assertRaises(Exception):
+        with self.assertNumQueries(1), self.assertRaises(Exception):
             edas.edas_submit(data_inputs, 'CDSpark.max', **params)
 
-class CDATTaskTestCase(CommonTestCase):
+class CDATTaskTestCase(test.TestCase):
+    fixtures = ['processes.json', 'servers.json', 'users.json']
 
     @classmethod
     def setUpClass(cls):
@@ -99,14 +102,19 @@ class CDATTaskTestCase(CommonTestCase):
     def setUp(self):
         settings.DAP = True
 
-    def test_cache_variable(self):
-        server = models.Server.objects.create(host='default')
+        self.server = models.Server.objects.all()[0]
 
-        process = models.Process.objects.create(identifier='CDAT.subset', backend='Local') 
+        self.user = models.User.objects.all()[0]
 
-        job = models.Job.objects.create(server=server, user=self.user, process=process)
+        self.process = models.Process.objects.all()[0]
+
+    @mock.patch('wps.tasks.process.CWTBaseTask.initialize')
+    def test_cache_variable(self, mock_initialize):
+        job = models.Job.objects.create(server=self.server, user=self.user, process=self.process)
 
         job.accepted()
+
+        mock_initialize.return_value = (self.user, job) 
 
         params = {
             'user_id': self.user.id,

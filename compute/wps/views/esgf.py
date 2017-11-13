@@ -132,6 +132,9 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
         except requests.RequestException as e:
             raise Exception('Request failed: "{}"'.format(e))
 
+        #with open('./data/solr_full.json', 'w') as outfile:
+        #    outfile.write(response.content)
+
         try:
             data = json.loads(response.content)
         except:

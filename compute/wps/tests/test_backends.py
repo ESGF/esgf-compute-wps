@@ -8,18 +8,16 @@ from wps import models
 from wps import settings
 
 class EDASBackendTestCase(test.TestCase):
+    fixtures = ['users.json', 'processes.json', 'servers.json']
 
     def setUp(self):
-        self.server = models.Server.objects.create(host='default')
-
-        self.user = models.User.objects.create_user('local', 'local@gmail.com', 'local')
+        models.Process.objects.all().delete()
 
         self.backend = backends.Backend.get_backend('EDAS')
 
-    def tearDown(self):
-        self.server.delete()
+        self.server = models.Server.objects.get(host='default')
 
-        self.user.delete()
+        self.user = models.User.objects.all()[0]
 
     def test_execute(self):
         settings.EDAS_HOST = 'Unknown'
@@ -41,18 +39,16 @@ class EDASBackendTestCase(test.TestCase):
             self.backend.initialize()
 
 class LocalBackendTestCase(test.TestCase):
+    fixtures = ['users.json', 'processes.json', 'servers.json']
 
     def setUp(self):
-        self.server = models.Server.objects.create(host='default')
-
-        self.user = models.User.objects.create_user('local', 'local@gmail.com', 'local')
+        models.Process.objects.all().delete()
 
         self.backend = backends.Backend.get_backend('Local')
 
-    def tearDown(self):
-        self.server.delete()
+        self.server = models.Server.objects.get(host='default')
 
-        self.user.delete()
+        self.user = models.User.objects.all()[0]
 
     @mock.patch('wps.backends.local.process.get_process')
     def test_execute(self, get_process_mock):
@@ -79,7 +75,7 @@ class LocalBackendTestCase(test.TestCase):
         self.assertEqual(len(si_mock.method_calls), 1)
 
     def test_populate_processes(self):
-        with self.assertNumQueries(30):
+        with self.assertNumQueries(10):
             self.backend.populate_processes()
 
     def test_initialize(self):
@@ -87,9 +83,7 @@ class LocalBackendTestCase(test.TestCase):
             self.backend.initialize()
 
 class BackendsTestCase(test.TestCase):
-
-    def setUp(self):
-        models.Server.objects.create(host='default')
+    fixtures = ['users.json', 'processes.json', 'servers.json']
 
     def test_add_process(self):
         backend = backends.Backend()

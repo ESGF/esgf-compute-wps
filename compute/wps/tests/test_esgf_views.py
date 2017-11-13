@@ -4,18 +4,27 @@ import os
 import cdms2
 import mock
 import numpy as np
+from django import test
 from django.core.cache import cache
 
-from .common import CommonTestCase
+from wps import models
 from wps.views import esgf
 
-class ESGFViewsTestCase(CommonTestCase):
+class ESGFViewsTestCase(test.TestCase):
+    fixtures = ['users.json']
 
     def setUp(self):
+        self.user = models.User.objects.all()[0]
+
+        self.solr_empty = os.path.join(os.path.dirname(__file__), 'data', 'solr_empty.json')
+
+        self.solr_full = os.path.join(os.path.dirname(__file__), 'data', 'solr_full.json')
+
         cache.clear()
 
     @mock.patch('cdms2.open')
-    def test_retrieve_axes(self, mock_open):
+    @mock.patch('wps.views.esgf.process.CWTBaseTask')
+    def test_retrieve_axes(self, mock_task, mock_open):
         axes = [
             cdms2.createAxis(np.array([x for x in xrange(10)])),
             cdms2.createAxis(np.array([x for x in xrange(10)])),
@@ -58,18 +67,18 @@ class ESGFViewsTestCase(CommonTestCase):
         os.chdir(old_cwd)
 
     def test_parse_solr_docs_data(self):
-        with open('./tests/data/solr_full.json') as infile:
+        with open(self.solr_full) as infile:
             data = json.load(infile)
 
         variables = esgf.parse_solr_docs(data['response']['docs'])
 
-        self.assertEqual(len(variables.keys()), 47)
+        self.assertEqual(len(variables.keys()), 50)
 
         for var in variables.keys():
             self.assertIn('files', variables[var])
 
     def test_parse_solr_docs(self):
-        with open('./tests/data/solr_empty.json') as infile:
+        with open(self.solr_empty) as infile:
             data = json.load(infile)
 
         variables = esgf.parse_solr_docs(data['response']['docs'])
@@ -91,18 +100,18 @@ class ESGFViewsTestCase(CommonTestCase):
 
     @mock.patch('requests.get')
     def test_search_solr_data(self, mock_get):
-        with open('./tests/data/solr_full.json') as infile:
+        with open(self.solr_full) as infile:
             data = infile.read()
 
         mock_get.return_value.content = data
 
         result = esgf.search_solr('dataset_id', 'index_node')
 
-        self.assertEqual(len(result), 201)
+        self.assertEqual(len(result), 100)
 
     @mock.patch('requests.get')
     def test_search_solr(self, mock_get):
-        with open('./tests/data/solr_empty.json') as infile:
+        with open(self.solr_empty) as infile:
             data = infile.read()
 
         mock_get.return_value.content = data
@@ -113,12 +122,12 @@ class ESGFViewsTestCase(CommonTestCase):
 
     @mock.patch('requests.get')
     def test_search_dataset_auth(self, mock_get):
-        with open('./tests/data/solr_empty.json') as infile:
+        with open(self.solr_empty) as infile:
             data = infile.read()
 
         mock_get.return_value.content = data
 
-        self.client.login(username='test', password='test')
+        self.client.login(username=self.user.username, password=self.user.username)
 
         params = {
             'dataset_id': 'dataset_id',
@@ -135,7 +144,7 @@ class ESGFViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'No variables were found in dataset "dataset_id"')
 
     def test_search_dataset_missing_dataset(self):
-        self.client.login(username='test', password='test')
+        self.client.login(username=self.user.username, password=self.user.username)
 
         response = self.client.get('/wps/search/')
 

@@ -1,0 +1,64 @@
+[
+{
+  "model": "auth.user",
+  "pk": 76,
+  "fields": {
+    "password": "pbkdf2_sha256$36000$w2e3fkagziPT$Cfhn/q7tSM4Pop6NTSL8wdLvtDtOJEu6WBW8dRlLyU4=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "fake_JnyeGoV7vc",
+    "first_name": "",
+    "last_name": "",
+    "email": "9NbrjULRyB@l4e3q.gov",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2017-11-11T10:14:04.449Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 77,
+  "fields": {
+    "password": "pbkdf2_sha256$36000$N9OZsGiNe56Z$PfAHoIjq9BPKZfdMMgbWRGvxZSgbGM2di6IGfKXjt68=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "fake_DNKncmeWtJ",
+    "first_name": "",
+    "last_name": "",
+    "email": "HCHg5sFK4K@bz76i.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2017-11-11T10:14:04.541Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "wps.auth",
+  "pk": 65,
+  "fields": {
+    "user": 76,
+    "openid": "",
+    "openid_url": "https://TYFZdzHGEBzrbSLh.com/openid/fake_JnyeGoV7vc",
+    "type": "",
+    "cert": "",
+    "api_key": "",
+    "extra": ""
+  }
+},
+{
+  "model": "wps.auth",
+  "pk": 66,
+  "fields": {
+    "user": 77,
+    "openid": "",
+    "openid_url": "https://VvNZKPoyYVfzoalh.com/openid/fake_DNKncmeWtJ",
+    "type": "",
+    "cert": "",
+    "api_key": "",
+    "extra": ""
+  }
+}
+]

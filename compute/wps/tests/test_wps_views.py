@@ -2,34 +2,22 @@
 
 import random
 
+import mock
+from django import test
+
 from wps import models
 
-from .common import CommonTestCase
-
-class WPSViewsTestCase(CommonTestCase):
+class WPSViewsTestCase(test.TestCase):
+    fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
 
     def setUp(self):
-        self.wps_user = models.User.objects.create_user('wps', 'wps@gmail.com', 'wps')
+        self.wps_user = models.User.objects.all()[0]
 
-        models.Auth.objects.create(user=self.wps_user)
+        self.job = models.Job.objects.all()[0]
 
-        self.job = models.Job.objects.create(server=self.server,
-                                        user=self.wps_user,
-                                        process=random.choice(self.processes))
-
-        self.job.accepted()
-
-        self.job.started()
-
-        self.job.succeeded('success')
-
-    def tearDown(self):
-        self.wps_user.delete()
-
-        self.job.delete()
-
-    def test_execute_auth(self):
-        self.client.login(username='wps', password='wps')
+    @mock.patch('wps.views.wps_service.backends.Backend.get_backend')
+    def test_execute_auth(self, backend_mock):
+        self.client.login(username=self.wps_user.username, password=self.wps_user.username)
 
         params = {
             'process': 'CDAT.subset',
@@ -47,11 +35,11 @@ class WPSViewsTestCase(CommonTestCase):
 
         data = response.json()
 
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Process "CDAT.subset" does not exist.')
+        self.assertEqual(data['status'], 'success')
+        self.assertIn('report', data['data'])
 
     def test_execute_missing_required(self):
-        self.client.login(username='wps', password='wps')
+        self.client.login(username=self.wps_user.username, password=self.wps_user.username)
 
         response = self.client.post('/wps/execute/')
 
@@ -73,7 +61,7 @@ class WPSViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Unauthorized access')
 
     def test_generate_auth(self):
-        self.client.login(username='wps', password='wps')
+        self.client.login(username=self.wps_user.username, password=self.wps_user.username)
 
         params = {
             'process': 'CDAT.subset',
@@ -95,7 +83,7 @@ class WPSViewsTestCase(CommonTestCase):
         self.assertEqual(data['data'], {u'text': u"import cwt\nimport time\n\nwps = cwt.WPS('http://0.0.0.0:8000/wps', api_key='')\n\nfiles = [\n\tcwt.Variable('file://file2', 'tas'),\n]\n\nproc = wps.get_process('CDAT.subset')\n\nwps.execute(proc, inputs=files)\n\nwhile proc.processing:\n\tprint proc.status\n\n\ttime.sleep(1)\n\nprint proc.status", u'filename': u'subset.py'})
 
     def test_generate_missing_required(self):
-        self.client.login(username='wps', password='wps')
+        self.client.login(username=self.wps_user.username, password=self.wps_user.username)
 
         response = self.client.post('/wps/generate/')
 
@@ -125,7 +113,7 @@ class WPSViewsTestCase(CommonTestCase):
         self.wps_user.is_superuser = True
         self.wps_user.save()
 
-        self.client.login(username='wps', password='wps')
+        self.client.login(username=self.wps_user.username, password=self.wps_user.username)
 
         with self.assertNumQueries(5):
             response = self.client.get('/wps/regen_capabilities/')
@@ -138,7 +126,7 @@ class WPSViewsTestCase(CommonTestCase):
         self.assertEqual(data['data'], 'Regenerated capabilities')
 
     def test_generate_capabilities_forbidden(self):
-        self.client.login(username='wps', password='wps')
+        self.client.login(username=self.wps_user.username, password=self.wps_user.username)
 
         with self.assertNumQueries(2):
             response = self.client.get('/wps/regen_capabilities/')

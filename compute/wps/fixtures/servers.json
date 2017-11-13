@@ -1,0 +1,48 @@
+[
+{
+  "model": "wps.server",
+  "pk": 20,
+  "fields": {
+    "host": "default",
+    "added_date": "2017-11-11T10:13:40.707Z",
+    "status": 1,
+    "capabilities": "",
+    "processes": [
+      1074,
+      1073,
+      1072,
+      1071,
+      1070,
+      1069,
+      1068,
+      1067,
+      1066,
+      1065,
+      1064,
+      1063
+    ]
+  }
+},
+{
+  "model": "wps.server",
+  "pk": 21,
+  "fields": {
+    "host": "6alk8NibVjCe4K4l",
+    "added_date": "2017-11-11T10:14:04.440Z",
+    "status": 1,
+    "capabilities": "capabilities",
+    "processes": []
+  }
+},
+{
+  "model": "wps.server",
+  "pk": 22,
+  "fields": {
+    "host": "r9sJbZXsOJ1X4Rk8",
+    "added_date": "2017-11-11T10:14:04.444Z",
+    "status": 1,
+    "capabilities": "capabilities",
+    "processes": []
+  }
+}
+]

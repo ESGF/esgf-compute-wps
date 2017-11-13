@@ -1,1 +1,33 @@
-{"facet_counts": {"facet_heatmaps": {}, "facet_fields": {}, "facet_dates": {}, "facet_intervals": {}, "facet_ranges": {}, "facet_queries": {}}, "responseHeader": {"status": 0, "QTime": 1, "params": {"sort": "id asc", "fq": ["type:File", "dataset_id:\"tas\""], "facet.mincount": "1", "rows": "8000", "indent": "true", "echoParams": "all", "df": "text", "facet.method": "enum", "facet": "true", "start": "0", "wt": "json", "q": "*:*", "facet.sort": "lex", "qf": "text", "tie": "0.01", "facet.limit": "-1", "q.alt": "*:*", "fl": "*,score"}}, "response": {"start": 0, "maxScore": 0.0, "numFound": 0, "docs": []}}
+{
+  "responseHeader":{
+    "status":0,
+    "QTime":1,
+    "params":{
+      "df":"text",
+      "q.alt":"*:*",
+      "indent":"true",
+      "echoParams":"all",
+      "fl":"*,score",
+      "start":"0",
+      "fq":["type:File",
+        "dataset_id:\"asdasd\""],
+      "sort":"id asc",
+      "rows":"8000",
+      "q":"*:*",
+      "tie":"0.01",
+      "facet.limit":"-1",
+      "qf":"text",
+      "facet.method":"enum",
+      "facet.mincount":"1",
+      "facet":"true",
+      "wt":"json",
+      "facet.sort":"lex"}},
+  "response":{"numFound":0,"start":0,"maxScore":0.0,"docs":[]
+  },
+  "facet_counts":{
+    "facet_queries":{},
+    "facet_fields":{},
+    "facet_dates":{},
+    "facet_ranges":{},
+    "facet_intervals":{},
+    "facet_heatmaps":{}}}

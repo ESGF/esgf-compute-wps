@@ -1,33 +1,17 @@
 import random
 
+from django import test
+
 from wps import models
 
-from .common import CommonTestCase
-
-class UserViewsTestCase(CommonTestCase):
+class UserViewsTestCase(test.TestCase):
+    fixtures = ['users.json', 'processes.json', 'files.json']
 
     def setUp(self):
-        self.update = models.User.objects.create_user('update', 'update@gmail.com', 'update')
-
-        models.Auth.objects.create(user=self.update)
-
-        for _ in xrange(10):
-            file_obj = random.choice(self.files)
-
-            models.UserFile.objects.create(user=self.update, file=file_obj)
-
-        for _ in xrange(10):
-            process_obj = random.choice(self.processes)
-
-            models.UserProcess.objects.create(user=self.update, process=process_obj)
-
-    def tearDown(self):
-        self.update.delete()
-
-        models.UserProcess.objects.all().delete()
+        self.update = models.User.objects.all()[0]
         
     def test_user_stats_process_auth(self):
-        self.client.login(username='update', password='update')
+        self.client.login(username=self.update.username, password=self.update.username)
 
         response = self.client.get('/auth/user/stats/', {'stat': 'process'})
 
@@ -37,7 +21,7 @@ class UserViewsTestCase(CommonTestCase):
 
         self.assertEqual(data['status'], 'success')
         self.assertIn('processes', data['data'])
-        self.assertEqual(len(data['data']['processes']), 10)
+        self.assertEqual(len(data['data']['processes']), 6)
 
     def test_user_stats_process(self):
         response = self.client.get('/auth/user/stats/', {'type': 'process'})
@@ -50,7 +34,7 @@ class UserViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Unauthorized access')
 
     def test_user_stats_files_auth(self):
-        self.client.login(username='update', password='update')
+        self.client.login(username=self.update.username, password=self.update.username)
 
         response = self.client.get('/auth/user/stats/')
 
@@ -60,7 +44,7 @@ class UserViewsTestCase(CommonTestCase):
 
         self.assertEqual(data['status'], 'success')
         self.assertIn('files', data['data'])
-        self.assertEqual(len(data['data']['files']), 10)
+        self.assertEqual(len(data['data']['files']), 133)
 
     def test_user_stats_files(self):
         response = self.client.get('/auth/user/stats/')
@@ -73,7 +57,7 @@ class UserViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Unauthorized access')
 
     def test_user_details_auth(self):
-        self.client.login(username='update', password='update')
+        self.client.login(username=self.update.username, password=self.update.username)
 
         response = self.client.get('/auth/user/')
 
@@ -99,7 +83,7 @@ class UserViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Unauthorized access')
 
     def test_update_auth(self):
-        self.client.login(username='update', password='update')
+        self.client.login(username=self.update.username, password=self.update.username)
 
         params = {
             'email': 'imdifferent@hello.com',
@@ -134,7 +118,7 @@ class UserViewsTestCase(CommonTestCase):
         self.assertEqual(data['error'], 'Unauthorized access')
 
     def test_regenerate_auth(self):
-        self.client.login(username='test', password='test')
+        self.client.login(username=self.update.username, password=self.update.username)
 
         response = self.client.get('/auth/user/regenerate/')
 
