@@ -122,6 +122,7 @@ dependencies:
 - mkl=2018.0.0=hb491cac_4
 - numpy=1.13.3=py27hbcc08e0_0
 - esgf-compute-api=2.0.1=py27h6ccd855_0
+- pyophidia=1.4.0=py_0
 - pip:
   - backports-abc==0.5
   - backports.ssl-match-hostname==3.5.0.1
