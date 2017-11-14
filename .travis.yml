@@ -1,8 +1,26 @@
-sudo: required
+language: python
 
-services:
-  - docker
+python:
+  - "2.7"
 
 install:
+  - sudo apt-get
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget http://repo.continuum.io/miniconda/Miniconda-3.4.2-Linux-x86_64.sh -O miniconda.sh;
+    else
+      wget http://repo.continuum.io/miniconda/Miniconda3-3.4.2-Linux-x86_64.sh -O miniconda.sh;
+    fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda info -a
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION -c conda-forge -c uvcdat \
+    esgf-compute-api cdms2 cdutil genutil pyzmq lxml redis-py psycopg2 requests-oauthlib \
+    myproxyclient python-openid django celery dask
+  - source activate test-environment
+  - pip install -r compute/wps/tests/requirements.txt
 
 script:
+  - python compute/wps/manage.py test
