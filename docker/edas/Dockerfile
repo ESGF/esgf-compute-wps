@@ -1,8 +1,10 @@
-FROM continuumio/miniconda:4.3.11
+FROM continuumio/miniconda:4.3.27
 
 ARG TAG="master"
 
-RUN git clone --branch $TAG https://github.com/nasa-nccs-cds/EDAS.git edas
+RUN git clone --depth=1 --branch $TAG https://github.com/nasa-nccs-cds/EDAS.git edas
+
+COPY environment.yml environment.yml
 
 RUN apt-get update && \
 	apt-get install --no-install-recommends -y apt-transport-https && \
@@ -10,7 +12,8 @@ RUN apt-get update && \
 	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && \
 	apt-get update && \
 	apt-get install --no-install-recommends -y default-jdk build-essential sbt scala bc && \
-	conda create -n edas -c conda-forge -c uvcdat uvcdat pyzmq psutil lxml && \
+	conda env create --file environment.yml && \
+	#conda create -n edas -c conda-forge -c uvcdat uvcdat pyzmq psutil lxml && \
 	conda clean --yes --all && \
 	apt-get remove -y build-essential && \
 	apt-get autoremove -y && \
@@ -42,6 +45,7 @@ COPY healthcheck.py healthcheck.py
 
 EXPOSE 5670 5671
 
+# Disabled health check, can't continue to ping socket
 #HEALTHCHECK CMD python healthcheck.py
 
 ENTRYPOINT './entrypoint.sh'

@@ -1,5 +1,7 @@
 #! /bin/bash
 
+source activate wps
+
 root_path="/var/www/compute/compute"
 
 cd $root_path

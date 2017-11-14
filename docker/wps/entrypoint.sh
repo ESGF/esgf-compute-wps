@@ -1,5 +1,7 @@
 #! /bin/bash
 
+source activate wps
+
 app_root="/var/www/compute/compute"
 
 python $app_root/manage.py collectstatic --no-input

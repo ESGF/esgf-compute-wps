@@ -14,10 +14,10 @@ WORKDIR /var/www/compute/compute/wps/webapp
 RUN yarn install && \
 	./node_modules/.bin/webpack --config config/webpack.prod
 
-RUN conda install -c conda-forge gunicorn django celery dask && \
+RUN conda install -n wps -c conda-forge gunicorn=19.3.0 && \
 	conda clean --all -y
 
-RUN pip install django-webpack-loader
+RUN PATH=/opt/conda/envs/wps/bin:$PATH pip install django-webpack-loader
 
 WORKDIR /
 
