@@ -60,9 +60,7 @@ class EDAS(backend.Backend):
 
             abstract = desc_tag.text
 
-            logger.info('Registering process "{}"'.format(identifier))
-
-            self.add_process(identifier, title, self.name, abstract)
+            self.add_process(identifier, title, abstract)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         logger.info('Executing process "{}"'.format(identifier))
