@@ -166,9 +166,9 @@ def cache_variable(self, identifier, variables, domains, operations, **kwargs):
     output_path = self.retrieve_variable([op.inputs[0]], op.domain, job, **kwargs)
 
     output_url = self.generate_output_url(output_path, **kwargs)
-    
+
     op.inputs = [cwt.Variable(output_url, op.inputs[0].var_name)]
 
-    data_inputs = cwt.WPS('').prepare_data_inputs(op, [], None)
+    data_inputs = cwt.WPS('').prepare_data_inputs(op, [], op.domain)
 
     return data_inputs

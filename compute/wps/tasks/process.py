@@ -303,6 +303,29 @@ class CWTBaseTask(celery.Task):
 
             logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
 
+    def load_data_inputs(self, data_inputs):
+        o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
+
+        v = dict((x.name, x) for x in v)
+
+        d = dict((x.name, x) for x in d)
+
+        for var in v.values():
+            var.resolve_domains(d)
+
+        o = dict((x.name, x) for x in o)
+
+        for op in o.values():
+            op.resolve_inputs(v, o)
+
+            if op.domain is not None:
+                if op.domain not in d:
+                    raise Exception('Domain "{}" was never defined'.format(op.domain))
+
+                op.domain = d[op.domain]
+
+        return v, d, o
+
     def load(self, variables, domains, operations):
         """ Load a processes inputs.
 
@@ -329,11 +352,11 @@ class CWTBaseTask(celery.Task):
         for op in o.values():
             op.resolve_inputs(v, o)
 
-        if op.domain is not None:
-            if op.domain not in d:
-                raise Exception('Domain "{}" was never defined'.format(op.domain))
+            if op.domain is not None:
+                if op.domain not in d:
+                    raise Exception('Domain "{}" was never defined'.format(op.domain))
 
-            op.domain = d[op.domain]
+                op.domain = d[op.domain]
 
         return v, d, o
 

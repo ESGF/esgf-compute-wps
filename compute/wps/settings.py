@@ -46,6 +46,12 @@ EDAS_TIMEOUT = setting('WPS_EDAS_TIMEOUT', 30)
 EDAS_REQ_PORT = setting('WPS_EDAS_REQ_PORT', 5670)
 EDAS_RES_PORT = setting('WPS_EDAS_RES_PORT', 5671)
 
+# Ophidia Settings
+OPH_USER = setting('WPS_OPH_USER', 'oph-test')
+OPH_PASSWORD = setting('WPS_OPH_PASSWORD', 'abcd')
+OPH_HOST = setting('WPS_OPH_HOST', 'aims2.llnl.gov')
+OPH_PORT = setting('WPS_OPH_PORT', '11732')
+
 # WPS Settings
 VERSION = setting('WPS_VERSION', '1.0.0')
 SERVICE = setting('WPS_SERVICE', 'WPS')
