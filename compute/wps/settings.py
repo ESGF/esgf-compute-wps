@@ -51,6 +51,7 @@ OPH_USER = setting('WPS_OPH_USER', 'oph-test')
 OPH_PASSWORD = setting('WPS_OPH_PASSWORD', 'abcd')
 OPH_HOST = setting('WPS_OPH_HOST', 'aims2.llnl.gov')
 OPH_PORT = setting('WPS_OPH_PORT', '11732')
+OPH_OUTPUT_URL = setting('WPS_OPH_OUTPUT_URL', 'https://aims2.llnl.gov/thredds/{output_path}/{output_name}.nc')
 
 # WPS Settings
 VERSION = setting('WPS_VERSION', '1.0.0')

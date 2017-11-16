@@ -60,9 +60,18 @@ class OphidiaWorkflow(object):
 
     def check_error(self):
         if self.oph_client.last_error is not None and self.oph_client.last_error != '':
-            logger.info(self.oph_client.last_response)
+            error = '{}\n'.format(self.oph_client.last_error)
 
-            raise Exception(self.oph_client.last_error)
+            res = self.oph_client.deserialize_response()
+            
+            try:
+                for x in res['response'][2]['objcontent']:
+                    for y in x['rowvalues']:
+                        error += '\t{}: {}\n'.format(y[-3], y[-1])
+            except:
+                pass
+
+            raise Exception(error)
 
     def submit(self):
         self.check_error()
@@ -89,6 +98,8 @@ def oph_submit(self, data_inputs, identifier, **kwargs):
 
     workflow = OphidiaWorkflow(oph_client)
 
+    workflow.check_error()
+
     container_task = OphidiaTask('create container', 'oph_createcontainer', on_error='skip')
     container_task.add_arguments(container='work')
 
@@ -100,10 +111,21 @@ def oph_submit(self, data_inputs, identifier, **kwargs):
     reduce_task.add_arguments(operation='max')
     reduce_task.add_dependencies(import_task)
 
+    output_path = '/wps/output'
+    output_name = '{}'.format(uuid.uuid4())
+
     export_task = OphidiaTask('export data', 'oph_exportnc')
-    export_task.add_arguments(output_path='/wps/output', output_name='{}'.format(uuid.uuid4()))
+    export_task.add_arguments(output_path=output_path, output_name=output_name)
     export_task.add_dependencies(reduce_task)
 
     workflow.add_tasks(container_task, import_task, reduce_task, export_task)
 
     workflow.submit()
+
+    workflow.check_error()
+
+    output_url = settings.OPH_OUTPUT_URL.format(output_path=output_path, output_name=output_name)
+
+    variable = cwt.Variable(output_url, op.inputs[0].var_name)
+
+    return variable.parameterize()
