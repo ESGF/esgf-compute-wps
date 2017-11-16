@@ -9,13 +9,23 @@ import { WPSService, WPSResponse } from '../core/wps.service';
 export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
 export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
 
+export interface DatasetCollection { 
+  [index: string]: Dataset;
+}
+
 export interface Dataset {
+  id: string;
+  variables: VariableCollection;
+}
+
+export interface Variable {
+  id: string;
   axes: Axis[];
   files: string[];
 }
 
-export interface SearchResult {
-  [index: string]: Dataset;
+export interface VariableCollection {
+  [index: string]: Variable;
 }
 
 export interface RegridOptions {
@@ -26,7 +36,8 @@ export interface RegridOptions {
 export class Configuration {
   process: string;
   dataset: Dataset;
-  variable: string;
+  variable: Variable;
+  variableID: string;
   regrid: string;
   regridOptions: RegridOptions;
   params: Parameter[];
@@ -42,13 +53,13 @@ export class Configuration {
 
     this.regridOptions = { lats: 0, lons: 0 } as RegridOptions;
 
-    this.dataset = { axes: [], files: [] } as Dataset;
+    this.dataset = { id: '', variables: {}} as Dataset;
 
     this.params = [];
   }
 
   validate() { 
-    if (this.dataset.axes === undefined) {
+    if (this.variable.axes === undefined) {
       throw 'Missing domain axes, wait until the domain has loaded';
     }
 
@@ -79,7 +90,7 @@ export class Configuration {
 
     data += `process=${this.process}&`;
 
-    data += `variable=${this.variable}&`;
+    data += `variable=${this.variableID}&`;
 
     data += `regrid=${this.regrid}&`;
 
@@ -89,9 +100,9 @@ export class Configuration {
       data += `latitudes=${this.regridOptions.lats}&`;
     }
 
-    data += `files=${this.dataset.files}&`;
+    data += `files=${this.variable.files}&`;
 
-    let dimensions = JSON.stringify(this.dataset.axes.map((axis: Axis) => { return axis; }));
+    let dimensions = JSON.stringify(this.variable.axes.map((axis: Axis) => { return axis; }));
 
     data += `dimensions=${dimensions}&`;
 
@@ -120,7 +131,7 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  searchESGF(config: Configuration): Promise<SearchResult> { 
+  searchESGF(config: Configuration): Promise<VariableCollection> { 
     let params = new URLSearchParams();
 
     params.append('dataset_id', config.datasetID);
@@ -130,7 +141,7 @@ export class ConfigureService extends WPSService {
 
     return this.get('/wps/search', params)
       .then(response => {
-        return response.data as SearchResult;
+        return response.data as VariableCollection;
       });
   }
 
@@ -141,7 +152,7 @@ export class ConfigureService extends WPSService {
     params.append('index_node', config.indexNode);
     params.append('query', config.query);
     params.append('shard', config.shard);
-    params.append('variable', config.variable);
+    params.append('variable', config.variableID);
 
     return this.get('/wps/search/variable', params)
       .then(response => {

@@ -11,7 +11,7 @@
             </div>
             <div id="collapseConfig" class="panel-collapse collapse in">
               <div class="panel-body">
-                <general-config [config]="config"></general-config>
+                <general-config [datasetIDs]="datasetIDs" [config]="config"></general-config>
               </div>
             </div>
           </div>
@@ -59,7 +59,7 @@
                 </select>
                 <div class="panel-group" id="accordionAxis">
                   <ul class="list-unstyled">
-                    <li *ngFor="let axis of config?.dataset.axes; index as i" class="list-item-axis">
+                      <li *ngFor="let axis of config?.variable?.axes; index as i" class="list-item-axis">
                       <axis [axisIndex]="i" [axis]="axis" (axisChange)="map.onAxisChange($event)"></axis>
                     </li>
                   </ul>
@@ -71,7 +71,7 @@
       </form>
     </div>
     <div class="col-md-10 fill">
-      <domain-map [axes]="config?.dataset.axes"></domain-map>
+      <domain-map [axes]="config?.variable?.axes"></domain-map>
     </div>
   </div>
 </div>

@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 
 import { Axis } from './axis.component';
-import { LAT_NAMES, LNG_NAMES, Configuration, SearchResult, ConfigureService } from './configure.service';
+import { LAT_NAMES, LNG_NAMES, Configuration, DatasetCollection, VariableCollection, ConfigureService } from './configure.service';
 import { NotificationService } from '../core/notification.service';
 
 @Component({
@@ -22,7 +22,7 @@ import { NotificationService } from '../core/notification.service';
     </div>
     <div class="form-group">
       <label for="variable">Variable</label>
-      <select [(ngModel)]="config.variable" (change)="loadVariable()" class="form-control" id="variable" name="variable">
+      <select [(ngModel)]="config.variableID" (change)="loadVariable()" class="form-control" id="variable" name="variable">
         <option *ngFor="let v of variables" [value]="v">{{v}}</option>
       </select>
     </div>
@@ -35,12 +35,12 @@ import { NotificationService } from '../core/notification.service';
 })
 export class GeneralConfigComponent implements OnInit { 
   @Input() config: Configuration;
+  @Input() datasetIDs: string[];
 
-  datasetIDs: string[];
   variables: string[];
 
   processes: Promise<string[]>;
-  result: SearchResult;
+  datasets: DatasetCollection;
 
   constructor(
     private configService: ConfigureService,
@@ -62,17 +62,23 @@ export class GeneralConfigComponent implements OnInit {
         return [];
       });
 
+    this.datasets = {} as DatasetCollection;
+
+    this.datasetIDs.forEach((id: string) => {
+      this.datasets[id] = {id: id, variables: {} as VariableCollection};
+    });
+
     this.loadDataset();
   }
   
   loadDataset() {
     this.configService.searchESGF(this.config)
       .then(data => {
-        this.result = data;
+        this.datasets[this.config.datasetID].variables = data;
 
-        this.variables = Object.keys(this.result).sort();
+        this.variables = Object.keys(data).sort();
 
-        this.config.variable = this.variables[0];
+        this.config.variableID = this.variables[0];
 
         this.loadVariable();
       })
@@ -82,34 +88,44 @@ export class GeneralConfigComponent implements OnInit {
   }
 
   loadVariable() {
-    if (this.result[this.config.variable].axes === undefined) {
+    let dataset = this.datasets[this.config.datasetID];
+
+    if (dataset.variables[this.config.variableID].axes === null) {
       this.configService.searchVariable(this.config)
         .then(data => {
-          this.result[this.config.variable]['axes'] = data;
+          dataset.variables[this.config.variableID].axes = data.map((axis: Axis) => {
+            return {step: 1, ...axis}; 
+          });
 
-          this.setDataset();
+          this.setVariable();
         })
         .catch(error => {
           this.notificationService.error(error);
         });
     } else {
-      this.setDataset();
+      this.setVariable();
     }
   }
 
-  setDataset() {
-    this.config.dataset = Object.assign({}, this.result[this.config.variable]);
+  setVariable() {
+    let dataset = this.datasets[this.config.datasetID];
 
-    this.config.dataset.axes = this.config.dataset.axes.map((axis: Axis) => {
-      return {step: 1, ...axis}; 
+    let variable = dataset.variables[this.config.variableID];
+
+    this.config.variable = {...variable};
+
+    this.config.variable.axes = this.config.variable.axes.map((axis: Axis) => {
+      return {...axis};
     });
   }
 
   resetDomain() {
-    if (this.config.dataset.axes !== undefined) {
-      this.config.dataset.axes.forEach((axis: Axis) => {
+    if (this.config.variable.axes !== null) {
+      this.config.variable.axes.forEach((axis: Axis) => {
         if (LAT_NAMES.indexOf(axis.id) >= 0 || LNG_NAMES.indexOf(axis.id) >= 0) {
-          let filtered = this.result[this.config.variable].axes.filter((value: Axis) => {
+          let dataset = this.datasets[this.config.datasetID];
+
+          let filtered = dataset.variables[this.config.variableID].axes.filter((value: Axis) => {
             return axis.id === value.id;
           });
 

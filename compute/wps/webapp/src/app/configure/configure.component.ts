@@ -4,7 +4,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import * as L from 'leaflet';
 
 import { AuthService } from '../core/auth.service';
-import { Configuration, SearchResult, ConfigureService } from './configure.service';
+import { Configuration, VariableCollection, ConfigureService } from './configure.service';
 import { NotificationService } from '../core/notification.service';
 
 import { Selection } from './selection';
@@ -47,6 +47,7 @@ export class ConfigureComponent implements OnInit {
   ];
 
   config: Configuration;
+  datasetIDs: string[];
 
   constructor(
     private route: ActivatedRoute,
@@ -62,10 +63,10 @@ export class ConfigureComponent implements OnInit {
     this.map.domain = 'World'
     
     this.route.queryParams.subscribe(params => {
-      this.general.datasetIDs = (params['dataset_id'] === undefined) ? [] : params['dataset_id'].split(',');
+      this.datasetIDs = (params['dataset_id'] === undefined) ? [] : params['dataset_id'].split(',');
 
-      if (this.general.datasetIDs.length > 0) {
-        this.config.datasetID = this.general.datasetIDs[0];
+      if (this.datasetIDs.length > 0) {
+        this.config.datasetID = this.datasetIDs[0];
       }
 
       this.config.indexNode = params['index_node'] || '';

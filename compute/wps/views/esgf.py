@@ -164,7 +164,7 @@ def parse_solr_docs(docs):
                 if var in variables:
                     variables[var]['files'].append(url)
                 else:
-                    variables[var] = {'files': [url] }
+                    variables[var] = {'id': var, 'files': [url], 'axes': None}
 
     return variables
 
