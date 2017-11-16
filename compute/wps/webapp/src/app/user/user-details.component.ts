@@ -39,13 +39,12 @@ export class UserDetailsComponent {
 
     this.userService.update(user)
       .then(response => {
-        if (response.status === 'success') {
-          this.model = response.data as User;
+        this.model = response.data as User;
 
-          this.notificationService.message('Successfully updated user details');
-        } else {
-          this.notificationService.error('Failed to update account details');
-        }
+        this.notificationService.message('Successfully updated user details');
+      })
+      .catch(error => {
+        this.notificationService.error('Failed to update account details');
       });
   }
 
@@ -53,41 +52,39 @@ export class UserDetailsComponent {
     this.userService.regenerateKey()
       .then(response => {
         jQuery('#regenerateWarning').modal('hide');
-        if (response.status === 'success') {
-          this.model.api_key = response.data.api_key;
 
-          this.notificationService.message('Successfully generated a new API key');
-        } else {
-          this.notificationService.error('Failed to generate a new API key'); 
-        }
+        this.model.api_key = response.data.api_key;
+
+        this.notificationService.message('Successfully generated a new API key');
+      })
+      .catch(error => {
+        this.notificationService.error('Failed to generate a new API key'); 
       });
   }
 
   onOAuth2() {
     this.authService.oauth2(this.model.openID)
       .then(response => {
-        if (response.status === 'success') {
-          window.location.replace(response.data.redirect);
-        } else {
-          this.notificationService.error(`OAuth2 failed with server error "${response.error}"`);
-        }
+        window.location.replace(response.data.redirect);
+      })
+      .catch(error => {
+        this.notificationService.error(`OAuth2 failed with server error "${error}"`);
       });
   }
 
   onMPCSubmit() {
     this.authService.myproxyclient(this.mpc.username, this.mpc.password)
       .then(response => {
-        if (response.status === 'success') {
-          jQuery('#myproxyclient').modal('hide');
+        jQuery('#myproxyclient').modal('hide');
 
-          this.model.type = response.data.type;
+        this.model.type = response.data.type;
 
-          this.model.api_key = response.data.api_key;
+        this.model.api_key = response.data.api_key;
 
-          this.notificationService.message('Successfully authenticated using ESGF MyProxyClient');
-        } else {
-          this.notificationService.error(`MyProxyClient failed with server error "${response.error}"`);
-        }
+        this.notificationService.message('Successfully authenticated using ESGF MyProxyClient');
+      })
+      .catch(error => {
+        this.notificationService.error(`MyProxyClient failed with server error "${error}"`);
       });
   }
 }
