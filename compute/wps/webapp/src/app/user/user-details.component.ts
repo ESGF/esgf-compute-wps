@@ -52,6 +52,7 @@ export class UserDetailsComponent {
   onRegenerateKey() {
     this.userService.regenerateKey()
       .then(response => {
+        jQuery('#regenerateWarning').modal('hide');
         if (response.status === 'success') {
           this.model.api_key = response.data.api_key;
 

@@ -33,11 +33,35 @@
       </div>
       <div>
         <button type="submit" class="btn btn-default">Update</button>
-        <button type="button" (click)="onRegenerateKey()" class="btn btn-default">Regenerate Key</button>
+        <button type="button" class="btn btn-default" data-toggle="modal" data-target="#regenerateWarning">Regenerate Key</button>
         <button type="button" (click)="onOAuth2()" class="btn btn-default">OAuth2</button>
         <button type="button" class="btn btn-default" data-toggle="modal" data-target="#myproxyclient">MyProxyClient</button>
       </div>
     </form>
+  </div>
+  <div class="modal fade" id="regenerateWarning" tabindex="1" role="dialog" aria-labelledby="regenerateWarningLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title" id="regenerateWarningLabel">Regenerate API Key</h4>
+        </div>
+        <form (ngSubmit)="onRegenerateKey()" #regenForm="ngForm">
+          <div class="modal-body">
+            <p>
+            Your API key is only used to access the WPS service. Any scripts using the ESGF CWT End-User API will need to have their keys updated. This has not affect on your ESGF account.
+            </p>
+            <p>
+              Are you sure you want to regenerate?
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">No</button>
+            <button type="submit" class="btn btn-default">Yes</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
   <div class="modal fade" id="myproxyclient" tabindex="1" role="dialog" aria-labelledby="myproxyclientLabel">
     <div class="modal-dialog" role="document">
@@ -46,7 +70,6 @@
           <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
           <h4 class="modal-title" id="myproxyclientLabel">MyProxyClient Login</h4>
         </div>
-        <div class="alert alert-danger" [hidden]="!error">{{errorMessage}}</div>
         <form (ngSubmit)="onMPCSubmit()" #mpcForm="ngForm">
           <div class="modal-body">
             <div class="form-group">
