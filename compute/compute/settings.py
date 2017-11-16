@@ -201,7 +201,7 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
             'formatter': 'verbose',
-            'filename': '/var/log/wps_cwt.txt',
+            'filename': './wps_cwt.txt',
             'maxBytes': 1024000,
             'backupCount': 2,
         },
