@@ -11,7 +11,7 @@ before_install:
 
 install:
   - conda create -q -y -n test-environment -c conda-forge -c uvcdat \
-    python=$TRAVIS_PYTHON_VERSION esgf-compute-api cdms2 cdutil genutil pyzmq \
+    python=${TRAVIS_PYTHON_VERSION}* esgf-compute-api cdms2 cdutil genutil pyzmq \
     lxml redis-py psycopg2 requests-oauthlib myproxyclient python-openid django \
     celery dask
   - source activate test-environment
