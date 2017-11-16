@@ -62,7 +62,7 @@ export class AuthService extends WPSService {
         this.setUser(response.data as User);
       })
       .catch(error => {
-        this.setUser(null);
+        //this.setUser(null);
 
         return Promise.reject(error);
       });
@@ -103,17 +103,11 @@ export class AuthService extends WPSService {
 
     return this.postCSRF('auth/login/', data)
       .then(response => {
-        if (response.status === 'success') {
-          this.setUser(response.data as User);
+        this.setUser(response.data as User);
 
-          localStorage.setItem('expires', this.user.expires.toString());
+        localStorage.setItem('expires', this.user.expires.toString());
 
-          this.setLoggedIn(true);
-        } else {
-          this.setLoggedIn(false);
-
-          localStorage.removeItem('expires');
-        }
+        this.setLoggedIn(true);
 
         return response;
       })
