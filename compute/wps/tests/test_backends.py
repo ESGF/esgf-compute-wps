@@ -75,7 +75,7 @@ class LocalBackendTestCase(test.TestCase):
         self.assertEqual(len(si_mock.method_calls), 1)
 
     def test_populate_processes(self):
-        with self.assertNumQueries(10):
+        with self.assertNumQueries(30):
             self.backend.populate_processes()
 
     def test_initialize(self):
@@ -102,6 +102,6 @@ class BackendsTestCase(test.TestCase):
         self.assertEqual(backend, backends.Backend.registry['Local'])
 
     def test_registry(self):
-        expected = ['Local', 'EDAS']
+        expected = ['Local', 'Ophidia', 'EDAS']
 
         self.assertEqual(backends.Backend.registry.keys(), expected)

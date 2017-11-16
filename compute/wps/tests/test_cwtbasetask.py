@@ -713,30 +713,38 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         self.assertFalse(exists)
 
-    def test_check_cache(self):
+    @mock.patch('wps.tasks.process.hashlib.sha256')
+    def test_check_cache(self, hash_mock):
         uri = self.test1
         var_name = 'tas'
         temporal = slice(10, 20, 1)
         spatial = { 'latitude': (-45, 45), 'longitude': (-90, 90) }
 
+        expected = 'a28247841178aa228b8e40453e1e4546cfff5dc7a0382d0701fa571ec438bdf0'
+
+        hash_mock.return_value = mock.Mock()
+        hash_mock.return_value.hexdigest = mock.Mock(return_value=expected)
+
         with self.assertNumQueries(5):
             cached, exists = self.task.check_cache(uri, var_name, temporal, spatial)        
-
-        expected = 'a28247841178aa228b8e40453e1e4546cfff5dc7a0382d0701fa571ec438bdf0'
 
         self.assertFalse(exists)
         self.assertEqual(cached.dimensions, 'time:10:20:1|latitude:-45:45:1|longitude:-90:90:1')
         self.assertEqual(cached.uid, expected)
         self.assertEqual(cached.url, self.test1)
 
-    def test_generate_cache_name(self):
+    @mock.patch('wps.tasks.process.hashlib.sha256')
+    def test_generate_cache_name(self, hash_mock):
         file_name = self.test1
         temporal = slice(10, 200, 1)
         spatial = { 'latitude': (-45, 45), 'longitude': (-90, 90) }
 
-        name = self.task.generate_cache_name(file_name, temporal, spatial)
-
         expected = '69f73f39f848bdbeb7a9eddfbe38d95577c775b245a8830af9c1b9f210fed550'
+
+        hash_mock.return_value = mock.Mock()
+        hash_mock.return_value.hexdigest = mock.Mock(return_value=expected)
+
+        name = self.task.generate_cache_name(file_name, temporal, spatial)
 
         self.assertEqual(name, expected)
 
