@@ -80,7 +80,6 @@ class WPSViewsTestCase(test.TestCase):
         data = response.json()
 
         self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['data'], {u'text': u"import cwt\nimport time\n\nwps = cwt.WPS('http://0.0.0.0:8000/wps', api_key='')\n\nfiles = [\n\tcwt.Variable('file://file2', 'tas'),\n]\n\nproc = wps.get_process('CDAT.subset')\n\nwps.execute(proc, inputs=files)\n\nwhile proc.processing:\n\tprint proc.status\n\n\ttime.sleep(1)\n\nprint proc.status", u'filename': u'subset.py'})
 
     def test_generate_missing_required(self):
         self.client.login(username=self.wps_user.username, password=self.wps_user.username)

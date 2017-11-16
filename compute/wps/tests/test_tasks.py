@@ -139,4 +139,4 @@ class CDATTaskTestCase(test.TestCase):
 
         data_inputs = cdat.cache_variable('CDAT.subset', variables, domains, operations, **params)
 
-        self.assertRegexpMatches(data_inputs, '.*http://thredds:8080/threddsCWT/dodsC/public/.*\.nc.*')
+        self.assertRegexpMatches(data_inputs, '.*https://aims2.llnl.gov/threddsCWT/dodsC/public/.*\.nc.*')

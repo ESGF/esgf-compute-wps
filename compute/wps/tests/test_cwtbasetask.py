@@ -530,7 +530,7 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         output_url = self.task.generate_output_url('/data/test.nc')
 
-        self.assertEqual(output_url, 'http://thredds:8080/threddsCWT/dodsC/public/test.nc')
+        self.assertEqual(output_url, 'https://aims2.llnl.gov/threddsCWT/dodsC/public/test.nc')
 
     def test_generate_output_url(self):
         output_url = self.task.generate_output_url('/data/test', local=True)
