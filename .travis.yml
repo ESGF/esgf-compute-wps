@@ -10,7 +10,7 @@ before_install:
   - conda update -q -y conda
 
 install:
-  - conda create -q -y -n test-environment -c conda-forge -c uvcdat python=${TRAVIS_PYTHON_VERSION}* esgf-compute-api cdms2 cdutil genutil pyzmq lxml redis-py psycopg2 requests-oauthlib myproxyclient python-openid django celery dask
+  - conda create -q -y -n test-environment -c conda-forge -c uvcdat python=${TRAVIS_PYTHON_VERSION}* esgf-compute-api cdms2 cdutil genutil pyzmq lxml redis-py psycopg2 requests-oauthlib myproxyclient python-openid django celery dask PyOphidia
   - source activate test-environment
   - pip install django-webpack-loader
   - pip install -r compute/wps/tests/requirements.txt
