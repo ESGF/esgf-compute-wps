@@ -15,7 +15,6 @@ install:
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda info -a
-  - conda update -q conda
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION -c conda-forge -c uvcdat \
     esgf-compute-api cdms2 cdutil genutil pyzmq lxml redis-py psycopg2 requests-oauthlib \
     myproxyclient python-openid django celery dask
