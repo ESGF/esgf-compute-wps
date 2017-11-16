@@ -23,8 +23,8 @@ class Domain {
 @Component({
   templateUrl: './configure.component.html',
   styles: [`
-  .fill { 
-    height: 100%;
+  .pane {
+    padding: 1em;
   }
 
   .select-spacer {
@@ -48,6 +48,7 @@ export class ConfigureComponent implements OnInit {
 
   config: Configuration;
   datasetIDs: string[];
+  processes: string[];
 
   constructor(
     private route: ActivatedRoute,
@@ -76,6 +77,15 @@ export class ConfigureComponent implements OnInit {
       this.config.shard = params['shard'] || '';
     });
 
+    this.configService.processes()
+      .then(data => {
+        this.processes = data.sort();
+
+        this.config.process = this.processes[0];
+      })
+      .catch(error => {
+        this.notificationService.error(error); 
+      });
   }
 
   addParameter() {

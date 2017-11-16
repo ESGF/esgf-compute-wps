@@ -17,7 +17,7 @@ import { NotificationService } from '../core/notification.service';
     <div class="form-group">
       <label for="process">Process</label>
       <select [(ngModel)]="config.process" class="form-control" id="process" name="process">
-        <option *ngFor="let proc of processes | async">{{proc}}</option>
+        <option *ngFor="let proc of processes">{{proc}}</option>
       </select>
     </div>
     <div class="form-group">
@@ -35,11 +35,11 @@ import { NotificationService } from '../core/notification.service';
 })
 export class GeneralConfigComponent implements OnInit { 
   @Input() config: Configuration;
+  @Input() processes: string[];
   @Input() datasetIDs: string[];
 
   variables: string[];
 
-  processes: Promise<string[]>;
   datasets: DatasetCollection;
 
   constructor(
@@ -48,20 +48,6 @@ export class GeneralConfigComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    this.processes = this.configService.processes()
-      .then(data => {
-        let p = data.sort();
-
-        this.config.process = p[0];
-
-        return p;
-      })
-      .catch(error => {
-        this.notificationService.error(error); 
-
-        return [];
-      });
-
     this.datasets = {} as DatasetCollection;
 
     this.datasetIDs.forEach((id: string) => {
