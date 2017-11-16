@@ -124,9 +124,16 @@ def oph_submit(self, data_inputs, identifier, **kwargs):
     except KeyError:
         raise Exception('Process "{}" does not exist for Ophidia backend'.format(identifier))
 
-    reduce_task = OphidiaTask('reduce data', 'oph_reduce')
-    reduce_task.add_arguments(operation=operator)
-    reduce_task.add_dependencies(import_task)
+    axes = op.get_parameter('axes')
+
+    if axes is None:
+        reduce_task = OphidiaTask('reduce data', 'oph_reduce')
+        reduce_task.add_arguments(operation=operator)
+        reduce_task.add_dependencies(import_task)
+    else:
+        reduce_task = OphidiaTask('reduce data', 'oph_reduce2')
+        reduce_task.add_arguments(operation=operator, dim=axes.values[0])
+        reduce_task.add_dependencies(import_task)
 
     output_path = '/wps/output'
     output_name = '{}'.format(uuid.uuid4())
