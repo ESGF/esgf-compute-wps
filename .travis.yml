@@ -15,4 +15,4 @@ install:
   - pip install -r compute/wps/tests/requirements.txt
 
 script:
-  - python ESGF/esgf-compute-wps/compute/manage.py test
+  - python compute/manage.py test
