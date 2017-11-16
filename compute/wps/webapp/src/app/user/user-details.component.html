@@ -3,32 +3,29 @@
     <form (ngSubmit)="onSubmit(userForm)" #userForm="ngForm">
       <div class="form-group">
         <label for="username">Username</label>
-        <p class="form-control-static" id="username">{{model.username}}</p>
+        <p class="form-control-static" id="username">{{model?.username}}</p>
       </div>
       <div class="form-group">
         <label for="email">Email</label>
-        <input type="text" class="form-control" id="email"
-          [(ngModel)]="model.email" name="email">
+        <input type="text" class="form-control" id="email" [ngModel]="model?.email" (ngModelChange)="model.email=$event" name="email">
       </div>
       <div class="form-group">
         <label for="openid">OpenID</label>
-        <input type="text" class="form-control" id="openid"
-          [(ngModel)]="model.openid" name="openid">
+        <input type="text" class="form-control" id="openid" [ngModel]="model?.openid" (ngModelChange)="model.openid=$event" name="openid">
       </div>
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" class="form-control" id="password"
-          [(ngModel)]="model.password" name="password">
+        <input type="password" class="form-control" id="password" [ngModel]="model?.password" (ngModelChange)="model.password=$event" name="password">
       </div>
       <div class="form-group">
         <label for="type">Authenticated</label>
-        <p class="form-control-static" id="type">{{model.type}}</p>
+        <p class="form-control-static" id="type">{{model?.type}}</p>
       </div>
       <div class="form-group">
         <label for="api_key">API Key</label>
-        <p class="form-control-static" id="api_key">{{model.api_key}}</p>
+        <p class="form-control-static" id="api_key">{{model?.api_key}}</p>
       </div>
-      <div *ngIf="model.type === 'myproxyclient'" class="alert alert-warning" role="alert">
+      <div *ngIf="model?.type === 'myproxyclient'" class="alert alert-warning" role="alert">
         MyProxyClient only grants certificates valid for 72 hours. After 72 hours you must re-authenticate.
       </div>
       <div>
