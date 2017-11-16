@@ -3,6 +3,7 @@ import logging
 from wps import tasks
 from wps import settings
 from wps.backends import backend
+from wps.tasks.ophidia import PROCESSES
 
 logger = logging.getLogger('wps.backends.ophdia')
 
@@ -15,7 +16,8 @@ class Ophidia(backend.Backend):
     def populate_processes(self):
         logger.info('Registering processes for backend "ophidia"')
 
-        self.add_process('Oph.max', 'Oph.max')
+        for key in PROCESSES.keys():
+            self.add_process(key, key)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         logger.info('Executing process "{}"'.format(identifier))

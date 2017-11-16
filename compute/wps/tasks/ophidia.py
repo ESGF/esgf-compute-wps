@@ -8,9 +8,21 @@ from PyOphidia import client
 from wps import settings
 from wps.tasks import process
 
-__ALL__ = ['oph_submit']
+__ALL__ = [
+    'PROCESSES',
+    'oph_submit',
+]
 
 logger = get_task_logger('wps.tasks.ophidia')
+
+PROCESSES = {
+    'Oph.max': 'max',
+    'Oph.min': 'min',
+    'Oph.avg': 'avg',
+    'Oph.sum': 'sum',
+    'Oph.std': 'std',
+    'Oph.var': 'var',
+}
 
 class OphidiaTask(object):
     def __init__(self, name, operator, on_error=None):
@@ -107,8 +119,13 @@ def oph_submit(self, data_inputs, identifier, **kwargs):
     import_task.add_arguments(container='work', measure=op.inputs[0].var_name, src_path=op.inputs[0].uri)
     import_task.add_dependencies(container_task)
 
+    try:
+        operator = PROCESSES[identifier]
+    except KeyError:
+        raise Exception('Process "{}" does not exist for Ophidia backend'.format(identifier))
+
     reduce_task = OphidiaTask('reduce data', 'oph_reduce')
-    reduce_task.add_arguments(operation='max')
+    reduce_task.add_arguments(operation=operator)
     reduce_task.add_dependencies(import_task)
 
     output_path = '/wps/output'
