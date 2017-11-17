@@ -2,6 +2,21 @@ import { Component, Input, OnInit } from '@angular/core';
 
 import * as d3 from 'd3';
 
+class Process {
+  inputs: Process[];
+
+  constructor(
+    public id: string,
+    public identifier: string,
+  ) { 
+    this.inputs = [];
+  }
+
+  get uid() {
+    return this.identifier + '-' + this.id;
+  }
+}
+
 @Component({
   selector: 'workflow',
   styles: [`
@@ -27,10 +42,13 @@ import * as d3 from 'd3';
 export class WorkflowComponent implements OnInit{
   @Input() processes: string[];
 
+  model: any = {selectedInput: Process};
+
   drag: boolean;
   dragValue: string;
 
-  nodes: string[];
+  nodes: Process[];
+  selectedNode: Process;
 
   ngOnInit() {
     this.nodes = [];
@@ -40,7 +58,7 @@ export class WorkflowComponent implements OnInit{
         if (this.drag) {
           let origin = d3.mouse(d3.event.target);
 
-          this.nodes.push(this.dragValue);
+          this.nodes.push(new Process(Math.random().toString(16).slice(2), this.dragValue));
 
           let g = d3.select('svg')
             .selectAll('g')
@@ -58,10 +76,21 @@ export class WorkflowComponent implements OnInit{
 
           g.append('text')
             .attr('text-anchor', 'middle')
-            .text((d) => { return d });
+            .text((d) => { return d.identifier; });
 
           d3.select('svg')
             .selectAll('g')
+            .on('click', () => {
+              this.selectedNode = <Process>d3.select(d3.event.target).datum();
+
+              this.model.availableInputs = this.nodes.filter((value: Process) => {
+                return this.selectedNode !== value;
+              });
+
+              if (this.model.availableInputs.length > 0) {
+                this.model.selectedInput = this.model.availableInputs[0];
+              }
+            })
             .call(d3.drag()
               .on('drag', function() {
                 d3.select(this)
@@ -72,6 +101,16 @@ export class WorkflowComponent implements OnInit{
           this.drag = false;
         }
       });
+  }
+
+  addInput() {
+    this.selectedNode.inputs.push(this.model.selectedInput);
+  }
+
+  removeInput(value: Process) {
+    let index = this.selectedNode.inputs.indexOf(value);
+
+    this.selectedNode.inputs.splice(index, 1);
   }
 
   dropped(event: any) {
