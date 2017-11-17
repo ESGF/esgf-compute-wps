@@ -23,15 +23,44 @@ import * as d3 from 'd3';
 export class WorkflowComponent implements OnInit{
   @Input() processes: string[];
 
-  svg: d3.Selection<any, any, any, any>;
+  drag: boolean;
+  dragValue: string;
+
+  nodes: string[];
 
   ngOnInit() {
-    this.svg = d3.select('svg')
-      .append('g')
-        .attr('class', 'nodes');
+    this.nodes = [];
+
+    d3.select('svg')
+      .on('mouseover', () => {
+        if (this.drag) {
+          let origin = d3.mouse(d3.event.target);
+
+          this.nodes.push(this.dragValue);
+
+          let g = d3.select('svg')
+            .selectAll('g')
+            .data(this.nodes)
+            .enter()
+              .append('g')
+              .attr('transform', `translate(${origin[0]}, ${origin[1]})`);
+
+          g.append('circle')
+            .attr('r', 60)
+            .attr('stroke', 'black')
+            .attr('fill', 'white');
+
+          g.append('text')
+            .attr('text-anchor', 'middle')
+            .text((d) => { return d });
+
+          this.drag = false;
+        }
+      });
   }
 
-  dropped(data: any) {
-    let color = d3.scaleOrdinal(d3.schemeCategory20);
+  dropped(event: any) {
+    this.drag = true;
+    this.dragValue = event.dragData;
   }
 }
