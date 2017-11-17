@@ -58,6 +58,15 @@ export class WorkflowComponent implements OnInit{
             .attr('text-anchor', 'middle')
             .text((d) => { return d });
 
+          d3.select('svg')
+            .selectAll('g')
+            .call(d3.drag()
+              .on('drag', function() {
+                d3.select(this)
+                  .attr('transform', `translate(${d3.event.x}, ${d3.event.y})`);
+              })
+            );
+
           this.drag = false;
         }
       });
