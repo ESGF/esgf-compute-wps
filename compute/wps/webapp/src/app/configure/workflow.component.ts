@@ -17,6 +17,10 @@ import * as d3 from 'd3';
   .fill {
     min-height: calc(100vh - 100px);
   }
+
+  svg {
+    border: 1px solid #ddd;
+  }
   `],
   templateUrl: './workflow.component.html'
 })
