@@ -4,7 +4,9 @@
       <div class="panel panel-default">
         <div class="panel-heading">Processes</div>
         <div class="panel-body">
-          <div *ngFor="let x of processes" dnd-draggable [dragEnabled]="true" [dragData]="x">{{x}}</div>
+          <ul class="list-group">
+            <li *ngFor="let x of processes" class="list-group-item" dnd-draggable [dragEnabled]="true" [dragData]="x">{{x}}</li>
+          </ul>
         </div>
       </div>
     </div>
