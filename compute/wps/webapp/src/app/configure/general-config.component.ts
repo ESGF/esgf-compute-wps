@@ -23,7 +23,7 @@ import { NotificationService } from '../core/notification.service';
     <div class="form-group">
       <label for="variable">Variable</label>
       <select [(ngModel)]="config.variableID" (change)="loadVariable()" class="form-control" id="variable" name="variable">
-        <option *ngFor="let v of variables" [value]="v">{{v}}</option>
+        <option *ngFor="let v of variables">{{v}}</option>
       </select>
     </div>
     <div>
