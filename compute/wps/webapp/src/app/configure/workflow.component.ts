@@ -2,6 +2,11 @@ import { Component, Input, OnInit } from '@angular/core';
 
 import * as d3 from 'd3';
 
+class WorkflowModel { 
+  selectedInput: Process;
+  availableInputs: Process[] = [];
+}
+
 class Process {
   inputs: Process[];
 
@@ -42,7 +47,7 @@ class Process {
 export class WorkflowComponent implements OnInit{
   @Input() processes: string[];
 
-  model: any = {selectedInput: Process};
+  model: WorkflowModel = new WorkflowModel();
 
   drag: boolean;
   dragValue: string;

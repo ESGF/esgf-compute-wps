@@ -26,9 +26,10 @@
         <div class="modal-body">
           <div class="form-inline">
             <select [(ngModel)]="model.selectedInput" class="form-control">
+              <option disabled hidden [ngValue]="undefined">No inputs available</option>
               <option *ngFor="let x of model.availableInputs" [ngValue]="x">{{x.identifier}}</option>
             </select>
-            <button (click)="addInput()" type="button" class="btn btn-default">Add</button>
+            <button (click)="addInput()" type="button" class="btn btn-default" [disabled]="model.availableInputs.length == 0">Add</button>
           </div>
           <br>
           <div>
