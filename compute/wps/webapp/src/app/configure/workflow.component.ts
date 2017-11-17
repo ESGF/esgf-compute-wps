@@ -47,7 +47,9 @@ export class WorkflowComponent implements OnInit{
             .data(this.nodes)
             .enter()
               .append('g')
-              .attr('transform', `translate(${origin[0]}, ${origin[1]})`);
+              .attr('transform', `translate(${origin[0]}, ${origin[1]})`)
+              .attr('data-toggle', 'modal')
+              .attr('data-target', '#configure');
 
           g.append('circle')
             .attr('r', 60)
