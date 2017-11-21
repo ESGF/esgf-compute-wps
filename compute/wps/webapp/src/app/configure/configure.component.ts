@@ -4,7 +4,12 @@ import { Router, ActivatedRoute } from '@angular/router';
 import * as L from 'leaflet';
 
 import { AuthService } from '../core/auth.service';
-import { Configuration, VariableCollection, ConfigureService } from './configure.service';
+import {
+  Configuration,
+  DatasetCollection, Dataset,
+  VariableCollection,
+  ConfigureService
+} from './configure.service';
 import { NotificationService } from '../core/notification.service';
 
 import { Selection } from './selection';
@@ -47,6 +52,7 @@ export class ConfigureComponent implements OnInit {
   ];
 
   config: Configuration;
+  datasets: DatasetCollection;
   datasetIDs: string[];
   processes: string[];
 
@@ -58,16 +64,22 @@ export class ConfigureComponent implements OnInit {
     private notificationService: NotificationService
   ) { 
     this.config = new Configuration();
+
+    this.datasets = {} as DatasetCollection;
   }
 
   ngOnInit() {
     this.map.domain = 'World'
     
     this.route.queryParams.subscribe(params => {
-      this.datasetIDs = (params['dataset_id'] === undefined) ? [] : params['dataset_id'].split(',');
+      let datasetIDs = this.datasetIDs = (params['dataset_id'] === undefined) ? [] : params['dataset_id'].split(',');
 
-      if (this.datasetIDs.length > 0) {
-        this.config.datasetID = this.datasetIDs[0];
+      datasetIDs.forEach((id: string) => {
+        this.datasets[id] = {id: id, variables: {}} as Dataset;
+      });
+
+      if (datasetIDs.length > 0) {
+        this.config.datasetID = datasetIDs[0];
       }
 
       this.config.indexNode = params['index_node'] || '';

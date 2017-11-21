@@ -1,5 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 
+import { DatasetCollection, Dataset } from './configure.service';
+
 import * as d3 from 'd3';
 
 class WorkflowModel { 
@@ -46,6 +48,7 @@ class Process {
 })
 export class WorkflowComponent implements OnInit{
   @Input() processes: string[];
+  @Input() datasets: DatasetCollection;
 
   model: WorkflowModel = new WorkflowModel();
 
@@ -91,6 +94,12 @@ export class WorkflowComponent implements OnInit{
               this.model.availableInputs = this.nodes.filter((value: Process) => {
                 return this.selectedNode !== value;
               });
+
+              let datasets = Object.keys(this.datasets).map((value: string) => {
+                return new Process(value, value);
+              });
+
+              this.model.availableInputs = this.model.availableInputs.concat(datasets);
 
               if (this.model.availableInputs.length > 0) {
                 this.model.selectedInput = this.model.availableInputs[0];
