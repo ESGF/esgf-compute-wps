@@ -169,6 +169,16 @@ export class WorkflowComponent implements OnInit{
       return this.selectedNode !== value && this.selectedNode.inputs.indexOf(value) < 0;
     });
 
+    this.links.forEach((link: Link) => {
+      if (this.selectedNode === link.src) {
+        let index = this.model.availableInputs.indexOf(link.dst);
+
+        if (index >= 0) {
+          this.model.availableInputs.splice(index, 1);
+        }
+      }
+    });
+
     let datasets = Object.keys(this.datasets).map((value: string) => {
       return new DatasetWrapper(value);
     });
