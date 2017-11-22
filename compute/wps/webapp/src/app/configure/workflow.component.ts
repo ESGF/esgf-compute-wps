@@ -140,7 +140,13 @@ export class WorkflowComponent implements OnInit{
   addInput() {
     this.links.push(new Link(<Process>this.model.selectedInput, this.selectedNode));
 
+    let index = this.model.availableInputs.indexOf(this.model.selectedInput);
+
     this.selectedNode.inputs.push(this.model.selectedInput);
+
+    this.model.availableInputs.splice(index, 1);
+
+    this.model.selectedInput = this.model.availableInputs[0];
 
     this.update();
   }
@@ -154,6 +160,24 @@ export class WorkflowComponent implements OnInit{
   dropped(event: any) {
     this.drag = true;
     this.dragValue = event.dragData;
+  }
+
+  clickNode() {
+    this.selectedNode = <Process>d3.select(d3.event.target).datum();
+
+    this.model.availableInputs = this.nodes.filter((value: Process) => {
+      return this.selectedNode !== value && this.selectedNode.inputs.indexOf(value) < 0;
+    });
+
+    let datasets = Object.keys(this.datasets).map((value: string) => {
+      return new DatasetWrapper(value);
+    });
+
+    this.model.availableInputs = this.model.availableInputs.concat(datasets);
+
+    if (this.model.availableInputs.length > 0) {
+      this.model.selectedInput = this.model.availableInputs[0];
+    }
   }
 
   update() {
@@ -205,23 +229,5 @@ export class WorkflowComponent implements OnInit{
     newNodes.append('text')
       .attr('text-anchor', 'middle')
       .text((d: any) => { return d.identifier; });
-  }
-
-  clickNode() {
-    this.selectedNode = <Process>d3.select(d3.event.target).datum();
-
-    this.model.availableInputs = this.nodes.filter((value: Process) => {
-      return this.selectedNode !== value;
-    });
-
-    let datasets = Object.keys(this.datasets).map((value: string) => {
-      return new DatasetWrapper(value);
-    });
-
-    this.model.availableInputs = this.model.availableInputs.concat(datasets);
-
-    if (this.model.availableInputs.length > 0) {
-      this.model.selectedInput = this.model.availableInputs[0];
-    }
   }
 }
