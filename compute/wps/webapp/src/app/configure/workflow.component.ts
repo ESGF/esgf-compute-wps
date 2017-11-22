@@ -98,9 +98,26 @@ export class WorkflowComponent implements OnInit{
     this.svg = d3.select('svg')
       .on('mouseover', () => this.processMouseOver());
 
-    this.svgLinks = this.svg.append('g');
+    this.svg.append('svg:defs')
+      .append('svg:marker')
+      .attr('id', 'end-arrow')
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 60)
+      .attr('refY', 0)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('svg:path')
+      .attr('d', 'M0,-5L10,0L0,5');
 
-    this.svgNodes = this.svg.selectAll('.node');
+    let graph = this.svg.append('g')
+      .classed('graph', true);
+
+    this.svgLinks = graph.append('g')
+      .classed('links', true);
+
+    this.svgNodes = graph.append('g')
+      .classed('nodes', true);
   }
 
   processMouseOver() {
@@ -140,46 +157,54 @@ export class WorkflowComponent implements OnInit{
   }
 
   update() {
-    d3.select('svg')
-      .selectAll('.link')
-      .data(this.links)
-      .enter()
+    let links = this.svgLinks
+      .selectAll('path')
+      .attr('d', (d: any) => {
+        return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
+      })
+      .data(this.links);
+
+    links.enter()
       .append('path')
-      .classed('link', true)
-      .style('stroke', '#333')
-      .style('stroke-width', '4px')
-      .attr('d', function(d) {
+      .style('stroke', 'black')
+      .style('stroke-width', '2px')
+      .attr('marker-end', 'url(#end-arrow)')
+      .attr('d', (d: any) => {
         return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
       });
 
-    let newNodes = this.svgNodes
+    let nodes = this.svgNodes
       .selectAll('g')
-      .data(this.nodes)
-      .enter()
+      .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
+      .data(this.nodes);
+
+    let newNodes = nodes.enter()
       .append('g')
+      .attr('data-toggle', 'modal')
+      .attr('data-target', '#configure')
+      .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
       .on('click', () => this.clickNode())
       .call(d3.drag()
-        .on('drag', function() {
-          d3.select(this)
-            .attr('transform', `translate(${d3.event.x}, ${d3.event.y})`);
-        })
-      )
-      .classed('node', true)
-      .attr('data-toggle', 'modal')
-      .attr('data-target', '#configure');
+        .on('drag', () => {
+          let node = d3.event.subject;
 
-    newNodes.classed('node', true)
-      .attr('transform', function(d: any) { return 'translate(' + d.x + ',' + d.y + ')'; });
+          node.x += d3.event.dx;
+
+          node.y += d3.event.dy;
+
+          this.update();
+        })
+      );
 
     newNodes.append('circle')
       .attr('r', '60')
-      .attr('stroke', '#333')
-      .attr('stroke-width', '1px')
-      .attr('fill', 'none');
+      .style('stroke', 'white')
+      .style('stroke-width', '2px')
+      .style('fill', '#ddd');
 
     newNodes.append('text')
       .attr('text-anchor', 'middle')
-      .text(function(d: any) { return d.identifier; });
+      .text((d: any) => { return d.identifier; });
   }
 
   clickNode() {
