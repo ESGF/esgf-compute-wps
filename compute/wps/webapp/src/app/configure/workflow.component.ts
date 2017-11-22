@@ -138,17 +138,19 @@ export class WorkflowComponent implements OnInit{
   }
 
   addInput() {
-    this.links.push(new Link(<Process>this.model.selectedInput, this.selectedNode));
-
     let index = this.model.availableInputs.indexOf(this.model.selectedInput);
 
     this.selectedNode.inputs.push(this.model.selectedInput);
 
     this.model.availableInputs.splice(index, 1);
 
-    this.model.selectedInput = this.model.availableInputs[0];
+    if (this.model.selectedInput instanceof Process) {
+      this.links.push(new Link(<Process>this.model.selectedInput, this.selectedNode));
 
-    this.update();
+      this.update();
+    }
+
+    this.model.selectedInput = this.model.availableInputs[0];
   }
 
   removeInput(value: Process) {
@@ -177,6 +179,8 @@ export class WorkflowComponent implements OnInit{
       return this.selectedNode !== value && this.selectedNode.inputs.indexOf(value) < 0;
     });
 
+    // remove the dst process from available inputs when selectedNode is the 
+    // src of the link
     this.links.forEach((link: Link) => {
       if (this.selectedNode === link.src) {
         let index = this.model.availableInputs.indexOf(link.dst);
@@ -187,7 +191,13 @@ export class WorkflowComponent implements OnInit{
       }
     });
 
-    let datasets = Object.keys(this.datasets).map((value: string) => {
+    // filter out the datasets already present in the input list
+    // then wraper them in a displayable wrapper
+    let datasets = Object.keys(this.datasets).filter((value: string) => {
+      return this.selectedNode.inputs.findIndex((data: Displayable) => {
+        return data.display() === value;
+      }) < 0;
+    }).map((value: string) => {
       return new DatasetWrapper(value);
     });
 
@@ -195,6 +205,9 @@ export class WorkflowComponent implements OnInit{
 
     if (this.model.availableInputs.length > 0) {
       this.model.selectedInput = this.model.availableInputs[0];
+    } else {
+      // needs to be undefined to selected the default option
+      this.model.selectedInput = undefined;
     }
   }
 
