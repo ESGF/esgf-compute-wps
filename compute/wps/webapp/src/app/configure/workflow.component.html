@@ -30,15 +30,22 @@
           <h4 class="modal-title" id="configureLabel">Configure Process ({{selectedNode?.identifier}})</h4>
         </div>
         <div class="modal-body">
-          <div class="form-inline">
-            <select [(ngModel)]="model.selectedInput" class="form-control">
-              <option disabled hidden [ngValue]="undefined">No inputs available</option>
-              <option *ngFor="let x of model.availableInputs" [ngValue]="x">{{x.display()}}</option>
-            </select>
-            <button (click)="addInput()" type="button" class="btn btn-default" [disabled]="model.availableInputs.length == 0">Add</button>
-          </div>
-          <br>
-          <div>
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h4 class="panel-title">Inputs</h4>
+            </div>
+            <div class="panel-body">
+              <div class="input-group">
+                <select [(ngModel)]="model.selectedInput" class="form-control">
+                  <option disabled hidden [ngValue]="undefined">No inputs available</option>
+                  <option *ngFor="let x of model.availableInputs" [ngValue]="x">{{x.display()}}</option>
+                </select>
+                <span class="input-group-btn">
+                  <button (click)="addInput()" type="button" class="btn btn-default"
+                    [disabled]="model.availableInputs.length == 0">Add</button>
+                </span>
+              </div>
+            </div>
             <div class="list-group">
               <div *ngFor="let x of selectedNode?.inputs" class="list-group-item clearfix">
                 <span>{{x.display()}}</span>
