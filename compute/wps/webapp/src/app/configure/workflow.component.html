@@ -1,17 +1,52 @@
 <div class="container-fluid pane">
   <div class="row">
     <div class="col-md-2">
-      <div class="panel panel-default">
-        <div class="panel-heading">
-          <h4 class="panel-title">
-            <a role="button" data-toggle="collapse" href="#collapseProcess" aria-expanded="true" aria-controls="collapseProcess">Processes</a>
-          </h4>
+      <div class="panel-group" id="workflow">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4 class="panel-title">
+              <a role="button"
+                 data-toggle="collapse"
+                 data-parent="#workflow"
+                 href="#collapseGeneral"
+                 aria-expanded="true"
+                 aria-controls="collapseGeneral">
+                General
+              </a>
+            </h4>
+          </div>
+          <div id="collapseGeneral" class="panel-collapse collapse in">
+            <div class="panel-body">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-default">Execute</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div id="collapseProcess" class="panel-collapse collapse in">
-          <div class="panel-body">
-            <ul class="list-group">
-              <li *ngFor="let x of processes" class="list-group-item" dnd-draggable [dragEnabled]="true" [dragData]="x">{{x}}</li>
-            </ul>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4 class="panel-title">
+              <a role="button" 
+                data-toggle="collapse" 
+                data-parent="#workflow" 
+                href="#collapseProcess" 
+                aria-expanded="true" 
+                aria-controls="collapseProcess">
+                Processes
+              </a>
+            </h4>
+          </div>
+          <div id="collapseProcess" class="panel-collapse collapse">
+            <div class="panel-body">
+              <ul class="list-group">
+                <li 
+                  *ngFor="let x of processes" 
+                  class="list-group-item" 
+                  dnd-draggable
+                  [dragEnabled]="true" 
+                  [dragData]="x">{{x}}</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
@@ -26,7 +61,9 @@
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
           <h4 class="modal-title" id="configureLabel">Configure Process ({{selectedNode?.identifier}})</h4>
         </div>
         <div class="modal-body">
