@@ -154,7 +154,15 @@ export class WorkflowComponent implements OnInit{
   removeInput(value: Process) {
     let index = this.selectedNode.inputs.indexOf(value);
 
-    this.selectedNode.inputs.splice(index, 1);
+    let removed = this.selectedNode.inputs.splice(index, 1);
+
+    let size = this.model.availableInputs.length;
+
+    this.model.availableInputs = this.model.availableInputs.concat(removed);
+
+    if (size === 0) {
+      this.model.selectedInput = this.model.availableInputs[0];
+    }
   }
 
   dropped(event: any) {
