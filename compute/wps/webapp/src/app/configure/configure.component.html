@@ -39,7 +39,7 @@
                   <div class="panel-body">
                     <div>
                       <ul class="list-unstyled">
-                        <li *ngFor="let param of config?.params">
+                        <li *ngFor="let param of config.process?.parameters">
                           <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
                         </li>
                       </ul>
@@ -61,7 +61,7 @@
                     </select>
                     <div class="panel-group" id="accordionAxis">
                       <ul class="list-unstyled">
-                          <li *ngFor="let axis of config?.variable?.axes; index as i" class="list-item-axis">
+                        <li *ngFor="let axis of config.process.domain; index as i" class="list-item-axis">
                           <axis [axisIndex]="i" [axis]="axis" (axisChange)="map.onAxisChange($event)"></axis>
                         </li>
                       </ul>

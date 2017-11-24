@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 
 import { Axis } from './axis.component';
-import { LAT_NAMES, LNG_NAMES, Configuration, DatasetCollection, VariableCollection, ConfigureService } from './configure.service';
+import { LAT_NAMES, LNG_NAMES, Configuration, Dataset, Variable, DatasetCollection, VariableCollection, ConfigureService } from './configure.service';
 import { NotificationService } from '../core/notification.service';
 
 @Component({
@@ -10,20 +10,20 @@ import { NotificationService } from '../core/notification.service';
   <div>
     <div class="form-group">
       <label for="process">Dataset</label>
-      <select [(ngModel)]="config.datasetID" (change)="loadDataset()" class="form-control" id="datasetID" name="datasetID">
-        <option *ngFor="let dataset of datasetIDs">{{dataset}}</option>
+      <select [(ngModel)]="config.dataset" (change)="loadDataset()" class="form-control" id="datasetID" name="datasetID">
+        <option *ngFor="let d of datasets" [ngValue]="d">{{d.id}}</option>
       </select>
     </div>
     <div class="form-group">
       <label for="process">Process</label>
-      <select [(ngModel)]="config.process" class="form-control" id="process" name="process">
+      <select [(ngModel)]="config.process.identifier" class="form-control" id="process" name="process">
         <option *ngFor="let proc of processes">{{proc}}</option>
       </select>
     </div>
     <div class="form-group">
       <label for="variable">Variable</label>
-      <select [(ngModel)]="config.variableID" (change)="loadVariable()" class="form-control" id="variable" name="variable">
-        <option *ngFor="let v of variables">{{v}}</option>
+      <select [(ngModel)]="config.variable" (change)="loadVariable()" class="form-control" id="variable" name="variable">
+        <option *ngFor="let v of variables" [ngValue]="v">{{v.id}}</option>
       </select>
     </div>
     <div>
@@ -38,9 +38,8 @@ export class GeneralConfigComponent implements OnInit {
   @Input() processes: string[];
   @Input() datasetIDs: string[];
 
-  variables: string[];
-
-  datasets: DatasetCollection;
+  variables: Variable[];
+  datasets: Dataset[];
 
   constructor(
     private configService: ConfigureService,
@@ -48,23 +47,27 @@ export class GeneralConfigComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    this.datasets = {} as DatasetCollection;
+    this.datasets = [];
 
     this.datasetIDs.forEach((id: string) => {
-      this.datasets[id] = {id: id, variables: {} as VariableCollection};
+      this.datasets.push({id: id, variables: []});
     });
 
-    this.loadDataset();
+    if (this.datasets.length > 0) {
+      this.config.dataset = this.datasets[0];
+
+      this.loadDataset();
+    }
   }
   
   loadDataset() {
     this.configService.searchESGF(this.config)
       .then(data => {
-        this.datasets[this.config.datasetID].variables = data;
+        let variables = Object.keys(data).map((d: string) => { return data[d]; });
 
-        this.variables = Object.keys(data).sort();
+        this.variables = this.config.dataset.variables = variables;
 
-        this.config.variableID = this.variables[0];
+        this.config.variable = this.variables[0];
 
         this.loadVariable();
       })
@@ -74,55 +77,44 @@ export class GeneralConfigComponent implements OnInit {
   }
 
   loadVariable() {
-    let dataset = this.datasets[this.config.datasetID];
-
-    if (dataset.variables[this.config.variableID].axes === null) {
+    if (this.config.variable.axes === null) {
       this.configService.searchVariable(this.config)
         .then(data => {
-          dataset.variables[this.config.variableID].axes = data.map((axis: Axis) => {
+          // cached copy of the axes
+          this.config.variable.axes = data.map((axis: Axis) => {
             return {step: 1, ...axis}; 
           });
 
-          this.setVariable();
+          // create a copy for editing
+          this.config.process.domain = data.map((axis: Axis) => {
+            return {step: 1, ...axis};
+          });
         })
         .catch(error => {
-          this.notificationService.error(error);
+          this.notificationService.error(error); 
         });
     } else {
-      this.setVariable();
+      // create a copy for editing
+      this.config.process.domain = this.config.process.domain.map((axis: Axis) => {
+        return {step: 1, ...axis};
+      });
     }
-  }
-
-  setVariable() {
-    let dataset = this.datasets[this.config.datasetID];
-
-    let variable = dataset.variables[this.config.variableID];
-
-    this.config.variable = {...variable};
-
-    this.config.variable.axes = this.config.variable.axes.map((axis: Axis) => {
-      return {...axis};
-    });
   }
 
   resetDomain() {
-    if (this.config.variable.axes !== null) {
-      this.config.variable.axes.forEach((axis: Axis) => {
-        if (LAT_NAMES.indexOf(axis.id) >= 0 || LNG_NAMES.indexOf(axis.id) >= 0) {
-          let dataset = this.datasets[this.config.datasetID];
+    this.config.process.domain.forEach((axis: Axis) => {
+      if (LAT_NAMES.indexOf(axis.id) >= 0 || LNG_NAMES.indexOf(axis.id) >= 0) {
+        let filtered = this.config.variable.axes.filter((value: Axis) => {
+          return axis.id === value.id;
+        });
 
-          let filtered = dataset.variables[this.config.variableID].axes.filter((value: Axis) => {
-            return axis.id === value.id;
-          });
+        if (filtered.length > 0) {
+          axis.start = filtered[0].start;
 
-          if (filtered.length > 0) {
-            axis.start = filtered[0].start;
-
-            axis.stop = filtered[0].stop;
-          }
+          axis.stop = filtered[0].stop;
         }
-      });
-    }
+      }
+    });
   }
 
   onDownload() {

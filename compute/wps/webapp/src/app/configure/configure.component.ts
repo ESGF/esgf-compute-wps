@@ -93,7 +93,7 @@ export class ConfigureComponent implements OnInit {
       .then(data => {
         this.processes = data.sort();
 
-        this.config.process = this.processes[0];
+        this.config.process.identifier = this.processes[0];
       })
       .catch(error => {
         this.notificationService.error(error); 
@@ -101,11 +101,11 @@ export class ConfigureComponent implements OnInit {
   }
 
   addParameter() {
-    this.config.params.push({key: '', value: ''} as Parameter);
+    this.config.process.parameters.push({key: '', value: ''} as Parameter);
   }
 
   removeParameter(param: Parameter) {
-    this.config.params = this.config.params.filter((value: Parameter) => {
+    this.config.process.parameters = this.config.process.parameters.filter((value: Parameter) => {
       return !(param.key === value.key && param.value === value.value);
     });
   }

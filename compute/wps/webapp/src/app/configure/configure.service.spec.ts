@@ -29,7 +29,7 @@ describe('Configuration Service', () => {
     backend.connections.subscribe((connection: any) => lastConnection = connection);
 
     testConfig = new Configuration();
-    testConfig.process = 'testProcess';
+    //testConfig.process = 'testProcess';
     //testConfig.variable = 'tas';    
     //testConfig.dataset = {
     //  files: ['file1', 'file2'],
@@ -69,7 +69,7 @@ describe('Configuration Service', () => {
 
   describe('Execute', () => {
     it('should error', fakeAsync(() => {
-      testConfig.regrid = 'Uniform';
+      //testConfig.regrid = 'Uniform';
 
       let errorText: string;
 
