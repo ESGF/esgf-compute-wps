@@ -1,10 +1,16 @@
-import { Http, Headers, URLSearchParams } from '@angular/http';
+import { Http, Headers, URLSearchParams, QueryEncoder } from '@angular/http';
 import { Injectable } from '@angular/core';
 import { Params } from '@angular/router';
 
 import { Axis } from './axis.component';
 import { Parameter } from './parameter.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
+import { AuthService } from '../core/auth.service';
+
+class WPSQueryEncoder extends QueryEncoder {
+  encodeKey(k: string): string { return k; };
+  encodeValue(v: string): string { return v; };
+}
 
 export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
 export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
@@ -12,7 +18,7 @@ export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
 export class Process {
   constructor(
     public identifier: string = '',
-    public inputs: Array<Variable|Process> = [],
+    public inputs: (Variable | Process)[] = [],
     public domain: Axis[] = [],
     public regrid: string = 'None',
     public regridOptions: RegridOptions = {lats: 0, lons: 0},
@@ -24,15 +30,19 @@ export interface DatasetCollection {
   [index: string]: Dataset;
 }
 
-export interface Dataset {
-  id: string;
-  variables: Variable[];
+export class Dataset {
+  constructor(
+    public id: string,
+    public variables: Variable[] = []
+  ) { }
 }
 
-export interface Variable {
-  id: string;
-  axes: Axis[];
-  files: string[];
+export class Variable {
+  constructor(
+    public id: string,
+    public axes: Axis[] = [],
+    public files: string[] = []
+  ) { }
 }
 
 export interface VariableCollection {
@@ -46,7 +56,6 @@ export interface RegridOptions {
 
 export class Configuration {
   process: Process;
-
   dataset: Dataset;
   variable: Variable;
 
@@ -56,7 +65,7 @@ export class Configuration {
   query: string;
   shard: string;
 
-  constructor() {
+  constructor() { 
     this.process = new Process();
   }
 
@@ -82,6 +91,73 @@ export class Configuration {
         throw 'Parameters are invalid';
       }
     });
+  }
+
+  get uuid() {
+    return Math.random().toString(16).slice(2);
+  }
+  
+  prepareDataInputs(): string {
+    let inputs = this.process.inputs.map((value: Variable | Process) => {
+      if (value instanceof Variable) {
+        return value.files.map((file: string) => {
+          return { 
+            id: `${value.id}|${this.uuid}`,
+            uri: file,
+          };
+        });
+      }
+
+      return [];
+    });
+
+    inputs = [].concat(...inputs);
+
+    let domain = {
+      id: this.uuid,
+    };
+
+    this.process.domain.forEach((axis: Axis) => {
+      domain[axis.id] = {
+        start: axis.start,
+        stop: axis.stop,
+        step: axis.step,
+        crs: 'values'
+      };
+    });
+
+    let process = {
+      name: this.process.identifier,
+      input: inputs.map((value: any) => { return value.id.split('|')[1]; }),
+      result: this.uuid,
+      domain: domain.id,
+    };
+
+    this.process.parameters.forEach((value: any) => {
+      process[value.key] = value.value;
+    });
+
+    if (this.process.regrid !== 'None') {
+      let grid = '';
+
+      if (this.process.regrid === 'Gaussian') {
+        grid = `gaussian~${this.process.regridOptions.lats}`;
+      } else {
+        grid = `uniform~${this.process.regridOptions.lats}x${this.process.regridOptions.lons}`;
+      }
+
+      process['gridder'] = {
+        tool: 'esmf',
+        method: 'linear',
+        grid: grid,
+      };
+    }
+
+    let processes = JSON.stringify([process]);
+    let variables = JSON.stringify(inputs);
+    let domains = JSON.stringify([domain]);
+
+    return `[domain=${domains}|variable=${variables}|operation=${processes}]`;
   }
 
   prepareData(): string {
@@ -125,7 +201,8 @@ export class Configuration {
 @Injectable()
 export class ConfigureService extends WPSService {
   constructor(
-    http: Http
+    http: Http,
+    private authService: AuthService,
   ) { 
     super(http); 
   }
@@ -137,7 +214,7 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  searchESGF(config: Configuration): Promise<VariableCollection> { 
+  searchESGF(config: Configuration): Promise<Variable[]> { 
     let params = new URLSearchParams();
 
     params.append('dataset_id', config.dataset.id);
@@ -147,7 +224,11 @@ export class ConfigureService extends WPSService {
 
     return this.get('/wps/search', params)
       .then(response => {
-        return response.data as VariableCollection;
+        return Object.keys(response.data).map((key: string) => {
+          let variable = response.data[key];
+
+          return new Variable(variable.id, variable.axes, variable.files);
+        });
       });
   }
 
@@ -169,15 +250,25 @@ export class ConfigureService extends WPSService {
   execute(config: Configuration): Promise<string> {
     let preparedData: string;
 
+    config.process.inputs = [];
+
     config.process.inputs.push(config.variable);
-    
+
     try {
-      preparedData = config.prepareData();
+      preparedData = config.prepareDataInputs();
     } catch (e) {
       return Promise.reject(e);
     }
 
-    return this.postCSRF('/wps/execute/', preparedData).
+    let params = new URLSearchParams();
+
+    params.append('service', 'WPS');
+    params.append('request', 'execute');
+    params.append('api_key', this.authService.user.api_key);
+    params.append('identifier', config.process.identifier);
+    params.append('datainputs', preparedData);
+
+    return this.get('/wps', params).
       then(response => {
         return response.data;
       });
@@ -185,6 +276,8 @@ export class ConfigureService extends WPSService {
 
   downloadScript(config: Configuration): Promise<any> {
     let preparedData: string;
+
+    config.process.inputs = [];
 
     config.process.inputs.push(config.variable);
     

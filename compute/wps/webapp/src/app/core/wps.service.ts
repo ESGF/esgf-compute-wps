@@ -40,7 +40,8 @@ export class WPSService {
 
   get(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
     return this.http.get(url, {
-      params: params,
+      search: params,
+      //params: params,
       headers: headers 
     })
       .toPromise()

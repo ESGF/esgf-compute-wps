@@ -63,9 +63,7 @@ export class GeneralConfigComponent implements OnInit {
   loadDataset() {
     this.configService.searchESGF(this.config)
       .then(data => {
-        let variables = Object.keys(data).map((d: string) => { return data[d]; });
-
-        this.variables = this.config.dataset.variables = variables;
+        this.variables = this.config.dataset.variables = data;
 
         this.config.variable = this.variables[0];
 

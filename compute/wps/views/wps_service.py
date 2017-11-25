@@ -1,4 +1,5 @@
 import json
+import re
 import StringIO
 
 import cwt
@@ -105,6 +106,13 @@ def handle_get(params):
 
         data_inputs = get_parameter(params, 'datainputs')
 
+        # angular2 encodes ; breaking django query_string parsing so the 
+        # webapp replaces ; with | and the change is reverted before parsing
+        # the datainputs
+        data_inputs = data_inputs.replace('|variable', ';variable')
+
+        data_inputs = data_inputs.replace('|operation', ';operation')
+
     return api_key, operation, identifier, data_inputs
 
 def handle_post(data, params):
@@ -134,6 +142,8 @@ def handle_post(data, params):
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
     if request.method == 'GET':
+        for k, v in request.GET.iteritems():
+            logger.info('{}={}'.format(k, v))
         return handle_get(request.GET)
     elif request.method == 'POST':
         return handle_post(request.body, request.GET)
