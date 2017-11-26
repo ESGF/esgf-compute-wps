@@ -120,7 +120,7 @@ export class Configuration {
     this.process.domain.forEach((axis: Axis) => {
       domain[axis.id] = {
         start: axis.start,
-        stop: axis.stop,
+        end: axis.stop,
         step: axis.step,
         crs: 'values'
       };
