@@ -268,9 +268,9 @@ export class ConfigureService extends WPSService {
     params.append('identifier', config.process.identifier);
     params.append('datainputs', preparedData);
 
-    return this.get('/wps', params).
-      then(response => {
-        return response.data;
+    return this.getUnmodified('/wps', params)
+      .then(response => {
+        return response.text(); 
       });
   }
 

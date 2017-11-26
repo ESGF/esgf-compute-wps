@@ -38,13 +38,16 @@ export class WPSService {
     return this.get(url, params, headers);
   }
 
-  get(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
+  getUnmodified(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
     return this.http.get(url, {
-      search: params,
-      //params: params,
-      headers: headers 
+      params: params,
+      headers: headers
     })
-      .toPromise()
+      .toPromise();
+  }
+
+  get(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
+    return this.getUnmodified(url, params, headers)
       .then(result => {
         let response = result.json() as WPSResponse;
 

@@ -137,7 +137,7 @@ export class GeneralConfigComponent implements OnInit {
     this.configService.execute(this.config)
       .then((data: any) => {
         let parser = new DOMParser();
-        let xml = parser.parseFromString(data.report, 'text/xml');
+        let xml = parser.parseFromString(data, 'text/xml');
         let el = xml.getElementsByTagName('wps:ExecuteResponse');
         let link = '';
 
