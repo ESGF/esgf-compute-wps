@@ -53,6 +53,12 @@ class ProcessWrapper implements Displayable {
   uid() {
     return this.process.uid;
   }
+
+  inputDatasets() {
+    return this.process.inputs.filter((value: any) => {
+      return !(value instanceof Process);
+    });
+  }
 }
 
 class Link {
@@ -317,6 +323,11 @@ export class WorkflowComponent implements OnInit{
         });
 
         if (exists === -1) {
+          let src = this.stateData.src,
+            dst = this.stateData.dst;
+
+          dst.process.inputs.push(src.process);
+
           this.links.push(this.stateData);
 
           this.update();

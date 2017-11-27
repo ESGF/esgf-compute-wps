@@ -91,7 +91,7 @@
               </div>
             </div>
             <div class="list-group">
-              <div *ngFor="let x of selectedNode?.process.inputs" class="list-group-item clearfix">
+              <div *ngFor="let x of selectedNode?.inputDatasets()" class="list-group-item clearfix">
                 <span>{{x.dataset}} - <b>{{x.id}}</b></span>
                 <span class="pull-right">
                   <span (click)="removeInput(x)" class="btn btn-xs btn-default">
