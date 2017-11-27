@@ -175,14 +175,18 @@ export class WorkflowComponent implements OnInit{
     if (this.nodes.length === 1) {
       this.rootNode = this.nodes[0];
     } else {
-      let noInputs = this.nodes.filter((value: ProcessWrapper) => {
-        return value.process.inputs.length === 0;
+      let notSrc = this.nodes.filter((value: ProcessWrapper) => {
+        let check = this.links.some((link: Link) => {
+          return link.src === value;
+        });
+
+        return !check;
       });
 
-      if (noInputs.length === 1) {
-        this.rootNode = noInputs[0]; 
+      if (notSrc.length === 1) {
+        this.rootNode = notSrc[0];
       } else {
-        this.rootNode = undefined;
+        this.rootNode = null;
       }
     }
   }
@@ -329,6 +333,8 @@ export class WorkflowComponent implements OnInit{
           dst.process.inputs.push(src.process);
 
           this.links.push(this.stateData);
+
+          this.determineRootNode();
 
           this.update();
         }
