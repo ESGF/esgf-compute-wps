@@ -16,10 +16,14 @@ export interface Parameter {
   }
   `],
   template: `
-    <div class="form-inline parameter">
-      <input [(ngModel)]="param.key" name="key" class="form-control half" type="text" placeholder="Key">
-      <input [(ngModel)]="param.value" name="value" class="form-control half" type="text" placeholder="Value">
-      <button (click)="onRemove()" type="button" aria-labels="Close">&times;</button>
+    <div class="form-inline list-group-item clearfix">
+      <input [(ngModel)]="param.key" name="key" class="form-control" type="text" placeholder="Key">
+      <input [(ngModel)]="param.value" name="value" class="form-control" type="text" placeholder="Value">
+      <span>
+        <span (click)="onRemove()" class="btn btn-xs btn-default">
+          <span class="glyphicon glyphicon-remove"></span>
+        </span>
+      </span>
     </div>
   `
 })

@@ -1,5 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 
+import { Parameter } from './parameter.component';
 import { 
   ConfigureService, 
   Configuration,
@@ -189,6 +190,18 @@ export class WorkflowComponent implements OnInit{
         this.rootNode = null;
       }
     }
+  }
+
+  addParameter() {
+    this.selectedNode.process.parameters.push({key: '', value: ''} as Parameter); 
+  }
+
+  removeParameter(param: Parameter) {
+    let newParams = this.selectedNode.process.parameters.filter((value: Parameter) => {
+      return param.key !== value.key || param.value !== value.value;
+    });
+
+    this.selectedNode.process.parameters = newParams;
   }
 
   addInput(value: Variable) {

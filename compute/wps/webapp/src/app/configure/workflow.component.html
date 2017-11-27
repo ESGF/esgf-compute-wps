@@ -101,6 +101,19 @@
               </div>
             </div>
           </div>
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h4 class="panel-title">Parameters</h4>
+            </div>
+            <div class="panel-body">
+              <div class="btn-group">
+                <button (click)="addParameter()" type="button" class="btn btn-default">Add</button>
+              </div>
+            </div>
+            <div class="list-group">
+              <parameter *ngFor="let x of selectedNode?.process.parameters" [param]="x" (remove)="removeParameter($event)" ></parameter>              
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
