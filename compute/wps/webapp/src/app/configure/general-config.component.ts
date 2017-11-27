@@ -15,15 +15,15 @@ import { NotificationService } from '../core/notification.service';
       </select>
     </div>
     <div class="form-group">
-      <label for="process">Process</label>
-      <select [(ngModel)]="config.process.identifier" class="form-control" id="process" name="process">
-        <option *ngFor="let proc of processes">{{proc}}</option>
-      </select>
-    </div>
-    <div class="form-group">
       <label for="variable">Variable</label>
       <select [(ngModel)]="config.variable" (change)="loadVariable()" class="form-control" id="variable" name="variable">
         <option *ngFor="let v of variables" [ngValue]="v">{{v.id}}</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="process">Process</label>
+      <select [(ngModel)]="config.process.identifier" class="form-control" id="process" name="process">
+        <option *ngFor="let proc of processes">{{proc}}</option>
       </select>
     </div>
     <div>
