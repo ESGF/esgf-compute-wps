@@ -96,6 +96,7 @@ export class WorkflowComponent implements OnInit{
 
   nodes: ProcessWrapper[];
   links: Link[];
+  rootNode: ProcessWrapper;
   selectedNode: ProcessWrapper;
 
   svg: any;
@@ -144,9 +145,27 @@ export class WorkflowComponent implements OnInit{
 
       this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 
+      this.determineRootNode();
+
       this.update();
 
       this.drag = false;
+    }
+  }
+
+  determineRootNode() {
+    if (this.nodes.length === 1) {
+      this.rootNode = this.nodes[0];
+    } else {
+      let noInputs = this.nodes.filter((value: ProcessWrapper) => {
+        return value.process.inputs.length === 0;
+      });
+
+      if (noInputs.length === 1) {
+        this.rootNode = noInputs[0]; 
+      } else {
+        this.rootNode = undefined;
+      }
     }
   }
 
@@ -166,6 +185,8 @@ export class WorkflowComponent implements OnInit{
     this.nodes = this.nodes.filter((value: ProcessWrapper) => { 
       return node.uid() !== value.uid();
     });
+
+    this.determineRootNode();
 
     this.update();
   }
