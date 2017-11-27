@@ -1,6 +1,13 @@
 import { Component, Input, OnInit } from '@angular/core';
 
-import { ConfigureService, Process, Variable, Dataset, DatasetCollection } from './configure.service';
+import { 
+  ConfigureService, 
+  Configuration,
+  Process, 
+  Variable, 
+  Dataset, 
+  DatasetCollection 
+} from './configure.service';
 
 import * as d3 from 'd3';
 
@@ -8,6 +15,7 @@ declare var jQuery:any;
 
 class WorkflowModel { 
   selectedVariable: Variable;
+
   selectedDataset: DatasetWrapper;
   availableDatasets: DatasetWrapper[] = [];
 }
@@ -79,6 +87,7 @@ class Link {
 export class WorkflowComponent implements OnInit{
   @Input() processes: string[];
   @Input() datasets: string[];
+  @Input() config: Configuration;
 
   model: WorkflowModel = new WorkflowModel();
 
@@ -141,10 +150,14 @@ export class WorkflowComponent implements OnInit{
     }
   }
 
-  addInput(value: DatasetWrapper) {
+  addInput(value: Variable) {
+    this.selectedNode.process.inputs.push(value);
   }
 
-  removeInput(value: Process) {
+  removeInput(value: Variable) {
+    this.selectedNode.process.inputs = this.selectedNode.process.inputs.filter((data: Variable) => {
+      return value.id !== data.id;
+    });
   }
 
   removeNode(node: ProcessWrapper) {
@@ -177,6 +190,21 @@ export class WorkflowComponent implements OnInit{
 
     if (this.model.availableDatasets.length > 0) {
       this.model.selectedDataset = this.model.availableDatasets[0];
+
+      this.config.datasetID = this.model.selectedDataset.dataset.id;
+
+      this.configService.searchESGF(this.config)
+        .then(data => {
+          data.forEach((value: Variable) => {
+            value.dataset = this.config.datasetID;
+          });
+
+          this.model.selectedDataset.dataset.variables = data;
+
+          if (data.length > 0) {
+            this.model.selectedVariable = data[0];
+          }
+        });
     } else {
       // needs to be undefined to selected the default option
       this.model.selectedDataset = undefined;

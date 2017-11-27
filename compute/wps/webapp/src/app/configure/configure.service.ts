@@ -45,7 +45,8 @@ export class Variable {
   constructor(
     public id: string,
     public axes: Axis[] = [],
-    public files: string[] = []
+    public files: string[] = [],
+    public dataset: string = '',
   ) { }
 }
 
