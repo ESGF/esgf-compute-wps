@@ -57,9 +57,15 @@ class ProcessWrapper implements Displayable {
 
 class Link {
   constructor(
-    public src: Process,
-    public dst: Process
+    public src: ProcessWrapper,
+    public dst?: ProcessWrapper
   ) { }
+}
+
+enum EditorState {
+  None,
+  Dropped,
+  Connecting,
 }
 
 @Component({
@@ -91,29 +97,32 @@ export class WorkflowComponent implements OnInit{
 
   model: WorkflowModel = new WorkflowModel();
 
-  drag: boolean;
-  dragValue: string;
-
   nodes: ProcessWrapper[];
   links: Link[];
   rootNode: ProcessWrapper;
   selectedNode: ProcessWrapper;
 
+  state: EditorState;
+  stateData: any;
+
   svg: any;
   svgLinks: any;
   svgNodes: any;
+  svgDrag: any;
 
   constructor(
     private configService: ConfigureService
-  ) { }
-
-  ngOnInit() {
+  ) { 
     this.nodes = [];
 
     this.links = [];
 
+    this.state = EditorState.None;
+  }
+
+  ngOnInit() {
     this.svg = d3.select('svg')
-      .on('mouseover', () => this.processMouseOver());
+      .on('mouseover', () => this.svgMouseOver());
 
     this.svg.append('svg:defs')
       .append('svg:marker')
@@ -127,30 +136,33 @@ export class WorkflowComponent implements OnInit{
       .append('svg:path')
       .attr('d', 'M0,-5L10,0L0,5');
 
+    this.svg.append('svg:defs')
+      .append('svg:marker')
+      .attr('id', 'drag-end-arrow')
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 0)
+      .attr('refY', 0)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('svg:path')
+      .attr('d', 'M0,-5L10,0L0,5');
+
     let graph = this.svg.append('g')
       .classed('graph', true);
+
+    this.svgDrag = graph.append('svg:path')
+      .attr('class', 'link hidden')
+      .attr('d', 'M0,0L0,0')
+      .style('stroke', 'black')
+      .style('stroke-width', '2px')
+      .style('marker-end', 'url(#drag-end-arrow)');
 
     this.svgLinks = graph.append('g')
       .classed('links', true);
 
     this.svgNodes = graph.append('g')
       .classed('nodes', true);
-  }
-
-  processMouseOver() {
-    if (this.drag) {
-      let origin = d3.mouse(d3.event.target);
-
-      let process = new Process(this.dragValue);
-
-      this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
-
-      this.determineRootNode();
-
-      this.update();
-
-      this.drag = false;
-    }
   }
 
   determineRootNode() {
@@ -192,11 +204,30 @@ export class WorkflowComponent implements OnInit{
   }
 
   dropped(event: any) {
-    this.drag = true;
-    this.dragValue = event.dragData;
+    this.state = EditorState.Dropped;
+
+    this.stateData = event.dragData;
   }
 
-  clickNode() {
+  svgMouseOver() {
+    if (this.state === EditorState.Dropped) {
+      this.state = EditorState.None;
+
+      let origin = d3.mouse(d3.event.target);
+
+      let process = new Process(this.stateData);
+
+      this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
+
+      this.determineRootNode();
+
+      this.update();
+    }
+  }
+
+  nodeClick() {
+    jQuery('#configure').modal('show');
+
     this.selectedNode = <ProcessWrapper>d3.select(d3.event.target).datum();
 
     this.model.availableDatasets = [];
@@ -232,6 +263,70 @@ export class WorkflowComponent implements OnInit{
     }
   }
 
+  nodeMouseEnter() {
+    if (this.state === EditorState.Connecting) {
+      this.stateData.dst = d3.select(d3.event.target).datum();
+    }
+  }
+
+  nodeMouseLeave() {
+    if (this.state === EditorState.Connecting) {
+      this.stateData.dst = null;
+    }
+  }
+
+  drag() {
+    let node = d3.event.subject;
+
+    if (this.state === EditorState.Connecting) {
+      this.svgDrag
+        .attr('d', `M${node.x},${node.y}L${d3.event.x},${d3.event.y}`);
+    } else {
+      node.x += d3.event.dx;
+
+      node.y += d3.event.dy;
+
+      this.update();
+    }
+  }
+
+  dragStart() {
+    if (d3.event.sourceEvent.shiftKey) {
+      let node = d3.event.sourceEvent;
+      let process = <ProcessWrapper>d3.select(node.target).datum();
+
+      this.state = EditorState.Connecting;
+
+      this.stateData = new Link(process);
+
+      this.svgDrag
+        .attr('d', `M${node.x},${node.y}L${node.x},${node.y}`)
+        .classed('hidden', false);
+    }
+  }
+
+  dragEnd() {
+    if (this.state === EditorState.Connecting) {
+      this.svgDrag.classed('hidden', true);
+
+      this.state = EditorState.None;
+
+      if (this.stateData !== null && this.stateData.dst !== null) {
+        let exists = this.links.findIndex((link: Link) => {
+          return link.src === this.stateData.src && link.dst === this.stateData.dst;
+        });
+
+        if (exists === -1) {
+          this.links.push(this.stateData);
+
+          this.update();
+        }
+      }
+
+      this.stateData = null;
+    }
+  }
+  
   update() {
     let links = this.svgLinks
       .selectAll('path')
@@ -260,20 +355,14 @@ export class WorkflowComponent implements OnInit{
 
     let newNodes = nodes.enter()
       .append('g')
-      .attr('data-toggle', 'modal')
-      .attr('data-target', '#configure')
       .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
-      .on('click', () => this.clickNode())
+      .on('click', () => this.nodeClick())
+      .on('mouseenter', () => this.nodeMouseEnter())
+      .on('mouseleave', () => this.nodeMouseLeave())
       .call(d3.drag()
-        .on('drag', () => {
-          let node = d3.event.subject;
-
-          node.x += d3.event.dx;
-
-          node.y += d3.event.dy;
-
-          this.update();
-        })
+        .on('start', () => this.dragStart())
+        .on('drag', () => this.drag())
+        .on('end', () => this.dragEnd())
       );
 
     newNodes.append('circle')
