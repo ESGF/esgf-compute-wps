@@ -1,46 +1,49 @@
 import { Component, Input, OnInit } from '@angular/core';
 
-import { DatasetCollection, Dataset } from './configure.service';
+import { ConfigureService, Process, Variable, Dataset, DatasetCollection } from './configure.service';
 
 import * as d3 from 'd3';
 
+declare var jQuery:any;
+
 class WorkflowModel { 
-  selectedInput: Displayable;
-  availableInputs: Displayable[] = [];
+  selectedVariable: Variable;
+  selectedDataset: DatasetWrapper;
+  availableDatasets: DatasetWrapper[] = [];
 }
 
 interface Displayable { 
   display(): string;
+  uid(): string;
 }
 
 class DatasetWrapper implements Displayable {
   constructor(
-    public dataset: string
+    public dataset: Dataset,
   ) { }
 
   display() {
-    return this.dataset;
+    return this.dataset.id;
+  }
+
+  uid() {
+    return this.display();
   }
 }
 
-class Process implements Displayable {
-  inputs: Displayable[];
-
+class ProcessWrapper implements Displayable {
   constructor(
-    public id: string,
-    public identifier: string,
+    public process: Process,
     public x: number,
     public y: number
-  ) { 
-    this.inputs = [];
-  }
-
-  get uid() {
-    return this.identifier + '-' + this.id;
-  }
+  ) { }
 
   display() {
-    return this.uid;
+    return this.process.identifier;
+  }
+
+  uid() {
+    return this.process.uid;
   }
 }
 
@@ -75,20 +78,24 @@ class Link {
 })
 export class WorkflowComponent implements OnInit{
   @Input() processes: string[];
-  @Input() datasets: DatasetCollection;
+  @Input() datasets: string[];
 
   model: WorkflowModel = new WorkflowModel();
 
   drag: boolean;
   dragValue: string;
 
-  nodes: Process[];
+  nodes: ProcessWrapper[];
   links: Link[];
-  selectedNode: Process;
+  selectedNode: ProcessWrapper;
 
   svg: any;
   svgLinks: any;
   svgNodes: any;
+
+  constructor(
+    private configService: ConfigureService
+  ) { }
 
   ngOnInit() {
     this.nodes = [];
@@ -124,12 +131,9 @@ export class WorkflowComponent implements OnInit{
     if (this.drag) {
       let origin = d3.mouse(d3.event.target);
 
-      this.nodes.push(new Process(
-        Math.random().toString(16).slice(2),
-        this.dragValue,
-        origin[0],
-        origin[1]
-      ));
+      let process = new Process(this.dragValue);
+
+      this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 
       this.update();
 
@@ -137,34 +141,20 @@ export class WorkflowComponent implements OnInit{
     }
   }
 
-  addInput() {
-    let index = this.model.availableInputs.indexOf(this.model.selectedInput);
-
-    this.selectedNode.inputs.push(this.model.selectedInput);
-
-    this.model.availableInputs.splice(index, 1);
-
-    if (this.model.selectedInput instanceof Process) {
-      this.links.push(new Link(<Process>this.model.selectedInput, this.selectedNode));
-
-      this.update();
-    }
-
-    this.model.selectedInput = this.model.availableInputs[0];
+  addInput(value: DatasetWrapper) {
   }
 
   removeInput(value: Process) {
-    let index = this.selectedNode.inputs.indexOf(value);
+  }
 
-    let removed = this.selectedNode.inputs.splice(index, 1);
+  removeNode(node: ProcessWrapper) {
+    jQuery('#configure').modal('hide');
 
-    let size = this.model.availableInputs.length;
+    this.nodes = this.nodes.filter((value: ProcessWrapper) => { 
+      return node.uid() !== value.uid();
+    });
 
-    this.model.availableInputs = this.model.availableInputs.concat(removed);
-
-    if (size === 0) {
-      this.model.selectedInput = this.model.availableInputs[0];
-    }
+    this.update();
   }
 
   dropped(event: any) {
@@ -173,41 +163,23 @@ export class WorkflowComponent implements OnInit{
   }
 
   clickNode() {
-    this.selectedNode = <Process>d3.select(d3.event.target).datum();
+    this.selectedNode = <ProcessWrapper>d3.select(d3.event.target).datum();
 
-    this.model.availableInputs = this.nodes.filter((value: Process) => {
-      return this.selectedNode !== value && this.selectedNode.inputs.indexOf(value) < 0;
+    this.model.availableDatasets = [];
+
+    let datasets = this.datasets.map((value: string) => { 
+      let dataset = new Dataset(value);
+
+      return new DatasetWrapper(dataset); 
     });
+    
+    this.model.availableDatasets = this.model.availableDatasets.concat(datasets);
 
-    // remove the dst process from available inputs when selectedNode is the 
-    // src of the link
-    this.links.forEach((link: Link) => {
-      if (this.selectedNode === link.src) {
-        let index = this.model.availableInputs.indexOf(link.dst);
-
-        if (index >= 0) {
-          this.model.availableInputs.splice(index, 1);
-        }
-      }
-    });
-
-    // filter out the datasets already present in the input list
-    // then wraper them in a displayable wrapper
-    let datasets = Object.keys(this.datasets).filter((value: string) => {
-      return this.selectedNode.inputs.findIndex((data: Displayable) => {
-        return data.display() === value;
-      }) < 0;
-    }).map((value: string) => {
-      return new DatasetWrapper(value);
-    });
-
-    this.model.availableInputs = this.model.availableInputs.concat(datasets);
-
-    if (this.model.availableInputs.length > 0) {
-      this.model.selectedInput = this.model.availableInputs[0];
+    if (this.model.availableDatasets.length > 0) {
+      this.model.selectedDataset = this.model.availableDatasets[0];
     } else {
       // needs to be undefined to selected the default option
-      this.model.selectedInput = undefined;
+      this.model.selectedDataset = undefined;
     }
   }
 
@@ -218,6 +190,8 @@ export class WorkflowComponent implements OnInit{
         return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
       })
       .data(this.links);
+
+    links.exit().remove();
 
     links.enter()
       .append('path')
@@ -232,6 +206,8 @@ export class WorkflowComponent implements OnInit{
       .selectAll('g')
       .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
       .data(this.nodes);
+
+    nodes.exit().remove();
 
     let newNodes = nodes.enter()
       .append('g')
@@ -259,6 +235,6 @@ export class WorkflowComponent implements OnInit{
 
     newNodes.append('text')
       .attr('text-anchor', 'middle')
-      .text((d: any) => { return d.identifier; });
+      .text((d: any) => { return d.display(); });
   }
 }

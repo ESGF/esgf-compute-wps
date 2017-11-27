@@ -64,7 +64,7 @@
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
-          <h4 class="modal-title" id="configureLabel">Configure Process ({{selectedNode?.identifier}})</h4>
+          <h4 class="modal-title" id="configureLabel">Configure Process ({{selectedNode?.display()}})</h4>
         </div>
         <div class="modal-body">
           <div class="panel panel-default">
@@ -72,15 +72,16 @@
               <h4 class="panel-title">Inputs</h4>
             </div>
             <div class="panel-body">
-              <div class="input-group">
-                <select [(ngModel)]="model.selectedInput" class="form-control">
-                  <option disabled hidden [ngValue]="undefined">No inputs available</option>
-                  <option *ngFor="let x of model.availableInputs" [ngValue]="x">{{x.display()}}</option>
+              <div class="form-group">
+                <select [(ngModel)]="model.selectedDataset" class="form-control">
+                  <option disabled hidden [ngValue]="undefined">No datasets available</option>
+                  <option *ngFor="let x of model.availableDatasets" [ngValue]="x">{{x.display()}}</option>
                 </select>
-                <span class="input-group-btn">
-                  <button (click)="addInput()" type="button" class="btn btn-default"
-                    [disabled]="model.availableInputs.length == 0">Add</button>
-                </span>
+              </div>
+              <div class="form-group">
+                <select [(ngModel)]="model.selectedVariable" class="form-control">
+                  <option disabled hidden [ngValue]="undefined">No variables available</option>
+                </select>
               </div>
             </div>
             <div class="list-group">
@@ -94,6 +95,10 @@
               </div>
             </div>
           </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button (click)="removeNode(selectedNode)" type="button" class="btn btn-danger">Remove</button>
         </div>
       </div>
     </div>

@@ -16,6 +16,8 @@ export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
 export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
 
 export class Process {
+  uid: string;
+
   constructor(
     public identifier: string = '',
     public inputs: (Variable | Process)[] = [],
@@ -23,7 +25,9 @@ export class Process {
     public regrid: string = 'None',
     public regridOptions: RegridOptions = {lats: 0, lons: 0},
     public parameters: any[] = [],
-  ) { }
+  ) { 
+    this.uid = Math.random().toString(16).slice(2); 
+  }
 }
 
 export interface DatasetCollection { 

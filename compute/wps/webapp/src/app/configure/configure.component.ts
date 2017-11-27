@@ -52,7 +52,6 @@ export class ConfigureComponent implements OnInit {
   ];
 
   config: Configuration;
-  datasets: DatasetCollection;
   datasetIDs: string[];
   processes: string[];
 
@@ -65,21 +64,17 @@ export class ConfigureComponent implements OnInit {
   ) { 
     this.config = new Configuration();
 
-    this.datasets = {} as DatasetCollection;
+    this.datasetIDs = [];
   }
 
   ngOnInit() {
     this.map.domain = 'World'
     
     this.route.queryParams.subscribe(params => {
-      let datasetIDs = this.datasetIDs = (params['dataset_id'] === undefined) ? [] : params['dataset_id'].split(',');
+      this.datasetIDs = (params['dataset_id'] === undefined) ? [] : params['dataset_id'].split(',');
 
-      datasetIDs.forEach((id: string) => {
-        this.datasets[id] = {id: id, variables: {}} as Dataset;
-      });
-
-      if (datasetIDs.length > 0) {
-        this.config.datasetID = datasetIDs[0];
+      if (this.datasetIDs.length > 0) {
+        this.config.datasetID = this.datasetIDs[0];
       }
 
       this.config.indexNode = params['index_node'] || '';
