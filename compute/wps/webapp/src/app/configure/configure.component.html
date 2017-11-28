@@ -25,7 +25,7 @@
                 </div>
                 <div id="collapseRegrid" class="panel-collapse collapse">
                   <div class="panel-body">
-                    <regrid [config]="config"></regrid>
+                    <regrid [model]="config.process.regrid"></regrid>
                   </div>
                 </div>
               </div>
@@ -37,14 +37,11 @@
                 </div>
                 <div id="collapseParameter" class="panel-collapse collapse">
                   <div class="panel-body">
-                    <div>
-                      <ul class="list-unstyled">
-                        <li *ngFor="let param of config.process?.parameters">
-                          <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
-                        </li>
-                      </ul>
-                    </div>
                     <button type="button" (click)="addParameter()" class="btn btn-default">Add</button>
+                  </div>
+                  <div class="list-group">
+                    <parameter *ngFor="let param of config.process?.parameters" 
+                      [param]="param" (remove)="removeParameter($event)"></parameter>
                   </div>
                 </div>
               </div>

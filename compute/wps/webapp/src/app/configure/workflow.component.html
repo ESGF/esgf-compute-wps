@@ -50,6 +50,49 @@
             </div>
           </div>
         </div>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4 class="panel-title">
+              <a role="button"
+                 data-toggle="collapse"
+                 data-parent="#workflow"
+                 href="#collapseRegridWorkflow"
+                 aria-expanded="true"
+                 aria-controls="collapseRegridWorkflow">
+                Regrid
+              </a>
+            </h4>
+          </div>
+          <div id="collapseRegridWorkflow" class="panel-collapse collapse">
+            <div class="panel-body">
+              <regrid [model]="model.process.regrid"></regrid>
+            </div>
+          </div>
+        </div>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4 class="panel-title">
+              <a role="button"
+                 data-toggle="collapse"
+                 data-parent="#workflow"
+                 href="#collapseParameterWorkflow"
+                 aria-expanded="true"
+                 aria-controls="collapseParameterWorkflow">
+                Parameters
+              </a>
+            </h4>
+          </div>
+          <div id="collapseParameterWorkflow" class="panel-collapse collapse">
+            <div class="panel-body">
+              <button (click)="addParameterWorkflow()" class="btn btn-default">Add</button>
+            </div>
+            <div class="list-group">
+              <parameter *ngFor="let param of model.process.parameters"
+                [param]="param" 
+                (remove)="removeParameterWorkflow($event)"></parameter>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="col-md-10">

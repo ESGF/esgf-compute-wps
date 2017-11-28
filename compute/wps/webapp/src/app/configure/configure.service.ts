@@ -4,13 +4,9 @@ import { Params } from '@angular/router';
 
 import { Axis } from './axis.component';
 import { Parameter } from './parameter.component';
+import { RegridModel } from './regrid.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
 import { AuthService } from '../core/auth.service';
-
-class WPSQueryEncoder extends QueryEncoder {
-  encodeKey(k: string): string { return k; };
-  encodeValue(v: string): string { return v; };
-}
 
 export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
 export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
@@ -22,8 +18,7 @@ export class Process {
     public identifier: string = '',
     public inputs: (Variable | Process)[] = [],
     public domain: Axis[] = [],
-    public regrid: string = 'None',
-    public regridOptions: RegridOptions = {lats: 0, lons: 0},
+    public regrid: RegridModel = new RegridModel(),
     public parameters: any[] = [],
   ) { 
     this.uid = Math.random().toString(16).slice(2); 
@@ -79,15 +74,15 @@ export class Configuration {
       throw 'Missing domain axes, wait until the domain has loaded';
     }
 
-    if (this.process.regrid !== 'None') {
-      if (this.process.regrid === 'Uniform') {
-        if (this.process.regridOptions.lons === undefined) {
-          throw `Regrid option "${this.process.regrid}" requires Longitude to be set`;
+    if (this.process.regrid.regridType !== 'None') {
+      if (this.process.regrid.regridType === 'Uniform') {
+        if (this.process.regrid.lons === undefined) {
+          throw `Regrid option "${this.process.regrid.regridType}" requires Longitude to be set`;
         }
       }
 
-      if (this.process.regridOptions.lats === undefined) {
-        throw `Regrid option "${this.process.regrid}" require Latitude to be set`;
+      if (this.process.regrid.lats === undefined) {
+        throw `Regrid option "${this.process.regrid.regridType}" require Latitude to be set`;
       }
     }
 
@@ -142,13 +137,13 @@ export class Configuration {
       process[value.key] = value.value;
     });
 
-    if (this.process.regrid !== 'None') {
+    if (this.process.regrid.regridType !== 'None') {
       let grid = '';
 
-      if (this.process.regrid === 'Gaussian') {
-        grid = `gaussian~${this.process.regridOptions.lats}`;
+      if (this.process.regrid.regridType === 'Gaussian') {
+        grid = `gaussian~${this.process.regrid.lats}`;
       } else {
-        grid = `uniform~${this.process.regridOptions.lats}x${this.process.regridOptions.lons}`;
+        grid = `uniform~${this.process.regrid.lats}x${this.process.regrid.lons}`;
       }
 
       process['gridder'] = {
@@ -179,10 +174,10 @@ export class Configuration {
 
     data += `regrid=${this.process.regrid}&`;
 
-    if (this.process.regrid !== 'None') {
-      data += `longitudes=${this.process.regridOptions.lons}&`;
+    if (this.process.regrid.regridType !== 'None') {
+      data += `longitudes=${this.process.regrid.lons}&`;
 
-      data += `latitudes=${this.process.regridOptions.lats}&`;
+      data += `latitudes=${this.process.regrid.lats}&`;
     }
 
     data += `files=${input.files}&`;
