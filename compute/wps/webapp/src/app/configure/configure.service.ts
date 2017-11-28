@@ -282,12 +282,14 @@ export class ConfigureService extends WPSService {
     config.process.inputs.push(config.variable);
     
     try {
-      preparedData = config.prepareData();
+      preparedData = config.prepareDataInputs();
     } catch (e) {
       return Promise.reject(e);
     }
 
-    return this.postCSRF('/wps/generate/', preparedData)
+    let data = `datainputs=${preparedData}`;
+
+    return this.postCSRF('/wps/generate/', data)
       .then(response => {
         return response.data;
       });

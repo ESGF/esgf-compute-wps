@@ -14,8 +14,119 @@ from wps import backends
 from wps import models
 from wps import wps_xml
 from wps import settings
+from wps import tasks
 
 logger = common.logger
+
+class WPSScriptGenerator(object):
+    def __init__(self, variable, domain, operation, user):
+        self.operation = operation
+
+        self.domain = domain
+
+        self.variable = variable
+
+        self.user = user
+
+        self.root_op = None
+
+    def write_header(self, buf):
+        buf.write('import cwt\nimport time\n\n')
+
+        buf.write('api_key=\'{}\'\n\n'.format(self.user.auth.api_key))
+
+        buf.write('wps = cwt.WPS(\'{}\', api_key=api_key)\n\n'.format(settings.ENDPOINT))
+
+    def write_variables(self, buf):
+        for v in self.variable.values():
+            buf.write('var-{} = cwt.Variable(\'{}\', \'{}\')\n'.format(v.name, v.uri, v.var_name))
+
+        buf.write('\n')
+
+    def write_domain(self, buf):
+        for d in self.domain.values():
+            buf.write('dom-{} = cwt.Domain([\n'.format(d.name))
+
+            for dim in d.dimensions:
+                buf.write('\tcwt.Dimension(\'{}\', \'{}\', \'{}\', crs=cwt.VALUES, step=\'{}\'),\n'.format(dim.name, dim.start, dim.end, dim.step))
+
+            buf.write('])\n\n')
+
+    def write_processes(self, buf):
+        for o in self.operation.values():
+            buf.write('op-{} = wps.get_process(\'{}\')\n\n'.format(o.name, o.identifier))
+
+        op = self.operation.values()[0]
+
+        self.root_op = 'op-{}'.format(op.name)
+
+        buf.write('wps.execute(op-{}, inputs=['.format(op.name))
+
+        l = len(op.inputs) - 1
+
+        for i, v in enumerate(op.inputs):
+            buf.write('var-{}'.format(v.name))
+
+            if i < l:
+                buf.write(', ')
+
+        buf.write('], domain=dom-{}'.format(op.domain.name))
+
+        if 'domain' in op.parameters:
+            del op.parameters['domain']
+
+        if 'gridder' in op.parameters:
+            g = op.parameters['gridder']
+
+            buf.write(', gridder=cwt.Gridder(\'{}\', \'{}\', \'{}\')'.format(g.tool, g.method, g.grid))
+
+            del op.parameters['gridder']
+
+        for p in op.parameters.values():
+            buf.write(', {}={}'.format(p.name, p.values))
+
+        buf.write(')\n\n')
+
+    def write_status(self, buf):
+        buf.write('while {}.processing:\n'.format(self.root_op))
+
+        buf.write('\tprint {}.status\n\n'.format(self.root_op))
+
+        buf.write('\ttime.sleep(1)\n\n'.format(self.root_op))
+
+    def write_output(self, buf):
+        buf.write('print {}.status\n\n'.format(self.root_op))
+
+        buf.write('print {}.output\n\n'.format(self.root_op))
+
+        buf.write('try:\n\timport vcs\n\timport cdms2\nexcept:\n\tpass\nelse:\n')
+
+        buf.write('\tf = cdms2.open({}.output.uri)\n\n'.format(self.root_op))
+
+        buf.write('\tv = vcs.init()\n\n')
+
+        buf.write('\tv.plot(f[{}.output.var_name])'.format(self.root_op))
+
+    def generate(self):
+        buf = StringIO.StringIO()
+
+        self.write_header(buf)
+
+        self.write_variables(buf)
+
+        self.write_domain(buf)
+
+        self.write_processes(buf)
+
+        self.write_status(buf)
+
+        self.write_output(buf)
+
+        data = buf.getvalue()
+
+        buf.close()
+
+        return data
 
 class WPSException(Exception):
     def __init__(self, message, exception_type=None):
@@ -223,104 +334,28 @@ def generate(request):
     try:
         common.authentication_required(request)
 
-        try:
-            process = request.POST['process']
+        base = tasks.CWTBaseTask()
 
-            variable = request.POST['variable']
+        data_inputs = request.POST['datainputs']
 
-            files = request.POST['files']
+        data_inputs = re.sub('\|(domain|operation|variable)=', ';\\1=', data_inputs, 3)
 
-            regrid = request.POST['regrid']
-        except KeyError as e:
-            raise Exception('Missing required key "{}"'.format(e.message))
+        v, d, o = base.load_data_inputs(data_inputs)
 
-        parameters = request.POST.get('parameters', None)
+        script = WPSScriptGenerator(v, d, o, request.user)
 
-        latitudes = request.POST.get('latitudes', None)
-
-        longitudes = request.POST.get('longitudes', None)
-
-        # Javascript stringify on an array creates list without brackets
-        dimensions = json.loads(request.POST.get('dimensions', '[]'))
-
-        files = files.split(',')
-
-        buf = StringIO.StringIO()
-
-        buf.write("import cwt\nimport time\n\n")
-
-        buf.write("wps = cwt.WPS('{}', api_key='{}')\n\n".format(settings.ENDPOINT, request.user.auth.api_key))
-
-        buf.write("files = [\n")
-
-        for f in files:
-            buf.write("\tcwt.Variable('{}', '{}'),\n".format(f, variable))
-
-        buf.write("]\n\n")
-
-        buf.write("proc = wps.get_process('{}')\n\n".format(process))
-
-        if len(dimensions) > 0:
-            buf.write("domain = cwt.Domain([\n")
-
-            for d in dimensions:
-                name = d['id'].split(' ')[0]
-
-                buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
-
-            buf.write("])\n\n")
-
-        if regrid != 'None':
-            if regrid == 'Gaussian':
-                if latitudes is None:
-                    raise Exception('Must provide the number of latitudes for the Gaussian grid')
-
-                grid = 'gaussian~{}'.format(latitudes)
-            elif regrid == 'Uniform':
-                if latitudes is None or longitudes is None:
-                    raise Exception('Must provide the number of latitudes and longitudes for the Uniform grid')
-
-                grid = 'uniform~{}x{}'.format(longitudes, latitudes)
-
-            buf.write("regrid = cwt.Gridder(grid='{}')\n\n".format(grid))
-
-        buf.write("wps.execute(proc, inputs=files")
-
-        if len(dimensions) > 0:
-            buf.write(", domain=domain")
-
-        if regrid != 'None':
-            buf.write(", gridder=grid")
-
-        if parameters is not None:
-            parameters = parameters.split(',')
-
-            if len(parameters) > 0:
-                for param in parameters:
-                    key, value = str(param).split('=')
-
-                    buf.write(", {}='{}'".format(key, value))
-        
-        buf.write(")\n\n")
-
-        buf.write("while proc.processing:\n")
-
-        buf.write("\tprint proc.status\n\n")
-
-        buf.write("\ttime.sleep(1)\n\n")
-
-        buf.write("print proc.status")
-
-        _, kernel = process.split('.')
+        kernel = 'test'
 
         data = {
             'filename': '{}.py'.format(kernel),
-            'text': buf.getvalue()
+            'text': script.generate()
         }
 
-        response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
+        logger.info(data)
 
-        response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
+        #response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
+
+        #response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
     except Exception as e:
         logger.exception('Error generating script using CWT End-user API')
 
