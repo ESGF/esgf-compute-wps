@@ -93,6 +93,38 @@
             </div>
           </div>
         </div>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4 class="panel-title">
+              <a role="button"
+                 data-toggle="collapse"
+                 data-parent="#workflow"
+                 href="#collapseDomainWorkflow"
+                 aria-expanded="true"
+                 aria-controls="collapseDomainWorkflow">
+                Domain
+              </a>
+            </h4>
+          </div>
+          <div id="collapseDomainWorkflow" class="panel-collapse collapse">
+            <div class="panel-body">
+              <div class="input-group">
+                <select (change)="domainChange()" [(ngModel)]="model.domain" class="form-control">
+                  <option>World</option>
+                  <option>Custom</option>
+                </select>
+                <span class="input-group-btn">
+                  <button (click)="showDomain()" type="button" class="btn btn-default">Show</button>
+                </span>
+              </div>
+            </div>
+            <div class="list-group">
+              <div *ngFor="let x of model.process.domain; index as i" class="list-group-item">
+                <axis [axis]="x" [axisIndex]="i" (axisChange)="map.onAxisChange($event)"></axis>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="col-md-10">
@@ -125,6 +157,21 @@
               Click on a Processs to Configure
             </li>
           </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="map" tabindex="-1" role="dialog" aria-labelby="mapLabel">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h4 class="modal-title" id="mapLabel">Domain</h4>
+        </div>
+        <div class="modal-body">
+          <domain-map [axes]="model.process.domain"></domain-map>
         </div>
       </div>
     </div>

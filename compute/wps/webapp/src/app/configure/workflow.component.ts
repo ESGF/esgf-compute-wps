@@ -1,6 +1,8 @@
-import { Component, Input, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, Input, OnInit, ViewEncapsulation, ViewChild } from '@angular/core';
 
 import { Parameter } from './parameter.component';
+import { MapComponent } from './map.component';
+import { Axis } from './axis.component';
 import { 
   ConfigureService, 
   Configuration,
@@ -15,6 +17,9 @@ import * as d3 from 'd3';
 declare var jQuery: any;
 
 class WorkflowModel { 
+  domain: string;
+  axes: Axis[];
+
   process: Process;
   selectedVariable: Variable;
 
@@ -129,10 +134,12 @@ enum EditorState {
   `],
   templateUrl: './workflow.component.html'
 })
-export class WorkflowComponent implements OnInit{
+export class WorkflowComponent implements OnInit {
   @Input() processes: string[];
   @Input() datasets: string[];
   @Input() config: Configuration;
+
+  @ViewChild(MapComponent) map: MapComponent;
 
   model: WorkflowModel = new WorkflowModel();
 
@@ -152,7 +159,33 @@ export class WorkflowComponent implements OnInit{
   constructor(
     private configService: ConfigureService
   ) { 
+    this.model.domain = 'World';
+
     this.model.process = new Process();
+
+    this.model.process.domain.push({
+      id: 'lat',
+      start: 90,
+      stop: -90,
+      step: 1,
+      units: 'degress north'
+    } as Axis);
+
+    this.model.process.domain.push({
+      id: 'lon',
+      start: -180,
+      stop: 180,
+      step: 1,
+      units: 'degress west'
+    } as Axis);
+
+    this.model.process.domain.push({
+      id: 'time',
+      start: 0,
+      stop: 0,
+      step: 1,
+      units: 'Custom'
+    } as Axis);
 
     this.nodes = [];
 
@@ -165,7 +198,7 @@ export class WorkflowComponent implements OnInit{
     d3.select(window)
       .on('keydown', () => this.removeElements())
 
-    this.svg = d3.select('svg')
+    this.svg = d3.select('.graph-container')
       .on('mouseover', () => this.svgMouseOver());
 
     this.svg.append('svg:defs')
@@ -208,6 +241,34 @@ export class WorkflowComponent implements OnInit{
 
   showHelp() {
     jQuery('#help').modal('show');
+  }
+
+  showDomain() {
+    this.map.domain = this.model.domain;
+
+    this.map.domainChange();
+
+    jQuery('#map').modal('show');
+
+    // need to invalidate the map after it's presented to the user
+    jQuery('#map').on('shown.bs.modal', () => {
+      this.map.map.invalidateSize();
+    });
+  }
+
+  domainChange() {
+    this.map.domain = this.model.domain;
+
+    this.map.domainChange();
+
+    if (this.model.domain === 'Custom') {
+      jQuery('#map').modal('show');
+
+      // need to invalidate the map after it's presented to the user
+      jQuery('#map').on('shown.bs.modal', () => {
+        this.map.map.invalidateSize();
+      });
+    }
   }
 
   determineRootNode() {
