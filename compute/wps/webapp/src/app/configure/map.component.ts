@@ -36,7 +36,7 @@ export class MapComponent implements OnInit {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(this.map);
 
-    this.selection = new Selection(this.map, [[0, 0], [20, 20]], {color: '#4db8ff'});
+    this.selection = new Selection(this.map, [[90, -180], [-90, 180]], {color: '#4db8ff'});
 
     this.selection.on('updatedomain', (data: any) => this.updateDomain(data));
   }
