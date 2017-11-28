@@ -19,6 +19,7 @@
             <div class="panel-body">
               <div class="btn-group" role="group">
                 <button type="button" class="btn btn-default">Execute</button>
+                <button (click)="showHelp()" type="button" class="btn btn-default">Help</button>
               </div>
             </div>
           </div>
@@ -57,7 +58,35 @@
       </div>
     </div>
   </div>
-  <div class="modal fade" id="configure" tabindex="-1" role="dialog" aria-labeby="configureLabel">
+  <div class="modal fade" id="help" tabindex="-1" role="dialog" aria-labelby="helpLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h4 class="modal-title" id="helpLabel">Workflow Editor Help</h4>
+        </div>
+        <div class="modal-body">
+          <ul class="list-group">
+            <li class="list-group-item">
+              Drag & drop process from list (left) to editor (right)
+            </li>
+            <li class="list-group-item">
+              Shift-click on a Process and then drag to another Process to connect
+            </li>
+            <li class="list-group-item">
+              Click on a link and press Backspace/Delete to remove
+            </li>
+            <li class="list-group-item">
+              Click on a Processs to Configure
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="configure" tabindex="-1" role="dialog" aria-labelby="configureLabel">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
         <div class="modal-header">

@@ -12,9 +12,10 @@ import {
 
 import * as d3 from 'd3';
 
-declare var jQuery:any;
+declare var jQuery: any;
 
 class WorkflowModel { 
+  process: Process;
   selectedVariable: Variable;
 
   selectedDataset: DatasetWrapper;
@@ -151,6 +152,8 @@ export class WorkflowComponent implements OnInit{
   constructor(
     private configService: ConfigureService
   ) { 
+    this.model.process = new Process();
+
     this.nodes = [];
 
     this.links = [];
@@ -201,6 +204,10 @@ export class WorkflowComponent implements OnInit{
 
     this.svgNodes = graph.append('g')
       .classed('nodes', true);
+  }
+
+  showHelp() {
+    jQuery('#help').modal('show');
   }
 
   determineRootNode() {
@@ -459,12 +466,7 @@ export class WorkflowComponent implements OnInit{
     let newNodes = nodes.enter()
       .append('g')
       .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
-      .on('click', (data: any, index: any, group: any) => { 
-        //d3.select(group[index])
-        //  .select('circle')
-        //  .classed('node-select', true);
-      })
-      .on('dblclick', () => this.nodeClick())
+      .on('click', () => this.nodeClick())
       .on('mouseenter', () => this.nodeMouseEnter())
       .on('mouseleave', () => this.nodeMouseLeave())
       .call(d3.drag()
