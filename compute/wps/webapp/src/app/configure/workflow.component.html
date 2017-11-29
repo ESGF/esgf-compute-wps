@@ -18,7 +18,8 @@
           <div id="collapseGeneral" class="panel-collapse collapse in">
             <div class="panel-body">
               <div class="btn-group" role="group">
-                <button type="button" class="btn btn-default">Execute</button>
+                <button (click)="onScript()" type="button" class="btn btn-default">Script</button>
+                <button (click)="onExecute()" type="button" class="btn btn-default">Execute</button>
                 <button (click)="showHelp()" type="button" class="btn btn-default">Help</button>
               </div>
             </div>

@@ -11,6 +11,7 @@ import {
   Dataset, 
   DatasetCollection 
 } from './configure.service';
+import { NotificationService } from '../core/notification.service';
 
 import * as d3 from 'd3';
 
@@ -157,7 +158,8 @@ export class WorkflowComponent implements OnInit {
   svgDrag: any;
 
   constructor(
-    private configService: ConfigureService
+    private configService: ConfigureService,
+    private notificationService: NotificationService
   ) { 
     this.model.domain = 'World';
 
@@ -237,6 +239,24 @@ export class WorkflowComponent implements OnInit {
 
     this.svgNodes = graph.append('g')
       .classed('nodes', true);
+  }
+
+  onScript() {
+    this.notificationService.error('Workflow script is unsupported at the moment');
+  }
+
+  onExecute() {
+    if (this.nodes.length === 0) {
+      this.notificationService.error('Workflow must contain atleast 1 process');
+
+      return;
+    }
+
+    if (this.rootNode == null) {
+      this.notificationService.error('Workflow must converge to a single process');
+
+      return;
+    }
   }
 
   showHelp() {
