@@ -28,13 +28,17 @@ export class Process {
     return Math.random().toString(16).slice(2);
   }
 
+  newUID() {
+    return Math.random().toString(16).slice(2);
+  }
+
   setInputs(inputs: (Variable | Process)[]) {
     this.inputs = inputs;
   }
 
   validate() { 
     if (this.inputs.length === 0) {
-      throw 'Process must have atleast one input';
+      throw `Process "${this.identifier} - ${this.uid}" must have atleast one input`;
     }
 
     if (this.regrid.regridType !== 'None') {
@@ -61,68 +65,99 @@ export class Process {
   }
 
   prepareDataInputs() {
-    this.validate();
+    let operation = {};
+    let domain = {};
+    let variable = {};
 
-    let inputs = this.inputs.map((value: Variable | Process) => {
-      if (value instanceof Variable) {
-        return value.files.map((file: string) => {
-          return { 
-            id: `${value.id}|${this.uuid}`,
-            uri: file,
-          };
+    let disc = {};
+    let stack: Process[] = [this];
+
+    while (stack.length > 0) {
+      let curr = stack.pop();
+
+      curr.validate();
+
+      // Override with global regrid
+      curr.regrid = this.regrid;
+
+      // Merge global parameters
+      Array.prototype.push.apply(curr.parameters, this.parameters);
+
+      let vars = curr.inputs.filter((item: any) => { return !(item instanceof Process); });
+
+      console.log(vars);
+
+      if (disc[curr.uid] === undefined) {
+        disc[curr.uid] = true;
+
+        let processes = curr.inputs.filter((item: any) => { return item instanceof Process; });
+
+        processes.forEach((proc: Process) => {
+          stack.push(proc);
         });
       }
-
-      return [];
-    });
-
-    inputs = [].concat(...inputs);
-
-    let domain = {
-      id: this.uuid,
-    };
-
-    this.domain.forEach((axis: Axis) => {
-      domain[axis.id] = {
-        start: axis.start,
-        end: axis.stop,
-        step: axis.step,
-        crs: 'values'
-      };
-    });
-
-    let process = {
-      name: this.identifier,
-      input: inputs.map((value: any) => { return value.id.split('|')[1]; }),
-      result: this.uuid,
-      domain: domain.id,
-    };
-
-    this.parameters.forEach((value: any) => {
-      process[value.key] = value.value;
-    });
-
-    if (this.regrid.regridType !== 'None') {
-      let grid = '';
-
-      if (this.regrid.regridType === 'Gaussian') {
-        grid = `gaussian~${this.regrid.lats}`;
-      } else {
-        grid = `uniform~${this.regrid.lats}x${this.regrid.lons}`;
-      }
-
-      process['gridder'] = {
-        tool: 'esmf',
-        method: 'linear',
-        grid: grid,
-      };
     }
 
-    let processes = JSON.stringify([process]);
-    let variables = JSON.stringify(inputs);
-    let domains = JSON.stringify([domain]);
+    //let inputs = this.inputs.map((value: Variable | Process) => {
+    //  if (value instanceof Variable) {
+    //    return value.files.map((file: string) => {
+    //      return { 
+    //        id: `${value.id}|${this.uuid}`,
+    //        uri: file,
+    //      };
+    //    });
+    //  }
 
-    return `[domain=${domains}|variable=${variables}|operation=${processes}]`;
+    //  return [];
+    //});
+
+    //inputs = [].concat(...inputs);
+
+    //let domain = {
+    //  id: this.uuid,
+    //};
+
+    //this.domain.forEach((axis: Axis) => {
+    //  domain[axis.id] = {
+    //    start: axis.start,
+    //    end: axis.stop,
+    //    step: axis.step,
+    //    crs: 'values'
+    //  };
+    //});
+
+    //let process = {
+    //  name: this.identifier,
+    //  input: inputs.map((value: any) => { return value.id.split('|')[1]; }),
+    //  result: this.uuid,
+    //  domain: domain.id,
+    //};
+
+    //this.parameters.forEach((value: any) => {
+    //  process[value.key] = value.value;
+    //});
+
+    //if (this.regrid.regridType !== 'None') {
+    //  let grid = '';
+
+    //  if (this.regrid.regridType === 'Gaussian') {
+    //    grid = `gaussian~${this.regrid.lats}`;
+    //  } else {
+    //    grid = `uniform~${this.regrid.lats}x${this.regrid.lons}`;
+    //  }
+
+    //  process['gridder'] = {
+    //    tool: 'esmf',
+    //    method: 'linear',
+    //    grid: grid,
+    //  };
+    //}
+
+    //let processes = JSON.stringify([process]);
+    //let variables = JSON.stringify(inputs);
+    //let domains = JSON.stringify([domain]);
+
+    return `[domain=${domain}|variable=${variable}|operation=${operation}]`;
   }
 }
 

@@ -246,6 +246,7 @@ export class WorkflowComponent implements OnInit {
   }
 
   onExecute() {
+    // Cover a few workflow specific checks before executing
     if (this.nodes.length === 0) {
       this.notificationService.error('Workflow must contain atleast 1 process');
 
@@ -257,6 +258,36 @@ export class WorkflowComponent implements OnInit {
 
       return;
     }
+
+    // Assign values from our model
+    // These values are not stored in rootNode since this changes with the state
+    // of the graph
+    this.rootNode.process.domain = this.model.process.domain;
+
+    this.rootNode.process.regrid = this.model.process.regrid;
+
+    this.rootNode.process.parameters = this.model.process.parameters;
+
+    this.configService.execute(this.rootNode.process)
+      .then((data: any) => {
+        let parser = new DOMParser();
+        let xml = parser.parseFromString(data, 'text/xml');
+        let el = xml.getElementsByTagName('wps:ExecuteResponse');
+        let link = '';
+
+        if (el.length > 0) {
+          let statusLocation = el[0].attributes.getNamedItem('statusLocation').value;
+
+          let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
+
+          link = `/wps/home/user/jobs`;
+        }
+        
+        this.notificationService.message('Succesfully submitted job', link);
+      })
+      .catch(error => {
+        this.notificationService.error(error); 
+      });
   }
 
   showHelp() {
