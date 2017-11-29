@@ -69,95 +69,112 @@ export class Process {
     let domain = {};
     let variable = {};
 
-    let disc = {};
-    let stack: Process[] = [this];
+    let regrid = null;
 
-    while (stack.length > 0) {
-      let curr = stack.pop();
+    // define the global domain
+    let domainID = this.newUID();
+    let gDomain: {[k: string]: any} = { id: domainID };
 
-      curr.validate();
+    this.domain.forEach((axis: Axis) => {
+      gDomain[axis.id] = {
+        start: axis.start,
+        end: axis.stop,
+        step: axis.step,
+        crs: 'values'
+      };
+    });
 
-      // Override with global regrid
-      curr.regrid = this.regrid;
+    // defin the global regrid options
+    if (this.regrid.regridType !== 'None') {
+      regrid = { tool: 'esmf', method: 'linear' };
 
-      // Merge global parameters
-      Array.prototype.push.apply(curr.parameters, this.parameters);
-
-      let vars = curr.inputs.filter((item: any) => { return !(item instanceof Process); });
-
-      console.log(vars);
-
-      if (disc[curr.uid] === undefined) {
-        disc[curr.uid] = true;
-
-        let processes = curr.inputs.filter((item: any) => { return item instanceof Process; });
-
-        processes.forEach((proc: Process) => {
-          stack.push(proc);
-        });
+      if (this.regrid.regridType === 'Gaussian') {
+        regrid['grid'] = `gaussian~${this.regrid.lats}`;
+      } else if (this.regrid.regridType === 'Uniform') {
+        regrid['grid'] = `uniform~${this.regrid.lats}x${this.regrid.lons}`;
       }
     }
 
-    //let inputs = this.inputs.map((value: Variable | Process) => {
-    //  if (value instanceof Variable) {
-    //    return value.files.map((file: string) => {
-    //      return { 
-    //        id: `${value.id}|${this.uuid}`,
-    //        uri: file,
-    //      };
-    //    });
-    //  }
+    domain[domainID] = gDomain;
 
-    //  return [];
-    //});
+    // DFS stack
+    let stack: Process[] = [this];
 
-    //inputs = [].concat(...inputs);
+    // Run DFS to build operation, variable list
+    while (stack.length > 0) {
+      let curr = stack.pop();
 
-    //let domain = {
-    //  id: this.uuid,
-    //};
+      // Check if we've visited this node
+      if (operation[curr.uid] === undefined) {
+        // Validate node
+        curr.validate();
 
-    //this.domain.forEach((axis: Axis) => {
-    //  domain[axis.id] = {
-    //    start: axis.start,
-    //    end: axis.stop,
-    //    step: axis.step,
-    //    crs: 'values'
-    //  };
-    //});
+        // Only merge if we're not the root node
+        if (curr !== this) {
+          // Merge global parameters
+          Array.prototype.push.apply(curr.parameters, this.parameters);
+        }
 
-    //let process = {
-    //  name: this.identifier,
-    //  input: inputs.map((value: any) => { return value.id.split('|')[1]; }),
-    //  result: this.uuid,
-    //  domain: domain.id,
-    //};
+        // Define the operation, use {[k: string]: any} to define a very generic,
+        // compact type
+        let op: {[k: string]: any} = {
+          name: curr.identifier,
+          result: curr.uid,
+          domain: gDomain.id,
+          input: [],
+        };
 
-    //this.parameters.forEach((value: any) => {
-    //  process[value.key] = value.value;
-    //});
+        // set the gridder
+        if (regrid !== null) {
+          op['gridder'] = regrid;
+        }
 
-    //if (this.regrid.regridType !== 'None') {
-    //  let grid = '';
+        // Add all parameters
+        curr.parameters.forEach((para: Parameter) => {
+          op[para.key] = para.value; 
+        });
 
-    //  if (this.regrid.regridType === 'Gaussian') {
-    //    grid = `gaussian~${this.regrid.lats}`;
-    //  } else {
-    //    grid = `uniform~${this.regrid.lats}x${this.regrid.lons}`;
-    //  }
+        // Split inputs into variables and processes
+        let vars = curr.inputs.filter((item: any) => { return !(item instanceof Process); });
+        let procs = curr.inputs.filter((item: any) => { return (item instanceof Process); });
 
-    //  process['gridder'] = {
-    //    tool: 'esmf',
-    //    method: 'linear',
-    //    grid: grid,
-    //  };
-    //}
+        // Add each input variable to the global variable list
+        vars.forEach((item: Variable) => {
+          // Each file gets an entry
+          item.files.forEach((data: string, i: number) => {
+            let uid = `${item.uid}-${i}`;
 
-    //let processes = JSON.stringify([process]);
-    //let variables = JSON.stringify(inputs);
-    //let domains = JSON.stringify([domain]);
+            // Add string reference to input list
+            op.input.push(uid);
 
-    return `[domain=${domain}|variable=${variable}|operation=${operation}]`;
+            // Add variable to global list if it doesn't already exist
+            if (variable[uid] === undefined) {
+              variable[uid] = {
+                id: `${item.id}|${uid}`,
+                uri: data,
+              };
+            }
+          });
+        });
+
+        // DFS haven't visited this node, push process inputs onto stack
+        procs.forEach((item: Process) => {
+          // Add string reference to input list
+          op.input.push(item.uid);
+
+          stack.push(item);
+        });
+
+        // Add unvisited operation to global list
+        operation[op.result] = op;
+      }
+    }
+
+    let operationJSON = JSON.stringify(Object.keys(operation).map((key: string) => { return operation[key]; }));
+    let domainJSON = JSON.stringify(Object.keys(domain).map((key: string) => { return domain[key]; }));
+    let variableJSON = JSON.stringify(Object.keys(variable).map((key: string) => { return variable[key]; }));
+
+    return `[operation=${operationJSON}|domain=${domainJSON}|variable=${variableJSON}]`;
   }
 }
 
@@ -173,12 +190,16 @@ export class Dataset {
 }
 
 export class Variable {
+  uid: string;
+
   constructor(
     public id: string,
     public axes: Axis[] = [],
     public files: string[] = [],
     public dataset: string = '',
-  ) { }
+  ) { 
+    this.uid = Math.random().toString(16).slice(2); 
+  }
 }
 
 export interface VariableCollection {
@@ -204,7 +225,6 @@ export class Configuration {
   constructor() { 
     this.process = new Process();
   }
-
   
   prepareDataInputs(): string {
     return '';
