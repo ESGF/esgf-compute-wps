@@ -116,7 +116,9 @@ export class GeneralConfigComponent implements OnInit {
   }
 
   onDownload() {
-    this.configService.downloadScript(this.config)
+    this.config.process.setInputs([this.config.variable]);
+
+    this.configService.downloadScript(this.config.process)
       .then(data => {
           let url = URL.createObjectURL(new Blob([data.text]));
 
@@ -134,7 +136,9 @@ export class GeneralConfigComponent implements OnInit {
   }
 
   onExecute() {
-    this.configService.execute(this.config)
+    this.config.process.setInputs([this.config.variable]);
+
+    this.configService.execute(this.config.process)
       .then((data: any) => {
         let parser = new DOMParser();
         let xml = parser.parseFromString(data, 'text/xml');

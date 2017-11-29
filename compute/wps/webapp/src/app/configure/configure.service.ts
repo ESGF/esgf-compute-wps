@@ -23,6 +23,107 @@ export class Process {
   ) { 
     this.uid = Math.random().toString(16).slice(2); 
   }
+
+  get uuid() {
+    return Math.random().toString(16).slice(2);
+  }
+
+  setInputs(inputs: (Variable | Process)[]) {
+    this.inputs = inputs;
+  }
+
+  validate() { 
+    if (this.inputs.length === 0) {
+      throw 'Process must have atleast one input';
+    }
+
+    if (this.regrid.regridType !== 'None') {
+      if (this.regrid.regridType === 'Uniform') {
+        if (this.regrid.lons === 0) {
+          throw `Regrid option "${this.regrid.regridType}" requires Longitude to be set`;
+        }
+      }
+
+      if (this.regrid.lats === 0) {
+        throw `Regrid option "${this.regrid.regridType}" require Latitude to be set`;
+      }
+    }
+
+    this.parameters.forEach((param: Parameter) => {
+      if (param.key === '') {
+        throw 'Parameter has an empty key';
+      }
+
+      if (param.value === '') {
+        throw `Parameter "${param.key}" has an empty value`;
+      }
+    });
+  }
+
+  prepareDataInputs() {
+    this.validate();
+
+    let inputs = this.inputs.map((value: Variable | Process) => {
+      if (value instanceof Variable) {
+        return value.files.map((file: string) => {
+          return { 
+            id: `${value.id}|${this.uuid}`,
+            uri: file,
+          };
+        });
+      }
+
+      return [];
+    });
+
+    inputs = [].concat(...inputs);
+
+    let domain = {
+      id: this.uuid,
+    };
+
+    this.domain.forEach((axis: Axis) => {
+      domain[axis.id] = {
+        start: axis.start,
+        end: axis.stop,
+        step: axis.step,
+        crs: 'values'
+      };
+    });
+
+    let process = {
+      name: this.identifier,
+      input: inputs.map((value: any) => { return value.id.split('|')[1]; }),
+      result: this.uuid,
+      domain: domain.id,
+    };
+
+    this.parameters.forEach((value: any) => {
+      process[value.key] = value.value;
+    });
+
+    if (this.regrid.regridType !== 'None') {
+      let grid = '';
+
+      if (this.regrid.regridType === 'Gaussian') {
+        grid = `gaussian~${this.regrid.lats}`;
+      } else {
+        grid = `uniform~${this.regrid.lats}x${this.regrid.lons}`;
+      }
+
+      process['gridder'] = {
+        tool: 'esmf',
+        method: 'linear',
+        grid: grid,
+      };
+    }
+
+    let processes = JSON.stringify([process]);
+    let variables = JSON.stringify(inputs);
+    let domains = JSON.stringify([domain]);
+
+    return `[domain=${domains}|variable=${variables}|operation=${processes}]`;
+  }
 }
 
 export interface DatasetCollection { 
@@ -69,132 +170,9 @@ export class Configuration {
     this.process = new Process();
   }
 
-  validate() { 
-    if (this.variable.axes === undefined) {
-      throw 'Missing domain axes, wait until the domain has loaded';
-    }
-
-    if (this.process.regrid.regridType !== 'None') {
-      if (this.process.regrid.regridType === 'Uniform') {
-        if (this.process.regrid.lons === undefined) {
-          throw `Regrid option "${this.process.regrid.regridType}" requires Longitude to be set`;
-        }
-      }
-
-      if (this.process.regrid.lats === undefined) {
-        throw `Regrid option "${this.process.regrid.regridType}" require Latitude to be set`;
-      }
-    }
-
-    this.process.parameters.forEach((param: Parameter) => {
-      if (param.key === '' || param.value === '') {
-        throw 'Parameters are invalid';
-      }
-    });
-  }
-
-  get uuid() {
-    return Math.random().toString(16).slice(2);
-  }
   
   prepareDataInputs(): string {
-    let inputs = this.process.inputs.map((value: Variable | Process) => {
-      if (value instanceof Variable) {
-        return value.files.map((file: string) => {
-          return { 
-            id: `${value.id}|${this.uuid}`,
-            uri: file,
-          };
-        });
-      }
-
-      return [];
-    });
-
-    inputs = [].concat(...inputs);
-
-    let domain = {
-      id: this.uuid,
-    };
-
-    this.process.domain.forEach((axis: Axis) => {
-      domain[axis.id] = {
-        start: axis.start,
-        end: axis.stop,
-        step: axis.step,
-        crs: 'values'
-      };
-    });
-
-    let process = {
-      name: this.process.identifier,
-      input: inputs.map((value: any) => { return value.id.split('|')[1]; }),
-      result: this.uuid,
-      domain: domain.id,
-    };
-
-    this.process.parameters.forEach((value: any) => {
-      process[value.key] = value.value;
-    });
-
-    if (this.process.regrid.regridType !== 'None') {
-      let grid = '';
-
-      if (this.process.regrid.regridType === 'Gaussian') {
-        grid = `gaussian~${this.process.regrid.lats}`;
-      } else {
-        grid = `uniform~${this.process.regrid.lats}x${this.process.regrid.lons}`;
-      }
-
-      process['gridder'] = {
-        tool: 'esmf',
-        method: 'linear',
-        grid: grid,
-      };
-    }
-
-    let processes = JSON.stringify([process]);
-    let variables = JSON.stringify(inputs);
-    let domains = JSON.stringify([domain]);
-
-    return `[domain=${domains}|variable=${variables}|operation=${processes}]`;
-  }
-
-  prepareData(): string {
-    let data = '';
-    let numberPattern = /\d+\.?\d+/;
-
-    this.validate();
-
-    let input = <Variable>this.process.inputs[0];
-
-    data += `process=${this.process.identifier}&`;
-
-    data += `variable=${input.id}&`;
-
-    data += `regrid=${this.process.regrid}&`;
-
-    if (this.process.regrid.regridType !== 'None') {
-      data += `longitudes=${this.process.regrid.lons}&`;
-
-      data += `latitudes=${this.process.regrid.lats}&`;
-    }
-
-    data += `files=${input.files}&`;
-
-    let dimensions = JSON.stringify(input.axes.map((axis: Axis) => { return axis; }));
-
-    data += `dimensions=${dimensions}&`;
-
-    if (this.process.parameters.length > 0) {
-      let parameters = this.process.parameters.map((param: Parameter) => { 
-        return `${param.key}=${param.value}`; 
-      }).join(',');
-
-      data += `parameters=${parameters}`;
-    }
-
-    return data;
+    return '';
   }
 }
 
@@ -247,15 +225,11 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  execute(config: Configuration): Promise<string> {
+  execute(process: Process): Promise<string> {
     let preparedData: string;
 
-    config.process.inputs = [];
-
-    config.process.inputs.push(config.variable);
-
     try {
-      preparedData = config.prepareDataInputs();
+      preparedData = process.prepareDataInputs();
     } catch (e) {
       return Promise.reject(e);
     }
@@ -265,7 +239,7 @@ export class ConfigureService extends WPSService {
     params.append('service', 'WPS');
     params.append('request', 'execute');
     params.append('api_key', this.authService.user.api_key);
-    params.append('identifier', config.process.identifier);
+    params.append('identifier', process.identifier);
     params.append('datainputs', preparedData);
 
     return this.getUnmodified('/wps', params)
@@ -274,15 +248,11 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  downloadScript(config: Configuration): Promise<any> {
+  downloadScript(process: Process): Promise<any> {
     let preparedData: string;
-
-    config.process.inputs = [];
-
-    config.process.inputs.push(config.variable);
     
     try {
-      preparedData = config.prepareDataInputs();
+      preparedData = process.prepareDataInputs();
     } catch (e) {
       return Promise.reject(e);
     }
