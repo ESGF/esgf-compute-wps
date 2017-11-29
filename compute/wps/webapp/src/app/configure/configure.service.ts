@@ -225,10 +225,6 @@ export class Configuration {
   constructor() { 
     this.process = new Process();
   }
-  
-  prepareDataInputs(): string {
-    return '';
-  }
 }
 
 @Injectable()
