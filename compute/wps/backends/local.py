@@ -18,7 +18,7 @@ class Local(backend.Backend):
         logger.info('Registering processes for backend "local"')
 
         for name, proc in process.REGISTRY.iteritems():
-            self.add_process(name, name.title())
+            self.add_process(name, name.title(), proc.abstract)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         target_process = process.get_process(identifier)

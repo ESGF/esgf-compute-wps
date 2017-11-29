@@ -42,11 +42,14 @@
             <div class="panel-body">
               <ul class="list-group">
                 <li 
+                  (click)="showAbstract(x)"
                   *ngFor="let x of processes" 
                   class="list-group-item" 
+                  data-toggle="modal"
+                  data-target="#abstractModal"
                   dnd-draggable
                   [dragEnabled]="true" 
-                  [dragData]="x">{{x}}</li>
+                  [dragData]="x.identifier">{{x.identifier}}</li>
               </ul>
             </div>
           </div>

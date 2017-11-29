@@ -16,6 +16,7 @@ import { NotificationService } from '../core/notification.service';
 import * as d3 from 'd3';
 
 declare var jQuery: any;
+declare var $: any;
 
 class WorkflowModel { 
   domain: string;
@@ -136,7 +137,7 @@ enum EditorState {
   templateUrl: './workflow.component.html'
 })
 export class WorkflowComponent implements OnInit {
-  @Input() processes: string[];
+  @Input() processes: any[];
   @Input() datasets: string[];
   @Input() config: Configuration;
 
@@ -239,6 +240,35 @@ export class WorkflowComponent implements OnInit {
 
     this.svgNodes = graph.append('g')
       .classed('nodes', true);
+  }
+
+  showAbstract(process: any) {
+    // Really ugly way to parse XML
+    // TODO replace with better parsing
+    let parser = new DOMParser();
+
+    let xmlDoc = parser.parseFromString(process.description, 'text/xml');
+
+    let description = xmlDoc.children[0].children[0];
+
+    let abstractText = '';
+    let titleText = '';
+
+    Array.from(description.children).forEach((item: any) => {
+      if (item.localName === 'Identifier') {
+        titleText = item.innerHTML;
+      } else if (item.localName === 'Abstract') {
+        abstractText = item.innerHTML;
+      }
+    });
+
+    let modal = $('#abstractModal');
+
+    modal.find('.modal-title').html(`"${titleText}" Abstract`);
+
+    if (abstractText === '') { abstractText = 'No abstract available'; }
+
+    modal.find('#abstract').html(abstractText);
   }
 
   onScript() {

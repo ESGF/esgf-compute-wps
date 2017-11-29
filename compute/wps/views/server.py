@@ -26,7 +26,7 @@ def processes(request):
     try:
         common.authentication_required(request)
 
-        data = [x.identifier for x in models.Process.objects.all() if x.enabled]
+        data = [dict(identifier=x.identifier, description=x.description) for x in models.Process.objects.all() if x.enabled]
     except Exception as e:
         logger.exception('Error retrieving processes')
 

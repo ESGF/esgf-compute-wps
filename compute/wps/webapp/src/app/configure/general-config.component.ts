@@ -4,12 +4,14 @@ import { Axis } from './axis.component';
 import { LAT_NAMES, LNG_NAMES, Configuration, Dataset, Variable, DatasetCollection, VariableCollection, ConfigureService } from './configure.service';
 import { NotificationService } from '../core/notification.service';
 
+declare var $: any;
+
 @Component({
   selector: 'general-config',
   template: `
   <div>
     <div class="form-group">
-      <label for="process">Dataset</label>
+      <label for="datasetID">Dataset</label>
       <select [(ngModel)]="config.dataset" (change)="loadDataset()" class="form-control" id="datasetID" name="datasetID">
         <option *ngFor="let d of datasets" [ngValue]="d">{{d.id}}</option>
       </select>
@@ -22,9 +24,14 @@ import { NotificationService } from '../core/notification.service';
     </div>
     <div class="form-group">
       <label for="process">Process</label>
-      <select [(ngModel)]="config.process.identifier" class="form-control" id="process" name="process">
-        <option *ngFor="let proc of processes">{{proc}}</option>
-      </select>
+      <div class="input-group">
+        <select [(ngModel)]="config.process.identifier" class="form-control" id="process" name="process">
+          <option *ngFor="let proc of processes">{{proc.identifier}}</option>
+        </select>
+        <span class="input-group-btn">
+          <button (click)="showAbstract()" type="button" class="btn btn-default" data-toggle="modal" data-target="#abstractModal">Abstract</button>
+        </span>
+      </div>
     </div>
     <div>
       <button (click)="onDownload()" type="submit" class="btn btn-default">Script</button>
@@ -35,7 +42,7 @@ import { NotificationService } from '../core/notification.service';
 })
 export class GeneralConfigComponent implements OnInit { 
   @Input() config: Configuration;
-  @Input() processes: string[];
+  @Input() processes: any[];
   @Input() datasetIDs: string[];
 
   variables: Variable[];
@@ -57,6 +64,41 @@ export class GeneralConfigComponent implements OnInit {
       this.config.dataset = this.datasets[0];
 
       this.loadDataset();
+    }
+  }
+
+  showAbstract() {
+    let proc = this.processes.filter((item: any) => {
+      return this.config.process.identifier === item.identifier;
+    });
+
+    if (proc.length > 0) {
+      // Really ugly way to parse XML
+      // TODO replace with better parsing
+      let parser = new DOMParser();
+
+      let xmlDoc = parser.parseFromString(proc[0].description, 'text/xml');
+
+      let description = xmlDoc.children[0].children[0];
+
+      let abstractText = '';
+      let titleText = '';
+
+      Array.from(description.children).forEach((item: any) => {
+        if (item.localName === 'Identifier') {
+          titleText = item.innerHTML;
+        } else if (item.localName === 'Abstract') {
+          abstractText = item.innerHTML;
+        }
+      });
+
+      let modal = $('#abstractModal');
+
+      modal.find('.modal-title').html(`"${titleText}" Abstract`);
+
+      if (abstractText === '') { abstractText = 'No abstract available'; }
+
+      modal.find('#abstract').html(abstractText);
     }
   }
   

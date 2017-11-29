@@ -85,7 +85,7 @@ def get_process(name):
     except KeyError:
         raise Exception('Process {} does not exist'.format(name))
 
-def register_process(name):
+def register_process(name, abstract=''):
     """ Process decorator.
 
     Registers a process with the global dictionary.
@@ -99,6 +99,8 @@ def register_process(name):
     """
     def wrapper(func):
         REGISTRY[name] = func
+
+        func.abstract = abstract
 
         return func
 

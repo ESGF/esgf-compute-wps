@@ -53,7 +53,7 @@ export class ConfigureComponent implements OnInit {
 
   config: Configuration;
   datasetIDs: string[];
-  processes: string[];
+  processes: any[];
 
   constructor(
     private route: ActivatedRoute,
@@ -86,9 +86,14 @@ export class ConfigureComponent implements OnInit {
 
     this.configService.processes()
       .then(data => {
-        this.processes = data.sort();
+        this.processes = data.sort((a: any, b: any) => {
+          if (a.identifier < b.identifier) { return -1; }
+          if (a.identifier > b.identifier) { return 1; }
 
-        this.config.process.identifier = this.processes[0];
+          return 0; 
+        });
+
+        this.config.process.identifier = this.processes[0].identifier;
       })
       .catch(error => {
         this.notificationService.error(error); 
