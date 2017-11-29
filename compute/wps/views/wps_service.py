@@ -351,8 +351,6 @@ def generate(request):
             'text': script.generate()
         }
 
-        logger.info(data)
-
         #response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
 
         #response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
