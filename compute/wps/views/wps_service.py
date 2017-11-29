@@ -220,9 +220,7 @@ def handle_get(params):
         # angular2 encodes ; breaking django query_string parsing so the 
         # webapp replaces ; with | and the change is reverted before parsing
         # the datainputs
-        data_inputs = data_inputs.replace('|variable', ';variable')
-
-        data_inputs = data_inputs.replace('|operation', ';operation')
+        data_inputs = re.sub('\|(operation|domain|variable)=', ';\\1=', data_inputs)
 
     return api_key, operation, identifier, data_inputs
 
@@ -253,8 +251,6 @@ def handle_post(data, params):
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
     if request.method == 'GET':
-        for k, v in request.GET.iteritems():
-            logger.info('{}={}'.format(k, v))
         return handle_get(request.GET)
     elif request.method == 'POST':
         return handle_post(request.body, request.GET)
