@@ -2,8 +2,9 @@
 
 import re
 
+import cdms2
 import cwt
-import dask
+import dask.array as da
 from celery.utils.log import get_task_logger
 
 from wps.tasks import process
@@ -31,7 +32,7 @@ def sort_inputs_by_time(variables):
 
     return [input_dict[x] for x in sorted_keys]
 
-@process.register_process('CDAT.subset', 'Subset a variable by provided domain. Supports regridding')
+@process.register_process('CDAT.subset', 'Subset a variable by provided domain. Supports regridding.')
 @process.cwt_shared_task()
 def subset(self, variables, operations, domains, **kwargs):
     self.PUBLISH = process.ALL
@@ -62,7 +63,7 @@ def subset(self, variables, operations, domains, **kwargs):
 
     return output_var.parameterize()
 
-@process.register_process('CDAT.aggregate', 'Aggregate a variable over multiple files. Supports subsetting and regridding')
+@process.register_process('CDAT.aggregate', 'Aggregate a variable over multiple files. Supports subsetting and regridding.')
 @process.cwt_shared_task()
 def aggregate(self, variables, operations, domains, **kwargs):
     self.PUBLISH = process.ALL
@@ -93,6 +94,7 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     return output_var.parameterize()
 
+@process.register_process('CDAT.average', 'Averages over axes, requires a parameter "axes" set to the axes to average over.')
 @process.cwt_shared_task()
 def avg(self, variables, operations, domains, **kwargs):
     self.PUBLISH = process.ALL
@@ -101,15 +103,38 @@ def avg(self, variables, operations, domains, **kwargs):
 
     v, d, o = self.load(variables, domains, operations)
 
-    op = self.op_by_id('CDAT.avg', o)
+    op = self.op_by_id('CDAT.average', o)
 
-    out_local_path = self.generate_local_output()
+    inputs = sort_inputs_by_time(op.inputs)
 
-    out_path = self.generate_output(out_local_path, **kwargs)
+    output_path = self.generate_output_path()
 
-    out_var = cwt.Variable(out_path, var_name)
+    with cdms2.open(inputs[0].uri) as infile, cdms2.open(output_path, 'w') as outfile:
+        var_name = inputs[0].var_name
 
-    return out_var.parameterize()
+        chunks = list(infile[var_name].shape)
+
+        logger.info(chunks)
+
+        chunks[0] = 20
+
+        def test(x):
+            logger.info(x.shape)
+            return x
+
+        data = da.from_array(infile[var_name], chunks=tuple(chunks))
+
+        result = data.map_blocks(test).mean(0).compute()
+
+        outfile.write(result, id=inputs[0].var_name)
+
+        logger.info(result.shape)
+
+    output_url = self.generate_output_url(output_path, **kwargs)
+
+    output_var = cwt.Variable(output_url, inputs[0].var_name)
+
+    return output_var.parameterize()
 
 @process.cwt_shared_task()
 def cache_variable(self, identifier, variables, domains, operations, **kwargs):
