@@ -94,9 +94,9 @@ def aggregate(self, variables, operations, domains, **kwargs):
 
     return output_var.parameterize()
 
-@process.register_process('CDAT.average', 'Averages over axes, requires a parameter "axes" set to the axes to average over.')
+#@process.register_process('CDAT.average', 'Averages over axes, requires a parameter "axes" set to the axes to average over.')
 @process.cwt_shared_task()
-def avg(self, variables, operations, domains, **kwargs):
+def average(self, variables, operations, domains, **kwargs):
     self.PUBLISH = process.ALL
 
     job, status = self.initialize(credentials=True, **kwargs)
@@ -109,30 +109,26 @@ def avg(self, variables, operations, domains, **kwargs):
 
     output_path = self.generate_output_path()
 
-    with cdms2.open(inputs[0].uri) as infile, cdms2.open(output_path, 'w') as outfile:
-        var_name = inputs[0].var_name
+    axes = op.get_parameter('axes')
 
-        chunks = list(infile[var_name].shape)
+    if axes is None:
+        axes = ['t']
+    else:
+        axes = axes.values
 
-        logger.info(chunks)
+    # For the moment if given multiple files we'll just processes the first
+    if len(inputs) > 1:
+        inputs = inputs[0]
 
-        chunks[0] = 20
+    input_file = cdms2.open(inputs.uri)
 
-        def test(x):
-            logger.info(x.shape)
-            return x
+    input_dict = {input_file.id: inputs.var_name}
 
-        data = da.from_array(infile[var_name], chunks=tuple(chunks))
-
-        result = data.map_blocks(test).mean(0).compute()
-
-        outfile.write(result, id=inputs[0].var_name)
-
-        logger.info(result.shape)
+    logger.info(input_dict)
 
     output_url = self.generate_output_url(output_path, **kwargs)
 
-    output_var = cwt.Variable(output_url, inputs[0].var_name)
+    output_var = cwt.Variable(output_url, inputs.var_name)
 
     return output_var.parameterize()
 
