@@ -102,6 +102,8 @@ class OphidiaWorkflow(object):
 def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     self.PUBLISH = process.ALL
 
+    user, job = self.initialize(credentials=False, **kwargs)
+
     variables.update(parent_variables)
 
     v, d, o = self.load(variables, domains, operation)
@@ -112,8 +114,12 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
 
     workflow.check_error()
 
+    self.status(job, 'Connected to Ophidia backend, building workflow')
+
     container_task = OphidiaTask('create container', 'oph_createcontainer', on_error='skip')
     container_task.add_arguments(container='work')
+
+    self.status(job, 'Add container task')
 
     # only take the first input
     inp = v.get(o.inputs[0])
@@ -121,6 +127,8 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     import_task = OphidiaTask('import data', 'oph_importnc')
     import_task.add_arguments(container='work', measure=inp.var_name, src_path=inp.uri)
     import_task.add_dependencies(container_task)
+
+    self.status(job, 'Added import task')
 
     try:
         operator = PROCESSES[o.identifier]
@@ -133,10 +141,14 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
         reduce_task = OphidiaTask('reduce data', 'oph_reduce')
         reduce_task.add_arguments(operation=operator)
         reduce_task.add_dependencies(import_task)
+
+        self.status(job, 'Added reduction task over implicit axis')
     else:
         reduce_task = OphidiaTask('reduce data', 'oph_reduce2')
         reduce_task.add_arguments(operation=operator, dim=axes.values[0])
         reduce_task.add_dependencies(import_task)
+
+        self.status(job, 'Added reduction task over axes "{}"'.format(axes.values))
 
     output_path = '/wps/output'
     output_name = '{}'.format(uuid.uuid4())
@@ -145,11 +157,19 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     export_task.add_arguments(output_path=output_path, output_name=output_name)
     export_task.add_dependencies(reduce_task)
 
+    self.status(job, 'Added export task')
+
     workflow.add_tasks(container_task, import_task, reduce_task, export_task)
+
+    self.status(job, 'Added tasks to workflow')
 
     workflow.submit()
 
+    self.status(job, 'Submitted workflow to Ophidia backend')
+
     workflow.check_error()
+
+    self.status(job, 'No errors reported by Ophidia')
 
     output_url = settings.OPH_OUTPUT_URL.format(output_path=output_path, output_name=output_name)
 
