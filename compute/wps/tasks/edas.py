@@ -33,10 +33,10 @@ def initialize_socket(context, socket_type, host, port):
 
     return sock
 
-def listen_edas_output(poller, job):
+def listen_edas_output(self, poller, job):
     edas_output_path = None
 
-    job.update_status('Listening for EDAS status')
+    self.status(job, 'Listing for EDAS status')
 
     while True:
         events = dict(poller.poll(settings.EDAS_TIMEOUT * 1000))
@@ -57,9 +57,9 @@ def listen_edas_output(poller, job):
 
             break
         elif 'response' in parts:
-            job.update_status('EDAS heartbeat')
+            self.status(job, 'EDAS heartbeat')
         
-    job.update_status('Received success from EDAS backend')
+    self.status(job, 'Received success from EDAS backend')
 
     return edas_output_path
 
@@ -73,6 +73,8 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
 
     edas_output_path = None
 
+    user, job = self.initialize(credentials=False, **kwargs)
+
     variables.update(parent_variables)
 
     v, d, o = self.load(variables, domains, operation)
@@ -83,7 +85,7 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
 
     data_inputs = cwt.WPS('').prepare_data_inputs(o, {}, domain)
 
-    user, job = self.initialize(credentials=False, **kwargs)
+    logger.info('Generated datainputs: {}'.format(data_inputs))
 
     context = zmq.Context.instance()
 
@@ -98,20 +100,22 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
 
         poller.register(sub_sock)
 
+        self.status(job, 'Connected to EDAS backend')
+
         extra = '{"response":"file"}'
 
         req_sock.send(str('{}!execute!{}!{}!{}'.format(job.id, o.identifier, data_inputs, extra)))
-
-        job.update_status('Sent requested to EDAS backend')
 
         if (req_sock.poll(settings.EDAS_TIMEOUT * 1000) == 0):
             raise Exception('EDAS timed out waiting for initial response')
 
         data = req_sock.recv()
 
+        self.status(job, 'Sent request to EDAS backend')
+
         check_exceptions(data)
 
-        edas_output_path = listen_edas_output(poller, job)
+        edas_output_path = listen_edas_output(self, poller, job)
 
         if edas_output_path is None:
             raise Exception('Failed to receive output from EDAS')
@@ -125,10 +129,14 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
             poller.unregister(sub_sock)
 
             sub_sock.close()
+
+    self.status(job, 'Received result from EDAS backend')
             
     output_path = self.generate_output_path()
 
     shutil.move(edas_output_path, output_path)
+
+    self.status(job, 'Localizing output to THREDDS server')
 
     output_url = self.generate_output_url(output_path)
 
@@ -139,6 +147,8 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
             var_name = infile.variables.keys()[0]
     except:
         raise Exception('Error with accessing EDAS output file')
+
+    self.status(job, 'Variable name from EDAS result "{}"'.format(var_name))
 
     output_var = cwt.Variable(output_url, var_name, name=o.name)
 
