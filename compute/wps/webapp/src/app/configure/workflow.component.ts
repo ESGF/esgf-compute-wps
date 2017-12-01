@@ -133,6 +133,11 @@ enum EditorState {
     stroke-width: 3px;
     marker-end: url(#drag-end-arrow);
   }
+
+  .scrollable {
+    max-height: 50vh;
+    overflow-y: scroll;
+  }
   `],
   templateUrl: './workflow.component.html'
 })
