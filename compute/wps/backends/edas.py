@@ -63,16 +63,30 @@ class EDAS(backend.Backend):
             self.add_process(identifier, title, abstract)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
+        if len(operations) == 0:
+            raise Exception('Must provide atleast one operation')
+
         logger.info('Executing process "{}"'.format(identifier))
 
         params = {
-            'cwd': '/tmp',
             'user_id': kwargs.get('user').id,
             'job_id': kwargs.get('job').id
         }
 
-        chain = tasks.cache_variable.si(identifier, variables, domains, operations, **params)
+        operation = operations.values()[0]
 
-        chain = chain | tasks.edas_submit.s(identifier, **params)
+        domain = operation.domain
 
-        chain.delay()
+        variable_dict = dict((x, variables[x].parameterize()) for x in operation.inputs)
+
+        domain_dict = dict(domain = domains[operation.domain].parameterize())
+
+        cache_op = operation.parameterize()
+
+        cache_task = tasks.cache_variable.si({}, variable_dict, domain_dict, cache_op, **params)
+
+        operation.inputs = [operation.name]
+
+        edas_task = tasks.edas_submit.s({}, domain_dict, operation.parameterize(), **params)
+
+        (cache_task | edas_task).delay()

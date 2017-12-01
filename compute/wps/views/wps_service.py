@@ -166,9 +166,28 @@ def wps_execute(user, identifier, data_inputs):
 
     process.track(user)
 
-    operations, domains, variables = cwt.WPS.parse_data_inputs(data_inputs)
+    base = tasks.CWTBaseTask()
 
-    for variable in variables:
+    operations, domains, variables = base.load_data_inputs(data_inputs)
+
+    root_node = None
+    is_workflow = False
+
+    # flatten out list of inputs from operations
+    op_inputs = [i for op in operations.values() for i in op.inputs]
+
+    # find the root operation, this node will not be an input to any other operation
+    for op in operations.values():
+        if op.name not in op_inputs:
+            if root_node is not None:
+                raise Exception('Multiple dangling operations')
+
+            root_node = op
+
+    # considered a workflow if any of the root operations inputs are another operation
+    is_workflow = any(i in operations.keys() for i in root_node.inputs)
+
+    for variable in variables.values():
         models.File.track(user, variable)
 
     server = models.Server.objects.get(host='default')
@@ -179,6 +198,12 @@ def wps_execute(user, identifier, data_inputs):
 
     logger.info('Accepted job {}'.format(job.id))
 
+    #operations = dict((x, y.parameterize()) for x, y in operations.iteritems())
+
+    #domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
+
+    #variables = dict((x, y.parameterize()) for x, y in variables.iteritems())
+
     process_backend = backends.Backend.get_backend(process.backend)
 
     if process_backend is None:
@@ -186,13 +211,12 @@ def wps_execute(user, identifier, data_inputs):
 
         raise Exception('Process backend "{}" does not exist'.format(process.backend))
 
-    operation_dict = dict((x.name, x.parameterize()) for x in operations)
+    if is_workflow:
+        process_backend = backends.Backend.get_backend('Local')
 
-    domain_dict = dict((x.name, x.parameterize()) for x in domains)
-
-    variable_dict = dict((x.name, x.parameterize()) for x in variables)
-
-    process_backend.execute(identifier, variable_dict, domain_dict, operation_dict, user=user, job=job)
+        process_backend.workflow(root_node, variables, domains, operations, user=user, job=job)
+    else:
+        process_backend.execute(identifier, variables, domains, operations, user=user, job=job)
 
     return job.report
 
@@ -346,10 +370,6 @@ def generate(request):
             'filename': '{}.py'.format(kernel),
             'text': script.generate()
         }
-
-        #response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
-
-        #response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
     except Exception as e:
         logger.exception('Error generating script using CWT End-user API')
 

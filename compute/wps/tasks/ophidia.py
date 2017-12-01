@@ -99,12 +99,12 @@ class OphidiaWorkflow(object):
         return json.dumps(self.workflow, default=default, indent=4)
 
 @process.cwt_shared_task()
-def oph_submit(self, data_inputs, identifier, **kwargs):
+def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     self.PUBLISH = process.ALL
 
-    v, d, o = self.load_data_inputs(data_inputs)
+    variables.update(parent_variables)
 
-    op = self.op_by_id(identifier, o)
+    v, d, o = self.load(variables, domains, operation)
 
     oph_client = client.Client(settings.OPH_USER, settings.OPH_PASSWORD, settings.OPH_HOST, settings.OPH_PORT)
 
@@ -115,16 +115,19 @@ def oph_submit(self, data_inputs, identifier, **kwargs):
     container_task = OphidiaTask('create container', 'oph_createcontainer', on_error='skip')
     container_task.add_arguments(container='work')
 
+    # only take the first input
+    inp = v.get(o.inputs[0])
+
     import_task = OphidiaTask('import data', 'oph_importnc')
-    import_task.add_arguments(container='work', measure=op.inputs[0].var_name, src_path=op.inputs[0].uri)
+    import_task.add_arguments(container='work', measure=inp.var_name, src_path=inp.uri)
     import_task.add_dependencies(container_task)
 
     try:
-        operator = PROCESSES[identifier]
+        operator = PROCESSES[o.identifier]
     except KeyError:
-        raise Exception('Process "{}" does not exist for Ophidia backend'.format(identifier))
+        raise Exception('Process "{}" does not exist for Ophidia backend'.format(o.identifier))
 
-    axes = op.get_parameter('axes')
+    axes = o.get_parameter('axes')
 
     if axes is None:
         reduce_task = OphidiaTask('reduce data', 'oph_reduce')
@@ -150,6 +153,6 @@ def oph_submit(self, data_inputs, identifier, **kwargs):
 
     output_url = settings.OPH_OUTPUT_URL.format(output_path=output_path, output_name=output_name)
 
-    variable = cwt.Variable(output_url, op.inputs[0].var_name)
+    output_var  = cwt.Variable(output_url, inp.var_name)
 
-    return variable.parameterize()
+    return {output_var.name: output_var.parameterize()}

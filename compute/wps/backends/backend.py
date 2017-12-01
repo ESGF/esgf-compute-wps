@@ -55,3 +55,6 @@ class Backend(object):
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         raise NotImplementedError('Must implement execute')
+
+    def workflow(self, root_op, variables, domains, operations, **kwargs):
+        raise NotImplementedError('Workflow not implemented')

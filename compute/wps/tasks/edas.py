@@ -64,7 +64,7 @@ def listen_edas_output(poller, job):
     return edas_output_path
 
 @process.cwt_shared_task()
-def edas_submit(self, data_inputs, identifier, **kwargs):
+def edas_submit(self, parent_variables, variables, domains, operation, **kwargs):
     self.PUBLISH = process.ALL
 
     req_sock = None
@@ -73,7 +73,17 @@ def edas_submit(self, data_inputs, identifier, **kwargs):
 
     edas_output_path = None
 
-    user, job = self.initialize(kwargs.get('user_id'), kwargs.get('job_id'), credentials=False)
+    variables.update(parent_variables)
+
+    v, d, o = self.load(variables, domains, operation)
+
+    domain = d.get(o.domain, None)
+
+    o.inputs = v.values()
+
+    data_inputs = cwt.WPS('').prepare_data_inputs(o, {}, domain)
+
+    user, job = self.initialize(credentials=False, **kwargs)
 
     context = zmq.Context.instance()
 
@@ -90,7 +100,7 @@ def edas_submit(self, data_inputs, identifier, **kwargs):
 
         extra = '{"response":"file"}'
 
-        req_sock.send(str('{}!execute!{}!{}!{}'.format(job.id, identifier, data_inputs, extra)))
+        req_sock.send(str('{}!execute!{}!{}!{}'.format(job.id, o.identifier, data_inputs, extra)))
 
         job.update_status('Sent requested to EDAS backend')
 

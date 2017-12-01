@@ -154,6 +154,9 @@ class CWTBaseTask(celery.Task):
 
         return user, job
 
+    def status(self, job, message, percent=0):
+        job.update_status('[{}] {}'.format(self.request.id, message), percent)        
+
     def get_job(self, kwargs):
         job_id = kwargs.get('job_id')
 
@@ -305,7 +308,7 @@ class CWTBaseTask(celery.Task):
 
             logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
 
-    def load_data_inputs(self, data_inputs):
+    def load_data_inputs(self, data_inputs, resolve_inputs=False):
         o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
 
         v = dict((x.name, x) for x in v)
@@ -317,18 +320,19 @@ class CWTBaseTask(celery.Task):
 
         o = dict((x.name, x) for x in o)
 
-        for op in o.values():
-            op.resolve_inputs(v, o)
+        if resolve_inputs:
+            for op in o.values():
+                op.resolve_inputs(v, o)
 
-            if op.domain is not None:
-                if op.domain not in d:
-                    raise Exception('Domain "{}" was never defined'.format(op.domain))
+                if op.domain is not None:
+                    if op.domain not in d:
+                        raise Exception('Domain "{}" was never defined'.format(op.domain))
 
-                op.domain = d[op.domain]
+                    op.domain = d[op.domain]
 
-        return v, d, o
+        return o, d, v
 
-    def load(self, variables, domains, operations):
+    def load(self, variables, domains, operation):
         """ Load a processes inputs.
 
         Loads each value into their associated container class.
@@ -346,19 +350,7 @@ class CWTBaseTask(celery.Task):
 
         d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
 
-        for var in v.values():
-            var.resolve_domains(d)
-
-        o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
-
-        for op in o.values():
-            op.resolve_inputs(v, o)
-
-            if op.domain is not None:
-                if op.domain not in d:
-                    raise Exception('Domain "{}" was never defined'.format(op.domain))
-
-                op.domain = d[op.domain]
+        o = cwt.Process.from_dict(operation)
 
         return v, d, o
 
@@ -429,7 +421,7 @@ class CWTBaseTask(celery.Task):
         """
         caches = {}
 
-        job.update_status('Checking for cached inputs')
+        self.status(job, 'Checking for cached inputs')
 
         for url in domain_map.keys():
             var_name = var_map[url]
@@ -504,7 +496,7 @@ class CWTBaseTask(celery.Task):
 
             percent = (i+1)*100/steps
 
-            job.update_status('Retrieved chunk {} to {} from {}'.format(time_slice.start, time_slice.stop, base_units), percent)
+            self.status(job, 'Retrieved chunk {} to {} from {}'.format(time_slice.start, time_slice.stop, base_units), percent)
 
     def retrieve_variable(self, variables, domain, job, output_path=None, post_process=None, **kwargs):
         """ Retrieve a variable.
@@ -521,7 +513,7 @@ class CWTBaseTask(celery.Task):
             output_path: A string path that the data will be written.
             post_process: A function handle to call after each chunk is read.
         """
-        files = {}
+        files = collections.OrderedDict()
         file_var_map = {}
 
         # Open the input files
@@ -538,7 +530,7 @@ class CWTBaseTask(celery.Task):
 
             raise AccessError()
 
-        job.update_status('Mapping domain to input files')
+        self.status(job, 'Mapping domain to input files')
 
         # Map the domain
         domain_map = self.map_domain(files.values(), file_var_map, domain)
@@ -559,12 +551,12 @@ class CWTBaseTask(celery.Task):
 
         output_path = self.generate_output_path()
 
-        job.update_status('Retrieving files')
+        self.status(job, 'Retrieving files')
 
         # Download chunked files
         with cdms2.open(output_path, 'w') as out_file:
             for url in domain_map.keys():
-                job.update_status('Processing input "{}"'.format(url))
+                self.status(job, 'Processing input "{}"'.format(url))
 
                 cache_file = None
 
@@ -582,7 +574,7 @@ class CWTBaseTask(celery.Task):
 
                 files[url].close()
 
-                job.update_status('Finished retrieving "{}"'.format(url))
+                self.status(job, 'Finished retrieving "{}"'.format(url))
 
                 if cache_file is not None:
                     cache_file.close()
@@ -978,7 +970,8 @@ class CWTBaseTask(celery.Task):
         except Exception:
             logger.exception('Failed to retrieve job')
         else:
-            job.succeeded(json.dumps(retval))
+            job.succeeded(json.dumps(retval.values()[0]))
+            #job.succeeded(json.dumps(retval))
 
 # Define after CWTBaseTask is declared
 cwt_shared_task = partial(shared_task,
@@ -990,42 +983,49 @@ cwt_shared_task = partial(shared_task,
 if global_settings.DEBUG:
     @register_process('dev.echo')
     @cwt_shared_task()
-    def dev_echo(self, variables, operations, domains, **kwargs):
+    def dev_echo(self, parent_variables, variables, domains, operation, **kwargs):
         self.PUBLISH = ALL
 
         user, job = self.initialize(credentials=False, **kwargs)
 
         job.started()
 
-        v, d, o = self.load(variables, domains, operations)
+        v, d, o = self.load(variables, domains, operation)
 
-        job.update_status('Operations {}'.format(operations))
+        self.status(job, parent_variables)
 
-        job.update_status('Domains {}'.format(domains))
+        self.status(job, variables)
 
-        job.update_status('Variables {}'.format(variables))
+        self.status(job, domains)
 
-        return cwt.Variable('variables={};domains={};operations={};'.format(variables, domains, operations), 'tas').parameterize()
+        self.status(job, operation)
+
+        output_var = cwt.Variable('variables={};domains={};operations={};'.format(variables, domains, operation), 'tas')
+
+        return {o.name: output_var.parameterize()}
+
+    @cwt_shared_task()
+    def dev_test(self, result, index, item1, item2):
+        print '{} hello {}'.format(index, result)
+        return index
 
     @register_process('dev.sleep')
     @cwt_shared_task()
-    def dev_sleep(self, variables, operations, domains, **kwargs):
+    def dev_sleep(self, parent_variables, variables, domains, operation, **kwargs):
         self.PUBLISH = ALL
 
         user, job = self.initialize(credentials=False, **kwargs)
 
         job.started()
 
-        v, d, o = self.load(variables, domains, operations)
+        v, d, o = self.load(variables, domains, operation)
 
-        op = self.op_by_id('dev.sleep', o)
-
-        count = op.get_parameter('count')
+        count = o.get_parameter('count')
 
         if count is None:
             count = 6
 
-        timeout = op.get_parameter('timeout')
+        timeout = o.get_parameter('timeout')
 
         if timeout is None:
             timeout = 10
@@ -1035,11 +1035,13 @@ if global_settings.DEBUG:
 
             time.sleep(timeout)
 
-        return cwt.Variable('Slept {} times for {} seconds, total time {} seconds'.format(count, timeout, count*timeout), 'tas').parameterize()
+        output_var = cwt.Variable('Slept {} times for {} seconds, total time {} seconds'.format(count, timeout, count*timeout), 'tas')
+
+        return {o.name: output_var.parameterize()}
 
     @register_process('dev.retry')
     @cwt_shared_task()
-    def dev_retry(self, variables, operations, domains, **kwargs):
+    def dev_retry(self, parent_variables, variables, domains, operation, **kwargs):
         self.PUBLISH = ALL
 
         global counter
@@ -1049,7 +1051,7 @@ if global_settings.DEBUG:
         job.started()
 
         for i in xrange(3):
-            job.update_status('{}'.format(i*100/3), i*100/3)
+            self.status(job, '{}'.format(i*100/3), i*100/3)
 
             time.sleep(2)
 
@@ -1062,11 +1064,13 @@ if global_settings.DEBUG:
             else:
                 raise AccessError('Something went wrong')
 
-        return cwt.Variable('I recovered from a retry', 'tas').parameterize()
+        output_var = cwt.Variable('I recovered from a retry', 'tas').parameterize()
+
+        return {o.name: output_var.parameterize()}
 
     @register_process('dev.failure')
     @cwt_shared_task()
-    def dev_failure(self, variables, operations, domains, **kwargs):
+    def dev_failure(self, parent_variables, variables, domains, operation, **kwargs):
         self.PUBLISH = ALL
 
         user, job = self.initialize(credentials=False, **kwargs)
@@ -1076,7 +1080,7 @@ if global_settings.DEBUG:
         for i in xrange(3):
             percent = i*100/3
 
-            job.update_status('Percent {}'.format(percent), percent)
+            self.status(job, 'Percent {}'.format(percent), percent)
 
             time.sleep(2)         
 
