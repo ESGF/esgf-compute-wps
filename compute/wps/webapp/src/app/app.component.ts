@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs/Subscription';
 import 'rxjs/add/operator/filter';
 
 import { AuthService } from './core/auth.service';
+import { ConfigService } from './core/config.service';
 import { NotificationType, NotificationService } from './core/notification.service';
 import { User } from './user/user.service';
 import { WPSService, WPSResponse } from './core/wps.service';
@@ -38,6 +39,7 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(
     private router: Router,
     private authService: AuthService,
+    private configService: ConfigService,
     private notificationService: NotificationService,
     private wpsService: WPSService
   ) { }

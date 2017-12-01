@@ -4,6 +4,7 @@ import { HttpModule } from '@angular/http';
 import { DndModule } from 'ng2-dnd';
 
 import { AuthService } from './auth.service';
+import { ConfigService } from './config.service';
 import { NotificationService } from './notification.service';
 import { WPSService } from './wps.service';
 
@@ -17,6 +18,7 @@ import { WPSService } from './wps.service';
   exports: [],
   providers: [
     AuthService,
+    ConfigService,
     NotificationService,
     WPSService
   ]
