@@ -535,6 +535,9 @@ class CWTBaseTask(celery.Task):
         # Map the domain
         domain_map = self.map_domain(files.values(), file_var_map, domain)
 
+        if len(domain_map) == 0:
+            raise Exception('Failed to map domain to input files, please check your domain definition')
+
         logger.debug('Mapped domain {}'.format(domain_map))
 
         cache_map = self.generate_cache_map(files, file_var_map, domain_map, job)
