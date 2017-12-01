@@ -577,7 +577,7 @@ class CWTBaseTask(celery.Task):
 
                 files[url].close()
 
-                self.status(job, 'Finished retrieving "{}"'.format(url))
+                self.status(job, 'Finished retrieving "{}"'.format(url), 100)
 
                 if cache_file is not None:
                     cache_file.close()
