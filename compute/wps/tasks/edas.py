@@ -140,6 +140,6 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
     except:
         raise Exception('Error with accessing EDAS output file')
 
-    output_var = cwt.Variable(output_url, var_name)
+    output_var = cwt.Variable(output_url, var_name, name=o.name)
 
-    return output_var.parameterize()
+    return {o.name, output_var.parameterize()}

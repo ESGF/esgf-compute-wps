@@ -153,6 +153,6 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
 
     output_url = settings.OPH_OUTPUT_URL.format(output_path=output_path, output_name=output_name)
 
-    output_var  = cwt.Variable(output_url, inp.var_name)
+    output_var  = cwt.Variable(output_url, inp.var_name, name=o.name)
 
-    return {output_var.name: output_var.parameterize()}
+    return {o.name: output_var.parameterize()}

@@ -46,7 +46,7 @@ def subset(self, parent_variables, variables, domains, operation, **kwargs):
 
     v, d, o = self.load(variables, domains, operation)
 
-    inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])
+    inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])[0]
 
     grid, tool, method = self.generate_grid(o, v, d)
 
@@ -58,11 +58,11 @@ def subset(self, parent_variables, variables, domains, operation, **kwargs):
 
     o.domain = d.get(o.domain, None)
 
-    output_path = self.retrieve_variable([inputs[0]], o.domain, job, post_process=post_process)
+    output_path = self.retrieve_variable([inputs], o.domain, job, post_process=post_process)
 
     output_url = self.generate_output_url(output_path, **kwargs)
 
-    output_var = cwt.Variable(output_url, inputs[0].var_name)
+    output_var = cwt.Variable(output_url, inputs.var_name, name=o.name)
 
     return {o.name: output_var.parameterize()}
 
@@ -95,7 +95,7 @@ def aggregate(self, parent_variables, variables, domains, operation, **kwargs):
 
     output_url = self.generate_output_url(output_path, **kwargs)
 
-    output_var = cwt.Variable(output_url, inputs[0].var_name)
+    output_var = cwt.Variable(output_url, inputs[0].var_name, o.name)
 
     return {o.name: output_var.parameterize()}
 
