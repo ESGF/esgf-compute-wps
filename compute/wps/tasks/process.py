@@ -624,7 +624,7 @@ class CWTBaseTask(celery.Task):
         partitions = {}
 
         if axes is None:
-            axes = ['time']
+            axes = ['lat']
 
         for url in domain_map.keys():
             logger.debug('Partitioning input "{}"'.format(url))
@@ -899,7 +899,7 @@ class CWTBaseTask(celery.Task):
 
                             dim.end -= (temporal.stop-temporal.start)+temporal.start
                     else:
-                        spatial[axis.id] = (dim.start, dim.end)
+                        spatial[axis.id] = axis.mapInterval((dim.start, dim.end))
 
             if not skip:
                 domains[file_obj.id] = (temporal, spatial)

@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import os
 import re
 
 import cdms2
@@ -44,7 +45,10 @@ def subset(self, parent_variables, variables, domains, operation, **kwargs):
 
     v, d, o = self.load(parent_variables, variables, domains, operation)
 
-    inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])[0]
+    if len(o.inputs) > 1:
+        inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])[0]
+    else:
+        inputs = v[o.inputs[0]]
 
     grid, tool, method = self.generate_grid(o, v, d)
 
@@ -109,7 +113,10 @@ def average(self, parent_variables, variables, domains, operation, **kwargs):
 
     v, d, o = self.load(parent_variables, variables, domains, operation)
 
-    inputs = sort_inputs_by_time([v[x] for x in o.inputs])
+    if len(o.inputs) > 1:
+        inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])[0]
+    else:
+        inputs = v[o.inputs[0]]
 
     output_path = self.generate_output_path()
 
@@ -119,10 +126,6 @@ def average(self, parent_variables, variables, domains, operation, **kwargs):
         axes = ['t']
     else:
         axes = axes.values
-
-    # For the moment if given multiple files we'll just processes the first
-    if len(inputs) > 1:
-        inputs = inputs[0]
 
     domain = d.get(o.domain, None)
 
