@@ -454,7 +454,19 @@ class CWTBaseTask(celery.Task):
                 except:
                     raise AccessError()
 
-                domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), {})
+                mapped_spatial = {}
+
+                for name, value in spatial.iteritems():
+                    axis_index = file_map[url][var_name].getAxisIndex(name)
+
+                    axis = file_map[url][var_name].getAxis(axis_index)
+
+                    axis_data = axis.mapInterval((value[0], value[1]))
+
+                    mapped_spatial[name] = (axis_data[0], axis_data[1])
+
+                domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), mapped_spatial)
+                #domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), {})
 
                 logger.debug('File has been cached updated files dict')
             else:
@@ -597,7 +609,7 @@ class CWTBaseTask(celery.Task):
 
         return output_path
 
-    def generate_partitions(self, domain_map, **kwargs):
+    def generate_partitions(self, domain_map, axes=None, **kwargs):
         """ Generates a partition map from a domain map.
 
         Args:
@@ -611,25 +623,52 @@ class CWTBaseTask(celery.Task):
         """
         partitions = {}
 
-        for url in domain_map.keys():
-            chunks = []
+        if axes is None:
+            axes = ['time']
 
+        for url in domain_map.keys():
             logger.debug('Partitioning input "{}"'.format(url))
+
+            axis = axes[0]
 
             temporal, spatial = domain_map[url]
 
-            tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+            if axis in ('time', 't'):
+                chunks = []
 
-            diff = tstop - tstart
+                part_axis = spatial.keys()[0]
 
-            step = min(diff, settings.PARTITION_SIZE)
+                start, stop = spatial.get(part_axis)
 
-            for begin in xrange(tstart, tstop, step):
-                end = min(begin + step, tstop)
+                step = 20
 
-                chunks.append(slice(begin, end, tstep))
+                for begin in xrange(start, stop, step):
+                    end = min(begin+step, stop)
 
-            partitions[url] = (chunks, spatial)
+                    spatial_dict = {part_axis: slice(begin, end)}
+
+                    for k, v in spatial.iteritems():
+                        if k != part_axis:
+                            spatial_dict[k] = slice(v[0], v[1])
+
+                    chunks.append(spatial_dict)    
+
+                partitions[url] = (temporal, chunks)
+            else:
+                chunks = []
+
+                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+
+                diff = tstop - tstart
+
+                step = min(diff, settings.PARTITION_SIZE)
+
+                for begin in xrange(tstart, tstop, step):
+                    end = min(begin + step, tstop)
+
+                    chunks.append(slice(begin, end, tstep))
+
+                partitions[url] = (chunks, spatial)
 
         return partitions
 
@@ -824,6 +863,14 @@ class CWTBaseTask(celery.Task):
 
             if domain is None:
                 temporal = slice(0, file_header.getTime().shape[0], 1)
+
+                axes = file_header.getAxisList()
+
+                for axis in axes:
+                    if axis.isTime():
+                        continue
+
+                    spatial[axis.id] = (axis[0], axis[-1])
             else:
                 for dim in domain.dimensions:
                     axis_index = file_header.getAxisIndex(dim.name)

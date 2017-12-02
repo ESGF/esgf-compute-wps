@@ -139,7 +139,7 @@ def average(self, parent_variables, variables, domains, operation, **kwargs):
 
         cache_map = self.generate_cache_map(files, file_var_map, domain_map, job)
 
-        partition_map = self.generate_partitions(domain_map)
+        partition_map = self.generate_partitions(domain_map, axes=axes)
 
         url = domain_map.keys()[0]
 
@@ -155,29 +155,51 @@ def average(self, parent_variables, variables, domains, operation, **kwargs):
 
             temporal, spatial = partition_map[url]
 
-            for time_slice in temporal:
-                data = files[url](var_name, time=time_slice, **spatial)
+            if isinstance(temporal, (list, tuple)):
+                for time_slice in temporal:
+                    data = files[url](var_name, time=time_slice, **spatial)
 
-                if any(x == 0 for x in data.shape):
-                    raise InvalidShapeError('Data has shape {}'.format(data.shape))
+                    if any(x == 0 for x in data.shape):
+                        raise InvalidShapeError('Data has shape {}'.format(data.shape))
 
-                if cache_file is not None:
-                    cache_file.write(data, id=var_name)
+                    if cache_file is not None:
+                        cache_file.write(data, id=var_name)
 
-                for axis in axes:
-                    if axis in ('time', 't'):
-                        raise Exception('Average over time axis is not supported')
+                    for axis in axes:
+                        if axis in ('time', 't'):
+                            raise Exception('Average over time axis is not supported')
 
-                    axis_index = data.getAxisIndex(axis)
+                        axis_index = data.getAxisIndex(axis)
 
-                    if axis_index == -1:
-                        raise Exception('Failed to map "{}" axis'.format(axis))
+                        if axis_index == -1:
+                            raise Exception('Failed to map "{}" axis'.format(axis))
 
-                    logger.info('Average over {}'.format(axis))
+                        logger.info('Average over {}'.format(axis))
+
+                        data = MV.average(data, axis=axis_index)
+
+                    # write output data
+                    outfile.write(data, id=var_name)
+            elif isinstance(spatial, (list, tuple)):
+                result = []
+
+                for spatial_slice in spatial:
+                    data = files[url](var_name, time=temporal, **spatial_slice)
+
+                    if any(x == 0 for x in data.shape):
+                        raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+                    if cache_file is not None:
+                        cache_file.write(data, id=var_name)
+
+                    axis_index = data.getAxisIndex('time')
 
                     data = MV.average(data, axis=axis_index)
 
-                # write output data
+                    result.append(data)
+
+                data = MV.concatenate(result)
+
                 outfile.write(data, id=var_name)
 
         files[url].close()
