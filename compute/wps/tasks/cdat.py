@@ -5,6 +5,7 @@ import re
 import cdms2
 import cwt
 import dask.array as da
+from cdms2 import MV
 from celery.utils.log import get_task_logger
 
 from wps.tasks import process
@@ -94,22 +95,25 @@ def aggregate(self, parent_variables, variables, domains, operation, **kwargs):
 
     return {o.name: output_var.parameterize()}
 
-#@process.register_process('CDAT.average', 'Averages over axes, requires a parameter "axes" set to the axes to average over.')
+@process.register_process('CDAT.average', """
+Averages over one or more axes. Requires a parameter named "axes" whose value
+is a "|" delimit list e.g. axes=lat|lon.
+""")
 @process.cwt_shared_task()
-def average(self, variables, operations, domains, **kwargs):
+def average(self, parent_variables, variables, domains, operation, **kwargs):
     self.PUBLISH = process.ALL
 
-    job, status = self.initialize(credentials=True, **kwargs)
+    user, job = self.initialize(credentials=True, **kwargs)
 
-    v, d, o = self.load(variables, domains, operations)
+    job.started()
 
-    op = self.op_by_id('CDAT.average', o)
+    v, d, o = self.load(parent_variables, variables, domains, operation)
 
-    inputs = sort_inputs_by_time(op.inputs)
+    inputs = sort_inputs_by_time([v[x] for x in o.inputs])
 
     output_path = self.generate_output_path()
 
-    axes = op.get_parameter('axes')
+    axes = o.get_parameter('axes')
 
     if axes is None:
         axes = ['t']
@@ -120,17 +124,76 @@ def average(self, variables, operations, domains, **kwargs):
     if len(inputs) > 1:
         inputs = inputs[0]
 
-    input_file = cdms2.open(inputs.uri)
+    domain = d.get(o.domain, None)
 
-    input_dict = {input_file.id: inputs.var_name}
+    with cdms2.open(inputs.uri) as input_file:
+        uri = inputs.uri
 
-    logger.info(input_dict)
+        var_name = inputs.var_name
+
+        files = {uri: input_file}
+
+        file_var_map = {uri: inputs.var_name}
+
+        domain_map = self.map_domain(files.values(), file_var_map, domain)
+
+        cache_map = self.generate_cache_map(files, file_var_map, domain_map, job)
+
+        partition_map = self.generate_partitions(domain_map)
+
+        url = domain_map.keys()[0]
+
+        # start grabbing data
+        cache_file = None
+
+        with cdms2.open(output_path, 'w') as outfile:
+            if url in cache_map:
+                try:
+                    cache_file = cdms2.open(cache_map[url].local_path, 'w')
+                except:
+                    raise AccessError()
+
+            temporal, spatial = partition_map[url]
+
+            for time_slice in temporal:
+                data = files[url](var_name, time=time_slice, **spatial)
+
+                if any(x == 0 for x in data.shape):
+                    raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+                if cache_file is not None:
+                    cache_file.write(data, id=var_name)
+
+                for axis in axes:
+                    if axis in ('time', 't'):
+                        raise Exception('Average over time axis is not supported')
+
+                    axis_index = data.getAxisIndex(axis)
+
+                    if axis_index == -1:
+                        raise Exception('Failed to map "{}" axis'.format(axis))
+
+                    logger.info('Average over {}'.format(axis))
+
+                    data = MV.average(data, axis=axis_index)
+
+                # write output data
+                outfile.write(data, id=var_name)
+
+        files[url].close()
+
+        if cache_file is not None:
+            cache_file.close()
+
+            cache_map[url].size = os.stat(cache_map[url].local_path).st_size / 1073741824.0
+
+            cache_map[url].save()
 
     output_url = self.generate_output_url(output_path, **kwargs)
 
-    output_var = cwt.Variable(output_url, inputs.var_name)
+    output_var = cwt.Variable(output_url, inputs.var_name, name=o.name)
 
-    return output_var.parameterize()
+    return {o.name: output_var.parameterize()}
 
 @process.cwt_shared_task()
 def cache_variable(self, parent_variables, variables, domains, operation, **kwargs):
