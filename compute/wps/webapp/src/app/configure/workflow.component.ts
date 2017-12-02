@@ -444,9 +444,15 @@ export class WorkflowComponent implements OnInit {
   removeNode(node: ProcessWrapper) {
     jQuery('#configure').modal('hide');
 
+    this.links = this.links.filter((value: Link) => {
+      return value.src !== node && value.dst !== node;
+    });
+
     this.nodes = this.nodes.filter((value: ProcessWrapper) => { 
       return node.uid() !== value.uid();
     });
+
+    this.selectedNode = node = null;
 
     this.determineRootNode();
 
@@ -618,7 +624,7 @@ export class WorkflowComponent implements OnInit {
     let nodes = this.svgNodes
       .selectAll('g')
       .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
-      .data(this.nodes);
+      .data(this.nodes, (item: ProcessWrapper) => { return item.uid(); });
 
     nodes.exit().remove();
 
