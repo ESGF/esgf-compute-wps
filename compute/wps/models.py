@@ -452,8 +452,6 @@ class Job(models.Model):
         self.update_status('Retrying... {}'.format(exception), 0)
 
     def update_status(self, message, percent=0):
-        logger.info('Updating job "{}" status with "{}" percent {} %'.format(self.id, message, percent))
-
         started = self.status_set.filter(status='ProcessStarted').latest('created_date')
 
         started.set_message(message, percent)

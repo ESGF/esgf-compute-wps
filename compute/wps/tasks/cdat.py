@@ -41,10 +41,7 @@ def subset(self, parent_variables, variables, domains, operation, **kwargs):
 
     job.started()
 
-    # update variables with anything returned from a parent task
-    variables.update(parent_variables)
-
-    v, d, o = self.load(variables, domains, operation)
+    v, d, o = self.load(parent_variables, variables, domains, operation)
 
     inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])[0]
 
@@ -75,9 +72,7 @@ def aggregate(self, parent_variables, variables, domains, operation, **kwargs):
 
     job.started()
 
-    variables.update(parent_variables)
-
-    v, d, o = self.load(variables, domains, operation)
+    v, d, o = self.load(parent_variables, variables, domains, operation)
 
     inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])
 

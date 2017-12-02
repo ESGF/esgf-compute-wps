@@ -104,9 +104,7 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
 
     user, job = self.initialize(credentials=False, **kwargs)
 
-    variables.update(parent_variables)
-
-    v, d, o = self.load(variables, domains, operation)
+    v, d, o = self.load(parent_variables, variables, domains, operation)
 
     oph_client = client.Client(settings.OPH_USER, settings.OPH_PASSWORD, settings.OPH_HOST, settings.OPH_PORT)
 

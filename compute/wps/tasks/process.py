@@ -332,7 +332,7 @@ class CWTBaseTask(celery.Task):
 
         return o, d, v
 
-    def load(self, variables, domains, operation):
+    def load(self, parent_variables, variables, domains, operation):
         """ Load a processes inputs.
 
         Loads each value into their associated container class.
@@ -346,6 +346,13 @@ class CWTBaseTask(celery.Task):
             A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
             object of their respective container type.
         """
+        if isinstance(parent_variables, dict):
+            variables.update(parent_variables)
+        elif isinstance(parent_variables, list):
+            for parent in parent_variables:
+                if isinstance(parent, dict):
+                    variables.update(parent)
+
         v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
 
         d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
@@ -935,8 +942,6 @@ class CWTBaseTask(celery.Task):
         if not self.__can_publish(RETRY):
             return
 
-        logger.warning('Retry {} {}'.format(exc, args))
-
         try:
             job = self.get_job(kwargs)
         except Exception:
@@ -948,8 +953,6 @@ class CWTBaseTask(celery.Task):
         """ Handle a failure. """
         if not self.__can_publish(FAILURE):
             return
-
-        logger.warning('Failed {} {}'.format(exc, args))
 
         try:
             job = self.get_job(kwargs)
@@ -963,18 +966,12 @@ class CWTBaseTask(celery.Task):
         if not self.__can_publish(SUCCESS):
             return
 
-        logger.info('Success with result "{}"'.format(retval))
-
-        #if retval is None:
-        #    return
-
         try:
             job = self.get_job(kwargs)
         except Exception:
             logger.exception('Failed to retrieve job')
         else:
             job.succeeded(json.dumps(retval.values()[0]))
-            #job.succeeded(json.dumps(retval))
 
 # Define after CWTBaseTask is declared
 cwt_shared_task = partial(shared_task,
@@ -993,7 +990,7 @@ if global_settings.DEBUG:
 
         job.started()
 
-        v, d, o = self.load(variables, domains, operation)
+        v, d, o = self.load(parent_variables, variables, domains, operation)
 
         self.status(job, parent_variables)
 
@@ -1003,7 +1000,7 @@ if global_settings.DEBUG:
 
         self.status(job, operation)
 
-        output_var = cwt.Variable('variables={};domains={};operations={};'.format(variables, domains, operation), 'tas')
+        output_var = cwt.Variable('file:///test.nc', 'tas')
 
         return {o.name: output_var.parameterize()}
 
@@ -1021,7 +1018,7 @@ if global_settings.DEBUG:
 
         job.started()
 
-        v, d, o = self.load(variables, domains, operation)
+        v, d, o = self.load(parent_variables, variables, domains, operation)
 
         count = o.get_parameter('count')
 
