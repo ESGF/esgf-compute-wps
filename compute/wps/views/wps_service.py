@@ -354,17 +354,17 @@ def generate(request):
     try:
         common.authentication_required(request)
 
-        base = tasks.CWTBaseTask()
-
         data_inputs = request.POST['datainputs']
 
         data_inputs = re.sub('\|(domain|operation|variable)=', ';\\1=', data_inputs, 3)
 
-        v, d, o = base.load_data_inputs(data_inputs)
+        base = tasks.CWTBaseTask()
+
+        o, d, v = base.load_data_inputs(data_inputs, resolve_inputs=True)
 
         script = WPSScriptGenerator(v, d, o, request.user)
 
-        kernel = 'test'
+        kernel = o.values()[0].identifier.split('.')[1]
 
         data = {
             'filename': '{}.py'.format(kernel),
