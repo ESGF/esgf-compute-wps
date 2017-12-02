@@ -138,6 +138,14 @@ enum EditorState {
     max-height: 50vh;
     overflow-y: scroll;
   }
+
+  .list-item-axis {
+    padding: 5px;
+  }
+
+  .select-spacer {
+    margin-bottom: 10px;
+  ]
   `],
   templateUrl: './workflow.component.html'
 })

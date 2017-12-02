@@ -112,7 +112,7 @@
           </div>
           <div id="collapseDomainWorkflow" class="panel-collapse collapse">
             <div class="panel-body">
-              <div class="input-group">
+              <div class="input-group select-spacer">
                 <select (change)="domainChange()" [(ngModel)]="model.domain" class="form-control">
                   <option>World</option>
                   <option>Custom</option>
@@ -121,10 +121,12 @@
                   <button (click)="showDomain()" type="button" class="btn btn-default">Show</button>
                 </span>
               </div>
-            </div>
-            <div class="list-group">
-              <div *ngFor="let x of model.process.domain; index as i" class="list-group-item">
-                <axis [axis]="x" [axisIndex]="i" (axisChange)="map.onAxisChange($event)"></axis>
+              <div class="panel-group" id="accordionAxis">
+                <ul class="list-unstyled">
+                  <li *ngFor="let x of model.process.domain; index as i" class="list-item-axis">
+                    <axis [axis]="x" [axisIndex]="i" (axisChange)="map.onAxisChange($event)"></axis>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
