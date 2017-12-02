@@ -145,7 +145,11 @@ enum EditorState {
 
   .select-spacer {
     margin-bottom: 10px;
-  ]
+  }
+
+  .loading {
+    cursor: wait;
+  }
   `],
   templateUrl: './workflow.component.html'
 })
@@ -162,6 +166,8 @@ export class WorkflowComponent implements OnInit {
   links: Link[];
   rootNode: ProcessWrapper;
   selectedNode: ProcessWrapper;
+
+  loading: boolean = false;
 
   state: EditorState;
   stateData: any;
@@ -211,6 +217,38 @@ export class WorkflowComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.model.availableDatasets = [];
+
+    let datasets = this.datasets.map((value: string) => { 
+      let dataset = new Dataset(value);
+
+      return new DatasetWrapper(dataset); 
+    });
+    
+    this.model.availableDatasets = this.model.availableDatasets.concat(datasets);
+
+    if (this.model.availableDatasets.length > 0) {
+      this.model.selectedDataset = this.model.availableDatasets[0];
+
+      this.config.datasetID = this.model.selectedDataset.dataset.id;
+
+      this.configService.searchESGF(this.config)
+        .then(data => {
+          data.forEach((value: Variable) => {
+            value.dataset = this.config.datasetID;
+          });
+
+          this.model.selectedDataset.dataset.variables = data;
+
+          if (data.length > 0) {
+            this.model.selectedVariable = data[0];
+          }
+        });
+    } else {
+      // needs to be undefined to selected the default option
+      this.model.selectedDataset = undefined;
+    }
+
     d3.select(window)
       .on('keydown', () => this.removeElements())
 
@@ -253,6 +291,57 @@ export class WorkflowComponent implements OnInit {
 
     this.svgNodes = graph.append('g')
       .classed('nodes', true);
+  }
+
+  loadDomain() {
+    this.model.process.domain = this.model.selectedVariable.axes.map((axis: Axis) => {
+      return {... axis};
+    });
+
+    $('#datasetExplorer').modal('hide');
+  }
+
+  loadVariable() {
+    this.loading = true;
+
+    this.config.variable = this.model.selectedVariable;
+
+    this.configService.searchVariable(this.config)
+      .then(axes => {
+        this.model.selectedVariable.axes = axes.map((axis: Axis) => {
+          return {step: 1, ...axis}; 
+        });
+
+        this.loading = false;
+      })
+      .catch(error => { 
+        this.loading = false; 
+
+        this.notificationService.error(error);
+      });
+  }
+
+  showExplorer() {
+    this.loadVariable();
+
+    $('#datasetExplorer').modal('show');    
+  }
+
+  showHelp() {
+    jQuery('#help').modal('show');
+  }
+
+  showDomain() {
+    this.map.domain = this.model.domain;
+
+    this.map.domainChange();
+
+    jQuery('#map').modal('show');
+
+    // need to invalidate the map after it's presented to the user
+    jQuery('#map').on('shown.bs.modal', () => {
+      this.map.map.invalidateSize();
+    });
   }
 
   showAbstract(process: any) {
@@ -331,23 +420,6 @@ export class WorkflowComponent implements OnInit {
       .catch(error => {
         this.notificationService.error(error); 
       });
-  }
-
-  showHelp() {
-    jQuery('#help').modal('show');
-  }
-
-  showDomain() {
-    this.map.domain = this.model.domain;
-
-    this.map.domainChange();
-
-    jQuery('#map').modal('show');
-
-    // need to invalidate the map after it's presented to the user
-    jQuery('#map').on('shown.bs.modal', () => {
-      this.map.map.invalidateSize();
-    });
   }
 
   domainChange() {
@@ -490,41 +562,9 @@ export class WorkflowComponent implements OnInit {
   }
 
   nodeClick() {
-    jQuery('#configure').modal('show');
-
     this.selectedNode = <ProcessWrapper>d3.select(d3.event.target).datum();
 
-    this.model.availableDatasets = [];
-
-    let datasets = this.datasets.map((value: string) => { 
-      let dataset = new Dataset(value);
-
-      return new DatasetWrapper(dataset); 
-    });
-    
-    this.model.availableDatasets = this.model.availableDatasets.concat(datasets);
-
-    if (this.model.availableDatasets.length > 0) {
-      this.model.selectedDataset = this.model.availableDatasets[0];
-
-      this.config.datasetID = this.model.selectedDataset.dataset.id;
-
-      this.configService.searchESGF(this.config)
-        .then(data => {
-          data.forEach((value: Variable) => {
-            value.dataset = this.config.datasetID;
-          });
-
-          this.model.selectedDataset.dataset.variables = data;
-
-          if (data.length > 0) {
-            this.model.selectedVariable = data[0];
-          }
-        });
-    } else {
-      // needs to be undefined to selected the default option
-      this.model.selectedDataset = undefined;
-    }
+    jQuery('#configure').modal('show');
   }
 
   nodeMouseEnter() {
