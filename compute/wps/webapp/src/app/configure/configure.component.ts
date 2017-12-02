@@ -101,12 +101,12 @@ export class ConfigureComponent implements OnInit {
   }
 
   addParameter() {
-    this.config.process.parameters.push({key: '', value: ''} as Parameter);
+    this.config.process.parameters.push(new Parameter());
   }
 
   removeParameter(param: Parameter) {
     this.config.process.parameters = this.config.process.parameters.filter((value: Parameter) => {
-      return !(param.key === value.key && param.value === value.value);
+      return param.uid !== value.uid;
     });
   }
 

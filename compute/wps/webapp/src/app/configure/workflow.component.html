@@ -90,12 +90,12 @@
             <div class="panel-body">
               <button (click)="addParameterWorkflow()" class="btn btn-default">Add</button>
             </div>
-            <div class="list-group">
-              <parameter *ngFor="let param of model.process.parameters"
-                [param]="param" 
-                (remove)="removeParameterWorkflow($event)"></parameter>
-            </div>
           </div>
+          <ul class="list-group">
+            <li *ngFor="let param of model.process.parameters" class="list-group-item">
+              <parameter [param]="param" (remove)="removeParameterWorkflow($event)"></parameter>
+            </li>
+          </ul>
         </div>
         <div class="panel panel-default">
           <div class="panel-heading">

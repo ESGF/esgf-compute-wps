@@ -39,11 +39,12 @@
                   <div class="panel-body">
                     <button type="button" (click)="addParameter()" class="btn btn-default">Add</button>
                   </div>
-                  <div class="list-group">
-                    <parameter *ngFor="let param of config.process?.parameters" 
-                      [param]="param" (remove)="removeParameter($event)"></parameter>
-                  </div>
                 </div>
+                <ul class="list-group">
+                  <li *ngFor="let param of config.process?.parameters" class="list-group-item">
+                    <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
+                  </li>
+                </ul>
               </div>
               <div class="panel panel-default">
                 <div class="panel-heading">

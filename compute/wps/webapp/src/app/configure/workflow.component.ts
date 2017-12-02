@@ -416,12 +416,12 @@ export class WorkflowComponent implements OnInit {
   }
 
   addParameterWorkflow() {
-    this.model.process.parameters.push({key: '', value: ''} as Parameter);
+    this.model.process.parameters.push(new Parameter());
   }
 
   removeParameterWorkflow(param: Parameter) {
     let newParams = this.model.process.parameters.filter((value: Parameter) => {
-      return param.key !== value.key || param.value !== value.value;
+      return param.uid != value.uid;
     });
 
     this.model.process.parameters = newParams;
