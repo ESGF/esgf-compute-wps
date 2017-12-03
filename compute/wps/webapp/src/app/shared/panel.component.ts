@@ -16,6 +16,11 @@ declare var $: any;
   .panel {
     margin-top: 5px;
   }
+
+  .scrollable {
+    max-height: 50vh;
+    overflow-y: scroll;
+  }
   `],
   template: `
   <div class="panel panel-default">
@@ -27,7 +32,7 @@ declare var $: any;
       </h4>
     </div>
     <div id="{{collapse}}" [class]="style" role="tabpanel">
-      <div [class.panel-body]="!ignoreBody" [class.list-group]="ignoreBody">
+      <div [class.panel-body]="!ignoreBody" [class.list-group]="ignoreBody" [class.scrollable]="scrollable">
         <ng-content></ng-content>
       </div>
     </div>
@@ -37,6 +42,7 @@ declare var $: any;
 export class PanelComponent {
   @Input() title: string;
   @Input() ignoreBody: boolean = false;
+  @Input() scrollable: boolean = false;
   @Output() onToggle = new EventEmitter<PanelComponent>();
 
   uid: string;
