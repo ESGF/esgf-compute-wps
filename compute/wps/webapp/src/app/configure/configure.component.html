@@ -3,72 +3,70 @@
     <div class="container-fluid map-container pane">
       <div class="row">
         <div class="col-md-2">
-          <form #configForm="ngForm">
-            <div class="panel-group" id="accordion">
-              <div class="panel panel-default">
-                <div class="panel-heading">
-                  <h4 class="panel-title">
-                    <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseConfig">General</a>
-                  </h4>
-                </div>
-                <div id="collapseConfig" class="panel-collapse collapse in">
-                  <div class="panel-body">
-                    <general-config [processes]="processes" [datasetIDs]="datasetIDs" [config]="config"></general-config>
-                  </div>
+          <div class="panel-group" id="accordion">
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h4 class="panel-title">
+                  <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseConfig">General</a>
+                </h4>
+              </div>
+              <div id="collapseConfig" class="panel-collapse collapse in">
+                <div class="panel-body">
+                  <general-config [processes]="processes" [datasetIDs]="datasetIDs" [config]="config"></general-config>
                 </div>
               </div>
-              <div class="panel panel-default">
-                <div class="panel-heading">
-                  <h4 class="panel-title">
-                    <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseRegrid">Regrid</a>
-                  </h4>
-                </div>
-                <div id="collapseRegrid" class="panel-collapse collapse">
-                  <div class="panel-body">
-                    <regrid [model]="config.process.regrid"></regrid>
-                  </div>
+            </div>
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h4 class="panel-title">
+                  <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseRegrid">Regrid</a>
+                </h4>
+              </div>
+              <div id="collapseRegrid" class="panel-collapse collapse">
+                <div class="panel-body">
+                  <regrid [model]="config.process.regrid"></regrid>
                 </div>
               </div>
-              <div class="panel panel-default">
-                <div class="panel-heading">
-                  <h4 class="panel-title">
-                    <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseParameter">Parameters</a>
-                  </h4>
-                </div>
-                <div id="collapseParameter" class="panel-collapse collapse">
-                  <ul class="list-group">
-                    <li class="list-group-item">
-                      <button type="button" (click)="addParameter()" class="btn btn-default">Add</button>
-                    </li>
-                    <li *ngFor="let param of config.process?.parameters" class="list-group-item">
-                      <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
-                    </li>
-                  </ul>
-                </div>
+            </div>
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h4 class="panel-title">
+                  <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseParameter">Parameters</a>
+                </h4>
               </div>
-              <div class="panel panel-default">
-                <div class="panel-heading">
-                  <h4 class="panel-title">
-                    <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseDomain">Domain</a>
-                  </h4>
-                </div>
-                <div id="collapseDomain" class="panel-collapse collapse">
-                  <div class="panel-body">
-                    <select [(ngModel)]="map.domain" (change)="domainChange()" class="form-control select-spacer" name="value">
-                      <option *ngFor="let domain of domains">{{domain.name}}</option>
-                    </select>
-                    <div class="panel-group" id="accordionAxis">
-                      <ul class="list-unstyled">
-                        <li *ngFor="let axis of config.process.domain; index as i" class="list-item-axis">
-                          <axis [axisIndex]="i" [axis]="axis" (axisChange)="map.onAxisChange($event)"></axis>
-                        </li>
-                      </ul>
-                    </div>
+              <div id="collapseParameter" class="panel-collapse collapse">
+                <ul class="list-group">
+                  <li class="list-group-item">
+                    <button type="button" (click)="addParameter()" class="btn btn-default">Add</button>
+                  </li>
+                  <li *ngFor="let param of config.process?.parameters" class="list-group-item">
+                    <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h4 class="panel-title">
+                  <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseDomain">Domain</a>
+                </h4>
+              </div>
+              <div id="collapseDomain" class="panel-collapse collapse">
+                <div class="panel-body">
+                  <select [(ngModel)]="map.domain" (change)="domainChange()" class="form-control select-spacer" name="value">
+                    <option *ngFor="let domain of domains">{{domain.name}}</option>
+                  </select>
+                  <div class="panel-group" id="accordionAxis">
+                    <ul class="list-unstyled">
+                      <li *ngFor="let axis of config.process.domain; index as i" class="list-item-axis">
+                        <axis [axisIndex]="i" [axis]="axis" (axisChange)="map.onAxisChange($event)"></axis>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>
             </div>
-          </form>
+          </div>
         </div>
         <div class="col-md-10">
           <domain-map [axes]="config.process.domain"></domain-map>
