@@ -87,15 +87,15 @@
             </h4>
           </div>
           <div id="collapseParameterWorkflow" class="panel-collapse collapse">
-            <div class="panel-body">
-              <button (click)="addParameterWorkflow()" class="btn btn-default">Add</button>
-            </div>
+            <ul class="list-group">
+              <li class="list-group-item">
+                <button (click)="addParameterWorkflow()" class="btn btn-default">Add</button>
+              </li>
+              <li *ngFor="let param of model.process.parameters" class="list-group-item">
+                <parameter [param]="param" (remove)="removeParameterWorkflow($event)"></parameter>
+              </li>
+            </ul>
           </div>
-          <ul class="list-group">
-            <li *ngFor="let param of model.process.parameters" class="list-group-item">
-              <parameter [param]="param" (remove)="removeParameterWorkflow($event)"></parameter>
-            </li>
-          </ul>
         </div>
         <div class="panel panel-default">
           <div class="panel-heading">
