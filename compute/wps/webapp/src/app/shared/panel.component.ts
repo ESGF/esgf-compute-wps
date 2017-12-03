@@ -1,4 +1,12 @@
-import { Component, Input, Output, EventEmitter, ContentChildren, QueryList, AfterContentInit } from '@angular/core';
+import { 
+  Component, 
+  Input, 
+  Output, 
+  EventEmitter, 
+  ContentChildren, 
+  QueryList, 
+  AfterContentInit 
+} from '@angular/core';
 
 declare var $: any;
 
@@ -18,8 +26,8 @@ declare var $: any;
         </a>
       </h4>
     </div>
-    <div id="{{collapse}}" class="panel-collapse collapse" role="tabpanel">
-      <div class="panel-body">
+    <div id="{{collapse}}" [class]="style" role="tabpanel">
+      <div [class.panel-body]="!ignoreBody" [class.list-group]="ignoreBody">
         <ng-content></ng-content>
       </div>
     </div>
@@ -28,9 +36,11 @@ declare var $: any;
 })
 export class PanelComponent {
   @Input() title: string;
+  @Input() ignoreBody: boolean = false;
   @Output() onToggle = new EventEmitter<PanelComponent>();
 
   uid: string;
+  style = 'panel-collapse collapse';
   
   constructor() {
     this.uid = Math.random().toString(16).slice(2);
@@ -57,6 +67,8 @@ export class PanelGroupComponent implements AfterContentInit {
   @ContentChildren(PanelComponent) panels: QueryList<PanelComponent>;
 
   ngAfterContentInit() {
+    this.panels.first.style += ' in';
+
     this.panels.forEach((panel: PanelComponent) => {
       panel.onToggle.subscribe((panel: PanelComponent) => { this.onToggle(panel); });
     });
