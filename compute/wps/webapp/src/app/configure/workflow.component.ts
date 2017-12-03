@@ -134,11 +134,6 @@ enum EditorState {
     marker-end: url(#drag-end-arrow);
   }
 
-  .scrollable {
-    max-height: 50vh;
-    overflow-y: scroll;
-  }
-
   .list-item-axis {
     padding: 5px;
   }
