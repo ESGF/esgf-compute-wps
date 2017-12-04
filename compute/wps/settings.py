@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import datetime
 from functools import partial
 
 from django.conf import settings
@@ -39,6 +40,14 @@ PASSWORD_RESET_URL = setting('WPS_PASSWORD_RESET_URL', 'http://0.0.0.0:8000/wps/
 USER_TEMP_PATH = setting('WPS_USER_TEMP_PATH', '/tmp')
 
 PARTITION_SIZE = setting('WPS_PARTITION_SIZE', 200)
+
+# Cache settings
+# Default to checking cache once a day
+CACHE_CHECK = setting('WPS_CACHE_CHECK', datetime.timedelta(days=1))
+# Default to 100 GB
+CACHE_GB_MAX_SIZE = setting('WPS_CACHE_MAX_GB_SIZE', 1.073741824e11)
+# Default to 30 days
+CACHE_MAX_AGE = setting('WPS_CACHE_MAX_AGE', datetime.timedelta(days=30))
 
 # EDAS Settings
 EDAS_HOST = setting('WPS_EDAS_HOST', 'edas')

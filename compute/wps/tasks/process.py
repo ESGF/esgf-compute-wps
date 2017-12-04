@@ -889,7 +889,7 @@ class CWTBaseTask(celery.Task):
 
         return partitions
 
-    def generate_dimension_id(self, temporal, spatial):
+    def generate_dimension_id(self, var_name, temporal, spatial):
         """ Create a string describing the dimensions.
 
         Args:
@@ -900,15 +900,15 @@ class CWTBaseTask(celery.Task):
             A string unique to the dimensions.
         """
 
-        dim_id = ''
+        dim_id = '{}!'.format(var_name)
 
         if temporal is None:
-            dim_id = 'time:None'
+            dim_id += 'time:None'
         else:
-            dim_id = 'time:{}'.format(self.slice_to_str(temporal))
+            dim_id += 'time:{}'.format(self.slice_to_str(temporal))
 
-        for name, dim in spatial.iteritems():
-            dim_id += '|{}:{}'.format(name, self.slice_to_str(dim))
+        for name in sorted(spatial.keys()):
+            dim_id += '|{}:{}'.format(name, self.slice_to_str(spatial[name]))
 
         return dim_id
 
@@ -960,7 +960,7 @@ class CWTBaseTask(celery.Task):
 
         uid = self.generate_cache_name(uri, temporal, spatial)
 
-        dimensions = self.generate_dimension_id(temporal, spatial)
+        dimensions = self.generate_dimension_id(var_name, temporal, spatial)
 
         logger.info('Generated uid "{}" dimensions "{}"'.format(uid, dimensions))
 

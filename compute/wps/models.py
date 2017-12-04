@@ -7,6 +7,7 @@ import os
 import time
 from urlparse import urlparse
 
+import cdms2
 from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
@@ -216,6 +217,31 @@ class Cache(models.Model):
         file_name = '{}.nc'.format(self.uid)
 
         return os.path.join(settings.CACHE_PATH, file_name)
+
+    @property
+    def valid(self):
+        if not os.path.exists(self.local_path):
+            return False
+
+        with cdms2.open(self.local_path) as infile:
+            var_name, dimensions = self.dimensions.split('!')
+
+            if var_name not in infile:
+                return False
+
+            dimensions = dimensions.split('|')
+
+            for d in dimensions:
+                name, start, stop, step = d.split(':')
+
+                axis_index = infile[var_name].getAxisIndex(name)
+
+                axis = infile[var_name].getAxis(axis_index)
+
+                if  stop != str(len(axis)):
+                    return False
+
+        return True
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
