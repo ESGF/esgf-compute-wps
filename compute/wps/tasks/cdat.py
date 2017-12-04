@@ -158,10 +158,9 @@ def base_process(self, parent_variables, variables, domains, operation, mv_proce
         'grid': grid,
         'regridTool': tool,
         'regridMethod': method,
-        'process': mv_process,
     }
 
-    output_path = self.process_variable(inputs, domain, job, **options)
+    output_path = self.process_variable(inputs, domain, job, mv_process, **options)
 
     output_url = self.generate_output_url(output_path, **kwargs)
 

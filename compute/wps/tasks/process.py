@@ -555,12 +555,11 @@ class CWTBaseTask(celery.Task):
 
         return [input_dict[x] for x in sorted_keys]
 
-    def process_variable(self, variables, domain, job, **kwargs):
+    def process_variable(self, variables, domain, job, process, **kwargs):
         axes = kwargs.get('axes', None)
         grid = kwargs.get('grid', None)
         regridTool = kwargs.get('regridTool', None)
         regridMethod = kwargs.get('regridMethod', None)
-        process = kwargs.get('process')
 
         # Only processing the first file
         if len(variables) > 1:
