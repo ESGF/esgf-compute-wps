@@ -113,110 +113,32 @@ def average(self, parent_variables, variables, domains, operation, **kwargs):
 
     v, d, o = self.load(parent_variables, variables, domains, operation)
 
-    if len(o.inputs) > 1:
-        inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])[0]
-    else:
-        inputs = v[o.inputs[0]]
-
-    output_path = self.generate_output_path()
+    grid, tool, method = self.generate_grid(o, v, d)
 
     axes = o.get_parameter('axes')
 
     if axes is None:
-        axes = ['t']
+        axes = ['time']
     else:
         axes = axes.values
 
     domain = d.get(o.domain, None)
 
-    with cdms2.open(inputs.uri) as input_file:
-        uri = inputs.uri
+    inputs = [v[x] for x in o.inputs if x in v]
 
-        var_name = inputs.var_name
+    options = {
+        'axes': axes,
+        'grid': grid,
+        'regridTool': tool,
+        'regridMethod': method,
+        'process': MV.average,
+    }
 
-        files = {uri: input_file}
-
-        file_var_map = {uri: inputs.var_name}
-
-        domain_map = self.map_domain(files.values(), file_var_map, domain)
-
-        cache_map = self.generate_cache_map(files, file_var_map, domain_map, job)
-
-        partition_map = self.generate_partitions(domain_map, axes=axes)
-
-        url = domain_map.keys()[0]
-
-        # start grabbing data
-        cache_file = None
-
-        with cdms2.open(output_path, 'w') as outfile:
-            if url in cache_map:
-                try:
-                    cache_file = cdms2.open(cache_map[url].local_path, 'w')
-                except:
-                    raise AccessError()
-
-            temporal, spatial = partition_map[url]
-
-            if isinstance(temporal, (list, tuple)):
-                for time_slice in temporal:
-                    data = files[url](var_name, time=time_slice, **spatial)
-
-                    if any(x == 0 for x in data.shape):
-                        raise InvalidShapeError('Data has shape {}'.format(data.shape))
-
-                    if cache_file is not None:
-                        cache_file.write(data, id=var_name)
-
-                    for axis in axes:
-                        if axis in ('time', 't'):
-                            raise Exception('Average over time axis is not supported')
-
-                        axis_index = data.getAxisIndex(axis)
-
-                        if axis_index == -1:
-                            raise Exception('Failed to map "{}" axis'.format(axis))
-
-                        logger.info('Average over {}'.format(axis))
-
-                        data = MV.average(data, axis=axis_index)
-
-                    # write output data
-                    outfile.write(data, id=var_name)
-            elif isinstance(spatial, (list, tuple)):
-                result = []
-
-                for spatial_slice in spatial:
-                    data = files[url](var_name, time=temporal, **spatial_slice)
-
-                    if any(x == 0 for x in data.shape):
-                        raise InvalidShapeError('Data has shape {}'.format(data.shape))
-
-                    if cache_file is not None:
-                        cache_file.write(data, id=var_name)
-
-                    axis_index = data.getAxisIndex('time')
-
-                    data = MV.average(data, axis=axis_index)
-
-                    result.append(data)
-
-                data = MV.concatenate(result)
-
-                outfile.write(data, id=var_name)
-
-        files[url].close()
-
-        if cache_file is not None:
-            cache_file.close()
-
-            cache_map[url].size = os.stat(cache_map[url].local_path).st_size / 1073741824.0
-
-            cache_map[url].save()
+    output_path = self.process_variable(inputs, domain, job, **options)
 
     output_url = self.generate_output_url(output_path, **kwargs)
 
-    output_var = cwt.Variable(output_url, inputs.var_name, name=o.name)
+    output_var = cwt.Variable(output_url, inputs[0].var_name, name=o.name)
 
     return {o.name: output_var.parameterize()}
 
