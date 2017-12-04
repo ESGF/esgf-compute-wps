@@ -464,9 +464,10 @@ class CWTBaseTask(celery.Task):
 
                     axis = file_map[url][var_name].getAxis(axis_index)
 
-                    start, stop = axis.mapInterval((value[0], value[1]))
+                    #start, stop = axis.mapInterval((value[0], value[1]))
 
-                    mapped_spatial[name] = slice(start, stop, 1)
+                    #mapped_spatial[name] = slice(start, stop, 1)
+                    mapped_spatial[name] = value
 
                 domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), mapped_spatial)
                 #domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), {})
@@ -570,14 +571,38 @@ class CWTBaseTask(celery.Task):
         var_name = file_var_map.values()[0]
 
         with nested(*file_map.values()):
+            self.status(job, 'Mapping domain to source files')
+
             domain_map = self.map_domain(file_map.values(), file_var_map, domain)
+
+            logger.debug('Domain map: {}'.format(domain_map))
 
             if len(domain_map) == 0:
                 raise Exception('Failed to map domain to input files, please check your domain definition')
 
+            self.status(job, 'Checking cache for input files')
+
             cache_map = self.generate_cache_map(file_map, file_var_map, domain_map, job)
 
+            # Disable caching when averaging over time axis,
+            # since we pull chunks a shape like (120, 20, 480) and average over
+            # the first index resulting in (20, 480) we overwrite out cache 
+            # data each time result in a invalid file with shape (20, 480)
+            if 'time' in axes:
+                for item in cache_map.values():
+                    item.close()
+
+                cache_map = {}
+
+                self.status(job, 'Disabling caching')
+            else:
+                logger.debug('Cache map: {}'.format(cache_map))
+
+            self.status(job, 'Partitioning domain')
+
             partition_map = self.generate_partitions(domain_map, axes=axes)
+
+            logger.debug('Partition map: {}'.format(partition_map))
 
             output_path = self.generate_output_path()
 
@@ -596,8 +621,14 @@ class CWTBaseTask(celery.Task):
                     temporal, spatial = partition_map[url]
 
                     if isinstance(temporal, (list, tuple)):
-                        for time_slice in temporal:
+                        self.status(job, 'Averaging over spatial axes "{}"'.format(axes))
+
+                        count = len(temporal)
+
+                        for i, time_slice in enumerate(temporal, 1):
                             data = file_map[url](var_name, time=time_slice, **spatial)
+
+                            self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
 
                             if any(x == 0 for x in data.shape):
                                 raise InvalidShapeError('Data has shape {}'.format(data.shape))
@@ -620,8 +651,14 @@ class CWTBaseTask(celery.Task):
                     elif isinstance(spatial, (list, tuple)):
                         result = []
 
-                        for spatial_slice in spatial:
+                        self.status(job, 'Averaging ove time axis')
+
+                        count = len(spatial)
+
+                        for i, spatial_slice in enumerate(spatial, 1):
                             data = file_map[url](var_name, time=temporal, **spatial_slice)
+
+                            self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
 
                             if any(x == 0 for x in data.shape):
                                 raise InvalidShapeError('Data has shape {}'.format(data.shape))
@@ -637,6 +674,8 @@ class CWTBaseTask(celery.Task):
                             time_axis_index = data.getAxisIndex(time_axis.id)
 
                             result.append(process(data, axis=time_axis_index))
+
+                        self.status(job, 'Concatenating chunks', 100)
 
                         outfile.write(MV.concatenate(result))
                     else:
@@ -773,20 +812,22 @@ class CWTBaseTask(celery.Task):
             if axis in ('time', 't'):
                 chunks = []
 
+                # Could make a smarter decision on which axis to slice by
+                # data alginment
                 part_axis = spatial.keys()[0]
 
-                start, stop = spatial.get(part_axis)
+                part_slice = spatial.get(part_axis)
 
                 step = 20
 
-                for begin in xrange(start, stop, step):
-                    end = min(begin+step, stop)
+                for begin in xrange(part_slice.start, part_slice.stop, step):
+                    end = min(begin+step, part_slice.stop)
 
                     spatial_dict = {part_axis: slice(begin, end)}
 
                     for k, v in spatial.iteritems():
                         if k != part_axis:
-                            spatial_dict[k] = slice(v[0], v[1], 1)
+                            spatial_dict[k] = slice(v.start, v.stop, 1)
 
                     chunks.append(spatial_dict)    
 
