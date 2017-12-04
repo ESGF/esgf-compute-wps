@@ -555,15 +555,16 @@ class CWTBaseTask(celery.Task):
 
         return [input_dict[x] for x in sorted_keys]
 
-    def process_variable(self, variables, domain, job, process, **kwargs):
+    def process_variable(self, variables, domain, job, process, num_inputs=1, **kwargs):
         axes = kwargs.get('axes', None)
         grid = kwargs.get('grid', None)
         regridTool = kwargs.get('regridTool', None)
         regridMethod = kwargs.get('regridMethod', None)
 
-        # Only processing the first file
-        if len(variables) > 1:
-            variables = [self.sort_variables_by_time(variables)[0]]
+        variables = self.sort_variables_by_time(variables)
+
+        if num_inputs is not None:
+            variables = variables[:num_inputs]
 
         file_map, file_var_map = self.open_variables(variables)
 
@@ -588,9 +589,6 @@ class CWTBaseTask(celery.Task):
             # the first index resulting in (20, 480) we overwrite out cache 
             # data each time result in a invalid file with shape (20, 480)
             if 'time' in axes:
-                for item in cache_map.values():
-                    item.close()
-
                 cache_map = {}
 
                 self.status(job, 'Disabling caching')
@@ -650,7 +648,7 @@ class CWTBaseTask(celery.Task):
                     elif isinstance(spatial, (list, tuple)):
                         result = []
 
-                        self.status(job, 'Averaging ove time axis')
+                        self.status(job, 'Averaging over time axis')
 
                         count = len(spatial)
 
