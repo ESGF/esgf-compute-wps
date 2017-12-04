@@ -6,7 +6,7 @@ import re
 import cdms2
 import cwt
 import dask.array as da
-from cdms2 import MV
+from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
 
 from wps.tasks import process
@@ -100,11 +100,38 @@ def aggregate(self, parent_variables, variables, domains, operation, **kwargs):
     return {o.name: output_var.parameterize()}
 
 @process.register_process('CDAT.average', """
-Averages over one or more axes. Requires a parameter named "axes" whose value
+Computes average over one or more axes. Requires a parameter named "axes" whose value
 is a "|" delimit list e.g. axes=lat|lon.
 """)
 @process.cwt_shared_task()
 def average(self, parent_variables, variables, domains, operation, **kwargs):
+    return base_process(self, parent_variables, variables, domains, operation, MV.average, **kwargs)
+
+@process.register_process('CDAT.max', """
+Computes maximum over an axis. Requires a parameters named "axes" whos value is a
+"|" delimit list e.g. axes=lat|lon.
+""")
+@process.cwt_shared_task()
+def maximum(self, parent_variables, variables, domains, operation, **kwargs):
+    return base_process(self, parent_variables, variables, domains, operation, MV.max, **kwargs)
+
+@process.register_process('CDAT.min', """
+Computes minimum over an axis. Requires a parameters named "axes" whos value is a
+"|" delimit list e.g. axes=lat|lon.
+""")
+@process.cwt_shared_task()
+def minimum(self, parent_variables, variables, domains, operation, **kwargs):
+    return base_process(self, parent_variables, variables, domains, operation, MV.min, **kwargs)
+
+@process.register_process('CDAT.sum', """
+Computes sum over an axis. Requires a parameters named "axes" whos value is a
+"|" delimit list e.g. axes=lat|lon.
+""")
+@process.cwt_shared_task()
+def minimum(self, parent_variables, variables, domains, operation, **kwargs):
+    return base_process(self, parent_variables, variables, domains, operation, MV.sum, **kwargs)
+
+def base_process(self, parent_variables, variables, domains, operation, mv_process, **kwargs):
     self.PUBLISH = process.ALL
 
     user, job = self.initialize(credentials=True, **kwargs)
@@ -131,7 +158,7 @@ def average(self, parent_variables, variables, domains, operation, **kwargs):
         'grid': grid,
         'regridTool': tool,
         'regridMethod': method,
-        'process': MV.average,
+        'process': mv_process,
     }
 
     output_path = self.process_variable(inputs, domain, job, **options)
