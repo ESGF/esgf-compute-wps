@@ -6,13 +6,16 @@ import json
 import math
 import time
 import os
+import re
 import uuid
+from contextlib import nested
 from datetime import datetime
 from functools import partial
 
 import cdms2
 import celery
 import cwt
+from cdms2 import MV
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.conf import settings as global_settings
@@ -517,6 +520,142 @@ class CWTBaseTask(celery.Task):
 
             self.status(job, 'Retrieved chunk {} to {} from {}'.format(time_slice.start, time_slice.stop, base_units), percent)
 
+    def open_variables(self, variables):
+        file_map = collections.OrderedDict()
+        file_var_map = {}
+
+        try:
+            for var in variables:
+                file_map[var.uri] = cdms2.open(var.uri)
+
+                file_var_map[var.uri] = var.var_name
+        except Exception as e:
+            logger.exception('Error accessing file "{}"'.format(e.message))
+
+            for f in file_map.values():
+                f.close()
+
+            raise AccessError()
+        else:
+            return file_map, file_var_map
+
+    def sort_variables_by_time(self, variables):
+        input_dict = {}
+        time_pattern = '.*_(\d+)-(\d+)\.nc'
+
+        for v in variables:
+            result = re.search(time_pattern, v.uri)
+
+            start, _ = result.groups()
+
+            input_dict[start] = v
+
+            sorted_keys = sorted(input_dict.keys())
+
+        return [input_dict[x] for x in sorted_keys]
+
+    def process_variable(self, variables, domain, job, **kwargs):
+        axes = kwargs.get('axes', None)
+        grid = kwargs.get('grid', None)
+        regridTool = kwargs.get('regridTool', None)
+        regridMethod = kwargs.get('regridMethod', None)
+        process = kwargs.get('process')
+
+        # Only processing the first file
+        if len(variables) > 1:
+            variables = [self.sort_variables_by_time(variables)[0]]
+
+        file_map, file_var_map = self.open_variables(variables)
+
+        var_name = file_var_map.values()[0]
+
+        with nested(*file_map.values()):
+            domain_map = self.map_domain(file_map.values(), file_var_map, domain)
+
+            if len(domain_map) == 0:
+                raise Exception('Failed to map domain to input files, please check your domain definition')
+
+            cache_map = self.generate_cache_map(file_map, file_var_map, domain_map, job)
+
+            partition_map = self.generate_partitions(domain_map, axes=axes)
+
+            logger.info(partition_map)
+
+            output_path = self.generate_output_path()
+
+            url = domain_map.keys()[0]
+
+            cache_file = None
+
+            if url in cache_map:
+                try:
+                    cache_file = cdms2.open(cache_map[url].local_path, 'w')
+                except:
+                    raise AccessError()
+            
+            try:
+                with cdms2.open(output_path, 'w') as outfile:
+                    temporal, spatial = partition_map[url]
+
+                    if isinstance(temporal, (list, tuple)):
+                        for time_slice in temporal:
+                            data = file_map[url](var_name, time=time_slice, **spatial)
+
+                            if any(x == 0 for x in data.shape):
+                                raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+                            if cache_file is not None:
+                                cache_file.write(data, id=var_name)
+
+                            if grid is not None:
+                                data = data.regrid(grid, regridTool=regridTool, regridMethod=regridMethod)
+
+                            for axis in axes:
+                                axis_index = data.getAxisIndex(axis)
+
+                                if axis_index == -1:
+                                    raise Exception('Unknown axis "{}"'.format(axis))
+
+                                data = process(data, axis=axis_index)
+
+                            outfile.write(data, id=var_name) 
+                    elif isinstance(spatial, (list, tuple)):
+                        result = []
+
+                        for spatial_slice in spatial:
+                            data = file_map[url](var_name, time=temporal, **spatial_slice)
+
+                            if any(x == 0 for x in data.shape):
+                                raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+                            if cache_file is not None:
+                                cache_file.write(data, id=var_name)
+
+                            if grid is not None:
+                                data = data.regrid(grid, regridTool=regridTool, regridMethod=regridMethod)
+
+                            time_axis = data.getTime()
+
+                            time_axis_index = data.getAxisIndex(time_axis.id)
+
+                            result.append(process(data, axis=time_axis_index))
+
+                        outfile.write(MV.concatenate(result))
+                    else:
+                        raise Exception('Files partition map is invalid')
+
+                if cache_file is not None:
+                    cache_map[url].size = os.stat(cache_map[url].local_path).st_size / 1073741824.0
+
+                    cache_map[url].save()
+            except Exception as e:
+                raise
+            finally:
+                if cache_file is not None:
+                    cache_file.close()
+
+        return output_path
+            
     def retrieve_variable(self, variables, domain, job, output_path=None, post_process=None, **kwargs):
         """ Retrieve a variable.
 
@@ -649,7 +788,7 @@ class CWTBaseTask(celery.Task):
 
                     for k, v in spatial.iteritems():
                         if k != part_axis:
-                            spatial_dict[k] = slice(v[0], v[1])
+                            spatial_dict[k] = slice(v[0], v[1], 1)
 
                     chunks.append(spatial_dict)    
 
