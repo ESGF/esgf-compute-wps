@@ -464,9 +464,9 @@ class CWTBaseTask(celery.Task):
 
                     axis = file_map[url][var_name].getAxis(axis_index)
 
-                    axis_data = axis.mapInterval((value[0], value[1]))
+                    start, stop = axis.mapInterval((value[0], value[1]))
 
-                    mapped_spatial[name] = (axis_data[0], axis_data[1])
+                    mapped_spatial[name] = slice(start, stop, 1)
 
                 domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), mapped_spatial)
                 #domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), {})
@@ -578,8 +578,6 @@ class CWTBaseTask(celery.Task):
             cache_map = self.generate_cache_map(file_map, file_var_map, domain_map, job)
 
             partition_map = self.generate_partitions(domain_map, axes=axes)
-
-            logger.info(partition_map)
 
             output_path = self.generate_output_path()
 
@@ -1038,7 +1036,9 @@ class CWTBaseTask(celery.Task):
 
                             dim.end -= (temporal.stop-temporal.start)+temporal.start
                     else:
-                        spatial[axis.id] = axis.mapInterval((dim.start, dim.end))
+                        start, stop = axis.mapInterval((dim.start, dim.end))
+
+                        spatial[axis.id] = slice(start, stop, dim.step)
 
             if not skip:
                 domains[file_obj.id] = (temporal, spatial)
