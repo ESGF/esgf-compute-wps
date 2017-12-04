@@ -544,18 +544,25 @@ class CWTBaseTask(celery.Task):
         input_dict = {}
         time_pattern = '.*_(\d+)-(\d+)\.nc'
 
-        for v in variables:
+        for i, v in enumerate(variables):
             result = re.search(time_pattern, v.uri)
 
-            start, _ = result.groups()
+            if result is None:
+                input_dict[str(i)] = v
+
+                continue
+
+            groups = result.groups()
+
+            start, _ = groups
 
             input_dict[start] = v
 
-            sorted_keys = sorted(input_dict.keys())
+        sorted_keys = sorted(input_dict.keys())
 
         return [input_dict[x] for x in sorted_keys]
 
-    def process_variable(self, variables, domain, job, process, num_inputs=1, **kwargs):
+    def process_variable(self, variables, domain, job, process, num_inputs, **kwargs):
         axes = kwargs.get('axes', None)
         grid = kwargs.get('grid', None)
         regridTool = kwargs.get('regridTool', None)
@@ -571,18 +578,22 @@ class CWTBaseTask(celery.Task):
         var_name = file_var_map.values()[0]
 
         with nested(*file_map.values()):
+            if num_inputs > 1:
+                shapes = set(x[var_name].shape for x in file_map.values())
+
+                if len(shapes) > 1:
+                    logger.info('Inputs invalid shapes "{}"'.format(shapes))
+
+                    raise Exception('All inputs shapes do not match')
+
             self.status(job, 'Mapping domain to source files')
 
             domain_map = self.map_domain(file_map.values(), file_var_map, domain)
 
-            logger.debug('Domain map: {}'.format(domain_map))
+            logger.info('Domain map: {}'.format(domain_map))
 
             if len(domain_map) == 0:
                 raise Exception('Failed to map domain to input files, please check your domain definition')
-
-            self.status(job, 'Checking cache for input files')
-
-            cache_map = self.generate_cache_map(file_map, file_var_map, domain_map, job)
 
             # Disable caching when averaging over time axis,
             # since we pull chunks a shape like (120, 20, 480) and average over
@@ -592,29 +603,36 @@ class CWTBaseTask(celery.Task):
                 cache_map = {}
 
                 self.status(job, 'Disabling caching')
+                
+                logger.info('Disabling cache')
             else:
-                logger.debug('Cache map: {}'.format(cache_map))
+                cache_map = self.generate_cache_map(file_map, file_var_map, domain_map, job)
+
+                logger.info('Cache map: {}'.format(cache_map))
 
             self.status(job, 'Partitioning domain')
 
             partition_map = self.generate_partitions(domain_map, axes=axes)
 
-            logger.debug('Partition map: {}'.format(partition_map))
+            logger.info('Partition map: {}'.format(partition_map))
 
             output_path = self.generate_output_path()
 
-            url = domain_map.keys()[0]
+            cache_file_map = {}
 
-            cache_file = None
+            try:
+                for url in cache_map.keys():
+                    cache_file_map[url] = cdms2.open(cache_map[url].local_path, 'w')
+            except Exception as e:
+                for item in cache_file_map.values():
+                    itme.close()
 
-            if url in cache_map:
-                try:
-                    cache_file = cdms2.open(cache_map[url].local_path, 'w')
-                except:
-                    raise AccessError()
+                raise AccessError()
             
             try:
-                with cdms2.open(output_path, 'w') as outfile:
+                with cdms2.open(output_path, 'w') as outfile, nested(*cache_file_map.values()):
+                    url = domain_map.keys()[0]
+
                     temporal, spatial = partition_map[url]
 
                     if isinstance(temporal, (list, tuple)):
@@ -623,28 +641,40 @@ class CWTBaseTask(celery.Task):
                         count = len(temporal)
 
                         for i, time_slice in enumerate(temporal, 1):
-                            data = file_map[url](var_name, time=time_slice, **spatial)
+                            data_list = []
 
-                            self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
+                            for url in file_map.keys():
+                                data = file_map[url](var_name, time=time_slice, **spatial)
 
-                            if any(x == 0 for x in data.shape):
-                                raise InvalidShapeError('Data has shape {}'.format(data.shape))
+                                self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
 
-                            if cache_file is not None:
-                                cache_file.write(data, id=var_name)
+                                if any(x == 0 for x in data.shape):
+                                    raise InvalidShapeError('Data has shape {}'.format(data.shape))
 
-                            if grid is not None:
-                                data = data.regrid(grid, regridTool=regridTool, regridMethod=regridMethod)
+                                if url in cache_file_map:
+                                    logger.debug('Writing cache file "{}" with data "{}"'.format(url, data.shape))
 
-                            for axis in axes:
-                                axis_index = data.getAxisIndex(axis)
+                                    cache_file_map[url].write(data, id=var_name)
 
-                                if axis_index == -1:
-                                    raise Exception('Unknown axis "{}"'.format(axis))
+                                if grid is not None:
+                                    logger.debug('Regridding tool={} method={} grid={}'.format(regridTool, regridMethod, grid))
 
-                                data = process(data, axis=axis_index)
+                                    data = data.regrid(grid, regridTool=regridTool, regridMethod=regridMethod)
 
-                            outfile.write(data, id=var_name) 
+                                data_list.append(data)
+
+                            if len(data_list) == 1:
+                                for axis in axes:
+                                    axis_index = data.getAxisIndex(axis)
+
+                                    if axis_index == -1:
+                                        raise Exception('Unknown axis "{}"'.format(axis))
+
+                                    data = process(data, axis=axis_index)
+
+                                outfile.write(data, id=var_name) 
+                            else:
+                                outfile.write(process(data_list), id=var_name)
                     elif isinstance(spatial, (list, tuple)):
                         result = []
 
@@ -653,24 +683,36 @@ class CWTBaseTask(celery.Task):
                         count = len(spatial)
 
                         for i, spatial_slice in enumerate(spatial, 1):
-                            data = file_map[url](var_name, time=temporal, **spatial_slice)
+                            data_list = []
 
-                            self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
+                            for url in file_map.keys():
+                                data = file_map[url](var_name, time=temporal, **spatial_slice)
 
-                            if any(x == 0 for x in data.shape):
-                                raise InvalidShapeError('Data has shape {}'.format(data.shape))
+                                self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
 
-                            if cache_file is not None:
-                                cache_file.write(data, id=var_name)
+                                if any(x == 0 for x in data.shape):
+                                    raise InvalidShapeError('Data has shape {}'.format(data.shape))
 
-                            if grid is not None:
-                                data = data.regrid(grid, regridTool=regridTool, regridMethod=regridMethod)
+                                if url in cache_file_map:
+                                    logger.debug('Writing cache file "{}" with data "{}"'.format(url, data.shape))
 
-                            time_axis = data.getTime()
+                                    cache_file_map[url].write(data, id=var_name)
 
-                            time_axis_index = data.getAxisIndex(time_axis.id)
+                                if grid is not None:
+                                    logger.debug('Regridding tool={} method={} grid={}'.format(regridTool, regridMethod, grid))
 
-                            result.append(process(data, axis=time_axis_index))
+                                    data = data.regrid(grid, regridTool=regridTool, regridMethod=regridMethod)
+
+                                data_list.append(data)
+
+                            if len(data_list) == 1:
+                                time_axis = data.getTime()
+
+                                time_axis_index = data.getAxisIndex(time_axis.id)
+
+                                result.append(process(data_list[0], axis=time_axis_index))
+                            else:
+                                result.append(process(data_list))
 
                         self.status(job, 'Concatenating chunks', 100)
 
@@ -678,15 +720,15 @@ class CWTBaseTask(celery.Task):
                     else:
                         raise Exception('Files partition map is invalid')
 
-                if cache_file is not None:
+                for url in cache_file_map.keys():
                     cache_map[url].size = os.stat(cache_map[url].local_path).st_size / 1073741824.0
 
                     cache_map[url].save()
             except Exception as e:
                 raise
             finally:
-                if cache_file is not None:
-                    cache_file.close()
+                for item in cache_file_map.values():
+                    item.close()
 
         return output_path
             
@@ -1021,13 +1063,17 @@ class CWTBaseTask(celery.Task):
         """
         domains = collections.OrderedDict()
 
-        files = sorted(files, key=lambda x: x[file_var_map[x.id]].getTime().asComponentTime()[0])
+        if all(x[file_var_map[x.id]].getTime() != None for x in files):
+            files = sorted(files, key=lambda x: x[file_var_map[x.id]].getTime().asComponentTime()[0])
 
         file_obj = files[0]
 
         var_name = file_var_map[file_obj.id]
 
-        base_units = file_obj[var_name].getTime().units
+        if file_obj[var_name].getTime() != None:
+            base_units = file_obj[var_name].getTime().units
+        else:
+            base_units = None
 
         for file_obj in files:
             var_name = file_var_map[file_obj.id]
@@ -1037,7 +1083,10 @@ class CWTBaseTask(celery.Task):
             skip = False
 
             if domain is None:
-                temporal = slice(0, file_header.getTime().shape[0], 1)
+                if file_header.getTime() == None:
+                    temproal = None
+                else:
+                    temporal = slice(0, file_header.getTime().shape[0], 1)
 
                 axes = file_header.getAxisList()
 
@@ -1051,7 +1100,8 @@ class CWTBaseTask(celery.Task):
                     axis_index = file_header.getAxisIndex(dim.name)
 
                     if axis_index == -1:
-                        raise Exception('Axis {} does not exist in "{}"'.format(dim.name, file_obj.id))
+                        continue
+                        #raise Exception('Axis {} does not exist in "{}"'.format(dim.name, file_obj.id))
 
                     axis = file_header.getAxis(axis_index)
 

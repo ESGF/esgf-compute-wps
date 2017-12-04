@@ -131,7 +131,15 @@ Computes sum over an axis. Requires a parameters named "axes" whos value is a
 def minimum(self, parent_variables, variables, domains, operation, **kwargs):
     return base_process(self, parent_variables, variables, domains, operation, MV.sum, **kwargs)
 
-def base_process(self, parent_variables, variables, domains, operation, mv_process, **kwargs):
+@process.register_process('CDAT.diff', """
+Computes element-wise difference between two files.""")
+@process.cwt_shared_task()
+def difference(self, parent_variables, variables, domains, operation, **kwargs):
+    proc = lambda data: MV.subtract(data[0], data[1])
+
+    return base_process(self, parent_variables, variables, domains, operation, proc, num_inputs=2, **kwargs)
+
+def base_process(self, parent_variables, variables, domains, operation, mv_process, num_inputs=1, **kwargs):
     self.PUBLISH = process.ALL
 
     user, job = self.initialize(credentials=True, **kwargs)
@@ -160,7 +168,7 @@ def base_process(self, parent_variables, variables, domains, operation, mv_proce
         'regridMethod': method,
     }
 
-    output_path = self.process_variable(inputs, domain, job, mv_process, **options)
+    output_path = self.process_variable(inputs, domain, job, mv_process, num_inputs, **options)
 
     output_url = self.generate_output_url(output_path, **kwargs)
 
