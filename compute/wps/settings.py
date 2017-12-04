@@ -45,9 +45,10 @@ PARTITION_SIZE = setting('WPS_PARTITION_SIZE', 200)
 # Default to checking cache once a day
 CACHE_CHECK = setting('WPS_CACHE_CHECK', datetime.timedelta(days=1))
 # Default to 100 GB
-CACHE_GB_MAX_SIZE = setting('WPS_CACHE_MAX_GB_SIZE', 1.073741824e11)
+CACHE_GB_MAX_SIZE = setting('WPS_CACHE_MAX_GB_SIZE', 2.097152e8)
 # Default to 30 days
 CACHE_MAX_AGE = setting('WPS_CACHE_MAX_AGE', datetime.timedelta(days=30))
+CACHE_FREED_PERCENT = setting('WPS_CACHE_FREED_PERCENT', 0.25)
 
 # EDAS Settings
 EDAS_HOST = setting('WPS_EDAS_HOST', 'edas')

@@ -23,6 +23,10 @@ from wps import wps_xml
 
 logger = logging.getLogger('wps.models')
 
+KBYTE = 1024
+MBYTE = KBYTE * KBYTE
+GBYTE = MBYTE * KBYTE
+
 STATUS = {
     'ProcessAccepted': wps_lib.ProcessAccepted,
     'ProcessStarted': wps_lib.ProcessStarted,
@@ -242,6 +246,18 @@ class Cache(models.Model):
                     return False
 
         return True
+
+    def estimate_size(self):
+        with cdms2.open(self.url) as infile:
+            var_name, dimensions = self.dimensions.split('!')
+
+            size = reduce(lambda x, y: x * y, infile[var_name].shape)
+
+            size = size * infile[var_name].dtype.itemsize
+
+        size = size / GBYTE
+
+        return size
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)

@@ -19,6 +19,7 @@ from cdms2 import MV2 as MV
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.conf import settings as global_settings
+from django.db.models import Sum
 from openid.consumer import discover
 from OpenSSL import crypto
 
@@ -430,6 +431,7 @@ class CWTBaseTask(celery.Task):
             returns a dict mapping urls to Cache objects.
         """
         caches = {}
+        required_space = 0
 
         self.status(job, 'Checking for cached inputs')
 
@@ -438,6 +440,7 @@ class CWTBaseTask(celery.Task):
 
             temporal, spatial = domain_map[url]
 
+            # get rid if file if its not contained in the domain
             if temporal is None or temporal.stop == 0:
                 logger.debug('File "{}" is not contained in the domain'.format(url))
 
@@ -457,26 +460,45 @@ class CWTBaseTask(celery.Task):
                 except:
                     raise AccessError()
 
-                mapped_spatial = {}
-
-                for name, value in spatial.iteritems():
-                    axis_index = file_map[url][var_name].getAxisIndex(name)
-
-                    axis = file_map[url][var_name].getAxis(axis_index)
-
-                    #start, stop = axis.mapInterval((value[0], value[1]))
-
-                    #mapped_spatial[name] = slice(start, stop, 1)
-                    mapped_spatial[name] = value
-
-                domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), mapped_spatial)
-                #domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), {})
+                domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), spatial)
 
                 logger.debug('File has been cached updated files dict')
             else:
+                required_space += cache.estimate_size()
+
                 caches[url] = cache
 
+        self.cache_free(required_space)
+
         return caches
+
+    def cache_free(self, required_space):
+        freed_space = 0
+        to_remove = []
+        used_space = models.Cache.objects.all().aggregate(Sum('size'))['size__sum']
+
+        if used_space < settings.CACHE_GB_MAX_SIZE:
+            logger.info('No need to free space only "{}" of "{}" used'.format(used_space, settings.CACHE_GB_MAX_SIZE))
+
+            return
+
+        cache_entries = models.Cache.objects.order_by('-accessed_date')
+
+        for entry in cache_entries:
+            freed_space = freed_space + entry.size
+
+            to_remove.append(entry)
+
+            if freed_space >= required_space:
+                break
+
+        for entry in to_remove:
+            logger.info('Removing "{}" to free "{}" GB'.format(entry.local_path, entry.size))
+
+            if os.path.exists(entry.local_path):
+                os.remove(entry.local_path)
+
+            entry.delete()
 
     def download(self, input_file, var_name, base_units, temporal, spatial, cache_file, out_file, post_process, job):
         """ Downloads file. 

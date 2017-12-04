@@ -4,6 +4,7 @@ import os
 from celery import current_app
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.db.models import Sum
 
 from wps import models
 from wps import settings
@@ -42,3 +43,35 @@ def cache_clean():
         os.remove(item.local_path)
 
         item.delete()
+
+    used_space = models.Cache.objects.all().aggregate(Sum('size'))
+
+    if used_space >= settings.CACHE_GB_MAX_SIZE:
+        freed_space = 0
+        to_remove = []
+
+        logger.info('Free additional space "{}" GB used of "{}" GB'.format(used_space, settings.CACHE_GB_MAX_SIZE))
+
+        target_used_space = used_space * (1.0-settings.CACHE_FREED_PERCENT)
+
+        logger.info('Target used space "{}" GB'.format(target_used_space))
+
+        cache = models.Cache.objects.order_by('-accessed_date')
+
+        for entry in cache:
+            logger.info('Candidate "{}" to free "{}" GB'.format(entry.local_path, entry.size))
+
+            freed_space = freed_space + entry.size
+
+            to_remove.append(entry)
+
+            if (used_space - freed_space) < target_used_space:
+                break
+
+        for entry in to_remove:
+            logger.info('Removing "{}"'.format(entry.local_path))
+
+            if os.path.exists(entry.local_path):
+                os.remove(entry.local_path)
+
+            entry.delete()

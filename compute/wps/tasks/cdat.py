@@ -95,7 +95,7 @@ def aggregate(self, parent_variables, variables, domains, operation, **kwargs):
 
     output_url = self.generate_output_url(output_path, **kwargs)
 
-    output_var = cwt.Variable(output_url, inputs[0].var_name, o.name)
+    output_var = cwt.Variable(output_url, inputs[0].var_name, name=o.name)
 
     return {o.name: output_var.parameterize()}
 
