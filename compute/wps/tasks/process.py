@@ -15,7 +15,7 @@ from functools import partial
 import cdms2
 import celery
 import cwt
-from cdms2 import MV
+from cdms2 import MV2 as MV
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.conf import settings as global_settings
@@ -677,7 +677,7 @@ class CWTBaseTask(celery.Task):
 
                         self.status(job, 'Concatenating chunks', 100)
 
-                        outfile.write(MV.concatenate(result))
+                        outfile.write(MV.concatenate(result), id=var_name)
                     else:
                         raise Exception('Files partition map is invalid')
 
