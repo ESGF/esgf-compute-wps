@@ -184,9 +184,7 @@ def cache_variable(self, parent_variables, variables, domains, operation, **kwar
 
     job.started()
 
-    variables.update(parent_variables)
-
-    v, d, o = self.load(variables, domains, operation)
+    v, d, o = self.load(parent_variables, variables, domains, operation)
 
     o.domain = d.get(o.domain, None)
 
