@@ -296,6 +296,30 @@ export class WorkflowComponent implements OnInit {
     $('#datasetExplorer').modal('hide');
   }
 
+  loadDataset() {
+    this.loading = true;
+
+    this.config.datasetID = this.model.selectedDataset.dataset.id;
+
+    this.configService.searchESGF(this.config)
+      .then(variables => {
+        this.model.selectedDataset.dataset.variables = variables;
+
+        this.model.selectedVariable = variables[0];
+
+        if (this.model.selectedVariable.axes == null) {
+          this.loadVariable();
+        } else {
+          this.loading = false;
+        }
+      })
+      .catch(error => {
+        this.loading = false;
+
+        this.notificationService.error(error);
+      });
+  }
+
   loadVariable() {
     this.loading = true;
 

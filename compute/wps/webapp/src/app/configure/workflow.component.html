@@ -77,7 +77,7 @@
               <h4 class="panel-title">Dataset</h4>
             </div>
             <div class="panel-body">
-              <select [(ngModel)]="model.selectedDataset" class="form-control">
+              <select (change)="loadDataset()" [(ngModel)]="model.selectedDataset" class="form-control">
                 <option *ngFor="let x of model.availableDatasets" [ngValue]="x">{{x.dataset.id}}</option>
               </select>          
             </div>
