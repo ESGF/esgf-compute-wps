@@ -46,6 +46,7 @@ if not DEBUG:
     WPS_OPENID_RETURN_TO = 'https://aims2.llnl.gov/auth/callback/openid'
     WPS_OPENID_CALLBACK_SUCCESS = 'https://aims2.llnl.gov/wps/home/auth/login/callback'
     WPS_PASSWORD_RESET_URL = 'https://aims2.llnl.gov/wps/home/auth/reset'
+    WPS_CACHE_GB_MAX_SIZE = 1.073741824e11
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
