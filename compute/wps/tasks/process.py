@@ -794,15 +794,15 @@ class CWTBaseTask(celery.Task):
         if len(domain_map) == 0:
             raise Exception('Failed to map domain to input files, please check your domain definition')
 
-        logger.debug('Mapped domain {}'.format(domain_map))
+        logger.info('Mapped domain {}'.format(domain_map))
 
         cache_map = self.generate_cache_map(files, file_var_map, domain_map, job)
 
-        logger.debug('Files to be cached "{}"'.format(cache_map.keys()))
+        logger.info('Files to be cached "{}"'.format(cache_map.keys()))
 
         partition_map = self.generate_partitions(domain_map)
 
-        logger.debug('Partition map "{}"'.format(partition_map))
+        logger.info('Partition map "{}"'.format(partition_map))
 
         var_name = file_var_map[domain_map.keys()[0]]
 
@@ -820,7 +820,7 @@ class CWTBaseTask(celery.Task):
                 cache_file = None
 
                 if url in cache_map:
-                    logger.debug('Opening cache file "{}"'.format(cache_map[url].local_path))
+                    logger.info('Opening cache file "{}"'.format(cache_map[url].local_path))
 
                     try:
                         cache_file = cdms2.open(cache_map[url].local_path, 'w')
@@ -842,7 +842,7 @@ class CWTBaseTask(celery.Task):
 
                     cache_map[url].save()
 
-                    logger.debug('Updating cache entry with file size "{}" GB'.format(cache_map[url].size))
+                    logger.info('Updating cache entry with file size "{}" GB'.format(cache_map[url].size))
 
         return output_path
 
@@ -1084,6 +1084,8 @@ class CWTBaseTask(celery.Task):
             describing the portion of domain contained in the URL.
         """
         domains = collections.OrderedDict()
+
+        logger.info('Mapping domain {}'.format(domain))
 
         if all(x[file_var_map[x.id]].getTime() != None for x in files):
             files = sorted(files, key=lambda x: x[file_var_map[x.id]].getTime().asComponentTime()[0])

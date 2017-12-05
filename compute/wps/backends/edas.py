@@ -83,6 +83,12 @@ class EDAS(backend.Backend):
 
         cache_op = operation.parameterize()
 
+        logger.info('Variables {}'.format(variable_dict))
+
+        logger.info('Domains {}'.format(domain_dict))
+
+        logger.info('Operation {}'.format(operation))
+
         cache_task = tasks.cache_variable.si({}, variable_dict, domain_dict, cache_op, **params)
 
         operation.inputs = [operation.name]

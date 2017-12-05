@@ -186,11 +186,11 @@ def cache_variable(self, parent_variables, variables, domains, operation, **kwar
 
     v, d, o = self.load(parent_variables, variables, domains, operation)
 
-    o.domain = d.get(o.domain, None)
+    domain = d.get(o.domain, None)
 
     inputs = sort_inputs_by_time([v[x] for x in o.inputs])
 
-    output_path = self.retrieve_variable(inputs, o.domain, job, **kwargs)
+    output_path = self.retrieve_variable(inputs, domain, job)
 
     output_url = self.generate_output_url(output_path, **kwargs)
 

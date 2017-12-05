@@ -36,7 +36,13 @@ class Ophidia(backend.Backend):
 
         variable_dict = dict((x, variables[x].parameterize()) for x in operation.inputs)
 
-        domain_dict = dict(domain = domains[domain].parameterize())
+        domain_dict = {domain: domains[domain].parameterize()}
+
+        logger.info('Variables {}'.format(variable_dict))
+
+        logger.info('Domains {}'.format(domain_dict))
+
+        logger.info('Operation {}'.format(operation))
 
         cache_task = tasks.cache_variable.si({}, variable_dict, domain_dict, operation.parameterize(), **params)
 

@@ -46,11 +46,13 @@ class Local(backend.Backend):
             'user_id': user.id,
         }
 
-        logger.info('Building task chain')
+        logger.info('Variables {}'.format(variable_dict))
+
+        logger.info('Domains {}'.format(domain_dict))
+
+        logger.info('Operation {}'.format(operation))
 
         chain = target_process.s({}, variable_dict, domain_dict, operation, **params)
-
-        logger.info('Executing task chain')
 
         chain.delay()
 
