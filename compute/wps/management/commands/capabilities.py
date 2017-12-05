@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from wps import node_manager
+from wps import models
+from wps import wps_xml
 
 class Command(BaseCommand):
     help = 'Generates WPS capabilities document'
@@ -9,6 +10,14 @@ class Command(BaseCommand):
         pass
 
     def handle(self, *args, **options):
-        manager = node_manager.NodeManager()
+	server = models.Server.objects.get(host='default')
 
-        manager.generate_capabilities()
+	processes = server.processes.all()
+
+	print len(processes)
+
+	cap = wps_xml.capabilities_response(add_procs=processes)
+
+	server.capabilities = cap.xml()
+
+	server.save()
