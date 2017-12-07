@@ -8,6 +8,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - data-volume:/data/public
       - conf-volume:/var/www/compute
       - static-volume:/var/www/static
     deploy:
@@ -60,6 +61,8 @@ services:
       - conf-volume:/var/www/compute
       - data-volume:/data/public
       - cache-volume:/data/cache
+      - user-volume:/data/user
+      - user-tmp:/data/tmp
     deploy:
       replicas: 2
       restart_policy:
@@ -73,6 +76,27 @@ services:
     networks:
       frontend:
       backend:
+  celery_beat:
+    image: jasonb87/cwt_celery:latest
+    command: -l info -B
+    env_file:
+      - ./common.env
+    volumes:
+      - conf-volume:/var/www/compute
+      - data-volume:/data/public
+      - cache-volume:/data/cache
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '2.0'
+    networks:
+      frontend:
   thredds:
     image: jasonb87/cwt_thredds:latest
     ports:
@@ -99,6 +123,30 @@ services:
       - data-volume:/data/public
     networks:
       backend:
+  #dask_scheduler:
+  #  image: jasonb87/cwt_dask:latest
+  #  command: dask-scheduler
+  #  expose: 
+  #    - "8786"
+  #  ports:
+  #    - "8787:8787"
+  #  volumes:
+  #    - conf-volume:/var/www/compute
+  #    - data-volume:/data/public
+  #  networks:
+  #    backend:
+  #dask_worker:
+  #  image: jasonb87/cwt_dask:latest
+  #  command: dask-worker dask_scheduler:8786 --worker-port 8788
+  #  environment:
+  #    - UVCDAT_ANONYMOUS_LOG=false
+  #  expose:
+  #    - "8788"
+  #  volumes:
+  #    - conf-volume:/var/www/compute
+  #    - data-volume:/data/public
+  #  networks:
+  #    backend:
 
 networks:
   frontend:
@@ -110,3 +158,5 @@ volumes:
   conf-volume:
   data-volume:
   cache-volume:
+  tmp-volume:
+  user-volume:
