@@ -17,7 +17,6 @@ class WpsConfig(AppConfig):
 
         # Need to import after app is ready
         from wps import models
-        from wps import backends
 
         logger = logging.getLogger(__name__)
 
@@ -35,8 +34,3 @@ class WpsConfig(AppConfig):
             logger.info('Database has not been initialized yet')
 
             return
-
-        for backend in backends.Backend.registry.values():
-            backend.initialize()
-
-            backend.populate_processes()
