@@ -1,23 +1,27 @@
 from django.core.management.base import BaseCommand, CommandError
+from django.db.utils import IntegrityError
 
 from wps import models
 from wps import wps_xml
 
 class Command(BaseCommand):
-    help = 'Generates WPS capabilities document'
+    help = 'Register processes'
 
     def add_arguments(self, parser):
         pass
 
     def handle(self, *args, **options):
-	server = models.Server.objects.get(host='default')
+        processes = [x for x in models.Process.objects.all()]
 
-	processes = server.processes.all()
+        capabilities = wps_xml.capabilities_response(add_procs=processes)
 
-	print len(processes)
+        try:
+            server = models.Server.objects.get(host='default')
+        except models.Server.DoesNotExist:
+            self.stdout.write(self.style.ERROR('Failed to set capabilities for default server, does not exist'))
+        else:
+            server.capabilities = capabilities.xml()
 
-	cap = wps_xml.capabilities_response(add_procs=processes)
+            server.save()
 
-	server.capabilities = cap.xml()
-
-	server.save()
+            self.stdout.write(self.style.SUCCESS('Successfully set the capabilities for the default server'))

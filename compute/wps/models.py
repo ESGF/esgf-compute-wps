@@ -272,6 +272,7 @@ class Auth(models.Model):
 class Process(models.Model):
     identifier = models.CharField(max_length=128, unique=True)
     backend = models.CharField(max_length=128)
+    abstract = models.TextField()
     description = models.TextField()
     enabled = models.BooleanField(default=True)
 
@@ -379,7 +380,7 @@ class ProcessUsage(models.Model):
         }
 
 class Server(models.Model):
-    host = models.CharField(max_length=128)
+    host = models.CharField(max_length=128, unique=True)
     added_date = models.DateTimeField(auto_now_add=True)
     status = models.IntegerField(default=1)
     capabilities = models.TextField()

@@ -35,7 +35,7 @@ class Backend(object):
         desc = wps_xml.describe_process_response(identifier, name, abstract)
 
         try:
-            process = models.Process.objects.create(identifier=identifier, backend=self.NAME, description=desc.xml())
+            process = models.Process.objects.create(identifier=identifier, backend=self.NAME, abstract=abstract, description=desc.xml())
         except db.IntegrityError:
             logger.info('"{}" already exists'.format(identifier))
 
