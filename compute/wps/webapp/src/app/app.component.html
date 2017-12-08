@@ -6,7 +6,6 @@
         <ul class="nav navbar-nav navbar-left">
           <li *ngIf="configService.esgfURL != null"><a href="{{configService.esgfURL}}" target="_blank">ESGF</a></li>
           <li *ngIf="configService.cogURL != null"><a href="{{configService.cogURL}}" target="_blank">CoG</a></li>
-          <li *ngIf="logged"><a class="jobs" routerLink="/wps/home/user/jobs">Jobs</a></li>
           <li *ngIf="logged && admin">
             <a class="admin" routerLink="/wps/home/admin">Admin</a>
           </li>
@@ -14,6 +13,7 @@
         <ul class="nav navbar-nav navbar-right">
           <li *ngIf="!logged; else elseBlock"><a class="login" routerLink="/wps/home/auth/login/openid">Login</a></li>
           <ng-template #elseBlock>
+            <li><a class="jobs" routerLink="/wps/home/user/jobs">Jobs</a></li>
             <li><a class="profile" routerLink="/wps/home/user/profile">Profile</a></li>
             <li><a class="logout" routerLink="/wps/home/auth/logout">Logout</a></li>
           </ng-template>
