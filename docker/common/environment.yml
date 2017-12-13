@@ -75,6 +75,7 @@ dependencies:
 - pycparser=2.17=py27_0
 - pyjwt=1.5.3=py_0
 - pyopenssl=16.2.0=py27_0
+- pyophidia=1.4.0=py_0
 - python=2.7.13=0
 - python-dateutil=2.6.1=py27_0
 - python-openid=2.2.5=py27_0
