@@ -62,7 +62,7 @@ services:
       - data-volume:/data/public
       - cache-volume:/data/cache
       - user-volume:/data/user
-      - user-tmp:/data/tmp
+      - tmp-volume:/data/tmp
     deploy:
       replicas: 2
       restart_policy:
