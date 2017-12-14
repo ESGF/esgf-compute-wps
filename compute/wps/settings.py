@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import datetime
 from functools import partial
 
 from django.conf import settings
@@ -40,6 +41,15 @@ USER_TEMP_PATH = setting('WPS_USER_TEMP_PATH', '/tmp')
 
 PARTITION_SIZE = setting('WPS_PARTITION_SIZE', 200)
 
+# Cache settings
+# Default to checking cache once a day
+CACHE_CHECK = setting('WPS_CACHE_CHECK', datetime.timedelta(days=1))
+# Default to 100 GB
+CACHE_GB_MAX_SIZE = setting('WPS_CACHE_MAX_GB_SIZE', 2.097152e8)
+# Default to 30 days
+CACHE_MAX_AGE = setting('WPS_CACHE_MAX_AGE', datetime.timedelta(days=30))
+CACHE_FREED_PERCENT = setting('WPS_CACHE_FREED_PERCENT', 0.25)
+
 # EDAS Settings
 EDAS_HOST = setting('WPS_EDAS_HOST', 'edas')
 EDAS_TIMEOUT = setting('WPS_EDAS_TIMEOUT', 30)
@@ -51,7 +61,9 @@ OPH_USER = setting('WPS_OPH_USER', 'oph-test')
 OPH_PASSWORD = setting('WPS_OPH_PASSWORD', 'abcd')
 OPH_HOST = setting('WPS_OPH_HOST', 'aims2.llnl.gov')
 OPH_PORT = setting('WPS_OPH_PORT', '11732')
-OPH_OUTPUT_URL = setting('WPS_OPH_OUTPUT_URL', 'https://aims2.llnl.gov/thredds/{output_path}/{output_name}.nc')
+OPH_OUTPUT_PATH = setting('WPS_OPH_OUTPUT_PATH', '/wps')
+OPH_OUTPUT_URL = setting('WPS_OPH_OUTPUT_URL', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
+OPH_DEFAULT_CORES = setting('WPS_OPH_DEFAULT_CORES', 2)
 
 # WPS Settings
 VERSION = setting('WPS_VERSION', '1.0.0')

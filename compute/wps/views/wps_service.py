@@ -1,4 +1,5 @@
 import json
+import re
 import StringIO
 
 import cwt
@@ -7,14 +8,126 @@ from cwt import wps_lib
 from django import http
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
+from lxml import etree
 
 from . import common
 from wps import backends
 from wps import models
 from wps import wps_xml
 from wps import settings
+from wps import tasks
 
 logger = common.logger
+
+class WPSScriptGenerator(object):
+    def __init__(self, variable, domain, operation, user):
+        self.operation = operation
+
+        self.domain = domain
+
+        self.variable = variable
+
+        self.user = user
+
+        self.root_op = None
+
+    def write_header(self, buf):
+        buf.write('import cwt\nimport time\n\n')
+
+        buf.write('api_key=\'{}\'\n\n'.format(self.user.auth.api_key))
+
+        buf.write('wps = cwt.WPS(\'{}\', api_key=api_key)\n\n'.format(settings.ENDPOINT))
+
+    def write_variables(self, buf):
+        for v in self.variable.values():
+            buf.write('var-{} = cwt.Variable(\'{}\', \'{}\')\n'.format(v.name, v.uri, v.var_name))
+
+        buf.write('\n')
+
+    def write_domain(self, buf):
+        for d in self.domain.values():
+            buf.write('dom-{} = cwt.Domain([\n'.format(d.name))
+
+            for dim in d.dimensions:
+                buf.write('\tcwt.Dimension(\'{}\', \'{}\', \'{}\', crs=cwt.VALUES, step=\'{}\'),\n'.format(dim.name, dim.start, dim.end, dim.step))
+
+            buf.write('])\n\n')
+
+    def write_processes(self, buf):
+        for o in self.operation.values():
+            buf.write('op-{} = wps.get_process(\'{}\')\n\n'.format(o.name, o.identifier))
+
+        op = self.operation.values()[0]
+
+        self.root_op = 'op-{}'.format(op.name)
+
+        buf.write('wps.execute(op-{}, inputs=['.format(op.name))
+
+        l = len(op.inputs) - 1
+
+        for i, v in enumerate(op.inputs):
+            buf.write('var-{}'.format(v.name))
+
+            if i < l:
+                buf.write(', ')
+
+        buf.write('], domain=dom-{}'.format(op.domain.name))
+
+        if 'domain' in op.parameters:
+            del op.parameters['domain']
+
+        if 'gridder' in op.parameters:
+            g = op.parameters['gridder']
+
+            buf.write(', gridder=cwt.Gridder(\'{}\', \'{}\', \'{}\')'.format(g.tool, g.method, g.grid))
+
+            del op.parameters['gridder']
+
+        for p in op.parameters.values():
+            buf.write(', {}={}'.format(p.name, p.values))
+
+        buf.write(')\n\n')
+
+    def write_status(self, buf):
+        buf.write('while {}.processing:\n'.format(self.root_op))
+
+        buf.write('\tprint {}.status\n\n'.format(self.root_op))
+
+        buf.write('\ttime.sleep(1)\n\n'.format(self.root_op))
+
+    def write_output(self, buf):
+        buf.write('print {}.status\n\n'.format(self.root_op))
+
+        buf.write('print {}.output\n\n'.format(self.root_op))
+
+        buf.write('try:\n\timport vcs\n\timport cdms2\nexcept:\n\tpass\nelse:\n')
+
+        buf.write('\tf = cdms2.open({}.output.uri)\n\n'.format(self.root_op))
+
+        buf.write('\tv = vcs.init()\n\n')
+
+        buf.write('\tv.plot(f[{}.output.var_name])'.format(self.root_op))
+
+    def generate(self):
+        buf = StringIO.StringIO()
+
+        self.write_header(buf)
+
+        self.write_variables(buf)
+
+        self.write_domain(buf)
+
+        self.write_processes(buf)
+
+        self.write_status(buf)
+
+        self.write_output(buf)
+
+        data = buf.getvalue()
+
+        buf.close()
+
+        return data
 
 class WPSException(Exception):
     def __init__(self, message, exception_type=None):
@@ -54,9 +167,28 @@ def wps_execute(user, identifier, data_inputs):
 
     process.track(user)
 
-    operations, domains, variables = cwt.WPS.parse_data_inputs(data_inputs)
+    base = tasks.CWTBaseTask()
 
-    for variable in variables:
+    operations, domains, variables = base.load_data_inputs(data_inputs)
+
+    root_node = None
+    is_workflow = False
+
+    # flatten out list of inputs from operations
+    op_inputs = [i for op in operations.values() for i in op.inputs]
+
+    # find the root operation, this node will not be an input to any other operation
+    for op in operations.values():
+        if op.name not in op_inputs:
+            if root_node is not None:
+                raise Exception('Multiple dangling operations')
+
+            root_node = op
+
+    # considered a workflow if any of the root operations inputs are another operation
+    is_workflow = any(i in operations.keys() for i in root_node.inputs)
+
+    for variable in variables.values():
         models.File.track(user, variable)
 
     server = models.Server.objects.get(host='default')
@@ -74,13 +206,12 @@ def wps_execute(user, identifier, data_inputs):
 
         raise Exception('Process backend "{}" does not exist'.format(process.backend))
 
-    operation_dict = dict((x.name, x.parameterize()) for x in operations)
+    if is_workflow:
+        process_backend = backends.Backend.get_backend('Local')
 
-    domain_dict = dict((x.name, x.parameterize()) for x in domains)
-
-    variable_dict = dict((x.name, x.parameterize()) for x in variables)
-
-    process_backend.execute(identifier, variable_dict, domain_dict, operation_dict, user=user, job=job)
+        process_backend.workflow(root_node, variables, domains, operations, user=user, job=job)
+    else:
+        process_backend.execute(identifier, variables, domains, operations, user=user, job=job)
 
     return job.report
 
@@ -105,6 +236,11 @@ def handle_get(params):
 
         data_inputs = get_parameter(params, 'datainputs')
 
+        # angular2 encodes ; breaking django query_string parsing so the 
+        # webapp replaces ; with | and the change is reverted before parsing
+        # the datainputs
+        data_inputs = re.sub('\|(operation|domain|variable)=', ';\\1=', data_inputs)
+
     return api_key, operation, identifier, data_inputs
 
 def handle_post(data, params):
@@ -114,10 +250,10 @@ def handle_post(data, params):
     """
     try:
         request = wps_lib.ExecuteRequest.from_xml(data)
-    except etree.XMLSyntaxError:
+    except Exception as e:
         logger.exception('Failed to parse xml request')
 
-        raise Exception('POST request only supported for Execure operation')
+        raise
 
     # Build to format [variable=[];domain=[];operation=[]]
     data_inputs = '[{0}]'.format(
@@ -213,104 +349,22 @@ def generate(request):
     try:
         common.authentication_required(request)
 
-        try:
-            process = request.POST['process']
+        data_inputs = request.POST['datainputs']
 
-            variable = request.POST['variable']
+        data_inputs = re.sub('\|(domain|operation|variable)=', ';\\1=', data_inputs, 3)
 
-            files = request.POST['files']
+        base = tasks.CWTBaseTask()
 
-            regrid = request.POST['regrid']
-        except KeyError as e:
-            raise Exception('Missing required key "{}"'.format(e.message))
+        o, d, v = base.load_data_inputs(data_inputs, resolve_inputs=True)
 
-        parameters = request.POST.get('parameters', None)
+        script = WPSScriptGenerator(v, d, o, request.user)
 
-        latitudes = request.POST.get('latitudes', None)
-
-        longitudes = request.POST.get('longitudes', None)
-
-        # Javascript stringify on an array creates list without brackets
-        dimensions = json.loads(request.POST.get('dimensions', '[]'))
-
-        files = files.split(',')
-
-        buf = StringIO.StringIO()
-
-        buf.write("import cwt\nimport time\n\n")
-
-        buf.write("wps = cwt.WPS('{}', api_key='{}')\n\n".format(settings.ENDPOINT, request.user.auth.api_key))
-
-        buf.write("files = [\n")
-
-        for f in files:
-            buf.write("\tcwt.Variable('{}', '{}'),\n".format(f, variable))
-
-        buf.write("]\n\n")
-
-        buf.write("proc = wps.get_process('{}')\n\n".format(process))
-
-        if len(dimensions) > 0:
-            buf.write("domain = cwt.Domain([\n")
-
-            for d in dimensions:
-                name = d['id'].split(' ')[0]
-
-                buf.write("\tcwt.Dimension('{}', {start}, {stop}, step={step}),\n".format(name, **d))
-
-            buf.write("])\n\n")
-
-        if regrid != 'None':
-            if regrid == 'Gaussian':
-                if latitudes is None:
-                    raise Exception('Must provide the number of latitudes for the Gaussian grid')
-
-                grid = 'gaussian~{}'.format(latitudes)
-            elif regrid == 'Uniform':
-                if latitudes is None or longitudes is None:
-                    raise Exception('Must provide the number of latitudes and longitudes for the Uniform grid')
-
-                grid = 'uniform~{}x{}'.format(longitudes, latitudes)
-
-            buf.write("regrid = cwt.Gridder(grid='{}')\n\n".format(grid))
-
-        buf.write("wps.execute(proc, inputs=files")
-
-        if len(dimensions) > 0:
-            buf.write(", domain=domain")
-
-        if regrid != 'None':
-            buf.write(", gridder=grid")
-
-        if parameters is not None:
-            parameters = parameters.split(',')
-
-            if len(parameters) > 0:
-                for param in parameters:
-                    key, value = str(param).split('=')
-
-                    buf.write(", {}='{}'".format(key, value))
-        
-        buf.write(")\n\n")
-
-        buf.write("while proc.processing:\n")
-
-        buf.write("\tprint proc.status\n\n")
-
-        buf.write("\ttime.sleep(1)\n\n")
-
-        buf.write("print proc.status")
-
-        _, kernel = process.split('.')
+        kernel = o.values()[0].identifier.split('.')[1]
 
         data = {
             'filename': '{}.py'.format(kernel),
-            'text': buf.getvalue()
+            'text': script.generate()
         }
-
-        response = http.HttpResponse(buf.getvalue(), content_type='text/x-script.phyton')
-
-        response['Content-Disposition'] = 'attachment; filename="{}.py"'.format(kernel)
     except Exception as e:
         logger.exception('Error generating script using CWT End-user API')
 

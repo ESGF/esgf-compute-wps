@@ -7,6 +7,7 @@ import os
 import time
 from urlparse import urlparse
 
+import cdms2
 from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
@@ -21,6 +22,10 @@ from wps import settings
 from wps import wps_xml
 
 logger = logging.getLogger('wps.models')
+
+KBYTE = 1024
+MBYTE = KBYTE * KBYTE
+GBYTE = MBYTE * KBYTE
 
 STATUS = {
     'ProcessAccepted': wps_lib.ProcessAccepted,
@@ -217,6 +222,43 @@ class Cache(models.Model):
 
         return os.path.join(settings.CACHE_PATH, file_name)
 
+    @property
+    def valid(self):
+        if not os.path.exists(self.local_path):
+            return False
+
+        with cdms2.open(self.local_path) as infile:
+            var_name, dimensions = self.dimensions.split('!')
+
+            if var_name not in infile:
+                return False
+
+            dimensions = dimensions.split('|')
+
+            for d in dimensions:
+                name, start, stop, step = d.split(':')
+
+                axis_index = infile[var_name].getAxisIndex(name)
+
+                axis = infile[var_name].getAxis(axis_index)
+
+                if  stop != str(len(axis)):
+                    return False
+
+        return True
+
+    def estimate_size(self):
+        with cdms2.open(self.url) as infile:
+            var_name, dimensions = self.dimensions.split('!')
+
+            size = reduce(lambda x, y: x * y, infile[var_name].shape)
+
+            size = size * infile[var_name].dtype.itemsize
+
+        size = size / GBYTE
+
+        return size
+
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
@@ -230,6 +272,7 @@ class Auth(models.Model):
 class Process(models.Model):
     identifier = models.CharField(max_length=128, unique=True)
     backend = models.CharField(max_length=128)
+    abstract = models.TextField()
     description = models.TextField()
     enabled = models.BooleanField(default=True)
 
@@ -337,7 +380,7 @@ class ProcessUsage(models.Model):
         }
 
 class Server(models.Model):
-    host = models.CharField(max_length=128)
+    host = models.CharField(max_length=128, unique=True)
     added_date = models.DateTimeField(auto_now_add=True)
     status = models.IntegerField(default=1)
     capabilities = models.TextField()
@@ -452,8 +495,6 @@ class Job(models.Model):
         self.update_status('Retrying... {}'.format(exception), 0)
 
     def update_status(self, message, percent=0):
-        logger.info('Updating job "{}" status with "{}" percent {} %'.format(self.id, message, percent))
-
         started = self.status_set.filter(status='ProcessStarted').latest('created_date')
 
         started.set_message(message, percent)

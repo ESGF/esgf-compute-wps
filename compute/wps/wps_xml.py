@@ -109,7 +109,7 @@ def capabilities_response(data=None, add_procs=None):
         proc = metadata.Process()
         proc.identifier = p.identifier
         proc.title = p.identifier.title()
-        proc.abstract = ''
+        proc.abstract = p.abstract
 
         cap.process_offerings.append(proc)
 
@@ -119,10 +119,10 @@ def describe_process_response(identifier, title, abstract):
     fmt = metadata.Format(mime_type='text/json')
 
     cdd = {
-            'default': fmt,
-            'supported': [fmt],
-            'maximum_megabytes': 0,
-            }
+        'default': fmt,
+        'supported': [fmt],
+        'maximum_megabytes': 0,
+    }
 
     complex_data = metadata.ComplexDataDescription(**cdd)
 
@@ -130,42 +130,42 @@ def describe_process_response(identifier, title, abstract):
 
     for key in ('variable', 'domain', 'operation'):
         dct = {
-                'identifier': key,
-                'title': key.title(),
-                'min_occurs': 1,
-                'max_occurs': 1,
-                'value': complex_data
-                }
+            'identifier': key,
+            'title': key.title(),
+            'min_occurs': 1,
+            'max_occurs': 1,
+            'value': complex_data
+        }
 
         inputs.append(metadata.InputDescription(**dct))
 
     dct = {
-            'identifier': 'output',
-            'title': 'Output',
-            'value': complex_data,
-            }
+        'identifier': 'output',
+        'title': 'Output',
+        'value': complex_data,
+    }
 
     output = metadata.OutputDescription(**dct)
 
     dct = {
-            'identifier': identifier,
-            'title': title,
-            'abstract': abstract,
-            'process_version': '1.0.0',
-            'store_supported': True,
-            'status_supported': True,
-            'input': inputs,
-            'output': [output],
-            }
+        'identifier': identifier,
+        'title': title,
+        'abstract': abstract,
+        'process_version': '1.0.0',
+        'store_supported': True,
+        'status_supported': True,
+        'input': inputs,
+        'output': [output],
+    }
 
     proc_desc = metadata.ProcessDescription(**dct)
 
     dct = {
-            'process_description': [proc_desc],
-            'service': settings.SERVICE,
-            'version': '1.0.0',
-            'lang': settings.LANG,
-            }
+        'process_description': [proc_desc],
+        'service': settings.SERVICE,
+        'version': '1.0.0',
+        'lang': settings.LANG,
+    }
 
     desc = operations.DescribeProcessResponse(**dct)
 

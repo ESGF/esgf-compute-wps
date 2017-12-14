@@ -6,12 +6,8 @@ LABEL maintainer="boutte3@llnl.gov"
 
 COPY environment.yml environment.yml
 
-RUN conda env create --file environment.yml
-
-#RUN conda create -n wps -c conda-forge -c uvcdat esgf-compute-api cdms2 cdutil genutil \
-#	pyzmq lxml redis-py psycopg2 requests-oauthlib myproxyclient python-openid \
-#       	django celery dask && \
-#	conda clean --all -y
+RUN conda env create --name wps --file environment.yml && \
+	conda clean -y --all
 
 WORKDIR /var/www
 

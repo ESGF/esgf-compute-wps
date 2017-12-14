@@ -38,12 +38,16 @@ export class WPSService {
     return this.get(url, params, headers);
   }
 
-  get(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
+  getUnmodified(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
     return this.http.get(url, {
       params: params,
-      headers: headers 
+      headers: headers
     })
-      .toPromise()
+      .toPromise();
+  }
+
+  get(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
+    return this.getUnmodified(url, params, headers)
       .then(result => {
         let response = result.json() as WPSResponse;
 
@@ -61,13 +65,26 @@ export class WPSService {
     return this.post(url, data, headers);
   }
 
-  post(url: string, data: string = '', headers: Headers = new Headers()) {
+  postCSRFUnmodified(url: string, data: string = '', params: URLSearchParams = new URLSearchParams()) {
+    let headers = new Headers();
+
+    headers.append('X-CSRFToken', this.getCookie('csrftoken'));
+
+    return this.postUnmodified(url, data, headers, params);
+  }
+
+  postUnmodified(url: string, data: string = '', headers = new Headers(), params = new URLSearchParams()) {
     headers.append('Content-Type', 'application/x-www-form-urlencoded');
 
     return this.http.post(url, data, {
-      headers: headers 
+      headers: headers,
+      params: params
     })
-      .toPromise()
+      .toPromise();
+  }
+
+  post(url: string, data: string = '', headers: Headers = new Headers()) {
+    return this.postUnmodified(url, data, headers)
       .then(result => {
         let response = result.json() as WPSResponse;
 

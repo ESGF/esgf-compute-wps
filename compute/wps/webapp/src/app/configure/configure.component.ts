@@ -4,7 +4,12 @@ import { Router, ActivatedRoute } from '@angular/router';
 import * as L from 'leaflet';
 
 import { AuthService } from '../core/auth.service';
-import { Configuration, VariableCollection, ConfigureService } from './configure.service';
+import {
+  Configuration,
+  DatasetCollection, Dataset,
+  VariableCollection,
+  ConfigureService
+} from './configure.service';
 import { NotificationService } from '../core/notification.service';
 
 import { Selection } from './selection';
@@ -23,8 +28,8 @@ class Domain {
 @Component({
   templateUrl: './configure.component.html',
   styles: [`
-  .fill { 
-    height: 100%;
+  .pane {
+    padding: 1em;
   }
 
   .select-spacer {
@@ -48,6 +53,7 @@ export class ConfigureComponent implements OnInit {
 
   config: Configuration;
   datasetIDs: string[];
+  processes: any[];
 
   constructor(
     private route: ActivatedRoute,
@@ -57,6 +63,8 @@ export class ConfigureComponent implements OnInit {
     private notificationService: NotificationService
   ) { 
     this.config = new Configuration();
+
+    this.datasetIDs = [];
   }
 
   ngOnInit() {
@@ -76,15 +84,29 @@ export class ConfigureComponent implements OnInit {
       this.config.shard = params['shard'] || '';
     });
 
+    this.configService.processes()
+      .then(data => {
+        this.processes = data.sort((a: any, b: any) => {
+          if (a.identifier < b.identifier) { return -1; }
+          if (a.identifier > b.identifier) { return 1; }
+
+          return 0; 
+        });
+
+        this.config.process.identifier = this.processes[0].identifier;
+      })
+      .catch(error => {
+        this.notificationService.error(error); 
+      });
   }
 
   addParameter() {
-    this.config.params.push({key: '', value: ''} as Parameter);
+    this.config.process.parameters.push(new Parameter());
   }
 
   removeParameter(param: Parameter) {
-    this.config.params = this.config.params.filter((value: Parameter) => {
-      return !(param.key === value.key && param.value === value.value);
+    this.config.process.parameters = this.config.process.parameters.filter((value: Parameter) => {
+      return param.uid !== value.uid;
     });
   }
 

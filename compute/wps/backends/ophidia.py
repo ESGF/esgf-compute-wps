@@ -20,16 +20,34 @@ class Ophidia(backend.Backend):
             self.add_process(key, key)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
+        if len(operations) == 0:
+            raise Exception('Must atlease supply one operation')
+
         logger.info('Executing process "{}"'.format(identifier))
 
         params = {
-            'cwd': '/tmp',
             'user_id': kwargs.get('user').id,
             'job_id': kwargs.get('job').id
         }
 
-        chain = tasks.cache_variable.si(identifier, variables, domains, operations, **params)
+        operation = operations.values()[0]
 
-        chain = chain | tasks.oph_submit.s(identifier, **params)
+        domain = operation.domain
 
-        chain.delay()
+        variable_dict = dict((x, variables[x].parameterize()) for x in operation.inputs)
+
+        domain_dict = {domain: domains[domain].parameterize()}
+
+        logger.info('Variables {}'.format(variable_dict))
+
+        logger.info('Domains {}'.format(domain_dict))
+
+        logger.info('Operation {}'.format(operation))
+
+        cache_task = tasks.cache_variable.si({}, variable_dict, domain_dict, operation.parameterize(), **params)
+
+        operation.inputs = [operation.name]
+
+        oph_task = tasks.oph_submit.s({}, domain_dict, operation.parameterize(), **params)
+
+        (cache_task | oph_task).delay()

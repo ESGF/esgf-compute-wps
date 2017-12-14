@@ -1,6 +1,12 @@
 import { Component, Input } from '@angular/core';
 
-import { Configuration } from './configure.service';
+export class RegridModel {
+  constructor(
+    public regridType: string = 'None',
+    public lats: number = 0,
+    public lons: number = 0,
+  ) { }
+}
 
 @Component({
   selector: 'regrid',
@@ -10,25 +16,25 @@ import { Configuration } from './configure.service';
   }
   `],
   template: `
-  <select [(ngModel)]="config.regrid" class="form-control select-spacer" id="regrid" name="regrid">
+  <select [(ngModel)]="model.regridType" class="form-control select-spacer" id="regridType" name="regridType">
     <option>None</option>
     <option>Gaussian</option>
     <option>Uniform</option>
   </select>
-  <div *ngIf="config.regrid !== 'None'" class="panel panel-default">
+  <div *ngIf="model.regridType !== 'None'" class="panel panel-default">
     <div class="panel-body">
       <div class="form-group">
         <label for="lats">Latitudes</label>
-        <input [(ngModel)]="config.regridOptions.lats" type="number" class="form-control" id="lats" placeholder="Latitudes" name="lats">
+        <input [(ngModel)]="model.lats" type="number" class="form-control" id="lats" placeholder="Latitudes" name="lats">
       </div>
-      <div *ngIf="config.regrid === 'Uniform'" class="form-group">
+      <div *ngIf="model.regridType === 'Uniform'" class="form-group">
         <label for="lons">Longituds</label>
-        <input [(ngModel)]="config.regridOptions.lons" type="number" class="form-control" id="lons" placeholder="Longitudes" name="lons">
+        <input [(ngModel)]="model.lons" type="number" class="form-control" id="lons" placeholder="Longitudes" name="lons">
       </div>
     </div>
   </div>
   `
 })
 export class RegridComponent { 
-  @Input() config: Configuration;
+  @Input() model: RegridModel;
 }

@@ -6,16 +6,20 @@ import json
 import math
 import time
 import os
+import re
 import uuid
+from contextlib import nested
 from datetime import datetime
 from functools import partial
 
 import cdms2
 import celery
 import cwt
+from cdms2 import MV2 as MV
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.conf import settings as global_settings
+from django.db.models import Sum
 from openid.consumer import discover
 from OpenSSL import crypto
 
@@ -85,7 +89,7 @@ def get_process(name):
     except KeyError:
         raise Exception('Process {} does not exist'.format(name))
 
-def register_process(name):
+def register_process(name, abstract=''):
     """ Process decorator.
 
     Registers a process with the global dictionary.
@@ -99,6 +103,8 @@ def register_process(name):
     """
     def wrapper(func):
         REGISTRY[name] = func
+
+        func.abstract = abstract
 
         return func
 
@@ -151,6 +157,9 @@ class CWTBaseTask(celery.Task):
             self.load_certificate(user)
 
         return user, job
+
+    def status(self, job, message, percent=0):
+        job.update_status('[{}] {}'.format(self.request.id, message), percent)        
 
     def get_job(self, kwargs):
         job_id = kwargs.get('job_id')
@@ -303,7 +312,7 @@ class CWTBaseTask(celery.Task):
 
             logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
 
-    def load_data_inputs(self, data_inputs):
+    def load_data_inputs(self, data_inputs, resolve_inputs=False):
         o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
 
         v = dict((x.name, x) for x in v)
@@ -315,18 +324,19 @@ class CWTBaseTask(celery.Task):
 
         o = dict((x.name, x) for x in o)
 
-        for op in o.values():
-            op.resolve_inputs(v, o)
+        if resolve_inputs:
+            for op in o.values():
+                op.resolve_inputs(v, o)
 
-            if op.domain is not None:
-                if op.domain not in d:
-                    raise Exception('Domain "{}" was never defined'.format(op.domain))
+                if op.domain is not None:
+                    if op.domain not in d:
+                        raise Exception('Domain "{}" was never defined'.format(op.domain))
 
-                op.domain = d[op.domain]
+                    op.domain = d[op.domain]
 
-        return v, d, o
+        return o, d, v
 
-    def load(self, variables, domains, operations):
+    def load(self, parent_variables, variables, domains, operation):
         """ Load a processes inputs.
 
         Loads each value into their associated container class.
@@ -340,23 +350,18 @@ class CWTBaseTask(celery.Task):
             A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
             object of their respective container type.
         """
+        if isinstance(parent_variables, dict):
+            variables.update(parent_variables)
+        elif isinstance(parent_variables, list):
+            for parent in parent_variables:
+                if isinstance(parent, dict):
+                    variables.update(parent)
+
         v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
 
         d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
 
-        for var in v.values():
-            var.resolve_domains(d)
-
-        o = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
-
-        for op in o.values():
-            op.resolve_inputs(v, o)
-
-            if op.domain is not None:
-                if op.domain not in d:
-                    raise Exception('Domain "{}" was never defined'.format(op.domain))
-
-                op.domain = d[op.domain]
+        o = cwt.Process.from_dict(operation)
 
         return v, d, o
 
@@ -426,14 +431,16 @@ class CWTBaseTask(celery.Task):
             returns a dict mapping urls to Cache objects.
         """
         caches = {}
+        required_space = 0
 
-        job.update_status('Checking for cached inputs')
+        self.status(job, 'Checking for cached inputs')
 
         for url in domain_map.keys():
             var_name = var_map[url]
 
             temporal, spatial = domain_map[url]
 
+            # get rid if file if its not contained in the domain
             if temporal is None or temporal.stop == 0:
                 logger.debug('File "{}" is not contained in the domain'.format(url))
 
@@ -453,13 +460,45 @@ class CWTBaseTask(celery.Task):
                 except:
                     raise AccessError()
 
-                domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), {})
+                domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), spatial)
 
                 logger.debug('File has been cached updated files dict')
             else:
+                required_space += cache.estimate_size()
+
                 caches[url] = cache
 
+        self.cache_free(required_space)
+
         return caches
+
+    def cache_free(self, required_space):
+        freed_space = 0
+        to_remove = []
+        used_space = models.Cache.objects.all().aggregate(Sum('size'))['size__sum']
+
+        if used_space < settings.CACHE_GB_MAX_SIZE:
+            logger.info('No need to free space only "{}" of "{}" used'.format(used_space, settings.CACHE_GB_MAX_SIZE))
+
+            return
+
+        cache_entries = models.Cache.objects.order_by('-accessed_date')
+
+        for entry in cache_entries:
+            freed_space = freed_space + entry.size
+
+            to_remove.append(entry)
+
+            if freed_space >= required_space:
+                break
+
+        for entry in to_remove:
+            logger.info('Removing "{}" to free "{}" GB'.format(entry.local_path, entry.size))
+
+            if os.path.exists(entry.local_path):
+                os.remove(entry.local_path)
+
+            entry.delete()
 
     def download(self, input_file, var_name, base_units, temporal, spatial, cache_file, out_file, post_process, job):
         """ Downloads file. 
@@ -502,8 +541,219 @@ class CWTBaseTask(celery.Task):
 
             percent = (i+1)*100/steps
 
-            job.update_status('Retrieved chunk {} to {} from {}'.format(time_slice.start, time_slice.stop, base_units), percent)
+            self.status(job, 'Retrieved chunk {} to {} from {}'.format(time_slice.start, time_slice.stop, base_units), percent)
 
+    def open_variables(self, variables):
+        file_map = collections.OrderedDict()
+        file_var_map = {}
+
+        try:
+            for var in variables:
+                file_map[var.uri] = cdms2.open(var.uri)
+
+                file_var_map[var.uri] = var.var_name
+        except Exception as e:
+            logger.exception('Error accessing file "{}"'.format(e.message))
+
+            for f in file_map.values():
+                f.close()
+
+            raise AccessError()
+        else:
+            return file_map, file_var_map
+
+    def sort_variables_by_time(self, variables):
+        input_dict = {}
+        time_pattern = '.*_(\d+)-(\d+)\.nc'
+
+        for i, v in enumerate(variables):
+            result = re.search(time_pattern, v.uri)
+
+            if result is None:
+                input_dict[str(i)] = v
+
+                continue
+
+            groups = result.groups()
+
+            start, _ = groups
+
+            input_dict[start] = v
+
+        sorted_keys = sorted(input_dict.keys())
+
+        return [input_dict[x] for x in sorted_keys]
+
+    def process_variable(self, variables, domain, job, process, num_inputs, **kwargs):
+        axes = kwargs.get('axes', None)
+        grid = kwargs.get('grid', None)
+        regridTool = kwargs.get('regridTool', None)
+        regridMethod = kwargs.get('regridMethod', None)
+
+        variables = self.sort_variables_by_time(variables)
+
+        if num_inputs is not None:
+            variables = variables[:num_inputs]
+
+        file_map, file_var_map = self.open_variables(variables)
+
+        var_name = file_var_map.values()[0]
+
+        with nested(*file_map.values()):
+            if num_inputs > 1:
+                shapes = set(x[var_name].shape for x in file_map.values())
+
+                if len(shapes) > 1:
+                    logger.info('Inputs invalid shapes "{}"'.format(shapes))
+
+                    raise Exception('All inputs shapes do not match')
+
+            self.status(job, 'Mapping domain to source files')
+
+            domain_map = self.map_domain(file_map.values(), file_var_map, domain)
+
+            logger.info('Domain map: {}'.format(domain_map))
+
+            if len(domain_map) == 0:
+                raise Exception('Failed to map domain to input files, please check your domain definition')
+
+            # Disable caching when averaging over time axis,
+            # since we pull chunks a shape like (120, 20, 480) and average over
+            # the first index resulting in (20, 480) we overwrite out cache 
+            # data each time result in a invalid file with shape (20, 480)
+            if 'time' in axes:
+                cache_map = {}
+
+                self.status(job, 'Disabling caching')
+                
+                logger.info('Disabling cache')
+            else:
+                cache_map = self.generate_cache_map(file_map, file_var_map, domain_map, job)
+
+                logger.info('Cache map: {}'.format(cache_map))
+
+            self.status(job, 'Partitioning domain')
+
+            partition_map = self.generate_partitions(domain_map, axes=axes)
+
+            logger.info('Partition map: {}'.format(partition_map))
+
+            output_path = self.generate_output_path()
+
+            cache_file_map = {}
+
+            try:
+                for url in cache_map.keys():
+                    cache_file_map[url] = cdms2.open(cache_map[url].local_path, 'w')
+            except Exception as e:
+                for item in cache_file_map.values():
+                    itme.close()
+
+                raise AccessError()
+            
+            try:
+                with cdms2.open(output_path, 'w') as outfile, nested(*cache_file_map.values()):
+                    url = domain_map.keys()[0]
+
+                    temporal, spatial = partition_map[url]
+
+                    if isinstance(temporal, (list, tuple)):
+                        self.status(job, 'Averaging over spatial axes "{}"'.format(axes))
+
+                        count = len(temporal)
+
+                        for i, time_slice in enumerate(temporal, 1):
+                            data_list = []
+
+                            for url in file_map.keys():
+                                data = file_map[url](var_name, time=time_slice, **spatial)
+
+                                self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
+
+                                if any(x == 0 for x in data.shape):
+                                    raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+                                if url in cache_file_map:
+                                    logger.debug('Writing cache file "{}" with data "{}"'.format(url, data.shape))
+
+                                    cache_file_map[url].write(data, id=var_name)
+
+                                if grid is not None:
+                                    logger.debug('Regridding tool={} method={} grid={}'.format(regridTool, regridMethod, grid))
+
+                                    data = data.regrid(grid, regridTool=regridTool, regridMethod=regridMethod)
+
+                                data_list.append(data)
+
+                            if len(data_list) == 1:
+                                for axis in axes:
+                                    axis_index = data.getAxisIndex(axis)
+
+                                    if axis_index == -1:
+                                        raise Exception('Unknown axis "{}"'.format(axis))
+
+                                    data = process(data, axis=axis_index)
+
+                                outfile.write(data, id=var_name) 
+                            else:
+                                outfile.write(process(data_list), id=var_name)
+                    elif isinstance(spatial, (list, tuple)):
+                        result = []
+
+                        self.status(job, 'Averaging over time axis')
+
+                        count = len(spatial)
+
+                        for i, spatial_slice in enumerate(spatial, 1):
+                            data_list = []
+
+                            for url in file_map.keys():
+                                data = file_map[url](var_name, time=temporal, **spatial_slice)
+
+                                self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
+
+                                if any(x == 0 for x in data.shape):
+                                    raise InvalidShapeError('Data has shape {}'.format(data.shape))
+
+                                if url in cache_file_map:
+                                    logger.debug('Writing cache file "{}" with data "{}"'.format(url, data.shape))
+
+                                    cache_file_map[url].write(data, id=var_name)
+
+                                if grid is not None:
+                                    logger.debug('Regridding tool={} method={} grid={}'.format(regridTool, regridMethod, grid))
+
+                                    data = data.regrid(grid, regridTool=regridTool, regridMethod=regridMethod)
+
+                                data_list.append(data)
+
+                            if len(data_list) == 1:
+                                time_axis = data.getTime()
+
+                                time_axis_index = data.getAxisIndex(time_axis.id)
+
+                                result.append(process(data_list[0], axis=time_axis_index))
+                            else:
+                                result.append(process(data_list))
+
+                        self.status(job, 'Concatenating chunks', 100)
+
+                        outfile.write(MV.concatenate(result), id=var_name)
+                    else:
+                        raise Exception('Files partition map is invalid')
+
+                for url in cache_file_map.keys():
+                    cache_map[url].size = os.stat(cache_map[url].local_path).st_size / 1073741824.0
+
+                    cache_map[url].save()
+            except Exception as e:
+                raise
+            finally:
+                for item in cache_file_map.values():
+                    item.close()
+
+        return output_path
+            
     def retrieve_variable(self, variables, domain, job, output_path=None, post_process=None, **kwargs):
         """ Retrieve a variable.
 
@@ -519,7 +769,7 @@ class CWTBaseTask(celery.Task):
             output_path: A string path that the data will be written.
             post_process: A function handle to call after each chunk is read.
         """
-        files = {}
+        files = collections.OrderedDict()
         file_var_map = {}
 
         # Open the input files
@@ -536,20 +786,23 @@ class CWTBaseTask(celery.Task):
 
             raise AccessError()
 
-        job.update_status('Mapping domain to input files')
+        self.status(job, 'Mapping domain to input files')
 
         # Map the domain
         domain_map = self.map_domain(files.values(), file_var_map, domain)
 
-        logger.debug('Mapped domain {}'.format(domain_map))
+        if len(domain_map) == 0:
+            raise Exception('Failed to map domain to input files, please check your domain definition')
+
+        logger.info('Mapped domain {}'.format(domain_map))
 
         cache_map = self.generate_cache_map(files, file_var_map, domain_map, job)
 
-        logger.debug('Files to be cached "{}"'.format(cache_map.keys()))
+        logger.info('Files to be cached "{}"'.format(cache_map.keys()))
 
         partition_map = self.generate_partitions(domain_map)
 
-        logger.debug('Partition map "{}"'.format(partition_map))
+        logger.info('Partition map "{}"'.format(partition_map))
 
         var_name = file_var_map[domain_map.keys()[0]]
 
@@ -557,17 +810,17 @@ class CWTBaseTask(celery.Task):
 
         output_path = self.generate_output_path()
 
-        job.update_status('Retrieving files')
+        self.status(job, 'Retrieving files')
 
         # Download chunked files
         with cdms2.open(output_path, 'w') as out_file:
             for url in domain_map.keys():
-                job.update_status('Processing input "{}"'.format(url))
+                self.status(job, 'Processing input "{}"'.format(url))
 
                 cache_file = None
 
                 if url in cache_map:
-                    logger.debug('Opening cache file "{}"'.format(cache_map[url].local_path))
+                    logger.info('Opening cache file "{}"'.format(cache_map[url].local_path))
 
                     try:
                         cache_file = cdms2.open(cache_map[url].local_path, 'w')
@@ -580,7 +833,7 @@ class CWTBaseTask(celery.Task):
 
                 files[url].close()
 
-                job.update_status('Finished retrieving "{}"'.format(url))
+                self.status(job, 'Finished retrieving "{}"'.format(url), 100)
 
                 if cache_file is not None:
                     cache_file.close()
@@ -589,11 +842,11 @@ class CWTBaseTask(celery.Task):
 
                     cache_map[url].save()
 
-                    logger.debug('Updating cache entry with file size "{}" GB'.format(cache_map[url].size))
+                    logger.info('Updating cache entry with file size "{}" GB'.format(cache_map[url].size))
 
         return output_path
 
-    def generate_partitions(self, domain_map, **kwargs):
+    def generate_partitions(self, domain_map, axes=None, **kwargs):
         """ Generates a partition map from a domain map.
 
         Args:
@@ -607,29 +860,58 @@ class CWTBaseTask(celery.Task):
         """
         partitions = {}
 
-        for url in domain_map.keys():
-            chunks = []
+        if axes is None:
+            axes = ['lat']
 
+        for url in domain_map.keys():
             logger.debug('Partitioning input "{}"'.format(url))
+
+            axis = axes[0]
 
             temporal, spatial = domain_map[url]
 
-            tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+            if axis in ('time', 't'):
+                chunks = []
 
-            diff = tstop - tstart
+                # Could make a smarter decision on which axis to slice by
+                # data alginment
+                part_axis = spatial.keys()[0]
 
-            step = min(diff, settings.PARTITION_SIZE)
+                part_slice = spatial.get(part_axis)
 
-            for begin in xrange(tstart, tstop, step):
-                end = min(begin + step, tstop)
+                step = 20
 
-                chunks.append(slice(begin, end, tstep))
+                for begin in xrange(part_slice.start, part_slice.stop, step):
+                    end = min(begin+step, part_slice.stop)
 
-            partitions[url] = (chunks, spatial)
+                    spatial_dict = {part_axis: slice(begin, end)}
+
+                    for k, v in spatial.iteritems():
+                        if k != part_axis:
+                            spatial_dict[k] = slice(v.start, v.stop, 1)
+
+                    chunks.append(spatial_dict)    
+
+                partitions[url] = (temporal, chunks)
+            else:
+                chunks = []
+
+                tstart, tstop, tstep = temporal.start, temporal.stop, temporal.step
+
+                diff = tstop - tstart
+
+                step = min(diff, settings.PARTITION_SIZE)
+
+                for begin in xrange(tstart, tstop, step):
+                    end = min(begin + step, tstop)
+
+                    chunks.append(slice(begin, end, tstep))
+
+                partitions[url] = (chunks, spatial)
 
         return partitions
 
-    def generate_dimension_id(self, temporal, spatial):
+    def generate_dimension_id(self, var_name, temporal, spatial):
         """ Create a string describing the dimensions.
 
         Args:
@@ -640,15 +922,15 @@ class CWTBaseTask(celery.Task):
             A string unique to the dimensions.
         """
 
-        dim_id = ''
+        dim_id = '{}!'.format(var_name)
 
         if temporal is None:
-            dim_id = 'time:None'
+            dim_id += 'time:None'
         else:
-            dim_id = 'time:{}'.format(self.slice_to_str(temporal))
+            dim_id += 'time:{}'.format(self.slice_to_str(temporal))
 
-        for name, dim in spatial.iteritems():
-            dim_id += '|{}:{}'.format(name, self.slice_to_str(dim))
+        for name in sorted(spatial.keys()):
+            dim_id += '|{}:{}'.format(name, self.slice_to_str(spatial[name]))
 
         return dim_id
 
@@ -700,7 +982,7 @@ class CWTBaseTask(celery.Task):
 
         uid = self.generate_cache_name(uri, temporal, spatial)
 
-        dimensions = self.generate_dimension_id(temporal, spatial)
+        dimensions = self.generate_dimension_id(var_name, temporal, spatial)
 
         logger.info('Generated uid "{}" dimensions "{}"'.format(uid, dimensions))
 
@@ -803,13 +1085,19 @@ class CWTBaseTask(celery.Task):
         """
         domains = collections.OrderedDict()
 
-        files = sorted(files, key=lambda x: x[file_var_map[x.id]].getTime().asComponentTime()[0])
+        logger.info('Mapping domain {}'.format(domain))
+
+        if all(x[file_var_map[x.id]].getTime() != None for x in files):
+            files = sorted(files, key=lambda x: x[file_var_map[x.id]].getTime().asComponentTime()[0])
 
         file_obj = files[0]
 
         var_name = file_var_map[file_obj.id]
 
-        base_units = file_obj[var_name].getTime().units
+        if file_obj[var_name].getTime() != None:
+            base_units = file_obj[var_name].getTime().units
+        else:
+            base_units = None
 
         for file_obj in files:
             var_name = file_var_map[file_obj.id]
@@ -819,13 +1107,25 @@ class CWTBaseTask(celery.Task):
             skip = False
 
             if domain is None:
-                temporal = slice(0, file_header.getTime().shape[0], 1)
+                if file_header.getTime() == None:
+                    temproal = None
+                else:
+                    temporal = slice(0, file_header.getTime().shape[0], 1)
+
+                axes = file_header.getAxisList()
+
+                for axis in axes:
+                    if axis.isTime():
+                        continue
+
+                    spatial[axis.id] = (axis[0], axis[-1])
             else:
                 for dim in domain.dimensions:
                     axis_index = file_header.getAxisIndex(dim.name)
 
                     if axis_index == -1:
-                        raise Exception('Axis {} does not exist in "{}"'.format(dim.name, file_obj.id))
+                        continue
+                        #raise Exception('Axis {} does not exist in "{}"'.format(dim.name, file_obj.id))
 
                     axis = file_header.getAxis(axis_index)
 
@@ -848,7 +1148,9 @@ class CWTBaseTask(celery.Task):
 
                             dim.end -= (temporal.stop-temporal.start)+temporal.start
                     else:
-                        spatial[axis.id] = (dim.start, dim.end)
+                        start, stop = axis.mapInterval((dim.start, dim.end))
+
+                        spatial[axis.id] = slice(start, stop, dim.step)
 
             if not skip:
                 domains[file_obj.id] = (temporal, spatial)
@@ -938,8 +1240,6 @@ class CWTBaseTask(celery.Task):
         if not self.__can_publish(RETRY):
             return
 
-        logger.warning('Retry {} {}'.format(exc, args))
-
         try:
             job = self.get_job(kwargs)
         except Exception:
@@ -951,8 +1251,6 @@ class CWTBaseTask(celery.Task):
         """ Handle a failure. """
         if not self.__can_publish(FAILURE):
             return
-
-        logger.warning('Failed {} {}'.format(exc, args))
 
         try:
             job = self.get_job(kwargs)
@@ -966,17 +1264,12 @@ class CWTBaseTask(celery.Task):
         if not self.__can_publish(SUCCESS):
             return
 
-        logger.info('Success with result "{}"'.format(retval))
-
-        #if retval is None:
-        #    return
-
         try:
             job = self.get_job(kwargs)
         except Exception:
             logger.exception('Failed to retrieve job')
         else:
-            job.succeeded(json.dumps(retval))
+            job.succeeded(json.dumps(retval.values()[0]))
 
 # Define after CWTBaseTask is declared
 cwt_shared_task = partial(shared_task,
@@ -988,42 +1281,49 @@ cwt_shared_task = partial(shared_task,
 if global_settings.DEBUG:
     @register_process('dev.echo')
     @cwt_shared_task()
-    def dev_echo(self, variables, operations, domains, **kwargs):
+    def dev_echo(self, parent_variables, variables, domains, operation, **kwargs):
         self.PUBLISH = ALL
 
         user, job = self.initialize(credentials=False, **kwargs)
 
         job.started()
 
-        v, d, o = self.load(variables, domains, operations)
+        v, d, o = self.load(parent_variables, variables, domains, operation)
 
-        job.update_status('Operations {}'.format(operations))
+        self.status(job, parent_variables)
 
-        job.update_status('Domains {}'.format(domains))
+        self.status(job, variables)
 
-        job.update_status('Variables {}'.format(variables))
+        self.status(job, domains)
 
-        return cwt.Variable('variables={};domains={};operations={};'.format(variables, domains, operations), 'tas').parameterize()
+        self.status(job, operation)
+
+        output_var = cwt.Variable('file:///test.nc', 'tas')
+
+        return {o.name: output_var.parameterize()}
+
+    @cwt_shared_task()
+    def dev_test(self, result, index, item1, item2):
+        print '{} hello {}'.format(index, result)
+        return index
 
     @register_process('dev.sleep')
     @cwt_shared_task()
-    def dev_sleep(self, variables, operations, domains, **kwargs):
+    def dev_sleep(self, parent_variables, variables, domains, operation, **kwargs):
         self.PUBLISH = ALL
 
         user, job = self.initialize(credentials=False, **kwargs)
 
         job.started()
 
-        v, d, o = self.load(variables, domains, operations)
+        v, d, o = self.load(parent_variables, variables, domains, operation)
 
-        op = self.op_by_id('dev.sleep', o)
-
-        count = op.get_parameter('count')
+        count = o.get_parameter('count')
 
         if count is None:
             count = 6
 
-        timeout = op.get_parameter('timeout')
+        timeout = o.get_parameter('timeout')
 
         if timeout is None:
             timeout = 10
@@ -1033,11 +1333,13 @@ if global_settings.DEBUG:
 
             time.sleep(timeout)
 
-        return cwt.Variable('Slept {} times for {} seconds, total time {} seconds'.format(count, timeout, count*timeout), 'tas').parameterize()
+        output_var = cwt.Variable('Slept {} times for {} seconds, total time {} seconds'.format(count, timeout, count*timeout), 'tas')
+
+        return {o.name: output_var.parameterize()}
 
     @register_process('dev.retry')
     @cwt_shared_task()
-    def dev_retry(self, variables, operations, domains, **kwargs):
+    def dev_retry(self, parent_variables, variables, domains, operation, **kwargs):
         self.PUBLISH = ALL
 
         global counter
@@ -1047,7 +1349,7 @@ if global_settings.DEBUG:
         job.started()
 
         for i in xrange(3):
-            job.update_status('{}'.format(i*100/3), i*100/3)
+            self.status(job, '{}'.format(i*100/3), i*100/3)
 
             time.sleep(2)
 
@@ -1060,11 +1362,13 @@ if global_settings.DEBUG:
             else:
                 raise AccessError('Something went wrong')
 
-        return cwt.Variable('I recovered from a retry', 'tas').parameterize()
+        output_var = cwt.Variable('I recovered from a retry', 'tas').parameterize()
+
+        return {o.name: output_var.parameterize()}
 
     @register_process('dev.failure')
     @cwt_shared_task()
-    def dev_failure(self, variables, operations, domains, **kwargs):
+    def dev_failure(self, parent_variables, variables, domains, operation, **kwargs):
         self.PUBLISH = ALL
 
         user, job = self.initialize(credentials=False, **kwargs)
@@ -1074,7 +1378,7 @@ if global_settings.DEBUG:
         for i in xrange(3):
             percent = i*100/3
 
-            job.update_status('Percent {}'.format(percent), percent)
+            self.status(job, 'Percent {}'.format(percent), percent)
 
             time.sleep(2)         
 

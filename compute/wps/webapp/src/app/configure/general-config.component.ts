@@ -1,30 +1,37 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 
 import { Axis } from './axis.component';
-import { LAT_NAMES, LNG_NAMES, Configuration, DatasetCollection, VariableCollection, ConfigureService } from './configure.service';
+import { LAT_NAMES, LNG_NAMES, Configuration, Dataset, Variable, DatasetCollection, VariableCollection, ConfigureService } from './configure.service';
 import { NotificationService } from '../core/notification.service';
+
+declare var $: any;
 
 @Component({
   selector: 'general-config',
   template: `
   <div>
     <div class="form-group">
-      <label for="process">Dataset</label>
-      <select [(ngModel)]="config.datasetID" (change)="loadDataset()" class="form-control" id="datasetID" name="datasetID">
-        <option *ngFor="let dataset of datasetIDs">{{dataset}}</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="process">Process</label>
-      <select [(ngModel)]="config.process" class="form-control" id="process" name="process">
-        <option *ngFor="let proc of processes | async">{{proc}}</option>
+      <label for="datasetID">Dataset</label>
+      <select [(ngModel)]="config.dataset" (change)="loadDataset()" class="form-control" id="datasetID" name="datasetID">
+        <option *ngFor="let d of datasets" [ngValue]="d">{{d.id}}</option>
       </select>
     </div>
     <div class="form-group">
       <label for="variable">Variable</label>
-      <select [(ngModel)]="config.variableID" (change)="loadVariable()" class="form-control" id="variable" name="variable">
-        <option *ngFor="let v of variables" [value]="v">{{v}}</option>
+      <select [(ngModel)]="config.variable" (change)="loadVariable()" class="form-control" id="variable" name="variable">
+        <option *ngFor="let v of variables" [ngValue]="v">{{v.id}}</option>
       </select>
+    </div>
+    <div class="form-group">
+      <label for="process">Process</label>
+      <div class="input-group">
+        <select [(ngModel)]="config.process.identifier" class="form-control" id="process" name="process">
+          <option *ngFor="let proc of processes">{{proc.identifier}}</option>
+        </select>
+        <span class="input-group-btn">
+          <button (click)="showAbstract()" type="button" class="btn btn-default" data-toggle="modal" data-target="#abstractModal">Abstract</button>
+        </span>
+      </div>
     </div>
     <div>
       <button (click)="onDownload()" type="submit" class="btn btn-default">Script</button>
@@ -35,12 +42,11 @@ import { NotificationService } from '../core/notification.service';
 })
 export class GeneralConfigComponent implements OnInit { 
   @Input() config: Configuration;
+  @Input() processes: any[];
   @Input() datasetIDs: string[];
 
-  variables: string[];
-
-  processes: Promise<string[]>;
-  datasets: DatasetCollection;
+  variables: Variable[];
+  datasets: Dataset[];
 
   constructor(
     private configService: ConfigureService,
@@ -48,37 +54,60 @@ export class GeneralConfigComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    this.processes = this.configService.processes()
-      .then(data => {
-        let p = data.sort();
-
-        this.config.process = p[0];
-
-        return p;
-      })
-      .catch(error => {
-        this.notificationService.error(error); 
-
-        return [];
-      });
-
-    this.datasets = {} as DatasetCollection;
+    this.datasets = [];
 
     this.datasetIDs.forEach((id: string) => {
-      this.datasets[id] = {id: id, variables: {} as VariableCollection};
+      this.datasets.push({id: id, variables: []});
     });
 
-    this.loadDataset();
+    if (this.datasets.length > 0) {
+      this.config.dataset = this.datasets[0];
+
+      this.loadDataset();
+    }
+  }
+
+  showAbstract() {
+    let proc = this.processes.filter((item: any) => {
+      return this.config.process.identifier === item.identifier;
+    });
+
+    if (proc.length > 0) {
+      // Really ugly way to parse XML
+      // TODO replace with better parsing
+      let parser = new DOMParser();
+
+      let xmlDoc = parser.parseFromString(proc[0].description, 'text/xml');
+
+      let description = xmlDoc.children[0].children[0];
+
+      let abstractText = '';
+      let titleText = '';
+
+      Array.from(description.children).forEach((item: any) => {
+        if (item.localName === 'Identifier') {
+          titleText = item.innerHTML;
+        } else if (item.localName === 'Abstract') {
+          abstractText = item.innerHTML;
+        }
+      });
+
+      let modal = $('#abstractModal');
+
+      modal.find('.modal-title').html(`"${titleText}" Abstract`);
+
+      if (abstractText === '') { abstractText = 'No abstract available'; }
+
+      modal.find('#abstract').html(abstractText);
+    }
   }
   
   loadDataset() {
     this.configService.searchESGF(this.config)
       .then(data => {
-        this.datasets[this.config.datasetID].variables = data;
+        this.variables = this.config.dataset.variables = data;
 
-        this.variables = Object.keys(data).sort();
-
-        this.config.variableID = this.variables[0];
+        this.config.variable = this.variables[0];
 
         this.loadVariable();
       })
@@ -88,59 +117,50 @@ export class GeneralConfigComponent implements OnInit {
   }
 
   loadVariable() {
-    let dataset = this.datasets[this.config.datasetID];
-
-    if (dataset.variables[this.config.variableID].axes === null) {
+    if (this.config.variable.axes === null) {
       this.configService.searchVariable(this.config)
         .then(data => {
-          dataset.variables[this.config.variableID].axes = data.map((axis: Axis) => {
+          // cached copy of the axes
+          this.config.variable.axes = data.map((axis: Axis) => {
             return {step: 1, ...axis}; 
           });
 
-          this.setVariable();
+          // create a copy for editing
+          this.config.process.domain = data.map((axis: Axis) => {
+            return {step: 1, ...axis};
+          });
         })
         .catch(error => {
-          this.notificationService.error(error);
+          this.notificationService.error(error); 
         });
     } else {
-      this.setVariable();
-    }
-  }
-
-  setVariable() {
-    let dataset = this.datasets[this.config.datasetID];
-
-    let variable = dataset.variables[this.config.variableID];
-
-    this.config.variable = {...variable};
-
-    this.config.variable.axes = this.config.variable.axes.map((axis: Axis) => {
-      return {...axis};
-    });
-  }
-
-  resetDomain() {
-    if (this.config.variable.axes !== null) {
-      this.config.variable.axes.forEach((axis: Axis) => {
-        if (LAT_NAMES.indexOf(axis.id) >= 0 || LNG_NAMES.indexOf(axis.id) >= 0) {
-          let dataset = this.datasets[this.config.datasetID];
-
-          let filtered = dataset.variables[this.config.variableID].axes.filter((value: Axis) => {
-            return axis.id === value.id;
-          });
-
-          if (filtered.length > 0) {
-            axis.start = filtered[0].start;
-
-            axis.stop = filtered[0].stop;
-          }
-        }
+      // create a copy for editing
+      this.config.process.domain = this.config.process.domain.map((axis: Axis) => {
+        return {step: 1, ...axis};
       });
     }
   }
 
+  resetDomain() {
+    this.config.process.domain.forEach((axis: Axis) => {
+      if (LAT_NAMES.indexOf(axis.id) >= 0 || LNG_NAMES.indexOf(axis.id) >= 0) {
+        let filtered = this.config.variable.axes.filter((value: Axis) => {
+          return axis.id === value.id;
+        });
+
+        if (filtered.length > 0) {
+          axis.start = filtered[0].start;
+
+          axis.stop = filtered[0].stop;
+        }
+      }
+    });
+  }
+
   onDownload() {
-    this.configService.downloadScript(this.config)
+    this.config.process.setInputs([this.config.variable]);
+
+    this.configService.downloadScript(this.config.process)
       .then(data => {
           let url = URL.createObjectURL(new Blob([data.text]));
 
@@ -158,10 +178,12 @@ export class GeneralConfigComponent implements OnInit {
   }
 
   onExecute() {
-    this.configService.execute(this.config)
+    this.config.process.setInputs([this.config.variable]);
+
+    this.configService.execute(this.config.process)
       .then((data: any) => {
         let parser = new DOMParser();
-        let xml = parser.parseFromString(data.report, 'text/xml');
+        let xml = parser.parseFromString(data, 'text/xml');
         let el = xml.getElementsByTagName('wps:ExecuteResponse');
         let link = '';
 

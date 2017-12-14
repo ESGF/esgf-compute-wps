@@ -2,6 +2,7 @@ import json
 import os
 import uuid
 
+import cwt
 from celery.utils.log import get_task_logger
 from PyOphidia import client
 
@@ -99,12 +100,12 @@ class OphidiaWorkflow(object):
         return json.dumps(self.workflow, default=default, indent=4)
 
 @process.cwt_shared_task()
-def oph_submit(self, data_inputs, identifier, **kwargs):
+def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     self.PUBLISH = process.ALL
 
-    v, d, o = self.load_data_inputs(data_inputs)
+    user, job = self.initialize(credentials=False, **kwargs)
 
-    op = self.op_by_id(identifier, o)
+    v, d, o = self.load(parent_variables, variables, domains, operation)
 
     oph_client = client.Client(settings.OPH_USER, settings.OPH_PASSWORD, settings.OPH_HOST, settings.OPH_PORT)
 
@@ -112,44 +113,76 @@ def oph_submit(self, data_inputs, identifier, **kwargs):
 
     workflow.check_error()
 
+    cores = o.get_parameter('cores')
+
+    if cores is None:
+        cores = settings.OPH_DEFAULT_CORES
+    else:
+        cores = cores.values[0]
+
+    axes = o.get_parameter('axes')
+
+    if axes is not None:
+        axes = axes.values[0]
+    else:
+        axes = 'time'
+
+    self.status(job, 'Connected to Ophidia backend, building workflow')
+
     container_task = OphidiaTask('create container', 'oph_createcontainer', on_error='skip')
     container_task.add_arguments(container='work')
 
+    self.status(job, 'Add container task')
+
+    # only take the first input
+    inp = v.get(o.inputs[0])
+
     import_task = OphidiaTask('import data', 'oph_importnc')
-    import_task.add_arguments(container='work', measure=op.inputs[0].var_name, src_path=op.inputs[0].uri)
+    import_task.add_arguments(container='work', measure=inp.var_name, src_path=inp.uri, ncores=cores, imp_dim=axes)
     import_task.add_dependencies(container_task)
 
-    try:
-        operator = PROCESSES[identifier]
-    except KeyError:
-        raise Exception('Process "{}" does not exist for Ophidia backend'.format(identifier))
+    self.status(job, 'Added import task')
 
-    axes = op.get_parameter('axes')
+    try:
+        operator = PROCESSES[o.identifier]
+    except KeyError:
+        raise Exception('Process "{}" does not exist for Ophidia backend'.format(o.identifier))
 
     if axes is None:
         reduce_task = OphidiaTask('reduce data', 'oph_reduce')
-        reduce_task.add_arguments(operation=operator)
+        reduce_task.add_arguments(operation=operator, ncores=cores)
         reduce_task.add_dependencies(import_task)
+
+        self.status(job, 'Added reduction task over implicit axis')
     else:
         reduce_task = OphidiaTask('reduce data', 'oph_reduce2')
-        reduce_task.add_arguments(operation=operator, dim=axes.values[0])
+        reduce_task.add_arguments(operation=operator, dim=axes, ncores=cores)
         reduce_task.add_dependencies(import_task)
 
-    output_path = '/wps/output'
+        self.status(job, 'Added reduction task over axes "{}"'.format(axes))
+
     output_name = '{}'.format(uuid.uuid4())
 
-    export_task = OphidiaTask('export data', 'oph_exportnc')
-    export_task.add_arguments(output_path=output_path, output_name=output_name)
+    export_task = OphidiaTask('export data', 'oph_exportnc2')
+    export_task.add_arguments(output_path=settings.OPH_OUTPUT_PATH, output_name=output_name, ncores=cores, force='yes')
     export_task.add_dependencies(reduce_task)
+
+    self.status(job, 'Added export task')
 
     workflow.add_tasks(container_task, import_task, reduce_task, export_task)
 
+    self.status(job, 'Added tasks to workflow')
+
     workflow.submit()
+
+    self.status(job, 'Submitted workflow to Ophidia backend')
 
     workflow.check_error()
 
-    output_url = settings.OPH_OUTPUT_URL.format(output_path=output_path, output_name=output_name)
+    self.status(job, 'No errors reported by Ophidia')
 
-    variable = cwt.Variable(output_url, op.inputs[0].var_name)
+    output_url = settings.OPH_OUTPUT_URL.format(output_path=settings.OPH_OUTPUT_PATH, output_name=output_name)
 
-    return variable.parameterize()
+    output_var  = cwt.Variable(output_url, inp.var_name, name=o.name)
+
+    return {o.name: output_var.parameterize()}

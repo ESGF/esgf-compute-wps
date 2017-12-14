@@ -24,12 +24,12 @@ export interface Axis {
   <div class="panel panel-default">
     <div class="panel-heading">
       <div class="panel-title">
-        <a role="button" data-toggle="collapse" data-parent="#accordionAxis" href="#collapse{{axisIndex}}">
+        <a role="button" data-toggle="collapse" data-parent="#accordionAxis" href="#collapse{{id}}{{axisIndex}}">
           <span id="title">{{axis.id}} ({{axis.units}})</span>
         </a>
       </div>
     </div>
-    <div id="collapse{{axisIndex}}" class="panel-collapse collapse">
+    <div id="collapse{{id}}{{axisIndex}}" class="panel-collapse collapse">
       <div class="panel-body">
         <form #dimForm{{axisIndex}}="ngForm">
           <label for="start{{axisIndex}}">Start</label>     
@@ -49,6 +49,7 @@ export class AxisComponent {
   @Input() axisIndex: number;
   @Output() axisChange: EventEmitter<string> = new EventEmitter<string>();
 
+  id: string = Math.random().toString(16).slice(2);
   start: Subject<number> = new Subject<number>();
   stop: Subject<number> = new Subject<number>();
   step: Subject<number> = new Subject<number>();

@@ -1,0 +1,219 @@
+<div class="container-fluid pane">
+  <div class="row">
+    <div class="col-md-2">
+      <panel-group>
+        <panel title="General">
+          <div class="btn-group" role="group">
+            <button (click)="onScript()" type="button" class="btn btn-default">Script</button>
+            <button (click)="onExecute()" type="button" class="btn btn-default">Execute</button>
+            <button (click)="showHelp()" type="button" class="btn btn-default">Help</button>
+          </div>
+        </panel>
+        <panel scrollable="true" ignoreBody="true" title="Processes">
+          <div
+            (click)="showAbstract(x)"
+            *ngFor="let x of processes" 
+            class="list-group-item" 
+            data-toggle="modal"
+            data-target="#abstractModal"
+            dnd-draggable
+            [dragEnabled]="true" 
+            [dragData]="x.identifier">{{x.identifier}}</div>
+        </panel>
+        <panel title="Regrid">
+          <regrid [model]="model.process.regrid"></regrid>
+        </panel>
+        <panel ignoreBody="true" title="Parameters">
+          <li class="list-group-item">
+            <button (click)="addParameterWorkflow()" class="btn btn-default">Add</button>
+          </li>
+          <li *ngFor="let param of model.process.parameters" class="list-group-item">
+            <parameter [param]="param" (remove)="removeParameterWorkflow($event)"></parameter>
+          </li>
+        </panel>
+        <panel ignoreBody="true" title="Domain">
+          <div class="list-group-item">
+            <div class="input-group select-spacer">
+              <select (change)="domainChange()" [(ngModel)]="model.domain" class="form-control">
+                <option>World</option>
+                <option>Custom</option>
+              </select>
+              <span class="input-group-btn">
+                <button
+                  type="button" 
+                  class="btn btn-default dropdown-toggle" 
+                  data-toggle="dropdown">Show <span class="caret"></span></button>
+                <ul class="dropdown-menu dropdown-menu-right">
+                  <li><a (click)="showDomain()">Show Map</a></li>
+                  <li><a (click)="showExplorer()">Load from dataset</a></li>
+                </ul>
+              </span>
+            </div>
+          </div>
+          <div *ngFor="let x of model.process.domain; index as i" class="list-group-item">
+            <axis [axis]="x" [axisIndex]="i" (axisChange)="map.onAxisChange($event)"></axis>
+          </div>
+        </panel>
+      </panel-group>
+    </div>
+    <div class="col-md-10">
+      <div class="fill">
+        <svg class="graph-container" dnd-droppable (onDropSuccess)="dropped($event)"></svg>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" [class.loading]="loading" id="datasetExplorer" tabindex="-1" role="dialog" aria-labelby="datasetLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h4 class="modal-title" id="datasetLabel">Dataset Explorer</h4>
+        </div>
+        <div class="modal-body">
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h4 class="panel-title">Dataset</h4>
+            </div>
+            <div class="panel-body">
+              <select (change)="loadDataset()" [(ngModel)]="model.selectedDataset" class="form-control">
+                <option *ngFor="let x of model.availableDatasets" [ngValue]="x">{{x.dataset.id}}</option>
+              </select>          
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h4 class="panel-title">Variable</h4>
+            </div>
+            <div class="panel-body">
+              <select (change)="loadVariable()" [(ngModel)]="model.selectedVariable" class="form-control">
+                <option *ngFor="let x of model.selectedDataset.dataset.variables" [ngValue]="x">{{x.id}}</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h4 class="panel-title">Domain</h4>
+            </div>
+            <div class="panel-body">
+              <axis *ngFor="let x of model.selectedVariable?.axes" [axis]="x"></axis>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button (click)="loadDomain()" type="button" class="btn btn-default">Load</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="help" tabindex="-1" role="dialog" aria-labelby="helpLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h4 class="modal-title" id="helpLabel">Workflow Editor Help</h4>
+        </div>
+        <div class="modal-body">
+          <ul class="list-group">
+            <li class="list-group-item">
+              Drag & drop process from list (left) to editor (right)
+            </li>
+            <li class="list-group-item">
+              Shift-click on a Process and then drag to another Process to connect
+            </li>
+            <li class="list-group-item">
+              Click on a link and press Backspace/Delete to remove
+            </li>
+            <li class="list-group-item">
+              Click on a Processs to Configure
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="map" tabindex="-1" role="dialog" aria-labelby="mapLabel">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h4 class="modal-title" id="mapLabel">Domain</h4>
+        </div>
+        <div class="modal-body">
+          <domain-map [axes]="model.process.domain"></domain-map>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="configure" tabindex="-1" role="dialog" aria-labelby="configureLabel">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h4 class="modal-title" id="configureLabel">Configure Process ({{selectedNode?.display()}})</h4>
+        </div>
+        <div class="modal-body">
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h4 class="panel-title">Inputs</h4>
+            </div>
+            <div class="panel-body">
+              <div class="form-group">
+                <select [(ngModel)]="model.selectedDataset" class="form-control">
+                  <option disabled hidden [ngValue]="undefined">No datasets available</option>
+                  <option *ngFor="let x of model.availableDatasets" [ngValue]="x">{{x.display()}}</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <div class="input-group">
+                  <select [(ngModel)]="model.selectedVariable" class="form-control">
+                    <option disabled hidden [ngValue]="undefined">No variables available</option>
+                    <option *ngFor="let x of model.selectedDataset?.dataset.variables" [ngValue]="x">{{x.id}}</option>
+                  </select>
+                  <span class="input-group-btn">
+                    <button (click)="addInput(model.selectedVariable)" class="btn btn-default">Add</button>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="list-group">
+              <div *ngFor="let x of selectedNode?.inputDatasets()" class="list-group-item clearfix">
+                <span>{{x.dataset}} - <b>{{x.id}}</b></span>
+                <span class="pull-right">
+                  <span (click)="removeInput(x)" class="btn btn-xs btn-default">
+                    <span class="glyphicon glyphicon-remove"></span>
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h4 class="panel-title">Parameters</h4>
+            </div>
+            <div class="panel-body">
+              <div class="btn-group">
+                <button (click)="addParameter()" type="button" class="btn btn-default">Add</button>
+              </div>
+            </div>
+            <div class="list-group">
+              <parameter *ngFor="let x of selectedNode?.process.parameters" [param]="x" (remove)="removeParameter($event)" ></parameter>              
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button (click)="removeNode(selectedNode)" type="button" class="btn btn-danger">Remove</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
