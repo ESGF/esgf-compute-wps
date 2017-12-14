@@ -174,7 +174,79 @@ export class Process {
     let domainJSON = JSON.stringify(Object.keys(domain).map((key: string) => { return domain[key]; }));
     let variableJSON = JSON.stringify(Object.keys(variable).map((key: string) => { return variable[key]; }));
 
-    return `[operation=${operationJSON}|domain=${domainJSON}|variable=${variableJSON}]`;
+    return {
+      operation: operationJSON,
+      domain: domainJSON,
+      variable: variableJSON
+    };
+  }
+
+  prepareDataInputsString() {
+    let dataInputs = this.prepareDataInputs();
+
+    return `[operation=${dataInputs.operation}|domain=${dataInputs.domain}|variable=${dataInputs.variable}]`;
+  }
+
+  createAttribute(doc: any, node: any, name: string, value: string) {
+    let attribute = doc.createAttribute(name);
+
+    attribute.value = value;
+
+    node.setAttributeNode(attribute);
+  }
+
+  createAttributeNS(doc: any, node: any, ns: string, name: string, value: string) {
+    let attribute = doc.createAttributeNS(ns, name);
+
+    attribute.value = value;
+
+    node.setAttributeNode(attribute);
+  }
+
+  createElementNS(doc: any, node: any, ns: string, name: string, value: string = null) {
+    let newNode = doc.createElementNS(ns, name);
+
+    if (value != null) {
+      newNode.innerHTML = value;
+    }
+
+    node.appendChild(newNode);
+
+    return newNode;
+  }
+
+  prepareDataInputsXML() {
+    const WPS_NS = 'http://www.opengis.net/wps/1.0.0';
+    const OWS_NS = 'http://www.opengis.net/ows/1.1';
+    const XLINK_NS = 'http://www.w3.org/1999/xlink';
+    const XSI_NS = 'http://www.w3.org/2001/XMLSchema-instance';
+    const SCHEMA_LOCATION = 'http://www.opengis.net/wps/1.0.0/wpsExecute_request.xsd';
+
+    let dataInputs = this.prepareDataInputs();
+
+    let doc = document.implementation.createDocument(WPS_NS, 'wps:Execute', null);
+
+    let root = doc.documentElement;
+
+    this.createAttribute(doc, root, 'service', 'WPS');
+    this.createAttribute(doc, root, 'version', '1.0.0');
+    this.createAttributeNS(doc, root, XSI_NS, 'xsi:schemaLocation', SCHEMA_LOCATION);
+
+    this.createElementNS(doc, root, WPS_NS, 'wps:Identifier', this.identifier);
+
+    let dataInputsElement = this.createElementNS(doc, root, WPS_NS, 'wps:DataInputs');
+
+    for (let key in dataInputs) {
+      let inputElement = this.createElementNS(doc, dataInputsElement, WPS_NS, 'wps:Input');
+
+      this.createElementNS(doc, inputElement, OWS_NS, 'ows:Identifier', key);
+
+      let dataElement = this.createElementNS(doc, inputElement, WPS_NS, 'wps:Data');
+
+      this.createElementNS(doc, dataElement, WPS_NS, 'wps:ComplexData', dataInputs[key]);
+    }
+
+    return new XMLSerializer().serializeToString(doc.documentElement);
   }
 }
 
@@ -280,22 +352,28 @@ export class ConfigureService extends WPSService {
     let preparedData: string;
 
     try {
-      preparedData = process.prepareDataInputs();
+      //preparedData = process.prepareDataInputsString();
+      preparedData = process.prepareDataInputsXML();
     } catch (e) {
       return Promise.reject(e);
     }
 
     let params = new URLSearchParams();
 
-    params.append('service', 'WPS');
-    params.append('request', 'execute');
+    //params.append('service', 'WPS');
+    //params.append('request', 'execute');
     params.append('api_key', this.authService.user.api_key);
-    params.append('identifier', process.identifier);
-    params.append('datainputs', preparedData);
+    //params.append('identifier', process.identifier);
+    //params.append('datainputs', preparedData);
 
-    return this.getUnmodified('/wps', params)
+    //return this.getUnmodified('/wps', params)
+    //  .then(response => {
+    //    return response.text(); 
+    //  });
+
+    return this.postCSRFUnmodified('/wps/', preparedData, params=params)
       .then(response => {
-        return response.text(); 
+        return response.text();
       });
   }
 
@@ -303,7 +381,7 @@ export class ConfigureService extends WPSService {
     let preparedData: string;
     
     try {
-      preparedData = process.prepareDataInputs();
+      preparedData = process.prepareDataInputsString();
     } catch (e) {
       return Promise.reject(e);
     }

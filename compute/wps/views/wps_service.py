@@ -8,6 +8,7 @@ from cwt import wps_lib
 from django import http
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
+from lxml import etree
 
 from . import common
 from wps import backends
@@ -198,12 +199,6 @@ def wps_execute(user, identifier, data_inputs):
 
     logger.info('Accepted job {}'.format(job.id))
 
-    #operations = dict((x, y.parameterize()) for x, y in operations.iteritems())
-
-    #domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
-
-    #variables = dict((x, y.parameterize()) for x, y in variables.iteritems())
-
     process_backend = backends.Backend.get_backend(process.backend)
 
     if process_backend is None:
@@ -255,10 +250,10 @@ def handle_post(data, params):
     """
     try:
         request = wps_lib.ExecuteRequest.from_xml(data)
-    except etree.XMLSyntaxError:
+    except Exception as e:
         logger.exception('Failed to parse xml request')
 
-        raise Exception('POST request only supported for Execure operation')
+        raise
 
     # Build to format [variable=[];domain=[];operation=[]]
     data_inputs = '[{0}]'.format(
