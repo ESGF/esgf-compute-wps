@@ -326,11 +326,11 @@ def oauth2_callback(request):
 
         token = oauth2.get_token(token_service.server_url, request_url, oauth_state)
 
-        logger.info('Retrieved OAuth2 token for OpenID {}'.format(oid))
+        logger.info('Retrieved OAuth2 token for OpenID {}'.format(openid_url))
 
         cert, key, new_token = oauth2.get_certificate(token, token_service.server_url, cert_service.server_url)
 
-        logger.info('Retrieved Certificated for OpenID {}'.format(oid))
+        logger.info('Retrieved Certificated for OpenID {}'.format(openid_url))
 
         update_user(user, 'oauth2', [cert, key], token=new_token)
     except Exception as e:
@@ -361,12 +361,12 @@ def login_mpc(request):
 
         logger.info('Authenticating MyProxyClient for {}'.format(data['username']))
 
-        mpc_service = openid_services(request.user.auth.openid_url, (URN_MPC,))[0]
+        services = openid_services(request.user.auth.openid_url, (URN_MPC,))
 
-        try:
-            g = re.match('socket://(.*):(.*)', mpc_service.server_url)
-        except re.error:
-            raise common.ViewError('Failed to parse MyProxyClient host and port')
+        if len(services) == 0:
+            raise common.ViewError('IDP doesn\'t support MyProxyClient service')
+
+        g = re.match('socket://(.*):(.*)', services[0].server_url)
 
         if g is None or len(g.groups()) != 2:
             raise Exception('Failed to parse MyProxyClient endpoint')
