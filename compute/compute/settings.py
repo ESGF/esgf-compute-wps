@@ -76,6 +76,12 @@ else:
 
     TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 
+    if DEBUG:
+        NOSE_ARGS = [
+            '--with-coverage',
+            '--cover-package=wps.auth,wps.backends,wps.management,wps.models,wps.tasks,wps.views,wps.wps_xml',
+        ]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
