@@ -16,7 +16,7 @@ class OAuth2Error(Exception):
 
 def get_env(key):
     try:
-        return os.getenv(key)
+        return os.environ[key]
     except KeyError:
         raise OAuth2Error('Environment variable "{}" has not been set'.format(key))
 
