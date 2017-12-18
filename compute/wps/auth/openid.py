@@ -22,19 +22,19 @@ class ServiceError(WPSError):
 
         super(ServiceError, self).__init__(msg, url=url, urn=urn)
 
-def AuthenticationCancelError(WPSError):
+class AuthenticationCancelError(WPSError):
     def __init__(self, response):
         msg = 'Authentication cancel for "{url}"'
 
         super(AuthenticationCancelError, self).__init__(msg, url=response.identity_url)
 
-def AuthenticationFailureError(WPSError):
+class AuthenticationFailureError(WPSError):
     def __init__(self, response):
         msg = 'Authentication failure for "{url}" with message "{error}"'
 
         super(AuthenticationFailureError, self).__init__(msg, url=response.identity_url, error=response.message)
 
-def MissingAttributeError(WPSError):
+class MissingAttributeError(WPSError):
     def __init__(self, name):
         msg = 'Attribute "{name}" could not be retrieved from OpenID AX extension'
 
@@ -52,7 +52,7 @@ def services(openid_url, service_urns):
 
     try:
         url, services = discover.discoverYadis(openid_url)
-    except discover.DiscoverFailure:
+    except discover.DiscoveryFailure:
         raise DiscoverError(openid_url)
 
     for urn in service_urns:
@@ -107,11 +107,11 @@ def complete(request):
     
     openid_url = response.getDisplayIdentifier()
 
-    attrs = handle_openid_attribute_exchange(response)
+    attrs = handle_attribute_exchange(response)
 
     return openid_url, attrs
 
-def handle_openid_attribute_exchange(response):
+def handle_attribute_exchange(response):
     attrs = {'email': None}
 
     ax_response = ax.FetchResponse.fromSuccessResponse(response)
