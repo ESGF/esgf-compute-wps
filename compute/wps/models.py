@@ -2,8 +2,11 @@ from __future__ import unicode_literals
 
 import base64
 import datetime
+import json
 import logging
 import os
+import random
+import string
 import time
 from urlparse import urlparse
 
@@ -268,6 +271,22 @@ class Auth(models.Model):
     cert = models.TextField()
     api_key = models.CharField(max_length=128)
     extra = models.TextField()
+
+    def update(self, auth_type, certs, **kwargs):
+        if self.api_key == '':
+            self.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+
+        self.type = auth_type
+
+        self.cert = ''.join(certs)
+
+        extra = json.loads(self.extra or '{}')
+
+        extra.update(kwargs)
+
+        self.extra = json.dumps(extra)
+
+        self.save()
 
 class Process(models.Model):
     identifier = models.CharField(max_length=128, unique=True)

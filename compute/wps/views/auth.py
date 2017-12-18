@@ -14,10 +14,7 @@ from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
-from openid.consumer import consumer
 from openid.consumer import discover
-from openid.consumer.discover import DiscoveryFailure
-from openid.extensions import ax
 from myproxy.client import MyProxyClient
 
 from wps import forms
@@ -67,22 +64,6 @@ Thank you for creating an account for the ESGF compute server. Please login into
 
 If you have any questions or concerns please email the <a href="mailto:{admin_email}">server admin</a>.
 """
-
-def update_user(user, service_type, certs, **extra):
-    """ Updates users auth settings """
-
-    if user.auth.api_key == '':
-        user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
-
-    user.auth.type = service_type
-
-    user.auth.cert = ''.join(certs)
-
-    user.auth.extra = json.dumps(extra)
-
-    user.auth.save()
-
-    logger.info('Updated auth settings for user {}'.format(user.username))
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -247,7 +228,7 @@ def oauth2_callback(request):
 
         logger.info('Retrieved Certificated for OpenID {}'.format(openid_url))
 
-        update_user(user, 'oauth2', [cert, key], token=new_token)
+        user.auth.update('oauth2', [cert, key], token=new_token)
     except Exception as e:
         logger.exception('OAuth2 callback failed')
 
@@ -297,7 +278,7 @@ def login_mpc(request):
 
         logger.info('Authenticated with MyProxyClient backend for user {}'.format(data['username']))
 
-        update_user(request.user, 'myproxyclient', c)
+        request.user.auth.update('myproxyclient', c)
     except Exception as e:
         logger.exception('Error authenticating MyProxyClient')
 
