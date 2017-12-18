@@ -24,6 +24,7 @@ from wps import forms
 from wps import models
 from wps import settings
 from wps.auth import oauth2
+from wps.auth import openid
 from wps.views import common
 
 logger = common.logger
@@ -83,92 +84,6 @@ def update_user(user, service_type, certs, **extra):
 
     logger.info('Updated auth settings for user {}'.format(user.username))
 
-def openid_find_service_by_type(services, uri):
-    for s in services:
-        if uri in s.type_uris:
-            return s
-
-    return None
-
-def openid_services(openid_url, service_urns):
-    requested = collections.OrderedDict()
-
-    try:
-        url, services = discover.discoverYadis(openid_url)
-    except Exception as e:
-        logger.exception('OpenID discovery failed')
-
-        raise Exception('OpenID discovery failed')
-
-    for urn in service_urns:
-        requested[urn] = openid_find_service_by_type(services, urn)
-
-        if requested[urn] is None:
-            raise Exception('OpenID IDP for "{}" does not support service "{}"'.format(openid_url, urn))
-
-    return requested.values()
-
-def openid_begin(request, openid_url):
-    try:
-        logger.info('Attempting to login user "{}"'.format(openid_url))
-
-        c = consumer.Consumer(request.session, models.DjangoOpenIDStore()) 
-
-        auth_request = c.begin(openid_url)
-
-        fetch_request = ax.FetchRequest()
-
-        attributes = [
-            ('http://axschema.org/contact/email', 'email'),
-            ('http://axschema.org/namePerson', 'fullname'),
-            ('http://axschema.org/namePerson/first', 'firstname'),
-            ('http://axschema.org/namePerson/last', 'lastname'),
-            ('http://axschema.org/namePerson/friendly', 'nickname'),
-            ('http://schema.openid.net/contact/email', 'old_email'),
-            ('http://schema.openid.net/namePerson', 'old_fullname'),
-            ('http://schema.openid.net/namePerson/friendly', 'old_nickname')
-        ]
-
-        for attr, alias in attributes:
-            fetch_request.add(ax.AttrInfo(attr, alias=alias, required=True))
-
-        auth_request.addExtension(fetch_request)
-
-        url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
-    except Exception as e:
-        raise common.ViewError('Failed to begin OpenID process "{}"'.format(e.message))
-    else:
-        return url
-
-def openid_complete(request):
-    try:
-        c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
-
-        response = c.complete(request.GET, settings.OPENID_RETURN_TO)
-
-        if response.status == consumer.CANCEL:
-            raise Exception('OpenID authentication cancelled')
-        elif response.status == consumer.FAILURE:
-            raise Exception('OpenID authentication failed')
-        
-        openid_url = response.getDisplayIdentifier()
-
-        attrs = handle_openid_attribute_exchange(response)
-    except Exception as e:
-        raise common.ViewError('Failed to complete OpenID process "{}"'.format(e.message))
-    else:
-        return openid_url, attrs
-
-def handle_openid_attribute_exchange(response):
-    attrs = {'email': None}
-
-    ax_response = ax.FetchResponse.fromSuccessResponse(response)
-
-    if ax_response:
-        attrs['email'] = ax_response.get('http://axschema.org/contact/email')[0]
-
-    return attrs
-
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def create(request):
@@ -209,7 +124,7 @@ def user_login_openid(request):
 
         data = common.validate_form(form, ('openid_url',))
 
-        url = openid_begin(request, data['openid_url'])
+        url = openid.begin(request, data['openid_url'])
     except Exception as e:
         logger.exception('Error logging user in with OpenID')
 
@@ -221,7 +136,7 @@ def user_login_openid(request):
 @ensure_csrf_cookie
 def user_login_openid_callback(request):
     try:
-        openid_url, attrs = openid_complete(request)
+        openid_url, attrs = openid.complete(request)
 
         try:
             user = models.User.objects.get(auth__openid_url=openid_url)
@@ -291,7 +206,7 @@ def login_oauth2(request):
 
         logger.info('Authenticating OAuth2 for {}'.format(request.user.auth.openid_url))
 
-        auth_service, cert_service = openid_services(request.user.auth.openid_url, (URN_AUTHORIZE, URN_RESOURCE))
+        auth_service, cert_service = openid.services(request.user.auth.openid_url, (URN_AUTHORIZE, URN_RESOURCE))
 
         redirect_url, state = oauth2.get_authorization_url(auth_service.server_url, cert_service.server_url)
 
@@ -320,7 +235,7 @@ def oauth2_callback(request):
 
         user = models.User.objects.get(auth__openid_url = openid_url)
 
-        token_service, cert_service = openid_services(openid_url, (URN_ACCESS, URN_RESOURCE))
+        token_service, cert_service = openid.services(openid_url, (URN_ACCESS, URN_RESOURCE))
 
         request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK, request.META['QUERY_STRING'])
 
@@ -361,7 +276,7 @@ def login_mpc(request):
 
         logger.info('Authenticating MyProxyClient for {}'.format(data['username']))
 
-        services = openid_services(request.user.auth.openid_url, (URN_MPC,))
+        services = openid.services(request.user.auth.openid_url, (URN_MPC,))
 
         if len(services) == 0:
             raise common.ViewError('IDP doesn\'t support MyProxyClient service')

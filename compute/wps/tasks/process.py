@@ -26,6 +26,7 @@ from OpenSSL import crypto
 from wps import models
 from wps import settings
 from wps.auth import oauth2
+from wps.auth import openid
 
 __all__ = [
     'REGISTRY',
@@ -56,13 +57,6 @@ REGISTRY = {}
 
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
-
-def openid_find_service_by_type(services, uri):
-    for s in services:
-        if uri in s.type_uris:
-            return s
-
-    return None
 
 class AccessError(Exception):
     pass
@@ -228,12 +222,12 @@ class CWTBaseTask(celery.Task):
         except:
             raise Exception('Failed to discover OpenID')
 
-        auth_service = openid_find_service_by_type(services, URN_AUTHORIZE)
+        auth_service = openid.find_service_by_type(services, URN_AUTHORIZE)
 
         if auth_service is None:
             raise Exception('OpenID has no authentication service endpoint')
 
-        cert_service = openid_find_service_by_type(services, URN_RESOURCE)
+        cert_service = openid.find_service_by_type(services, URN_RESOURCE)
 
         if cert_service is None:
             raise Exception('OpenID has no certificate service endpoint')

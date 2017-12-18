@@ -3,7 +3,22 @@ import logging
 
 from django import http
 
+import wps
+
 logger = logging.getLogger('wps.views')
+
+class AuthenticationError(wps.WPSError):
+    def __init__(self, user):
+        msg = 'Error authenticating "{username}"'
+
+        super(AuthenticationError, self).__init__(msg, username=user.username)
+
+class AuthorizationError(wps.WPSError):
+    def __init__(self, user):
+        msg = 'Error authorizing "{username}"'
+
+        super(AuthorizationError, self).__init__(msg, username=user.username)
+
 
 class ViewError(Exception):
     def __init__(self, message):
@@ -46,11 +61,11 @@ def user_to_json(user):
 
 def authentication_required(request):
     if not request.user.is_authenticated:
-        raise Exception('Unauthorized access')
+        raise AuthenticationError(request.user)
 
 def authorization_required(request):
     if not request.user.is_superuser:
-        raise Exception('Forbidden access')
+        raise AuthorizationError(request.user)
 
 def success(data=None):
     response = {

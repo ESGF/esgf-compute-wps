@@ -164,7 +164,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.views.auth.openid_services')
+    @mock.patch('wps.views.auth.openid.services')
     def test_login_mpc_service_not_supported(self, mock_services):
         mock_services.return_value = []
 
@@ -176,7 +176,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.views.auth.openid_services')
+    @mock.patch('wps.views.auth.openid.services')
     def test_login_mpc_parse_failed(self, mock_services):
         mock_services.return_value = [mock.Mock(server_url='http://test.com:8181/endpoint')]
 
@@ -189,7 +189,7 @@ class AuthViewsTestCase(test.TestCase):
         self.check_failed(response)
 
     @mock.patch('wps.views.auth.MyProxyClient')
-    @mock.patch('wps.views.auth.openid_services')
+    @mock.patch('wps.views.auth.openid.services')
     def test_login_mpc_login_failed(self, mock_services, mock_mpc):
         mock_services.return_value = [mock.Mock(server_url='socket://test.com:8181')]
 
@@ -204,7 +204,7 @@ class AuthViewsTestCase(test.TestCase):
         self.check_failed(response)
 
     @mock.patch('wps.views.auth.MyProxyClient')
-    @mock.patch('wps.views.auth.openid_services')
+    @mock.patch('wps.views.auth.openid.services')
     def test_login_mpc(self, mock_services, mock_mpc):
         mock_services.return_value = [mock.Mock(server_url='socket://test.com:8181')]
 
@@ -231,7 +231,7 @@ class AuthViewsTestCase(test.TestCase):
 
     @mock.patch('wps.auth.oauth2.get_certificate')
     @mock.patch('wps.auth.oauth2.get_token')
-    @mock.patch('wps.views.auth.openid_services')
+    @mock.patch('wps.views.auth.openid.services')
     def test_oauth2_callback(self, mock_services, mock_token, mock_certificate):
         mock_services.return_value = (mock.Mock(server_url='http://test.com/oauth2/token'), mock.Mock(server_url='http://test.com/oauth2/cert'))
 
@@ -267,7 +267,7 @@ class AuthViewsTestCase(test.TestCase):
         self.check_failed(response)
 
     @mock.patch('wps.auth.oauth2.get_authorization_url')
-    @mock.patch('wps.views.auth.openid_services')
+    @mock.patch('wps.views.auth.openid.services')
     def test_login_oauth2(self, mock_services, mock_authorization):
         mock_services.return_value = (mock.Mock(), mock.Mock())
 
@@ -328,7 +328,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertEqual(data['type'], '')
         self.assertEqual(data['email'], user.email)
 
-    @mock.patch('wps.views.auth.openid_complete')
+    @mock.patch('wps.views.auth.openid.complete')
     def test_user_login_openid_callback_already_exists(self, mock_openid):
         user = models.User.objects.all()[0]
 
@@ -339,7 +339,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertIn('_auth_user_id', self.client.session)
         self.check_redirect(response, 2)
 
-    @mock.patch('wps.views.auth.openid_complete')
+    @mock.patch('wps.views.auth.openid.complete')
     def test_user_login_openid_callback(self, mock_openid):
         mock_openid.return_value = ('http://test.com/openid', {'email': 'http://test.com/openid/new_user'})
 
@@ -353,7 +353,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.views.auth.openid_begin')
+    @mock.patch('wps.views.auth.openid.begin')
     def test_user_login_openid(self, mock_openid):
         mock_openid.return_value = 'http://test.com/openid'
 
@@ -428,109 +428,6 @@ class AuthViewsTestCase(test.TestCase):
         self.check_success(response)
 
         mock_send.assert_called()
-
-class AuthFunctionTestCase(test.TestCase):
-    fixtures = ['users.json']
-    mock_services = [
-        mock.Mock(type_uris=['test_uri_1']),
-        mock.Mock(type_uris=['test_uri_2']),
-        mock.Mock(type_uris=['test_uri_3']),
-    ]
-
-    @mock.patch('wps.views.auth.ax.FetchResponse.fromSuccessResponse')
-    def test_handle_openid_attribute_exchange_none(self, mock_fetch):
-        mock_fetch.return_value = None
-
-        attrs = auth.handle_openid_attribute_exchange(mock.Mock())
-
-        self.assertEqual(attrs, {'email': None})
-
-    @mock.patch('wps.views.auth.ax.FetchResponse.fromSuccessResponse')
-    def test_handle_openid_attribute_exchange(self, mock_fetch):
-        mock_fetch.return_value = mock.Mock(**{'get.return_value': ['test@test.com']})
-
-        attrs = auth.handle_openid_attribute_exchange(mock.Mock())
-
-        self.assertEqual(attrs['email'], 'test@test.com')
-
-    def test_openid_complete_exception(self):
-        with self.assertRaises(Exception):
-            auth.openid_complete(mock.Mock())
-
-    @mock.patch('wps.views.auth.consumer.Consumer')
-    def test_openid_complete_failure(self, mock_consumer):
-        mock_consumer.return_value = mock.Mock(**{'complete.return_value': mock.Mock(status='failure')})
-
-        with self.assertRaises(Exception):
-            auth.openid_complete(mock.Mock())
-
-    @mock.patch('wps.views.auth.consumer.Consumer')
-    def test_openid_complete_cancel(self, mock_consumer):
-        mock_consumer.return_value = mock.Mock(**{'complete.return_value': mock.Mock(status='cancel')})
-
-        with self.assertRaises(Exception):
-            auth.openid_complete(mock.Mock())
-
-    @mock.patch('wps.views.auth.handle_openid_attribute_exchange')
-    @mock.patch('wps.views.auth.consumer.Consumer')
-    def test_openid_complete(self, mock_consumer, mock_attr):
-        mock_attr.return_value = {'email': 'test@test.com'}
-
-        mock_complete = mock.Mock(**{'getDisplayIdentifier.return_value': 'http://test.com/openid/test'})
-
-        mock_consumer.return_value = mock.Mock(**{'complete.return_value': mock_complete})
-
-        url, attrs = auth.openid_complete(mock.Mock())
-
-        self.assertEqual(url, 'http://test.com/openid/test')
-        self.assertEqual(attrs, mock_attr.return_value)
-
-    def test_openid_begin_exception(self):
-        with self.assertRaises(Exception):
-            auth.openid_begin(mock.Mock(), 'http://test.com/openid')
-
-    @mock.patch('wps.views.auth.consumer.Consumer')
-    def test_openid_begin(self, mock_consumer):
-        mock_begin = mock.Mock(**{'redirectURL.return_value': 'http://test.com/openid/begin'})
-        mock_consumer.return_value = mock.Mock(**{'begin.return_value': mock_begin})
-
-        url = auth.openid_begin(mock.Mock(session={}), 'http://test.com/openid')
-
-        self.assertEqual(url, 'http://test.com/openid/begin')
-
-        mock_consumer.assert_called_with({}, mock_consumer.call_args[0][1])
-        mock_consumer.return_value.begin.assert_called_with('http://test.com/openid')
-
-        mock_begin.redirectURL.assert_called_with(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
-
-    def test_openid_services_discovery_error(self):
-        with self.assertRaises(Exception):
-            auth.openid_services('http://test.com/openid', ['urn.test1', 'urn.test2'])
-
-    @mock.patch('wps.views.auth.discover.discoverYadis')
-    def test_openid_services_service_not_supported(self, mock_discover):
-        mock_discover.return_value = ('http://test.com/openid', self.mock_services)
-
-        with self.assertRaises(Exception):
-            auth.openid_services('http://test.com/openid', ['urn.test1', 'urn.test2'])
-
-    @mock.patch('wps.views.auth.discover.discoverYadis')
-    def test_openid_services(self, mock_discover):
-        mock_discover.return_value = ('http://test.com/openid', self.mock_services)
-
-        services = auth.openid_services('http://test.com/openid', ['test_uri_1', 'test_uri_3'])
-
-        self.assertEqual(len(services), 2)
-
-    def test_openid_find_service_by_type_not_found(self):
-        service = auth.openid_find_service_by_type(self.mock_services, 'test_uri_10')
-
-        self.assertIsNone(service)
-
-    def test_openid_find_service_by_type(self):
-        service = auth.openid_find_service_by_type(self.mock_services, 'test_uri_1')
-
-        self.assertIsNotNone(service)
 
     def test_update_user(self):
         user = models.User.objects.all()[0]
