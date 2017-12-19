@@ -7,6 +7,7 @@ from django import test
 from wps import backends
 from wps import models
 from wps import settings
+from wps import tasks
 
 class LocalBackendTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json']
@@ -83,10 +84,13 @@ class LocalBackendTestCase(test.TestCase):
         self.assertIsNotNone(proc)
 
     def test_populate_processes(self):
-        with self.assertNumQueries(55):
+        count = len(tasks.REGISTRY)
+
+        queries_per_process = 5
+
+        with self.assertNumQueries(count * queries_per_process):
             self.backend.populate_processes()
 
     def test_initialize(self):
         with self.assertNumQueries(0):
             self.backend.initialize()
-
