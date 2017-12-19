@@ -1,3 +1,6 @@
+#! /usr/bin/env python
+
+import cwt
 import mock
 from django import test
 
@@ -48,7 +51,25 @@ class EDASBackendTestCase(test.TestCase):
 
         job = models.Job.objects.create(server=self.server, user=self.user, process=process)
 
-        task = self.backend.execute('CDSpark.max', {}, {}, {}, user=self.user, job=job)
+        domain = cwt.Domain([
+            cwt.Dimension('time', 0, 200)
+        ], name='d0')
+
+        domains = {'d0': domain}
+
+        var = cwt.Variable('file:///test.nc', 'tas', name='v0')
+
+        variables = {'v0': var}
+
+        proc = cwt.Process(identifier='CDSpark.max', name='max')
+
+        proc.domain = 'd0'
+
+        proc.set_inputs('v0')
+
+        operations = {'max': proc}
+
+        task = self.backend.execute('CDSpark.max', variables, {}, operations, user=self.user, job=job)
 
         self.assertIsNotNone(task)
 
