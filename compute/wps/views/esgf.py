@@ -181,7 +181,7 @@ def search_variable(request):
 
             query_variable = request.GET['variable']
         except KeyError as e:
-            raise common.MissingParameterError(parameter=e.message)
+            raise common.MissingParameterError(name=e.message)
 
         shard = request.GET.get('shard', None)
 
@@ -212,7 +212,7 @@ def search_dataset(request):
 
             index_node = request.GET['index_node']
         except KeyError as e:
-            raise common.MissingParameterError(parameter=e.message)
+            raise common.MissingParameterError(name=e.message)
 
         shard = request.GET.get('shard', None)
 

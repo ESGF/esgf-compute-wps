@@ -5,6 +5,7 @@ from django import test
 
 from wps import models
 from wps import settings
+from wps.auth import openid
 from wps.views import auth
 
 class AuthViewsTestCase(test.TestCase):
@@ -48,7 +49,7 @@ class AuthViewsTestCase(test.TestCase):
 
         response = self.client.get('/auth/reset/', {'token':'unique_token', 'username': user.username, 'password': 'new_password'})
 
-        self.check_failed(response)
+        print 'FIND ME', self.check_failed(response)
 
     def test_reset_password_expired_token(self):
         user = models.User.objects.all()[0]
@@ -134,7 +135,7 @@ class AuthViewsTestCase(test.TestCase):
         self.check_failed(response)
 
     def test_forgot_username_user_does_not_exist(self):
-        response = self.client.get('/auth/forgot/username/', {'email': 'new_user@test.com'})
+        response = self.client.get('/auth/forgot/username/', {'email': 'new_user@testbad.com'})
 
         self.check_failed(response)
 
@@ -166,9 +167,9 @@ class AuthViewsTestCase(test.TestCase):
 
     @mock.patch('wps.views.auth.openid.services')
     def test_login_mpc_service_not_supported(self, mock_services):
-        mock_services.return_value = []
-
         user = models.User.objects.all()[0]
+
+        mock_services.side_effect = openid.ServiceError(user.username, 'urn')
 
         self.client.login(username=user.username, password=user.username)
 
@@ -178,7 +179,7 @@ class AuthViewsTestCase(test.TestCase):
 
     @mock.patch('wps.views.auth.openid.services')
     def test_login_mpc_parse_failed(self, mock_services):
-        mock_services.return_value = [mock.Mock(server_url='http://test.com:8181/endpoint')]
+        mock_services.return_value = [mock.Mock(server_url='http://testbad.com:8181/endpoint')]
 
         user = models.User.objects.all()[0]
 
@@ -191,7 +192,7 @@ class AuthViewsTestCase(test.TestCase):
     @mock.patch('wps.views.auth.MyProxyClient')
     @mock.patch('wps.views.auth.openid.services')
     def test_login_mpc_login_failed(self, mock_services, mock_mpc):
-        mock_services.return_value = [mock.Mock(server_url='socket://test.com:8181')]
+        mock_services.return_value = [mock.Mock(server_url='socket://testbad.com:8181')]
 
         mock_mpc.return_value = mock.Mock(**{'logon.side_effect': Exception})
 
@@ -206,7 +207,7 @@ class AuthViewsTestCase(test.TestCase):
     @mock.patch('wps.views.auth.MyProxyClient')
     @mock.patch('wps.views.auth.openid.services')
     def test_login_mpc(self, mock_services, mock_mpc):
-        mock_services.return_value = [mock.Mock(server_url='socket://test.com:8181')]
+        mock_services.return_value = [mock.Mock(server_url='socket://testbad.com:8181')]
 
         mock_mpc.return_value = mock.Mock(**{'logon.return_value': ('test1', 'test2')})
 
@@ -233,7 +234,7 @@ class AuthViewsTestCase(test.TestCase):
     @mock.patch('wps.auth.oauth2.get_token')
     @mock.patch('wps.views.auth.openid.services')
     def test_oauth2_callback(self, mock_services, mock_token, mock_certificate):
-        mock_services.return_value = (mock.Mock(server_url='http://test.com/oauth2/token'), mock.Mock(server_url='http://test.com/oauth2/cert'))
+        mock_services.return_value = (mock.Mock(server_url='http://testbad.com/oauth2/token'), mock.Mock(server_url='http://testbad.com/oauth2/cert'))
 
         mock_token.return_value = 'new_token'
 
@@ -259,8 +260,6 @@ class AuthViewsTestCase(test.TestCase):
 
         user.auth.refresh_from_db()
 
-        print 'FUCKKKKKKK', user.auth.extra
-
     def test_login_oauth2_not_logged_in(self):
         response = self.client.post('/auth/login/oauth2/', {})
 
@@ -271,7 +270,7 @@ class AuthViewsTestCase(test.TestCase):
     def test_login_oauth2(self, mock_services, mock_authorization):
         mock_services.return_value = (mock.Mock(), mock.Mock())
 
-        mock_authorization.return_value = ('http://test.com/oauth2/redirect', {'test':'test'})
+        mock_authorization.return_value = ('http://testbad.com/oauth2/redirect', {'test':'test'})
 
         user = models.User.objects.all()[0]
 
@@ -281,7 +280,7 @@ class AuthViewsTestCase(test.TestCase):
 
         data = self.check_success(response)['data']
 
-        self.assertEqual(data['redirect'], 'http://test.com/oauth2/redirect')
+        self.assertEqual(data['redirect'], 'http://testbad.com/oauth2/redirect')
 
         self.assertEqual(self.client.session['openid'], user.auth.openid_url)
         self.assertEqual(self.client.session['oauth_state'], {'test':'test'})
@@ -332,7 +331,7 @@ class AuthViewsTestCase(test.TestCase):
     def test_user_login_openid_callback_already_exists(self, mock_openid):
         user = models.User.objects.all()[0]
 
-        mock_openid.return_value = ('http://test.com/openid', {'email': user.email})
+        mock_openid.return_value = ('http://testbad.com/openid', {'email': user.email})
 
         response = self.client.get('/auth/callback/openid', {}, follow=True)
 
@@ -341,7 +340,7 @@ class AuthViewsTestCase(test.TestCase):
 
     @mock.patch('wps.views.auth.openid.complete')
     def test_user_login_openid_callback(self, mock_openid):
-        mock_openid.return_value = ('http://test.com/openid', {'email': 'http://test.com/openid/new_user'})
+        mock_openid.return_value = ('http://testbad.com/openid', {'email': 'http://testbad.com/openid/new_user'})
 
         response = self.client.get('/auth/callback/openid', {}, follow=True)
 
@@ -355,14 +354,14 @@ class AuthViewsTestCase(test.TestCase):
 
     @mock.patch('wps.views.auth.openid.begin')
     def test_user_login_openid(self, mock_openid):
-        mock_openid.return_value = 'http://test.com/openid'
+        mock_openid.return_value = 'http://testbad.com/openid'
 
-        response = self.client.post('/auth/login/openid/', {'openid_url': 'http://test.com/openid'})
+        response = self.client.post('/auth/login/openid/', {'openid_url': 'http://testbad.com/openid'})
 
         data = self.check_success(response)
 
         self.assertIn('redirect', data['data'])
-        self.assertEqual(data['data']['redirect'], 'http://test.com/openid')
+        self.assertEqual(data['data']['redirect'], 'http://testbad.com/openid')
 
     def test_create_already_exists(self):
         user = models.User.objects.all()[0]
@@ -403,8 +402,8 @@ class AuthViewsTestCase(test.TestCase):
 
         user = {
             'username': 'test_user',
-            'email': 'test_user@test.com',
-            'openid': 'http://test.com/openid/test_user',
+            'email': 'test_user@testbad.com',
+            'openid': 'http://testbad.com/openid/test_user',
             'password': 'abcd'
         }
 
@@ -418,8 +417,8 @@ class AuthViewsTestCase(test.TestCase):
     def test_create(self, mock_send):
         user = {
             'username': 'test_user',
-            'email': 'test_user@test.com',
-            'openid': 'http://test.com/openid/test_user',
+            'email': 'test_user@testbad.com',
+            'openid': 'http://testbad.com/openid/test_user',
             'password': 'abcd'
         }
 
@@ -428,12 +427,3 @@ class AuthViewsTestCase(test.TestCase):
         self.check_success(response)
 
         mock_send.assert_called()
-
-    def test_update_user(self):
-        user = models.User.objects.all()[0]
-
-        auth.update_user(user, 'myproxyclient', 'certs', test='new attribute') 
-
-        self.assertEqual(user.auth.type, 'myproxyclient')
-        self.assertEqual(user.auth.cert, 'certs')
-        self.assertEqual(user.auth.extra, '{"test": "new attribute"}')

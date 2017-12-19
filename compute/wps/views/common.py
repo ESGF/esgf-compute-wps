@@ -3,46 +3,70 @@ import logging
 
 from django import http
 
-import wps
+from wps import WPSError
 
 logger = logging.getLogger('wps.views')
 
-class AuthenticationError(wps.WPSError):
+class AuthenticationError(WPSError):
     def __init__(self, user):
-        msg = 'Error authenticating "{username}"'
+        msg = 'Authentication for "{username}" failed'
 
-        super(AuthenticationError, self).__init__(msg, username=user.username)
+        if isinstance(user, (str, unicode)):
+            username = user
+        else:
+            username = user.username
 
-class AuthorizationError(wps.WPSError):
+        super(AuthenticationError, self).__init__(msg, username=username)
+
+class AuthorizationError(WPSError):
     def __init__(self, user):
-        msg = 'Error authorizing "{username}"'
+        msg = 'Authorization "{username}" failed'
 
         super(AuthorizationError, self).__init__(msg, username=user.username)
 
+class MissingParameterError(WPSError):
+    def __init__(self, name):
+        msg = 'Parameter "{name}" is missing'
 
-class ViewError(Exception):
-    def __init__(self, message):
-        self.message = message
+        super(MissingParameterError, self).__init__(msg, name=name)
 
-class MissingParameterError(ViewError):
-    FMT = 'Missing parameter "{parameter}"'
+class FormError(WPSError):
+    def __init__(self, errors):
+        msg = 'Form is invalid: {errors}'
 
-    def __init__(self, **kwargs):
-        super(MissingParameterError, self).__init__(self.FMT.format(**kwargs))
+        super(FormError, self).__init__(msg, errors=errors)
 
-class DuplicateUserError(ViewError):
-    FMT = 'User "{username}" already exists'
+class UserDoesNotExistError(WPSError):
+    def __init__(self, username):
+        msg = 'User "{username}" does not exist'
 
-    def __init__(self, **kwargs):
-        super(DuplicateUserError, self).__init__(self.FMT.format(**kwargs))
+        super(UserDoesNotExistError, self).__init__(msg, username=username)
+
+class UserEmailDoesNotExistError(WPSError):
+    def __init__(self, email):
+        msg = 'User with email "{email}" does not exist'
+
+        super(UserEmailDoesNotExistError, self).__init__(msg, email=email)
+
+class DuplicateUserError(WPSError):
+    def __init__(self, username):
+        msg = 'Duplicate user "{username}"'
+
+        super(DuplicateUserError, self).__init__(msg, username=username)
+
+class MailError(WPSError):
+    def __init__(self, email):
+        msg = 'Sending mail to "{email}" failed'
+
+        super(MailError, self).__init__(msg, email=email)
 
 def validate_form(form, keys):
     if not form.is_valid():    
-        raise ViewError(form.errors)
+        raise FormError(form.errors)
 
     for key in keys:
         if key not in form.cleaned_data:
-            raise MissingParameterError(parameter=key)
+            raise MissingParameterError(name=key)
 
     return form.cleaned_data
 

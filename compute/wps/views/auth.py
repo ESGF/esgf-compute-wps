@@ -20,6 +20,7 @@ from myproxy.client import MyProxyClient
 from wps import forms
 from wps import models
 from wps import settings
+from wps import WPSError
 from wps.auth import oauth2
 from wps.auth import openid
 from wps.views import common
@@ -65,6 +66,30 @@ Thank you for creating an account for the ESGF compute server. Please login into
 If you have any questions or concerns please email the <a href="mailto:{admin_email}">server admin</a>.
 """
 
+class ResetPasswordInvalidStateError(WPSError):
+    def __init__(self):
+        msg = 'Invalid state while recovering password, please try again'
+
+        super(ResetPasswordInvalidStateError, self).__init__(msg)
+
+class ResetPasswordTokenExpiredError(WPSError):
+    def __init__(self):
+        msg = 'Token to reset password has expired'
+
+        super(ResetPasswordTokenExpiredError, self).__init__(msg)
+
+class ResetPasswordTokenMismatchError(WPSError):
+    def __init__(self):
+        msg = 'Token to reset password does not match expected value'
+
+        super(ResetPasswordTokenMismatchError, self).__init__(msg)
+
+class MPCEndpointParseError(WPSError):
+    def __init__(self):
+        msg = 'Parsing host/port from OpenID services failed'
+
+        super(MPCEndpointParseError, self).__init__(msg)
+
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def create(request):
@@ -90,10 +115,10 @@ def create(request):
             logger.exception('Error sending confirmation email')
             
             pass
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error creating account')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success('Successfully created account for "{}"'.format(data['username']))
 
@@ -106,10 +131,10 @@ def user_login_openid(request):
         data = common.validate_form(form, ('openid_url',))
 
         url = openid.begin(request, data['openid_url'])
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error logging user in with OpenID')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success({'redirect': url})
 
@@ -129,10 +154,10 @@ def user_login_openid_callback(request):
             models.Auth.objects.create(openid_url=openid_url, user=user)
 
         login(request, user)
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error handling OpenID callback')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return redirect('{}?expires={}'.format(settings.OPENID_CALLBACK_SUCCESS, request.session.get_expiry_date()))
 
@@ -149,13 +174,13 @@ def user_login(request):
         user = authenticate(request, username=data['username'], password=data['password'])
 
         if user is None:
-            raise common.ViewError('Failed to authenticate user')
+            raise common.AuthenticationError(user=data['username'])
 
         login(request, user)
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error logging user in')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         data = common.user_to_json(user)
 
@@ -172,10 +197,10 @@ def user_logout(request):
         logger.info('Logging user {} out'.format(request.user.username))
 
         logout(request)
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error logging user out')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success('Logged out')
 
@@ -197,10 +222,10 @@ def login_oauth2(request):
             'oauth_state': state,
             'openid': request.user.auth.openid_url
         })
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error authenticating OAuth2')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success({'redirect': redirect_url})
 
@@ -229,20 +254,20 @@ def oauth2_callback(request):
         logger.info('Retrieved Certificated for OpenID {}'.format(openid_url))
 
         user.auth.update('oauth2', [cert, key], token=new_token)
-    except Exception as e:
+    except KeyError as e:
+        pass
+    except WPSError as e:
         logger.exception('OAuth2 callback failed')
 
         if user is not None:
             extra = json.loads(user.auth.extra)
 
-            extra['error'] = 'OAuth2 callback failed "{}"'.format(e.message)
+            extra['error'] = 'OAuth2 callback failed "{}"'.format(str(e))
 
             user.auth.extra = json.dumps(extra)
 
             user.auth.save()
-
-        return redirect(settings.PROFILE_URL)
-    else:
+    finally:
         return redirect(settings.PROFILE_URL)
 
 @require_http_methods(['POST'])
@@ -259,13 +284,10 @@ def login_mpc(request):
 
         services = openid.services(request.user.auth.openid_url, (URN_MPC,))
 
-        if len(services) == 0:
-            raise common.ViewError('IDP doesn\'t support MyProxyClient service')
-
         g = re.match('socket://(.*):(.*)', services[0].server_url)
 
         if g is None or len(g.groups()) != 2:
-            raise Exception('Failed to parse MyProxyClient endpoint')
+            raise MPCEndpointParseError()
 
         host, port = g.groups()
 
@@ -274,15 +296,15 @@ def login_mpc(request):
 
             c = m.logon(data['username'], data['password'], bootstrap=True)
         except Exception as e:
-            raise common.ViewError('MyProxyClient failed "{}"'.format(e.message))
+            raise common.AuthenticationError(user=data['username'])
 
         logger.info('Authenticated with MyProxyClient backend for user {}'.format(data['username']))
 
         request.user.auth.update('myproxyclient', c)
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error authenticating MyProxyClient')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success({
             'type': request.user.auth.type,
@@ -296,14 +318,14 @@ def forgot_username(request):
         try:
             email = request.GET['email']
         except KeyError as e:
-            raise common.MissingParameterError(parameter=e.message)
+            raise common.MissingParameterError(name=str(e))
 
         logger.info('Recovering username for "{}"'.format(email))
 
         try:
             user = models.User.objects.get(email=email)
         except models.User.DoesNotExist:
-            raise common.ViewError('No registered user for "{}"'.format(email))
+            raise common.UserEmailDoesNotExistError(email=email)
 
         try:
             send_mail(FORGOT_USERNAME_SUBJECT,
@@ -311,11 +333,11 @@ def forgot_username(request):
                       settings.ADMIN_EMAIL,
                       [user.email])
         except:
-            raise common.ViewError('Failed to send username recovery email')
-    except Exception as e:
+            raise common.MailError(email=user.email)
+    except WPSError as e:
         logger.exception('Error recovering username')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success({'redirect': settings.LOGIN_URL})
 
@@ -326,14 +348,14 @@ def forgot_password(request):
         try:
             username = request.GET['username']
         except KeyError as e:
-            raise common.MissingParameterError(parameter=e.message)
+            raise common.MissingParameterError(name=str(e))
 
         logger.info('Starting password reset process for user "{}"'.format(username))
 
         try:
             user = models.User.objects.get(username=username)
         except models.User.DoesNotExist:
-            raise common.ViewError('No registered user "{}"'.format(username))
+            raise common.UserDoesNotExistError(username=username)
 
         try:
             extra = json.loads(user.auth.extra)
@@ -359,9 +381,9 @@ def forgot_password(request):
                                                               reset_url=reset_url)
                       )
         except:
-            raise common.ViewError('Failed to send password recovery email')
-    except Exception as e:
-        return common.failed(e.message)
+            raise common.MailError(email=user.email)
+    except WPSError as e:
+        return common.failed(str(e))
     else:
         return common.success({'redirect': settings.LOGIN_URL})
 
@@ -376,14 +398,14 @@ def reset_password(request):
 
             password = str(request.GET['password'])
         except KeyError as e:
-            raise common.MissingParameterError(parameter=e.message)
+            raise common.MissingParameterError(name=str(e))
 
         logger.info('Resetting password for "{}"'.format(username))
 
         try:
             user = models.User.objects.get(username=username)
         except models.User.DoesNotExist:
-            raise common.ViewError('User "{}" does not exist'.format(username))
+            raise common.UserDoesNotExistError(username=username)
 
         try:
             extra = json.loads(user.auth.extra)
@@ -395,8 +417,8 @@ def reset_password(request):
 
             reset_expire = extra['reset_expire']
         except KeyError as e:
-            raise common.ViewError('Invalid reset state, request again')
-        finally:
+            raise ResetPasswordInvalidStateError()
+        else:
             del extra['reset_token']
 
             del extra['reset_expire']
@@ -404,10 +426,10 @@ def reset_password(request):
         expires = datetime.datetime.strptime(reset_expire, '%x %X')
 
         if datetime.datetime.now() > expires:
-            raise common.ViewError('Reset token has expire, request again')
+            raise ResetPasswordTokenExpiredError()
 
         if reset_token != token:
-            raise common.ViewError('Tokens do not match, request again')
+            raise ResetPasswordTokenMismatchError()
 
         user.auth.extra = json.dumps(extra)
 
@@ -418,7 +440,7 @@ def reset_password(request):
         user.save()
 
         logger.info('Successfully reset password for "{}"'.format(username))
-    except Exception as e:
-        return common.failed(e.message)
+    except WPSError as e:
+        return common.failed(str(e))
     else:
         return common.success({'redirect': settings.LOGIN_URL})
