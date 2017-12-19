@@ -52,9 +52,7 @@ class Local(backend.Backend):
 
         logger.info('Operation {}'.format(operation))
 
-        chain = target_process.s({}, variable_dict, domain_dict, operation, **params)
-
-        chain.delay()
+        return target_process.s({}, variable_dict, domain_dict, operation, **params)
 
     def get_task(self, identifier):
         try:
@@ -102,6 +100,4 @@ class Local(backend.Backend):
 
             return task
 
-        workflow = _build(root_op)
-
-        workflow.delay()
+        return _build(root_op)

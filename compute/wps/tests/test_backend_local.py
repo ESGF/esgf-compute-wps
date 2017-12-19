@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import cwt
 import mock
 from django import test
 
@@ -19,32 +20,70 @@ class LocalBackendTestCase(test.TestCase):
 
         self.user = models.User.objects.all()[0]
 
-    @mock.patch('wps.backends.local.process.get_process')
-    def test_execute(self, get_process_mock):
-        si_mock = mock.Mock(**{'delay.return_value': True})
-
-        process_mock = mock.Mock(**{'si.return_value': si_mock})
-
-        get_process_mock.return_value = process_mock
-
+    def test_workflow(self):
         self.backend.populate_processes()
 
         process = models.Process.objects.get(identifier='CDAT.subset')
 
         job = models.Job.objects.create(server=self.server, user=self.user, process=process)
 
-        with self.assertNumQueries(0):
-            self.backend.execute('CDAT.subset', {}, {}, {}, user=self.user, job=job)
+        var = cwt.Variable('file:///test.nc', 'tas', name='v0')
 
-        get_process_mock.assert_called_once()
-        get_process_mock.assert_called_with('CDAT.subset')
+        variables = {'v0': var}
 
-        self.assertEqual(len(process_mock.method_calls), 1)
+        domain = cwt.Domain([
+            cwt.Dimension('time', 0, 200)
+        ], name='d0')
 
-        self.assertEqual(len(si_mock.method_calls), 1)
+        domains = {'d0': domain}
+
+        proc1 = cwt.Process(identifier='CDAT.aggregate', name='aggregate')
+
+        proc1.set_inputs('v0')
+
+        proc2 = cwt.Process(identifier='CDAT.subset', name='subset')
+
+        proc2.set_inputs('aggregate')
+
+        proc3 = cwt.Process(identifier='CDSpark.max', name='max')
+
+        proc3.set_inputs('subset')
+
+        proc4 = cwt.Process(identifier='Oph.avg', name='avg')
+
+        proc4.set_inputs('max')
+
+        operations = {'aggregate': proc1, 'subset': proc2, 'max': proc3, 'avg': proc4}
+
+        workflow = self.backend.workflow(proc4, variables, domains, operations, user=self.user, job=job)
+
+    def test_execute(self):
+        self.backend.populate_processes()
+
+        process = models.Process.objects.get(identifier='CDAT.subset')
+
+        job = models.Job.objects.create(server=self.server, user=self.user, process=process)
+
+        var = cwt.Variable('file:///test.nc', 'tas', name='v0')
+
+        variables = {'v0': var}
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 0, 200)
+        ], name='d0')
+
+        domains = {'d0': domain}
+
+        proc = cwt.Process(identifier='CDAT.subset', name='subset')
+
+        operations = {'subset': proc}
+
+        proc = self.backend.execute('CDAT.subset', variables, domains, operations, user=self.user, job=job)
+
+        self.assertIsNotNone(proc)
 
     def test_populate_processes(self):
-        with self.assertNumQueries(10):
+        with self.assertNumQueries(55):
             self.backend.populate_processes()
 
     def test_initialize(self):
