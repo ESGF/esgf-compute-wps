@@ -11,9 +11,9 @@ class EDASBackendTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json']
 
     def setUp(self):
-        models.Process.objects.all().delete()
-
         self.backend = backends.Backend.get_backend('EDAS')
+
+        models.Process.objects.filter(backend=self.backend.NAME).delete()
 
         self.server = models.Server.objects.get(host='default')
 
@@ -84,6 +84,44 @@ class LocalBackendTestCase(test.TestCase):
 
 class BackendsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json']
+
+    def test_workflow(self):
+        backend = backends.Backend()
+
+        with self.assertRaises(NotImplementedError):
+            backend.workflow(None, {}, {}, {})
+
+    def test_execute(self):
+        backend = backends.Backend()
+
+        with self.assertRaises(NotImplementedError):
+            backend.execute('', {}, {}, {})
+
+    def test_populate_processes(self):
+        backend = backends.Backend()
+
+        with self.assertRaises(NotImplementedError):
+            backend.populate_processes()
+
+    def test_initialize(self):
+        backend = backends.Backend()
+
+        backend.initialize()
+
+    def test_add_process_duplicate(self):
+        backend = backends.Backend()
+
+        with self.assertNumQueries(5):
+            backend.add_process('id', 'name')
+
+        with self.assertNumQueries(5):
+            backend.add_process('id', 'name')
+
+    def test_add_process_without_abstract(self):
+        backend = backends.Backend()
+
+        with self.assertNumQueries(5):
+            backend.add_process('id', 'name')
 
     def test_add_process(self):
         backend = backends.Backend()
