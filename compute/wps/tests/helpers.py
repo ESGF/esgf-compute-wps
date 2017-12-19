@@ -60,3 +60,26 @@ def generate_certificate(not_before=DEFAULT_NOT_BEFORE, not_after=DEFAULT_NOT_AF
     key_text = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
 
     return ''.join([cert_text, key_text])
+
+def check_failed(self, response):
+    self.assertEqual(response.status_code, 200)
+
+    data = response.json()
+
+    self.assertEqual(data['status'], 'failed')
+
+    return data
+
+def check_success(self, response):
+    self.assertEqual(response.status_code, 200)
+
+    data = response.json()
+
+    self.assertEqual(data['status'], 'success')
+
+    return data
+
+def check_redirect(self, response, redirect_count):
+    self.assertEqual(response.status_code, 200)
+
+    self.assertEqual(len(response.redirect_chain), redirect_count)
