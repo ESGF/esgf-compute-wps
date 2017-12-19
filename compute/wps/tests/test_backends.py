@@ -7,37 +7,6 @@ from wps import backends
 from wps import models
 from wps import settings
 
-class EDASBackendTestCase(test.TestCase):
-    fixtures = ['users.json', 'processes.json', 'servers.json']
-
-    def setUp(self):
-        self.backend = backends.Backend.get_backend('EDAS')
-
-        models.Process.objects.filter(backend=self.backend.NAME).delete()
-
-        self.server = models.Server.objects.get(host='default')
-
-        self.user = models.User.objects.all()[0]
-
-    def test_execute(self):
-        settings.EDAS_HOST = 'Unknown'
-
-        process = models.Process.objects.create(identifier='CDSpark.max', backend='EDAS')
-
-        job = models.Job.objects.create(server=self.server, user=self.user, process=process)
-
-        self.backend.execute('CDSpark.max', {}, {}, {}, user=self.user, job=job)
-
-    def test_populate_processes(self):
-        settings.EDAS_HOST = 'Unknown'
-
-        with self.assertNumQueries(1):
-            self.backend.populate_processes()
-
-    def test_initialize(self):
-        with self.assertNumQueries(0):
-            self.backend.initialize()
-
 class LocalBackendTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json']
 

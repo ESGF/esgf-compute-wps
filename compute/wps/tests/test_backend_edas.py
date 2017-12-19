@@ -1,0 +1,63 @@
+import mock
+from django import test
+
+from wps import backends
+from wps import models
+from wps import settings
+
+class EDASBackendTestCase(test.TestCase):
+    fixtures = ['users.json', 'processes.json', 'servers.json']
+
+    def setUp(self):
+        self.backend = backends.EDAS()
+
+        models.Process.objects.filter(backend=self.backend.NAME).delete()
+
+        self.server = models.Server.objects.get(host='default')
+
+        self.user = models.User.objects.all()[0]
+
+    @mock.patch('wps.backends.edas.zmq.Context.instance')
+    def test_get_capabilities_communication_error(self, mock_context):
+        mock_socket = mock.Mock(**{'poll.return_value': 0})
+
+        mock_context.return_value = mock.Mock(**{'socket.return_value': mock_socket})
+
+        with self.assertRaises(backends.EDASCommunicationError) as e:
+            self.backend.get_capabilities()
+
+        self.assertEqual(str(e.exception), 
+                         str(backends.EDASCommunicationError(settings.EDAS_HOST, 
+                                                             settings.EDAS_REQ_PORT)))
+
+    @mock.patch('wps.backends.edas.zmq.Context.instance')
+    def test_get_capabilities(self, mock_context):
+        mock_data = 'header!response'
+
+        mock_socket = mock.Mock(**{'poll.return_value': 1, 'recv.return_value': mock_data})
+
+        mock_context.return_value = mock.Mock(**{'socket.return_value': mock_socket})
+
+        response = self.backend.get_capabilities()
+
+        self.assertIsNotNone(response)
+        self.assertEqual(response, 'response')
+
+    def test_execute(self):
+        process = models.Process.objects.create(identifier='CDSpark.max', backend='EDAS')
+
+        job = models.Job.objects.create(server=self.server, user=self.user, process=process)
+
+        task = self.backend.execute('CDSpark.max', {}, {}, {}, user=self.user, job=job)
+
+        self.assertIsNotNone(task)
+
+    def test_populate_processes(self):
+        self.backend.get_capabilities = mock.Mock(return_value='<response><processes><process><description id="test" title="Test">abstract</description></process></processes></response>')
+
+        with self.assertNumQueries(6):
+            self.backend.populate_processes()
+
+    def test_initialize(self):
+        with self.assertNumQueries(0):
+            self.backend.initialize()

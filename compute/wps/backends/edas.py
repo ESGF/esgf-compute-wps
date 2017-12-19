@@ -10,21 +10,24 @@ from wps import models
 from wps import settings
 from wps import tasks
 from wps import wps_xml
+from wps import WPSError
 from wps.backends import backend
 
 __ALL__ = ['EDAS']
 
 logger = logging.getLogger('wps.backends')
 
+class EDASCommunicationError(WPSError):
+    def __init__(self, hostname, port):
+        msg = 'Communication error with EDAS backend at {hostname}:{port}'
+
+        super(EDASCommunicationError, self).__init__(msg, hostname=hostname, port=port)
+
 class EDAS(backend.Backend):
     def initialize(self):
         pass
 
-    def populate_processes(self):
-        server = models.Server.objects.get(host='default')
-
-        logger.info('Registering processes for backend "edas"')
-
+    def get_capabilities(self):
         context = zmq.Context.instance()
 
         socket = context.socket(zmq.REQ)
@@ -35,17 +38,26 @@ class EDAS(backend.Backend):
 
         # Poll so we can timeout eventually
         if (socket.poll(10 * 1000) == 0):
-            logger.info('Falied to retrieve EDAS response')
+            logger.info('Failed to retrieve EDAS response')
 
             socket.close()
 
-            return
+            raise EDASCommunicationError(settings.EDAS_HOST, settings.EDAS_REQ_PORT)
 
         data = socket.recv()
 
         socket.close()
 
         header, response = data.split('!')
+
+        return response
+
+    def populate_processes(self):
+        server = models.Server.objects.get(host='default')
+
+        logger.info('Registering processes for backend "edas"')
+
+        response = self.get_capabilities()
 
         root = ET.fromstring(str(response))
 
@@ -95,4 +107,4 @@ class EDAS(backend.Backend):
 
         edas_task = tasks.edas_submit.s({}, domain_dict, operation.parameterize(), **params)
 
-        (cache_task | edas_task).delay()
+        return (cache_task | edas_task)
