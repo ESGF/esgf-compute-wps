@@ -5,8 +5,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
-
 from wps import models
+from wps import WPSError
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -34,7 +34,7 @@ def admin_stats(request):
 
             for process_obj in processes_qs:
                 processes.append(process_obj.to_json(True))
-    except Exception as e:
+    except WPSError as e:
         return common.failed(e.message)
     else:
         return common.success(data)
