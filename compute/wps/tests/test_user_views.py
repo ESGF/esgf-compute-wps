@@ -2,88 +2,97 @@ import random
 
 from django import test
 
+from . import helpers
 from wps import models
 
 class UserViewsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'files.json']
 
-    def setUp(self):
-        self.update = models.User.objects.all()[0]
+    def test_user_stats_process_missing_authentication(self):
+        response = self.client.get('/auth/user/stats/', {'type': 'process'})
+
+        helpers.check_failed(self, response)
         
-    def test_user_stats_process_auth(self):
-        self.client.login(username=self.update.username, password=self.update.username)
+    def test_user_stats_process(self):
+        user = models.User.objects.first()
+
+        self.client.login(username=user.username, password=user.username)
 
         response = self.client.get('/auth/user/stats/', {'stat': 'process'})
 
-        self.assertEqual(response.status_code, 200)
+        data = helpers.check_success(self, response)
 
-        data = response.json()
-
-        self.assertEqual(data['status'], 'success')
         self.assertIn('processes', data['data'])
         self.assertEqual(len(data['data']['processes']), 6)
 
-    def test_user_stats_process(self):
-        response = self.client.get('/auth/user/stats/', {'type': 'process'})
+    def test_user_stats_files_missing_authentication(self):
+        response = self.client.get('/auth/user/stats/')
 
-        self.assertEqual(response.status_code, 200)
+        helpers.check_failed(self, response)
 
-        data = response.json()
+    def test_user_stats_files(self):
+        user = models.User.objects.first()
 
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Unauthorized access')
-
-    def test_user_stats_files_auth(self):
-        self.client.login(username=self.update.username, password=self.update.username)
+        self.client.login(username=user.username, password=user.username)
 
         response = self.client.get('/auth/user/stats/')
 
-        self.assertEqual(response.status_code, 200)
+        data = helpers.check_success(self, response)
 
-        data = response.json()
-
-        self.assertEqual(data['status'], 'success')
         self.assertIn('files', data['data'])
         self.assertEqual(len(data['data']['files']), 133)
 
-    def test_user_stats_files(self):
-        response = self.client.get('/auth/user/stats/')
+    def test_user_details_missing_authentication(self):
+        response = self.client.get('/auth/user/')
 
-        self.assertEqual(response.status_code, 200)
+        helpers.check_failed(self, response)
 
-        data = response.json()
+    def test_user_details(self):
+        user = models.User.objects.first()
 
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Unauthorized access')
-
-    def test_user_details_auth(self):
-        self.client.login(username=self.update.username, password=self.update.username)
+        self.client.login(username=user.username, password=user.username)
 
         response = self.client.get('/auth/user/')
 
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'success')
+        data = helpers.check_success(self, response)['data']
 
         expected = ('username', 'openid', 'admin', 'local_init', 'api_key', 'type', 'email')
 
         for exp in expected:
-            self.assertIn(exp, data['data'])
+            self.assertIn(exp, data)
 
-    def test_user_details(self):
-        response = self.client.get('/auth/user/')
+    def test_update_missing_authentication(self):
+        response = self.client.post('/auth/update/')
 
-        self.assertEqual(response.status_code, 200)
+        helpers.check_failed(self, response)
 
-        data = response.json()
+    def test_update_invalid(self):
+        user = models.User.objects.first()
 
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Unauthorized access')
+        self.client.login(username=user.username, password=user.username)
 
-    def test_update_auth(self):
-        self.client.login(username=self.update.username, password=self.update.username)
+        params = {
+            'email': 'notavalidemail',
+            'openid': 'http://test',
+            'password': 'test2'
+        }
+
+        response = self.client.post('/auth/update/', params)
+
+        data = helpers.check_success(self, reponse)['data']
+
+        expected = ('username', 'openid', 'admin', 'local_init', 'api_key', 'type', 'email')
+
+        for exp in expected:
+            self.assertIn(exp, data)
+
+            if exp in params:
+                self.assertEqual(params[exp], data[exp])
+
+    def test_update(self):
+        user = models.User.objects.first()
+
+        self.client.login(username=user.username, password=user.username)
 
         params = {
             'email': 'imdifferent@hello.com',
@@ -93,48 +102,30 @@ class UserViewsTestCase(test.TestCase):
 
         response = self.client.post('/auth/update/', params)
 
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'success')
+        data = helpers.check_success(self, reponse)['data']
 
         expected = ('username', 'openid', 'admin', 'local_init', 'api_key', 'type', 'email')
 
         for exp in expected:
-            self.assertIn(exp, data['data'])
+            self.assertIn(exp, data)
 
             if exp in params:
-                self.assertEqual(params[exp], data['data'][exp])
+                self.assertEqual(params[exp], data[exp])
 
-    def test_update(self):
-        response = self.client.post('/auth/update/')
-
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Unauthorized access')
-
-    def test_regenerate_auth(self):
-        self.client.login(username=self.update.username, password=self.update.username)
-
+    def test_regenerate_missing_authentication(self):
         response = self.client.get('/auth/user/regenerate/')
 
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Initial API key has not been generate yet, authenticate with MyProxyClient or OAuth2')
+        helpers.check_failed(self, response)
 
     def test_regenerate(self):
+        user = models.User.objects.first()
+
+        user.auth.api_key = 'some api key'
+
+        user.auth.save()
+
+        self.client.login(username=user.username, password=user.username)
+
         response = self.client.get('/auth/user/regenerate/')
 
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Unauthorized access')
+        helpers.check_success(self, response)

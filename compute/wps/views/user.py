@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 
 from . import common
 from wps import forms
+from wps import WPSError
 
 logger = common.logger
 
@@ -15,10 +16,8 @@ logger = common.logger
 def user_details(request):
     try:
         common.authentication_required(request)
-    except Exception as e:
-        logger.exception('Error retrieving user details')
-
-        return common.failed(e.message)
+    except WPSError as e:
+        return common.failed(str(e))
     else:
         return common.success(common.user_to_json(request.user))
 
@@ -42,8 +41,8 @@ def user_stats(request):
 
             for file_obj in request.user.userfile_set.all():
                 files.append(file_obj.to_json())
-    except Exception as e:
-        return common.failed(e.message)
+    except WPSError as e:
+        return common.failed(str(e))
     else:
         return common.success(data)
 
@@ -56,7 +55,7 @@ def update(request):
         form = forms.UpdateForm(request.POST)
 
         if not form.is_valid():
-            raise Exception(form.errors)
+            raise WPSError(form.errors)
 
         email = form.cleaned_data['email']
 
@@ -80,10 +79,8 @@ def update(request):
             request.user.save()
 
             update_session_auth_hash(request, request.user)
-    except Exception as e:
-        logger.exception('Error updating user details')
-
-        return common.failed(e.message)
+    except WPSError as e:
+        return common.failed(str(e))
     else:
         return common.success(common.user_to_json(request.user))
 
@@ -94,16 +91,14 @@ def regenerate(request):
         common.authentication_required(request)
 
         if request.user.auth.api_key == '':
-            raise Exception('Initial API key has not been generate yet, authenticate with MyProxyClient or OAuth2')
+            raise WPSError('Cannot regenerate API key, to generate an API key authenticate with MyProxyClient or OAuth2')
 
         request.user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
 
         request.user.auth.save()
 
         logger.info('Regenerated API key for "{}"'.format(request.user.username))
-    except Exception as e:
-        logger.exception('Error regenerating API key')
-
-        return common.failed(e.message)
+    except WPSError as e:
+        return common.failed(str(e))
     else:
         return common.success({'api_key': request.user.auth.api_key})
