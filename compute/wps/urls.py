@@ -9,9 +9,6 @@ urlpatterns = [
     url(r'^search/$', views.search_dataset),
     url(r'^search/variable$', views.search_variable),
     url(r'^generate/$', views.generate),
-    # Frontend no longer uses this endpoint
-    #url(r'^execute/$', views.execute),
-    url(r'^notification/$', views.notification),
     url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^jobs/$', views.jobs),
     url(r'^jobs/(?P<job_id>[0-9]*)/$', views.job),

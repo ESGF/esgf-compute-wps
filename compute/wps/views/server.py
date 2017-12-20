@@ -6,19 +6,10 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from wps import models
+from wps import WPSError
 from wps.views import common
 
 logger = logging.getLogger('wps.views')
-
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
-def notification(request):
-    try:
-        notification = models.Notification.objects.filter(enabled=True).latest('created_date')
-    except models.Notification.DoesNotExist:
-        return common.success({'notification': None})
-    else:
-        return common.success({'notification': notification.message})
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -27,7 +18,7 @@ def processes(request):
         common.authentication_required(request)
 
         data = [dict(identifier=x.identifier, description=x.description) for x in models.Process.objects.all() if x.enabled]
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error retrieving processes')
 
         return common.failed(e.message)
