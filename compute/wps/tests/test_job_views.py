@@ -4,6 +4,7 @@ import random
 
 from django import test
 
+from . import helpers
 from wps import models
 
 class JobViewsTestCase(test.TestCase):
@@ -14,70 +15,69 @@ class JobViewsTestCase(test.TestCase):
 
         self.jobs = models.Job.objects.all()
 
-    def test_job_auth(self):
+    def test_job_multiple_update(self):
+        self.client.login(username=self.user.username, password=self.user.username)
+
+        response = self.client.get('/wps/jobs/{}/'.format(self.jobs[0].id), {'update': 'true'})
+
+        data = helpers.check_success(self, response)
+
+        self.assertEqual(len(data['data']), 2)
+
+        response = self.client.get('/wps/jobs/{}/'.format(self.jobs[0].id), {'update': 'true'})
+
+        data = helpers.check_success(self, response)
+
+        self.assertEqual(len(data['data']), 0)
+
+    def test_job_update(self):
+        self.client.login(username=self.user.username, password=self.user.username)
+
+        response = self.client.get('/wps/jobs/{}/'.format(self.jobs[0].id), {'update': 'true'})
+
+        data = helpers.check_success(self, response)
+
+        self.assertEqual(len(data['data']), 2)
+
+    def test_job_no_status(self):
+        server = models.Server.objects.get(host='default')
+
+        process = models.Process.objects.create(identifier='CDAT.test', backend='Local')
+
+        job = models.Job.objects.create(server=server, user=self.user, process=process)
+
+        self.client.login(username=self.user.username, password=self.user.username)
+
+        response = self.client.get('/wps/jobs/{}/'.format(job.id))
+
+        data = helpers.check_success(self, response)
+
+        self.assertEqual(len(data['data']), 2)
+
+    def test_job(self):
         self.client.login(username=self.user.username, password=self.user.username)
 
         response = self.client.get('/wps/jobs/{}/'.format(self.jobs[0].id))
 
-        self.assertEqual(response.status_code, 200)
+        data = helpers.check_success(self, response)
 
-        data = response.json()
-
-        self.assertEqual(data['status'], 'success')
         self.assertEqual(len(data['data']), 2)
 
-    def test_job(self):
+    def test_job_missing_authentication(self):
         response = self.client.get('/wps/jobs/0/')
 
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Unauthorized access')
-
-    def test_jobs_index(self):
-        self.client.login(username=self.user.username, password=self.user.username)
-    
-        response = self.client.get('/wps/jobs/', {'index': 5})
-
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(len(data['data']), 42)
-
-    def test_jobs_limit(self):
-        self.client.login(username=self.user.username, password=self.user.username)
-    
-        response = self.client.get('/wps/jobs/', {'limit': 10})
-
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(len(data['data']), 42)
-
-    def test_jobs_auth(self):
-        self.client.login(username=self.user.username, password=self.user.username)
-    
-        response = self.client.get('/wps/jobs/')
-
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(len(data['data']), 42)
+        helpers.check_failed(self, response)
 
     def test_jobs(self):
+        self.client.login(username=self.user.username, password=self.user.username)
+    
         response = self.client.get('/wps/jobs/')
 
-        self.assertEqual(response.status_code, 200)
+        data = helpers.check_success(self, response)
+        
+        self.assertEqual(len(data['data']), 42)
 
-        data = response.json()
+    def test_jobs_missing_authentication(self):
+        response = self.client.get('/wps/jobs/')
 
-        self.assertEqual(data['status'], 'failed')
-        self.assertEqual(data['error'], 'Unauthorized access')
+        helpers.check_failed(self, response)

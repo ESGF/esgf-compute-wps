@@ -56,7 +56,7 @@ def job(request, job_id):
         job = models.Job.objects.get(pk=job_id)
 
         if update:
-            updated = request.session['updated']
+            updated = request.session.get('updated', None)
 
             if updated is None:
                 status = job.status
