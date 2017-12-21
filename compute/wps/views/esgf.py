@@ -13,6 +13,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
+from wps import WPSError
 from wps.tasks import process
 
 logger = common.logger
@@ -32,7 +33,7 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
         try:
             query_files_reduced = [query_files[0], query_files[-1]]
         except IndexError:
-            raise common.ViewError('No files associated with variable "{}" of dataset "{}"'.format(query_variable, dataset_id))
+            raise WPSError('No files associated with "{variable}" of dataset "{dataset}"', variable=query_variable, dataset=dataset_id)
 
         start = datetime.datetime.now()
 
@@ -87,7 +88,7 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
 
                         logger.info('Extending time from "{}" to "{}"'.format(old_stop, remapped_time))
             except cdms2.CDMSError as e:
-                raise common.ViewError('CDMS2 error "{}"'.format(e.message))
+                raise WPSError('Error opening file "{url}": {error}', url=url, error=e.message)
 
         cache.set(cache_id, axes, 24*60*60)
 
@@ -129,7 +130,7 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
             response = requests.get(url, params)
         except requests.ConnectionError:
             raise Exception('Connection timed out')
-        except requests.RequestException as e:
+        except requests.RequestWPSError as e:
             raise Exception('Request failed: "{}"'.format(e))
 
         #with open('./data/solr_full.json', 'w') as outfile:
@@ -194,7 +195,7 @@ def search_variable(request):
         query_files = dataset_variables[query_variable]['files']
 
         axes = retrieve_axes(request.user, dataset_id, query_variable, query_files)
-    except Exception as e:
+    except WPSError as e:
         logger.exception('Error retrieving ESGF search results')
 
         return common.failed(e.message)
@@ -225,8 +226,8 @@ def search_dataset(request):
         try:
             query_variable = dataset_variables.keys()[0]
         except IndexError as e:
-            raise common.ViewError('No variables were found in dataset "{}"'.format(dataset_id))
-    except Exception as e:
+            raise WPSError('Dataset "{dataset_id}" returned no variables', dataset_id=dataset_id)
+    except WPSError as e:
         logger.exception('Error retrieving ESGF search results')
 
         return common.failed(e.message)
