@@ -13,9 +13,6 @@ from wps import settings
 
 logger = logging.getLogger('wps.wps_xml')
 
-class CDAS2ConversionError(Exception):
-    pass
-
 def create_identification():
     ident = metadata.ServiceIdentification()
 
@@ -76,10 +73,7 @@ def xpath_result(tree, path):
 
     return result[0]
 
-def capabilities_response(data=None, add_procs=None):
-    if add_procs is None:
-        add_procs = []
-
+def capabilities_response(processes):
     cap = operations.GetCapabilitiesResponse()
 
     cap.service = settings.SERVICE
@@ -92,20 +86,7 @@ def capabilities_response(data=None, add_procs=None):
     cap.operations_metadata = OPERATIONS
     cap.process_offerings = []
 
-    if data is not None:
-        tree = etree.fromstring(data)
-
-        proc_elems = tree.xpath('/capabilities/processes/process/description')
-
-        for p in proc_elems:
-            proc = metadata.Process()
-            proc.identifier = p.attrib.get('id')
-            proc.title = p.attrib.get('title')
-            proc.abstract = p.text
-
-            cap.process_offerings.append(proc)
-
-    for p in add_procs:
+    for p in processes:
         proc = metadata.Process()
         proc.identifier = p.identifier
         proc.title = p.identifier.title()
@@ -171,19 +152,6 @@ def describe_process_response(identifier, title, abstract):
 
     return desc
 
-def describe_process_response_from_cdas2(data):
-    tree = etree.fromstring(data)
-
-    identifier = xpath_result(tree, '/processDescriptions/process/description/@id')
-
-    title = xpath_result(tree, '/processDescriptions/process/description/@title')
-
-    abstract = xpath_result(tree, '/processDescriptions/process/description')
-
-    desc = describe_process_response(identifier, title, abstract)
-
-    return desc
-
 def execute_response(status_location, status, identifier):
     p = metadata.Process()
     p.identifier = identifier
@@ -213,43 +181,3 @@ def create_output(output):
     output = metadata.Output(identifier='output', title='Output', data=data)
 
     return output.xml()
-
-def cdas2_output(response):
-    tree = etree.fromstring(response)
-
-    output_data = tree.xpath('/response/outputs/data')
-
-    if len(output_data) > 0:
-        file_path = output_data[0].attrib.get('file')
-
-        file_name = file_path.split('/')[-1]
-
-        new_file_path = settings.OUTPUT_URL.format(file_name=file_name)
-
-        var = cwt.Variable(new_file_path, 'Nd4jMaskedTensor')
-
-        data = metadata.ComplexData(value=json.dumps(var.parameterize()))
-
-        output = metadata.Output(identifier='output', title='Output', data=data)
-
-        return output.xml()
-
-    return None
-
-def check_cdas2_error(response):
-    try:
-        tree = etree.fromstring(response)
-    except etree.XMLSyntaxError:
-        raise CDAS2ConversionError('Failed to load the response string')
-
-    error = tree.xpath('/response/exceptions/exception')
-
-    if len(error) > 0:
-        exc_report = metadata.ExceptionReport(settings.VERSION)
-
-        exc_report.add_exception(metadata.NoApplicableCode, error[0].text)
-
-        return exc_report
-
-    return None
-

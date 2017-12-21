@@ -356,7 +356,7 @@ def regen_capabilities(request):
 
         processes = server.processes.all()
 
-        cap = wps_xml.capabilities_response(add_procs=processes)
+        cap = wps_xml.capabilities_response(processes)
 
         server.capabilities = cap.xml()
 

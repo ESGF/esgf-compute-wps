@@ -13,7 +13,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         processes = [x for x in models.Process.objects.all()]
 
-        capabilities = wps_xml.capabilities_response(add_procs=processes)
+        capabilities = wps_xml.capabilities_response(processes)
 
         try:
             server = models.Server.objects.get(host='default')
