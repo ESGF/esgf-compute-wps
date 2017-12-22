@@ -212,9 +212,9 @@ def wps_execute(user, identifier, data_inputs):
     if is_workflow:
         process_backend = backends.Backend.get_backend('Local')
 
-        process_backend.workflow(root_node, variables, domains, operations, user=user, job=job)
+        process_backend.workflow(root_node, variables, domains, operations, user=user, job=job).delay()
     else:
-        process_backend.execute(identifier, variables, domains, operations, user=user, job=job)
+        process_backend.execute(identifier, variables, domains, operations, user=user, job=job).delay()
 
     return job.report
 
