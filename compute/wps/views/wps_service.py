@@ -159,7 +159,7 @@ def wps_execute(user, identifier, data_inputs):
     try:
         process = models.Process.objects.get(identifier=identifier)
     except models.Process.DoesNotExist:
-        raise ProcessDoesNotExistError(identifier)
+        raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
     process.track(user)
 
