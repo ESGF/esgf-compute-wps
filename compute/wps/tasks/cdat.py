@@ -9,6 +9,7 @@ import dask.array as da
 from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
 
+from wps import WPSError
 from wps.tasks import process
 
 __ALL__ = [
@@ -25,6 +26,9 @@ def sort_inputs_by_time(variables):
 
     for v in variables:
         result = re.search(time_pattern, v.uri)
+
+        if result is None:
+            raise WPSError('Could not parse time from input "{filename}"', filename=v.uri)
 
         start, _ = result.groups()
 
@@ -128,7 +132,7 @@ Computes sum over an axis. Requires a parameters named "axes" whos value is a
 "|" delimit list e.g. axes=lat|lon.
 """)
 @process.cwt_shared_task()
-def minimum(self, parent_variables, variables, domains, operation, **kwargs):
+def sum(self, parent_variables, variables, domains, operation, **kwargs):
     return base_process(self, parent_variables, variables, domains, operation, MV.sum, **kwargs)
 
 @process.register_process('CDAT.diff', """
