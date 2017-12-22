@@ -69,7 +69,7 @@ class EDASBackendTestCase(test.TestCase):
 
         operations = {'max': proc}
 
-        task = self.backend.execute('CDSpark.max', variables, {}, operations, user=self.user, job=job)
+        task = self.backend.execute('CDSpark.max', variables, domains, operations, user=self.user, job=job)
 
         self.assertIsNotNone(task)
 
