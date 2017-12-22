@@ -9,6 +9,7 @@ import zmq
 from celery.utils.log import get_task_logger
 
 from wps import settings
+from wps import WPSError
 from wps.tasks import process
 
 logger = get_task_logger('wps.tasks.edas')
@@ -24,7 +25,7 @@ def check_exceptions(data):
         exceptions = root.findall('./exceptions/*')
 
         if len(exceptions) > 0:
-            raise Exception(exceptions[0].text)
+            raise WPSError('EDAS exception: {error}', error=exceptions[0].text)
 
 def initialize_socket(context, socket_type, host, port):
     sock = context.socket(socket_type)
@@ -42,7 +43,7 @@ def listen_edas_output(self, poller, job):
         events = dict(poller.poll(settings.EDAS_TIMEOUT * 1000))
 
         if len(events) == 0:
-            raise Exception('EDAS timed out waiting for heartbeat or output message')
+            raise WPSError('EDAS timed out waiting for heartbear or output message')
 
         data = events.keys()[0].recv()
 
@@ -105,7 +106,7 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
         req_sock.send(str('{}!execute!{}!{}!{}'.format(job.id, o.identifier, data_inputs, extra)))
 
         if (req_sock.poll(settings.EDAS_TIMEOUT * 1000) == 0):
-            raise Exception('EDAS timed out waiting for initial response')
+            raise WPSError('EDAS timed out waiting for accept response')
 
         data = req_sock.recv()
 
@@ -116,7 +117,7 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
         edas_output_path = listen_edas_output(self, poller, job)
 
         if edas_output_path is None:
-            raise Exception('Failed to receive output from EDAS')
+            raise WPSError('Failed to receive output from EDAS')
     except:
         raise
     finally:
@@ -144,10 +145,10 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
         with cdms2.open(output_path) as infile:
             var_name = infile.variables.keys()[0]
     except:
-        raise Exception('Error with accessing EDAS output file')
+        raise WPSError('Failed to determine variable name of the EDAS output')
 
     self.status(job, 'Variable name from EDAS result "{}"'.format(var_name))
 
     output_var = cwt.Variable(output_url, var_name, name=o.name)
 
-    return {o.name, output_var.parameterize()}
+    return {o.name: output_var.parameterize()}
