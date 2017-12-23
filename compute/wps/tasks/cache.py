@@ -1,10 +1,10 @@
-import datetime
 import os
 
 from celery import current_app
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.db.models import Sum
+from django.utils import timezone
 
 from wps import models
 from wps import settings
@@ -31,7 +31,7 @@ def cache_clean():
             item.delete()
 
     # Look for expired/stale cache entries
-    threshold = datetime.datetime.now() - settings.CACHE_MAX_AGE
+    threshold = timezone.now() - settings.CACHE_MAX_AGE
 
     cached = models.Cache.objects.filter(accessed_date__lt=threshold)
 
@@ -44,15 +44,15 @@ def cache_clean():
 
         item.delete()
 
-    used_space = models.Cache.objects.all().aggregate(Sum('size'))
+    used_space = models.Cache.objects.all().aggregate(Sum('size'))['size__sum']
 
-    if used_space >= settings.CACHE_GB_MAX_SIZE:
+    if used_space is not None and used_space >= settings.CACHE_GB_MAX_SIZE:
         freed_space = 0
         to_remove = []
 
         logger.info('Free additional space "{}" GB used of "{}" GB'.format(used_space, settings.CACHE_GB_MAX_SIZE))
 
-        target_used_space = used_space * (1.0-settings.CACHE_FREED_PERCENT)
+        target_used_space = float(used_space) * (1.0-settings.CACHE_FREED_PERCENT)
 
         logger.info('Target used space "{}" GB'.format(target_used_space))
 
