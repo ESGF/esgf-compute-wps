@@ -2,6 +2,7 @@ import logging
 
 from wps import tasks
 from wps import settings
+from wps import WPSError
 from wps.backends import backend
 from wps.tasks.ophidia import PROCESSES
 
@@ -21,7 +22,7 @@ class Ophidia(backend.Backend):
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         if len(operations) == 0:
-            raise Exception('Must atlease supply one operation')
+            raise WPSError('Must provide atleast one operation')
 
         logger.info('Executing process "{}"'.format(identifier))
 
@@ -50,4 +51,4 @@ class Ophidia(backend.Backend):
 
         oph_task = tasks.oph_submit.s({}, domain_dict, operation.parameterize(), **params)
 
-        (cache_task | oph_task).delay()
+        return (cache_task | oph_task)
