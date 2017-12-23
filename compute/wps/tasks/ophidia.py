@@ -7,6 +7,7 @@ from celery.utils.log import get_task_logger
 from PyOphidia import client
 
 from wps import settings
+from wps import WPSError
 from wps.tasks import process
 
 __ALL__ = [
@@ -81,10 +82,10 @@ class OphidiaWorkflow(object):
                 for x in res['response'][2]['objcontent']:
                     for y in x['rowvalues']:
                         error += '\t{}: {}\n'.format(y[-3], y[-1])
-            except:
-                pass
+            except IndexError:
+                raise WPSError('Failed to parse last error from Ophidia')
 
-            raise Exception(error)
+            raise WPSError(error)
 
     def submit(self):
         self.check_error()
@@ -95,7 +96,6 @@ class OphidiaWorkflow(object):
         def default(o):
             if isinstance(o, OphidiaTask):
                 return o.to_dict()
-            return None
 
         return json.dumps(self.workflow, default=default, indent=4)
 
@@ -146,9 +146,9 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     try:
         operator = PROCESSES[o.identifier]
     except KeyError:
-        raise Exception('Process "{}" does not exist for Ophidia backend'.format(o.identifier))
+        raise WPSError('Process "{name}" does not exist for Ophidia backend', name=o.identifier)
 
-    if axes is None:
+    if axes == 'time':
         reduce_task = OphidiaTask('reduce data', 'oph_reduce')
         reduce_task.add_arguments(operation=operator, ncores=cores)
         reduce_task.add_dependencies(import_task)
