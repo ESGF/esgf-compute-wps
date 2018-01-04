@@ -24,6 +24,15 @@ def write_file(file_path, axes, var_name):
                       axes=axes,
                       id=var_name)
 
+def generate_variable(axes, var_name):
+    data = np.array([[[random.random() for _ in xrange(len(axes[2]))]
+                      for _ in xrange(len(axes[1]))]
+                     for _ in xrange(len(axes[0]))])
+
+    variable = cdms2.createVariable(data, axes=axes, id=var_name)
+
+    return variable
+
 def generate_time(units, n):
     time = cdms2.createAxis(np.array([x for x in xrange(n)]))
 

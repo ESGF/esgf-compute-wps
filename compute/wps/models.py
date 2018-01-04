@@ -216,7 +216,7 @@ class Cache(models.Model):
     url = models.CharField(max_length=512)
     dimensions = models.TextField()
     added_date = models.DateTimeField(auto_now_add=True)
-    accessed_date = models.DateTimeField(auto_now=True)
+    accessed_date = models.DateTimeField(null=True)
     size = models.DecimalField(null=True, max_digits=16, decimal_places=8)
 
     @property
@@ -249,6 +249,14 @@ class Cache(models.Model):
                     return False
 
         return True
+
+    def accessed(self, when=None):
+        if when is None:
+            when = timezone.now()
+
+        self.accessed = when
+
+        self.save()
 
     def estimate_size(self):
         with cdms2.open(self.url) as infile:

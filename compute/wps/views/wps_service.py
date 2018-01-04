@@ -15,7 +15,6 @@ from wps import backends
 from wps import models
 from wps import wps_xml
 from wps import settings
-from wps import tasks
 from wps import WPSError
 
 logger = common.logger
@@ -141,6 +140,27 @@ class WPSScriptGenerator(object):
 
         return data
 
+def load_data_inputs(data_inputs, resolve_inputs=False):
+    o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
+
+    v = dict((x.name, x) for x in v)
+
+    d = dict((x.name, x) for x in d)
+
+    o = dict((x.name, x) for x in o)
+
+    if resolve_inputs:
+        for op in o.values():
+            op.resolve_inputs(v, o)
+
+            if op.domain is not None:
+                if op.domain not in d:
+                    raise WPSError('Missing domain "{name}"', name=op.domain)
+
+                op.domain = d[op.domain]
+
+    return o, d, v
+
 def get_parameter(params, name):
     """ Gets a parameter from a django QueryDict """
 
@@ -163,12 +183,7 @@ def wps_execute(user, identifier, data_inputs):
 
     process.track(user)
 
-    base = tasks.CWTBaseTask()
-
-    try:
-        operations, domains, variables = base.load_data_inputs(data_inputs)
-    except Exception:
-        raise WPSError('WPS error parsing WPS inputs')
+    operations, domains, variables = load_data_inputs(data_inputs)
 
     root_node = None
     is_workflow = False
@@ -285,9 +300,7 @@ def generate(request):
 
         data_inputs = re.sub('\|(domain|operation|variable)=', ';\\1=', data_inputs, 3)
 
-        base = tasks.CWTBaseTask()
-
-        o, d, v = base.load_data_inputs(data_inputs, resolve_inputs=True)
+        o, d, v = load_data_inputs(data_inputs, resolve_inputs=True)
 
         script = WPSScriptGenerator(v, d, o, request.user)
 

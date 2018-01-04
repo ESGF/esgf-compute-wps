@@ -25,6 +25,7 @@ from OpenSSL import crypto
 
 from wps import models
 from wps import settings
+from wps import WPSError
 from wps.auth import oauth2
 from wps.auth import openid
 
@@ -58,11 +59,23 @@ REGISTRY = {}
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
 
-class AccessError(Exception):
-    pass
+class InvalidShapeError(WPSError):
+    def __init__(self, shape):
+        msg = 'Read invalid shape {shape}'
 
-class InvalidShapeError(Exception):
-    pass
+        super(InvalidShapeError, self).__init__(msg, shape=shape)
+
+class AccessError(WPSError):
+    def __init__(self, url, reason):
+        msg = 'Access error "{url}": {reason}'
+
+        super(AccessError, self).__init__(msg, url=url, reason=reason)
+
+class CertificateError(WPSError):
+    def __init__(self, user, reason):
+        msg = 'Certificate error for user "{username}": {reason}'
+
+        super(CertificateError, self).__init__(msg, username=user.username, reason=reason)
 
 def get_process(name):
     """ Returns a process.
@@ -81,7 +94,7 @@ def get_process(name):
     try:
         return REGISTRY[name]
     except KeyError:
-        raise Exception('Process {} does not exist'.format(name))
+        raise WPSError('Process {name} does not exist', name=name)
 
 def register_process(name, abstract=''):
     """ Process decorator.
@@ -140,12 +153,12 @@ class CWTBaseTask(celery.Task):
         try:
             user = models.User.objects.get(pk=user_id)
         except models.User.DoesNotExist:
-            raise Exception('User "{}" requesting process does not exist'.format(user_id))
+            raise WPSError('Unknown user with ID "{id}" does not exist', id=user_id)
 
         try:
             job = models.Job.objects.get(pk=job_id)
         except models.Job.DoesNotExist:
-            raise Exception('Job "{}" does not exist'.format(job_id))
+            raise WPSError('Job with ID "{id}" does not exist', id=job_id)
 
         if credentials:
             self.load_certificate(user)
@@ -161,7 +174,7 @@ class CWTBaseTask(celery.Task):
         try:
             job = models.Job.objects.get(pk=job_id)
         except models.Job.DoesNotExist:
-            raise Exception('Job "{}" does not exist'.format(job_id))
+            raise WPSError('Job with ID "{id}" does not exist', id=job_id)
 
         return job
     
@@ -177,14 +190,12 @@ class CWTBaseTask(celery.Task):
             returns true if valid otherwise false.
         """
         if user.auth.cert == '':
-            raise Exception('No certificate available, please authenticate with MyProxyClient or OAuth2')
+            raise CertificateError(user, 'Missing certificate')
 
         try:
             cert = crypto.load_certificate(crypto.FILETYPE_PEM, user.auth.cert)
         except Exception as e:
-            logger.info('Error loading certificate')
-
-            raise Exception('Error loading certificate "{}"'.format(e.message))
+            raise CertificateError(user, 'Loading certificate')
 
         before = datetime.strptime(cert.get_notBefore(), CERT_DATE_FMT)
 
@@ -192,14 +203,13 @@ class CWTBaseTask(celery.Task):
 
         now = datetime.now()
 
-        if (now >= before and now <= after):
-            logger.info('Certificate is still valid, not before {}, not after {}'.format(before, after))
+        if now >= after:
+            return False
 
-            return True
+        if now <= before:
+            return False
 
-        logger.info('Certificate is invalid')
-
-        return False
+        return True
 
     def refresh_certificate(self, user):
         """ Refresh user certificate
@@ -215,34 +225,23 @@ class CWTBaseTask(celery.Task):
         logger.info('Refreshing user certificate')
 
         if user.auth.type == 'myproxyclient':
-            raise Exception('Certificate has expired, authenticate with MyProxyClient')
+            raise CertificateError(user, 'MyProxyClient certificate has expired')
 
-        try:
-            url, services = discover.discoverYadis(user.auth.openid_url)
-        except:
-            raise Exception('Failed to discover OpenID')
+        url, services = discover.discoverYadis(user.auth.openid_url)
 
         auth_service = openid.find_service_by_type(services, URN_AUTHORIZE)
 
-        if auth_service is None:
-            raise Exception('OpenID has no authentication service endpoint')
-
         cert_service = openid.find_service_by_type(services, URN_RESOURCE)
 
-        if cert_service is None:
-            raise Exception('OpenID has no certificate service endpoint')
-
-        extra = json.loads(user.auth.extra)
+        try:
+            extra = json.loads(user.auth.extra)
+        except ValueError as e:
+            raise WPSError('Missing OAuth2 state, try authenticating with OAuth2 again')
 
         if 'token' not in extra:
-            raise Exception('Invalid OAuth2 state, missing token. Try authenticating with OAuth2')
+            raise WPSError('Missing OAuth2 token, try authenticating with OAuth2 again')
 
-        try:
-            cert, key, new_token = oauth2.get_certificate(extra['token'], auth_service.server_url, cert_service.server_url)
-        except Exception as e:
-            logger.exception('Certificate refresh failed')
-
-            raise Exception('Failed to retrieve certificate: "{}"'.format(e.message))
+        cert, key, new_token = oauth2.get_certificate(extra['token'], auth_service.server_url, cert_service.server_url)
 
         logger.info('Retrieved certificate and new token')
 
@@ -306,30 +305,6 @@ class CWTBaseTask(celery.Task):
 
             logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
 
-    def load_data_inputs(self, data_inputs, resolve_inputs=False):
-        o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
-
-        v = dict((x.name, x) for x in v)
-
-        d = dict((x.name, x) for x in d)
-
-        for var in v.values():
-            var.resolve_domains(d)
-
-        o = dict((x.name, x) for x in o)
-
-        if resolve_inputs:
-            for op in o.values():
-                op.resolve_inputs(v, o)
-
-                if op.domain is not None:
-                    if op.domain not in d:
-                        raise Exception('Domain "{}" was never defined'.format(op.domain))
-
-                    op.domain = d[op.domain]
-
-        return o, d, v
-
     def load(self, parent_variables, variables, domains, operation):
         """ Load a processes inputs.
 
@@ -358,13 +333,6 @@ class CWTBaseTask(celery.Task):
         o = cwt.Process.from_dict(operation)
 
         return v, d, o
-
-    def op_by_id(self, name, operations):
-        """ Retrieve an operation. """
-        try:
-            return [x for x in operations.values() if x.identifier == name][0]
-        except IndexError:
-            raise Exception('Could not find operation {}'.format(name))
 
     def generate_output_path(self, name=None):
         """ Format the file path for a local output. """
@@ -404,7 +372,7 @@ class CWTBaseTask(celery.Task):
         elif isinstance(s, slice):
             slice_str = fmt.format(s.start, s.stop, s.step)
         else:
-            raise Exception('Failed to convert slice to string for "{}"'.format(type(s)))
+            raise WPSError('Failed to convert slice to string, unknown type "{type}"', type=type(s))
         
         return slice_str
 
@@ -451,8 +419,8 @@ class CWTBaseTask(celery.Task):
 
                 try:
                     file_map[url] = cdms2.open(cache.local_path)
-                except:
-                    raise AccessError()
+                except cdms2.CDMSError as e:
+                    raise AccessError(url, e.message)
 
                 domain_map[url] = (slice(0, file_map[url][var_name].getTime().shape[0], 1), spatial)
 
@@ -462,24 +430,24 @@ class CWTBaseTask(celery.Task):
 
                 caches[url] = cache
 
-        self.cache_free(required_space)
+        self.free_cache(required_space)
 
         return caches
 
-    def cache_free(self, required_space):
-        freed_space = 0
+    def free_cache(self, required_space):
+        freed_space = 0.0
         to_remove = []
         used_space = models.Cache.objects.all().aggregate(Sum('size'))['size__sum']
 
         if used_space < settings.CACHE_GB_MAX_SIZE:
             logger.info('No need to free space only "{}" of "{}" used'.format(used_space, settings.CACHE_GB_MAX_SIZE))
 
-            return
+            return 0
 
         cache_entries = models.Cache.objects.order_by('-accessed_date')
 
         for entry in cache_entries:
-            freed_space = freed_space + entry.size
+            freed_space += float(entry.size)
 
             to_remove.append(entry)
 
@@ -493,6 +461,8 @@ class CWTBaseTask(celery.Task):
                 os.remove(entry.local_path)
 
             entry.delete()
+
+        return freed_space
 
     def download(self, input_file, var_name, base_units, temporal, spatial, cache_file, out_file, post_process, job):
         """ Downloads file. 
@@ -521,7 +491,7 @@ class CWTBaseTask(celery.Task):
             data = input_file(var_name, time=time_slice, **spatial)
 
             if any(x == 0 for x in data.shape):
-                raise InvalidShapeError('Data has shape {}'.format(data.shape))
+                raise InvalidShapeError(data.shape)
 
             if cache_file is not None:
                 cache_file.write(data, id=var_name)
@@ -546,15 +516,13 @@ class CWTBaseTask(celery.Task):
                 file_map[var.uri] = cdms2.open(var.uri)
 
                 file_var_map[var.uri] = var.var_name
-        except Exception as e:
-            logger.exception('Error accessing file "{}"'.format(e.message))
-
+        except cdms2.CDMSError as e:
             for f in file_map.values():
                 f.close()
 
-            raise AccessError()
-        else:
-            return file_map, file_var_map
+            raise AccessError(var.uri, e.message)
+
+        return file_map, file_var_map
 
     def sort_variables_by_time(self, variables):
         input_dict = {}
@@ -600,7 +568,7 @@ class CWTBaseTask(celery.Task):
                 if len(shapes) > 1:
                     logger.info('Inputs invalid shapes "{}"'.format(shapes))
 
-                    raise Exception('All inputs shapes do not match')
+                    raise WPSError('Mismatching shapes for input files')
 
             self.status(job, 'Mapping domain to source files')
 
@@ -609,7 +577,7 @@ class CWTBaseTask(celery.Task):
             logger.info('Domain map: {}'.format(domain_map))
 
             if len(domain_map) == 0:
-                raise Exception('Failed to map domain to input files, please check your domain definition')
+                raise WPSError('Domain does not map to input files')
 
             # Disable caching when averaging over time axis,
             # since we pull chunks a shape like (120, 20, 480) and average over
@@ -639,11 +607,11 @@ class CWTBaseTask(celery.Task):
             try:
                 for url in cache_map.keys():
                     cache_file_map[url] = cdms2.open(cache_map[url].local_path, 'w')
-            except Exception as e:
+            except cdms2.CDMSError as e:
                 for item in cache_file_map.values():
                     itme.close()
 
-                raise AccessError()
+                raise AccessError(url, e.message)
             
             try:
                 with cdms2.open(output_path, 'w') as outfile, nested(*cache_file_map.values()):
@@ -665,7 +633,7 @@ class CWTBaseTask(celery.Task):
                                 self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
 
                                 if any(x == 0 for x in data.shape):
-                                    raise InvalidShapeError('Data has shape {}'.format(data.shape))
+                                    raise InvalidShapeError(data.shape)
 
                                 if url in cache_file_map:
                                     logger.debug('Writing cache file "{}" with data "{}"'.format(url, data.shape))
@@ -684,7 +652,7 @@ class CWTBaseTask(celery.Task):
                                     axis_index = data.getAxisIndex(axis)
 
                                     if axis_index == -1:
-                                        raise Exception('Unknown axis "{}"'.format(axis))
+                                        raise WPSError('Unknown axis name "{name}"', name=axis)
 
                                     data = process(data, axis=axis_index)
 
@@ -707,7 +675,7 @@ class CWTBaseTask(celery.Task):
                                 self.status(job, 'Retrieved data slice {}'.format(data.shape), i*100/count)
 
                                 if any(x == 0 for x in data.shape):
-                                    raise InvalidShapeError('Data has shape {}'.format(data.shape))
+                                    raise InvalidShapeError(data.shape)
 
                                 if url in cache_file_map:
                                     logger.debug('Writing cache file "{}" with data "{}"'.format(url, data.shape))
@@ -734,13 +702,13 @@ class CWTBaseTask(celery.Task):
 
                         outfile.write(MV.concatenate(result), id=var_name)
                     else:
-                        raise Exception('Files partition map is invalid')
+                        raise WPSError('Invalid partition map')
 
                 for url in cache_file_map.keys():
                     cache_map[url].size = os.stat(cache_map[url].local_path).st_size / 1073741824.0
 
                     cache_map[url].save()
-            except Exception as e:
+            except WPSError:
                 raise
             finally:
                 for item in cache_file_map.values():
@@ -772,13 +740,11 @@ class CWTBaseTask(celery.Task):
                 files[var.uri] = cdms2.open(var.uri)
 
                 file_var_map[var.uri] = var.var_name
-        except Exception as e:
-            logger.exception('Error accessing file: "{}"'.format(e.message))
-
+        except cdms2.CDMSError as e:
             for f in files.values():
                 f.close()
 
-            raise AccessError()
+            raise AccessError(var.uri, e.message)
 
         self.status(job, 'Mapping domain to input files')
 
@@ -786,7 +752,7 @@ class CWTBaseTask(celery.Task):
         domain_map = self.map_domain(files.values(), file_var_map, domain)
 
         if len(domain_map) == 0:
-            raise Exception('Failed to map domain to input files, please check your domain definition')
+            raise WPSError('Invalid domain no input files are included')
 
         logger.info('Mapped domain {}'.format(domain_map))
 
@@ -818,8 +784,8 @@ class CWTBaseTask(celery.Task):
 
                     try:
                         cache_file = cdms2.open(cache_map[url].local_path, 'w')
-                    except:
-                        raise AccessError()
+                    except cdms2.CDMSError as e:
+                        raise AccessError(url, e.message)
 
                 temporal, spatial = partition_map[url]
 
@@ -996,10 +962,8 @@ class CWTBaseTask(celery.Task):
             if os.path.exists(local_path):
                 try:
                     cached_file = cdms2.open(local_path)
-                except Exception:
-                    logger.exception('Failed to open local cached file')
-
-                    raise AccessError('File exists, but cannot be open')
+                except cdms2.CDMSError as e:
+                    raise AccessError(local_path, e.message)
                 else:
                     # Validate the cached file
                     with cached_file as cached_file:
@@ -1055,7 +1019,7 @@ class CWTBaseTask(celery.Task):
             else:
                 axis_slice = slice(start, stop, dim.step)
         else:
-            raise Exception('Unknown CRS {}'.format(dim.crs))
+            raise WPSError('Unknown CRS "{name}"', name=dim.crs)
 
         logger.info('Mapped dimension {} to slice {}'.format(dim, axis_slice))
 
@@ -1271,109 +1235,3 @@ cwt_shared_task = partial(shared_task,
                           base=CWTBaseTask,
                           autoretry_for=(AccessError,),
                           retry_kwargs={'max_retries': 3})
-
-if global_settings.DEBUG:
-    @register_process('dev.echo')
-    @cwt_shared_task()
-    def dev_echo(self, parent_variables, variables, domains, operation, **kwargs):
-        self.PUBLISH = ALL
-
-        user, job = self.initialize(credentials=False, **kwargs)
-
-        job.started()
-
-        v, d, o = self.load(parent_variables, variables, domains, operation)
-
-        self.status(job, parent_variables)
-
-        self.status(job, variables)
-
-        self.status(job, domains)
-
-        self.status(job, operation)
-
-        output_var = cwt.Variable('file:///test.nc', 'tas')
-
-        return {o.name: output_var.parameterize()}
-
-    @cwt_shared_task()
-    def dev_test(self, result, index, item1, item2):
-        print '{} hello {}'.format(index, result)
-        return index
-
-    @register_process('dev.sleep')
-    @cwt_shared_task()
-    def dev_sleep(self, parent_variables, variables, domains, operation, **kwargs):
-        self.PUBLISH = ALL
-
-        user, job = self.initialize(credentials=False, **kwargs)
-
-        job.started()
-
-        v, d, o = self.load(parent_variables, variables, domains, operation)
-
-        count = o.get_parameter('count')
-
-        if count is None:
-            count = 6
-
-        timeout = o.get_parameter('timeout')
-
-        if timeout is None:
-            timeout = 10
-
-        for i in xrange(count):
-            status.update(percent=i*100/count)
-
-            time.sleep(timeout)
-
-        output_var = cwt.Variable('Slept {} times for {} seconds, total time {} seconds'.format(count, timeout, count*timeout), 'tas')
-
-        return {o.name: output_var.parameterize()}
-
-    @register_process('dev.retry')
-    @cwt_shared_task()
-    def dev_retry(self, parent_variables, variables, domains, operation, **kwargs):
-        self.PUBLISH = ALL
-
-        global counter
-
-        user, job = self.initialize(credentials=False, **kwargs)
-
-        job.started()
-
-        for i in xrange(3):
-            self.status(job, '{}'.format(i*100/3), i*100/3)
-
-            time.sleep(2)
-
-            counter += 1
-
-            if counter >= 2:
-                counter = 0
-
-                break
-            else:
-                raise AccessError('Something went wrong')
-
-        output_var = cwt.Variable('I recovered from a retry', 'tas').parameterize()
-
-        return {o.name: output_var.parameterize()}
-
-    @register_process('dev.failure')
-    @cwt_shared_task()
-    def dev_failure(self, parent_variables, variables, domains, operation, **kwargs):
-        self.PUBLISH = ALL
-
-        user, job = self.initialize(credentials=False, **kwargs)
-
-        job.started()
-
-        for i in xrange(3):
-            percent = i*100/3
-
-            self.status(job, 'Percent {}'.format(percent), percent)
-
-            time.sleep(2)         
-
-        raise Exception('An error occurred')
