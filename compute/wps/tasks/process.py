@@ -532,9 +532,7 @@ class CWTBaseTask(celery.Task):
             result = re.search(time_pattern, v.uri)
 
             if result is None:
-                input_dict[str(i)] = v
-
-                continue
+                raise WPSError('Error parsing time range from filename "{name}"', name=v.uri)
 
             groups = result.groups()
 

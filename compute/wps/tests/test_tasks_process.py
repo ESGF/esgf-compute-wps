@@ -8,6 +8,7 @@ from django.utils import timezone
 
 import cdms2
 import cwt
+from cdms2 import MV2 as MV
 from openid.consumer import discover
 
 from . import helpers
@@ -26,6 +27,63 @@ class ProcessTasksTestCase(test.TestCase):
         self.server = models.Server.objects.get(host='default')
 
         self.process = models.Process.objects.create(identifier='CDAT.test', server=self.server)
+
+    @mock.patch('wps.tasks.process.cdms2.open')
+    @mock.patch('wps.tasks.process.celery.Task.request')
+    def test_cwt_task_process_variable(self, mock_request, mock_open):
+        mock_request.id = 'uid'
+
+        job = models.Job.objects.create(server=self.server, process=self.process, user=self.user)
+
+        job.accepted()
+
+        job.started()
+
+        file1 = 'file:///test_1990-2000.nc'
+        file2 = 'file:///test_1980-1990.nc'
+
+        variables = [
+            cwt.Variable(file1, 'tas'),
+            cwt.Variable(file2, 'tas'),
+        ]
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 100, 200),
+            cwt.Dimension('lat', 90, 180),
+            cwt.Dimension('lon', 180, 360),
+        ])
+
+        proc = MV.sum
+
+        domain_map = {
+            file1: (slice(100, 200), {'lat': slice(0, 180), 'lon': slice(0, 360)})
+        }
+
+        cache_map = {}
+
+        task = process.CWTBaseTask()
+
+        task.open_variables = mock.Mock(return_value=(mock.MagicMock(), mock.MagicMock()))
+
+        task.map_domain = mock.Mock(return_value=domain_map)
+
+        task.generate_cache_map = mock.Mock(return_value=cache_map)
+
+        task.process_variable(variables, domain, job, proc, 1, axes=['lat'])
+
+        mock_open.assert_called()
+
+    def test_cwt_task_sort_variables_by_time_skip_file(self):
+        task = process.CWTBaseTask()
+
+        file_name1 = 'file:///test1_1990-2000.nc'
+
+        file_name2 = 'file:///test.nc'
+
+        variable_list = [cwt.Variable(file_name1, 'tas'), cwt.Variable(file_name2, 'tas')]
+        
+        with self.assertRaises(WPSError) as e:
+            variables = task.sort_variables_by_time(variable_list)
 
     def test_cwt_task_sort_variables_by_time(self):
         task = process.CWTBaseTask()
