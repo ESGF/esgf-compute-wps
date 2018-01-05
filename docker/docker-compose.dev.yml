@@ -5,6 +5,8 @@ services:
     entrypoint: sleep infinity
     env_file:
       - ./common.env
+    environment:
+      - WPS_DEBUG=1 
     ports:
       - "8000:8000"
     volumes:

@@ -25,8 +25,15 @@ COPY entrypoint.sh entrypoint.sh
 
 COPY healthcheck.sh healthcheck.sh
 
+COPY app.py app.py
+
 EXPOSE 8000
 
 HEALTHCHECK CMD ./healthcheck.sh
+
+RUN apt-get install -y build-essential libev-dev && \
+	PATH=/opt/conda/envs/wps/bin:$PATH pip install bjoern && \
+	apt-get autoclean -y && \
+	apt-get autoremove -y 
 
 ENTRYPOINT ["./entrypoint.sh"]

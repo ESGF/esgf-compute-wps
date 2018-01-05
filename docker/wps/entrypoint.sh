@@ -12,4 +12,14 @@ python $app_root/manage.py server --host default
 python $app_root/manage.py processes --register
 python $app_root/manage.py capabilities
 
-gunicorn --env WPS_INIT=1 -b 0.0.0.0:8000 --reload --chdir $app_root/ compute.wsgi $@
+if [[ -n $WPS_DEBUG ]]
+then
+  WPS_DEBUG=1
+fi
+
+if [[ "$WPS_DEBUG" -eq 0 ]]
+then
+  python app.py "0.0.0.0" "8000"
+else
+  gunicorn -b 0.0.0.0:8000 --reload --chdir $app_root/ compute.wsgi $@
+fi
