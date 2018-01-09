@@ -7,7 +7,7 @@ from celery import group
 from celery import signature
 from wps import tasks
 from wps.backends import backend
-from wps.tasks import process
+from wps.tasks import base
 
 __ALL__ = ['Local']
 
@@ -20,8 +20,8 @@ class Local(backend.Backend):
     def populate_processes(self):
         logger.info('Registering processes for backend "local"')
 
-        for name, proc in process.REGISTRY.iteritems():
-            self.add_process(name, name.title(), proc.abstract)
+        for name, proc in base.REGISTRY.iteritems():
+            self.add_process(name, name.title(), proc.ABSTRACT)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         if len(operations) == 0:
@@ -33,7 +33,7 @@ class Local(backend.Backend):
 
         domain_dict = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
-        target_process = process.get_process(identifier)
+        target_process = base.get_process(identifier)
 
         logger.info('Retrieved process "{}"'.format(identifier))
 
@@ -56,7 +56,7 @@ class Local(backend.Backend):
 
     def get_task(self, identifier):
         try:
-            task = process.get_process(identifier)
+            task = base.get_process(identifier)
         except:
             if 'CDSpark' in identifier:
                 task = tasks.edas_submit
