@@ -8,7 +8,7 @@ from PyOphidia import client
 
 from wps import settings
 from wps import WPSError
-from wps.tasks import process
+from wps.tasks import base
 
 __ALL__ = [
     'PROCESSES',
@@ -99,7 +99,7 @@ class OphidiaWorkflow(object):
 
         return json.dumps(self.workflow, default=default, indent=4)
 
-@process.cwt_shared_task()
+@base.cwt_shared_task()
 def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     self.PUBLISH = process.ALL
 

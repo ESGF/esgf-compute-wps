@@ -4,6 +4,7 @@ import json
 from functools import partial
 
 import celery
+import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
@@ -22,6 +23,8 @@ __ALL__ = [
     'register_process',
     'CWTBaseTask',
     'cwt_shared_task',
+    'AccessError',
+    'MissingJobError',
 ]
 
 FAILURE = 1
@@ -65,6 +68,41 @@ def register_process(identifier, abstract=None):
     return wrapper
 
 class CWTBaseTask(celery.Task):
+
+    def load(self, parent_variables, variables, domains, operation):
+        """ Load a processes inputs.
+
+        Loads each value into their associated container class.
+
+        Args:
+            variables: A dict mapping names of Variables to their representations.
+            domains: A dict mapping names of Domains to their representations.
+            operations: A dict mapping names of Processes to their representations.
+
+        Returns:
+            A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
+            object of their respective container type.
+        """
+        if isinstance(parent_variables, dict):
+            variables.update(parent_variables)
+        elif isinstance(parent_variables, list):
+            for parent in parent_variables:
+                if isinstance(parent, dict):
+                    variables.update(parent)
+
+        v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
+
+        d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
+
+        o = cwt.Process.from_dict(operation)
+
+        if o.domain is not None:
+            o.domain = d[o.domain]
+
+        o.inputs = [v[i] for i in o.inputs]
+
+        return v, d, o
+
     def __can_publish(self, pub_type):
         publish = getattr(self, 'PUBLISH', None)
 
