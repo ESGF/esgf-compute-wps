@@ -21,6 +21,7 @@ __ALL__ = [
     'get_process',
     'register_process',
     'CWTBaseTask',
+    'cwt_shared_task',
 ]
 
 FAILURE = 1
