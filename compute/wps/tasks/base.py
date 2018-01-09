@@ -75,7 +75,7 @@ class CWTBaseTask(celery.Task):
 
     def __get_job(self, **kwargs):
         try:
-            job = models.Job.objects.get(kwargs['job_id'])
+            job = models.Job.objects.get(pk=kwargs['job_id'])
         except (models.Job.DoesNotExist, KeyError) as e:
             if isinstance(e, KeyError):
                 logger.exception('Job ID was not passed to the process')
