@@ -14,7 +14,7 @@ from django.views.decorators.http import require_http_methods
 
 from . import common
 from wps import WPSError
-from wps.tasks import process
+from wps import tasks
 
 logger = common.logger
 
@@ -39,9 +39,7 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
 
         axes = {}
 
-        task = process.CWTBaseTask()
-
-        task.load_certificate(user)
+        tasks.load_certificate(user)
 
         logger.info('Retrieving axis range for dataset "{}"'.format(dataset_id))
 
