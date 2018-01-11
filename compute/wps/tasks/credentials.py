@@ -26,7 +26,7 @@ URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
 
 class CertificateError(WPSError):
-    def __init__(user, reason):
+    def __init__(self, user, reason):
         msg = 'Certificate error for user "{username}": {reason}'
 
         super(CertificateError, self).__init__(msg, username=user.username, reason=reason)
