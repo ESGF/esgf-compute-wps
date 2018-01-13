@@ -11,16 +11,14 @@ setting = partial(getattr, settings)
 HOSTNAME = setting('WPS_EXTERNAL_HOSTNAME', '0.0.0.0')
 PORT = setting('WPS_EXTERNAL_PORT', '8000')
 
-CACHE_PATH = setting('WPS_CACHE_PATH', '/data/cache')
-
 ENDPOINT = setting('WPS_ENDPOINT', 'http://0.0.0.0:8000/wps')
 STATUS_LOCATION = setting('WPS_STATUS_LOCATION', 'http://0.0.0.0:8000/wps/status/{job_id}')
 
 LOCAL_OUTPUT_PATH = setting('WPS_LOCAL_OUTPUT_PATH', '/data/public')
-OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{file_name}')
+OUTPUT_URL = setting('WPS_OUTPUT_URL', 'http://0.0.0.0:8000/wps/output/{filename}')
 
 DAP = setting('WPS_DAP', True)
-DAP_URL = setting('WPS_DAP_URL', 'http://thredds:8080/threddsCWT/dodsC/public/{file_name}')
+DAP_URL = setting('WPS_DAP_URL', 'http://thredds:8080/threddsCWT/dodsC/public/{filename}')
 
 CA_PATH = setting('WPS_CA_PATH', '/tmp/certs')
 
@@ -39,9 +37,10 @@ PASSWORD_RESET_URL = setting('WPS_PASSWORD_RESET_URL', 'http://0.0.0.0:8000/wps/
 
 USER_TEMP_PATH = setting('WPS_USER_TEMP_PATH', '/tmp')
 
-PARTITION_SIZE = setting('WPS_PARTITION_SIZE', 200)
+PARTITION_SIZE = setting('WPS_PARTITION_SIZE', 10)
 
 # Cache settings
+CACHE_PATH = setting('WPS_CACHE_PATH', '/data/cache')
 # Default to checking cache once a day
 CACHE_CHECK = setting('WPS_CACHE_CHECK', datetime.timedelta(days=1))
 # Default to 100 GB

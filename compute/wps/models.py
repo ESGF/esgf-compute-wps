@@ -210,10 +210,32 @@ class UserFile(models.Model):
 
         return data
 
+def slice_default(obj):
+    if isinstance(obj, slice):
+        return {'slice': '{}:{}:{}'.format(obj.start, obj.stop, obj.step)}
+
+    return json.JSONEncoder.default(obj)
+
+def slice_object_hook(obj):
+    if 'slice' not in obj:
+        return obj
+
+    data = obj['slice'].split(':')
+
+    start = int(data[0])
+
+    stop = int(data[1])
+
+    if data[2] == 'None':
+        step = None
+    else:
+        step = int(data[2])
+
+    return slice(start, stop, step)
+
 class Cache(models.Model):
     uid = models.CharField(max_length=256)
-
-    url = models.CharField(max_length=512)
+    url = models.CharField(max_length=513)
     dimensions = models.TextField()
     added_date = models.DateTimeField(auto_now_add=True)
     accessed_date = models.DateTimeField(null=True)
@@ -247,6 +269,41 @@ class Cache(models.Model):
 
                 if  stop != str(len(axis)):
                     return False
+
+        return True
+
+    def __cmp_axis(self, value, cached):
+        if (value is not None and cached is None or
+                value is None and cached is None):
+            return True
+
+        if ((value is None and cached is not None) or
+                value.start < cached.start or
+                value.stop > cached.stop):
+            return False
+
+        return  True
+
+    def is_superset(self, index_domain):
+        temporal = index_domain['temporal']
+
+        spatial = index_domain['spatial']
+
+        try:
+            cached = json.loads(self.dimensions, object_hook=slice_object_hook)
+        except ValueError:
+            return False
+
+        cached_temporal = cached['temporal']
+
+        if not self.__cmp_axis(temporal, cached_temporal):
+            return False
+
+        cached_spatial = cached['spatial']
+
+        for name in spatial.keys():
+            if not self.__cmp_axis(spatial.get(name), cached_spatial.get(name)):
+                return False
 
         return True
 

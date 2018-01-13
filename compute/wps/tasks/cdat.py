@@ -2,6 +2,7 @@
 
 import os
 import re
+import uuid
 
 import cdms2
 import cwt
@@ -9,6 +10,7 @@ import dask.array as da
 from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
 
+from wps import settings
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import process
@@ -22,24 +24,6 @@ __ALL__ = [
 
 logger = get_task_logger('wps.tasks.cdat')
 
-def sort_inputs_by_time(variables):
-    input_dict = {}
-    time_pattern = '.*_(\d+)-(\d+)\.nc'
-
-    for v in variables:
-        result = re.search(time_pattern, v.uri)
-
-        if result is None:
-            raise WPSError('Could not parse time from input "{filename}"', filename=v.uri)
-
-        start, _ = result.groups()
-
-        input_dict[start] = v
-
-    sorted_keys = sorted(input_dict.keys())
-
-    return [input_dict[x] for x in sorted_keys]
-
 @base.register_process('CDAT.subset', 'Subset a variable by provided domain. Supports regridding.')
 @base.cwt_shared_task()
 def subset(self, parent_variables, variables, domains, operation, user_id, job_id):
@@ -47,47 +31,29 @@ def subset(self, parent_variables, variables, domains, operation, user_id, job_i
 
     v, d, o = self.load(parent_variables, variables, domains, operation)
 
-    proc = process.Process()
+    proc = process.Process(self.request.id)
 
     proc.initialize(user_id, job_id)
 
     # after initialize so we have access to credentials
     fm = file_manager.FileManager.from_cwt_variables(o.inputs, 1)
 
-    proc.retrieve(fm, o)
+    output_name = '{}.nc'.format(str(uuid.uuid4()))
+
+    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
+
+    output = proc.retrieve(fm, o, output_path)
 
     fm.close()
 
-    return {'output': 'fun!'}
+    if settings.DAP:
+        output_url = settings.DAP_URL.format(filename=output_name)
+    else:
+        output_url = settings.OUTPUT_URL.format(filename=output_name)
 
-#    user, job = self.initialize(credentials=True, **kwargs)
-#
-#    job.started()
-#
-#    v, d, o = self.load(parent_variables, variables, domains, operation)
-#
-#    if len(o.inputs) > 1:
-#        inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])[0]
-#    else:
-#        inputs = v[o.inputs[0]]
-#
-#    grid, tool, method = self.generate_grid(o, v, d)
-#
-#    def post_process(data):
-#        if grid is not None:
-#            data = data.regrid(grid, regridTool=tool, regridMethod=method)
-#
-#        return data
-#
-#    o.domain = d.get(o.domain, None)
-#
-#    output_path = self.retrieve_variable([inputs], o.domain, job, post_process=post_process)
-#
-#    output_url = self.generate_output_url(output_path, **kwargs)
-#
-#    output_var = cwt.Variable(output_url, inputs.var_name, name=o.name)
-#
-#    return {o.name: output_var.parameterize()}
+    output_variable = cwt.Variable(output_url, 'tas').parameterize()
+
+    return {o.name: output_variable}
 
 #@process.register_process('CDAT.aggregate', 'Aggregate a variable over multiple files. Supports subsetting and regridding.')
 #@process.cwt_shared_task()

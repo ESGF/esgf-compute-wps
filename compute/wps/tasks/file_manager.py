@@ -2,8 +2,12 @@
 
 import cdms2
 import cwt
+import hashlib
+import json
 from celery.utils.log import get_task_logger
 
+from wps import models
+from wps import settings
 from wps.tasks import base
 
 __ALL__ = [
@@ -17,15 +21,143 @@ class DataSet(object):
     def __init__(self, file_obj, url, variable_name):
         self.file_obj = file_obj
 
+        self.cache_obj = None
+
+        self.cache = None
+
         self.url = url
 
         self.variable_name = variable_name
 
-        self.time_axis = None
+        self.temporal_axis = None
+
+        self.spatial_axis = {}
 
         self.temporal = None
 
         self.spatial = {}
+
+    @property
+    def shape(self):
+        if self.file_obj is not None:
+            return self.file_obj[self.variable_name].shape
+
+        return None
+
+    def partitions(self, axis_name):
+        axis = None
+
+        if (self.temporal_axis is not None and 
+                self.temporal_axis.id == axis_name):
+            axis = self.temporal_axis
+        elif (axis_name in self.spatial_axis):
+            axis = self.spatial_axis[axis_name]
+        else:
+            axis_index = self.file_obj[self.variable_name].getAxisIndex(axis_name)
+
+            if axis_index == -1:
+                raise base.WPSError('Could not find axis "{name}"', name=axis_name)
+
+            axis = self.file_obj[self.variable_name].getAxis(axis_index)
+
+        if axis.isTime():
+            if isinstance(self.temporal, slice):
+                start = self.temporal.start
+
+                stop = self.temporal.stop
+            elif isinstance(self.temporal, (list, tuple)):
+                indices = self.get_time().mapInterval(self.temporal)
+
+                start = indices[0]
+
+                stop = indices[1]
+            else:
+                raise base.WPSError('Temporal domain has unknown type "{name}"', name=type(self.temporal))
+
+            diff = stop - start
+
+            step = min(diff, settings.PARTITION_SIZE)
+
+            for begin in xrange(start, stop, step):
+                end = min(begin + step, stop)
+
+                yield slice(begin, end), self.spatial
+        else:
+            pass
+
+    def check_cache(self):
+        uid = '{}:{}'.format(self.url, self.variable_name)
+
+        uid_hash = hashlib.sha256(uid).hexdigest()
+
+        logger.info('Checking for dataset "{}" in cache'.format(uid_hash))
+
+        index_domain = {
+            'temporal': None,
+            'spatial': {}
+        }
+
+        if isinstance(self.temporal, (list, tuple)):
+            indices = self.get_time().mapInterval(self.temporal)
+
+            index_domain['temporal'] = slice(indices[0], indices[1])
+        else:
+            index_domain['temporal'] = self.temporal
+
+        for name in self.spatial.keys():
+            if isinstance(self.spatial[name], (list, tuple)):
+                indices = self.get_axis(name).mapInterval(self.spatial[name])
+
+                index_domain['spatial'][name] = slice(indices[0], indices[1])
+            else:
+                index_domain['spatial'][name] = self.spatial[name]
+
+        logger.info('Index domain {}'.format(index_domain))
+
+        cache_entries = models.Cache.objects.filter(uid=uid_hash)
+
+        logger.info('Found "{}" cache entries matching hash "{}"'.format(len(cache_entries), uid_hash))
+
+        for entry in cache_entries:
+            if entry.is_superset(index_domain):
+                logger.info('Found a superset')
+
+                self.cache = entry
+
+                break
+
+        cache_file_path = '{}/{}.nc'.format(settings.CACHE_PATH, uid_hash)
+
+        if self.cache is None:
+            logger.info('Creating cache file for "{}"'.format(self.url))
+
+            try:
+                self.cache_obj = cdms2.open(cache_file_path, 'w')
+            except cdms2.CDMSError as e:
+                logger.exception('Error creating cache file "{}": {}'.format(cache_file_path, e.message))
+
+                pass
+            else:
+                dimensions = json.dumps(index_domain, default=models.slice_default)
+
+                self.cache = models.Cache.objects.create(uid=uid_hash, url=self.url, dimensions=dimensions)
+
+                logger.info('Creating cache entry for "{}"'.format(self.url))
+        else:
+            logger.info('Using cache file "{}" as input'.format(cache_file_path))
+
+            try:
+                cache_obj = cdms2.open(cache_file_path)
+            except cdms2.CDMSError as e:
+                logger.exception('Error opening cached file "{}": {}'.format(cache_file_path, e.message))
+                # Might need to adjust the existing cache entry or remove
+                pass
+            else:
+                self.close()
+
+                self.file_obj = cache_obj
+
+                logger.info('Swapped source for cached file')
 
     def str_to_int(self, value):
         try:
@@ -81,15 +213,31 @@ class DataSet(object):
                 self.spatial[dim.name] = self.dimension_to_cdms2_selector(dim)
 
     def get_time(self):
-        if self.time_axis is None:
+        if self.temporal_axis is None:
             try:
-                self.time_axis = self.file_obj[self.variable_name].getTime()
+                self.temporal_axis = self.file_obj[self.variable_name].getTime()
             except cdms2.CDMSError as e:
                 raise base.AccessError(self.url, e.message)
 
-        return self.time_axis
+        return self.temporal_axis
+
+    def get_axis(self, name):
+        if name not in self.spatial_axis:
+            axis_index = self.file_obj[self.variable_name].getAxisIndex(name)
+
+            if axis_index == -1:
+                raise WPSError('Axis "{name}" does not exist', name=name)
+
+            self.spatial_axis[name] = self.file_obj[self.variable_name].getAxis(axis_index)
+
+        return self.spatial_axis[name]
 
     def close(self):
+        if self.temporal_axis is not None:
+            self.temporal_axis = None
+
+        self.spatial_axis = {}
+        
         if self.file_obj is not None:
             self.file_obj.close()
 
