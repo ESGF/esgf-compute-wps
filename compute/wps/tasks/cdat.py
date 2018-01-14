@@ -24,7 +24,7 @@ __ALL__ = [
 
 logger = get_task_logger('wps.tasks.cdat')
 
-@base.register_process('CDAT.subset', 'Subset a variable by provided domain. Supports regridding.')
+@base.register_process('CDAT.subset', aliases='CDAT.regrid', abstract='Subset a variable by provided domain. Supports regridding.')
 @base.cwt_shared_task()
 def subset(self, parent_variables, variables, domains, operation, user_id, job_id):
     self.PUBLISH = base.ALL

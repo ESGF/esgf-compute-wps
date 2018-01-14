@@ -52,12 +52,18 @@ def get_process(identifier):
     except KeyError as e:
         raise WPSError('Missing process "{identifier}"', identifier=identifier)
 
-def register_process(identifier, abstract=None):
+def register_process(identifier, aliases=None, abstract=None):
     if abstract is None:
         abstract = ''
 
+    if aliases is not None and not isinstance(aliases, (list, tuple)):
+        aliases = [aliases]
+
     def wrapper(func):
         REGISTRY[identifier] = func
+
+        for alias in aliases:
+            REGISTRY[alias] = func
 
         func.IDENTIFIER = identifier
 
