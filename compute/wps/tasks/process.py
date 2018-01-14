@@ -2,6 +2,7 @@
 
 import cdms2
 import cwt
+import datetime
 from celery.utils.log import get_task_logger
 
 from wps import models
@@ -40,46 +41,78 @@ class Process(object):
 
         self.job.update_status(msg, **kwargs)
 
-    def retrieve(self, fm, operation, num_inputs, output_path):
+    def generate_grid(self, gridder):
+        try:
+            grid_type, grid_param = gridder.grid.split('~')
+        except ValueError:
+            raise WPSError('Error generating grid "{name}"', name=gridder.grid)
+
+        if grid_type.lower() == 'uniform':
+            try:
+                nlats, nlons = grid_param.split('x')
+
+                nlats = int(nlats)
+
+                nlons = int(nlons)
+            except ValueError:
+                raise WPSError('Error parsing parameters "{value}" for uniform grid', name=grid_param)
+
+            grid = cdms2.createUniformGrid(0, nlats, 0, 0, nlons, 0)
+        else:
+            try:
+                nlats = int(grid_param)
+            except ValueError:
+                raise WPSError('Error converting gaussian parameter to an int')
+
+            grid = cdms2.createGaussianGrid(nlats)
+
+        return grid
+
+    def retrieve(self, fm, operation, num_inputs, output_file):
         self.job.started()
 
-        try:
-            output_file = cdms2.open(output_path, 'w')
-        except cdms2.CDMSError as e:
-            raise base.AccessError(output_path, e.message)
+        logger.info('Writing output to "{}"'.format(output_file.id))
 
-        logger.info('Writing output to "{}"'.format(output_path))
+        gridder = operation.get_parameter('gridder')
 
-        with output_file:
-            with fm:
-                for dataset in fm.sorted(num_inputs):
-                    with dataset:
-                        self.log('Retrieving input "{}" with shape "{}"', dataset.url, dataset.shape)
+        if gridder is not None:
+            grid = self.generate_grid(gridder)
 
-                        if operation.domain is not None:
-                            self.log('Mapping domain to file')
+        start = datetime.datetime.now()
 
-                            dataset.map_domain(operation.domain)
+        for dataset in fm.sorted(num_inputs):
+            with dataset:
+                self.log('Retrieving input "{}" with shape "{}"', dataset.url, dataset.shape)
 
-                        self.log('Checking cache for file')
+                if operation.domain is not None:
+                    self.log('Mapping domain to file')
 
-                        dataset.check_cache()
+                    dataset.map_domain(operation.domain)
 
-                        for temporal, spatial in dataset.partitions('time'):
-                            data = dataset.file_obj(dataset.variable_name, time=temporal, **spatial)
+                self.log('Checking cache for file')
 
-                            self.log('Retrieved slice {} with shape {}', temporal, data.shape)
+                dataset.check_cache()
 
-                            if dataset.cache_obj is not None:
-                                dataset.cache_obj.write(data, id=dataset.variable_name)
+                for temporal, spatial in dataset.partitions('time'):
+                    data = dataset.file_obj(dataset.variable_name, time=temporal, **spatial)
 
-                            output_file.write(data, id=dataset.variable_name)
+                    self.log('Retrieved slice {} with shape {}', temporal, data.shape)
 
-                        self.log('Finished retrieving file "{}"', dataset.url)
+                    if dataset.cache_obj is not None:
+                        dataset.cache_obj.write(data, id=dataset.variable_name)
 
-                self.log('Finish retrieving all files, final shape "{}"', output_file[dataset.variable_name].shape)
+                    if gridder is not None:
+                        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
-        return output_path
+                    output_file.write(data, id=dataset.variable_name)
+
+                self.log('Finished retrieving file "{}"', dataset.url)
+
+        stop = datetime.datetime.now()
+
+        self.log('Finish retrieving all files, final shape "{}", elapsed time {}', output_file[dataset.variable_name].shape, stop-start)
+
+        return output_file.id
 
     def process(self, fm, operation):
         return cwt.Variable('file:///test.nc', 'tas')

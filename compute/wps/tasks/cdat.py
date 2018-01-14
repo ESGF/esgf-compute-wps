@@ -35,16 +35,17 @@ def subset(self, parent_variables, variables, domains, operation, user_id, job_i
 
     proc.initialize(user_id, job_id)
 
-    # after initialize so we have access to credentials
-    fm = file_manager.FileManager(o.inputs)
-
     output_name = '{}.nc'.format(str(uuid.uuid4()))
 
     output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
 
-    output = proc.retrieve(fm, o, 1, output_path)
-
-    fm.close()
+    try:
+        with file_manager.FileManager(o.inputs) as fm, cdms2.open(output_path, 'w') as output_file:
+            proc.retrieve(fm, o, 1, output_file)
+    except cdms2.CDMSError as e:
+        raise base.AccessError(output_path, e.message)
+    except WPSError:
+        raise
 
     if settings.DAP:
         output_url = settings.DAP_URL.format(filename=output_name)
