@@ -12,7 +12,12 @@ class Command(BaseCommand):
 
         parser.add_argument('--register', action='store_true', help='Register processes from backends')
 
+        parser.add_argument('--clear', action='store_true', help='Clears all processes')
+
     def handle(self, *args, **options):
+        if options['clear']:
+            models.Process.objects.all().delete()
+
         if options['list']:
             for p in models.Process.objects.order_by('backend', 'identifier'):
                 self.stdout.write(self.style.SUCCESS('Process "{}" backend "{}"'.format(p.identifier, p.backend)))
