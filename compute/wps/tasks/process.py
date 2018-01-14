@@ -40,7 +40,7 @@ class Process(object):
 
         self.job.update_status(msg, **kwargs)
 
-    def retrieve(self, fm, operation, output_path):
+    def retrieve(self, fm, operation, num_inputs, output_path):
         self.job.started()
 
         try:
@@ -51,31 +51,33 @@ class Process(object):
         logger.info('Writing output to "{}"'.format(output_path))
 
         with output_file:
-            for dataset in fm.datasets:
-                self.log('Retrieving input "{}" with shape "{}"', dataset.url, dataset.shape)
+            with fm:
+                for dataset in fm.sorted(num_inputs):
+                    with dataset:
+                        self.log('Retrieving input "{}" with shape "{}"', dataset.url, dataset.shape)
 
-                if operation.domain is not None:
-                    self.log('Mapping domain to file')
+                        if operation.domain is not None:
+                            self.log('Mapping domain to file')
 
-                    dataset.map_domain(operation.domain)
+                            dataset.map_domain(operation.domain)
 
-                self.log('Checking cache for file')
+                        self.log('Checking cache for file')
 
-                dataset.check_cache()
+                        dataset.check_cache()
 
-                for temporal, spatial in dataset.partitions('time'):
-                    data = dataset.file_obj(dataset.variable_name, time=temporal, **spatial)
+                        for temporal, spatial in dataset.partitions('time'):
+                            data = dataset.file_obj(dataset.variable_name, time=temporal, **spatial)
 
-                    self.log('Retrieved slice {} with shape {}', temporal, data.shape)
+                            self.log('Retrieved slice {} with shape {}', temporal, data.shape)
 
-                    if dataset.cache_obj is not None:
-                        dataset.cache_obj.write(data, id=dataset.variable_name)
+                            if dataset.cache_obj is not None:
+                                dataset.cache_obj.write(data, id=dataset.variable_name)
 
-                    output_file.write(data, id=dataset.variable_name)
+                            output_file.write(data, id=dataset.variable_name)
 
-                self.log('Finished retrieving file "{}"', dataset.url)
+                        self.log('Finished retrieving file "{}"', dataset.url)
 
-            self.log('Finish retrieving all files, final shape "{}"', output_file[dataset.variable_name].shape)
+                self.log('Finish retrieving all files, final shape "{}"', output_file[dataset.variable_name].shape)
 
         return output_path
 

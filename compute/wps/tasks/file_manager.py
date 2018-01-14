@@ -44,6 +44,12 @@ class DataSet(object):
 
         return None
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def partitions(self, axis_name):
         axis = None
 
@@ -255,37 +261,44 @@ class DataSet(object):
             )
 
 class FileManager(object):
-    def __init__(self, datasets):
-        self.datasets = datasets
+    def __init__(self, variables):
+        self.variables = variables
 
-    @classmethod
-    def from_cwt_variables(cls, variables, keep=None):
-        datasets = []
+        self.datasets = []
 
+    def __enter__(self):
         try:
-            for var in variables:
+            for var in self.variables:
                 file_obj = cdms2.open(var.uri)
 
-                datasets.append(DataSet(file_obj, var.uri, var.var_name))
+                self.datasets.append(DataSet(file_obj, var.uri, var.var_name))
         except cdms2.CDMSError as e:
-            for ds in datasets:
-                ds.close()
+            self.close()
 
             raise base.AccessError(var.uri, e.message)
 
-        datasets = sorted(datasets, key=lambda x: x.get_time().units)
+        return self
 
-        if keep is not None:
-            for x in xrange(keep, len(datasets)):
-                datasets[x].close()
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
-            datasets = datasets[:keep]
+    def sorted(self, limit=None):
+        self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
 
-        return cls(datasets)
+        if limit is not None:
+            for x in xrange(limit, len(self.datasets)):
+                self.datasets[x].close()
+
+            self.datasets = self.datasets[:limit]
+
+        for ds in self.datasets:
+            yield ds
 
     def close(self):
         for ds in self.datasets:
             ds.close()
+
+        self.datasets = []
 
     def __del__(self):
         self.close()
