@@ -62,8 +62,9 @@ def register_process(identifier, aliases=None, abstract=None):
     def wrapper(func):
         REGISTRY[identifier] = func
 
-        for alias in aliases:
-            REGISTRY[alias] = func
+        if aliases is not None:
+            for alias in aliases:
+                REGISTRY[alias] = func
 
         func.IDENTIFIER = identifier
 
