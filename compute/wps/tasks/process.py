@@ -80,7 +80,12 @@ class Process(object):
 
         start = datetime.datetime.now()
 
+        base_units = None
+
         for dataset in fm.sorted(num_inputs):
+            if base_units is None:
+                base_units = dataset.get_time().units
+
             with dataset:
                 self.log('Retrieving input "{}" with shape "{}"', dataset.url, dataset.shape)
 
@@ -101,6 +106,10 @@ class Process(object):
                     if dataset.cache_obj is not None:
                         dataset.cache_obj.write(data, id=dataset.variable_name)
 
+                        dataset.cache_obj.sync()
+
+                    data.getTime().toRelativeTime(base_units)
+
                     if gridder is not None:
                         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
@@ -110,7 +119,9 @@ class Process(object):
 
         stop = datetime.datetime.now()
 
-        self.log('Finish retrieving all files, final shape "{}", elapsed time {}', output_file[dataset.variable_name].shape, stop-start)
+        final_shape = output_file[dataset.variable_name].shape
+
+        self.log('Finish retrieving all files, final shape "{}", elapsed time {}', final_shape, stop-start)
 
         return output_file.id
 
