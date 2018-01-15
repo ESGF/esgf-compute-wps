@@ -56,36 +56,38 @@ def subset(self, parent_variables, variables, domains, operation, user_id, job_i
 
     return {o.name: output_variable}
 
-#@process.register_process('CDAT.aggregate', 'Aggregate a variable over multiple files. Supports subsetting and regridding.')
-#@process.cwt_shared_task()
-#def aggregate(self, parent_variables, variables, domains, operation, **kwargs):
-#    self.PUBLISH = process.ALL
-#
-#    user, job = self.initialize(credentials=True, **kwargs)
-#
-#    job.started()
-#
-#    v, d, o = self.load(parent_variables, variables, domains, operation)
-#
-#    inputs = sort_inputs_by_time([v[x] for x in o.inputs if x in v])
-#
-#    grid, tool, method = self.generate_grid(o, v, d)
-#
-#    def post_process(data):
-#        if grid is not None:
-#            data = data.regrid(grid, regridTool=tool, regridMethod=method)
-#
-#        return data
-#
-#    o.domain = d.get(o.domain, None)
-#
-#    output_path = self.retrieve_variable(inputs, o.domain, job, post_process=post_process)
-#
-#    output_url = self.generate_output_url(output_path, **kwargs)
-#
-#    output_var = cwt.Variable(output_url, inputs[0].var_name, name=o.name)
-#
-#    return {o.name: output_var.parameterize()}
+@base.register_process('CDAT.aggregate', abstract='Aggregate a variable over multiple files. Supports subsetting and regridding.')
+@base.cwt_shared_task()
+def aggregate(self, parent_variables, variables, domains, operation, user_id, job_id):
+    self.PUBLISH = base.ALL
+
+    v, d, o = self.load(parent_variables, variables, domains, operation)
+
+    proc = process.Process(self.request.id)
+
+    proc.initialize(user_id, job_id)
+
+    output_name = '{}.nc'.format(str(uuid.uuid4()))
+
+    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
+
+    try:
+        with file_manager.FileManager(o.inputs) as fm, cdms2.open(output_path, 'w') as output_file:
+            proc.retrieve(fm, o, None, output_file)
+    except cdms2.CDMSError as e:
+        raise base.AccessError(output_path, e.message)
+    except WPSError:
+        raise
+
+    if settings.DAP:
+        output_url = settings.DAP_URL.format(filename=output_name)
+    else:
+        output_url = settings.OUTPUT_URL.format(filename=output_name)
+
+    output_variable = cwt.Variable(output_url, 'tas').parameterize()
+
+    return {o.name: output_variable}
+
 #
 #@process.register_process('CDAT.average', """
 #Computes average over one or more axes. Requires a parameter named "axes" whose value
