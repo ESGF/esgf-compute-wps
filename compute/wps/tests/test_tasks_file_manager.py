@@ -503,97 +503,41 @@ class DataSetTestCase(test.TestCase):
 class FileManagerTestCase(test.TestCase):
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_from_cwt_variables_multiple_ordering(self, mock_open):
+    def test_context_manager_error_opening(self, mock_open):
         variables = [
             cwt.Variable('file:///test1.nc', 'tas'),
             cwt.Variable('file:///test2.nc', 'tas'),
+            cwt.Variable('file:///test3.nc', 'tas'),
         ]
 
-        mock_file1 = mock.MagicMock()
-        mock_file1.__getitem__.return_value.getTime.return_value.units = '2'
+        mock_file = mock.MagicMock()
 
-        mock_file2 = mock.MagicMock()
-        mock_file2.__getitem__.return_value.getTime.return_value.units = '1'
-
-        mock_open.side_effect = [mock_file1, mock_file2]
-
-        fm  = file_manager.FileManager.from_cwt_variables(variables)
-
-        self.assertEqual(len(fm.datasets), 2)
-
-        self.assertEqual(fm.datasets[0].url, 'file:///test2.nc')
-        self.assertEqual(fm.datasets[1].url, 'file:///test1.nc')
-
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_from_cwt_variables_multiple_cleanup(self, mock_open):
-        variables = [
-            cwt.Variable('file:///test1.nc', 'tas'),
-            cwt.Variable('file:///test2.nc', 'tas'),
+        mock_open.side_effect = [
+            mock_file, 
+            cdms2.CDMSError('some error text'),
+            mock.MagicMock(),
         ]
-
-        mock_file_obj = mock.MagicMock()
-
-        mock_open.side_effect = [mock_file_obj, cdms2.CDMSError]
 
         with self.assertRaises(tasks.AccessError):
-            fm  = file_manager.FileManager.from_cwt_variables(variables)
+            with file_manager.FileManager(variables) as fm:
+                pass
 
-        mock_file_obj.close.assert_called_once()
+        mock_file.close.assert_called()
+        self.assertEqual(mock_file.close.call_count, 1)
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_from_cwt_variables_multiple_limit(self, mock_open):
+    def test_context_manager(self, mock_open):
         variables = [
             cwt.Variable('file:///test1.nc', 'tas'),
             cwt.Variable('file:///test2.nc', 'tas'),
+            cwt.Variable('file:///test3.nc', 'tas'),
         ]
 
-        fm  = file_manager.FileManager.from_cwt_variables(variables, 1)
+        with file_manager.FileManager(variables) as fm:
+            pass
 
-        self.assertEqual(mock_open.call_count, 2)
-        self.assertEqual(mock_open.return_value.close.call_count, 1)
-        self.assertEqual(len(fm.datasets), 1)
+        mock_open.assert_called()
+        self.assertEqual(mock_open.call_count, 3)
 
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_from_cwt_variables_multiple(self, mock_open):
-        variables = [
-            cwt.Variable('file:///test1.nc', 'tas'),
-            cwt.Variable('file:///test2.nc', 'tas'),
-        ]
-
-        fm  = file_manager.FileManager.from_cwt_variables(variables)
-
-        fm.close()
-
-        self.assertEqual(mock_open.call_count, 2)
-        self.assertEqual(mock_open.return_value.close.call_count, 2)
-        self.assertEqual(len(fm.datasets), 2)
-        
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_from_cwt_variables_open_error(self, mock_open):
-        variables = [
-            cwt.Variable('file:///test1.nc', 'tas'),
-        ]
-
-        mock_open.side_effect = cdms2.CDMSError('some error text')
-
-        with self.assertRaises(tasks.AccessError):
-            fm  = file_manager.FileManager.from_cwt_variables(variables)
-
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_from_cwt_variables(self, mock_open):
-        variables = [
-            cwt.Variable('file:///test1.nc', 'tas'),
-        ]
-
-        fm  = file_manager.FileManager.from_cwt_variables(variables)
-
-        fm.close()
-
-        self.assertEqual(mock_open.call_count, 1)
-        self.assertEqual(mock_open.return_value.close.call_count, 1)
-        self.assertEqual(len(fm.datasets), 1)
-
-        dataset = fm.datasets[0]
-
-        self.assertEqual(dataset.url, variables[0].uri)
-        self.assertEqual(dataset.variable_name, variables[0].var_name)
+        mock_open.return_value.close.assert_called()
+        self.assertEqual(mock_open.return_value.close.call_count, 3)
