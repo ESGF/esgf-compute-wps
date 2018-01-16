@@ -99,6 +99,7 @@ class DataSet(object):
         logger.info('Checking for dataset "{}" in cache'.format(uid_hash))
 
         index_domain = {
+            'variable': self.variable_name,
             'temporal': None,
             'spatial': {}
         }

@@ -250,29 +250,75 @@ class Cache(models.Model):
     @property
     def valid(self):
         if not os.path.exists(self.local_path):
+            logger.info('Cache file does not exist on disk')
+
+            return False
+
+        data = json.loads(self.dimensions, object_hook=slice_object_hook)
+
+        try:
+            var_name = data['variable']
+
+            temporal = data['temporal']
+
+            spatial = data['spatial']
+        except KeyError as e:
+            logger.info('Missing key "{}" in dimensions'.format(e))
+
             return False
 
         with cdms2.open(self.local_path) as infile:
-            var_name, dimensions = self.dimensions.split('!')
-
             if var_name not in infile:
+                logger.info('Cache file does not contain variable "{}"'.format(var_name))
+
                 return False
 
-            dimensions = dimensions.split('|')
+            temporal_axis = infile[var_name].getTime()
 
-            for d in dimensions:
-                name, start, stop, step = d.split(':')
+            if temporal_axis is None:
+                logger.info('Cache file is missing a temporal axis')
 
-                axis_index = infile[var_name].getAxisIndex(name)
+                return False
 
-                axis = infile[var_name].getAxis(axis_index)
+            if not self.__axis_valid(temporal_axis, temporal):
+                logger.info('Cache files temporal axis is invalid')
 
-                if  stop != str(len(axis)):
+                return False
+
+            for name, spatial in spatial.items():
+                spatial_axis_index = infile[var_name].getAxisIndex(name)
+
+                if spatial_axis_index == -1:
+                    logger.info('Cache file is missing spatial axis "{}"'.format(name))
+
+                    return False
+
+                spatial_axis = infile[var_name].getAxis(spatial_axis_index)
+
+                if not self.__axis_valid(spatial_axis, spatial):
+                    logger.info('Cache files spatial axis "{}" is invalid'.format(name))
+
                     return False
 
         return True
 
+    def __axis_valid(self, axis_data, axis_def):
+        axis_size = axis_data.shape[0]
+
+        if isinstance(axis_def, slice):
+            expected_size = axis_def.stop - axis_def.start
+        else:
+            logger.info('Axis definition is unknown')
+
+            return False
+
+        logger.info('Cache files axis actual size {}, expected size {}'.format(axis_size, expected_size))
+
+        return axis_size == expected_size
+
     def __cmp_axis(self, value, cached):
+        logger.info('Axis {} cached {}'.format(value, cached))
+
         if (value is not None and cached is None or
                 value is None and cached is None):
             return True
@@ -301,8 +347,11 @@ class Cache(models.Model):
 
         cached_spatial = cached['spatial']
 
-        for name in spatial.keys():
-            if not self.__cmp_axis(spatial.get(name), cached_spatial.get(name)):
+        for name, cached_spatial_axis in cached_spatial.items():
+            if name == 'variable':
+                continue
+
+            if not self.__cmp_axis(spatial.get(name), cached_spatial_axis):
                 return False
 
         return True
