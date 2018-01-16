@@ -285,7 +285,7 @@ class Cache(models.Model):
 
                 return False
 
-            for name, spatial in spatial.items():
+            for name, spatial_def in spatial.items():
                 spatial_axis_index = infile[var_name].getAxisIndex(name)
 
                 if spatial_axis_index == -1:
@@ -295,7 +295,7 @@ class Cache(models.Model):
 
                 spatial_axis = infile[var_name].getAxis(spatial_axis_index)
 
-                if not self.__axis_valid(spatial_axis, spatial):
+                if not self.__axis_valid(spatial_axis, spatial_def):
                     logger.info('Cache files spatial axis "{}" is invalid'.format(name))
 
                     return False
