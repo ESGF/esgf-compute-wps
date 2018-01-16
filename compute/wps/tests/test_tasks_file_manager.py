@@ -20,6 +20,39 @@ class DataSetTestCase(test.TestCase):
     def setUp(self):
         random.seed(1)
 
+    def test_get_axis_error(self):
+        axis_data = cdms2.createAxis([x for x in range(-90, 90)])
+
+        axis_data.designateLatitude()
+
+        mock_file = mock.MagicMock()
+
+        mock_file.__getitem__.return_value.getAxisIndex.return_value = -1
+
+        mock_file.__getitem__.return_value.getAxis.return_value = axis_data
+
+        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+
+        with self.assertRaises(WPSError):
+            axis = ds.get_axis('lat')
+
+    def test_get_axis(self):
+        axis_data = cdms2.createAxis([x for x in range(-90, 90)])
+
+        axis_data.designateLatitude()
+
+        mock_file = mock.MagicMock()
+
+        mock_file.__getitem__.return_value.getAxisIndex.return_value = 0
+
+        mock_file.__getitem__.return_value.getAxis.return_value = axis_data
+
+        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+
+        axis = ds.get_axis('lat')
+
+        self.assertEqual(axis_data, axis)
+
     def test_partitions_missing_axis(self):
         mock_file = mock.MagicMock()
 
@@ -53,7 +86,7 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
-        mock_file.__getitem__.return_value.getTime.return_value.mapInterval.return_value = (100, 200)
+        mock_file.return_value.__getitem__.return_value.getTime.return_value.mapInterval.return_value = (100, 200)
 
         ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
 
@@ -62,6 +95,8 @@ class DataSetTestCase(test.TestCase):
         ds.temporal_axis.id = 'time'
 
         ds.temporal_axis.isTime.return_value = True
+
+        ds.temporal_axis.mapInterval.return_value = (100, 200)
 
         ds.temporal = (100, 200)
 
@@ -288,6 +323,44 @@ class DataSetTestCase(test.TestCase):
         mock_open.assert_called_once()
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
+    def test_check_cache_exists_error(self, mock_open):
+        time = helpers.generate_time('days since 1990', 365)
+
+        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+
+        uid = hashlib.sha256('file:///test.nc:tas').hexdigest()
+
+        url = 'file:///test.nc'
+
+        data = {
+            'temporal': slice(100, 201),
+            'spatial': {
+                'lat': slice(100, 200),
+                'lon': slice(250, 361),
+            }
+        }
+
+        dimensions = json.dumps(data, default=models.slice_default)
+
+        models.Cache.objects.create(uid=uid, url=url, dimensions=dimensions)
+
+        mock_file = mock.MagicMock()
+
+        mock_file.__getitem__.return_value = variable
+
+        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+
+        ds.temporal = (100, 200)
+
+        ds.spatial = {'lat': (24, 100), 'lon': (90, 180)}
+
+        mock_open.side_effect = cdms2.CDMSError('some error text')
+
+        ds.check_cache()
+
+        self.assertEqual(ds.file_obj, mock_file)
+
+    @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_check_cache_exists(self, mock_open):
         time = helpers.generate_time('days since 1990', 365)
 
@@ -501,6 +574,48 @@ class DataSetTestCase(test.TestCase):
         mock_file_obj.__getitem__.return_value.getTime.assert_called_once()
 
 class FileManagerTestCase(test.TestCase):
+
+    @mock.patch('wps.tasks.file_manager.cdms2.open')
+    def test_sorted_limit(self, mock_open):
+        filenames = ['file:///test1.nc', 'file:///test2.nc', 'file:///test3.nc']
+
+        variables = [
+            cwt.Variable(filenames[0], 'tas'),
+            cwt.Variable(filenames[1], 'tas'),
+            cwt.Variable(filenames[2], 'tas'),
+        ]
+
+        mock_open.return_value.__getitem__.return_value.getTime.side_effect = [
+            mock.MagicMock(units='days since 1990'),
+            mock.MagicMock(units='days since 1980'),
+            mock.MagicMock(units='days since 2000'),
+        ]
+
+        with file_manager.FileManager(variables) as fm:
+            values = [x.url for x in fm.sorted(1)]
+
+            self.assertEqual(values, [filenames[1]])
+
+    @mock.patch('wps.tasks.file_manager.cdms2.open')
+    def test_sorted(self, mock_open):
+        filenames = ['file:///test1.nc', 'file:///test2.nc', 'file:///test3.nc']
+
+        variables = [
+            cwt.Variable(filenames[0], 'tas'),
+            cwt.Variable(filenames[1], 'tas'),
+            cwt.Variable(filenames[2], 'tas'),
+        ]
+
+        mock_open.return_value.__getitem__.return_value.getTime.side_effect = [
+            mock.MagicMock(units='days since 1990'),
+            mock.MagicMock(units='days since 1980'),
+            mock.MagicMock(units='days since 2000'),
+        ]
+
+        with file_manager.FileManager(variables) as fm:
+            values = [x.url for x in fm.sorted()]
+
+            self.assertEqual(values, [filenames[1], filenames[0], filenames[2]])
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_context_manager_error_opening(self, mock_open):

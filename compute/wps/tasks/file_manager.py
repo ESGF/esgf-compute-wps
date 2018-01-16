@@ -232,7 +232,7 @@ class DataSet(object):
             axis_index = self.file_obj[self.variable_name].getAxisIndex(name)
 
             if axis_index == -1:
-                raise WPSError('Axis "{name}" does not exist', name=name)
+                raise base.WPSError('Axis "{name}" does not exist', name=name)
 
             self.spatial_axis[name] = self.file_obj[self.variable_name].getAxis(axis_index)
 
