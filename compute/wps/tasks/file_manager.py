@@ -96,9 +96,7 @@ class DataSet(object):
 
         uid_hash = hashlib.sha256(uid).hexdigest()
 
-        logger.info('Checking for dataset "{}" in cache'.format(uid_hash))
-
-        index_domain = {
+        domain = {
             'variable': self.variable_name,
             'temporal': None,
             'spatial': {}
@@ -107,29 +105,40 @@ class DataSet(object):
         if isinstance(self.temporal, (list, tuple)):
             indices = self.get_time().mapInterval(self.temporal)
 
-            index_domain['temporal'] = slice(indices[0], indices[1])
+            domain['temporal'] = slice(indices[0], indices[1])
         else:
-            index_domain['temporal'] = self.temporal
+            domain['temporal'] = self.temporal
 
         for name in self.spatial.keys():
             if isinstance(self.spatial[name], (list, tuple)):
                 indices = self.get_axis(name).mapInterval(self.spatial[name])
 
-                index_domain['spatial'][name] = slice(indices[0], indices[1])
+                domain['spatial'][name] = slice(indices[0], indices[1])
             else:
-                index_domain['spatial'][name] = self.spatial[name]
+                domain['spatial'][name] = self.spatial[name]
 
-        logger.info('Index domain {}'.format(index_domain))
+        logger.info('Checking cache for "{}" with domain "{}"'.format(uid_hash, domain))
 
         cache_entries = models.Cache.objects.filter(uid=uid_hash)
 
         logger.info('Found "{}" cache entries matching hash "{}"'.format(len(cache_entries), uid_hash))
 
-        for entry in cache_entries:
-            if entry.is_superset(index_domain):
-                logger.info('Found a superset')
+        for x in xrange(cache_entries.count()):
+            cache = cache_entries[x]
 
-                self.cache = entry
+            logger.info('Checking cache entry with dimensions "{}"'.format(cache.dimensions))
+            
+            if not cache.valid:
+                logger.info('Cache entry hash "{}" with dimensions "{}" invalid'.format(cache.uid, cache.dimensions))
+
+                cache.delete()
+                
+                continue
+
+            if cache.is_superset(domain):
+                logger.info('Cache entry is a superset of the requested domain')
+
+                self.cache = cache
 
                 break
 
@@ -145,7 +154,7 @@ class DataSet(object):
 
                 pass
             else:
-                dimensions = json.dumps(index_domain, default=models.slice_default)
+                dimensions = json.dumps(domain, default=models.slice_default)
 
                 self.cache = models.Cache.objects.create(uid=uid_hash, url=self.url, dimensions=dimensions)
 
@@ -204,6 +213,8 @@ class DataSet(object):
         return selector
 
     def map_domain(self, domain):
+        logger.info('Mapping domain "{}"'.format(domain))
+
         variable = self.file_obj[self.variable_name]
 
         for dim in domain.dimensions:

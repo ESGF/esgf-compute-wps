@@ -41,6 +41,8 @@ class Process(object):
 
         self.job.update_status(msg, **kwargs)
 
+        logger.info(msg)
+
     def generate_grid(self, gridder):
         try:
             grid_type, grid_param = gridder.grid.split('~')

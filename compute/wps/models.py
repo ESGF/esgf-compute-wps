@@ -15,6 +15,7 @@ from cwt import wps_lib
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import F
+from django.db.models import signals
 from django.db.models.query_utils import Q
 from django.utils import timezone
 from openid import association
@@ -256,6 +257,8 @@ class Cache(models.Model):
 
         data = json.loads(self.dimensions, object_hook=slice_object_hook)
 
+        logger.info('Checking domain "{}"'.format(data))
+
         try:
             var_name = data['variable']
 
@@ -268,7 +271,7 @@ class Cache(models.Model):
             return False
 
         with cdms2.open(self.local_path) as infile:
-            if var_name not in infile:
+            if var_name not in infile.variables:
                 logger.info('Cache file does not contain variable "{}"'.format(var_name))
 
                 return False
@@ -330,19 +333,23 @@ class Cache(models.Model):
 
         return  True
 
-    def is_superset(self, index_domain):
-        temporal = index_domain['temporal']
+    def is_superset(self, domain):
+        temporal = domain['temporal']
 
-        spatial = index_domain['spatial']
+        spatial = domain['spatial']
 
         try:
             cached = json.loads(self.dimensions, object_hook=slice_object_hook)
         except ValueError:
             return False
 
+        logger.info('Checking if "{}" is a superset of "{}"'.format(cached, domain))
+
         cached_temporal = cached['temporal']
 
         if not self.__cmp_axis(temporal, cached_temporal):
+            logger.info('Temporal axis is does not match')
+
             return False
 
         cached_spatial = cached['spatial']
@@ -352,6 +359,8 @@ class Cache(models.Model):
                 continue
 
             if not self.__cmp_axis(spatial.get(name), cached_spatial_axis):
+                logger.info('Spatial axis "{}" does not match'.format(name))
+
                 return False
 
         return True
@@ -375,6 +384,14 @@ class Cache(models.Model):
         size = size / GBYTE
 
         return size
+
+def cache_clean_files(sender, **kwargs):
+    cache = kwargs['instance']
+
+    if os.path.exists(cache.local_path):
+        os.remove(cache.local_path)
+
+signals.post_delete.connect(cache_clean_files, sender=Cache)
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
