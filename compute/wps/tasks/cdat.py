@@ -41,7 +41,7 @@ def subset(self, parent_variables, variables, domains, operation, user_id, job_i
 
     try:
         with file_manager.FileManager(o.inputs) as fm, cdms2.open(output_path, 'w') as output_file:
-            proc.retrieve(fm, o, 1, output_file)
+            output_var_name = proc.retrieve(fm, o, 1, output_file)
     except cdms2.CDMSError as e:
         raise base.AccessError(output_path, e.message)
     except WPSError:
@@ -52,7 +52,7 @@ def subset(self, parent_variables, variables, domains, operation, user_id, job_i
     else:
         output_url = settings.OUTPUT_URL.format(filename=output_name)
 
-    output_variable = cwt.Variable(output_url, 'tas').parameterize()
+    output_variable = cwt.Variable(output_url, output_var_name).parameterize()
 
     return {o.name: output_variable}
 
@@ -73,7 +73,7 @@ def aggregate(self, parent_variables, variables, domains, operation, user_id, jo
 
     try:
         with file_manager.FileManager(o.inputs) as fm, cdms2.open(output_path, 'w') as output_file:
-            proc.retrieve(fm, o, None, output_file)
+            output_var_name = proc.retrieve(fm, o, None, output_file)
     except cdms2.CDMSError as e:
         raise base.AccessError(output_path, e.message)
     except WPSError:
@@ -84,7 +84,7 @@ def aggregate(self, parent_variables, variables, domains, operation, user_id, jo
     else:
         output_url = settings.OUTPUT_URL.format(filename=output_name)
 
-    output_variable = cwt.Variable(output_url, 'tas').parameterize()
+    output_variable = cwt.Variable(output_url, output_var_name).parameterize()
 
     return {o.name: output_variable}
 

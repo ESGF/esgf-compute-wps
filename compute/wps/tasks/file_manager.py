@@ -44,6 +44,9 @@ class DataSet(object):
 
         return None
 
+    def __eq__(self, other):
+        return self.variable_name == other.variable_name
+
     def __enter__(self):
         return self
 

@@ -84,6 +84,11 @@ class Process(object):
 
         base_units = None
 
+        matched = reduce(lambda x, y: x if x == y else None, fm.datasets)
+
+        if matched is None:
+            raise WPSError('Error variable name is not the same throughout all files')
+
         for dataset in fm.sorted(num_inputs):
             if base_units is None:
                 base_units = dataset.get_time().units
@@ -121,17 +126,17 @@ class Process(object):
                     if gridder is not None:
                         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
-                    output_file.write(data, id=dataset.variable_name)
+                    output_file.write(data, id=matched.variable_name)
 
                 self.log('Finished retrieving file "{}"', dataset.url)
 
         stop = datetime.datetime.now()
 
-        final_shape = output_file[dataset.variable_name].shape
+        final_shape = output_file[matched.variable_name].shape
 
         self.log('Finish retrieving all files, final shape "{}", elapsed time {}', final_shape, stop-start)
 
-        return output_file.id
+        return matched.variable_name
 
     def process(self, fm, operation):
         return cwt.Variable('file:///test.nc', 'tas')
