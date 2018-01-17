@@ -71,12 +71,6 @@ class DataSet(object):
                 start = self.temporal.start
 
                 stop = self.temporal.stop
-            elif isinstance(self.temporal, (list, tuple)):
-                indices = self.get_time().mapInterval(self.temporal)
-
-                start = indices[0]
-
-                stop = indices[1]
             else:
                 raise base.WPSError('Temporal domain has unknown type "{name}"', name=type(self.temporal))
 
@@ -192,43 +186,75 @@ class DataSet(object):
         except ValueError:
             raise base.WPSError('Could not convert "{value}" to float or int', value=value)
 
-    def dimension_to_cdms2_selector(self, dimension):
+    def dimension_to_cdms2_selector(self, dimension, axis, base_units=None):
         if dimension.crs == cwt.VALUES:
             start = self.str_to_int_float(dimension.start)
 
             end = self.str_to_int_float(dimension.end)
 
-            selector = (start, end)
+            if axis.isTime():
+                axis_clone = axis.clone()
+
+                axis_clone.toRelativeTime(base_units)
+
+                try:
+                    start, end = axis_clone.mapInterval((start, end))
+                except TypeError:
+                    selector = None
+
+                    pass
+                else:
+                    selector = slice(start, end)
+            else:
+                selector = (start, end)
         elif dimension.crs == cwt.INDICES:
-            start = self.str_to_int(dimension.start)
+            n = axis.shape[0]
 
-            end = self.str_to_int(dimension.end)
+            selector = slice(dimension.start, min(dimension.end, n), dimension.step)
 
-            step = self.str_to_int(dimension.step)
+            dimension.start -= selector.start
 
-            selector = slice(start, end, step)
+            dimension.end -= selector.stop - selector.start
         else:
             raise base.WPSError('Error handling CRS "{name}"', name=dimension.crs)
 
         return selector
 
-    def map_domain(self, domain):
+    def map_domain(self, domain, base_units):
         logger.info('Mapping domain "{}"'.format(domain))
 
         variable = self.file_obj[self.variable_name]
 
-        for dim in domain.dimensions:
-            axis_index = variable.getAxisIndex(dim.name)
-
-            if axis_index == -1:
-                raise base.WPSError('Dimension "{name}" was not found in "{url}"', name=dim.name, url=self.url)
-
-            axis = variable.getAxis(axis_index)
-
-            if axis.isTime():
-                self.temporal = self.dimension_to_cdms2_selector(dim)
+        if domain is None:
+            if variables.getTime() == None:
+                self.temporal = None
             else:
-                self.spatial[dim.name] = self.dimension_to_cdms2_selector(dim)
+                self.temporal = slice(0, variable.getTime().shape[0])
+
+            axes = variable.getAxisList()
+
+            for axis in axes:
+                if axis.isTime():
+                    continue
+
+                self.spatial[axis.id] = slice(0, axis.shape[0])
+        else:
+            for dim in domain.dimensions:
+                axis_index = variable.getAxisIndex(dim.name)
+
+                if axis_index == -1:
+                    raise base.WPSError('Dimension "{name}" was not found in "{url}"', name=dim.name, url=self.url)
+
+                axis = variable.getAxis(axis_index)
+
+                if axis.isTime():
+                    self.temporal = self.dimension_to_cdms2_selector(dim, axis, base_units)
+
+                    logger.info('Mapped temporal domain to "{}"'.format(self.temporal))
+                else:
+                    self.spatial[dim.name] = self.dimension_to_cdms2_selector(dim, axis)
+
+                    logger.info('Mapped spatial "{}" to "{}"'.format(dim.name, self.spatial[dim.name]))
 
     def get_time(self):
         if self.temporal_axis is None:

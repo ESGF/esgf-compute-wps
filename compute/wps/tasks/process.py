@@ -91,10 +91,16 @@ class Process(object):
             with dataset:
                 self.log('Retrieving input "{}" with shape "{}"', dataset.url, dataset.shape)
 
-                if operation.domain is not None:
-                    self.log('Mapping domain to file')
+                self.log('Mapping domain to file')
 
-                    dataset.map_domain(operation.domain)
+                dataset.map_domain(operation.domain, base_units)
+
+                logger.info(dataset.temporal)
+
+                if dataset.temporal is None:
+                    self.log('Skipping "{}"'.format(dataset.url))
+
+                    continue
 
                 self.log('Checking cache for file')
 
