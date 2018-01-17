@@ -136,30 +136,28 @@ class DataSet(object):
 
                 break
 
-        cache_file_path = '{}/{}.nc'.format(settings.CACHE_PATH, uid_hash)
-
         if self.cache is None:
             logger.info('Creating cache file for "{}"'.format(self.url))
 
+            dimensions = json.dumps(domain, default=models.slice_default)
+
+            self.cache = models.Cache.objects.create(uid=uid_hash, url=self.url, dimensions=dimensions)
+
             try:
-                self.cache_obj = cdms2.open(cache_file_path, 'w')
+                self.cache_obj = cdms2.open(self.cache.local_path, 'w')
             except cdms2.CDMSError as e:
-                logger.exception('Error creating cache file "{}": {}'.format(cache_file_path, e.message))
+                logger.exception('Error creating cache file "{}": {}'.format(self.cache.local_path, e.message))
+
+                self.cache.delete()
 
                 pass
-            else:
-                dimensions = json.dumps(domain, default=models.slice_default)
-
-                self.cache = models.Cache.objects.create(uid=uid_hash, url=self.url, dimensions=dimensions)
-
-                logger.info('Creating cache entry for "{}"'.format(self.url))
         else:
-            logger.info('Using cache file "{}" as input'.format(cache_file_path))
+            logger.info('Using cache file "{}" as input'.format(self.cache.local_path))
 
             try:
-                cache_obj = cdms2.open(cache_file_path)
+                cache_obj = cdms2.open(self.cache.local_path)
             except cdms2.CDMSError as e:
-                logger.exception('Error opening cached file "{}": {}'.format(cache_file_path, e.message))
+                logger.exception('Error opening cached file "{}": {}'.format(self.cache.local_path, e.message))
                 # Might need to adjust the existing cache entry or remove
                 pass
             else:

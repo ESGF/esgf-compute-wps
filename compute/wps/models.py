@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import base64
 import datetime
+import hashlib
 import json
 import logging
 import os
@@ -244,7 +245,9 @@ class Cache(models.Model):
 
     @property
     def local_path(self):
-        file_name = '{}.nc'.format(self.uid)
+        dimension_hash = hashlib.sha256(self.uid+self.dimensions).hexdigest()
+
+        file_name = '{}.nc'.format(dimension_hash)
 
         return os.path.join(settings.CACHE_PATH, file_name)
 
