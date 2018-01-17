@@ -4,6 +4,7 @@ import cdms2
 import cwt
 import hashlib
 import json
+import math
 from celery.utils.log import get_task_logger
 
 from wps import models
@@ -81,10 +82,12 @@ class DataSet(object):
 
             step = min(diff, settings.PARTITION_SIZE)
 
-            for begin in xrange(start, stop, step):
+            n = math.ceil((stop-start)/step) + 1
+
+            for i, begin in enumerate(xrange(start, stop, step)):
                 end = min(begin + step, stop)
 
-                yield slice(begin, end), self.spatial
+                yield round((i+1.0)*100.0/n, 2), slice(begin, end), self.spatial
         else:
             pass
 
@@ -330,8 +333,10 @@ class FileManager(object):
 
             self.datasets = self.datasets[:limit]
 
-        for ds in self.datasets:
-            yield ds
+        n = len(self.datasets)
+
+        for i, ds in enumerate(self.datasets):
+            yield round((i+1.0)*100.0/n, 2), ds
 
     def close(self):
         for ds in self.datasets:
