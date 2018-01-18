@@ -57,7 +57,7 @@ class Process(object):
 
                 nlons = int(nlons)
             except ValueError:
-                raise WPSError('Error parsing parameters "{value}" for uniform grid', name=grid_param)
+                raise WPSError('Error parsing parameters "{value}" for uniform grid', value=grid_param)
 
             grid = cdms2.createUniformGrid(0, nlats, 0, 0, nlons, 0)
         else:
