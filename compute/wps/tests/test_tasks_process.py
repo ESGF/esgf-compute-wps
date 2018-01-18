@@ -59,7 +59,7 @@ class ProcessTestCase(test.TestCase):
 
         grid = proc.generate_grid(cwt.Gridder(grid='uniform~32x64'))
 
-        mock_uniform.assert_called_with(0, 32, 0, 0, 64, 0)
+        mock_uniform.assert_called_with(0, 32, 1, 0, 64, 1)
 
     @mock.patch('wps.tasks.process.cdms2.createGaussianGrid')
     def test_generate_grid_parse_error(self, mock_gaussian):

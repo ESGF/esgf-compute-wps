@@ -3,6 +3,7 @@
 import cdms2
 import cwt
 import datetime
+import math
 from celery.utils.log import get_task_logger
 
 from wps import models
@@ -59,7 +60,7 @@ class Process(object):
             except ValueError:
                 raise WPSError('Error parsing parameters "{value}" for uniform grid', value=grid_param)
 
-            grid = cdms2.createUniformGrid(0, nlats, 0, 0, nlons, 0)
+            grid = cdms2.createUniformGrid(0, nlats, 1, 0, nlons, 1)
         else:
             try:
                 nlats = int(grid_param)
