@@ -1,5 +1,6 @@
 #! /usr/bin/env python 
 
+import datetime
 import mock
 
 from django import test
@@ -17,146 +18,140 @@ class CredentailsTestCase(test.TestCase):
 
     @mock.patch('wps.tasks.credentials.open')
     @mock.patch('wps.tasks.credentials.os')
-    def test_cwt_task_load_certificate_refresh_certificate(self, mock_os, mock_open):
-        tasks.check_certificate = mock.Mock(return_value=False)
-
-        tasks.refresh_certificate = mock.Mock()
-        
-        tasks.load_certificate(self.user)
-
-        tasks.refresh_certificate.assert_called()
-
-    @mock.patch('wps.tasks.credentials.open')
-    @mock.patch('wps.tasks.credentials.os')
-    def test_cwt_task_load_certificate_user_path_does_not_exist(self, mock_os, mock_open):
+    @mock.patch('wps.tasks.credentials.refresh_certificate')
+    @mock.patch('wps.tasks.credentials.check_certificate')
+    def test_load_certificate(self, mock_check, mock_refresh, mock_os, mock_open):
         mock_os.path.exists.return_value = False
 
-        tasks.check_certificate = mock.Mock(return_value=True)
-        
-        tasks.load_certificate(self.user)
+        mock_check.return_value = False
 
-        mock_os.makedirs.assert_called()
+        tasks.load_certificate(self.user)        
 
-    @mock.patch('wps.tasks.credentials.open')
-    @mock.patch('wps.tasks.credentials.os')
-    def test_cwt_task_load_certificate(self, mock_os, mock_open):
-        tasks.check_certificate = mock.Mock(return_value=True)
-        
-        tasks.load_certificate(self.user)
+        mock_refresh.assert_called_once()
 
-    def test_cwt_task_refresh_certificate_myproxyclient(self):
+        mock_os.makedirs.assert_called_once()
+
+        mock_os.chdir.assert_called_once()
+
+        mock_open.return_value.__enter__.return_value.write.assert_called()
+        open_count = mock_open.return_value.__enter__.return_value.write.call_count
+
+        self.assertEqual(open_count, 6)
+
+    @mock.patch('openid.consumer.discover.discoverYadis')
+    def test_refresh_certificate_myproxyclient(self, mock_discover):
         self.user.auth.type = 'myproxyclient'
 
-        self.user.auth.save()
+        self.user.auth.cert = 'some cert'
 
         with self.assertRaises(tasks.CertificateError):
-            tasks.refresh_certificate(self.user)
+            cert = tasks.refresh_certificate(self.user)
 
-    @mock.patch('wps.tasks.credentials.discover')
-    def test_cwt_task_refresh_certificate_discovery_error(self, mock_discover):
-        mock_discover.discoverYadis.side_effect = discover.DiscoveryFailure('url', 401)
+    @mock.patch('openid.consumer.discover.discoverYadis')
+    def test_refresh_certificate_error_loading_extra(self, mock_discover):
+        mock_services = mock.MagicMock()
 
-        with self.assertRaises(discover.DiscoveryFailure) as e:
-            tasks.refresh_certificate(self.user)
+        mock_discover.return_value = ('url', mock_services)
 
-    @mock.patch('wps.tasks.credentials.discover')
-    def test_cwt_task_refresh_certificate_missing_oauth2_state(self, mock_discover):
-        mock_discover.discoverYadis.return_value = ('url', {})
+        self.user.auth.extra = 'some invalid content'
 
-        with self.assertRaises(WPSError) as e:
-            tasks.refresh_certificate(self.user)
+        self.user.auth.cert = 'some cert'
 
-    @mock.patch('wps.tasks.credentials.discover')
-    def test_cwt_task_refresh_certificate_missing_oauth2_token(self, mock_discover):
+        with self.assertRaises(tasks.WPSError):
+            cert = tasks.refresh_certificate(self.user)
+
+    @mock.patch('openid.consumer.discover.discoverYadis')
+    def test_refresh_certificate_missing_token(self, mock_discover):
+        mock_services = mock.MagicMock()
+
+        mock_discover.return_value = ('url', mock_services)
+
         self.user.auth.extra = '{}'
 
-        self.user.auth.save()
+        self.user.auth.cert = 'some cert'
 
-        mock_discover.discoverYadis.return_value = ('url', {})
+        with self.assertRaises(tasks.WPSError):
+            cert = tasks.refresh_certificate(self.user)
 
-        with self.assertRaises(WPSError) as e:
-            tasks.refresh_certificate(self.user)
+    @mock.patch('wps.tasks.credentials.oauth2.get_certificate')
+    @mock.patch('wps.tasks.credentials.openid.find_service_by_type')
+    @mock.patch('openid.consumer.discover.discoverYadis')
+    def test_refresh_certificate(self, mock_discover, mock_find, mock_get):
+        mock_get.return_value = ('cert value', 'key value', 'new token value')
 
-    @mock.patch('wps.tasks.credentials.openid')
-    @mock.patch('wps.tasks.credentials.oauth2')
-    @mock.patch('wps.tasks.credentials.discover')
-    def test_cwt_task_refresh_certificate(self, mock_discover, mock_oauth2, mock_openid):
-        mock_openid.find_service_by_type.side_effect = [mock.MagicMock(), mock.MagicMock()]
+        mock_services = mock.MagicMock()
 
-        mock_oauth2.get_certificate.return_value = ('cert', 'key', 'new_token')
+        mock_discover.return_value = ('url', mock_services)
 
-        self.user.auth.extra = '{"token": "oauth2_token"}'
+        self.user.auth.extra = '{"token": "token value"}'
 
-        self.user.auth.save()
+        self.user.auth.cert = 'some cert'
 
-        mock_discover.discoverYadis.return_value = ('url', {})
+        cert = tasks.refresh_certificate(self.user)
 
-        with self.assertNumQueries(1):
-            data = tasks.refresh_certificate(self.user)
+        self.assertEqual(cert, 'cert valuekey value')
+        self.assertEqual(self.user.auth.cert, 'cert valuekey value')
+        self.assertEqual(self.user.auth.extra, '{"token": "new token value"}')
 
-        self.assertEqual(data, 'certkey')
-
-    def test_cwt_task_check_certificate_missing(self):
-        with self.assertRaises(tasks.CertificateError) as e:
+    def test_check_certificate_missing_certificate(self):
+        with self.assertRaises(tasks.CertificateError):
             tasks.check_certificate(self.user)
 
-    @mock.patch('wps.tasks.credentials.crypto')
-    def test_cwt_task_check_certificate_not_before(self, mock_crypto):
-        expired = datetime.datetime.now() + datetime.timedelta(days=10)
+    @mock.patch('wps.tasks.credentials.crypto.load_certificate')
+    def test_check_certificate_not_after(self, mock_load):
+        self.user.auth.cert = 'some cert'
 
-        mock_crypto.load_certificate.return_value.get_notBefore.return_value = expired.strftime(tasks.CERT_DATE_FMT)
-        
-        mock_crypto.load_certificate.return_value.get_notAfter.return_value = datetime.datetime.now().strftime(tasks.CERT_DATE_FMT)
+        before = datetime.datetime.now()
 
-        self.user.auth.cert = 'some certificate'
+        after = datetime.datetime.now() - datetime.timedelta(days=10)
 
-        self.user.auth.save()
+        mock_load.return_value.get_notBefore.return_value = before.strftime(tasks.CERT_DATE_FMT)
 
-        result = tasks.check_certificate(self.user)
+        mock_load.return_value.get_notAfter.return_value = after.strftime(tasks.CERT_DATE_FMT)
 
-        self.assertFalse(result)
+        self.assertFalse(tasks.check_certificate(self.user))
 
-    @mock.patch('wps.tasks.credentials.crypto')
-    def test_cwt_task_check_certificate_not_after(self, mock_crypto):
-        expired = datetime.datetime.now() - datetime.timedelta(days=10)
+    @mock.patch('wps.tasks.credentials.crypto.load_certificate')
+    def test_check_certificate_not_before(self, mock_load):
+        self.user.auth.cert = 'some cert'
 
-        mock_crypto.load_certificate.return_value.get_notBefore.return_value = datetime.datetime.now().strftime(tasks.CERT_DATE_FMT)
-        
-        mock_crypto.load_certificate.return_value.get_notAfter.return_value = expired.strftime(tasks.CERT_DATE_FMT)
+        before = datetime.datetime.now() + datetime.timedelta(days=10)
 
-        self.user.auth.cert = 'some certificate'
+        after = datetime.datetime.now()
 
-        self.user.auth.save()
+        mock_load.return_value.get_notBefore.return_value = before.strftime(tasks.CERT_DATE_FMT)
 
-        result = tasks.check_certificate(self.user)
+        mock_load.return_value.get_notAfter.return_value = after.strftime(tasks.CERT_DATE_FMT)
 
-        self.assertFalse(result)
+        self.assertFalse(tasks.check_certificate(self.user))
 
-    @mock.patch('wps.tasks.credentials.crypto')
-    def test_cwt_task_check_certificate_fail_to_load(self, mock_crypto):
-        mock_crypto.load_certificate.side_effect = Exception('Failed to load certificate')
+    @mock.patch('wps.tasks.credentials.crypto.load_certificate')
+    def test_check_certificate_error_loading(self, mock_load):
+        mock_load.side_effect = Exception('some error')
 
-        self.user.auth.cert = 'some certificate'
+        self.user.auth.cert = 'some cert'
 
-        self.user.auth.save()
+        before = datetime.datetime.now()
 
-        with self.assertRaises(tasks.CertificateError) as e:
-            result = tasks.check_certificate(self.user)
+        after = datetime.datetime.now()
 
-    @mock.patch('wps.tasks.credentials.crypto')
-    def test_cwt_task_check_certificate(self, mock_crypto):
-        not_before = datetime.datetime.now() - datetime.timedelta(days=10)
+        mock_load.return_value.get_notBefore.return_value = before.strftime(tasks.CERT_DATE_FMT)
 
-        not_after = datetime.datetime.now() + datetime.timedelta(days=10)
+        mock_load.return_value.get_notAfter.return_value = after.strftime(tasks.CERT_DATE_FMT)
 
-        mock_crypto.load_certificate.return_value.get_notBefore.return_value = not_before.strftime(tasks.CERT_DATE_FMT)
-        
-        mock_crypto.load_certificate.return_value.get_notAfter.return_value = not_after.strftime(tasks.CERT_DATE_FMT)
+        with self.assertRaises(tasks.CertificateError):
+            tasks.check_certificate(self.user)
 
-        self.user.auth.cert = 'some certificate'
+    @mock.patch('wps.tasks.credentials.crypto.load_certificate')
+    def test_check_certificate(self, mock_load):
+        self.user.auth.cert = 'some cert'
 
-        self.user.auth.save()
+        before = datetime.datetime.now() - datetime.timedelta(days=10)
 
-        result = tasks.check_certificate(self.user)
+        after = datetime.datetime.now() + datetime.timedelta(days=10)
 
-        self.assertTrue(result)
+        mock_load.return_value.get_notBefore.return_value = before.strftime(tasks.CERT_DATE_FMT)
+
+        mock_load.return_value.get_notAfter.return_value = after.strftime(tasks.CERT_DATE_FMT)
+
+        self.assertTrue(tasks.check_certificate(self.user))

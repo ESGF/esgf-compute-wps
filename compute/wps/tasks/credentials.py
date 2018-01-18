@@ -1,10 +1,11 @@
 #! /usr/bin/env python
 
+import json
 import logging
 import os
 from datetime import datetime
 
-from openid.yadis import discover
+from openid.consumer import discover
 from OpenSSL import crypto
 
 from wps import settings
