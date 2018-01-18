@@ -35,6 +35,8 @@ def subset(self, parent_variables, variables, domains, operation, user_id, job_i
 
     proc.initialize(user_id, job_id)
 
+    proc.job.started()
+
     output_name = '{}.nc'.format(str(uuid.uuid4()))
 
     output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
@@ -66,6 +68,8 @@ def aggregate(self, parent_variables, variables, domains, operation, user_id, jo
     proc = process.Process(self.request.id)
 
     proc.initialize(user_id, job_id)
+
+    proc.job.started()
 
     output_name = '{}.nc'.format(str(uuid.uuid4()))
 

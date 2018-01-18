@@ -72,8 +72,6 @@ class Process(object):
         return grid
 
     def retrieve(self, fm, operation, num_inputs, output_file):
-        self.job.started()
-
         logger.info('Writing output to "{}"'.format(output_file.id))
 
         gridder = operation.get_parameter('gridder')
