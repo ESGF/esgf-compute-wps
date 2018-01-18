@@ -4,6 +4,7 @@ import cdms2
 import cwt
 import hashlib
 import json
+import math
 import mock
 import random
 from django import test
@@ -19,6 +20,12 @@ class DataSetTestCase(test.TestCase):
 
     def setUp(self):
         random.seed(1)
+
+    @classmethod
+    def setUpClass(cls):
+        super(DataSetTestCase, cls).setUpClass()
+
+        cls.time = helpers.generate_time('days since 1990', 365)
 
     def test_get_axis_error(self):
         axis_data = cdms2.createAxis([x for x in range(-90, 90)])
@@ -81,31 +88,6 @@ class DataSetTestCase(test.TestCase):
         with self.assertRaises(WPSError):
             partitions = [chunk for chunk in ds.partitions('time')]
 
-    def test_partitions_tuple(self):
-        settings.PARITION_SIZE = 20 
-
-        mock_file = mock.MagicMock()
-
-        mock_file.return_value.__getitem__.return_value.getTime.return_value.mapInterval.return_value = (100, 200)
-
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
-
-        ds.temporal_axis = mock.MagicMock()
-
-        ds.temporal_axis.id = 'time'
-
-        ds.temporal_axis.isTime.return_value = True
-
-        ds.temporal_axis.mapInterval.return_value = (100, 200)
-
-        ds.temporal = (100, 200)
-
-        expected = [(slice(x, x+settings.PARTITION_SIZE), {}) for x in xrange(100, 200, settings.PARTITION_SIZE)]
-
-        partitions = [chunk for chunk in ds.partitions('time')]
-
-        self.assertEqual(expected, partitions)
-
     def test_partitions_spatial(self):
         settings.PARITION_SIZE = 20 
 
@@ -126,7 +108,7 @@ class DataSetTestCase(test.TestCase):
         # TODO finish
 
     def test_partitions_axis_from_file(self):
-        settings.PARITION_SIZE = 20 
+        settings.PARITION_SIZE = 10 
 
         mock_file = mock.MagicMock()
 
@@ -144,14 +126,19 @@ class DataSetTestCase(test.TestCase):
 
         ds.spatial = {}
 
-        expected = [(slice(x, x+settings.PARTITION_SIZE), {}) for x in xrange(100, 200, settings.PARTITION_SIZE)]
+        n = math.ceil((ds.temporal.stop-ds.temporal.start)/settings.PARITION_SIZE)+1
+
+        expected = [
+            (round((i+1.0)*100.0/n, 2), slice(x, x+settings.PARTITION_SIZE), {}) 
+            for i, x in enumerate(xrange(100, 200, settings.PARTITION_SIZE))
+        ]
 
         partitions = [chunk for chunk in ds.partitions('time')]
 
         self.assertEqual(expected, partitions)
 
     def test_partitions(self):
-        settings.PARITION_SIZE = 20 
+        settings.PARITION_SIZE = 10
 
         mock_file = mock.MagicMock()
 
@@ -165,7 +152,12 @@ class DataSetTestCase(test.TestCase):
 
         ds.temporal = slice(100, 200)
 
-        expected = [(slice(x, x+settings.PARTITION_SIZE), {}) for x in xrange(100, 200, settings.PARTITION_SIZE)]
+        n = math.ceil((ds.temporal.stop-ds.temporal.start)/settings.PARITION_SIZE)+1
+
+        expected = [
+            (round((i+1.0)*100.0/n, 2), slice(x, x+settings.PARTITION_SIZE), {}) 
+            for i, x in enumerate(xrange(100, 200, settings.PARTITION_SIZE))
+        ]
 
         partitions = [chunk for chunk in ds.partitions('time')]
 
@@ -173,9 +165,7 @@ class DataSetTestCase(test.TestCase):
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_check_cache_exists_temporal_mismatch(self, mock_open):
-        time = helpers.generate_time('days since 1990', 365)
-
-        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+        variable = helpers.generate_variable([self.time, helpers.latitude, helpers.longitude], 'tas')
 
         uid = hashlib.sha256('file:///test.nc:tas').hexdigest()
 
@@ -203,18 +193,19 @@ class DataSetTestCase(test.TestCase):
 
         ds.spatial = {'lat': (24, 100), 'lon': (90, 180)}
 
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):
             ds.check_cache()
 
         mock_open.assert_called_once()
 
         self.assertIsNotNone(ds.cache)
 
+    @mock.patch('wps.models.Cache.valid')
     @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_check_cache_exists_spatial_mismatch(self, mock_open):
-        time = helpers.generate_time('days since 1990', 365)
+    def test_check_cache_exists_spatial_mismatch(self, mock_open, mock_valid):
+        mock_valid.return_value = True
 
-        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+        variable = helpers.generate_variable([self.time, helpers.latitude, helpers.longitude], 'tas')
 
         uid = hashlib.sha256('file:///test.nc:tas').hexdigest()
 
@@ -249,11 +240,12 @@ class DataSetTestCase(test.TestCase):
 
         self.assertIsNotNone(ds.cache)
 
+    @mock.patch('wps.models.Cache.valid')
     @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_check_cache_exists_cached_no_domain(self, mock_open):
-        time = helpers.generate_time('days since 1990', 365)
+    def test_check_cache_exists_cached_no_domain(self, mock_open, mock_valid):
+        mock_valid.return_value = True
 
-        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+        variable = helpers.generate_variable([self.time, helpers.latitude, helpers.longitude], 'tas')
 
         uid = hashlib.sha256('file:///test.nc:tas').hexdigest()
 
@@ -291,9 +283,7 @@ class DataSetTestCase(test.TestCase):
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_check_cache_exists_request_no_domain(self, mock_open):
-        time = helpers.generate_time('days since 1990', 365)
-
-        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+        variable = helpers.generate_variable([self.time, helpers.latitude, helpers.longitude], 'tas')
 
         uid = hashlib.sha256('file:///test.nc:tas').hexdigest()
 
@@ -317,16 +307,14 @@ class DataSetTestCase(test.TestCase):
 
         ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
 
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):
             ds.check_cache()
 
         mock_open.assert_called_once()
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_check_cache_exists_error(self, mock_open):
-        time = helpers.generate_time('days since 1990', 365)
-
-        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+        variable = helpers.generate_variable([self.time, helpers.latitude, helpers.longitude], 'tas')
 
         uid = hashlib.sha256('file:///test.nc:tas').hexdigest()
 
@@ -360,11 +348,12 @@ class DataSetTestCase(test.TestCase):
 
         self.assertEqual(ds.file_obj, mock_file)
 
+    @mock.patch('wps.models.Cache.valid')
     @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_check_cache_exists(self, mock_open):
-        time = helpers.generate_time('days since 1990', 365)
+    def test_check_cache_exists(self, mock_open, mock_valid):
+        mock_valid.return_value = True
 
-        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+        variable = helpers.generate_variable([self.time, helpers.latitude, helpers.longitude], 'tas')
 
         uid = hashlib.sha256('file:///test.nc:tas').hexdigest()
 
@@ -399,8 +388,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file.close.assert_called_once()
 
+    @mock.patch('wps.models.Cache.valid')
     @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_check_cache_error_opening(self, mock_open):
+    def test_check_cache_error_opening(self, mock_open, mock_valid):
+        mock_valid.return_value = True
+
         mock_open.side_effect = cdms2.CDMSError('some error')
 
         mock_file = mock.MagicMock()
@@ -429,10 +421,14 @@ class DataSetTestCase(test.TestCase):
         mock_open.assert_called_once()
 
         self.assertIsNotNone(ds.cache)
-        self.assertEqual(ds.cache.dimensions, '{"temporal": null, "spatial": {"lat": {"slice": "0:90:None"}, "lon": {"slice": "0:180:None"}}}')
+        self.assertEqual(ds.cache.dimensions, 
+                         '{"variable": "tas", "temporal": null, "spatial": {"lat": {"slice": "0:90:None"}, "lon": {"slice": "0:180:None"}}}')
 
+    @mock.patch('wps.models.Cache.valid')
     @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_check_cache(self, mock_open):
+    def test_check_cache(self, mock_open, mock_valid):
+        mock_valid.return_value = True
+
         mock_file = mock.MagicMock()
 
         ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
@@ -450,71 +446,48 @@ class DataSetTestCase(test.TestCase):
         mock_open.assert_called_once()
 
         self.assertIsNotNone(ds.cache)
-        self.assertEqual(ds.cache.dimensions, '{"temporal": {"slice": "100:201:None"}, "spatial": {"lat": {"slice": "0:90:None"}, "lon": {"slice": "0:180:None"}}}')
+        self.assertEqual(ds.cache.dimensions, 
+                         '{"variable": "tas", "temporal": {"slice": "100:201:None"}, "spatial": {"lat": {"slice": "0:90:None"}, "lon": {"slice": "0:180:None"}}}')
 
-    def test_str_to_int_cannot_parse_float(self):
+    def test_dimension_to_cdms2_selector_indices(self):
         ds = file_manager.DataSet(mock.MagicMock(), '', '')
+
+        dim = cwt.Dimension('lat', 100, 200, cwt.INDICES)
+
+        selector = ds.dimension_to_cdms2_selector(dim, helpers.latitude, helpers.latitude.units)
+
+        self.assertEqual(selector, slice(100, 180, 1))
+        self.assertEqual(dim.start, 0)
+        self.assertEqual(dim.end, 20)
+
+    def test_dimension_to_cdms2_selector_spatial(self):
+        ds = file_manager.DataSet(mock.MagicMock(), '', '')
+
+        dim = cwt.Dimension('lat', 100, 200)
+
+        selector = ds.dimension_to_cdms2_selector(dim, helpers.latitude, helpers.latitude.units)
+
+        self.assertEqual(selector, (100, 200))
+
+    def test_dimension_to_cdms2_selector_unknown_crs(self):
+        ds = file_manager.DataSet(mock.MagicMock(), '', '')
+
+        dim = cwt.Dimension('time', 100, 200, crs=cwt.CRS('test'))
 
         with self.assertRaises(WPSError):
-            value = ds.str_to_int('5.5')
-
-    def test_str_to_int(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
-
-        value = ds.str_to_int('5')
-
-        self.assertIsInstance(value, int)
-
-    def test_str_to_int_float_cannot_parse(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
-
-        with self.assertRaises(WPSError):
-            value = ds.str_to_int_float('test')
-
-    def test_str_to_int_float_to_float(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
-
-        value = ds.str_to_int_float('5.0')
-
-        self.assertIsInstance(value, float)
-
-    def test_str_to_int_float(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
-
-        value = ds.str_to_int_float('5')
-
-        self.assertIsInstance(value, int)
-
-    def test_dimension_to_cdms2_selector_crs_unknown(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
-
-        dim = cwt.Dimension('time', 100, 200, cwt.CRS('unknown'))
-
-        with self.assertRaises(WPSError):
-            selector = ds.dimension_to_cdms2_selector(dim)
-
-    def test_dimension_to_cdms2_selector_crs_indices(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
-
-        dim = cwt.Dimension('time', 100, 200, cwt.INDICES)
-
-        selector = ds.dimension_to_cdms2_selector(dim)
-
-        self.assertEqual(selector, slice(100, 200, 1))
+            selector = ds.dimension_to_cdms2_selector(dim, self.time, self.time.units)
 
     def test_dimension_to_cdms2_selector(self):
         ds = file_manager.DataSet(mock.MagicMock(), '', '')
 
         dim = cwt.Dimension('time', 100, 200)
 
-        selector = ds.dimension_to_cdms2_selector(dim)
+        selector = ds.dimension_to_cdms2_selector(dim, self.time, self.time.units)
 
-        self.assertEqual(selector, (100, 200))
+        self.assertEqual(selector, slice(100, 201))
 
     def test_map_domain_missing_dimension(self):
-        time = helpers.generate_time('days since 1990', 365)
-
-        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+        variable = helpers.generate_variable([self.time, helpers.latitude, helpers.longitude], 'tas')
 
         mock_file = mock.MagicMock()
 
@@ -530,12 +503,10 @@ class DataSetTestCase(test.TestCase):
         ])
 
         with self.assertRaises(WPSError):
-            ds.map_domain(domain)
+            ds.map_domain(domain, 'days since 1990')
 
     def test_map_domain(self):
-        time = helpers.generate_time('days since 1990', 365)
-
-        variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+        variable = helpers.generate_variable([self.time, helpers.latitude, helpers.longitude], 'tas')
 
         mock_file = mock.MagicMock()
 
@@ -544,14 +515,14 @@ class DataSetTestCase(test.TestCase):
         ds = file_manager.DataSet(mock_file, 'file:///test1.nc', 'tas')
 
         domain = cwt.Domain([
-            cwt.Dimension('time', '100', '200'),
-            cwt.Dimension('lat', '0', '90'),
-            cwt.Dimension('lon', '0', '180'),
+            cwt.Dimension('time', 100, 200),
+            cwt.Dimension('lat', 0, 90),
+            cwt.Dimension('lon', 0, 180),
         ])
 
-        ds.map_domain(domain)
+        ds.map_domain(domain, self.time.units)
 
-        self.assertEqual(ds.temporal, (100, 200))
+        self.assertEqual(ds.temporal, slice(100, 201))
         self.assertEqual(ds.spatial, {'lat': (0, 90), 'lon': (0, 180)})
 
     def test_get_time_error(self):
@@ -592,7 +563,7 @@ class FileManagerTestCase(test.TestCase):
         ]
 
         with file_manager.FileManager(variables) as fm:
-            values = [x.url for x in fm.sorted(1)]
+            values = [x[1].url for x in fm.sorted(1)]
 
             self.assertEqual(values, [filenames[1]])
 
@@ -613,7 +584,7 @@ class FileManagerTestCase(test.TestCase):
         ]
 
         with file_manager.FileManager(variables) as fm:
-            values = [x.url for x in fm.sorted()]
+            values = [x[1].url for x in fm.sorted()]
 
             self.assertEqual(values, [filenames[1], filenames[0], filenames[2]])
 

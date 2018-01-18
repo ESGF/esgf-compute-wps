@@ -156,6 +156,8 @@ class DataSet(object):
 
                 self.cache.delete()
 
+                self.cache = None
+
                 pass
         else:
             logger.info('Using cache file "{}" as input'.format(self.cache.local_path))
@@ -164,7 +166,11 @@ class DataSet(object):
                 cache_obj = cdms2.open(self.cache.local_path)
             except cdms2.CDMSError as e:
                 logger.exception('Error opening cached file "{}": {}'.format(self.cache.local_path, e.message))
-                # Might need to adjust the existing cache entry or remove
+
+                self.cache.delete()
+
+                self.cache = None
+                
                 pass
             else:
                 self.close()
@@ -173,28 +179,11 @@ class DataSet(object):
 
                 logger.info('Swapped source for cached file')
 
-    def str_to_int(self, value):
-        try:
-            return int(value)
-        except ValueError:
-            raise base.WPSError('Could not convert "{value}" to int', value=value)
-
-    def str_to_int_float(self, value):
-        try:
-            return self.str_to_int(value)
-        except base.WPSError:
-            pass
-
-        try:
-            return float(value)
-        except ValueError:
-            raise base.WPSError('Could not convert "{value}" to float or int', value=value)
-
     def dimension_to_cdms2_selector(self, dimension, axis, base_units=None):
         if dimension.crs == cwt.VALUES:
-            start = self.str_to_int_float(dimension.start)
+            start = dimension.start
 
-            end = self.str_to_int_float(dimension.end)
+            end = dimension.end
 
             if axis.isTime():
                 axis_clone = axis.clone()
@@ -204,6 +193,8 @@ class DataSet(object):
                 try:
                     start, end = axis_clone.mapInterval((start, end))
                 except TypeError:
+                    logger.exception('Error mapping dimension "{}"'.format(dimension.name))
+
                     selector = None
 
                     pass
@@ -218,7 +209,7 @@ class DataSet(object):
 
             dimension.start -= selector.start
 
-            dimension.end -= selector.stop - selector.start
+            dimension.end -= (selector.stop - selector.start) + selector.start
         else:
             raise base.WPSError('Error handling CRS "{name}"', name=dimension.crs)
 
