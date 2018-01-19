@@ -36,6 +36,9 @@ REGISTRY = {}
 
 class AccessError(WPSError):
     def __init__(self, url, reason):
+        if reason == '':
+            reason = 'Unknown'
+
         msg = 'Error accessing "{url}": {reason}'
 
         super(AccessError, self).__init__(msg, url=url, reason=reason)

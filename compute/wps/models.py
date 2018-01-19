@@ -608,15 +608,22 @@ class Job(models.Model):
 
         return report.xml()
 
+    @property
+    def is_started(self):
+        latest = self.status_set.latest('created_date')
+
+        return latest is not None and latest.status == 'ProcessStarted'
+
     def accepted(self):
         self.process.executed()
 
         self.status_set.create(status=wps_lib.ProcessAccepted())
 
     def started(self):
-        status = self.status_set.create(status=str(wps_lib.ProcessStarted()).split(' ')[0])
+        if not self.is_started:
+            status = self.status_set.create(status=str(wps_lib.ProcessStarted()).split(' ')[0])
 
-        status.set_message('Job Started')
+            status.set_message('Job Started')
 
     def succeeded(self, output=None):
         self.process.success()
