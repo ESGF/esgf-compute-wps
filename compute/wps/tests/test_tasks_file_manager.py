@@ -63,27 +63,9 @@ class DataSetTestCase(test.TestCase):
     def test_partitions_missing_axis(self):
         mock_file = mock.MagicMock()
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
-
-        with self.assertRaises(WPSError):
-            partitions = [chunk for chunk in ds.partitions('time')]
-
-    def test_partitions_unknown(self):
-        settings.PARITION_SIZE = 20 
-
-        mock_file = mock.MagicMock()
-
-        mock_file.__getitem__.return_value.getTime.return_value.mapInterval.return_value = (100, 200)
+        mock_file.__getitem__.return_value.getAxisIndex.return_value = -1
 
         ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
-
-        ds.temporal_axis = mock.MagicMock()
-
-        ds.temporal_axis.id = 'time'
-
-        ds.temporal_axis.isTime.return_value = True
-
-        ds.temporal = None
 
         with self.assertRaises(WPSError):
             partitions = [chunk for chunk in ds.partitions('time')]
@@ -545,6 +527,34 @@ class DataSetTestCase(test.TestCase):
         mock_file_obj.__getitem__.return_value.getTime.assert_called_once()
 
 class FileManagerTestCase(test.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super(FileManagerTestCase, cls).setUpClass()
+
+        time = helpers.generate_time('days since 1990', 365)
+
+        cls.variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
+
+    def test_partitions(self):
+        fm = file_manager.FileManager([])
+
+        mock_file = mock.MagicMock()
+
+        mock_file.__getitem__.return_value = self.variable
+
+        dataset = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+
+        fm.datasets = [dataset]
+
+        n = math.ceil(365/settings.PARTITION_SIZE)+1
+
+        expected = [((round((i+1.0)*100.0/n, 2), slice(x, min(365, x+settings.PARTITION_SIZE)), {}),)
+                    for i, x in enumerate(xrange(0, 365, settings.PARTITION_SIZE))]
+        
+        result = [x for x in fm.partitions('time')]
+
+        self.assertEqual(expected, result)
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_sorted_limit(self, mock_open):

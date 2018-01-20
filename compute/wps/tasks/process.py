@@ -72,8 +72,6 @@ class Process(object):
         return grid
 
     def retrieve(self, fm, operation, num_inputs, output_file):
-        logger.info('Writing output to "{}"'.format(output_file.id))
-
         gridder = operation.get_parameter('gridder')
 
         if gridder is not None:
@@ -137,5 +135,71 @@ class Process(object):
 
         return matched.variable_name
 
-    def process(self, fm, operation):
-        return cwt.Variable('file:///test.nc', 'tas')
+    def process(self, fm, operation, num_inputs, output_file, process):
+        gridder = operation.get_parameter('gridder')
+
+        if gridder is not None:
+            grid = self.generate_grid(gridder)
+
+        start = datetime.datetime.now()
+
+        matched = reduce(lambda x, y: x if x == y else None, fm.datasets)
+
+        if matched is None:
+            raise WPSError('Error variable name is not the same throughout all files')
+
+        axes = operation.get_parameter('axes', True)
+
+        if axes is None:
+            raise base.WPSError('Missing required parameter axes')
+
+        self.log('Checking cache for inputs files')
+
+        for dataset in fm.datasets:
+            dataset.check_cache()
+
+        self.log('Starting to process inputs')
+
+        for partitions in fm.partitions(axes.values[0], num_inputs):
+            data_list = []
+
+            logger.info('Processing partitions "{}"'.format(partitions))
+
+            for dataset, dataset_partition in zip(fm.datasets, partitions):
+                _, temporal, spatial = dataset_partition
+
+                self.log('Retrieving partition "{}" "{}" for dataset "{}"', temporal, spatial, dataset.url)
+
+                axis_index = dataset.file_obj[dataset.variable_name].getAxisIndex(axes.values[0])
+
+                logger.info('Processing over axis index {}'.format(axis_index))
+
+                data = dataset.file_obj(dataset.variable_name, time=temporal, **spatial)
+
+                if dataset.cache_obj is not None:
+                    logger.info('Writing cache file "{}"'.format(dataset.cache_obj.id))
+
+                    dataset.cache_obj.write(data, id=dataset.variable_name)
+
+                    dataset.cache_obj.sync()
+
+                if gridder is not None:
+                    logger.info('Regrid before shape "{}"'.format(data.shape))
+
+                    data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+
+                    logger.info('Regrid aftter shape "{}"'.format(data.shape))
+
+                data_list.append(data)
+
+            result_data = process(*data_list, axis=axis_index)
+
+            output_file.write(result_data, id=matched.variable_name)
+
+        stop = datetime.datetime.now()
+
+        final_shape = output_file[matched.variable_name].shape
+
+        self.log('Finish retrieving all files, final shape "{}", elapsed time {}', final_shape, stop-start, percent=100)
+
+        return matched.variable_name

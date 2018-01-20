@@ -45,15 +45,6 @@ class DataSet(object):
 
         return None
 
-    def __eq__(self, other):
-        return self.variable_name == other.variable_name
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-
     def partitions(self, axis_name):
         axis = None
 
@@ -71,12 +62,14 @@ class DataSet(object):
             axis = self.file_obj[self.variable_name].getAxis(axis_index)
 
         if axis.isTime():
-            if isinstance(self.temporal, slice):
+            if self.temporal is None:
+                start = 0
+
+                stop = axis.shape[0]
+            elif isinstance(self.temporal, slice):
                 start = self.temporal.start
 
                 stop = self.temporal.stop
-            else:
-                raise base.WPSError('Temporal domain has unknown type "{name}"', name=type(self.temporal))
 
             diff = stop - start
 
@@ -89,7 +82,7 @@ class DataSet(object):
 
                 yield round((i+1.0)*100.0/n, 2), slice(begin, end), self.spatial
         else:
-            pass
+            raise base.WPSError('Partitioning along a spatial axis is unsupported')
 
     def check_cache(self):
         uid = '{}:{}'.format(self.url, self.variable_name)
@@ -282,6 +275,18 @@ class DataSet(object):
 
             self.file_obj = None
 
+    def __eq__(self, other):
+        if not isinstance(other, DataSet):
+            return False
+
+        return self.variable_name == other.variable_name
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def __del__(self):
         self.close()
 
@@ -328,6 +333,30 @@ class FileManager(object):
 
         for i, ds in enumerate(self.datasets):
             yield round((i+1.0)*100.0/n, 2), ds
+
+    def partitions(self, axis, limit=None):
+        if limit is not None:
+            for x in xrange(limit, len(self.datasets)):
+                self.datasets[x].close()
+
+            self.datasets = self.datasets[:limit]
+
+        dataset = self.datasets[0]
+
+        axis_index = dataset.file_obj[dataset.variable_name].getAxisIndex(axis)
+
+        if axis_index == -1:
+            raise base.WPSError('Error generating partitions, could not find axis')
+
+        axis_data = dataset.file_obj[dataset.variable_name].getAxis(axis_index)
+
+        if axis_data.isTime():
+            axis_partition = dataset.file_obj[dataset.variable_name].getAxis(axis_index+1).id
+        else:
+            axis_partition = dataset.get_time().id
+
+        for chunk in zip(*[x.partitions(axis_partition) for x in self.datasets]):
+            yield chunk
 
     def close(self):
         for ds in self.datasets:
