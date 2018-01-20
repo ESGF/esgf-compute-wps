@@ -82,7 +82,21 @@ class DataSet(object):
 
                 yield round((i+1.0)*100.0/n, 2), slice(begin, end), self.spatial
         else:
-            raise base.WPSError('Partitioning along a spatial axis is unsupported')
+            start = 0
+
+            stop = axis.shape[0]
+
+            diff = stop - start
+
+            step = min(diff, settings.PARTITION_SIZE)
+
+            n = math.ceil((stop-start)/step) + 1
+
+            for i, begin in enumerate(xrange(start, stop, step)):
+                end = min(begin + step, stop)
+
+                yield round((i+1.0)*100.0/n, 2), None, {axis_name: slice(begin, end)}
+            #raise base.WPSError('Partitioning along a spatial axis is unsupported')
 
     def check_cache(self):
         uid = '{}:{}'.format(self.url, self.variable_name)

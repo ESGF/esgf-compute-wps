@@ -4,6 +4,7 @@ import cdms2
 import cwt
 import datetime
 import math
+from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
 
 from wps import models
@@ -155,10 +156,15 @@ class Process(object):
 
         self.log('Checking cache for inputs files')
 
-        for dataset in fm.datasets:
-            dataset.check_cache()
+        over_temporal = fm.datasets[0].get_time().id == axes.values[0]
+
+        if not over_temporal:
+            for dataset in fm.datasets:
+                dataset.check_cache()
 
         self.log('Starting to process inputs')
+
+        result_list = []
 
         for partitions in fm.partitions(axes.values[0], num_inputs):
             data_list = []
@@ -194,7 +200,13 @@ class Process(object):
 
             result_data = process(*data_list, axis=axis_index)
 
-            output_file.write(result_data, id=matched.variable_name)
+            if over_temporal:
+                result_list.append(result_data)
+            else:
+                output_file.write(result_data, id=matched.variable_name)
+
+        if over_temporal:
+            output_file.write(MV.concatenate(result_list), id=matched.variable_name)
 
         stop = datetime.datetime.now()
 
