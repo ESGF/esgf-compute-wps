@@ -27,45 +27,43 @@ class DataSetTestCase(test.TestCase):
 
         cls.time = helpers.generate_time('days since 1990', 365)
 
+        cls.lat = helpers.latitude
+
     def test_get_axis_error(self):
-        axis_data = cdms2.createAxis([x for x in range(-90, 90)])
-
-        axis_data.designateLatitude()
-
         mock_file = mock.MagicMock()
+        
+        mock_file.variables = {'tas': True}
 
         mock_file.__getitem__.return_value.getAxisIndex.return_value = -1
 
-        mock_file.__getitem__.return_value.getAxis.return_value = axis_data
+        mock_file.__getitem__.return_value.getAxis.return_value = self.lat
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         with self.assertRaises(WPSError):
             axis = ds.get_axis('lat')
 
     def test_get_axis(self):
-        axis_data = cdms2.createAxis([x for x in range(-90, 90)])
-
-        axis_data.designateLatitude()
-
         mock_file = mock.MagicMock()
+
+        mock_file.variables = {'tas': True}
 
         mock_file.__getitem__.return_value.getAxisIndex.return_value = 0
 
-        mock_file.__getitem__.return_value.getAxis.return_value = axis_data
+        mock_file.__getitem__.return_value.getAxis.return_value = self.lat
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         axis = ds.get_axis('lat')
 
-        self.assertEqual(axis_data, axis)
+        self.assertEqual(self.lat, axis)
 
     def test_partitions_missing_axis(self):
         mock_file = mock.MagicMock()
 
         mock_file.__getitem__.return_value.getAxisIndex.return_value = -1
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         with self.assertRaises(WPSError):
             partitions = [chunk for chunk in ds.partitions('time')]
@@ -75,7 +73,7 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal_axis = mock.MagicMock()
 
@@ -94,6 +92,8 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value.getAxisIndex.return_value = 0
 
         mock_axis = mock.MagicMock()
@@ -102,18 +102,14 @@ class DataSetTestCase(test.TestCase):
 
         mock_file.__getitem__.return_value.getAxis.return_value = mock_axis
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal = slice(100, 200)
 
         ds.spatial = {}
 
-        n = math.ceil((ds.temporal.stop-ds.temporal.start)/settings.PARITION_SIZE)+1
-
-        expected = [
-            (round((i+1.0)*100.0/n, 2), slice(x, x+settings.PARTITION_SIZE), {}) 
-            for i, x in enumerate(xrange(100, 200, settings.PARTITION_SIZE))
-        ]
+        expected = [(slice(x, x+settings.PARTITION_SIZE), {}) 
+                    for x in xrange(100, 200, settings.PARTITION_SIZE)]
 
         partitions = [chunk for chunk in ds.partitions('time')]
 
@@ -124,7 +120,7 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal_axis = mock.MagicMock()
 
@@ -136,10 +132,8 @@ class DataSetTestCase(test.TestCase):
 
         n = math.ceil((ds.temporal.stop-ds.temporal.start)/settings.PARITION_SIZE)+1
 
-        expected = [
-            (round((i+1.0)*100.0/n, 2), slice(x, x+settings.PARTITION_SIZE), {}) 
-            for i, x in enumerate(xrange(100, 200, settings.PARTITION_SIZE))
-        ]
+        expected = [(slice(x, x+settings.PARTITION_SIZE), {}) 
+                    for i, x in enumerate(xrange(100, 200, settings.PARTITION_SIZE))]
 
         partitions = [chunk for chunk in ds.partitions('time')]
 
@@ -167,9 +161,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value = variable
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal = (100, 200)
 
@@ -207,9 +203,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value = variable
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal = (100, 200)
 
@@ -245,9 +243,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value = variable
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal = slice(100, 200)
 
@@ -285,9 +285,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value = variable
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         with self.assertNumQueries(3):
             ds.check_cache()
@@ -316,9 +318,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value = variable
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal = (100, 200)
 
@@ -355,9 +359,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value = variable
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal = (100, 200)
 
@@ -379,7 +385,7 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.check_cache()
 
@@ -391,7 +397,7 @@ class DataSetTestCase(test.TestCase):
     def test_check_cache_missing_temporal(self, mock_open):
         mock_file = mock.MagicMock()
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.spatial = {
             'lat': slice(0, 90),
@@ -413,7 +419,7 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
-        ds = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         ds.temporal = slice(100, 201)
 
@@ -432,7 +438,7 @@ class DataSetTestCase(test.TestCase):
                          '{"variable": "tas", "temporal": {"slice": "100:201:None"}, "spatial": {"lat": {"slice": "0:90:None"}, "lon": {"slice": "0:180:None"}}}')
 
     def test_dimension_to_cdms2_selector_indices(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
+        ds = file_manager.DataSet(mock.MagicMock(), cwt.Variable('file:///test.nc', 'tas'))
 
         dim = cwt.Dimension('lat', 100, 200, cwt.INDICES)
 
@@ -443,7 +449,7 @@ class DataSetTestCase(test.TestCase):
         self.assertEqual(dim.end, 20)
 
     def test_dimension_to_cdms2_selector_spatial(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
+        ds = file_manager.DataSet(mock.MagicMock(), cwt.Variable('file:///test.nc', 'tas'))
 
         dim = cwt.Dimension('lat', 100, 200)
 
@@ -452,7 +458,7 @@ class DataSetTestCase(test.TestCase):
         self.assertEqual(selector, (100, 200))
 
     def test_dimension_to_cdms2_selector_unknown_crs(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
+        ds = file_manager.DataSet(mock.MagicMock(), cwt.Variable('file:///test.nc', 'tas'))
 
         dim = cwt.Dimension('time', 100, 200, crs=cwt.CRS('test'))
 
@@ -460,7 +466,7 @@ class DataSetTestCase(test.TestCase):
             selector = ds.dimension_to_cdms2_selector(dim, self.time, self.time.units)
 
     def test_dimension_to_cdms2_selector(self):
-        ds = file_manager.DataSet(mock.MagicMock(), '', '')
+        ds = file_manager.DataSet(mock.MagicMock(), cwt.Variable('file:///test.nc', 'tas'))
 
         dim = cwt.Dimension('time', 100, 200)
 
@@ -473,9 +479,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value = variable
 
-        ds = file_manager.DataSet(mock_file, 'file:///test1.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         domain = cwt.Domain([
             cwt.Dimension('time', '100', '200'),
@@ -492,9 +500,11 @@ class DataSetTestCase(test.TestCase):
 
         mock_file = mock.MagicMock()
 
+        mock_file.variables = {'tas': True}
+
         mock_file.__getitem__.return_value = variable
 
-        ds = file_manager.DataSet(mock_file, 'file:///test1.nc', 'tas')
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         domain = cwt.Domain([
             cwt.Dimension('time', 100, 200),
@@ -508,23 +518,27 @@ class DataSetTestCase(test.TestCase):
         self.assertEqual(ds.spatial, {'lat': (0, 90), 'lon': (0, 180)})
 
     def test_get_time_error(self):
-        mock_file_obj = mock.MagicMock()
+        mock_file = mock.MagicMock()
 
-        mock_file_obj.__getitem__.return_value.getTime.side_effect = cdms2.CDMSError('some error text')
+        mock_file.variables = {'tas': True}
 
-        ds = file_manager.DataSet(mock_file_obj, 'file:///test.nc', 'tas')
+        mock_file.__getitem__.return_value.getTime.side_effect = cdms2.CDMSError('some error text')
+
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         with self.assertRaises(tasks.AccessError):
             time = ds.get_time()
 
     def test_get_time(self):
-        mock_file_obj = mock.MagicMock()
+        mock_file = mock.MagicMock()
 
-        ds = file_manager.DataSet(mock_file_obj, 'file:///test.nc', 'tas')
+        mock_file.variables = {'tas': True}
+
+        ds = file_manager.DataSet(mock_file, cwt.Variable('file:///test.nc', 'tas'))
 
         time = ds.get_time()
 
-        mock_file_obj.__getitem__.return_value.getTime.assert_called_once()
+        mock_file.__getitem__.return_value.getTime.assert_called_once()
 
 class FileManagerTestCase(test.TestCase):
 
@@ -536,67 +550,31 @@ class FileManagerTestCase(test.TestCase):
 
         cls.variable = helpers.generate_variable([time, helpers.latitude, helpers.longitude], 'tas')
 
-    def test_partitions(self):
+    def test_limit_subset(self):
         fm = file_manager.FileManager([])
 
-        mock_file = mock.MagicMock()
-
-        mock_file.__getitem__.return_value = self.variable
-
-        dataset = file_manager.DataSet(mock_file, 'file:///test.nc', 'tas')
-
-        fm.datasets = [dataset]
-
-        n = math.ceil(365/settings.PARTITION_SIZE)+1
-
-        expected = [((round((i+1.0)*100.0/n, 2), slice(x, min(365, x+settings.PARTITION_SIZE)), {}),)
-                    for i, x in enumerate(xrange(0, 365, settings.PARTITION_SIZE))]
-        
-        result = [x for x in fm.partitions('time')]
-
-        self.assertEqual(expected, result)
-
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_sorted_limit(self, mock_open):
-        filenames = ['file:///test1.nc', 'file:///test2.nc', 'file:///test3.nc']
-
-        variables = [
-            cwt.Variable(filenames[0], 'tas'),
-            cwt.Variable(filenames[1], 'tas'),
-            cwt.Variable(filenames[2], 'tas'),
+        fm.datasets = [
+            mock.MagicMock(),
+            mock.MagicMock(),
+            mock.MagicMock(),
         ]
 
-        mock_open.return_value.__getitem__.return_value.getTime.side_effect = [
-            mock.MagicMock(units='days since 1990'),
-            mock.MagicMock(units='days since 1980'),
-            mock.MagicMock(units='days since 2000'),
+        result = [x for x in fm.limit(1)]
+
+        self.assertEqual(len(result), 1)
+
+    def test_limit(self):
+        fm = file_manager.FileManager([])
+
+        fm.datasets = [
+            mock.MagicMock(),
+            mock.MagicMock(),
+            mock.MagicMock(),
         ]
 
-        with file_manager.FileManager(variables) as fm:
-            values = [x[1].url for x in fm.sorted(1)]
+        result = [x for x in fm.limit(None)]
 
-            self.assertEqual(values, [filenames[1]])
-
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_sorted(self, mock_open):
-        filenames = ['file:///test1.nc', 'file:///test2.nc', 'file:///test3.nc']
-
-        variables = [
-            cwt.Variable(filenames[0], 'tas'),
-            cwt.Variable(filenames[1], 'tas'),
-            cwt.Variable(filenames[2], 'tas'),
-        ]
-
-        mock_open.return_value.__getitem__.return_value.getTime.side_effect = [
-            mock.MagicMock(units='days since 1990'),
-            mock.MagicMock(units='days since 1980'),
-            mock.MagicMock(units='days since 2000'),
-        ]
-
-        with file_manager.FileManager(variables) as fm:
-            values = [x[1].url for x in fm.sorted()]
-
-            self.assertEqual(values, [filenames[1], filenames[0], filenames[2]])
+        self.assertEqual(len(result), 3)
 
     @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_context_manager_error_opening(self, mock_open):
@@ -618,9 +596,6 @@ class FileManagerTestCase(test.TestCase):
             with file_manager.FileManager(variables) as fm:
                 pass
 
-        mock_file.close.assert_called()
-        self.assertEqual(mock_file.close.call_count, 1)
-
     @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_context_manager(self, mock_open):
         variables = [
@@ -630,7 +605,7 @@ class FileManagerTestCase(test.TestCase):
         ]
 
         with file_manager.FileManager(variables) as fm:
-            pass
+            self.assertEqual(len(fm.datasets), 1)
 
         mock_open.assert_called()
         self.assertEqual(mock_open.call_count, 3)

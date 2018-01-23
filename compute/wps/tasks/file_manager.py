@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import cdms2
+import contextlib
 import cwt
 import hashlib
 import json
@@ -13,22 +14,29 @@ from wps.tasks import base
 
 __ALL__ = [
     'DataSet',
+    'DataSetCollection',
     'FileManager',
 ]
 
 logger = get_task_logger('wps.tasks.file_manager')
 
+class DomainMappingError(base.WPSError):
+    def __init__(self):
+        super(DomainMappingError, self).__init__('Error mapping domain')
+
 class DataSet(object):
-    def __init__(self, file_obj, url, variable_name):
-        self.file_obj = file_obj
+    def __init__(self, variable):
+        self.file_obj = None
 
         self.cache_obj = None
 
         self.cache = None
 
-        self.url = url
+        self.url = variable.uri
 
-        self.variable_name = variable_name
+        self.variable_name = variable.var_name
+
+        self.variable = None
 
         self.temporal_axis = None
 
@@ -38,12 +46,24 @@ class DataSet(object):
 
         self.spatial = {}
 
-    @property
-    def shape(self):
-        if self.file_obj is not None:
-            return self.file_obj[self.variable_name].shape
+        self.n = 0
 
-        return None
+    def __eq__(self, other):
+        if not isinstance(other, DataSet):
+            return False
+
+        return self.variable_name == other.variable_name
+
+    def __del__(self):
+        self.close()
+
+    def __repr__(self):
+        return 'DataSet(url={url}, variable_name={variable_name}, temporal_roi={temporal}, spatial_roi={spatial})'.format(
+                url=self.url,
+                variable_name=self.variable_name,
+                temporal=self.temporal,
+                spatial=self.spatial
+            )
 
     def partitions(self, axis_name):
         axis = None
@@ -54,12 +74,12 @@ class DataSet(object):
         elif (axis_name in self.spatial_axis):
             axis = self.spatial_axis[axis_name]
         else:
-            axis_index = self.file_obj[self.variable_name].getAxisIndex(axis_name)
+            axis_index = self.get_variable().getAxisIndex(axis_name)
 
             if axis_index == -1:
                 raise base.WPSError('Could not find axis "{name}"', name=axis_name)
 
-            axis = self.file_obj[self.variable_name].getAxis(axis_index)
+            axis = self.get_variable().getAxis(axis_index)
 
         if axis.isTime():
             if self.temporal is None:
@@ -75,12 +95,19 @@ class DataSet(object):
 
             step = min(diff, settings.PARTITION_SIZE)
 
-            n = math.ceil((stop-start)/step) + 1
+            self.n = math.ceil((stop-start)/step)+1
 
-            for i, begin in enumerate(xrange(start, stop, step)):
+            for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
 
-                yield round((i+1.0)*100.0/n, 2), slice(begin, end), self.spatial
+                data = self.get_variable()(time=slice(begin, end), **self.spatial)
+
+                if self.cache_obj is not None:
+                    self.cache_obj.write(data, id=self.variable_name)
+
+                    self.cache_obj.sync()
+
+                yield data
         else:
             start = 0
 
@@ -90,13 +117,19 @@ class DataSet(object):
 
             step = min(diff, settings.PARTITION_SIZE)
 
-            n = math.ceil((stop-start)/step) + 1
+            self.n = math.ceil((stop-start)/step) + 1
 
-            for i, begin in enumerate(xrange(start, stop, step)):
+            for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
 
-                yield round((i+1.0)*100.0/n, 2), None, {axis_name: slice(begin, end)}
-            #raise base.WPSError('Partitioning along a spatial axis is unsupported')
+                data = self.get_variable()(**{axis_name: slice(begin, end)})
+
+                if self.cache_obj is not None:
+                    self.cache_obj.write(data, id=self.variable_name)
+
+                    self.cache_obj.sync()
+
+                yield data
 
     def check_cache(self):
         uid = '{}:{}'.format(self.url, self.variable_name)
@@ -200,11 +233,7 @@ class DataSet(object):
                 try:
                     start, end = axis_clone.mapInterval((start, end))
                 except TypeError:
-                    logger.exception('Error mapping dimension "{}"'.format(dimension.name))
-
-                    selector = None
-
-                    pass
+                    raise DomainMappingError()
                 else:
                     selector = slice(start, end)
             else:
@@ -225,7 +254,7 @@ class DataSet(object):
     def map_domain(self, domain, base_units):
         logger.info('Mapping domain "{}"'.format(domain))
 
-        variable = self.file_obj[self.variable_name]
+        variable = self.get_variable()
 
         if domain is None:
             if variables.getTime() == None:
@@ -261,7 +290,7 @@ class DataSet(object):
     def get_time(self):
         if self.temporal_axis is None:
             try:
-                self.temporal_axis = self.file_obj[self.variable_name].getTime()
+                self.temporal_axis = self.get_variable().getTime()
             except cdms2.CDMSError as e:
                 raise base.AccessError(self.url, e.message)
 
@@ -269,114 +298,179 @@ class DataSet(object):
 
     def get_axis(self, name):
         if name not in self.spatial_axis:
-            axis_index = self.file_obj[self.variable_name].getAxisIndex(name)
+            axis_index = self.get_variable().getAxisIndex(name)
 
             if axis_index == -1:
                 raise base.WPSError('Axis "{name}" does not exist', name=name)
 
-            self.spatial_axis[name] = self.file_obj[self.variable_name].getAxis(axis_index)
+            self.spatial_axis[name] = self.get_variable().getAxis(axis_index)
 
         return self.spatial_axis[name]
 
+    def get_variable(self):
+        if self.variable is None:
+            if self.variable_name not in self.file_obj.variables:
+                raise base.WPSError('File "{url}" does not contain variable "{var_name}"', url=self.file_obj.id, var_name=self.variable_name)
+
+            self.variable = self.file_obj[self.variable_name]
+
+        return self.variable
+
+    def open(self):
+        try:
+            self.file_obj = cdms2.open(self.url)
+        except cdms2.CDMSError as e:
+            raise base.AccessError(self.url, e)
+
     def close(self):
+        if self.variable is not None:
+            del self.variable
+
+            self.variable = None
+
         if self.temporal_axis is not None:
+            del self.temporal_axis
+
             self.temporal_axis = None
 
-        self.spatial_axis = {}
+        if len(self.spatial_axis) > 0:
+            for name in self.spatial_axis.keys():
+                del self.spatial_axis[name]
+
+            self.spatial_axis = {}
+
+        if self.cache_obj is not None:
+            self.cache_obj.close()
+
+            self.cache_obj = None
         
         if self.file_obj is not None:
             self.file_obj.close()
 
             self.file_obj = None
 
-    def __eq__(self, other):
-        if not isinstance(other, DataSet):
-            return False
-
-        return self.variable_name == other.variable_name
+class DataSetCollection(object):
+    def __init__(self):
+        self.datasets = []
 
     def __enter__(self):
+        for ds in self.datasets:
+            ds.open()
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        for ds in self.datasets:
+            ds.close()
 
-    def __del__(self):
-        self.close()
+    def add(self, variable):
+        self.datasets.append(DataSet(variable))
 
-    def __repr__(self):
-        return 'DataSet(url={url}, variable_name={variable_name}, temporal_roi={temporal}, spatial_roi={spatial})'.format(
-                url=self.url,
-                variable_name=self.variable_name,
-                temporal=self.temporal,
-                spatial=self.spatial
-            )
+    def get_base_units(self):
+        return self.datasets[0].get_time().units
+
+    def partitions(self, domain, axis=None):
+        logger.info('Sorting datasets')
+
+        self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
+
+        base_units = self.datasets[0].get_time().units
+
+        if axis is None:
+            axis = self.datasets[0].get_time().id
+
+        logger.info('Generating paritions over axis "{}"'.format(axis))
+
+        for ds in self.datasets:
+            try:
+                ds.map_domain(domain, base_units)
+            except DomainMappingError:
+                logger.info('Skipping "{}"'.format(ds.url))
+
+                continue
+
+            ds.check_cache()
+
+            for chunk in ds.partitions(axis):
+                yield ds.url, chunk
 
 class FileManager(object):
     def __init__(self, variables):
         self.variables = variables
 
-        self.datasets = []
+        self.collections = []
 
     def __enter__(self):
-        try:
-            for var in self.variables:
-                file_obj = cdms2.open(var.uri)
+        collection = None
+        common = 0
+        last = 0
 
-                self.datasets.append(DataSet(file_obj, var.uri, var.var_name))
-        except cdms2.CDMSError as e:
-            self.close()
+        logger.info('Grouping variables into collections')
 
-            raise base.AccessError(var.uri, e.message)
+        for x in xrange(len(self.variables)):
+            curr = self.variables[x].uri
+
+            prev = self.variables[x-1].uri
+
+            n = min(len(curr), len(prev))
+
+            for y in xrange(n):
+                if curr[y] != prev[y]:
+                    common = y
+
+                    break
+
+            try:
+                if common == last:
+                   collection.add(self.variables[x]) 
+                else:
+                    if collection is not None:
+                        self.collections.append(collection)
+
+                    collection = DataSetCollection()
+
+                    collection.add(self.variables[x])
+
+                    last = common
+
+            except base.AccessError:
+                self.close()
+
+                raise
+
+        self.collections.append(collection)
+
+        logger.info('Grouped into "{}" collections'.format(len(self.collections)))
 
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        pass
 
-    def sorted(self, limit=None):
-        self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
+    def get_variable_name(self):
+        return self.collections[0].datasets[0].variable_name
 
+    def partitions(self, domain, axis=None, limit=None):
         if limit is not None:
-            for x in xrange(limit, len(self.datasets)):
-                self.datasets[x].close()
+            for x in xrange(limit, len(self.collections)):
+                self.collections[x].close()
 
-            self.datasets = self.datasets[:limit]
+            self.collections = self.collections[:limit]
 
-        n = len(self.datasets)
+        collection = self.collections[0]
 
-        for i, ds in enumerate(self.datasets):
-            yield round((i+1.0)*100.0/n, 2), ds
+        with contextlib.nested(*[x for x in self.collections]):
+            if axis is None:
+                axis_data = collection.datasets[0].get_time()
+            else:
+                axis_data = collection.datasets[0].get_axis(axis)
 
-    def partitions(self, axis, limit=None):
-        if limit is not None:
-            for x in xrange(limit, len(self.datasets)):
-                self.datasets[x].close()
+            if axis_data.isTime():
+                axis_index = collection.datasets[0].get_variable().getAxisIndex(axis_data.id)
 
-            self.datasets = self.datasets[:limit]
+                axis_partition = collection.datasets[0].get_variable().getAxis(axis_index+1).id
+            else:
+                axis_partition = collection.datasets[0].get_time().id
 
-        dataset = self.datasets[0]
-
-        axis_index = dataset.file_obj[dataset.variable_name].getAxisIndex(axis)
-
-        if axis_index == -1:
-            raise base.WPSError('Error generating partitions, could not find axis')
-
-        axis_data = dataset.file_obj[dataset.variable_name].getAxis(axis_index)
-
-        if axis_data.isTime():
-            axis_partition = dataset.file_obj[dataset.variable_name].getAxis(axis_index+1).id
-        else:
-            axis_partition = dataset.get_time().id
-
-        for chunk in zip(*[x.partitions(axis_partition) for x in self.datasets]):
-            yield chunk
-
-    def close(self):
-        for ds in self.datasets:
-            ds.close()
-
-        self.datasets = []
-
-    def __del__(self):
-        self.close()
+            for chunk in zip(*[x.partitions(axis_partition, domain) for x in self.collections]):
+                yield chunk

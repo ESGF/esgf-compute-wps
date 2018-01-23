@@ -12,6 +12,7 @@ from wps import settings
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import credentials
+from wps.tasks import file_manager
 
 logger = get_task_logger('wps.tasks.process')
 
@@ -72,69 +73,51 @@ class Process(object):
 
         return grid
 
-    def retrieve(self, fm, operation, num_inputs, output_file):
+    def retrieve(self, operation, num_inputs, output_file):
         gridder = operation.get_parameter('gridder')
 
         if gridder is not None:
             grid = self.generate_grid(gridder)
 
+            logger.info('Regridding to new grid "{}"'.format(grid.shape))
+
         start = datetime.datetime.now()
 
-        base_units = None
+        with file_manager.FileManager(operation.inputs) as fm:
+            var_name = fm.get_variable_name() 
 
-        matched = reduce(lambda x, y: x if x == y else None, fm.datasets)
+            self.log('Retrieving variable "{}"', var_name)
 
-        if matched is None:
-            raise WPSError('Error variable name is not the same throughout all files')
+            with fm.collections[0] as collection:
+                base_units = collection.get_base_units()
 
-        for percent, dataset in fm.sorted(num_inputs):
-            if base_units is None:
-                base_units = dataset.get_time().units
+                last_url = None
 
-            with dataset:
-                self.log('Retrieving input "{}" with shape "{}"', dataset.url, dataset.shape, percent=percent)
+                for i, meta in enumerate(collection.partitions(operation.domain)):
+                    url, chunk = meta
 
-                self.log('Mapping domain to file', percent=percent)
+                    if last_url != url:
+                        self.log('Starting to retrieve "{}"'.format(url))
 
-                dataset.map_domain(operation.domain, base_units)
+                        last_url = url
 
-                logger.info(dataset.temporal)
+                    self.log('Retrieved chunk shape {}'.format(chunk.shape))
 
-                if dataset.temporal is None:
-                    self.log('Skipping "{}"'.format(dataset.url), percent=percent)
-
-                    continue
-
-                self.log('Checking cache for file', percent=percent)
-
-                dataset.check_cache()
-
-                for data_percent, temporal, spatial in dataset.partitions('time'):
-                    data = dataset.file_obj(dataset.variable_name, time=temporal, **spatial)
-
-                    self.log('Retrieved slice {} with shape {} {}%', temporal, data.shape, data_percent, percent=percent)
-
-                    if dataset.cache_obj is not None:
-                        dataset.cache_obj.write(data, id=dataset.variable_name)
-
-                        dataset.cache_obj.sync()
-
-                    data.getTime().toRelativeTime(base_units)
+                    chunk.getTime().toRelativeTime(base_units)
 
                     if gridder is not None:
-                        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+                        chunk = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
-                    output_file.write(data, id=matched.variable_name)
+                    output_file.write(chunk, id=var_name)
 
-                self.log('Finished retrieving file "{}"', dataset.url, percent=percent)
 
         stop = datetime.datetime.now()
 
-        final_shape = output_file[matched.variable_name].shape
+        final_shape = output_file[var_name].shape
 
         self.log('Finish retrieving all files, final shape "{}", elapsed time {}', final_shape, stop-start, percent=100)
 
-        return matched.variable_name
+        return var_name
 
     def process(self, fm, operation, num_inputs, output_file, process):
         gridder = operation.get_parameter('gridder')
