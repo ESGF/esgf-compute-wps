@@ -155,11 +155,13 @@ def process_base(self, process_func, num_inputs, parent_variables, variables, do
     output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
 
     try:
-        with file_manager.FileManager(o.inputs) as fm, cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.process(fm, o, num_inputs, output_file, process_func)
+        with cdms2.open(output_path, 'w') as output_file:
+            output_var_name = proc.process(o, num_inputs, output_file, process_func)
     except cdms2.CDMSError as e:
+        logger.exception('CDMS ERROR')
         raise base.AccessError(output_path, e)
     except WPSError:
+        logger.exception('WPS ERROR')
         raise
 
     if settings.DAP:

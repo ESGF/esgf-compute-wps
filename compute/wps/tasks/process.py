@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import cdms2
+import contextlib
 import cwt
 import datetime
 import math
@@ -93,13 +94,13 @@ class Process(object):
 
                 last_url = None
 
-                for i, meta in enumerate(collection.partitions(operation.domain)):
-                    url, chunk = meta
+                for meta in collection.partitions(operation.domain):
+                    ds, chunk = meta
 
-                    if last_url != url:
-                        self.log('Starting to retrieve "{}"'.format(url))
+                    if last_url != ds.url:
+                        self.log('Starting to retrieve "{}"'.format(ds.url))
 
-                        last_url = url
+                        last_url = ds.url
 
                     self.log('Retrieved chunk shape {}'.format(chunk.shape))
 
@@ -119,7 +120,7 @@ class Process(object):
 
         return var_name
 
-    def process(self, fm, operation, num_inputs, output_file, process):
+    def process(self, operation, num_inputs, output_file, process):
         gridder = operation.get_parameter('gridder')
 
         if gridder is not None:
@@ -127,73 +128,55 @@ class Process(object):
 
         start = datetime.datetime.now()
 
-        matched = reduce(lambda x, y: x if x == y else None, fm.datasets)
-
-        if matched is None:
-            raise WPSError('Error variable name is not the same throughout all files')
-
         axes = operation.get_parameter('axes', True)
 
         if axes is None:
             raise base.WPSError('Missing required parameter axes')
 
-        self.log('Checking cache for inputs files')
-
-        over_temporal = fm.datasets[0].get_time().id == axes.values[0]
-
-        if not over_temporal:
-            for dataset in fm.datasets:
-                dataset.check_cache()
-
         self.log('Starting to process inputs')
 
         result_list = []
 
-        for partitions in fm.partitions(axes.values[0], num_inputs):
-            data_list = []
+        with file_manager.FileManager(operation.inputs) as fm:
+            output_list = []
 
-            logger.info('Processing partitions "{}"'.format(partitions))
+            var_name = fm.get_variable_name()
 
-            for dataset, dataset_partition in zip(fm.datasets, partitions):
-                _, temporal, spatial = dataset_partition
+            with contextlib.nested(*[x for x in fm.collections]):
+                over_temporal = fm.collections[0].datasets[0].get_time().id == axes.values[0]
 
-                self.log('Retrieving partition "{}" "{}" for dataset "{}"', temporal, spatial, dataset.url)
+                for meta in fm.partitions(operation.domain, axes.values[0], num_inputs):
+                    data_list = []
+                    axis_index = None
 
-                axis_index = dataset.file_obj[dataset.variable_name].getAxisIndex(axes.values[0])
+                    for item in meta:
+                        ds, chunk = item
 
-                logger.info('Processing over axis index {}'.format(axis_index))
+                        if axis_index is None:
+                            axis_index = ds.get_variable().getAxisIndex(axes.values[0])
 
-                data = dataset.file_obj(dataset.variable_name, time=temporal, **spatial)
+                        if gridder is not None:
+                            chunk = chunk.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
-                if dataset.cache_obj is not None:
-                    logger.info('Writing cache file "{}"'.format(dataset.cache_obj.id))
+                        data_list.append(chunk)
 
-                    dataset.cache_obj.write(data, id=dataset.variable_name)
+                    result_data = process(*data_list, axis=axis_index)
 
-                    dataset.cache_obj.sync()
+                    logger.info(result_data.shape)
 
-                if gridder is not None:
-                    logger.info('Regrid before shape "{}"'.format(data.shape))
+                    if over_temporal:
+                        result_list.append(result_data)
+                    else:
+                        output_file.write(result_data, id=var_name)
 
-                    data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+                        output_file.sync()
 
-                    logger.info('Regrid aftter shape "{}"'.format(data.shape))
-
-                data_list.append(data)
-
-            result_data = process(*data_list, axis=axis_index)
-
-            if over_temporal:
-                result_list.append(result_data)
-            else:
-                output_file.write(result_data, id=matched.variable_name)
-
-        if over_temporal:
-            output_file.write(MV.concatenate(result_list), id=matched.variable_name)
+                if over_temporal:
+                    output_file.write(MV.concatenate(result_list), id=var_name)
 
         stop = datetime.datetime.now()
 
-        final_shape = output_file[matched.variable_name].shape
+        final_shape = output_file[var_name].shape
 
         self.log('Finish retrieving all files, final shape "{}", elapsed time {}', final_shape, stop-start, percent=100)
 

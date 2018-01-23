@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 import cdms2
-import contextlib
 import cwt
 import hashlib
 import json
@@ -379,6 +378,8 @@ class DataSetCollection(object):
         if axis is None:
             axis = self.datasets[0].get_time().id
 
+        skip_cache = self.datasets[0].get_time().id == axis
+
         logger.info('Generating paritions over axis "{}"'.format(axis))
 
         for ds in self.datasets:
@@ -389,10 +390,13 @@ class DataSetCollection(object):
 
                 continue
 
-            ds.check_cache()
+            if not skip_cache:
+                logger.info('Skipping cache')
+
+                ds.check_cache()
 
             for chunk in ds.partitions(axis):
-                yield ds.url, chunk
+                yield ds, chunk
 
 class FileManager(object):
     def __init__(self, variables):
@@ -459,18 +463,25 @@ class FileManager(object):
 
         collection = self.collections[0]
 
-        with contextlib.nested(*[x for x in self.collections]):
-            if axis is None:
-                axis_data = collection.datasets[0].get_time()
-            else:
-                axis_data = collection.datasets[0].get_axis(axis)
+        if axis is None:
+            axis_data = collection.datasets[0].get_time()
+        else:
+            axis_data = collection.datasets[0].get_axis(axis)
 
-            if axis_data.isTime():
-                axis_index = collection.datasets[0].get_variable().getAxisIndex(axis_data.id)
+        if axis_data.isTime():
+            axis_index = collection.datasets[0].get_variable().getAxisIndex(axis_data.id)
 
-                axis_partition = collection.datasets[0].get_variable().getAxis(axis_index+1).id
-            else:
-                axis_partition = collection.datasets[0].get_time().id
+            axis_partition = collection.datasets[0].get_variable().getAxis(axis_index+1).id
+        else:
+            axis_partition = collection.datasets[0].get_time().id
 
-            for chunk in zip(*[x.partitions(axis_partition, domain) for x in self.collections]):
-                yield chunk
+        # Was using zip to but it was build entire list of values from generator
+        try:
+            gens = [x.partitions(domain, axis_partition) for x in self.collections]
+
+            while True:
+                chunks = (x.next() for x in gens)
+
+                yield chunks
+        except StopIteration:
+            pass
