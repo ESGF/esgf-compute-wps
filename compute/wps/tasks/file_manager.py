@@ -27,10 +27,6 @@ class DataSet(object):
     def __init__(self, variable):
         self.file_obj = None
 
-        self.cache_obj = None
-
-        self.cache = None
-
         self.url = variable.uri
 
         self.variable_name = variable.var_name
@@ -44,8 +40,6 @@ class DataSet(object):
         self.temporal = None
 
         self.spatial = {}
-
-        self.n = 0
 
     def __eq__(self, other):
         if not isinstance(other, DataSet):
@@ -64,21 +58,47 @@ class DataSet(object):
                 spatial=self.spatial
             )
 
-    def partitions(self, axis_name):
-        axis = None
+    def get_time(self):
+        if self.temporal_axis is None:
+            try:
+                self.temporal_axis = self.get_variable().getTime()
+            except cdms2.CDMSError as e:
+                raise base.AccessError(self.url, e.message)
 
-        if (self.temporal_axis is not None and 
-                self.temporal_axis.id == axis_name):
-            axis = self.temporal_axis
-        elif (axis_name in self.spatial_axis):
-            axis = self.spatial_axis[axis_name]
+        return self.temporal_axis
+
+    def get_axis(self, name):
+        if self.temporal_axis is not None and self.temporal_axis.id == name:
+            return self.temporal_axis
+
+        if name in self.spatial_axis:
+            return self.spatial_axis[name]
+
+        axis_index = self.get_variable().getAxisIndex(name)
+
+        if axis_index == -1:
+            raise base.WPSError('Axis "{name}" does not exist', name=name)
+
+        axis = self.get_variable().getAxis(axis_index)
+
+        if axis.isTime():
+            self.temporal_axis = axis
         else:
-            axis_index = self.get_variable().getAxisIndex(axis_name)
+            self.spatial_axis[name] = axis
 
-            if axis_index == -1:
-                raise base.WPSError('Could not find axis "{name}"', name=axis_name)
+        return axis
 
-            axis = self.get_variable().getAxis(axis_index)
+    def get_variable(self):
+        if self.variable is None:
+            if self.variable_name not in self.file_obj.variables:
+                raise base.WPSError('File "{url}" does not contain variable "{var_name}"', url=self.file_obj.id, var_name=self.variable_name)
+
+            self.variable = self.file_obj[self.variable_name]
+
+        return self.variable
+
+    def partitions(self, axis_name):
+        axis = self.get_axis(axis_name)
 
         if axis.isTime():
             if self.temporal is None:
@@ -94,17 +114,10 @@ class DataSet(object):
 
             step = min(diff, settings.PARTITION_SIZE)
 
-            self.n = math.ceil((stop-start)/step)+1
-
             for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
 
                 data = self.get_variable()(time=slice(begin, end), **self.spatial)
-
-                if self.cache_obj is not None:
-                    self.cache_obj.write(data, id=self.variable_name)
-
-                    self.cache_obj.sync()
 
                 yield data
         else:
@@ -116,109 +129,14 @@ class DataSet(object):
 
             step = min(diff, settings.PARTITION_SIZE)
 
-            self.n = math.ceil((stop-start)/step) + 1
-
             for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
 
-                data = self.get_variable()(**{axis_name: slice(begin, end)})
-
-                if self.cache_obj is not None:
-                    self.cache_obj.write(data, id=self.variable_name)
-
-                    self.cache_obj.sync()
+                data = self.get_variable()(**{axis_name: (begin, end)})
 
                 yield data
 
-    def check_cache(self):
-        uid = '{}:{}'.format(self.url, self.variable_name)
-
-        uid_hash = hashlib.sha256(uid).hexdigest()
-
-        domain = {
-            'variable': self.variable_name,
-            'temporal': None,
-            'spatial': {}
-        }
-
-        if isinstance(self.temporal, (list, tuple)):
-            indices = self.get_time().mapInterval(self.temporal)
-
-            domain['temporal'] = slice(indices[0], indices[1])
-        else:
-            domain['temporal'] = self.temporal
-
-        for name in self.spatial.keys():
-            if isinstance(self.spatial[name], (list, tuple)):
-                indices = self.get_axis(name).mapInterval(self.spatial[name])
-
-                domain['spatial'][name] = slice(indices[0], indices[1])
-            else:
-                domain['spatial'][name] = self.spatial[name]
-
-        logger.info('Checking cache for "{}" with domain "{}"'.format(uid_hash, domain))
-
-        cache_entries = models.Cache.objects.filter(uid=uid_hash)
-
-        logger.info('Found "{}" cache entries matching hash "{}"'.format(len(cache_entries), uid_hash))
-
-        for x in xrange(cache_entries.count()):
-            cache = cache_entries[x]
-
-            logger.info('Checking cache entry with dimensions "{}"'.format(cache.dimensions))
-            
-            if not cache.valid:
-                logger.info('Cache entry hash "{}" with dimensions "{}" invalid'.format(cache.uid, cache.dimensions))
-
-                cache.delete()
-                
-                continue
-
-            if cache.is_superset(domain):
-                logger.info('Cache entry is a superset of the requested domain')
-
-                self.cache = cache
-
-                break
-
-        if self.cache is None:
-            logger.info('Creating cache file for "{}"'.format(self.url))
-
-            dimensions = json.dumps(domain, default=models.slice_default)
-
-            self.cache = models.Cache.objects.create(uid=uid_hash, url=self.url, dimensions=dimensions)
-
-            try:
-                self.cache_obj = cdms2.open(self.cache.local_path, 'w')
-            except cdms2.CDMSError as e:
-                logger.exception('Error creating cache file "{}": {}'.format(self.cache.local_path, e.message))
-
-                self.cache.delete()
-
-                self.cache = None
-
-                pass
-        else:
-            logger.info('Using cache file "{}" as input'.format(self.cache.local_path))
-
-            try:
-                cache_obj = cdms2.open(self.cache.local_path)
-            except cdms2.CDMSError as e:
-                logger.exception('Error opening cached file "{}": {}'.format(self.cache.local_path, e.message))
-
-                self.cache.delete()
-
-                self.cache = None
-                
-                pass
-            else:
-                self.close()
-
-                self.file_obj = cache_obj
-
-                logger.info('Swapped source for cached file')
-
-    def dimension_to_cdms2_selector(self, dimension, axis, base_units=None):
+    def dimension_to_selector(self, dimension, axis, base_units=None):
         if dimension.crs == cwt.VALUES:
             start = dimension.start
 
@@ -256,7 +174,7 @@ class DataSet(object):
         variable = self.get_variable()
 
         if domain is None:
-            if variables.getTime() == None:
+            if variable.getTime() == None:
                 self.temporal = None
             else:
                 self.temporal = slice(0, variable.getTime().shape[0])
@@ -278,42 +196,13 @@ class DataSet(object):
                 axis = variable.getAxis(axis_index)
 
                 if axis.isTime():
-                    self.temporal = self.dimension_to_cdms2_selector(dim, axis, base_units)
+                    self.temporal = self.dimension_to_selector(dim, axis, base_units)
 
                     logger.info('Mapped temporal domain to "{}"'.format(self.temporal))
                 else:
-                    self.spatial[dim.name] = self.dimension_to_cdms2_selector(dim, axis)
+                    self.spatial[dim.name] = self.dimension_to_selector(dim, axis)
 
                     logger.info('Mapped spatial "{}" to "{}"'.format(dim.name, self.spatial[dim.name]))
-
-    def get_time(self):
-        if self.temporal_axis is None:
-            try:
-                self.temporal_axis = self.get_variable().getTime()
-            except cdms2.CDMSError as e:
-                raise base.AccessError(self.url, e.message)
-
-        return self.temporal_axis
-
-    def get_axis(self, name):
-        if name not in self.spatial_axis:
-            axis_index = self.get_variable().getAxisIndex(name)
-
-            if axis_index == -1:
-                raise base.WPSError('Axis "{name}" does not exist', name=name)
-
-            self.spatial_axis[name] = self.get_variable().getAxis(axis_index)
-
-        return self.spatial_axis[name]
-
-    def get_variable(self):
-        if self.variable is None:
-            if self.variable_name not in self.file_obj.variables:
-                raise base.WPSError('File "{url}" does not contain variable "{var_name}"', url=self.file_obj.id, var_name=self.variable_name)
-
-            self.variable = self.file_obj[self.variable_name]
-
-        return self.variable
 
     def open(self):
         try:
@@ -337,11 +226,6 @@ class DataSet(object):
                 del self.spatial_axis[name]
 
             self.spatial_axis = {}
-
-        if self.cache_obj is not None:
-            self.cache_obj.close()
-
-            self.cache_obj = None
         
         if self.file_obj is not None:
             self.file_obj.close()
@@ -368,7 +252,97 @@ class DataSetCollection(object):
     def get_base_units(self):
         return self.datasets[0].get_time().units
 
-    def partitions(self, domain, axis=None):
+    def generate_dataset_domain(self, dataset):
+        domain = {
+            'variable': dataset.variable_name,
+            'temporal': None,
+            'spatial': {}
+        }
+
+        if isinstance(dataset.temporal, (list, tuple)):
+            indices = dataset.get_time().mapInterval(self.temporal)
+
+            domain['temporal'] = slice(indices[0], indices[1])
+        else:
+            domain['temporal'] = self.temporal
+
+        for name in dataset.spatial.keys():
+            spatial = dataset.spatial[name]
+
+            if isinstance(spatial, (list, tuple)):
+                indices = dataset.get_axis(name).mapInterval(spatial)
+
+                domain['spatial'][name] = slice(indices[0], indices[1])
+            else:
+                domain['spatial'][name] = spatial
+
+        return domain
+
+    def get_cache_entry(self, uid_hash, domain):
+        cache_entries = models.Cache.objects.filter(uid=uid_hash)
+
+        logger.info('Found "{}" cache entries matching hash "{}"'.format(len(cache_entries), uid_hash))
+
+        for x in xrange(cache_entries.count()):
+            entry = cache_entries[x]
+
+            logger.info('Checking cache entry with dimensions "{}"'.format(entry.dimensions))
+            
+            if not entry.valid:
+                logger.info('Cache entry hash "{}" with dimensions "{}" invalid'.format(entry.uid, entry.dimensions))
+
+                entry.delete()
+                
+                continue
+
+            if entry.is_superset(domain):
+                logger.info('Cache entry is a superset of the requested domain')
+
+                return entry
+
+        return None
+
+    def check_cache(self, dataset):
+        uid = '{}:{}'.format(dataset.url, dataset.variable_name)
+
+        uid_hash = hashlib.sha256(uid).hexdigest()
+
+        domain = self.generate_dataset_domain(dataset)
+
+        logger.info('Checking cache for "{}" with domain "{}"'.format(uid_hash, domain))
+
+        cache = self.get_cache_entry(uid_hash, domain)
+
+        if cache is None:
+            logger.info('Creating cache file for "{}"'.format(self.url))
+
+            dimensions = json.dumps(domain, default=models.slice_default)
+
+            cache = models.Cache.objects.create(uid=uid_hash, url=self.url, dimensions=dimensions)
+
+            mode = 'w'
+        else:
+            logger.info('Using cache file "{}" as input'.format(self.cache.local_path))
+
+            mode = 'r'
+
+        try:
+            cache_obj = cdms2.open(cache.local_path, mode)
+        except cdms2.CDMSError as e:
+            logger.exception('Error opening cache file "{}"'.format(self.cache.local_path))
+
+            cache.delete()
+
+        if mode == 'r':
+            dataset.close()
+
+            dataset.file_obj = cache_obj
+
+            return None
+                
+        return cache_obj
+
+    def partitions(self, domain, skip_cache, axis=None):
         logger.info('Sorting datasets')
 
         self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
@@ -378,11 +352,14 @@ class DataSetCollection(object):
         if axis is None:
             axis = self.datasets[0].get_time().id
 
-        skip_cache = self.datasets[0].get_time().id == axis
+        logger.info('Generating paritions over axis "{}" caching {}'.format(axis, not skip_cache))
 
-        logger.info('Generating paritions over axis "{}"'.format(axis))
+        base_units = None
 
         for ds in self.datasets:
+            if base_units is None:
+                base_units = ds.get_time().units
+
             try:
                 ds.map_domain(domain, base_units)
             except DomainMappingError:
@@ -390,12 +367,19 @@ class DataSetCollection(object):
 
                 continue
 
-            if not skip_cache:
-                logger.info('Skipping cache')
-
-                ds.check_cache()
+            if skip_cache:
+                cache_obj = None
+            else:
+                cache_obj = self.check_cache(ds)
 
             for chunk in ds.partitions(axis):
+                if cache_obj is not None:
+                    cache_obj.write(chunk, id=ds.variable_name)
+
+                    cache_obj.sync()
+
+                chunk.getTime().toRelativeTime(base_units)
+
                 yield ds, chunk
 
 class FileManager(object):
@@ -468,16 +452,20 @@ class FileManager(object):
         else:
             axis_data = collection.datasets[0].get_axis(axis)
 
+        skip_cache = False
+
         if axis_data.isTime():
             axis_index = collection.datasets[0].get_variable().getAxisIndex(axis_data.id)
 
             axis_partition = collection.datasets[0].get_variable().getAxis(axis_index+1).id
+
+            skip_cache = True
         else:
             axis_partition = collection.datasets[0].get_time().id
 
         # Was using zip to but it was build entire list of values from generator
         try:
-            gens = [x.partitions(domain, axis_partition) for x in self.collections]
+            gens = [x.partitions(domain, skip_cache, axis_partition) for x in self.collections]
 
             while True:
                 chunks = (x.next() for x in gens)

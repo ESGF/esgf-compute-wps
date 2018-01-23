@@ -160,16 +160,17 @@ class Process(object):
 
                         data_list.append(chunk)
 
+                    if len(data_list) == 0:
+                        break
+
                     result_data = process(*data_list, axis=axis_index)
 
-                    logger.info(result_data.shape)
+                    self.log('Process output shape {}'.format(result_data.shape))
 
                     if over_temporal:
                         result_list.append(result_data)
                     else:
                         output_file.write(result_data, id=var_name)
-
-                        output_file.sync()
 
                 if over_temporal:
                     output_file.write(MV.concatenate(result_list), id=var_name)
@@ -180,4 +181,4 @@ class Process(object):
 
         self.log('Finish retrieving all files, final shape "{}", elapsed time {}', final_shape, stop-start, percent=100)
 
-        return matched.variable_name
+        return var_name
