@@ -260,11 +260,11 @@ class DataSetCollection(object):
         }
 
         if isinstance(dataset.temporal, (list, tuple)):
-            indices = dataset.get_time().mapInterval(self.temporal)
+            indices = dataset.get_time().mapInterval(dataset.temporal)
 
             domain['temporal'] = slice(indices[0], indices[1])
         else:
-            domain['temporal'] = self.temporal
+            domain['temporal'] = dataset.temporal
 
         for name in dataset.spatial.keys():
             spatial = dataset.spatial[name]
@@ -314,24 +314,26 @@ class DataSetCollection(object):
         cache = self.get_cache_entry(uid_hash, domain)
 
         if cache is None:
-            logger.info('Creating cache file for "{}"'.format(self.url))
+            logger.info('Creating cache file for "{}"'.format(dataset.url))
 
             dimensions = json.dumps(domain, default=models.slice_default)
 
-            cache = models.Cache.objects.create(uid=uid_hash, url=self.url, dimensions=dimensions)
+            cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
 
             mode = 'w'
         else:
-            logger.info('Using cache file "{}" as input'.format(self.cache.local_path))
+            logger.info('Using cache file "{}" as input'.format(cache.local_path))
 
             mode = 'r'
 
         try:
             cache_obj = cdms2.open(cache.local_path, mode)
         except cdms2.CDMSError as e:
-            logger.exception('Error opening cache file "{}"'.format(self.cache.local_path))
+            logger.exception('Error opening cache file "{}"'.format(cache.local_path))
 
             cache.delete()
+
+            return None
 
         if mode == 'r':
             dataset.close()
@@ -340,7 +342,7 @@ class DataSetCollection(object):
 
             return None
                 
-        return cache_obj
+        return cache, cache_obj
 
     def partitions(self, domain, skip_cache, axis=None):
         logger.info('Sorting datasets')
@@ -357,6 +359,9 @@ class DataSetCollection(object):
         base_units = None
 
         for ds in self.datasets:
+            cache = None
+            cache_obj = None
+
             if base_units is None:
                 base_units = ds.get_time().units
 
@@ -367,10 +372,11 @@ class DataSetCollection(object):
 
                 continue
 
-            if skip_cache:
-                cache_obj = None
-            else:
-                cache_obj = self.check_cache(ds)
+            if not skip_cache:
+                cache_result = self.check_cache(ds)
+
+                if cache_result is not None:
+                    cache, cache_obj = cache_result
 
             for chunk in ds.partitions(axis):
                 if cache_obj is not None:
@@ -381,6 +387,9 @@ class DataSetCollection(object):
                 chunk.getTime().toRelativeTime(base_units)
 
                 yield ds, chunk
+
+            if cache is not None:
+                cache.set_size()
 
 class FileManager(object):
     def __init__(self, variables):
@@ -393,38 +402,50 @@ class FileManager(object):
         common = 0
         last = 0
 
-        logger.info('Grouping variables into collections')
+        logger.info('Grouping {} datasets'.format(len(self.variables)))
 
         for x in xrange(len(self.variables)):
             curr = self.variables[x].uri
 
+            curr_split = curr.split('/')
+
+            curr_path = '/'.join(curr_split[:len(curr_split)-1])
+
             prev = self.variables[x-1].uri
 
-            n = min(len(curr), len(prev))
+            prev_split = prev.split('/')
+
+            prev_path = '/'.join(prev_split[:len(prev_split)-1])
+
+            n = min(len(curr_path), len(prev_path))
+
+            logger.info('Comparing "{}" {} to "{}" {}, minimum length {}'.format(curr_path, len(curr_path), prev_path, len(prev_path), n))
+
+            common = 0
 
             for y in xrange(n):
-                if curr[y] != prev[y]:
-                    common = y
-
+                if curr_path[y] != prev_path[y]:
                     break
 
-            try:
-                if common == last:
-                   collection.add(self.variables[x]) 
-                else:
-                    if collection is not None:
-                        self.collections.append(collection)
+                common += 1
 
+            logger.info('Found {} characters in common, last {}'.format(common, last))
+
+            if common == n:
+                if collection is None:
                     collection = DataSetCollection()
 
-                    collection.add(self.variables[x])
+                collection.add(self.variables[x]) 
+            else:
+                if collection is not None:
+                    self.collections.append(collection)
 
-                    last = common
+                collection = DataSetCollection()
 
-            except base.AccessError:
-                self.close()
+                collection.add(self.variables[x])
 
-                raise
+                last = common
+
 
         self.collections.append(collection)
 
@@ -447,28 +468,30 @@ class FileManager(object):
 
         collection = self.collections[0]
 
+        dataset = collection[0]
+
         if axis is None:
-            axis_data = collection.datasets[0].get_time()
+            axis_data = dataset.get_time()
         else:
-            axis_data = collection.datasets[0].get_axis(axis)
+            axis_data = dataset.get_axis(axis)
 
         skip_cache = False
 
         if axis_data.isTime():
-            axis_index = collection.datasets[0].get_variable().getAxisIndex(axis_data.id)
+            axis_index = dataset.get_variable().getAxisIndex(axis_data.id)
 
-            axis_partition = collection.datasets[0].get_variable().getAxis(axis_index+1).id
+            axis_partition = dataset.get_variable().getAxis(axis_index+1).id
 
             skip_cache = True
         else:
-            axis_partition = collection.datasets[0].get_time().id
+            axis_partition = dataset.get_time().id
 
         # Was using zip to but it was build entire list of values from generator
         try:
             gens = [x.partitions(domain, skip_cache, axis_partition) for x in self.collections]
 
             while True:
-                chunks = (x.next() for x in gens)
+                chunks = [x.next() for x in gens]
 
                 yield chunks
         except StopIteration:

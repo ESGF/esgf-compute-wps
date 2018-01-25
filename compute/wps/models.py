@@ -376,6 +376,13 @@ class Cache(models.Model):
 
         self.save()
 
+    def set_size(self):
+        stat = os.stat(self.local_path)
+
+        self.size = stat.st_size / GBYTE
+
+        self.save()
+
     def estimate_size(self):
         with cdms2.open(self.url) as infile:
             var_name, dimensions = self.dimensions.split('!')
