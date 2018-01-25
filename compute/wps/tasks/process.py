@@ -94,7 +94,7 @@ class Process(object):
 
                 last_url = None
 
-                for meta in collection.partitions(operation.domain):
+                for meta in collection.partitions(operation.domain, False):
                     ds, chunk = meta
 
                     if last_url != ds.url:

@@ -468,7 +468,7 @@ class FileManager(object):
 
         collection = self.collections[0]
 
-        dataset = collection[0]
+        dataset = collection.datasets[0]
 
         if axis is None:
             axis_data = dataset.get_time()

@@ -734,9 +734,9 @@ class FileManagerTestCase(test.TestCase):
         
         mock_axis.isTime.return_value = False
 
-        dsc1.__getitem__.return_value.get_axis.return_value = mock_axis
+        dsc1.datasets.__getitem__.return_value.get_axis.return_value = mock_axis
 
-        dsc1.__getitem__.return_value.get_time.return_value.id = 'time'
+        dsc1.datasets.__getitem__.return_value.get_time.return_value.id = 'time'
 
         dsc2 = mock.MagicMock()
         dsc2.partitions.return_value = partitions()
@@ -753,8 +753,8 @@ class FileManagerTestCase(test.TestCase):
 
         dsc1.partitions.assert_called_with(domain, False, 'time')
 
-        dsc1.__getitem__.return_value.get_time.assert_called()
-        dsc1.__getitem__.return_value.get_axis.assert_called()
+        dsc1.datasets.__getitem__.return_value.get_time.assert_called()
+        dsc1.datasets.__getitem__.return_value.get_axis.assert_called()
 
         self.assertEqual(len(result), 2)
         self.assertEqual(len(result[0]), 2)
@@ -769,11 +769,11 @@ class FileManagerTestCase(test.TestCase):
         dsc1 = mock.MagicMock()
         dsc1.partitions.return_value = partitions()
 
-        dsc1.__getitem__.return_value.get_time.return_value.isTime.return_value = True
+        dsc1.datasets.__getitem__.return_value.get_time.return_value.isTime.return_value = True
 
         mock_axis = mock.MagicMock(id='lat')
 
-        dsc1.__getitem__.return_value.get_variable.return_value.getAxis.return_value = mock_axis
+        dsc1.datasets.__getitem__.return_value.get_variable.return_value.getAxis.return_value = mock_axis
 
         dsc2 = mock.MagicMock()
         dsc2.partitions.return_value = partitions()
@@ -790,8 +790,8 @@ class FileManagerTestCase(test.TestCase):
 
         dsc1.partitions.assert_called_with(domain, True, 'lat')
 
-        dsc1.__getitem__.return_value.get_time.assert_called()
-        dsc1.__getitem__.return_value.get_axis.assert_not_called()
+        dsc1.datasets.__getitem__.return_value.get_time.assert_called()
+        dsc1.datasets.__getitem__.return_value.get_axis.assert_not_called()
 
         dsc2.close.assert_called()
 
@@ -808,11 +808,11 @@ class FileManagerTestCase(test.TestCase):
         dsc1 = mock.MagicMock()
         dsc1.partitions.return_value = partitions()
 
-        dsc1.__getitem__.return_value.get_time.return_value.isTime.return_value = True
+        dsc1.datasets.__getitem__.return_value.get_time.return_value.isTime.return_value = True
 
         mock_axis = mock.MagicMock(id='lat')
 
-        dsc1.__getitem__.return_value.get_variable.return_value.getAxis.return_value = mock_axis
+        dsc1.datasets.__getitem__.return_value.get_variable.return_value.getAxis.return_value = mock_axis
 
         dsc2 = mock.MagicMock()
         dsc2.partitions.return_value = partitions()
@@ -829,8 +829,8 @@ class FileManagerTestCase(test.TestCase):
 
         dsc1.partitions.assert_called_with(domain, True, 'lat')
 
-        dsc1.__getitem__.return_value.get_time.assert_called()
-        dsc1.__getitem__.return_value.get_axis.assert_not_called()
+        dsc1.datasets.__getitem__.return_value.get_time.assert_called()
+        dsc1.datasets.__getitem__.return_value.get_axis.assert_not_called()
 
         self.assertEqual(len(result), 2)
         self.assertEqual(len(result[0]), 2)

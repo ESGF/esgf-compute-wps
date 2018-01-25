@@ -78,8 +78,8 @@ def aggregate(self, parent_variables, variables, domains, operation, user_id, jo
     output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
 
     try:
-        with file_manager.FileManager(o.inputs) as fm, cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.retrieve(fm, o, None, output_file)
+        with cdms2.open(output_path, 'w') as output_file:
+            output_var_name = proc.retrieve(o, None, output_file)
     except cdms2.CDMSError as e:
         raise base.AccessError(output_path, e.message)
     except WPSError:
@@ -110,7 +110,9 @@ string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
 def average(self, parent_variables, variables, domains, operation, user_id, job_id):
-    return process_base(self, MV.average, 1, parent_variables, variables, domains, operation, user_id, job_id)
+    _, _, operation = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.average, 1, operation, user_id, job_id)
 
 @base.register_process('CDAT.sum', abstract=""" 
 Computes the sum over an axis. Requires singular parameter named "axes" 
@@ -119,7 +121,9 @@ string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
 def sum(self, parent_variables, variables, domains, operation, user_id, job_id):
-    return process_base(self, MV.sum, 1, parent_variables, variables, domains, operation, user_id, job_id)
+    _, _, operation = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.sum, 1, operation, user_id, job_id)
 
 @base.register_process('CDAT.max', abstract=""" 
 Computes the maximum over an axis. Requires singular parameter named "axes" 
@@ -128,7 +132,9 @@ string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
 def maximum(self, parent_variables, variables, domains, operation, user_id, job_id):
-    return process_base(self, MV.max, 1, parent_variables, variables, domains, operation, user_id, job_id)
+    _, _, operation = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.max, 1, operation, user_id, job_id)
 
 @base.register_process('CDAT.min', abstract="""
 Computes the minimum over an axis. Requires singular parameter named "axes" 
@@ -136,13 +142,13 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
                        """)
 @base.cwt_shared_task()
-def minimum(self, parent_variables, varibales, domains, operations, user_id, job_id):
-    return process_base(self, MX.min, 1, parent_variables, variables, domains, operation, user_id, job_id)
+def minimum(self, parent_variables, variables, domains, operation, user_id, job_id):
+    _, _, operation = self.load(parent_variables, variables, domains, operation)
 
-def process_base(self, process_func, num_inputs, parent_variables, variables, domains, operation, user_id, job_id):
+    return process_base(self, MV.min, 1, operation, user_id, job_id)
+
+def process_base(self, process_func, num_inputs, operation, user_id, job_id):
     self.PUBLISH = base.ALL
-
-    v, d, o = self.load(parent_variables, variables, domains, operation)
 
     proc = process.Process(self.request.id)
 
@@ -156,7 +162,7 @@ def process_base(self, process_func, num_inputs, parent_variables, variables, do
 
     try:
         with cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.process(o, num_inputs, output_file, process_func)
+            output_var_name = proc.process(operation, num_inputs, output_file, process_func)
     except cdms2.CDMSError as e:
         logger.exception('CDMS ERROR')
         raise base.AccessError(output_path, e)
@@ -171,7 +177,7 @@ def process_base(self, process_func, num_inputs, parent_variables, variables, do
 
     output_variable = cwt.Variable(output_url, output_var_name).parameterize()
 
-    return {o.name: output_variable}
+    return {operation.name: output_variable}
 
 #@process.cwt_shared_task()
 #def cache_variable(self, parent_variables, variables, domains, operation, **kwargs):
