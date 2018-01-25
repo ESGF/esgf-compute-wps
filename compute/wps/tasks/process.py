@@ -130,8 +130,7 @@ class Process(object):
 
         axes = operation.get_parameter('axes', True)
 
-        if axes is None:
-            raise base.WPSError('Missing required parameter axes')
+        axes = axes.values[0]
 
         self.log('Starting to process inputs')
 
@@ -143,9 +142,9 @@ class Process(object):
             var_name = fm.get_variable_name()
 
             with contextlib.nested(*[x for x in fm.collections]):
-                over_temporal = fm.collections[0].datasets[0].get_time().id == axes.values[0]
+                over_temporal = fm.collections[0].datasets[0].get_time().id == axes
 
-                for meta in fm.partitions(operation.domain, axes.values[0], num_inputs):
+                for meta in fm.partitions(operation.domain, axes, num_inputs):
                     data_list = []
                     axis_index = None
 
@@ -153,7 +152,7 @@ class Process(object):
                         ds, chunk = item
 
                         if axis_index is None:
-                            axis_index = ds.get_variable().getAxisIndex(axes.values[0])
+                            axis_index = ds.get_variable().getAxisIndex(axes)
 
                         if gridder is not None:
                             chunk = chunk.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
@@ -163,7 +162,10 @@ class Process(object):
                     if len(data_list) == 0:
                         break
 
-                    result_data = process(*data_list, axis=axis_index)
+                    if len(data_list) > 1:
+                        result_data = process(*data_list)
+                    else:
+                        result_data = process(*data_list, axis=axis_index)
 
                     self.log('Process output shape {}'.format(result_data.shape))
 

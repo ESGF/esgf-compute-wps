@@ -25,6 +25,7 @@ __ALL__ = [
 logger = get_task_logger('wps.tasks.cdat')
 
 @base.register_process('CDAT.regrid', abstract="""
+Regrids a variable to designated grid. Required parameter named "gridder".
 """)
 @base.cwt_shared_task()
 def regrid(self, parent_variables, variables, domains, operation, user_id, job_id):
