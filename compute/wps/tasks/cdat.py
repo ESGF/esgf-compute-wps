@@ -24,12 +24,27 @@ __ALL__ = [
 
 logger = get_task_logger('wps.tasks.cdat')
 
+@base.register_process('CDAT.regrid', abstract="""
+""")
+@base.cwt_shared_task()
+def regrid(self, parent_variables, variables, domains, operation, user_id, job_id):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    def validate(op):
+        op.get_parameter('gridder', True)
+
+    return retrieve_base(self, o, None, user_id, job_id, validate) 
+
 @base.register_process('CDAT.subset', abstract='Subset a variable by provided domain. Supports regridding.')
 @base.cwt_shared_task()
 def subset(self, parent_variables, variables, domains, operation, user_id, job_id):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
-    return retrieve_base(self, o, 1, user_id, job_id) 
+    def validate(op):
+        if op.domain is None:
+            raise WPSError('Missing required domain')
+
+    return retrieve_base(self, o, None, user_id, job_id, validate) 
 
 @base.register_process('CDAT.aggregate', abstract='Aggregate a variable over multiple files. Supports subsetting and regridding.')
 @base.cwt_shared_task()
@@ -38,7 +53,7 @@ def aggregate(self, parent_variables, variables, domains, operation, user_id, jo
 
     return retrieve_base(self, o, None, user_id, job_id) 
 
-def retrieve_base(self, operation, num_inputs, user_id, job_id):
+def retrieve_base(self, operation, num_inputs, user_id, job_id, validate=None):
     self.PUBLISH = base.ALL
 
     proc = process.Process(self.request.id)
@@ -46,6 +61,9 @@ def retrieve_base(self, operation, num_inputs, user_id, job_id):
     proc.initialize(user_id, job_id)
 
     proc.job.started()
+
+    if validate is not None:
+        validate(operation)
 
     output_name = '{}.nc'.format(str(uuid.uuid4()))
 

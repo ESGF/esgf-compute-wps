@@ -107,7 +107,7 @@ class Process(object):
                     chunk.getTime().toRelativeTime(base_units)
 
                     if gridder is not None:
-                        chunk = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+                        chunk = chunk.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
                     output_file.write(chunk, id=var_name)
 
