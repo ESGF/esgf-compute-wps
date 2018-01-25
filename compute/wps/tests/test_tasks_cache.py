@@ -21,8 +21,8 @@ class CacheTaskTestCase(test.TestCase):
 
         mock_sender.add_periodic_task.assert_called()
 
-    @mock.patch('os.remove')
-    @mock.patch('os.path.exists')
+    @mock.patch('wps.tasks.cache.os.remove')
+    @mock.patch('wps.tasks.cache.os.path.exists')
     def test_cache_free_space(self, mock_exists, mock_remove):
         mock_exists.return_value = True
 
@@ -39,15 +39,15 @@ class CacheTaskTestCase(test.TestCase):
         for _ in range(2):
             models.Cache.objects.create(uid=helpers.random_str(10), size=new_size/2)
 
-        with self.assertNumQueries(8):
+        with self.assertNumQueries(7):
             cache.cache_clean()
 
         remain_count = models.Cache.objects.count()
 
-        self.assertEqual(remain_count, 8)
+        self.assertEqual(remain_count, 9)
 
-    @mock.patch('os.remove')
-    @mock.patch('os.path.exists')
+    @mock.patch('wps.tasks.cache.os.remove')
+    @mock.patch('wps.tasks.cache.os.path.exists')
     def test_cache_delete_expired(self, mock_exists, mock_remove):
         mock_exists.return_value = True
 
@@ -63,13 +63,19 @@ class CacheTaskTestCase(test.TestCase):
 
         self.assertEqual(remain_count, 6)
 
-    @mock.patch('os.path.exists')
-    def test_cache_remove_files_not_on_disk(self, mock_exists):
-        mock_exists.side_effect = [False, True, False, True, True, True, False, False, False, False]
+    @mock.patch('wps.tasks.cache.os.remove')
+    @mock.patch('wps.tasks.cache.os.path.exists')
+    def test_cache_remove_files_not_on_disk(self, mock_exists, mock_remove):
+        mock_remove.return_value = True
 
-        with self.assertNumQueries(9):
+        mock_exists.side_effect = [
+            False, False, False, False, False, False, False, False, False, False,
+            False, True, False, True, True, True, False, False, False, False, False
+        ]
+
+        with self.assertNumQueries(11):
             cache.cache_clean()
 
         remain_count = models.Cache.objects.count()
 
-        self.assertEqual(remain_count, 4)
+        self.assertEqual(remain_count, 2)

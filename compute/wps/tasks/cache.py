@@ -69,9 +69,4 @@ def cache_clean():
                 break
 
         for entry in to_remove:
-            logger.info('Removing "{}"'.format(entry.local_path))
-
-            if os.path.exists(entry.local_path):
-                os.remove(entry.local_path)
-
             entry.delete()
