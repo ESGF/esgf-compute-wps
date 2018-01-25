@@ -172,24 +172,35 @@ def process_base(self, process_func, num_inputs, operation, user_id, job_id):
 
     return {operation.name: output_variable}
 
-#@process.cwt_shared_task()
-#def cache_variable(self, parent_variables, variables, domains, operation, **kwargs):
-#    self.PUBLISH = process.RETRY | process.FAILURE
-#
-#    user, job = self.initialize(credentials=True, **kwargs)
-#
-#    job.started()
-#
-#    v, d, o = self.load(parent_variables, variables, domains, operation)
-#
-#    domain = d.get(o.domain, None)
-#
-#    inputs = sort_inputs_by_time([v[x] for x in o.inputs])
-#
-#    output_path = self.retrieve_variable(inputs, domain, job)
-#
-#    output_url = self.generate_output_url(output_path, **kwargs)
-#
-#    output_var = cwt.Variable(output_url, inputs[0].var_name, name=o.name)
-#
-#    return {o.name: output_var.parameterize()}
+@base.cwt_shared_task()
+def cache_variable(self, parent_variables, variables, domains, operation, user_id, job_id):
+    self.PUBLISH = base.RETRY | base.FAILURE
+
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    proc = process.Process(self.request.id)
+
+    proc.initialize(user_id, job_id)
+
+    proc.job.started()
+
+    output_name = '{}.nc'.format(str(uuid.uuid4()))
+
+    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
+
+    try:
+        with cdms2.open(output_path, 'w') as output_file:
+            output_var_name = proc.retrieve(o, None, output_file)
+    except cdms2.CDMSError as e:
+        raise base.AccessError(output_path, e.message)
+    except WPSError:
+        raise
+
+    if settings.DAP:
+        output_url = settings.DAP_URL.format(filename=output_name)
+    else:
+        output_url = settings.OUTPUT_URL.format(filename=output_name)
+
+    output_variable = cwt.Variable(output_url, output_var_name).parameterize()
+
+    return {o.name: output_variable}

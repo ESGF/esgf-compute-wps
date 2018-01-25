@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 
+import os
 import shutil
+import uuid
 from xml.etree import ElementTree as ET
 
 import cdms2
@@ -10,6 +12,7 @@ from celery.utils.log import get_task_logger
 
 from wps import settings
 from wps import WPSError
+from wps.tasks import base
 from wps.tasks import process
 
 logger = get_task_logger('wps.tasks.edas')
@@ -34,10 +37,10 @@ def initialize_socket(context, socket_type, host, port):
 
     return sock
 
-def listen_edas_output(self, poller, job):
+def listen_edas_output(self, poller, proc):
     edas_output_path = None
 
-    self.status(job, 'Listing for EDAS status')
+    proc.log('Listening for EDAS status')
 
     while True:
         events = dict(poller.poll(settings.EDAS_TIMEOUT * 1000))
@@ -60,13 +63,13 @@ def listen_edas_output(self, poller, job):
         elif 'response' in parts:
             self.status(job, 'EDAS heartbeat')
         
-    self.status(job, 'Received success from EDAS backend')
+    proc.log('Received success from EDAS backend')
 
     return edas_output_path
 
-@process.cwt_shared_task()
-def edas_submit(self, parent_variables, variables, domains, operation, **kwargs):
-    self.PUBLISH = process.ALL
+@base.cwt_shared_task()
+def edas_submit(self, parent_variables, variables, domains, operation, user_id, job_id):
+    self.PUBLISH = base.ALL
 
     req_sock = None
 
@@ -74,13 +77,15 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
 
     edas_output_path = None
 
-    user, job = self.initialize(credentials=False, **kwargs)
+    proc = process.Process(self.request.id)
+
+    proc.initialize(user_id, job_id)
+
+    proc.job.started()
 
     v, d, o = self.load(parent_variables, variables, domains, operation)
 
     domain = d.get(o.domain, None)
-
-    o.inputs = v.values()
 
     data_inputs = cwt.WPS('').prepare_data_inputs(o, {}, domain)
 
@@ -88,33 +93,35 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
 
     context = zmq.Context.instance()
 
+    poller = None
+
     try:
         req_sock = initialize_socket(context, zmq.REQ, settings.EDAS_HOST, settings.EDAS_REQ_PORT)
 
         sub_sock = initialize_socket(context, zmq.SUB, settings.EDAS_HOST, settings.EDAS_RES_PORT)
 
-        sub_sock.setsockopt(zmq.SUBSCRIBE, b'{}'.format(job.id))
+        sub_sock.setsockopt(zmq.SUBSCRIBE, b'{}'.format(proc.job.id))
 
         poller = zmq.Poller()
 
         poller.register(sub_sock)
 
-        self.status(job, 'Connected to EDAS backend')
+        proc.log('Connected to EDAS backend')
 
         extra = '{"response":"file"}'
 
-        req_sock.send(str('{}!execute!{}!{}!{}'.format(job.id, o.identifier, data_inputs, extra)))
+        req_sock.send(str('{}!execute!{}!{}!{}'.format(proc.job.id, o.identifier, data_inputs, extra)))
 
         if (req_sock.poll(settings.EDAS_TIMEOUT * 1000) == 0):
             raise WPSError('EDAS timed out waiting for accept response')
 
         data = req_sock.recv()
 
-        self.status(job, 'Sent request to EDAS backend')
+        proc.log('Sent request to EDAS backend')
 
         check_exceptions(data)
 
-        edas_output_path = listen_edas_output(self, poller, job)
+        edas_output_path = listen_edas_output(self, poller, proc)
 
         if edas_output_path is None:
             raise WPSError('Failed to receive output from EDAS')
@@ -125,19 +132,25 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
             req_sock.close()
 
         if sub_sock is not None:
-            poller.unregister(sub_sock)
+            if poller is not None:
+                poller.unregister(sub_sock)
 
             sub_sock.close()
 
-    self.status(job, 'Received result from EDAS backend')
-            
-    output_path = self.generate_output_path()
+    proc.log('Received result from EDAS backend')
+
+    output_name = '{}.nc'.format(str(uuid.uuid4()))
+
+    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
 
     shutil.move(edas_output_path, output_path)
 
-    self.status(job, 'Localizing output to THREDDS server')
+    proc.log('Localizing output to THREDDS server')
 
-    output_url = self.generate_output_url(output_path)
+    if settings.DAP:
+        output_url = settings.DAP_URL.format(filename=output_name)
+    else:
+        output_url = settings.OUTPUT_URL.format(filename=output_name)
 
     var_name = None
 
@@ -147,7 +160,7 @@ def edas_submit(self, parent_variables, variables, domains, operation, **kwargs)
     except:
         raise WPSError('Failed to determine variable name of the EDAS output')
 
-    self.status(job, 'Variable name from EDAS result "{}"'.format(var_name))
+    proc.log('Variable name from EDAS result "{}"', var_name)
 
     output_var = cwt.Variable(output_url, var_name, name=o.name)
 

@@ -100,10 +100,12 @@ class OphidiaWorkflow(object):
         return json.dumps(self.workflow, default=default, indent=4)
 
 @base.cwt_shared_task()
-def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
-    self.PUBLISH = process.ALL
+def oph_submit(self, parent_variables, variables, domains, operation, user_id, job_id):
+    self.PUBLISH = base.ALL
 
-    user, job = self.initialize(credentials=False, **kwargs)
+    proc = process.Process(self.request.id)
+    
+    proc.initialize(user_id, job_id)
 
     v, d, o = self.load(parent_variables, variables, domains, operation)
 
@@ -127,12 +129,12 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     else:
         axes = 'time'
 
-    self.status(job, 'Connected to Ophidia backend, building workflow')
+    proc.log('Connected to Ophidia backend, building workflow')
 
     container_task = OphidiaTask('create container', 'oph_createcontainer', on_error='skip')
     container_task.add_arguments(container='work')
 
-    self.status(job, 'Add container task')
+    proc.log('Add container task')
 
     # only take the first input
     inp = v.get(o.inputs[0])
@@ -141,7 +143,7 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     import_task.add_arguments(container='work', measure=inp.var_name, src_path=inp.uri, ncores=cores, imp_dim=axes)
     import_task.add_dependencies(container_task)
 
-    self.status(job, 'Added import task')
+    proc.log('Added import task')
 
     try:
         operator = PROCESSES[o.identifier]
@@ -153,13 +155,13 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
         reduce_task.add_arguments(operation=operator, ncores=cores)
         reduce_task.add_dependencies(import_task)
 
-        self.status(job, 'Added reduction task over implicit axis')
+        proc.log('Added reduction task over implicit axis')
     else:
         reduce_task = OphidiaTask('reduce data', 'oph_reduce2')
         reduce_task.add_arguments(operation=operator, dim=axes, ncores=cores)
         reduce_task.add_dependencies(import_task)
 
-        self.status(job, 'Added reduction task over axes "{}"'.format(axes))
+        proc.log('Added reduction task over axes "{}"', axes)
 
     output_name = '{}'.format(uuid.uuid4())
 
@@ -167,19 +169,19 @@ def oph_submit(self, parent_variables, variables, domains, operation, **kwargs):
     export_task.add_arguments(output_path=settings.OPH_OUTPUT_PATH, output_name=output_name, ncores=cores, force='yes')
     export_task.add_dependencies(reduce_task)
 
-    self.status(job, 'Added export task')
+    proc.log('Added export task')
 
     workflow.add_tasks(container_task, import_task, reduce_task, export_task)
 
-    self.status(job, 'Added tasks to workflow')
+    proc.log('Added tasks to workflow')
 
     workflow.submit()
 
-    self.status(job, 'Submitted workflow to Ophidia backend')
+    proc.log('Submitted workflow to Ophidia backend')
 
     workflow.check_error()
 
-    self.status(job, 'No errors reported by Ophidia')
+    proc.log('No errors reported by Ophidia')
 
     output_url = settings.OPH_OUTPUT_URL.format(output_path=settings.OPH_OUTPUT_PATH, output_name=output_name)
 
