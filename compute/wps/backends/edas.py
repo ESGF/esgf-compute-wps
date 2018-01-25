@@ -92,7 +92,7 @@ class EDAS(backend.Backend):
         variable_dict = dict((x, variables[x].parameterize()) for x in operation.inputs)
 
         if domain is not None:
-            domain_dict = dict(domain = domains[operation.domain].parameterize())
+            domain_dict = dict({domain: domains[operation.domain].parameterize()})
         else:
             domain_dict = {}
 
