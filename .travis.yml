@@ -1,21 +1,27 @@
-sudo: enabled
-
 language: python
 
 python:
   - "2.7"
 
+branches:
+  only:
+    - master
+
+env:
+  - DJANGO_DEBUG=1
+
 before_install:
   - wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
-  - conda update -q -y conda
-
-install:
-  - conda create -q -y -n test-environment -c conda-forge -c uvcdat python=${TRAVIS_PYTHON_VERSION}* esgf-compute-api cdms2 cdutil genutil pyzmq lxml redis-py psycopg2 requests-oauthlib myproxyclient python-openid django celery dask PyOphidia
-  - source activate test-environment
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda info -a
+  - conda env create -f docker/common/environment.yml
+  - source activate wps
   - pip install django-webpack-loader
   - pip install -r compute/wps/tests/requirements.txt
 
 script:
-  - sudo python compute/manage.py test compute
+  - python compute/manage.py test compute/wps/tests
