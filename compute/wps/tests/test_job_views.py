@@ -52,7 +52,7 @@ class JobViewsTestCase(test.TestCase):
 
         data = helpers.check_success(self, response)
 
-        self.assertEqual(len(data['data']), 2)
+        self.assertEqual(len(data['data']), 0)
 
     def test_job(self):
         self.client.login(username=self.user.username, password=self.user.username)

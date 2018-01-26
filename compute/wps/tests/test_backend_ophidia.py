@@ -7,7 +7,7 @@ from wps import WPSError
 from wps.backends import ophidia
 
 class OphidiaBackendTestCase(test.TestCase):
-    fixtures = ['servers.json', 'users.json']
+    fixtures = ['servers.json', 'users.json', 'processes.json']
 
     def setUp(self):
         self.backend = ophidia.Ophidia()

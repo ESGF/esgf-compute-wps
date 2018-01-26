@@ -47,11 +47,9 @@ class ESGFViewsTestCase(test.TestCase):
         self.axes[3].designateLevel()
         self.axes[3].units = 'm'
 
-    @mock.patch('cdms2.open')
-    @mock.patch('wps.views.esgf.process.CWTBaseTask')
-    def test_retrieve_axes_multiple_files(self, mock_task, mock_open):
-        mock_task.return_value = mock.Mock()
-
+    @mock.patch('wps.views.esgf.tasks.load_certificate')
+    @mock.patch('wps.views.esgf.cdms2.open')
+    def test_retrieve_axes_multiple_files(self, mock_open, mock_load):
         axis1 = mock.MagicMock()
         axis1.__enter__.return_value.__getitem__.return_value.getAxisList.return_value = self.axes
         axis2 = mock.MagicMock()
@@ -63,11 +61,9 @@ class ESGFViewsTestCase(test.TestCase):
 
         self.assertEqual(result.keys(), ['lat', 'lon', 'lev', 'time'])
 
-    @mock.patch('cdms2.open')
-    @mock.patch('wps.views.esgf.process.CWTBaseTask')
-    def test_retrieve_axes(self, mock_task, mock_open):
-        mock_task.return_value = mock.Mock()
-
+    @mock.patch('wps.views.esgf.tasks.load_certificate')
+    @mock.patch('wps.views.esgf.cdms2.open')
+    def test_retrieve_axes(self, mock_open, mock_load):
         mock_open.return_value.__enter__.return_value.__getitem__.return_value.getAxisList.return_value = self.axes
 
         result = esgf.retrieve_axes(self.user, 'dataset_id', 'tas', ['file:///hello1.nc'])
@@ -78,10 +74,8 @@ class ESGFViewsTestCase(test.TestCase):
         with self.assertRaises(WPSError) as e:
             esgf.retrieve_axes(self.user, 'dataset_id_not_in_cache', 'tas', [])
 
-    @mock.patch('wps.views.esgf.process.CWTBaseTask')
-    def test_retrieve_axes_access_error(self, mock_task):
-        mock_task.return_value = mock.Mock()
-
+    @mock.patch('wps.views.esgf.tasks.load_certificate')
+    def test_retrieve_axes_access_error(self, mock_load):
         with self.assertRaises(Exception):
             esgf.retrieve_axes(self.user, 'dataset_id', 'tas', ['file:///hello1.nc'])
 

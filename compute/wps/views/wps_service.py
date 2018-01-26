@@ -183,7 +183,10 @@ def wps_execute(user, identifier, data_inputs):
 
     process.track(user)
 
-    operations, domains, variables = load_data_inputs(data_inputs)
+    try:
+        operations, domains, variables = load_data_inputs(data_inputs)
+    except Exception:
+        raise WPSError('Failed to parse datainputs')
 
     root_node = None
     is_workflow = False
@@ -354,6 +357,8 @@ def wps(request):
         exc_response = wps_xml.execute_response('', failure, '')
 
         response = exc_response.xml()
+    except Exception:
+        logger.exception('Really')
     finally:
         return http.HttpResponse(response, content_type='text/xml')
 

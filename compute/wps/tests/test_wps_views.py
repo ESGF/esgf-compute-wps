@@ -156,6 +156,8 @@ class WPSViewsTestCase(test.TestCase):
                                              'datainputs': datainputs, 
                                              'api_key': 'new_key'})
 
+        print 'REALLY', response.content
+
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'text/xml')
         self.assertNotEqual(response.content, '')

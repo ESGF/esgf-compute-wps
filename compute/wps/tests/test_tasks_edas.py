@@ -63,19 +63,16 @@ class EDASTaskTestCase(test.TestCase):
         self.assertIsInstance(result, str)
         self.assertEqual(result, 'file')
 
-    @mock.patch('cdms2.open')
+    @mock.patch('wps.tasks.edas.cdms2.open')
     @mock.patch('shutil.move')
     @mock.patch('wps.tasks.edas.listen_edas_output')
     @mock.patch('wps.tasks.edas.initialize_socket')
-    @mock.patch('wps.tasks.process.CWTBaseTask.initialize')
-    def test_edas_submit_listen_failed(self, mock_init, mock_init_socket, mock_listen, mock_move, mock_open):
+    def test_edas_submit_listen_failed(self, mock_init_socket, mock_listen, mock_move, mock_open):
         mock_open.return_value = mock.MagicMock()
 
         mock_open.return_value.__enter__.return_value.variables.keys.return_value = ['tas']
 
         mock_job = mock.MagicMock()
-
-        mock_init.return_value = (self.user, mock_job)
 
         mock_listen.return_value = None
 
@@ -92,19 +89,17 @@ class EDASTaskTestCase(test.TestCase):
         with self.assertRaises(WPSError) as e:
             edas.edas_submit({}, variables, {}, operation, user_id=self.user.id, job_id=0)
 
-    @mock.patch('cdms2.open')
+    @mock.patch('wps.tasks.edas.process.Process')
+    @mock.patch('wps.tasks.edas.cdms2.open')
     @mock.patch('shutil.move')
     @mock.patch('wps.tasks.edas.listen_edas_output')
     @mock.patch('wps.tasks.edas.initialize_socket')
-    @mock.patch('wps.tasks.process.CWTBaseTask.initialize')
-    def test_edas_submit(self, mock_init, mock_init_socket, mock_listen, mock_move, mock_open):
+    def test_edas_submit(self, mock_init_socket, mock_listen, mock_move, mock_open, mock_process):
         mock_open.return_value = mock.MagicMock()
 
         mock_open.return_value.__enter__.return_value.variables.keys.return_value = ['tas']
 
         mock_job = mock.MagicMock()
-
-        mock_init.return_value = (self.user, mock_job)
 
         variables = {
             'v0': {'id': 'tas|v0', 'uri': 'file:///test.nc'},

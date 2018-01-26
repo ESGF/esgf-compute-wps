@@ -79,15 +79,7 @@ class UserViewsTestCase(test.TestCase):
 
         response = self.client.post('/auth/update/', params)
 
-        data = helpers.check_success(self, reponse)['data']
-
-        expected = ('username', 'openid', 'admin', 'local_init', 'api_key', 'type', 'email')
-
-        for exp in expected:
-            self.assertIn(exp, data)
-
-            if exp in params:
-                self.assertEqual(params[exp], data[exp])
+        data = helpers.check_failed(self, response)
 
     def test_update(self):
         user = models.User.objects.first()
@@ -102,7 +94,7 @@ class UserViewsTestCase(test.TestCase):
 
         response = self.client.post('/auth/update/', params)
 
-        data = helpers.check_success(self, reponse)['data']
+        data = helpers.check_success(self, response)['data']
 
         expected = ('username', 'openid', 'admin', 'local_init', 'api_key', 'type', 'email')
 

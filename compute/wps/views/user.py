@@ -1,3 +1,4 @@
+import json
 import random
 import string
 
@@ -55,7 +56,9 @@ def update(request):
         form = forms.UpdateForm(request.POST)
 
         if not form.is_valid():
-            raise WPSError(form.errors)
+            errors = dict((key, value) for key, value in form.errors.iteritems())
+
+            raise WPSError('Invalid form, errors "{error}"', error=json.dumps(errors))
 
         email = form.cleaned_data['email']
 

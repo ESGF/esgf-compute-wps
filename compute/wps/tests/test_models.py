@@ -1,3 +1,4 @@
+import hashlib
 import json
 
 import mock
@@ -5,6 +6,7 @@ from django import test
 
 from . import helpers
 from wps import models
+from wps import settings
 
 class CacheModelTestCase(test.TestCase):
 
@@ -332,7 +334,7 @@ class CacheModelTestCase(test.TestCase):
 
         mock_context = mock_open.return_value.__enter__.return_value
 
-        mock_context.__contains__.return_value = True
+        mock_context.variables = {'tas': True}
 
         mock_context.__getitem__.return_value.getTime.return_value = self.time
 
@@ -364,7 +366,7 @@ class CacheModelTestCase(test.TestCase):
 
         mock_context = mock_open.return_value.__enter__.return_value
 
-        mock_context.__contains__.return_value = True
+        mock_context.variables = {'tas': True}
 
         mock_context.__getitem__.return_value.getTime.return_value = self.time
 
@@ -381,6 +383,10 @@ class CacheModelTestCase(test.TestCase):
             dimensions=''
         )
 
+        filename_hash = hashlib.sha256(cache.uid+cache.dimensions).hexdigest()
+
+        expected = '{}/{}.nc'.format(settings.CACHE_PATH, filename_hash)
+
         local_path = cache.local_path
 
-        self.assertEqual(local_path, '/data/cache/uid.nc') 
+        self.assertEqual(local_path, expected) 

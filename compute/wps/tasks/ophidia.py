@@ -9,6 +9,7 @@ from PyOphidia import client
 from wps import settings
 from wps import WPSError
 from wps.tasks import base
+from wps.tasks import process
 
 __ALL__ = [
     'PROCESSES',
@@ -137,7 +138,7 @@ def oph_submit(self, parent_variables, variables, domains, operation, user_id, j
     proc.log('Add container task')
 
     # only take the first input
-    inp = v.get(o.inputs[0])
+    inp = o.inputs[0]
 
     import_task = OphidiaTask('import data', 'oph_importnc')
     import_task.add_arguments(container='work', measure=inp.var_name, src_path=inp.uri, ncores=cores, imp_dim=axes)

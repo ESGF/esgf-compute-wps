@@ -69,14 +69,10 @@ class OphidiaTasksTestCase(test.TestCase):
 
         mock_client.wsubmit.assert_called()
 
+    @mock.patch('wps.tasks.process.Process')
     @mock.patch('wps.tasks.ophidia.client.Client')
-    @mock.patch('wps.tasks.process.CWTBaseTask.initialize')
-    def test_oph_submit_define_axes(self, mock_init, mock_client):
+    def test_oph_submit_define_axes(self, mock_client, mock_process):
         mock_client.return_value.last_error = None
-
-        mock_job = mock.MagicMock()
-
-        mock_init.return_value = (self.user, mock_job)
 
         variables = {
             'v0': {'id': 'tas|v0', 'uri': 'file:///test.nc'},
@@ -88,14 +84,10 @@ class OphidiaTasksTestCase(test.TestCase):
 
         self.assertIsInstance(result, dict)
         
+    @mock.patch('wps.tasks.process.Process')
     @mock.patch('wps.tasks.ophidia.client.Client')
-    @mock.patch('wps.tasks.process.CWTBaseTask.initialize')
-    def test_oph_submit_define_cores(self, mock_init, mock_client):
+    def test_oph_submit_define_cores(self, mock_client, mock_process):
         mock_client.return_value.last_error = None
-
-        mock_job = mock.MagicMock()
-
-        mock_init.return_value = (self.user, mock_job)
 
         variables = {
             'v0': {'id': 'tas|v0', 'uri': 'file:///test.nc'},
@@ -107,14 +99,10 @@ class OphidiaTasksTestCase(test.TestCase):
 
         self.assertIsInstance(result, dict)
 
+    @mock.patch('wps.tasks.process.Process')
     @mock.patch('wps.tasks.ophidia.client.Client')
-    @mock.patch('wps.tasks.process.CWTBaseTask.initialize')
-    def test_oph_submit(self, mock_init, mock_client):
+    def test_oph_submit(self, mock_client, mock_process):
         mock_client.return_value.last_error = None
-
-        mock_job = mock.MagicMock()
-
-        mock_init.return_value = (self.user, mock_job)
 
         variables = {
             'v0': {'id': 'tas|v0', 'uri': 'file:///test.nc'},

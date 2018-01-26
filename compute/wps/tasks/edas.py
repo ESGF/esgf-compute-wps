@@ -61,7 +61,7 @@ def listen_edas_output(self, poller, proc):
 
             break
         elif 'response' in parts:
-            self.status(job, 'EDAS heartbeat')
+            proc.log('EDAS Heartbeat')
         
     proc.log('Received success from EDAS backend')
 

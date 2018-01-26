@@ -39,7 +39,7 @@ class BackendsTestCase(test.TestCase):
         with self.assertNumQueries(5):
             backend.add_process('id', 'name')
 
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(2):
             backend.add_process('id', 'name')
 
     def test_add_process_without_abstract(self):
