@@ -20,6 +20,7 @@ before_install:
   - conda info -a
   - conda env create -f docker/common/environment.yml
   - source activate wps
+  - pip install django-webpack-loader
 
 script:
   - python compute/manage.py test
