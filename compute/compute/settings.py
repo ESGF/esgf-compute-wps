@@ -130,7 +130,6 @@ else:
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', '1234'),
         'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
     }
-}
 
 TEMPLATES = [
     {
