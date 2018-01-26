@@ -23,4 +23,4 @@ before_install:
   - pip install django-webpack-loader
 
 script:
-  - python compute/manage.py test
+  - python compute/manage.py test compute/compute/wps
