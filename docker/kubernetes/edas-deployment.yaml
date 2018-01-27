@@ -1,0 +1,18 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: edas-deployment
+  labels:
+    app: wps
+spec:
+  selector:
+    matchLabels:
+      app: wps
+  template:
+    metadata:
+      labels:
+        app: wps
+    spec:
+      containers:
+      - name: edas
+        image: jasonb87/cwt_edas:latest

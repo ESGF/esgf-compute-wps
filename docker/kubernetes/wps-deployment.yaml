@@ -1,0 +1,20 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: wps-deployment
+  labels:
+    app: wps
+spec:
+  selector:
+    matchLabels:
+      app: wps
+  template:
+    metadata:
+      labels:
+        app: wps
+    spec:
+      containers:
+      - name: wps
+        image: jasonb87/cwt_wps:latest
+        ports:
+        - containerPort: 5432

@@ -1,0 +1,18 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: postgres-deployment
+  labels:
+    app: wps
+spec:
+  selector:
+    matchLabels:
+      app: wps
+  template:
+    metadata:
+      labels:
+        app: wps
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:9.6.2
