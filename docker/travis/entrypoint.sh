@@ -38,7 +38,10 @@ mkdir -p ${HOME}/builds/${AUTHOR}
 
 cd ${HOME}/builds/${AUTHOR}
 
-git clone --depth=1 https://github.com/${AUTHOR}/${PROJECT}
+if [[ ! -e "${HOME}/builds/${AUTHOR}/${PROJECT}" ]]
+then
+  git clone --depth=1 https://github.com/${AUTHOR}/${PROJECT}
+fi
 
 cd ${PROJECT}
 
