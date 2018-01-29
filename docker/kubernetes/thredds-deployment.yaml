@@ -8,11 +8,40 @@ spec:
   selector:
     matchLabels:
       app: wps
+      component: thredds
   template:
     metadata:
       labels:
         app: wps
+        component: thredds
     spec:
       containers:
       - name: thredds
         image: jasonb87/cwt_thredds:latest
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: thredds
+spec:
+  selector:
+    component: thredds
+  ports:
+  - protocol:
+    port: 8080
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: thredds
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /threddsCWT
+        backend:
+          serviceName: thredds
+          servicePort: 8080

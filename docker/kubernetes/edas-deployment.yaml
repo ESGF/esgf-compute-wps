@@ -16,3 +16,18 @@ spec:
       containers:
       - name: edas
         image: jasonb87/cwt_edas:latest
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edas
+spec:
+  selector:
+    app: wps
+  ports:
+  - name: listen
+    protocol: TCP
+    port: 5670
+  - name: send
+    protocol: TCP
+    port: 5671
