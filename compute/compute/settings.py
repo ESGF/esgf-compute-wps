@@ -24,16 +24,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '+a#&@l4!^)i5cn=!*ye^!42xcmyqs3l&j368ow^-y=3fs-txq6'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = 'DJANGO_DEBUG' in os.environ
+DEBUG = 'WPS_DEBUG' in os.environ
 
-ALLOWED_HOSTS = ['0.0.0.0']
+HOST = os.environ.get('WPS_HOST', '0.0.0.0')
+
+ALLOWED_HOSTS = [ HOST ]
 
 # Application definition
-
 if not DEBUG:
-    ALLOWED_HOSTS.append('aims2.llnl.gov')
-
-    WPS_EXTERNAL_HOSTNAME = 'aims2.llnl.gov'
+    WPS_EXTERNAL_HOSTNAME = HOST
     WPS_EXTERNAL_PORT = None
     WPS_ENDPOINT = 'https://aims2.llnl.gov/wps'
     WPS_STATUS_LOCATION = 'https://aims2.llnl.gov/wps/status/{job_id}'
