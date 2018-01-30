@@ -19,12 +19,10 @@ spec:
       - name: wps
         image: jasonb87/cwt_wps:2.0.0
         env:
-        - name: WPS_DEBUG
-          value: "1"
         - name: POSTGRES_HOST
           value: postgres
         - name: WPS_HOST
-          value: "192.168.39.169"
+          value: "aims2.llnl.gov"
         ports:
         - containerPort: 8000
 ---
