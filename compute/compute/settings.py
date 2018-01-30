@@ -10,7 +10,48 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.10/ref/settings/
 """
 
+import ConfigParser
+import logging
 import os
+
+logger = logging.getLogger('settings')
+
+class DjangoConfigParser(ConfigParser.ConfigParser):
+    def __init__(self, defaults):
+        self.defaults = defaults
+
+        ConfigParser.ConfigParser.__init__(self)
+
+    @classmethod
+    def from_file(cls, file_path, defaults):
+        config = cls(defaults)
+
+        config.read([file_path])
+
+        return config
+
+    def get_value(self, key, default, value_type=str):
+        try:
+            if value_type == int:
+                value = self.getint('default', key)
+            elif value_type == float:
+                value = self.getfloat('default', key)
+            elif value_type == bool:
+                value = self.getboolean('default', key)
+            else:
+                value = self.get('default', key)
+
+                for replacement in self.defaults.iteritems():
+                    if replacement[0] in value:
+                        value = value.replace(*replacement)
+        except ConfigParser.NoOptionError:
+            value = default_value
+
+            pass
+
+        logger.info('Loaded "{}" for key "{}"'.format(value, key))
+
+        return value
 
 SESSION_COOKIE_NAME = 'wps_sessionid'
 
@@ -30,22 +71,23 @@ HOST = os.environ.get('WPS_HOST', '0.0.0.0')
 
 ALLOWED_HOSTS = [ HOST ]
 
+config = DjangoConfigParser.from_file('/etc/config/django.properties', {
+    '{host}': HOST,
+})
+
 # Application definition
 
-# Commented out since we're using a configuration file now
-#if not DEBUG:
-#    WPS_EXTERNAL_HOSTNAME = HOST
-#    WPS_ENDPOINT = 'https://aims2.llnl.gov/wps'
-#    WPS_STATUS_LOCATION = 'https://aims2.llnl.gov/wps/status/{job_id}'
-#    WPS_DAP = True
-#    WPS_DAP_URL = 'https://aims2.llnl.gov/threddsCWT/dodsC/public/{file_name}'
-#    WPS_LOGIN_URL = 'https://aims2.llnl.gov/wps/home/auth/login/openid'
-#    WPS_PROFILE_URL = 'https://aims2.llnl.gov/wps/home/user/profile'
-#    WPS_OAUTH2_CALLBACK = 'https://aims2.llnl.gov/auth/callback'
-#    WPS_OPENID_TRUST_ROOT = 'https://aims2.llnl.gov/'
-#    WPS_OPENID_RETURN_TO = 'https://aims2.llnl.gov/auth/callback/openid'
-#    WPS_OPENID_CALLBACK_SUCCESS = 'https://aims2.llnl.gov/wps/home/auth/login/callback'
-#    WPS_PASSWORD_RESET_URL = 'https://aims2.llnl.gov/wps/home/auth/reset'
+WPS_ENDPOINT = config.get_value('wps.endpoint', 'https://{host}/wps')
+WPS_STATUS_LOCATION = config.get_value('wps.status_location', 'https://{host}/wps')
+WPS_DAP = config.get_value('wps.dap', 'true', bool)
+WPS_DAP_URL = config.get_value('wps.dap_url', 'https://{host}/threddsCWT/dodsC/public/{file_name}')
+WPS_LOGIN_URL = config.get_value('wps.login_url', 'https://{host}/wps/home/auth/login/openid')
+WPS_PROFILE_URL = config.get_value('wps.profile_url', 'https://{host}/wps/home/user/profile')
+WPS_OAUTH2_CALLBACK = config.get_value('wps.oauth2.callback', 'https://{host}/auth/callback')
+WPS_OPENID_TRUST_ROOT = config.get_value('wps.openid.trust.root', 'https://{host}/')
+WPS_OPENID_RETURN_TO = config.get_value('wps.openid.return.to', 'https://{host}auth/callback/openid')
+WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps.openid.callback.success', 'https://{host}/wps/home/auth/login/callback')
+WPS_PASSWORD_RESET_URL = config.get_value('wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
 
 WPS_CACHE_GB_MAX_SIZE = 1.073741824e11
 
