@@ -8,19 +8,25 @@ spec:
   selector:
     matchLabels:
       app: wps
+      component: django
   template:
     metadata:
       labels:
         app: wps
+        component: django
     spec:
       containers:
       - name: wps
-        image: jasonb87/cwt_wps:latest
+        image: jasonb87/cwt_wps:2.0.0
         env:
+        - name: WPS_DEBUG
+          value: "1"
         - name: POSTGRES_HOST
           value: postgres
+        - name: WPS_HOST
+          value: "192.168.39.169"
         ports:
-        - containerPort: 5432
+        - containerPort: 8000
 ---
 apiVersion: v1
 kind: Service
@@ -29,7 +35,30 @@ metadata:
 spec:
   selector:
     app: wps
+    component: django
   ports:
   - protocol: TCP
     port: 8000
-  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: wps
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /static
+        backend:
+          serviceName: wps
+          servicePort: 8000
+      - path: /auth
+        backend:
+          serviceName: wps
+          servicePort: 8000
+      - path: /wps
+        backend:
+          serviceName: wps
+          servicePort: 8000

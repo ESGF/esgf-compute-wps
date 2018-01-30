@@ -8,14 +8,18 @@ spec:
   selector:
     matchLabels:
       app: wps
+      component: postgres
   template:
     metadata:
       labels:
         app: wps
+        component: postgres
     spec:
       containers:
       - name: postgres
         image: postgres:9.6.2
+        ports:
+        - containerPort: 5432
 ---
 apiVersion: v1
 kind: Service
@@ -24,6 +28,7 @@ metadata:
 spec:
   selector:
     app: wps
+    component: postgres
   ports:
   - protocol: TCP
     port: 5432

@@ -1,5 +1,5 @@
-apiVersion: apps/v1beta2
 kind: Deployment
+apiVersion: apps/v1beta2
 metadata:
   name: celery-beat-deployment
   labels:
@@ -16,3 +16,4 @@ spec:
       containers:
       - name: celery-beat
         image: jasonb87/cwt_celery:latest
+        command: ["-l", "info", "-B"]
