@@ -4,13 +4,6 @@ source activate wps
 
 app_root="/var/www/compute/compute"
 
-./wait-for postgres:5432
-
-if [[ "$?" -eq 1 ]]
-then
-  exit 1
-fi
-
 python $app_root/manage.py collectstatic --no-input
 python $app_root/manage.py migrate
 python $app_root/manage.py server --host default

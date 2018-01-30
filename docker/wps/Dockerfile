@@ -21,9 +21,6 @@ COPY healthcheck.sh healthcheck.sh
 
 COPY app.py app.py
 
-RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O wait-for && \
-	chmod +x wait-for
-
 EXPOSE 8000
 
 HEALTHCHECK CMD ./healthcheck.sh
