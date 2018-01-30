@@ -4,20 +4,20 @@ source activate wps
 
 app_root="/var/www/compute/compute"
 
+./wait-for postgres:5432
+
+if [[ "$?" -eq 1 ]]
+then
+  exit 1
+fi
+
 python $app_root/manage.py collectstatic --no-input
-
 python $app_root/manage.py migrate
-
 python $app_root/manage.py server --host default
 python $app_root/manage.py processes --register
 python $app_root/manage.py capabilities
 
-if [[ -n $WPS_DEBUG ]]
-then
-  WPS_DEBUG=1
-fi
-
-if [[ "$WPS_DEBUG" -eq 0 ]]
+if [ -z "${WPS_DEBUG}" ]
 then
   python app.py "0.0.0.0" "8000"
 else
