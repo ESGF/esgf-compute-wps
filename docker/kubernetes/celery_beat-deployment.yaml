@@ -15,5 +15,24 @@ spec:
     spec:
       containers:
       - name: celery-beat
-        image: jasonb87/cwt_celery:latest
+        image: jasonb87/cwt_celery:2.0.0
         command: ["-l", "info", "-B"]
+        volumeMounts:
+        - mountPath: /etc/config
+          name: config-volume
+        - mountPath: /data/public
+          name: public-volume
+        - mountPath: /data/cache
+          name: cache-volume
+      volumes:
+      - name: config-volume
+        configMap:
+          name: django-config
+      - name: public-volume
+        hostPath:
+          path: /opt/nfs/cwt/data/public
+          type: DirectoryOrCreate
+      - name: cache-volume
+        hostPath:
+          path: /opt/nfs/cwt/data/public
+          type: DirectoryOrCreate
