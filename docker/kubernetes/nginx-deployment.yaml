@@ -1,0 +1,54 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: wps
+spec:
+  selector:
+    matchLabels:
+      app: wps
+      component: nginx
+  template:
+    metadata:
+      labels:
+        app: wps
+        component: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.13.8
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html/static
+          name: static-volume
+      volumes:
+      - name: static-volume
+        hostPath:
+          path: /opt/nfs/cwt/data/static
+          type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  selector:
+    app: wps
+    component: nginx
+  ports:
+  - port: 80
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: nginx
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /static
+            backend:
+              serviceName: nginx
+              servicePort: 80
