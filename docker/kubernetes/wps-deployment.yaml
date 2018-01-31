@@ -19,12 +19,47 @@ spec:
       - name: wps
         image: jasonb87/cwt_wps:2.0.0
         env:
-        - name: POSTGRES_HOST
-          value: postgres
         - name: WPS_HOST
-          value: "aims2.llnl.gov"
+          value: "192.168.39.170"
+        - name: CELERY_BROKER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: celery_broker
+        - name: CELERY_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: celery_backend
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: postgres_host
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: postgres_password
+        - name: OAUTH_CLIENT
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: oauth_client
+        - name: OAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: oauth_secret
         ports:
         - containerPort: 8000
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+      volumes:
+        - name: config-volume
+          configMap:
+            name: django-config
 ---
 apiVersion: v1
 kind: Service
