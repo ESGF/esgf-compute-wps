@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 """
 
 import ConfigParser
+import datetime
 import logging
 import os
 
@@ -30,16 +31,16 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
 
         return config
 
-    def get_value(self, key, default, value_type=str):
+    def get_value(self, section, key, default, value_type=str, conv=None):
         try:
             if value_type == int:
-                value = self.getint('default', key)
+                value = self.getint(section, key)
             elif value_type == float:
-                value = self.getfloat('default', key)
+                value = self.getfloat(section, key)
             elif value_type == bool:
-                value = self.getboolean('default', key)
+                value = self.getboolean(section, key)
             else:
-                value = self.get('default', key)
+                value = self.get(section, key)
 
                 for replacement in self.defaults.iteritems():
                     if replacement[0] in value:
@@ -48,6 +49,9 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
             value = default_value
 
             pass
+
+        if conv is not None:
+            value = conv(value)
 
         logger.info('Loaded "{}" for key "{}"'.format(value, key))
 
@@ -76,27 +80,48 @@ config = DjangoConfigParser.from_file('/etc/config/django.properties', {
 })
 
 # Application definition
+WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps')
+WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps')
+WPS_DAP = config.get_value('wps', 'wps.dap', 'true', bool)
+WPS_DAP_URL = config.get_value('wps', 'wps.dap_url', 'https://{host}/threddsCWT/dodsC/public/{file_name}')
+WPS_LOGIN_URL = config.get_value('wps', 'wps.login_url', 'https://{host}/wps/home/auth/login/openid')
+WPS_PROFILE_URL = config.get_value('wps', 'wps.profile_url', 'https://{host}/wps/home/user/profile')
+WPS_OAUTH2_CALLBACK = config.get_value('wps', 'wps.oauth2.callback', 'https://{host}/auth/callback')
+WPS_OPENID_TRUST_ROOT = config.get_value('wps', 'wps.openid.trust.root', 'https://{host}/')
+WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to', 'https://{host}auth/callback/openid')
+WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.success', 'https://{host}/wps/home/auth/login/callback')
+WPS_PASSWORD_RESET_URL = config.get_value('wps', 'wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
+WPS_CA_PATH = config.get_value('wps', 'wps.ca.path', '/tmp/certs')
+WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path', '/data/public')
+WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.local.output.path', '/tmp')
+WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email', 'admin@aims2.llnl.gov')
 
-WPS_ENDPOINT = config.get_value('wps.endpoint', 'https://{host}/wps')
-WPS_STATUS_LOCATION = config.get_value('wps.status_location', 'https://{host}/wps')
-WPS_DAP = config.get_value('wps.dap', 'true', bool)
-WPS_DAP_URL = config.get_value('wps.dap_url', 'https://{host}/threddsCWT/dodsC/public/{file_name}')
-WPS_LOGIN_URL = config.get_value('wps.login_url', 'https://{host}/wps/home/auth/login/openid')
-WPS_PROFILE_URL = config.get_value('wps.profile_url', 'https://{host}/wps/home/user/profile')
-WPS_OAUTH2_CALLBACK = config.get_value('wps.oauth2.callback', 'https://{host}/auth/callback')
-WPS_OPENID_TRUST_ROOT = config.get_value('wps.openid.trust.root', 'https://{host}/')
-WPS_OPENID_RETURN_TO = config.get_value('wps.openid.return.to', 'https://{host}auth/callback/openid')
-WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps.openid.callback.success', 'https://{host}/wps/home/auth/login/callback')
-WPS_PASSWORD_RESET_URL = config.get_value('wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
+WPS_CACHE_PATH = config.get_value('cache', 'wps.cache.path', '/data/cache')
+WPS_PARTITION_SIZE = config.get_value('cache', 'wps.partition.size', 10, int)
+WPS_CACHE_CHECK = config.get_value('cache', 'wps.cache.check', 1, int, lambda x: datetime.timedelta(days=x))
+WPS_GB_MAX_SIZE = config.get_value('cache', 'wps.gb.max.size', 2.097152e8, int)
+WPS_CACHE_MAX_AGE = config.get_value('cache', 'wps.cache.max.age', 30, int, lambda x: datetime.timedelta(days=x))
+WPS_CACHE_FREED_PERCENT = config.get_value('cache', 'wps.cache.freed.percent', 0.25, float)
 
-WPS_CACHE_GB_MAX_SIZE = 1.073741824e11
+WPS_EDAS_HOST = config.get_value('edas', 'wps.edas.host', 'aims2.llnl.gov')
+WPS_EDAS_REQ_PORT = config.get_value('edas', 'wps.edas.req.port', 5670, int)
+WPS_EDAS_RES_PORT = config.get_value('edas', 'wps.edas.res.port', 5671, int)
+WPS_EDAS_TIMEOUT = config.get_value('edas', 'wps.edas.timeout', 30, int)
+
+WPS_OPH_USER = config.get_value('ophidia', 'wps.oph.user', 'oph-test')
+WPS_OPH_PASSWORD = config.get_value('ophidia', 'wps.oph.password', 'abcd')
+WPS_OPH_HOST = config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov')
+WPS_OPH_PORT = config.get_value('ophidia', 'wps.oph.port', 11732, int)
+WPS_OPH_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.path', '/wps')
+WPS_OPH_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
+WPS_OPH_DEFAULT_CORES = config.get_value('ophidia', 'wps.oph.default.cores', 8, int)
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-        'LOCATION': '/var/tmp/django_cache'
+        'LOCATION': config.get_value('wps', 'wps.cache.path', '/tmp/django/cache'),
     }
 }
 
