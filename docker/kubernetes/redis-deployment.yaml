@@ -8,10 +8,12 @@ spec:
   selector:
     matchLabels:
       app: wps
+      component: redis
   template:
     metadata:
       labels:
         app: wps
+        component: redis
     spec:
       containers:
       - name: redis
@@ -24,6 +26,7 @@ metadata:
 spec:
   selector:
     app: wps
+    component: redis
   ports:
   - protocol: TCP
     port: 6379
