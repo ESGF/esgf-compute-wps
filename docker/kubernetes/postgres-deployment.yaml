@@ -23,6 +23,12 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/postgresql/data
           name: db-volume
+        env:
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: app-secret
+                key: postgres_password
       volumes:
       - name: db-volume
         hostPath:
