@@ -1,4 +1,4 @@
-FROM jasonb87/cwt_common:latest
+FROM jasonb87/cwt_common:2.0.0
 
 ENV C_FORCE_ROOT 'true'
 ENV CELERY_BROKER redis://redis/0
