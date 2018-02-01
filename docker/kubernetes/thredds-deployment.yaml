@@ -20,6 +20,20 @@ spec:
         image: jasonb87/cwt_thredds:latest
         ports:
         - containerPort: 8080
+        volumeMounts:
+        - name: public-volume
+          mountPath: /data/public
+        - name: cache-volume
+          mountPath: /data/cache
+      volumes:
+      - name: public-volume
+        hostPath:
+          path: /opt/nfs/cwt/data/public
+          type: DirectoryOrCreate
+      - name: cache-volume
+        hostPath:
+          path: /opt/nfs/cwt/data/cache
+          type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service
