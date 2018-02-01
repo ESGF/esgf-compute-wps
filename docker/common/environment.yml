@@ -86,7 +86,7 @@ dependencies:
 - pycosat=0.6.3=py27_0
 - pycparser=2.18=py27_0
 - pyjwt=1.5.3=py_0
-- pyopenssl=17.4.0=py27_0
+- pyopenssl=16.2.0=py27_0
 - pyophidia=1.4.0=py_0
 - pysocks=1.6.8=py27_1
 - python=2.7.14=4
