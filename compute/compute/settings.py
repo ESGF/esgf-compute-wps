@@ -99,7 +99,7 @@ WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email', 'admin@aims2.llnl.g
 WPS_CACHE_PATH = config.get_value('cache', 'wps.cache.path', '/data/cache')
 WPS_PARTITION_SIZE = config.get_value('cache', 'wps.partition.size', 10, int)
 WPS_CACHE_CHECK = config.get_value('cache', 'wps.cache.check', 1, int, lambda x: datetime.timedelta(days=x))
-WPS_GB_MAX_SIZE = config.get_value('cache', 'wps.gb.max.size', 2.097152e8, int)
+WPS_GB_MAX_SIZE = config.get_value('cache', 'wps.gb.max.size', 2.097152e8, float)
 WPS_CACHE_MAX_AGE = config.get_value('cache', 'wps.cache.max.age', 30, int, lambda x: datetime.timedelta(days=x))
 WPS_CACHE_FREED_PERCENT = config.get_value('cache', 'wps.cache.freed.percent', 0.25, float)
 
