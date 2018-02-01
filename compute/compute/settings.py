@@ -112,8 +112,8 @@ WPS_OPH_USER = config.get_value('ophidia', 'wps.oph.user', 'oph-test')
 WPS_OPH_PASSWORD = config.get_value('ophidia', 'wps.oph.password', 'abcd')
 WPS_OPH_HOST = config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov')
 WPS_OPH_PORT = config.get_value('ophidia', 'wps.oph.port', 11732, int)
-WPS_OPH_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.path', '/wps')
-WPS_OPH_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
+WPS_OPH_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.output.path', '/wps')
+WPS_OPH_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
 WPS_OPH_DEFAULT_CORES = config.get_value('ophidia', 'wps.oph.default.cores', 8, int)
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
