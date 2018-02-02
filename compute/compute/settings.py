@@ -45,7 +45,7 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
                 for replacement in self.defaults.iteritems():
                     if replacement[0] in value:
                         value = value.replace(*replacement)
-        except ConfigParser.NoOptionError:
+        except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
             value = default_value
 
             pass
@@ -56,8 +56,6 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
         logger.info('Loaded "{}" for key "{}"'.format(value, key))
 
         return value
-
-SESSION_COOKIE_NAME = 'wps_sessionid'
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -71,13 +69,20 @@ SECRET_KEY = '+a#&@l4!^)i5cn=!*ye^!42xcmyqs3l&j368ow^-y=3fs-txq6'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = 'WPS_DEBUG' in os.environ
 
-HOST = os.environ.get('WPS_HOST', '0.0.0.0')
+WPS_HOST = os.environ.get('WPS_HOST', '0.0.0.0')
 
-ALLOWED_HOSTS = [ '0.0.0.0', HOST ]
+ALLOWED_HOSTS = [ WPS_HOST ]
 
 config = DjangoConfigParser.from_file('/etc/config/django.properties', {
-    '{host}': HOST,
+    '{host}': WPS_HOST,
 })
+
+add_allowed_hosts = config.get_value('default', 'allowed.hosts', '')
+
+ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
+
+#SESSION_COOKIE_NAME = 'wps_sessionid'
+SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
 # Application definition
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps')
@@ -193,8 +198,8 @@ if DEBUG:
 else:
     DATABASES['default'] = {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'postgres',
-        'USER': 'postgres',
+        'NAME': os.getenv('POSTGRES_NAME', 'postgres'),
+        'USER': os.getenv('POSTGRES_USER', 'postgres'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', '1234'),
         'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
     }
