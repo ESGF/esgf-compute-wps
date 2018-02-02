@@ -1,164 +1,161 @@
-version: '3.2'
+version: "3"
 services:
+  traefik:
+    image: traefik:1.5
+    labels:
+      - "traefik.enable=false"
+    command:
+      - "--loglevel=DEBUG"
+      - "--api"
+      - "--entrypoints=Name:http Address::80"
+      - "--defaultentrypoints=http"
+      - "--docker"
+      - "--docker.watch"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev/null:/traefik.toml
+    restart: always
+    networks:
+      frontend:
   wps:
-    image: jasonb87/cwt_wps:latest
-    entrypoint: sleep infinity
+    image: jasonb87/cwt_wps:2.0.0
+    labels:
+      - "traefik.backend=wps"
+      - "traefik.docker.network=docker_frontend"
+      - "traefik.frontend.rule=PathPrefix:/wps,/static,/auth"
+      - "traefik.enable=true"
+      - "traefik.port=8000"
     env_file:
       - ./common.env
     environment:
       - WPS_DEBUG=1 
-    ports:
-      - "8000:8000"
+      - WPS_HOST=10.5.5.5
+    expose:
+      - "8000"
     volumes:
       - data-volume:/data/public
-      - conf-volume:/var/www/compute
+      - conf-volume:/etc/config
       - static-volume:/var/www/static
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      resources:
-        limits:
-          cpus: '0.5'
+    restart: always
     networks:
       frontend:
+        ipv4_address: 172.19.0.8
       backend:
   postgres:
     image: postgres:9.6.2
+    labels:
+      - "traefik.enable=false"
     environment: 
       - POSTGRES_PASSWORD=1234
     volumes:
       - db-volume:/var/lib/postgresql/data
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      resources:
-        limits:
-          cpus: '0.5'
+    restart: always
     networks:
       frontend:
   redis:
     image: redis:3.2.8
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      resources:
-        limits:
-          cpus: '0.5'
+    labels:
+      - "traefik.enable=false"
+    restart: always
     networks:
       frontend:
   celery:
-    image: jasonb87/cwt_celery:latest
+    image: jasonb87/cwt_celery:2.0.0
+    labels:
+      - "traefik.enable=false"
     env_file:
       - ./common.env
+    environment:
+      - WPS_HOST=10.5.5.5
     volumes:
-      - conf-volume:/var/www/compute
+      - conf-volume:/etc/config
       - data-volume:/data/public
       - cache-volume:/data/cache
       - user-volume:/data/user
       - tmp-volume:/data/tmp
-    deploy:
-      replicas: 2
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      resources:
-        limits:
-          cpus: '2.0'
+    restart: always
     networks:
       frontend:
       backend:
   celery_beat:
-    image: jasonb87/cwt_celery:latest
+    image: jasonb87/cwt_celery:2.0.0
+    labels:
+      - "traefik.enable=false"
     command: -l info -B
     env_file:
       - ./common.env
+    environment:
+      - WPS_HOST=10.5.5.5
     volumes:
-      - conf-volume:/var/www/compute
+      - conf-volume:/etc/config
       - data-volume:/data/public
       - cache-volume:/data/cache
-    deploy:
-      replicas: 2
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      resources:
-        limits:
-          cpus: '2.0'
+      - user-volume:/data/user
+      - tmp-volume:/data/tmp
+    restart: always
     networks:
       frontend:
   thredds:
     image: jasonb87/cwt_thredds:latest
-    ports:
-      - "8080:8080"
+    labels:
+      - "traefik.backend=thredds"
+      - "traefik.docker.network=docker_frontend"
+      - "traefik.frontend.rule=PathPrefix:/threddsCWT"
+      - "traefik.enable=true"
+      - "traefik.port=8080"
     volumes:
       - data-volume:/data/public
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      resources:
-        limits:
-          cpus: '0.5'
+    expose:
+      - "8080"
+    restart: always
     networks:
+      frontend:
       backend:
   edas:
     image: jasonb87/cwt_edas:latest
+    labels:
+      - "traefik.enable=false"
     expose:
       - "5670"
       - "5671"
     volumes:
       - data-volume:/data/public
+    restart: always
     networks:
       backend:
-  #dask_scheduler:
-  #  image: jasonb87/cwt_dask:latest
-  #  command: dask-scheduler
-  #  expose: 
-  #    - "8786"
-  #  ports:
-  #    - "8787:8787"
-  #  volumes:
-  #    - conf-volume:/var/www/compute
-  #    - data-volume:/data/public
-  #  networks:
-  #    backend:
-  #dask_worker:
-  #  image: jasonb87/cwt_dask:latest
-  #  command: dask-worker dask_scheduler:8786 --worker-port 8788
-  #  environment:
-  #    - UVCDAT_ANONYMOUS_LOG=false
-  #  expose:
-  #    - "8788"
-  #  volumes:
-  #    - conf-volume:/var/www/compute
-  #    - data-volume:/data/public
-  #  networks:
-  #    backend:
 
 networks:
   frontend:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/24
   backend:
 
 volumes:
   static-volume:
   db-volume:
   conf-volume:
+    driver: local-persist
+    driver_opts: 
+      mountpoint: ${HOME}/devel/esgf-compute-wps/docker/wps
   data-volume:
+    driver: local-persist
+    driver_opts:
+      mountpoint: ${HOME}/devel/esgf-compute-wps/_temp/data/public
   cache-volume:
+    driver: local-persist
+    driver_opts:
+      mountpoint: ${HOME}/devel/esgf-compute-wps/_temp/data/cache
   tmp-volume:
+    driver: local-persist
+    driver_opts:
+      mountpoint: ${HOME}/devel/esgf-compute-wps/_temp/tmp
   user-volume:
+    driver: local-persist
+    driver_opts:
+      mountpoint: ${HOME}/devel/esgf-compute-wps/_temp/user
