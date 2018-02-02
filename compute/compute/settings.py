@@ -68,6 +68,7 @@ SECRET_KEY = '+a#&@l4!^)i5cn=!*ye^!42xcmyqs3l&j368ow^-y=3fs-txq6'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = 'WPS_DEBUG' in os.environ
+TEST = 'WPS_TEST' in os.environ
 
 WPS_HOST = os.environ.get('WPS_HOST', '0.0.0.0')
 
@@ -190,7 +191,7 @@ WSGI_APPLICATION = 'compute.wsgi.application'
 
 DATABASES = {}
 
-if DEBUG:
+if TEST:
     DATABASES['default'] = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
