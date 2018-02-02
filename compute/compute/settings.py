@@ -46,7 +46,7 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
                     if replacement[0] in value:
                         value = value.replace(*replacement)
         except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
-            value = default_value
+            value = default
 
             pass
 
