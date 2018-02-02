@@ -73,7 +73,7 @@ DEBUG = 'WPS_DEBUG' in os.environ
 
 HOST = os.environ.get('WPS_HOST', '0.0.0.0')
 
-ALLOWED_HOSTS = [ HOST ]
+ALLOWED_HOSTS = [ '0.0.0.0', HOST ]
 
 config = DjangoConfigParser.from_file('/etc/config/django.properties', {
     '{host}': HOST,
