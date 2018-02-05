@@ -16,7 +16,7 @@ spec:
       containers:
       - name: celery-beat
         image: jasonb87/cwt_celery:2.0.0
-        command: ["-l", "info", "-B"]
+        args: ["-l", "info", "-B"]
         env:
         - name: WPS_HOST
           value: "192.168.39.170"
