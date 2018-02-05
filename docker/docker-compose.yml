@@ -69,6 +69,7 @@ services:
       - ./common.env
     environment:
       - WPS_HOST=10.5.5.5
+      - POSTGRES_PASSWORD=1234
     volumes:
       - conf-volume:/etc/config
       - data-volume:/data/public
@@ -88,6 +89,7 @@ services:
       - ./common.env
     environment:
       - WPS_HOST=10.5.5.5
+      - POSTGRES_PASSWORD=1234
     volumes:
       - conf-volume:/etc/config
       - data-volume:/data/public
@@ -141,20 +143,20 @@ volumes:
   conf-volume:
     driver: local-persist
     driver_opts: 
-      mountpoint: ${HOME}/devel/esgf-compute-wps/docker/wps
+      mountpoint: ${PWD}/wps
   data-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: ${HOME}/devel/esgf-compute-wps/_temp/data/public
+      mountpoint: /opt/nfs/cwt/data/public
   cache-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: ${HOME}/devel/esgf-compute-wps/_temp/data/cache
+      mountpoint: /opt/nfs/cwt/data/cache
   tmp-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: ${HOME}/devel/esgf-compute-wps/_temp/tmp
+      mountpoint: /opt/nfs/cwt/tmp
   user-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: ${HOME}/devel/esgf-compute-wps/_temp/user
+      mountpoint: /opt/nfs/cwt/user
