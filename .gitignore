@@ -8,6 +8,11 @@ compute/compute/settings.py
 *.nc
 *.sql
 
+*.key
+*.crt
+*.srl
+*.csr
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
