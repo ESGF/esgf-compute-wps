@@ -22,10 +22,25 @@ spec:
         args:
         - --api
         - --kubernetes
+        - --configFile=/etc/config/traefik.toml
         ports:
         - containerPort: 80
           hostPort: 80
+        - containerPort: 443
+          hostPort: 443
         - containerPort: 8080
+        volumeMounts:
+        - name: ssl-volume
+          mountPath: /etc/ssl
+        - name: config-volume
+          mountPath: /etc/config
+      volumes:
+      - name: ssl-volume
+        secret:
+          secretName: ssl-secret
+      - name: config-volume
+        configMap:
+          name: traefik-conf
 ---
 apiVersion: v1
 kind: Service
