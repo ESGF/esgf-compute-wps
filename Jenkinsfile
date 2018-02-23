@@ -8,6 +8,26 @@ pipeline {
             }
         }
         
+        stage('Test Django App') {
+            steps {
+                sh 'cp docker/wps/django.properties django.properties'
+                
+                withEnv(['PATH+EXTRA=/opt/conda/bin', 'WPS_TEST=1', 'DJANGO_CONFIG_PATH=./django.properties']) {
+                    sh 'sudo conda env create --name wps --file docker/common/environment.yml || exit 0'
+                    
+                    sh '''#!/bin/bash
+                        . /opt/conda/bin/activate wps
+                        
+                        pip install django-webpack-loader
+                        
+                        pip install -r compute/wps/tests/requirements.txt
+                        
+                        python compute/manage.py test --with-xunit compute/wps/tests || exit 0
+                    '''
+                }
+            }
+        }
+        
         stage('Build docker containers') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub-docker', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
@@ -34,6 +54,14 @@ pipeline {
                 
                 sh 'docker push jasonb87/cwt_thredds:4.6.10'
             }
+        }
+    }
+    
+    post {
+        always{
+            step([$class: 'XUnitBuilder',
+                thresholds: [[$class: 'FailedThreshold', failureThreshold: '20']],
+                tools: [[$class: 'JUnitType', pattern: 'nosetests.xml']]])
         }
     }
 }
