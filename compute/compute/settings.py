@@ -74,7 +74,9 @@ WPS_HOST = os.environ.get('WPS_HOST', '0.0.0.0')
 
 ALLOWED_HOSTS = [ WPS_HOST ]
 
-config = DjangoConfigParser.from_file('/etc/config/django.properties', {
+DJANGO_CONFIG_PATH = os.environ.get('DJANGO_CONFIG_PATH', '/etc/config/django.properties')
+
+config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH, {
     '{host}': WPS_HOST,
 })
 
