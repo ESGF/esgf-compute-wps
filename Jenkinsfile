@@ -22,7 +22,7 @@ pipeline {
                         
                         pip install -r compute/wps/tests/requirements.txt
                         
-                        python compute/manage.py test --with-xunit compute/wps/tests || exit 0
+                        python compute/manage.py test --with-xunit --with-coverage --cover-xml --cover-xml-file coverage.xml --cover-package wps compute/wps/tests || exit 0
                     '''
                 }
             }
@@ -82,6 +82,12 @@ pipeline {
             step([$class: 'XUnitBuilder',
                 thresholds: [[$class: 'FailedThreshold', failureThreshold: '20']],
                 tools: [[$class: 'JUnitType', pattern: 'nosetests.xml']]])
+                
+            step([$class: 'CoberturaPublisher', 
+                autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '**/coverage.xml', 
+                failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, 
+                sourceEncoding: 'ASCII', zoomCoverageChart: false])
+
         }
     }
 }
