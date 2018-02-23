@@ -44,7 +44,26 @@ pipeline {
             }
         }
         
+        stage('Choose push docker containers') {
+            steps {
+                script {
+                    try {
+                        timeout(time: 1, unit: 'HOURS') {
+                            env.DOCKER_PUSH = input(message: 'User input required', parameters:[
+                                choice(name: 'Push to docker registry', choices: 'no\nyes')])
+                        }
+                    } catch(err) {
+                        env.DOCKER_PUSH = 'no'
+                    }
+                }
+            }
+        }
+        
         stage('Push docker containers') {
+            when {
+                environment name: 'DOCKER_PUSH', value: 'yes'
+            }
+            
             steps {
                 sh 'docker push jasonb87/cwt_common:2.0.0'
                 
@@ -53,6 +72,7 @@ pipeline {
                 sh 'docker push jasonb87/cwt_celery:2.0.0'
                 
                 sh 'docker push jasonb87/cwt_thredds:4.6.10'
+
             }
         }
     }
