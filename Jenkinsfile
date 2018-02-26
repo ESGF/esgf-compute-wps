@@ -12,9 +12,9 @@ pipeline {
                     sh '''#!/bin/bash
                         . /opt/conda/bin/activate wps
                         
-                        pip install django-webpack-loader
+                        sudo /opt/conda/bin/pip install django-webpack-loader
                         
-                        pip install -r compute/wps/tests/requirements.txt
+                        sudo /opt/conda/bin/pip install -r compute/wps/tests/requirements.txt
                         
                         python compute/manage.py test --with-xunit --with-coverage --cover-xml --cover-xml-file coverage.xml --cover-package wps compute/wps/tests || exit 0
                     '''
