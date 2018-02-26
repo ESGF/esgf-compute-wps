@@ -9,7 +9,7 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 	PATH=/opt/conda/envs/wps/bin:$PATH pip install django-webpack-loader bjoern && \	
 	apt-get autoremove -y build-essential && \
 	rm -rf /var/lib/apt/lists/* && \
-	conda clean --all -y
+	conda clean --all -y || exit 0
 
 RUN cd /var/www/compute/compute/wps/webapp && \
 	yarn install && \
