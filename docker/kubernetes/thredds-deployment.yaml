@@ -3,16 +3,17 @@ kind: Deployment
 metadata:
   name: thredds-deployment
   labels:
-    app: wps
+    app: cwt
+    component: thredds
+    group: core
+    environemnt: production
 spec:
   selector:
     matchLabels:
-      app: wps
       component: thredds
   template:
     metadata:
       labels:
-        app: wps
         component: thredds
     spec:
       containers:
@@ -40,10 +41,12 @@ kind: Service
 metadata:
   name: thredds
   labels:
-    app: wps
+    app: cwt
+    component: thredds
+    group: core
+    environemnt: production
 spec:
   selector:
-    app: wps
     component: thredds
   ports:
   - port: 80
@@ -53,6 +56,11 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: thredds
+  labels:
+    app: cwt
+    component: thredds
+    group: core
+    environemnt: production
   annotations:
     kubernetes.io/ingress.class: traefik
 spec:

@@ -8,11 +8,11 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: cog
+      component: cog
   template:
     metadata:
       labels:
-        app: cog
+        component: cog
     spec:
       containers:
       - name: cog
@@ -35,7 +35,7 @@ metadata:
   name: cog
 spec:
   selector:
-    app: cog
+    component: cog
   ports:
   - protocol: TCP
     port: 8000

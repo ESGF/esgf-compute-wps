@@ -3,22 +3,25 @@ kind: Deployment
 metadata:
   name: celery-deployment
   labels:
-    app: wps
+    app: cwt
+    component: celery
+    group: core
+    environment: production
 spec:
   selector:
     matchLabels:
-      app: wps
+      component: celery
   template:
     metadata:
       labels:
-        app: wps
+        component: celery
     spec:
       containers:
       - name: celery
         image: jasonb87/cwt_celery:2.0.0
         env:
         - name: WPS_HOST
-          value: "192.168.39.170"
+          value: 0.0.0.0
         - name: CELERY_BROKER
           valueFrom:
             configMapKeyRef:

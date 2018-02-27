@@ -3,17 +3,18 @@ kind: Deployment
 metadata:
   name: wps-deployment
   labels:
-    app: wps
+    app: cwt
+    component: wps
+    group: core
+    environemnt: production
 spec:
   selector:
     matchLabels:
-      app: wps
-      component: django
+      component: wps
   template:
     metadata:
       labels:
-        app: wps
-        component: django
+        component: wps
     spec:
       containers:
       - name: wps
@@ -71,10 +72,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: wps
+  labels:
+    app: cwt
+    component: wps
+    group: core
+    environemnt: production
 spec:
   selector:
-    app: wps
-    component: django
+    component: wps
   ports:
   - protocol: TCP
     port: 8000
@@ -83,6 +88,11 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: wps
+  labels:
+    app: cwt
+    component: wps
+    group: core
+    environemnt: production
   annotations:
     kubernetes.io/ingress.class: traefik
 spec:

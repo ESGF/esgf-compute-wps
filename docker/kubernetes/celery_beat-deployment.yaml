@@ -3,15 +3,18 @@ apiVersion: apps/v1beta2
 metadata:
   name: celery-beat-deployment
   labels:
-    app: wps
+    app: cwt
+    component: celery-beat
+    group: core
+    environment: production
 spec:
   selector:
     matchLabels:
-      app: wps
+      component: celery-beat
   template:
     metadata:
       labels:
-        app: wps
+        component: celery-beat
     spec:
       containers:
       - name: celery-beat

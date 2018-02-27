@@ -3,16 +3,17 @@ kind: Deployment
 metadata:
   name: nginx-deployment
   labels:
-    app: wps
+    app: cwt
+    component: nginx
+    group: core
+    environment: production
 spec:
   selector:
     matchLabels:
-      app: wps
       component: nginx
   template:
     metadata:
       labels:
-        app: wps
         component: nginx
     spec:
       containers:
@@ -31,9 +32,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx
+  labels:
+    app: cwt
+    component: nginx
+    group: core
+    environment: production
 spec:
   selector:
-    app: wps
     component: nginx
   ports:
   - port: 80
@@ -42,6 +47,11 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: nginx
+  labels:
+    app: cwt
+    component: nginx
+    group: core
+    environment: production
   annotations:
     kubernetes.io/ingress.class: traefik
 spec:

@@ -3,15 +3,18 @@ kind: Deployment
 metadata:
   name: edas-deployment
   labels:
-    app: wps
+    app: cwt
+    component: edas
+    group: extra
+    environment: production
 spec:
   selector:
     matchLabels:
-      app: wps
+      component: edas
   template:
     metadata:
       labels:
-        app: wps
+        component: edas
     spec:
       containers:
       - name: edas
