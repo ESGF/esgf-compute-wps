@@ -21,7 +21,10 @@ spec:
         image: jasonb87/cwt_wps:2.0.0
         env:
         - name: WPS_HOST
-          value: "192.168.39.170"
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: wps_host
         - name: CELERY_BROKER
           valueFrom:
             configMapKeyRef:
