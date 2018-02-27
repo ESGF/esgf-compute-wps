@@ -56,5 +56,5 @@ spec:
           type: DirectoryOrCreate
       - name: cache-volume
         hostPath:
-          path: /opt/nfs/cwt/data/public
+          path: /opt/nfs/cwt/data/cache
           type: DirectoryOrCreate
