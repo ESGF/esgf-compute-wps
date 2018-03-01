@@ -3,9 +3,9 @@ kind: Deployment
 metadata:
   name: edas-deployment
   labels:
-    app: cwt
+    app: edas
     component: edas
-    group: extra
+    group: edas
     environment: production
 spec:
   replicas: 1
@@ -34,7 +34,7 @@ metadata:
   name: edas
 spec:
   selector:
-    app: wps
+    app: edas
   ports:
   - name: listen
     protocol: TCP
