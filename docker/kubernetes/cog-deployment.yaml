@@ -6,6 +6,7 @@ metadata:
     app: cog
     environment: debug
 spec:
+  repliaces: 1
   selector:
     matchLabels:
       component: cog
@@ -17,6 +18,13 @@ spec:
       containers:
       - name: cog
         image: jasonb87/cwt_cog:latest
+        resources:
+          limits:
+            cpu: "1"
+            memory: "200Mi"
+          requests:
+            cpu: "0.25"
+            memory: "100Mi"
         args: ["aims2.llnl.gov", "false", "true", "https://aims2.llnl.gov/wps/home/configure", "true"]
         ports:
         - containerPort: 8000

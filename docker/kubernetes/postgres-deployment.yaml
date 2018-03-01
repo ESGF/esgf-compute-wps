@@ -8,6 +8,7 @@ metadata:
     group: core
     environment: production
 spec:
+  replicas: 1
   selector:
     matchLabels:
       component: postgres
@@ -19,6 +20,13 @@ spec:
       containers:
       - name: postgres
         image: postgres:9.6.2
+        resources:
+          limits:
+            cpu: "1"
+            memory: "400Mi"
+          requests:
+            cpu: "0.10"
+            memory: "200Mi"
         ports:
         - containerPort: 5432
         volumeMounts:

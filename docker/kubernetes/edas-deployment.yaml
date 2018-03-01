@@ -8,6 +8,7 @@ metadata:
     group: extra
     environment: production
 spec:
+  replicas: 1
   selector:
     matchLabels:
       component: edas
@@ -19,6 +20,13 @@ spec:
       containers:
       - name: edas
         image: jasonb87/cwt_edas:latest
+        resources:
+          limits:
+            cpu: "2"
+            memory: "400Mi"
+          requests:
+            cpu: "1"
+            memory: "200Mi"
 ---
 apiVersion: v1
 kind: Service

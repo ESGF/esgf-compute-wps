@@ -8,6 +8,7 @@ metadata:
     group: core
     environment: production
 spec:
+  replicas: 4
   selector:
     matchLabels:
       component: celery
@@ -19,6 +20,13 @@ spec:
       containers:
       - name: celery
         image: jasonb87/cwt_celery:2.0.0
+        resources:
+          limits:
+            cpu: "1"
+            memory: "200Mi"
+          requests:
+            cpu: "0.25"
+            memory: "100Mi"
         env:
         - name: WPS_HOST
           valueFrom:

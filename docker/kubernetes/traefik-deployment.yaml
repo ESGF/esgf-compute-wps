@@ -48,6 +48,7 @@ metadata:
   labels:
     app: wps
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: wps
@@ -63,6 +64,13 @@ spec:
       containers:
       - image: traefik
         name: traefik
+        resources:
+          limits:
+            cpu: "1"
+            memory: "400Mi"
+          requests:
+            cpu: "0.25"
+            memory: "200Mi"
         args:
         - --api
         - --kubernetes

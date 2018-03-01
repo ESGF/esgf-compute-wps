@@ -8,6 +8,7 @@ metadata:
     group: core
     environment: production
 spec:
+  replicas: 1
   selector:
     matchLabels:
       component: redis
@@ -19,6 +20,13 @@ spec:
       containers:
       - name: redis
         image: redis:3.2.8
+        resources:
+          limits:
+            cpu: "1"
+            memory: "400Mi"
+          requests:
+            cpu: "0.10"
+            memory: "200Mi"
 ---
 apiVersion: v1
 kind: Service
