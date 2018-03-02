@@ -29,9 +29,7 @@ services:
       - "traefik.enable=true"
       - "traefik.port=8000"
     env_file:
-      - ./common.env
-    environment:
-      - WPS_HOST=10.5.5.5
+      - ./_deploy/app.properties
     expose:
       - "8000"
     volumes:
@@ -41,14 +39,13 @@ services:
     restart: always
     networks:
       frontend:
-        ipv4_address: 172.19.0.8
       backend:
   postgres:
     image: postgres:9.6.2
     labels:
       - "traefik.enable=false"
-    environment: 
-      - POSTGRES_PASSWORD=1234
+    env_file:
+      - ./_deploy/app.properties
     volumes:
       - db-volume:/var/lib/postgresql/data
     restart: always
@@ -66,10 +63,7 @@ services:
     labels:
       - "traefik.enable=false"
     env_file:
-      - ./common.env
-    environment:
-      - WPS_HOST=10.5.5.5
-      - POSTGRES_PASSWORD=1234
+      - ./_deploy/app.properties
     volumes:
       - conf-volume:/etc/config
       - data-volume:/data/public
@@ -86,10 +80,7 @@ services:
       - "traefik.enable=false"
     command: -l info -B
     env_file:
-      - ./common.env
-    environment:
-      - WPS_HOST=10.5.5.5
-      - POSTGRES_PASSWORD=1234
+      - ./_deploy/app.properties
     volumes:
       - conf-volume:/etc/config
       - data-volume:/data/public
@@ -130,11 +121,6 @@ services:
 
 networks:
   frontend:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.19.0.0/24
   backend:
 
 volumes:
@@ -143,20 +129,20 @@ volumes:
   conf-volume:
     driver: local-persist
     driver_opts: 
-      mountpoint: ${PWD}/wps
+      mountpoint: ${PWD}/_deploy
   data-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: /opt/nfs/cwt/data/public
+      mountpoint: ${DEPLOY_DIR}/data/public
   cache-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: /opt/nfs/cwt/data/cache
+      mountpoint: ${DEPLOY_DIR}/data/cache
   tmp-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: /opt/nfs/cwt/tmp
+      mountpoint: ${DEPLOY_DIR}/tmp
   user-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: /opt/nfs/cwt/user
+      mountpoint: ${DEPLOY_DIR}/user
