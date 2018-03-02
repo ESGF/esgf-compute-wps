@@ -6,7 +6,7 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 	apt-get update && \
 	apt-get install -y --no-install-recommends yarn build-essential libev-dev nodejs && \
 	conda install -n wps -c conda-forge gunicorn=19.3.0 && \
-	PATH=/opt/conda/envs/wps/bin:$PATH pip install django-webpack-loader bjoern && \	
+	PATH=/opt/conda/envs/wps/bin:$PATH pip install bjoern && \	
 	apt-get autoremove -y build-essential && \
 	rm -rf /var/lib/apt/lists/* && \
 	conda clean --all -y || exit 0
