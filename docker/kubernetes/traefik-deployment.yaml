@@ -46,17 +46,18 @@ kind: Deployment
 metadata:
   name: traefik-deployment
   labels:
-    app: wps
+    app: cwt
+    component: traefik
+    group: traefik
+    environment: production
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: wps
       component: traefik
   template:
     metadata:
       labels:
-        app: wps
         component: traefik
     spec:
       terminationGracePeriodSeconds: 60
