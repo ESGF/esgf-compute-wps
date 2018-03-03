@@ -11,13 +11,13 @@ WPS_HOST='0.0.0.0'
 function usage {
   echo -e "Usage $0:"
   echo -e ""
-  echo -e "\t--dev\t\t\tEnable development mode"
-  echo -e "\t--client\t\tOAuth2 Client ID"
-  echo -e "\t--secret\t\tOAuth2 Secret"
-  echo -e "\t--postgres-pass\t\tPostgres password"
-  echo -e "\t--tls-key\t\tTLS Key"
-  echo -e "\t--tls-crt\t\tTLS Certificate"
-  echo -e "\t--host\t\tExternal host, for django ALLOW_HOSTS"
+  echo -e "  --dev\t\t\tEnable development mode"
+  echo -e "  --client\t\tOAuth2 Client ID"
+  echo -e "  --secret\t\tOAuth2 Secret"
+  echo -e "  --postgres-pass\tPostgres password"
+  echo -e "  --tls-key\t\tTLS Key"
+  echo -e "  --tls-crt\t\tTLS Certificate"
+  echo -e "  --host\t\tExternal host, for django ALLOW_HOSTS"
 }
 
 [[ $# -eq 0 ]] && usage && exit 0

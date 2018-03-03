@@ -6,7 +6,8 @@ metadata:
     app: cwt
     component: thredds
     group: core
-    environemnt: production
+    environment: production
+    environment: development
 spec:
   replicas: 1
   selector:
@@ -52,7 +53,8 @@ metadata:
     app: cwt
     component: thredds
     group: core
-    environemnt: production
+    environment: production
+    environment: development
 spec:
   selector:
     component: thredds
@@ -68,7 +70,8 @@ metadata:
     app: cwt
     component: thredds
     group: core
-    environemnt: production
+    environment: production
+    environment: development
   annotations:
     kubernetes.io/ingress.class: traefik
 spec:

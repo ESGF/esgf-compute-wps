@@ -4,7 +4,9 @@ metadata:
   name: cog-deployment
   labels:
     app: cog
-    environment: debug
+    component: cog
+    group: core
+    environment: development
 spec:
   repliaces: 1
   selector:
@@ -41,6 +43,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: cog
+  labels:
+    app: cog
+    component: cog
+    group: core
+    environment: development
 spec:
   selector:
     component: cog
@@ -52,6 +59,11 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: cog-ingress
+  labels:
+    app: cog
+    component: cog
+    group: core
+    environment: development
 spec:
   rules:
   - http:

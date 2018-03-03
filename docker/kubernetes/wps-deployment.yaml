@@ -6,7 +6,8 @@ metadata:
     app: cwt
     component: wps
     group: core
-    environemnt: production
+    environment: production
+    environment: development
 spec:
   replicas: 1
   selector:
@@ -32,22 +33,22 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: wps_host
+              key: WPS_HOST
         - name: CELERY_BROKER
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: celery_broker
+              key: CELERY_BROKER
         - name: CELERY_BACKEND
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: celery_backend
+              key: CELERY_BACKEND
         - name: POSTGRES_HOST
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: postgres_host
+              key: POSTGRES_HOST
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -87,7 +88,8 @@ metadata:
     app: cwt
     component: wps
     group: core
-    environemnt: production
+    environment: production
+    environment: development
 spec:
   selector:
     component: wps
@@ -103,7 +105,8 @@ metadata:
     app: cwt
     component: wps
     group: core
-    environemnt: production
+    environment: production
+    environment: development
   annotations:
     kubernetes.io/ingress.class: traefik
 spec:

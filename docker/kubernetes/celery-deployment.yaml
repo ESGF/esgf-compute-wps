@@ -32,22 +32,97 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: wps_host
+              key: WPS_HOST
         - name: CELERY_BROKER
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: celery_broker
+              key: CELERY_BROKER
         - name: CELERY_BACKEND
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: celery_backend
+              key: CELERY_BACKEND
         - name: POSTGRES_HOST
           valueFrom:
             configMapKeyRef:
               name: app-config
-              key: postgres_host
+              key: POSTGRES_HOST
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: postgres_password
+        volumeMounts:
+        - mountPath: /etc/config
+          name: config-volume
+        - mountPath: /data/public
+          name: public-volume
+        - mountPath: /data/cache
+          name: cache-volume
+      volumes:
+      - name: config-volume
+        configMap:
+          name: django-config
+      - name: public-volume
+        hostPath:
+          path: /opt/nfs/cwt/data/public
+          type: DirectoryOrCreate
+      - name: cache-volume
+        hostPath:
+          path: /opt/nfs/cwt/data/cache
+          type: DirectoryOrCreate
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: celery-deployment
+  labels:
+    app: cwt
+    component: celery
+    group: core
+    environment: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: celery
+  template:
+    metadata:
+      labels:
+        component: celery
+    spec:
+      containers:
+      - name: celery
+        image: jasonb87/cwt_celery:2.0.0
+        resources:
+          limits:
+            cpu: "1"
+            memory: "200Mi"
+          requests:
+            cpu: "0.25"
+            memory: "100Mi"
+        env:
+        - name: WPS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: WPS_HOST
+        - name: CELERY_BROKER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CELERY_BROKER
+        - name: CELERY_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CELERY_BACKEND
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: POSTGRES_HOST
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
