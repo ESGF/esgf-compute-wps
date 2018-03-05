@@ -6,8 +6,7 @@ metadata:
     app: cwt
     component: celery-beat
     group: core
-    environment: production
-    environment: development
+    environment: development-production
 spec:
   replicas: 1
   selector:

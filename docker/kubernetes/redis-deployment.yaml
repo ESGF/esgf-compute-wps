@@ -6,8 +6,7 @@ metadata:
     app: cwt
     component: redis
     group: core
-    environment: production
-    environment: development
+    environment: development-production
 spec:
   replicas: 1
   selector:
@@ -37,8 +36,7 @@ metadata:
     app: cwt
     component: redis
     group: core
-    environment: production
-    environment: development
+    environment: development-production
 spec:
   selector:
     component: redis

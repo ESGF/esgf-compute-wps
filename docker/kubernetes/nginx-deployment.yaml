@@ -6,8 +6,7 @@ metadata:
     app: cwt
     component: nginx
     group: core
-    environment: production
-    environment: development
+    environment: development-production
 spec:
   replicas: 1
   selector:
@@ -45,8 +44,7 @@ metadata:
     app: cwt
     component: nginx
     group: core
-    environment: production
-    environment: development
+    environment: development-production
 spec:
   selector:
     component: nginx
@@ -61,8 +59,7 @@ metadata:
     app: cwt
     component: nginx
     group: core
-    environment: production
-    environment: development
+    environment: development-production
   annotations:
     kubernetes.io/ingress.class: traefik
 spec:

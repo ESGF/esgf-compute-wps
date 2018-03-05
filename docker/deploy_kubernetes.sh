@@ -28,6 +28,6 @@ kubectl create secret generic app-secret --from-literal=oauth_client=$OAUTH_CLIE
 
 SELECTOR="app=cwt,group=core"
 
-[[ "$DEV" -eq "1" ]] && SELECTOR="${SELECTOR},environment=development" || SELECTOR="${SELECTOR},environment=production"
+[[ "$DEV" -eq "1" ]] && SELECTOR="${SELECTOR},environment in (development, development-production)" || SELECTOR="${SELECTOR},environment in (production, development-production)"
 
-kubectl apply -f kubernetes/ -l $SELECTOR
+kubectl apply -f kubernetes/ -l "$SELECTOR"

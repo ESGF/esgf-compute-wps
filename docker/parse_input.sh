@@ -1,12 +1,12 @@
 #! /bin/bash
 
 DEV=0
-OAUTH_CLIENT=''
-OAUTH_SECRET=''
-POSTGRES_PASSWORD='abcd'
-TLS_KEY=''
-TLS_CRT=''
-WPS_HOST='0.0.0.0'
+OAUTH_CLIENT=""
+OAUTH_SECRET=""
+POSTGRES_PASSWORD="abcd"
+TLS_KEY=""
+TLS_CRT=""
+WPS_HOST="0.0.0.0"
 
 function usage {
   echo -e "Usage $0:"
