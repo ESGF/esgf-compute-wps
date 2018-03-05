@@ -8,7 +8,7 @@ metadata:
     group: core
     environment: development
 spec:
-  repliaces: 1
+  replicas: 1
   selector:
     matchLabels:
       component: cog
