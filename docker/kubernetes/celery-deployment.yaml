@@ -20,6 +20,7 @@ spec:
       containers:
       - name: celery
         image: jasonb87/cwt_celery:2.0.0
+        args: ["-l", "info", "-c", "1", "--max-memory-per-child", "204800"]
         resources:
           limits:
             cpu: "1"
@@ -95,6 +96,7 @@ spec:
       containers:
       - name: celery
         image: jasonb87/cwt_celery:2.0.0
+        args: ["-l", "info", "-c", "1", "--max-memory-per-child", "204800"]
         resources:
           limits:
             cpu: "1"
