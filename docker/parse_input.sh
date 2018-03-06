@@ -1,6 +1,7 @@
 #! /bin/bash
 
 DEV=0
+CONFIG_ONLY=0
 OAUTH_CLIENT=""
 OAUTH_SECRET=""
 POSTGRES_PASSWORD="abcd"
@@ -12,6 +13,7 @@ function usage {
   echo -e "Usage $0:"
   echo -e ""
   echo -e "  --dev\t\t\tEnable development mode"
+  echo -e "  --config-only\t\tWill only write configuration files"
   echo -e "  --client\t\tOAuth2 Client ID"
   echo -e "  --secret\t\tOAuth2 Secret"
   echo -e "  --postgres-pass\tPostgres password"
@@ -30,6 +32,9 @@ do
   case $arg in
   --dev)
     DEV=1
+    ;;
+  --config-only)
+    CONFIG_ONLY=1
     ;;
   --client)
     OAUTH_CLIENT="$1"

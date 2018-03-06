@@ -26,6 +26,8 @@ kubectl create secret generic ssl-secret --from-file=$TLS_CRT --from-file=$TLS_K
 
 kubectl create secret generic app-secret --from-literal=oauth_client=$OAUTH_CLIENT --from-literal=oauth_secret=$OAUTH_SECRET --from-literal=postgres_password=$POSTGRES_PASSWORD
 
+[[ "$CONFIG_ONLY" -eq "1" ]] && exit 1
+
 SELECTOR="app=cwt,group=core"
 
 [[ "$DEV" -eq "1" ]] && SELECTOR="${SELECTOR},environment in (development, development-production)" || SELECTOR="${SELECTOR},environment in (production, development-production)"
