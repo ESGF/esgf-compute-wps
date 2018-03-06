@@ -71,6 +71,9 @@ metadata:
     environment: development-production
   annotations:
     kubernetes.io/ingress.class: traefik
+    ingress.kubernetes.io/ssl-redirect: true
+    ingress.kubernetes.io/hsts-max-age: 31536000
+    ingress.kubernetes.io/force-hsts: true
 spec:
   rules:
     - http:

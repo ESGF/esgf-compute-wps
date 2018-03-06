@@ -64,6 +64,10 @@ metadata:
     component: cog
     group: core
     environment: development
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: true
+    ingress.kubernetes.io/hsts-max-age: 31536000
+    ingress.kubernetes.io/force-hsts: true
 spec:
   rules:
   - http:
