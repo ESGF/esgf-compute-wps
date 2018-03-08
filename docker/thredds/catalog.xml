@@ -1,10 +1,7 @@
 <?xml version="1.0" ?>
 <catalog xmlns="http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0" >
-  <service name="odap" serviceType="OpenDAP" base="threddsCWT/dodsC/" />
-  <datasetScan name="public" path="public" location="/data/public" >
+  <service name="odap" serviceType="OpenDAP" base="/threddsCWT/dodsC/" />
+  <datasetScan name="Public" path="public" location="/data/public">
     <serviceName>odap</serviceName>
-  </datasetScan >
-  <datasetScan name="cache" path="cache" location="/data/cache" >
-    <serviceName>odap</serviceName>
-  </datasetScan >
+  </datasetScan>
 </catalog>

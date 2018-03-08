@@ -1,58 +1,20 @@
 #!/bin/bash
 
-while [[ $# -gt 0 ]]
+[[ ! -e "/data/public" ]] && mkdir -p /data/public
+
+catalina.sh start
+
+while [[ ! -e "./webapps/threddsCWT/WEB-INF/web.xml" ]]
 do
-  case $1 in
-  --proxy_name|-h)
-    shift
-    proxy_name=$1
-    shift
-    ;;
-  --proxy_port|-p)
-    shift
-    proxy_port=$1
-    shift
-    ;;
-  esac
+  sleep 1
 done
 
-data=/data
-public=${data}/public
-cache=${data}/cache
-thredds="content/thredds"
+sleep 20
 
-if [[ ! -e "$public" ]]
-then
-  mkdir -p $public
-fi
+catalina.sh stop
 
-if [[ ! -e "$cache" ]]
-then
-  mkdir -p $cache
-fi
+sleep 20
 
-if [[ ! -e "$thredds" ]]
-then
-  mkdir -p $thredds
+sed -i.bak "s/<param-value>thredds/<param-value>threddsCWT/g" ./webapps/threddsCWT/WEB-INF/web.xml
 
-  cp -f catalog.xml $thredds
-fi
-
-if [[ ! -e "./webapps/threddsCWT" ]]
-then
-  ./bin/catalina.sh start && sleep 10 && ./bin/catalina.sh stop && sleep 10
-
-  sed -ibak s/\<param\-value\>thredds/\<param\-value\>threddsCWT/ ./webapps/threddsCWT/WEB-INF/web.xml
-fi
-
-if [[ -n $proxy_name ]]
-then
-  sed -ibak s/proxyName=\"0\.0\.0\.0\"/proxyName=\"${proxy_name}\"/g conf/server.xml
-fi
-
-if [[ -n $proxy_port ]]
-then
-  sed -ibak s/proxyPort=\"80\"/proxyPort=\"${proxy_port}\"/g conf/server.xml
-fi
-
-exec sh -c "./bin/catalina.sh run $@"
+exec catalina.sh run
