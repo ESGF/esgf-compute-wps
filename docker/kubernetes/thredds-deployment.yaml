@@ -20,13 +20,14 @@ spec:
       containers:
       - name: thredds
         image: jasonb87/cwt_thredds:latest
+        args: ["--proxy_name", "aims2.llnl.gov"]
         resources:
           limits:
             cpu: "1"
-            memory: "400Mi"
+            memory: "4Gi"
           requests:
             cpu: "0.10"
-            memory: "200Mi"
+            memory: "512Mi"
         ports:
         - containerPort: 8080
         volumeMounts:
@@ -71,9 +72,10 @@ metadata:
     environment: development-production
   annotations:
     kubernetes.io/ingress.class: traefik
-    ingress.kubernetes.io/ssl-redirect: true
-    ingress.kubernetes.io/hsts-max-age: 31536000
-    ingress.kubernetes.io/force-hsts: true
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.kubernetes.io/hsts-max-age: "31536000"
+    ingress.kubernetes.io/hsts-include-subdomains: "true"
+    ingress.kubernetes.io/force-hsts: "true"
 spec:
   rules:
     - http:

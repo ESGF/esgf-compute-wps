@@ -27,7 +27,7 @@ spec:
           requests:
             cpu: "0.25"
             memory: "100Mi"
-        args: ["aims2.llnl.gov", "false", "true", "https://aims2.llnl.gov/wps/home/configure", "true"]
+        args: ["aims2.llnl.gov,esgf-compute.llnl.gov", "false", "true", "https://aims2.llnl.gov/wps/home/configure", "true"]
         ports:
         - containerPort: 8000
         volumeMounts:
@@ -65,9 +65,10 @@ metadata:
     group: core
     environment: development
   annotations:
-    ingress.kubernetes.io/ssl-redirect: true
-    ingress.kubernetes.io/hsts-max-age: 31536000
-    ingress.kubernetes.io/force-hsts: true
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.kubernetes.io/hsts-max-age: "31536000"
+    ingress.kubernetes.io/hsts-include-subdomains: "true"
+    ingress.kubernetes.io/force-hsts: "true"
 spec:
   rules:
   - http:

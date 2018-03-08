@@ -55,7 +55,6 @@ metadata:
     environment: development-production
 spec:
   selector:
-    app: wps
     component: postgres
   ports:
   - protocol: TCP
