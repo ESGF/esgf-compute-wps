@@ -19,8 +19,7 @@ spec:
     spec:
       containers:
       - name: thredds
-        image: jasonb87/cwt_thredds:latest
-        args: ["--proxy_name", "aims2.llnl.gov"]
+        image: jasonb87/cwt_thredds:4.6.10
         resources:
           limits:
             cpu: "1"
