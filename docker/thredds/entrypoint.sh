@@ -4,17 +4,15 @@
 
 catalina.sh start
 
-while [[ ! -e "./webapps/threddsCWT/WEB-INF/web.xml" ]]
+while [[ -z "$(grep -E 'threddsCWT.war] has finished' ./logs/catalina.out)" ]]
 do
   sleep 1
 done
 
-sleep 20
-
-catalina.sh stop
-
-sleep 20
-
 sed -i.bak "s/<param-value>thredds/<param-value>threddsCWT/g" ./webapps/threddsCWT/WEB-INF/web.xml
 
-exec catalina.sh run
+cp catalog.xml ./content/thredds/catalog.xml
+
+cp threddsConfig.xml ./content/thredds/threddsConfig.xml
+
+tail -f logs/catalina.out
