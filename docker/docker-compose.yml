@@ -20,12 +20,27 @@ services:
     restart: always
     networks:
       frontend:
+  nginx:
+    image: nginx:1.13.8
+    labels:
+      - "traefik.backend=nginx"
+      - "traefik.docker.network=docker_frontend"
+      - "traefik.frontend.rule=PathPrefix:/static"
+      - "traefik.enable=true"
+      - "traefik.port=80"
+    expose:
+      - "80"
+    volumes:
+      - static-volume:/usr/share/nginx/html/static
+    restart: always
+    networks:
+      frontend:
   wps:
     image: jasonb87/cwt_wps:2.0.0
     labels:
       - "traefik.backend=wps"
       - "traefik.docker.network=docker_frontend"
-      - "traefik.frontend.rule=PathPrefix:/wps,/static,/auth"
+      - "traefik.frontend.rule=PathPrefix:/wps,/auth"
       - "traefik.enable=true"
       - "traefik.port=8000"
     env_file:
