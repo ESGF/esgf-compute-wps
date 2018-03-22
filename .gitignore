@@ -14,6 +14,7 @@ compute/compute/settings.py
 *.crt
 *.srl
 *.csr
+docker-compose-new.yml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
