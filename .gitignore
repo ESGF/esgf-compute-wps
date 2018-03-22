@@ -8,6 +8,7 @@ compute/compute/settings.py
 *.txt
 *.nc
 *.sql
+*.bak
 
 *.key
 *.crt
