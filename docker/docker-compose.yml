@@ -43,6 +43,7 @@ services:
       - "traefik.frontend.rule=PathPrefix:/wps,/auth"
       - "traefik.enable=true"
       - "traefik.port=8000"
+    # DEBUG-wps-entrypoint entrypoint: sleep infinity
     env_file:
       - ./_deploy/app.properties
     expose:

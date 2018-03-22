@@ -8,6 +8,8 @@ if [[ ! -e "$DEPLOY_DIR" ]]
 then
   mkdir $DEPLOY_DIR
 
+  cp docker-compose.yml docker-compose-new.yml
+
   cp common/app.properties $DEPLOY_DIR
 
   echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> $DEPLOY_DIR/app.properties
@@ -18,6 +20,8 @@ then
 
   if [[ "$DEV" -eq "1" ]]
   then
+    sed -i.bak "s/\(.*\)# DEBUG-wps-entrypoint /\\1/g" docker-compose-new.yml
+
     echo "WPS_DEBUG=1" >> $DEPLOY_DIR/app.properties
 
     mkdir -p $DEPLOY_DIR/data/public
@@ -32,8 +36,10 @@ then
   cp common/django.properties $DEPLOY_DIR
 fi
 
-docker-compose up -d
+[[ $CONFIG_ONLY -eq 1 ]] && exit 1
+
+docker-compose -f docker-compose-new.yml up -d
 
 sleep 2
 
-docker-compose ps
+docker-compose -f docker-compose-new.yml ps
