@@ -14,8 +14,13 @@ do
   esac
 done
 
-export DEPLOY_DIR="./deploy_dir"
+export DEPLOY_DIR="${PWD}/_deploy"
 
 docker-compose -f docker-compose-new.yml down -v
 
-[[ $REMOVE_CONFIG -eq 1 ]] && sudo rm -rf ./_deploy/
+if [[ $REMOVE_CONFIG -eq 1 ]]
+then
+  sudo rm -rf ${DEPLOY_DIR}
+
+  sudo rm ${PWD}/docker-compose-new.yml*
+fi
