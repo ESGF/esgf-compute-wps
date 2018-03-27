@@ -2,11 +2,15 @@
 
 . ./parse_input.sh
 
-export DEPLOY_DIR="./_deploy"
+export DEPLOY_DIR="${PWD}/_deploy"
 
 if [[ ! -e "$DEPLOY_DIR" ]]
 then
   mkdir $DEPLOY_DIR
+  mkdir -p $DEPLOY_DIR/data/public
+  mkdir -p $DEPLOY_DIR/data/cache
+  mkdir -p $DEPLOY_DIR/tmp
+  mkdir -p $DEPLOY_DIR/user
 
   cp docker-compose.yml docker-compose-new.yml
 
