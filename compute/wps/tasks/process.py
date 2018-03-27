@@ -47,7 +47,7 @@ class Process(object):
 
         logger.info(msg)
 
-    def generate_grid(self, gridder):
+    def generate_grid(self, gridder, spatial, chunk):
         try:
             grid_type, grid_param = gridder.grid.split('~')
         except ValueError:
@@ -72,15 +72,28 @@ class Process(object):
 
             grid = cdms2.createGaussianGrid(nlats)
 
-        return grid
+        target = cdms2.MV2.ones(grid.shape)
+
+        target.setAxisList(grid.getAxisList())
+
+        lat = chunk.getLatitude()
+
+        lon = chunk.getLongitude()
+
+        try:
+            lat_spec = spatial[lat.id]
+
+            lon_spec = spatial[lon.id]
+        except KeyError as e:
+            raise WPSError('Missing spatial spec "{value}"', value=e)
+
+        target = target(latitude=lat_spec, longitude=lon_spec)
+
+        return target.getGrid()
 
     def retrieve(self, operation, num_inputs, output_file):
+        grid = None
         gridder = operation.get_parameter('gridder')
-
-        if gridder is not None:
-            grid = self.generate_grid(gridder)
-
-            logger.info('Regridding to new grid "{}"'.format(grid.shape))
 
         start = datetime.datetime.now()
 
@@ -107,6 +120,9 @@ class Process(object):
                     chunk.getTime().toRelativeTime(base_units)
 
                     if gridder is not None:
+                        if grid is None:
+                            grid = self.generate_grid(gridder, ds.spatial, chunk)
+
                         chunk = chunk.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
                     output_file.write(chunk, id=var_name)
