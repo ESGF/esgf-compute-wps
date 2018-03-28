@@ -107,7 +107,7 @@ services:
     networks:
       frontend:
   thredds:
-    image: jasonb87/cwt_thredds:latest
+    image: jasonb87/cwt_thredds:4.6.10
     labels:
       - "traefik.backend=thredds"
       - "traefik.docker.network=docker_frontend"
