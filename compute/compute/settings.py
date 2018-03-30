@@ -88,6 +88,11 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
 # Application definition
+EMAIL_HOST = config.get_value('email', 'host', 'localhost')
+EMAIL_PORT = config.get_value('email', 'port', 25, int)
+EMAIL_HOST_PASSWORD = config.get_value('email', 'password', '')
+EMAIL_HOST_USER = config.get_value('email', 'user', '')
+
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps')
 WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps')
 WPS_DAP = config.get_value('wps', 'wps.dap', 'true', bool)
