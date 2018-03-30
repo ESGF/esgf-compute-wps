@@ -41,6 +41,35 @@ class ProcessTestCase(test.TestCase):
 
     @mock.patch('wps.tasks.process.cdms2.MV2.ones')
     @mock.patch('wps.tasks.process.cdms2.createUniformGrid')
+    def test_generate_grid_uniform_full_args(self, mock_uniform, mock_ones):
+        mock_ones.return_value = mock.MagicMock()
+
+        chunk = mock.MagicMock()
+
+        chunk.getLatitude.return_value.id = 'lat'
+        
+        chunk.getLongitude.return_value.id = 'lon'
+
+        grid = self.proc.generate_grid(cwt.Gridder(grid='uniform~-90:45:4x0:72:5'), {'lat': (-45, 45), 'lon': (0, 100)}, chunk)
+
+        mock_uniform.assert_called_with(-88.0, 45, 4.0, 2.5, 72, 5.0)
+
+    @mock.patch('wps.tasks.process.cdms2.MV2.ones')
+    @mock.patch('wps.tasks.process.cdms2.createUniformGrid')
+    def test_generate_grid_uniform_error_parsing(self, mock_uniform, mock_ones):
+        mock_ones.return_value = mock.MagicMock()
+
+        chunk = mock.MagicMock()
+
+        chunk.getLatitude.return_value.id = 'lat'
+        
+        chunk.getLongitude.return_value.id = 'lon'
+
+        with self.assertRaises(WPSError):
+            grid = self.proc.generate_grid(cwt.Gridder(grid='uniform~abdx5'), {'lat': (-45, 45), 'lon': (0, 100)}, chunk)
+
+    @mock.patch('wps.tasks.process.cdms2.MV2.ones')
+    @mock.patch('wps.tasks.process.cdms2.createUniformGrid')
     def test_generate_grid_uniform(self, mock_uniform, mock_ones):
         mock_ones.return_value = mock.MagicMock()
 
@@ -50,9 +79,9 @@ class ProcessTestCase(test.TestCase):
         
         chunk.getLongitude.return_value.id = 'lon'
 
-        grid = self.proc.generate_grid(cwt.Gridder(grid='uniform~32x64'), {'lat': (-45, 45), 'lon': (0, 100)}, chunk)
+        grid = self.proc.generate_grid(cwt.Gridder(grid='uniform~4x5'), {'lat': (-45, 45), 'lon': (0, 100)}, chunk)
 
-        mock_uniform.assert_called_with(0, 32, 1, 0, 64, 1)
+        mock_uniform.assert_called_with(-88.0, 45, 4.0, 2.5, 72, 5.0)
 
     @mock.patch('wps.tasks.process.cdms2.createGaussianGrid')
     def test_generate_grid_parse_error(self, mock_gaussian):
@@ -85,6 +114,20 @@ class ProcessTestCase(test.TestCase):
         self.proc.log('some message {}', 'hello', percent=10)
 
         self.proc.job.update_status.assert_called_once()
+
+    @mock.patch('wps.tasks.process.credentials.load_certificate')
+    def test_process_missing_user(self, mock_load):
+        self.proc = process.Process('task_id')
+
+        with self.assertRaises(WPSError):
+            self.proc.initialize(1003, self.job.id)
+
+    @mock.patch('wps.tasks.process.credentials.load_certificate')
+    def test_process_missing_job(self, mock_load):
+        self.proc = process.Process('task_id')
+
+        with self.assertRaises(WPSError):
+            self.proc.initialize(self.user.id, 1003)
 
     @mock.patch('wps.tasks.process.credentials.load_certificate')
     def test_process(self, mock_load):

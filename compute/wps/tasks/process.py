@@ -5,6 +5,7 @@ import contextlib
 import cwt
 import datetime
 import math
+import re
 from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
 
@@ -47,6 +48,29 @@ class Process(object):
 
         logger.info(msg)
 
+    def parse_uniform_arg(self, value, default_start, default_n):
+        result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
+
+        if result is None:
+            raise WPSError('Failed to parse uniform argument {value}', value=value)
+
+        groups = result.groups()
+
+        if groups[1] is None:
+            delta = int(groups[0])
+
+            default_n = default_n / delta
+        else:
+            default_start = int(groups[1])
+
+            default_n = int(groups[2])
+
+            delta = int(groups[3])
+
+        start = default_start + (delta / 2.0)
+
+        return start, default_n, delta
+
     def generate_grid(self, gridder, spatial, chunk):
         try:
             grid_type, grid_param = gridder.grid.split('~')
@@ -54,16 +78,25 @@ class Process(object):
             raise WPSError('Error generating grid "{name}"', name=gridder.grid)
 
         if grid_type.lower() == 'uniform':
+            result = re.match('^(.*)x(.*)$', grid_param)
+
+            if result is None:
+                raise WPSError('Failed to parse uniform configuration from {value}', value=grid_param)
+
             try:
-                nlats, nlons = grid_param.split('x')
+                start_lat, nlat, delta_lat = self.parse_uniform_arg(result.group(1), -90.0, 180.0)
+            except WPSError:
+                raise
 
-                nlats = int(nlats)
+            try:
+                start_lon, nlon, delta_lon = self.parse_uniform_arg(result.group(2), 0.0, 360.0)
+            except WPSError:
+                raise
 
-                nlons = int(nlons)
-            except ValueError:
-                raise WPSError('Error parsing parameters "{value}" for uniform grid', value=grid_param)
+            grid = cdms2.createUniformGrid(start_lat, nlat, delta_lat, start_lon, nlon, delta_lon)
 
-            grid = cdms2.createUniformGrid(0, nlats, 1, 0, nlons, 1)
+            logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
+                grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
         else:
             try:
                 nlats = int(grid_param)
@@ -71,6 +104,8 @@ class Process(object):
                 raise WPSError('Error converting gaussian parameter to an int')
 
             grid = cdms2.createGaussianGrid(nlats)
+
+            logger.info('Created target gaussian grid {}'.format(grid.shape))
 
         target = cdms2.MV2.ones(grid.shape)
 
