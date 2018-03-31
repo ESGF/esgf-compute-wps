@@ -1,5 +1,6 @@
 import mock
 from django import test
+from openid.consumer import consumer
 
 from wps import settings
 from wps.auth import openid
@@ -69,31 +70,31 @@ class OpenIDTestCase(test.TestCase):
         self.assertEqual(url, 'http://test.com/openid/test')
         self.assertEqual(attrs, mock_attr.return_value)
 
-    def test_begin_exception(self):
+    @mock.patch('wps.views.openid.manager.Discovery')
+    @mock.patch('wps.views.openid.consumer.Consumer')
+    def test_begin_exception(self, mock_consumer, mock_discovery):
+        mock_consumer.return_value.beginWithoutDiscovery.side_effect = consumer.DiscoveryFailure('error', 404)
+
         with self.assertRaises(openid.DiscoverError) as e:
             openid.begin(mock.Mock(session={}), 'http://testbad.com/openid')
-
-        self.assertEqual(str(e.exception), str(openid.DiscoverError('http://testbad.com/openid')))
 
     @mock.patch('wps.views.openid.consumer.Consumer')
     def test_begin(self, mock_consumer):
         mock_begin = mock.Mock(**{'redirectURL.return_value': 'http://test.com/openid/begin'})
-        mock_consumer.return_value = mock.Mock(**{'begin.return_value': mock_begin})
+        mock_consumer.return_value = mock.Mock(**{'beginWithoutDiscovery.return_value': mock_begin})
 
         url = openid.begin(mock.Mock(session={}), 'http://test.com/openid')
 
         self.assertEqual(url, 'http://test.com/openid/begin')
 
         mock_consumer.assert_called_with({}, mock_consumer.call_args[0][1])
-        mock_consumer.return_value.begin.assert_called_with('http://test.com/openid')
+        mock_consumer.return_value.beginWithoutDiscovery.assert_called()
 
         mock_begin.redirectURL.assert_called_with(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
 
     def test_services_discovery_error(self):
         with self.assertRaises(openid.DiscoverError) as e:
             openid.services('http://testbad.com/openid', ['urn.test1', 'urn.test2'])
-
-        self.assertEqual(str(e.exception), str(openid.DiscoverError('http://testbad.com/openid')))
 
     @mock.patch('wps.views.openid.discover.discoverYadis')
     def test_services_service_not_supported(self, mock_discover):
