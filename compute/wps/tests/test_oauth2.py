@@ -9,6 +9,10 @@ from wps.auth import oauth2
 
 class TestOAuth2(test.TestCase):
 
+    def setUp(self):
+        os.environ['OAUTH_CLIENT'] = ''
+        os.environ['OAUTH_SECRET'] = ''
+
     @mock.patch('wps.auth.oauth2.OAuth2Session')
     def test_get_authorization_url_exception(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
