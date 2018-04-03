@@ -78,6 +78,7 @@ services:
     image: jasonb87/cwt_celery:2.0.0
     labels:
       - "traefik.enable=false"
+    # DEBUG-celery-entrypoint entrypoint: sleep infinity
     env_file:
       - ./_deploy/app.properties
     volumes:

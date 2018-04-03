@@ -26,6 +26,8 @@ then
   then
     sed -i.bak "s/\(.*\)# DEBUG-wps-entrypoint /\\1/g" docker-compose-new.yml
 
+    sed -i.bak "s/\(.*\)# DEBUG-celery-entrypoint /\\1/g" docker-compose-new.yml
+
     echo "WPS_DEBUG=1" >> $DEPLOY_DIR/app.properties
 
     mkdir -p $DEPLOY_DIR/data/public
