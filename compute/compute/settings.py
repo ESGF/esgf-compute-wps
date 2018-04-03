@@ -106,7 +106,7 @@ WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.succe
 WPS_PASSWORD_RESET_URL = config.get_value('wps', 'wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
 WPS_CA_PATH = config.get_value('wps', 'wps.ca.path', '/tmp/certs')
 WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path', '/data/public')
-WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.local.output.path', '/tmp')
+WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.user.temp.path', '/tmp/cwt/users')
 WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email', 'admin@aims2.llnl.gov')
 
 WPS_CACHE_PATH = config.get_value('cache', 'wps.cache.path', '/data/cache')
