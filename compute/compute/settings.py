@@ -306,7 +306,7 @@ LOGGING = {
         },
         'tasks': {
             'level': 'DEBUG',
-            'class': 'logging.handlers.TimeRotatingFileHandler',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
             'formatter': 'verbose',
             'filename': os.path.join(LOGGING_BASE_PATH, 'tasks.log'),
             'when': 'd',
