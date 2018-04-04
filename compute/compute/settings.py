@@ -270,6 +270,8 @@ WEBPACK_LOADER = {
     }
 }
 
+LOGGING_BASE_PATH = '/var/log/cwt'
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -284,25 +286,54 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'cwt_rotating': {
+        'general': {
             'level': 'DEBUG',
-            'class': 'logging.handlers.RotatingFileHandler',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
             'formatter': 'verbose',
-            'filename': './wps_cwt.txt',
-            'maxBytes': 1024000,
-            'backupCount': 2,
+            'filename': os.path.join(LOGGING_BASE_PATH, 'general.log'),
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 7,
         },
+        'auth': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'formatter': 'verbose',
+            'filename': os.path.join(LOGGING_BASE_PATH, 'auth.log'),
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 7,
+        },
+        'tasks': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.TimeRotatingFileHandler',
+            'formatter': 'verbose',
+            'filename': os.path.join(LOGGING_BASE_PATH, 'tasks.log'),
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 7,
+        }
     },
     'loggers': {
-        'cwt': {
-            'handlers': ['cwt_rotating'],
-            'propagate': False,
+        '': {
+            'handlers': ['console', 'general'],
             'level': 'DEBUG',
-        },
-        'wps': {
-            'handlers': ['console'],
             'propagate': True,
+        },
+        'wps.auth': {
+            'handlers': ['auth'],
             'level': 'DEBUG',
-        }
+            'propagate': True,
+        },
+        'wps.views.auth': {
+            'handlers': ['auth'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'wps.tasks': {
+            'handlers': ['tasks'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     }
 }
