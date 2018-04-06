@@ -36,7 +36,7 @@ cd esgf-compute-wps/docker
 
 ### Bare Metal
 
-Requirements:
+#### Requirements:
 
 * [Conda](https://conda.io/miniconda.html)
 * [Yarn](https://yarnpkg.com/lang/en/docs/install/)
@@ -45,12 +45,12 @@ Requirements:
 * [Redis](https://redis.io/topics/quickstart)
 * [NGINX](https://www.nginx.com/resources/wiki/start/topics/tutorials/install/) or [Apache](https://httpd.apache.org/docs/trunk/install.html)
 
-Static files:
+#### Static files:
 
 These are collected in /var/www/static which you will need to point NGINX or Apache
 to serve.
 
-Celery worker:
+#### Celery worker:
 
 ```
 cd esgf-compute-wps/compute
@@ -62,7 +62,7 @@ celery worker -A compute -b $CELERY_BROKER -l info
 celery worker -A compute -b $CELERY_BROKER -l info -B
 ```
 
-Evironment variables:
+#### Evironment variables:
 
 * OAUTH_CLIENT: 	OAuth2.0 Client value
 * OAUTH_SECRET: 	OAuth2.0 Secret value
@@ -72,7 +72,7 @@ Evironment variables:
 * POSTGRES_PASSWORD: 	PostgresSQL password
 * REDIS_HOST: 		Redis Host URI
 
-Install:
+#### Install:
 
 ```
 git clone https://github.com/ESGF/esgf-compute-wps
