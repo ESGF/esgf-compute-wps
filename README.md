@@ -91,6 +91,8 @@ export DJANGO_CONFIG_PATH="${PWD}/docker/common/django.properties"
 
 conda env create --name wps --file docker/common/environment.yml
 
+source activate wps
+
 popd
 
 // Define required environment variables
