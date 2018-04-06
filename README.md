@@ -42,6 +42,25 @@ Requirements:
 * [Yarn](https://yarnpkg.com/lang/en/docs/install/)
 * [Celery Worker](http://docs.celeryproject.org/en/latest/userguide/workers.html)
 * [PostgreSQL](https://www.postgresql.org/download/)
+* [Redis](https://redis.io/topics/quickstart)
+* [NGINX](https://www.nginx.com/resources/wiki/start/topics/tutorials/install/) or [Apache](https://httpd.apache.org/docs/trunk/install.html)
+
+Static files:
+
+These are collected in /var/www/static which you will need to point NGINX or Apache
+to serve.
+
+Celery worker:
+
+```
+cd esgf-compute-wps/compute
+
+// Launch a Celery worker
+celery worker -A compute -b $CELERY_BROKER -l info
+
+// Launch a Celery beat worker
+celery worker -A compute -b $CELERY_BROKER -l info -B
+```
 
 Evironment variables:
 
@@ -52,6 +71,8 @@ Evironment variables:
 * POSTGRES_HOST: 	PostgreSQL server address
 * POSTGRES_PASSWORD: 	PostgresSQL password
 * REDIS_HOST: 		Redis Host URI
+
+Install:
 
 ```
 git clone https://github.com/ESGF/esgf-compute-wps
@@ -64,11 +85,17 @@ yarn install
 
 popd
 
-pushd esgf-compute-wps/compute
+pushd esgf-compute-wps/
+
+export DJANGO_CONFIG_PATH="${PWD}/docker/common/django.properties"
+
+conda env create --name wps --file docker/common/environment.yml
+
+popd
 
 // Define required environment variables
 
-export DJANGO_CONFIG_PATH="${PWD}/../docker/common/django.properties"
+pushd esgf-compute-wps/compute
 
 python manage.py collectstatic
 
@@ -80,5 +107,9 @@ python manage.py processes --register
 
 python manage.py capabilities
 
+// Launch using gUnicorn
 gunicorn -b 0.0.0.0:8000 --reload compute.wsgi 
+// or
+// Launch using bjoern
+python app.py "0.0.0.0" "8000"
 ```
