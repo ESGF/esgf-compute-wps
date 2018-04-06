@@ -357,8 +357,16 @@ def wps(request):
         exc_response = wps_xml.execute_response('', failure, '')
 
         response = exc_response.xml()
-    except Exception:
-        logger.exception('Really')
+    except Exception as e:
+        exc_report = wps_lib.ExceptionReport(settings.VERSION)
+
+        exc_report.add_exception(wps_lib.NoApplicableCode, 'Please report this as a bug: {}'.format(str(e)))
+
+        failure = wps_lib.ProcessFailed(exception_report=exc_report)
+
+        exc_response = wps_xml.execute_response('', failure, '')
+
+        response = exc_response.xml()
     finally:
         return http.HttpResponse(response, content_type='text/xml')
 
