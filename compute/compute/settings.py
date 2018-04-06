@@ -88,6 +88,11 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
 # Application definition
+EMAIL_HOST = config.get_value('email', 'host', 'localhost')
+EMAIL_PORT = config.get_value('email', 'port', 25, int)
+EMAIL_HOST_PASSWORD = config.get_value('email', 'password', '')
+EMAIL_HOST_USER = config.get_value('email', 'user', '')
+
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps')
 WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps')
 WPS_DAP = config.get_value('wps', 'wps.dap', 'true', bool)
@@ -101,7 +106,7 @@ WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.succe
 WPS_PASSWORD_RESET_URL = config.get_value('wps', 'wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
 WPS_CA_PATH = config.get_value('wps', 'wps.ca.path', '/tmp/certs')
 WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path', '/data/public')
-WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.local.output.path', '/tmp')
+WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.user.temp.path', '/tmp/cwt/users')
 WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email', 'admin@aims2.llnl.gov')
 
 WPS_CACHE_PATH = config.get_value('cache', 'wps.cache.path', '/data/cache')
@@ -252,10 +257,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-if DEBUG:
-    STATIC_ROOT = os.path.join(BASE_DIR, 'assets')
-else:
-    STATIC_ROOT = '/var/www/static'
+STATIC_ROOT = '/var/www/static'
 
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'assets'),
@@ -267,6 +269,8 @@ WEBPACK_LOADER = {
         'STATS_FILE': os.path.join(BASE_DIR, 'wps', 'webapp', 'webpack-stats.json'),
     }
 }
+
+LOGGING_BASE_PATH = '/var/log/cwt'
 
 LOGGING = {
     'version': 1,
@@ -282,25 +286,54 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'cwt_rotating': {
+        'general': {
             'level': 'DEBUG',
-            'class': 'logging.handlers.RotatingFileHandler',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
             'formatter': 'verbose',
-            'filename': './wps_cwt.txt',
-            'maxBytes': 1024000,
-            'backupCount': 2,
+            'filename': os.path.join(LOGGING_BASE_PATH, 'general.log'),
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 7,
         },
+        'auth': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'formatter': 'verbose',
+            'filename': os.path.join(LOGGING_BASE_PATH, 'auth.log'),
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 7,
+        },
+        'tasks': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'formatter': 'verbose',
+            'filename': os.path.join(LOGGING_BASE_PATH, 'tasks.log'),
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 7,
+        }
     },
     'loggers': {
-        'cwt': {
-            'handlers': ['cwt_rotating'],
-            'propagate': False,
+        '': {
+            'handlers': ['console', 'general'],
             'level': 'DEBUG',
-        },
-        'wps': {
-            'handlers': ['console'],
             'propagate': True,
+        },
+        'wps.auth': {
+            'handlers': ['auth'],
             'level': 'DEBUG',
-        }
+            'propagate': True,
+        },
+        'wps.views.auth': {
+            'handlers': ['auth'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'wps.tasks': {
+            'handlers': ['tasks'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     }
 }

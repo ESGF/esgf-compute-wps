@@ -67,7 +67,7 @@ dependencies:
 - locket=0.2.0=py27_1
 - lxml=4.1.1=py27_0
 - markupsafe=1.0=py27_0
-- mpich=3.2=5
+- mpich=3.2
 - msgpack-python=0.5.1=py27_0
 - myproxyclient=2.0.1=py27_0
 - ncurses=5.9=10

@@ -1,6 +1,7 @@
 import datetime
 import collections
 import json
+import logging
 import re
 import random
 import string
@@ -25,7 +26,7 @@ from wps.auth import oauth2
 from wps.auth import openid
 from wps.views import common
 
-logger = common.logger
+logger = logging.getLogger('wps.views.auth')
 
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'

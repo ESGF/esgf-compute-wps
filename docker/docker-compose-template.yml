@@ -45,7 +45,7 @@ services:
       - "traefik.port=8000"
     # DEBUG-wps-entrypoint entrypoint: sleep infinity
     env_file:
-      - ./_deploy/app.properties
+      - ./_deploy/conf/app.properties
     expose:
       - "8000"
     volumes:
@@ -61,7 +61,7 @@ services:
     labels:
       - "traefik.enable=false"
     env_file:
-      - ./_deploy/app.properties
+      - ./_deploy/conf/app.properties
     volumes:
       - db-volume:/var/lib/postgresql/data
     restart: always
@@ -78,8 +78,9 @@ services:
     image: jasonb87/cwt_celery:2.0.0
     labels:
       - "traefik.enable=false"
+    # DEBUG-celery-entrypoint entrypoint: sleep infinity
     env_file:
-      - ./_deploy/app.properties
+      - ./_deploy/conf/app.properties
     volumes:
       - conf-volume:/etc/config
       - data-volume:/data/public
@@ -96,7 +97,7 @@ services:
       - "traefik.enable=false"
     command: -l info -B
     env_file:
-      - ./_deploy/app.properties
+      - ./_deploy/conf/app.properties
     volumes:
       - conf-volume:/etc/config
       - data-volume:/data/public
@@ -107,7 +108,7 @@ services:
     networks:
       frontend:
   thredds:
-    image: jasonb87/cwt_thredds:latest
+    image: jasonb87/cwt_thredds:4.6.10
     labels:
       - "traefik.backend=thredds"
       - "traefik.docker.network=docker_frontend"
@@ -142,23 +143,26 @@ networks:
 volumes:
   static-volume:
   db-volume:
+    driver: local-persist
+    driver_opts:
+      mountpoint: # PATH_DB
   conf-volume:
     driver: local-persist
     driver_opts: 
-      mountpoint: ${PWD}/_deploy
+      mountpoint: # PATH_CONF
   data-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: ${DEPLOY_DIR}/data/public
+      mountpoint: # PATH_PUBLIC
   cache-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: ${DEPLOY_DIR}/data/cache
+      mountpoint: # PATH_CACHE
   tmp-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: ${DEPLOY_DIR}/tmp
+      mountpoint: # PATH_TEMP
   user-volume:
     driver: local-persist
     driver_opts:
-      mountpoint: ${DEPLOY_DIR}/user
+      mountpoint: # PATH_USER
