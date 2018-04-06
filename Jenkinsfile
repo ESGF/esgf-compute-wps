@@ -29,7 +29,7 @@ pipeline {
                     
                     pushd compute/
                     
-                    python manage.py test || exit 0
+                    python manage.py test --with-xunit || exit 0
                     
                     popd
                 ''' 
@@ -39,6 +39,9 @@ pipeline {
     
     post {
         always {
+            step([$class: 'XUnitBuilder',
+                tools: [[$class: 'JUnitType', pattern: 'compute/nosetest.xml']]])
+            
             sh 'conda env remove --name wps'
         }
     }
