@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: celery-beat
-        image: jasonb87/cwt_celery:2.0.0
+        image: jasonb87/cwt_celery:2.0.1
         args: ["-l", "info", "-B", "-c", "1", "--max-memory-per-child", "204800"]
         resources:
           limits:
