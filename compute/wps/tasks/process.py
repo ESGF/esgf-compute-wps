@@ -5,6 +5,7 @@ import contextlib
 import cwt
 import datetime
 import math
+import re
 from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
 
@@ -47,23 +48,55 @@ class Process(object):
 
         logger.info(msg)
 
-    def generate_grid(self, gridder):
+    def parse_uniform_arg(self, value, default_start, default_n):
+        result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
+
+        if result is None:
+            raise WPSError('Failed to parse uniform argument {value}', value=value)
+
+        groups = result.groups()
+
+        if groups[1] is None:
+            delta = int(groups[0])
+
+            default_n = default_n / delta
+        else:
+            default_start = int(groups[1])
+
+            default_n = int(groups[2])
+
+            delta = int(groups[3])
+
+        start = default_start + (delta / 2.0)
+
+        return start, default_n, delta
+
+    def generate_grid(self, gridder, spatial, chunk):
         try:
             grid_type, grid_param = gridder.grid.split('~')
         except ValueError:
             raise WPSError('Error generating grid "{name}"', name=gridder.grid)
 
         if grid_type.lower() == 'uniform':
+            result = re.match('^(.*)x(.*)$', grid_param)
+
+            if result is None:
+                raise WPSError('Failed to parse uniform configuration from {value}', value=grid_param)
+
             try:
-                nlats, nlons = grid_param.split('x')
+                start_lat, nlat, delta_lat = self.parse_uniform_arg(result.group(1), -90.0, 180.0)
+            except WPSError:
+                raise
 
-                nlats = int(nlats)
+            try:
+                start_lon, nlon, delta_lon = self.parse_uniform_arg(result.group(2), 0.0, 360.0)
+            except WPSError:
+                raise
 
-                nlons = int(nlons)
-            except ValueError:
-                raise WPSError('Error parsing parameters "{value}" for uniform grid', value=grid_param)
+            grid = cdms2.createUniformGrid(start_lat, nlat, delta_lat, start_lon, nlon, delta_lon)
 
-            grid = cdms2.createUniformGrid(0, nlats, 1, 0, nlons, 1)
+            logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
+                grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
         else:
             try:
                 nlats = int(grid_param)
@@ -72,15 +105,30 @@ class Process(object):
 
             grid = cdms2.createGaussianGrid(nlats)
 
-        return grid
+            logger.info('Created target gaussian grid {}'.format(grid.shape))
+
+        target = cdms2.MV2.ones(grid.shape)
+
+        target.setAxisList(grid.getAxisList())
+
+        lat = chunk.getLatitude()
+
+        lon = chunk.getLongitude()
+
+        try:
+            lat_spec = spatial[lat.id]
+
+            lon_spec = spatial[lon.id]
+        except KeyError as e:
+            raise WPSError('Missing spatial spec "{value}"', value=e)
+
+        target = target(latitude=lat_spec, longitude=lon_spec)
+
+        return target.getGrid()
 
     def retrieve(self, operation, num_inputs, output_file):
+        grid = None
         gridder = operation.get_parameter('gridder')
-
-        if gridder is not None:
-            grid = self.generate_grid(gridder)
-
-            logger.info('Regridding to new grid "{}"'.format(grid.shape))
 
         start = datetime.datetime.now()
 
@@ -107,6 +155,9 @@ class Process(object):
                     chunk.getTime().toRelativeTime(base_units)
 
                     if gridder is not None:
+                        if grid is None:
+                            grid = self.generate_grid(gridder, ds.spatial, chunk)
+
                         chunk = chunk.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
                     output_file.write(chunk, id=var_name)

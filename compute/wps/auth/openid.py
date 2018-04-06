@@ -1,20 +1,24 @@
 from __future__ import absolute_import
 
 import collections
+import logging
 
 from openid.consumer import consumer
 from openid.consumer import discover
 from openid.extensions import ax
+from openid.yadis import manager
 
 from wps import models
 from wps import settings
 from wps import WPSError
 
+logger = logging.getLogger('wps.auth.openid')
+
 class DiscoverError(WPSError):
-    def __init__(self, url):
+    def __init__(self, url, error):
         msg = 'Discovery of OpenID services from "{url}" has failed'
 
-        super(DiscoverError, self).__init__(msg, url=url)
+        super(DiscoverError, self).__init__(msg, url=url, error=error)
 
 class ServiceError(WPSError):
     def __init__(self, url, urn):
@@ -52,8 +56,8 @@ def services(openid_url, service_urns):
 
     try:
         url, services = discover.discoverYadis(openid_url)
-    except discover.DiscoveryFailure:
-        raise DiscoverError(openid_url)
+    except discover.DiscoveryFailure as e:
+        raise DiscoverError(openid_url, e)
 
     for urn in service_urns:
         service = find_service_by_type(services, urn)
@@ -66,12 +70,19 @@ def services(openid_url, service_urns):
     return requested.values()
 
 def begin(request, openid_url):
+    disc = manager.Discovery(request.session, openid_url)
+
+    # Clean up any residual data from pevious attempts
+    disc.cleanup(force=True)
+
+    service = disc.getNextService(discover.discover)
+
     c = consumer.Consumer(request.session, models.DjangoOpenIDStore()) 
 
     try:
-        auth_request = c.begin(openid_url)
-    except discover.DiscoveryFailure:
-        raise DiscoverError(openid_url)
+        auth_request = c.beginWithoutDiscovery(service)
+    except consumer.DiscoveryFailure as e:
+        raise DiscoverError(openid_url, e[0])
 
     fetch_request = ax.FetchRequest()
 
@@ -104,7 +115,7 @@ def complete(request):
         raise AuthenticationCancelError(response)
     elif response.status == consumer.FAILURE:
         raise AuthenticationFailureError(response)
-    
+
     openid_url = response.getDisplayIdentifier()
 
     attrs = handle_attribute_exchange(response)
