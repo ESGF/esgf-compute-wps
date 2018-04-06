@@ -29,7 +29,7 @@ pipeline {
                     
                     pushd compute/
                     
-                    python manage.py test --with-xunit || exit 0
+                    python manage.py test --with-xunit --with-coverage --cover-xml --cover-package=wps || exit 0
                     
                     popd
                 ''' 
@@ -41,6 +41,9 @@ pipeline {
         always {
             step([$class: 'XUnitBuilder',
                 tools: [[$class: 'JUnitType', pattern: 'compute/nosetest.xml']]])
+            
+            step([$class: 'CoberturaPublisher', 
+                coberturaReportFile: 'compute/coverage.xml'])
             
             sh 'conda env remove --name wps'
         }
