@@ -20,6 +20,7 @@ RUN conda env create --name wps --file environment.yml && \
 
 WORKDIR /var/www
 
-RUN git clone --depth=1 --branch=${TAG} https://github.com/ESGF/esgf-compute-wps compute
+RUN git clone --depth=1 --branch=${TAG} https://github.com/ESGF/esgf-compute-wps compute && \
+	mkdir -p /var/log/cwt
 
 COPY django.properties /etc/config/django.properties
