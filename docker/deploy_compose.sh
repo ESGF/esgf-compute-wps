@@ -88,7 +88,7 @@ then
 
   echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" >> $DEPLOY_DIR/conf/app.properties
 
-  sed -i "s/WPS_HOST=.*/WPS_HOST=$WPS_HOST/g" $DEPLOY_DIR/conf/app.properties
+  sed -i.bak "s/WPS_HOST=.*/WPS_HOST=$WPS_HOST/g" $DEPLOY_DIR/conf/app.properties
 
   if [[ $DEVEL -eq 1 ]]
   then
@@ -100,18 +100,18 @@ if [[ ! -e "docker-compose.yml" ]]
 then
   cp docker-compose-template.yml docker-compose.yml
 
-  sed -i "s|\(.*\)# PATH_DB|\\1 $DEPLOY_DIR\/db|g" docker-compose.yml
-  sed -i "s|\(.*\)# PATH_CONF|\\1 $DEPLOY_DIR\/conf|g" docker-compose.yml
-  sed -i "s|\(.*\)# PATH_PUBLIC|\\1 $DEPLOY_DIR\/data/public|g" docker-compose.yml
-  sed -i "s|\(.*\)# PATH_CACHE|\\1 $DEPLOY_DIR\/data/cache|g" docker-compose.yml
-  sed -i "s|\(.*\)# PATH_TEMP|\\1 $DEPLOY_DIR\/tmp|g" docker-compose.yml
-  sed -i "s|\(.*\)# PATH_USER|\\1 $DEPLOY_DIR\/user|g" docker-compose.yml
+  sed -i.bak "s|\(.*\)# PATH_DB|\\1 $DEPLOY_DIR\/db|g" docker-compose.yml
+  sed -i.bak "s|\(.*\)# PATH_CONF|\\1 $DEPLOY_DIR\/conf|g" docker-compose.yml
+  sed -i.bak "s|\(.*\)# PATH_PUBLIC|\\1 $DEPLOY_DIR\/data/public|g" docker-compose.yml
+  sed -i.bak "s|\(.*\)# PATH_CACHE|\\1 $DEPLOY_DIR\/data/cache|g" docker-compose.yml
+  sed -i.bak "s|\(.*\)# PATH_TEMP|\\1 $DEPLOY_DIR\/tmp|g" docker-compose.yml
+  sed -i.bak "s|\(.*\)# PATH_USER|\\1 $DEPLOY_DIR\/user|g" docker-compose.yml
 
   if [[ $DEVEL -eq 1 ]]
   then
-    sed -i "s/\(.*\)# DEBUG-wps-entrypoint /\\1/g" docker-compose.yml
+    sed -i.bak "s/\(.*\)# DEBUG-wps-entrypoint /\\1/g" docker-compose.yml
 
-    sed -i "s/\(.*\)# DEBUG-celery-entrypoint /\\1/g" docker-compose.yml
+    sed -i.bak "s/\(.*\)# DEBUG-celery-entrypoint /\\1/g" docker-compose.yml
   fi
 fi
 
