@@ -4,32 +4,38 @@ pipeline {
     stages {
         stage('Test Django App') {
             steps {
-                git branch: 'bugfix-2.0.1', url: 'https://github.com/ESGF/esgf-compute-wps'
+                //git branch: 'bugfix-2.0.1', url: 'https://github.com/ESGF/esgf-compute-wps'
             
                 sh 'conda env create --name wps --file docker/common/environment.yml'
+
+		sh '''#! /bin/bash
+		    pushd compute/wps/webapp/
+
+		    yarn install
+
+   		    ./node_modules/.bin/webpack --config config/webpack.prod
+
+		    popd
+		'''
+
+		sh '''#! /bin/bash
+		    source activate wps
+
+		    pip install django-webpack-loader
+
+		    pip install -r compute/wps/tests/requirements.txt
+		'''
                 
                 sh '''#! /bin/bash
                     export WPS_TEST=1
                 
                     export DJANGO_CONFIG_PATH="${PWD}/docker/common/django.properties"
-                
-                    source activate wps
-                    
-                    pip install django-webpack-loader
-                    
-                    pip install -r compute/wps/tests/requirements.txt
-                    
-                    pushd compute/wps/webapp/
-                    
-                    yarn install
-                    
-                    ./node_modules/.bin/webpack --config config/webpack.prod
-                    
-                    popd
+		
+		    source activate wps
                     
                     pushd compute/
                     
-                    python manage.py test --with-xunit --with-coverage --cover-xml --cover-package=wps || exit 0
+                    python manage.py test --with-xunit --with-coverage --cover-xml --cover-package=wps || exit 1
                     
                     popd
                 ''' 
@@ -40,7 +46,7 @@ pipeline {
     post {
         always {
             step([$class: 'XUnitBuilder',
-                tools: [[$class: 'JUnitType', pattern: 'compute/nosetest.xml']]])
+                tools: [[$class: 'JUnitType', pattern: 'compute/nosetests.xml']]])
             
             step([$class: 'CoberturaPublisher', 
                 coberturaReportFile: 'compute/coverage.xml'])
