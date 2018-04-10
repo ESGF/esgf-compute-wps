@@ -30,6 +30,8 @@ pipeline {
                     export WPS_TEST=1
                 
                     export DJANGO_CONFIG_PATH="${PWD}/docker/common/django.properties"
+		
+		    source activate wps
                     
                     pushd compute/
                     
