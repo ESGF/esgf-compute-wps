@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Test Django App') {
             steps {
-                git branch: 'bugfix-2.0.1', url: 'https://github.com/ESGF/esgf-compute-wps'
+                //git branch: 'bugfix-2.0.1', url: 'https://github.com/ESGF/esgf-compute-wps'
             
                 sh 'conda env create --name wps --file docker/common/environment.yml'
                 
