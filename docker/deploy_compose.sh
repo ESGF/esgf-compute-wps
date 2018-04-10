@@ -30,7 +30,7 @@ function usage {
   echo -e "  --help:              Print usage statement"
 }
 
-[[ $# -eq 0 ]] && usage
+[[ $# -eq 0 ]] && usage && exit 1
 
 while [[ $# -gt 0 ]]
 do
