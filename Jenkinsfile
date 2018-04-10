@@ -46,7 +46,7 @@ pipeline {
     post {
         always {
             step([$class: 'XUnitBuilder',
-                tools: [[$class: 'JUnitType', pattern: 'compute/nosetest.xml']]])
+                tools: [[$class: 'JUnitType', pattern: 'compute/nosetests.xml']]])
             
             step([$class: 'CoberturaPublisher', 
                 coberturaReportFile: 'compute/coverage.xml'])
