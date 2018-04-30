@@ -69,11 +69,12 @@ metadata:
     ingress.kubernetes.io/hsts-max-age: "31536000"
     ingress.kubernetes.io/hsts-include-subdomains: "true"
     ingress.kubernetes.io/force-hsts: "true"
+    traefik.frontend.rule.type: PathPrefixStrip
 spec:
   rules:
   - http:
       paths:
-      - path: /
+      - path: /cog
         backend: 
           serviceName: cog
           servicePort: 8000
