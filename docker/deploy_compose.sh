@@ -110,6 +110,7 @@ function configuration {
 
   cp docker-compose-template.yml $DEPLOY_DIR/docker-compose.yml
 
+  sed -i.bak "s|#HOST|$HOST|g" $DEPLOY_DIR/docker-compose.yml
   sed -i.bak "s|\(.*\)# PATH_DB|\\1 $DEPLOY_DIR\/db|g" $DEPLOY_DIR/docker-compose.yml
   sed -i.bak "s|\(.*\)# PATH_CONF|\\1 $DEPLOY_DIR\/conf|g" $DEPLOY_DIR/docker-compose.yml
   sed -i.bak "s|\(.*\)# PATH_PUBLIC|\\1 $DEPLOY_DIR\/data/public|g" $DEPLOY_DIR/docker-compose.yml

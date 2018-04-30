@@ -13,8 +13,6 @@ services:
     command:
       - "--loglevel=DEBUG"
       - "--api"
-#      - "--entrypoints=Name:http Address::80"
-#      - "--defaultentrypoints=http"
       - "--docker"
       - "--docker.watch"
     ports:
