@@ -80,15 +80,22 @@ function clean {
 }
 
 function configuration {
-  mkdir -p $DEPLOY_DIR{/data/public,/data/cache,/db,/tmp,/user,/conf}
+  mkdir -p $DEPLOY_DIR{/data/public,/data/cache,/db,/tmp,/user,/conf,/ssl}
 
   if [[ ! -z "$TLS_CRT" ]] && [[ ! -z "$TLS_KEY" ]]
   then
     cp $TLS_CRT $DEPLOY_DIR
 
     cp $TLS_KEY $DEPLOY_DIR
+  else
+    . generate_certs.sh
+
+    TLS_CRT=$DEPLOY_DIR/ssl/tls.crt
+
+    TLS_KEY=$DEPLOY_DIR/ssl/tls.key
   fi
 
+  cp kubernetes/traefik.toml $DEPLOY_DIR/conf
   cp common/app.properties $DEPLOY_DIR/conf
   cp common/django.properties $DEPLOY_DIR/conf
 

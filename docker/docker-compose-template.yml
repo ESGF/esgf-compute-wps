@@ -3,20 +3,28 @@ services:
   traefik:
     image: traefik:1.5
     labels:
-      - "traefik.enable=false"
+      - "traefik.backend=traefik"
+      - "traefik.docker.network=docker_frontend"
+      - "traefik.frontend.rule=PathPrefix:/traefik;PathPrefixStrip:/traefik"
+      - "traefik.enable=true"
+      - "traefik.port=8080"
+    expose:
+      - "8080"
     command:
       - "--loglevel=DEBUG"
       - "--api"
-      - "--entrypoints=Name:http Address::80"
-      - "--defaultentrypoints=http"
+#      - "--entrypoints=Name:http Address::80"
+#      - "--defaultentrypoints=http"
       - "--docker"
       - "--docker.watch"
     ports:
       - "80:80"
-      - "8080:8080"
+      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /dev/null:/traefik.toml
+      - ./_deploy/conf/traefik.toml:/etc/traefik/traefik.toml
+      - ./_deploy/ssl/tls.key:/etc/ssl/tls.key
+      - ./_deploy/ssl/tls.crt:/etc/ssl/tls.crt
     restart: always
     networks:
       frontend:
