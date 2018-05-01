@@ -1,6 +1,8 @@
 FROM tomcat:8.5
 
-RUN wget http://artifacts.unidata.ucar.edu/content/repositories/unidata-releases/edu/ucar/tds/4.6.10/tds-4.6.10.war \
+ARG TAG=4.6.10
+
+RUN wget http://artifacts.unidata.ucar.edu/content/repositories/unidata-releases/edu/ucar/tds/$TAG/tds-$TAG.war \
 	-O webapps/threddsCWT.war
 
 COPY setenv.sh bin/
