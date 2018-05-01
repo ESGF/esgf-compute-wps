@@ -132,7 +132,9 @@ parse_inputs $@
 
 if [[ $PARSE -eq 0 ]]
 then
-  case ${COMMAND,,} in
+  COMMAND=$(echo $COMMAND | tr '[:upper:]' '[:lower:]')
+
+  case $COMMAND in
     start)
       [[ $CLEAN -eq 1 ]] && clean
 

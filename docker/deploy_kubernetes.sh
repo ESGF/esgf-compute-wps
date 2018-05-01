@@ -52,7 +52,9 @@ SELECTOR="app=cwt,group in (core, traefik)"
 
 [[ "$DEVEL" -eq "1" ]] && SELECTOR="${SELECTOR},environment in (development, development-production)" || SELECTOR="${SELECTOR},environment in (production, development-production)"
 
-case ${COMMAND,,} in
+COMMAND=$(echo $COMMAND | tr "[:upper:]" "[:lower:]")
+
+case ${COMMAND} in
   start)
     if [[ $CLEAN -eq 1 ]]
     then
