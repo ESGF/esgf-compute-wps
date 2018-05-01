@@ -19,7 +19,7 @@ function configuration {
   cp common/django.properties $DEPLOY_DIR/conf
   cp kubernetes/traefik.toml $DEPLOY_DIR/conf
 
-  sed -i "s/WPS_HOST=.*/WPS_HOST=$HOST/g" $DEPLOY_DIR/conf/app.properties
+  sed -i.bak "s/WPS_HOST=.*/WPS_HOST=$HOST/g" $DEPLOY_DIR/conf/app.properties
 
   if [[ $DEVEL -eq 1 ]]
   then
