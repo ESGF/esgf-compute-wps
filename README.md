@@ -13,4 +13,4 @@ on implementing backends and tasks.
 
 # Intallation
 
-See the docker [README](tree/bugfix-2.0.2)
+See the docker [README](docker)
