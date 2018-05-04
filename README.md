@@ -8,7 +8,7 @@ standard to process compute requests.
 
 See the [developer guide](DEVELOPER.md) for styling and git workflow.
 
-See the process [developer guide](blob/master/compute/wps/DEVELOPER.md) for details
+See the process [developer guide](compute/wps/DEVELOPER.md) for details
 on implementing backends and tasks.
 
 # Intallation
