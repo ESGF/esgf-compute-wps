@@ -100,6 +100,8 @@ class DataSet(object):
     def partitions(self, axis_name):
         axis = self.get_axis(axis_name)
 
+        logger.debug('Generating partitions over axis %s', axis_name)
+
         if axis.isTime():
             if self.temporal is None:
                 start = 0
@@ -121,9 +123,14 @@ class DataSet(object):
 
                 yield data
         else:
-            start = 0
+            domain_axis = self.spatial.get(axis.id, None)
 
-            stop = axis.shape[0]
+            if domain_axis is None:
+                start = 0
+
+                stop = axis.shape[0]
+            else:
+                start, stop = axis.mapInterval(domain_axis)
 
             diff = stop - start
 
@@ -132,7 +139,12 @@ class DataSet(object):
             for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
 
-                data = self.get_variable()(**{axis_name: (begin, end)})
+                self.spatial[axis.id] = slice(begin, end)
+                #self.spatial[axis_name] = slice(begin, end)
+                #self.spatial[axis_name] = (begin, end)
+
+                data = self.get_variable()(**self.spatial)
+                #data = self.get_variable()(**{axis_name: slice(begin, end)})
 
                 yield data
 
@@ -177,7 +189,11 @@ class DataSet(object):
             if variable.getTime() == None:
                 self.temporal = None
             else:
-                self.temporal = slice(0, variable.getTime().shape[0])
+                time = variable.getTime()
+
+                #self.temporal = (time[0], time[-1])
+                self.temporal = slice(0, time.shape[0])
+                #self.temporal = slice(0, variable.getTime().shape[0])
 
             axes = variable.getAxisList()
 
@@ -185,7 +201,8 @@ class DataSet(object):
                 if axis.isTime():
                     continue
 
-                self.spatial[axis.id] = slice(0, axis.shape[0])
+                self.spatial[axis.id] = (axis[0], axis[-1])
+                #self.spatial[axis.id] = slice(0, axis.shape[0])
         else:
             for dim in domain.dimensions:
                 axis_index = variable.getAxisIndex(dim.name)
@@ -200,9 +217,11 @@ class DataSet(object):
 
                     logger.info('Mapped temporal domain to "{}"'.format(self.temporal))
                 else:
-                    self.spatial[dim.name] = self.dimension_to_selector(dim, axis)
+                    self.spatial[axis.id] = self.dimension_to_selector(dim, axis)
+                    #self.spatial[dim.name] = self.dimension_to_selector(dim, axis)
 
-                    logger.info('Mapped spatial "{}" to "{}"'.format(dim.name, self.spatial[dim.name]))
+                    logger.info('Mapped spatial "{}" to "{}"'.format(axis.id, self.spatial[axis.id]))
+                    #logger.info('Mapped spatial "{}" to "{}"'.format(dim.name, self.spatial[dim.name]))
 
     def open(self):
         try:
@@ -233,8 +252,17 @@ class DataSet(object):
             self.file_obj = None
 
 class DataSetCollection(object):
-    def __init__(self):
-        self.datasets = []
+    def __init__(self, datasets=None):
+        if datasets is None:
+            datasets = []
+
+        self.datasets = datasets
+
+    @classmethod
+    def from_variables(cls, variables):
+        datasets = [DataSet(x) for x in variables]
+
+        return cls(datasets=datasets)
 
     def __enter__(self):
         for ds in self.datasets:
@@ -392,65 +420,10 @@ class DataSetCollection(object):
                 cache.set_size()
 
 class FileManager(object):
-    def __init__(self, variables):
-        self.variables = variables
-
-        self.collections = []
+    def __init__(self, collections):
+        self.collections = collections
 
     def __enter__(self):
-        collection = None
-        common = 0
-        last = 0
-
-        logger.info('Grouping {} datasets'.format(len(self.variables)))
-
-        for x in xrange(len(self.variables)):
-            curr = self.variables[x].uri
-
-            curr_split = curr.split('/')
-
-            curr_path = '/'.join(curr_split[:len(curr_split)-1])
-
-            prev = self.variables[x-1].uri
-
-            prev_split = prev.split('/')
-
-            prev_path = '/'.join(prev_split[:len(prev_split)-1])
-
-            n = min(len(curr_path), len(prev_path))
-
-            logger.info('Comparing "{}" {} to "{}" {}, minimum length {}'.format(curr_path, len(curr_path), prev_path, len(prev_path), n))
-
-            common = 0
-
-            for y in xrange(n):
-                if curr_path[y] != prev_path[y]:
-                    break
-
-                common += 1
-
-            logger.info('Found {} characters in common, last {}'.format(common, last))
-
-            if common == n:
-                if collection is None:
-                    collection = DataSetCollection()
-
-                collection.add(self.variables[x]) 
-            else:
-                if collection is not None:
-                    self.collections.append(collection)
-
-                collection = DataSetCollection()
-
-                collection.add(self.variables[x])
-
-                last = common
-
-
-        self.collections.append(collection)
-
-        logger.info('Grouped into "{}" collections'.format(len(self.collections)))
-
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

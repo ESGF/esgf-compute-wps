@@ -120,9 +120,9 @@ class Process(object):
 
             lon_spec = spatial[lon.id]
         except KeyError as e:
-            raise WPSError('Missing spatial spec "{value}"', value=e)
-
-        target = target(latitude=lat_spec, longitude=lon_spec)
+            logger.debug('Skipping subsetting the target grid')
+        else:
+            target = target(latitude=lat_spec, longitude=lon_spec)
 
         return target.getGrid()
 
@@ -132,7 +132,11 @@ class Process(object):
 
         start = datetime.datetime.now()
 
-        with file_manager.FileManager(operation.inputs) as fm:
+        collections = [
+            file_manager.DataSetCollection.from_variables(operation.inputs)
+        ]
+
+        with file_manager.FileManager(collections) as fm:
             var_name = fm.get_variable_name() 
 
             self.log('Retrieving variable "{}"', var_name)
@@ -172,10 +176,9 @@ class Process(object):
         return var_name
 
     def process(self, operation, num_inputs, output_file, process):
-        gridder = operation.get_parameter('gridder')
+        grid = None
 
-        if gridder is not None:
-            grid = self.generate_grid(gridder)
+        gridder = operation.get_parameter('gridder')
 
         start = datetime.datetime.now()
 
@@ -187,7 +190,17 @@ class Process(object):
 
         result_list = []
 
-        with file_manager.FileManager(operation.inputs) as fm:
+        if len(operation.inputs) == 1 or num_inputs == 1:
+            collections = [
+                file_manager.DataSetCollection.from_variables(operation.inputs)
+            ]
+        else:
+            collections = [
+                file_manager.DataSetCollection.from_variables([x]) 
+                for x in operation.inputs
+            ]
+
+        with file_manager.FileManager(collections) as fm:
             output_list = []
 
             var_name = fm.get_variable_name()
@@ -206,7 +219,11 @@ class Process(object):
                             axis_index = ds.get_variable().getAxisIndex(axes)
 
                         if gridder is not None:
-                            chunk = chunk.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+                            if grid is None:
+                                grid = self.generate_grid(gridder, ds.spatial, chunk)
+
+                            if not over_temporal:
+                                chunk = chunk.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
                         data_list.append(chunk)
 
@@ -226,7 +243,12 @@ class Process(object):
                         output_file.write(result_data, id=var_name)
 
                 if over_temporal:
-                    output_file.write(MV.concatenate(result_list), id=var_name)
+                    data = MV.concatenate(result_list)
+
+                    if grid is not None:
+                        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+
+                    output_file.write(data, id=var_name)
 
         stop = datetime.datetime.now()
 
