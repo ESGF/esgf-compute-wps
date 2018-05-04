@@ -41,7 +41,7 @@ spec:
       volumes:
       - name: db-volume
         hostPath:
-          path: /opt/nfs/cwt/db
+          path: /opt/docker/cwt/db
           type: DirectoryOrCreate
 ---
 apiVersion: v1

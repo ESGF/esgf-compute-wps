@@ -55,6 +55,38 @@ def aggregate(self, parent_variables, variables, domains, operation, user_id, jo
     return retrieve_base(self, o, None, user_id, job_id) 
 
 def retrieve_base(self, operation, num_inputs, user_id, job_id, validate=None):
+    """ Configures and executes a retrieval process.
+
+    Sets up a retrieval process by initializing the process with the user and
+    job id. It then marks the job as started.
+
+    The process is execute and a path to the results is returned using a 
+    cwt.Variable instance.
+
+    The validate function should match the following signature where operation
+    is a cwt.Process instance and the function returns True or False.
+
+    def validate(operation):
+        return True
+
+    Args:
+        operation: A cwt.Process instance complete with inputs and domain set to
+            instances.
+        num_inputs: An integer value of the number of inputs to process.
+        user_id: A user integer id.
+        job_id: A job integer id.
+        validate: A function to be called that validates if all required details
+            are available.
+
+    Returns:
+         A dict mapping operations name to a cwt.Variable instance.
+
+         {'sub_out': cwt.Variable('http://test.com/some/data', 'tas')}
+
+    Raises:
+        AccessError: An error occurred accessing a NetCDF file.
+        WPSError: An error occurred during processing.
+    """
     self.PUBLISH = base.ALL
 
     proc = process.Process(self.request.id)
@@ -141,6 +173,32 @@ def minimum(self, parent_variables, variables, domains, operation, user_id, job_
     return process_base(self, MV.min, 1, o, user_id, job_id)
 
 def process_base(self, process_func, num_inputs, operation, user_id, job_id):
+    """ Configures and executes a process.
+
+    Sets up the process by initializing it with the user_id and job_id, marks
+    the job as started. The processes is then executed and a path to the output
+    is returned in a cwt.Variable instance.
+
+    The process_func is a method that will take in an list of data chunks, 
+    process them and return a single data chunk. This output data chunk will be
+    written to the output file.
+
+    Args:
+        process_func: A function that will be passed the data to be processed.
+        num_inputs: An integer value of the number of inputs to process.
+        operation: A cwt.Process instance, complete with inputs and domain.
+        user_id: An integer user id.
+        job_id: An integer job id.
+
+    Returns:
+        A dict mapping operation name to a cwt.Variable instance.
+
+        {'max': cwt.Variable('http://test.com/some/data', 'tas')}
+
+    Raises:
+        AccessError: An error occurred acessing a NetCDF file.
+        WPSError: An error occurred processing the data.
+    """
     self.PUBLISH = base.ALL
 
     proc = process.Process(self.request.id)
