@@ -66,6 +66,7 @@ class DataSetTestCase(test.TestCase):
         mock_axis2.isTime.return_value = False
         mock_axis2.id = 'lat'
         mock_axis2.shape = (180,)
+        mock_axis2.__getitem__.side_effect = [0, 180]
 
         mock_var.getAxisList.return_value = [
             mock_axis1,
@@ -79,7 +80,7 @@ class DataSetTestCase(test.TestCase):
         self.assertEqual(self.ds.temporal, slice(0, 200))
 
         self.assertIn('lat', self.ds.spatial)
-        self.assertEqual(self.ds.spatial['lat'], slice(0, 180))
+        self.assertEqual(self.ds.spatial['lat'], (0, 180))
 
     def test_map_domain_missing_axis(self):
         domain = cwt.Domain([
@@ -260,6 +261,8 @@ class DataSetTestCase(test.TestCase):
     def test_partitions_spatial(self):
         mock_axis = mock.MagicMock()
 
+        mock_axis.id = 'lat'
+
         mock_axis.isTime.return_value = False
 
         mock_axis.shape = (32,)
@@ -271,10 +274,10 @@ class DataSetTestCase(test.TestCase):
         partitions = [x for x in self.ds.partitions('lat')]
 
         self.ds.variable.assert_has_calls([
-            mock.call(lat=(0, 10)),
-            mock.call(lat=(10, 20)),
-            mock.call(lat=(20, 30)),
-            mock.call(lat=(30, 32)),
+            mock.call(lat=slice(0, 10)),
+            mock.call(lat=slice(10, 20)),
+            mock.call(lat=slice(20, 30)),
+            mock.call(lat=slice(30, 32)),
         ])
 
     def test_partitions_cache(self):
@@ -850,27 +853,13 @@ class FileManagerTestCase(test.TestCase):
 
         self.assertEqual(var_name, 'tas')
 
-    def test_context_manager_multiple_collections(self):
+    def test_context_manager(self):
         fm = file_manager.FileManager([
-            cwt.Variable('http://data.com/cct/2005/test1.nc', 'tas'),
-            cwt.Variable('http://data.com/cct/2005/test1.nc', 'tas'),
-            cwt.Variable('http://data.com/cct/2010/test1.nc', 'tas'),
-            cwt.Variable('http://data.com/cct/2010/test1.nc', 'tas'),
+            file_manager.DataSetCollection.from_variables([cwt.Variable('file:///test1.nc', 'tas')]),
+            file_manager.DataSetCollection.from_variables([cwt.Variable('file:///test2.nc', 'tas')]),
         ])
 
         with fm as fm:
             self.assertEqual(len(fm.collections), 2)
 
-            self.assertEqual(len(fm.collections[0].datasets), 2)
-            self.assertEqual(len(fm.collections[1].datasets), 2)
-
-    def test_context_manager(self):
-        fm = file_manager.FileManager([
-            cwt.Variable('file:///test1.nc', 'tas'),
-            cwt.Variable('file:///test2.nc', 'tas'),
-        ])
-
-        with fm as fm:
-            self.assertEqual(len(fm.collections), 1)
-
-            self.assertEqual(len(fm.collections[0].datasets), 2)
+            self.assertEqual(len(fm.collections[0].datasets), 1)

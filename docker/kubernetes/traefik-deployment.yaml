@@ -89,6 +89,7 @@ spec:
             cpu: "0.25"
             memory: "200Mi"
         args:
+        - --loglevel=DEBUG
         - --api
         - --kubernetes
         - --configFile=/etc/config/traefik.toml
@@ -97,6 +98,7 @@ spec:
           hostPort: 80
         - containerPort: 443
           hostPort: 443
+        - containerPort: 8080
         volumeMounts:
         - name: ssl-volume
           mountPath: /etc/ssl
@@ -109,3 +111,39 @@ spec:
       - name: config-volume
         configMap:
           name: traefik-config
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: traefik-service
+  labels:
+    app: cwt
+    component: traefik
+    group: traefik
+    environment: development-production
+spec:
+  selector:
+    component: traefik
+  ports:
+  - protocol: TCP
+    port: 8080
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: traefik-ingress
+  labels:
+    app: cwt
+    component: traefik
+    group: traefik
+    environment: development-production
+  annotations:
+    traefik.frontend.rule.type: PathPrefixStrip
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /traefik
+        backend:
+          serviceName: traefik-service
+          servicePort: 8080

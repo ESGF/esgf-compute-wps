@@ -1,4 +1,4 @@
-FROM jasonb87/cwt_common:2.0.1
+FROM jasonb87/cwt_common:2.0.2
 
 ENV C_FORCE_ROOT 'true'
 
