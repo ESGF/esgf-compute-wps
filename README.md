@@ -6,7 +6,7 @@ standard to process compute requests.
 
 # Contribute
 
-See the [developer guide](blob/master/DEVELOPER.md) for styling and git workflow.
+See the [developer guide](DEVELOPER.md) for styling and git workflow.
 
 See the process [developer guide](blob/master/compute/wps/DEVELOPER.md) for details
 on implementing backends and tasks.
