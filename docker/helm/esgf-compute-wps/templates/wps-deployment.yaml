@@ -53,10 +53,7 @@ spec:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
               key: CELERY_BACKEND
         - name: POSTGRES_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
-              key: POSTGRES_HOST
+          value: {{ template "postgresql.fullname" . }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
