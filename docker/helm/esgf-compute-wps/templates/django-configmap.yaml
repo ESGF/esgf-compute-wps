@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "esgf-compute-wps.fullname" . }}-django-config
+  labels:
+    app: {{ template "esgf-compute-wps.name" . }}
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  django.properties: |
+    [default]
+    allowed.hosts={{ .Values.wps.host }}
+
+    [email]
+    host={{ .Values.wps.email.host | default "localhost" }}
+    port={{ .Values.wps.email.port | default 25 }}
+    user={{ .Values.wps.email.user | default "" }}
+    password={{ .Values.wps.email.password | default "" }}
+
+    [wps]
+    wps.dap=true
+    wps.endpoint=http://{{ .Values.wps.host }}/wps
+    wps.status_location=http://{{ .Values.wps.host }}/wps
+    wps.dap_url=http://{{ .Values.wps.host }}/threddsCWT/dodsC/public/{filename}
+    wps.login_url=http://{{ .Values.wps.host }}/wps/home/auth/login/openid
+    wps.profile_url=http://{{ .Values.wps.host }}/wps/home/user/profile
+    wps.oauth2.callback=https://{{ .Values.wps.host }}/auth/callback
+    wps.openid.trust.root=http://{{ .Values.wps.host }}/
+    wps.openid.return.to=http://{{ .Values.wps.host }}/auth/callback/openid
+    wps.openid.callback.success=http://{{ .Values.wps.host }}/wps/home/auth/login/callback
+    wps.password.reset.url=http://{{ .Values.wps.host }}/wps/home/auth/reset
+    wps.ca.path=/tmp/certs
+    wps.local.output.path=/data/public
+    wps.user.temp.path=/tmp
+    wps.admin.email=admin@aims2.llnl.gov
+    wps.cache.path=/tmp/django/cache
+
+    [cache]
+    wps.cache.path=/data/cache
+    wps.partition.size=10
+    wps.cache.check=1
+    wps.gb.max.size=2.097152e8
+    wps.cache.max.age=30
+    wps.cache.freed.percent=0.25
+
+    [edas]
+    wps.edas.host=edas
+    wps.edas.timeout=30
+    wps.edas.req.port=5670
+    wps.edas.res.port=5671
+
+    [ophidia]
+    wps.oph.user=oph-test
+    wps.oph.password=abcd
+    wps.oph.host=aims2.llnl.gov
+    wps.oph.port=11732
+    wps.oph.output.path=/wps
+    wps.oph.output.url=https://{{ .Values.wps.host }}/thredds/dodsC{output_path}/{output_name}.nc
+    wps.oph.default.cores=8
