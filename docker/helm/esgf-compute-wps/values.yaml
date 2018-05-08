@@ -32,3 +32,8 @@ postgresql:
   postgresPassword: abcd1234
   persistence:
     enabled: false
+
+redis:
+  cluster:
+    enabled: false
+  usePassword: false
