@@ -6,6 +6,10 @@ data:
 
 ingress:
   annotations:
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.kubernetes.io/hsts-max-age: "31536000"
+    ingress.kubernetes.io/hsts-include-subdomains: "true"
+    ingress.kubernetes.io/force-hsts: "true"
 
 traefik:
   serviceType: NodePort
@@ -13,6 +17,7 @@ traefik:
   deployment:
     hostPort:
       httpEnabled: true
+      httpsEnabled: true
 
   dashboard:
     enabled: true
@@ -20,7 +25,11 @@ traefik:
 
     ingress:
       annotations:
-        traekf.frontend.rule.type: PathPrefixStrip
+        traefik.frontend.rule.type: PathPrefixStrip
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
   
 wps:
   replicas: 1
@@ -92,6 +101,7 @@ thredds:
 
   ingress:
     path: /threddsCWT
+    annotations:
 
 postgresql:
   postgresPassword: abcd1234

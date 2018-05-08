@@ -1,9 +1,9 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: {{ template "esgf-compute-wps.fullname" . }}
+  name: {{ .Release.Name }}-wps
   labels:
-    app: {{ template "esgf-compute-wps.name" . }}
+    app: {{ .Release.Name }}-wps
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -11,18 +11,18 @@ spec:
   replicas: {{ .Values.wps.replicas }}
   selector:
     matchLabels:
-      app: {{ template "esgf-compute-wps.name" . }}
+      app: {{ .Release.Name }}-wps
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ template "esgf-compute-wps.name" . }}
+        app: {{ .Release.Name }}-wps
         chart: {{ template "esgf-compute-wps.chart" . }}
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
     spec:
       containers:
-      - name: {{ template "esgf-compute-wps.name" . }}
+      - name: {{ .Release.Name }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
         {{- if .Values.development }}
         command:

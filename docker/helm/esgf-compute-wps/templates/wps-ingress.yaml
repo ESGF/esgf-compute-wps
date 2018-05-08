@@ -1,14 +1,11 @@
 {{- if .Values.wps.ingress.enabled -}}
-{{- $fullName := include "esgf-compute-wps.fullname" . -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ $fullName }}
+  name: {{ .Release.Name }}-wps
   labels:
-    app: {{ template "esgf-compute-wps.name" . }}
-    chart: {{ template "esgf-compute-wps.chart" . }}
+    app: {{ .Release.Name }}-wps
     release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
 {{- with .Values.ingress.annotations }}
   annotations:
 {{ toYaml . | indent 4 }}
@@ -16,20 +13,16 @@ metadata:
 {{- with .Values.wps.ingress.annotations }}
 {{ toYaml . | indent 4 }}
 {{- end }}
-    ingress.kubernetes.io/ssl-redirect: "true"
-    ingress.kubernetes.io/hsts-max-age: "31536000"
-    ingress.kubernetes.io/hsts-include-subdomains: "true"
-    ingress.kubernetes.io/force-hsts: "true"
 spec:
   rules:
   - http:
       paths:
       - path: /auth
         backend:
-          serviceName: {{ $fullName }}
+          serviceName: {{ .Release.Name }}-wps
           servicePort: 8000
       - path: /wps
         backend:
-          serviceName: {{ $fullName }}
+          serviceName: {{ .Release.Name }}-wps
           servicePort: 8000
 {{- end }}

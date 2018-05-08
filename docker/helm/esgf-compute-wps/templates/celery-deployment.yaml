@@ -14,8 +14,8 @@ spec:
   replicas: {{ .replicas }}
   selector:
     matchLabels:
-        app: {{ $.Release.Name }}-celery-{{ .name }}
-        release: {{ $.Release.Name }}
+      app: {{ $.Release.Name }}-celery-{{ .name }}
+      release: {{ $.Release.Name }}
   template:
     metadata:
       labels:
