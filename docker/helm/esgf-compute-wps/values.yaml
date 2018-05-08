@@ -64,13 +64,27 @@ celery:
       cpuLimit: 1000m
       memoryLimit: 1Gi
 
+thredds:
+  replicas: 1
+  image: jasonb87/cwt_thredds
+  imageTag: 4.6.10
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 1Gi
+
+  ingress:
+    path: /threddsCWT
+
 postgresql:
-  enabled: false
   postgresPassword: abcd1234
   persistence:
     enabled: false
 
 redis:
+  enabled: false
   cluster:
     enabled: false
 

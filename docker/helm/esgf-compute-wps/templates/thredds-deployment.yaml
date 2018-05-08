@@ -1,0 +1,49 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-thredds
+  labels:
+    app: {{ .Release.Name }}-thredds
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.thredds.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-thredds
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-thredds
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-thredds
+        image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}
+        resources:
+          limits:
+            cpu: {{ .Values.thredds.resources.cpuLimit }}
+            memory: {{ .Values.thredds.resources.memoryLimit }}
+          requests:
+            cpu: {{ .Values.thredds.resources.cpuRequest }}
+            memory: {{ .Values.thredds.resources.memoryRequest }}
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: public-volume
+          mountPath: /data/public
+        - name: cache-volume
+          mountPath: /data/cache
+      volumes:
+      - name: public-volume
+        hostPath:
+          path: {{ .Values.data.publicPath }}
+          type: DirectoryOrCreate
+      - name: cache-volume
+        hostPath:
+          path: {{ .Values.data.cachePath }}
+          type: DirectoryOrCreate
