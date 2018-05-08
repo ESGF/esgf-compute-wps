@@ -7,12 +7,27 @@ data:
 ingress:
   annotations:
 
+traefik:
+  serviceType: NodePort
+
+  deployment:
+    hostPort:
+      httpEnabled: true
+
+  dashboard:
+    enabled: true
+    domain: ""
+
+    ingress:
+      annotations:
+        traekf.frontend.rule.type: PathPrefixStrip
+  
 wps:
   replicas: 1
   image: jasonb87/cwt_wps
   imageTag: 2.0.2
   staticPath: /opt/nfs/cwt/static
-  host: 10.5.5.5
+  host: 0.0.0.0
 
   resources:
     cpuRequest: 100m
