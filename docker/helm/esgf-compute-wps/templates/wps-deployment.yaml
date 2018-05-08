@@ -31,11 +31,11 @@ spec:
         {{- end }}
         resources:
           limits:
-            cpu: "{{ .Values.wps.cpuLimit }}"
-            memory: "{{ .Values.wps.memoryLimit }}"
+            cpu: "{{ .Values.wps.resources.cpuLimit }}"
+            memory: "{{ .Values.wps.resources.memoryLimit }}"
           requests:
-            cpu: "{{ .Values.wps.cpuRequest }}"
-            memory: "{{ .Values.wps.memoryRequest }}"
+            cpu: "{{ .Values.wps.resources.cpuRequest }}"
+            memory: "{{ .Values.wps.resources.memoryRequest }}"
         env:
         - name: WPS_HOST
           valueFrom:
