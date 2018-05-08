@@ -1,0 +1,81 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "esgf-compute-wps.fullname" . }}-celery
+  labels:
+    app: {{ template "esgf-compute-wps.name" . }}
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.celery.replicas }}
+  selector:
+    matchLabels:
+        app: {{ template "esgf-compute-wps.name" . }}
+        release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "esgf-compute-wps.name" . }}
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      containers:
+      - name: {{ template "esgf-compute-wps.name" . }}
+        image: {{ .Values.celery.image }}:{{ .Values.celery.imageTag }}
+        args: ["-l", "info", "-c", "1", "--max-memory-per-child", {{ .Values.celery.resources.memory | quote }}]
+        {{- if .Values.development }}
+        command:
+          - sleep
+          - infinity
+        {{- end }}
+        resources:
+          limits:
+            cpu: {{ .Values.celery.resources.cpuLimit | quote }}
+            memory: {{ .Values.celery.resources.memoryLimit | quote }}
+          requests:
+            cpu: {{ .Values.celery.resources.cpuRequest | quote }}
+            memory: {{ .Values.celery.resources.memoryRequest | quote }}
+        env:
+        - name: WPS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: WPS_HOST
+        - name: CELERY_BROKER
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: CELERY_BROKER
+        - name: CELERY_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: CELERY_BACKEND
+        - name: POSTGRES_HOST
+          value: {{ template "postgresql.fullname" . }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: postgres_password
+        volumeMounts:
+        - mountPath: /etc/config
+          name: config-volume
+        - mountPath: /data/public
+          name: public-volume
+        - mountPath: /data/cache
+          name: cache-volume
+      volumes:
+      - name: config-volume
+        configMap:
+            name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+      - name: public-volume
+        hostPath:
+          path: {{ .Values.data.publicPath }}
+          type: DirectoryOrCreate
+      - name: cache-volume
+        hostPath:
+          path: {{ .Values.data.cachePath }}
+          type: DirectoryOrCreate

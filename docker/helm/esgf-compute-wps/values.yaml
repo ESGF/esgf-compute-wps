@@ -1,5 +1,9 @@
 development: false
 
+data:
+  publicPath: /opt/nfs/cwt/data/public
+  cachePath: /opt/nfs/cwt/data/cache
+
 ingress:
   annotations:
 
@@ -30,6 +34,20 @@ wps:
   ingress:
     enabled: true
 
+celery:
+  replicas: 1
+  image: jasonb87/cwt_celery
+  imageTag: 2.0.2
+
+  resources:
+    # Must quote the memory field otherwise large numbers are rendered in
+    # scientific notation which celery does not like. This value is in KiB.
+    memory: "1024000"
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 1Gi
+
 postgresql:
   postgresPassword: abcd1234
   persistence:
@@ -38,4 +56,15 @@ postgresql:
 redis:
   cluster:
     enabled: false
+
   usePassword: false
+
+  master:
+    persistence:
+      enabled: false
+
+    service:
+      type: ClusterIP
+
+    securityContext:
+      enabled: false
