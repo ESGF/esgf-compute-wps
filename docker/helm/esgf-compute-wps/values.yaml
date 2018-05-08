@@ -29,6 +29,6 @@ wps:
     enabled: true
 
 postgresql:
-  postgresPassword: "abcd1234"
+  postgresPassword: abcd1234
   persistence:
     enabled: false
