@@ -25,7 +25,9 @@ spec:
       - name: {{ template "esgf-compute-wps.name" . }}
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
         {{- if .Values.development }}
-        command: sleep infinity
+        command:
+          - sleep
+          - infinity
         {{- end }}
         resources:
           limits:
