@@ -35,20 +35,37 @@ wps:
     enabled: true
 
 celery:
-  replicas: 1
-  image: jasonb87/cwt_celery
-  imageTag: 2.0.2
+  - name: default
+    replicas: 1
+    image: jasonb87/cwt_celery
+    imageTag: 2.0.2
 
-  resources:
-    # Must quote the memory field otherwise large numbers are rendered in
-    # scientific notation which celery does not like. This value is in KiB.
-    memory: "1024000"
-    cpuRequest: 100m
-    memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 1Gi
+    resources:
+      # Must quote the memory field otherwise large numbers are rendered in
+      # scientific notation which celery does not like. This value is in KiB.
+      memory: "1024000"
+      cpuRequest: 100m
+      memoryRequest: 128Mi
+      cpuLimit: 1000m
+      memoryLimit: 1Gi
+
+  - name: beat
+    replicas: 1
+    image: jasonb87/cwt_celery
+    imageTag: 2.0.2
+    argsExtra: "-B"
+
+    resources:
+      # Must quote the memory field otherwise large numbers are rendered in
+      # scientific notation which celery does not like. This value is in KiB.
+      memory: "1024000"
+      cpuRequest: 100m
+      memoryRequest: 128Mi
+      cpuLimit: 1000m
+      memoryLimit: 1Gi
 
 postgresql:
+  enabled: false
   postgresPassword: abcd1234
   persistence:
     enabled: false
