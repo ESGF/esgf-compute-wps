@@ -31,6 +31,8 @@ Production | Development
 * Execute `./deploy_kubernetes.sh start --host $(hostname -i)` in a terminal.
   * `./deploy_kubernetes.sh --help` to display help.
 
+< *note*: When deploying at LLNL must edit the trafik-configmap and add the minimum tls version, allowed cipher suites and a redirect rule for the https enpoint from / to /wps/home.
+
 ### Bare Metal
 
 ##### Requirements:
