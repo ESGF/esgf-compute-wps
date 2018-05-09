@@ -14,6 +14,15 @@ ingress:
 traefik:
   serviceType: NodePort
 
+  ssl:
+    #enabled: true
+    #enforced: true
+    #defaultCert:
+    #defaultKey:
+
+  rbac:
+    enabled: true
+
   deployment:
     hostPort:
       httpEnabled: true
