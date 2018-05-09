@@ -1,0 +1,41 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-nginx
+  labels:
+    app: {{ .Release.Name }}-nginx
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.nginx.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-nginx
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-nginx
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-nginx
+        image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
+        resources:
+          limits:
+            cpu: {{ .Values.nginx.resources.cpuLimit | quote }}
+            memory: {{ .Values.nginx.resources.memoryLimit | quote }}
+          requests:
+            cpu: {{ .Values.nginx.resources.cpuRequest | quote }}
+            memory: {{ .Values.nginx.resources.memoryRequest | quote }}
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html/static
+          name: static-volume
+      volumes:
+      - name: static-volume
+        hostPath:
+          path: {{ .Values.wps.staticPath }}
+          type: DirectoryOrCreate

@@ -30,6 +30,17 @@ traefik:
         ingress.kubernetes.io/hsts-max-age: "31536000"
         ingress.kubernetes.io/hsts-include-subdomains: "true"
         ingress.kubernetes.io/force-hsts: "true"
+
+nginx:
+  replicas: 1
+  image: nginx
+  imageTag: 1.13.8
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 512Mi
   
 wps:
   replicas: 1
