@@ -120,7 +120,6 @@ postgresql:
     enabled: false
 
 redis:
-  enabled: false
   cluster:
     enabled: false
 
