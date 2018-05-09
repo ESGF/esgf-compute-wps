@@ -14,16 +14,16 @@ Production | Development
 
 ### Helm
 
-1. Install [kubernetes](https://kubernetes.io/docs/setup/).
-2. Install [helm](https://github.com/kubernetes/helm/docs/install.md).
-  1. Install [tiller](https://github.com/kubernetes/helm/docs/install.md#installing-tiller)
-3. Deploy the helm chart with the following:
-  ```bash
-  cd docker/helm/esgf-compute-wps
-  helm install .
-  ```
-  1. Check values.yaml for configuration options.
-
+* Install [kubernetes](https://kubernetes.io/docs/setup/).
+* Install [helm](https://github.com/kubernetes/helm/docs/install.md).
+  * Install [tiller](https://github.com/kubernetes/helm/docs/install.md#installing-tiller)
+* Deploy the helm chart with the following:
+  * Check values.yaml for configuration options.
+  * ```bash
+    cd docker/helm/esgf-compute-wps
+    helm install .
+    ```
+    
 ### Kubernetes
 
 1. Install [kubernetes](https://kubernetes.io/docs/setup/).
