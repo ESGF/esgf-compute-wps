@@ -33,8 +33,10 @@ traefik:
     enabled: true
     domain: ""
 
+    # Recommend editing the ingress object and adding a path /traefik
     ingress:
       annotations:
+        #traefik.ingress.kubernetes.io/whitelist-source-range: ""
         traefik.frontend.rule.type: PathPrefixStrip
         ingress.kubernetes.io/ssl-redirect: "true"
         ingress.kubernetes.io/hsts-max-age: "31536000"
@@ -91,7 +93,7 @@ celery:
       cpuRequest: 100m
       memoryRequest: 128Mi
       cpuLimit: 1000m
-      memoryLimit: 1Gi
+      memoryLimit: 512Mi
 
   - name: beat
     replicas: 1
@@ -106,7 +108,7 @@ celery:
       cpuRequest: 100m
       memoryRequest: 128Mi
       cpuLimit: 1000m
-      memoryLimit: 1Gi
+      memoryLimit: 512Mi
 
 thredds:
   replicas: 1
@@ -117,7 +119,7 @@ thredds:
     cpuRequest: 100m
     memoryRequest: 128Mi
     cpuLimit: 1000m
-    memoryLimit: 1Gi
+    memoryLimit: 512Mi
 
   ingress:
     path: /threddsCWT
@@ -152,6 +154,18 @@ edas:
 
   resources:
     cpuRequest: 100m
-    memoryRequest: 256Mi
+    memoryRequest: 128Mi
     cpuLimit: 1000m
     memoryLimit: 512Mi
+
+cog:
+  enabled: false
+  replicas: 1
+  image: jasonb87/cwt_cog
+  imageTag: latest
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 256Mi
