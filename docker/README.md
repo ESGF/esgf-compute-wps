@@ -26,9 +26,9 @@ Production | Development
     
 ### Kubernetes
 
-1. Install [kubernetes](https://kubernetes.io/docs/setup/).
+* Install [kubernetes](https://kubernetes.io/docs/setup/).
   * The preferred way to launch a single node cluster is using [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/), for production look into [kubeadm](https://kubernetes.io/docs/setup/independent/install-kubeadm/).
-2. Execute `./deploy_kubernetes.sh start --host $(hostname -i)` in a terminal.
+* Execute `./deploy_kubernetes.sh start --host $(hostname -i)` in a terminal.
   * `./deploy_kubernetes.sh --help` to display help.
 
 ### Bare Metal
