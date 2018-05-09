@@ -1,3 +1,4 @@
+host: 0.0.0.0
 development: false
 
 data:
@@ -49,20 +50,19 @@ nginx:
     cpuRequest: 100m
     memoryRequest: 128Mi
     cpuLimit: 1000m
-    memoryLimit: 512Mi
+    memoryLimit: 256Mi
   
 wps:
   replicas: 1
   image: jasonb87/cwt_wps
   imageTag: 2.0.2
   staticPath: /opt/nfs/cwt/static
-  host: 0.0.0.0
 
   resources:
     cpuRequest: 100m
     memoryRequest: 128Mi
     cpuLimit: 1000m
-    memoryLimit: 512Mi
+    memoryLimit: 256Mi
 
   oauth:
     client: ""

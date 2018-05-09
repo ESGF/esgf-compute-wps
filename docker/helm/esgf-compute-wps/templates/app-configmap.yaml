@@ -14,4 +14,4 @@ data:
   {{- if .Values.development }}
   WPS_DEBUG: "1"
   {{- end }}
-  WPS_HOST: {{ .Values.wps.host }}
+  WPS_HOST: {{ .Values.host }}

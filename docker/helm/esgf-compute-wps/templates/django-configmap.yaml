@@ -10,7 +10,7 @@ metadata:
 data:
   django.properties: |
     [default]
-    allowed.hosts={{ .Values.wps.host }}
+    allowed.hosts={{ .Values.host }}
 
     [email]
     host={{ .Values.wps.email.host | default "localhost" }}
@@ -20,16 +20,16 @@ data:
 
     [wps]
     wps.dap=true
-    wps.endpoint=http://{{ .Values.wps.host }}/wps
-    wps.status_location=http://{{ .Values.wps.host }}/wps
-    wps.dap_url=http://{{ .Values.wps.host }}/threddsCWT/dodsC/public/{filename}
-    wps.login_url=http://{{ .Values.wps.host }}/wps/home/auth/login/openid
-    wps.profile_url=http://{{ .Values.wps.host }}/wps/home/user/profile
-    wps.oauth2.callback=https://{{ .Values.wps.host }}/auth/callback
-    wps.openid.trust.root=http://{{ .Values.wps.host }}/
-    wps.openid.return.to=http://{{ .Values.wps.host }}/auth/callback/openid
-    wps.openid.callback.success=http://{{ .Values.wps.host }}/wps/home/auth/login/callback
-    wps.password.reset.url=http://{{ .Values.wps.host }}/wps/home/auth/reset
+    wps.endpoint=http://{{ .Values.host }}/wps
+    wps.status_location=http://{{ .Values.host }}/wps
+    wps.dap_url=http://{{ .Values.host }}/threddsCWT/dodsC/public/{filename}
+    wps.login_url=http://{{ .Values.host }}/wps/home/auth/login/openid
+    wps.profile_url=http://{{ .Values.host }}/wps/home/user/profile
+    wps.oauth2.callback=https://{{ .Values.host }}/auth/callback
+    wps.openid.trust.root=http://{{ .Values.host }}/
+    wps.openid.return.to=http://{{ .Values.host }}/auth/callback/openid
+    wps.openid.callback.success=http://{{ .Values.host }}/wps/home/auth/login/callback
+    wps.password.reset.url=http://{{ .Values.host }}/wps/home/auth/reset
     wps.ca.path=/tmp/certs
     wps.local.output.path=/data/public
     wps.user.temp.path=/tmp
@@ -56,5 +56,5 @@ data:
     wps.oph.host=aims2.llnl.gov
     wps.oph.port=11732
     wps.oph.output.path=/wps
-    wps.oph.output.url=https://{{ .Values.wps.host }}/thredds/dodsC{output_path}/{output_name}.nc
+    wps.oph.output.url=https://{{ .Values.host }}/thredds/dodsC{output_path}/{output_name}.nc
     wps.oph.default.cores=8
