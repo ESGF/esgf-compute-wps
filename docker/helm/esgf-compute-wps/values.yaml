@@ -135,3 +135,15 @@ redis:
 
     securityContext:
       enabled: false
+
+edas:
+  enabled: true
+  replicas: 1
+  image: jasonb87/cwt_edas
+  imageTag: latest
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 256Mi
+    cpuLimit: 1000m
+    memoryLimit: 512Mi
