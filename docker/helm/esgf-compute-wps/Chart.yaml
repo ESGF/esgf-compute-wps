@@ -1,0 +1,17 @@
+apiVersion: v1
+name: esgf-compute-wps
+version: 2.0.2
+appVersion: 2.0.2
+description: A WPS based compute framework
+keywords:
+- ESGF
+- CWT
+- WPS
+- compute
+home: https://github.com/ESGF/esgf-compute-wps/README.md
+sources:
+- https://github.com/ESGF/esgf-compute-wps
+maintainers:
+- name: jboutte
+  email: boutte3@llnl.gov
+engine: gotpl

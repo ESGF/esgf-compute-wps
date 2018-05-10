@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-nginx
+  labels:
+    app: {{ .Release.Name }}-nginx
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+{{- if .Values.annotations }}
+  annotations:
+  {{- range $key, $value := .Values.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /static
+            backend:
+              serviceName: {{ .Release.Name }}-nginx
+              servicePort: 80

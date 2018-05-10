@@ -1,0 +1,171 @@
+host: 0.0.0.0
+development: false
+
+data:
+  publicPath: /opt/nfs/cwt/data/public
+  cachePath: /opt/nfs/cwt/data/cache
+
+ingress:
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.kubernetes.io/hsts-max-age: "31536000"
+    ingress.kubernetes.io/hsts-include-subdomains: "true"
+    ingress.kubernetes.io/force-hsts: "true"
+
+traefik:
+  serviceType: NodePort
+
+  ssl:
+    #enabled: true
+    #enforced: true
+    #defaultCert:
+    #defaultKey:
+
+  rbac:
+    enabled: true
+
+  deployment:
+    hostPort:
+      httpEnabled: true
+      httpsEnabled: true
+
+  dashboard:
+    enabled: true
+    domain: ""
+
+    # Recommend editing the ingress object and adding a path /traefik
+    ingress:
+      annotations:
+        #traefik.ingress.kubernetes.io/whitelist-source-range: ""
+        traefik.frontend.rule.type: PathPrefixStrip
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+
+nginx:
+  replicas: 1
+  image: nginx
+  imageTag: 1.13.8
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 256Mi
+  
+wps:
+  replicas: 1
+  image: jasonb87/cwt_wps
+  imageTag: 2.0.2
+  staticPath: /opt/nfs/cwt/static
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 256Mi
+
+  oauth:
+    client: ""
+    secret: ""
+
+  email:
+    host: "localhost"
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  ingress:
+    enabled: true
+
+celery:
+  - name: default
+    replicas: 1
+    image: jasonb87/cwt_celery
+    imageTag: 2.0.2
+
+    resources:
+      # Must quote the memory field otherwise large numbers are rendered in
+      # scientific notation which celery does not like. This value is in KiB.
+      memory: "1024000"
+      cpuRequest: 100m
+      memoryRequest: 128Mi
+      cpuLimit: 1000m
+      memoryLimit: 512Mi
+
+  - name: beat
+    replicas: 1
+    image: jasonb87/cwt_celery
+    imageTag: 2.0.2
+    argsExtra: "-B"
+
+    resources:
+      # Must quote the memory field otherwise large numbers are rendered in
+      # scientific notation which celery does not like. This value is in KiB.
+      memory: "1024000"
+      cpuRequest: 100m
+      memoryRequest: 128Mi
+      cpuLimit: 1000m
+      memoryLimit: 512Mi
+
+thredds:
+  replicas: 1
+  image: jasonb87/cwt_thredds
+  imageTag: 4.6.10
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 512Mi
+
+  ingress:
+    path: /threddsCWT
+    annotations:
+
+postgresql:
+  postgresPassword: abcd1234
+  persistence:
+    enabled: false
+
+redis:
+  cluster:
+    enabled: false
+
+  usePassword: false
+
+  master:
+    persistence:
+      enabled: false
+
+    service:
+      type: ClusterIP
+
+    securityContext:
+      enabled: false
+
+edas:
+  enabled: true
+  replicas: 1
+  image: jasonb87/cwt_edas
+  imageTag: latest
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 512Mi
+
+cog:
+  enabled: false
+  replicas: 1
+  image: jasonb87/cwt_cog
+  imageTag: latest
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 256Mi

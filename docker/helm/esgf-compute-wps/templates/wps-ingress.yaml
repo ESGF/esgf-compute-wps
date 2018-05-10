@@ -1,0 +1,27 @@
+{{- if .Values.wps.ingress.enabled -}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-wps
+  labels:
+    app: {{ .Release.Name }}-wps
+    release: {{ .Release.Name }}
+{{- if .Values.ingress.annotations }}
+  annotations:
+  {{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /auth
+        backend:
+          serviceName: {{ .Release.Name }}-wps
+          servicePort: 8000
+      - path: /wps
+        backend:
+          serviceName: {{ .Release.Name }}-wps
+          servicePort: 8000
+{{- end }}

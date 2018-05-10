@@ -1,0 +1,87 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-wps
+  labels:
+    app: {{ .Release.Name }}-wps
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.wps.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-wps
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-wps
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-wps
+        image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
+        {{- if .Values.development }}
+        command:
+          - sleep
+          - infinity
+        {{- end }}
+        resources:
+          limits:
+            cpu: "{{ .Values.wps.resources.cpuLimit }}"
+            memory: "{{ .Values.wps.resources.memoryLimit }}"
+          requests:
+            cpu: "{{ .Values.wps.resources.cpuRequest }}"
+            memory: "{{ .Values.wps.resources.memoryRequest }}"
+        env:
+        - name: WPS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: WPS_HOST
+        - name: CELERY_BROKER
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: CELERY_BROKER
+        - name: CELERY_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: CELERY_BACKEND
+        - name: POSTGRES_HOST
+          value: {{ template "postgresql.fullname" . }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: postgres_password
+        - name: OAUTH_CLIENT
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: oauth_client
+        - name: OAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: oauth_secret
+        ports:
+        - containerPort: {{ .Values.wps.service.port }}
+          protocol: TCP
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+        - name: static-volume
+          mountPath: /var/www/static
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+        - name: static-volume
+          hostPath:
+            path: {{ .Values.wps.staticPath }}
+            type: DirectoryOrCreate
