@@ -85,6 +85,8 @@ services:
     labels:
       - "traefik.enable=false"
     # DEBUG-celery-entrypoint entrypoint: sleep infinity
+    command:
+      - -Q low_prio
     env_file:
       - ./_deploy/conf/app.properties
     volumes:
@@ -101,7 +103,8 @@ services:
     image: jasonb87/cwt_celery:2.0.2
     labels:
       - "traefik.enable=false"
-    command: -l info -B
+    environment:
+      - SUBCOMMAND=beat 
     env_file:
       - ./_deploy/conf/app.properties
     volumes:
