@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 
 import ConfigParser
 import datetime
+import kombu
 import logging
 import os
 
@@ -130,6 +131,17 @@ WPS_OPH_PORT = config.get_value('ophidia', 'wps.oph.port', 11732, int)
 WPS_OPH_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.output.path', '/wps')
 WPS_OPH_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
 WPS_OPH_DEFAULT_CORES = config.get_value('ophidia', 'wps.oph.default.cores', 8, int)
+
+CELERY_task_queues = (
+    kombu.Queue('ingress'),
+    kombu.Queue('priority.high'),
+    kombu.Queue('priority.low'),
+)
+
+CELERY_task_routes = {
+    'wps.tasks.cdat.*': 'ingress',
+    'wps.tasks.ingress.*': 'ingress'
+}
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
