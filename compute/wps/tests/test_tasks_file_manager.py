@@ -479,6 +479,7 @@ class DateSetCollectionTestCase(test.TestCase):
 
         mock_dataset1 = mock.MagicMock()
         mock_dataset1.variable_name = 'tas'
+        mock_dataset1.get_time.return_value.id = 'time'
         mock_dataset1.get_time.return_value.units = 'days since 2000'
         mock_dataset1.partitions.return_value = [
             mock.MagicMock(),
@@ -486,6 +487,7 @@ class DateSetCollectionTestCase(test.TestCase):
 
         mock_dataset2 = mock.MagicMock()
         mock_dataset2.variable_name = 'tas'
+        mock_dataset2.get_time.return_value.id = 'time'
         mock_dataset2.get_time.return_value.units = 'days since 1990'
         mock_dataset2.partitions.return_value = [
             mock.MagicMock(),

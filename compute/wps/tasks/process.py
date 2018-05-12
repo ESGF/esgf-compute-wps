@@ -126,6 +126,27 @@ class Process(object):
 
         return target.getGrid()
 
+    def generate_chunk_map(self, operation):
+        chunk_map = {}
+
+        collections = [
+            file_manager.DataSetCollection.from_variables(operation.inputs)
+        ]
+        
+        fm = file_manager.FileManager(collections)
+
+        for collection in fm.collections:
+            if 'base_units' not in chunk_map:
+                chunk_map['base_units'] = collection.get_base_units()
+
+            for dataset, chunk in collection.partitions(operation.domain, True):
+                if dataset.url in chunk_map:
+                    chunk_map[dataset.url].append(chunk)
+                else:
+                    chunk_map[dataset.url] = [chunk,]
+
+        return chunk_map
+
     def retrieve(self, operation, num_inputs, output_file):
         grid = None
         gridder = operation.get_parameter('gridder')

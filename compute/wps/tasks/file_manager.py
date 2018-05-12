@@ -97,7 +97,7 @@ class DataSet(object):
 
         return self.variable
 
-    def partitions(self, axis_name):
+    def partitions(self, axis_name, skip_data=False):
         axis = self.get_axis(axis_name)
 
         logger.debug('Generating partitions over axis %s', axis_name)
@@ -119,9 +119,12 @@ class DataSet(object):
             for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
 
-                data = self.get_variable()(time=slice(begin, end), **self.spatial)
+                if skip_data:
+                    yield { 'temporal': slice(begin, end), 'spatial': self.spatial }
+                else:
+                    data = self.get_variable()(time=slice(begin, end), **self.spatial)
 
-                yield data
+                    yield data
         else:
             domain_axis = self.spatial.get(axis.id, None)
 
@@ -143,10 +146,13 @@ class DataSet(object):
                 #self.spatial[axis_name] = slice(begin, end)
                 #self.spatial[axis_name] = (begin, end)
 
-                data = self.get_variable()(**self.spatial)
-                #data = self.get_variable()(**{axis_name: slice(begin, end)})
+                if skip_data:
+                    yield { 'temporal': self.temporal, 'spatial': self.spatial }
+                else:
+                    data = self.get_variable()(**self.spatial)
+                    #data = self.get_variable()(**{axis_name: slice(begin, end)})
 
-                yield data
+                    yield data
 
     def dimension_to_selector(self, dimension, axis, base_units=None):
         if dimension.crs == cwt.VALUES:
@@ -372,7 +378,7 @@ class DataSetCollection(object):
                 
         return cache, cache_obj
 
-    def partitions(self, domain, skip_cache, axis=None):
+    def partitions(self, domain, skip_cache, axis=None, skip_data=False):
         logger.info('Sorting datasets')
 
         self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
@@ -406,13 +412,14 @@ class DataSetCollection(object):
                 if cache_result is not None:
                     cache, cache_obj = cache_result
 
-            for chunk in ds.partitions(axis):
-                if cache_obj is not None:
-                    cache_obj.write(chunk, id=ds.variable_name)
+            for chunk in ds.partitions(axis, skip_data):
+                if not skip_data:
+                    if cache_obj is not None:
+                        cache_obj.write(chunk, id=ds.variable_name)
 
-                    cache_obj.sync()
+                        cache_obj.sync()
 
-                chunk.getTime().toRelativeTime(base_units)
+                    chunk.getTime().toRelativeTime(base_units)
 
                 yield ds, chunk
 

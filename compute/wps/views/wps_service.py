@@ -2,6 +2,7 @@ import json
 import re
 import StringIO
 
+import celery
 import cwt
 import django
 from cwt import wps_lib
@@ -401,3 +402,18 @@ def status(request, job_id):
         raise WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
 
     return http.HttpResponse(job.report, content_type='text/xml')
+
+@require_http_methods(['POST'])
+def ingress(request):
+    try:
+        chunk_map = request.POST['chunk_map']
+
+        operation = request.POST['operation']
+
+        user_id = request.POST['user_id']
+
+        job_id = request.POST['job_id']
+    except KeyError as e:
+        return http.HttpResponseBadRequest()
+
+    return http.HttpResponse()
