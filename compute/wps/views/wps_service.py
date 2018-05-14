@@ -406,7 +406,7 @@ def status(request, job_id):
 @require_http_methods(['POST'])
 def ingress(request):
     try:
-        chunk_map = request.POST['chunk_map']
+        chunk_map_raw = request.POST['chunk_map']
 
         operation = request.POST['operation']
 
@@ -415,5 +415,9 @@ def ingress(request):
         job_id = request.POST['job_id']
     except KeyError as e:
         return http.HttpResponseBadRequest()
+
+    backend = backends.Backend.get_backend('Local')
+
+    backend.ingress(chunk_map_raw, operation, user_id, job_id).delay()
 
     return http.HttpResponse()
