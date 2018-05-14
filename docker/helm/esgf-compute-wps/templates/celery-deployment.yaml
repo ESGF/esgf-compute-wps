@@ -27,8 +27,22 @@ spec:
       containers:
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ .image }}:{{ .imageTag }}
-        args: ["-l", "info", "-c", "1", "--max-memory-per-child", {{ .resources.memory | quote }}, {{ default "" .argsExtra | quote }}]
-        {{- if .development }}
+        {{- if not $.Values.development }}
+        args: 
+          - -l
+          - info
+          - -c
+          - 1
+          - --max-memory-per-child
+          - {{ .resources.memory | quote }}
+          - -n 
+          - {{ .name }}
+        {{- range $key, $value := .argsExtra }}
+          - {{ $key | quote }}
+          - {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        {{- if $.Values.development }}
         command:
           - sleep
           - infinity
