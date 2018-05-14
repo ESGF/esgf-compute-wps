@@ -3,11 +3,10 @@
 def json_dumps_default(x):
     if isinstance(x, slice):
         return {
-            'slice': {
-                'start': x.start,
-                'stop': x.stop,
-                'step': x.step,
-            }
+            'type': 'slice',
+            'start': x.start,
+            'stop': x.stop,
+            'step': x.step,
         }
     else:
         raise TypeError()
