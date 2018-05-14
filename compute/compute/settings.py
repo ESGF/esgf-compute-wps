@@ -49,6 +49,11 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
         except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
             value = default
 
+            if value_type == str:
+                for replacement in self.defaults.iteritems():
+                    if replacement[0] in value:
+                        value = value.replace(*replacement)
+
             pass
 
         if conv is not None:
@@ -96,7 +101,7 @@ EMAIL_HOST_USER = config.get_value('email', 'user', '')
 
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps')
 WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps')
-WPS_INGRESS_URL = config.get_value('wps', 'wps.ingress_url', 'https://{host}/wps/ingress')
+WPS_INGRESS_URL = config.get_value('wps', 'wps.ingress_url', 'https://{host}/wps/ingress/')
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
 WPS_DAP = config.get_value('wps', 'wps.dap', 'true', bool)
 WPS_DAP_URL = config.get_value('wps', 'wps.dap_url', 'https://{host}/threddsCWT/dodsC/public/{file_name}')
