@@ -23,7 +23,7 @@ priority_exchange = kombu.Exchange('priority', type='topic')
 
 app.conf.task_queues = [
     kombu.Queue('ingress', ingress_exchange, routing_key='ingress'),
-    kombu.Queue('priority.high', priority_exhcange, routing_key='high'),
+    kombu.Queue('priority.high', priority_exchange, routing_key='high'),
     kombu.Queue('priority.low', priority_exchange, routing_key='low'),
 ]
 
