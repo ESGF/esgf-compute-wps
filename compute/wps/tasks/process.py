@@ -136,14 +136,15 @@ class Process(object):
         fm = file_manager.FileManager(collections)
 
         for collection in fm.collections:
-            if 'base_units' not in chunk_map:
-                chunk_map['base_units'] = collection.get_base_units()
+            with collection as collection:
+                if 'base_units' not in chunk_map:
+                    chunk_map['base_units'] = collection.get_base_units()
 
-            for dataset, chunk in collection.partitions(operation.domain, True):
-                if dataset.url in chunk_map:
-                    chunk_map[dataset.url].append(chunk)
-                else:
-                    chunk_map[dataset.url] = [chunk,]
+                for dataset, chunk in collection.partitions(operation.domain, True, skip_data=True):
+                    if dataset.url in chunk_map:
+                        chunk_map[dataset.url].append(chunk)
+                    else:
+                        chunk_map[dataset.url] = [chunk,]
 
         return chunk_map
 
