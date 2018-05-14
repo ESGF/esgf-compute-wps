@@ -1,10 +1,10 @@
+import json
 import logging
 
+import celery
 import cwt
 
-from celery import chord
-from celery import group
-from celery import signature
+from wps import helpers
 from wps import tasks
 from wps.backends import backend
 from wps.tasks import base
@@ -22,6 +22,30 @@ class Local(backend.Backend):
 
         for name, proc in base.REGISTRY.iteritems():
             self.add_process(name, name.title(), proc.ABSTRACT)
+
+    def ingress(self, chunk_map_raw, operation, user_id, job_id):
+        chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
+
+        base_units = chunk_map['base_units']
+
+        del chunk_map['base_units']
+
+        process = cwt.Process.from_dict(json.loads(operation))
+
+        ingress_tasks = []
+
+        for uri, chunk_list in chunk_map.iteritems():
+            for chunk in chunk_list:
+                ingress_tasks.append(tasks.ingress.s(uri, chunk, ''))
+
+        try:
+            aggregate = base.REGISTRY['CDAT.aggregate']
+        except KeyError:
+            raise base.WPSError('Something went wrong, missing aggregate process')
+
+        aggregate_sig = aggregate.s({}, {}, operation, user_id, job_id)
+
+        return celery.chord(ingress_tasks)(aggregate_sig)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         if len(operations) == 0:
@@ -52,7 +76,8 @@ class Local(backend.Backend):
 
         logger.info('Operation {}'.format(operation))
 
-        return target_process.s({}, variable_dict, domain_dict, operation, **params)
+        return tasks.preprocess.s({}, variable_dict, domain_dict, operation, **params)
+        #return target_process.s({}, variable_dict, domain_dict, operation, **params)
 
     def get_task(self, identifier):
         try:
@@ -96,7 +121,7 @@ class Local(backend.Backend):
                 task = self.get_task(node.identifier).s(
                     task_variables, global_domains, node.parameterize(), **params)
 
-                task = group(sub_tasks) | task
+                task = celery.group(sub_tasks) | task
 
             return task
 
