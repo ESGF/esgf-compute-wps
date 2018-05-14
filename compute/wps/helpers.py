@@ -12,7 +12,8 @@ def json_dumps_default(x):
         raise TypeError()
 
 def json_loads_object_hook(x):
-    if 'slice' in x:
-        data = x['slice']
+    if 'type' in x:
+        if x['type'] == 'slice':
+            return slice(x['start'], x['stop'], x['step'])
 
-        return slice(data['start'], data['stop'], data['step'])
+    return x
