@@ -70,6 +70,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
         logger.info('Detected workflow whose output process is "%r"', root_node.identifier)
 
         data = {
+            'type': 'workflow',
             'root_node': json.dumps(root_node),
             'variables': json.dumps(variables),
             'domains': json.dumps(domains),
@@ -77,8 +78,6 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
             'user_id': user_id,
             'job_id': job_id,
         }
-
-        url = settings.WPS_WORKFLOW_URL
     else:
         if ingress:
             chunk_map = proc.generate_chunk_map(o)
@@ -91,13 +90,12 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
             o.inputs = []
 
             data = {
+                'type': 'ingress',
                 'chunk_map': json.dumps(chunk_map, default=helpers.json_dumps_default),
                 'operation': json.dumps(o.parameterize()),
                 'user_id': user_id,
                 'job_id': job_id
             }
-
-            url = settings.WPS_INGRESS_URL
         else:
             try:
                 operation = operations.values()[0]
@@ -105,14 +103,13 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
                 raise base.WPSError('Missing operation "{identifier}"', identifier=identifier)
 
             data = {
+                'type': 'execute',
                 'variables': json.dumps(variables),
                 'domains': json.dumps(domains),
                 'operation': json.dumps(operation),
                 'user_id': user_id,
                 'job_id': job_id,
             }
-
-            url = settings.WPS_EXECUTE_URL
 
     session = requests.Session()
 
@@ -122,7 +119,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
     headers = { 'X-CSRFToken': csrf_token }
 
-    response = session.post(url, data, headers=headers, verify=False)
+    response = session.post(settings.WPS_EXECUTE_URL, data, headers=headers, verify=False)
 
     if not response.ok:
         raise base.WPSError('Failed to ingress data status code {code}', code=response.status_code)

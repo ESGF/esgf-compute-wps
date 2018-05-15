@@ -76,8 +76,7 @@ class Local(backend.Backend):
 
         logger.info('Operation {}'.format(operation))
 
-        return tasks.preprocess.s({}, variable_dict, domain_dict, operation, **params)
-        #return target_process.s({}, variable_dict, domain_dict, operation, **params)
+        return target_process.s({}, variable_dict, domain_dict, operation, **params)
 
     def get_task(self, identifier):
         try:

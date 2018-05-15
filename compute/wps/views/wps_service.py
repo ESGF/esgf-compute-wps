@@ -370,14 +370,78 @@ def status(request, job_id):
 
     return http.HttpResponse(job.report, content_type='text/xml')
 
-@require_http_methods(['POST'])
-def execute(request):
+def handle_execute(request, user, job):
     try:
         variables = request.POST['variables']
 
         domains = request.POST['domains']
 
         operation = request.POST['operation']
+    except KeyError as e:
+        raise base.WPSError('Missing required parameter "{name}"', name=e)
+
+    try:
+        process = models.Process.objects.get(identifier=operation.identifier)
+    except models.Process.DoesNotExist:
+        raise base.WPSError('Unknown process "{name}"', name=operation.identifier)
+
+    process_backend = backends.Backend.get_backend(process.backend)
+
+    if process_backend is None:
+        raise base.WPSError('Unknown backend "{name}"', name=process.backend)
+
+    variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
+
+    domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
+
+    operation = cwt.Process.from_dict(operation)
+
+    identifier = operation.identifier
+
+    operation = { operation.name: operation }
+
+    process_backend.execute(identifier, variables, domains, operation, user=user, job=job).delay()
+
+def handle_workflow(request, user, job):
+    try:
+        root_node = request.POST['root_node']
+
+        variables = request.POST['variables']
+
+        domains = request.POST['domains']
+
+        operations = request.POST['operations']
+    except KeyError as e:
+        raise base.WPSError('Missing required parameter "{name}"', name=e)
+
+    process_backend = backends.Backend.get_backend('Local')
+
+    root_node = cwt.Process.from_dict(json.loads(root_node))
+
+    variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
+
+    domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
+
+    operations = dict((x, cwt.Process.from_dict(y)) for x, y in json.loads(operations).iteritems())
+
+    process_backend.workflow(root_node, variables, domains, operations, user=user, job=job).delay()
+
+def handle_ingress(request, user, job):
+    try:
+        chunk_map_raw = request.POST['chunk_map']
+
+        operation = request.POST['operation']
+    except KeyError as e:
+        raise base.WPSError('Missing required parameter "{name}"', name=e)
+
+    backend = backends.Backend.get_backend('Local')
+
+    backend.ingress(chunk_map_raw, operation, user, job).delay()
+
+@require_http_methods(['POST'])
+def execute(request):
+    try:
+        execute_type = request.POST['type']
 
         user_id = request.POST['user_id']
 
@@ -393,58 +457,24 @@ def execute(request):
     try:
         user = models.User.objects.get(pk=user_id)
     except models.User.DoesNotExist:
-        return http.HttpResponseBadRequest()
-
-    try:
-        process = models.Process.objects.get(identifier=operation.identifier)
-    except models.Process.DoesNotExist:
-        return http.HttpResponseBadRequest()
-
-    process_backend = backends.Backend.get_backend(process.backend)
-
-    if process_backend is None:
         job.failed()
 
         return http.HttpResponseBadRequest()
 
-    process_backend.execute(operation.identifier, variables, domains, operation, user=user, job=job).delay()
-
-    return http.HttpResponse()
-
-@require_http_methods(['POST'])
-def workflow(request):
-    #process_backend = backends.Backend.get_backend(process.backend)
-
-    #if process_backend is None:
-    #    job.failed()
-
-    #    raise WPSError('Missing backend "{backend}" for process "{id}"', 
-    #                   backend=process.backend, id=process.identifier)
-
-    #if is_workflow:
-    #    process_backend = backends.Backend.get_backend('Local')
-
-    #    process_backend.workflow(root_node, variables, domains, operations, user=user, job=job).delay()
-    #else:
-    #    process_backend.execute(identifier, variables, domains, operations, user=user, job=job).delay()
-
-    return http.HttpResponse()
-
-@require_http_methods(['POST'])
-def ingress(request):
     try:
-        chunk_map_raw = request.POST['chunk_map']
+        if execute_type == 'execute':
+            handle_execute(request, user, job)
+        elif execute_type == 'workflow':
+            handle_workflow(request, user, job)
+        elif execute_type == 'ingress':
+            handle_ingress(request, user, job)
+        else:
+            raise base.WPSError('Unknown execute type {name}', name=execute_type)
+    except base.WPSError as e:
+        job.failed()
 
-        operation = request.POST['operation']
+        logger.exception('Execute failed')
 
-        user_id = request.POST['user_id']
-
-        job_id = request.POST['job_id']
-    except KeyError as e:
         return http.HttpResponseBadRequest()
-
-    backend = backends.Backend.get_backend('Local')
-
-    backend.ingress(chunk_map_raw, operation, user_id, job_id).delay()
 
     return http.HttpResponse()
