@@ -43,9 +43,6 @@ def is_workflow(operations):
 
 @base.cwt_shared_task()
 def preprocess(self, identifier, variables, domains, operations, user_id, job_id):
-    workflow = False
-    ingress = False
-
     self.PUBLISH = base.RETRY | base.FAILURE
 
     _, _, o = self.load({}, variables, domains, operations)
@@ -59,7 +56,11 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     except models.Process.DoesNotExist:
         raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
+    logger.info('Updating process usage')
+
     proc_obj.track(proc.user)
+
+    logger.info('Updating dataset usage')
     
     for variable in o.inputs:
         models.File.track(proc.user, variable)
@@ -67,7 +68,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     root_node, workflow = is_workflow(operations)
 
     if workflow:
-        logger.info('Detected workflow whose output process is "%r"', root_node.identifier)
+        logger.info('Requesting workflow execution with output "%r"', root_node)
 
         data = {
             'type': 'workflow',
@@ -79,7 +80,9 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
             'job_id': job_id,
         }
     else:
-        if ingress:
+        if not proc.check_cache(o):
+            logger.info('Requesting ingress of dataset before execution')
+
             chunk_map = proc.generate_chunk_map(o)
 
             o.domain = None
@@ -97,6 +100,8 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
                 'job_id': job_id
             }
         else:
+            logger.info('Requesting normal execution')
+
             try:
                 operation = operations.values()[0]
             except IndexError:

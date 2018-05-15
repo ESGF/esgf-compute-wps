@@ -126,6 +126,10 @@ class Process(object):
 
         return target.getGrid()
 
+    def check_cache(self, operation):
+        with file_manager.DataSetCollection.from_variables(operation.inputs) as collection:
+            return all(collection.check_cache(dataset) == None for dataset in collection.datasets) 
+
     def generate_chunk_map(self, operation):
         chunk_map = {}
 
