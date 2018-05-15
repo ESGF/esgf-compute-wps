@@ -14,6 +14,7 @@ from lxml import etree
 from . import common
 from wps import backends
 from wps import models
+from wps import tasks
 from wps import wps_xml
 from wps import settings
 from wps import WPSError
@@ -182,58 +183,24 @@ def wps_execute(user, identifier, data_inputs):
     except models.Process.DoesNotExist:
         raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
-    process.track(user)
-
     try:
         operations, domains, variables = load_data_inputs(data_inputs)
     except Exception:
         raise WPSError('Failed to parse datainputs')
 
-    root_node = None
-    is_workflow = False
-
-    # flatten out list of inputs from operations
-    op_inputs = [i for op in operations.values() for i in op.inputs]
-
-    # find the root operation, this node will not be an input to any other operation
-    for op in operations.values():
-        if op.name not in op_inputs:
-            if root_node is not None:
-                raise WPSError('Dangling operations, there can only be a single operation that is not an input')
-
-            root_node = op
-
-    if root_node is None:
-        raise WPSError('Malformed WPS execute request, atleast one operation must be provided')
-
-    # considered a workflow if any of the root operations inputs are another operation
-    is_workflow = any(i in operations.keys() for i in root_node.inputs)
-
-    for variable in variables.values():
-        models.File.track(user, variable)
-
     server = models.Server.objects.get(host='default')
 
-    job = models.Job.objects.create(server=server, user=user, process=process, extra=data_inputs)
+    job = models.Job.objects.create(server=server, process=process, user=user, extra=data_inputs)
 
     job.accepted()
 
-    logger.info('Accepted job {}'.format(job.id))
+    operation_dict = dict((x, y.parameterize()) for x, y in operations.iteritems())
 
-    process_backend = backends.Backend.get_backend(process.backend)
+    variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
 
-    if process_backend is None:
-        job.failed()
+    domain_dict = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
-        raise WPSError('Missing backend "{backend}" for process "{id}"', 
-                       backend=process.backend, id=process.identifier)
-
-    if is_workflow:
-        process_backend = backends.Backend.get_backend('Local')
-
-        process_backend.workflow(root_node, variables, domains, operations, user=user, job=job).delay()
-    else:
-        process_backend.execute(identifier, variables, domains, operations, user=user, job=job).delay()
+    tasks.preprocess.s(identifier, variable_dict, domain_dict, operation_dict, user.id, job.id).delay()
 
     return job.report
 
@@ -402,6 +369,66 @@ def status(request, job_id):
         raise WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
 
     return http.HttpResponse(job.report, content_type='text/xml')
+
+@require_http_methods(['POST'])
+def execute(request):
+    try:
+        variables = request.POST['variables']
+
+        domains = request.POST['domains']
+
+        operation = request.POST['operation']
+
+        user_id = request.POST['user_id']
+
+        job_id = request.POST['job_id']
+    except KeyError as e:
+        return http.HttpResponseBadRequest()
+
+    try:
+        job = models.Job.objects.get(pk=job_id)
+    except models.Job.DoesNotExist:
+        return http.HttpResponseBadRequest()
+
+    try:
+        user = models.User.objects.get(pk=user_id)
+    except models.User.DoesNotExist:
+        return http.HttpResponseBadRequest()
+
+    try:
+        process = models.Process.objects.get(identifier=operation.identifier)
+    except models.Process.DoesNotExist:
+        return http.HttpResponseBadRequest()
+
+    process_backend = backends.Backend.get_backend(process.backend)
+
+    if process_backend is None:
+        job.failed()
+
+        return http.HttpResponseBadRequest()
+
+    process_backend.execute(operation.identifier, variables, domains, operation, user=user, job=job).delay()
+
+    return http.HttpResponse()
+
+@require_http_methods(['POST'])
+def workflow(request):
+    #process_backend = backends.Backend.get_backend(process.backend)
+
+    #if process_backend is None:
+    #    job.failed()
+
+    #    raise WPSError('Missing backend "{backend}" for process "{id}"', 
+    #                   backend=process.backend, id=process.identifier)
+
+    #if is_workflow:
+    #    process_backend = backends.Backend.get_backend('Local')
+
+    #    process_backend.workflow(root_node, variables, domains, operations, user=user, job=job).delay()
+    #else:
+    #    process_backend.execute(identifier, variables, domains, operations, user=user, job=job).delay()
+
+    return http.HttpResponse()
 
 @require_http_methods(['POST'])
 def ingress(request):

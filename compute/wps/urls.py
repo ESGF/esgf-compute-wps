@@ -5,6 +5,8 @@ import views
 
 urlpatterns = [
     url(r'^$', views.wps),
+    url(r'^execute/$', views.execute),
+    url(r'^workflow/$', views.workflow),
     url(r'^ingress/$', views.ingress),
     url(r'^processes/$', views.processes),
     url(r'^search/$', views.search_dataset),

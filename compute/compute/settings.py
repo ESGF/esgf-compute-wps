@@ -101,6 +101,8 @@ EMAIL_HOST_USER = config.get_value('email', 'user', '')
 
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps')
 WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps')
+WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url', 'https://{host}/wps/execute/')
+WPS_WORKFLOW_URL = config.get_value('wps', 'wps.workflow_url', 'https://{host}/wps/workflow/')
 WPS_INGRESS_URL = config.get_value('wps', 'wps.ingress_url', 'https://{host}/wps/ingress/')
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
 WPS_DAP = config.get_value('wps', 'wps.dap', 'true', bool)
