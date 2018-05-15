@@ -55,6 +55,10 @@ spec:
             cpu: {{ .resources.cpuRequest | quote }}
             memory: {{ .resources.memoryRequest | quote }}
         env:
+        {{- if $.Values.development }}
+        - name: WPS_DEBUG
+          value: 1
+        {{- end }}
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:
