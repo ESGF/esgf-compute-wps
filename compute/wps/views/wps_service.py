@@ -380,6 +380,8 @@ def handle_execute(request, user, job):
     except KeyError as e:
         raise WPSError('Missing required parameter "{name}"', name=e)
 
+    operation = cwt.Process.from_dict(json.loads(operation))
+
     try:
         process = models.Process.objects.get(identifier=operation.identifier)
     except models.Process.DoesNotExist:
@@ -393,8 +395,6 @@ def handle_execute(request, user, job):
     variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
 
     domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
-
-    operation = cwt.Process.from_dict(operation)
 
     identifier = operation.identifier
 
