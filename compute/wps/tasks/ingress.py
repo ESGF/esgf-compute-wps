@@ -58,13 +58,15 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
         data = {
             'type': 'workflow',
-            'root_node': json.dumps(root_node),
+            'root_node': json.dumps(root_node.parameterize()),
             'variables': json.dumps(variables),
             'domains': json.dumps(domains),
             'operations': json.dumps(operations),
             'user_id': user_id,
             'job_id': job_id,
         }
+
+        raise base.WPSError('Workflow disabled')
     else:
         if not proc.check_cache(o):
             logger.info('Requesting ingress of dataset before execution')
