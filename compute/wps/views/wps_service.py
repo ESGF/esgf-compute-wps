@@ -378,17 +378,17 @@ def handle_execute(request, user, job):
 
         operation = request.POST['operation']
     except KeyError as e:
-        raise base.WPSError('Missing required parameter "{name}"', name=e)
+        raise WPSError('Missing required parameter "{name}"', name=e)
 
     try:
         process = models.Process.objects.get(identifier=operation.identifier)
     except models.Process.DoesNotExist:
-        raise base.WPSError('Unknown process "{name}"', name=operation.identifier)
+        raise WPSError('Unknown process "{name}"', name=operation.identifier)
 
     process_backend = backends.Backend.get_backend(process.backend)
 
     if process_backend is None:
-        raise base.WPSError('Unknown backend "{name}"', name=process.backend)
+        raise WPSError('Unknown backend "{name}"', name=process.backend)
 
     variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
 
@@ -412,7 +412,7 @@ def handle_workflow(request, user, job):
 
         operations = request.POST['operations']
     except KeyError as e:
-        raise base.WPSError('Missing required parameter "{name}"', name=e)
+        raise WPSError('Missing required parameter "{name}"', name=e)
 
     process_backend = backends.Backend.get_backend('Local')
 
@@ -432,7 +432,7 @@ def handle_ingress(request, user, job):
 
         operation = request.POST['operation']
     except KeyError as e:
-        raise base.WPSError('Missing required parameter "{name}"', name=e)
+        raise WPSError('Missing required parameter "{name}"', name=e)
 
     backend = backends.Backend.get_backend('Local')
 
@@ -469,8 +469,8 @@ def execute(request):
         elif execute_type == 'ingress':
             handle_ingress(request, user, job)
         else:
-            raise base.WPSError('Unknown execute type {name}', name=execute_type)
-    except base.WPSError as e:
+            raise WPSError('Unknown execute type {name}', name=execute_type)
+    except WPSError as e:
         job.failed()
 
         logger.exception('Execute failed')
