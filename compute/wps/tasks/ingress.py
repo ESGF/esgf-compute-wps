@@ -51,20 +51,6 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
     proc.initialize(user_id, job_id)
 
-    try:
-        proc_obj = models.Process.objects.get(identifier=identifier)
-    except models.Process.DoesNotExist:
-        raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
-
-    logger.info('Updating process usage')
-
-    proc_obj.track(proc.user)
-
-    logger.info('Updating dataset usage')
-    
-    for variable in o.inputs:
-        models.File.track(proc.user, variable)
-
     root_node, workflow = is_workflow(operations)
 
     if workflow:
