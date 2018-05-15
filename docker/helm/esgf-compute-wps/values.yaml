@@ -1,6 +1,8 @@
 host: 0.0.0.0
 development: false
 
+sharedPath: /opt/nfs/cwt/shared
+
 data:
   publicPath: /opt/nfs/cwt/data/public
   cachePath: /opt/nfs/cwt/data/cache

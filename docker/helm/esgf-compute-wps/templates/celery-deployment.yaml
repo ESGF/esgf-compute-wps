@@ -111,5 +111,9 @@ spec:
         hostPath:
           path: {{ $cachePath }}
           type: DirectoryOrCreate
+      - name: ingress-volume
+        hostPath:
+          path: {{ $.Values.data.ingressPath }}
+          type: DirectoryOrCreate
 ---
 {{- end }}
