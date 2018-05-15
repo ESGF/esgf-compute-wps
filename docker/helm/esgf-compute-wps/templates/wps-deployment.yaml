@@ -37,6 +37,10 @@ spec:
             cpu: "{{ .Values.wps.resources.cpuRequest }}"
             memory: "{{ .Values.wps.resources.memoryRequest }}"
         env:
+        {{- if $.Values.development }}
+        - name: WPS_DEBUG
+          value: "1"
+        {{- end }}
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:
@@ -73,11 +77,20 @@ spec:
         - containerPort: {{ .Values.wps.service.port }}
           protocol: TCP
         volumeMounts:
+        {{- if .Values.development }}
+        - mountPath: /var/www
+          name: shared-volume
+        {{- end }}
         - name: config-volume
           mountPath: /etc/config
         - name: static-volume
           mountPath: /var/www/static
       volumes:
+        {{- if .Values.development }}
+        - name: shared-volume
+          hostPath:
+            path: {{ .Values.sharedPath }}
+        {{- end }}
         - name: config-volume
           configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config

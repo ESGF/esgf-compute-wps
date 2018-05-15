@@ -57,7 +57,7 @@ spec:
         env:
         {{- if $.Values.development }}
         - name: WPS_DEBUG
-          value: 1
+          value: "1"
         {{- end }}
         - name: WPS_HOST
           valueFrom:
@@ -82,13 +82,24 @@ spec:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
               key: postgres_password
         volumeMounts:
+        {{- if $.Values.development }}
+        - mountPath: /var/www
+          name: shared-volume
+        {{- end }}
         - mountPath: /etc/config
           name: config-volume
         - mountPath: /data/public
           name: public-volume
         - mountPath: /data/cache
           name: cache-volume
+        - mountPath: /data/ingress
+          name: ingress-volume
       volumes:
+      {{- if $.Values.development }}
+      - name: shared-volume
+        hostPath:
+          path: {{ $.Values.sharedPath }}
+      {{- end }}
       - name: config-volume
         configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
