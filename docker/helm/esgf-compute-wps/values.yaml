@@ -6,6 +6,7 @@ sharedPath: /opt/nfs/cwt/shared
 data:
   publicPath: /opt/nfs/cwt/data/public
   cachePath: /opt/nfs/cwt/data/cache
+  ingressPath: /opt/nfs/cwt/data/ingress
 
 ingress:
   annotations:
