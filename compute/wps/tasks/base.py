@@ -93,6 +93,7 @@ class CWTBaseTask(celery.Task):
             A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
             object of their respective container type.
         """
+        logger.info('%r', parent_variables)
         if isinstance(parent_variables, dict):
             variables.update(parent_variables)
         elif isinstance(parent_variables, list):

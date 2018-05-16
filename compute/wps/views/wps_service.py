@@ -200,7 +200,7 @@ def wps_execute(user, identifier, data_inputs):
 
     domain_dict = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
-    tasks.preprocess.s(identifier, variable_dict, domain_dict, operation_dict, user.id, job.id).delay()
+    tasks.preprocess.s(identifier, variable_dict, domain_dict, operation_dict, user_id=user.id, job_id=job.id).delay()
 
     return job.report
 
@@ -430,13 +430,19 @@ def handle_ingress(request, user, job):
     try:
         chunk_map_raw = request.POST['chunk_map']
 
+        domains = request.POST['domains']
+
         operation = request.POST['operation']
     except KeyError as e:
         raise WPSError('Missing required parameter "{name}"', name=e)
 
     backend = backends.Backend.get_backend('Local')
 
-    backend.ingress(chunk_map_raw, operation, user, job).delay()
+    domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
+
+    operation = cwt.Process.from_dict(json.loads(operation))
+
+    backend.ingress(chunk_map_raw, domains, operation, user, job).delay()
 
 @require_http_methods(['POST'])
 def execute(request):

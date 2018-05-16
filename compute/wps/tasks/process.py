@@ -150,7 +150,7 @@ class Process(object):
                     else:
                         chunk_map[dataset.url] = [chunk,]
 
-        chunk_map['var_name'] = fm.get_variables_name()
+        chunk_map['var_name'] = fm.get_variable_name()
 
         return chunk_map
 

@@ -79,6 +79,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
             data = {
                 'type': 'ingress',
                 'chunk_map': json.dumps(chunk_map, default=helpers.json_dumps_default),
+                'domains': json.dumps(domains),
                 'operation': json.dumps(o.parameterize()),
                 'user_id': user_id,
                 'job_id': job_id
@@ -117,6 +118,8 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 def ingress(self, input_url, var_name, domain, output_uri):
     self.PUBLISH = base.FAILURE | base.RETRY
 
+    domain = json.loads(domain, object_hook=helpers.json_loads_object_hook)
+
     temporal = domain['temporal']
 
     spatial = domain['spatial']
@@ -124,8 +127,8 @@ def ingress(self, input_url, var_name, domain, output_uri):
     with cdms2.open(input_url) as infile, cdms2.open(output_uri, 'w') as outfile:
         data = infile(var_name, time=temporal, **spatial)
 
-        outfile.write(var_name, data)
+        outfile.write(data, id=var_name)
 
     variable = cwt.Variable(output_uri, var_name)
 
-    return variable.parameterize()
+    return { variable.name: variable.parameterize() }

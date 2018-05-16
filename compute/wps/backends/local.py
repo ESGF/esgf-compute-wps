@@ -1,8 +1,10 @@
 import json
 import logging
+import os
 
 import celery
 import cwt
+from django.conf import settings
 
 from wps import helpers
 from wps import tasks
@@ -23,29 +25,43 @@ class Local(backend.Backend):
         for name, proc in base.REGISTRY.iteritems():
             self.add_process(name, name.title(), proc.ABSTRACT)
 
-    def ingress(self, chunk_map_raw, operation, user_id, job_id):
+    def ingress(self, chunk_map_raw, domains, operation, user, job):
         chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
 
         base_units = chunk_map['base_units']
 
         del chunk_map['base_units']
 
-        process = cwt.Process.from_dict(json.loads(operation))
+        var_name = chunk_map['var_name']
+
+        del chunk_map['var_name']
+
+        operation = operation.parameterize()
+
+        domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
         ingress_tasks = []
 
         for uri, chunk_list in chunk_map.iteritems():
-            for chunk in chunk_list:
-                ingress_tasks.append(tasks.ingress.s(uri, chunk, ''))
+            for index, chunk in enumerate(chunk_list):
+                output_filename = 'ingress-{}-{}.nc'.format('some-uid', index)
+
+                output_uri = os.path.join(settings.WPS_INGRESS_PATH, output_filename)
+
+                chunk_data = json.dumps(chunk, default=helpers.json_dumps_default)
+
+                ingress_tasks.append(tasks.ingress.s(uri, var_name, chunk_data, output_uri))
 
         try:
             aggregate = base.REGISTRY['CDAT.aggregate']
         except KeyError:
             raise base.WPSError('Something went wrong, missing aggregate process')
 
-        aggregate_sig = aggregate.s({}, {}, operation, user_id, job_id)
+        aggregate_sig = aggregate.s({}, domains, operation, user_id=user.id, job_id=job.id)
 
-        return celery.chord(ingress_tasks)(aggregate_sig)
+        canvas = celery.chain(celery.group(ingress_tasks), aggregate_sig)
+
+        return canvas
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         if len(operations) == 0:
