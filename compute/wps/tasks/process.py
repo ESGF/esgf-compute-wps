@@ -150,6 +150,8 @@ class Process(object):
                     else:
                         chunk_map[dataset.url] = [chunk,]
 
+        chunk_map['var_name'] = fm.get_variables_name()
+
         return chunk_map
 
     def retrieve(self, operation, num_inputs, output_file):
