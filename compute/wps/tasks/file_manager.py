@@ -312,7 +312,11 @@ class DataSetCollection(object):
 
         return domain
 
-    def get_cache_entry(self, uid_hash, domain):
+    def get_cache_entry(self, dataset, domain):
+        uid = '{}:{}'.format(dataset.url, dataset.variable_name)
+
+        uid_hash = hashlib.sha256(uid).hexdigest()
+
         cache_entries = models.Cache.objects.filter(uid=uid_hash)
 
         logger.info('Found "{}" cache entries matching hash "{}"'.format(len(cache_entries), uid_hash))
@@ -336,54 +340,10 @@ class DataSetCollection(object):
 
         return None
 
-    def check_cache(self, dataset):
-        uid = '{}:{}'.format(dataset.url, dataset.variable_name)
-
-        uid_hash = hashlib.sha256(uid).hexdigest()
-
-        domain = self.generate_dataset_domain(dataset)
-
-        logger.info('Checking cache for "{}" with domain "{}"'.format(uid_hash, domain))
-
-        cache = self.get_cache_entry(uid_hash, domain)
-
-        if cache is None:
-            logger.info('Creating cache file for "{}"'.format(dataset.url))
-
-            dimensions = json.dumps(domain, default=models.slice_default)
-
-            cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
-
-            mode = 'w'
-        else:
-            logger.info('Using cache file "{}" as input'.format(cache.local_path))
-
-            mode = 'r'
-
-        try:
-            cache_obj = cdms2.open(cache.local_path, mode)
-        except cdms2.CDMSError as e:
-            logger.exception('Error opening cache file "{}"'.format(cache.local_path))
-
-            cache.delete()
-
-            return None
-
-        if mode == 'r':
-            dataset.close()
-
-            dataset.file_obj = cache_obj
-
-            return None
-                
-        return cache, cache_obj
-
     def partitions(self, domain, skip_cache, axis=None, skip_data=False):
         logger.info('Sorting datasets')
 
         self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
-
-        base_units = self.datasets[0].get_time().units
 
         if axis is None:
             axis = self.datasets[0].get_time().id
@@ -392,36 +352,49 @@ class DataSetCollection(object):
 
         base_units = None
 
-        for ds in self.datasets:
-            cache = None
+        for dataset in self.datasets:
             cache_obj = None
 
             if base_units is None:
-                base_units = ds.get_time().units
+                base_units = dataset.get_time().units
 
             try:
-                ds.map_domain(domain, base_units)
+                dataset.map_domain(domain, base_units)
             except DomainMappingError:
-                logger.info('Skipping "{}"'.format(ds.url))
+                logger.info('Skipping "{}"'.format(dataset.url))
 
                 continue
 
             if not skip_cache:
-                cache_result = self.check_cache(ds)
+                domain = self.generate_dataset_domain(dataset)
 
-                if cache_result is not None:
-                    cache, cache_obj = cache_result
+                cache = self.get_cache_entry(dataset, domain)
 
-            for chunk in ds.partitions(axis, skip_data):
+                try:
+                    if cache is None:
+                        dimensions = json.dumps(domain, default=models.slice_default)
+
+                        cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
+
+                        cache_obj = cdms2.open(cache.local_path, 'w')
+                    else:
+                        # Swap the source file for the cached file
+                        dataset.file_obj.close()
+
+                        dataset.file_obj = cdms2.open(cache.local_path)
+                except cdms2.CDMSError as e:
+                    raise base.AccessError(cache.local_path, e)
+
+            for chunk in dataset.partitions(axis, skip_data):
                 if not skip_data:
                     if cache_obj is not None:
-                        cache_obj.write(chunk, id=ds.variable_name)
+                        cache_obj.write(chunk, id=dataset.variable_name)
 
                         cache_obj.sync()
 
                     chunk.getTime().toRelativeTime(base_units)
 
-                yield ds, chunk
+                yield dataset, chunk
 
             if cache is not None:
                 cache.set_size()
