@@ -45,8 +45,6 @@ def is_workflow(operations):
 def preprocess(self, identifier, variables, domains, operations, user_id, job_id):
     self.PUBLISH = base.RETRY | base.FAILURE
 
-    _, _, o = self.load({}, variables, domains, operations)
-
     proc = process.Process(self.request.id)
 
     proc.initialize(user_id, job_id)
@@ -68,15 +66,13 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
         raise base.WPSError('Workflow disabled')
     else:
-        if not proc.check_cache(o):
+        _, _, o = self.load({}, variables, domains, operations.values()[0])
+
+        if True:
+        #if not proc.check_cache(o):
             logger.info('Requesting ingress of dataset before execution')
 
             chunk_map = proc.generate_chunk_map(o)
-
-            o.domain = None
-
-            if 'domain' in o.parameters:
-                del o.parameters['domain']
 
             o.inputs = []
 
