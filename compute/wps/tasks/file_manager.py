@@ -353,6 +353,7 @@ class DataSetCollection(object):
         base_units = None
 
         for dataset in self.datasets:
+            cache = None
             cache_obj = None
 
             if base_units is None:
