@@ -127,8 +127,21 @@ class Process(object):
         return target.getGrid()
 
     def check_cache(self, operation):
+        base_units = None
+
         with file_manager.DataSetCollection.from_variables(operation.inputs) as collection:
-            return all(collection.check_cache(dataset) == None for dataset in collection.datasets) 
+            for dataset in collection.datasets:
+                try:
+                    dataset.map_domain(operation.domain, collection.get_base_units())
+                except file_manager.DomainMappingError:
+                    continue
+
+                domain = collection.generate_dataset_domain(dataset)
+
+                if collection.get_cache_entry(dataset, domain) is None:
+                    return False
+
+        return True
 
     def generate_chunk_map(self, operation):
         chunk_map = {}
@@ -141,16 +154,17 @@ class Process(object):
 
         for collection in fm.collections:
             with collection as collection:
-                if 'base_units' not in chunk_map:
-                    chunk_map['base_units'] = collection.get_base_units()
-
                 for dataset, chunk in collection.partitions(operation.domain, True, skip_data=True):
                     if dataset.url in chunk_map:
-                        chunk_map[dataset.url].append(chunk)
+                        chunk_map[dataset.url]['chunks'].append(chunk)
                     else:
-                        chunk_map[dataset.url] = [chunk,]
-
-        chunk_map['var_name'] = fm.get_variable_name()
+                        chunk_map[dataset.url] = {
+                            'variable_name': fm.get_variable_name(),
+                            'base_units': collection.get_base_units(),
+                            'temporal': dataset.temporal,
+                            'spatial': dataset.spatial,
+                            'chunks': [chunk,]
+                        }
 
         return chunk_map
 

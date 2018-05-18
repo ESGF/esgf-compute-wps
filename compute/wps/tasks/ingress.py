@@ -2,8 +2,11 @@
 
 import cdms2
 import cwt
+import hashlib
 import json
+import os
 import requests
+import uuid
 from django.conf import settings
 from celery.utils import log
 
@@ -11,6 +14,7 @@ from wps import helpers
 from wps import models
 from wps.tasks import base
 from wps.tasks import process
+from wps.tasks import file_manager
 
 __ALL__ = [
     'preprocess',
@@ -68,8 +72,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     else:
         _, _, o = self.load({}, variables, domains, operations.values()[0])
 
-        if True:
-        #if not proc.check_cache(o):
+        if not proc.check_cache(o):
             logger.info('Requesting ingress of dataset before execution')
 
             chunk_map = proc.generate_chunk_map(o)
@@ -115,8 +118,8 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
         raise base.WPSError('Failed to ingress data status code {code}', code=response.status_code)
 
 @base.cwt_shared_task()
-def ingress(self, input_url, var_name, domain, output_uri):
-    self.PUBLISH = base.FAILURE | base.RETRY
+def ingress(self, input_url, var_name, domain, base_units, output_uri):
+    self.PUBLISH = base.RETRY | base.FAILURE
 
     domain = json.loads(domain, object_hook=helpers.json_loads_object_hook)
 
@@ -127,8 +130,80 @@ def ingress(self, input_url, var_name, domain, output_uri):
     with cdms2.open(input_url) as infile, cdms2.open(output_uri, 'w') as outfile:
         data = infile(var_name, time=temporal, **spatial)
 
+        data.getTime().toRelativeTime(base_units)
+
         outfile.write(data, id=var_name)
 
     variable = cwt.Variable(output_uri, var_name)
+
+    return { variable.name: variable.parameterize() }
+
+@base.cwt_shared_task()
+def ingress_cache(self, ingress_chunks, ingress_map, job_id):
+    self.PUBLISH = base.ALL
+
+    collection = file_manager.DataSetCollection()
+
+    variable_name = None
+    variables = {}
+
+    for chunk in ingress_chunks:
+        variables.update(chunk)
+
+    variables = [cwt.Variable.from_dict(y) for _, y in variables.iteritems()]
+
+    ingress_map = json.loads(ingress_map, object_hook=helpers.json_loads_object_hook)
+
+    output_name = '{}.nc'.format(str(uuid.uuid4()))
+
+    output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
+
+    output_url = settings.WPS_DAP_URL.format(filename=output_name)
+
+    with cdms2.open(output_path, 'w') as outfile:
+        for url, meta in ingress_map.iteritems():
+            cache = None
+            cache_obj = None
+
+            if variable_name is None:
+                variable_name = meta['variable_name']
+
+            dataset = file_manager.DataSet(cwt.Variable(url, variable_name))
+
+            dataset.temporal = meta['temporal']
+
+            dataset.spatial = meta['spatial']
+
+            try:
+                for chunk in meta['ingress_chunks']:
+                    with cdms2.open(chunk) as infile:
+                        if cache is None:
+                            dataset.file_obj = infile
+
+                            domain = collection.generate_dataset_domain(dataset)
+
+                            dimensions = json.dumps(domain, default=models.slice_default)
+
+                            uid = '{}:{}'.format(dataset.url, dataset.variable_name)
+
+                            uid_hash = hashlib.sha256(uid).hexdigest()
+
+                            cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
+
+                            cache_obj = cdms2.open(cache.local_path, 'w')
+
+                        data = infile(variable_name)
+
+                        cache_obj.write(data, id=variable_name)
+
+                        outfile.write(data, id=variable_name)
+            except Exception:
+                logger.exception('Something went wrong created cache files for ingressed data')
+
+                pass
+            finally:
+                cache_obj.close()
+
+    variable = cwt.Variable(output_url, variable_name)
 
     return { variable.name: variable.parameterize() }

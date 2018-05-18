@@ -28,38 +28,39 @@ class Local(backend.Backend):
     def ingress(self, chunk_map_raw, domains, operation, user, job):
         chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
 
-        base_units = chunk_map['base_units']
-
-        del chunk_map['base_units']
-
-        var_name = chunk_map['var_name']
-
-        del chunk_map['var_name']
-
         operation = operation.parameterize()
 
         domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
+        index = 0
         ingress_tasks = []
+        ingress_map = {}
 
-        for uri, chunk_list in chunk_map.iteritems():
-            for index, chunk in enumerate(chunk_list):
-                output_filename = 'ingress-{}-{}.nc'.format('some-uid', index)
+        for uri, meta in chunk_map.iteritems():
+            ingress_map[uri] = {
+                'temporal': meta['temporal'],
+                'spatial': meta['spatial'],
+                'base_units': meta['base_units'],
+                'variable_name': meta['variable_name'],
+                'ingress_chunks': []
+            }
+
+            for local_index, chunk in enumerate(meta['chunks']):
+                output_filename = 'ingress-{}-{:04}.nc'.format('some-uid', index)
+
+                index += 1
 
                 output_uri = os.path.join(settings.WPS_INGRESS_PATH, output_filename)
 
+                ingress_map[uri]['ingress_chunks'].append(output_uri)
+
                 chunk_data = json.dumps(chunk, default=helpers.json_dumps_default)
 
-                ingress_tasks.append(tasks.ingress.s(uri, var_name, chunk_data, output_uri))
+                ingress_tasks.append(tasks.ingress.s(uri, meta['variable_name'], chunk_data, meta['base_units'], output_uri))
 
-        try:
-            aggregate = base.REGISTRY['CDAT.aggregate']
-        except KeyError:
-            raise base.WPSError('Something went wrong, missing aggregate process')
+        ingress_map = json.dumps(ingress_map, default=helpers.json_dumps_default)
 
-        aggregate_sig = aggregate.s({}, domains, operation, user_id=user.id, job_id=job.id)
-
-        canvas = celery.chain(celery.group(ingress_tasks), aggregate_sig)
+        canvas = celery.chain(celery.group(ingress_tasks), tasks.ingress_cache.s(ingress_map, job_id=job.id))
 
         return canvas
 
