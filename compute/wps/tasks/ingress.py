@@ -49,6 +49,8 @@ def is_workflow(operations):
 def preprocess(self, identifier, variables, domains, operations, user_id, job_id):
     self.PUBLISH = base.RETRY | base.FAILURE
 
+    logger.info('Preprocessing job %s user %s', job_id, user_id)
+
     proc = process.Process(self.request.id)
 
     proc.initialize(user_id, job_id)
@@ -56,7 +58,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     root_node, workflow = is_workflow(operations)
 
     if workflow:
-        logger.info('Requesting workflow execution with output "%r"', root_node)
+        logger.info('Setting up a workflow pipeline')
 
         data = {
             'type': 'workflow',
@@ -70,10 +72,12 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
         raise base.WPSError('Workflow disabled')
     else:
+        logger.info('Setting up a single process pipeline')
+
         _, _, o = self.load({}, variables, domains, operations.values()[0])
 
         if not proc.check_cache(o):
-            logger.info('Requesting ingress of dataset before execution')
+            logger.info('Configuring an ingress pipeline')
 
             chunk_map = proc.generate_chunk_map(o)
 
@@ -88,7 +92,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
                 'job_id': job_id
             }
         else:
-            logger.info('Requesting normal execution')
+            logger.info('Configuring an execute pipeline')
 
             try:
                 operation = operations.values()[0]
@@ -109,6 +113,8 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     response = session.get(settings.WPS_ENDPOINT, verify=False)
 
     csrf_token = session.cookies.get('csrftoken')
+
+    logger.info('Retrieved CSRF token')
 
     headers = { 'X-CSRFToken': csrf_token }
 
@@ -141,6 +147,8 @@ def ingress(self, input_url, var_name, domain, base_units, output_uri):
 @base.cwt_shared_task()
 def ingress_cache(self, ingress_chunks, ingress_map, job_id):
     self.PUBLISH = base.ALL
+
+    logger.info('Generating cache files from ingressed data')
 
     collection = file_manager.DataSetCollection()
 

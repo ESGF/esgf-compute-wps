@@ -26,6 +26,8 @@ class Local(backend.Backend):
             self.add_process(name, name.title(), proc.ABSTRACT)
 
     def ingress(self, chunk_map_raw, domains, operation, user, job):
+        logger.info('Configuring ingress')
+
         chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
 
         domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
@@ -33,6 +35,8 @@ class Local(backend.Backend):
         index = 0
         ingress_tasks = []
         ingress_map = {}
+
+        logger.info('Mapping ingressed files to source files')
 
         for uri, meta in chunk_map.iteritems():
             ingress_map[uri] = {
@@ -42,6 +46,8 @@ class Local(backend.Backend):
                 'variable_name': meta['variable_name'],
                 'ingress_chunks': []
             }
+
+            logger.info('Processing ingressed files for %s', uri)
 
             for local_index, chunk in enumerate(meta['chunks']):
                 output_filename = 'ingress-{}-{:04}.nc'.format('some-uid', index)
@@ -57,6 +63,8 @@ class Local(backend.Backend):
                 ingress_tasks.append(tasks.ingress.s(uri, meta['variable_name'], chunk_data, meta['base_units'], output_uri))
 
         ingress_map = json.dumps(ingress_map, default=helpers.json_dumps_default)
+
+        logger.info('Putting together task pipeline')
 
         ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id)
 

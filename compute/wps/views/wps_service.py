@@ -304,6 +304,8 @@ def wps(request):
 
             domain_dict = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
+            logger.info('Queueing preprocessing job %s user %s', job.id, user.id)
+
             tasks.preprocess.s(identifier, variable_dict, domain_dict, operation_dict, user_id=user.id, job_id=job.id).delay()
 
             response = job.report
@@ -451,16 +453,24 @@ def execute(request):
 
         job_id = request.POST['job_id']
     except KeyError as e:
+        logger.error('Error executing missing parameter %s', e)
+
         return http.HttpResponseBadRequest()
+
+    logger.info('Executing "%s" job %s user %s', execute_type, job_id, user_id)
 
     try:
         job = models.Job.objects.get(pk=job_id)
     except models.Job.DoesNotExist:
+        logger.error('Error missing job id %s', job_id)
+
         return http.HttpResponseBadRequest()
 
     try:
         user = models.User.objects.get(pk=user_id)
     except models.User.DoesNotExist:
+        logger.error('User with id %s does not exist', user_id)
+
         job.failed()
 
         return http.HttpResponseBadRequest()
@@ -475,9 +485,7 @@ def execute(request):
         else:
             raise WPSError('Unknown execute type {name}', name=execute_type)
     except WPSError as e:
-        job.failed()
-
-        logger.exception('Execute failed')
+        job.failed(str(e))
 
         return http.HttpResponseBadRequest()
 
