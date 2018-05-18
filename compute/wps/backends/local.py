@@ -28,8 +28,6 @@ class Local(backend.Backend):
     def ingress(self, chunk_map_raw, domains, operation, user, job):
         chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
 
-        operation = operation.parameterize()
-
         domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
         index = 0
@@ -60,7 +58,16 @@ class Local(backend.Backend):
 
         ingress_map = json.dumps(ingress_map, default=helpers.json_dumps_default)
 
-        canvas = celery.chain(celery.group(ingress_tasks), tasks.ingress_cache.s(ingress_map, job_id=job.id))
+        ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id)
+
+        if operation.identifier not in ('CDAT.aggregate', 'CDAT.subset'):
+            process = base.REGISTRY[operation.identifier]
+
+            process_sig = process.s({}, domains, operation.parameterize(), user_id=user.id, job_id=job.id)
+
+            canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig, process_sig)
+        else:
+            canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig)
 
         return canvas
 
