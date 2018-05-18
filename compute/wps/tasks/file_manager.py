@@ -375,6 +375,10 @@ class DataSetCollection(object):
                     if cache is None:
                         dimensions = json.dumps(domain, default=models.slice_default)
 
+                        uid = '{}:{}'.format(dataset.url, dataset.variable_name)
+
+                        uid_hash = hashlib.sha256(uid).hexdigest()
+
                         cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
 
                         cache_obj = cdms2.open(cache.local_path, 'w')
