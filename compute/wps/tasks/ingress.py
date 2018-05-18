@@ -175,8 +175,14 @@ def ingress_cache(self, ingress_chunks, ingress_map, job_id):
 
     output_url = settings.WPS_DAP_URL.format(filename=output_name)
 
+    logger.info('Writing output to %s', output_path)
+
     with cdms2.open(output_path, 'w') as outfile:
-        for url, meta in ingress_map.iteritems():
+        for url in sorted(ingress_map.keys()):
+            meta = ingress_map[url]
+
+            logger.info('Processing source input %s', url)
+
             cache = None
             cache_obj = None
 
@@ -189,35 +195,59 @@ def ingress_cache(self, ingress_chunks, ingress_map, job_id):
 
             dataset.spatial = meta['spatial']
 
+            logger.info('Processing "%s" ingressed chunks of data', len(meta['ingress_chunks']))
+
+            # Try/except to handle closing of cache_obj
             try:
                 for chunk in meta['ingress_chunks']:
-                    with cdms2.open(chunk) as infile:
-                        if cache is None:
-                            dataset.file_obj = infile
+                    # Try/except to handle opening of chunk
+                    try:
+                        with cdms2.open(chunk) as infile:
+                            if cache is None:
+                                dataset.file_obj = infile
 
-                            domain = collection.generate_dataset_domain(dataset)
+                                domain = collection.generate_dataset_domain(dataset)
 
-                            dimensions = json.dumps(domain, default=models.slice_default)
+                                dimensions = json.dumps(domain, default=models.slice_default)
 
-                            uid = '{}:{}'.format(dataset.url, dataset.variable_name)
+                                uid = '{}:{}'.format(dataset.url, dataset.variable_name)
 
-                            uid_hash = hashlib.sha256(uid).hexdigest()
+                                uid_hash = hashlib.sha256(uid).hexdigest()
 
-                            cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
+                                cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
 
-                            cache_obj = cdms2.open(cache.local_path, 'w')
+                                try:
+                                    cache_obj = cdms2.open(cache.local_path, 'w')
+                                except cdms2.CDMSError as e:
+                                    raise base.AccessError(cache.local_path, e)
 
-                        data = infile(variable_name)
+                            try:
+                                data = infile(variable_name)
+                            except Exception as e:
+                                raise base.WPSError('Error reading data from {url} error {error}', url=infile.id, error=e)
 
-                        cache_obj.write(data, id=variable_name)
+                            try:
+                                cache_obj.write(data, id=variable_name)
+                            except Exception as e:
+                                logger.exception('%r', data)
 
-                        outfile.write(data, id=variable_name)
-            except Exception:
-                logger.exception('Something went wrong created cache files for ingressed data')
+                                raise base.WPSError('Error writing data to cache file {url} error {error}', url=cache_obj.id, error=e)
 
-                pass
+                            try:
+                                outfile.write(data, id=variable_name)
+                            except Exception as e:
+                                logger.exception('%r', data)
+
+                                raise base.WPSError('Error writing data to output file {url} error {error}', url=outfile.id, error=e)
+                    except cdms2.CDMSError as e:
+                        raise base.AccessError(chunk, e)
+            except:
+                raise
             finally:
-                cache_obj.close()
+                if cache_obj is not None:
+                    cache_obj.close()
+
+
 
     variable = cwt.Variable(output_url, variable_name)
 
