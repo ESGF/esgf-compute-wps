@@ -177,77 +177,83 @@ def ingress_cache(self, ingress_chunks, ingress_map, job_id):
 
     logger.info('Writing output to %s', output_path)
 
-    with cdms2.open(output_path, 'w') as outfile:
-        for url in sorted(ingress_map.keys()):
-            meta = ingress_map[url]
+    try:
+        with cdms2.open(output_path, 'w') as outfile:
+            for url in sorted(ingress_map.keys()):
+                meta = ingress_map[url]
 
-            logger.info('Processing source input %s', url)
+                logger.info('Processing source input %s', url)
 
-            cache = None
-            cache_obj = None
+                cache = None
+                cache_obj = None
 
-            if variable_name is None:
-                variable_name = meta['variable_name']
+                if variable_name is None:
+                    variable_name = meta['variable_name']
 
-            dataset = file_manager.DataSet(cwt.Variable(url, variable_name))
+                dataset = file_manager.DataSet(cwt.Variable(url, variable_name))
 
-            dataset.temporal = meta['temporal']
+                dataset.temporal = meta['temporal']
 
-            dataset.spatial = meta['spatial']
+                dataset.spatial = meta['spatial']
 
-            logger.info('Processing "%s" ingressed chunks of data', len(meta['ingress_chunks']))
+                logger.info('Processing "%s" ingressed chunks of data', len(meta['ingress_chunks']))
 
-            # Try/except to handle closing of cache_obj
-            try:
-                for chunk in meta['ingress_chunks']:
-                    # Try/except to handle opening of chunk
-                    try:
-                        with cdms2.open(chunk) as infile:
-                            if cache is None:
-                                dataset.file_obj = infile
+                # Try/except to handle closing of cache_obj
+                try:
+                    for chunk in meta['ingress_chunks']:
+                        # Try/except to handle opening of chunk
+                        try:
+                            with cdms2.open(chunk) as infile:
+                                if cache is None:
+                                    dataset.file_obj = infile
 
-                                domain = collection.generate_dataset_domain(dataset)
+                                    domain = collection.generate_dataset_domain(dataset)
 
-                                dimensions = json.dumps(domain, default=models.slice_default)
+                                    dimensions = json.dumps(domain, default=models.slice_default)
 
-                                uid = '{}:{}'.format(dataset.url, dataset.variable_name)
+                                    uid = '{}:{}'.format(dataset.url, dataset.variable_name)
 
-                                uid_hash = hashlib.sha256(uid).hexdigest()
+                                    uid_hash = hashlib.sha256(uid).hexdigest()
 
-                                cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
+                                    cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
+
+                                    try:
+                                        cache_obj = cdms2.open(cache.local_path, 'w')
+                                    except cdms2.CDMSError as e:
+                                        raise base.AccessError(cache.local_path, e)
 
                                 try:
-                                    cache_obj = cdms2.open(cache.local_path, 'w')
-                                except cdms2.CDMSError as e:
-                                    raise base.AccessError(cache.local_path, e)
+                                    data = infile(variable_name)
+                                except Exception as e:
+                                    raise base.WPSError('Error reading data from {url} error {error}', url=infile.id, error=e)
 
-                            try:
-                                data = infile(variable_name)
-                            except Exception as e:
-                                raise base.WPSError('Error reading data from {url} error {error}', url=infile.id, error=e)
+                                try:
+                                    cache_obj.write(data, id=variable_name)
+                                except Exception as e:
+                                    logger.exception('%r', data)
 
-                            try:
-                                cache_obj.write(data, id=variable_name)
-                            except Exception as e:
-                                logger.exception('%r', data)
+                                    raise base.WPSError('Error writing data to cache file {url} error {error}', url=cache_obj.id, error=e)
 
-                                raise base.WPSError('Error writing data to cache file {url} error {error}', url=cache_obj.id, error=e)
+                                try:
+                                    outfile.write(data, id=variable_name)
+                                except Exception as e:
+                                    logger.exception('%r', data)
 
-                            try:
-                                outfile.write(data, id=variable_name)
-                            except Exception as e:
-                                logger.exception('%r', data)
-
-                                raise base.WPSError('Error writing data to output file {url} error {error}', url=outfile.id, error=e)
-                    except cdms2.CDMSError as e:
-                        raise base.AccessError(chunk, e)
-            except:
-                raise
-            finally:
-                if cache_obj is not None:
-                    cache_obj.close()
-
-
+                                    raise base.WPSError('Error writing data to output file {url} error {error}', url=outfile.id, error=e)
+                        except cdms2.CDMSError as e:
+                            raise base.AccessError(chunk, e)
+                except:
+                    raise
+                finally:
+                    if cache_obj is not None:
+                        cache_obj.close()
+    except:
+        raise
+    finally:
+        # Clean up the ingressed files
+        for url, meta in ingress_map.iteritems():
+            for chunk in meta['ingress_chunks']:
+                os.remove(chunk)
 
     variable = cwt.Variable(output_url, variable_name)
 
