@@ -348,11 +348,11 @@ class DataSetCollection(object):
         if axis is None:
             axis = self.datasets[0].get_time().id
 
-        logger.info('Generating paritions over axis "{}" caching {}'.format(axis, not skip_cache))
-
         base_units = None
 
         for dataset in self.datasets:
+            logger.info('Generating partitions for %s over %s axis, caching %s', dataset.url, axis, not skip_cache) 
+
             cache = None
             cache_obj = None
 
@@ -384,7 +384,7 @@ class DataSetCollection(object):
                         cache_obj = cdms2.open(cache.local_path, 'w')
                     else:
                         # Swap the source file for the cached file
-                        dataset.file_obj.close()
+                        dataset.close()
 
                         dataset.file_obj = cdms2.open(cache.local_path)
                 except cdms2.CDMSError as e:
