@@ -123,9 +123,13 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     if not response.ok:
         raise base.WPSError('Failed to ingress data status code {code}', code=response.status_code)
 
+    logger.info('Successfuly submitted the execute request')
+
 @base.cwt_shared_task()
 def ingress(self, input_url, var_name, domain, base_units, output_uri):
     self.PUBLISH = base.RETRY | base.FAILURE
+
+    logger.info('Ingress "%s" from %s', var_name, input_url)
 
     domain = json.loads(domain, object_hook=helpers.json_loads_object_hook)
 
@@ -133,12 +137,15 @@ def ingress(self, input_url, var_name, domain, base_units, output_uri):
 
     spatial = domain['spatial']
 
-    with cdms2.open(input_url) as infile, cdms2.open(output_uri, 'w') as outfile:
-        data = infile(var_name, time=temporal, **spatial)
+    try:
+        with cdms2.open(input_url) as infile, cdms2.open(output_uri, 'w') as outfile:
+            data = infile(var_name, time=temporal, **spatial)
 
-        data.getTime().toRelativeTime(base_units)
+            data.getTime().toRelativeTime(base_units)
 
-        outfile.write(data, id=var_name)
+            outfile.write(data, id=var_name)
+    except cdms2.CDMSError as e:
+        raise base.AccessError('', e.message)
 
     variable = cwt.Variable(output_uri, var_name)
 
