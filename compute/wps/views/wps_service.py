@@ -176,34 +176,6 @@ def get_parameter(params, name):
 
     return temp[name.lower()]
 
-def wps_execute(user, identifier, data_inputs):
-    """ WPS execute operation """
-    try:
-        process = models.Process.objects.get(identifier=identifier)
-    except models.Process.DoesNotExist:
-        raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
-
-    try:
-        operations, domains, variables = load_data_inputs(data_inputs)
-    except Exception:
-        raise WPSError('Failed to parse datainputs')
-
-    server = models.Server.objects.get(host='default')
-
-    job = models.Job.objects.create(server=server, process=process, user=user, extra=data_inputs)
-
-    job.accepted()
-
-    operation_dict = dict((x, y.parameterize()) for x, y in operations.iteritems())
-
-    variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
-
-    domain_dict = dict((x, y.parameterize()) for x, y in domains.iteritems())
-
-    tasks.preprocess.s(identifier, variable_dict, domain_dict, operation_dict, user_id=user.id, job_id=job.id).delay()
-
-    return job.report
-
 def handle_get(params):
     """ Handle an HTTP GET request. """
     request = get_parameter(params, 'request')
@@ -230,6 +202,8 @@ def handle_get(params):
         # the datainputs
         data_inputs = re.sub('\|(operation|domain|variable)=', ';\\1=', data_inputs)
 
+    logger.info('Handling GET request "%s" for API key %s', operation, api_key)
+
     return api_key, operation, identifier, data_inputs
 
 def handle_post(data, params):
@@ -251,6 +225,8 @@ def handle_post(data, params):
     data_inputs = data_inputs.replace('\'', '\"')
 
     api_key = params.get('api_key')
+
+    logger.info('Handling POST request for API key %s', api_key)
 
     return api_key, 'execute', request.identifier, data_inputs
 
@@ -292,8 +268,6 @@ def wps(request):
     try:
         api_key, op, identifier, data_inputs = handle_request(request)
 
-        logger.info('Handling WPS request {} for api key {}'.format(op, api_key))
-
         if op == 'getcapabilities':
             server = models.Server.objects.get(host='default')
 
@@ -308,7 +282,31 @@ def wps(request):
             except IndexError:
                 raise WPSError('Missing API key for WPS execute request')
 
-            response = wps_execute(user, identifier, data_inputs)
+            try:
+                process = models.Process.objects.get(identifier=identifier)
+            except models.Process.DoesNotExist:
+                raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
+
+            try:
+                operations, domains, variables = load_data_inputs(data_inputs)
+            except Exception:
+                raise WPSError('Failed to parse datainputs')
+
+            server = models.Server.objects.get(host='default')
+
+            job = models.Job.objects.create(server=server, process=process, user=user, extra=data_inputs)
+
+            job.accepted()
+
+            operation_dict = dict((x, y.parameterize()) for x, y in operations.iteritems())
+
+            variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
+
+            domain_dict = dict((x, y.parameterize()) for x, y in domains.iteritems())
+
+            tasks.preprocess.s(identifier, variable_dict, domain_dict, operation_dict, user_id=user.id, job_id=job.id).delay()
+
+            response = job.report
     except WPSExceptionError as e:
         failure = wps_lib.ProcessFailed(exception_report=e.report)
 
