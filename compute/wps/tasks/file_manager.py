@@ -367,13 +367,13 @@ class DataSetCollection(object):
                 continue
 
             if not skip_cache:
-                domain = self.generate_dataset_domain(dataset)
+                dataset_domain = self.generate_dataset_domain(dataset)
 
-                cache = self.get_cache_entry(dataset, domain)
+                cache = self.get_cache_entry(dataset, dataset_domain)
 
                 try:
                     if cache is None:
-                        dimensions = json.dumps(domain, default=models.slice_default)
+                        dimensions = json.dumps(dataset_domain, default=models.slice_default)
 
                         uid = '{}:{}'.format(dataset.url, dataset.variable_name)
 
