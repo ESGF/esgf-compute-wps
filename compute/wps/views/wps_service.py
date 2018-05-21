@@ -13,6 +13,7 @@ from lxml import etree
 
 from . import common
 from wps import backends
+from wps import helpers
 from wps import models
 from wps import tasks
 from wps import wps_xml
@@ -394,6 +395,9 @@ def handle_execute(request, user, job):
 
     variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
 
+    for variable in variables.values():
+        models.File.track(user, variable)
+
     domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
 
     identifier = operation.identifier
@@ -420,6 +424,9 @@ def handle_workflow(request, user, job):
 
     variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
 
+    for variable in variables:
+        models.File.track(user, variable)
+
     domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
 
     operations = dict((x, cwt.Process.from_dict(y)) for x, y in json.loads(operations).iteritems())
@@ -438,16 +445,23 @@ def handle_ingress(request, user, job):
 
     backend = backends.Backend.get_backend('Local')
 
+    chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
+
+    for url, meta in chunk_map.keys():
+        models.File.track(user, cwt.Variable(url, meta['variable_name']))
+
     domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
 
     operation = cwt.Process.from_dict(json.loads(operation))
 
-    backend.ingress(chunk_map_raw, domains, operation, user, job).delay()
+    backend.ingress(chunk_map, domains, operation, user, job).delay()
 
 @require_http_methods(['POST'])
 def execute(request):
     try:
         execute_type = request.POST['type']
+
+        identifier = request.POST['identifier']
 
         user_id = request.POST['user_id']
 
@@ -474,6 +488,17 @@ def execute(request):
         job.failed()
 
         return http.HttpResponseBadRequest()
+
+    try:
+        process = models.Process.objects.get(identifier=identifier)
+    except models.Process.DoesNotExist:
+        logger.error('Process with identifier "%s" does not exist', identifier)
+
+        job.failed()
+
+        return http.HttpResponseBadRequest()
+
+    process.track(user)
 
     try:
         if execute_type == 'execute':

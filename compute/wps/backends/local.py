@@ -25,10 +25,8 @@ class Local(backend.Backend):
         for name, proc in base.REGISTRY.iteritems():
             self.add_process(name, name.title(), proc.ABSTRACT)
 
-    def ingress(self, chunk_map_raw, domains, operation, user, job):
+    def ingress(self, chunk_map, domains, operation, user, job):
         logger.info('Configuring ingress')
-
-        chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
 
         domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
 

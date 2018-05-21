@@ -85,6 +85,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
             data = {
                 'type': 'ingress',
+                'identifier': identifier,
                 'chunk_map': json.dumps(chunk_map, default=helpers.json_dumps_default),
                 'domains': json.dumps(domains),
                 'operation': json.dumps(o.parameterize()),
@@ -101,6 +102,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
             data = {
                 'type': 'execute',
+                'identifier': identifier,
                 'variables': json.dumps(variables),
                 'domains': json.dumps(domains),
                 'operation': json.dumps(operation),
