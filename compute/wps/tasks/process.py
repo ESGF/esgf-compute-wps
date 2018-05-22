@@ -203,7 +203,7 @@ class Process(object):
                     ds, chunk = meta
 
                     if last_url != ds.url:
-                        self.log('Starting to retrieve "{}"'.format(ds.url))
+                        self.log('Starting to retrieve "{}"'.format(ds.file_obj.id))
 
                         last_url = ds.url
 

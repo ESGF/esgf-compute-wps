@@ -100,7 +100,7 @@ class DataSet(object):
     def partitions(self, axis_name, skip_data=False):
         axis = self.get_axis(axis_name)
 
-        logger.debug('Generating partitions over axis %s', axis_name)
+        logger.info('Generating partitions over axis %s', axis_name)
 
         if axis.isTime():
             if self.temporal is None:
@@ -118,6 +118,8 @@ class DataSet(object):
 
             for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
+
+                logger.info('Chunk temporal %r spatial %r', slice(begin, end), self.spatial)
 
                 if skip_data:
                     yield { 'temporal': slice(begin, end), 'spatial': self.spatial }
@@ -145,6 +147,8 @@ class DataSet(object):
                 self.spatial[axis.id] = slice(begin, end)
                 #self.spatial[axis_name] = slice(begin, end)
                 #self.spatial[axis_name] = (begin, end)
+
+                logger.info('Chunk temporal %r spatial %r', slice(begin, end), self.spatial)
 
                 if skip_data:
                     yield { 'temporal': self.temporal, 'spatial': self.spatial }
@@ -373,6 +377,8 @@ class DataSetCollection(object):
 
                 try:
                     if cache is None:
+                        logger.info('%s is not in cache', dataset.url)
+
                         dimensions = json.dumps(dataset_domain, default=models.slice_default)
 
                         uid = '{}:{}'.format(dataset.url, dataset.variable_name)
@@ -383,10 +389,14 @@ class DataSetCollection(object):
 
                         cache_obj = cdms2.open(cache.local_path, 'w')
                     else:
+                        logger.info('%s is in cache', dataset.url)
+
                         # Swap the source file for the cached file
                         dataset.close()
 
                         dataset.file_obj = cdms2.open(cache.local_path)
+
+                        dataset.map_domain(domain, base_units)
                 except cdms2.CDMSError as e:
                     raise base.AccessError(cache.local_path, e)
 
