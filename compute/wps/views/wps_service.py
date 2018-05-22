@@ -447,7 +447,7 @@ def handle_ingress(request, user, job, process):
 
     chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
 
-    for url, meta in chunk_map.keys():
+    for url, meta in chunk_map.iteritems():
         models.File.track(user, cwt.Variable(url, meta['variable_name']))
 
     domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
