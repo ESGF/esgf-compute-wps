@@ -177,7 +177,7 @@ class Process(object):
 
         return chunk_map
 
-    def retrieve(self, operation, num_inputs, output_file):
+    def retrieve_data(self, operation, num_inputs, output_file):
         grid = None
         gridder = operation.get_parameter('gridder')
 
@@ -233,7 +233,7 @@ class Process(object):
 
         return var_name
 
-    def process(self, operation, num_inputs, output_file, process):
+    def process_data(self, operation, num_inputs, output_file, process):
         grid = None
 
         gridder = operation.get_parameter('gridder')

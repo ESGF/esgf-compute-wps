@@ -104,7 +104,7 @@ def retrieve_base(self, operation, num_inputs, user_id, job_id, process_id, vali
 
     try:
         with cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.retrieve(operation, num_inputs, output_file)
+            output_var_name = proc.retrieve_data(operation, num_inputs, output_file)
     except cdms2.CDMSError as e:
         raise base.AccessError(output_path, e.message)
     except WPSError:
@@ -213,7 +213,7 @@ def process_base(self, process_func, num_inputs, operation, user_id, job_id, pro
 
     try:
         with cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.process(operation, num_inputs, output_file, process_func)
+            output_var_name = proc.process_data(operation, num_inputs, output_file, process_func)
     except cdms2.CDMSError as e:
         logger.exception('CDMS ERROR')
         raise base.AccessError(output_path, e)
