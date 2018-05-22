@@ -25,8 +25,14 @@ class Local(backend.Backend):
         for name, proc in base.REGISTRY.iteritems():
             self.add_process(name, name.title(), proc.ABSTRACT)
 
-    def ingress(self, chunk_map, domains, operation, user, job):
+    def ingress(self, chunk_map, domains, operation, **kwargs):
         logger.info('Configuring ingress')
+
+        user = kwargs.get('user')
+
+        job = kwargs.get('job')
+
+        process = kwargs.get('process')
 
         domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
@@ -64,15 +70,17 @@ class Local(backend.Backend):
 
         logger.info('Putting together task pipeline')
 
-        ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id)
-
         if operation.identifier not in ('CDAT.aggregate', 'CDAT.subset'):
+            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id)
+
             process = base.REGISTRY[operation.identifier]
 
-            process_sig = process.s({}, domains, operation.parameterize(), user_id=user.id, job_id=job.id)
+            process_sig = process.s({}, domains, operation.parameterize(), user_id=user.id, job_id=job.id, process_id=process.id)
 
             canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig, process_sig)
         else:
+            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id, process_id=process.id)
+
             canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig)
 
         return canvas
@@ -95,9 +103,12 @@ class Local(backend.Backend):
 
         user = kwargs.get('user')
 
+        process = kwargs.get('process')
+
         params = {
             'job_id': job.id,
             'user_id': user.id,
+            'process_id': process.id,
         }
 
         logger.info('Variables {}'.format(variable_dict))

@@ -435,6 +435,26 @@ class Process(models.Model):
     abstract = models.TextField()
     description = models.TextField()
     enabled = models.BooleanField(default=True)
+    process_rate = models.FloatField(default=0.0)
+
+    def update_rate(self, size, elapsed):
+        """ Updates the processing rate and adds a timining.
+
+        Args:
+            size: An integer of the number of megabytes processed.
+            elapsed: An integer of the number of seconds taken to process.
+        """
+        n = self.timing_set.count()
+
+        rate = float(size) / float(elapsed)
+
+        logger.info('Old rate %s from %s entries, updating with new rate %s', self.process_rate, n, rate)
+
+        self.process_rate = ((F('process_rate') * n) + rate) / (n + 1)
+
+        self.save()
+
+        self.timing_set.create(elapsed=elapsed)
 
     def get_usage(self, rollover=True):
         try:
@@ -506,6 +526,10 @@ class Process(models.Model):
                 data.update(usage_obj.to_json())
 
         return data
+
+class Timing(models.Model):
+    process = models.ForeignKey(Process, on_delete=models.CASCADE)
+    elapsed = models.BigIntegerField()
 
 class UserProcess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

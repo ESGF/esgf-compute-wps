@@ -5,6 +5,7 @@ import contextlib
 import cwt
 import datetime
 import math
+import os
 import re
 from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
@@ -22,11 +23,13 @@ class Process(object):
     def __init__(self, task_id):
         self.task_id = task_id
 
+        self.process = None
+
         self.user = None
 
         self.job = None
 
-    def initialize(self, user_id, job_id):
+    def initialize(self, user_id, job_id, process_id=None):
         try:
             self.user = models.User.objects.get(pk=user_id)
         except models.User.DoesNotExist:
@@ -36,6 +39,12 @@ class Process(object):
             self.job = models.Job.objects.get(pk=job_id)
         except models.Job.DoesNotExist:
             raise WPSError('Job with id "{id}" does not exist', id=job_id)
+
+        if process_id is not None:
+            try:
+                self.process = models.Process.objects.get(pk=process_id)
+            except models.Process.DoesNotExist:
+                raise WPSError('Process with id "{id}" does not exist', id=process_id)
 
         credentials.load_certificate(self.user)
 
@@ -188,6 +197,8 @@ class Process(object):
 
                 last_url = None
 
+                start = datetime.datetime.now()
+
                 for meta in collection.partitions(operation.domain, False):
                     ds, chunk = meta
 
@@ -208,6 +219,11 @@ class Process(object):
 
                     output_file.write(chunk, id=var_name)
 
+                stat = os.stat(output_file.id)
+
+                delta = datetime.datetime.now() - start
+
+                self.process.update_rate(stat.st_size/1048576.0, delta.seconds)
 
         stop = datetime.datetime.now()
 
@@ -250,6 +266,8 @@ class Process(object):
             with contextlib.nested(*[x for x in fm.collections]):
                 over_temporal = fm.collections[0].datasets[0].get_time().id == axes
 
+                start = datetime.datetime.now()
+
                 for meta in fm.partitions(operation.domain, axes, num_inputs):
                     data_list = []
                     axis_index = None
@@ -291,6 +309,12 @@ class Process(object):
                         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
                     output_file.write(data, id=var_name)
+
+                stat = os.stat(output_file.id)
+
+                delta = datetime.datetime.now() - start
+
+                self.process.update_rate(stat.st_size/1048576.0, delta.seconds)
 
         stop = datetime.datetime.now()
 

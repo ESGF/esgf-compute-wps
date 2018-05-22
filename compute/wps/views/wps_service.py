@@ -371,7 +371,7 @@ def status(request, job_id):
 
     return http.HttpResponse(job.report, content_type='text/xml')
 
-def handle_execute(request, user, job):
+def handle_execute(request, user, job, process):
     try:
         variables = request.POST['variables']
 
@@ -404,9 +404,9 @@ def handle_execute(request, user, job):
 
     operation = { operation.name: operation }
 
-    process_backend.execute(identifier, variables, domains, operation, user=user, job=job).delay()
+    process_backend.execute(identifier, variables, domains, operation, user=user, job=job, process=process).delay()
 
-def handle_workflow(request, user, job):
+def handle_workflow(request, user, job, process):
     try:
         root_node = request.POST['root_node']
 
@@ -431,9 +431,9 @@ def handle_workflow(request, user, job):
 
     operations = dict((x, cwt.Process.from_dict(y)) for x, y in json.loads(operations).iteritems())
 
-    process_backend.workflow(root_node, variables, domains, operations, user=user, job=job).delay()
+    process_backend.workflow(root_node, variables, domains, operations, user=user, job=job, process=process).delay()
 
-def handle_ingress(request, user, job):
+def handle_ingress(request, user, job, process):
     try:
         chunk_map_raw = request.POST['chunk_map']
 
@@ -454,7 +454,7 @@ def handle_ingress(request, user, job):
 
     operation = cwt.Process.from_dict(json.loads(operation))
 
-    backend.ingress(chunk_map, domains, operation, user, job).delay()
+    backend.ingress(chunk_map, domains, operation, user=user, job=job, process=process).delay()
 
 @require_http_methods(['POST'])
 def execute(request):
@@ -502,11 +502,11 @@ def execute(request):
 
     try:
         if execute_type == 'execute':
-            handle_execute(request, user, job)
+            handle_execute(request, user, job, process)
         elif execute_type == 'workflow':
-            handle_workflow(request, user, job)
+            handle_workflow(request, user, job, process)
         elif execute_type == 'ingress':
-            handle_ingress(request, user, job)
+            handle_ingress(request, user, job, process)
         else:
             raise WPSError('Unknown execute type {name}', name=execute_type)
     except WPSError as e:

@@ -2,6 +2,7 @@
 
 import cdms2
 import cwt
+import datetime
 import hashlib
 import json
 import os
@@ -139,6 +140,8 @@ def ingress(self, input_url, var_name, domain, base_units, output_uri):
 
     spatial = domain['spatial']
 
+    start = datetime.datetime.now()
+
     try:
         with cdms2.open(input_url) as infile, cdms2.open(output_uri, 'w') as outfile:
             data = infile(var_name, time=temporal, **spatial)
@@ -149,25 +152,37 @@ def ingress(self, input_url, var_name, domain, base_units, output_uri):
     except cdms2.CDMSError as e:
         raise base.AccessError('', e.message)
 
+    delta = datetime.datetime.now() - start
+
+    stat = os.stat(output_uri)
+
     variable = cwt.Variable(output_uri, var_name)
 
-    return { variable.name: variable.parameterize() }
+    return { 
+        'delta': delta.seconds,
+        'size': stat.st_size / 1048576.0,
+        'variable': variable.parameterize() 
+    }
 
 @base.cwt_shared_task()
-def ingress_cache(self, ingress_chunks, ingress_map, job_id):
+def ingress_cache(self, ingress_chunks, ingress_map, job_id, process_id=None):
     self.PUBLISH = base.ALL
 
     logger.info('Generating cache files from ingressed data')
 
     collection = file_manager.DataSetCollection()
 
+    elapsed = 0.0
+    size = 0.0
     variable_name = None
-    variables = {}
+    variables = []
 
     for chunk in ingress_chunks:
-        variables.update(chunk)
+        elapsed += chunk['delta']
 
-    variables = [cwt.Variable.from_dict(y) for _, y in variables.iteritems()]
+        size += chunk['size']
+
+        variables.append(cwt.Variable.from_dict(chunk['variable']))
 
     ingress_map = json.loads(ingress_map, object_hook=helpers.json_loads_object_hook)
 
@@ -181,6 +196,8 @@ def ingress_cache(self, ingress_chunks, ingress_map, job_id):
 
     try:
         with cdms2.open(output_path, 'w') as outfile:
+            start = datetime.datetime.now()
+    
             for url in sorted(ingress_map.keys()):
                 meta = ingress_map[url]
 
@@ -249,6 +266,14 @@ def ingress_cache(self, ingress_chunks, ingress_map, job_id):
                 finally:
                     if cache_obj is not None:
                         cache_obj.close()
+
+            delta = datetime.datetime.now() - start
+
+            elapsed += delta.seconds
+
+            stat = os.stat(outfile.id)
+
+            size += (stat.st_size / 1048576.0) 
     except:
         raise
     finally:
@@ -256,6 +281,14 @@ def ingress_cache(self, ingress_chunks, ingress_map, job_id):
         for url, meta in ingress_map.iteritems():
             for chunk in meta['ingress_chunks']:
                 os.remove(chunk)
+
+    if process_id is not None:
+        try:
+            process = models.Process.objects.get(pk=process_id)
+        except models.Process.DoesNotExist:
+            raise base.WPSError('Error no process with id "{id}" exists', id=process_id)
+
+        process.update_rate(size, elapsed)
 
     variable = cwt.Variable(output_url, variable_name)
 
