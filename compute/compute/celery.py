@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 import kombu
 import os
+import re
 
 from celery import Celery
 
@@ -29,10 +30,6 @@ app.conf.task_queues = [
 
 app.conf.task_routes = {
     'wps.tasks.ingress.*': {
-        'queue': 'ingress',
-        'routing_key': 'ingress',
-    },
-    'wps.tasks.cdat.*': {
         'queue': 'ingress',
         'routing_key': 'ingress',
     }

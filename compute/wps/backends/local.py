@@ -75,7 +75,15 @@ class Local(backend.Backend):
 
             process = base.REGISTRY[operation.identifier]
 
-            process_sig = process.s({}, domains, operation.parameterize(), user_id=user.id, job_id=job.id, process_id=process.id)
+            params = {
+                'user_id': user.id,
+                'job_id': job.id,
+                'process_id': process.id,
+            }
+
+            process_sig = process.s({}, domains, operation.parameterize(), **params)
+
+            process_sig = process_sig.set(queue='priority.low', exchange='priority', routing_key='low')
 
             canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig, process_sig)
         else:
@@ -111,13 +119,11 @@ class Local(backend.Backend):
             'process_id': process.id,
         }
 
-        logger.info('Variables {}'.format(variable_dict))
+        target_process = target_process.s({}, variable_dict, domain_dict, operation, **params)
 
-        logger.info('Domains {}'.format(domain_dict))
+        target_process = target_process.set(queue='priority.low', exchange='priority', routing_key='low')
 
-        logger.info('Operation {}'.format(operation))
-
-        return target_process.s({}, variable_dict, domain_dict, operation, **params)
+        return target_process
 
     def get_task(self, identifier):
         try:
