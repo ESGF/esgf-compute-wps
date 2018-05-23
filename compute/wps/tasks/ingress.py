@@ -101,6 +101,11 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
             except IndexError:
                 raise base.WPSError('Missing operation "{identifier}"', identifier=identifier)
 
+            with file_manager.DataSetCollection.from_variables(o.inputs) as dsc:
+                size = dsc.estimate_size(o.domain)
+
+            logger.info('Estimated size %r', size)
+
             data = {
                 'type': 'execute',
                 'identifier': identifier,

@@ -58,6 +58,38 @@ class DataSet(object):
                 spatial=self.spatial
             )
 
+    def estimate_axis_size(self, axis, domain):
+        if domain is None:
+            return axis.shape[0]
+        else:
+            if isinstance(domain, slice):
+                return (domain.stop - domain.start) / (domain.step or 1)
+            elif isinstance(domain, (tuple, list)):
+                indices = axis.mapInterval(domain)
+
+                return indices[1] - indices[0]
+
+    def estimate_size(self):
+        dimensions = []
+
+        for axis in self.variable.getAxisList():
+            if axis.isTime():
+                dimensions.append(self.estimate_axis_size(axis, self.temporal))
+            else:
+                dimensions.append(self.estimate_axis_size(axis, self.spatial.get(axis.id, None)))
+
+        dtype = self.get_variable().dtype
+
+        logger.info('Dimension %r', dimensions)
+
+        estimate = reduce(lambda x, y: x * y, dimensions)
+
+        estimate = estimate + sum(dimensions)
+
+        estimate = estimate * dtype.itemsize
+
+        return estimate / 1048576.0
+
     def get_time(self):
         if self.temporal_axis is None:
             try:
@@ -284,10 +316,27 @@ class DataSetCollection(object):
         for ds in self.datasets:
             ds.close()
 
+    def estimate_size(self, domain):
+        base_units = self.get_base_units()
+
+        estimate = 0.0
+
+        for x in self.datasets:
+            x.map_domain(domain, base_units)
+
+            estimate += x.estimate_size()
+
+        return estimate
+
     def add(self, variable):
         self.datasets.append(DataSet(variable))
 
+    def sort_datasets(self):
+        self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
+
     def get_base_units(self):
+        self.sort_datasets()
+
         return self.datasets[0].get_time().units
 
     def generate_dataset_domain(self, dataset):
