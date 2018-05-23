@@ -299,15 +299,21 @@ def wps(request):
 
             job.accepted()
 
-            operation_dict = dict((x, y.parameterize()) for x, y in operations.iteritems())
-
-            variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
-
-            domain_dict = dict((x, y.parameterize()) for x, y in domains.iteritems())
-
             logger.info('Queueing preprocessing job %s user %s', job.id, user.id)
 
-            tasks.preprocess.s(identifier, variable_dict, domain_dict, operation_dict, user_id=user.id, job_id=job.id).delay()
+            args = [
+                identifier,
+                dict((x, y.parameterize()) for x, y in variables.iteritems()),
+                dict((x, y.parameterize()) for x, y in domains.iteritems()),
+                dict((x, y.parameterize()) for x, y in operations.iteritems()),
+            ]
+
+            kwargs = {
+                'user_id': user.id,
+                'job_id': job.id,
+            }
+
+            tasks.preprocess.signature(args=args, kwargs=kwargs).delay()
 
             response = job.report
     except WPSExceptionError as e:
@@ -378,6 +384,8 @@ def handle_execute(request, user, job, process):
         domains = request.POST['domains']
 
         operation = request.POST['operation']
+
+        domain_map = request.POST['domain_map']
     except KeyError as e:
         raise WPSError('Missing required parameter "{name}"', name=e)
 
@@ -404,7 +412,14 @@ def handle_execute(request, user, job, process):
 
     operation = { operation.name: operation }
 
-    process_backend.execute(identifier, variables, domains, operation, user=user, job=job, process=process).delay()
+    kwargs = {
+        'user': user,
+        'job': job,
+        'process': process,
+        'domain_map': domain_map,
+    }
+
+    process_backend.execute(identifier, variables, domains, operation, **kwargs).delay()
 
 def handle_workflow(request, user, job, process):
     try:

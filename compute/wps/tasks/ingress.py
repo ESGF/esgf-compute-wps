@@ -51,70 +51,50 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     self.PUBLISH = base.RETRY | base.FAILURE
 
     logger.info('Preprocessing job %s user %s', job_id, user_id)
-
-    proc = process.Process(self.request.id)
-
-    proc.initialize(user_id, job_id)
+    logger.info('Identifier %r', identifier)
+    logger.info('Variables %r', variables)
+    logger.info('Domains %r', domains)
+    logger.info('Operations %r', operations)
 
     root_node, workflow = is_workflow(operations)
 
     if workflow:
-        logger.info('Setting up a workflow pipeline')
-
-        data = {
-            'type': 'workflow',
-            'root_node': json.dumps(root_node.parameterize()),
-            'variables': json.dumps(variables),
-            'domains': json.dumps(domains),
-            'operations': json.dumps(operations),
-            'user_id': user_id,
-            'job_id': job_id,
-        }
-
         raise base.WPSError('Workflow disabled')
     else:
         logger.info('Setting up a single process pipeline')
 
         _, _, o = self.load({}, variables, domains, operations.values()[0])
 
-        if not proc.check_cache(o):
-            logger.info('Configuring an ingress pipeline')
+        data = {
+            'identifier': identifier,
+            'variables': json.dumps(variables),
+            'domains': json.dumps(domains),
+            'operation': json.dumps(o.parameterize()),
+            'user_id': user_id,
+            'job_id': job_id,
+        }
 
-            chunk_map = proc.generate_chunk_map(o)
+        proc = process.Process(self.request.id)
 
-            o.inputs = []
+        proc.initialize(user_id, job_id)
 
-            data = {
-                'type': 'ingress',
-                'identifier': identifier,
-                'chunk_map': json.dumps(chunk_map, default=helpers.json_dumps_default),
-                'domains': json.dumps(domains),
-                'operation': json.dumps(o.parameterize()),
-                'user_id': user_id,
-                'job_id': job_id
-            }
-        else:
-            logger.info('Configuring an execute pipeline')
+        with file_manager.DataSetCollection.from_variables(o.inputs) as collection:
+            if proc.check_cache(collection, o.domain):
+                logger.info('Configuring an execute pipeline')
 
-            try:
-                operation = operations.values()[0]
-            except IndexError:
-                raise base.WPSError('Missing operation "{identifier}"', identifier=identifier)
+                domain_map = proc.generate_domain_map(collection)
 
-            with file_manager.DataSetCollection.from_variables(o.inputs) as dsc:
-                size = dsc.estimate_size(o.domain)
+                data['type'] = 'execute'
 
-            logger.info('Estimated size %r', size)
+                data['domain_map'] = json.dumps(domain_map, default=helpers.json_dumps_default)
+            else:
+                logger.info('Configuring an ingress pipeline')
 
-            data = {
-                'type': 'execute',
-                'identifier': identifier,
-                'variables': json.dumps(variables),
-                'domains': json.dumps(domains),
-                'operation': json.dumps(operation),
-                'user_id': user_id,
-                'job_id': job_id,
-            }
+                chunk_map = proc.generate_chunk_map(o)
+
+                data['type'] = 'ingress'
+
+                data['chunk_map'] = json.dumps(chunk_map, default=helpers.json_dumps_default)
 
     session = requests.Session()
 

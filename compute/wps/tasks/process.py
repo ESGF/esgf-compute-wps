@@ -4,12 +4,14 @@ import cdms2
 import contextlib
 import cwt
 import datetime
+import json
 import math
 import os
 import re
 from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
 
+from wps import helpers
 from wps import models
 from wps import settings
 from wps import WPSError
@@ -135,51 +137,56 @@ class Process(object):
 
         return target.getGrid()
 
-    def check_cache(self, operation):
-        base_units = None
+    def check_cache(self, collection, domain):
+        base_units = collection.get_base_units()
 
-        with file_manager.DataSetCollection.from_variables(operation.inputs) as collection:
-            for dataset in collection.datasets:
-                try:
-                    dataset.map_domain(operation.domain, collection.get_base_units())
-                except file_manager.DomainMappingError:
-                    continue
+        for dataset in collection.datasets:
+            # Skip datasets who are not included in domain
+            try:
+                dataset.map_domain(domain, base_units)
+            except file_manager.DomainMappingError:
+                continue
 
-                domain = collection.generate_dataset_domain(dataset)
+            dataset_domain = collection.generate_dataset_domain(dataset)
 
-                if collection.get_cache_entry(dataset, domain) is None:
-                    return False
+            if collection.get_cache_entry(dataset, dataset_domain) is None:
+                return False
 
         return True
 
-    def generate_chunk_map(self, operation):
+    def generate_domain_map(self, collection):
+        domain_map = {}
+
+        for dataset in collection.datasets:
+            domain_map[dataset.url] = {
+                'temporal': dataset.temporal,
+                'spatial': dataset.spatial,
+            }
+
+        return domain_map
+
+    def generate_chunk_map(self, collection, domain):
         chunk_map = {}
 
-        collections = [
-            file_manager.DataSetCollection.from_variables(operation.inputs)
-        ]
-        
-        fm = file_manager.FileManager(collections)
-
-        for collection in fm.collections:
-            with collection as collection:
-                for dataset, chunk in collection.partitions(operation.domain, True, skip_data=True):
-                    if dataset.url in chunk_map:
-                        chunk_map[dataset.url]['chunks'].append(chunk)
-                    else:
-                        chunk_map[dataset.url] = {
-                            'variable_name': fm.get_variable_name(),
-                            'base_units': collection.get_base_units(),
-                            'temporal': dataset.temporal,
-                            'spatial': dataset.spatial,
-                            'chunks': [chunk,]
-                        }
+        for dataset, chunk in collection.partitions(domain, True, skip_data=True):
+            if dataset.url in chunk_map:
+                chunk_map[dataset.url]['chunks'].append(chunk)
+            else:
+                chunk_map[dataset.url] = {
+                    'variable_name': fm.get_variable_name(),
+                    'base_units': collection.get_base_units(),
+                    'temporal': dataset.temporal,
+                    'spatial': dataset.spatial,
+                    'chunks': [chunk,]
+                }
 
         return chunk_map
 
-    def retrieve_data(self, operation, num_inputs, output_file):
+    def retrieve_data(self, operation, num_inputs, output_file, **kwargs):
         grid = None
         gridder = operation.get_parameter('gridder')
+
+        domain_map = json.loads(kwargs.get('domain_map', None), object_hook=helpers.json_loads_object_hook)
 
         start = datetime.datetime.now()
 
@@ -199,7 +206,7 @@ class Process(object):
 
                 start = datetime.datetime.now()
 
-                for meta in collection.partitions(operation.domain, False):
+                for meta in collection.partitions(operation.domain, False, domain_map=domain_map):
                     ds, chunk = meta
 
                     if last_url != ds.url:
@@ -233,7 +240,7 @@ class Process(object):
 
         return var_name
 
-    def process_data(self, operation, num_inputs, output_file, process):
+    def process_data(self, operation, num_inputs, output_file, process, **kwargs):
         grid = None
 
         gridder = operation.get_parameter('gridder')

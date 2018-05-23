@@ -94,9 +94,6 @@ class Local(backend.Backend):
         return canvas
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
-        if len(operations) == 0:
-            raise Exception('Must supply atleast one operation')
-
         operation = operations.values()[0].parameterize()
 
         variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
@@ -107,19 +104,14 @@ class Local(backend.Backend):
 
         logger.info('Retrieved process "{}"'.format(identifier))
 
-        job = kwargs.get('job')
-
-        user = kwargs.get('user')
-
-        process = kwargs.get('process')
-
-        params = {
-            'job_id': job.id,
-            'user_id': user.id,
-            'process_id': process.id,
+        new_kwargs = {
+            'job_id': kwargs.get('job').id,
+            'user_id': kwargs.get('user').id,
+            'process_id': kwargs.get('process').id,
+            'domain_map': kwargs.get('domain_map'),
         }
 
-        target_process = target_process.s({}, variable_dict, domain_dict, operation, **params)
+        target_process = target_process.s({}, variable_dict, domain_dict, operation, **new_kwargs)
 
         target_process = target_process.set(queue='priority.low', exchange='priority', routing_key='low')
 

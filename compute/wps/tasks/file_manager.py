@@ -310,6 +310,8 @@ class DataSetCollection(object):
         for ds in self.datasets:
             ds.open()
 
+        self.sort_datasets()
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -393,7 +395,7 @@ class DataSetCollection(object):
 
         return None
 
-    def partitions(self, domain, skip_cache, axis=None, skip_data=False):
+    def partitions(self, domain, skip_cache, axis=None, skip_data=False, domain_map=None):
         logger.info('Sorting datasets')
 
         self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
@@ -412,12 +414,24 @@ class DataSetCollection(object):
             if base_units is None:
                 base_units = dataset.get_time().units
 
-            try:
-                dataset.map_domain(domain, base_units)
-            except DomainMappingError:
-                logger.info('Skipping "{}"'.format(dataset.url))
+            if domain_map is None:
+                try:
+                    dataset.map_domain(domain, base_units)
+                except DomainMappingError:
+                    logger.info('Skipping "{}"'.format(dataset.url))
 
-                continue
+                    continue
+            else:
+                dataset_domain = domain_map.get(dataset.url, None)
+
+                if dataset_domain is None or dataset_domain['temporal'] is None:
+                    logger.info('Skipping "{}"'.format(dataset.url))
+
+                    continue
+
+                dataset.temporal = dataset_domain['temporal']
+
+                dataset.spatial = dataset_domain['spatial']
 
             if not skip_cache:
                 dataset_domain = self.generate_dataset_domain(dataset)
