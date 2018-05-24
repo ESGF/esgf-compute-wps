@@ -90,11 +90,13 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
             else:
                 logger.info('Configuring an ingress pipeline')
 
-                chunk_map = proc.generate_chunk_map(o)
+                chunk_map = proc.generate_chunk_map(collection, o.domain)
 
                 data['type'] = 'ingress'
 
                 data['chunk_map'] = json.dumps(chunk_map, default=helpers.json_dumps_default)
+
+            data['estimate_size'] = collection.estimate_size(o.domain)
 
     session = requests.Session()
 

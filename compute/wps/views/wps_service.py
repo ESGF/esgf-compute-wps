@@ -386,6 +386,8 @@ def handle_execute(request, user, job, process):
         operation = request.POST['operation']
 
         domain_map = request.POST['domain_map']
+
+        estimate_size = request.POST['estimate_size']
     except KeyError as e:
         raise WPSError('Missing required parameter "{name}"', name=e)
 
@@ -417,6 +419,7 @@ def handle_execute(request, user, job, process):
         'job': job,
         'process': process,
         'domain_map': domain_map,
+        'estimate_size': estimate_size,
     }
 
     process_backend.execute(identifier, variables, domains, operation, **kwargs).delay()
@@ -455,6 +458,8 @@ def handle_ingress(request, user, job, process):
         domains = request.POST['domains']
 
         operation = request.POST['operation']
+
+        estimate_size = request.POST['estimate_size']
     except KeyError as e:
         raise WPSError('Missing required parameter "{name}"', name=e)
 
@@ -469,7 +474,14 @@ def handle_ingress(request, user, job, process):
 
     operation = cwt.Process.from_dict(json.loads(operation))
 
-    backend.ingress(chunk_map, domains, operation, user=user, job=job, process=process).delay()
+    kwargs = {
+        'user': user,
+        'job': job,
+        'process': process,
+        'estimate_size': estimate_size,
+    }
+
+    backend.ingress(chunk_map, domains, operation, **kwargs).delay()
 
 @require_http_methods(['POST'])
 def execute(request):

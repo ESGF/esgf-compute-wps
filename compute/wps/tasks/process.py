@@ -173,7 +173,7 @@ class Process(object):
                 chunk_map[dataset.url]['chunks'].append(chunk)
             else:
                 chunk_map[dataset.url] = {
-                    'variable_name': fm.get_variable_name(),
+                    'variable_name': dataset.variable_name,
                     'base_units': collection.get_base_units(),
                     'temporal': dataset.temporal,
                     'spatial': dataset.spatial,

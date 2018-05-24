@@ -4,6 +4,7 @@ import os
 
 import celery
 import cwt
+import numpy as np
 from django.conf import settings
 
 from wps import helpers
@@ -33,6 +34,8 @@ class Local(backend.Backend):
         job = kwargs.get('job')
 
         process = kwargs.get('process')
+
+        estimate_size = kwargs.get('estimate_size')
 
         domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
@@ -70,30 +73,51 @@ class Local(backend.Backend):
 
         logger.info('Putting together task pipeline')
 
-        if operation.identifier not in ('CDAT.aggregate', 'CDAT.subset'):
-            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id)
+        queue = helpers.determine_queue(process, float(estimate_size))
 
+        logger.info('Routing to queue %r', queue)
+
+        if operation.identifier not in ('CDAT.aggregate', 'CDAT.subset'):
             process = base.REGISTRY[operation.identifier]
 
-            params = {
+            new_kwargs = {
                 'user_id': user.id,
                 'job_id': job.id,
                 'process_id': process.id,
             }
 
-            process_sig = process.s({}, domains, operation.parameterize(), **params)
+            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id)
 
-            process_sig = process_sig.set(queue='priority.low', exchange='priority', routing_key='low')
+            ingress_cache_sig = ingress_cache_sig.set(**queue)
+
+            process_sig = process.s({}, domains, operation.parameterize(), **new_kwargs)
+
+            process_sig = process_sig.set(**queue)
 
             canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig, process_sig)
         else:
-            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id, process_id=process.id)
+            new_kwargs = {
+                'job_id': job.id,
+                'process_id': process.id,
+            }
+
+            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, **new_kwargs)
+
+            ingress_cache_sig = ingress_cache_sig.set(**queue)
 
             canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig)
 
         return canvas
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
+        job = kwargs.get('job')
+
+        user = kwargs.get('user')
+
+        process = kwargs.get('process')
+
+        estimate_size = kwargs.get('estimate_size')
+
         operation = operations.values()[0].parameterize()
 
         variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
@@ -105,15 +129,19 @@ class Local(backend.Backend):
         logger.info('Retrieved process "{}"'.format(identifier))
 
         new_kwargs = {
-            'job_id': kwargs.get('job').id,
-            'user_id': kwargs.get('user').id,
-            'process_id': kwargs.get('process').id,
+            'job_id': job.id,
+            'user_id': user.id,
+            'process_id': process.id,
             'domain_map': kwargs.get('domain_map'),
         }
 
         target_process = target_process.s({}, variable_dict, domain_dict, operation, **new_kwargs)
 
-        target_process = target_process.set(queue='priority.low', exchange='priority', routing_key='low')
+        queue = helpers.determine_queue(process, float(estimate_size))
+
+        logger.info('Routing to queue %r', queue)
+
+        target_process = target_process.set(**queue)
 
         return target_process
 

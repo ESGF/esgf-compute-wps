@@ -58,6 +58,9 @@ class DataSet(object):
                 spatial=self.spatial
             )
 
+    def has_mapped_domain(self):
+        return self.temporal is not None and len(self.spatial) > 0
+
     def estimate_axis_size(self, axis, domain):
         if domain is None:
             return axis.shape[0]
@@ -86,7 +89,7 @@ class DataSet(object):
 
         estimate = estimate + sum(dimensions)
 
-        estimate = estimate * dtype.itemsize
+        estimate = estimate * dtype.itemsize / 2.0
 
         return estimate / 1048576.0
 
@@ -323,10 +326,11 @@ class DataSetCollection(object):
 
         estimate = 0.0
 
-        for x in self.datasets:
-            x.map_domain(domain, base_units)
+        for dataset in self.datasets:
+            if dataset.temporal is None:
+                continue
 
-            estimate += x.estimate_size()
+            estimate += dataset.estimate_size()
 
         return estimate
 
