@@ -29,47 +29,55 @@ class ProcessTestCase(test.TestCase):
 
         self.proc.job = self.job
 
-    @mock.patch('wps.tasks.file_manager.DataSetCollection.from_variables')
-    def test_generate_chunk_map(self, mock_dsc):
-        chunk1 = { 'temporal': slice(100, 150), 'spatial': { 'latitude': (-90, 0), 'longitude': (0, 360) } }
-        chunk2 = { 'temporal': slice(150, 200), 'spatial': { 'latitude': (-90, 0), 'longitude': (0, 360) } }
-        chunk3 = { 'temporal': slice(200, 250), 'spatial': { 'latitude': (-90, 0), 'longitude': (0, 360) } }
-        chunk4 = { 'temporal': slice(250, 300), 'spatial': { 'latitude': (-90, 0), 'longitude': (0, 360) } }
-        chunk5 = { 'temporal': slice(300, 350), 'spatial': { 'latitude': (-90, 0), 'longitude': (0, 360) } }
+    def test_generate_chunk_map(self):
+        dataset1 = mock.MagicMock()
+        dataset1.url = 'file:///test1.nc'
+        dataset1.variable_name = 'tas'
+        dataset1.temporal = slice(0, 10)
+        dataset1.spatial = { 'lat': (-90, 0), 'lon': (0, 360) }
 
-        mock_dsc.return_value.partitions.return_value = [
-            (mock.MagicMock(**{ 'url': 'file:///test1.nc'}), chunk1),
-            (mock.MagicMock(**{ 'url': 'file:///test1.nc'}), chunk2),
-            (mock.MagicMock(**{ 'url': 'file:///test2.nc'}), chunk3),
-            (mock.MagicMock(**{ 'url': 'file:///test2.nc'}), chunk4),
-            (mock.MagicMock(**{ 'url': 'file:///test3.nc'}), chunk5),
+        dataset2 = mock.MagicMock()
+        dataset2.url = 'file:///test2.nc'
+        dataset2.variable_name = 'tas'
+        dataset2.temporal = slice(10, 20)
+        dataset2.spatial = { 'lat': (-90, 0), 'lon': (0, 360) }
+
+        dataset3 = mock.MagicMock()
+        dataset3.url = 'file:///test3.nc'
+        dataset3.variable_name = 'tas'
+        dataset3.temporal = slice(20, 30)
+        dataset3.spatial = { 'lat': (-90, 0), 'lon': (0, 360) }
+
+        collection = mock.MagicMock()
+
+        collection.partitions.return_value = [
+            (dataset1, 'test1'),
+            (dataset1, 'test1.1'),
+            (dataset2, 'test2'),
+            (dataset3, 'test3'),
         ]
 
-        mock_dsc.return_value.get_base_units.return_value = 'days since 1990-1-1'
+        collection.get_base_units.return_value = 'days since 1990-1-1'
 
-        operation = cwt.Process(identifier='CDAT.subset')
-
-        operation.inputs = [
-            cwt.Variable('file:///test1.nc', 'tas'),
-            cwt.Variable('file:///test2.nc', 'tas'),
-            cwt.Variable('file:///test3.nc', 'tas'),
-        ]
-
-        operation.domain = cwt.Domain([
-            cwt.Dimension('time', 100, 350),
-            cwt.Dimension('latitude', -90, 0),
+        domain = cwt.Domain([
+            cwt.Dimension('time', 100, 400),
+            cwt.Dimension('lat', -90, 0),
         ])
 
+        chunk_map = self.proc.generate_chunk_map(collection, domain)
+
+        self.assertEqual(len(chunk_map), 3)
+        self.assertItemsEqual(chunk_map.keys(), ['file:///test1.nc', 'file:///test2.nc', 'file:///test3.nc'])
+
         expected = {
+            'variable_name': 'tas',
+            'temporal': slice(0, 10),
+            'spatial': { 'lat': (-90, 0), 'lon': (0, 360) },
             'base_units': 'days since 1990-1-1',
-            'file:///test1.nc': [chunk1, chunk2],
-            'file:///test2.nc': [chunk3, chunk4],
-            'file:///test3.nc': [chunk5,]
+            'chunks': ['test1', 'test1.1'],
         }
 
-        result = self.proc.generate_chunk_map(operation) 
-
-        self.assertDictEqual(result, expected)
+        self.assertEqual(chunk_map['file:///test1.nc'], expected)
 
     @mock.patch('wps.tasks.process.cdms2.createGaussianGrid')
     def test_generate_grid_value_error(self, mock_gaussian):
