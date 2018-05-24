@@ -93,6 +93,8 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 #SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
+INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
+
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
 EMAIL_PORT = config.get_value('email', 'port', 25, int)
@@ -105,7 +107,7 @@ WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url', 'https://{host}/wps
 WPS_WORKFLOW_URL = config.get_value('wps', 'wps.workflow_url', 'https://{host}/wps/workflow/')
 WPS_INGRESS_URL = config.get_value('wps', 'wps.ingress_url', 'https://{host}/wps/ingress/')
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
-WPS_DAP = config.get_value('wps', 'wps.dap', 'true', bool)
+WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)
 WPS_DAP_URL = config.get_value('wps', 'wps.dap_url', 'https://{host}/threddsCWT/dodsC/public/{file_name}')
 WPS_LOGIN_URL = config.get_value('wps', 'wps.login_url', 'https://{host}/wps/home/auth/login/openid')
 WPS_PROFILE_URL = config.get_value('wps', 'wps.profile_url', 'https://{host}/wps/home/user/profile')
@@ -138,17 +140,6 @@ WPS_OPH_PORT = config.get_value('ophidia', 'wps.oph.port', 11732, int)
 WPS_OPH_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.output.path', '/wps')
 WPS_OPH_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
 WPS_OPH_DEFAULT_CORES = config.get_value('ophidia', 'wps.oph.default.cores', 8, int)
-
-CELERY_task_queues = (
-    kombu.Queue('ingress'),
-    kombu.Queue('priority.high'),
-    kombu.Queue('priority.low'),
-)
-
-CELERY_task_routes = {
-    'wps.tasks.cdat.*': 'ingress',
-    'wps.tasks.ingress.*': 'ingress'
-}
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 

@@ -79,15 +79,9 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
         proc.initialize(user_id, job_id)
 
         with file_manager.DataSetCollection.from_variables(o.inputs) as collection:
-            if proc.check_cache(collection, o.domain):
-                logger.info('Configuring an execute pipeline')
+            logger.info('INGRESS %r', settings.INGRESS_ENABLED)
 
-                domain_map = proc.generate_domain_map(collection)
-
-                data['type'] = 'execute'
-
-                data['domain_map'] = json.dumps(domain_map, default=helpers.json_dumps_default)
-            else:
+            if not proc.check_cache(collection, o.domain) and settings.INGRESS_ENABLED:
                 logger.info('Configuring an ingress pipeline')
 
                 chunk_map = proc.generate_chunk_map(collection, o.domain)
@@ -95,6 +89,14 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
                 data['type'] = 'ingress'
 
                 data['chunk_map'] = json.dumps(chunk_map, default=helpers.json_dumps_default)
+            else:
+                logger.info('Configuring an execute pipeline')
+
+                domain_map = proc.generate_domain_map(collection)
+
+                data['type'] = 'execute'
+
+                data['domain_map'] = json.dumps(domain_map, default=helpers.json_dumps_default)
 
             data['estimate_size'] = collection.estimate_size(o.domain)
 
