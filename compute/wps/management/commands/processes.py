@@ -19,8 +19,13 @@ class Command(BaseCommand):
             models.Process.objects.all().delete()
 
         if options['list']:
-            for p in models.Process.objects.order_by('backend', 'identifier'):
-                self.stdout.write(self.style.SUCCESS('Process "{}" backend "{}"'.format(p.identifier, p.backend)))
+            for backend in models.Process.objects.distinct('backend').values_list('backend', flat=True):
+                self.stdout.write(self.style.SUCCESS('Backend: {}'.format(backend)))
+
+                for process in models.Process.objects.filter(backend=backend):
+                    servers = ', '.join(process.server_set.all().values_list('host', flat=True))
+
+                    self.stdout.write(self.style.SUCCESS('  Process {}: {}'.format(process.identifier, servers)))
         elif options['register']:
             for name, backend in backends.Backend.registry.iteritems():
                 backend.populate_processes()
