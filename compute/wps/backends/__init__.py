@@ -1,4 +1,4 @@
 from backend import *
-from local import *
+from cdat import *
 from edas import *
 from ophidia import *

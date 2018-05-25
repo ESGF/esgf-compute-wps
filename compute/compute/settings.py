@@ -40,6 +40,8 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
                 value = self.getfloat(section, key)
             elif value_type == bool:
                 value = self.getboolean(section, key)
+            elif value_type == list:
+                value = self.get(section, key).split(',')
             else:
                 value = self.get(section, key)
 
@@ -94,6 +96,7 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
 INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
+PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
@@ -126,11 +129,15 @@ WPS_GB_MAX_SIZE = config.get_value('cache', 'wps.gb.max.size', 2.097152e8, float
 WPS_CACHE_MAX_AGE = config.get_value('cache', 'wps.cache.max.age', 30, int, lambda x: datetime.timedelta(days=x))
 WPS_CACHE_FREED_PERCENT = config.get_value('cache', 'wps.cache.freed.percent', 0.25, float)
 
+WPS_CDAT_ENABLED = config.get_value('wps', 'wps.cdat.enabled', True, bool)
+
+WPS_EDAS_ENABLED = config.get_value('edas', 'wps.edas.enabled', False, bool)
 WPS_EDAS_HOST = config.get_value('edas', 'wps.edas.host', 'aims2.llnl.gov')
 WPS_EDAS_REQ_PORT = config.get_value('edas', 'wps.edas.req.port', 5670, int)
 WPS_EDAS_RES_PORT = config.get_value('edas', 'wps.edas.res.port', 5671, int)
 WPS_EDAS_TIMEOUT = config.get_value('edas', 'wps.edas.timeout', 30, int)
 
+WPS_OPH_ENABLED = config.get_value('ophidia', 'wps.oph.enabled', False, bool)
 WPS_OPH_USER = config.get_value('ophidia', 'wps.oph.user', 'oph-test')
 WPS_OPH_PASSWORD = config.get_value('ophidia', 'wps.oph.password', 'abcd')
 WPS_OPH_HOST = config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov')

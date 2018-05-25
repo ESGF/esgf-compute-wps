@@ -12,11 +12,11 @@ from wps import tasks
 from wps.backends import backend
 from wps.tasks import base
 
-__ALL__ = ['Local']
+__ALL__ = ['CDAT']
 
 logger = logging.getLogger('wps.backends')
 
-class Local(backend.Backend):
+class CDAT(backend.Backend):
     def initialize(self):
         pass
 
