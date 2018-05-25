@@ -7,11 +7,17 @@ import numpy as np
 logger = logging.getLogger('wps.helpers')
 
 def determine_queue(process, estimate_size):
-    estimate_time = estimate_size / process.process_rate
+    try:
+        estimate_time = estimate_size / process.process_rate
+    except ZeroDivisionError:
+        estimate_time = 0.0
 
     data = np.array([x.elapsed for x in process.timing_set.all()])
 
-    percentile = np.percentile(data, 75)
+    if data.size == 0:
+        percentile = estimate_time
+    else:
+        percentile = np.percentile(data, 75)
 
     logger.info('Estimated size %s MB at %s MB/sec will take %s seconds', estimate_size, process.process_rate, estimate_time)
 

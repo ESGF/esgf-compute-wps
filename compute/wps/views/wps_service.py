@@ -436,7 +436,7 @@ def handle_workflow(request, user, job, process):
     except KeyError as e:
         raise WPSError('Missing required parameter "{name}"', name=e)
 
-    process_backend = backends.Backend.get_backend('Local')
+    process_backend = backends.Backend.get_backend('CDAT')
 
     root_node = cwt.Process.from_dict(json.loads(root_node))
 
@@ -463,7 +463,7 @@ def handle_ingress(request, user, job, process):
     except KeyError as e:
         raise WPSError('Missing required parameter "{name}"', name=e)
 
-    backend = backends.Backend.get_backend('Local')
+    backend = backends.Backend.get_backend('CDAT')
 
     chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
 
@@ -537,6 +537,8 @@ def execute(request):
         else:
             raise WPSError('Unknown execute type {name}', name=execute_type)
     except WPSError as e:
+        logger.exception('Failed to queue process execution')
+
         job.failed(str(e))
 
         return http.HttpResponseBadRequest()
