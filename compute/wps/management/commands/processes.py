@@ -1,4 +1,5 @@
 from django import db
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from wps import backends
@@ -30,16 +31,33 @@ class Command(BaseCommand):
             server = models.Server.objects.get(host='default')
 
             for name, backend in backends.Backend.registry.iteritems():
-                self.stdout.write(self.style.SUCCESS('Registering backend {}'.format(name)))
+                setting_name = 'WPS_{}_ENABLED'.format(name.upper())
 
-                backend.populate_processes()
+                # Default to false just incase the setting does not exist
+                enabled = getattr(settings, setting_name, False)
 
-                for process in backend.processes:
-                    try:
-                        process = models.Process.objects.create(**process)
-                    except db.IntegrityError:
-                        self.stdout.write(self.style.ERROR('  {} already exists'.format(process['identifier'])))
-                    else:
-                        process.server_set.add(server)
+                # Always have the local backend enabled
+                if name == 'Local':
+                    enabled = True
 
-                        self.stdout.write(self.style.SUCCESS('  Registered process {}'.format(process.identifier)))
+                self.stdout.write(self.style.SUCCESS('Backend "{}" enabled: {}'.format(name, enabled)))
+
+                if enabled:
+                    backend.populate_processes()
+
+                    for process in backend.processes:
+                        try:
+                            process = models.Process.objects.create(**process)
+                        except db.IntegrityError:
+                            self.stdout.write(self.style.ERROR('  {} already exists'.format(process['identifier'])))
+                        else:
+                            process.server_set.add(server)
+
+                            self.stdout.write(self.style.SUCCESS('  Registered process {}'.format(process.identifier)))
+                else:
+                    processes = models.Process.objects.filter(backend=name)
+
+                    if len(processes) > 0:
+                        processes.delete()
+
+                        self.stdout.write(self.style.SUCCESS('  Removed {} processes'.format(result[1].get('wps.Process', 0))))

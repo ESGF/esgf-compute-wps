@@ -116,11 +116,13 @@ WPS_GB_MAX_SIZE = config.get_value('cache', 'wps.gb.max.size', 2.097152e8, float
 WPS_CACHE_MAX_AGE = config.get_value('cache', 'wps.cache.max.age', 30, int, lambda x: datetime.timedelta(days=x))
 WPS_CACHE_FREED_PERCENT = config.get_value('cache', 'wps.cache.freed.percent', 0.25, float)
 
+WPS_EDAS_ENABLED = config.get_value('edas', 'wps.edas.enabled', False, bool)
 WPS_EDAS_HOST = config.get_value('edas', 'wps.edas.host', 'aims2.llnl.gov')
 WPS_EDAS_REQ_PORT = config.get_value('edas', 'wps.edas.req.port', 5670, int)
 WPS_EDAS_RES_PORT = config.get_value('edas', 'wps.edas.res.port', 5671, int)
 WPS_EDAS_TIMEOUT = config.get_value('edas', 'wps.edas.timeout', 30, int)
 
+WPS_OPH_ENABLED = config.get_value('ophidia', 'wps.oph.enabled', False, bool)
 WPS_OPH_USER = config.get_value('ophidia', 'wps.oph.user', 'oph-test')
 WPS_OPH_PASSWORD = config.get_value('ophidia', 'wps.oph.password', 'abcd')
 WPS_OPH_HOST = config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov')
