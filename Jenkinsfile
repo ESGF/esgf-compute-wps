@@ -1,19 +1,28 @@
 pipeline {
-    agent any
-    
+    agent none
+
     stages {
         stage('Test Django App') {
-            steps {
-                //git branch: 'bugfix-2.0.1', url: 'https://github.com/ESGF/esgf-compute-wps'
+            agent { 
+                docker { 
+                    image 'conda-agent' 
+                    args '--network outside'
+                }
+            }
             
-                sh 'conda env create --name wps --file docker/common/environment.yml'
+            steps {
+		checkout scm
+            
+                sh '''#! /bin/bash
+                    conda env create --name wps --file docker/common/environment.yml
+		'''
 
 		sh '''#! /bin/bash
 		    pushd compute/wps/webapp/
 
 		    yarn install
 
-   		    ./node_modules/.bin/webpack --config config/webpack.prod
+		    ./node_modules/.bin/webpack --config config/webpack.prod
 
 		    popd
 		'''
@@ -31,6 +40,8 @@ pipeline {
                 
                     export DJANGO_CONFIG_PATH="${PWD}/docker/common/django.properties"
 		
+		    mkdir -p /var/log/cwt
+	
 		    source activate wps
                     
                     pushd compute/
@@ -41,17 +52,36 @@ pipeline {
                 ''' 
             }
         }
+
+        stage('Build docker images') {
+            when { anyOf { branch 'bugfix-*'; branch 'release-*' } }
+            
+            agent any
+            
+            steps {
+                script {
+                    def version_index = env.BRANCH_NAME.indexOf('-')
+                    def version = env.BRANCH_NAME.substring(version_index+1)
+                    
+                    sh "docker build -t jasonb87/cwt_common:${version} --build-arg TAG=${env.BRANCH_NAME} --network=outside docker/common"
+                
+                    sh "docker build -t jasonb87/cwt_celery:${version} --network=outside docker/celery"
+                
+                    sh "docker build -t jasonb87/cwt_wps:${version} --network=outside docker/wps"
+                }
+            }
+        }
     }
     
     post {
         always {
-            step([$class: 'XUnitBuilder',
-                tools: [[$class: 'JUnitType', pattern: 'compute/nosetests.xml']]])
-            
-            step([$class: 'CoberturaPublisher', 
-                coberturaReportFile: 'compute/coverage.xml'])
-            
-            sh 'conda env remove --name wps'
+            node('master') {
+                step([$class: 'XUnitBuilder',
+                    tools: [[$class: 'JUnitType', pattern: 'compute/nosetests.xml']]])
+                
+                step([$class: 'CoberturaPublisher', 
+                    coberturaReportFile: 'compute/coverage.xml'])
+            }
         }
     }
 }
