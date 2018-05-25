@@ -11,38 +11,38 @@ pipeline {
             }
             
             steps {
-                git branch: 'devel', url: 'https://github.com/ESGF/esgf-compute-wps'
+		checkout scm
             
                 sh '''#! /bin/bash
                     conda env create --name wps --file docker/common/environment.yml
-                '''
+		'''
 
-        		sh '''#! /bin/bash
-        		    pushd compute/wps/webapp/
-        
-        		    yarn install
-        
-           		    ./node_modules/.bin/webpack --config config/webpack.prod
-        
-        		    popd
-        		'''
-        
-        		sh '''#! /bin/bash
-        		    source activate wps
-        
-        		    pip install django-webpack-loader
-        
-        		    pip install -r compute/wps/tests/requirements.txt
-        		'''
+		sh '''#! /bin/bash
+		    pushd compute/wps/webapp/
+
+		    yarn install
+
+		    ./node_modules/.bin/webpack --config config/webpack.prod
+
+		    popd
+		'''
+
+		sh '''#! /bin/bash
+		    source activate wps
+
+		    pip install django-webpack-loader
+
+		    pip install -r compute/wps/tests/requirements.txt
+		'''
                 
                 sh '''#! /bin/bash
                     export WPS_TEST=1
                 
                     export DJANGO_CONFIG_PATH="${PWD}/docker/common/django.properties"
 		
-		            mkdir -p /var/log/cwt
-		
-		            source activate wps
+		    mkdir -p /var/log/cwt
+	
+		    source activate wps
                     
                     pushd compute/
                     
