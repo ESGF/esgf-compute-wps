@@ -120,6 +120,8 @@ WPS_GB_MAX_SIZE = config.get_value('cache', 'wps.gb.max.size', 2.097152e8, float
 WPS_CACHE_MAX_AGE = config.get_value('cache', 'wps.cache.max.age', 30, int, lambda x: datetime.timedelta(days=x))
 WPS_CACHE_FREED_PERCENT = config.get_value('cache', 'wps.cache.freed.percent', 0.25, float)
 
+WPS_CDAT_ENABLED = config.get_value('wps', 'wps.cdat.enabled', True, bool)
+
 WPS_EDAS_ENABLED = config.get_value('edas', 'wps.edas.enabled', False, bool)
 WPS_EDAS_HOST = config.get_value('edas', 'wps.edas.host', 'aims2.llnl.gov')
 WPS_EDAS_REQ_PORT = config.get_value('edas', 'wps.edas.req.port', 5670, int)

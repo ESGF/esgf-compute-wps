@@ -36,10 +36,6 @@ class Command(BaseCommand):
                 # Default to false just incase the setting does not exist
                 enabled = getattr(settings, setting_name, False)
 
-                # Always have the local backend enabled
-                if name == 'Local':
-                    enabled = True
-
                 self.stdout.write(self.style.SUCCESS('Backend "{}" enabled: {}'.format(name, enabled)))
 
                 if enabled:
