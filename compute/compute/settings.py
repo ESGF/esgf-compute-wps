@@ -89,7 +89,7 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 #SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
-PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', ['CDAT.subset'], list)
+PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
