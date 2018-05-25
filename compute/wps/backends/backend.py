@@ -26,26 +26,23 @@ class BackendMeta(type):
 class Backend(object):
     __metaclass__ = BackendMeta
 
-    def add_process(self, identifier, name, abstract=None):
-        server = models.Server.objects.get(host='default')
+    def __init__(self):
+        self.processes = []
 
+    def add_process(self, identifier, name, abstract=None):
         if abstract is None:
             abstract = ''
 
         desc = wps_xml.describe_process_response(identifier, name, abstract)
 
-        try:
-            process = models.Process.objects.create(identifier=identifier, backend=self.NAME, abstract=abstract, description=desc.xml())
-        except db.IntegrityError:
-            logger.info('"{}" already exists'.format(identifier))
+        process = {
+            'identifier': identifier,
+            'backend': self.NAME,
+            'abstract': abstract,
+            'description': desc.xml()
+        }
 
-            pass
-        else:
-            logger.info('Registered "{}" for backend "{}"'.format(identifier, self.NAME))
-
-            process.server_set.add(server)
-
-            process.save()
+        self.processes.append(process)
 
     def initialize(self):
         pass

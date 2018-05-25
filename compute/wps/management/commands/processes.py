@@ -1,5 +1,5 @@
+from django import db
 from django.core.management.base import BaseCommand, CommandError
-from django.db.utils import IntegrityError
 
 from wps import backends
 from wps import models
@@ -27,5 +27,19 @@ class Command(BaseCommand):
 
                     self.stdout.write(self.style.SUCCESS('  Process {}: {}'.format(process.identifier, servers)))
         elif options['register']:
+            server = models.Server.objects.get(host='default')
+
             for name, backend in backends.Backend.registry.iteritems():
+                self.stdout.write(self.style.SUCCESS('Registering backend {}'.format(name)))
+
                 backend.populate_processes()
+
+                for process in backend.processes:
+                    try:
+                        process = models.Process.objects.create(**process)
+                    except db.IntegrityError:
+                        self.stdout.write(self.style.ERROR('  {} already exists'.format(process['identifier'])))
+                    else:
+                        process.server_set.add(server)
+
+                        self.stdout.write(self.style.SUCCESS('  Registered process {}'.format(process.identifier)))
