@@ -39,6 +39,8 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
                 value = self.getfloat(section, key)
             elif value_type == bool:
                 value = self.getboolean(section, key)
+            elif value_type == list:
+                value = self.get(section, key).split(',')
             else:
                 value = self.get(section, key)
 
@@ -86,6 +88,8 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 
 #SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
+
+PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', ['CDAT.subset'], list)
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')

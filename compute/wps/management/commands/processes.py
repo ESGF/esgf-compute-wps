@@ -46,14 +46,24 @@ class Command(BaseCommand):
                     backend.populate_processes()
 
                     for process in backend.processes:
-                        try:
-                            process = models.Process.objects.create(**process)
-                        except db.IntegrityError:
-                            self.stdout.write(self.style.ERROR('  {} already exists'.format(process['identifier'])))
-                        else:
-                            process.server_set.add(server)
+                        if process['identifier'] in settings.PROCESS_BLACKLIST:
+                            try:
+                                process = models.Process.objects.get(identifier=process['identifier'], backend=name)
+                            except models.Process.DoesNotExist:
+                                pass
+                            else:
+                                process.delete() 
 
-                            self.stdout.write(self.style.SUCCESS('  Registered process {}'.format(process.identifier)))
+                                self.stdout.write(self.style.SUCCESS('  Removed blacklist process "{}"'.format(process.identifier)))
+                        else:
+                            try:
+                                process = models.Process.objects.create(**process)
+                            except db.IntegrityError:
+                                self.stdout.write(self.style.ERROR('  {} already exists'.format(process['identifier'])))
+                            else:
+                                process.server_set.add(server)
+
+                                self.stdout.write(self.style.SUCCESS('  Registered process {}'.format(process.identifier)))
                 else:
                     processes = models.Process.objects.filter(backend=name)
 
