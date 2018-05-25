@@ -28,33 +28,33 @@ logger = get_task_logger('wps.tasks.cdat')
 Regrids a variable to designated grid. Required parameter named "gridder".
 """)
 @base.cwt_shared_task()
-def regrid(self, parent_variables, variables, domains, operation, user_id, job_id):
+def regrid(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
     def validate(op):
         op.get_parameter('gridder', True)
 
-    return retrieve_base(self, o, None, user_id, job_id, validate) 
+    return retrieve_base(self, o, None, user_id, job_id, process_id, validate=validate, **kwargs) 
 
 @base.register_process('CDAT.subset', abstract='Subset a variable by provided domain. Supports regridding.')
 @base.cwt_shared_task()
-def subset(self, parent_variables, variables, domains, operation, user_id, job_id):
+def subset(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
     def validate(op):
         if op.domain is None:
             raise WPSError('Missing required domain')
 
-    return retrieve_base(self, o, None, user_id, job_id, validate) 
+    return retrieve_base(self, o, None, user_id, job_id, process_id, validate=validate, **kwargs) 
 
 @base.register_process('CDAT.aggregate', abstract='Aggregate a variable over multiple files. Supports subsetting and regridding.')
 @base.cwt_shared_task()
-def aggregate(self, parent_variables, variables, domains, operation, user_id, job_id):
+def aggregate(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
-    return retrieve_base(self, o, None, user_id, job_id) 
+    return retrieve_base(self, o, None, user_id, job_id, process_id, **kwargs) 
 
-def retrieve_base(self, operation, num_inputs, user_id, job_id, validate=None):
+def retrieve_base(self, operation, num_inputs, user_id, job_id, process_id, validate=None, **kwargs):
     """ Configures and executes a retrieval process.
 
     Sets up a retrieval process by initializing the process with the user and
@@ -91,7 +91,7 @@ def retrieve_base(self, operation, num_inputs, user_id, job_id, validate=None):
 
     proc = process.Process(self.request.id)
 
-    proc.initialize(user_id, job_id)
+    proc.initialize(user_id, job_id, process_id)
 
     proc.job.started()
 
@@ -104,7 +104,7 @@ def retrieve_base(self, operation, num_inputs, user_id, job_id, validate=None):
 
     try:
         with cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.retrieve(operation, num_inputs, output_file)
+            output_var_name = proc.retrieve_data(operation, num_inputs, output_file, **kwargs)
     except cdms2.CDMSError as e:
         raise base.AccessError(output_path, e.message)
     except WPSError:
@@ -134,10 +134,10 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
-def average(self, parent_variables, variables, domains, operation, user_id, job_id):
+def average(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
-    return process_base(self, MV.average, 1, o, user_id, job_id)
+    return process_base(self, MV.average, 1, o, user_id, job_id, process_id, **kwargs)
 
 @base.register_process('CDAT.sum', abstract=""" 
 Computes the sum over an axis. Requires singular parameter named "axes" 
@@ -145,10 +145,10 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
-def sum(self, parent_variables, variables, domains, operation, user_id, job_id):
+def sum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
-    return process_base(self, MV.sum, 1, o, user_id, job_id)
+    return process_base(self, MV.sum, 1, o, user_id, job_id, process_id, **kwargs)
 
 @base.register_process('CDAT.max', abstract=""" 
 Computes the maximum over an axis. Requires singular parameter named "axes" 
@@ -156,10 +156,10 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
-def maximum(self, parent_variables, variables, domains, operation, user_id, job_id):
+def maximum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
-    return process_base(self, MV.max, 1, o, user_id, job_id)
+    return process_base(self, MV.max, 1, o, user_id, job_id, process_id, **kwargs)
 
 @base.register_process('CDAT.min', abstract="""
 Computes the minimum over an axis. Requires singular parameter named "axes" 
@@ -167,12 +167,12 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
                        """)
 @base.cwt_shared_task()
-def minimum(self, parent_variables, variables, domains, operation, user_id, job_id):
+def minimum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
-    return process_base(self, MV.min, 1, o, user_id, job_id)
+    return process_base(self, MV.min, 1, o, user_id, job_id, process_id, **kwargs)
 
-def process_base(self, process_func, num_inputs, operation, user_id, job_id):
+def process_base(self, process_func, num_inputs, operation, user_id, job_id, process_id, **kwargs):
     """ Configures and executes a process.
 
     Sets up the process by initializing it with the user_id and job_id, marks
@@ -203,7 +203,7 @@ def process_base(self, process_func, num_inputs, operation, user_id, job_id):
 
     proc = process.Process(self.request.id)
 
-    proc.initialize(user_id, job_id)
+    proc.initialize(user_id, job_id, process_id)
 
     proc.job.started()
 
@@ -213,7 +213,7 @@ def process_base(self, process_func, num_inputs, operation, user_id, job_id):
 
     try:
         with cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.process(operation, num_inputs, output_file, process_func)
+            output_var_name = proc.process_data(operation, num_inputs, output_file, process_func, **kwargs)
     except cdms2.CDMSError as e:
         logger.exception('CDMS ERROR')
         raise base.AccessError(output_path, e)

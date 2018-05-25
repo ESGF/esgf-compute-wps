@@ -2,6 +2,7 @@ import json
 import re
 import StringIO
 
+import celery
 import cwt
 import django
 from cwt import wps_lib
@@ -12,7 +13,9 @@ from lxml import etree
 
 from . import common
 from wps import backends
+from wps import helpers
 from wps import models
+from wps import tasks
 from wps import wps_xml
 from wps import settings
 from wps import WPSError
@@ -174,68 +177,6 @@ def get_parameter(params, name):
 
     return temp[name.lower()]
 
-def wps_execute(user, identifier, data_inputs):
-    """ WPS execute operation """
-    try:
-        process = models.Process.objects.get(identifier=identifier)
-    except models.Process.DoesNotExist:
-        raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
-
-    process.track(user)
-
-    try:
-        operations, domains, variables = load_data_inputs(data_inputs)
-    except Exception:
-        raise WPSError('Failed to parse datainputs')
-
-    root_node = None
-    is_workflow = False
-
-    # flatten out list of inputs from operations
-    op_inputs = [i for op in operations.values() for i in op.inputs]
-
-    # find the root operation, this node will not be an input to any other operation
-    for op in operations.values():
-        if op.name not in op_inputs:
-            if root_node is not None:
-                raise WPSError('Dangling operations, there can only be a single operation that is not an input')
-
-            root_node = op
-
-    if root_node is None:
-        raise WPSError('Malformed WPS execute request, atleast one operation must be provided')
-
-    # considered a workflow if any of the root operations inputs are another operation
-    is_workflow = any(i in operations.keys() for i in root_node.inputs)
-
-    for variable in variables.values():
-        models.File.track(user, variable)
-
-    server = models.Server.objects.get(host='default')
-
-    job = models.Job.objects.create(server=server, user=user, process=process, extra=data_inputs)
-
-    job.accepted()
-
-    logger.info('Accepted job {}'.format(job.id))
-
-    process_backend = backends.Backend.get_backend(process.backend)
-
-    if process_backend is None:
-        job.failed()
-
-        raise WPSError('Missing backend "{backend}" for process "{id}"', 
-                       backend=process.backend, id=process.identifier)
-
-    if is_workflow:
-        process_backend = backends.Backend.get_backend('Local')
-
-        process_backend.workflow(root_node, variables, domains, operations, user=user, job=job).delay()
-    else:
-        process_backend.execute(identifier, variables, domains, operations, user=user, job=job).delay()
-
-    return job.report
-
 def handle_get(params):
     """ Handle an HTTP GET request. """
     request = get_parameter(params, 'request')
@@ -262,6 +203,8 @@ def handle_get(params):
         # the datainputs
         data_inputs = re.sub('\|(operation|domain|variable)=', ';\\1=', data_inputs)
 
+    logger.info('Handling GET request "%s" for API key %s', operation, api_key)
+
     return api_key, operation, identifier, data_inputs
 
 def handle_post(data, params):
@@ -283,6 +226,8 @@ def handle_post(data, params):
     data_inputs = data_inputs.replace('\'', '\"')
 
     api_key = params.get('api_key')
+
+    logger.info('Handling POST request for API key %s', api_key)
 
     return api_key, 'execute', request.identifier, data_inputs
 
@@ -324,8 +269,6 @@ def wps(request):
     try:
         api_key, op, identifier, data_inputs = handle_request(request)
 
-        logger.info('Handling WPS request {} for api key {}'.format(op, api_key))
-
         if op == 'getcapabilities':
             server = models.Server.objects.get(host='default')
 
@@ -340,7 +283,39 @@ def wps(request):
             except IndexError:
                 raise WPSError('Missing API key for WPS execute request')
 
-            response = wps_execute(user, identifier, data_inputs)
+            try:
+                process = models.Process.objects.get(identifier=identifier)
+            except models.Process.DoesNotExist:
+                raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
+
+            try:
+                operations, domains, variables = load_data_inputs(data_inputs)
+            except Exception:
+                raise WPSError('Failed to parse datainputs')
+
+            server = models.Server.objects.get(host='default')
+
+            job = models.Job.objects.create(server=server, process=process, user=user, extra=data_inputs)
+
+            job.accepted()
+
+            logger.info('Queueing preprocessing job %s user %s', job.id, user.id)
+
+            args = [
+                identifier,
+                dict((x, y.parameterize()) for x, y in variables.iteritems()),
+                dict((x, y.parameterize()) for x, y in domains.iteritems()),
+                dict((x, y.parameterize()) for x, y in operations.iteritems()),
+            ]
+
+            kwargs = {
+                'user_id': user.id,
+                'job_id': job.id,
+            }
+
+            tasks.preprocess.signature(args=args, kwargs=kwargs).delay()
+
+            response = job.report
     except WPSExceptionError as e:
         failure = wps_lib.ProcessFailed(exception_report=e.report)
 
@@ -401,3 +376,169 @@ def status(request, job_id):
         raise WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
 
     return http.HttpResponse(job.report, content_type='text/xml')
+
+def handle_execute(request, user, job, process):
+    try:
+        variables = request.POST['variables']
+
+        domains = request.POST['domains']
+
+        operation = request.POST['operation']
+
+        domain_map = request.POST['domain_map']
+
+        estimate_size = request.POST['estimate_size']
+    except KeyError as e:
+        raise WPSError('Missing required parameter "{name}"', name=e)
+
+    operation = cwt.Process.from_dict(json.loads(operation))
+
+    try:
+        process = models.Process.objects.get(identifier=operation.identifier)
+    except models.Process.DoesNotExist:
+        raise WPSError('Unknown process "{name}"', name=operation.identifier)
+
+    process_backend = backends.Backend.get_backend(process.backend)
+
+    if process_backend is None:
+        raise WPSError('Unknown backend "{name}"', name=process.backend)
+
+    variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
+
+    for variable in variables.values():
+        models.File.track(user, variable)
+
+    domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
+
+    identifier = operation.identifier
+
+    operation = { operation.name: operation }
+
+    kwargs = {
+        'user': user,
+        'job': job,
+        'process': process,
+        'domain_map': domain_map,
+        'estimate_size': estimate_size,
+    }
+
+    process_backend.execute(identifier, variables, domains, operation, **kwargs).delay()
+
+def handle_workflow(request, user, job, process):
+    try:
+        root_node = request.POST['root_node']
+
+        variables = request.POST['variables']
+
+        domains = request.POST['domains']
+
+        operations = request.POST['operations']
+    except KeyError as e:
+        raise WPSError('Missing required parameter "{name}"', name=e)
+
+    process_backend = backends.Backend.get_backend('Local')
+
+    root_node = cwt.Process.from_dict(json.loads(root_node))
+
+    variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
+
+    for variable in variables:
+        models.File.track(user, variable)
+
+    domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
+
+    operations = dict((x, cwt.Process.from_dict(y)) for x, y in json.loads(operations).iteritems())
+
+    process_backend.workflow(root_node, variables, domains, operations, user=user, job=job, process=process).delay()
+
+def handle_ingress(request, user, job, process):
+    try:
+        chunk_map_raw = request.POST['chunk_map']
+
+        domains = request.POST['domains']
+
+        operation = request.POST['operation']
+
+        estimate_size = request.POST['estimate_size']
+    except KeyError as e:
+        raise WPSError('Missing required parameter "{name}"', name=e)
+
+    backend = backends.Backend.get_backend('Local')
+
+    chunk_map = json.loads(chunk_map_raw, object_hook=helpers.json_loads_object_hook)
+
+    for url, meta in chunk_map.iteritems():
+        models.File.track(user, cwt.Variable(url, meta['variable_name']))
+
+    domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
+
+    operation = cwt.Process.from_dict(json.loads(operation))
+
+    kwargs = {
+        'user': user,
+        'job': job,
+        'process': process,
+        'estimate_size': estimate_size,
+    }
+
+    backend.ingress(chunk_map, domains, operation, **kwargs).delay()
+
+@require_http_methods(['POST'])
+def execute(request):
+    try:
+        execute_type = request.POST['type']
+
+        identifier = request.POST['identifier']
+
+        user_id = request.POST['user_id']
+
+        job_id = request.POST['job_id']
+    except KeyError as e:
+        logger.error('Error executing missing parameter %s', e)
+
+        return http.HttpResponseBadRequest()
+
+    logger.info('Executing "%s" job %s user %s', execute_type, job_id, user_id)
+
+    try:
+        job = models.Job.objects.get(pk=job_id)
+    except models.Job.DoesNotExist:
+        logger.error('Error missing job id %s', job_id)
+
+        return http.HttpResponseBadRequest()
+
+    try:
+        user = models.User.objects.get(pk=user_id)
+    except models.User.DoesNotExist:
+        logger.error('User with id %s does not exist', user_id)
+
+        job.failed()
+
+        return http.HttpResponseBadRequest()
+
+    try:
+        process = models.Process.objects.get(identifier=identifier)
+    except models.Process.DoesNotExist:
+        logger.error('Process with identifier "%s" does not exist', identifier)
+
+        job.failed()
+
+        return http.HttpResponseBadRequest()
+
+    process.track(user)
+
+    try:
+        if execute_type == 'execute':
+            handle_execute(request, user, job, process)
+        elif execute_type == 'workflow':
+            handle_workflow(request, user, job, process)
+        elif execute_type == 'ingress':
+            handle_ingress(request, user, job, process)
+        else:
+            raise WPSError('Unknown execute type {name}', name=execute_type)
+    except WPSError as e:
+        job.failed(str(e))
+
+        return http.HttpResponseBadRequest()
+
+    return http.HttpResponse()

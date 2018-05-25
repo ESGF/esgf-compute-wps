@@ -29,6 +29,56 @@ class ProcessTestCase(test.TestCase):
 
         self.proc.job = self.job
 
+    def test_generate_chunk_map(self):
+        dataset1 = mock.MagicMock()
+        dataset1.url = 'file:///test1.nc'
+        dataset1.variable_name = 'tas'
+        dataset1.temporal = slice(0, 10)
+        dataset1.spatial = { 'lat': (-90, 0), 'lon': (0, 360) }
+
+        dataset2 = mock.MagicMock()
+        dataset2.url = 'file:///test2.nc'
+        dataset2.variable_name = 'tas'
+        dataset2.temporal = slice(10, 20)
+        dataset2.spatial = { 'lat': (-90, 0), 'lon': (0, 360) }
+
+        dataset3 = mock.MagicMock()
+        dataset3.url = 'file:///test3.nc'
+        dataset3.variable_name = 'tas'
+        dataset3.temporal = slice(20, 30)
+        dataset3.spatial = { 'lat': (-90, 0), 'lon': (0, 360) }
+
+        collection = mock.MagicMock()
+
+        collection.partitions.return_value = [
+            (dataset1, 'test1'),
+            (dataset1, 'test1.1'),
+            (dataset2, 'test2'),
+            (dataset3, 'test3'),
+        ]
+
+        collection.get_base_units.return_value = 'days since 1990-1-1'
+
+        domain = cwt.Domain([
+            cwt.Dimension('time', 100, 400),
+            cwt.Dimension('lat', -90, 0),
+        ])
+
+        chunk_map = self.proc.generate_chunk_map(collection, domain)
+
+        self.assertEqual(len(chunk_map), 3)
+        self.assertItemsEqual(chunk_map.keys(), ['file:///test1.nc', 'file:///test2.nc', 'file:///test3.nc'])
+
+        expected = {
+            'variable_name': 'tas',
+            'temporal': slice(0, 10),
+            'spatial': { 'lat': (-90, 0), 'lon': (0, 360) },
+            'base_units': 'days since 1990-1-1',
+            'chunks': ['test1', 'test1.1'],
+        }
+
+        self.assertEqual(chunk_map['file:///test1.nc'], expected)
+
     @mock.patch('wps.tasks.process.cdms2.createGaussianGrid')
     def test_generate_grid_value_error(self, mock_gaussian):
         with self.assertRaises(WPSError):

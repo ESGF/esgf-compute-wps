@@ -2,8 +2,6 @@
 
 source activate wps
 
-root_path="/var/www/compute/compute"
+pushd /var/www/compute/compute
 
-cd $root_path
-
-exec celery worker -A compute -b $CELERY_BROKER $@
+exec celery $SUBCOMMAND -A compute -b $CELERY_BROKER -l INFO $@

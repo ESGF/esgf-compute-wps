@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 
 import ConfigParser
 import datetime
+import kombu
 import logging
 import os
 
@@ -47,6 +48,11 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
                         value = value.replace(*replacement)
         except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
             value = default
+
+            if value_type == str:
+                for replacement in self.defaults.iteritems():
+                    if replacement[0] in value:
+                        value = value.replace(*replacement)
 
             pass
 
@@ -87,6 +93,8 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 #SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
+INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
+
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
 EMAIL_PORT = config.get_value('email', 'port', 25, int)
@@ -95,7 +103,9 @@ EMAIL_HOST_USER = config.get_value('email', 'user', '')
 
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps')
 WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps')
-WPS_DAP = config.get_value('wps', 'wps.dap', 'true', bool)
+WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url', 'https://{host}/wps/execute/')
+WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
+WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)
 WPS_DAP_URL = config.get_value('wps', 'wps.dap_url', 'https://{host}/threddsCWT/dodsC/public/{file_name}')
 WPS_LOGIN_URL = config.get_value('wps', 'wps.login_url', 'https://{host}/wps/home/auth/login/openid')
 WPS_PROFILE_URL = config.get_value('wps', 'wps.profile_url', 'https://{host}/wps/home/user/profile')

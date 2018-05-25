@@ -27,8 +27,22 @@ spec:
       containers:
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ .image }}:{{ .imageTag }}
-        args: ["-l", "info", "-c", "1", "--max-memory-per-child", {{ .resources.memory | quote }}, {{ default "" .argsExtra | quote }}]
-        {{- if .development }}
+        {{- if not $.Values.development }}
+        args: 
+          - -l
+          - info
+          - -c
+          - 1
+          - --max-memory-per-child
+          - {{ .resources.memory | quote }}
+          - -n 
+          - {{ .name }}
+        {{- range $key, $value := .argsExtra }}
+          - {{ $key | quote }}
+          - {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        {{- if $.Values.development }}
         command:
           - sleep
           - infinity
@@ -41,6 +55,10 @@ spec:
             cpu: {{ .resources.cpuRequest | quote }}
             memory: {{ .resources.memoryRequest | quote }}
         env:
+        {{- if $.Values.development }}
+        - name: WPS_DEBUG
+          value: "1"
+        {{- end }}
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:
@@ -64,13 +82,24 @@ spec:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
               key: postgres_password
         volumeMounts:
+        {{- if $.Values.development }}
+        - mountPath: /var/www
+          name: shared-volume
+        {{- end }}
         - mountPath: /etc/config
           name: config-volume
         - mountPath: /data/public
           name: public-volume
         - mountPath: /data/cache
           name: cache-volume
+        - mountPath: /data/ingress
+          name: ingress-volume
       volumes:
+      {{- if $.Values.development }}
+      - name: shared-volume
+        hostPath:
+          path: {{ $.Values.sharedPath }}
+      {{- end }}
       - name: config-volume
         configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
@@ -81,6 +110,10 @@ spec:
       - name: cache-volume
         hostPath:
           path: {{ $cachePath }}
+          type: DirectoryOrCreate
+      - name: ingress-volume
+        hostPath:
+          path: {{ $.Values.data.ingressPath }}
           type: DirectoryOrCreate
 ---
 {{- end }}

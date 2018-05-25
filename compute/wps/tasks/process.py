@@ -4,11 +4,14 @@ import cdms2
 import contextlib
 import cwt
 import datetime
+import json
 import math
+import os
 import re
 from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
 
+from wps import helpers
 from wps import models
 from wps import settings
 from wps import WPSError
@@ -22,11 +25,13 @@ class Process(object):
     def __init__(self, task_id):
         self.task_id = task_id
 
+        self.process = None
+
         self.user = None
 
         self.job = None
 
-    def initialize(self, user_id, job_id):
+    def initialize(self, user_id, job_id, process_id=None):
         try:
             self.user = models.User.objects.get(pk=user_id)
         except models.User.DoesNotExist:
@@ -36,6 +41,12 @@ class Process(object):
             self.job = models.Job.objects.get(pk=job_id)
         except models.Job.DoesNotExist:
             raise WPSError('Job with id "{id}" does not exist', id=job_id)
+
+        if process_id is not None:
+            try:
+                self.process = models.Process.objects.get(pk=process_id)
+            except models.Process.DoesNotExist:
+                raise WPSError('Process with id "{id}" does not exist', id=process_id)
 
         credentials.load_certificate(self.user)
 
@@ -126,9 +137,56 @@ class Process(object):
 
         return target.getGrid()
 
-    def retrieve(self, operation, num_inputs, output_file):
+    def check_cache(self, collection, domain):
+        base_units = collection.get_base_units()
+
+        for dataset in collection.datasets:
+            # Skip datasets who are not included in domain
+            try:
+                dataset.map_domain(domain, base_units)
+            except file_manager.DomainMappingError:
+                continue
+
+            dataset_domain = collection.generate_dataset_domain(dataset)
+
+            if collection.get_cache_entry(dataset, dataset_domain) is None:
+                return False
+
+        return True
+
+    def generate_domain_map(self, collection):
+        domain_map = {}
+
+        for dataset in collection.datasets:
+            domain_map[dataset.url] = {
+                'temporal': dataset.temporal,
+                'spatial': dataset.spatial,
+            }
+
+        return domain_map
+
+    def generate_chunk_map(self, collection, domain):
+        chunk_map = {}
+
+        for dataset, chunk in collection.partitions(domain, True, skip_data=True):
+            if dataset.url in chunk_map:
+                chunk_map[dataset.url]['chunks'].append(chunk)
+            else:
+                chunk_map[dataset.url] = {
+                    'variable_name': dataset.variable_name,
+                    'base_units': collection.get_base_units(),
+                    'temporal': dataset.temporal,
+                    'spatial': dataset.spatial,
+                    'chunks': [chunk,]
+                }
+
+        return chunk_map
+
+    def retrieve_data(self, operation, num_inputs, output_file, **kwargs):
         grid = None
         gridder = operation.get_parameter('gridder')
+
+        domain_map = json.loads(kwargs.get('domain_map', None), object_hook=helpers.json_loads_object_hook)
 
         start = datetime.datetime.now()
 
@@ -146,11 +204,13 @@ class Process(object):
 
                 last_url = None
 
-                for meta in collection.partitions(operation.domain, False):
+                start = datetime.datetime.now()
+
+                for meta in collection.partitions(operation.domain, False, domain_map=domain_map):
                     ds, chunk = meta
 
                     if last_url != ds.url:
-                        self.log('Starting to retrieve "{}"'.format(ds.url))
+                        self.log('Starting to retrieve "{}"'.format(ds.file_obj.id))
 
                         last_url = ds.url
 
@@ -166,6 +226,11 @@ class Process(object):
 
                     output_file.write(chunk, id=var_name)
 
+                stat = os.stat(output_file.id)
+
+                delta = datetime.datetime.now() - start
+
+                self.process.update_rate(stat.st_size/1048576.0, delta.seconds)
 
         stop = datetime.datetime.now()
 
@@ -175,7 +240,7 @@ class Process(object):
 
         return var_name
 
-    def process(self, operation, num_inputs, output_file, process):
+    def process_data(self, operation, num_inputs, output_file, process, **kwargs):
         grid = None
 
         gridder = operation.get_parameter('gridder')
@@ -207,6 +272,8 @@ class Process(object):
 
             with contextlib.nested(*[x for x in fm.collections]):
                 over_temporal = fm.collections[0].datasets[0].get_time().id == axes
+
+                start = datetime.datetime.now()
 
                 for meta in fm.partitions(operation.domain, axes, num_inputs):
                     data_list = []
@@ -249,6 +316,12 @@ class Process(object):
                         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
                     output_file.write(data, id=var_name)
+
+                stat = os.stat(output_file.id)
+
+                delta = datetime.datetime.now() - start
+
+                self.process.update_rate(stat.st_size/1048576.0, delta.seconds)
 
         stop = datetime.datetime.now()
 

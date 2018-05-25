@@ -58,7 +58,14 @@ class LocalBackendTestCase(test.TestCase):
 
         workflow = self.backend.workflow(proc4, variables, domains, operations, user=self.user, job=job)
 
-    def test_execute(self):
+    @mock.patch('wps.helpers.determine_queue')
+    def test_execute(self, mock_determine):
+        mock_determine.return_value = {
+            'queue': 'priority.high',
+            'exchange': 'priority',
+            'routing_key': 'high',
+        }
+
         self.backend.populate_processes()
 
         process = models.Process.objects.get(identifier='CDAT.subset')
@@ -79,7 +86,17 @@ class LocalBackendTestCase(test.TestCase):
 
         operations = {'subset': proc}
 
-        proc = self.backend.execute('CDAT.subset', variables, domains, operations, user=self.user, job=job)
+        process = mock.MagicMock()
+        process.id = 12
+
+        kwargs = {
+            'user': self.user,
+            'job': job,
+            'process': process,
+            'estimate_size': 1000,
+        }
+
+        proc = self.backend.execute('CDAT.subset', variables, domains, operations, **kwargs)
 
         self.assertIsNotNone(proc)
 

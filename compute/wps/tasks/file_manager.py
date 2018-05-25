@@ -58,6 +58,41 @@ class DataSet(object):
                 spatial=self.spatial
             )
 
+    def has_mapped_domain(self):
+        return self.temporal is not None and len(self.spatial) > 0
+
+    def estimate_axis_size(self, axis, domain):
+        if domain is None:
+            return axis.shape[0]
+        else:
+            if isinstance(domain, slice):
+                return (domain.stop - domain.start) / (domain.step or 1)
+            elif isinstance(domain, (tuple, list)):
+                indices = axis.mapInterval(domain)
+
+                return indices[1] - indices[0]
+
+    def estimate_size(self):
+        dimensions = []
+
+        for axis in self.variable.getAxisList():
+            if axis.isTime():
+                dimensions.append(self.estimate_axis_size(axis, self.temporal))
+            else:
+                dimensions.append(self.estimate_axis_size(axis, self.spatial.get(axis.id, None)))
+
+        dtype = self.get_variable().dtype
+
+        logger.info('Dimension %r', dimensions)
+
+        estimate = reduce(lambda x, y: x * y, dimensions)
+
+        estimate = estimate + sum(dimensions)
+
+        estimate = estimate * dtype.itemsize / 2.0
+
+        return estimate / 1048576.0
+
     def get_time(self):
         if self.temporal_axis is None:
             try:
@@ -97,10 +132,10 @@ class DataSet(object):
 
         return self.variable
 
-    def partitions(self, axis_name):
+    def partitions(self, axis_name, skip_data=False):
         axis = self.get_axis(axis_name)
 
-        logger.debug('Generating partitions over axis %s', axis_name)
+        logger.info('Generating partitions over axis %s', axis_name)
 
         if axis.isTime():
             if self.temporal is None:
@@ -119,9 +154,14 @@ class DataSet(object):
             for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
 
-                data = self.get_variable()(time=slice(begin, end), **self.spatial)
+                logger.info('Chunk temporal %r spatial %r', slice(begin, end), self.spatial)
 
-                yield data
+                if skip_data:
+                    yield { 'temporal': slice(begin, end), 'spatial': self.spatial }
+                else:
+                    data = self.get_variable()(time=slice(begin, end), **self.spatial)
+
+                    yield data
         else:
             domain_axis = self.spatial.get(axis.id, None)
 
@@ -143,10 +183,15 @@ class DataSet(object):
                 #self.spatial[axis_name] = slice(begin, end)
                 #self.spatial[axis_name] = (begin, end)
 
-                data = self.get_variable()(**self.spatial)
-                #data = self.get_variable()(**{axis_name: slice(begin, end)})
+                logger.info('Chunk temporal %r spatial %r', slice(begin, end), self.spatial)
 
-                yield data
+                if skip_data:
+                    yield { 'temporal': self.temporal, 'spatial': self.spatial }
+                else:
+                    data = self.get_variable()(**self.spatial)
+                    #data = self.get_variable()(**{axis_name: slice(begin, end)})
+
+                    yield data
 
     def dimension_to_selector(self, dimension, axis, base_units=None):
         if dimension.crs == cwt.VALUES:
@@ -268,16 +313,36 @@ class DataSetCollection(object):
         for ds in self.datasets:
             ds.open()
 
+        self.sort_datasets()
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         for ds in self.datasets:
             ds.close()
 
+    def estimate_size(self, domain):
+        base_units = self.get_base_units()
+
+        estimate = 0.0
+
+        for dataset in self.datasets:
+            if dataset.temporal is None:
+                continue
+
+            estimate += dataset.estimate_size()
+
+        return estimate
+
     def add(self, variable):
         self.datasets.append(DataSet(variable))
 
+    def sort_datasets(self):
+        self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
+
     def get_base_units(self):
+        self.sort_datasets()
+
         return self.datasets[0].get_time().units
 
     def generate_dataset_domain(self, dataset):
@@ -306,7 +371,11 @@ class DataSetCollection(object):
 
         return domain
 
-    def get_cache_entry(self, uid_hash, domain):
+    def get_cache_entry(self, dataset, domain):
+        uid = '{}:{}'.format(dataset.url, dataset.variable_name)
+
+        uid_hash = hashlib.sha256(uid).hexdigest()
+
         cache_entries = models.Cache.objects.filter(uid=uid_hash)
 
         logger.info('Found "{}" cache entries matching hash "{}"'.format(len(cache_entries), uid_hash))
@@ -330,91 +399,84 @@ class DataSetCollection(object):
 
         return None
 
-    def check_cache(self, dataset):
-        uid = '{}:{}'.format(dataset.url, dataset.variable_name)
-
-        uid_hash = hashlib.sha256(uid).hexdigest()
-
-        domain = self.generate_dataset_domain(dataset)
-
-        logger.info('Checking cache for "{}" with domain "{}"'.format(uid_hash, domain))
-
-        cache = self.get_cache_entry(uid_hash, domain)
-
-        if cache is None:
-            logger.info('Creating cache file for "{}"'.format(dataset.url))
-
-            dimensions = json.dumps(domain, default=models.slice_default)
-
-            cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
-
-            mode = 'w'
-        else:
-            logger.info('Using cache file "{}" as input'.format(cache.local_path))
-
-            mode = 'r'
-
-        try:
-            cache_obj = cdms2.open(cache.local_path, mode)
-        except cdms2.CDMSError as e:
-            logger.exception('Error opening cache file "{}"'.format(cache.local_path))
-
-            cache.delete()
-
-            return None
-
-        if mode == 'r':
-            dataset.close()
-
-            dataset.file_obj = cache_obj
-
-            return None
-                
-        return cache, cache_obj
-
-    def partitions(self, domain, skip_cache, axis=None):
+    def partitions(self, domain, skip_cache, axis=None, skip_data=False, domain_map=None):
         logger.info('Sorting datasets')
 
         self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
 
-        base_units = self.datasets[0].get_time().units
-
         if axis is None:
             axis = self.datasets[0].get_time().id
 
-        logger.info('Generating paritions over axis "{}" caching {}'.format(axis, not skip_cache))
-
         base_units = None
 
-        for ds in self.datasets:
+        for dataset in self.datasets:
+            logger.info('Generating partitions for %s over %s axis, caching %s', dataset.url, axis, not skip_cache) 
+
             cache = None
             cache_obj = None
 
             if base_units is None:
-                base_units = ds.get_time().units
+                base_units = dataset.get_time().units
 
-            try:
-                ds.map_domain(domain, base_units)
-            except DomainMappingError:
-                logger.info('Skipping "{}"'.format(ds.url))
+            if domain_map is None:
+                try:
+                    dataset.map_domain(domain, base_units)
+                except DomainMappingError:
+                    logger.info('Skipping "{}"'.format(dataset.url))
 
-                continue
+                    continue
+            else:
+                dataset_domain = domain_map.get(dataset.url, None)
+
+                if dataset_domain is None or dataset_domain['temporal'] is None:
+                    logger.info('Skipping "{}"'.format(dataset.url))
+
+                    continue
+
+                dataset.temporal = dataset_domain['temporal']
+
+                dataset.spatial = dataset_domain['spatial']
 
             if not skip_cache:
-                cache_result = self.check_cache(ds)
+                dataset_domain = self.generate_dataset_domain(dataset)
 
-                if cache_result is not None:
-                    cache, cache_obj = cache_result
+                cache = self.get_cache_entry(dataset, dataset_domain)
 
-            for chunk in ds.partitions(axis):
-                if cache_obj is not None:
-                    cache_obj.write(chunk, id=ds.variable_name)
+                try:
+                    if cache is None:
+                        logger.info('%s is not in cache', dataset.url)
 
-                    cache_obj.sync()
+                        dimensions = json.dumps(dataset_domain, default=models.slice_default)
 
-                chunk.getTime().toRelativeTime(base_units)
+                        uid = '{}:{}'.format(dataset.url, dataset.variable_name)
 
-                yield ds, chunk
+                        uid_hash = hashlib.sha256(uid).hexdigest()
+
+                        cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
+
+                        cache_obj = cdms2.open(cache.local_path, 'w')
+                    else:
+                        logger.info('%s is in cache', dataset.url)
+
+                        # Swap the source file for the cached file
+                        dataset.close()
+
+                        dataset.file_obj = cdms2.open(cache.local_path)
+
+                        dataset.map_domain(domain, base_units)
+                except cdms2.CDMSError as e:
+                    raise base.AccessError(cache.local_path, e)
+
+            for chunk in dataset.partitions(axis, skip_data):
+                if not skip_data:
+                    if cache_obj is not None:
+                        cache_obj.write(chunk, id=dataset.variable_name)
+
+                        cache_obj.sync()
+
+                    chunk.getTime().toRelativeTime(base_units)
+
+                yield dataset, chunk
 
             if cache is not None:
                 cache.set_size()

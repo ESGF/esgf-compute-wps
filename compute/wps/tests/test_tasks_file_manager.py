@@ -464,163 +464,97 @@ class DataSetTestCase(test.TestCase):
 class DateSetCollectionTestCase(test.TestCase):
 
     def test_partitions(self):
-        domain = cwt.Domain([
-            cwt.Dimension('time', 20, 100),
-            cwt.Dimension('lat', 0, 90),
-        ])
-
-        mock_cache = mock.MagicMock()
-
-        mock_cache_obj = mock.MagicMock()
-
-        collection = file_manager.DataSetCollection()
-
-        collection.check_cache = mock.MagicMock(return_value=(mock_cache, mock_cache_obj))
-
-        mock_dataset1 = mock.MagicMock()
-        mock_dataset1.variable_name = 'tas'
-        mock_dataset1.get_time.return_value.units = 'days since 2000'
-        mock_dataset1.partitions.return_value = [
+        dataset1 = mock.MagicMock()
+        dataset1.get_time.return_value.units = 'days since 1990-1-1'
+        dataset1.get_item.return_value.id = 'time'
+        dataset1.partitions.return_value = [
+            mock.MagicMock(),
+            mock.MagicMock(),
             mock.MagicMock(),
         ]
 
-        mock_dataset2 = mock.MagicMock()
-        mock_dataset2.variable_name = 'tas'
-        mock_dataset2.get_time.return_value.units = 'days since 1990'
-        mock_dataset2.partitions.return_value = [
+        dataset2 = mock.MagicMock()
+        dataset2.get_time.return_value.units = 'days since 1990-1-1'
+        dataset2.get_item.return_value.id = 'time'
+        dataset2.partitions.return_value = [
             mock.MagicMock(),
         ]
 
+        collection = file_manager.DataSetCollection()                
         collection.datasets = [
-            mock_dataset1,
-            mock_dataset2,
+            dataset1,
+            dataset2,
         ]
 
-        result = [x for x in collection.partitions(domain, False)]
-
-        mock_dataset1.partitions.return_value[0].getTime.return_value.toRelativeTime.assert_called_with('days since 1990')
-        mock_dataset2.partitions.return_value[0].getTime.return_value.toRelativeTime.assert_called_with('days since 1990')
-
-        mock_cache_obj.write.assert_has_calls([
-            mock.call(mock_dataset2.partitions.return_value[0], id='tas'),
-            mock.call(mock_dataset1.partitions.return_value[0], id='tas'),
+        domain = cwt.Domain([
+            cwt.Dimension('time', 100, 200),
+            cwt.Dimension('lat', -90, 0)
         ])
 
-        mock_cache_obj.sync.assert_called()
+        partitions = [x for x in collection.partitions(domain, True)]
 
-        mock_cache.set_size.assert_called()
+        self.assertEqual(len(partitions), 4)
 
-        mock_dataset1.map_domain.assert_called_with(domain, 'days since 1990')
-        mock_dataset2.map_domain.assert_called_with(domain, 'days since 1990')
+        for chunk in dataset1.partitions.return_value:
+            chunk.getTime.assert_called_once()
 
-        self.assertEqual(collection.datasets[0], mock_dataset2)
-        self.assertEqual(collection.datasets[1], mock_dataset1)
+    @mock.patch('wps.models.Cache.objects.filter')
+    def test_get_cache_entry_valid(self, mock_model):
+        mock_cache = mock.MagicMock()
+        mock_cache.valid = True
+        mock_cache.is_superset.return_value = True
 
-        self.assertEqual(result[0], (mock_dataset2, mock_dataset2.partitions.return_value[0]))
-        self.assertEqual(result[1], (mock_dataset1, mock_dataset1.partitions.return_value[0]))
+        mock_model.return_value.count.return_value = 1
+        mock_model.return_value.__getitem__.return_value = mock_cache
 
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_check_cache_replace_file_obj(self, mock_open):
-        uid_hash = hashlib.sha256('file:///test1.nc:tas').hexdigest()
-
-        cache_entry = models.Cache.objects.create(uid=uid_hash, url='file:///test1.nc', dimensions='{}')
-
-        ds = file_manager.DataSet(cwt.Variable('file:///test1.nc', 'tas'))
+        dataset = file_manager.DataSet(cwt.Variable('file:///test1.nc', 'tas'))
 
         collection = file_manager.DataSetCollection()
 
-        collection.get_cache_entry = mock.MagicMock(return_value=cache_entry)
-
-        with self.assertNumQueries(0):
-            result = collection.check_cache(ds)
-            
-        mock_open.assert_called_with(cache_entry.local_path, 'r')
-
-        self.assertIsNone(result)
-
-        self.assertEqual(ds.file_obj, mock_open.return_value)
-
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_check_cache_error_opening(self, mock_open):
-        mock_open.side_effect = cdms2.CDMSError('some error')
-
-        ds = file_manager.DataSet(cwt.Variable('file:///test1.nc', 'tas'))
-
-        collection = file_manager.DataSetCollection()
-
-        collection.get_cache_entry = mock.MagicMock(return_value=None)
-
-        with self.assertNumQueries(2):
-            result = collection.check_cache(ds)
-            
-        self.assertIsNone(result)
-
-    @mock.patch('wps.tasks.file_manager.cdms2.open')
-    def test_check_cache(self, mock_open):
-        ds = file_manager.DataSet(cwt.Variable('file:///test1.nc', 'tas'))
-
-        collection = file_manager.DataSetCollection()
-
-        collection.get_cache_entry = mock.MagicMock(return_value=None)
-
-        with self.assertNumQueries(1):
-            cache, cache_obj = collection.check_cache(ds)
-            
-        mock_open.assert_called_with(cache.local_path, 'w')
-
-        self.assertIsNotNone(cache_obj)
-
-    @mock.patch('wps.tasks.file_manager.models.Cache.is_superset')
-    @mock.patch('wps.tasks.file_manager.models.Cache.valid')
-    def test_get_cache_entry_valid(self, mock_valid, mock_superset):
-        mock_superset.return_value = True
-
-        mock_valid.return_value = True
-
-        uid_hash = hashlib.sha256('file:///test1.nc:tas')
-
-        models.Cache.objects.create(uid=uid_hash, url='file:///test1.nc', dimensions=json.dumps({}))
-
-        collection = file_manager.DataSetCollection()
-       
-        entry = collection.get_cache_entry(uid_hash, {})
+        entry = collection.get_cache_entry(dataset, {})
 
         self.assertIsNotNone(entry)
 
-    @mock.patch('wps.tasks.file_manager.models.Cache.is_superset')
-    @mock.patch('wps.tasks.file_manager.models.Cache.valid')
-    def test_get_cache_entry_valid(self, mock_valid, mock_superset):
-        mock_superset.return_value = False
+    @mock.patch('wps.models.Cache.objects.filter')
+    def test_get_cache_entry_invalid(self, mock_model):
+        mock_cache = mock.MagicMock()
+        mock_cache.valid = False
+        mock_cache.is_superset.return_value = True
 
-        mock_valid.return_value = True
+        mock_model.return_value.count.return_value = 1
+        mock_model.return_value.__getitem__.return_value = mock_cache
 
-        uid_hash = hashlib.sha256('file:///test1.nc:tas')
-
-        models.Cache.objects.create(uid=uid_hash, url='file:///test1.nc', dimensions=json.dumps({}))
+        dataset = file_manager.DataSet(cwt.Variable('file:///test1.nc', 'tas'))
 
         collection = file_manager.DataSetCollection()
        
-        entry = collection.get_cache_entry(uid_hash, {})
+        entry = collection.get_cache_entry(dataset, {})
 
         self.assertIsNone(entry)
 
-    def test_get_cache_entry_invalid(self):
-        uid_hash = hashlib.sha256('file:///test1.nc:tas')
+    @mock.patch('wps.models.Cache.objects.filter')
+    def test_get_cache_entry_not_superset(self, mock_model):
+        mock_cache = mock.MagicMock()
+        mock_cache.valid = True
+        mock_cache.is_superset.return_value = False
 
-        models.Cache.objects.create(uid=uid_hash, url='file:///test1.nc', dimensions=json.dumps({}))
+        mock_model.return_value.count.return_value = 1
+        mock_model.return_value.__getitem__.return_value = mock_cache
+
+        dataset = file_manager.DataSet(cwt.Variable('file:///test1.nc', 'tas'))
 
         collection = file_manager.DataSetCollection()
        
-        entry = collection.get_cache_entry(uid_hash, {})
+        entry = collection.get_cache_entry(dataset, {})
 
         self.assertIsNone(entry)
 
     def test_get_cache_entry(self):
-        uid_hash = hashlib.sha256('file:///test1.nc:tas')
+        dataset = file_manager.DataSet(cwt.Variable('file:///test1.nc', 'tas'))
 
         collection = file_manager.DataSetCollection()
        
-        entry = collection.get_cache_entry(uid_hash, {})
+        entry = collection.get_cache_entry(dataset, {})
 
         self.assertIsNone(entry)
 
@@ -701,16 +635,19 @@ class DateSetCollectionTestCase(test.TestCase):
     @mock.patch('wps.tasks.file_manager.cdms2.open')
     def test_context_manager(self, mock_open):
         collection = file_manager.DataSetCollection()
-        
-        collection.add(cwt.Variable('file:///test1.nc', 'tas'))
-        collection.add(cwt.Variable('file:///test1.nc', 'tas'))
-        collection.add(cwt.Variable('file:///test1.nc', 'tas'))
+        collection.datasets = [
+            mock.MagicMock(),
+            mock.MagicMock(),
+            mock.MagicMock(),
+        ]
 
         with collection as collection:
             pass
 
-        self.assertEqual(3, mock_open.call_count)
-        self.assertEqual(3, mock_open.return_value.close.call_count)
+        for dataset in collection.datasets:
+            dataset.open.assert_called_once()
+
+            dataset.close.assert_called_once()
 
     def test_add(self):
         collection = file_manager.DataSetCollection()

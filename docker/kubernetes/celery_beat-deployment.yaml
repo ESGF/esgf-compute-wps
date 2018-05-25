@@ -20,7 +20,7 @@ spec:
       containers:
       - name: celery-beat
         image: jasonb87/cwt_celery:2.0.2
-        args: ["-l", "info", "-B", "-c", "1", "--max-memory-per-child", "204800"]
+        args: ["-c", "1", "--max-memory-per-child", "204800"]
         resources:
           limits:
             cpu: "1"
@@ -29,6 +29,8 @@ spec:
             cpu: "0.25"
             memory: "100Mi"
         env:
+        - name: SUBCOMMAND
+          value: beat
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:
