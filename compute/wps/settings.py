@@ -56,13 +56,13 @@ EDAS_REQ_PORT = setting('WPS_EDAS_REQ_PORT', 5670)
 EDAS_RES_PORT = setting('WPS_EDAS_RES_PORT', 5671)
 
 # Ophidia Settings
-OPH_USER = setting('WPS_OPH_USER', 'oph-test')
-OPH_PASSWORD = setting('WPS_OPH_PASSWORD', 'abcd')
-OPH_HOST = setting('WPS_OPH_HOST', 'aims2.llnl.gov')
-OPH_PORT = setting('WPS_OPH_PORT', '11732')
-OPH_OUTPUT_PATH = setting('WPS_OPH_OUTPUT_PATH', '/wps')
-OPH_OUTPUT_URL = setting('WPS_OPH_OUTPUT_URL', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
-OPH_DEFAULT_CORES = setting('WPS_OPH_DEFAULT_CORES', 2)
+OPH_USER = setting('WPS_OPHIDIA_USER', 'oph-test')
+OPH_PASSWORD = setting('WPS_OPHIDIA_PASSWORD', 'abcd')
+OPH_HOST = setting('WPS_OPHIDIA_HOST', 'aims2.llnl.gov')
+OPH_PORT = setting('WPS_OPHIDIA_PORT', '11732')
+OPH_OUTPUT_PATH = setting('WPS_OPHIDIA_OUTPUT_PATH', '/wps')
+OPH_OUTPUT_URL = setting('WPS_OPHIDIA_OUTPUT_URL', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
+OPH_DEFAULT_CORES = setting('WPS_OPHIDIA_DEFAULT_CORES', 2)
 
 # WPS Settings
 VERSION = setting('WPS_VERSION', '1.0.0')

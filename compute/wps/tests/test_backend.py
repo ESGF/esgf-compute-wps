@@ -33,26 +33,19 @@ class BackendsTestCase(test.TestCase):
 
         backend.initialize()
 
-    def test_add_process_duplicate(self):
-        backend = backends.Backend()
-
-        with self.assertNumQueries(5):
-            backend.add_process('id', 'name')
-
-        with self.assertNumQueries(2):
-            backend.add_process('id', 'name')
-
     def test_add_process_without_abstract(self):
         backend = backends.Backend()
 
-        with self.assertNumQueries(5):
-            backend.add_process('id', 'name')
+        backend.add_process('id', 'name')
+
+        self.assertEqual(len(backend.processes), 1)
 
     def test_add_process(self):
         backend = backends.Backend()
 
-        with self.assertNumQueries(5):
-            backend.add_process('id', 'name', 'abstract')
+        backend.add_process('id', 'name', 'abstract')
+
+        self.assertEqual(len(backend.processes), 1)
 
     def test_get_backend_does_not_exist(self):
         backend = backends.Backend.get_backend('DE')
@@ -60,11 +53,11 @@ class BackendsTestCase(test.TestCase):
         self.assertIsNone(backend)
 
     def test_get_backend(self):
-        backend = backends.Backend.get_backend('Local')
+        backend = backends.Backend.get_backend('CDAT')
 
-        self.assertEqual(backend, backends.Backend.registry['Local'])
+        self.assertEqual(backend, backends.Backend.registry['CDAT'])
 
     def test_registry(self):
-        expected = ['Local', 'Ophidia', 'EDAS']
+        expected = ['CDAT', 'Ophidia', 'EDAS']
 
         self.assertEqual(backends.Backend.registry.keys(), expected)

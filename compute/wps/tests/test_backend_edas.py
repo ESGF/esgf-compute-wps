@@ -76,7 +76,9 @@ class EDASBackendTestCase(test.TestCase):
     def test_populate_processes(self):
         self.backend.get_capabilities = mock.Mock(return_value='<response><processes><process><description id="test" title="Test">abstract</description></process></processes></response>')
 
-        with self.assertNumQueries(6):
+        settings.WPS_EDAS_ENABLED = True
+
+        with self.assertNumQueries(1):
             self.backend.populate_processes()
 
     def test_initialize(self):

@@ -1,6 +1,7 @@
 import cwt
 import mock
 from django import test
+from django.conf import settings
 
 from wps import models
 from wps import WPSError
@@ -46,8 +47,9 @@ class OphidiaBackendTestCase(test.TestCase):
     def test_populate_processes(self):
         process_count = len(ophidia.PROCESSES)
 
-        with self.assertNumQueries(5 * process_count):
-            self.backend.populate_processes()
+        self.backend.populate_processes()
+
+        self.assertEqual(len(self.backend.processes), process_count)
 
     def test_initialize(self):
         with self.assertNumQueries(0):

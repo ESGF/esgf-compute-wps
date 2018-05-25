@@ -137,14 +137,14 @@ WPS_EDAS_REQ_PORT = config.get_value('edas', 'wps.edas.req.port', 5670, int)
 WPS_EDAS_RES_PORT = config.get_value('edas', 'wps.edas.res.port', 5671, int)
 WPS_EDAS_TIMEOUT = config.get_value('edas', 'wps.edas.timeout', 30, int)
 
-WPS_OPH_ENABLED = config.get_value('ophidia', 'wps.oph.enabled', False, bool)
-WPS_OPH_USER = config.get_value('ophidia', 'wps.oph.user', 'oph-test')
-WPS_OPH_PASSWORD = config.get_value('ophidia', 'wps.oph.password', 'abcd')
-WPS_OPH_HOST = config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov')
-WPS_OPH_PORT = config.get_value('ophidia', 'wps.oph.port', 11732, int)
-WPS_OPH_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.output.path', '/wps')
-WPS_OPH_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
-WPS_OPH_DEFAULT_CORES = config.get_value('ophidia', 'wps.oph.default.cores', 8, int)
+WPS_OPHIDIA_ENABLED = config.get_value('ophidia', 'wps.oph.enabled', False, bool)
+WPS_OPHIDIA_USER = config.get_value('ophidia', 'wps.oph.user', 'oph-test')
+WPS_OPHIDIA_PASSWORD = config.get_value('ophidia', 'wps.oph.password', 'abcd')
+WPS_OPHIDIA_HOST = config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov')
+WPS_OPHIDIA_PORT = config.get_value('ophidia', 'wps.oph.port', 11732, int)
+WPS_OPHIDIA_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.output.path', '/wps')
+WPS_OPHIDIA_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
+WPS_OPHIDIA_DEFAULT_CORES = config.get_value('ophidia', 'wps.oph.default.cores', 8, int)
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 

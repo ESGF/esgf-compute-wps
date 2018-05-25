@@ -13,9 +13,9 @@ class LocalBackendTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json']
 
     def setUp(self):
-        self.backend = backends.Local()
+        self.backend = backends.CDAT()
 
-        models.Process.objects.filter(backend='Local').delete()
+        models.Process.objects.filter(backend='CDAT').delete()
 
         self.server = models.Server.objects.get(host='default')
 
@@ -103,10 +103,9 @@ class LocalBackendTestCase(test.TestCase):
     def test_populate_processes(self):
         count = len(tasks.REGISTRY)
 
-        queries_per_process = 5
+        self.backend.populate_processes()
 
-        with self.assertNumQueries(count * queries_per_process):
-            self.backend.populate_processes()
+        self.assertEqual(len(self.backend.processes), count)
 
     def test_initialize(self):
         with self.assertNumQueries(0):
