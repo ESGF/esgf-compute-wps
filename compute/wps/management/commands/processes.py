@@ -64,6 +64,6 @@ class Command(BaseCommand):
                     processes = models.Process.objects.filter(backend=name)
 
                     if len(processes) > 0:
-                        processes.delete()
+                        result = processes.delete()
 
                         self.stdout.write(self.style.SUCCESS('  Removed {} processes'.format(result[1].get('wps.Process', 0))))
