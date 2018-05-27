@@ -4,7 +4,7 @@ from django.conf.urls import url
 import views
 
 urlpatterns = [
-    url(r'^$', views.wps),
+    url(r'^$', views.wps_entrypoint),
     url(r'^execute/$', views.execute),
     url(r'^processes/$', views.processes),
     url(r'^search/$', views.search_dataset),

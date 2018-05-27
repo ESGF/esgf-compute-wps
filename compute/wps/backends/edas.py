@@ -9,7 +9,6 @@ from celery.task.control import revoke
 from wps import models
 from wps import settings
 from wps import tasks
-from wps import wps_xml
 from wps import WPSError
 from wps.backends import backend
 
