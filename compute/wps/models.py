@@ -24,6 +24,8 @@ from openid import association
 from openid.store import interface
 from openid.store import nonce
 
+import wps
+
 logger = logging.getLogger('wps.models')
 
 KBYTE = 1024

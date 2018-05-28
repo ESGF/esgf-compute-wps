@@ -215,8 +215,8 @@ def handle_post(data, params):
 
     # Build to format [variable=[];domain=[];operation=[]]
     data_inputs = '[{0}]'.format(
-        ';'.join('{0}={1}'.format(x.identifier, x.data) 
-                 for x in request.DataInputs))
+        ';'.join('{0}={1}'.format(x.Identifier.value(), x.Data.LiteralData.value()) 
+                 for x in request.DataInputs.Input))
 
     # CDAS doesn't like single quotes
     data_inputs = data_inputs.replace('\'', '\"')
@@ -225,7 +225,7 @@ def handle_post(data, params):
 
     logger.info('Handling POST request for API key %s', api_key)
 
-    return api_key, 'execute', request.identifier, data_inputs
+    return api_key, 'execute', request.Identifier.value(), data_inputs
 
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
