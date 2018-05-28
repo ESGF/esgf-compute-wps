@@ -3,13 +3,13 @@ from __future__ import absolute_import
 import collections
 import logging
 
+from django.conf import settings
 from openid.consumer import consumer
 from openid.consumer import discover
 from openid.extensions import ax
 from openid.yadis import manager
 
 from wps import models
-from wps import settings
 from wps import WPSError
 
 logger = logging.getLogger('wps.auth.openid')
@@ -102,14 +102,14 @@ def begin(request, openid_url):
 
     auth_request.addExtension(fetch_request)
 
-    url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
+    url = auth_request.redirectURL(settings.WPS_OPENID_TRUST_ROOT, settings.WPS_OPENID_RETURN_TO)
 
     return url
 
 def complete(request):
     c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
 
-    response = c.complete(request.GET, settings.OPENID_RETURN_TO)
+    response = c.complete(request.GET, settings.WPS_OPENID_RETURN_TO)
 
     if response.status == consumer.CANCEL:
         raise AuthenticationCancelError(response)

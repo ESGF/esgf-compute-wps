@@ -3,10 +3,10 @@ import json
 
 import mock
 from django import test
+from django.conf import settings
 
 from . import helpers
 from wps import models
-from wps import settings
 
 class CacheModelTestCase(test.TestCase):
 
@@ -385,7 +385,7 @@ class CacheModelTestCase(test.TestCase):
 
         filename_hash = hashlib.sha256(cache.uid+cache.dimensions).hexdigest()
 
-        expected = '{}/{}.nc'.format(settings.CACHE_PATH, filename_hash)
+        expected = '{}/{}.nc'.format(settings.WPS_CACHE_PATH, filename_hash)
 
         local_path = cache.local_path
 

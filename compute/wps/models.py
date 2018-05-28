@@ -13,6 +13,7 @@ from urlparse import urlparse
 
 import cdms2
 import cwt
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import F
@@ -22,8 +23,6 @@ from django.utils import timezone
 from openid import association
 from openid.store import interface
 from openid.store import nonce
-
-from wps import settings
 
 logger = logging.getLogger('wps.models')
 
@@ -246,7 +245,7 @@ class Cache(models.Model):
 
         file_name = '{}.nc'.format(dimension_hash)
 
-        return os.path.join(settings.CACHE_PATH, file_name)
+        return os.path.join(settings.WPS_CACHE_PATH, file_name)
 
     @property
     def valid(self):
@@ -612,7 +611,7 @@ class Job(models.Model):
 
     @property
     def report(self):
-        location = settings.STATUS_LOCATION.format(job_id=self.id)
+        location = settings.WPS_STATUS_LOCATION.format(job_id=self.id)
 
         latest = self.status_set.latest('created_date')
 
@@ -620,27 +619,38 @@ class Job(models.Model):
             ex_report = cwt.wps.CreateFromDocument(latest.exception)
 
             status = cwt.wps.status_failed_from_report(ex_report)
+        elif latest.status == ProcessAccepted:
+            status = cwt.wps.status_accepted('Job accepted')
         elif latest.status == ProcessStarted:
             message = latest.message_set.latest('created_date')
 
             status = cwt.wps.status_started(message.message, message.percent)
-        elif latest.status == ProcessAccepted:
-            status = cwt.wps.status_accepted('Job accepted')
         elif latest.status == ProcessPaused:
             message = latest.message_set.latest('created_date')
 
             status = cwt.wps.status_paused(message.message, message.percent)
         elif latest.status == ProcessSucceeded:
-            status = cwt.wps.status_succeeded('Job success')
+            status = cwt.wps.status_succeeded('Job succeeded')
 
         outputs = []
 
-        if latest.output is not None:
-            outputs.append(latest.output)
+        outputs.append(cwt.wps.output_data('output', 'output', latest.output))
 
         process = cwt.wps.process(self.process.identifier, self.process.identifier, '1.0.0')
 
-        response = cwt.wps.execute_response(process, status, '1.0.0', 'en-US', settings.ENDPOINT, location, outputs)
+        args = [
+            process,
+            status,
+            '1.0.0',
+            'en-US',
+            settings.WPS_ENDPOINT,
+            location,
+            outputs
+        ]
+
+        response = cwt.wps.execute_response(*args)
+
+        cwt.bds.reset()
 
         return response.toxml(bds=cwt.bds)
 
@@ -666,10 +676,12 @@ class Job(models.Model):
 
         status = self.status_set.create(status=ProcessSucceeded)
 
-        if output is not None:
-            status.output = cwt.wps.output_data('output', 'output', output).toxml(bds=cwt.bds)
+        if output is None:
+            output = ''
 
-            status.save()
+        status.output = output
+
+        status.save()
 
     def failed(self, exception=None):
         self.process.failed()
@@ -677,11 +689,7 @@ class Job(models.Model):
         status = self.status_set.create(status=ProcessFailed)
 
         if exception is not None:
-            ex = cwt.ows.exception(exception, cwt.ows.NoApplicableCode)
-
-            ex_report = cwt.ows.exception_report(settings.VERSION, [ex])
-
-            status.exception = ex_report.toxml(bds=cwt.bds)
+            status.exception = wps.exception_report(exception, cwt.ows.NoApplicableCode)
 
             status.save()
 

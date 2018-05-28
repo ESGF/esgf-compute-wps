@@ -1,11 +1,11 @@
 import mock
 import random
 from django import test
+from django.conf import settings
 from django.utils import timezone
 
 from . import helpers
 from wps import models
-from wps import settings
 from wps.tasks import cache
 
 class CacheTaskTestCase(test.TestCase):
@@ -26,7 +26,7 @@ class CacheTaskTestCase(test.TestCase):
     def test_cache_free_space(self, mock_exists, mock_remove):
         mock_exists.return_value = True
 
-        new_size = settings.CACHE_GB_MAX_SIZE / 10
+        new_size = settings.WPS_CACHE_GB_MAX_SIZE / 10
 
         cached = models.Cache.objects.all()
 
@@ -54,7 +54,7 @@ class CacheTaskTestCase(test.TestCase):
         cached = random.sample(models.Cache.objects.all(), 4)
 
         for item in cached:
-            models.Cache.objects.filter(pk=item.pk).update(accessed_date=timezone.now() - settings.CACHE_MAX_AGE - timezone.timedelta(days=30))
+            models.Cache.objects.filter(pk=item.pk).update(accessed_date=timezone.now() - settings.WPS_CACHE_MAX_AGE - timezone.timedelta(days=30))
 
         with self.assertNumQueries(7):
             cache.cache_clean()

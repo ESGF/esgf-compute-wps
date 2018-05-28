@@ -5,7 +5,6 @@ from django import test
 
 from wps import backends
 from wps import models
-from wps import settings
 
 class BackendsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json']

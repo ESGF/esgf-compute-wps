@@ -115,10 +115,10 @@ os.environ['WPS_TEST'] = 'test'
 
 django.setup()
 
-from wps import settings
+from django.conf import settings
 from wps.tasks import process
 
-settings.CACHE_PATH = os.path.abspath('./cache')
+settings.WPS_CACHE_PATH = os.path.abspath('./cache')
 
 output_dir = os.path.abspath('./output')
 
@@ -142,10 +142,10 @@ ps_fields = [
 ]
 
 def clean():
-    if os.path.exists(settings.CACHE_PATH):
-        shutil.rmtree(settings.CACHE_PATH)
+    if os.path.exists(settings.WPS_CACHE_PATH):
+        shutil.rmtree(settings.WPS_CACHE_PATH)
 
-    os.makedirs(settings.CACHE_PATH)
+    os.makedirs(settings.WPS_CACHE_PATH)
 
     if os.path.exists(TEST_OUTPUT):
         os.remove(TEST_OUTPUT)

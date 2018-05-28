@@ -7,7 +7,6 @@ from django import test
 
 from . import helpers
 from wps import models
-from wps import settings
 from wps import WPSError
 from wps.tasks import cdat
 from wps.tasks import edas

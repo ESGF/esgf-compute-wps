@@ -11,7 +11,6 @@ from django import test
 
 from . import helpers
 from wps import models
-from wps import settings
 from wps import tasks
 from wps.tasks import file_manager
 

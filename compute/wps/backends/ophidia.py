@@ -1,7 +1,9 @@
 import logging
 
+import cwt
+from django.conf import settings
+
 from wps import tasks
-from wps import settings
 from wps import WPSError
 from wps.backends import backend
 from wps.tasks.ophidia import PROCESSES
@@ -35,9 +37,9 @@ class Ophidia(backend.Backend):
 
         domain = operation.domain
 
-        variable_dict = dict((x, variables[x].parameterize()) for x in operation.inputs)
+        variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
 
-        domain_dict = {domain: domains[domain].parameterize()}
+        domain_dict = { domain.name: domain.parameterize() }
 
         logger.info('Variables {}'.format(variable_dict))
 
@@ -47,7 +49,7 @@ class Ophidia(backend.Backend):
 
         cache_task = tasks.cache_variable.si({}, variable_dict, domain_dict, operation.parameterize(), **params)
 
-        operation.inputs = [operation.name]
+        operation.inputs = [cwt.Variable('', '', name=operation.name)]
 
         oph_task = tasks.oph_submit.s({}, domain_dict, operation.parameterize(), **params)
 

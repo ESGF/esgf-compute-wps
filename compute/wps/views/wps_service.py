@@ -7,6 +7,7 @@ import cwt
 import django
 import cwt
 from django import http
+from django.conf import settings
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from lxml import etree
@@ -17,7 +18,6 @@ from wps import backends
 from wps import helpers
 from wps import models
 from wps import tasks
-from wps import settings
 from wps import WPSError
 
 logger = common.logger
@@ -45,7 +45,7 @@ class WPSScriptGenerator(object):
 
         buf.write('api_key=\'{}\'\n\n'.format(self.user.auth.api_key))
 
-        buf.write('wps = cwt.WPS(\'{}\', api_key=api_key)\n\n'.format(settings.ENDPOINT))
+        buf.write('wps = cwt.WPS(\'{}\', api_key=api_key)\n\n'.format(settings.WPS_ENDPOINT))
 
     def write_variables(self, buf):
         for v in self.variable.values():
@@ -140,7 +140,7 @@ class WPSScriptGenerator(object):
         return data
 
 def load_data_inputs(data_inputs, resolve_inputs=False):
-    o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
+    o, d, v = cwt.WPSClient.parse_data_inputs(data_inputs)
 
     v = dict((x.name, x) for x in v)
 
@@ -348,9 +348,7 @@ def regen_capabilities(request):
 
         process_offerings = cwt.wps.process_offerings(processes)
 
-        capabilities = wps.generate_capabilities(process_offerings)
-
-        server.capabilities = capabilities.toxml(bds=wps.bds)
+        server.capabilities = wps.generate_capabilities(process_offerings)
 
         server.save()
     except WPSError as e:

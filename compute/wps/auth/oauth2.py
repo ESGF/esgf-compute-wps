@@ -4,10 +4,9 @@ import logging
 import os
 from base64 import b64encode
 
+from django.conf import settings
 from OpenSSL import crypto
 from requests_oauthlib import OAuth2Session
-
-from wps import settings
 
 logger = logging.getLogger('wps.auth.oauth2')
 
@@ -65,7 +64,7 @@ def get_token(token_uri, request_url, oauth_state):
     secret = get_env('OAUTH_SECRET')
 
     slcs = OAuth2Session(client_id,
-            redirect_uri=settings.OAUTH2_CALLBACK,
+            redirect_uri=settings.WPS_OAUTH2_CALLBACK,
             state=oauth_state)
 
     try:
@@ -85,7 +84,7 @@ def get_authorization_url(auth_uri, cert_uri):
         cert_uri = '{}/'.format(cert_uri)
 
     slcs = OAuth2Session(client_id,
-            redirect_uri=settings.OAUTH2_CALLBACK,
+            redirect_uri=settings.WPS_OAUTH2_CALLBACK,
             scope=[cert_uri])
 
     try:
