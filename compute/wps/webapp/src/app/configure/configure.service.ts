@@ -18,7 +18,7 @@ export class Process {
     public identifier: string = '',
     public inputs: (Variable | Process)[] = [],
     public domain: Axis[] = [],
-    public regrid: RegridModel = new RegridModel('None', null, null, 3.0, null, null, 4.0),
+    public regrid: RegridModel = new RegridModel('ESMF', 'Linear', 'None', null, null, 3.0, null, null, 4.0),
     public parameters: any[] = [],
   ) { 
     this.uid = Math.random().toString(16).slice(2); 
@@ -74,7 +74,7 @@ export class Process {
 
     // defin the global regrid options
     if (this.regrid.regridType !== 'None') {
-      regrid = { tool: 'esmf', method: 'linear' };
+      regrid = { tool: this.regrid.regridTool, method: this.regrid.regridMethod };
 
       if (this.regrid.regridType === 'Gaussian') {
         regrid['grid'] = `gaussian~${this.regrid.nLats}`;

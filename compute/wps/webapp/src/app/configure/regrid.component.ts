@@ -2,7 +2,9 @@ import { Component, Input } from '@angular/core';
 
 export class RegridModel {
   constructor(
-    public regridType: string = 'None',
+    public regridTool: string,
+    public regridMethod: string,
+    public regridType: string,
     public startLats: number,
     public nLats: number,
     public deltaLats: number,
@@ -20,6 +22,19 @@ export class RegridModel {
   }
   `],
   template: `
+  <label for="regridTool">Tool</label>
+  <select [(ngModel)]="model.regridTool" (ngModelChange)="regridToolChange($event)" class="form-control select-spacer" id="regridTool" name="regridTool">
+    <option *ngFor="let tool of regridOptions">
+      {{ tool.name }}
+    </option>
+  </select>
+  <label for="regridMethod">Method</label>
+  <select [(ngModel)]="model.regridMethod" class="form-control select-spacer" id="regridMethod" name="regridMethod">
+    <option *ngFor="let method of regridMethods">
+      {{ method }}
+    </option>
+  </select>
+  <label for="regridType">Grid</label>
   <select [(ngModel)]="model.regridType" (ngModelChange)="modelChange($event)" class="form-control select-spacer" id="regridType" name="regridType">
     <option>None</option>
     <option>Gaussian</option>
@@ -59,6 +74,31 @@ export class RegridModel {
 })
 export class RegridComponent { 
   @Input() model: RegridModel;
+
+  regridMethods: string[] = [];
+
+  regridOptions = [
+    {
+      name: 'ESMF',
+      methods: ['Conserve', 'Linear', 'Patch']
+    },
+    {
+      name: 'Regrid2',
+      methods: ['Conserve', 'Linear']
+    }
+  ]
+
+  constructor() {
+    this.regridMethods = this.regridOptions[0].methods;
+  }
+
+  regridToolChange(data: any) {
+    this.regridMethods = this.regridOptions.filter(x => x.name === data)[0].methods
+
+    if (this.regridMethods.find(x => x == this.model.regridMethod) == undefined) {
+      this.model.regridMethod = this.regridMethods[0];
+    }
+  }
 
   modelChange(data: string) {
     if (data == 'Gaussian') {
