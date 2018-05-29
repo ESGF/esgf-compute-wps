@@ -128,7 +128,7 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
             response = requests.get(url, params)
         except requests.ConnectionError:
             raise Exception('Connection timed out')
-        except requests.RequestWPSError as e:
+        except requests.RequestException as e:
             raise Exception('Request failed: "{}"'.format(e))
 
         #with open('./data/solr_full.json', 'w') as outfile:
