@@ -6,7 +6,7 @@ pipeline {
             agent { 
                 docker { 
                     image 'conda-agent' 
-                    args '--network outside'
+                    args '--network outside -v /opt/conda/pkgs:/opt/docker/cache/pks'
                 }
             }
             
