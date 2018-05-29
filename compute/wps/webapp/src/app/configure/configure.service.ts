@@ -64,11 +64,22 @@ export class Process {
     let gDomain: {[k: string]: any} = { id: domainID };
 
     this.domain.forEach((axis: Axis) => {
+      if (axis.crs.toLowerCase() === 'indices') {
+        // Check that all values are integers
+        let check = [axis.start, axis.stop, axis.step]
+          .map(x => Number.isInteger(x) && x >= 0)
+          .every(x => x);
+
+        if (!check) {
+          throw `Axis "${axis.id}" CRS is set to "${axis.crs}", all values must be positive whole numbers`;
+        }
+      }
+
       gDomain[axis.id] = {
         start: axis.start,
         end: axis.stop,
         step: axis.step,
-        crs: 'values'
+        crs: axis.crs
       };
     });
 
