@@ -109,7 +109,8 @@ describe('Configuration Service', () => {
         start: 0,
         stop: 2000,
         step: 2,
-        units: 'days since 1990-1-1'
+        units: 'days since 1990-1-1',
+        crs: 'Values'
       },
       {
         id: 'longitude',
@@ -117,7 +118,8 @@ describe('Configuration Service', () => {
         start: 0,
         stop: 190,
         step: 2,
-        units: 'degrees west'
+        units: 'degrees west',
+        crs: 'Values'
       }
     ];
     let axisResult: Axis[];

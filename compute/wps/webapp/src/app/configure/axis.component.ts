@@ -16,6 +16,7 @@ export interface Axis {
   start: number;
   stop: number;
   step: number;
+  crs: string;
 }
 
 @Component({
@@ -32,12 +33,26 @@ export interface Axis {
     <div id="collapse{{id}}{{axisIndex}}" class="panel-collapse collapse">
       <div class="panel-body">
         <form #dimForm{{axisIndex}}="ngForm">
-          <label for="start{{axisIndex}}">Start</label>     
-          <input [ngModel]="axis.start" (ngModelChange)="start.next($event)" name="start" class="form-control" type="string" id="start{{axisIndex}}">
-          <label for="stop{{axisIndex}}">Stop</label> 
-          <input [ngModel]="axis.stop" (ngModelChange)="stop.next($event)" name="stop" class="form-control" type="string" id="stop{{axisIndex}}">
-          <label for="step{{axisIndex}}">Step</label> 
-          <input [ngModel]="axis.step" (ngModelChange)="step.next($event)" name="step" class="form-control" type="string" id="step{{axisIndex}}">
+          <div>
+            <label for="crs{{axisIndex}}">CRS</label>
+            <br />
+            <select [(ngModel)]="axis.crs" name="crs" id="crs{{axisIndex}}" class="form-control">
+              <option>Values</option>
+              <option>Indices</option>
+            </select>
+          </div>
+          <div>
+            <label for="start{{axisIndex}}">Start</label>     
+            <input [ngModel]="axis.start" (ngModelChange)="start.next($event)" name="start" class="form-control" type="string" id="start{{axisIndex}}">
+          </div>
+          <div>
+            <label for="stop{{axisIndex}}">Stop</label> 
+            <input [ngModel]="axis.stop" (ngModelChange)="stop.next($event)" name="stop" class="form-control" type="string" id="stop{{axisIndex}}">
+          </div>
+          <div>
+            <label for="step{{axisIndex}}">Step</label> 
+            <input [ngModel]="axis.step" (ngModelChange)="step.next($event)" name="step" class="form-control" type="string" id="step{{axisIndex}}">
+          </div>
         </form>
       </div>
     </div>

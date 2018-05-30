@@ -18,7 +18,7 @@ export class Process {
     public identifier: string = '',
     public inputs: (Variable | Process)[] = [],
     public domain: Axis[] = [],
-    public regrid: RegridModel = new RegridModel(),
+    public regrid: RegridModel = new RegridModel('ESMF', 'Linear', 'None', null, null, 3.0, null, null, 4.0),
     public parameters: any[] = [],
   ) { 
     this.uid = Math.random().toString(16).slice(2); 
@@ -39,18 +39,6 @@ export class Process {
   validate() { 
     if (this.inputs.length === 0) {
       throw `Process "${this.identifier} - ${this.uid}" must have atleast one input`;
-    }
-
-    if (this.regrid.regridType !== 'None') {
-      if (this.regrid.regridType === 'Uniform') {
-        if (this.regrid.lons === 0) {
-          throw `Regrid option "${this.regrid.regridType}" requires Longitude to be set`;
-        }
-      }
-
-      if (this.regrid.lats === 0) {
-        throw `Regrid option "${this.regrid.regridType}" require Latitude to be set`;
-      }
     }
 
     this.parameters.forEach((param: Parameter) => {
@@ -76,22 +64,48 @@ export class Process {
     let gDomain: {[k: string]: any} = { id: domainID };
 
     this.domain.forEach((axis: Axis) => {
+      if (axis.crs.toLowerCase() === 'indices') {
+        // Check that all values are integers
+        let check = [axis.start, axis.stop, axis.step]
+          .map(x => Number.isInteger(x) && x >= 0)
+          .every(x => x);
+
+        if (!check) {
+          throw `Axis "${axis.id}" CRS is set to "${axis.crs}", all values must be positive whole numbers`;
+        }
+      }
+
       gDomain[axis.id] = {
         start: axis.start,
         end: axis.stop,
         step: axis.step,
-        crs: 'values'
+        crs: axis.crs
       };
     });
 
     // defin the global regrid options
     if (this.regrid.regridType !== 'None') {
-      regrid = { tool: 'esmf', method: 'linear' };
+      regrid = { tool: this.regrid.regridTool, method: this.regrid.regridMethod };
 
       if (this.regrid.regridType === 'Gaussian') {
-        regrid['grid'] = `gaussian~${this.regrid.lats}`;
+        regrid['grid'] = `gaussian~${this.regrid.nLats}`;
       } else if (this.regrid.regridType === 'Uniform') {
-        regrid['grid'] = `uniform~${this.regrid.lats}x${this.regrid.lons}`;
+        let lats = '';
+        let lons = '';
+
+        if (this.regrid.startLats != null && this.regrid.deltaLats != null) {
+          lats = `${this.regrid.startLats}:${this.regrid.nLats}:${this.regrid.deltaLats}` 
+        } else {
+          lats = `${this.regrid.deltaLats}`
+        }
+ 
+        if (this.regrid.startLons != null && this.regrid.deltaLons != null) {
+          lons = `${this.regrid.startLons}:${this.regrid.nLons}:${this.regrid.deltaLons}`
+        } else {
+          lons = `${this.regrid.deltaLons}`
+        }
+
+        regrid['grid'] = `uniform~${lats}x${lons}`;
       }
     }
 

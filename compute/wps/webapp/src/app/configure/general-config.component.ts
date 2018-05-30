@@ -122,12 +122,12 @@ export class GeneralConfigComponent implements OnInit {
         .then(data => {
           // cached copy of the axes
           this.config.variable.axes = data.map((axis: Axis) => {
-            return {step: 1, ...axis}; 
+            return {step: 1, crs: 'Values', ...axis}; 
           });
 
           // create a copy for editing
           this.config.process.domain = data.map((axis: Axis) => {
-            return {step: 1, ...axis};
+            return {step: 1, crs: 'Values', ...axis};
           });
         })
         .catch(error => {
@@ -136,7 +136,7 @@ export class GeneralConfigComponent implements OnInit {
     } else {
       // create a copy for editing
       this.config.process.domain = this.config.process.domain.map((axis: Axis) => {
-        return {step: 1, ...axis};
+        return {step: 1, crs: 'Values', ...axis};
       });
     }
   }
