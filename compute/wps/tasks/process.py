@@ -13,7 +13,6 @@ from celery.utils.log import get_task_logger
 
 from wps import helpers
 from wps import models
-from wps import settings
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import credentials

@@ -3,17 +3,17 @@ import os
 from celery import current_app
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.conf import settings
 from django.db.models import Sum
 from django.utils import timezone
 
 from wps import models
-from wps import settings
 
 logger = get_task_logger('wps.tasks.cache')
 
 @current_app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(settings.CACHE_CHECK, cache_clean.s())
+    sender.add_periodic_task(settings.WPS_CACHE_CHECK, cache_clean.s())
 
 @shared_task
 def cache_clean():
@@ -31,7 +31,7 @@ def cache_clean():
             item.delete()
 
     # Look for expired/stale cache entries
-    threshold = timezone.now() - settings.CACHE_MAX_AGE
+    threshold = timezone.now() - settings.WPS_CACHE_MAX_AGE
 
     cached = models.Cache.objects.filter(accessed_date__lt=threshold)
 
@@ -46,13 +46,13 @@ def cache_clean():
 
     used_space = models.Cache.objects.all().aggregate(Sum('size'))['size__sum']
 
-    if used_space is not None and used_space >= settings.CACHE_GB_MAX_SIZE:
+    if used_space is not None and used_space >= settings.WPS_CACHE_GB_MAX_SIZE:
         freed_space = 0
         to_remove = []
 
-        logger.info('Free additional space "{}" GB used of "{}" GB'.format(used_space, settings.CACHE_GB_MAX_SIZE))
+        logger.info('Free additional space "{}" GB used of "{}" GB'.format(used_space, settings.WPS_CACHE_GB_MAX_SIZE))
 
-        target_used_space = float(used_space) * (1.0-settings.CACHE_FREED_PERCENT)
+        target_used_space = float(used_space) * (1.0-settings.WPS_CACHE_FREED_PERCENT)
 
         logger.info('Target used space "{}" GB'.format(target_used_space))
 

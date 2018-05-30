@@ -75,7 +75,7 @@ class JobViewsTestCase(test.TestCase):
 
         data = helpers.check_success(self, response)
         
-        self.assertEqual(len(data['data']), 42)
+        self.assertEqual(len(data['data']), 5)
 
     def test_jobs_missing_authentication(self):
         response = self.client.get('/wps/jobs/')

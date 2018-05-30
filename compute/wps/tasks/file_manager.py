@@ -6,9 +6,9 @@ import hashlib
 import json
 import math
 from celery.utils.log import get_task_logger
+from django.conf import settings
 
 from wps import models
-from wps import settings
 from wps.tasks import base
 
 __ALL__ = [
@@ -149,7 +149,7 @@ class DataSet(object):
 
             diff = stop - start
 
-            step = min(diff, settings.PARTITION_SIZE)
+            step = min(diff, settings.WPS_PARTITION_SIZE)
 
             for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)
@@ -174,7 +174,7 @@ class DataSet(object):
 
             diff = stop - start
 
-            step = min(diff, settings.PARTITION_SIZE)
+            step = min(diff, settings.WPS_PARTITION_SIZE)
 
             for begin in xrange(start, stop, step):
                 end = min(begin + step, stop)

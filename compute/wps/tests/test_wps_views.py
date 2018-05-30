@@ -4,8 +4,6 @@ import random
 
 import cwt
 import mock
-from cwt.wps_lib import metadata
-from cwt.wps_lib import operations
 from django import test
 
 from . import helpers
@@ -29,7 +27,7 @@ class WPSViewsTestCase(test.TestCase):
 
         op = cwt.Process(identifier='CDAT.subset')
         op.domain = domains.values()[0]
-        op.set_inputs(*variables.values())
+        op.add_inputs(*variables.values())
         op.parameters['gridder'] = gridder
         op.parameters['axes'] = cwt.NamedParameter('axes', 'time')
 
@@ -195,27 +193,6 @@ class WPSViewsTestCase(test.TestCase):
                                              'identifier': 'CDAT.doesnotexist', 
                                              'datainputs': datainputs, 
                                              'api_key': 'new_key'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_execute_post(self):
-        user = models.User.objects.first()
-
-        user.auth.api_key = 'new_key'
-
-        user.auth.save()
-
-        variable = metadata.Input(identifier='variable', data=metadata.ComplexData(value='[{"id":"tas|tas","uri":"file:///test.nc"}]'))
-
-        domain = metadata.Input(identifier='domain', data=metadata.ComplexData(value='[]'))
-
-        operation = metadata.Input(identifier='operation', data=metadata.ComplexData(value='[{"name":"CDAT.subset","input":["tas"]}]'))
-    
-        datainputs = operations.ExecuteRequest(service='WPS', version='1.0.0', identifier='CDAT.subset', data_inputs=[variable, domain, operation])
-
-        response = self.client.post('/wps/', datainputs.xml(), content_type='text/xml')
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'text/xml')

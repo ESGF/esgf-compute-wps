@@ -9,8 +9,8 @@ import cwt
 import dask.array as da
 from cdms2 import MV2 as MV
 from celery.utils.log import get_task_logger
+from django.conf import settings
 
-from wps import settings
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import process
@@ -100,7 +100,7 @@ def retrieve_base(self, operation, num_inputs, user_id, job_id, process_id, vali
 
     output_name = '{}.nc'.format(str(uuid.uuid4()))
 
-    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
+    output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
 
     try:
         with cdms2.open(output_path, 'w') as output_file:
@@ -110,10 +110,10 @@ def retrieve_base(self, operation, num_inputs, user_id, job_id, process_id, vali
     except WPSError:
         raise
 
-    if settings.DAP:
-        output_url = settings.DAP_URL.format(filename=output_name)
+    if settings.WPS_DAP:
+        output_url = settings.WPS_DAP_URL.format(filename=output_name)
     else:
-        output_url = settings.OUTPUT_URL.format(filename=output_name)
+        output_url = settings.WPS_OUTPUT_URL.format(filename=output_name)
 
     output_variable = cwt.Variable(output_url, output_var_name).parameterize()
 
@@ -209,7 +209,7 @@ def process_base(self, process_func, num_inputs, operation, user_id, job_id, pro
 
     output_name = '{}.nc'.format(str(uuid.uuid4()))
 
-    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
+    output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
 
     try:
         with cdms2.open(output_path, 'w') as output_file:
@@ -221,10 +221,10 @@ def process_base(self, process_func, num_inputs, operation, user_id, job_id, pro
         logger.exception('WPS ERROR')
         raise
 
-    if settings.DAP:
-        output_url = settings.DAP_URL.format(filename=output_name)
+    if settings.WPS_DAP:
+        output_url = settings.WPS_DAP_URL.format(filename=output_name)
     else:
-        output_url = settings.OUTPUT_URL.format(filename=output_name)
+        output_url = settings.WPS_OUTPUT_URL.format(filename=output_name)
 
     output_variable = cwt.Variable(output_url, output_var_name).parameterize()
 
@@ -244,7 +244,7 @@ def cache_variable(self, parent_variables, variables, domains, operation, user_i
 
     output_name = '{}.nc'.format(str(uuid.uuid4()))
 
-    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
+    output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
 
     try:
         with cdms2.open(output_path, 'w') as output_file:
@@ -254,10 +254,10 @@ def cache_variable(self, parent_variables, variables, domains, operation, user_i
     except WPSError:
         raise
 
-    if settings.DAP:
-        output_url = settings.DAP_URL.format(filename=output_name)
+    if settings.WPS_DAP:
+        output_url = settings.WPS_DAP_URL.format(filename=output_name)
     else:
-        output_url = settings.OUTPUT_URL.format(filename=output_name)
+        output_url = settings.WPS_OUTPUT_URL.format(filename=output_name)
 
     output_variable = cwt.Variable(output_url, output_var_name).parameterize()
 

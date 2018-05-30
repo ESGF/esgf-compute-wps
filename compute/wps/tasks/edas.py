@@ -9,8 +9,8 @@ import cdms2
 import cwt
 import zmq
 from celery.utils.log import get_task_logger
+from django.conf import settings
 
-from wps import settings
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import process
@@ -43,7 +43,7 @@ def listen_edas_output(self, poller, proc):
     proc.log('Listening for EDAS status')
 
     while True:
-        events = dict(poller.poll(settings.EDAS_TIMEOUT * 1000))
+        events = dict(poller.poll(settings.WPS_EDAS_TIMEOUT * 1000))
 
         if len(events) == 0:
             raise WPSError('EDAS timed out waiting for heartbear or output message')
@@ -87,7 +87,7 @@ def edas_submit(self, parent_variables, variables, domains, operation, user_id, 
 
     domain = d.get(o.domain, None)
 
-    data_inputs = cwt.WPS('').prepare_data_inputs(o, {}, domain)
+    data_inputs = cwt.WPSClient('').prepare_data_inputs(o, {}, domain)
 
     logger.info('Generated datainputs: {}'.format(data_inputs))
 
@@ -96,9 +96,9 @@ def edas_submit(self, parent_variables, variables, domains, operation, user_id, 
     poller = None
 
     try:
-        req_sock = initialize_socket(context, zmq.REQ, settings.EDAS_HOST, settings.EDAS_REQ_PORT)
+        req_sock = initialize_socket(context, zmq.REQ, settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT)
 
-        sub_sock = initialize_socket(context, zmq.SUB, settings.EDAS_HOST, settings.EDAS_RES_PORT)
+        sub_sock = initialize_socket(context, zmq.SUB, settings.WPS_EDAS_HOST, settings.WPS_EDAS_RES_PORT)
 
         sub_sock.setsockopt(zmq.SUBSCRIBE, b'{}'.format(proc.job.id))
 
@@ -112,7 +112,7 @@ def edas_submit(self, parent_variables, variables, domains, operation, user_id, 
 
         req_sock.send(str('{}!execute!{}!{}!{}'.format(proc.job.id, o.identifier, data_inputs, extra)))
 
-        if (req_sock.poll(settings.EDAS_TIMEOUT * 1000) == 0):
+        if (req_sock.poll(settings.WPS_EDAS_TIMEOUT * 1000) == 0):
             raise WPSError('EDAS timed out waiting for accept response')
 
         data = req_sock.recv()
@@ -141,16 +141,16 @@ def edas_submit(self, parent_variables, variables, domains, operation, user_id, 
 
     output_name = '{}.nc'.format(str(uuid.uuid4()))
 
-    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
+    output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
 
     shutil.move(edas_output_path, output_path)
 
     proc.log('Localizing output to THREDDS server')
 
-    if settings.DAP:
-        output_url = settings.DAP_URL.format(filename=output_name)
+    if settings.WPS_DAP:
+        output_url = settings.WPS_DAP_URL.format(filename=output_name)
     else:
-        output_url = settings.OUTPUT_URL.format(filename=output_name)
+        output_url = settings.WPS_OUTPUT_URL.format(filename=output_name)
 
     var_name = None
 

@@ -38,7 +38,9 @@ class OphidiaBackendTestCase(test.TestCase):
 
         operation = cwt.Process(identifier='Oph.max', name='max')
 
-        operation.domain = 'd0'
+        operation.inputs = variables.values()
+
+        operation.domain = domains['d0']
 
         result = self.backend.execute('Oph.max', variables, domains, {'max': operation}, job=mock_job, user=self.user)
 

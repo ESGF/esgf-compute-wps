@@ -12,7 +12,8 @@ import time
 from urlparse import urlparse
 
 import cdms2
-from cwt import wps_lib
+import cwt
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import F
@@ -23,8 +24,7 @@ from openid import association
 from openid.store import interface
 from openid.store import nonce
 
-from wps import settings
-from wps import wps_xml
+import wps
 
 logger = logging.getLogger('wps.models')
 
@@ -32,13 +32,11 @@ KBYTE = 1024
 MBYTE = KBYTE * KBYTE
 GBYTE = MBYTE * KBYTE
 
-STATUS = {
-    'ProcessAccepted': wps_lib.ProcessAccepted,
-    'ProcessStarted': wps_lib.ProcessStarted,
-    'ProcessPaused': wps_lib.ProcessPaused,
-    'ProcessSucceeded': wps_lib.ProcessSucceeded,
-    'ProcessFailed': wps_lib.ProcessFailed,
-}
+ProcessAccepted = 'ProcessAccepted'
+ProcessStarted = 'ProcessStarted'
+ProcessPaused = 'ProcessPaused'
+ProcessSucceeded = 'ProcessSucceeded'
+ProcessFailed = 'ProcessFailed'
 
 class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -249,7 +247,7 @@ class Cache(models.Model):
 
         file_name = '{}.nc'.format(dimension_hash)
 
-        return os.path.join(settings.CACHE_PATH, file_name)
+        return os.path.join(settings.WPS_CACHE_PATH, file_name)
 
     @property
     def valid(self):
@@ -615,68 +613,85 @@ class Job(models.Model):
 
     @property
     def report(self):
-        location = settings.STATUS_LOCATION.format(job_id=self.id)
+        location = settings.WPS_STATUS_LOCATION.format(job_id=self.id)
 
         latest = self.status_set.latest('created_date')
 
         if latest.exception is not None:
-            exc_report = wps_lib.ExceptionReport.from_xml(latest.exception)
+            ex_report = cwt.wps.CreateFromDocument(latest.exception)
 
-            status = STATUS.get(latest.status)(exception_report=exc_report)
-        elif latest.status == 'ProcessStarted':
+            status = cwt.wps.status_failed_from_report(ex_report)
+        elif latest.status == ProcessAccepted:
+            status = cwt.wps.status_accepted('Job accepted')
+        elif latest.status == ProcessStarted:
             message = latest.message_set.latest('created_date')
 
-            status = STATUS.get(latest.status)(value=message.message, percent_completed=message.percent)
-        else:
-            status = STATUS.get(latest.status)()
+            status = cwt.wps.status_started(message.message, message.percent)
+        elif latest.status == ProcessPaused:
+            message = latest.message_set.latest('created_date')
 
-        report = wps_xml.execute_response(location, status, self.process.identifier)
+            status = cwt.wps.status_paused(message.message, message.percent)
+        elif latest.status == ProcessSucceeded:
+            status = cwt.wps.status_succeeded('Job succeeded')
 
-        if latest.output is not None:
-            output = wps_xml.load_output(latest.output)
+        outputs = []
 
-            report.add_output(output)
+        outputs.append(cwt.wps.output_data('output', 'output', latest.output))
 
-        return report.xml()
+        process = cwt.wps.process(self.process.identifier, self.process.identifier, '1.0.0')
+
+        args = [
+            process,
+            status,
+            '1.0.0',
+            'en-US',
+            settings.WPS_ENDPOINT,
+            location,
+            outputs
+        ]
+
+        response = cwt.wps.execute_response(*args)
+
+        cwt.bds.reset()
+
+        return response.toxml(bds=cwt.bds)
 
     @property
     def is_started(self):
         latest = self.status_set.latest('created_date')
 
-        return latest is not None and latest.status == 'ProcessStarted'
+        return latest is not None and latest.status == ProcessStarted
 
     def accepted(self):
         self.process.executed()
 
-        self.status_set.create(status=wps_lib.ProcessAccepted())
+        self.status_set.create(status=ProcessAccepted)
 
     def started(self):
         if not self.is_started:
-            status = self.status_set.create(status=str(wps_lib.ProcessStarted()).split(' ')[0])
+            status = self.status_set.create(status=ProcessStarted)
 
             status.set_message('Job Started')
 
     def succeeded(self, output=None):
         self.process.success()
 
-        status = self.status_set.create(status=wps_lib.ProcessSucceeded())
+        status = self.status_set.create(status=ProcessSucceeded)
 
-        if output is not None:
-            status.output = wps_xml.create_output(output)
+        if output is None:
+            output = ''
 
-            status.save()
+        status.output = output
+
+        status.save()
 
     def failed(self, exception=None):
         self.process.failed()
 
-        status = self.status_set.create(status=wps_lib.ProcessFailed())
+        status = self.status_set.create(status=ProcessFailed)
 
         if exception is not None:
-            exc_report = wps_lib.ExceptionReport(settings.VERSION)
-
-            exc_report.add_exception(wps_lib.NoApplicableCode, exception)
-
-            status.exception = exc_report.xml()
+            status.exception = wps.exception_report(exception, cwt.ows.NoApplicableCode)
 
             status.save()
 
@@ -686,7 +701,7 @@ class Job(models.Model):
         self.update_status('Retrying... {}'.format(exception), 0)
 
     def update_status(self, message, percent=0):
-        started = self.status_set.filter(status='ProcessStarted').latest('created_date')
+        started = self.status_set.filter(status=ProcessStarted).latest('created_date')
 
         started.set_message(message, percent)
 

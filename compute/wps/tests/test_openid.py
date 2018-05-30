@@ -1,8 +1,8 @@
 import mock
 from django import test
+from django.conf import settings
 from openid.consumer import consumer
 
-from wps import settings
 from wps.auth import openid
 
 class OpenIDTestCase(test.TestCase):
@@ -90,7 +90,7 @@ class OpenIDTestCase(test.TestCase):
         mock_consumer.assert_called_with({}, mock_consumer.call_args[0][1])
         mock_consumer.return_value.beginWithoutDiscovery.assert_called()
 
-        mock_begin.redirectURL.assert_called_with(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
+        mock_begin.redirectURL.assert_called_with(settings.WPS_OPENID_TRUST_ROOT, settings.WPS_OPENID_RETURN_TO)
 
     def test_services_discovery_error(self):
         with self.assertRaises(openid.DiscoverError) as e:

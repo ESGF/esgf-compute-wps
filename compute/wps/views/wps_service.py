@@ -5,30 +5,26 @@ import StringIO
 import celery
 import cwt
 import django
-from cwt import wps_lib
+import cwt
 from django import http
+from django.conf import settings
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from lxml import etree
 
+import wps
 from . import common
 from wps import backends
 from wps import helpers
 from wps import models
 from wps import tasks
-from wps import wps_xml
-from wps import settings
 from wps import WPSError
 
 logger = common.logger
 
 class WPSExceptionError(WPSError):
-    def __init__(self, message, exception_type):
-        exception_report = wps_lib.ExceptionReport(settings.VERSION)
-
-        exception_report.add_exception(exception_type, message)
-
-        self.report = exception_report
+    def __init__(self, message, code):
+        self.report = wps.exception_report(message, code)
 
         super(WPSExceptionError, self).__init__('WPS Exception')
 
@@ -49,7 +45,7 @@ class WPSScriptGenerator(object):
 
         buf.write('api_key=\'{}\'\n\n'.format(self.user.auth.api_key))
 
-        buf.write('wps = cwt.WPS(\'{}\', api_key=api_key)\n\n'.format(settings.ENDPOINT))
+        buf.write('wps = cwt.WPS(\'{}\', api_key=api_key)\n\n'.format(settings.WPS_ENDPOINT))
 
     def write_variables(self, buf):
         for v in self.variable.values():
@@ -144,7 +140,7 @@ class WPSScriptGenerator(object):
         return data
 
 def load_data_inputs(data_inputs, resolve_inputs=False):
-    o, d, v = cwt.WPS.parse_data_inputs(data_inputs)
+    o, d, v = cwt.WPSClient.parse_data_inputs(data_inputs)
 
     v = dict((x.name, x) for x in v)
 
@@ -173,7 +169,7 @@ def get_parameter(params, name):
     if name.lower() not in temp:
         logger.info('Missing required parameter %s', name)
 
-        raise WPSExceptionError(name.lower(), wps_lib.MissingParameterValue)
+        raise WPSExceptionError(name.lower(), cwt.ows.MissingParameterValue)
 
     return temp[name.lower()]
 
@@ -192,7 +188,7 @@ def handle_get(params):
     data_inputs = None
 
     if operation == 'describeprocess':
-        identifier = get_parameter(params, 'identifier')
+        identifier = get_parameter(params, 'identifier').split(',')
     elif operation == 'execute':
         identifier = get_parameter(params, 'identifier')
 
@@ -213,14 +209,14 @@ def handle_post(data, params):
     NOTE: we only support execute requests as POST for the moment
     """
     try:
-        request = wps_lib.ExecuteRequest.from_xml(data)
+        request = cwt.wps.CreateFromDocument(data)
     except Exception as e:
         raise WPSError('Malformed WPS execute request')
 
     # Build to format [variable=[];domain=[];operation=[]]
     data_inputs = '[{0}]'.format(
-        ';'.join('{0}={1}'.format(x.identifier, x.data.value) 
-                 for x in request.data_inputs))
+        ';'.join('{0}={1}'.format(x.Identifier.value(), x.Data.LiteralData.value()) 
+                 for x in request.DataInputs.Input))
 
     # CDAS doesn't like single quotes
     data_inputs = data_inputs.replace('\'', '\"')
@@ -229,7 +225,7 @@ def handle_post(data, params):
 
     logger.info('Handling POST request for API key %s', api_key)
 
-    return api_key, 'execute', request.identifier, data_inputs
+    return api_key, 'execute', request.Identifier.value(), data_inputs
 
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
@@ -265,7 +261,7 @@ def generate(request):
 
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie
-def wps(request):
+def wps_entrypoint(request):
     try:
         api_key, op, identifier, data_inputs = handle_request(request)
 
@@ -274,9 +270,9 @@ def wps(request):
 
             response = server.capabilities
         elif op == 'describeprocess':
-            process = models.Process.objects.get(identifier=identifier)
+            processes = models.Process.objects.filter(identifier__in=identifier)
 
-            response = process.description
+            response = wps.process_descriptions_from_processes(processes)
         else:
             try:
                 user = models.User.objects.filter(auth__api_key=api_key)[0]
@@ -317,31 +313,19 @@ def wps(request):
 
             response = job.report
     except WPSExceptionError as e:
-        failure = wps_lib.ProcessFailed(exception_report=e.report)
+        logger.exception('WSPExceptionError')
 
-        exc_response = wps_xml.execute_response('', failure, '')
-
-        response = exc_response.xml()
+        response = e.report
     except WPSError as e:
-        exc_report = wps_lib.ExceptionReport(settings.VERSION)
+        logger.exception('WPSError')
 
-        exc_report.add_exception(wps_lib.NoApplicableCode, str(e))
-
-        failure = wps_lib.ProcessFailed(exception_report=exc_report)
-
-        exc_response = wps_xml.execute_response('', failure, '')
-
-        response = exc_response.xml()
+        response = wps.exception_report(str(e), cwt.ows.NoApplicableCode)
     except Exception as e:
-        exc_report = wps_lib.ExceptionReport(settings.VERSION)
+        logger.exception('Some generic exception')
 
-        exc_report.add_exception(wps_lib.NoApplicableCode, 'Please report this as a bug: {}'.format(str(e)))
+        error = 'Please copy the error and report on Github: {}'.format(str(e))
 
-        failure = wps_lib.ProcessFailed(exception_report=exc_report)
-
-        exc_response = wps_xml.execute_response('', failure, '')
-
-        response = exc_response.xml()
+        response = wps.exception_report(error, cwt.ows.NoApplicableCode)
     finally:
         return http.HttpResponse(response, content_type='text/xml')
 
@@ -355,11 +339,16 @@ def regen_capabilities(request):
 
         server = models.Server.objects.get(host='default')
 
-        processes = server.processes.all()
+        processes = []
 
-        cap = wps_xml.capabilities_response(processes)
+        for process in server.processes.all():
+            proc = cwt.wps.process(process.identifier, process.identifier, '1.0.0')
 
-        server.capabilities = cap.xml()
+            processes.append(proc)
+
+        process_offerings = cwt.wps.process_offerings(processes)
+
+        server.capabilities = wps.generate_capabilities(process_offerings)
 
         server.save()
     except WPSError as e:

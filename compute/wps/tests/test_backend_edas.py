@@ -3,10 +3,10 @@
 import cwt
 import mock
 from django import test
+from django.conf import settings
 
 from wps import backends
 from wps import models
-from wps import settings
 
 class EDASBackendTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json']
@@ -30,8 +30,8 @@ class EDASBackendTestCase(test.TestCase):
             self.backend.get_capabilities()
 
         self.assertEqual(str(e.exception), 
-                         str(backends.EDASCommunicationError(settings.EDAS_HOST, 
-                                                             settings.EDAS_REQ_PORT)))
+                         str(backends.EDASCommunicationError(settings.WPS_EDAS_HOST, 
+                                                             settings.WPS_EDAS_REQ_PORT)))
 
     @mock.patch('wps.backends.edas.zmq.Context.instance')
     def test_get_capabilities(self, mock_context):
@@ -63,9 +63,9 @@ class EDASBackendTestCase(test.TestCase):
 
         proc = cwt.Process(identifier='CDSpark.max', name='max')
 
-        proc.domain = 'd0'
+        proc.domain = domain
 
-        proc.set_inputs('v0')
+        proc.add_inputs('v0')
 
         operations = {'max': proc}
 
@@ -76,7 +76,7 @@ class EDASBackendTestCase(test.TestCase):
     def test_populate_processes(self):
         self.backend.get_capabilities = mock.Mock(return_value='<response><processes><process><description id="test" title="Test">abstract</description></process></processes></response>')
 
-        settings.WPS_EDAS_ENABLED = True
+        settings.WPS_WPS_EDAS_ENABLED = True
 
         with self.assertNumQueries(1):
             self.backend.populate_processes()

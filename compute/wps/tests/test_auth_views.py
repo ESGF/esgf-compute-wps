@@ -2,9 +2,9 @@ import datetime
 import json
 import mock
 from django import test
+from django.conf import settings
 
 from wps import models
-from wps import settings
 from wps.auth import openid
 from wps.views import auth
 
@@ -91,7 +91,7 @@ class AuthViewsTestCase(test.TestCase):
         data = self.check_success(response)['data']
 
         self.assertIn('redirect', data)
-        self.assertEqual(data['redirect'], settings.LOGIN_URL)
+        self.assertEqual(data['redirect'], settings.WPS_LOGIN_URL)
 
         user.auth.refresh_from_db()
 
@@ -149,7 +149,7 @@ class AuthViewsTestCase(test.TestCase):
 
         mock_send_mail.assert_called()
 
-        self.assertEqual(data['redirect'], settings.LOGIN_URL)
+        self.assertEqual(data['redirect'], settings.WPS_LOGIN_URL)
 
     def test_login_mpc_not_logged_in(self):
         response = self.client.post('/auth/login/mpc/', {})

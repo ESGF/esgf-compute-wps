@@ -230,9 +230,8 @@ export class Process {
 
     this.createAttribute(doc, root, 'service', 'WPS');
     this.createAttribute(doc, root, 'version', '1.0.0');
-    this.createAttributeNS(doc, root, XSI_NS, 'xsi:schemaLocation', SCHEMA_LOCATION);
 
-    this.createElementNS(doc, root, WPS_NS, 'wps:Identifier', this.identifier);
+    this.createElementNS(doc, root, OWS_NS, 'ows:Identifier', this.identifier);
 
     let dataInputsElement = this.createElementNS(doc, root, WPS_NS, 'wps:DataInputs');
 
@@ -240,10 +239,12 @@ export class Process {
       let inputElement = this.createElementNS(doc, dataInputsElement, WPS_NS, 'wps:Input');
 
       this.createElementNS(doc, inputElement, OWS_NS, 'ows:Identifier', key);
+      
+      this.createElementNS(doc, inputElement, OWS_NS, 'ows:Title', key);
 
       let dataElement = this.createElementNS(doc, inputElement, WPS_NS, 'wps:Data');
 
-      this.createElementNS(doc, dataElement, WPS_NS, 'wps:ComplexData', dataInputs[key]);
+      this.createElementNS(doc, dataElement, WPS_NS, 'wps:LiteralData', dataInputs[key]);
     }
 
     return new XMLSerializer().serializeToString(doc.documentElement);

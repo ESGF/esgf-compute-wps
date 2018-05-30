@@ -8,6 +8,7 @@ import string
 
 from django import http
 from django import db
+from django.conf import settings
 from django.core.mail import send_mail
 from django.contrib.auth import authenticate
 from django.contrib.auth import login
@@ -20,7 +21,6 @@ from myproxy.client import MyProxyClient
 
 from wps import forms
 from wps import models
-from wps import settings
 from wps import WPSError
 from wps.auth import oauth2
 from wps.auth import openid
@@ -109,9 +109,9 @@ def create(request):
         try:
             send_mail(CREATE_SUBJECT,
                       '',
-                      settings.ADMIN_EMAIL,
+                      settings.WPS_ADMIN_EMAIL,
                       [user.email],
-                      html_message=CREATE_MESSAGE.format(login_url=settings.LOGIN_URL, admin_email=settings.ADMIN_EMAIL))
+                      html_message=CREATE_MESSAGE.format(login_url=settings.WPS_LOGIN_URL, admin_email=settings.WPS_ADMIN_EMAIL))
         except Exception:
             logger.exception('Error sending confirmation email')
             
@@ -160,7 +160,7 @@ def user_login_openid_callback(request):
 
         return common.failed(str(e))
     else:
-        return redirect('{}?expires={}'.format(settings.OPENID_CALLBACK_SUCCESS, request.session.get_expiry_date()))
+        return redirect('{}?expires={}'.format(settings.WPS_OPENID_CALLBACK_SUCCESS, request.session.get_expiry_date()))
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -244,7 +244,7 @@ def oauth2_callback(request):
 
         token_service, cert_service = openid.services(openid_url, (URN_ACCESS, URN_RESOURCE))
 
-        request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK, request.META['QUERY_STRING'])
+        request_url = '{}?{}'.format(settings.WPS_OAUTH2_CALLBACK, request.META['QUERY_STRING'])
 
         token = oauth2.get_token(token_service.server_url, request_url, oauth_state)
 
@@ -269,7 +269,7 @@ def oauth2_callback(request):
 
             user.auth.save()
     finally:
-        return redirect(settings.PROFILE_URL)
+        return redirect(settings.WPS_PROFILE_URL)
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -293,7 +293,7 @@ def login_mpc(request):
         host, port = g.groups()
 
         try:
-            m = MyProxyClient(hostname=host, caCertDir=settings.CA_PATH)
+            m = MyProxyClient(hostname=host, caCertDir=settings.WPS_CA_PATH)
 
             c = m.logon(data['username'], data['password'], bootstrap=True)
         except Exception as e:
@@ -330,8 +330,8 @@ def forgot_username(request):
 
         try:
             send_mail(FORGOT_USERNAME_SUBJECT,
-                      FORGOT_USERNAME_MESSAGE.format(username=user.username, login_url=settings.LOGIN_URL),
-                      settings.ADMIN_EMAIL,
+                      FORGOT_USERNAME_MESSAGE.format(username=user.username, login_url=settings.WPS_LOGIN_URL),
+                      settings.WPS_ADMIN_EMAIL,
                       [user.email])
         except:
             raise common.MailError(email=user.email)
@@ -340,7 +340,7 @@ def forgot_username(request):
 
         return common.failed(str(e))
     else:
-        return common.success({'redirect': settings.LOGIN_URL})
+        return common.success({'redirect': settings.WPS_LOGIN_URL})
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -371,12 +371,12 @@ def forgot_password(request):
 
         user.auth.save()
 
-        reset_url = '{}?token={}&username={}'.format(settings.PASSWORD_RESET_URL, extra['reset_token'], user.username)
+        reset_url = '{}?token={}&username={}'.format(settings.WPS_PASSWORD_RESET_URL, extra['reset_token'], user.username)
 
         try:
             send_mail(FORGOT_PASSWORD_SUBJECT,
                       '',
-                      settings.ADMIN_EMAIL,
+                      settings.WPS_ADMIN_EMAIL,
                       [user.email],
                       html_message=FORGOT_PASSWORD_MESSAGE.format(username=user.username,
                                                               reset_url=reset_url)
@@ -386,7 +386,7 @@ def forgot_password(request):
     except WPSError as e:
         return common.failed(str(e))
     else:
-        return common.success({'redirect': settings.LOGIN_URL})
+        return common.success({'redirect': settings.WPS_LOGIN_URL})
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -444,4 +444,4 @@ def reset_password(request):
     except WPSError as e:
         return common.failed(str(e))
     else:
-        return common.success({'redirect': settings.LOGIN_URL})
+        return common.success({'redirect': settings.WPS_LOGIN_URL})

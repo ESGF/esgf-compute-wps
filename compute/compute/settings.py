@@ -104,8 +104,10 @@ EMAIL_PORT = config.get_value('email', 'port', 25, int)
 EMAIL_HOST_PASSWORD = config.get_value('email', 'password', '')
 EMAIL_HOST_USER = config.get_value('email', 'user', '')
 
-WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps')
-WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps')
+WPS_VERSION = '1.0.0'
+WPS_LANG = 'en-US'
+WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
+WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/')
 WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url', 'https://{host}/wps/execute/')
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
 WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)
@@ -125,7 +127,7 @@ WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email', 'admin@aims2.llnl.g
 WPS_CACHE_PATH = config.get_value('cache', 'wps.cache.path', '/data/cache')
 WPS_PARTITION_SIZE = config.get_value('cache', 'wps.partition.size', 10, int)
 WPS_CACHE_CHECK = config.get_value('cache', 'wps.cache.check', 1, int, lambda x: datetime.timedelta(days=x))
-WPS_GB_MAX_SIZE = config.get_value('cache', 'wps.gb.max.size', 2.097152e8, float)
+WPS_CACHE_GB_MAX_SIZE = config.get_value('cache', 'wps.gb.max.size', 2.097152e8, float)
 WPS_CACHE_MAX_AGE = config.get_value('cache', 'wps.cache.max.age', 30, int, lambda x: datetime.timedelta(days=x))
 WPS_CACHE_FREED_PERCENT = config.get_value('cache', 'wps.cache.freed.percent', 0.25, float)
 
