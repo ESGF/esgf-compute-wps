@@ -84,7 +84,7 @@ export class RegridComponent {
     },
     {
       name: 'Regrid2',
-      methods: ['Conserve', 'Linear']
+      methods: ['Area Weighted']
     }
   ]
 
