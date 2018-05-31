@@ -19,5 +19,5 @@ urlpatterns = [
     url(r'^forgot/username/$', views.forgot_username),
     url(r'^forgot/password/$', views.forgot_password),
     url(r'^callback/$', views.oauth2_callback),
-    url(r'^callback/openid/$', views.user_login_openid_callback),
+    url(r'^callback/openid$', views.user_login_openid_callback),
 ]

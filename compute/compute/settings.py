@@ -116,7 +116,7 @@ WPS_LOGIN_URL = config.get_value('wps', 'wps.login_url', 'https://{host}/wps/hom
 WPS_PROFILE_URL = config.get_value('wps', 'wps.profile_url', 'https://{host}/wps/home/user/profile')
 WPS_OAUTH2_CALLBACK = config.get_value('wps', 'wps.oauth2.callback', 'https://{host}/auth/callback')
 WPS_OPENID_TRUST_ROOT = config.get_value('wps', 'wps.openid.trust.root', 'https://{host}/')
-WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to', 'https://{host}auth/callback/openid')
+WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to', 'https://{host}auth/callback/openid/')
 WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.success', 'https://{host}/wps/home/auth/login/callback')
 WPS_PASSWORD_RESET_URL = config.get_value('wps', 'wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
 WPS_CA_PATH = config.get_value('wps', 'wps.ca.path', '/tmp/certs')
@@ -147,6 +147,8 @@ WPS_OPHIDIA_PORT = config.get_value('ophidia', 'wps.oph.port', 11732, int)
 WPS_OPHIDIA_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.output.path', '/wps')
 WPS_OPHIDIA_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
 WPS_OPHIDIA_DEFAULT_CORES = config.get_value('ophidia', 'wps.oph.default.cores', 8, int)
+
+APPEND_SLASH = False
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 

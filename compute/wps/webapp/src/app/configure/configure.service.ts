@@ -7,6 +7,7 @@ import { Parameter } from './parameter.component';
 import { RegridModel } from './regrid.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
 import { AuthService } from '../core/auth.service';
+import { ConfigService } from '../core/config.service';
 
 export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
 export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
@@ -319,12 +320,13 @@ export class ConfigureService extends WPSService {
   constructor(
     http: Http,
     private authService: AuthService,
+    private configService: ConfigService,
   ) { 
     super(http); 
   }
 
   processes(): Promise<string[]> {
-    return this.get('/wps/processes')
+    return this.get(this.configService.processesPath)
       .then(response => {
         return response.data;
       });
@@ -338,7 +340,7 @@ export class ConfigureService extends WPSService {
     params.append('query', config.query);
     params.append('shard', config.shard);
 
-    return this.get('/wps/search', params)
+    return this.get(this.configService.searchPath, params)
       .then(response => {
         return Object.keys(response.data).map((key: string) => {
           let variable = response.data[key];
@@ -357,7 +359,7 @@ export class ConfigureService extends WPSService {
     params.append('shard', config.shard);
     params.append('variable', config.variable.id);
 
-    return this.get('/wps/search/variable', params)
+    return this.get(this.configService.searchVariablePath, params)
       .then(response => {
         return response.data as Axis[];
       });
@@ -386,7 +388,7 @@ export class ConfigureService extends WPSService {
     //    return response.text(); 
     //  });
 
-    return this.postCSRFUnmodified('/wps/', preparedData, params=params)
+    return this.postCSRFUnmodified(this.configService.wpsPath, preparedData, params=params)
       .then(response => {
         return response.text();
       });
@@ -403,7 +405,7 @@ export class ConfigureService extends WPSService {
 
     let data = `datainputs=${preparedData}`;
 
-    return this.postCSRF('/wps/generate/', data)
+    return this.postCSRF(this.configService.generatePath, data)
       .then(response => {
         return response.data;
       });

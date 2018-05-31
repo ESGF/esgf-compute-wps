@@ -5,14 +5,36 @@ export class ConfigService {
   esgfURL = 'https://esgf.llnl.gov';
   cogURL = 'https://esgf-node.llnl.gov/search/esgf-llnl';
   basePath = '/wps/home';
-  loginPath = this.combinePath(this.basePath, '/auth/login/openid');
-  logoutPath = this.combinePath(this.basePath, '/auth/logout');
-  profilePath = this.combinePath(this.basePath, '/user/profile');
-  userJobPath = this.combinePath(this.basePath, '/user/jobs');
-  configurePath = this.combinePath(this.basePath, '/configure');
-  adminPath = this.combinePath(this.basePath, '/admin');
+  
+  // WebApp paths
+  loginPath = `${this.basePath}/auth/login/openid`;
+  logoutPath = `${this.basePath}/auth/logout`;
+  profilePath = `${this.basePath}/user/profile`;
+  userJobPath = `${this.basePath}/user/jobs`;
+  configurePath = `${this.basePath}/configure`;
+  adminPath = `${this.basePath}/admin`;
 
-  combinePath(base: string, path: string) {
-    return `${base}${path}`;
-  }
+  // WPS API paths
+  wpsPath = '/wps';
+  jobsPath = '/wps/jobs/';
+  generatePath = '/wps/generate/';
+  processesPath = '/wps/processes/';
+  searchPath = '/wps/search/';
+  searchVariablePath = '/wps/search/variable/';
+  adminStatsPath = '/wps/admin/stats/';
+ 
+  // Auth API paths
+  authLoginPath = '/auth/login/';
+  authLoginOpenIDPath = '/auth/login/openid/';
+  authLoginMPCPath = '/auth/login/mpc/';
+  authLoginOAuth2Path = '/auth/login/oauth2/';
+  authLogoutPath = '/auth/logout/';
+  authResetPath = '/auth/reset/';
+  authForgotPasswordPath = '/auth/forgot/password/';
+  authForgotUsernamePath = '/auth/forgot/username/';
+  authCreatePath = '/auth/create/';
+  authUpdatePath = '/auth/update/';
+  authUserPath = '/auth/user/';
+  authUserRegenPath = '/auth/user/regenerate/';
+  authUserStatsPath = '/auth/user/stats/';
 }

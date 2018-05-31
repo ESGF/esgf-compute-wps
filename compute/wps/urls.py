@@ -15,7 +15,7 @@ urlpatterns = [
     url(r'^jobs/(?P<job_id>[0-9]*)/$', views.job),
     url(r'^home/', views.home, name='home'),
     url(r'^regen_capabilities/$', views.regen_capabilities),
-    url(r'^admin/stats$', views.admin_stats),
+    url(r'^admin/stats/$', views.admin_stats),
 ]
 
 if settings.DEBUG:
