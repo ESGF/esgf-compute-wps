@@ -4,4 +4,5 @@ import { Injectable } from '@angular/core';
 export class ConfigService {
   esgfURL = 'https://esgf.llnl.gov';
   cogURL = 'https://esgf-node.llnl.gov/search/esgf-llnl';
+  loginPath = '/wps/home/auth/login/openid';
 }

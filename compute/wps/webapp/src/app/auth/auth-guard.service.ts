@@ -7,11 +7,13 @@ import {
 } from '@angular/router';
 
 import { AuthService } from '../core/auth.service';
+import { ConfigService } from '../core/config.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate, CanActivateChild {
   constructor(
     private authService: AuthService,
+    private configService: ConfigService,
     private router: Router
   ) { }
 
@@ -20,7 +22,8 @@ export class AuthGuard implements CanActivate, CanActivateChild {
 
     this.authService.redirectUrl = url;
 
-    this.router.navigate(['/wps/home/auth/login']);
+    this.router.navigate([this.configService.loginPath]);
+    //this.router.navigate(['/wps/home/auth/login']);
 
     return false;
   }
