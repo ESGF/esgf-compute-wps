@@ -29,7 +29,7 @@ export class UserDetailsComponent {
   }
 
   onSubmit(form: any) {
-    let user = {} as User;
+    let user = new User();
 
     for (let control in form.controls) {
       if (form.controls[control].dirty) {
