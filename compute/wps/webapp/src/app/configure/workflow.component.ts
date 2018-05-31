@@ -12,6 +12,7 @@ import {
   DatasetCollection 
 } from './configure.service';
 import { NotificationService } from '../core/notification.service';
+import { ConfigService } from '../core/config.service';
 
 import * as d3 from 'd3';
 
@@ -173,7 +174,8 @@ export class WorkflowComponent implements OnInit {
   svgDrag: any;
 
   constructor(
-    private configService: ConfigureService,
+    private configureService: ConfigureService,
+    private configService: ConfigService,
     private notificationService: NotificationService
   ) { 
     this.model.domain = 'World';
@@ -227,7 +229,7 @@ export class WorkflowComponent implements OnInit {
 
       this.config.datasetID = this.model.selectedDataset.dataset.id;
 
-      this.configService.searchESGF(this.config)
+      this.configureService.searchESGF(this.config)
         .then(data => {
           data.forEach((value: Variable) => {
             value.dataset = this.config.datasetID;
@@ -301,7 +303,7 @@ export class WorkflowComponent implements OnInit {
 
     this.config.datasetID = this.model.selectedDataset.dataset.id;
 
-    this.configService.searchESGF(this.config)
+    this.configureService.searchESGF(this.config)
       .then(variables => {
         this.model.selectedDataset.dataset.variables = variables;
 
@@ -325,7 +327,7 @@ export class WorkflowComponent implements OnInit {
 
     this.config.variable = this.model.selectedVariable;
 
-    this.configService.searchVariable(this.config)
+    this.configureService.searchVariable(this.config)
       .then(axes => {
         this.model.selectedVariable.axes = axes.map((axis: Axis) => {
           return {step: 1, ...axis}; 
@@ -419,7 +421,7 @@ export class WorkflowComponent implements OnInit {
 
     this.rootNode.process.parameters = this.model.process.parameters;
 
-    this.configService.execute(this.rootNode.process)
+    this.configureService.execute(this.rootNode.process)
       .then((data: any) => {
         let parser = new DOMParser();
         let xml = parser.parseFromString(data, 'text/xml');
@@ -431,7 +433,7 @@ export class WorkflowComponent implements OnInit {
 
           let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
 
-          link = `/wps/home/user/jobs`;
+          link = this.configService.userJobPath;
         }
         
         this.notificationService.message('Succesfully submitted job', link);

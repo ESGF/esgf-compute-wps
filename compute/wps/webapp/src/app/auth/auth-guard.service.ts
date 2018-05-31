@@ -23,7 +23,6 @@ export class AuthGuard implements CanActivate, CanActivateChild {
     this.authService.redirectUrl = url;
 
     this.router.navigate([this.configService.loginPath]);
-    //this.router.navigate(['/wps/home/auth/login']);
 
     return false;
   }

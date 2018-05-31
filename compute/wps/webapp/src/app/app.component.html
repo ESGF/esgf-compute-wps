@@ -2,20 +2,20 @@
   <div>
     <nav class="navbar navbar-default">
       <div class="container-fluid">
-        <a class="navbar-brand" href="wps/home">WPS</a>
+        <a class="navbar-brand" routerLink="{{configService.basePath}}">WPS</a>
         <ul class="nav navbar-nav navbar-left">
           <li *ngIf="configService.esgfURL != null"><a href="{{configService.esgfURL}}" target="_blank">ESGF</a></li>
           <li *ngIf="configService.cogURL != null"><a href="{{configService.cogURL}}" target="_blank">CoG</a></li>
           <li *ngIf="logged && admin">
-            <a class="admin" routerLink="/wps/home/admin">Admin</a>
+            <a class="admin" routerLink="{{configService.adminPath}}">Admin</a>
           </li>
         </ul>
         <ul class="nav navbar-nav navbar-right">
-          <li *ngIf="!logged; else elseBlock"><a class="login" routerLink="/wps/home/auth/login/openid">Login</a></li>
+          <li *ngIf="!logged; else elseBlock"><a class="login" routerLink="{{configService.loginPath}}">Login</a></li>
           <ng-template #elseBlock>
-            <li><a class="jobs" routerLink="/wps/home/user/jobs">Jobs</a></li>
-            <li><a class="profile" routerLink="/wps/home/user/profile">Profile</a></li>
-            <li><a class="logout" routerLink="/wps/home/auth/logout">Logout</a></li>
+            <li><a class="jobs" routerLink="{{configService.userJobPath}}">Jobs</a></li>
+            <li><a class="profile" routerLink="{{configService.profilePath}}">Profile</a></li>
+            <li><a class="logout" routerLink="{{configService.logoutPath}}">Logout</a></li>
           </ng-template>
         </ul>
       </div>

@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { Axis } from './axis.component';
 import { LAT_NAMES, LNG_NAMES, Configuration, Dataset, Variable, DatasetCollection, VariableCollection, ConfigureService } from './configure.service';
 import { NotificationService } from '../core/notification.service';
+import { ConfigService } from '../core/config.service';
 
 declare var $: any;
 
@@ -49,7 +50,8 @@ export class GeneralConfigComponent implements OnInit {
   datasets: Dataset[];
 
   constructor(
-    private configService: ConfigureService,
+    private configureService: ConfigureService,
+    private configService: ConfigService,
     private notificationService: NotificationService,
   ) { }
 
@@ -103,7 +105,7 @@ export class GeneralConfigComponent implements OnInit {
   }
   
   loadDataset() {
-    this.configService.searchESGF(this.config)
+    this.configureService.searchESGF(this.config)
       .then(data => {
         this.variables = this.config.dataset.variables = data;
 
@@ -118,7 +120,7 @@ export class GeneralConfigComponent implements OnInit {
 
   loadVariable() {
     if (this.config.variable.axes === null) {
-      this.configService.searchVariable(this.config)
+      this.configureService.searchVariable(this.config)
         .then(data => {
           // cached copy of the axes
           this.config.variable.axes = data.map((axis: Axis) => {
@@ -160,7 +162,7 @@ export class GeneralConfigComponent implements OnInit {
   onDownload() {
     this.config.process.setInputs([this.config.variable]);
 
-    this.configService.downloadScript(this.config.process)
+    this.configureService.downloadScript(this.config.process)
       .then(data => {
           let url = URL.createObjectURL(new Blob([data.text]));
 
@@ -180,7 +182,7 @@ export class GeneralConfigComponent implements OnInit {
   onExecute() {
     this.config.process.setInputs([this.config.variable]);
 
-    this.configService.execute(this.config.process)
+    this.configureService.execute(this.config.process)
       .then((data: any) => {
         let parser = new DOMParser();
         let xml = parser.parseFromString(data, 'text/xml');
@@ -192,7 +194,7 @@ export class GeneralConfigComponent implements OnInit {
 
           let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
 
-          link = `/wps/home/user/jobs`;
+          link = this.configService.userJobPath;
         }
         
         this.notificationService.message('Succesfully submitted job', link);
