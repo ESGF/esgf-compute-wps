@@ -46,6 +46,10 @@ export class AuthService extends WPSService {
     return false; 
   }
 
+  setExpires(expires: any) {
+    localStorage.setItem('expires', expires.toString());
+  }
+
   setLoggedIn(value: boolean) {
     this.isLoggedIn$.next(value);
 
@@ -107,7 +111,7 @@ export class AuthService extends WPSService {
       .then(response => {
         this.setUser(response.data as User);
 
-        localStorage.setItem('expires', this.user.expires.toString());
+        this.setExpires(this.user.expires);
 
         this.setLoggedIn(true);
 
