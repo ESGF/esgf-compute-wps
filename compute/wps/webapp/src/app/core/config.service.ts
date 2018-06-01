@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 
 @Injectable()
 export class ConfigService {
+  certEnabled = true;
+
   esgfURL = 'https://esgf.llnl.gov';
   cogURL = 'https://esgf-node.llnl.gov/search/esgf-llnl';
   basePath = '/wps/home';
@@ -35,6 +37,7 @@ export class ConfigService {
   authCreatePath = '/auth/create/';
   authUpdatePath = '/auth/update/';
   authUserPath = '/auth/user/';
+  authUserCertPath = '/auth/user/cert/';
   authUserRegenPath = '/auth/user/regenerate/';
   authUserStatsPath = '/auth/user/stats/';
 }

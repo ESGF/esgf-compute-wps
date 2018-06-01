@@ -20,6 +20,8 @@
       <div class="form-group">
         <label for="type">Authenticated</label>
         <p class="form-control-static" id="type">{{model?.type}}</p>
+        <a *ngIf="configService.certEnabled" href="{{configService.authUserCertPath}}">Download Certificate</a>
+        <a data-toggle="modal" data-target="#certDialog"><i aria-hidden="true" class="fa fa-question-circle"></i></a>
       </div>
       <div class="form-group">
         <label for="api_key">API Key</label>
@@ -36,6 +38,45 @@
       </div>
     </form>
   </div>
+  <div class="modal fade" id="certDialog" tabindex="1" role="dialog" aria-labelledby="certDialogLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title" id="regenerateWarningLabel">ESGF Certificate</h4>
+        </div>
+        <div class="modal-body">
+          <p>
+            This is the certificate issued by ESGF to access protected data.
+          </p>
+          <p>
+            To use the certificate with CDMS2, you'll need to execute the python interperter or script in the same directory as a .dodsrc file. You'll find an example below.
+          </p>
+          <p>
+            <code>
+              HTTP.COOKIEJAR=.dods_cookies
+            </code>
+            <br />
+            <code>
+              HTTP.SSL.CERTIFICATE=cert.pem
+            </code>
+            <br />
+            <code>
+              HTTP.SSL.KEY=cert.pem
+            </code>
+            <br />
+            <code>
+              HTTP.SSL.CAPATH=cert.pem
+            </code>
+            <br />
+            <code>
+              HTTP.SSL.VERIFY=0
+            </code>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="modal fade" id="regenerateWarning" tabindex="1" role="dialog" aria-labelledby="regenerateWarningLabel">
     <div class="modal-dialog" role="document">
       <div class="modal-content">
@@ -46,7 +87,7 @@
         <form (ngSubmit)="onRegenerateKey()" #regenForm="ngForm">
           <div class="modal-body">
             <p>
-            Your API key is only used to access the WPS service. Any scripts using the ESGF CWT End-User API will need to have their keys updated. This has not affect on your ESGF account.
+              Your API key is only used to access the WPS service. Any scripts using the ESGF CWT End-User API will need to have their keys updated. This has not affect on your ESGF account.
             </p>
             <p>
               Are you sure you want to regenerate?
