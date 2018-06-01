@@ -8,7 +8,7 @@ urlpatterns = [
     url(r'^execute/$', views.execute),
     url(r'^processes/$', views.processes),
     url(r'^search/$', views.search_dataset),
-    url(r'^search/variable$', views.search_variable),
+    url(r'^search/variable/$', views.search_variable),
     url(r'^generate/$', views.generate),
     url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^jobs/$', views.jobs),
