@@ -97,6 +97,7 @@ SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_se
 
 INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
 PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
+CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
