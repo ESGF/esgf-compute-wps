@@ -187,7 +187,8 @@ export class WorkflowComponent implements OnInit {
       start: 90,
       stop: -90,
       step: 1,
-      units: 'degress north'
+      units: 'degress north',
+      crs: 'Values',
     } as Axis);
 
     this.model.process.domain.push({
@@ -195,7 +196,8 @@ export class WorkflowComponent implements OnInit {
       start: -180,
       stop: 180,
       step: 1,
-      units: 'degress west'
+      units: 'degress west',
+      crs: 'Values',
     } as Axis);
 
     this.model.process.domain.push({
@@ -203,7 +205,8 @@ export class WorkflowComponent implements OnInit {
       start: 0,
       stop: 0,
       step: 1,
-      units: 'Custom'
+      units: 'Custom',
+      crs: 'Values',
     } as Axis);
 
     this.nodes = [];
@@ -573,6 +576,33 @@ export class WorkflowComponent implements OnInit {
       let origin = d3.mouse(d3.event.target);
 
       let process = new Process(this.stateData);
+
+      process.domain.push({
+        id: 'lat',
+        start: 90,
+        stop: -90,
+        step: 1,
+        units: 'degress north',
+        crs: 'Values',
+      } as Axis);
+
+      process.domain.push({
+        id: 'lon',
+        start: -180,
+        stop: 180,
+        step: 1,
+        units: 'degress west',
+        crs: 'Values',
+      } as Axis);
+
+      process.domain.push({
+        id: 'time',
+        start: 0,
+        stop: 0,
+        step: 1,
+        units: 'Custom',
+        crs: 'Values',
+      } as Axis);
 
       this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 

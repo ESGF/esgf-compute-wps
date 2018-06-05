@@ -161,11 +161,8 @@
           <h4 class="modal-title" id="configureLabel">Configure Process ({{selectedNode?.display()}})</h4>
         </div>
         <div class="modal-body">
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <h4 class="panel-title">Inputs</h4>
-            </div>
-            <div class="panel-body">
+          <panel-group>
+            <panel title="Inputs">
               <div class="form-group">
                 <select [(ngModel)]="model.selectedDataset" class="form-control">
                   <option disabled hidden [ngValue]="undefined">No datasets available</option>
@@ -183,31 +180,40 @@
                   </span>
                 </div>
               </div>
-            </div>
-            <div class="list-group">
-              <div *ngFor="let x of selectedNode?.inputDatasets()" class="list-group-item clearfix">
-                <span>{{x.dataset}} - <b>{{x.id}}</b></span>
-                <span class="pull-right">
-                  <span (click)="removeInput(x)" class="btn btn-xs btn-default">
-                    <span class="glyphicon glyphicon-remove"></span>
+            </panel>
+            <panel title="Regrid">
+              <regrid [model]="selectedNode?.process.regrid"></regrid>
+            </panel>
+            <panel ignoreBody="true" title="Parameters">
+              <li class="list-group-item">
+                <button (click)="addParameter()" class="btn btn-default">Add</button>
+              </li>
+              <li *ngFor="let param of selectedNode?.process.parameters" class="list-group-item">
+                <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
+              </li>
+            </panel>
+            <panel title="Domain">
+              <div class="list-group-item">
+                <div class="input-group select-spacer">
+                  <select (ngModelChange)="selectedNode?.process.domainPreset=$event" [ngModel]="selectedNode?.process.domainPreset" class="form-control">
+                    <option>World</option>
+                    <option>Custom</option>
+                  </select>
+                  <span class="input-group-btn">
+                    <button
+                      type="button" 
+                      class="btn btn-default dropdown-toggle" 
+                      data-toggle="dropdown">Copy from <span class="caret"></span></button>
+                    <ul class="dropdown-menu dropdown-menu-right">
+                    </ul>
                   </span>
-                </span>
+                </div>
               </div>
-            </div>
-          </div>
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <h4 class="panel-title">Parameters</h4>
-            </div>
-            <div class="panel-body">
-              <div class="btn-group">
-                <button (click)="addParameter()" type="button" class="btn btn-default">Add</button>
+              <div *ngFor="let x of selectedNode?.process.domain; index as i" class="list-group-item">
+                <axis [axis]="x" [axisIndex]="i"></axis>
               </div>
-            </div>
-            <div class="list-group">
-              <parameter *ngFor="let x of selectedNode?.process.parameters" [param]="x" (remove)="removeParameter($event)" ></parameter>              
-            </div>
-          </div>
+            </panel>
+          </panel-group>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>

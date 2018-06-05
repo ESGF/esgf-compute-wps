@@ -19,6 +19,7 @@ export class Process {
     public identifier: string = '',
     public inputs: (Variable | Process)[] = [],
     public domain: Axis[] = [],
+    public domainPreset: string = 'World',
     public regrid: RegridModel = new RegridModel('ESMF', 'Linear', 'None', null, null, 3.0, null, null, 4.0),
     public parameters: any[] = [],
   ) { 
