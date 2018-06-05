@@ -391,7 +391,7 @@ export class ConfigureService extends WPSService {
     //params.append('service', 'WPS');
     //params.append('request', 'execute');
     params.append('api_key', this.authService.user.api_key);
-    //params.append('identifier', process.identifier);
+    //params.append(.id', process.id);
     //params.append('datainputs', preparedData);
 
     //return this.getUnmodified('/wps', params)

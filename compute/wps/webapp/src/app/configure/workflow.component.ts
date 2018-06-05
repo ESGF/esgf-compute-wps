@@ -547,6 +547,20 @@ export class WorkflowComponent implements OnInit {
     }
   }
 
+  removeInput(process: ProcessWrapper, input: Process): any;
+  removeInput(process: ProcessWrapper, input: Variable): any;
+  removeInput(process: any, input: any): any {
+    process.process.removeInput(input); 
+    
+    if (input instanceof Process) {
+      this.links = this.links.filter((x: Link) => {
+        return x.src.uid() != input.uid && x.dst.uid() != process.uid();
+      });
+
+      this.update();
+    }
+  }
+
   addParameterWorkflow() {
     this.model.process.parameters.push(new Parameter());
   }
