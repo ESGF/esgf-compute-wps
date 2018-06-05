@@ -162,22 +162,39 @@
         </div>
         <div class="modal-body">
           <panel-group>
-            <panel title="Inputs">
-              <div class="form-group">
+            <panel ignoreBody="true" title="Inputs">
+              <div class="list-group-item">
                 <select [(ngModel)]="model.selectedDataset" class="form-control">
                   <option disabled hidden [ngValue]="undefined">No datasets available</option>
                   <option *ngFor="let x of model.availableDatasets" [ngValue]="x">{{x.display()}}</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="list-group-item">
                 <div class="input-group">
                   <select [(ngModel)]="model.selectedVariable" class="form-control">
                     <option disabled hidden [ngValue]="undefined">No variables available</option>
                     <option *ngFor="let x of model.selectedDataset?.dataset.variables" [ngValue]="x">{{x.id}}</option>
                   </select>
                   <span class="input-group-btn">
-                    <button (click)="addInput(model.selectedVariable)" class="btn btn-default">Add</button>
+                    <button (click)="selectedNode?.process.addInput(model.selectedVariable)" class="btn btn-default">Add</button>
                   </span>
+                </div>
+              </div>
+              <div *ngFor="let item of selectedNode?.process.inputs" class="list-group-item container-fluid">
+                <div class="row">
+                  <div class="col-md-9">
+                    {{item.dataset}} | <b>{{item.id}}</b>
+                  </div>
+                  <div class="col-md-2">
+                    <button (click)="loadDomainToProcess(item, selectedNode)" type="button" class="btn btn-default">
+                      Load Domain
+                    </button>
+                  </div>
+                  <div class="col-md-1">
+                    <button (click)="selectedNode?.process.removeInput(item)" type="button" class="btn btn-default">
+                      <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </panel>

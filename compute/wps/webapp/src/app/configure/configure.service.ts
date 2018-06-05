@@ -34,6 +34,16 @@ export class Process {
     return Math.random().toString(16).slice(2);
   }
 
+  addInput(input: Variable) {
+    this.inputs.push(input);
+  }
+
+  removeInput(input: Variable) {
+    this.inputs = this.inputs.filter((x: Variable) => {
+      return x.uid != input.uid;
+    });
+  }
+
   setInputs(inputs: (Variable | Process)[]) {
     this.inputs = inputs;
   }

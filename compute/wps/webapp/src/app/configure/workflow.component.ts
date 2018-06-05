@@ -294,6 +294,15 @@ export class WorkflowComponent implements OnInit {
       .classed('nodes', true);
   }
 
+  loadDomainToProcess(variable: Variable, process: ProcessWrapper) {
+    this.loadVariable(variable)
+      .then(() => {
+        process.process.domain = variable.axes.map((axis: Axis) => {
+          return {crs: 'Values', ...axis};
+        });
+      });
+  }
+
   loadDomain() {
     this.model.process.domain = this.model.selectedVariable.axes.map((axis: Axis) => {
       return {... axis};
@@ -307,14 +316,14 @@ export class WorkflowComponent implements OnInit {
 
     this.config.datasetID = this.model.selectedDataset.dataset.id;
 
-    this.configureService.searchESGF(this.config)
+    return this.configureService.searchESGF(this.config)
       .then(variables => {
         this.model.selectedDataset.dataset.variables = variables;
 
         this.model.selectedVariable = variables[0];
 
         if (this.model.selectedVariable.axes == null) {
-          this.loadVariable();
+          this.loadVariable(this.model.selectedVariable);
         } else {
           this.loading = false;
         }
@@ -326,28 +335,32 @@ export class WorkflowComponent implements OnInit {
       });
   }
 
-  loadVariable() {
+  loadVariable(variable: Variable) {
     this.loading = true;
 
-    this.config.variable = this.model.selectedVariable;
+    this.config.variable = variable;
 
-    this.configureService.searchVariable(this.config)
+    return this.configureService.searchVariable(this.config)
       .then(axes => {
-        this.model.selectedVariable.axes = axes.map((axis: Axis) => {
+        variable.axes = axes.map((axis: Axis) => {
           return {step: 1, ...axis}; 
         });
 
         this.loading = false;
+
+        return variable;
       })
       .catch(error => { 
         this.loading = false; 
 
         this.notificationService.error(error);
+
+        return null;
       });
   }
 
   showExplorer() {
-    this.loadVariable();
+    this.loadVariable(this.model.selectedVariable);
 
     $('#datasetExplorer').modal('show');    
   }
@@ -552,16 +565,6 @@ export class WorkflowComponent implements OnInit {
     });
 
     this.selectedNode.process.parameters = newParams;
-  }
-
-  addInput(value: Variable) {
-    this.selectedNode.process.inputs.push(value);
-  }
-
-  removeInput(value: Variable) {
-    this.selectedNode.process.inputs = this.selectedNode.process.inputs.filter((data: Variable) => {
-      return value.id !== data.id;
-    });
   }
 
   removeNode(node: ProcessWrapper) {
