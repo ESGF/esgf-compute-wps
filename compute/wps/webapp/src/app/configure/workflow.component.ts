@@ -158,6 +158,7 @@ export class WorkflowComponent implements OnInit {
 
   model: WorkflowModel = new WorkflowModel();
 
+  copyNodes: ProcessWrapper[];
   nodes: ProcessWrapper[];
   links: Link[];
   rootNode: ProcessWrapper;
@@ -446,6 +447,12 @@ export class WorkflowComponent implements OnInit {
       });
   }
 
+  domainCopy(node: ProcessWrapper) {
+    this.selectedNode.process.domain = node.process.domain.map((x: Axis) => {
+      return {...x};
+    });
+  }
+
   domainPresetChange(data: string) {
     if (this.selectedNode != null) {
       this.selectedNode.process.domainPreset = data;
@@ -628,6 +635,8 @@ export class WorkflowComponent implements OnInit {
 
   nodeClick() {
     this.selectedNode = <ProcessWrapper>d3.select(d3.event.target).datum();
+
+    this.copyNodes = this.nodes.filter((x: ProcessWrapper) => x.process.uid !== this.selectedNode.process.uid);
 
     jQuery('#configure').modal('show');
   }

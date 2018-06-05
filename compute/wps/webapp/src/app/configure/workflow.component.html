@@ -200,14 +200,20 @@
                     <option>World</option>
                     <option>Custom</option>
                   </select>
-                  <span class="input-group-btn">
+                  <div class="input-group-btn">
                     <button
                       type="button" 
                       class="btn btn-default dropdown-toggle" 
-                      data-toggle="dropdown">Copy from <span class="caret"></span></button>
+                      data-toggle="dropdown">Copy from <div class="caret"></div></button>
                     <ul class="dropdown-menu dropdown-menu-right">
+                      <li *ngIf="copyNodes != undefined && copyNodes.length == 0">
+                        <a>None</a>
+                      </li>
+                      <li *ngFor="let x of copyNodes" (click)="domainCopy(x)" class="dropdown-item">
+                        <a>{{x.process.identifier}}</a>
+                      </li>
                     </ul>
-                  </span>
+                  </div>
                 </div>
               </div>
               <div *ngFor="let x of selectedNode?.process.domain; index as i" class="list-group-item">
