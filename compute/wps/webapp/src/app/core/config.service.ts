@@ -17,7 +17,7 @@ export class ConfigService {
   adminPath = `${this.basePath}/admin`;
 
   // WPS API paths
-  wpsPath = '/wps';
+  wpsPath = '/wps/';
   jobsPath = '/wps/jobs/';
   generatePath = '/wps/generate/';
   processesPath = '/wps/processes/';

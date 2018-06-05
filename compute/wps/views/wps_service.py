@@ -285,7 +285,7 @@ def wps_entrypoint(request):
                 raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
             try:
-                operations, domains, variables = load_data_inputs(data_inputs)
+                operations, domains, variables = load_data_inputs(data_inputs, True)
             except Exception:
                 raise WPSError('Failed to parse datainputs')
 
