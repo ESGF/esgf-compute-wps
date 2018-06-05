@@ -182,14 +182,23 @@
               </div>
               <div *ngFor="let item of selectedNode?.process.inputs" class="list-group-item container-fluid">
                 <div class="row">
-                  <div class="col-md-9">
-                    {{item.dataset}} | <b>{{item.id}}</b>
+                  <div *ngIf="isVariable(item); else processBlock">
+                    <div class="col-md-9">
+                      {{item.dataset}} | <b>{{item.id}}</b>
+                    </div>
+                    <div class="col-md-2">
+                      <button (click)="loadDomainToProcess(item, selectedNode)" type="button" class="btn btn-default">
+                        Load Domain
+                      </button>
+                    </div>
                   </div>
-                  <div class="col-md-2">
-                    <button (click)="loadDomainToProcess(item, selectedNode)" type="button" class="btn btn-default">
-                      Load Domain
-                    </button>
-                  </div>
+                  <ng-template #processBlock>
+                    <div>
+                      <div class="col-md-11">
+                        {{item.identifier}}
+                      </div>
+                    </div>
+                  </ng-template>
                   <div class="col-md-1">
                     <button (click)="selectedNode?.process.removeInput(item)" type="button" class="btn btn-default">
                       <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>

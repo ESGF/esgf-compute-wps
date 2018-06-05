@@ -294,6 +294,10 @@ export class WorkflowComponent implements OnInit {
       .classed('nodes', true);
   }
 
+  isVariable(item: any) {
+    return item instanceof Variable;
+  }
+
   loadDomainToProcess(variable: Variable, process: ProcessWrapper) {
     this.loadVariable(variable)
       .then(() => {
