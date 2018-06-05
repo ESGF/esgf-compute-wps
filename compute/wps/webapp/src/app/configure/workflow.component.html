@@ -192,7 +192,7 @@
                 <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
               </li>
             </panel>
-            <panel title="Domain">
+            <panel ignoreBody="true" title="Domain">
               <div class="list-group-item">
                 <div class="input-group select-spacer">
                   <select (ngModelChange)="domainPresetChange($event)" [ngModel]="selectedNode?.process.domainPreset" class="form-control">
