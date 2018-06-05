@@ -446,6 +446,18 @@ export class WorkflowComponent implements OnInit {
       });
   }
 
+  domainPresetChange(data: string) {
+    if (this.selectedNode != null) {
+      this.selectedNode.process.domainPreset = data;
+
+      if (data === 'Global') {
+        this.selectedNode.process.domain = this.model.process.domain.map((x: Axis) => { 
+          return {...x};
+        });
+      }
+    }
+  }
+
   domainChange() {
     this.map.domain = this.model.domain;
 
@@ -576,6 +588,8 @@ export class WorkflowComponent implements OnInit {
       let origin = d3.mouse(d3.event.target);
 
       let process = new Process(this.stateData);
+
+      process.domainPreset = 'World';
 
       process.domain.push({
         id: 'lat',

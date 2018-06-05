@@ -195,7 +195,8 @@
             <panel title="Domain">
               <div class="list-group-item">
                 <div class="input-group select-spacer">
-                  <select (ngModelChange)="selectedNode?.process.domainPreset=$event" [ngModel]="selectedNode?.process.domainPreset" class="form-control">
+                  <select (ngModelChange)="domainPresetChange($event)" [ngModel]="selectedNode?.process.domainPreset" class="form-control">
+                    <option>Global</option>
                     <option>World</option>
                     <option>Custom</option>
                   </select>
