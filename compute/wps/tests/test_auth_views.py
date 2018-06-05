@@ -336,7 +336,7 @@ class AuthViewsTestCase(test.TestCase):
         response = self.client.get('/auth/callback/openid', {}, follow=True)
 
         self.assertIn('_auth_user_id', self.client.session)
-        self.check_redirect(response, 2)
+        self.check_redirect(response, 1)
 
     @mock.patch('wps.views.auth.openid.complete')
     def test_user_login_openid_callback(self, mock_openid):
@@ -345,7 +345,7 @@ class AuthViewsTestCase(test.TestCase):
         response = self.client.get('/auth/callback/openid', {}, follow=True)
 
         self.assertIn('_auth_user_id', self.client.session)
-        self.check_redirect(response, 2)
+        self.check_redirect(response, 1)
 
     def test_user_login_openid_invalid(self):
         response = self.client.post('/auth/login/openid/', {})
