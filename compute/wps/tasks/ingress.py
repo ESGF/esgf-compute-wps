@@ -25,26 +25,26 @@ __ALL__ = [
 logger = log.get_task_logger('wps.tasks.ingress')
 
 def is_workflow(operations):
-    root_node = None
-
     operations = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
 
-    # flatten out list of inputs from operations
-    op_inputs = [i for op in operations.values() for i in op.inputs]
+    # flatten list of operation inputs
+    op_inputs = [y for x in operations.values() for y in x.inputs]
 
-    # find the root operation, this node will not be an input to any other operation
-    for op in operations.values():
-        if op.name not in op_inputs:
-            if root_node is not None:
-                raise base.WPSError('Dangling operations, there can only be a single operation that is not an input')
+    logger.info('Operation inputs %r', op_inputs)
 
-            root_node = op
+    root_ops = [x for x in operations.keys() if x not in op_inputs]
 
-    if root_node is None:
-        raise base.WPSError('Malformed WPS execute request, atleast one operation must be provided')
+    if len(root_ops) > 1:
+        raise base.WPSError('Invalid workflow, there appears to be %d root operations', len(root_ops))
 
-    # considered a workflow if any of the root operations inputs are another operation
-    return root_node, any(i in operations.keys() for i in root_node.inputs)
+    try:
+        root_op = root_ops[0]
+    except IndexError:
+        raise base.WPSError('Could not find the root operation')
+
+    logger.info('Root op %r', root_op)
+
+    return operations[root_op], len(operations) > 1, operations
 
 @base.cwt_shared_task()
 def preprocess(self, identifier, variables, domains, operations, user_id, job_id):
@@ -56,9 +56,58 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     logger.info('Domains %r', domains)
     logger.info('Operations %r', operations)
 
-    root_node, workflow = is_workflow(operations)
+    root_node, workflow, loaded_ops = is_workflow(operations)
 
     if workflow:
+        logger.info('Setting up a workflow pipeline')
+
+        data = {
+            'variables': json.dumps(variables),
+            'domains': json.dumps(domains),
+            'root_op': json.dumps(root_node.parameterize()),
+            'operations': json.dumps(operations),
+            'user_id': user_id,
+            'job_id': job_id,
+        }
+
+        proc = process.Process(self.request.id)
+
+        proc.initialize(user_id, job_id)
+
+        preprocess_data = {}
+
+        for op in loaded_ops.values():
+            op_inputs = [cwt.Variable.from_dict(variables[x])
+                         for x in op.inputs if x in variables.keys()]
+
+            if len(op_inputs) == 0:
+                continue
+
+            try:
+                op.domain = cwt.Domain.from_dict(domains[op.domain])
+            except KeyError:
+                raise WPSError('Missing domain "{name}" definition', name=op.domain)
+
+            with file_manager.DataSetCollection.from_variables(op_inputs) as collection:
+                logger.info('INGRESS %r', settings.INGRESS_ENABLED)
+
+                if not proc.check_cache(collection, op.domain) and settings.INGRESS_ENABLED:
+                    logger.info('Configuring workflow with ingress')
+                else:
+                    logger.info('Configuring workflow without ingress')
+
+                    domain_map = proc.generate_domain_map(collection)
+
+                    preprocess = {
+                        'type': 'domain',
+                        'data': json.dumps(domain_map, default=helpers.json_dumps_default),
+                        'estimate_size': collection.estimate_size(op.domain),
+                    }
+
+            preprocess_data[op.name] = preprocess
+
+        logger.info('Preprocess data %r', preprocess_data)
+                
         raise base.WPSError('Workflow disabled')
     else:
         logger.info('Setting up a single process pipeline')
