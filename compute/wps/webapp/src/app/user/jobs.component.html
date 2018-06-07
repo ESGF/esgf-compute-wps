@@ -20,7 +20,7 @@
               </div>
               <div *ngIf="current.output !== null" class="row">
                 <div class="col-md-1"></div>
-                <div class="col-md-11"><a href="{{current.output|thredds}}" target="_blank">{{current.output}}</a></div>
+                <div class="col-md-11"><a href="{{current.output.uri}}.html" target="_blank">{{current.output.id}}</a></div>
               </div>
               <div *ngIf="current.exception !== null" class="row">
                 <div class="col-md-1"></div>

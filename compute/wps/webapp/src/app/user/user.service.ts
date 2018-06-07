@@ -45,15 +45,16 @@ export class UserService extends WPSService {
     let p = new DOMParser();
 
     if (value.output !== null) {
-      let xmlDoc = p.parseFromString(value.output, 'text/xml');
+      value.output = JSON.parse(value.output);
+      //let xmlDoc = p.parseFromString(value.output, 'text/xml');
 
-      let elements = xmlDoc.getElementsByTagName('ows:ComplexData');
+      //let elements = xmlDoc.getElementsByTagName('ows:ComplexData');
 
-      if (elements.length > 0) {
-        let variable = JSON.parse(elements[0].innerHTML);
+      //if (elements.length > 0) {
+      //  let variable = JSON.parse(elements[0].innerHTML);
 
-        value.output = variable.uri;
-      }
+      //  value.output = variable.uri;
+      //}
     } else if (value.exception != null) {
       let xmlDoc = p.parseFromString(value.exception, 'text/xml');
 
