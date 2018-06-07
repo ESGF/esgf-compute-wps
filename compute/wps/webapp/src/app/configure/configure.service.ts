@@ -64,18 +64,42 @@ export class Process {
     });
   }
 
-  prepareDataInputs() {
-    let operation = {};
-    let domain = {};
-    let variable = {};
+  buildRegrid(regrid: RegridModel) {
+    let data = {
+      tool: regrid.regridTool,
+      method: regrid.regridMethod,
+    };
 
-    let regrid = null;
+    if (regrid.regridType === 'Gaussian') {
+      data['grid'] = `gaussian~${regrid.nLats}`;
+    } else if (regrid.regridType === 'Uniform') {
+      let lats = '';
+      let lons = '';
 
-    // define the global domain
-    let domainID = this.newUID();
-    let gDomain: {[k: string]: any} = { id: domainID };
+      if (regrid.startLats != null && regrid.deltaLats != null) {
+        lats = `${regrid.startLats}:${regrid.nLats}:${regrid.deltaLats}` 
+      } else {
+        lats = `${regrid.deltaLats}`
+      }
 
-    this.domain.forEach((axis: Axis) => {
+      if (regrid.startLons != null && regrid.deltaLons != null) {
+        lons = `${regrid.startLons}:${regrid.nLons}:${regrid.deltaLons}`
+      } else {
+        lons = `${regrid.deltaLons}`
+      }
+
+      data['grid'] = `uniform~${lats}x${lons}`;
+    }
+
+    return data;
+  }
+
+  buildDomain(axes: Axis[]) {
+    let data: {[k: string]: any} = {
+      id: this.newUID(),
+    };
+
+    axes.forEach((axis: Axis) => {
       if (axis.crs.toLowerCase() === 'indices') {
         // Check that all values are integers
         let check = [axis.start, axis.stop, axis.step]
@@ -87,41 +111,39 @@ export class Process {
         }
       }
 
-      gDomain[axis.id] = {
+      data[axis.id] = {
         start: axis.start,
         end: axis.stop,
         step: axis.step,
-        crs: axis.crs
+        crs: axis.crs.toLowerCase(),
       };
     });
 
-    // defin the global regrid options
-    if (this.regrid.regridType !== 'None') {
-      regrid = { tool: this.regrid.regridTool, method: this.regrid.regridMethod };
+    let sig = Object.keys(data).sort().map((name: string) => {
+      if (name === 'id') return '';
 
-      if (this.regrid.regridType === 'Gaussian') {
-        regrid['grid'] = `gaussian~${this.regrid.nLats}`;
-      } else if (this.regrid.regridType === 'Uniform') {
-        let lats = '';
-        let lons = '';
+      let axis = data[name];
 
-        if (this.regrid.startLats != null && this.regrid.deltaLats != null) {
-          lats = `${this.regrid.startLats}:${this.regrid.nLats}:${this.regrid.deltaLats}` 
-        } else {
-          lats = `${this.regrid.deltaLats}`
-        }
- 
-        if (this.regrid.startLons != null && this.regrid.deltaLons != null) {
-          lons = `${this.regrid.startLons}:${this.regrid.nLons}:${this.regrid.deltaLons}`
-        } else {
-          lons = `${this.regrid.deltaLons}`
-        }
+      return `${name}${axis.start}${axis.end}${axis.step}${axis.crs}`;
+    });
 
-        regrid['grid'] = `uniform~${lats}x${lons}`;
-      }
+    data['sig'] = sig.join('');
+
+    return data
+  }
+
+  prepareDataInputs(defaults: any = {}) {
+    let operation = {};
+    let domain = {};
+    let variable = {};
+
+    let regrid = null;
+
+    if (defaults.regrid.regridType !== 'None') {
+      regrid = this.buildRegrid(defaults.regrid);
     }
 
-    domain[domainID] = gDomain;
+    let defaultDomain = this.buildDomain(defaults.domain);
 
     // DFS stack
     let stack: Process[] = [this];
@@ -146,16 +168,49 @@ export class Process {
         let op: {[k: string]: any} = {
           name: curr.identifier,
           result: curr.uid,
-          domain: gDomain.id,
           input: [],
         };
 
-        // set the gridder
-        if (regrid !== null) {
-          op['gridder'] = regrid;
+        if (curr.regrid.regridType === 'None') {
+          if (regrid != null) {
+            op['gridder'] = regrid;
+          }
+        } else {
+          op['gridder'] = this.buildRegrid(curr.regrid);
         }
 
-        // Add all parameters
+        if (curr.domainPreset === 'Global') {
+          op['domain'] = defaultDomain.id;
+
+          if (!(defaultDomain.id in domain)) {
+            domain[defaultDomain.id] = defaultDomain;
+          }
+        } else if (curr.domainPreset === 'Custom') {
+          let newDomain = this.buildDomain(curr.domain);
+
+          let matched: null | any = null;
+
+          Object.keys(domain).forEach((name: any) => {
+            if (domain[name].sig === newDomain.sig) {
+              matched = domain[name];
+            }
+          });
+
+          if (matched == null) {
+            domain[newDomain.id] = newDomain; 
+
+            op['domain'] = newDomain.id;
+          } else {
+            op['domain'] = matched.id;
+          }
+        }
+
+        // Always insert the defaults
+        defaults.parameters.forEach((para: Parameter) => {
+          op[para.key] = para.value;
+        });
+
+        // Allow process specific to overwrite default parameters
         curr.parameters.forEach((para: Parameter) => {
           op[para.key] = para.value; 
         });
@@ -195,6 +250,8 @@ export class Process {
         operation[op.result] = op;
       }
     }
+
+    Object.keys(domain).forEach((x: any) => { delete domain[x].sig; });
 
     let operationJSON = JSON.stringify(Object.keys(operation).map((key: string) => { return operation[key]; }));
     let domainJSON = JSON.stringify(Object.keys(domain).map((key: string) => { return domain[key]; }));
@@ -241,14 +298,14 @@ export class Process {
     return newNode;
   }
 
-  prepareDataInputsXML() {
+  prepareDataInputsXML(defaults: any) {
     const WPS_NS = 'http://www.opengis.net/wps/1.0.0';
     const OWS_NS = 'http://www.opengis.net/ows/1.1';
     const XLINK_NS = 'http://www.w3.org/1999/xlink';
     const XSI_NS = 'http://www.w3.org/2001/XMLSchema-instance';
     const SCHEMA_LOCATION = 'http://www.opengis.net/wps/1.0.0/wpsExecute_request.xsd';
 
-    let dataInputs = this.prepareDataInputs();
+    let dataInputs = this.prepareDataInputs(defaults);
 
     let doc = document.implementation.createDocument(WPS_NS, 'wps:Execute', null);
 
@@ -376,12 +433,12 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  execute(process: Process): Promise<string> {
+  execute(process: Process, defaults: any = {}): Promise<string> {
     let preparedData: string;
 
     try {
       //preparedData = process.prepareDataInputsString();
-      preparedData = process.prepareDataInputsXML();
+      preparedData = process.prepareDataInputsXML(defaults);
     } catch (e) {
       return Promise.reject(e);
     }

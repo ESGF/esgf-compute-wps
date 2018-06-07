@@ -299,6 +299,8 @@ export class WorkflowComponent implements OnInit {
   }
 
   loadDomainToProcess(variable: Variable, process: ProcessWrapper) {
+    process.process.domainPreset = 'Custom';
+
     this.loadVariable(variable)
       .then(() => {
         process.process.domain = variable.axes.map((axis: Axis) => {
@@ -361,6 +363,30 @@ export class WorkflowComponent implements OnInit {
 
         return null;
       });
+  }
+
+  addAxis(name: string) {
+    let axis = this.selectedNode.process.domain.find((axis: Axis) => {
+      return axis.id === name;
+    });
+
+    if (axis != undefined) return;
+
+    this.selectedNode.process.domain.push({
+      id: name,
+      id_alt: null,
+      units: 'None',
+      start: 0,
+      stop: 0,
+      step: 1,
+      crs: 'Values',
+    });
+  }
+
+  removeAxis(name: string) {
+    this.selectedNode.process.domain = this.selectedNode.process.domain.filter((axis: Axis) => {
+      return axis.id != name;
+    });
   }
 
   showExplorer() {
@@ -436,13 +462,19 @@ export class WorkflowComponent implements OnInit {
     // Assign values from our model
     // These values are not stored in rootNode since this changes with the state
     // of the graph
-    this.rootNode.process.domain = this.model.process.domain;
+    //this.rootNode.process.domain = this.model.process.domain;
 
-    this.rootNode.process.regrid = this.model.process.regrid;
+    //this.rootNode.process.regrid = this.model.process.regrid;
 
-    this.rootNode.process.parameters = this.model.process.parameters;
+    //this.rootNode.process.parameters = this.model.process.parameters;
 
-    this.configureService.execute(this.rootNode.process)
+    let defaults = {
+      domain: this.model.process.domain,
+      regrid: this.model.process.regrid,
+      parameters: this.model.process.parameters,
+    };
+
+    this.configureService.execute(this.rootNode.process, defaults)
       .then((data: any) => {
         let parser = new DOMParser();
         let xml = parser.parseFromString(data, 'text/xml');
@@ -465,6 +497,8 @@ export class WorkflowComponent implements OnInit {
   }
 
   domainCopy(node: ProcessWrapper) {
+    this.selectedNode.process.domainPreset = node.process.domainPreset;
+
     this.selectedNode.process.domain = node.process.domain.map((x: Axis) => {
       return {...x};
     });
@@ -478,6 +512,8 @@ export class WorkflowComponent implements OnInit {
         this.selectedNode.process.domain = this.model.process.domain.map((x: Axis) => { 
           return {...x};
         });
+      } else if (data === 'None' || data === 'Custom') {
+        this.selectedNode.process.domain = [];
       }
     }
   }
@@ -617,34 +653,7 @@ export class WorkflowComponent implements OnInit {
 
       let process = new Process(this.stateData);
 
-      process.domainPreset = 'World';
-
-      process.domain.push({
-        id: 'lat',
-        start: 90,
-        stop: -90,
-        step: 1,
-        units: 'degress north',
-        crs: 'Values',
-      } as Axis);
-
-      process.domain.push({
-        id: 'lon',
-        start: -180,
-        stop: 180,
-        step: 1,
-        units: 'degress west',
-        crs: 'Values',
-      } as Axis);
-
-      process.domain.push({
-        id: 'time',
-        start: 0,
-        stop: 0,
-        step: 1,
-        units: 'Custom',
-        crs: 'Values',
-      } as Axis);
+      process.domainPreset = 'None';
 
       this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 

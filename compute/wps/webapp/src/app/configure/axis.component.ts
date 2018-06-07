@@ -26,7 +26,16 @@ export interface Axis {
     <div class="panel-heading">
       <div class="panel-title">
         <a role="button" data-toggle="collapse" data-parent="#accordionAxis" href="#collapse{{id}}{{axisIndex}}">
-          <span id="title">{{axis.id}} ({{axis.units}})</span>
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-md-10">
+                <span id="title">{{axis.id}} ({{axis.units}})</span>
+              </div>
+              <div *ngIf="canRemove" class="col-md-2">
+                <button (click)="axisRemove.emit(axis.id)" class="close">&times;</button>
+              </div>
+            </div>
+          </div>
         </a>
       </div>
     </div>
@@ -62,7 +71,9 @@ export interface Axis {
 export class AxisComponent {
   @Input() axis: Axis;
   @Input() axisIndex: number;
+  @Input() canRemove: boolean = false;
   @Output() axisChange: EventEmitter<string> = new EventEmitter<string>();
+  @Output() axisRemove: EventEmitter<string> = new EventEmitter<string>();
 
   id: string = Math.random().toString(16).slice(2);
   start: Subject<number> = new Subject<number>();

@@ -222,8 +222,8 @@
               <div class="list-group-item">
                 <div class="input-group select-spacer">
                   <select (ngModelChange)="domainPresetChange($event)" [ngModel]="selectedNode?.process.domainPreset" class="form-control">
+                    <option>None</option>
                     <option>Global</option>
-                    <option>World</option>
                     <option>Custom</option>
                   </select>
                   <div class="input-group-btn">
@@ -242,8 +242,22 @@
                   </div>
                 </div>
               </div>
+              <div *ngIf="selectedNode?.process.domainPreset === 'Custom'" class="list-group-item">
+                <div class="input-group">
+                  <input #axisName type="text" class="form-control" placehold="Dimension name" axisName.value=''>
+                  <span class="input-group-btn">
+                    <button (click)="addAxis(axisName.value)" type="button" class="btn btn-default">
+                      Add
+                    </button>
+                  </span>
+                </div>
+              </div>
               <div *ngFor="let x of selectedNode?.process.domain; index as i" class="list-group-item">
-                <axis [axis]="x" [axisIndex]="i"></axis>
+                <axis [axis]="x"
+                  [axisIndex]="i" 
+                  [canRemove]="selectedNode?.process.domainPreset === 'Custom'"
+                  (axisRemove)="removeAxis($event)">
+                </axis>
               </div>
             </panel>
           </panel-group>
