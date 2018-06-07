@@ -8,6 +8,7 @@ import numpy as np
 from django.conf import settings
 
 from wps import helpers
+from wps import models
 from wps import tasks
 from wps.backends import backend
 from wps.tasks import base
@@ -161,33 +162,70 @@ class CDAT(backend.Backend):
 
         user = kwargs.get('user')
 
-        params = {
-            'job_id': job.id,
-            'user_id': user.id,
+        preprocess = kwargs.get('preprocess')
+
+        domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
+
+        logger.info('Building workflow with root %r', root_op)
+
+        queue = {
+            'queue': 'priority.low',
+            'exchange': 'priority',
+            'routing_key': 'low',
         }
 
-        global_domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
-
-        logger.info('Building workflow')
-
         def _build(node):
+            logger.info('Processing node %r', node)
+
+            node_preprocess = preprocess.get(node.name)
+
             sub_tasks = []
 
             for name in node.inputs:
                 if name in operations:
                     sub_tasks.append(_build(operations[name]))
 
+            logger.info('Subtasks %r', len(sub_tasks))
+
             task_variables = dict((x, variables[x].parameterize()) 
                                   for x in node.inputs if x in variables)
 
-            if len(sub_tasks) == 0:
-                task = self.get_task(node.identifier).s(
-                    {}, task_variables, global_domains, node.parameterize(), **params)
-            else:
-                task = self.get_task(node.identifier).s(
-                    task_variables, global_domains, node.parameterize(), **params)
+            logger.info('Variables %r', len(task_variables))
 
-                task = celery.group(sub_tasks) | task
+            try:
+                process = models.Process.objects.get(identifier=node.identifier)
+            except models.Process.DoesNotExist:
+                raise WPSError('Error finding process {name}', name=node.identifier)
+
+            args = [
+                task_variables, 
+                domains, 
+                node.parameterize(),
+            ]
+
+            new_kwargs = {
+                'user_id': user.id,
+                'job_id': job.id,
+                'process_id': process.id,
+            }
+
+            if node_preprocess is not None:
+                new_kwargs['domain_map'] = node_preprocess['data']
+
+            if len(sub_tasks) == 0:
+                args.insert(0, {})
+
+                task = self.get_task(node.identifier).s(*args, **new_kwargs)
+
+                task.set(**queue)
+            else:
+                task = self.get_task(node.identifier).s(*args, **new_kwargs)
+
+                task.set(**queue)
+
+                task = celery.chain(celery.group(sub_tasks), task)
+
+            logger.info('Added task with args %r', args)
 
             return task
 

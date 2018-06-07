@@ -44,7 +44,7 @@ def is_workflow(operations):
 
     logger.info('Root op %r', root_op)
 
-    return operations[root_op], len(operations) > 1, operations
+    return root_op, len(operations) > 1, operations
 
 @base.cwt_shared_task()
 def preprocess(self, identifier, variables, domains, operations, user_id, job_id):
@@ -62,9 +62,11 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
         logger.info('Setting up a workflow pipeline')
 
         data = {
+            'type': 'workflow',
+            'identifier': identifier,
             'variables': json.dumps(variables),
             'domains': json.dumps(domains),
-            'root_op': json.dumps(root_node.parameterize()),
+            'root_op': root_node,
             'operations': json.dumps(operations),
             'user_id': user_id,
             'job_id': job_id,
@@ -106,9 +108,7 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
             preprocess_data[op.name] = preprocess
 
-        logger.info('Preprocess data %r', preprocess_data)
-                
-        raise base.WPSError('Workflow disabled')
+        data['preprocess'] = json.dumps(preprocess_data, default=helpers.json_dumps_default)
     else:
         logger.info('Setting up a single process pipeline')
 
@@ -149,17 +149,11 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
             data['estimate_size'] = collection.estimate_size(o.domain)
 
-    session = requests.Session()
+    headers = { }
 
-    response = session.get(settings.WPS_ENDPOINT, verify=False)
+    logger.info('Executing with %r', data)
 
-    csrf_token = session.cookies.get('csrftoken')
-
-    logger.info('Retrieved CSRF token')
-
-    headers = { 'X-CSRFToken': csrf_token }
-
-    response = session.post(settings.WPS_EXECUTE_URL, data, headers=headers, verify=False)
+    response = requests.post(settings.WPS_EXECUTE_URL, data, headers=headers, verify=False)
 
     if not response.ok:
         raise base.WPSError('Failed to ingress data status code {code}', code=response.status_code)

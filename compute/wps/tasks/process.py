@@ -185,7 +185,7 @@ class Process(object):
         grid = None
         gridder = operation.get_parameter('gridder')
 
-        domain_map = json.loads(kwargs.get('domain_map', None), object_hook=helpers.json_loads_object_hook)
+        domain_map = json.loads(kwargs.get('domain_map', '{}'), object_hook=helpers.json_loads_object_hook)
 
         start = datetime.datetime.now()
 
