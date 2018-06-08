@@ -137,6 +137,8 @@ string e.g. 'lat|lon'.
 def average(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
+    kwargs['axes'] = operation.get_parameter('axes', True).values()[0]
+
     return process_base(self, MV.average, 1, o, user_id, job_id, process_id, **kwargs)
 
 @base.register_process('CDAT.sum', abstract=""" 
@@ -147,6 +149,8 @@ string e.g. 'lat|lon'.
 @base.cwt_shared_task()
 def sum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    kwargs['axes'] = operation.get_parameter('axes', True).values()[0]
 
     return process_base(self, MV.sum, 1, o, user_id, job_id, process_id, **kwargs)
 
@@ -159,6 +163,8 @@ string e.g. 'lat|lon'.
 def maximum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
+    kwargs['axes'] = operation.get_parameter('axes', True).values()[0]
+
     return process_base(self, MV.max, 1, o, user_id, job_id, process_id, **kwargs)
 
 @base.register_process('CDAT.min', abstract="""
@@ -170,7 +176,45 @@ string e.g. 'lat|lon'.
 def minimum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
+    kwargs['axes'] = operation.get_parameter('axes', True).values()[0]
+
     return process_base(self, MV.min, 1, o, user_id, job_id, process_id, **kwargs)
+
+@base.register_process('CDAT.add', abstract="""
+Compute the elementwise addition between two variables.
+""")
+@base.cwt_shared_task()
+def add(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.add, 2, o, user_id, job_id, process_id, **kwargs)
+
+@base.register_process('CDAT.subtract', abstract="""
+Compute the elementwise subtraction between two variables.
+""")
+@base.cwt_shared_task()
+def subtract(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.subtract, 2, o, user_id, job_id, process_id, **kwargs)
+
+@base.register_process('CDAT.multiply', abstract="""
+Compute the elementwise multiplication between two variables.
+""")
+@base.cwt_shared_task()
+def multiply(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.multiply, 2, o, user_id, job_id, process_id, **kwargs)
+
+@base.register_process('CDAT.divide', abstract="""
+Compute the elementwise division between two variables.
+""")
+@base.cwt_shared_task()
+def divide(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.divide, 2, o, user_id, job_id, process_id, **kwargs)
 
 def process_base(self, process_func, num_inputs, operation, user_id, job_id, process_id, **kwargs):
     """ Configures and executes a process.

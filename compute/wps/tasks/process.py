@@ -246,9 +246,7 @@ class Process(object):
 
         start = datetime.datetime.now()
 
-        axes = operation.get_parameter('axes', True)
-
-        axes = axes.values[0]
+        axes = kwargs.get('axes', 'lat')
 
         self.log('Starting to process inputs')
 
