@@ -47,7 +47,7 @@ class CDAT(backend.Backend):
 
         logger.info('Mapping ingressed files to source files')
 
-        ingress_uid = uuid.uuid4()
+        ingress_uuid = uuid.uuid4()
 
         for uri, meta in chunk_map.iteritems():
             ingress_map[uri] = {
