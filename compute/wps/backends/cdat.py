@@ -85,16 +85,15 @@ class CDAT(backend.Backend):
             process = base.REGISTRY[operation.identifier]
 
             new_kwargs = {
-                'user_id': user.id,
                 'job_id': job.id,
                 'process_id': process.id,
             }
 
-            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id)
+            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
             ingress_cache_sig = ingress_cache_sig.set(**queue)
 
-            process_sig = process.s({}, domains, operation.parameterize(), **new_kwargs)
+            process_sig = process.s({}, domains, operation.parameterize(), user_id=user.id, **new_kwargs)
 
             process_sig = process_sig.set(**queue)
 
@@ -105,7 +104,7 @@ class CDAT(backend.Backend):
                 'process_id': process.id,
             }
 
-            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, **new_kwargs)
+            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
             ingress_cache_sig = ingress_cache_sig.set(**queue)
 
