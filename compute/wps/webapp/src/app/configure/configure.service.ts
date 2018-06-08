@@ -139,11 +139,15 @@ export class Process {
 
     let regrid = null;
 
-    if (defaults.regrid.regridType !== 'None') {
+    if (defaults.regrid != undefined && defaults.regrid.regridType !== 'None') {
       regrid = this.buildRegrid(defaults.regrid);
     }
 
-    let defaultDomain = this.buildDomain(defaults.domain);
+    let defaultDomain = null;
+
+    if (defaults.domain != undefined) {
+      defaultDomain = this.buildDomain(defaults.domain);
+    }
 
     // DFS stack
     let stack: Process[] = [this];
@@ -179,7 +183,7 @@ export class Process {
           op['gridder'] = this.buildRegrid(curr.regrid);
         }
 
-        if (curr.domainPreset === 'Global') {
+        if (defaultDomain != null && curr.domainPreset === 'Global') {
           op['domain'] = defaultDomain.id;
 
           if (!(defaultDomain.id in domain)) {
@@ -205,10 +209,12 @@ export class Process {
           }
         }
 
-        // Always insert the defaults
-        defaults.parameters.forEach((para: Parameter) => {
-          op[para.key] = para.value;
-        });
+        if (defaults.parameters != undefined) {
+          // Always insert the defaults
+          defaults.parameters.forEach((para: Parameter) => {
+            op[para.key] = para.value;
+          });
+        }
 
         // Allow process specific to overwrite default parameters
         curr.parameters.forEach((para: Parameter) => {
