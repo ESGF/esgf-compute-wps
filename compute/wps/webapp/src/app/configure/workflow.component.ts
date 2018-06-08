@@ -76,6 +76,10 @@ class Link {
     public src: ProcessWrapper,
     public dst?: ProcessWrapper
   ) { }
+
+  uid() {
+    return `${this.src.uid()}:${this.dst.uid()}`;
+  }
 }
 
 enum EditorState {
@@ -625,7 +629,7 @@ export class WorkflowComponent implements OnInit {
     jQuery('#configure').modal('hide');
 
     this.links = this.links.filter((value: Link) => {
-      return value.src !== node && value.dst !== node;
+      return value.src.uid() !== node.uid() && value.dst.uid() !== node.uid();
     });
 
     this.nodes = this.nodes.filter((value: ProcessWrapper) => { 
@@ -758,7 +762,7 @@ export class WorkflowComponent implements OnInit {
       .attr('d', (d: any) => {
         return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
       })
-      .data(this.links);
+      .data(this.links, (item: Link) => { return item.uid(); });
 
     links.exit().remove();
 
