@@ -49,7 +49,7 @@ class LocalBackendTestCase(test.TestCase):
 
         proc3.add_inputs('subset')
 
-        proc4 = cwt.Process(identifier='Oph.avg', name='avg')
+        proc4 = cwt.Process(identifier='CDAT.subset', name='avg')
 
         proc4.add_inputs('max')
 

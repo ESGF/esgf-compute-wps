@@ -276,6 +276,8 @@ def generate(request):
 @ensure_csrf_cookie
 def wps_entrypoint(request):
     try:
+        job = None
+
         api_key, op, identifier, data_inputs = handle_request(request)
 
         if op == 'getcapabilities':

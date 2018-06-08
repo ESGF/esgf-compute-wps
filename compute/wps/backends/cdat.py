@@ -165,7 +165,7 @@ class CDAT(backend.Backend):
 
         user = kwargs.get('user')
 
-        preprocess = kwargs.get('preprocess')
+        preprocess = kwargs.get('preprocess', {})
 
         domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
 
@@ -200,7 +200,7 @@ class CDAT(backend.Backend):
             try:
                 process = models.Process.objects.get(identifier=node.identifier)
             except models.Process.DoesNotExist:
-                raise WPSError('Error finding process {name}', name=node.identifier)
+                raise base.WPSError('Error finding process {name}', name=node.identifier)
 
             args = [
                 task_variables, 
