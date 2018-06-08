@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import uuid
 
 import celery
 import cwt
@@ -46,6 +47,8 @@ class CDAT(backend.Backend):
 
         logger.info('Mapping ingressed files to source files')
 
+        ingress_uid = uuid.uuid4()
+
         for uri, meta in chunk_map.iteritems():
             ingress_map[uri] = {
                 'temporal': meta['temporal'],
@@ -58,7 +61,7 @@ class CDAT(backend.Backend):
             logger.info('Processing ingressed files for %s', uri)
 
             for local_index, chunk in enumerate(meta['chunks']):
-                output_filename = 'ingress-{}-{:04}.nc'.format('some-uid', index)
+                output_filename = 'ingress-{}-{:04}.nc'.format(ingress_uuid, index)
 
                 index += 1
 
@@ -262,6 +265,8 @@ class CDAT(backend.Backend):
 
         logger.info('Mapping ingressed files to source files')
 
+        ingress_uuid = uuid.uuid4()
+
         for uri, meta in chunk_map.iteritems():
             ingress_map[uri] = {
                 'temporal': meta['temporal'],
@@ -274,7 +279,7 @@ class CDAT(backend.Backend):
             logger.info('Processing ingressed files for %s', uri)
 
             for local_index, chunk in enumerate(meta['chunks']):
-                output_filename = 'ingress-{}-{:04}.nc'.format('some-uid', index)
+                output_filename = 'ingress-{}-{:04}.nc'.format(ingress_uuid, index)
 
                 index += 1
 

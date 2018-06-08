@@ -217,6 +217,9 @@ def ingress_cache(self, ingress_chunks, ingress_map, job_id, output_id, process_
     variable_name = None
     variables = []
 
+    if not isinstance(ingress_chunks, list):
+        ingress_chunks = [ingress_chunks,]
+
     for chunk in ingress_chunks:
         elapsed += chunk['delta']
 
