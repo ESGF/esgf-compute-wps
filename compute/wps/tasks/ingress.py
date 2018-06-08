@@ -95,6 +95,14 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
 
                 if not proc.check_cache(collection, op.domain) and settings.INGRESS_ENABLED:
                     logger.info('Configuring workflow with ingress')
+
+                    chunk_map = proc.generate_chunk_map(collection, op.domain)
+
+                    preprocess = {
+                        'type': 'ingress',
+                        'data': json.dumps(chunk_map, default=helpers.json_dumps_default),
+                        'estimate_size': collection.estimate_size(op.domain),
+                    }
                 else:
                     logger.info('Configuring workflow without ingress')
 
@@ -197,7 +205,7 @@ def ingress(self, input_url, var_name, domain, base_units, output_uri):
     }
 
 @base.cwt_shared_task()
-def ingress_cache(self, ingress_chunks, ingress_map, job_id, process_id=None):
+def ingress_cache(self, ingress_chunks, ingress_map, job_id, output_id, process_id=None):
     self.PUBLISH = base.ALL
 
     logger.info('Generating cache files from ingressed data')
@@ -324,4 +332,4 @@ def ingress_cache(self, ingress_chunks, ingress_map, job_id, process_id=None):
 
     variable = cwt.Variable(output_url, variable_name)
 
-    return { variable.name: variable.parameterize() }
+    return { output_id: variable.parameterize() }

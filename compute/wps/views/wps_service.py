@@ -310,8 +310,6 @@ def wps_entrypoint(request):
 
             job.accepted()
 
-            raise WPSError('Testing')
-
             logger.info('Queueing preprocessing job %s user %s', job.id, user.id)
 
             args = [
