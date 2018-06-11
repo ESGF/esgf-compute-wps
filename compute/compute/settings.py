@@ -95,7 +95,8 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 #SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
-INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
+ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, int, lambda x: datetime.timedelta(days=x))
+INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', True, bool)
 PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
 
@@ -108,7 +109,7 @@ EMAIL_HOST_USER = config.get_value('email', 'user', '')
 WPS_VERSION = '1.0.0'
 WPS_LANG = 'en-US'
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
-WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/')
+WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/status/{job_id}/')
 WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url', 'https://{host}/wps/execute/')
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
 WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)
