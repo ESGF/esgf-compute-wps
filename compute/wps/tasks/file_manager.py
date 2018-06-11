@@ -321,6 +321,10 @@ class DataSetCollection(object):
         for ds in self.datasets:
             ds.close()
 
+    def close(self):
+        for dataset in self.datasets:
+            dataset.close()
+
     def estimate_size(self, domain):
         base_units = self.get_base_units()
 
