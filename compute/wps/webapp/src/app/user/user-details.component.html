@@ -20,8 +20,10 @@
       <div class="form-group">
         <label for="type">Authenticated</label>
         <p class="form-control-static" id="type">{{model?.type}}</p>
-        <a *ngIf="configService.certEnabled" href="{{configService.authUserCertPath}}">Download Certificate</a>
-        <a data-toggle="modal" data-target="#certDialog"><i aria-hidden="true" class="fa fa-question-circle"></i></a>
+        <div *ngIf="configService.certEnabled && model?.type !== ''">
+          <a href="{{configService.authUserCertPath}}">Download Certificate</a>
+          <a data-toggle="modal" data-target="#certDialog"><i aria-hidden="true" class="fa fa-question-circle"></i></a>
+        </div>
       </div>
       <div class="form-group">
         <label for="api_key">API Key</label>
