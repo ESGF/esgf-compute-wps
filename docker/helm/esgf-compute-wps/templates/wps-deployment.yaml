@@ -30,9 +30,11 @@ spec:
           - infinity
         {{- end }}
         resources:
+        {{- if not .Values.development }}
           limits:
             cpu: "{{ .Values.wps.resources.cpuLimit }}"
             memory: "{{ .Values.wps.resources.memoryLimit }}"
+        {{- end }}
           requests:
             cpu: "{{ .Values.wps.resources.cpuRequest }}"
             memory: "{{ .Values.wps.resources.memoryRequest }}"

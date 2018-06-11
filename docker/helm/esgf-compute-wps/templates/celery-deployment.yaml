@@ -11,7 +11,11 @@ metadata:
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
 spec:
+  {{- if $.Values.development }}
+  replicas: 0
+  {{- else }}
   replicas: {{ .replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ $.Release.Name }}-celery-{{ .name }}

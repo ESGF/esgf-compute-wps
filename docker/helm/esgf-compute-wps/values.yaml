@@ -62,6 +62,12 @@ wps:
   image: jasonb87/cwt_wps
   imageTag: 2.0.2
   staticPath: /opt/nfs/cwt/static
+  activeUserThreshold: 5
+  ingressEnabled: true
+  certDownloadEnabled: true
+  
+  process:
+    blacklist: "[]"
 
   resources:
     cpuRequest: 100m
