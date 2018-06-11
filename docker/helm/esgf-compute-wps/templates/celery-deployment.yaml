@@ -52,9 +52,11 @@ spec:
           - infinity
         {{- end }}
         resources:
+          {{- if not $.Values.development }}
           limits:
             cpu: {{ .resources.cpuLimit | quote }}
             memory: {{ .resources.memoryLimit | quote }}
+          {{- end }}
           requests:
             cpu: {{ .resources.cpuRequest | quote }}
             memory: {{ .resources.memoryRequest | quote }}
