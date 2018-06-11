@@ -25,7 +25,7 @@ data:
     [wps]
     wps.dap=true
     wps.endpoint=http://{{ .Values.host }}/wps/
-    wps.status_location=http://{{ .Values.host }}/wps/{job_id}/
+    wps.status_location=http://{{ .Values.host }}/wps/status/{job_id}/
     wps.dap_url=http://{{ .Values.host }}/threddsCWT/dodsC/public/{filename}
     wps.login_url=http://{{ .Values.host }}/wps/home/auth/login/openid
     wps.profile_url=http://{{ .Values.host }}/wps/home/user/profile
