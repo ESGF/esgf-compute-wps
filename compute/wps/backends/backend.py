@@ -43,7 +43,7 @@ class Backend(object):
         if abstract is None:
             abstract = ''
 
-        description = cwt.wps.process_description(identifier, identifier, '1.0.0', DATA_INPUTS, [OUTPUT])
+        description = cwt.wps.process_description(identifier, identifier, '1.0.0', DATA_INPUTS, [OUTPUT], abstract=abstract)
 
         descriptions = cwt.wps.process_descriptions('en-US', '1.0.0', [description])
 
