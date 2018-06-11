@@ -189,7 +189,7 @@ export class Process {
           if (!(defaultDomain.id in domain)) {
             domain[defaultDomain.id] = defaultDomain;
           }
-        } else if (curr.domainPreset === 'Custom') {
+        } else if (curr.domainPreset === 'Custom' || curr.domainPreset === 'World') {
           let newDomain = this.buildDomain(curr.domain);
 
           let matched: null | any = null;

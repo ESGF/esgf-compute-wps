@@ -326,7 +326,18 @@ def wps_entrypoint(request):
                 'job_id': job.id,
             }
 
-            tasks.preprocess.signature(args=args, kwargs=kwargs).delay()
+            if re.match('.*.health', identifier) is not None:
+                kwargs['process_id'] = process.id
+
+                task_signature = tasks.health.signature(kwargs=kwargs)
+
+                task_signature.set(**helpers.DEFAULT_QUEUE)
+
+                task_signature.delay()
+            else:
+                # No need to set queue, all wps.task.ingress are automatically
+                # routed.
+                tasks.preprocess.signature(args=args, kwargs=kwargs).delay()
 
             response = job.report
     except WPSExceptionError as e:
