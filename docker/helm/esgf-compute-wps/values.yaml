@@ -90,75 +90,44 @@ wps:
     enabled: true
 
 celery:
+  image: jasonb87/cwt_celery
+  imageTag: 2.0.2
+
+  resources:
+    # Must quote the memory field otherwise large numbers are rendered in
+    # scientific notation which celery does not like. This value is in KiB.
+    memory: "1024000"
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 1Gi
+
+  queues:
   - name: ingress
     replicas: 1
-    image: jasonb87/cwt_celery
-    imageTag: 2.0.2
     argsExtra:
       "-c": 1
       "-Q": ingress
 
-    resources:
-      # Must quote the memory field otherwise large numbers are rendered in
-      # scientific notation which celery does not like. This value is in KiB.
-      memory: "1024000"
-      cpuRequest: 100m
-      memoryRequest: 128Mi
-      cpuLimit: 1000m
-      memoryLimit: 512Mi
-
   - name: priority-low
     replicas: 1
-    image: jasonb87/cwt_celery
-    imageTag: 2.0.2
     argsExtra:
       "-c": 1
       "-Q": priority.low
 
-    resources:
-      # Must quote the memory field otherwise large numbers are rendered in
-      # scientific notation which celery does not like. This value is in KiB.
-      memory: "1024000"
-      cpuRequest: 100m
-      memoryRequest: 128Mi
-      cpuLimit: 1000m
-      memoryLimit: 512Mi
-
   - name: priority-high
     replicas: 1
-    image: jasonb87/cwt_celery
-    imageTag: 2.0.2
     argsExtra:
       "-c": 1
       "-Q": priority.high
 
-    resources:
-      # Must quote the memory field otherwise large numbers are rendered in
-      # scientific notation which celery does not like. This value is in KiB.
-      memory: "1024000"
-      cpuRequest: 100m
-      memoryRequest: 128Mi
-      cpuLimit: 1000m
-      memoryLimit: 512Mi
-
   - name: beat
     replicas: 1
-    image: jasonb87/cwt_celery
-    imageTag: 2.0.2
     argsExtra:
       "-c": 1
 
     environment:
       SUBCOMMAND: beat
-
-    resources:
-      # Must quote the memory field otherwise large numbers are rendered in
-      # scientific notation which celery does not like. This value is in KiB.
-      memory: "1024000"
-      cpuRequest: 100m
-      memoryRequest: 128Mi
-      cpuLimit: 1000m
-      memoryLimit: 512Mi
 
 thredds:
   replicas: 1
