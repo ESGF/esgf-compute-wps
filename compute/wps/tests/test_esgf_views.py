@@ -132,14 +132,14 @@ class ESGFViewsTestCase(test.TestCase):
         self.assertEqual(len(result), 0)
 
     def test_search_variable_missing_authentication(self):
-        response = self.client.get('/wps/search/variable', {})
+        response = self.client.get('/wps/search/variable/', {})
 
         helpers.check_failed(self, response)
 
     def test_search_variable_missing_parameter(self):
         self.client.login(username=self.user.username, password=self.user.username)
 
-        response = self.client.get('/wps/search/variable', {})
+        response = self.client.get('/wps/search/variable/', {})
 
         helpers.check_failed(self, response)
 
@@ -151,7 +151,7 @@ class ESGFViewsTestCase(test.TestCase):
 
         self.client.login(username=self.user.username, password=self.user.username)
 
-        response = self.client.get('/wps/search/variable', {'dataset_id': 'dataset_id', 'index_node': 'index_node', 'variable': 'tas'})
+        response = self.client.get('/wps/search/variable/', {'dataset_id': 'dataset_id', 'index_node': 'index_node', 'variable': 'tas'})
 
         helpers.check_success(self, response)
 

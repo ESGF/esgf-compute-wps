@@ -321,6 +321,10 @@ class DataSetCollection(object):
         for ds in self.datasets:
             ds.close()
 
+    def close(self):
+        for dataset in self.datasets:
+            dataset.close()
+
     def estimate_size(self, domain):
         base_units = self.get_base_units()
 
@@ -400,14 +404,14 @@ class DataSetCollection(object):
         return None
 
     def partitions(self, domain, skip_cache, axis=None, skip_data=False, domain_map=None):
-        logger.info('Sorting datasets')
-
         self.datasets = sorted(self.datasets, key=lambda x: x.get_time().units)
 
         if axis is None:
             axis = self.datasets[0].get_time().id
 
         base_units = None
+
+        logger.info('Partitions domain=%r skip_cache=%r axis=%r skip_data=%r domain_map=%r', domain, skip_cache, axis, skip_data, domain_map)
 
         for dataset in self.datasets:
             logger.info('Generating partitions for %s over %s axis, caching %s', dataset.url, axis, not skip_cache) 
@@ -419,12 +423,13 @@ class DataSetCollection(object):
                 base_units = dataset.get_time().units
 
             if domain_map is None:
-                try:
-                    dataset.map_domain(domain, base_units)
-                except DomainMappingError:
-                    logger.info('Skipping "{}"'.format(dataset.url))
+                if not dataset.has_mapped_domain():
+                    try:
+                        dataset.map_domain(domain, base_units)
+                    except DomainMappingError:
+                        logger.info('Skipping "{}"'.format(dataset.url))
 
-                    continue
+                        continue
             else:
                 dataset_domain = domain_map.get(dataset.url, None)
 
@@ -436,6 +441,12 @@ class DataSetCollection(object):
                 dataset.temporal = dataset_domain['temporal']
 
                 dataset.spatial = dataset_domain['spatial']
+                
+            if ((domain is not None or domain_map is None) and 
+                    (dataset.temporal is None or dataset.temporal == slice(0, 0, 1))):
+                logger.info('Skipping %r', dataset.url)
+
+                continue
 
             if not skip_cache:
                 dataset_domain = self.generate_dataset_domain(dataset)

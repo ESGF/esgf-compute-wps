@@ -1,6 +1,6 @@
 {{- $publicPath := .Values.data.publicPath }}
 {{- $cachePath := .Values.data.cachePath }}
-{{- range .Values.celery }}
+{{- range .Values.celery.queues }}
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
@@ -11,7 +11,11 @@ metadata:
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
 spec:
+  {{- if $.Values.development }}
+  replicas: 0
+  {{- else }}
   replicas: {{ .replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ $.Release.Name }}-celery-{{ .name }}
@@ -26,7 +30,7 @@ spec:
     spec:
       containers:
       - name: {{ $.Release.Name }}-celery-{{ .name }}
-        image: {{ .image }}:{{ .imageTag }}
+        image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         {{- if not $.Values.development }}
         args: 
           - -l
@@ -34,7 +38,7 @@ spec:
           - -c
           - 1
           - --max-memory-per-child
-          - {{ .resources.memory | quote }}
+          - {{ $.Values.celery.resources.memory | quote }}
           - -n 
           - {{ .name }}
         {{- range $key, $value := .argsExtra }}
@@ -48,12 +52,14 @@ spec:
           - infinity
         {{- end }}
         resources:
+          {{- if not $.Values.development }}
           limits:
-            cpu: {{ .resources.cpuLimit | quote }}
-            memory: {{ .resources.memoryLimit | quote }}
+            cpu: {{ $.Values.celery.resources.cpuLimit | quote }}
+            memory: {{ $.Values.celery.resources.memoryLimit | quote }}
+          {{- end }}
           requests:
-            cpu: {{ .resources.cpuRequest | quote }}
-            memory: {{ .resources.memoryRequest | quote }}
+            cpu: {{ $.Values.celery.resources.cpuRequest | quote }}
+            memory: {{ $.Values.celery.resources.memoryRequest | quote }}
         env:
         {{- if $.Values.development }}
         - name: WPS_DEBUG

@@ -23,24 +23,24 @@ export class RegridModel {
   `],
   template: `
   <label for="regridTool">Tool</label>
-  <select [(ngModel)]="model.regridTool" (ngModelChange)="regridToolChange($event)" class="form-control select-spacer" id="regridTool" name="regridTool">
+  <select [ngModel]="model?.regridTool" (ngModelChange)="regridToolChange($event)" class="form-control select-spacer" id="regridTool" name="regridTool">
     <option *ngFor="let tool of regridOptions">
       {{ tool.name }}
     </option>
   </select>
   <label for="regridMethod">Method</label>
-  <select [(ngModel)]="model.regridMethod" class="form-control select-spacer" id="regridMethod" name="regridMethod">
+  <select [ngModel]="model?.regridMethod" (ngModelChange)="model.regridMethod=$event" class="form-control select-spacer" id="regridMethod" name="regridMethod">
     <option *ngFor="let method of regridMethods">
       {{ method }}
     </option>
   </select>
   <label for="regridType">Grid</label>
-  <select [(ngModel)]="model.regridType" (ngModelChange)="modelChange($event)" class="form-control select-spacer" id="regridType" name="regridType">
+  <select [ngModel]="model?.regridType" (ngModelChange)="modelChange($event)" class="form-control select-spacer" id="regridType" name="regridType">
     <option>None</option>
     <option>Gaussian</option>
     <option>Uniform</option>
   </select>
-  <div [ngSwitch]="model.regridType">
+  <div [ngSwitch]="model?.regridType">
     <div *ngSwitchCase="'Gaussian'" class="panel panel-default">
       <div class="panel-body">
         <div class="form-group">
@@ -93,6 +93,10 @@ export class RegridComponent {
   }
 
   regridToolChange(data: any) {
+    if (this.model != null) {
+      this.model.regridTool = data;
+    }
+
     this.regridMethods = this.regridOptions.filter(x => x.name === data)[0].methods
 
     if (this.regridMethods.find(x => x == this.model.regridMethod) == undefined) {
@@ -101,10 +105,14 @@ export class RegridComponent {
   }
 
   modelChange(data: string) {
-    if (data == 'Gaussian') {
-      this.model.nLats = 32;
-    } else if (data == 'Uniform' && this.model.nLats != null) {
-      this.model.nLats = null;
+    if (this.model != null) {
+      this.model.regridType = data;
+
+      if (data == 'Gaussian') {
+        this.model.nLats = 32;
+      } else if (data == 'Uniform' && this.model.nLats != null) {
+        this.model.nLats = null;
+      }
     }
   }
 }

@@ -5,6 +5,7 @@ import { Subject } from 'rxjs/Subject';
 
 import { WPSService, WPSResponse } from './wps.service';
 import { User } from '../user/user.service';
+import { ConfigService } from './config.service';
 
 @Injectable()
 export class AuthService extends WPSService {
@@ -18,6 +19,7 @@ export class AuthService extends WPSService {
 
   constructor(
     http: Http,
+    private configService: ConfigService,
   ) { 
     super(http);
 
@@ -44,6 +46,10 @@ export class AuthService extends WPSService {
     return false; 
   }
 
+  setExpires(expires: any) {
+    localStorage.setItem('expires', expires.toString());
+  }
+
   setLoggedIn(value: boolean) {
     this.isLoggedIn$.next(value);
 
@@ -57,7 +63,7 @@ export class AuthService extends WPSService {
   }
 
   userDetails() {
-    return this.getCSRF('auth/user/')
+    return this.getCSRF(this.configService.authUserPath)
       .then(response => {
         this.setUser(response.data as User);
       })
@@ -75,7 +81,7 @@ export class AuthService extends WPSService {
     params.set('token', data.token);
     params.set('password', data.password);
 
-    return this.getCSRF('auth/reset', params);
+    return this.getCSRF(this.configService.authResetPath, params);
   }
 
   forgotPassword(username: string): Promise<WPSResponse> {
@@ -83,7 +89,7 @@ export class AuthService extends WPSService {
 
     params.set('username', username);
 
-    return this.getCSRF('auth/forgot/password', params);
+    return this.getCSRF(this.configService.authForgotPasswordPath, params);
   }
 
   forgotUsername(email: string): Promise<WPSResponse> {
@@ -91,21 +97,21 @@ export class AuthService extends WPSService {
 
     params.set('email', email);
 
-    return this.getCSRF('auth/forgot/username', params);
+    return this.getCSRF(this.configService.authForgotUsernamePath, params);
   }
 
   create(user: User): Promise<WPSResponse> {
-    return this.postCSRF('auth/create/', user.toUrlEncoded());
+    return this.postCSRF(this.configService.authCreatePath, user.toUrlEncoded());
   }
 
   login(username: string, password: string): Promise<WPSResponse> {
     let data = `username=${username}&password=${password}`;
 
-    return this.postCSRF('auth/login/', data)
+    return this.postCSRF(this.configService.authLoginPath, data)
       .then(response => {
         this.setUser(response.data as User);
 
-        localStorage.setItem('expires', this.user.expires.toString());
+        this.setExpires(this.user.expires);
 
         this.setLoggedIn(true);
 
@@ -121,11 +127,11 @@ export class AuthService extends WPSService {
   }
 
   loginOpenID(openidURL: string): Promise<WPSResponse> {
-    return this.postCSRF('auth/login/openid/', `openid_url=${openidURL}`);
+    return this.postCSRF(this.configService.authLoginOpenIDPath, `openid_url=${openidURL}`);
   }
 
   logout() {
-    this.getCSRF('auth/logout/')
+    this.getCSRF(this.configService.authLogoutPath)
       .then(response => {
         this.setLoggedIn(false);
 
@@ -139,11 +145,11 @@ export class AuthService extends WPSService {
   }
 
   oauth2(openid: string): Promise<WPSResponse> {
-    return this.postCSRF('auth/login/oauth2/', `openid=${openid}`);
+    return this.postCSRF(this.configService.authLoginOAuth2Path, `openid=${openid}`);
   }
 
   myproxyclient(username: string, password: string): Promise<WPSResponse> {
-    return this.postCSRF('auth/login/mpc/',
+    return this.postCSRF(this.configService.authLoginMPCPath,
       `username=${username}&password=${password}`);
   }
 }

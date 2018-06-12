@@ -4,6 +4,7 @@ import { Router, NavigationExtras } from '@angular/router';
 import { User } from '../user/user.service';
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
+import { ConfigService } from '../core/config.service';
 
 @Component({
   templateUrl: './login.component.html',
@@ -16,13 +17,14 @@ export class LoginComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private notificationService: NotificationService,
+    private configService: ConfigService,
     private router: Router
   ) { }
 
   ngOnInit() { 
     this.authService.isLoggedIn$.subscribe((value: boolean) => {
       if (value) {
-        let redirect = this.authService.redirectUrl || '/wps/home/user/profile';
+        let redirect = this.authService.redirectUrl || this.configService.profilePath;
 
         this.router.navigateByUrl(redirect);
       }

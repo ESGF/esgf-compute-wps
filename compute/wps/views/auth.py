@@ -91,6 +91,31 @@ class MPCEndpointParseError(WPSError):
 
         super(MPCEndpointParseError, self).__init__(msg)
 
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def user_cert(request):
+    try:
+        if not settings.CERT_DOWNLOAD_ENABLED:
+            return http.HttpResponseBadRequest()
+
+        common.authentication_required(request)
+
+        user = request.user
+
+        cert = user.auth.cert
+
+        content_type = 'application/force-download' 
+
+        response = http.HttpResponse(cert, content_type=content_type)
+
+        response['Content-Disposition'] = 'attachment; filename="cert.pem"'
+
+        response['Content-Length'] = len(cert)
+    except WPSError as e:
+        return http.HttpResponseBadRequest()
+    else:
+        return response
+
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def create(request):

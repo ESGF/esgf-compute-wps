@@ -6,11 +6,13 @@ import uuid
 
 import cdms2
 import cwt
-import dask.array as da
 from cdms2 import MV2 as MV
+from celery.task.control import inspect
 from celery.utils.log import get_task_logger
 from django.conf import settings
+from django.utils import timezone
 
+from wps import models
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import process
@@ -23,6 +25,52 @@ __ALL__ = [
 ]
 
 logger = get_task_logger('wps.tasks.cdat')
+
+@base.register_process('CDAT.health', abstract="""
+Returns current server health
+""")
+@base.cwt_shared_task()
+def health(self, user_id, job_id, process_id, **kwargs):
+    self.PUBLISH = base.ALL
+
+    proc = process.Process(self.request.id)
+
+    proc.initialize(user_id, job_id, process_id)
+
+    proc.job.started()
+
+    i = inspect()
+
+    active = i.active()
+
+    jobs_running = sum(len(x) for x in active.values())
+
+    scheduled = i.scheduled()
+
+    reserved = i.reserved()
+
+    jobs_scheduled = sum(len(x) for x in scheduled.values())
+
+    jobs_reserved = sum(len(x) for x in reserved.values())
+
+    users = models.User.objects.all()
+
+    threshold = timezone.now() - settings.ACTIVE_USER_THRESHOLD
+
+    def active(user):
+        return user.last_login >= threshold
+
+    active_users = [x for x in users if active(x)]
+
+    data = {
+        'data': {
+            'jobs_running': jobs_running,
+            'jobs_queued': jobs_scheduled+jobs_reserved,
+            'active_users': len(active_users),
+        }
+    }
+
+    return data
 
 @base.register_process('CDAT.regrid', abstract="""
 Regrids a variable to designated grid. Required parameter named "gridder".
@@ -137,6 +185,8 @@ string e.g. 'lat|lon'.
 def average(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
+    kwargs['axes'] = o.get_parameter('axes', True).values[0]
+
     return process_base(self, MV.average, 1, o, user_id, job_id, process_id, **kwargs)
 
 @base.register_process('CDAT.sum', abstract=""" 
@@ -145,8 +195,10 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
-def sum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+def summation(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    kwargs['axes'] = o.get_parameter('axes', True).values[0]
 
     return process_base(self, MV.sum, 1, o, user_id, job_id, process_id, **kwargs)
 
@@ -159,6 +211,8 @@ string e.g. 'lat|lon'.
 def maximum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
+    kwargs['axes'] = o.get_parameter('axes', True).values[0]
+
     return process_base(self, MV.max, 1, o, user_id, job_id, process_id, **kwargs)
 
 @base.register_process('CDAT.min', abstract="""
@@ -170,7 +224,45 @@ string e.g. 'lat|lon'.
 def minimum(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
     _, _, o = self.load(parent_variables, variables, domains, operation)
 
+    kwargs['axes'] = o.get_parameter('axes', True).values[0]
+
     return process_base(self, MV.min, 1, o, user_id, job_id, process_id, **kwargs)
+
+@base.register_process('CDAT.add', abstract="""
+Compute the elementwise addition between two variables.
+""")
+@base.cwt_shared_task()
+def add(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.add, 2, o, user_id, job_id, process_id, **kwargs)
+
+@base.register_process('CDAT.subtract', abstract="""
+Compute the elementwise subtraction between two variables.
+""")
+@base.cwt_shared_task()
+def subtract(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.subtract, 2, o, user_id, job_id, process_id, **kwargs)
+
+@base.register_process('CDAT.multiply', abstract="""
+Compute the elementwise multiplication between two variables.
+""")
+@base.cwt_shared_task()
+def multiply(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.multiply, 2, o, user_id, job_id, process_id, **kwargs)
+
+@base.register_process('CDAT.divide', abstract="""
+Compute the elementwise division between two variables.
+""")
+@base.cwt_shared_task()
+def divide(self, parent_variables, variables, domains, operation, user_id, job_id, process_id, **kwargs):
+    _, _, o = self.load(parent_variables, variables, domains, operation)
+
+    return process_base(self, MV.divide, 2, o, user_id, job_id, process_id, **kwargs)
 
 def process_base(self, process_func, num_inputs, operation, user_id, job_id, process_id, **kwargs):
     """ Configures and executes a process.

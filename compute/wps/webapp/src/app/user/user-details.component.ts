@@ -4,6 +4,7 @@ import { WPSResponse } from '../core/wps.service';
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
 import { UserService, User } from './user.service';
+import { ConfigService } from '../core/config.service';
 
 declare var jQuery: any;
 
@@ -19,6 +20,7 @@ export class UserDetailsComponent {
   constructor(
     private authService: AuthService,
     private userService: UserService,
+    private configService: ConfigService,
     private notificationService: NotificationService
   ) { }
 
@@ -29,7 +31,7 @@ export class UserDetailsComponent {
   }
 
   onSubmit(form: any) {
-    let user = {} as User;
+    let user = new User();
 
     for (let control in form.controls) {
       if (form.controls[control].dirty) {

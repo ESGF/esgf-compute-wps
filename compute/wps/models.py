@@ -444,7 +444,10 @@ class Process(models.Model):
         """
         n = self.timing_set.count()
 
-        rate = float(size) / float(elapsed)
+        try:
+            rate = float(size) / float(elapsed)
+        except ZeroDivisionError:
+            rate = 0.0
 
         logger.info('Old rate %s from %s entries, updating with new rate %s', self.process_rate, n, rate)
 

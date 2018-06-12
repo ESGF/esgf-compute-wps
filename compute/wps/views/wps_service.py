@@ -8,6 +8,7 @@ import django
 import cwt
 from django import http
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from lxml import etree
@@ -148,15 +149,28 @@ def load_data_inputs(data_inputs, resolve_inputs=False):
 
     o = dict((x.name, x) for x in o)
 
+    logger.info('Loaded variables %r', v)
+
+    logger.info('Loaded domains %r', d)
+
+    logger.info('Loaded operations %r', o)
+
     if resolve_inputs:
-        for op in o.values():
-            op.resolve_inputs(v, o)
+        collected_inputs = list(y for x in o.values() for y in x.inputs)
 
-            if op.domain is not None:
-                if op.domain not in d:
-                    raise WPSError('Missing domain "{name}"', name=op.domain)
+        try:
+            root_op = [o[x] for x in o.keys() if x not in collected_inputs][0]
+        except IndexError as e:
+            raise WPSError('Error resolving root operation')
 
-                op.domain = d[op.domain]
+        root_op.resolve_inputs(v, o)
+
+        try:
+            for x in o.values():
+                if x.domain is not None:
+                    x.domain = d[x.domain]
+        except KeyError as e:
+            raise WPSerror('Error resolving domain')
 
     return o, d, v
 
@@ -235,7 +249,6 @@ def handle_request(request):
         return handle_post(request.body, request.GET)
 
 @require_http_methods(['POST'])
-@ensure_csrf_cookie
 def generate(request):
     try:
         common.authentication_required(request)
@@ -263,6 +276,8 @@ def generate(request):
 @ensure_csrf_cookie
 def wps_entrypoint(request):
     try:
+        job = None
+
         api_key, op, identifier, data_inputs = handle_request(request)
 
         if op == 'getcapabilities':
@@ -285,8 +300,10 @@ def wps_entrypoint(request):
                 raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
             try:
-                operations, domains, variables = load_data_inputs(data_inputs)
+                operations, domains, variables = load_data_inputs(data_inputs, True)
             except Exception:
+                logger.exception('Error loading data inputs')
+
                 raise WPSError('Failed to parse datainputs')
 
             server = models.Server.objects.get(host='default')
@@ -309,15 +326,32 @@ def wps_entrypoint(request):
                 'job_id': job.id,
             }
 
-            tasks.preprocess.signature(args=args, kwargs=kwargs).delay()
+            if re.match('.*.health', identifier) is not None:
+                kwargs['process_id'] = process.id
+
+                task_signature = tasks.health.signature(kwargs=kwargs)
+
+                task_signature.set(**helpers.DEFAULT_QUEUE)
+
+                task_signature.delay()
+            else:
+                # No need to set queue, all wps.task.ingress are automatically
+                # routed.
+                tasks.preprocess.signature(args=args, kwargs=kwargs).delay()
 
             response = job.report
     except WPSExceptionError as e:
         logger.exception('WSPExceptionError')
+        
+        if job is not None:
+            job.failed(str(e))
 
         response = e.report
     except WPSError as e:
         logger.exception('WPSError')
+
+        if job is not None:
+            job.failed(str(e))
 
         response = wps.exception_report(str(e), cwt.ows.NoApplicableCode)
     except Exception as e:
@@ -325,12 +359,14 @@ def wps_entrypoint(request):
 
         error = 'Please copy the error and report on Github: {}'.format(str(e))
 
+        if job is not None:
+            job.failed(error)
+
         response = wps.exception_report(error, cwt.ows.NoApplicableCode)
     finally:
         return http.HttpResponse(response, content_type='text/xml')
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def regen_capabilities(request):
     try:
         common.authentication_required(request)
@@ -357,7 +393,6 @@ def regen_capabilities(request):
         return common.success('Regenerated capabilities')
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def status(request, job_id):
     try:
         job = models.Job.objects.get(pk=job_id)
@@ -367,6 +402,8 @@ def status(request, job_id):
     return http.HttpResponse(job.report, content_type='text/xml')
 
 def handle_execute(request, user, job, process):
+    logger.info('Handling an execute job %s for user %s', job.id, user.id)
+
     try:
         variables = request.POST['variables']
 
@@ -414,33 +451,48 @@ def handle_execute(request, user, job, process):
     process_backend.execute(identifier, variables, domains, operation, **kwargs).delay()
 
 def handle_workflow(request, user, job, process):
+    logger.info('Handling a workflow job %s for user %s', job.id, user.id)
+
     try:
-        root_node = request.POST['root_node']
+        root_op = request.POST['root_op']
 
         variables = request.POST['variables']
 
         domains = request.POST['domains']
 
         operations = request.POST['operations']
+
+        preprocess = request.POST['preprocess']
     except KeyError as e:
         raise WPSError('Missing required parameter "{name}"', name=e)
 
-    process_backend = backends.Backend.get_backend('CDAT')
+    preprocess = json.loads(preprocess, object_hook=helpers.json_loads_object_hook)
 
-    root_node = cwt.Process.from_dict(json.loads(root_node))
+    process_backend = backends.Backend.get_backend('CDAT')
 
     variables = dict((x, cwt.Variable.from_dict(y)) for x, y in json.loads(variables).iteritems())
 
-    for variable in variables:
+    for variable in variables.values():
         models.File.track(user, variable)
 
     domains = dict((x, cwt.Domain.from_dict(y)) for x, y in json.loads(domains).iteritems())
 
     operations = dict((x, cwt.Process.from_dict(y)) for x, y in json.loads(operations).iteritems())
 
-    process_backend.workflow(root_node, variables, domains, operations, user=user, job=job, process=process).delay()
+    root_op = operations[root_op]
+
+    kwargs = {
+        'user': user,
+        'job': job,
+        'process': process,
+        'preprocess': preprocess,
+    }
+
+    process_backend.workflow(root_op, variables, domains, operations, **kwargs).delay()
 
 def handle_ingress(request, user, job, process):
+    logger.info('Handling an ingress job %s for user %s', job.id, user.id)
+
     try:
         chunk_map_raw = request.POST['chunk_map']
 
@@ -473,6 +525,7 @@ def handle_ingress(request, user, job, process):
     backend.ingress(chunk_map, domains, operation, **kwargs).delay()
 
 @require_http_methods(['POST'])
+@csrf_exempt
 def execute(request):
     try:
         execute_type = request.POST['type']

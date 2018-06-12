@@ -25,9 +25,11 @@ spec:
       - name: {{ .Release.Name }}-thredds
         image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}
         resources:
+          {{- if not .Values.development }}
           limits:
             cpu: {{ .Values.thredds.resources.cpuLimit }}
             memory: {{ .Values.thredds.resources.memoryLimit }}
+          {{- end }}
           requests:
             cpu: {{ .Values.thredds.resources.cpuRequest }}
             memory: {{ .Values.thredds.resources.memoryRequest }}

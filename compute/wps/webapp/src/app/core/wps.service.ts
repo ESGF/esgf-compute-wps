@@ -96,13 +96,6 @@ export class WPSService {
       });
   }
 
-  notification(): Promise<WPSResponse> {
-    return this.http.get('/wps/notification')
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
-  }
-
   protected handleError(error: any): Promise<any> {
     return Promise.reject(error.message || error);
   }

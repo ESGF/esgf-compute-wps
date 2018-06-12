@@ -18,7 +18,7 @@ class StatsViewTestCase(test.TestCase):
     def test_stats_processes(self):
         self.client.login(username=self.admin.username, password=self.admin.username) 
 
-        response = self.client.get('/wps/admin/stats')
+        response = self.client.get('/wps/admin/stats/')
 
         data = helpers.check_success(self, response)
 
@@ -28,19 +28,19 @@ class StatsViewTestCase(test.TestCase):
     def test_stats_processes_missing_authorization(self):
         self.client.login(username=self.user.username, password=self.user.username) 
 
-        response = self.client.get('/wps/admin/stats')
+        response = self.client.get('/wps/admin/stats/')
 
         helpers.check_failed(self, response)
 
     def test_stats_processes_missing_authentication(self):
-        response = self.client.get('/wps/admin/stats')
+        response = self.client.get('/wps/admin/stats/')
 
         helpers.check_failed(self, response)
 
     def test_stats_files(self):
         self.client.login(username=self.admin.username, password=self.admin.username) 
 
-        response = self.client.get('/wps/admin/stats', {'type': 'files'})
+        response = self.client.get('/wps/admin/stats/', {'type': 'files'})
 
         data = helpers.check_success(self, response)
 
@@ -50,11 +50,11 @@ class StatsViewTestCase(test.TestCase):
     def test_stats_files_missing_authorization(self):
         self.client.login(username=self.user.username, password=self.user.username) 
 
-        response = self.client.get('/wps/admin/stats', {'type': 'files'})
+        response = self.client.get('/wps/admin/stats/', {'type': 'files'})
 
         helpers.check_failed(self, response)
 
     def test_stats_files_missing_authentication(self):
-        response = self.client.get('/wps/admin/stats', {'type': 'files'})
+        response = self.client.get('/wps/admin/stats/', {'type': 'files'})
 
         helpers.check_failed(self, response)

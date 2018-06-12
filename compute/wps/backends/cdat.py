@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import uuid
 
 import celery
 import cwt
@@ -8,6 +9,7 @@ import numpy as np
 from django.conf import settings
 
 from wps import helpers
+from wps import models
 from wps import tasks
 from wps.backends import backend
 from wps.tasks import base
@@ -45,6 +47,8 @@ class CDAT(backend.Backend):
 
         logger.info('Mapping ingressed files to source files')
 
+        ingress_uuid = uuid.uuid4()
+
         for uri, meta in chunk_map.iteritems():
             ingress_map[uri] = {
                 'temporal': meta['temporal'],
@@ -57,7 +61,7 @@ class CDAT(backend.Backend):
             logger.info('Processing ingressed files for %s', uri)
 
             for local_index, chunk in enumerate(meta['chunks']):
-                output_filename = 'ingress-{}-{:04}.nc'.format('some-uid', index)
+                output_filename = 'ingress-{}-{:04}.nc'.format(ingress_uuid, index)
 
                 index += 1
 
@@ -67,7 +71,7 @@ class CDAT(backend.Backend):
 
                 chunk_data = json.dumps(chunk, default=helpers.json_dumps_default)
 
-                ingress_tasks.append(tasks.ingress.s(uri, meta['variable_name'], chunk_data, meta['base_units'], output_uri))
+                ingress_tasks.append(tasks.ingress.si(uri, meta['variable_name'], chunk_data, meta['base_units'], output_uri))
 
         ingress_map = json.dumps(ingress_map, default=helpers.json_dumps_default)
 
@@ -81,31 +85,30 @@ class CDAT(backend.Backend):
             process = base.REGISTRY[operation.identifier]
 
             new_kwargs = {
-                'user_id': user.id,
                 'job_id': job.id,
                 'process_id': process.id,
             }
 
-            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, job_id=job.id)
+            preingress_sig = tasks.preingress.s(user_id=user.id, job_id=job.id)
 
-            ingress_cache_sig = ingress_cache_sig.set(**queue)
+            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
-            process_sig = process.s({}, domains, operation.parameterize(), **new_kwargs)
+            process_sig = process.s({}, domains, operation.parameterize(), user_id=user.id, **new_kwargs)
 
             process_sig = process_sig.set(**queue)
 
-            canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig, process_sig)
+            canvas = celery.chain(preingress_sig, celery.group(ingress_tasks), ingress_cache_sig, process_sig)
         else:
             new_kwargs = {
                 'job_id': job.id,
                 'process_id': process.id,
             }
 
-            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, **new_kwargs)
+            preingress_sig = tasks.preingress.s(user_id=user.id, job_id=job.id)
 
-            ingress_cache_sig = ingress_cache_sig.set(**queue)
+            ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
-            canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig)
+            canvas = celery.chain(preingress_sig, celery.group(ingress_tasks), ingress_cache_sig)
 
         return canvas
 
@@ -161,34 +164,146 @@ class CDAT(backend.Backend):
 
         user = kwargs.get('user')
 
-        params = {
-            'job_id': job.id,
-            'user_id': user.id,
+        preprocess = kwargs.get('preprocess', {})
+
+        domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
+
+        logger.info('Building workflow with root %r', root_op)
+
+        queue = {
+            'queue': 'priority.low',
+            'exchange': 'priority',
+            'routing_key': 'low',
         }
 
-        global_domains = dict((x, y.parameterize()) for x, y in domains.iteritems())
-
-        logger.info('Building workflow')
-
         def _build(node):
+            logger.info('Processing node %r', node)
+
+            node_preprocess = preprocess.get(node.name)
+
+            logger.info('Node preprocess %r', node_preprocess)
+
             sub_tasks = []
 
             for name in node.inputs:
                 if name in operations:
                     sub_tasks.append(_build(operations[name]))
 
+            logger.info('Subtasks %r', len(sub_tasks))
+
             task_variables = dict((x, variables[x].parameterize()) 
                                   for x in node.inputs if x in variables)
 
-            if len(sub_tasks) == 0:
-                task = self.get_task(node.identifier).s(
-                    {}, task_variables, global_domains, node.parameterize(), **params)
-            else:
-                task = self.get_task(node.identifier).s(
-                    task_variables, global_domains, node.parameterize(), **params)
+            logger.info('Variables %r', len(task_variables))
 
-                task = celery.group(sub_tasks) | task
+            try:
+                process = models.Process.objects.get(identifier=node.identifier)
+            except models.Process.DoesNotExist:
+                raise base.WPSError('Error finding process {name}', name=node.identifier)
+
+            args = [
+                task_variables, 
+                domains, 
+            ]
+
+            new_kwargs = {
+                'user_id': user.id,
+                'job_id': job.id,
+                'process_id': process.id,
+            }
+
+            ingress_canvas = None
+
+            if node_preprocess is not None:
+                if node_preprocess['type'] == 'ingress':
+                    chunk_map = json.loads(node_preprocess['data'], object_hook=helpers.json_loads_object_hook)
+
+                    ingress_canvas, output_name = self.build_ingress_canvas(chunk_map, queue, node, user, job, process)
+                else:
+                    new_kwargs['domain_map'] = node_preprocess['data']
+
+            if ingress_canvas is None:
+                if len(sub_tasks) == 0:
+                    args.insert(0, {})
+
+                args.append(node.parameterize())
+
+                task = self.get_task(node.identifier).s(*args, **new_kwargs)
+
+                task.set(**queue)
+            else:
+                if node.identifier in ('CDAT.subset', 'CDAT.aggregate'):
+                    task = ingress_canvas
+                else:
+                    if len(sub_tasks) == 0:
+                        args.insert(0, {})
+
+                    node.inputs = [output_name,]
+
+                    args.append(node.parameterize())
+
+                    task = self.get_task(node.identifier).s(*args, **new_kwargs)
+
+                    task.set(**queue)
+
+                    task = celery.chain(ingress_canvas, task)
+
+            logger.info('Created task with %r and %r', args, new_kwargs)
+
+            if len(sub_tasks) > 0:
+                task = celery.chain(celery.group(sub_tasks), task)
 
             return task
 
         return _build(root_op)
+
+    def build_ingress_canvas(self, chunk_map, queue, operation, user, job, process):
+        index = 0
+        ingress_tasks = []
+        ingress_map = {}
+
+        logger.info('Mapping ingressed files to source files')
+
+        ingress_uuid = uuid.uuid4()
+
+        for uri, meta in chunk_map.iteritems():
+            ingress_map[uri] = {
+                'temporal': meta['temporal'],
+                'spatial': meta['spatial'],
+                'base_units': meta['base_units'],
+                'variable_name': meta['variable_name'],
+                'ingress_chunks': []
+            }
+
+            logger.info('Processing ingressed files for %s', uri)
+
+            for local_index, chunk in enumerate(meta['chunks']):
+                output_filename = 'ingress-{}-{:04}.nc'.format(ingress_uuid, index)
+
+                index += 1
+
+                output_uri = os.path.join(settings.WPS_INGRESS_PATH, output_filename)
+
+                ingress_map[uri]['ingress_chunks'].append(output_uri)
+
+                chunk_data = json.dumps(chunk, default=helpers.json_dumps_default)
+
+                ingress_tasks.append(tasks.ingress.s(uri, meta['variable_name'], chunk_data, meta['base_units'], output_uri))
+
+        ingress_map = json.dumps(ingress_map, default=helpers.json_dumps_default)
+
+        logger.info('Putting together task pipeline')
+
+        new_kwargs = {
+            'job_id': job.id,
+            'process_id': process.id,
+            'output_id': operation.name,
+        }
+
+        ingress_cache_sig = tasks.ingress_cache.s(ingress_map, **new_kwargs)
+
+        ingress_cache_sig = ingress_cache_sig.set(**queue)
+
+        canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig)
+
+        return canvas, operation.name

@@ -12,6 +12,7 @@ import {
   DatasetCollection 
 } from './configure.service';
 import { NotificationService } from '../core/notification.service';
+import { ConfigService } from '../core/config.service';
 
 import * as d3 from 'd3';
 
@@ -75,6 +76,10 @@ class Link {
     public src: ProcessWrapper,
     public dst?: ProcessWrapper
   ) { }
+
+  uid() {
+    return `${this.src.uid()}:${this.dst.uid()}`;
+  }
 }
 
 enum EditorState {
@@ -157,6 +162,7 @@ export class WorkflowComponent implements OnInit {
 
   model: WorkflowModel = new WorkflowModel();
 
+  copyNodes: ProcessWrapper[];
   nodes: ProcessWrapper[];
   links: Link[];
   rootNode: ProcessWrapper;
@@ -173,7 +179,8 @@ export class WorkflowComponent implements OnInit {
   svgDrag: any;
 
   constructor(
-    private configService: ConfigureService,
+    private configureService: ConfigureService,
+    private configService: ConfigService,
     private notificationService: NotificationService
   ) { 
     this.model.domain = 'World';
@@ -185,7 +192,8 @@ export class WorkflowComponent implements OnInit {
       start: 90,
       stop: -90,
       step: 1,
-      units: 'degress north'
+      units: 'degress north',
+      crs: 'Values',
     } as Axis);
 
     this.model.process.domain.push({
@@ -193,7 +201,8 @@ export class WorkflowComponent implements OnInit {
       start: -180,
       stop: 180,
       step: 1,
-      units: 'degress west'
+      units: 'degress west',
+      crs: 'Values',
     } as Axis);
 
     this.model.process.domain.push({
@@ -201,7 +210,8 @@ export class WorkflowComponent implements OnInit {
       start: 0,
       stop: 0,
       step: 1,
-      units: 'Custom'
+      units: 'Custom',
+      crs: 'Values',
     } as Axis);
 
     this.nodes = [];
@@ -227,7 +237,7 @@ export class WorkflowComponent implements OnInit {
 
       this.config.datasetID = this.model.selectedDataset.dataset.id;
 
-      this.configService.searchESGF(this.config)
+      this.configureService.searchESGF(this.config)
         .then(data => {
           data.forEach((value: Variable) => {
             value.dataset = this.config.datasetID;
@@ -288,6 +298,21 @@ export class WorkflowComponent implements OnInit {
       .classed('nodes', true);
   }
 
+  isVariable(item: any) {
+    return item instanceof Variable;
+  }
+
+  loadDomainToProcess(variable: Variable, process: ProcessWrapper) {
+    process.process.domainPreset = 'Custom';
+
+    this.loadVariable(variable)
+      .then(() => {
+        process.process.domain = variable.axes.map((axis: Axis) => {
+          return {crs: 'Values', ...axis};
+        });
+      });
+  }
+
   loadDomain() {
     this.model.process.domain = this.model.selectedVariable.axes.map((axis: Axis) => {
       return {... axis};
@@ -301,14 +326,14 @@ export class WorkflowComponent implements OnInit {
 
     this.config.datasetID = this.model.selectedDataset.dataset.id;
 
-    this.configService.searchESGF(this.config)
+    return this.configureService.searchESGF(this.config)
       .then(variables => {
         this.model.selectedDataset.dataset.variables = variables;
 
         this.model.selectedVariable = variables[0];
 
         if (this.model.selectedVariable.axes == null) {
-          this.loadVariable();
+          this.loadVariable(this.model.selectedVariable);
         } else {
           this.loading = false;
         }
@@ -320,28 +345,56 @@ export class WorkflowComponent implements OnInit {
       });
   }
 
-  loadVariable() {
+  loadVariable(variable: Variable) {
     this.loading = true;
 
-    this.config.variable = this.model.selectedVariable;
+    this.config.variable = variable;
 
-    this.configService.searchVariable(this.config)
+    return this.configureService.searchVariable(this.config)
       .then(axes => {
-        this.model.selectedVariable.axes = axes.map((axis: Axis) => {
+        variable.axes = axes.map((axis: Axis) => {
           return {step: 1, ...axis}; 
         });
 
         this.loading = false;
+
+        return variable;
       })
       .catch(error => { 
         this.loading = false; 
 
         this.notificationService.error(error);
+
+        return null;
       });
   }
 
+  addAxis(name: string) {
+    let axis = this.selectedNode.process.domain.find((axis: Axis) => {
+      return axis.id === name;
+    });
+
+    if (axis != undefined) return;
+
+    this.selectedNode.process.domain.push({
+      id: name,
+      id_alt: null,
+      units: 'None',
+      start: 0,
+      stop: 0,
+      step: 1,
+      crs: 'Values',
+    });
+  }
+
+  removeAxis(name: string) {
+    this.selectedNode.process.domain = this.selectedNode.process.domain.filter((axis: Axis) => {
+      return axis.id != name;
+    });
+  }
+
   showExplorer() {
-    this.loadVariable();
+    this.loadVariable(this.model.selectedVariable);
 
     $('#datasetExplorer').modal('show');    
   }
@@ -413,13 +466,19 @@ export class WorkflowComponent implements OnInit {
     // Assign values from our model
     // These values are not stored in rootNode since this changes with the state
     // of the graph
-    this.rootNode.process.domain = this.model.process.domain;
+    //this.rootNode.process.domain = this.model.process.domain;
 
-    this.rootNode.process.regrid = this.model.process.regrid;
+    //this.rootNode.process.regrid = this.model.process.regrid;
 
-    this.rootNode.process.parameters = this.model.process.parameters;
+    //this.rootNode.process.parameters = this.model.process.parameters;
 
-    this.configService.execute(this.rootNode.process)
+    let defaults = {
+      domain: this.model.process.domain,
+      regrid: this.model.process.regrid,
+      parameters: this.model.process.parameters,
+    };
+
+    this.configureService.execute(this.rootNode.process, defaults)
       .then((data: any) => {
         let parser = new DOMParser();
         let xml = parser.parseFromString(data, 'text/xml');
@@ -431,7 +490,7 @@ export class WorkflowComponent implements OnInit {
 
           let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
 
-          link = `/wps/home/user/jobs`;
+          link = this.configService.userJobPath;
         }
         
         this.notificationService.message('Succesfully submitted job', link);
@@ -439,6 +498,28 @@ export class WorkflowComponent implements OnInit {
       .catch(error => {
         this.notificationService.error(error); 
       });
+  }
+
+  domainCopy(node: ProcessWrapper) {
+    this.selectedNode.process.domainPreset = node.process.domainPreset;
+
+    this.selectedNode.process.domain = node.process.domain.map((x: Axis) => {
+      return {...x};
+    });
+  }
+
+  domainPresetChange(data: string) {
+    if (this.selectedNode != null) {
+      this.selectedNode.process.domainPreset = data;
+
+      if (data === 'Global') {
+        this.selectedNode.process.domain = this.model.process.domain.map((x: Axis) => { 
+          return {...x};
+        });
+      } else if (data === 'None' || data === 'Custom') {
+        this.selectedNode.process.domain = [];
+      }
+    }
   }
 
   domainChange() {
@@ -506,6 +587,20 @@ export class WorkflowComponent implements OnInit {
     }
   }
 
+  removeInput(process: ProcessWrapper, input: Process): any;
+  removeInput(process: ProcessWrapper, input: Variable): any;
+  removeInput(process: any, input: any): any {
+    process.process.removeInput(input); 
+    
+    if (input instanceof Process) {
+      this.links = this.links.filter((x: Link) => {
+        return x.src.uid() != input.uid && x.dst.uid() != process.uid();
+      });
+
+      this.update();
+    }
+  }
+
   addParameterWorkflow() {
     this.model.process.parameters.push(new Parameter());
   }
@@ -530,21 +625,11 @@ export class WorkflowComponent implements OnInit {
     this.selectedNode.process.parameters = newParams;
   }
 
-  addInput(value: Variable) {
-    this.selectedNode.process.inputs.push(value);
-  }
-
-  removeInput(value: Variable) {
-    this.selectedNode.process.inputs = this.selectedNode.process.inputs.filter((data: Variable) => {
-      return value.id !== data.id;
-    });
-  }
-
   removeNode(node: ProcessWrapper) {
     jQuery('#configure').modal('hide');
 
     this.links = this.links.filter((value: Link) => {
-      return value.src !== node && value.dst !== node;
+      return value.src.uid() !== node.uid() && value.dst.uid() !== node.uid();
     });
 
     this.nodes = this.nodes.filter((value: ProcessWrapper) => { 
@@ -572,6 +657,8 @@ export class WorkflowComponent implements OnInit {
 
       let process = new Process(this.stateData);
 
+      process.domainPreset = 'None';
+
       this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 
       this.determineRootNode();
@@ -582,6 +669,8 @@ export class WorkflowComponent implements OnInit {
 
   nodeClick() {
     this.selectedNode = <ProcessWrapper>d3.select(d3.event.target).datum();
+
+    this.copyNodes = this.nodes.filter((x: ProcessWrapper) => x.process.uid !== this.selectedNode.process.uid);
 
     jQuery('#configure').modal('show');
   }
@@ -673,7 +762,7 @@ export class WorkflowComponent implements OnInit {
       .attr('d', (d: any) => {
         return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
       })
-      .data(this.links);
+      .data(this.links, (item: Link) => { return item.uid(); });
 
     links.exit().remove();
 

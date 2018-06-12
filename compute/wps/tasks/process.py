@@ -185,7 +185,7 @@ class Process(object):
         grid = None
         gridder = operation.get_parameter('gridder')
 
-        domain_map = json.loads(kwargs.get('domain_map', None), object_hook=helpers.json_loads_object_hook)
+        domain_map = json.loads(kwargs.get('domain_map', '{}'), object_hook=helpers.json_loads_object_hook)
 
         start = datetime.datetime.now()
 
@@ -246,9 +246,7 @@ class Process(object):
 
         start = datetime.datetime.now()
 
-        axes = operation.get_parameter('axes', True)
-
-        axes = axes.values[0]
+        axes = kwargs.get('axes', 'lat')
 
         self.log('Starting to process inputs')
 

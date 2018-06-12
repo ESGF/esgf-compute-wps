@@ -95,8 +95,10 @@ ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
 #SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
-INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
+ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, int, lambda x: datetime.timedelta(days=x))
+INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', True, bool)
 PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
+CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
@@ -107,7 +109,7 @@ EMAIL_HOST_USER = config.get_value('email', 'user', '')
 WPS_VERSION = '1.0.0'
 WPS_LANG = 'en-US'
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
-WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/')
+WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/status/{job_id}/')
 WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url', 'https://{host}/wps/execute/')
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
 WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)
@@ -116,7 +118,7 @@ WPS_LOGIN_URL = config.get_value('wps', 'wps.login_url', 'https://{host}/wps/hom
 WPS_PROFILE_URL = config.get_value('wps', 'wps.profile_url', 'https://{host}/wps/home/user/profile')
 WPS_OAUTH2_CALLBACK = config.get_value('wps', 'wps.oauth2.callback', 'https://{host}/auth/callback')
 WPS_OPENID_TRUST_ROOT = config.get_value('wps', 'wps.openid.trust.root', 'https://{host}/')
-WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to', 'https://{host}auth/callback/openid')
+WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to', 'https://{host}auth/callback/openid/')
 WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.success', 'https://{host}/wps/home/auth/login/callback')
 WPS_PASSWORD_RESET_URL = config.get_value('wps', 'wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
 WPS_CA_PATH = config.get_value('wps', 'wps.ca.path', '/tmp/certs')
@@ -147,6 +149,8 @@ WPS_OPHIDIA_PORT = config.get_value('ophidia', 'wps.oph.port', 11732, int)
 WPS_OPHIDIA_OUTPUT_PATH = config.get_value('ophidia', 'wps.oph.output.path', '/wps')
 WPS_OPHIDIA_OUTPUT_URL = config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc')
 WPS_OPHIDIA_DEFAULT_CORES = config.get_value('ophidia', 'wps.oph.default.cores', 8, int)
+
+APPEND_SLASH = False
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
