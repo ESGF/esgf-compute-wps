@@ -25,9 +25,6 @@ spec:
       - name: {{ .Release.Name }}-cog
         image: {{ .Values.cog.image }}:{{ .Values.cog.imageTag }}
         resources:
-          limits:
-            cpu: {{ .Values.cog.resources.cpuLimit | quote }}
-            memory: {{ .Values.cog.resources.memoryLimit | quote }}
           requests:
             cpu: {{ .Values.cog.resources.cpuRequest | quote }}
             memory: {{ .Values.cog.resources.memoryRequest | quote }}
