@@ -91,8 +91,6 @@ class CDAT(backend.Backend):
 
             preingress_sig = tasks.preingress.s(user_id=user.id, job_id=job.id)
 
-            preingress_sig.set(**queue)
-
             ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
             ingress_cache_sig = ingress_cache_sig.set(**queue)
@@ -109,8 +107,6 @@ class CDAT(backend.Backend):
             }
 
             preingress_sig = tasks.preingress.s(user_id=user.id, job_id=job.id)
-
-            preingress_sig.set(**queue)
 
             ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
