@@ -71,7 +71,7 @@ class CDAT(backend.Backend):
 
                 chunk_data = json.dumps(chunk, default=helpers.json_dumps_default)
 
-                ingress_tasks.append(tasks.ingress.s(uri, meta['variable_name'], chunk_data, meta['base_units'], output_uri))
+                ingress_tasks.append(tasks.ingress.si(uri, meta['variable_name'], chunk_data, meta['base_units'], output_uri))
 
         ingress_map = json.dumps(ingress_map, default=helpers.json_dumps_default)
 
@@ -89,6 +89,10 @@ class CDAT(backend.Backend):
                 'process_id': process.id,
             }
 
+            preingress_sig = tasks.preingress.s(user_id=user.id, job_id=job.id)
+
+            preingress_sig.set(**queue)
+
             ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
             ingress_cache_sig = ingress_cache_sig.set(**queue)
@@ -97,18 +101,22 @@ class CDAT(backend.Backend):
 
             process_sig = process_sig.set(**queue)
 
-            canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig, process_sig)
+            canvas = celery.chain(preingress_sig, celery.group(ingress_tasks), ingress_cache_sig, process_sig)
         else:
             new_kwargs = {
                 'job_id': job.id,
                 'process_id': process.id,
             }
 
+            preingress_sig = tasks.preingress.s(user_id=user.id, job_id=job.id)
+
+            preingress_sig.set(**queue)
+
             ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
             ingress_cache_sig = ingress_cache_sig.set(**queue)
 
-            canvas = celery.chain(celery.group(ingress_tasks), ingress_cache_sig)
+            canvas = celery.chain(preingress_sig, celery.group(ingress_tasks), ingress_cache_sig)
 
         return canvas
 

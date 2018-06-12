@@ -169,6 +169,16 @@ def preprocess(self, identifier, variables, domains, operations, user_id, job_id
     logger.info('Successfuly submitted the execute request')
 
 @base.cwt_shared_task()
+def preingress(self, user_id, job_id):
+    self.PUBLISH = base.RETRY | base.FAILURE
+
+    proc = process.Process(self.request.id)
+
+    proc.initialize(user_id, job_id)
+
+    proc.job.started()
+
+@base.cwt_shared_task()
 def ingress(self, input_url, var_name, domain, base_units, output_uri):
     self.PUBLISH = base.RETRY | base.FAILURE
 
