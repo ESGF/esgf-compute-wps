@@ -39,11 +39,18 @@ class Backend(object):
     def __init__(self):
         self.processes = []
 
-    def add_process(self, identifier, name, abstract=None):
+    def add_process(self, identifier, name, data_inputs=None, process_outputs=None, abstract=None):
         if abstract is None:
             abstract = ''
 
-        description = cwt.wps.process_description(identifier, identifier, '1.0.0', DATA_INPUTS, [OUTPUT], abstract=abstract)
+        if data_inputs is None:
+            data_inputs = DATA_INPUTS
+
+        if process_outputs is None:
+            process_outputs = [OUTPUT]
+
+        description = cwt.wps.process_description(identifier, identifier, '1.0.0', 
+                                                  process_outputs, data_inputs=data_inputs, abstract=abstract)
 
         descriptions = cwt.wps.process_descriptions('en-US', '1.0.0', [description])
 

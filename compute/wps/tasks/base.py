@@ -55,7 +55,7 @@ def get_process(identifier):
     except KeyError as e:
         raise WPSError('Missing process "{identifier}"', identifier=identifier)
 
-def register_process(identifier, aliases=None, abstract=None):
+def register_process(identifier, aliases=None, abstract=None, data_inputs=None, process_outputs=None):
     if abstract is None:
         abstract = ''
 
@@ -72,6 +72,10 @@ def register_process(identifier, aliases=None, abstract=None):
         func.IDENTIFIER = identifier
 
         func.ABSTRACT = abstract
+
+        func.INPUT = data_inputs
+
+        func.OUTPUT = process_outputs
 
         return func
     

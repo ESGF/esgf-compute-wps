@@ -26,9 +26,11 @@ __ALL__ = [
 
 logger = get_task_logger('wps.tasks.cdat')
 
+OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/json')
+
 @base.register_process('CDAT.health', abstract="""
 Returns current server health
-""")
+""", data_inputs=[])
 @base.cwt_shared_task()
 def health(self, user_id, job_id, process_id, **kwargs):
     self.PUBLISH = base.ALL

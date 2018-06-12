@@ -174,7 +174,7 @@ def load_data_inputs(data_inputs, resolve_inputs=False):
 
     return o, d, v
 
-def get_parameter(params, name):
+def get_parameter(params, name, required=True):
     """ Gets a parameter from a django QueryDict """
 
     # Case insesitive
@@ -185,9 +185,14 @@ def get_parameter(params, name):
 
         raise WPSExceptionError(name.lower(), cwt.ows.MissingParameterValue)
 
-    return temp[name.lower()]
+    param = temp.get(name.lower())
 
-def handle_get(params):
+    if required and param is None:
+        raise WPSError('Missing required parameter')
+
+    return param
+
+def handle_get(params, query_string):
     """ Handle an HTTP GET request. """
     request = get_parameter(params, 'request')
 
@@ -199,19 +204,23 @@ def handle_get(params):
 
     identifier = None
 
-    data_inputs = None
+    data_inputs = {}
 
     if operation == 'describeprocess':
         identifier = get_parameter(params, 'identifier').split(',')
     elif operation == 'execute':
         identifier = get_parameter(params, 'identifier')
 
-        data_inputs = get_parameter(params, 'datainputs')
+        if 'datainputs' in query_string:
+            match = re.match('.*datainputs=\[(.*)\].*', query_string)
 
-        # angular2 encodes ; breaking django query_string parsing so the 
-        # webapp replaces ; with | and the change is reverted before parsing
-        # the datainputs
-        data_inputs = re.sub('\|(operation|domain|variable)=', ';\\1=', data_inputs)
+            if match is not None:
+                # angular2 encodes ; breaking django query_string parsing so the 
+                # webapp replaces ; with | and the change is reverted before parsing
+                # the datainputs
+                data_inputs = re.sub('\|(operation|domain|variable)=', ';\\1=', match.group(1))
+
+                data_inputs = dict(x.split('=') for x in data_inputs.split(';'))
 
     logger.info('Handling GET request "%s" for API key %s', operation, api_key)
 
@@ -227,13 +236,10 @@ def handle_post(data, params):
     except Exception as e:
         raise WPSError('Malformed WPS execute request')
 
-    # Build to format [variable=[];domain=[];operation=[]]
-    data_inputs = '[{0}]'.format(
-        ';'.join('{0}={1}'.format(x.Identifier.value(), x.Data.LiteralData.value()) 
-                 for x in request.DataInputs.Input))
+    data_inputs = {}
 
-    # CDAS doesn't like single quotes
-    data_inputs = data_inputs.replace('\'', '\"')
+    for x in request.DataInputs.Input:
+        data_inputs[x.Identifier.value()] = x.Data.LiteralData.value()
 
     api_key = params.get('api_key')
 
@@ -244,7 +250,7 @@ def handle_post(data, params):
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
     if request.method == 'GET':
-        return handle_get(request.GET)
+        return handle_get(request.GET, request.META['QUERY_STRING'])
     elif request.method == 'POST':
         return handle_post(request.body, request.GET)
 
@@ -299,45 +305,45 @@ def wps_entrypoint(request):
             except models.Process.DoesNotExist:
                 raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
-            try:
-                operations, domains, variables = load_data_inputs(data_inputs, True)
-            except Exception:
-                logger.exception('Error loading data inputs')
+            # load the process drescription to get the data input descriptions
+            process_descriptions = cwt.wps.CreateFromDocument(process.description)
 
-                raise WPSError('Failed to parse datainputs')
+            description = process_descriptions.ProcessDescription[0]
+
+            kwargs = {}
+
+            # load up the required data inputs for the process
+            if description.DataInputs is not None:
+                for x in description.DataInputs.Input:
+                    input_id = x.Identifier.value().lower()
+
+                    try:
+                        kwargs[input_id] = data_inputs[input_id]
+                    except KeyError:
+                        raise WPSError('Missing required input "{input_id}" for process {name}', input_id=input_id, name=identifier)
 
             server = models.Server.objects.get(host='default')
 
-            job = models.Job.objects.create(server=server, process=process, user=user, extra=data_inputs)
+            job = models.Job.objects.create(server=server, process=process, user=user, extra=json.dumps(data_inputs))
 
+            # at this point we've accepted the job
             job.accepted()
+
+            kwargs.update({
+                'identifier': identifier,
+                'user': user,
+                'job': job,
+                'process': process,
+            })
 
             logger.info('Queueing preprocessing job %s user %s', job.id, user.id)
 
-            args = [
-                identifier,
-                dict((x, y.parameterize()) for x, y in variables.iteritems()),
-                dict((x, y.parameterize()) for x, y in domains.iteritems()),
-                dict((x, y.parameterize()) for x, y in operations.iteritems()),
-            ]
+            backend = backends.Backend.get_backend(process.backend)
 
-            kwargs = {
-                'user_id': user.id,
-                'job_id': job.id,
-            }
+            if backend is None:
+                raise WPSError('Unknown backend "{name}"', name=process.backend)
 
-            if re.match('.*.health', identifier) is not None:
-                kwargs['process_id'] = process.id
-
-                task_signature = tasks.health.signature(kwargs=kwargs)
-
-                task_signature.set(**helpers.DEFAULT_QUEUE)
-
-                task_signature.delay()
-            else:
-                # No need to set queue, all wps.task.ingress are automatically
-                # routed.
-                tasks.preprocess.signature(args=args, kwargs=kwargs).delay()
+            backend.execute(**kwargs)
 
             response = job.report
     except WPSExceptionError as e:

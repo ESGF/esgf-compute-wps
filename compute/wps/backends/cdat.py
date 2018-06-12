@@ -26,7 +26,8 @@ class CDAT(backend.Backend):
         logger.info('Registering processes for backend "local"')
 
         for name, proc in base.REGISTRY.iteritems():
-            self.add_process(name, name.title(), proc.ABSTRACT)
+            self.add_process(name, name.title(), data_inputs=proc.INPUT, 
+                             process_outputs=proc.OUTPUT, abstract=proc.ABSTRACT)
 
     def ingress(self, chunk_map, domains, operation, **kwargs):
         logger.info('Configuring ingress')
@@ -112,14 +113,25 @@ class CDAT(backend.Backend):
 
         return canvas
 
-    def execute(self, identifier, variables, domains, operations, **kwargs):
+    def execute(self, **kwargs):
         job = kwargs.get('job')
 
         user = kwargs.get('user')
 
         process = kwargs.get('process')
 
+        if 'identifier' in kwargs and kwargs['identifier'] == 'CDAT.health':
+            health = base.get_process('CDAT.health')
+
+            return health.s(user_id=user.id, job_id=job.id, process_id=process.id).set(**helpers.DEFAULT_QUEUE).delay()
+
         estimate_size = kwargs.get('estimate_size')
+
+        operations = kwargs.get('operation')
+
+        variables = kwargs.get('variable')
+
+        domains = kwargs.get('domains')
 
         operation = operations.values()[0].parameterize()
 
