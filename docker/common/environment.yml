@@ -1,6 +1,6 @@
 name: wps
 channels:
-- jasonb857/label/devel
+- cdat
 - conda-forge
 - defaults
 dependencies:
@@ -131,7 +131,7 @@ dependencies:
 - nomkl=1.0=0
 - numpy=1.13.3=py27_nomklh2b20989_4
 - redis=4.0.2=h6805cf8_0
-- esgf-compute-api=2.0.0=py27_0
+- esgf-compute-api=2.1.0=py27_0
 - pip:
   - backports-abc==0.5
   - backports.ssl-match-hostname==3.5.0.1
