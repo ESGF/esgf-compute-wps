@@ -93,8 +93,6 @@ class CDAT(backend.Backend):
 
             ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
 
-            ingress_cache_sig = ingress_cache_sig.set(**queue)
-
             process_sig = process.s({}, domains, operation.parameterize(), user_id=user.id, **new_kwargs)
 
             process_sig = process_sig.set(**queue)
@@ -109,8 +107,6 @@ class CDAT(backend.Backend):
             preingress_sig = tasks.preingress.s(user_id=user.id, job_id=job.id)
 
             ingress_cache_sig = tasks.ingress_cache.s(ingress_map, output_id=operation.name, **new_kwargs)
-
-            ingress_cache_sig = ingress_cache_sig.set(**queue)
 
             canvas = celery.chain(preingress_sig, celery.group(ingress_tasks), ingress_cache_sig)
 
