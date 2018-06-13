@@ -120,7 +120,9 @@ class CDAT(backend.Backend):
 
         process = kwargs.get('process')
 
-        if 'identifier' in kwargs and kwargs['identifier'] == 'CDAT.health':
+        identifier = kwargs.get('identifier')
+
+        if identifier is not None and identifier == 'CDAT.health':
             health = base.get_process('CDAT.health')
 
             return health.s(user_id=user.id, job_id=job.id, process_id=process.id).set(**helpers.DEFAULT_QUEUE).delay()
@@ -131,7 +133,7 @@ class CDAT(backend.Backend):
 
         variables = kwargs.get('variable')
 
-        domains = kwargs.get('domains')
+        domains = kwargs.get('domain')
 
         operation = operations.values()[0].parameterize()
 

@@ -1,4 +1,5 @@
 import json
+import urllib
 import re
 import StringIO
 
@@ -210,6 +211,8 @@ def handle_get(params, query_string):
         identifier = get_parameter(params, 'identifier').split(',')
     elif operation == 'execute':
         identifier = get_parameter(params, 'identifier')
+
+        query_string = urllib.unquote(query_string)
 
         if 'datainputs' in query_string:
             match = re.match('.*datainputs=\[(.*)\].*', query_string)

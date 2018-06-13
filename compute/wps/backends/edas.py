@@ -71,7 +71,7 @@ class EDAS(backend.Backend):
 
             abstract = desc_tag.text
 
-            self.add_process(identifier, title, abstract)
+            self.add_process(identifier, title, abstract=abstract)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         if len(operations) == 0:

@@ -44,7 +44,7 @@
     "openid_url": "http://testbad.com/openid/fake_JnyeGoV7vc",
     "type": "",
     "cert": "",
-    "api_key": "",
+    "api_key": "abcd1234",
     "extra": ""
   }
 },

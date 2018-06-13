@@ -49,8 +49,19 @@ class Backend(object):
         if process_outputs is None:
             process_outputs = [OUTPUT]
 
-        description = cwt.wps.process_description(identifier, identifier, '1.0.0', 
-                                                  process_outputs, data_inputs=data_inputs, abstract=abstract)
+        args = [
+            identifier,
+            identifier,
+            '1.0.0',
+            process_outputs,
+        ]
+
+        kwargs = {
+            'data_inputs': data_inputs,
+            'abstract': abstract,
+        }
+
+        description = cwt.wps.process_description(*args, **kwargs)
 
         descriptions = cwt.wps.process_descriptions('en-US', '1.0.0', [description])
 
