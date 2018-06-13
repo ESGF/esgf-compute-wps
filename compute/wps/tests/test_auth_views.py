@@ -323,7 +323,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertEqual(data['openid'], user.auth.openid_url)
         self.assertFalse(data['admin'])
         self.assertTrue(data['local_init'])
-        self.assertEqual(data['api_key'], '')
+        self.assertEqual(data['api_key'], 'abcd1234')
         self.assertEqual(data['type'], '')
         self.assertEqual(data['email'], user.email)
 
@@ -333,7 +333,7 @@ class AuthViewsTestCase(test.TestCase):
 
         mock_openid.return_value = ('http://testbad.com/openid', {'email': user.email})
 
-        response = self.client.get('/auth/callback/openid', {}, follow=True)
+        response = self.client.get('/auth/callback/openid/', {}, follow=True)
 
         self.assertIn('_auth_user_id', self.client.session)
         self.check_redirect(response, 1)
@@ -342,7 +342,7 @@ class AuthViewsTestCase(test.TestCase):
     def test_user_login_openid_callback(self, mock_openid):
         mock_openid.return_value = ('http://testbad.com/openid', {'email': 'http://testbad.com/openid/new_user'})
 
-        response = self.client.get('/auth/callback/openid', {}, follow=True)
+        response = self.client.get('/auth/callback/openid/', {}, follow=True)
 
         self.assertIn('_auth_user_id', self.client.session)
         self.check_redirect(response, 1)

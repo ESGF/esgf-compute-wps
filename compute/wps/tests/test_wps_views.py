@@ -13,6 +13,127 @@ from wps.views import wps_service
 class WPSViewsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
 
+    @mock.patch('wps.backends.Backend.get_backend')
+    def test_wps_execute_unknown_backend(self, mock_get_backend):
+        mock_get_backend.return_value = None
+
+        data = {
+            'service': 'WPS',
+            'request': 'Execute',
+            'identifier': 'CDAT.subset',
+            'datainputs': '[variable=[];domain=[];operation=[]]',
+            'api_key': 'abcd1234',
+        }
+
+        response = self.client.get('/wps/', data)
+
+        self.assertContains(response, 'ows:ExceptionReport')
+
+    @mock.patch('wps.backends.Backend.get_backend')
+    def test_wps_execute_with_api_key(self, mock_get_backend):
+        mock_backend = mock.MagicMock()
+
+        mock_get_backend.return_value = mock_backend
+
+        data = {
+            'service': 'WPS',
+            'request': 'Execute',
+            'identifier': 'CDAT.subset',
+            'datainputs': '[variable=[];domain=[];operation=[]]',
+            'api_key': 'abcd1234',
+        }
+
+        response = self.client.get('/wps/', data)
+
+        self.assertContains(response, 'wps:ExecuteResponse')
+
+        mock_backend.execute.assert_called()
+
+    @mock.patch('wps.backends.Backend.get_backend')
+    def test_wps_execute_post(self, mock_get_backend):
+        mock_backend = mock.MagicMock()
+
+        mock_get_backend.return_value = mock_backend
+
+        variable = cwt.wps.data_input('variable', 'variable', '')
+        operation = cwt.wps.data_input('operation', 'operation', '')
+        domain = cwt.wps.data_input('domain', 'domain', '')
+
+        cwt.bds.reset()
+
+        execute_request = cwt.wps.execute('CDAT.subset', '1.0.0', [variable, domain, operation])
+
+        response = self.client.post('/wps/?api_key=abcd1234', execute_request.toxml(bds=cwt.bds), content_type='text\\xml')
+
+        self.assertContains(response, 'wps:ExecuteResponse')
+
+        mock_backend.execute.assert_called()
+
+    def test_wps_execute_unknown_user(self):
+        data = {
+            'service': 'WPS',
+            'request': 'Execute',
+            'identifier': 'CDAT.subset',
+            'datainputs': '[variable=[];domain=[];operation=[]]',
+            'api_key': 'skldjalsjfdlajflk',
+        }
+
+        response = self.client.get('/wps/', data)
+
+        self.assertContains(response, 'Missing API key for WPS execute request')
+
+    def test_wps_execute(self):
+        data = {
+            'service': 'WPS',
+            'request': 'Execute',
+            'identifier': 'CDAT.subset',
+            'datainputs': '[variable=[];domain=[];operation=[]]',
+        }
+
+        response = self.client.get('/wps/', data)
+
+        self.assertContains(response, 'Missing API key for WPS execute request')
+
+    def test_wps_describe_process_multiple(self):
+        data = {
+            'service': 'WPS',
+            'request': 'DescribeProcess',
+            'identifier': 'CDAT.subset,CDAT.aggregate',
+        }
+
+        response = self.client.get('/wps/', data)
+
+        self.assertContains(response, 'wps:ProcessDescriptions')
+        self.assertContains(response, 'wps:ProcessDescription', count=2)
+
+    def test_wps_describe_process(self):
+        data = {
+            'service': 'WPS',
+            'request': 'DescribeProcess',
+            'identifier': 'CDAT.subset',
+        }
+
+        response = self.client.get('/wps/', data)
+
+        self.assertContains(response, 'wps:ProcessDescriptions')
+        self.assertContains(response, 'wps:ProcessDescription', count=2)
+
+    def test_wps_get_capabilities(self):
+        data = {
+            'service': 'WPS',
+            'request': 'GetCapabilities',
+            'identifier': 'CDAT.subset',
+        }
+
+        response = self.client.get('/wps/', data)
+
+        self.assertContains(response, 'wps:Capabilities')
+
+    def test_wps(self):
+        response = self.client.get('/wps/')
+
+        self.assertContains(response, 'ows:ExceptionReport')
+
     def test_script_generator(self):
         user = models.User.objects.first()
 
@@ -59,204 +180,6 @@ class WPSViewsTestCase(test.TestCase):
 
         self.assertIn('text', data) 
         self.assertIn('filename', data)
-
-    def test_wps_execute_missing_datainputs(self):
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.subset'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-        self.assertIn('datainputs', response.content)
-
-    def test_wps_execute_no_api_key(self):
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.subset', 
-                                             'datainputs': ''})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_execute_missing_backend(self):
-        models.Process.objects.create(identifier='CDAT.new', backend='something new')
-
-        user = models.User.objects.first()
-
-        user.auth.api_key = 'new_key'
-
-        user.auth.save()
-
-        datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.new","input":["tas"]}]]'
-
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.new', 
-                                             'datainputs': datainputs, 
-                                             'api_key': 'new_key'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_execute_workflow_invalid_dangling(self):
-        user = models.User.objects.first()
-
-        user.auth.api_key = 'new_key'
-
-        user.auth.save()
-
-        datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.aggregate","input":["tas"],"result":"aggregate"},{"name":"CDAT.subset","input":["tas"],"result":"subset"}]]'
-
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.subset', 
-                                             'datainputs': datainputs, 
-                                             'api_key': 'new_key'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_execute_workflow(self):
-        user = models.User.objects.first()
-
-        user.auth.api_key = 'new_key'
-
-        user.auth.save()
-
-        datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.aggregate","input":["tas"],"result":"aggregate"},{"name":"CDAT.subset","input":["aggregate"],"result":"subset"}]]'
-
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.subset', 
-                                             'datainputs': datainputs, 
-                                             'api_key': 'new_key'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_execute_error_parsing(self):
-        user = models.User.objects.first()
-
-        user.auth.api_key = 'new_key'
-
-        user.auth.save()
-
-        datainputs = ''
-
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.subset', 
-                                             'datainputs': datainputs, 
-                                             'api_key': 'new_key'})
-
-        print 'REALLY', response.content
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_execute_missing_operation(self):
-        user = models.User.objects.first()
-
-        user.auth.api_key = 'new_key'
-
-        user.auth.save()
-
-        datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[]]'
-
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.subset', 
-                                             'datainputs': datainputs, 
-                                             'api_key': 'new_key'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_execute_process_missing(self):
-        user = models.User.objects.first()
-
-        user.auth.api_key = 'new_key'
-
-        user.auth.save()
-
-        datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.subset","input":["tas"]}]]'
-
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.doesnotexist', 
-                                             'datainputs': datainputs, 
-                                             'api_key': 'new_key'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_execute_get(self):
-        user = models.User.objects.first()
-
-        user.auth.api_key = 'new_key'
-
-        user.auth.save()
-
-        datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.subset","input":["tas"]}]]'
-
-        response = self.client.get('/wps/', {'request': 'Execute', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.subset', 
-                                             'datainputs': datainputs, 
-                                             'api_key': 'new_key'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_describe_process(self):
-        response = self.client.get('/wps/', {'request': 'DescribeProcess', 
-                                             'service': 'WPS', 
-                                             'identifier': 'CDAT.subset'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_get_capabilities(self):
-        # TODO maybe need to call a function to generate
-        user = models.User.objects.first()
-
-        user.is_superuser = True
-
-        user.save()
-
-        self.client.login(username=user.username, password=user.username)
-
-        self.client.get('/wps/regen_capabilities/')
-
-        response = self.client.get('/wps/', {'request': 'GetCapabilities', 'service': 'WPS'})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-        self.assertNotEqual(response.content, '')
-
-    def test_wps_post(self):
-        response = self.client.post('/wps/')
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-
-    def test_wps_get(self):
-        response = self.client.get('/wps/')
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'text/xml')
-
-        #TODO verify that the response is correctly formatted WPS response
 
     def test_regen_capabilities_missing_authentication(self):
         response = self.client.get('/wps/regen_capabilities/')

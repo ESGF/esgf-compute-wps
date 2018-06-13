@@ -93,9 +93,13 @@ class LocalBackendTestCase(test.TestCase):
             'job': job,
             'process': process,
             'estimate_size': 1000,
+            'identifier': 'CDAT.subset',
+            'variable': variables,
+            'domain': domains,
+            'operation': operations,
         }
 
-        proc = self.backend.execute('CDAT.subset', variables, domains, operations, **kwargs)
+        proc = self.backend.execute(**kwargs)
 
         self.assertIsNotNone(proc)
 
