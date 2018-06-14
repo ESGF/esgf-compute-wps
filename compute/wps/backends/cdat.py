@@ -113,54 +113,121 @@ class CDAT(backend.Backend):
 
         return canvas
 
+    def load_data_inputs(self, variable_raw, domain_raw, operation_raw):
+        variable = {}
+
+        for item in json.loads(variable_raw):
+            v = cwt.Variable.from_dict(item)
+
+            variable[v.name] = v
+
+        domain = {}
+
+        for item in json.loads(domain_raw):
+            d = cwt.Domain.from_dict(item)
+
+            domain[d.name] = d
+
+        operation = {}
+
+        for item in json.loads(operation_raw):
+            o = cwt.Process.from_dict(item)
+
+            operation[o.name] = o
+
+        for o in operation.values():
+            o.domain = domain[o.domain]
+
+            inputs = []
+
+            for v in o.inputs:
+                inputs.append(variable[v])
+
+            o.inputs = inputs
+
+        return variable, domain, operation
+
+    def preprocess_variable_values(self, operation, axis, user):
+        axis_slice = (
+            helpers.int_or_float(axis.start), 
+            helpers.int_or_float(axis.end)
+        )
+
+        uris = [x.uri for x in operation.inputs]
+
+        var_name = set(x.var_name for x in operation.inputs)
+
+        base_unit_task = tasks.determine_base_units.s(uris, var_name.pop(), 
+                                                      axis.name, user.id)
+
+        base_unit_task = base_unit_task.set(**helpers.DEFAULT_QUEUE)
+
+        logger.info('%r', operation.domain.parameterize())
+
+        variable_tasks = celery.group(
+            (tasks.map_axis_values.s(x.uri, x.var_name, axis.name, operation.domain, user.id).set(**helpers.DEFAULT_QUEUE) |
+             tasks.check_cache.s().set(**helpers.DEFAULT_QUEUE)) for x in operation.inputs)
+
+        return celery.group([(base_unit_task | variable_tasks)])
+
+    def preprocess_variable_indices(self, operation, axis, user):
+        axis_slice = (
+            int(axis.start),
+            int(axis.end),
+        )
+
+        uris = [x.uri for x in operation.inputs]
+
+        var_name = set(x.var_name for x in operation.inputs)
+
+        return tasks.map_axis_indices.s(uris, var_name.pop(), axis.name, 
+                                        axis_slice, user.id).set(
+                                            **helpers.DEFAULT_QUEUE)
+
+    def preprocess_operation(self, operation, user, job):
+        axes = operation.get_parameter('axes')
+
+        if axes is None:
+            axis = 'time'
+        else:
+            axis = axes.values[0]
+
+        logger.info('Operation "%s" axis "%s"', operation.identifier, axis)
+
+        axis = operation.domain.get_dimension(axis)
+
+        if axis.crs == cwt.VALUES:
+            operation_tasks = self.preprocess_variable_values(operation, axis, user)
+        elif axis.crs == cwt.INDICES:
+            operation_tasks = self.preprocess_variable_indices(operation, axis, user)
+        else:
+            raise WPSError('Unable to process axis "{id}"', id=axis.name)
+
+        return operation_tasks
+
     def execute(self, **kwargs):
-        job = kwargs.get('job')
+        identifier = kwargs['identifier']
 
-        user = kwargs.get('user')
+        variable = kwargs['variable']
 
-        process = kwargs.get('process')
+        domain = kwargs['domain']
 
-        identifier = kwargs.get('identifier')
+        operation = kwargs['operation']
 
-        if identifier is not None and identifier == 'CDAT.health':
-            health = base.get_process('CDAT.health')
+        user = kwargs['user']
 
-            return health.s(user_id=user.id, job_id=job.id, process_id=process.id).set(**helpers.DEFAULT_QUEUE).delay()
+        job = kwargs['job']
 
-        estimate_size = kwargs.get('estimate_size')
+        variable, domain, operation = self.load_data_inputs(variable, domain, operation)
 
-        operations = kwargs.get('operation')
+        operation_tasks = []
 
-        variables = kwargs.get('variable')
+        for o in operation.values():
+            operation_tasks.append(self.preprocess_operation(o, user, job))
 
-        domains = kwargs.get('domain')
+        canvas = celery.group(operation_tasks)
 
-        operation = operations.values()[0].parameterize()
-
-        variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
-
-        domain_dict = dict((x, y.parameterize()) for x, y in domains.iteritems())
-
-        target_process = base.get_process(identifier)
-
-        logger.info('Retrieved process "{}"'.format(identifier))
-
-        new_kwargs = {
-            'job_id': job.id,
-            'user_id': user.id,
-            'process_id': process.id,
-            'domain_map': kwargs.get('domain_map'),
-        }
-
-        target_process = target_process.s({}, variable_dict, domain_dict, operation, **new_kwargs)
-
-        queue = helpers.determine_queue(process, float(estimate_size))
-
-        logger.info('Routing to queue %r', queue)
-
-        target_process = target_process.set(**queue)
-
-        return target_process
+        result = canvas.delay()
 
     def get_task(self, identifier):
         try:

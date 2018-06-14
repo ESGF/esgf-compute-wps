@@ -3,11 +3,58 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import kombu
+import json
 import os
 import re
 
+
+import cwt
+from kombu import serialization
+from kombu import Exchange
+from kombu import Queue
+
 from celery import Celery
+
+def default(obj):
+    if isinstance(obj, slice):
+        return {
+            '__type': 'slice',
+            'start': obj.start,
+            'stop': obj.stop,
+            'step': obj.step,
+        }
+    elif isinstance(obj, cwt.Domain):
+        data = {
+            'data': obj.parameterize(),
+            '__type': 'domain',
+        }
+
+        return data
+    else:
+        raise TypeError(type(obj))
+
+def object_hook(obj):
+    if '__type' in obj and obj['__type'] == 'slice':
+        return slice(obj['start'], obj['stop'], obj['step'])
+    elif '__type' in obj and obj['__type'] == 'domain':
+        return cwt.Domain.from_dict(byteify(obj['data']))
+
+    return obj
+
+def byteify(data):
+    if isinstance(data, dict):
+        return dict((byteify(x), byteify(y)) for x, y in data.iteritems())
+    elif isinstance(data, list):
+        return list(byteify(x) for x in data)
+    elif isinstance(data, unicode):
+        return data.encode('utf-8')
+    else:
+        return data
+
+encoder = lambda x: json.dumps(x, default=default)
+decoder = lambda x: json.loads(x, object_hook=object_hook)
+
+serialization.register('cwt_json', encoder, decoder, 'application/json')
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'compute.settings')
 
@@ -19,21 +66,18 @@ app = Celery(
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
-ingress_exchange = kombu.Exchange('ingress', type='topic')
-priority_exchange = kombu.Exchange('priority', type='topic')
+ingress_exchange = Exchange('ingress', type='topic')
+priority_exchange = Exchange('priority', type='topic')
 
 app.conf.task_queues = [
-    kombu.Queue('ingress', ingress_exchange, routing_key='ingress'),
-    kombu.Queue('priority.high', priority_exchange, routing_key='high'),
-    kombu.Queue('priority.low', priority_exchange, routing_key='low'),
+    Queue('ingress', ingress_exchange, routing_key='ingress'),
+    Queue('priority.high', priority_exchange, routing_key='high'),
+    Queue('priority.low', priority_exchange, routing_key='low'),
 ]
 
-app.conf.task_routes = {
-    'wps.tasks.ingress.*': {
-        'queue': 'ingress',
-        'routing_key': 'ingress',
-    }
-}
+app.conf.event_serializer = 'cwt_json'
+app.conf.result_serializer = 'cwt_json'
+app.conf.task_serializer = 'cwt_json'
 
 app.autodiscover_tasks()
 

@@ -4,6 +4,8 @@ import logging
 
 import numpy as np
 
+from wps import WPSError
+
 logger = logging.getLogger('wps.helpers')
 
 DEFAULT_QUEUE = {
@@ -11,6 +13,17 @@ DEFAULT_QUEUE = {
     'exchange': 'priority',
     'routing_key': 'high',
 }
+
+def int_or_float(value):
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+    try:
+        return float(value)
+    except ValueError:
+        raise WPSError('Failed to parse "{value}" as a float or int', value=value)
 
 def determine_queue(process, estimate_size):
     try:
