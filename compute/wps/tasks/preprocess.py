@@ -204,13 +204,14 @@ def map_axis_values(self, base_units, uri, var_name, axis, domain, user_id):
     axis_slice = get_axis_slice(domain, axis)
 
     attrs = {
-        'uri': uri,
         'var_name': var_name,
         'axis': axis,
         'axis_slice': axis_slice[:],
     }
 
     with cdms2.open(uri) as infile:
+        uri = get_uri(infile)
+
         axis = get_axis(infile, var_name, axis)
 
         axis_clone = axis.clone()
@@ -218,19 +219,21 @@ def map_axis_values(self, base_units, uri, var_name, axis, domain, user_id):
         axis_clone.toRelativeTime(base_units)
 
         try:
-            axis_interval = axis_clone.mapInterval(axis_slice)
+            interval = axis_clone.mapInterval(axis_slice)
         except TypeError:
-            axis_map = None
+            axis_map = { uri: None }
         else:
-            axis_map = {}
-
-            axis_map[axis_clone.id] = slice(axis_interval[0], axis_interval[1])
+            axis_map = { 
+                uri: {
+                    axis_clone.id: slice(interval[0], interval[1]),
+                }
+            }
 
             exclude = [axis_clone.id,]
 
             remaining = map_remaining_axes(infile, var_name, domain, exclude)
 
-            axis_map.update(remaining)
+            axis_map[uri].update(remaining)
 
     attrs['axis_map'] = axis_map
 

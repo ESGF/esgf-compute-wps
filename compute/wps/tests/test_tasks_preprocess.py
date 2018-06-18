@@ -94,41 +94,41 @@ class PreprocessTestCase(test.TestCase):
         self.assertEqual(data, expected)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
-    @mock.patch('wps.tasks.preprocess.get_axis')
     @mock.patch('cdms2.open')
-    def test_map_axis_values(self, mock_load, mock_get, mock_open):
-        mock_time = mock.MagicMock()
-        mock_time.clone.return_value.id = 'time'
-        mock_time.clone.return_value.mapInterval.return_value = [0, 400]
+    def test_map_axis_values(self, mock_load, mock_open):
+        self.maxDiff = None
+        preprocess.get_uri = mock.MagicMock(return_value=self.uris[0])
 
-        mock_time2 = mock.MagicMock()
-        mock_time2.id = 'time'
-        mock_time2.mapInterval.return_value = [0, 100]
+        mock_time = mock.MagicMock()
+        type(mock_time).id = mock.PropertyMock(return_value='time')
+        type(mock_time).shape = mock.PropertyMock(side_effect=[(122,),(120,),(120,)])
+        type(mock_time.clone.return_value).id = mock.PropertyMock(return_value='time')
+        mock_time.clone.return_value.mapInterval.side_effect = [(0, 122),(0, 120),(0, 120)]
 
         mock_lat = mock.MagicMock()
-        mock_lat.id = 'lat'
-        mock_lat.mapInterval.return_value = [0, 100]
+        type(mock_lat).id = mock.PropertyMock(return_value='lat')
+        type(mock_lat).shape = mock.PropertyMock(return_value=(100,))
+        mock_lat.mapInterval.return_value = (0, 100)
 
         mock_lon = mock.MagicMock()
-        mock_lon.id = 'lon'
-        mock_lon.mapInterval.return_value = [0, 200]
+        type(mock_lon).id = mock.PropertyMock(return_value='lon')
+        type(mock_lon).shape = mock.PropertyMock(return_value=(200,))
+        mock_lon.mapInterval.return_value = (0, 200)
 
-        mock_get.side_effect = [
-            mock_time,
-            mock_time2,
-            mock_lat,
-            mock_lon,
-        ]
+        preprocess.get_axis = mock.MagicMock(return_value=mock_time)
+
+        preprocess.get_remaining_axes = mock.MagicMock(return_value=[mock_lat, mock_lon])
 
         expected = {
             'var_name': 'tas',
             'axis': 'time',
             'axis_slice': [0, 400],
-            'uri': self.uris[0],
             'axis_map': {
-                'time': slice(0, 400),
-                'lat': slice(0, 100),
-                'lon': slice(0, 200),
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                },
             }
         }
 
