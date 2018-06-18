@@ -15,6 +15,14 @@ from wps.tasks import credentials
 
 logger = get_task_logger('wps.tasks.preprocess')
 
+def get_axis_slice(domain, axis_name):
+    dimension = domain.get_dimension(axis_name)
+
+    return [
+        helpers.int_or_float(dimension.start),
+        helpers.int_or_float(dimension.end),
+    ]
+
 def get_uri(infile):
     return infile.uri
 
@@ -33,6 +41,37 @@ def get_axis_list(infile, var_name, exclude=None):
         exclude = []
 
     return [x for x in infile[var_name].getAxisList() if x.id not in exclude]
+
+def map_remaining_axes(infile, var_name, domain, exclude):
+    mapped_axes = {}
+
+    logger.info('Mapping remaining axes excluding %r', exclude)
+
+    for axis in get_axis_list(infile, var_name, exclude):
+        dimension = domain.get_dimension(axis.id)
+
+        if dimension is None:
+            shape = axis.shape[0]
+
+            dimension = cwt.Dimension(axis.id, 0, shape, cwt.INDICES)
+
+            logger.info('Found %r in file but not domain', axis.id)
+
+        if dimension.crs == cwt.VALUES:
+            try:
+                interval = axis.mapInterval((dimension.start, dimension.end))
+            except TypeError:
+                raise WSPError('Failed to map axis "{id}"', id=dimension.name)
+
+            mapped_axes[axis.id] = slice(interval[0], interval[1])
+        elif dimension.crs == cwt.INDICES:
+            mapped_axes[axis.id] = slice(dimension.start, dimension.end)
+        else:
+            raise WPSError('Unable to handle crs %r', dimension.crs)
+
+        logger.info('Mapped %r to %r', dimension, mapped_axes[axis.id])
+
+    return mapped_axes
 
 @base.cwt_shared_task()
 def check_cache(self, attrs):
@@ -89,12 +128,7 @@ def map_axis_indices(self, uris, var_name, axis, domain, user_id):
 
     logger.info('Mapping domain %r', domain)
 
-    axis_dimension = domain.get_dimension(axis)
-
-    axis_slice = [
-        helpers.int_or_float(axis_dimension.start), 
-        helpers.int_or_float(axis_dimension.end),
-    ]
+    axis_slice = get_axis_slice(domain, axis)
 
     logger.info('Mapping axis slice %r', axis_slice)
 
@@ -146,25 +180,11 @@ def map_axis_indices(self, uris, var_name, axis, domain, user_id):
 
                 axis_map[file_axis.id] = selector
 
-                for axis in get_axis_list(x, var_name, [axis_dimension.name,]):
-                    dimension = domain.get_dimension(axis.id)
+                exclude = [file_axis.id,]
 
-                    if dimension is None:
-                        continue
+                remaining = map_remaining_axes(x, var_name, domain, exclude)
 
-                    if dimension.crs == cwt.VALUES:
-                        try:
-                            axis_interval = axis.mapInterval((dimension.start, dimension.end))
-                        except TypeError:
-                            raise WPSError('Failed to map axis "{id}"', id=dimension.name)
-
-                        axis_map[axis.id] = slice(axis_interval[0], axis_interval[1])
-                    elif dimension.crs == cwt.INDICES:
-                        aixs_map[axis.id] = slice(dimension.start, dimension.end)
-                    else:
-                        raise WPSError('Unable to handle crs %r', dimension.crs)
-
-                    logger.info('Mapped %r to %r', axis.id, axis_map[axis.id])
+                axis_map.update(remaining)
 
             file_axis_map[file_name] = axis_map
 
@@ -181,12 +201,7 @@ def map_axis_values(self, base_units, uri, var_name, axis, domain, user_id):
 
     credentials.load_certificate(user)
 
-    axis_dimension = domain.get_dimension(axis)
-
-    axis_slice = [
-        helpers.int_or_float(axis_dimension.start), 
-        helpers.int_or_float(axis_dimension.end),
-    ]
+    axis_slice = get_axis_slice(domain, axis)
 
     attrs = {
         'uri': uri,
@@ -211,21 +226,11 @@ def map_axis_values(self, base_units, uri, var_name, axis, domain, user_id):
 
             axis_map[axis_clone.id] = slice(axis_interval[0], axis_interval[1])
 
-            for dim in domain.dimensions:
-                axis = get_axis(infile, var_name, dim.name)
+            exclude = [axis_clone.id,]
 
-                if axis.id in axis_map:
-                    continue
+            remaining = map_remaining_axes(infile, var_name, domain, exclude)
 
-                if dim.crs == cwt.VALUES:
-                    try:
-                        axis_interval = axis.mapInterval((dim.start, dim.end))
-                    except TypeError:
-                        raise WPSError('Failed to map axis "{id}"', id=dim.name)
-
-                    axis_map[axis.id] = slice(axis_interval[0], axis_interval[1])
-                elif dim.crs == cwt.INDICES:
-                    axis_map[axis.id] = slice(dim.start, dim.end)
+            axis_map.update(remaining)
 
     attrs['axis_map'] = axis_map
 
