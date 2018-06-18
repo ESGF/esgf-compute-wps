@@ -15,6 +15,9 @@ from wps.tasks import credentials
 
 logger = get_task_logger('wps.tasks.preprocess')
 
+def get_uri(infile):
+    return infile.uri
+
 def get_axis(infile, var_name, axis):
     variable = infile[var_name]
 
@@ -25,9 +28,15 @@ def get_axis(infile, var_name, axis):
 
     return variable.getAxis(axis_index)
 
+def get_axis_list(infile, var_name, exclude=None):
+    if exclude is None:
+        exclude = []
+
+    return [x for x in infile[var_name].getAxisList() if x.id not in exclude]
+
 @base.cwt_shared_task()
 def check_cache(self, attrs):
-    if attrs['axis_map'] is None:
+    if attrs.get('axis_map') is None:
         attrs['cached'] = None
 
         return attrs
@@ -78,6 +87,8 @@ def map_axis_indices(self, uris, var_name, axis, domain, user_id):
 
     credentials.load_certificate(user)
 
+    logger.info('Mapping domain %r', domain)
+
     axis_dimension = domain.get_dimension(axis)
 
     axis_slice = [
@@ -85,10 +96,12 @@ def map_axis_indices(self, uris, var_name, axis, domain, user_id):
         helpers.int_or_float(axis_dimension.end),
     ]
 
+    logger.info('Mapping axis slice %r', axis_slice)
+
     attrs = {
         'var_name': var_name,
         'axis': axis,
-        'axis_slice': axis_slice,
+        'axis_slice': axis_slice[:],
     }
 
     file_axis_map = {}
@@ -97,11 +110,17 @@ def map_axis_indices(self, uris, var_name, axis, domain, user_id):
         for x in infiles:
             axis_map = {}
 
+            file_name = get_uri(x)
+
+            logger.info('Processing %r', file_name)
+
             file_axis = get_axis(x, var_name, axis)
 
             shape = file_axis.shape[0]
 
             if axis_slice[0] > shape:
+                logger.info('%r not included in domain', file_name)
+
                 axis_slice[0] -= shape
 
                 axis_slice[1] -= shape
@@ -112,34 +131,44 @@ def map_axis_indices(self, uris, var_name, axis, domain, user_id):
 
             selector = slice(axis_slice[0], min(axis_slice[1], shape))
 
+            logger.info('%r of %r is included in domain', selector, file_name)
+
             axis_slice[0] -= selector.start
 
             axis_slice[1] -= (selector.stop - selector.start) + selector.start
 
             if selector.stop == 0:
+                logger.info('%r is not included in domain', file_name)
+
                 axis_map[file_axis.id] = None
             else:
+                logger.info('%r is included, mapping remaining axes', file_name)
+
                 axis_map[file_axis.id] = selector
 
-                for dim in domain.dimensions:
-                    axis = get_axis(infile, var_name, dim.name)
+                for axis in get_axis_list(x, var_name, [axis_dimension.name,]):
+                    dimension = domain.get_dimension(axis.id)
 
-                    if axis.id in axis_map:
+                    if dimension is None:
                         continue
 
-                    if dim.crs == cwt.VALUES:
+                    if dimension.crs == cwt.VALUES:
                         try:
-                            axis_interval = axis.mapInterval((dim.start, dim.end))
+                            axis_interval = axis.mapInterval((dimension.start, dimension.end))
                         except TypeError:
-                            raise WPSError('Failed to map axis "{id}"', id=dim.name)
+                            raise WPSError('Failed to map axis "{id}"', id=dimension.name)
 
                         axis_map[axis.id] = slice(axis_interval[0], axis_interval[1])
-                    elif dim.crs == cwt.INDICES:
-                        axis_map[axis.id] = slice(dim.start, dim.end)
+                    elif dimension.crs == cwt.INDICES:
+                        aixs_map[axis.id] = slice(dimension.start, dimension.end)
+                    else:
+                        raise WPSError('Unable to handle crs %r', dimension.crs)
 
-            file_axis_map[x.id] = axis_map
+                    logger.info('Mapped %r to %r', axis.id, axis_map[axis.id])
 
-    attrs['axis_map'] = file_axis_map
+            file_axis_map[file_name] = axis_map
+
+        attrs['axis_map'] = file_axis_map
 
     return attrs
 
@@ -163,7 +192,7 @@ def map_axis_values(self, base_units, uri, var_name, axis, domain, user_id):
         'uri': uri,
         'var_name': var_name,
         'axis': axis,
-        'axis_slice': axis_slice
+        'axis_slice': axis_slice[:],
     }
 
     with cdms2.open(uri) as infile:
