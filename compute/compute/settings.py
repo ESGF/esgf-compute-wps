@@ -183,7 +183,7 @@ else:
     if DEBUG:
         NOSE_ARGS = [
             '--with-coverage',
-            '--cover-package=wps.auth,wps.backends,wps.management,wps.models,wps.tasks,wps.views,wps.wps_xml',
+            '--cover-package=wps.auth,wps.backend,wps.helpers,wps.tasks,wps.views',
         ]
 
 MIDDLEWARE = [
