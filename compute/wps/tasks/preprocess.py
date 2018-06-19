@@ -32,7 +32,7 @@ def get_axis(infile, var_name, axis):
     axis_index = variable.getAxisIndex(axis)
 
     if axis_index == -1:
-        raise WPSError('Axis "{id}" was not found in "{url}"', id=axis, url=infile.id)
+        raise WPSError('Axis "{id}" was not found in "{url}"', id=axis, url=infile.url)
 
     return variable.getAxis(axis_index)
 
@@ -61,34 +61,42 @@ def map_remaining_axes(infile, var_name, domain, exclude):
             try:
                 interval = axis.mapInterval((dimension.start, dimension.end))
             except TypeError:
-                raise WSPError('Failed to map axis "{id}"', id=dimension.name)
+                raise WPSError('Failed to map axis "{id}"', id=dimension.name)
 
             mapped_axes[axis.id] = slice(interval[0], interval[1])
         elif dimension.crs == cwt.INDICES:
             mapped_axes[axis.id] = slice(dimension.start, dimension.end)
         else:
-            raise WPSError('Unable to handle crs %r', dimension.crs)
+            raise WPSError('Unable to handle crs "{name}"', name=dimension.crs.name)
 
         logger.info('Mapped %r to %r', dimension, mapped_axes[axis.id])
 
     return mapped_axes
 
 @base.cwt_shared_task()
-def check_cache(self, attrs):
-    if attrs.get('axis_map') is None:
+def check_cache(self, attrs, uri):
+    axis_map = attrs.get('axis_map')
+
+    if axis_map is None:
         attrs['cached'] = None
 
         return attrs
 
-    uid = '{}:{}'.format(attrs['uri'], attrs['var_name'])
+    var_name = attrs['var_name']
+
+    uid = '{}:{}'.format(uri, attrs['var_name'])
 
     uid_hash = hashlib.sha256(uid).hexdigest()
 
     cache_entries = models.Cache.objects.filter(uid=uid_hash)
 
+    logger.info('Found %r cache entries for %r', len(cache_entries), uid_hash)
+
     domain = {}
 
-    for name, value in attrs['axis_map'].iteritems():
+    for name in sorted(axis_map.keys()):
+        value = axis_map[name]
+
         if name in ('time', 't', 'z'):
             domain['temporal'] = value
         else:
@@ -99,20 +107,28 @@ def check_cache(self, attrs):
                     name: value
                 }
 
+    logger.info('Built domain %r', domain)
+
     for x in xrange(cache_entries.count()):
         entry = cache_entries[x]
 
         if not entry.valid:
+            logger.info('Cache entry %r invalid, removing...', entry.url)
+            
             entry.delete()
             
             continue
 
         if entry.is_superset(domain):
-            attrs['cached'] = x.url
+            logger.info('Cache entry %r is valid and a superset', entry.url)
+
+            attrs['cached'] = entry.url
 
             break
 
     if 'cached' not in attrs:
+        logger.info('No cache entry was found')
+
         attrs['cached'] = None
 
     return attrs
