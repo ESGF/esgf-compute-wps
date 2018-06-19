@@ -6,6 +6,7 @@ import hashlib
 import cwt
 import cdms2
 from celery.utils.log import get_task_logger
+from django.conf import settings
 
 from wps import helpers
 from wps import models
@@ -72,6 +73,34 @@ def map_remaining_axes(infile, var_name, domain, exclude):
         logger.info('Mapped %r to %r', dimension, mapped_axes[axis.id])
 
     return mapped_axes
+
+@base.cwt_shared_task()
+def generate_chunks(self, attrs, url, axis):
+    axis_map = attrs.get('axis_map')
+
+    if axis_map is None:
+        attrs['chunks'] = None
+
+        return attrs
+
+    file_axis_map = axis_map[url]
+
+    axis_slice = file_axis_map[axis]
+
+    step = min(axis_slice.stop, settings.WPS_PARTITION_SIZE)
+
+    chunks = [slice(x, min(x+step, axis_slice.stop), axis_slice.step) 
+              for x in xrange(axis_slice.start, axis_slice.stop, step)]
+
+    file_axis_map_copy = file_axis_map.copy()
+
+    file_axis_map_copy[axis] = chunks
+
+    attrs['chunks'] = {
+        url: file_axis_map_copy,
+    }
+
+    return attrs
 
 @base.cwt_shared_task()
 def check_cache(self, attrs, uri):

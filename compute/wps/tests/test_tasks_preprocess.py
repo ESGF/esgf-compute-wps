@@ -46,6 +46,62 @@ class PreprocessTestCase(test.TestCase):
 
         self.domain3 = cwt.Domain([cwt.Dimension('level', 0, 200, cwt.CRS('some_new'))])
 
+    def test_generate_chunks_axis_mapped_none(self):
+        data = {}
+
+        data = preprocess.generate_chunks(data, self.uris[0], 'time')
+
+        expected = { 'chunks': None }
+
+        self.assertEqual(data, expected)
+
+    def test_generate_chunks(self):
+        self.maxDiff = None
+        data = {
+            'axis_map': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+        }
+
+        data = preprocess.generate_chunks(data, self.uris[0], 'time')
+
+        expected = { 
+            'axis_map': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+            'chunks': {
+                self.uris[0]: {
+                    'time': [
+                        slice(0, 10),
+                        slice(10, 20),
+                        slice(20, 30),
+                        slice(30, 40),
+                        slice(40, 50),
+                        slice(50, 60),
+                        slice(60, 70),
+                        slice(70, 80),
+                        slice(80, 90),
+                        slice(90, 100),
+                        slice(100, 110),
+                        slice(110, 120),
+                        slice(120, 122),
+                    ],
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            }
+        }
+
+        self.assertEqual(data, expected)
+
     def test_map_remaining_axes_not_in_domain(self):
         mock_time = mock.MagicMock()
         type(mock_time).id = mock.PropertyMock(return_value='time')
