@@ -2,9 +2,11 @@
 
 import contextlib
 import hashlib
+import json
 
 import cwt
 import cdms2
+import requests
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
@@ -75,6 +77,29 @@ def map_remaining_axes(infile, var_name, domain, exclude):
     return mapped_axes
 
 @base.cwt_shared_task()
+def collect_and_execute(self, attrs):
+    data = attrs[0]
+
+    for x in xrange(1, len(attrs)):
+        data['axis_map'].update(attrs[x]['axis_map'])
+
+        data['cached'].update(attrs[x]['cached'])
+
+        data['chunks'].update(attrs[x]['chunks'])
+
+    json_data = json.dumps(data, default=helpers.json_dumps_default)
+
+    try:
+        response = requests.post(settings.WPS_EXECUTE_URL, data=json_data, verify=False)
+    except requests.ConnectionError:
+        raise WPSError('Connection error to "{url}"', url=settings.WPS_EXECUTE_URL)
+    except requests.HTTPError:
+        raise WPSError('HTTP error from "{url}"', url=settings.WPS_EXECUTE_URL)
+
+    if not response.ok:
+        raise WPSError('Execute request failed "{status}"', status=response.status_code)
+
+@base.cwt_shared_task()
 def generate_chunks(self, attrs, url, axis):
     axis_map = attrs.get('axis_map')
 
@@ -107,7 +132,7 @@ def check_cache(self, attrs, uri):
     axis_map = attrs.get('axis_map')
 
     if axis_map is None:
-        attrs['cached'] = None
+        attrs['cached'] = { uri: None }
 
         return attrs
 
@@ -151,14 +176,14 @@ def check_cache(self, attrs, uri):
         if entry.is_superset(domain):
             logger.info('Cache entry %r is valid and a superset', entry.url)
 
-            attrs['cached'] = entry.url
+            attrs['cached'] = { uri: entry.url }
 
             break
 
     if 'cached' not in attrs:
         logger.info('No cache entry was found')
 
-        attrs['cached'] = None
+        attrs['cached'] = { uri: None }
 
     return attrs
 

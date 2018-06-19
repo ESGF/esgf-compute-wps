@@ -1,11 +1,15 @@
 #! /usr/bin/env python
 
+import json
 import mock
 
 import cwt
+import requests
 from django import test
+from django.conf import settings
 
 import wps
+from wps import helpers
 from wps import models
 from wps.tasks import preprocess
 
@@ -45,6 +49,160 @@ class PreprocessTestCase(test.TestCase):
         self.domain2 = cwt.Domain(time=slice(0, 400), lat=(-90, 0), lon=(180, 360))
 
         self.domain3 = cwt.Domain([cwt.Dimension('level', 0, 200, cwt.CRS('some_new'))])
+
+        self.collect_execute1 = [
+            {
+                'var_name': 'tas',
+                'axis': 'time',
+                'axis_slice': [0, 400],
+                'axis_map': {
+                    self.uris[0]: {
+                        'time': slice(60, 122),
+                        'lat': slice(0, 100),
+                        'lon': slice(0, 200),
+                    },
+                },
+                'cached': {
+                    self.uris[0]: 'file:///test1.nc',
+                },
+                'chunks': {
+                    self.uris[0]: {
+                        'time': [
+                            slice(60, 70), 
+                            slice(70, 80), 
+                            slice(80, 90), 
+                            slice(90, 100), 
+                            slice(100, 122), 
+                        ],
+                        'lat': slice(0, 100),
+                        'lon': slice(0, 200),
+                    },
+                },
+            },
+            {
+                'var_name': 'tas',
+                'axis': 'time',
+                'axis_slice': [0, 400],
+                'axis_map': {
+                    self.uris[1]: {
+                        'time': slice(0, 60),
+                        'lat': slice(0, 100),
+                        'lon': slice(0, 200),
+                    },
+                },
+                'cached': {
+                    self.uris[1]: 'file:///test2.nc',
+                },
+                'chunks': {
+                    self.uris[1]: {
+                        'time': [
+                            slice(0, 10),
+                            slice(10, 20),
+                            slice(20, 30),
+                            slice(30, 40),
+                            slice(40, 50),
+                            slice(50, 60),
+                        ],
+                        'lat': slice(0, 100),
+                        'lon': slice(0, 200),
+                    },
+                },
+            },
+            {
+                'var_name': 'tas',
+                'axis': 'time',
+                'axis_slice': [0, 400],
+                'axis_map': {
+                    self.uris[2]: {
+                        'time': slice(0, 120),
+                        'lat': slice(0, 100),
+                        'lon': slice(0, 200),
+                    },
+                },
+                'cached': {
+                    self.uris[2]: None,
+                },
+                'chunks': {
+                    self.uris[2]: None,
+                },
+            },
+        ]
+
+    @mock.patch('requests.post')
+    def test_collect_and_execute_http_error(self, mock_post):
+        mock_post.side_effect = requests.HTTPError('HTTP error')
+
+        with self.assertRaises(wps.WPSError):
+            preprocess.collect_and_execute(self.collect_execute1)
+
+    @mock.patch('requests.post')
+    def test_collect_and_execute_connection_error(self, mock_post):
+        mock_post.side_effect = requests.ConnectionError('Connection error')
+
+        with self.assertRaises(wps.WPSError):
+            preprocess.collect_and_execute(self.collect_execute1)
+
+    @mock.patch('requests.post')
+    def test_collect_and_execute(self, mock_post):
+        preprocess.collect_and_execute(self.collect_execute1)
+
+        expected = {
+            'var_name': 'tas',
+            'axis': 'time',
+            'axis_slice': [0, 400],
+            'axis_map': {
+                self.uris[0]: {
+                    'time': slice(60, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                },
+                self.uris[1]: {
+                    'time': slice(0, 60),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                },
+                self.uris[2]: {
+                    'time': slice(0, 120),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                },
+            },
+            'cached': {
+                self.uris[0]: 'file:///test1.nc',
+                self.uris[1]: 'file:///test2.nc',
+                self.uris[2]: None,
+            },
+            'chunks': {
+                self.uris[0]: {
+                    'time': [
+                        slice(60, 70), 
+                        slice(70, 80), 
+                        slice(80, 90), 
+                        slice(90, 100), 
+                        slice(100, 122), 
+                    ],
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                },
+                self.uris[1]: {
+                    'time': [
+                        slice(0, 10),
+                        slice(10, 20),
+                        slice(20, 30),
+                        slice(30, 40),
+                        slice(40, 50),
+                        slice(50, 60),
+                    ],
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                },
+                self.uris[2]: None,
+            },
+        }
+
+        expected_data = json.dumps(expected, default=helpers.json_dumps_default)
+
+        mock_post.assert_called_once_with(settings.WPS_EXECUTE_URL, data=expected_data, verify=False) 
 
     def test_generate_chunks_axis_mapped_none(self):
         data = {}
@@ -288,7 +446,9 @@ class PreprocessTestCase(test.TestCase):
 
         expected = prev.copy()
 
-        expected['cached'] = None
+        expected['cached'] = {
+            self.uris[0]: None,
+        }
 
         data = preprocess.check_cache(prev, self.uris[0])
 
@@ -315,7 +475,9 @@ class PreprocessTestCase(test.TestCase):
 
         expected = prev.copy()
 
-        expected['cached'] = None
+        expected['cached'] = {
+            self.uris[0]: None,
+        }
 
         data = preprocess.check_cache(prev, self.uris[0])
 
@@ -341,7 +503,9 @@ class PreprocessTestCase(test.TestCase):
 
         expected = prev.copy()
 
-        expected['cached'] = 'file:///test_cached.nc'
+        expected['cached'] = {
+            self.uris[0]: 'file:///test_cached.nc',
+        }
 
         data = preprocess.check_cache(prev, self.uris[0])
 
@@ -350,7 +514,13 @@ class PreprocessTestCase(test.TestCase):
     def test_check_cache(self):
         data = preprocess.check_cache({}, self.uris[0])
 
-        self.assertEqual(data, {'cached': None})
+        expected = {
+            'cached': {
+                self.uris[0]: None
+            }
+        }
+
+        self.assertEqual(data, expected)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -452,6 +622,13 @@ class PreprocessTestCase(test.TestCase):
         data = preprocess.map_axis_values(self.units[0], self.uris[0], 'tas', 'time', self.domain1, self.user.id)
 
         self.assertEqual(data, expected)
+
+    @mock.patch('wps.tasks.credentials.load_certificate')
+    @mock.patch('wps.tasks.preprocess.get_axis')
+    @mock.patch('cdms2.open')
+    def test_determine_base_units_bad_user(self, mock_load, mock_get, mock_open):
+        with self.assertRaises(wps.WPSError):
+            check = preprocess.determine_base_units([], 'tas', 'time', 1337)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('wps.tasks.preprocess.get_axis')
