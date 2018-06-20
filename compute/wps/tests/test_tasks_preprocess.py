@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import copy
 import json
 import mock
 
@@ -12,6 +13,19 @@ import wps
 from wps import helpers
 from wps import models
 from wps.tasks import preprocess
+
+class MockFilter:
+    def __init__(self, items):
+        self.items = items
+
+    def count(self):
+        return len(self.items)
+
+    def __getitem__(self, x):
+        return self.items[x]
+
+    def __len__(self):
+        return self.count()
 
 class PreprocessTestCase(test.TestCase):
 
@@ -63,6 +77,78 @@ class PreprocessTestCase(test.TestCase):
         self.domain4 = cwt.Domain([cwt.Dimension('lat', 0, 200, cwt.CRS('test'))])
         self.domain5 = cwt.Domain(time=slice(0, 200), lat=slice(0, 100), lon=(180, 360))
 
+        self.units_single = {
+            'base_units': 'days since 1990-1-1 0', 
+            self.uris[0]: {},
+        }
+
+        self.units_multiple = {
+            'base_units': 'days since 1990-1-1 0', 
+            self.uris[0]: {},
+            self.uris[1]: {},
+            self.uris[2]: {},
+        }
+
+        self.map_single = copy.deepcopy(self.units_single)
+        self.map_single['var_name'] = 'tas'
+        self.map_single[self.uris[0]]['mapped'] = {
+            'time': slice(0, 122),
+            'lat': slice(0, 100),
+            'lon': slice(0, 200),
+        }
+
+        self.map_single_error = copy.deepcopy(self.map_single)
+        self.map_single_error[self.uris[0]]['mapped'] = None
+
+        self.map_single_indices = copy.deepcopy(self.map_single)
+        self.map_single_indices[self.uris[0]]['mapped'] = {
+            'time': slice(0, 122),
+            'lat': (0, 100),
+            'lon': (0, 200),
+        }
+
+        self.map_multiple = copy.deepcopy(self.units_multiple)
+        self.map_multiple['var_name'] = 'tas'
+        self.map_multiple[self.uris[0]]['mapped'] = {
+            'time': slice(0, 122),
+            'lat': slice(0, 100),
+            'lon': (180, 360),
+        }
+        self.map_multiple[self.uris[1]]['mapped'] = {
+            'time': slice(0, 78),
+            'lat': slice(0, 100),
+            'lon': (180, 360),
+        }
+        self.map_multiple[self.uris[2]]['mapped'] = None
+
+        self.cache_multiple = copy.deepcopy(self.map_multiple)
+        self.cache_multiple[self.uris[0]]['cached'] = 'file:///test1_cached.nc'
+
+        self.mock_f = mock.MagicMock()
+        type(self.mock_f).url = mock.PropertyMock(return_value='file:///test1_cached.nc')
+        type(self.mock_f).valid = mock.PropertyMock(return_value=True)
+        self.mock_f.is_superset.return_value = True
+
+        self.mock_f2 = mock.MagicMock()
+        type(self.mock_f2).url = mock.PropertyMock(return_value='file:///test2_cached.nc')
+        type(self.mock_f2).valid = mock.PropertyMock(return_value=True)
+        self.mock_f2.is_superset.return_value = True
+
+        self.mock_f3 = mock.MagicMock()
+        type(self.mock_f3).url = mock.PropertyMock(return_value='file:///test3_cached.nc')
+        type(self.mock_f3).valid = mock.PropertyMock(return_value=True)
+        self.mock_f3.is_superset.return_value = True
+
+    @mock.patch('wps.models.Cache.objects.filter')
+    def test_check_cache(self, mock_filter):
+        self.mock_f3.is_superset.return_value = False
+
+        mock_filter.return_value = MockFilter([self.mock_f, self.mock_f2, self.mock_f3])
+
+        data = preprocess.check_cache(self.map_multiple, self.uris[0])
+
+        self.assertEqual(data, self.cache_multiple)
+
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
     @mock.patch('wps.tasks.preprocess.get_axis_list')
@@ -76,37 +162,9 @@ class PreprocessTestCase(test.TestCase):
 
         mock_uri.side_effect = self.uris 
 
-        attrs = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {},
-            self.uris[1]: {},
-            self.uris[2]: {},
-        }
+        data = preprocess.map_domain_aggregate(self.units_multiple, self.uris, 'tas', self.domain5, self.user.id)
 
-        data = preprocess.map_domain_aggregate(attrs, self.uris, 'tas', self.domain5, self.user.id)
-
-        expected = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {
-                'mapped': {
-                    'time': slice(0, 122),
-                    'lat': slice(0, 100),
-                    'lon': (180, 360),
-                }
-            },
-            self.uris[1]: {
-                'mapped': {
-                    'time': slice(0, 78),
-                    'lat': slice(0, 100),
-                    'lon': (180, 360),
-                }
-            },
-            self.uris[2]: {
-                'mapped': None,
-            },
-        }
-
-        self.assertEqual(data, expected)
+        self.assertEqual(data, self.map_multiple)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -115,22 +173,10 @@ class PreprocessTestCase(test.TestCase):
         self.mock_lat.mapInterval.side_effect = TypeError()
 
         mock_axis.return_value = [self.mock_time,self.mock_lat,self.mock_lon]
-        
-        attrs = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {},
-        }
 
-        data = preprocess.map_domain(attrs, self.uris[0], 'tas', self.domain1, self.user.id)
+        data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain1, self.user.id)
 
-        expected = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {
-                'mapped': None,
-            }
-        }
-
-        self.assertEqual(data, expected)
+        self.assertEqual(data, self.map_single_error)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -138,51 +184,20 @@ class PreprocessTestCase(test.TestCase):
     def test_map_domain_not_in_user_domain(self, mock_axis, mock_open, mock_load):
         mock_axis.return_value = [self.mock_time,self.mock_lat,self.mock_lon]
         
-        attrs = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {},
-        }
+        data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain2, self.user.id)
 
-        data = preprocess.map_domain(attrs, self.uris[0], 'tas', self.domain2, self.user.id)
-
-        expected = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {
-                'mapped': {
-                    'time': slice(0, 122),
-                    'lat': slice(0, 100),
-                    'lon': slice(0, 200),
-                }
-            }
-        }
-
-        self.assertEqual(data, expected)
+        self.assertEqual(data, self.map_single)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
     @mock.patch('wps.tasks.preprocess.get_axis_list')
     def test_map_domain_indices(self, mock_axis, mock_open, mock_load):
+        self.maxDiff=None
         mock_axis.return_value = [self.mock_time,self.mock_lat,self.mock_lon]
         
-        attrs = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {},
-        }
+        data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain3, self.user.id)
 
-        data = preprocess.map_domain(attrs, self.uris[0], 'tas', self.domain3, self.user.id)
-
-        expected = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {
-                'mapped': {
-                    'time': slice(0, 122),
-                    'lat': (0, 100),
-                    'lon': (0, 200),
-                }
-            }
-        }
-
-        self.assertEqual(data, expected)
+        self.assertEqual(data, self.map_single_indices)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -190,39 +205,19 @@ class PreprocessTestCase(test.TestCase):
     def test_map_domain_crs_unknown(self, mock_axis, mock_open, mock_load):
         mock_axis.return_value = [self.mock_lat]
         
-        attrs = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {},
-        }
-
         with self.assertRaises(wps.WPSError):
-            data = preprocess.map_domain(attrs, self.uris[0], 'tas', self.domain4, self.user.id)
+            data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain4, self.user.id)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
     @mock.patch('wps.tasks.preprocess.get_axis_list')
     def test_map_domain(self, mock_axis, mock_open, mock_load):
+        self.maxDiff = None
         mock_axis.return_value = [self.mock_time,self.mock_lat,self.mock_lon]
         
-        attrs = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {},
-        }
+        data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain1, self.user.id)
 
-        data = preprocess.map_domain(attrs, self.uris[0], 'tas', self.domain1, self.user.id)
-
-        expected = {
-            'base_units': 'days since 1990-1-1 0',
-            self.uris[0]: {
-                'mapped': {
-                    'time': slice(0, 122),
-                    'lat': slice(0, 100),
-                    'lon': slice(0, 200),
-                }
-            }
-        }
-
-        self.assertEqual(data, expected)
+        self.assertEqual(data, self.map_single)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -243,11 +238,7 @@ class PreprocessTestCase(test.TestCase):
 
         data = preprocess.determine_base_units(self.uris, 'tas', self.user.id)
 
-        expected = {
-            'base_units': 'days since 1990-1-1 0',
-        }
-
-        self.assertEqual(data, expected)
+        self.assertEqual(data, self.units_multiple)
 
     def test_get_axis_list(self):
         mock_variable = mock.MagicMock()

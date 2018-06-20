@@ -36,10 +36,50 @@ def get_axis_list(variable):
     return variable.getAxisList()
 
 @base.cwt_shared_task()
+def check_cache(self, attrs, uri):
+    var_name = attrs['var_name']
+
+    file_attrs = attrs[uri]
+
+    uid = '{}:{}'.format(uri, var_name)
+
+    uid_hash = hashlib.sha256(uid).hexdigest()
+
+    cache_entries = models.Cache.objects.filter(uid=uid_hash)
+
+    logger.info('Found %r cache entries for %r', len(cache_entries), uid_hash)
+
+    for x in xrange(cache_entries.count()):
+        entry = cache_entries[x]
+
+        if not entry.valid:
+            logger.info('Entry for %r is invalid, removing', entry.uid)
+
+            entry.delete()
+            
+            continue
+
+        if entry.is_superset(file_attrs['mapped']):
+            logger.info('Found a valid cache entry for %r', uri)
+
+            file_attrs['cached'] = entry.url
+
+            break
+
+    if 'cached' not in file_attrs:
+        logger.info('Found no valid cache entries for %r', uri)
+
+        file_attrs['cached'] = None
+
+    return attrs
+
+@base.cwt_shared_task()
 def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id):
     load_credentials(user_id)
 
     base_units = attrs['base_units']
+
+    attrs['var_name'] = var_name
 
     time_dimen = None
 
@@ -113,6 +153,8 @@ def map_domain(self, attrs, uri, var_name, domain, user_id):
 
     base_units = attrs['base_units']
 
+    attrs['var_name'] = var_name
+
     mapped = {}
 
     with cdms2.open(uri) as infile:
@@ -175,15 +217,20 @@ def map_domain(self, attrs, uri, var_name, domain, user_id):
 def determine_base_units(self, uris, var_name, user_id):
     load_credentials(user_id)
 
+    attrs = {}
     base_units = []
 
     for uri in uris:
+        attrs[uri] = {}
+
         with cdms2.open(uri) as infile:
             base_units.append(get_variable(infile, var_name).getTime().units)
 
     logger.info('Collected base units %r', base_units)
 
     try:
-        return { 'base_units': sorted(base_units)[0] }
+        attrs['base_units'] = sorted(base_units)[0]
     except IndexError:
         raise WPSError('Unable to determine base units')
+
+    return attrs
