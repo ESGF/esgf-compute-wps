@@ -57,52 +57,6 @@ class LocalBackendTestCase(test.TestCase):
 
         workflow = self.backend.workflow(proc4, variables, domains, operations, user=self.user, job=job)
 
-    @mock.patch('wps.helpers.determine_queue')
-    def test_execute(self, mock_determine):
-        mock_determine.return_value = {
-            'queue': 'priority.high',
-            'exchange': 'priority',
-            'routing_key': 'high',
-        }
-
-        self.backend.populate_processes()
-
-        process = models.Process.objects.get(identifier='CDAT.subset')
-
-        job = models.Job.objects.create(server=self.server, user=self.user, process=process)
-
-        var = cwt.Variable('file:///test.nc', 'tas', name='v0')
-
-        variables = {'v0': var}
-
-        domain = cwt.Domain([
-            cwt.Dimension('time', 0, 200)
-        ], name='d0')
-
-        domains = {'d0': domain}
-
-        proc = cwt.Process(identifier='CDAT.subset', name='subset')
-
-        operations = {'subset': proc}
-
-        process = mock.MagicMock()
-        process.id = 12
-
-        kwargs = {
-            'user': self.user,
-            'job': job,
-            'process': process,
-            'estimate_size': 1000,
-            'identifier': 'CDAT.subset',
-            'variable': variables,
-            'domain': domains,
-            'operation': operations,
-        }
-
-        proc = self.backend.execute(**kwargs)
-
-        self.assertIsNotNone(proc)
-
     def test_populate_processes(self):
         count = len(tasks.REGISTRY)
 

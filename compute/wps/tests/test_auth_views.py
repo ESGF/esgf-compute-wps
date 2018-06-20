@@ -324,7 +324,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertFalse(data['admin'])
         self.assertTrue(data['local_init'])
         self.assertEqual(data['api_key'], 'abcd1234')
-        self.assertEqual(data['type'], '')
+        self.assertEqual(data['type'], 'oauth2')
         self.assertEqual(data['email'], user.email)
 
     @mock.patch('wps.views.auth.openid.complete')
