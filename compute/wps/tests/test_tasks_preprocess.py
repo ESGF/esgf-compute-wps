@@ -146,6 +146,51 @@ class PreprocessTestCase(test.TestCase):
         self.chunks_not_mapped = copy.deepcopy(self.cache_multiple)
         self.chunks_not_mapped[self.uris[2]]['chunks'] = None
 
+        self.collect1 = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            self.uris[0]: {
+                'mapped': {
+                    'time': slice(0, 122),
+                    'lat': (-90, 0),
+                    'lon': (180, 360),
+                },
+                'cached': 'file:///test1_cached.nc',
+                'chunks': {
+                    'time': [
+                        slice(0, 60),
+                        slice(60, 120),
+                        slice(120, 122),
+                    ],
+                }
+            },
+            self.uris[1]: {},
+            self.uris[2]: {},
+        }
+
+        self.collect2 = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            self.uris[0]: {},
+            self.uris[1]: {
+                'mapped': {
+                    'time': slice(0, 52),
+                    'lat': (-90, 0),
+                    'lon': (180, 360),
+                },
+                'cached': 'file:///test1_cached.nc',
+                'chunks': {
+                    'time': [
+                        slice(0, 52),
+                    ],
+                }
+            },
+            self.uris[2]: {},
+        }
+
+        self.collect_combined = copy.deepcopy(self.collect1)
+        self.collect_combined.update(self.collect2)
+
         self.mock_f = mock.MagicMock()
         type(self.mock_f).url = mock.PropertyMock(return_value='file:///test1_cached.nc')
         type(self.mock_f).valid = mock.PropertyMock(return_value=True)
@@ -160,6 +205,22 @@ class PreprocessTestCase(test.TestCase):
         type(self.mock_f3).url = mock.PropertyMock(return_value='file:///test3_cached.nc')
         type(self.mock_f3).valid = mock.PropertyMock(return_value=True)
         self.mock_f3.is_superset.return_value = True
+
+    @mock.patch('requests.post')
+    def test_collect_and_execute_multiple(self, mock_post):
+        type(mock_post.return_value).ok = mock.PropertyMock(return_value=True)
+
+        data = preprocess.collect_and_execute([self.collect1, self.collect2])
+
+        mock_post.assert_called_with(settings.WPS_EXECUTE_URL, data=self.collect_combined, verify=False)
+
+    @mock.patch('requests.post')
+    def test_collect_and_execute(self, mock_post):
+        type(mock_post.return_value).ok = mock.PropertyMock(return_value=True)
+
+        data = preprocess.collect_and_execute(self.collect1)
+
+        mock_post.assert_called_with(settings.WPS_EXECUTE_URL, data=self.collect1, verify=False)
 
     def test_generate_chunks_mapped_none(self):
         data = preprocess.generate_chunks(self.cache_multiple, self.uris[2], 'time')

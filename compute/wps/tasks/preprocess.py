@@ -36,6 +36,24 @@ def get_axis_list(variable):
     return variable.getAxisList()
 
 @base.cwt_shared_task()
+def collect_and_execute(self, attrs):
+    data = None
+
+    if not isinstance(attrs, list):
+        attrs = [attrs,]
+
+    for attr in attrs:
+        if data is None:
+            data = attr
+        else:
+            data.update(attr)
+
+    response = requests.post(settings.WPS_EXECUTE_URL, data=data, verify=False)
+
+    if not response.ok:
+        raise WPSError('Failed to execute status code {code}', code=response.status_code)
+
+@base.cwt_shared_task()
 def generate_chunks(self, attrs, uri, axis):
     logger.info('Generating chunks for %r over %r', uri, axis)
 
