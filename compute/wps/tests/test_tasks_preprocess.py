@@ -124,6 +124,28 @@ class PreprocessTestCase(test.TestCase):
         self.cache_multiple = copy.deepcopy(self.map_multiple)
         self.cache_multiple[self.uris[0]]['cached'] = 'file:///test1_cached.nc'
 
+        self.chunks_multiple = copy.deepcopy(self.cache_multiple)
+        self.chunks_multiple[self.uris[0]]['chunks'] = {
+            'time': [
+                slice(0, 10),
+                slice(10, 20),
+                slice(20, 30),
+                slice(30, 40),
+                slice(40, 50),
+                slice(50, 60),
+                slice(60, 70),
+                slice(70, 80),
+                slice(80, 90),
+                slice(90, 100),
+                slice(100, 110),
+                slice(110, 120),
+                slice(120, 122),
+            ]
+        }
+
+        self.chunks_not_mapped = copy.deepcopy(self.cache_multiple)
+        self.chunks_not_mapped[self.uris[2]]['chunks'] = None
+
         self.mock_f = mock.MagicMock()
         type(self.mock_f).url = mock.PropertyMock(return_value='file:///test1_cached.nc')
         type(self.mock_f).valid = mock.PropertyMock(return_value=True)
@@ -138,6 +160,24 @@ class PreprocessTestCase(test.TestCase):
         type(self.mock_f3).url = mock.PropertyMock(return_value='file:///test3_cached.nc')
         type(self.mock_f3).valid = mock.PropertyMock(return_value=True)
         self.mock_f3.is_superset.return_value = True
+
+    def test_generate_chunks_mapped_none(self):
+        data = preprocess.generate_chunks(self.cache_multiple, self.uris[2], 'time')
+
+        self.assertEqual(data, self.chunks_not_mapped)
+
+    def test_generate_chunks_missing_axis(self):
+        with self.assertRaises(wps.WPSError):
+            data = preprocess.generate_chunks(self.units_multiple, self.uris[0], 'lev')
+
+    def test_generate_chunks_not_mapped(self):
+        with self.assertRaises(wps.WPSError):
+            data = preprocess.generate_chunks(self.units_multiple, self.uris[0], 'time')
+
+    def test_generate_chunks(self):
+        data = preprocess.generate_chunks(self.cache_multiple, self.uris[0], 'time')
+
+        self.assertEqual(data, self.chunks_multiple)
 
     @mock.patch('wps.models.Cache.objects.filter')
     def test_check_cache(self, mock_filter):

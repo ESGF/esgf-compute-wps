@@ -36,6 +36,41 @@ def get_axis_list(variable):
     return variable.getAxisList()
 
 @base.cwt_shared_task()
+def generate_chunks(self, attrs, uri, axis):
+    logger.info('Generating chunks for %r over %r', uri, axis)
+
+    file_attrs = attrs[uri]
+
+    try:
+        mapped = file_attrs['mapped']
+    except KeyError:
+        raise WPSError('{uri} has not been mapped', uri=uri)
+
+    try:
+        chunked_axis = mapped[axis]
+    except TypeError:
+        attrs[uri]['chunks'] = None
+
+        return attrs
+    except KeyError:
+        raise WPSError('Missing %r axis in the axis mapping', axis)
+
+    chunks = []
+
+    for begin in xrange(chunked_axis.start, chunked_axis.stop, settings.WPS_PARTITION_SIZE):
+        end = min(begin+settings.WPS_PARTITION_SIZE, chunked_axis.stop)
+
+        chunks.append(slice(begin, end))
+
+    logger.info('Split %r into %r chunks', uri, len(chunks))
+
+    attrs[uri]['chunks'] = {
+        axis: chunks
+    }
+
+    return attrs
+
+@base.cwt_shared_task()
 def check_cache(self, attrs, uri):
     var_name = attrs['var_name']
 
