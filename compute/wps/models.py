@@ -25,6 +25,7 @@ from openid.store import interface
 from openid.store import nonce
 
 import wps
+from wps import helpers
 
 logger = logging.getLogger('wps.models')
 
@@ -320,48 +321,20 @@ class Cache(models.Model):
 
         return axis_size == expected_size
 
-    def __cmp_axis(self, value, cached):
-        logger.info('Axis {} cached {}'.format(value, cached))
-
-        if (value is not None and cached is None or
-                value is None and cached is None):
-            return True
-
-        if ((value is None and cached is not None) or
-                value.start < cached.start or
-                value.stop > cached.stop):
-            return False
-
-        return  True
-
     def is_superset(self, domain):
-        temporal = domain['temporal']
-
-        spatial = domain['spatial']
-
         try:
-            cached = json.loads(self.dimensions, object_hook=slice_object_hook)
+            cached = json.loads(self.dimensions, object_hook=helpers.json_loads_object_hook)
         except ValueError:
             return False
 
-        logger.info('Checking if "{}" is a superset of "{}"'.format(cached, domain))
+        for name, value in domain.iteritems():
+            try:
+                cached_value = cached[name] 
+            except KeyError:
+                return False
 
-        cached_temporal = cached['temporal']
-
-        if not self.__cmp_axis(temporal, cached_temporal):
-            logger.info('Temporal axis is does not match')
-
-            return False
-
-        cached_spatial = cached['spatial']
-
-        for name, cached_spatial_axis in cached_spatial.items():
-            if name == 'variable':
-                continue
-
-            if not self.__cmp_axis(spatial.get(name), cached_spatial_axis):
-                logger.info('Spatial axis "{}" does not match'.format(name))
-
+            if (value.start < cached_value.start or
+                    value.stop > cached_value.stop):
                 return False
 
         return True
