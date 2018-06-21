@@ -252,80 +252,74 @@ class Cache(models.Model):
 
     @property
     def valid(self):
+        logger.info('Validating cached file %r', self.local_path)
+
         if not os.path.exists(self.local_path):
-            logger.info('Cache file does not exist on disk')
+            logger.info('Invalid cached file %r is missing', self.local_path)
 
             return False
-
-        data = json.loads(self.dimensions, object_hook=slice_object_hook)
-
-        logger.info('Checking domain "{}"'.format(data))
 
         try:
-            var_name = data['variable']
-
-            temporal = data['temporal']
-
-            spatial = data['spatial']
-        except KeyError as e:
-            logger.info('Missing key "{}" in dimensions'.format(e))
+            data = json.loads(self.dimensions, object_hook=helpers.json_loads_object_hook)
+        except ValueError:
+            logger.info('Invalid failed to load dimensions of cached file %r', self.dimensions)
 
             return False
 
-        with cdms2.open(self.local_path) as infile:
+        try:
+            var_name = data['var_name']
+        except KeyError:
+            logger.info('Invalid missing var_name from cached metadata')
+
+            return False
+       
+        del data['var_name']
+
+        infile = None
+
+        try:
+            infile = cdms2.open(self.local_path)
+        except cdms2.CDMSError:
+            logger.info('Invalid failed to open cached file %r', self.local_path)
+
+            return False
+        else:
             if var_name not in infile.variables:
-                logger.info('Cache file does not contain variable "{}"'.format(var_name))
+                logger.info('Invalid variable %r not in cached file', var_name)
 
                 return False
 
-            temporal_axis = infile[var_name].getTime()
+            variable = infile[var_name]
 
-            if temporal_axis is None:
-                logger.info('Cache file is missing a temporal axis')
+            for name, value in data.iteritems():
+                axis_index = variable.getAxisIndex(name)
 
-                return False
-
-            if not self.__axis_valid(temporal_axis, temporal):
-                logger.info('Cache files temporal axis is invalid')
-
-                return False
-
-            for name, spatial_def in spatial.items():
-                spatial_axis_index = infile[var_name].getAxisIndex(name)
-
-                if spatial_axis_index == -1:
-                    logger.info('Cache file is missing spatial axis "{}"'.format(name))
+                if axis_index == -1:
+                    logger.info('Invalid axis %r is missing from cached file', name)
 
                     return False
 
-                spatial_axis = infile[var_name].getAxis(spatial_axis_index)
+                axis = variable.getAxis(axis_index)
 
-                if not self.__axis_valid(spatial_axis, spatial_def):
-                    logger.info('Cache files spatial axis "{}" is invalid'.format(name))
+                expected = value.stop - value.start
+
+                if expected != axis.shape[0]:
+                    logger.info('Invalid axis %r expected %r found %r', axis.id, expected, axis.shape[0])
 
                     return False
+        finally:
+            if infile:
+                infile.close()
 
         return True
-
-    def __axis_valid(self, axis_data, axis_def):
-        axis_size = axis_data.shape[0]
-
-        if isinstance(axis_def, slice):
-            expected_size = axis_def.stop - axis_def.start
-        else:
-            logger.info('Axis definition is unknown')
-
-            return False
-
-        logger.info('Cache files axis actual size {}, expected size {}'.format(axis_size, expected_size))
-
-        return axis_size == expected_size
 
     def is_superset(self, domain):
         try:
             cached = json.loads(self.dimensions, object_hook=helpers.json_loads_object_hook)
         except ValueError:
             return False
+
+        del cached['var_name']
 
         for name, value in domain.iteritems():
             try:
