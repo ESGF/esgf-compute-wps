@@ -339,8 +339,6 @@ def wps_entrypoint(request):
                 'process': process,
             })
 
-            logger.info('Queueing preprocessing job %s user %s', job.id, user.id)
-
             backend = backends.Backend.get_backend(process.backend)
 
             if backend is None:
