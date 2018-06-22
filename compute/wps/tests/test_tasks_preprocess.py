@@ -207,7 +207,6 @@ class PreprocessTestCase(test.TestCase):
         self.mock_f3.is_superset.return_value = True
 
     def test_analyze_wps_request(self):
-        self.maxDiff = None
         variable = {
             'uid1': cwt.Variable(self.uris[0], 'tas', name='uid1'),
             'uid2': cwt.Variable(self.uris[1], 'tas', name='uid2'),
@@ -226,7 +225,7 @@ class PreprocessTestCase(test.TestCase):
             'subset': subset,
         }
 
-        data = preprocess.analyze_wps_request([self.collect1, self.collect2], variable, domain, operation)
+        data = preprocess.analyze_wps_request([self.collect1, self.collect2], variable, domain, operation, 100, 200)
 
         self.collect_combined['preprocess'] = True
         self.collect_combined['workflow'] = False
@@ -237,10 +236,8 @@ class PreprocessTestCase(test.TestCase):
         self.collect_combined['domain'] = {
             'd0': domain['d0'].parameterize(),
         }
-
-        self.collect_combined['uid1'] = self.collect_combined.pop(self.uris[0])
-        self.collect_combined['uid2'] = self.collect_combined.pop(self.uris[1])
-        self.collect_combined['uid3'] = self.collect_combined.pop(self.uris[2])
+        self.collect_combined['user_id'] = 100
+        self.collect_combined['job_id'] = 200
 
         self.assertEqual(data, self.collect_combined)
 
@@ -250,7 +247,11 @@ class PreprocessTestCase(test.TestCase):
 
         data = preprocess.request_execute(self.collect1)
 
-        mock_post.assert_called_with(settings.WPS_EXECUTE_URL, data=self.collect1, verify=False)
+        expected = {
+            'data': json.dumps(self.collect1, default=helpers.json_dumps_default)
+        }
+
+        mock_post.assert_called_with(settings.WPS_EXECUTE_URL, data=expected, verify=False)
 
     def test_generate_chunks_mapped_none(self):
         data = preprocess.generate_chunks(self.cache_multiple, self.uris[2], 'time')

@@ -36,7 +36,7 @@ def get_axis_list(variable):
     return variable.getAxisList()
 
 @base.cwt_shared_task()
-def analyze_wps_request(self, attrs_list, variable, domain, operation):
+def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, job_id):
     attrs = None
 
     if not isinstance(attrs_list, list):
@@ -48,6 +48,10 @@ def analyze_wps_request(self, attrs_list, variable, domain, operation):
             attrs = item
         else:
             attrs.update(item)
+
+    attrs['user_id'] = user_id
+
+    attrs['job_id'] = job_id
 
     attrs['preprocess'] = True
 
@@ -72,15 +76,15 @@ def analyze_wps_request(self, attrs_list, variable, domain, operation):
 
     attrs['domain'] = dict((x, y.parameterize()) for x, y in domain.iteritems())
 
-    for x in variable.values():
-        if x.uri in attrs:
-            attrs[x.name] = attrs.pop(x.uri)
-
     return attrs
 
 @base.cwt_shared_task()
 def request_execute(self, attrs):
-    response = requests.post(settings.WPS_EXECUTE_URL, data=attrs, verify=False)
+    data = {
+        'data': json.dumps(attrs, default=helpers.json_dumps_default)
+    }
+
+    response = requests.post(settings.WPS_EXECUTE_URL, data=data, verify=False)
 
     if not response.ok:
         raise WPSError('Failed to execute status code {code}', code=response.status_code)
