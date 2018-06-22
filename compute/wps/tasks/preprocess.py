@@ -36,19 +36,51 @@ def get_axis_list(variable):
     return variable.getAxisList()
 
 @base.cwt_shared_task()
-def collect_and_execute(self, attrs):
-    data = None
+def analyze_wps_request(self, attrs_list, variable, domain, operation):
+    attrs = None
 
-    if not isinstance(attrs, list):
-        attrs = [attrs,]
+    if not isinstance(attrs_list, list):
+        attrs_list = [attrs_list,]
 
-    for attr in attrs:
-        if data is None:
-            data = attr
+    # Combine the list of inputs
+    for item in attrs_list:
+        if attrs is None:
+            attrs = item
         else:
-            data.update(attr)
+            attrs.update(item)
 
-    response = requests.post(settings.WPS_EXECUTE_URL, data=data, verify=False)
+    attrs['preprocess'] = True
+
+    # Collect inputs which are processes themselves
+    inputs = [y.name
+              for x in operation.values()
+              for y in x.inputs
+              if isinstance(y, cwt.Process)]
+
+    # Find the processes which do not belong as an input
+    candidates = [x for x in operation.values() if x.name not in inputs]
+
+    if len(candidates) > 1:
+        raise WPSError('Invalid workflow there should only be a single root process')
+
+    attrs['root'] = candidates[0].name
+
+    # Workflow if inputs includes any processes
+    attrs['workflow'] = True if len(inputs) > 0 else False
+
+    attrs['operation'] = dict((x, y.parameterize()) for x, y in operation.iteritems())
+
+    attrs['domain'] = dict((x, y.parameterize()) for x, y in domain.iteritems())
+
+    for x in variable.values():
+        if x.uri in attrs:
+            attrs[x.name] = attrs.pop(x.uri)
+
+    return attrs
+
+@base.cwt_shared_task()
+def request_execute(self, attrs):
+    response = requests.post(settings.WPS_EXECUTE_URL, data=attrs, verify=False)
 
     if not response.ok:
         raise WPSError('Failed to execute status code {code}', code=response.status_code)

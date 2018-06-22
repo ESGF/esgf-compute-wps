@@ -23,23 +23,38 @@ def default(obj):
             'stop': obj.stop,
             'step': obj.step,
         }
+    elif isinstance(obj, cwt.Variable):
+        return {
+            'data': obj.parameterize(),
+            '__type': 'variable',
+        }
     elif isinstance(obj, cwt.Domain):
-        data = {
+        return {
             'data': obj.parameterize(),
             '__type': 'domain',
         }
-
-        return data
+    elif isinstance(obj, cwt.Process):
+        return {
+            'data': obj.parameterize(),
+            '__type': 'process',
+        }
     else:
         raise TypeError(type(obj))
 
 def object_hook(obj):
-    if '__type' in obj and obj['__type'] == 'slice':
-        return slice(obj['start'], obj['stop'], obj['step'])
-    elif '__type' in obj and obj['__type'] == 'domain':
-        return cwt.Domain.from_dict(byteify(obj['data']))
+    if '__type' not in obj:
+        return obj
 
-    return obj
+    if obj['__type'] == 'slice':
+        data = slice(obj['start'], obj['stop'], obj['step'])
+    elif obj['__type'] == 'variable':
+        data = cwt.Variable.from_dict(byteify(obj['data']))
+    elif obj['__type'] == 'domain':
+        data = cwt.Domain.from_dict(byteify(obj['data']))
+    elif obj['__type'] == 'process':
+        data = cwt.Process.from_dict(byteify(obj['data']))
+
+    return data
 
 def byteify(data):
     if isinstance(data, dict):

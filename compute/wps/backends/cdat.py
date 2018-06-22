@@ -85,12 +85,12 @@ class CDAT(backend.Backend):
 
         return variable, domain, operation
 
-    def operation_task(self, operation, user):
+    def operation_task(self, operation, var_dict, dom_dict, op_dict, user):
         inp = [x for x in operation.inputs if isinstance(x, cwt.Variable)]
 
         # TODO this will eventually be removed once we start restricting the number
         # of allowed inputs, subet and regrid expect a single input
-        if operation.identifier in (u'CDAT.subset', u'CDAT.regrid'):
+        if operation.identifier in ('CDAT.subset', 'CDAT.regrid'):
             inp = sorted(inp, key=lambda x: x.uri)[0:1]
 
         var_name = set(x.var_name for x in inp).pop()
@@ -112,9 +112,12 @@ class CDAT(backend.Backend):
                  x.uri, 'time').set(
                      **helpers.DEFAULT_QUEUE)) for x in inp)
 
-        collect = tasks.collect_and_execute.s().set(**helpers.DEFAULT_QUEUE)
+        analyze = tasks.analyze_wps_request.s(
+            var_dict, dom_dict, op_dict).set(**helpers.DEFAULT_QUEUE)
 
-        return (base | variables | collect)
+        request = tasks.request_execute.s().set(**helpers.DEFAULT_QUEUE)
+
+        return (base | variables | analyze | request)
 
     def execute(self, **kwargs):
         identifier = kwargs['identifier']
@@ -131,8 +134,17 @@ class CDAT(backend.Backend):
 
         variable, domain, operation = self.load_data_inputs(variable, domain, operation)
 
-        canvas = celery.group(
-            self.operation_task(x, user) 
-            for x in operation.values())
+        operations = []
+
+        dom = dict((x.name, x) for x in domain.values())
+
+        op = dict((x.name, x) for x in operation.values())
+
+        var = dict((x.name, x) for x in variable.values())
+
+        for item in operation.values():
+            operations.append(self.operation_task(item, var, dom, op, user))
+
+        canvas = celery.group(operations)
 
         canvas.delay()

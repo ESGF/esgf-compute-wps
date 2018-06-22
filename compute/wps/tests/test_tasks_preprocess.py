@@ -206,19 +206,49 @@ class PreprocessTestCase(test.TestCase):
         type(self.mock_f3).valid = mock.PropertyMock(return_value=True)
         self.mock_f3.is_superset.return_value = True
 
+    def test_analyze_wps_request(self):
+        self.maxDiff = None
+        variable = {
+            'uid1': cwt.Variable(self.uris[0], 'tas', name='uid1'),
+            'uid2': cwt.Variable(self.uris[1], 'tas', name='uid2'),
+            'uid3': cwt.Variable(self.uris[2], 'tas', name='uid3'),
+        }
+
+        domain = {
+            'd0': cwt.Domain(time=(100, 300), lat=(-90, 0), lon=(180, 360), name='d0'),
+        }
+
+        subset = cwt.Process(identifier='CDAT.subset', name='subset')
+        subset.set_domain(domain['d0'])
+        subset.add_inputs(variable['uid1'], variable['uid2'])
+
+        operation = {
+            'subset': subset,
+        }
+
+        data = preprocess.analyze_wps_request([self.collect1, self.collect2], variable, domain, operation)
+
+        self.collect_combined['preprocess'] = True
+        self.collect_combined['workflow'] = False
+        self.collect_combined['root'] = 'subset'
+        self.collect_combined['operation'] = {
+            'subset': subset.parameterize(),
+        }
+        self.collect_combined['domain'] = {
+            'd0': domain['d0'].parameterize(),
+        }
+
+        self.collect_combined['uid1'] = self.collect_combined.pop(self.uris[0])
+        self.collect_combined['uid2'] = self.collect_combined.pop(self.uris[1])
+        self.collect_combined['uid3'] = self.collect_combined.pop(self.uris[2])
+
+        self.assertEqual(data, self.collect_combined)
+
     @mock.patch('requests.post')
-    def test_collect_and_execute_multiple(self, mock_post):
+    def test_request_execute(self, mock_post):
         type(mock_post.return_value).ok = mock.PropertyMock(return_value=True)
 
-        data = preprocess.collect_and_execute([self.collect1, self.collect2])
-
-        mock_post.assert_called_with(settings.WPS_EXECUTE_URL, data=self.collect_combined, verify=False)
-
-    @mock.patch('requests.post')
-    def test_collect_and_execute(self, mock_post):
-        type(mock_post.return_value).ok = mock.PropertyMock(return_value=True)
-
-        data = preprocess.collect_and_execute(self.collect1)
+        data = preprocess.request_execute(self.collect1)
 
         mock_post.assert_called_with(settings.WPS_EXECUTE_URL, data=self.collect1, verify=False)
 
