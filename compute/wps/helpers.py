@@ -1,7 +1,9 @@
 #! /usr/bin/env python
 
+import json
 import logging
 
+import cwt
 import numpy as np
 
 from wps import WPSError
@@ -49,20 +51,48 @@ def determine_queue(process, estimate_size):
             'routing_key': 'low',
         }
 
+encoder = lambda x: json.dumps(x, default=json_dumps_default)
+decoder = lambda x: json.loads(x, object_hook=json_loads_object_hook)
+
 def json_dumps_default(x):
     if isinstance(x, slice):
-        return {
-            'type': 'slice',
+        data = {
+            '__type': 'slice',
             'start': x.start,
             'stop': x.stop,
             'step': x.step,
         }
+    elif isinstance(x, cwt.Variable):
+        data = {
+            '__type': 'variable',
+            'data': x.parameterize(),
+        }
+    elif isinstance(x, cwt.Domain):
+        data = {
+            '__type': 'domain',
+            'data': x.parameterize(),
+        }
+    elif isinstance(x, cwt.Process):
+        data = {
+            '__type': 'process',
+            'data': x.parameterize(),
+        }
     else:
         raise TypeError()
 
-def json_loads_object_hook(x):
-    if 'type' in x:
-        if x['type'] == 'slice':
-            return slice(x['start'], x['stop'], x['step'])
+    return data
 
-    return x
+def json_loads_object_hook(x):
+    if '__type' not in x:
+        return x
+
+    if x['__type'] == 'slice':
+        data = slice(x['start'], x['stop'], x['step'])
+    elif x['__type'] == 'variable':
+        data = cwt.Variable.from_dict(x['data'])
+    elif x['__type'] == 'domain':
+        data = cwt.Domain.from_dict(x['data'])
+    elif x['__type'] == 'process':
+        data = cwt.Process.from_dict(x['data'])
+
+    return data
