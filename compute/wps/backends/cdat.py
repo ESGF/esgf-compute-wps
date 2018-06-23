@@ -18,6 +18,8 @@ __ALL__ = ['CDAT']
 
 logger = logging.getLogger('wps.backends')
 
+CHUNKED_TIME = ('CDAT.subset', 'CDAT.aggregate', 'CDAT.regrid')
+
 class CDAT(backend.Backend):
     def initialize(self):
         pass
@@ -85,7 +87,7 @@ class CDAT(backend.Backend):
 
         return variable, domain, operation
 
-    def operation_task(self, operation, var_dict, dom_dict, op_dict, user):
+    def operation_task(self, operation, var_dict, dom_dict, op_dict, user, job):
         inp = [x for x in operation.inputs if isinstance(x, cwt.Variable)]
 
         # TODO this will eventually be removed once we start restricting the number
@@ -113,13 +115,16 @@ class CDAT(backend.Backend):
                      **helpers.DEFAULT_QUEUE)) for x in inp)
 
         analyze = tasks.analyze_wps_request.s(
-            var_dict, dom_dict, op_dict).set(**helpers.DEFAULT_QUEUE)
+            var_dict, dom_dict, op_dict, user.id, job.id).set(
+                **helpers.DEFAULT_QUEUE)
 
         request = tasks.request_execute.s().set(**helpers.DEFAULT_QUEUE)
 
         return (base | variables | analyze | request)
 
-    def execute(self, **kwargs):
+    def configure_preprocess(self, **kwargs):
+        logger.info('Configuring preprocess workflow')
+
         identifier = kwargs['identifier']
 
         variable = kwargs['variable']
@@ -143,8 +148,79 @@ class CDAT(backend.Backend):
         var = dict((x.name, x) for x in variable.values())
 
         for item in operation.values():
-            operations.append(self.operation_task(item, var, dom, op, user))
+            operations.append(self.operation_task(item, var, dom, op, user, job))
 
         canvas = celery.group(operations)
 
         canvas.delay()
+
+    def configure_execute(self, **kwargs):
+        logger.info('Configuring execute')
+
+        root = kwargs['root']
+
+        root_op = kwargs['operation'][root]
+
+        variable = kwargs['variable']
+
+        var_name = kwargs['var_name']
+
+        base_units = kwargs['base_units']
+
+        user_id = kwargs['user_id']
+
+        job_id = kwargs['job_id']
+
+        if root_op.identifier in CHUNKED_TIME:
+            chunk_axis = 'time'
+        else:
+            chunk_axis = None
+
+        variable_list = []
+
+        index = 0
+        op_uuid = uuid.uuid4()
+
+        for inp in root_op.inputs:
+            var = variable[inp]
+
+            var_meta = kwargs[var.uri]
+
+            uri = var.uri if kwargs.get('cached') is None else kwargs['cached']
+
+            chunks = var_meta.get('chunks')
+
+            mapped = var_meta['mapped']
+
+            if chunks is None:
+                continue
+
+            axis = chunks.keys()[0]
+
+            chunks = chunks[axis]
+
+            for chunk in chunks:
+                mapped.update({ axis: chunk })
+
+                filename = '{}:{}.nc'.format(op_uuid, index)
+
+                file_path = os.path.join(settings.WPS_INGRESS_PATH)
+
+                args = [uri, var_name, mapped, file_path, user_id, job_id,
+                        base_units if chunk_axis == 'time' else None]
+
+                variable_list.append(task.ingress.s(*args).set(
+                        **helpers.DEFAULT_QUEUE))
+
+                index += 1
+
+        return celery.group(variable_list)
+
+    def execute(self, **kwargs):
+        if 'preprocess' in kwargs:
+            if kwargs['workflow']:
+                raise WPSError('Workflows have been disabled')
+            else:
+                self.configure_execute(**kwargs)
+        else:
+            self.configure_preprocess(**kwargs)

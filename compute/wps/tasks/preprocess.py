@@ -76,6 +76,8 @@ def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, 
 
     attrs['domain'] = dict((x, y.parameterize()) for x, y in domain.iteritems())
 
+    attrs['variable'] = dict((x, y.parameterize()) for x, y in variable.iteritems())
+
     return attrs
 
 @base.cwt_shared_task()

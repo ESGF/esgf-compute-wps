@@ -27,12 +27,15 @@ def read_data(infile, var_name, domain):
     return data
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
+def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id, base_units=None):
     try:
         with cdms2.open(uri) as infile:
             data = read_data(infile, var_name, domain)
     except cdms2.CDMSError:
         raise WPSError('Failed to open "{uri}"', uri=uri)
+
+    if base_units is not None and data.getTime() is not None:
+        data.getTime().toRelativeTime(base_units)
 
     try:
         with cdms2.open(uri) as outfile:
