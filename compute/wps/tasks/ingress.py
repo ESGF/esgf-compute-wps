@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 
 import contextlib
+import datetime
+import os
 
 import cdms2
 from django.conf import settings
@@ -16,8 +18,14 @@ __ALL__ = [
 
 logger = log.get_task_logger('wps.tasks.ingress')
 
+def get_now():
+    return datetime.datetime.now()
+
 def read_data(infile, var_name, domain):
-    time = domain.pop('time')
+    time = None
+
+    if 'time' in domain:
+        time = domain.pop('time')
 
     if time is None:
         data = infile(var_name, **domain)
@@ -27,20 +35,33 @@ def read_data(infile, var_name, domain):
     return data
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id, base_units=None):
+def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
+    start = get_now()
+
     try:
         with cdms2.open(uri) as infile:
             data = read_data(infile, var_name, domain)
     except cdms2.CDMSError:
         raise WPSError('Failed to open "{uri}"', uri=uri)
 
-    if base_units is not None and data.getTime() is not None:
-        data.getTime().toRelativeTime(base_units)
+    logger.info('%r %r', domain, data.shape)
 
     try:
-        with cdms2.open(uri) as outfile:
+        with cdms2.open(output_path, 'w') as outfile:
             outfile.write(data, id=var_name)
     except cdms2.CDMSError:
         raise WPSError('Failed to open "{uri}"', uri=output_path)
 
-    return output_path
+    elapsed = get_now() - start
+
+    stat = os.stat(output_path)
+
+    attrs = {
+        uri: {
+            'local': output_path,
+            'elapsed': elapsed,
+            'size': stat.st_size / 1000000.0,
+        }
+    }
+
+    return attrs

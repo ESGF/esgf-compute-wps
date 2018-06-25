@@ -88,12 +88,16 @@ class CDAT(backend.Backend):
         return variable, domain, operation
 
     def operation_task(self, operation, var_dict, dom_dict, op_dict, user, job):
+        logger.info('Configuring operation %r - %r', operation.identifier, operation.name)
+
         inp = [x for x in operation.inputs if isinstance(x, cwt.Variable)]
 
         # TODO this will eventually be removed once we start restricting the number
         # of allowed inputs, subet and regrid expect a single input
         if operation.identifier in ('CDAT.subset', 'CDAT.regrid'):
             inp = sorted(inp, key=lambda x: x.uri)[0:1]
+
+        operation.inputs = [x.name for x in inp]
 
         var_name = set(x.var_name for x in inp).pop()
 
@@ -157,28 +161,21 @@ class CDAT(backend.Backend):
     def configure_execute(self, **kwargs):
         logger.info('Configuring execute')
 
-        root = kwargs['root']
-
-        root_op = kwargs['operation'][root]
-
-        variable = kwargs['variable']
-
-        var_name = kwargs['var_name']
-
-        base_units = kwargs['base_units']
-
         user_id = kwargs['user_id']
 
         job_id = kwargs['job_id']
 
-        if root_op.identifier in CHUNKED_TIME:
-            chunk_axis = 'time'
-        else:
-            chunk_axis = None
+        root = kwargs['root']
 
-        variable_list = []
+        root_op = kwargs['operation'][root]
 
-        index = 0
+        var_name = kwargs['var_name']
+
+        variable = kwargs['variable']
+
+        ingress_list = []
+
+        inp_index = 0
         op_uuid = uuid.uuid4()
 
         for inp in root_op.inputs:
@@ -186,35 +183,40 @@ class CDAT(backend.Backend):
 
             var_meta = kwargs[var.uri]
 
-            uri = var.uri if kwargs.get('cached') is None else kwargs['cached']
+            cached = kwargs.get('cached')
 
-            chunks = var_meta.get('chunks')
+            var_uri = cached if cached is not None else var.uri
+
+            chunk_axis = var_meta['chunks'].keys()[0]
+
+            chunks = var_meta['chunks'][chunk_axis]
 
             mapped = var_meta['mapped']
 
-            if chunks is None:
-                continue
-
-            axis = chunks.keys()[0]
-
-            chunks = chunks[axis]
-
             for chunk in chunks:
-                mapped.update({ axis: chunk })
+                filename = '{}-{}.nc'.format(op_uuid, inp_index)
 
-                filename = '{}:{}.nc'.format(op_uuid, index)
+                inp_index += 1
 
-                file_path = os.path.join(settings.WPS_INGRESS_PATH)
+                output_path = os.path.join(settings.WPS_INGRESS_PATH, filename)
 
-                args = [uri, var_name, mapped, file_path, user_id, job_id,
-                        base_units if chunk_axis == 'time' else None]
+                mapped.update({ chunk_axis: chunk })
 
-                variable_list.append(task.ingress.s(*args).set(
-                        **helpers.DEFAULT_QUEUE))
+                args = [
+                    var_uri,
+                    var_name,
+                    mapped.copy(),
+                    output_path,
+                    user_id,
+                    job_id,
+                ]
 
-                index += 1
+                ingress_list.append(tasks.ingress_uri.s(*args).set(
+                    **helpers.DEFAULT_QUEUE))
 
-        return celery.group(variable_list)
+        canvas = celery.group(*ingress_list)
+
+        canvas.delay()
 
     def execute(self, **kwargs):
         if 'preprocess' in kwargs:

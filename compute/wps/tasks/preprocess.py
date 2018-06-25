@@ -72,18 +72,18 @@ def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, 
     # Workflow if inputs includes any processes
     attrs['workflow'] = True if len(inputs) > 0 else False
 
-    attrs['operation'] = dict((x, y.parameterize()) for x, y in operation.iteritems())
+    attrs['operation'] = operation
 
-    attrs['domain'] = dict((x, y.parameterize()) for x, y in domain.iteritems())
+    attrs['domain'] = domain
 
-    attrs['variable'] = dict((x, y.parameterize()) for x, y in variable.iteritems())
+    attrs['variable'] = variable
 
     return attrs
 
 @base.cwt_shared_task()
 def request_execute(self, attrs):
     data = {
-        'data': json.dumps(attrs, default=helpers.json_dumps_default)
+        'data': helpers.encoder(attrs)
     }
 
     response = requests.post(settings.WPS_EXECUTE_URL, data=data, verify=False)

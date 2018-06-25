@@ -3,10 +3,10 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import datetime
 import json
 import os
 import re
-
 
 import cwt
 from kombu import serialization
@@ -17,29 +17,40 @@ from celery import Celery
 
 def default(obj):
     if isinstance(obj, slice):
-        return {
+        data = {
             '__type': 'slice',
             'start': obj.start,
             'stop': obj.stop,
             'step': obj.step,
         }
     elif isinstance(obj, cwt.Variable):
-        return {
+        data = {
             'data': obj.parameterize(),
             '__type': 'variable',
         }
     elif isinstance(obj, cwt.Domain):
-        return {
+        data = {
             'data': obj.parameterize(),
             '__type': 'domain',
         }
     elif isinstance(obj, cwt.Process):
-        return {
+        data = {
             'data': obj.parameterize(),
             '__type': 'process',
         }
+    elif isinstance(obj, datetime.timedelta):
+        data = {
+            'data': {
+                'days': obj.days,
+                'seconds': obj.seconds,
+                'microseconds': obj.microseconds,
+            },
+            '__type': 'timedelta',
+        }
     else:
         raise TypeError(type(obj))
+
+    return data
 
 def object_hook(obj):
     if '__type' not in obj:
@@ -53,6 +64,14 @@ def object_hook(obj):
         data = cwt.Domain.from_dict(byteify(obj['data']))
     elif obj['__type'] == 'process':
         data = cwt.Process.from_dict(byteify(obj['data']))
+    elif obj['__type'] == 'timedelta':
+        kwargs = {
+            'days': obj['data']['days'],
+            'seconds': obj['data']['seconds'],
+            'microseconds': obj['data']['microseconds'],
+        }
+
+        data = datetime.timedelta(**kwargs)
 
     return data
 
