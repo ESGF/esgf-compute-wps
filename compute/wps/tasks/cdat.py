@@ -69,12 +69,8 @@ def health(self, user_id, job_id, process_id, **kwargs):
 
     return data
 
-@base.register_process('CDAT.regrid', abstract="""
-Regrids a variable to designated grid. Required parameter named "gridder".
-""")
-@base.cwt_shared_task()
-def regrid(self, attrs, operation, var_name, base_units, job_id):
-    gridder = operation.get_parameter('gridder', True)
+def base_retrieve(attrs, operation, var_name, base_units, job_id, gridder_req=False):
+    gridder = operation.get_parameter('gridder', gridder_req)
 
     job = self.load_job(job_id)
 
@@ -93,7 +89,7 @@ def regrid(self, attrs, operation, var_name, base_units, job_id):
             with cdms2.open(uri) as infile:
                 data = infile(var_name)
 
-                if grid is None:
+                if gridder is not None and grid is None:
                     grid = self.generate_grid(gridder, data)
 
                 data.getTime().toRelativeTime(base_units)
@@ -110,15 +106,22 @@ def regrid(self, attrs, operation, var_name, base_units, job_id):
 
     return attrs
 
+@base.register_process('CDAT.regrid', abstract="""
+Regrids a variable to designated grid. Required parameter named "gridder".
+""")
+@base.cwt_shared_task()
+def regrid(self, attrs, operation, var_name, base_units, job_id):
+    return base_retrieve(attrs, operation, var_name, base_units, job_id, True)
+
 @base.register_process('CDAT.subset', abstract='Subset a variable by provided domain. Supports regridding.')
 @base.cwt_shared_task()
-def subset(self, attrs, operation, base_units):
-    pass
+def subset(self, attrs, operation, var_name, base_units, job_id):
+    return base_retrieve(attrs, operation, var_name, base_units, job_id)
 
 @base.register_process('CDAT.aggregate', abstract='Aggregate a variable over multiple files. Supports subsetting and regridding.')
 @base.cwt_shared_task()
-def aggregate(self, attrs, operation, base_units):
-    pass
+def aggregate(self, attrs, operation, var_name, base_units, job_id):
+    return base_retrieve(attrs, operation, var_name, base_units, job_id)
 
 @base.register_process('CDAT.average', abstract=""" 
 Computes the average over an axis. Requires singular parameter named "axes" 
