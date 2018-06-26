@@ -26,6 +26,7 @@ class PreprocessTestCase(test.TestCase):
             'tas',
             self.domain1,
             'file:///test1_out.nc',
+            'days since 1990-1-1',
             0, 
             0,
         ]
@@ -35,26 +36,36 @@ class PreprocessTestCase(test.TestCase):
             'tas',
             self.domain2,
             'file:///test1_out.nc',
+            'days since 1990-1-1',
             0, 
             0,
         ]
 
         self.ingress_cache_attrs = {
             'file:///test1.nc': {
-                'file:///test1_01.nc': {
-                    'elapsed': datetime.timedelta(seconds=3),
-                    'size': 1.2,
-                },
-                'file:///test1_02.nc': {
-                    'elapsed': datetime.timedelta(seconds=1),
-                    'size': 1.2,
-                },
+                'base_units': 'days since 1990-1-1',
+                'ingress': [
+                    {
+                        'path': 'file:///test1_01.nc',
+                        'elapsed': datetime.timedelta(seconds=3),
+                        'size': 1.2,
+                    },
+                    {
+                        'path': 'file:///test1_02.nc',
+                        'elapsed': datetime.timedelta(seconds=1),
+                        'size': 1.2,
+                    },
+                ]
             },
             'file:///test2.nc': {
-                'file:///test1_03.nc': {
-                    'elapsed': datetime.timedelta(seconds=2),
-                    'size': 1.2,
-                },
+                'base_units': 'days since 2000-1-1',
+                'ingress': [
+                    {
+                        'path': 'file:///test1_03.nc',
+                        'elapsed': datetime.timedelta(seconds=2),
+                        'size': 1.2,
+                    },
+                ]
             },
         }
 
@@ -64,8 +75,11 @@ class PreprocessTestCase(test.TestCase):
             'lon': slice(100, 200),
         }
 
-    def test_ingress_cache(self):
-        output = ingress.ingress_cache(self.ingress_cache_attrs, 'file:///test1.nc', 'tas', self.ingress_cache_mapped)
+    @mock.patch('cdms2.open')
+    @mock.patch('os.stat')
+    @mock.patch('wps.models.Cache.objects.create')
+    def test_ingress_cache(self, mock_create, mock_stat, mock_open):
+        output = ingress.ingress_cache(self.ingress_cache_attrs, 'file:///test1.nc', 'tas', self.ingress_cache_mapped, 'days since 1990-1-1')
 
         self.assertEqual(output, self.ingress_cache_attrs)
 
@@ -103,9 +117,13 @@ class PreprocessTestCase(test.TestCase):
 
         output = ingress.ingress_uri(*self.args2)
 
+        print output
+
         expected = {
             'file:///test1.nc': {
-                'file:///test1_out.nc': {
+                'base_units': 'days since 1990-1-1',
+                'ingress': {
+                    'path': 'file:///test1_out.nc',
                     'elapsed': stop - start,
                     'size': 3.222111,
                 },
@@ -133,7 +151,9 @@ class PreprocessTestCase(test.TestCase):
 
         expected = {
             'file:///test1.nc': {
-                'file:///test1_out.nc': {
+                'base_units': 'days since 1990-1-1',
+                'ingress': {
+                    'path': 'file:///test1_out.nc',
                     'elapsed': stop - start,
                     'size': 3.222111,
                 },

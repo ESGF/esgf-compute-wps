@@ -167,7 +167,7 @@ def check_cache(self, attrs, uri):
     if entry is None:
         file_attrs['cached'] = None
     else:
-        file_attrs['cached'] = entry.url
+        file_attrs['cached'] = entry.local_path
 
     return attrs
 
@@ -241,7 +241,7 @@ def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id):
 
                 mapped[axis.id] = selector
 
-            attrs[uri] = { 'mapped': mapped }
+            attrs[uri].update({ 'mapped': mapped })
 
     return attrs
 
@@ -307,7 +307,7 @@ def map_domain(self, attrs, uri, var_name, domain, user_id):
 
             mapped[axis.id] = selector
 
-        attrs[uri] = { 'mapped': mapped }
+        attrs[uri].update({ 'mapped': mapped })
 
     return attrs
 
@@ -316,18 +316,22 @@ def determine_base_units(self, uris, var_name, user_id):
     load_credentials(user_id)
 
     attrs = {}
-    base_units = []
+    base_units_list = []
 
     for uri in uris:
         attrs[uri] = {}
 
         with cdms2.open(uri) as infile:
-            base_units.append(get_variable(infile, var_name).getTime().units)
+            base_units = get_variable(infile, var_name).getTime().units
 
-    logger.info('Collected base units %r', base_units)
+        attrs[uri] = { 'base_units': base_units }
+
+        base_units_list.append(base_units)
+
+    logger.info('Collected base units %r', base_units_list)
 
     try:
-        attrs['base_units'] = sorted(base_units)[0]
+        attrs['base_units'] = sorted(base_units_list)[0]
     except IndexError:
         raise WPSError('Unable to determine base units')
 

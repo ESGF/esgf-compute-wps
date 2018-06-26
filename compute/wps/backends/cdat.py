@@ -175,6 +175,7 @@ class CDAT(backend.Backend):
 
         base_units = kwargs['base_units']
 
+        cached_dict = {}
         cache_list = []
         ingress_list = []
 
@@ -188,47 +189,79 @@ class CDAT(backend.Backend):
 
             var_meta = kwargs[var.uri]
 
-            cached = kwargs.get('cached')
+            cached = var_meta.get('cached')
 
-            var_uri = cached if cached is not None else var.uri
-
-            chunk_axis = var_meta['chunks'].keys()[0]
-
-            chunks = var_meta['chunks'][chunk_axis]
+            file_base_units = var_meta['base_units']
 
             mapped = var_meta['mapped']
 
             mapped_copy = mapped.copy()
 
-            for chunk in chunks:
-                filename = '{0}-{1:06}.nc'.format(op_uuid, inp_index)
+            if cached is None:
+                var_uri = cached if cached is not None else var.uri
 
-                inp_index += 1
+                chunk_axis = var_meta['chunks'].keys()[0]
 
-                output_path = os.path.join(settings.WPS_INGRESS_PATH, filename)
+                chunks = var_meta['chunks'][chunk_axis]
 
-                mapped.update({ chunk_axis: chunk })
+                for chunk in chunks:
+                    filename = '{0}-{1:06}.nc'.format(op_uuid, inp_index)
 
-                args = [
-                    var_uri,
-                    var_name,
-                    mapped.copy(),
-                    output_path,
-                    user_id,
-                    job_id,
-                ]
+                    inp_index += 1
 
-                ingress_list.append(tasks.ingress_uri.s(*args).set(
-                    **helpers.DEFAULT_QUEUE))
+                    output_path = os.path.join(settings.WPS_INGRESS_PATH, filename)
 
-            cache_list.append(tasks.ingress_cache.s(
-                var_uri, var_name, mapped_copy, base_units).set(**helpers.DEFAULT_QUEUE))
+                    mapped.update({ chunk_axis: chunk })
+
+                    args = [
+                        var_uri,
+                        var_name,
+                        mapped.copy(),
+                        output_path,
+                        file_base_units,
+                        user_id,
+                        job_id,
+                    ]
+
+                    ingress_list.append(tasks.ingress_uri.s(*args).set(
+                        **helpers.DEFAULT_QUEUE))
+
+                cache_list.append(tasks.ingress_cache.s(
+                    var_uri, var_name, mapped_copy, base_units).set(**helpers.DEFAULT_QUEUE))
+            else:
+                cached_dict[var.uri] = {
+                    'base_units': file_base_units,
+                    'cached': {
+                        'path': cached,
+                        'mapped': mapped_copy,
+                    },
+                }
 
         if root_op.identifier in CHUNKED_TIME:
-            canvas = (celery.group(*ingress_list) | 
-                      process.s(root_op, var_name, base_units, job_id).set(
-                          **helpers.DEFAULT_QUEUE) |
-                      celery.group(*cache_list))
+            canvas = None
+
+            if len(ingress_list) > 0:
+                canvas = celery.group(*ingress_list)
+
+            if canvas is None:
+                canvas = process.s(
+                    {}, cached_dict, root_op, var_name, base_units, 
+                    job_id).set(
+                        **helpers.DEFAULT_QUEUE)
+            else:
+                canvas = (canvas |
+                          process.s(
+                              cached_dict, root_op, var_name, base_units, 
+                              job_id).set(
+                                  **helpers.DEFAULT_QUEUE))
+
+            if len(cache_list) > 0:
+                canvas = (canvas | celery.group(*cache_list))
+
+            #canvas = (celery.group(*ingress_list) | 
+            #          process.s(root_op, var_name, base_units, job_id).set(
+            #              **helpers.DEFAULT_QUEUE) |
+            #          celery.group(*cache_list))
         else:
             canvas = celery.group(*ingress_list)
 

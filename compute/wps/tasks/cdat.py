@@ -70,7 +70,7 @@ def health(self, user_id, job_id, process_id, **kwargs):
 
     return data
 
-def base_retrieve(self, attrs, operation, var_name, base_units, job_id, gridder_req=False):
+def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id, gridder_req=False):
     gridder = operation.get_parameter('gridder', gridder_req)
 
     logger.info('Gridder %r', gridder)
@@ -85,9 +85,17 @@ def base_retrieve(self, attrs, operation, var_name, base_units, job_id, gridder_
     for item in attrs:
         for key, value in item.iteritems():
             if key in combined:
-                combined[key].update(value)
+                combined[key]['ingress'].append(value['ingress'])
             else:
                 combined[key] = value
+
+                combined[key]['ingress'] = [value['ingress'],]
+
+    for key, value in cached.iteritems():
+        if key in combined:
+            combined[key].update(value)
+        else:
+            combined[key] = value
 
     output_name = '{}.nc'.format(uuid.uuid4())
 
@@ -97,14 +105,30 @@ def base_retrieve(self, attrs, operation, var_name, base_units, job_id, gridder_
 
     logger.info('Output path %r', output_path)
 
-    with cdms2.open(output_path, 'w') as outfile:
-        uris = sorted(y for x in combined for y in combined[x])
+    logger.info('%r', combined)
 
-        for uri in uris:
+    with cdms2.open(output_path, 'w') as outfile:
+        uris = sorted(combined.items(), key=lambda x: x[1]['base_units'])
+
+        for item in uris:
+            uri = item[0]
+
+            uri_meta = item[1]
+
+            if 'cached' in uri_meta:
+                uri = uri_meta['cached']['path']
+
             logger.info('Opening %r', uri)
 
             with cdms2.open(uri) as infile:
-                data = infile(var_name)
+                if 'cached' in uri_meta:
+                    mapped = uri_meta['cached']['mapped']
+
+                    del mapped['time']
+
+                    data = infile(var_name, **mapped)
+                else:
+                    data = infile(var_name)
 
                 logger.info('Read data shape %r', data.shape)
 
@@ -138,18 +162,18 @@ def base_retrieve(self, attrs, operation, var_name, base_units, job_id, gridder_
 Regrids a variable to designated grid. Required parameter named "gridder".
 """)
 @base.cwt_shared_task()
-def regrid(self, attrs, operation, var_name, base_units, job_id):
-    return base_retrieve(self, attrs, operation, var_name, base_units, job_id, True)
+def regrid(self, attrs, cached, operation, var_name, base_units, job_id):
+    return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id, True)
 
 @base.register_process('CDAT.subset', abstract='Subset a variable by provided domain. Supports regridding.')
 @base.cwt_shared_task()
-def subset(self, attrs, operation, var_name, base_units, job_id):
-    return base_retrieve(self, attrs, operation, var_name, base_units, job_id)
+def subset(self, attrs, cached, operation, var_name, base_units, job_id):
+    return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id)
 
 @base.register_process('CDAT.aggregate', abstract='Aggregate a variable over multiple files. Supports subsetting and regridding.')
 @base.cwt_shared_task()
-def aggregate(self, attrs, operation, var_name, base_units, job_id):
-    return base_retrieve(self, attrs, operation, var_name, base_units, job_id)
+def aggregate(self, attrs, cached, operation, var_name, base_units, job_id):
+    return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id)
 
 @base.register_process('CDAT.average', abstract=""" 
 Computes the average over an axis. Requires singular parameter named "axes" 

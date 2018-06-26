@@ -79,14 +79,22 @@ class PreprocessTestCase(test.TestCase):
 
         self.units_single = {
             'base_units': 'days since 1990-1-1 0', 
-            self.uris[0]: {},
+            self.uris[0]: {
+                'base_units': 'days since 1990-1-1 0',
+            },
         }
 
         self.units_multiple = {
             'base_units': 'days since 1990-1-1 0', 
-            self.uris[0]: {},
-            self.uris[1]: {},
-            self.uris[2]: {},
+            self.uris[0]: {
+                'base_units': 'days since 1990-1-1 0',
+            },
+            self.uris[1]: {
+                'base_units': 'days since 2000-1-1 0',
+            },
+            self.uris[2]: {
+                'base_units': 'days since 2010-1-1 0',
+            },
         }
 
         self.map_single = copy.deepcopy(self.units_single)
@@ -109,16 +117,19 @@ class PreprocessTestCase(test.TestCase):
 
         self.map_multiple = copy.deepcopy(self.units_multiple)
         self.map_multiple['var_name'] = 'tas'
+        self.map_multiple[self.uris[0]]['base_units'] = 'days since 1990-1-1 0'
         self.map_multiple[self.uris[0]]['mapped'] = {
             'time': slice(0, 122),
             'lat': slice(0, 100),
             'lon': (180, 360),
         }
+        self.map_multiple[self.uris[1]]['base_units'] = 'days since 2000-1-1 0'
         self.map_multiple[self.uris[1]]['mapped'] = {
             'time': slice(0, 78),
             'lat': slice(0, 100),
             'lon': (180, 360),
         }
+        self.map_multiple[self.uris[2]]['base_units'] = 'days since 2010-1-1 0'
         self.map_multiple[self.uris[2]]['mapped'] = None
 
         self.cache_multiple = copy.deepcopy(self.map_multiple)
@@ -192,16 +203,19 @@ class PreprocessTestCase(test.TestCase):
         self.collect_combined.update(self.collect2)
 
         self.mock_f = mock.MagicMock()
+        type(self.mock_f).local_path = mock.PropertyMock(return_value='file:///test1_cached.nc')
         type(self.mock_f).url = mock.PropertyMock(return_value='file:///test1_cached.nc')
         type(self.mock_f).valid = mock.PropertyMock(return_value=True)
         self.mock_f.is_superset.return_value = True
 
         self.mock_f2 = mock.MagicMock()
+        type(self.mock_f2).local_path = mock.PropertyMock(return_value='file:///test2_cached.nc')
         type(self.mock_f2).url = mock.PropertyMock(return_value='file:///test2_cached.nc')
         type(self.mock_f2).valid = mock.PropertyMock(return_value=True)
         self.mock_f2.is_superset.return_value = True
 
         self.mock_f3 = mock.MagicMock()
+        type(self.mock_f3).local_path = mock.PropertyMock(return_value='file:///test3_cached.nc')
         type(self.mock_f3).url = mock.PropertyMock(return_value='file:///test3_cached.nc')
         type(self.mock_f3).valid = mock.PropertyMock(return_value=True)
         self.mock_f3.is_superset.return_value = True
@@ -365,9 +379,9 @@ class PreprocessTestCase(test.TestCase):
     @mock.patch('wps.tasks.preprocess.get_variable')
     def test_determine_base_units(self, mock_variable, mock_open, mock_load):
         mock_variable.side_effect = [
-            self.mock_time3,
             self.mock_time,
             self.mock_time2,
+            self.mock_time3,
         ]
 
         data = preprocess.determine_base_units(self.uris, 'tas', self.user.id)

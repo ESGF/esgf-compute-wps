@@ -69,9 +69,9 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units):
 
     try:
         with cdms2.open(entry.local_path, 'w') as outfile:
-            for ingress_uri in uri_meta.keys():
+            for ingress_meta in uri_meta['ingress']:
                 try:
-                    with cdms2.open(ingress_uri) as infile:
+                    with cdms2.open(ingress_meta['path']) as infile:
                         data = infile(var_name)
 
                         logger.info('Read chunk with shape %r', data.shape)
@@ -102,7 +102,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units):
     return attrs
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
+def ingress_uri(self, uri, var_name, domain, output_path, base_units, user_id, job_id):
     start = get_now()
 
     logger.info('Domain %r', domain)
@@ -127,7 +127,9 @@ def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
 
     attrs = {
         uri: {
-            output_path: {
+            'base_units': base_units,
+            'ingress': {
+                'path': output_path,
                 'elapsed': elapsed,
                 'size': stat.st_size / 1000000.0,
             },
