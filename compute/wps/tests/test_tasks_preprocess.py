@@ -207,6 +207,7 @@ class PreprocessTestCase(test.TestCase):
         self.mock_f3.is_superset.return_value = True
 
     def test_analyze_wps_request(self):
+        self.maxDiff = None
         variable = {
             'uid1': cwt.Variable(self.uris[0], 'tas', name='uid1'),
             'uid2': cwt.Variable(self.uris[1], 'tas', name='uid2'),
@@ -231,11 +232,12 @@ class PreprocessTestCase(test.TestCase):
         self.collect_combined['workflow'] = False
         self.collect_combined['root'] = 'subset'
         self.collect_combined['operation'] = {
-            'subset': subset.parameterize(),
+            'subset': subset,
         }
         self.collect_combined['domain'] = {
-            'd0': domain['d0'].parameterize(),
+            'd0': domain['d0'],
         }
+        self.collect_combined['variable'] = variable
         self.collect_combined['user_id'] = 100
         self.collect_combined['job_id'] = 200
 

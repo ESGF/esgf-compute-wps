@@ -20,43 +20,6 @@ class LocalBackendTestCase(test.TestCase):
 
         self.user = models.User.objects.all()[0]
 
-    def test_workflow(self):
-        self.backend.populate_processes()
-
-        process = models.Process.objects.get(identifier='CDAT.subset')
-
-        job = models.Job.objects.create(server=self.server, user=self.user, process=process)
-
-        var = cwt.Variable('file:///test.nc', 'tas', name='v0')
-
-        variables = {'v0': var}
-
-        domain = cwt.Domain([
-            cwt.Dimension('time', 0, 200)
-        ], name='d0')
-
-        domains = {'d0': domain}
-
-        proc1 = cwt.Process(identifier='CDAT.aggregate', name='aggregate')
-
-        proc1.add_inputs('v0')
-
-        proc2 = cwt.Process(identifier='CDAT.subset', name='subset')
-
-        proc2.add_inputs('aggregate')
-
-        proc3 = cwt.Process(identifier='CDSpark.max', name='max')
-
-        proc3.add_inputs('subset')
-
-        proc4 = cwt.Process(identifier='CDAT.subset', name='avg')
-
-        proc4.add_inputs('max')
-
-        operations = {'aggregate': proc1, 'subset': proc2, 'max': proc3, 'avg': proc4}
-
-        workflow = self.backend.workflow(proc4, variables, domains, operations, user=self.user, job=job)
-
     def test_populate_processes(self):
         count = len(tasks.REGISTRY)
 
