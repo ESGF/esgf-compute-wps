@@ -126,12 +126,7 @@ def generate_chunks(self, attrs, uri, axis):
 
     return attrs
 
-@base.cwt_shared_task()
-def check_cache(self, attrs, uri):
-    var_name = attrs['var_name']
-
-    file_attrs = attrs[uri]
-
+def check_cache_entries(uri, var_name, domain):
     uid = '{}:{}'.format(uri, var_name)
 
     uid_hash = hashlib.sha256(uid).hexdigest()
@@ -150,17 +145,29 @@ def check_cache(self, attrs, uri):
             
             continue
 
-        if entry.is_superset(file_attrs['mapped']):
+        if entry.is_superset(domain):
             logger.info('Found a valid cache entry for %r', uri)
 
-            file_attrs['cached'] = entry.url
+            return entry
 
-            break
+    logger.info('Found no valid cache entries for %r', uri)
 
-    if 'cached' not in file_attrs:
-        logger.info('Found no valid cache entries for %r', uri)
+    return None
 
+@base.cwt_shared_task()
+def check_cache(self, attrs, uri):
+    var_name = attrs['var_name']
+
+    file_attrs = attrs[uri]
+
+    domain = file_attrs['mapped']
+
+    entry = check_cache_entries(uri, var_name, domain)
+
+    if entry is None:
         file_attrs['cached'] = None
+    else:
+        file_attrs['cached'] = entry.url
 
     return attrs
 

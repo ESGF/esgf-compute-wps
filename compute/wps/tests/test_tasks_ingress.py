@@ -39,6 +39,36 @@ class PreprocessTestCase(test.TestCase):
             0,
         ]
 
+        self.ingress_cache_attrs = {
+            'file:///test1.nc': {
+                'file:///test1_01.nc': {
+                    'elapsed': datetime.timedelta(seconds=3),
+                    'size': 1.2,
+                },
+                'file:///test1_02.nc': {
+                    'elapsed': datetime.timedelta(seconds=1),
+                    'size': 1.2,
+                },
+            },
+            'file:///test2.nc': {
+                'file:///test1_03.nc': {
+                    'elapsed': datetime.timedelta(seconds=2),
+                    'size': 1.2,
+                },
+            },
+        }
+
+        self.ingress_cache_mapped = {
+            'time': slice(0, 100),
+            'lat': slice(-90, 0),
+            'lon': slice(100, 200),
+        }
+
+    def test_ingress_cache(self):
+        output = ingress.ingress_cache(self.ingress_cache_attrs, 'file:///test1.nc', 'tas', self.ingress_cache_mapped)
+
+        self.assertEqual(output, self.ingress_cache_attrs)
+
     @mock.patch('cdms2.open')
     def test_ingress_uri_outfile_error(self, mock_open):
         mock_open.side_effect = [

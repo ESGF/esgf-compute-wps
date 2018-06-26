@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import json
 import os
 import re
 import uuid
@@ -72,9 +73,21 @@ def health(self, user_id, job_id, process_id, **kwargs):
 def base_retrieve(self, attrs, operation, var_name, base_units, job_id, gridder_req=False):
     gridder = operation.get_parameter('gridder', gridder_req)
 
+    logger.info('Gridder %r', gridder)
+
     job = self.load_job(job_id)
 
-    attrs = self.combine_attrs(attrs)
+    combined = {}
+
+    if not isinstance(attrs, list):
+        attrs = [attrs,]
+
+    for item in attrs:
+        for key, value in item.iteritems():
+            if key in combined:
+                combined[key].update(value)
+            else:
+                combined[key] = value
 
     output_name = '{}.nc'.format(uuid.uuid4())
 
@@ -82,29 +95,44 @@ def base_retrieve(self, attrs, operation, var_name, base_units, job_id, gridder_
 
     grid = None
 
+    logger.info('Output path %r', output_path)
+
     with cdms2.open(output_path, 'w') as outfile:
-        uris = sorted(y for x in attrs for y in attrs[x])
+        uris = sorted(y for x in combined for y in combined[x])
 
         for uri in uris:
+            logger.info('Opening %r', uri)
+
             with cdms2.open(uri) as infile:
                 data = infile(var_name)
+
+                logger.info('Read data shape %r', data.shape)
 
                 if gridder is not None and grid is None:
                     grid = self.generate_grid(gridder, data)
 
-                data.getTime().toRelativeTime(base_units)
+                    logger.info('Generated grid shape %r', grid.shape)
 
-                data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+                data.getTime().toRelativeTime(str(base_units))
+
+                if grid is not None:
+                    data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+
+                    logger.info('Regrid to shape %r', data.shape)
 
                 outfile.write(data, id=var_name)
+
+        logger.info('Final shape %r', outfile[var_name].shape)
 
     output_dap = settings.WPS_DAP_URL.format(filename=output_name)
 
     var = cwt.Variable(output_dap, var_name)
 
-    job.succeeded(helpers.encoder([var,]))
+    logger.info('Marking job complete with output %r', var)
 
-    return attrs
+    job.succeeded(json.dumps(var.parameterize()))
+
+    return combined
 
 @base.register_process('CDAT.regrid', abstract="""
 Regrids a variable to designated grid. Required parameter named "gridder".

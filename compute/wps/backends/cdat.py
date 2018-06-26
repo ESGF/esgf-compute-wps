@@ -175,6 +175,7 @@ class CDAT(backend.Backend):
 
         base_units = kwargs['base_units']
 
+        cache_list = []
         ingress_list = []
 
         inp_index = 0
@@ -197,8 +198,10 @@ class CDAT(backend.Backend):
 
             mapped = var_meta['mapped']
 
+            mapped_copy = mapped.copy()
+
             for chunk in chunks:
-                filename = '{}-{}.nc'.format(op_uuid, inp_index)
+                filename = '{0}-{1:06}.nc'.format(op_uuid, inp_index)
 
                 inp_index += 1
 
@@ -218,10 +221,14 @@ class CDAT(backend.Backend):
                 ingress_list.append(tasks.ingress_uri.s(*args).set(
                     **helpers.DEFAULT_QUEUE))
 
-        if root_op.identifier in CHUNK_TIME:
+            cache_list.append(tasks.ingress_cache.s(
+                var_uri, var_name, mapped_copy, base_units).set(**helpers.DEFAULT_QUEUE))
+
+        if root_op.identifier in CHUNKED_TIME:
             canvas = (celery.group(*ingress_list) | 
-                      process.s(root_op, base_units).set(
-                      **helpers.DEFAULT_QUEUE))
+                      process.s(root_op, var_name, base_units, job_id).set(
+                          **helpers.DEFAULT_QUEUE) |
+                      celery.group(*cache_list))
         else:
             canvas = celery.group(*ingress_list)
 

@@ -121,17 +121,6 @@ class CWTBaseTask(celery.Task):
 
         return job
 
-    def combine_attrs(self, attrs):
-        data = {}
-
-        if not isinstance(attrs, list):
-            attrs = [attrs,]
-
-        for item in attrs:
-            data.update(item)
-
-        return data
-
     def parse_uniform_arg(self, value, default_start, default_n):
         result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
 

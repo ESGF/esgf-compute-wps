@@ -237,7 +237,7 @@ class Cache(models.Model):
             return False
 
         try:
-            data = json.loads(self.dimensions, object_hook=helpers.json_loads_object_hook)
+            data = helpers.decoder(self.dimensions)
         except ValueError:
             logger.info('Invalid failed to load dimensions of cached file %r', self.dimensions)
 
