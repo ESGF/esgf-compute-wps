@@ -81,7 +81,7 @@ class Process(object):
 
         return start, default_n, delta
 
-    def generate_grid(self, gridder, spatial, chunk):
+    def generate_grid(self, gridder, domain, chunk):
         try:
             grid_type, grid_param = gridder.grid.split('~')
         except ValueError:
@@ -126,9 +126,9 @@ class Process(object):
         lon = chunk.getLongitude()
 
         try:
-            lat_spec = spatial[lat.id]
+            lat_spec = domain[lat.id]
 
-            lon_spec = spatial[lon.id]
+            lon_spec = domain[lon.id]
         except KeyError as e:
             logger.debug('Skipping subsetting the target grid')
         else:

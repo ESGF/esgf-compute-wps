@@ -58,10 +58,11 @@ def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
 
     attrs = {
         uri: {
-            'local': output_path,
-            'elapsed': elapsed,
-            'size': stat.st_size / 1000000.0,
-        }
+            output_path: {
+                'elapsed': elapsed,
+                'size': stat.st_size / 1000000.0,
+            },
+        },
     }
 
     return attrs

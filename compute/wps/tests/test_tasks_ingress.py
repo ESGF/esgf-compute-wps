@@ -21,14 +21,7 @@ class PreprocessTestCase(test.TestCase):
             'lon': (180, 360),
         }
 
-    @mock.patch('cdms2.open')
-    def test_ingress_uri_outfile_error(self, mock_open):
-        mock_open.side_effect = [
-            mock.MagicMock(),
-            cdms2.CDMSError(),
-        ]
-
-        args = [
+        self.args = [
             'file:///test1.nc',
             'tas',
             self.domain1,
@@ -37,32 +30,7 @@ class PreprocessTestCase(test.TestCase):
             0,
         ]
 
-        with self.assertRaises(WPSError):
-            output = ingress.ingress_uri(*args)
-
-    @mock.patch('cdms2.open')
-    def test_ingress_uri_infile_error(self, mock_open):
-        mock_open.side_effect = cdms2.CDMSError()
-
-        args = [
-            'file:///test1.nc',
-            'tas',
-            self.domain1,
-            'file:///test1_out.nc',
-            0, 
-            0,
-        ]
-
-        with self.assertRaises(WPSError):
-            output = ingress.ingress_uri(*args)
-
-    @mock.patch('cdms2.open')
-    @mock.patch('os.stat')
-    @mock.patch('wps.tasks.ingress.get_now')
-    def test_ingress_uri_no_time(self, mock_get, mock_stat, mock_open):
-        type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=3222111)
-
-        args = [
+        self.args2 = [
             'file:///test1.nc',
             'tas',
             self.domain2,
@@ -70,6 +38,29 @@ class PreprocessTestCase(test.TestCase):
             0, 
             0,
         ]
+
+    @mock.patch('cdms2.open')
+    def test_ingress_uri_outfile_error(self, mock_open):
+        mock_open.side_effect = [
+            mock.MagicMock(),
+            cdms2.CDMSError(),
+        ]
+
+        with self.assertRaises(WPSError):
+            output = ingress.ingress_uri(*self.args)
+
+    @mock.patch('cdms2.open')
+    def test_ingress_uri_infile_error(self, mock_open):
+        mock_open.side_effect = cdms2.CDMSError()
+
+        with self.assertRaises(WPSError):
+            output = ingress.ingress_uri(*self.args)
+
+    @mock.patch('cdms2.open')
+    @mock.patch('os.stat')
+    @mock.patch('wps.tasks.ingress.get_now')
+    def test_ingress_uri_no_time(self, mock_get, mock_stat, mock_open):
+        type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=3222111)
 
         start = datetime.datetime(2016, 6, 12, second=32)
 
@@ -80,13 +71,14 @@ class PreprocessTestCase(test.TestCase):
             stop,
         ]
 
-        output = ingress.ingress_uri(*args)
+        output = ingress.ingress_uri(*self.args2)
 
         expected = {
             'file:///test1.nc': {
-                'local': 'file:///test1_out.nc',
-                'elapsed': stop - start,
-                'size': 3.222111,
+                'file:///test1_out.nc': {
+                    'elapsed': stop - start,
+                    'size': 3.222111,
+                },
             },
         }
 
@@ -98,15 +90,6 @@ class PreprocessTestCase(test.TestCase):
     def test_ingress_uri(self, mock_get, mock_stat, mock_open):
         type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=3222111)
 
-        args = [
-            'file:///test1.nc',
-            'tas',
-            self.domain1,
-            'file:///test1_out.nc',
-            0, 
-            0,
-        ]
-
         start = datetime.datetime(2016, 6, 12, second=32)
 
         stop = datetime.datetime(2016, 6, 12, second=55)
@@ -116,13 +99,14 @@ class PreprocessTestCase(test.TestCase):
             stop,
         ]
 
-        output = ingress.ingress_uri(*args)
+        output = ingress.ingress_uri(*self.args)
 
         expected = {
             'file:///test1.nc': {
-                'local': 'file:///test1_out.nc',
-                'elapsed': stop - start,
-                'size': 3.222111,
+                'file:///test1_out.nc': {
+                    'elapsed': stop - start,
+                    'size': 3.222111,
+                },
             },
         }
 

@@ -173,10 +173,14 @@ class CDAT(backend.Backend):
 
         variable = kwargs['variable']
 
+        base_units = kwargs['base_units']
+
         ingress_list = []
 
         inp_index = 0
         op_uuid = uuid.uuid4()
+
+        process = tasks.get_process(root_op.identifier)
 
         for inp in root_op.inputs:
             var = variable[inp]
@@ -214,7 +218,12 @@ class CDAT(backend.Backend):
                 ingress_list.append(tasks.ingress_uri.s(*args).set(
                     **helpers.DEFAULT_QUEUE))
 
-        canvas = celery.group(*ingress_list)
+        if root_op.identifier in CHUNK_TIME:
+            canvas = (celery.group(*ingress_list) | 
+                      process.s(root_op, base_units).set(
+                      **helpers.DEFAULT_QUEUE))
+        else:
+            canvas = celery.group(*ingress_list)
 
         canvas.delay()
 

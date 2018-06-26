@@ -1,8 +1,10 @@
 #! /usr/bin/env python
 
 import json
+import re
 from functools import partial
 
+import cdms2
 import celery
 import cwt
 from celery import shared_task
@@ -12,20 +14,6 @@ from wps import models
 from wps import WPSError
 
 logger = get_task_logger('wps.tasks.base')
-
-__ALL__ = [
-    'FAILURE',
-    'RETRY',
-    'SUCCESS',
-    'ALL',
-    'REGISTRY',
-    'get_process',
-    'register_process',
-    'CWTBaseTask',
-    'cwt_shared_task',
-    'AccessError',
-    'MissingJobError',
-]
 
 FAILURE = 1
 RETRY = 2
@@ -116,6 +104,106 @@ class CWTBaseTask(celery.Task):
         o.inputs = [v[i] for i in o.inputs]
 
         return v, d, o
+
+    def load_user(self, user_id):
+        try:
+            user = models.User.objects.get(pk=user_id)
+        except models.User.DoesNotExist:
+            raise WPSError('User "{id}" does not exist', id=user_id)
+
+        return user
+
+    def load_job(self, job_id):
+        try:
+            job = models.Job.objects.get(pk=job_id)
+        except models.Job.DoesNotExist:
+            raise WPSError('Job "{id}" does not exist', id=job_id)
+
+        return job
+
+    def combine_attrs(self, attrs):
+        data = {}
+
+        if not isinstance(attrs, list):
+            attrs = [attrs,]
+
+        for item in attrs:
+            data.update(item)
+
+        return data
+
+    def parse_uniform_arg(self, value, default_start, default_n):
+        result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
+
+        if result is None:
+            raise WPSError('Failed to parse uniform argument {value}', value=value)
+
+        groups = result.groups()
+
+        if groups[1] is None:
+            delta = int(groups[0])
+
+            default_n = default_n / delta
+        else:
+            default_start = int(groups[1])
+
+            default_n = int(groups[2])
+
+            delta = int(groups[3])
+
+        start = default_start + (delta / 2.0)
+
+        return start, default_n, delta
+
+    def generate_grid(self, gridder, chunk):
+        try:
+            grid_type, grid_param = gridder.grid.split('~')
+        except ValueError:
+            raise WPSError('Error generating grid "{name}"', name=gridder.grid)
+
+        if grid_type.lower() == 'uniform':
+            result = re.match('^(.*)x(.*)$', grid_param)
+
+            if result is None:
+                raise WPSError('Failed to parse uniform configuration from {value}', value=grid_param)
+
+            try:
+                start_lat, nlat, delta_lat = self.parse_uniform_arg(result.group(1), -90.0, 180.0)
+            except WPSError:
+                raise
+
+            try:
+                start_lon, nlon, delta_lon = self.parse_uniform_arg(result.group(2), 0.0, 360.0)
+            except WPSError:
+                raise
+
+            grid = cdms2.createUniformGrid(start_lat, nlat, delta_lat, start_lon, nlon, delta_lon)
+
+            logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
+                grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
+        else:
+            try:
+                nlats = int(grid_param)
+            except ValueError:
+                raise WPSError('Error converting gaussian parameter to an int')
+
+            grid = cdms2.createGaussianGrid(nlats)
+
+            logger.info('Created target gaussian grid {}'.format(grid.shape))
+
+        target = cdms2.MV2.ones(grid.shape)
+
+        target.setAxisList(grid.getAxisList())
+
+        domain = {}
+
+        for axis in chunk.getAxisList():
+            if not axis.isTime():
+                domain[axis.id] = (axis[0], axis[-1])
+
+        target = target(**domain)
+
+        return target.getGrid()
 
     def __can_publish(self, pub_type):
         publish = getattr(self, 'PUBLISH', None)

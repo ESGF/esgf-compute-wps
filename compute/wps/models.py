@@ -211,29 +211,6 @@ class UserFile(models.Model):
 
         return data
 
-def slice_default(obj):
-    if isinstance(obj, slice):
-        return {'slice': '{}:{}:{}'.format(obj.start, obj.stop, obj.step)}
-
-    return json.JSONEncoder.default(obj)
-
-def slice_object_hook(obj):
-    if 'slice' not in obj:
-        return obj
-
-    data = obj['slice'].split(':')
-
-    start = int(data[0])
-
-    stop = int(data[1])
-
-    if data[2] == 'None':
-        step = None
-    else:
-        step = int(data[2])
-
-    return slice(start, stop, step)
-
 class Cache(models.Model):
     uid = models.CharField(max_length=256)
     url = models.CharField(max_length=513)
