@@ -39,6 +39,20 @@ def read_data(infile, var_name, domain):
     return data
 
 @base.cwt_shared_task()
+def ingress_cleanup(self, attrs):
+    uris = [y['path'] for x in attrs for y in attrs[x]['ingress']]
+
+    for uri in uris:
+        try:
+            os.remove(uri)
+        except OSError:
+            logger.exception('Failed to remove %r', uri)
+
+            continue
+
+    return attrs
+
+@base.cwt_shared_task()
 def ingress_cache(self, attrs, uri, var_name, domain, base_units):
     entry = preprocess.check_cache_entries(uri, var_name, domain)
 

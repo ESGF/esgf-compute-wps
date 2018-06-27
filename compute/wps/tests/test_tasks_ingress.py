@@ -75,6 +75,28 @@ class PreprocessTestCase(test.TestCase):
             'lon': slice(100, 200),
         }
 
+    @mock.patch('os.remove')
+    def test_ingress_cleanup(self, mock_remove):
+        mock_remove.side_effect = [
+            mock.MagicMock(),
+            OSError(),
+            mock.MagicMock(),
+        ]
+
+        output = ingress.ingress_cleanup(self.ingress_cache_attrs)
+
+        self.assertEqual(mock_remove.call_count, 3)
+
+        self.assertEqual(output, self.ingress_cache_attrs)
+
+    @mock.patch('os.remove')
+    def test_ingress_cleanup(self, mock_remove):
+        output = ingress.ingress_cleanup(self.ingress_cache_attrs)
+
+        self.assertEqual(mock_remove.call_count, 3)
+
+        self.assertEqual(output, self.ingress_cache_attrs)
+
     @mock.patch('cdms2.open')
     @mock.patch('os.stat')
     @mock.patch('wps.models.Cache.objects.create')

@@ -238,25 +238,35 @@ class CDAT(backend.Backend):
                 }
 
         if root_op.identifier in CHUNKED_TIME:
-            canvas = None
+            logger.info('Building canvas for process over time axis')
 
-            if len(ingress_list) > 0:
-                canvas = celery.group(*ingress_list)
+            if len(cache_list) == 0:
+                logger.info('Starting workflow with %r task', process.IDENTIFIER)
 
-            if canvas is None:
                 canvas = process.s(
                     {}, cached_dict, root_op, var_name, base_units, 
                     job_id).set(
                         **helpers.DEFAULT_QUEUE)
             else:
-                canvas = (canvas |
+                logger.info('Starting workflow with %r ingress tasks followed by %r', len(ingress_list), process.IDENTIFIER)
+
+                canvas = (celery.group(*ingress_list) |
                           process.s(
                               cached_dict, root_op, var_name, base_units, 
                               job_id).set(
                                   **helpers.DEFAULT_QUEUE))
 
             if len(cache_list) > 0:
+                logger.info('Chaining %r ingress cache tasks', len(cache_list))
+
                 canvas = (canvas | celery.group(*cache_list))
+
+            if len(ingress_list) > 0:
+                logger.info('Adding ingress cleanup task')
+
+                canvas = (canvas | 
+                          tasks.ingress_cleanup.s().set(
+                              **helpers.DEFAULT_QUEUE))
 
             #canvas = (celery.group(*ingress_list) | 
             #          process.s(root_op, var_name, base_units, job_id).set(
