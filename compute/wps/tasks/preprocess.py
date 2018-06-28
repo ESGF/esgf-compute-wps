@@ -37,17 +37,21 @@ def get_axis_list(variable):
 
 @base.cwt_shared_task()
 def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, job_id):
-    attrs = None
+    attrs = {}
 
     if not isinstance(attrs_list, list):
         attrs_list = [attrs_list,]
 
     # Combine the list of inputs
     for item in attrs_list:
-        if attrs is None:
-            attrs = item
-        else:
-            attrs.update(item)
+        for key, value in item.iteritems():
+            if key not in attrs:
+                attrs[key] = value
+            else:
+                try:
+                    attrs[key].update(value)
+                except AttributeError:
+                    continue
 
     attrs['user_id'] = user_id
 
@@ -95,21 +99,22 @@ def request_execute(self, attrs):
 def generate_chunks(self, attrs, uri, axis):
     logger.info('Generating chunks for %r over %r', uri, axis)
 
-    file_attrs = attrs[uri]
-
     try:
-        mapped = file_attrs['mapped']
+        mapped = attrs['mapped'][uri]
     except KeyError:
         raise WPSError('{uri} has not been mapped', uri=uri)
 
+    # Covers an unmapped axis
     try:
         chunked_axis = mapped[axis]
     except TypeError:
-        attrs[uri]['chunks'] = None
+        attrs['chunks'] = {
+            uri: None
+        }
 
         return attrs
     except KeyError:
-        raise WPSError('Missing %r axis in the axis mapping', axis)
+        raise WPSError('Missing "{axis}" axis in the axis mapping', axis=axis)
 
     chunks = []
 
@@ -120,8 +125,10 @@ def generate_chunks(self, attrs, uri, axis):
 
     logger.info('Split %r into %r chunks', uri, len(chunks))
 
-    attrs[uri]['chunks'] = {
-        axis: chunks
+    attrs['chunks'] = {
+        uri: {
+            axis: chunks,
+        }
     }
 
     return attrs
@@ -158,16 +165,18 @@ def check_cache_entries(uri, var_name, domain):
 def check_cache(self, attrs, uri):
     var_name = attrs['var_name']
 
-    file_attrs = attrs[uri]
-
-    domain = file_attrs['mapped']
+    domain = attrs['mapped'][uri]
 
     entry = check_cache_entries(uri, var_name, domain)
 
     if entry is None:
-        file_attrs['cached'] = None
+        attrs['cached'] = {
+            uri: None
+        }
     else:
-        file_attrs['cached'] = entry.local_path
+        attrs['cached'] = {
+            uri: entry.local_path
+        }
 
     return attrs
 
@@ -178,6 +187,8 @@ def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id):
     base_units = attrs['base_units']
 
     attrs['var_name'] = var_name
+
+    attrs['mapped'] = {}
 
     time_dimen = None
 
@@ -241,7 +252,7 @@ def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id):
 
                 mapped[axis.id] = selector
 
-            attrs[uri].update({ 'mapped': mapped })
+            attrs['mapped'][uri] = mapped
 
     return attrs
 
@@ -307,7 +318,7 @@ def map_domain(self, attrs, uri, var_name, domain, user_id):
 
             mapped[axis.id] = selector
 
-        attrs[uri].update({ 'mapped': mapped })
+        attrs['mapped'] = { uri: mapped }
 
     return attrs
 
@@ -315,16 +326,16 @@ def map_domain(self, attrs, uri, var_name, domain, user_id):
 def determine_base_units(self, uris, var_name, user_id):
     load_credentials(user_id)
 
-    attrs = {}
+    attrs = {
+        'units': {},
+    }
     base_units_list = []
 
     for uri in uris:
-        attrs[uri] = {}
-
         with cdms2.open(uri) as infile:
             base_units = get_variable(infile, var_name).getTime().units
 
-        attrs[uri] = { 'base_units': base_units }
+        attrs['units'][uri] = base_units
 
         base_units_list.append(base_units)
 

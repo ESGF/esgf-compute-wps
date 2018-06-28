@@ -78,129 +78,307 @@ class PreprocessTestCase(test.TestCase):
         self.domain5 = cwt.Domain(time=slice(0, 200), lat=slice(0, 100), lon=(180, 360))
 
         self.units_single = {
-            'base_units': 'days since 1990-1-1 0', 
-            self.uris[0]: {
-                'base_units': 'days since 1990-1-1 0',
+            'base_units': 'days since 1990-1-1 0',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
             },
         }
 
         self.units_multiple = {
-            'base_units': 'days since 1990-1-1 0', 
-            self.uris[0]: {
-                'base_units': 'days since 1990-1-1 0',
-            },
-            self.uris[1]: {
-                'base_units': 'days since 2000-1-1 0',
-            },
-            self.uris[2]: {
-                'base_units': 'days since 2010-1-1 0',
+            'base_units': 'days since 1990-1-1 0',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+                self.uris[1]: 'days since 2000-1-1 0',
+                self.uris[2]: 'days since 2010-1-1 0',
             },
         }
 
-        self.map_single = copy.deepcopy(self.units_single)
-        self.map_single['var_name'] = 'tas'
-        self.map_single[self.uris[0]]['mapped'] = {
-            'time': slice(0, 122),
-            'lat': slice(0, 100),
-            'lon': slice(0, 200),
-        }
-
-        self.map_single_error = copy.deepcopy(self.map_single)
-        self.map_single_error[self.uris[0]]['mapped'] = None
-
-        self.map_single_indices = copy.deepcopy(self.map_single)
-        self.map_single_indices[self.uris[0]]['mapped'] = {
-            'time': slice(0, 122),
-            'lat': (0, 100),
-            'lon': (0, 200),
-        }
-
-        self.map_multiple = copy.deepcopy(self.units_multiple)
-        self.map_multiple['var_name'] = 'tas'
-        self.map_multiple[self.uris[0]]['base_units'] = 'days since 1990-1-1 0'
-        self.map_multiple[self.uris[0]]['mapped'] = {
-            'time': slice(0, 122),
-            'lat': slice(0, 100),
-            'lon': (180, 360),
-        }
-        self.map_multiple[self.uris[1]]['base_units'] = 'days since 2000-1-1 0'
-        self.map_multiple[self.uris[1]]['mapped'] = {
-            'time': slice(0, 78),
-            'lat': slice(0, 100),
-            'lon': (180, 360),
-        }
-        self.map_multiple[self.uris[2]]['base_units'] = 'days since 2010-1-1 0'
-        self.map_multiple[self.uris[2]]['mapped'] = None
-
-        self.cache_multiple = copy.deepcopy(self.map_multiple)
-        self.cache_multiple[self.uris[0]]['cached'] = 'file:///test1_cached.nc'
-
-        self.chunks_multiple = copy.deepcopy(self.cache_multiple)
-        self.chunks_multiple[self.uris[0]]['chunks'] = {
-            'time': [
-                slice(0, 10),
-                slice(10, 20),
-                slice(20, 30),
-                slice(30, 40),
-                slice(40, 50),
-                slice(50, 60),
-                slice(60, 70),
-                slice(70, 80),
-                slice(80, 90),
-                slice(90, 100),
-                slice(100, 110),
-                slice(110, 120),
-                slice(120, 122),
-            ]
-        }
-
-        self.chunks_not_mapped = copy.deepcopy(self.cache_multiple)
-        self.chunks_not_mapped[self.uris[2]]['chunks'] = None
-
-        self.collect1 = {
+        self.map = {
             'base_units': 'days since 1990-1-1 0',
             'var_name': 'tas',
-            self.uris[0]: {
-                'mapped': {
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
                     'time': slice(0, 122),
-                    'lat': (-90, 0),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            }
+        }
+
+        self.map_indices = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': (0, 100),
+                    'lon': (0, 200),
+                }
+            }
+        }
+
+        self.map_error = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: None
+            }
+        }
+
+        self.map_aggregate = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+                self.uris[1]: 'days since 2000-1-1 0',
+                self.uris[2]: 'days since 2010-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
                     'lon': (180, 360),
                 },
-                'cached': 'file:///test1_cached.nc',
-                'chunks': {
+                self.uris[1]: {
+                    'time': slice(0, 78),
+                    'lat': slice(0, 100),
+                    'lon': (180, 360),
+                },
+                self.uris[2]: None
+            }
+        }
+
+        self.cache = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+            'cached': {
+                self.uris[0]: 'file:///test1_cached.nc',
+            }
+        }
+
+        self.chunks = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+            'cached': {
+                self.uris[0]: 'file:///test1_cached.nc',
+            },
+            'chunks': {
+                self.uris[0]: {
                     'time': [
-                        slice(0, 60),
-                        slice(60, 120),
+                        slice(0, 10),
+                        slice(10, 20),
+                        slice(20, 30),
+                        slice(30, 40),
+                        slice(40, 50),
+                        slice(50, 60),
+                        slice(60, 70),
+                        slice(70, 80),
+                        slice(80, 90),
+                        slice(90, 100),
+                        slice(100, 110),
+                        slice(110, 120),
                         slice(120, 122),
                     ],
-                }
-            },
-            self.uris[1]: {},
-            self.uris[2]: {},
+                },
+            }
         }
 
-        self.collect2 = {
+        self.chunks_missing = {
             'base_units': 'days since 1990-1-1 0',
             'var_name': 'tas',
-            self.uris[0]: {},
-            self.uris[1]: {
-                'mapped': {
-                    'time': slice(0, 52),
-                    'lat': (-90, 0),
-                    'lon': (180, 360),
-                },
-                'cached': 'file:///test1_cached.nc',
-                'chunks': {
-                    'time': [
-                        slice(0, 52),
-                    ],
-                }
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
             },
-            self.uris[2]: {},
+            'mapped': {
+                self.uris[0]: None,
+            },
+            'chunks': {
+                self.uris[0]: None
+            }
         }
 
-        self.collect_combined = copy.deepcopy(self.collect1)
-        self.collect_combined.update(self.collect2)
+        self.analyze1 = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+                self.uris[1]: 'days since 2000-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+            'cached': {
+                self.uris[0]: 'file:///test1_cached.nc',
+            },
+            'chunks': {
+                self.uris[0]: {
+                    'time': [
+                        slice(0, 10),
+                        slice(10, 20),
+                    ],
+                },
+            }
+        }
+
+        self.analyze2 = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+                self.uris[1]: 'days since 2000-1-1 0',
+            },
+            'mapped': {
+                self.uris[1]: {
+                    'time': slice(0, 87),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+            'cached': {
+                self.uris[1]: 'file:///test1_cached.nc',
+            },
+            'chunks': {
+                self.uris[1]: {
+                    'time': [
+                        slice(30, 40),
+                        slice(40, 42),
+                    ],
+                },
+            }
+        }
+
+        self.variable = {
+            'uid1': cwt.Variable(self.uris[0], 'tas', name='uid1'),
+            'uid2': cwt.Variable(self.uris[1], 'tas', name='uid2'),
+            'uid3': cwt.Variable(self.uris[2], 'tas', name='uid3'),
+        }
+
+        self.domain = {
+            'd0': cwt.Domain(time=(100, 300), lat=(-90, 0), lon=(180, 360), name='d0'),
+        }
+
+        subset = cwt.Process(identifier='CDAT.subset', name='subset')
+        subset.set_domain(self.domain['d0'])
+        subset.add_inputs(self.variable['uid1'], self.variable['uid2'])
+
+        self.operation = {
+            'subset': subset,
+        }
+
+        self.execute = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+                self.uris[1]: 'days since 2000-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+            'cached': {
+                self.uris[0]: 'file:///test1_cached.nc',
+            },
+            'chunks': {
+                self.uris[0]: {
+                    'time': [
+                        slice(0, 10),
+                        slice(10, 20),
+                    ],
+                },
+            },
+            'preprocess': True,
+            'workflow': False,
+            'root': 'subset',
+            'operation': self.operation,
+            'domain': self.domain,
+            'variable': self.variable,
+            'user_id': 100,
+            'job_id': 200,
+        }
+
+        self.execute_multiple = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+                self.uris[1]: 'days since 2000-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                },
+                self.uris[1]: {
+                    'time': slice(0, 87),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+            'cached': {
+                self.uris[0]: 'file:///test1_cached.nc',
+                self.uris[1]: 'file:///test1_cached.nc',
+            },
+            'chunks': {
+                self.uris[0]: {
+                    'time': [
+                        slice(0, 10),
+                        slice(10, 20),
+                    ],
+                },
+                self.uris[1]: {
+                    'time': [
+                        slice(30, 40),
+                        slice(40, 42),
+                    ],
+                },
+            },
+            'preprocess': True,
+            'workflow': False,
+            'root': 'subset',
+            'operation': self.operation,
+            'domain': self.domain,
+            'variable': self.variable,
+            'user_id': 100,
+            'job_id': 200,
+        }
 
         self.mock_f = mock.MagicMock()
         type(self.mock_f).local_path = mock.PropertyMock(return_value='file:///test1_cached.nc')
@@ -220,72 +398,35 @@ class PreprocessTestCase(test.TestCase):
         type(self.mock_f3).valid = mock.PropertyMock(return_value=True)
         self.mock_f3.is_superset.return_value = True
 
+    def test_analyze_wps_request_multiple(self):
+        inputs = [self.analyze1, self.analyze2]
+
+        data = preprocess.analyze_wps_request(inputs, self.variable, self.domain, self.operation, 100, 200)
+
+        self.assertEqual(data, self.execute_multiple)
+
     def test_analyze_wps_request(self):
-        self.maxDiff = None
-        variable = {
-            'uid1': cwt.Variable(self.uris[0], 'tas', name='uid1'),
-            'uid2': cwt.Variable(self.uris[1], 'tas', name='uid2'),
-            'uid3': cwt.Variable(self.uris[2], 'tas', name='uid3'),
-        }
+        data = preprocess.analyze_wps_request(self.analyze1, self.variable, self.domain, self.operation, 100, 200)
 
-        domain = {
-            'd0': cwt.Domain(time=(100, 300), lat=(-90, 0), lon=(180, 360), name='d0'),
-        }
+        self.assertEqual(data, self.execute)
 
-        subset = cwt.Process(identifier='CDAT.subset', name='subset')
-        subset.set_domain(domain['d0'])
-        subset.add_inputs(variable['uid1'], variable['uid2'])
-
-        operation = {
-            'subset': subset,
-        }
-
-        data = preprocess.analyze_wps_request([self.collect1, self.collect2], variable, domain, operation, 100, 200)
-
-        self.collect_combined['preprocess'] = True
-        self.collect_combined['workflow'] = False
-        self.collect_combined['root'] = 'subset'
-        self.collect_combined['operation'] = {
-            'subset': subset,
-        }
-        self.collect_combined['domain'] = {
-            'd0': domain['d0'],
-        }
-        self.collect_combined['variable'] = variable
-        self.collect_combined['user_id'] = 100
-        self.collect_combined['job_id'] = 200
-
-        self.assertEqual(data, self.collect_combined)
-
-    @mock.patch('requests.post')
-    def test_request_execute(self, mock_post):
-        type(mock_post.return_value).ok = mock.PropertyMock(return_value=True)
-
-        data = preprocess.request_execute(self.collect1)
-
-        expected = {
-            'data': json.dumps(self.collect1, default=helpers.json_dumps_default)
-        }
-
-        mock_post.assert_called_with(settings.WPS_EXECUTE_URL, data=expected, verify=False)
-
-    def test_generate_chunks_mapped_none(self):
-        data = preprocess.generate_chunks(self.cache_multiple, self.uris[2], 'time')
-
-        self.assertEqual(data, self.chunks_not_mapped)
-
-    def test_generate_chunks_missing_axis(self):
+    def test_generate_chunks_axis_missing(self):
         with self.assertRaises(wps.WPSError):
-            data = preprocess.generate_chunks(self.units_multiple, self.uris[0], 'lev')
+            preprocess.generate_chunks(self.map, self.uris[0], 'lev')
 
-    def test_generate_chunks_not_mapped(self):
+    def test_generate_chunks_uri_map_is_none(self):
+        data = preprocess.generate_chunks(self.map_error, self.uris[0], 'time')
+
+        self.assertEqual(data, self.chunks_missing)
+
+    def test_generate_chunks_uri_not_mapped(self):
         with self.assertRaises(wps.WPSError):
-            data = preprocess.generate_chunks(self.units_multiple, self.uris[0], 'time')
+            preprocess.generate_chunks(self.units_single, self.uris[0], 'time')
 
     def test_generate_chunks(self):
-        data = preprocess.generate_chunks(self.cache_multiple, self.uris[0], 'time')
+        data = preprocess.generate_chunks(self.cache, self.uris[0], 'time')
 
-        self.assertEqual(data, self.chunks_multiple)
+        self.assertEqual(data, self.chunks)
 
     @mock.patch('wps.models.Cache.objects.filter')
     def test_check_cache(self, mock_filter):
@@ -293,9 +434,9 @@ class PreprocessTestCase(test.TestCase):
 
         mock_filter.return_value = MockFilter([self.mock_f, self.mock_f2, self.mock_f3])
 
-        data = preprocess.check_cache(self.map_multiple, self.uris[0])
+        data = preprocess.check_cache(self.map, self.uris[0])
 
-        self.assertEqual(data, self.cache_multiple)
+        self.assertEqual(data, self.cache)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -312,7 +453,7 @@ class PreprocessTestCase(test.TestCase):
 
         data = preprocess.map_domain_aggregate(self.units_multiple, self.uris, 'tas', self.domain5, self.user.id)
 
-        self.assertEqual(data, self.map_multiple)
+        self.assertEqual(data, self.map_aggregate)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -324,7 +465,7 @@ class PreprocessTestCase(test.TestCase):
 
         data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain1, self.user.id)
 
-        self.assertEqual(data, self.map_single_error)
+        self.assertEqual(data, self.map_error)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -334,18 +475,17 @@ class PreprocessTestCase(test.TestCase):
         
         data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain2, self.user.id)
 
-        self.assertEqual(data, self.map_single)
+        self.assertEqual(data, self.map)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
     @mock.patch('wps.tasks.preprocess.get_axis_list')
     def test_map_domain_indices(self, mock_axis, mock_open, mock_load):
-        self.maxDiff=None
         mock_axis.return_value = [self.mock_time,self.mock_lat,self.mock_lon]
         
         data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain3, self.user.id)
 
-        self.assertEqual(data, self.map_single_indices)
+        self.assertEqual(data, self.map_indices)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
@@ -354,18 +494,17 @@ class PreprocessTestCase(test.TestCase):
         mock_axis.return_value = [self.mock_lat]
         
         with self.assertRaises(wps.WPSError):
-            data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain4, self.user.id)
+            preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain4, self.user.id)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')
     @mock.patch('wps.tasks.preprocess.get_axis_list')
     def test_map_domain(self, mock_axis, mock_open, mock_load):
-        self.maxDiff = None
         mock_axis.return_value = [self.mock_time,self.mock_lat,self.mock_lon]
         
         data = preprocess.map_domain(self.units_single, self.uris[0], 'tas', self.domain1, self.user.id)
 
-        self.assertEqual(data, self.map_single)
+        self.assertEqual(data, self.map)
 
     @mock.patch('wps.tasks.credentials.load_certificate')
     @mock.patch('cdms2.open')

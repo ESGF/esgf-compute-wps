@@ -175,6 +175,8 @@ class CDAT(backend.Backend):
 
         base_units = kwargs['base_units']
 
+        logger.info('%s', json.dumps(kwargs, indent=4, default=helpers.json_dumps_default))
+
         cached_dict = {}
         cache_list = []
         ingress_list = []
@@ -268,10 +270,10 @@ class CDAT(backend.Backend):
                           tasks.ingress_cleanup.s().set(
                               **helpers.DEFAULT_QUEUE))
 
-            #canvas = (celery.group(*ingress_list) | 
-            #          process.s(root_op, var_name, base_units, job_id).set(
-            #              **helpers.DEFAULT_QUEUE) |
-            #          celery.group(*cache_list))
+            canvas = (celery.group(*ingress_list) | 
+                      process.s(root_op, var_name, base_units, job_id).set(
+                          **helpers.DEFAULT_QUEUE) |
+                      celery.group(*cache_list))
         else:
             canvas = celery.group(*ingress_list)
 
