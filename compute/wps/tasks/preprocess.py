@@ -36,7 +36,7 @@ def get_axis_list(variable):
     return variable.getAxisList()
 
 @base.cwt_shared_task()
-def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, job_id):
+def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, job_id=None):
     attrs = {}
 
     if not isinstance(attrs_list, list):
@@ -85,7 +85,7 @@ def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, 
     return attrs
 
 @base.cwt_shared_task()
-def request_execute(self, attrs):
+def request_execute(self, attrs, job_id=None):
     data = {
         'data': helpers.encoder(attrs)
     }
@@ -96,7 +96,7 @@ def request_execute(self, attrs):
         raise WPSError('Failed to execute status code {code}', code=response.status_code)
 
 @base.cwt_shared_task()
-def generate_chunks(self, attrs, uri, axis):
+def generate_chunks(self, attrs, uri, axis, job_id=None):
     logger.info('Generating chunks for %r over %r', uri, axis)
 
     try:
@@ -133,7 +133,7 @@ def generate_chunks(self, attrs, uri, axis):
 
     return attrs
 
-def check_cache_entries(uri, var_name, domain):
+def check_cache_entries(uri, var_name, domain, job_id=None):
     uid = '{}:{}'.format(uri, var_name)
 
     uid_hash = hashlib.sha256(uid).hexdigest()
@@ -162,7 +162,7 @@ def check_cache_entries(uri, var_name, domain):
     return None
 
 @base.cwt_shared_task()
-def check_cache(self, attrs, uri):
+def check_cache(self, attrs, uri, job_id=None):
     var_name = attrs['var_name']
 
     domain = attrs['mapped'][uri]
@@ -181,7 +181,7 @@ def check_cache(self, attrs, uri):
     return attrs
 
 @base.cwt_shared_task()
-def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id):
+def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id, job_id=None):
     load_credentials(user_id)
 
     base_units = attrs['base_units']
@@ -257,7 +257,7 @@ def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id):
     return attrs
 
 @base.cwt_shared_task()
-def map_domain(self, attrs, uri, var_name, domain, user_id):
+def map_domain(self, attrs, uri, var_name, domain, user_id, job_id=None):
     load_credentials(user_id)
 
     base_units = attrs['base_units']
@@ -323,7 +323,7 @@ def map_domain(self, attrs, uri, var_name, domain, user_id):
     return attrs
 
 @base.cwt_shared_task()
-def determine_base_units(self, uris, var_name, user_id):
+def determine_base_units(self, uris, var_name, user_id, job_id=None):
     load_credentials(user_id)
 
     attrs = {

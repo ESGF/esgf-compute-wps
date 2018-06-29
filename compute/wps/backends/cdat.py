@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import uuid
 
 import celery
@@ -87,45 +88,6 @@ class CDAT(backend.Backend):
 
         return variable, domain, operation
 
-    def operation_task(self, operation, var_dict, dom_dict, op_dict, user, job):
-        logger.info('Configuring operation %r - %r', operation.identifier, operation.name)
-
-        inp = [x for x in operation.inputs if isinstance(x, cwt.Variable)]
-
-        # TODO this will eventually be removed once we start restricting the number
-        # of allowed inputs, subet and regrid expect a single input
-        if operation.identifier in ('CDAT.subset', 'CDAT.regrid'):
-            inp = sorted(inp, key=lambda x: x.uri)[0:1]
-
-        operation.inputs = [x.name for x in inp]
-
-        var_name = set(x.var_name for x in inp).pop()
-
-        uris = [x.uri for x in inp]
-
-        base = tasks.determine_base_units.s(
-            uris, var_name, user.id).set(
-                **helpers.DEFAULT_QUEUE)
-
-        variables = celery.group(
-            (tasks.map_domain.s(
-                x.uri, var_name, operation.domain, user.id).set(
-                    **helpers.DEFAULT_QUEUE) |
-             tasks.check_cache.s(
-                 x.uri).set(
-                     **helpers.DEFAULT_QUEUE) |
-             tasks.generate_chunks.s(
-                 x.uri, 'time').set(
-                     **helpers.DEFAULT_QUEUE)) for x in inp)
-
-        analyze = tasks.analyze_wps_request.s(
-            var_dict, dom_dict, op_dict, user.id, job.id).set(
-                **helpers.DEFAULT_QUEUE)
-
-        request = tasks.request_execute.s().set(**helpers.DEFAULT_QUEUE)
-
-        return (base | variables | analyze | request)
-
     def configure_preprocess(self, **kwargs):
         logger.info('Configuring preprocess workflow')
 
@@ -143,18 +105,56 @@ class CDAT(backend.Backend):
 
         variable, domain, operation = self.load_data_inputs(variable, domain, operation)
 
-        operations = []
-
         dom = dict((x.name, x) for x in domain.values())
 
         op = dict((x.name, x) for x in operation.values())
 
         var = dict((x.name, x) for x in variable.values())
 
-        for item in operation.values():
-            operations.append(self.operation_task(item, var, dom, op, user, job))
+        variables = []
 
-        canvas = celery.group(operations)
+        for operation in op.values():
+            inp = [x for x in operation.inputs if isinstance(x, cwt.Variable)]
+
+            if re.match(operation.identifier, 'CDAT\.subset|regrid|sum|min|max|average') is not None:
+                inp = sorted(inp, key=lambda x: x.uri)[0:1]
+
+            operation.inputs = [x.name for x in inp]
+
+            var_name = set(x.var_name for x in inp).pop()
+
+            uris = [x.uri for x in inp]
+
+            base = tasks.determine_base_units.s(
+                uris, var_name, user.id, job_id=job.id).set(
+                    **helpers.DEFAULT_QUEUE)
+
+            variables.append(
+                (base | 
+                 celery.group([
+                     (tasks.map_domain.s(
+                         x.uri, var_name, operation.domain, user.id, 
+                         job_id=job.id).set(
+                             **helpers.DEFAULT_QUEUE) |
+                      tasks.check_cache.s(
+                          x.uri, job_id=job.id).set(
+                              **helpers.DEFAULT_QUEUE) |
+                      tasks.generate_chunks.s(
+                          x.uri, 'time', job_id=job.id).set(
+                              **helpers.DEFAULT_QUEUE)) for x in inp])))
+
+        analyze = tasks.analyze_wps_request.s(
+            var, dom, op, user.id, job_id=job.id).set(
+                **helpers.DEFAULT_QUEUE)
+
+        request = tasks.request_execute.s(job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+
+        validate = tasks.validate.s(job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+
+        if len(variables) == 1:
+            canvas = (variables[0] | analyze | validate | request)
+        else:
+            canvas = (celery.group(variables) | analyze | validate | request)
 
         canvas.delay()
 
@@ -175,8 +175,6 @@ class CDAT(backend.Backend):
 
         base_units = kwargs['base_units']
 
-        logger.info('%s', json.dumps(kwargs, indent=4, default=helpers.json_dumps_default))
-
         cached_dict = {}
         cache_list = []
         ingress_list = []
@@ -189,22 +187,27 @@ class CDAT(backend.Backend):
         for inp in root_op.inputs:
             var = variable[inp]
 
-            var_meta = kwargs[var.uri]
+            cached = kwargs['cached'].get(var.uri)
 
-            cached = var_meta.get('cached')
+            file_base_units = kwargs['units'][var.uri]
 
-            file_base_units = var_meta['base_units']
+            mapped = kwargs['mapped'][var.uri]
 
-            mapped = var_meta['mapped']
+            if mapped is None:
+                logger.info('Skipping %r', var.uri)
+
+                continue
+
+            logger.info('Processing %r', var.uri)
 
             mapped_copy = mapped.copy()
 
             if cached is None:
                 var_uri = cached if cached is not None else var.uri
 
-                chunk_axis = var_meta['chunks'].keys()[0]
+                chunk_axis = kwargs['chunks'][var.uri].keys()[0]
 
-                chunks = var_meta['chunks'][chunk_axis]
+                chunks = kwargs['chunks'][var.uri][chunk_axis]
 
                 for chunk in chunks:
                     filename = '{0}-{1:06}.nc'.format(op_uuid, inp_index)
@@ -222,14 +225,15 @@ class CDAT(backend.Backend):
                         output_path,
                         file_base_units,
                         user_id,
-                        job_id,
                     ]
 
-                    ingress_list.append(tasks.ingress_uri.s(*args).set(
+                    ingress_list.append(tasks.ingress_uri.s(*args, job_id=job_id).set(
                         **helpers.DEFAULT_QUEUE))
 
                 cache_list.append(tasks.ingress_cache.s(
-                    var_uri, var_name, mapped_copy, base_units).set(**helpers.DEFAULT_QUEUE))
+                    var_uri, var_name, mapped_copy, base_units, 
+                    job_id=job_id).set(
+                        **helpers.DEFAULT_QUEUE))
             else:
                 cached_dict[var.uri] = {
                     'base_units': file_base_units,
@@ -243,19 +247,19 @@ class CDAT(backend.Backend):
             logger.info('Building canvas for process over time axis')
 
             if len(cache_list) == 0:
-                logger.info('Starting workflow with %r task', process.IDENTIFIER)
+                logger.info('Starting canvas with %r task', process.IDENTIFIER)
 
                 canvas = process.s(
                     {}, cached_dict, root_op, var_name, base_units, 
-                    job_id).set(
+                    job_id=job_id).set(
                         **helpers.DEFAULT_QUEUE)
             else:
-                logger.info('Starting workflow with %r ingress tasks followed by %r', len(ingress_list), process.IDENTIFIER)
+                logger.info('Starting canvas with %r ingress tasks followed by %r', len(ingress_list), process.IDENTIFIER)
 
                 canvas = (celery.group(*ingress_list) |
                           process.s(
                               cached_dict, root_op, var_name, base_units, 
-                              job_id).set(
+                              job_id=job_id).set(
                                   **helpers.DEFAULT_QUEUE))
 
             if len(cache_list) > 0:
@@ -267,13 +271,8 @@ class CDAT(backend.Backend):
                 logger.info('Adding ingress cleanup task')
 
                 canvas = (canvas | 
-                          tasks.ingress_cleanup.s().set(
+                          tasks.ingress_cleanup.s(job_id=job_id).set(
                               **helpers.DEFAULT_QUEUE))
-
-            canvas = (celery.group(*ingress_list) | 
-                      process.s(root_op, var_name, base_units, job_id).set(
-                          **helpers.DEFAULT_QUEUE) |
-                      celery.group(*cache_list))
         else:
             canvas = celery.group(*ingress_list)
 

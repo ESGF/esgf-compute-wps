@@ -39,7 +39,7 @@ def read_data(infile, var_name, domain):
     return data
 
 @base.cwt_shared_task()
-def ingress_cleanup(self, attrs):
+def ingress_cleanup(self, attrs, job_id=None):
     uris = [y['path'] for x in attrs for y in attrs[x]['ingress']]
 
     for uri in uris:
@@ -53,7 +53,7 @@ def ingress_cleanup(self, attrs):
     return attrs
 
 @base.cwt_shared_task()
-def ingress_cache(self, attrs, uri, var_name, domain, base_units):
+def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
     entry = preprocess.check_cache_entries(uri, var_name, domain)
 
     if entry is not None:
@@ -116,7 +116,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units):
     return attrs
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, domain, output_path, base_units, user_id, job_id):
+def ingress_uri(self, uri, var_name, domain, output_path, base_units, user_id, job_id=None):
     start = get_now()
 
     logger.info('Domain %r', domain)

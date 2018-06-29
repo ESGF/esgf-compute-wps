@@ -43,27 +43,17 @@ def get_process(identifier):
     except KeyError as e:
         raise WPSError('Missing process "{identifier}"', identifier=identifier)
 
-def register_process(identifier, aliases=None, abstract=None, data_inputs=None, process_outputs=None):
-    if abstract is None:
-        abstract = ''
-
-    if aliases is not None and not isinstance(aliases, (list, tuple)):
-        aliases = [aliases]
-
+def register_process(identifier, **kwargs):
     def wrapper(func):
         REGISTRY[identifier] = func
 
-        if aliases is not None:
-            for alias in aliases:
-                REGISTRY[alias] = func
-
         func.IDENTIFIER = identifier
 
-        func.ABSTRACT = abstract
+        func.ABSTRACT = kwargs.get('abstract', '')
 
-        func.INPUT = data_inputs
+        func.INPUT = kwargs.get('data_inputs')
 
-        func.OUTPUT = process_outputs
+        func.OUTPUT = kwargs.get('process_outputs')
 
         return func
     
@@ -205,19 +195,20 @@ class CWTBaseTask(celery.Task):
     def __get_job(self, **kwargs):
         try:
             job = models.Job.objects.get(pk=kwargs['job_id'])
-        except (models.Job.DoesNotExist, KeyError) as e:
-            if isinstance(e, KeyError):
-                logger.exception('Job ID was not passed to the process')
-            else:
-                logger.exception('Job "{id}" does not exist'.format(job_id=kwargs.get('job_id')))
+        except KeyError:
+            logger.exception('Job ID was not passed to the process %r', kwargs)
+
+            return None
+        except models.Job.DoesNotExist:
+            logger.exception('Job "{id}" does not exist'.format(job_id=kwargs.get('job_id')))
 
             return None
         else:
             return job
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
-        if not self.__can_publish(RETRY):
-            return
+        #if not self.__can_publish(RETRY):
+        #    return
 
         job = self.__get_job(**kwargs)
 
@@ -225,8 +216,8 @@ class CWTBaseTask(celery.Task):
             job.retry(exc)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        if not self.__can_publish(FAILURE):
-            return
+        #if not self.__can_publish(FAILURE):
+        #    return
 
         job = self.__get_job(**kwargs)
 
@@ -234,13 +225,13 @@ class CWTBaseTask(celery.Task):
             job.failed(str(exc))
 
     def on_success(self, retval, task_id, args, kwargs):
-        if not self.__can_publish(SUCCESS):
-            return
+        #if not self.__can_publish(SUCCESS):
+        #    return
 
         job = self.__get_job(**kwargs)
 
-        if job is not None:
-            job.succeeded(json.dumps(retval.values()[0]))
+        #if job is not None:
+        #    job.succeeded(json.dumps(retval.values()[0]))
 
 cwt_shared_task = partial(shared_task,
                           bind=True,

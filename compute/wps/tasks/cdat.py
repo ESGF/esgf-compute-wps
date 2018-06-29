@@ -24,6 +24,29 @@ logger = get_task_logger('wps.tasks.cdat')
 
 OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/json')
 
+@base.cwt_shared_task()
+def validate(self, attrs, job_id=None):
+    root_op = attrs['root']
+
+    operation = attrs['operation'][root_op]
+
+    if operation.identifier == 'CDAT.regrid':
+        # Might need to validate the gridder configuration
+        if 'gridder' not in operation.parameters:
+            raise WPSError('Missing required parameter "gridder"')
+    elif operation.identifier in CONFIG_AXIS_OPS:
+        axes = operation.get_parameter('axes')
+
+        if axes is None:
+            raise WPSError('Missing required parameter "axes"')
+
+        for uri, mapping in attrs['mapped'].iteritems():
+            for axis in axes.values:
+                if axis not in mapping:
+                    raise WPSError('Missing "{axis}" from parameter "axes"', axis=axis)
+
+    return attrs
+
 @base.register_process('CDAT.health', abstract="""
 Returns current server health
 """, data_inputs=[])
@@ -105,8 +128,6 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id, 
 
     logger.info('Output path %r', output_path)
 
-    logger.info('%r', combined)
-
     with cdms2.open(output_path, 'w') as outfile:
         uris = sorted(combined.items(), key=lambda x: x[1]['base_units'])
 
@@ -162,17 +183,21 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id, 
 Regrids a variable to designated grid. Required parameter named "gridder".
 """)
 @base.cwt_shared_task()
-def regrid(self, attrs, cached, operation, var_name, base_units, job_id):
+def regrid(self, attrs, cached, operation, var_name, base_units, job_id=None):
     return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id, True)
 
-@base.register_process('CDAT.subset', abstract='Subset a variable by provided domain. Supports regridding.')
+@base.register_process('CDAT.subset', abstract="""
+Subset a variable by provided domain. Supports regridding.
+""")
 @base.cwt_shared_task()
-def subset(self, attrs, cached, operation, var_name, base_units, job_id):
+def subset(self, attrs, cached, operation, var_name, base_units, job_id=None):
     return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id)
 
-@base.register_process('CDAT.aggregate', abstract='Aggregate a variable over multiple files. Supports subsetting and regridding.')
+@base.register_process('CDAT.aggregate', abstract="""
+Aggregate a variable over multiple files. Supports subsetting and regridding.
+""")
 @base.cwt_shared_task()
-def aggregate(self, attrs, cached, operation, var_name, base_units, job_id):
+def aggregate(self, attrs, cached, operation, var_name, base_units, job_id=None):
     return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id)
 
 @base.register_process('CDAT.average', abstract=""" 
