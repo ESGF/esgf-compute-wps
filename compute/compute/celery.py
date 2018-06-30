@@ -54,7 +54,7 @@ def default(obj):
 
 def object_hook(obj):
     if '__type' not in obj:
-        return obj
+        return byteify(obj)
 
     if obj['__type'] == 'slice':
         data = slice(obj['start'], obj['stop'], obj['step'])

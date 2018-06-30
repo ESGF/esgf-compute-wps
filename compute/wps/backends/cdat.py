@@ -19,7 +19,7 @@ __ALL__ = ['CDAT']
 
 logger = logging.getLogger('wps.backends')
 
-CHUNKED_TIME = ('CDAT.subset', 'CDAT.aggregate', 'CDAT.regrid')
+PROCESSING_OP = 'CDAT\.(subset|aggregate|regrid)'
 
 class CDAT(backend.Backend):
     def initialize(self):
@@ -116,8 +116,13 @@ class CDAT(backend.Backend):
         for operation in op.values():
             inp = [x for x in operation.inputs if isinstance(x, cwt.Variable)]
 
-            if re.match(operation.identifier, 'CDAT\.subset|regrid|sum|min|max|average') is not None:
+            if re.match('CDAT\.(subset|regrid|sum|min|max|average)', operation.identifier) is not None:
                 inp = sorted(inp, key=lambda x: x.uri)[0:1]
+
+            if re.match('CDAT\.(min|max|sum|average)', operation.identifier) is not None:
+                axis = None
+            else:
+                axis = 'time'
 
             operation.inputs = [x.name for x in inp]
 
@@ -140,7 +145,7 @@ class CDAT(backend.Backend):
                           x.uri, job_id=job.id).set(
                               **helpers.DEFAULT_QUEUE) |
                       tasks.generate_chunks.s(
-                          x.uri, 'time', job_id=job.id).set(
+                          x.uri, axis, job_id=job.id).set(
                               **helpers.DEFAULT_QUEUE)) for x in inp])))
 
         analyze = tasks.analyze_wps_request.s(
@@ -158,8 +163,10 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def configure_execute(self, **kwargs):
-        logger.info('Configuring execute')
+    def execute_processing(self, **kwargs):
+        logger.info('Configure processing')
+
+        logger.info('%s', json.dumps(kwargs, indent=4, default=helpers.json_dumps_default))
 
         user_id = kwargs['user_id']
 
@@ -171,118 +178,115 @@ class CDAT(backend.Backend):
 
         var_name = kwargs['var_name']
 
-        variable = kwargs['variable']
+        logger.info('Executing process %r', root_op)
 
-        base_units = kwargs['base_units']
-
-        cached_dict = {}
-        cache_list = []
-        ingress_list = []
-
-        inp_index = 0
         op_uuid = uuid.uuid4()
 
-        process = tasks.get_process(root_op.identifier)
+        index = 0
+
+        ingress_list = []
+        cache_list = []
+        cached_dict = {}
 
         for inp in root_op.inputs:
-            var = variable[inp]
+            var = kwargs['variable'][inp]
 
-            cached = kwargs['cached'].get(var.uri)
+            logger.info('Processing %r', var)
 
-            file_base_units = kwargs['units'][var.uri]
+            cached = kwargs['cached'][var.uri]
 
             mapped = kwargs['mapped'][var.uri]
 
             if mapped is None:
-                logger.info('Skipping %r', var.uri)
+                logger.info('Skipping %r, has an empty map', var.uri)
 
                 continue
 
-            logger.info('Processing %r', var.uri)
+            file_base_units = kwargs['units'][var.uri]
 
-            mapped_copy = mapped.copy()
+            chunked_axis = kwargs['chunks'][var.uri].keys()[0]
+
+            chunks = kwargs['chunks'][var.uri][chunked_axis]
 
             if cached is None:
-                var_uri = cached if cached is not None else var.uri
+                logger.info('%r is not cached', var.name)
 
-                chunk_axis = kwargs['chunks'][var.uri].keys()[0]
-
-                chunks = kwargs['chunks'][var.uri][chunk_axis]
+                orig_mapped = mapped.copy()
 
                 for chunk in chunks:
-                    filename = '{0}-{1:06}.nc'.format(op_uuid, inp_index)
+                    filename = '{0}-{1:06}'.format(op_uuid, index)
 
-                    inp_index += 1
+                    index += 1
 
-                    output_path = os.path.join(settings.WPS_INGRESS_PATH, filename)
+                    ingress_output = os.path.join(settings.WPS_INGRESS_PATH, filename)
 
-                    mapped.update({ chunk_axis: chunk })
+                    mapped.update({ chunked_axis: chunk })
 
-                    args = [
-                        var_uri,
-                        var_name,
-                        mapped.copy(),
-                        output_path,
-                        file_base_units,
-                        user_id,
-                    ]
-
-                    ingress_list.append(tasks.ingress_uri.s(*args, job_id=job_id).set(
-                        **helpers.DEFAULT_QUEUE))
+                    ingress_list.append(tasks.ingress_uri.s(
+                        var.uri, var_name, mapped.copy(), ingress_output, 
+                        file_base_units, user_id, job_id=job_id).set(
+                            **helpers.DEFAULT_QUEUE))
 
                 cache_list.append(tasks.ingress_cache.s(
-                    var_uri, var_name, mapped_copy, base_units, 
+                    var.uri, var_name, orig_mapped, file_base_units, 
                     job_id=job_id).set(
                         **helpers.DEFAULT_QUEUE))
             else:
+                logger.info('%r is cached', var.name)
+
+                uri = cached['path']
+
+                mapped = cached['mapped']
+
                 cached_dict[var.uri] = {
                     'base_units': file_base_units,
                     'cached': {
-                        'path': cached,
-                        'mapped': mapped_copy,
-                    },
+                        'path': uri,
+                        'chunks': chunks,
+                        'chunked_axis': chunked_axis,
+                        'mapped': mapped.copy(),
+                    }
                 }
 
-        if root_op.identifier in CHUNKED_TIME:
-            logger.info('Building canvas for process over time axis')
+        process = base.get_process(operation.identifier)
 
-            if len(cache_list) == 0:
-                logger.info('Starting canvas with %r task', process.IDENTIFIER)
-
-                canvas = process.s(
-                    {}, cached_dict, root_op, var_name, base_units, 
-                    job_id=job_id).set(
-                        **helpers.DEFAULT_QUEUE)
-            else:
-                logger.info('Starting canvas with %r ingress tasks followed by %r', len(ingress_list), process.IDENTIFIER)
-
-                canvas = (celery.group(*ingress_list) |
-                          process.s(
-                              cached_dict, root_op, var_name, base_units, 
-                              job_id=job_id).set(
-                                  **helpers.DEFAULT_QUEUE))
-
-            if len(cache_list) > 0:
-                logger.info('Chaining %r ingress cache tasks', len(cache_list))
-
-                canvas = (canvas | celery.group(*cache_list))
-
-            if len(ingress_list) > 0:
-                logger.info('Adding ingress cleanup task')
-
-                canvas = (canvas | 
-                          tasks.ingress_cleanup.s(job_id=job_id).set(
-                              **helpers.DEFAULT_QUEUE))
+        if len(ingress_list) > 0:
+            canvas = celery.group(ingress_list)
         else:
-            canvas = celery.group(*ingress_list)
+            canvas = None
+
+        if canvas is None:
+            canvas = process.s({}, cached_dict, root_op, var_name, base_units, 
+                               job_id=job_id).set(
+                                   **helpers.DEFAULT_QUEUE)
+        else:
+            canvas = (canvas |
+                      process.s(cached_dict, root_op, var_name, base_units,
+                                job_id=job_id).set(
+                                    **helpers.DEFAULT_QUEUE) |
+                      celery.group(cache_list) |
+                      tasks.ingress_cleanup.s(job_id=job_id).set(
+                          **helpers.DEFAULT_QUEUE))
 
         canvas.delay()
 
+    def execute_computation(self, **kwargs):
+        logger.info('Configure computation')
+        
+        logger.info('%s', json.dumps(kwargs, indent=4, default=helpers.json_dumps_default))
+
     def execute(self, **kwargs):
         if 'preprocess' in kwargs:
+            root = kwargs['root']
+
+            root_op = kwargs['operation'][root]
+
             if kwargs['workflow']:
                 raise WPSError('Workflows have been disabled')
             else:
-                self.configure_execute(**kwargs)
+                if re.match(PROCESSING_OP, root_op.identifier) is not None:
+                    self.execute_processing(**kwargs)
+                else:
+                    self.execute_computation(**kwargs)
         else:
             self.configure_preprocess(**kwargs)

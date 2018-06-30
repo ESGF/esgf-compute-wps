@@ -171,7 +171,14 @@ class PreprocessTestCase(test.TestCase):
                 }
             },
             'cached': {
-                self.uris[0]: 'file:///test1_cached.nc',
+                self.uris[0]: {
+                    'path': 'file:///test1_cached.nc',
+                    'mapped': {
+                        'time': slice(0, 122),
+                        'lat': slice(0, 100),
+                        'lon': slice(0, 200),
+                    }
+                }
             }
         }
 
@@ -189,7 +196,14 @@ class PreprocessTestCase(test.TestCase):
                 }
             },
             'cached': {
-                self.uris[0]: 'file:///test1_cached.nc',
+                self.uris[0]: {
+                    'path': 'file:///test1_cached.nc',
+                    'mapped': {
+                        'time': slice(0, 122),
+                        'lat': slice(0, 100),
+                        'lon': slice(0, 200),
+                    }
+                }
             },
             'chunks': {
                 self.uris[0]: {
@@ -430,6 +444,15 @@ class PreprocessTestCase(test.TestCase):
 
     @mock.patch('wps.models.Cache.objects.filter')
     def test_check_cache(self, mock_filter):
+        data = {
+            'var_name': 'tas',
+            'time': slice(0, 122),
+            'lat': slice(0, 100),
+            'lon': slice(0, 200),
+        }
+
+        type(self.mock_f).dimensions = helpers.encoder(data)
+        
         self.mock_f3.is_superset.return_value = False
 
         mock_filter.return_value = MockFilter([self.mock_f, self.mock_f2, self.mock_f3])

@@ -100,9 +100,23 @@ def generate_chunks(self, attrs, uri, axis, job_id=None):
     logger.info('Generating chunks for %r over %r', uri, axis)
 
     try:
-        mapped = attrs['mapped'][uri]
-    except KeyError:
-        raise WPSError('{uri} has not been mapped', uri=uri)
+        mapped = attrs['cached'][uri]['mapped']
+    except (KeyError, ValueError, TypeError):
+        logger.info('%r has not been cached', uri)
+
+        mapped = None
+
+    if mapped is None:
+        try:
+            mapped = attrs['mapped'][uri]
+        except KeyError:
+            raise WPSError('{uri} has not been mapped', uri=uri)
+
+    if axis is None:
+        try:
+            axis = [x for x in mapped.keys() if x not in ('time', 't', 'z')][0]
+        except IndexError:
+            raise WSPError('Failed to determine an axis to generate chunks over')
 
     # Covers an unmapped axis
     try:
@@ -123,11 +137,11 @@ def generate_chunks(self, attrs, uri, axis, job_id=None):
 
         chunks.append(slice(begin, end))
 
-    logger.info('Split %r into %r chunks', uri, len(chunks))
+    logger.info('Split %r of %r into %r chunks', axis, uri, len(chunks))
 
     attrs['chunks'] = {
         uri: {
-            axis: chunks,
+            axis: chunks
         }
     }
 
@@ -165,17 +179,35 @@ def check_cache_entries(uri, var_name, domain, job_id=None):
 def check_cache(self, attrs, uri, job_id=None):
     var_name = attrs['var_name']
 
-    domain = attrs['mapped'][uri]
+    mapped = attrs['mapped'][uri]
 
-    entry = check_cache_entries(uri, var_name, domain)
+    entry = check_cache_entries(uri, var_name, mapped)
 
     if entry is None:
         attrs['cached'] = {
             uri: None
         }
     else:
+        dimensions = helpers.decoder(entry.dimensions)
+
+        new_mapped = {}
+
+        for key in mapped.keys():
+            mapped_axis = mapped[key]
+
+            orig_axis = dimensions[key]
+
+            start = mapped_axis.start - orig_axis.start
+
+            stop = mapped_axis.stop - orig_axis.start
+
+            new_mapped[key] = slice(start, stop)
+
         attrs['cached'] = {
-            uri: entry.local_path
+            uri: {
+                'path': entry.local_path,
+                'mapped': new_mapped,
+            }
         }
 
     return attrs

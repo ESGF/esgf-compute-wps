@@ -24,6 +24,8 @@ logger = get_task_logger('wps.tasks.cdat')
 
 OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/json')
 
+PATTERN_AXES_REQ = 'CDAT\.(min|max|average|sum)'
+
 @base.cwt_shared_task()
 def validate(self, attrs, job_id=None):
     root_op = attrs['root']
@@ -34,7 +36,9 @@ def validate(self, attrs, job_id=None):
         # Might need to validate the gridder configuration
         if 'gridder' not in operation.parameters:
             raise WPSError('Missing required parameter "gridder"')
-    elif operation.identifier in CONFIG_AXIS_OPS:
+    elif re.match(PATTERN_AXES_REQ, operation.identifier) is not None:
+        logger.info('Checking for axes parameter')
+
         axes = operation.get_parameter('axes')
 
         if axes is None:
@@ -42,7 +46,7 @@ def validate(self, attrs, job_id=None):
 
         for uri, mapping in attrs['mapped'].iteritems():
             for axis in axes.values:
-                if axis not in mapping:
+                if mapping is not None and axis not in mapping:
                     raise WPSError('Missing "{axis}" from parameter "axes"', axis=axis)
 
     return attrs
@@ -93,8 +97,25 @@ def health(self, user_id, job_id, process_id, **kwargs):
 
     return data
 
-def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id, gridder_req=False):
-    gridder = operation.get_parameter('gridder', gridder_req)
+def write_data(data, var_name, gridder, grid, base_units, outfile):
+    logger.info('Read data shape %r', data.shape)
+
+    if gridder is not None and grid is None:
+        grid = self.generate_grid(gridder, data)
+
+        logger.info('Generated grid shape %r', grid.shape)
+
+    data.getTime().toRelativeTime(str(base_units))
+
+    if grid is not None:
+        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+
+        logger.info('Regrid to shape %r', data.shape)
+
+    outfile.write(data, id=var_name)
+
+def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
+    gridder = operation.get_parameter('gridder')
 
     logger.info('Gridder %r', gridder)
 
@@ -145,27 +166,24 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id, 
                 if 'cached' in uri_meta:
                     mapped = uri_meta['cached']['mapped']
 
-                    del mapped['time']
+                    chunked_axis = uri_meta['cached']['chunked_axis']
 
-                    data = infile(var_name, **mapped)
+                    chunks = uri_meta['cached']['chunks']
+
+                    for chunk in chunks:
+                        mapped.update({ chunked_axis: chunk })
+
+                        mapped_copy = mapped.copy()
+
+                        time = mapped_copy.pop('time')
+
+                        data = infile(var_name, time=time, **mapped_copy)
+
+                        write_data(data, var_name, gridder, grid, base_units, outfile)
                 else:
                     data = infile(var_name)
 
-                logger.info('Read data shape %r', data.shape)
-
-                if gridder is not None and grid is None:
-                    grid = self.generate_grid(gridder, data)
-
-                    logger.info('Generated grid shape %r', grid.shape)
-
-                data.getTime().toRelativeTime(str(base_units))
-
-                if grid is not None:
-                    data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
-
-                    logger.info('Regrid to shape %r', data.shape)
-
-                outfile.write(data, id=var_name)
+                    write_data(data, var_name, gridder, grid, base_units, outfile)
 
         logger.info('Final shape %r', outfile[var_name].shape)
 
@@ -184,7 +202,7 @@ Regrids a variable to designated grid. Required parameter named "gridder".
 """)
 @base.cwt_shared_task()
 def regrid(self, attrs, cached, operation, var_name, base_units, job_id=None):
-    return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id, True)
+    return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id)
 
 @base.register_process('CDAT.subset', abstract="""
 Subset a variable by provided domain. Supports regridding.
