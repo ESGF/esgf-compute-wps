@@ -115,31 +115,54 @@ def write_data(data, var_name, gridder, grid, base_units, outfile):
     outfile.write(data, id=var_name)
 
 def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
+    """ Retrieves the file describe in attrs.
+
+    Expected format for attrs argument.
+
+    {
+        "key": {
+            "path": "https://aims3.llnl.gov/path/filename.nc",
+            "ingress": {
+                "path": "file:///path/filename.nc",
+            }
+            --- or ---
+            "cached": {
+                "path": "file:///path/filename.nc",
+                "chunked_axis": "time",
+                "chunks": {
+                    "time": [slice(0, 10), slice(10, 12)],
+                },
+                "mapped": {
+                    "time": slice(0, 10),
+                    "lat": slice(0, 100),
+                    "lon": slice(0, 200),
+                },
+            }
+        }
+    }
+
+    Args:
+        attrs: A list of dict or dict from previous tasks.
+        cached: A list of dict of cached portions.
+        operation: A cwt.Process object.
+        var_name: A str variable name.
+        base_units: A str base_units to be used.
+        job_id: An int of the current job id.
+
+    Returns:
+        A list of dicts, this should be the combination of attrs and cached 
+        arguments.
+    """
     gridder = operation.get_parameter('gridder')
 
     logger.info('Gridder %r', gridder)
 
     job = self.load_job(job_id)
 
-    combined = {}
-
     if not isinstance(attrs, list):
         attrs = [attrs,]
 
-    for item in attrs:
-        for key, value in item.iteritems():
-            if key in combined:
-                combined[key]['ingress'].append(value['ingress'])
-            else:
-                combined[key] = value
-
-                combined[key]['ingress'] = [value['ingress'],]
-
-    for key, value in cached.iteritems():
-        if key in combined:
-            combined[key].update(value)
-        else:
-            combined[key] = value
+    attrs.extend(cached)
 
     output_name = '{}.nc'.format(uuid.uuid4())
 
@@ -150,25 +173,23 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
     logger.info('Output path %r', output_path)
 
     with cdms2.open(output_path, 'w') as outfile:
-        uris = sorted(combined.items(), key=lambda x: x[1]['base_units'])
+        attrs = sorted(attrs, key=lambda x: x['key'])
 
-        for item in uris:
-            uri = item[0]
-
-            uri_meta = item[1]
-
-            if 'cached' in uri_meta:
-                uri = uri_meta['cached']['path']
+        for item in attrs:
+            if 'cached' in item:
+                uri = items['cached']['path']
+            else:
+                uri = items['ingress']['path']
 
             logger.info('Opening %r', uri)
 
             with cdms2.open(uri) as infile:
-                if 'cached' in uri_meta:
-                    mapped = uri_meta['cached']['mapped']
+                if 'cached' in item:
+                    mapped = item['cached']['mapped']
 
-                    chunked_axis = uri_meta['cached']['chunked_axis']
+                    chunked_axis = item['cached']['chunked_axis']
 
-                    chunks = uri_meta['cached']['chunks']
+                    chunks = item['cached']['chunks']
 
                     for chunk in chunks:
                         mapped.update({ chunked_axis: chunk })
@@ -195,7 +216,7 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
     job.succeeded(json.dumps(var.parameterize()))
 
-    return combined
+    return attrs
 
 @base.register_process('CDAT.regrid', abstract="""
 Regrids a variable to designated grid. Required parameter named "gridder".

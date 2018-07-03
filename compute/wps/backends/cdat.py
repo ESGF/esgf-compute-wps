@@ -184,9 +184,9 @@ class CDAT(backend.Backend):
 
         index = 0
 
-        ingress_list = []
+        ingress_task_list = []
+        cache_task_list = []
         cache_list = []
-        cached_dict = {}
 
         for inp in root_op.inputs:
             var = kwargs['variable'][inp]
@@ -214,7 +214,9 @@ class CDAT(backend.Backend):
                 orig_mapped = mapped.copy()
 
                 for chunk in chunks:
-                    filename = '{0}-{1:06}'.format(op_uuid, index)
+                    key = '{0}-{1:06}'.format(op_uuid, index)
+
+                    filename = '{}.nc'.format(key)
 
                     index += 1
 
@@ -222,12 +224,12 @@ class CDAT(backend.Backend):
 
                     mapped.update({ chunked_axis: chunk })
 
-                    ingress_list.append(tasks.ingress_uri.s(
-                        var.uri, var_name, mapped.copy(), ingress_output, 
-                        file_base_units, user_id, job_id=job_id).set(
+                    ingress_task_list.append(tasks.ingress_uri.s(
+                        key, var.uri, var_name, mapped.copy(), ingress_output, 
+                        user_id, job_id=job_id).set(
                             **helpers.DEFAULT_QUEUE))
 
-                cache_list.append(tasks.ingress_cache.s(
+                cache_task_list.append(tasks.ingress_cache.s(
                     var.uri, var_name, orig_mapped, file_base_units, 
                     job_id=job_id).set(
                         **helpers.DEFAULT_QUEUE))
@@ -238,33 +240,37 @@ class CDAT(backend.Backend):
 
                 mapped = cached['mapped']
 
-                cached_dict[var.uri] = {
-                    'base_units': file_base_units,
+                key = '{0}-{1:06}'.format(op_uuid, index)
+
+                index += 1
+
+                cache_list.append({
+                    'key': key,
                     'cached': {
                         'path': uri,
-                        'chunks': chunks,
                         'chunked_axis': chunked_axis,
+                        'chunks': chunks,
                         'mapped': mapped.copy(),
                     }
-                }
+                })
 
         process = base.get_process(operation.identifier)
 
-        if len(ingress_list) > 0:
-            canvas = celery.group(ingress_list)
+        if len(ingress_task_list) > 0:
+            canvas = celery.group(ingress_task_list)
         else:
             canvas = None
 
         if canvas is None:
-            canvas = process.s({}, cached_dict, root_op, var_name, base_units, 
+            canvas = process.s({}, cache_list, root_op, var_name, base_units, 
                                job_id=job_id).set(
                                    **helpers.DEFAULT_QUEUE)
         else:
             canvas = (canvas |
-                      process.s(cached_dict, root_op, var_name, base_units,
+                      process.s(cache_list, root_op, var_name, base_units,
                                 job_id=job_id).set(
                                     **helpers.DEFAULT_QUEUE) |
-                      celery.group(cache_list) |
+                      celery.group(cache_task_list) |
                       tasks.ingress_cleanup.s(job_id=job_id).set(
                           **helpers.DEFAULT_QUEUE))
 

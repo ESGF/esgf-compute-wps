@@ -11,175 +11,211 @@ from wps.tasks import ingress
 class PreprocessTestCase(test.TestCase):
     def setUp(self):
         self.domain1 = {
-            'time': slice(0, 200),
-            'lat': (-90, 0),
-            'lon': (180, 360),
+            'time': slice(0, 10),
+            'lat': slice(0, 100),
+            'lon': slice(0, 200),
         }
 
-        self.domain2 = {
-            'lat': (-90, 0),
-            'lon': (180, 360),
-        }
+        self.start1 = datetime.datetime(2017, 10, 23, second=10)
+        self.stop1 = datetime.datetime(2017, 10, 23, second=30)
+        self.elapsed1 = self.stop1 - self.start1
 
-        self.args = [
+        self.args1 = [
+            'key1',
             'file:///test1.nc',
             'tas',
             self.domain1,
-            'file:///test1_out.nc',
-            'days since 1990-1-1',
-            0, 
+            'file:///test1_ingress.nc', 
+            0,
             0,
         ]
 
-        self.args2 = [
+        self.ingress1 = {
+            'key1': {
+                'ingress': {
+                    'elapsed': self.elapsed1,
+                    'size': 1.2,
+                    'path': 'file:///test1_ingress.nc',
+                    'uri': 'file:///test1.nc',
+                }
+            }
+        }
+
+        self.ingress2 = {
+            'key2': {
+                'ingress': {
+                    'elapsed': self.elapsed1,
+                    'size': 1.2,
+                    'path': 'file:///test2_ingress.nc',
+                    'uri': 'file:///test1.nc',
+                }
+            }
+        }
+
+        self.cache1 = self.ingress1.copy()
+
+        self.cache1.update(self.ingress2)
+
+    @mock.patch('os.remove')
+    def test_ingress_cleanup_remove_error(self, mock_remove):
+        mock_remove.side_effect = OSError()
+
+        data = ingress.ingress_cleanup(self.cache1, job_id=0)
+
+        self.assertEqual(mock_remove.call_count, 2)
+
+    @mock.patch('os.remove')
+    def test_ingress_cleanup(self, mock_remove):
+        data = ingress.ingress_cleanup(self.cache1, job_id=0)
+
+        self.assertEqual(mock_remove.call_count, 2)
+
+    @mock.patch('wps.tasks.preprocess.check_cache_entries')
+    @mock.patch('cdms2.open')
+    @mock.patch('wps.models.Cache.objects.create')
+    def test_ingress_cache_multiple_inputs(self, mock_create, mock_open, mock_cache):
+        mock_cache.return_value = None
+
+        args = [
+            [self.ingress1, self.ingress2],
             'file:///test1.nc',
             'tas',
-            self.domain2,
-            'file:///test1_out.nc',
-            'days since 1990-1-1',
-            0, 
-            0,
+            self.domain1,
+            'days since 1990-1-1 0',
         ]
 
-        self.ingress_cache_attrs = {
-            'file:///test1.nc': {
-                'base_units': 'days since 1990-1-1',
-                'ingress': [
-                    {
-                        'path': 'file:///test1_01.nc',
-                        'elapsed': datetime.timedelta(seconds=3),
-                        'size': 1.2,
-                    },
-                    {
-                        'path': 'file:///test1_02.nc',
-                        'elapsed': datetime.timedelta(seconds=1),
-                        'size': 1.2,
-                    },
-                ]
-            },
-            'file:///test2.nc': {
-                'base_units': 'days since 2000-1-1',
-                'ingress': [
-                    {
-                        'path': 'file:///test1_03.nc',
-                        'elapsed': datetime.timedelta(seconds=2),
-                        'size': 1.2,
-                    },
-                ]
-            },
-        }
+        data = ingress.ingress_cache(*args, job_id=0)
 
-        self.ingress_cache_mapped = {
-            'time': slice(0, 100),
-            'lat': slice(-90, 0),
-            'lon': slice(100, 200),
-        }
+        self.assertEqual(data, self.cache1)
 
-    @mock.patch('os.remove')
-    def test_ingress_cleanup(self, mock_remove):
-        mock_remove.side_effect = [
-            mock.MagicMock(),
-            OSError(),
-            mock.MagicMock(),
-        ]
+        mock_cache.assert_called_with('file:///test1.nc', 'tas', self.domain1)
 
-        output = ingress.ingress_cleanup(self.ingress_cache_attrs)
+        mock_create.assert_called_once()
 
-        self.assertEqual(mock_remove.call_count, 3)
+        self.assertEqual(mock_open.call_count, 3)
 
-        self.assertEqual(output, self.ingress_cache_attrs)
-
-    @mock.patch('os.remove')
-    def test_ingress_cleanup(self, mock_remove):
-        output = ingress.ingress_cleanup(self.ingress_cache_attrs)
-
-        self.assertEqual(mock_remove.call_count, 3)
-
-        self.assertEqual(output, self.ingress_cache_attrs)
-
+    @mock.patch('wps.tasks.preprocess.check_cache_entries')
     @mock.patch('cdms2.open')
-    @mock.patch('os.stat')
     @mock.patch('wps.models.Cache.objects.create')
-    def test_ingress_cache(self, mock_create, mock_stat, mock_open):
-        output = ingress.ingress_cache(self.ingress_cache_attrs, 'file:///test1.nc', 'tas', self.ingress_cache_mapped, 'days since 1990-1-1')
+    def test_ingress_cache_output_error(self, mock_create, mock_open, mock_cache):
+        mock_cache.return_value = None
 
-        self.assertEqual(output, self.ingress_cache_attrs)
+        mock_open.side_effect = cdms2.CDMSError()
 
+        args = [
+            [self.ingress1,],
+            'file:///test1.nc',
+            'tas',
+            self.domain1,
+            'days since 1990-1-1 0',
+        ]
+
+        with self.assertRaises(WPSError):
+            data = ingress.ingress_cache(*args, job_id=0)
+
+    @mock.patch('wps.tasks.preprocess.check_cache_entries')
     @mock.patch('cdms2.open')
-    def test_ingress_uri_outfile_error(self, mock_open):
+    @mock.patch('wps.models.Cache.objects.create')
+    def test_ingress_cache_input_error(self, mock_create, mock_open, mock_cache):
+        mock_cache.return_value = None
+
         mock_open.side_effect = [
             mock.MagicMock(),
             cdms2.CDMSError(),
         ]
 
-        with self.assertRaises(WPSError):
-            output = ingress.ingress_uri(*self.args)
+        args = [
+            [self.ingress1,],
+            'file:///test1.nc',
+            'tas',
+            self.domain1,
+            'days since 1990-1-1 0',
+        ]
 
+        with self.assertRaises(WPSError):
+            data = ingress.ingress_cache(*args, job_id=0)
+
+    @mock.patch('wps.tasks.preprocess.check_cache_entries')
     @mock.patch('cdms2.open')
-    def test_ingress_uri_infile_error(self, mock_open):
+    @mock.patch('wps.models.Cache.objects.create')
+    def test_ingress_cache(self, mock_create, mock_open, mock_cache):
+        mock_cache.return_value = None
+
+        args = [
+            [self.ingress1,],
+            'file:///test1.nc',
+            'tas',
+            self.domain1,
+            'days since 1990-1-1 0',
+        ]
+
+        data = ingress.ingress_cache(*args, job_id=0)
+
+        mock_create.return_value.set_size.assert_called()
+
+        mock_cache.assert_called_with('file:///test1.nc', 'tas', self.domain1)
+
+        mock_create.assert_called_once()
+
+        self.assertEqual(mock_open.call_count, 2)
+
+        self.assertEqual(data, self.ingress1)
+        
+    @mock.patch('wps.tasks.preprocess.load_credentials')
+    @mock.patch('wps.tasks.ingress.get_now')
+    @mock.patch('cdms2.open')
+    @mock.patch('wps.tasks.ingress.read_data')
+    @mock.patch('os.stat')
+    def test_ingress_uri_output_error(self, mock_stat, mock_read, mock_open, mock_now, mock_load):
+        type(mock_stat.return_value).st_size = 1200000
+
+        mock_now.side_effect = [
+            self.start1,
+            self.stop1,
+        ]
+
+        mock_open.side_effect = [
+            mock.MagicMock(),
+            cdms2.CDMSError()
+        ]
+
+        with self.assertRaises(WPSError):
+            data = ingress.ingress_uri(*self.args1)
+
+    @mock.patch('wps.tasks.preprocess.load_credentials')
+    @mock.patch('wps.tasks.ingress.get_now')
+    @mock.patch('cdms2.open')
+    @mock.patch('wps.tasks.ingress.read_data')
+    @mock.patch('os.stat')
+    def test_ingress_uri_input_error(self, mock_stat, mock_read, mock_open, mock_now, mock_load):
+        type(mock_stat.return_value).st_size = 1200000
+
+        mock_now.side_effect = [
+            self.start1,
+            self.stop1,
+        ]
+
         mock_open.side_effect = cdms2.CDMSError()
 
         with self.assertRaises(WPSError):
-            output = ingress.ingress_uri(*self.args)
+            data = ingress.ingress_uri(*self.args1)
 
-    @mock.patch('cdms2.open')
-    @mock.patch('os.stat')
+    @mock.patch('wps.tasks.preprocess.load_credentials')
     @mock.patch('wps.tasks.ingress.get_now')
-    def test_ingress_uri_no_time(self, mock_get, mock_stat, mock_open):
-        type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=3222111)
+    @mock.patch('cdms2.open')
+    @mock.patch('wps.tasks.ingress.read_data')
+    @mock.patch('os.stat')
+    def test_ingress_uri(self, mock_stat, mock_read, mock_open, mock_now, mock_load):
+        type(mock_stat.return_value).st_size = 1200000
 
-        start = datetime.datetime(2016, 6, 12, second=32)
-
-        stop = datetime.datetime(2016, 6, 12, second=55)
-
-        mock_get.side_effect = [
-            start,
-            stop,
+        mock_now.side_effect = [
+            self.start1,
+            self.stop1,
         ]
 
-        output = ingress.ingress_uri(*self.args2)
+        data = ingress.ingress_uri(*self.args1)
 
-        print output
+        self.assertEqual(data, self.ingress1)
 
-        expected = {
-            'file:///test1.nc': {
-                'base_units': 'days since 1990-1-1',
-                'ingress': {
-                    'path': 'file:///test1_out.nc',
-                    'elapsed': stop - start,
-                    'size': 3.222111,
-                },
-            },
-        }
-
-        self.assertEqual(output, expected)
-
-    @mock.patch('cdms2.open')
-    @mock.patch('os.stat')
-    @mock.patch('wps.tasks.ingress.get_now')
-    def test_ingress_uri(self, mock_get, mock_stat, mock_open):
-        type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=3222111)
-
-        start = datetime.datetime(2016, 6, 12, second=32)
-
-        stop = datetime.datetime(2016, 6, 12, second=55)
-
-        mock_get.side_effect = [
-            start,
-            stop,
-        ]
-
-        output = ingress.ingress_uri(*self.args)
-
-        expected = {
-            'file:///test1.nc': {
-                'base_units': 'days since 1990-1-1',
-                'ingress': {
-                    'path': 'file:///test1_out.nc',
-                    'elapsed': stop - start,
-                    'size': 3.222111,
-                },
-            },
-        }
-
-        self.assertEqual(output, expected)
+        self.assertEqual(mock_open.call_count, 2)
+        self.assertEqual(mock_read.call_count, 1)

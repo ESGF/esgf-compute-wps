@@ -40,13 +40,25 @@ def read_data(infile, var_name, domain):
 
 @base.cwt_shared_task()
 def ingress_cleanup(self, attrs, job_id=None):
-    uris = [y['path'] for x in attrs for y in attrs[x]['ingress']]
+    """ Cleanup the ingressed files.
 
-    for uri in uris:
+    Args:
+        attrs: A list of dicts from previous tasks.
+        job_id: An int referencing the job.
+
+    Returns:
+        A dict composed of the dicts in attrs argument.
+    """
+
+    filter_ingress = [x for x in attrs.values() if 'ingress' in x]
+
+    filter_paths = [x['ingress']['path'] for x in filter_ingress]
+
+    for path in filter_paths:
         try:
-            os.remove(uri)
+            os.remove(path)
         except OSError:
-            logger.exception('Failed to remove %r', uri)
+            logger.exception('Failed to remove %r', path)
 
             continue
 
@@ -54,6 +66,20 @@ def ingress_cleanup(self, attrs, job_id=None):
 
 @base.cwt_shared_task()
 def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
+    """ Cached ingress items.
+
+    Args:
+        attrs: A list of dicts from previous tasks.
+        uri: A str uri for the source being cached.
+        var_name: A str variable name.
+        domain: A dict referencing the portion of the source file compose by the
+            group of ingressed files.
+        base_units: A str with the base units.
+        job_id: An int referencing the job.
+
+    Returns: 
+        A dict composed of the dicts from attrs.
+    """
     entry = preprocess.check_cache_entries(uri, var_name, domain)
 
     if entry is not None:
@@ -61,7 +87,11 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
 
         return attrs
 
-    uri_meta = attrs[uri]
+    filter_ingress = [x for x in attrs if 'ingress' in x.values()[0]]
+
+    filter_uri = [x for x in filter_ingress if x.values()[0]['ingress']['uri'] == uri]
+
+    filter_uri_sorted = sorted(filter_uri, key=lambda x: x.keys()[0])
 
     uid = '{}:{}'.format(uri, var_name)
 
@@ -83,9 +113,11 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
 
     try:
         with cdms2.open(entry.local_path, 'w') as outfile:
-            for ingress_meta in uri_meta['ingress']:
+            for item in filter_uri_sorted:
+                item_meta = item.values()[0]
+
                 try:
-                    with cdms2.open(ingress_meta['path']) as infile:
+                    with cdms2.open(item_meta['ingress']['path']) as infile:
                         data = infile(var_name)
 
                         logger.info('Read chunk with shape %r', data.shape)
@@ -94,7 +126,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
 
                         outfile.write(data, id=var_name)
                 except cdms2.CDMSError as e:
-                    raise base.AccessError(ingress_uri, e)
+                    raise base.AccessError(item_meta['ingress']['path'], e)
             
             logger.info('Wrote cache file with shape %r', outfile[var_name].shape)
     except cdms2.CDMSError as e:
@@ -105,18 +137,50 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
         entry.delete()
 
         raise base.AccessError(local_path, e)
-    except base.AccessError:
-        logger.exception('Failed to read ingress file %r', ingress_uri)
 
-        entry.delete()
-
-        raise
     entry.set_size()
 
-    return attrs
+    new_attrs = {}
+
+    for item in attrs:
+        new_attrs.update(item)
+
+    return new_attrs
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, domain, output_path, base_units, user_id, job_id=None):
+def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=None):
+    """ Ingress a portion of data.
+
+    Args:
+        key: A str containing a unique identifier for this request.
+        uri: A str uri of the source file.
+        var_name: A str variable name.
+        domain: A dict containing the portion of the file.
+        output_path: A str path for the output to be written.
+        user_id: An int referencing the owner of the request.
+        job_id: An int referencing the job this request belongs to.
+
+    Return:
+        A dict with the following format:
+
+        key: Unique identifier.
+        path: A string path to the output file.
+        elapsed: A datetime.timedelta containing the elapsed time.
+        size: A float denoting the size in MegaBytes.
+
+        {
+            "key": {
+                "ingress": {
+                    "uri": "https://aims3.llnl.gov/path/filename.nc",
+                    "path": "file:///path/filename.nc",
+                    "elapsed": datetime.timedelta(0, 0, 3),
+                    "size": 3.28
+                }
+            }
+        }
+    """
+    preprocess.load_credentials(user_id)
+
     start = get_now()
 
     logger.info('Domain %r', domain)
@@ -140,14 +204,14 @@ def ingress_uri(self, uri, var_name, domain, output_path, base_units, user_id, j
     stat = os.stat(output_path)
 
     attrs = {
-        uri: {
-            'base_units': base_units,
+        key: {
             'ingress': {
+                'uri': uri,
                 'path': output_path,
                 'elapsed': elapsed,
                 'size': stat.st_size / 1000000.0,
-            },
-        },
+            }
+        }
     }
 
     return attrs
