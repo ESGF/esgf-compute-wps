@@ -97,14 +97,24 @@ def health(self, user_id, job_id, process_id, **kwargs):
 
     return data
 
-def write_data(data, var_name, gridder, grid, base_units, outfile):
-    logger.info('Read data shape %r', data.shape)
+def read_data(infile, var_name, domain):
+    if domain is None:
+        # Read whole file is domain is None, mostly used for ingress
+        # files
+        data = infile(var_name)
+    else:
+        # Attempt to grab the time dimension from the domain
+        try:
+            time = domain.pop('time')
+        except KeyError:
+            # Grab data without time dimension
+            data = infile(var_name, **domain)
+        else:
+            data = infile(var_name, time=time, **domain)
 
-    if gridder is not None and grid is None:
-        grid = self.generate_grid(gridder, data)
+    return data
 
-        logger.info('Generated grid shape %r', grid.shape)
-
+def write_data(data, var_name, base_units, outfile):
     data.getTime().toRelativeTime(str(base_units))
 
     if grid is not None:
@@ -115,7 +125,7 @@ def write_data(data, var_name, gridder, grid, base_units, outfile):
     outfile.write(data, id=var_name)
 
 def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
-    """ Retrieves the file describe in attrs.
+    """ Reconstructs file described by attrs and cached.
 
     Expected format for attrs argument.
 
@@ -168,6 +178,7 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
     output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
 
+    try_grid = False
     grid = None
 
     logger.info('Output path %r', output_path)
@@ -200,11 +211,27 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
                         data = infile(var_name, time=time, **mapped_copy)
 
-                        write_data(data, var_name, gridder, grid, base_units, outfile)
+                        if not try_grid:
+                            try_grid = True
+
+                            grid = self.generate_grid(gridder, data)
+
+                        if grid is not None:
+                            data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+
+                        write_data(data, var_name, base_units, outfile)
                 else:
                     data = infile(var_name)
 
-                    write_data(data, var_name, gridder, grid, base_units, outfile)
+                    if not try_grid:
+                        try_grid = True
+
+                        grid = self.generate_grid(gridder, data)
+
+                    if grid is not None:
+                        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+
+                    write_data(data, var_name, base_units, outfile)
 
         logger.info('Final shape %r', outfile[var_name].shape)
 
@@ -215,6 +242,140 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
     logger.info('Marking job complete with output %r', var)
 
     job.succeeded(json.dumps(var.parameterize()))
+
+    return attrs
+
+def base_process(self, attrs, operation, var_name, base_units, axes, output_path, mv_func, job_id):
+    """ Process the file passed in attrs.
+
+    Expected format for attrs argument.
+
+    {
+        "key": {
+            "ingress": {
+                "path": "file:///path/filename.nc",
+            }
+            --- or ---
+            "cached": {
+                "path": "file:///path/filename.nc",
+                "domain": {
+                    "time": slice(0, 10),
+                    "lat": slice(0, 100),
+                    "lon": slice(0, 200),
+                }
+            }
+        }
+    }
+
+    Args:
+        attrs: A dict describing the file to be processed.
+        operation: A cwt.Process object.
+        var_name: A str variable name.
+        base_units: A str containing the base units.
+        axes: A list of str axis names to operate over.
+        output_path: A str containing the output path.
+        mv_func: An instance of the MV2 function.
+        job_id: An int of the current job id. 
+
+    Returns:
+        A dict with the following format:
+
+        {
+            "key": {
+                "process": {
+                    "path": "file:///path/filename.nc", 
+                }
+            }
+        }
+
+    """
+    if not isinstance(attrs):
+        raise WPSError('Input from previous task should be type dict got type "{name}"', name=type(attrs))
+
+    key = attrs.keys()[0]
+
+    value = attrs[key]
+
+    loger.info('Processing key %r', key)
+
+    if 'ingress' in value:
+        logger.info('Source was ingressed')
+
+        uri = value['ingress']['path']
+
+        domain = None
+    elif 'cache' in value:
+        logger.info('Source was cached')
+
+        uri = value['cached']['path']
+
+        domain = value['cached']['domain']
+    else:
+        raise WPSError('Missing required "ingress" or "cached" key')
+
+    logger.info('Reading input data from %r', uri)
+
+    # Read input data
+    try:
+        with cdms2.open(uri) as infile:
+            data = read_data(infile, var_name, domain)
+    except cdms2.CDMSError:
+        logger.exception('Failed to read input file %r', uri)
+
+        raise WPSError('Error opening "{uri}"', uri=uri)
+
+    logger.info('Input data shape %r', data.shape)
+
+    axis_indexes = [data.getAxisIndex(axis) for axis in axes]
+
+    if any(lambda x: x < 0, axis_indexes):
+        raise WPSError('Missing axis "{name}"', axis)
+
+    logger.info('All axes %r are present in file', axes)
+
+    gridder = operation.get_parameter('gridder')
+
+    grid = self.generate_grid(gridder, data)
+
+    # Regrid before processing data
+    if grid is not None:
+        logger.info('Target grid shape %r', grid.shape)
+
+        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+
+        logger.info('Data shape %r', data.shape)
+
+    # Remap the time axis if passed the base units
+    if base_units is not None:
+        data.getTime().toRelativeTime(base_units)
+
+        logger.info('Remapped time axis with base units %r', base_units)
+
+    logger.info('Begin processing data')
+
+    for axis in axis_indexes:
+        data = mv_func(data, axis=axis)
+
+        logger.info('Processed over %r output shape %r', axis, data.shape)
+
+    logger.info('End processing data, writing output %r', output_path)
+
+    # Write output data
+    try:
+        with cdms2.open(output_path, 'w') as outfile:
+            outfile.write(data, id=var_name)
+    except cdms2.CDMSError:
+        logger.exception('Failed to write output %r', output_path)
+
+        raise WPSError('Error writing "{uri}"', uri=output_path)
+
+    attrs[key].update({
+        'processed': {
+            'path': output_path,
+        }
+    })
+
+    logger.info('Returning %r', attrs)
 
     return attrs
 
@@ -245,8 +406,8 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
-def average(self, attrs, operation, base_units):
-    pass
+def average(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
+    return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.average, job_id)
 
 @base.register_process('CDAT.sum', abstract=""" 
 Computes the sum over an axis. Requires singular parameter named "axes" 
@@ -254,8 +415,8 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
-def summation(self, attrs, operation, base_units):
-    pass
+def sum(self, attrs, operation, var_name, base_units, axes, output_path, job_id:
+    return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.sum, job_id)
 
 @base.register_process('CDAT.max', abstract=""" 
 Computes the maximum over an axis. Requires singular parameter named "axes" 
@@ -263,8 +424,8 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
-def maximum(self, attrs, operation, base_units):
-    pass
+def maximum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
+    return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.max, job_id)
 
 @base.register_process('CDAT.min', abstract="""
 Computes the minimum over an axis. Requires singular parameter named "axes" 
@@ -272,8 +433,8 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
                        """)
 @base.cwt_shared_task()
-def minimum(self, attrs, operation, base_units):
-    pass
+def minimum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
+    return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.min, job_id)
 
 @base.register_process('CDAT.add', abstract="""
 Compute the elementwise addition between two variables.

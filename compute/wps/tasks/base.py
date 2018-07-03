@@ -137,6 +137,8 @@ class CWTBaseTask(celery.Task):
     def generate_grid(self, gridder, chunk):
         try:
             grid_type, grid_param = gridder.grid.split('~')
+        except AttributeError:
+            return None
         except ValueError:
             raise WPSError('Error generating grid "{name}"', name=gridder.grid)
 
