@@ -88,20 +88,8 @@ class CDAT(backend.Backend):
 
         return variable, domain, operation
 
-    def configure_preprocess(self, **kwargs):
+    def configure_preprocess(self, identifier, variable, domain, operation, user, job, **kwargs):
         logger.info('Configuring preprocess workflow')
-
-        identifier = kwargs['identifier']
-
-        variable = kwargs['variable']
-
-        domain = kwargs['domain']
-
-        operation = kwargs['operation']
-
-        user = kwargs['user']
-
-        job = kwargs['job']
 
         variable, domain, operation = self.load_data_inputs(variable, domain, operation)
 
@@ -159,24 +147,19 @@ class CDAT(backend.Backend):
         if len(variables) == 1:
             canvas = (variables[0] | analyze | validate | request)
         else:
-            canvas = (celery.group(variables) | analyze | validate | request)
+            #canvas = (celery.group(variables) | analyze | validate | request)
+            # Need to fix this, celery isn't liking groups in the header of a 
+            # chord, possible solution is launch a canvas for each group of 
+            # variables in an operation and have a task poll for completion 
+            # manually.
+            raise WPSError('Failed to run preprocessing on multiple variables')
 
         canvas.delay()
 
-    def execute_processing(self, **kwargs):
+    def execute_processing(self, root, var_name, user_id, job_id, **kwargs):
         logger.info('Configure processing')
 
-        logger.info('%s', json.dumps(kwargs, indent=4, default=helpers.json_dumps_default))
-
-        user_id = kwargs['user_id']
-
-        job_id = kwargs['job_id']
-
-        root = kwargs['root']
-
         root_op = kwargs['operation'][root]
-
-        var_name = kwargs['var_name']
 
         logger.info('Executing process %r', root_op)
 
