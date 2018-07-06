@@ -5,8 +5,10 @@ from __future__ import unicode_literals
 
 import datetime
 import json
+import importlib
 import os
 import re
+import types
 
 import cwt
 from kombu import serialization
@@ -47,6 +49,14 @@ def default(obj):
             },
             '__type': 'timedelta',
         }
+    elif isinstance(obj, types.FunctionType):
+        data = {
+            'data': {
+                'module': obj.__module__,
+                'name': obj.__name__,
+            },
+            '__type': 'function',
+        }
     else:
         raise TypeError(type(obj))
 
@@ -72,6 +82,10 @@ def object_hook(obj):
         }
 
         data = datetime.timedelta(**kwargs)
+    elif obj['__type'] == 'function':
+        data = importlib.import_module(obj['data']['module'])
+
+        data = getattr(data, obj['data']['name'])
 
     return data
 

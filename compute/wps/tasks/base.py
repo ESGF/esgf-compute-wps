@@ -55,6 +55,8 @@ def register_process(identifier, **kwargs):
 
         func.OUTPUT = kwargs.get('process_outputs')
 
+        func.PROCESS = kwargs.get('process')
+
         return func
     
     return wrapper

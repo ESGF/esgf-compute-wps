@@ -268,8 +268,6 @@ class CDAT(backend.Backend):
     def execute_computation(self, root, variable, operation, var_name, base_units, mapped, chunks, cached, user_id, job_id, **kwargs):
         logger.info('Configure computation')
         
-        logger.info('%s', json.dumps(kwargs, indent=4, default=helpers.json_dumps_default))
-
         root_op = operation[root]
 
         process = base.get_process(root_op.identifier)
@@ -364,7 +362,11 @@ class CDAT(backend.Backend):
                           **helpers.DEFAULT_QUEUE))
         else:
             canvas = (celery.group(process_task_list) |
-                      tasks.concat_process_output.s(var_name, job_id=job_id).set(
+                      tasks.concat_process_output.s(
+                          var_name, chunked_axis, process.PROCESS, 
+                          axes.values[1:], job_id=job_id).set(
+                              **helpers.DEFAULT_QUEUE) |
+                      tasks.process_cleanup.s(job_id=job_id).set(
                           **helpers.DEFAULT_QUEUE))
 
         canvas.delay()

@@ -245,7 +245,7 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
     return attrs
 
-def base_process(self, attrs, operation, var_name, base_units, axes, output_path, mv_func, job_id):
+def base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
     """ Process the file passed in attrs.
 
     Expected format for attrs argument.
@@ -354,7 +354,7 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
     logger.info('Begin processing data')
 
     for axis in axis_indexes:
-        data = mv_func(data, axis=axis)
+        data = self.PROCESS(data, axis=axis)
 
         logger.info('Processed over %r output shape %r', axis, data.shape)
 
@@ -380,7 +380,43 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
     return attrs
 
 @base.cwt_shared_task()
-def concat_process_output(self, attrs, var_name, job_id):
+def process_cleanup(self, attrs, job_id):
+    """ Cleans up the intermediate process files.
+
+    {
+        "key1": {
+            "processed": {
+                "path": "file:///path/filename.nc",
+            }
+        },
+        "key2": {
+            "processed": {
+                "path": "file:///path/filename.nc",
+            }
+        }
+    }
+    
+    Args:
+        attrs: A dict with a key for each intermediate file to cleanup.
+        job_id: An int referencing the current job.
+
+    Returns:
+        The attrs argument.
+    """
+
+    for key, value in attrs.iteritems():
+        if 'processed' in value:
+            try:
+                os.remove(value['processed']['path'])
+            except OSError:
+                logger.exception('Failed to remove intermediate %r', value['processed']['path'])
+
+                continue
+
+    return attrs
+
+@base.cwt_shared_task()
+def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, job_id):
     """ Concatenates the process outputs.
 
     Args:
@@ -401,6 +437,13 @@ def concat_process_output(self, attrs, var_name, job_id):
 
     output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
 
+    chunk_list = []
+    axis_indexes = None
+
+    chunked_axis_index = None
+
+    time_axis = chunked_axis in ['time', 't', 'z']
+
     try:
         with cdms2.open(output_path, 'w') as outfile:
             for item in attrs:
@@ -410,11 +453,39 @@ def concat_process_output(self, attrs, var_name, job_id):
 
                 try:
                     with cdms2.open(input_path) as infile:
+                        if chunked_axis_index is None:
+                            chunked_axis_index = infile[var_name].getAxisIndex(chunked_axis)
+
+                        if axis_indexes is None:
+                            axis_indexes = [infile[var_name].getAxisIndex(x) for x in axes]
+
                         data = infile(var_name)
 
-                        outfile.write(data, id=var_name)
+                        if time_axis:
+                            if len(axis_indexes) > 0:
+                                for axis in axis_indexes:
+                                    if axis == -1:
+                                        raise WPSError('Failed to get the axis index for "{name}"', name=axis)
+
+                                    data = process(data, axis=axis)
+
+                            outfile.write(data, id=var_name)
+                        else:
+                            chunk_list.append(data)
                 except cdms2.CDMSError:
                     raise WPSError('Failed to open input file "{path}"', path=input_path)
+
+            if not time_axis:
+                data = MV.concatenate(chunk_list, axis=chunked_axis_index)
+
+                if len(axis_indexes) > 0:
+                    for axis in axis_indexes:
+                        if axis == -1:
+                            raise WPSError('Failed to get the axis index for "{name}"', name=axis)
+
+                        data = process(data, axis=axis)
+
+                outfile.write(data, id=var_name)
     except cdms2.CDMSError:
         raise WPSError('Failed to open output file "{path}"', path=output_path)
 
@@ -426,7 +497,9 @@ def concat_process_output(self, attrs, var_name, job_id):
 
     job.succeeded(json.dumps(var.parameterize()))
 
-    return attrs
+    new_attrs = dict(x.items()[0] for x in attrs)
+
+    return new_attrs
 
 @base.register_process('CDAT.regrid', abstract="""
 Regrids a variable to designated grid. Required parameter named "gridder".
@@ -453,37 +526,37 @@ def aggregate(self, attrs, cached, operation, var_name, base_units, job_id=None)
 Computes the average over an axis. Requires singular parameter named "axes" 
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
-""")
+""", process=MV.average)
 @base.cwt_shared_task()
 def average(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, MV.average, job_id)
+    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.sum', abstract=""" 
 Computes the sum over an axis. Requires singular parameter named "axes" 
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
-""")
+""", process=MV.sum)
 @base.cwt_shared_task()
 def sum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, MV.sum, job_id)
+    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.max', abstract=""" 
 Computes the maximum over an axis. Requires singular parameter named "axes" 
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
-""")
+""", process=MV.max)
 @base.cwt_shared_task()
 def maximum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, MV.max, job_id)
+    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.min', abstract="""
 Computes the minimum over an axis. Requires singular parameter named "axes" 
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
-                       """)
+""", process=MV.min)
 @base.cwt_shared_task()
 def minimum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, MV.min, job_id)
+    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.cwt_shared_task()
 def cache_variable(self, parent_variables, variables, domains, operation, user_id, job_id):
