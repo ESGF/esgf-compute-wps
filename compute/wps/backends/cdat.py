@@ -30,8 +30,9 @@ class CDAT(backend.Backend):
         logger.info('Registering processes for backend "local"')
 
         for name, proc in base.REGISTRY.iteritems():
-            self.add_process(name, name.title(), data_inputs=proc.INPUT, 
-                             process_outputs=proc.OUTPUT, abstract=proc.ABSTRACT)
+            self.add_process(
+                name, name.title(), proc.METADATA, data_inputs=proc.INPUT, 
+                process_outputs=proc.OUTPUT, abstract=proc.ABSTRACT)
 
     def load_data_inputs(self, variable_raw, domain_raw, operation_raw):
         variable = {}

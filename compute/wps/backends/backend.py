@@ -39,7 +39,7 @@ class Backend(object):
     def __init__(self):
         self.processes = []
 
-    def add_process(self, identifier, name, data_inputs=None, process_outputs=None, abstract=None):
+    def add_process(self, identifier, name, metadata, data_inputs=None, process_outputs=None, abstract=None):
         if abstract is None:
             abstract = ''
 
@@ -57,6 +57,7 @@ class Backend(object):
         ]
 
         kwargs = {
+            'metadata': metadata,
             'data_inputs': data_inputs,
             'abstract': abstract,
         }

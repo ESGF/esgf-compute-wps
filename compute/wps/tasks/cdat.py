@@ -53,7 +53,7 @@ def validate(self, attrs, job_id=None):
 
 @base.register_process('CDAT.health', abstract="""
 Returns current server health
-""", data_inputs=[])
+""", data_inputs=[], metadata={'inputs': 0})
 @base.cwt_shared_task()
 def health(self, user_id, job_id, process_id, **kwargs):
     self.PUBLISH = base.ALL
@@ -501,23 +501,33 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
 
     return new_attrs
 
+SNG_DATASET_SNG_INPUT = {
+    'dataset': 1,
+    'input': 1,
+}
+
+SNG_DATASET_MULTI_INPUT = {
+    'dataset': 1,
+    'input': '*',
+}
+
 @base.register_process('CDAT.regrid', abstract="""
 Regrids a variable to designated grid. Required parameter named "gridder".
-""")
+""", metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def regrid(self, attrs, cached, operation, var_name, base_units, job_id=None):
     return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id)
 
 @base.register_process('CDAT.subset', abstract="""
 Subset a variable by provided domain. Supports regridding.
-""")
+""", metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def subset(self, attrs, cached, operation, var_name, base_units, job_id=None):
     return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id)
 
 @base.register_process('CDAT.aggregate', abstract="""
 Aggregate a variable over multiple files. Supports subsetting and regridding.
-""")
+""", metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
 def aggregate(self, attrs, cached, operation, var_name, base_units, job_id=None):
     return base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id)
@@ -526,7 +536,7 @@ def aggregate(self, attrs, cached, operation, var_name, base_units, job_id=None)
 Computes the average over an axis. Requires singular parameter named "axes" 
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
-""", process=MV.average)
+""", process=MV.average, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def average(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
@@ -535,7 +545,7 @@ def average(self, attrs, operation, var_name, base_units, axes, output_path, job
 Computes the sum over an axis. Requires singular parameter named "axes" 
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
-""", process=MV.sum)
+""", process=MV.sum, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def sum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
@@ -544,7 +554,7 @@ def sum(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
 Computes the maximum over an axis. Requires singular parameter named "axes" 
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
-""", process=MV.max)
+""", process=MV.max, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def maximum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
@@ -553,7 +563,7 @@ def maximum(self, attrs, operation, var_name, base_units, axes, output_path, job
 Computes the minimum over an axis. Requires singular parameter named "axes" 
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
-""", process=MV.min)
+""", process=MV.min, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def minimum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
