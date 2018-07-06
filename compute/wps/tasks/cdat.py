@@ -114,7 +114,7 @@ def read_data(infile, var_name, domain):
 
     return data
 
-def write_data(data, var_name, base_units, outfile):
+def write_data(data, var_name, base_units, grid, gridder, outfile):
     data.getTime().toRelativeTime(str(base_units))
 
     if grid is not None:
@@ -170,9 +170,12 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
     job = self.load_job(job_id)
 
     if not isinstance(attrs, list):
-        attrs = [attrs,]
+        attrs = [attrs]
 
-    attrs.extend(cached)
+    combined = dict(x.items()[0] for x in attrs if len(x.items()) > 0)
+
+    for item in cached:
+        combined.update(item)
 
     output_name = '{}.nc'.format(uuid.uuid4())
 
@@ -183,14 +186,19 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
     logger.info('Output path %r', output_path)
 
-    with cdms2.open(output_path, 'w') as outfile:
-        attrs = sorted(attrs, key=lambda x: x['key'])
+    logger.info('%r', combined)
+    logger.info('%r', combined.keys())
 
-        for item in attrs:
+    with cdms2.open(output_path, 'w') as outfile:
+        for key in sorted(combined.keys()):
+            item = combined[key]
+
+            logger.info('%r', item)
+
             if 'cached' in item:
-                uri = items['cached']['path']
+                uri = item['cached']['path']
             else:
-                uri = items['ingress']['path']
+                uri = item['ingress']['path']
 
             logger.info('Opening %r', uri)
 
@@ -216,10 +224,7 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
                             grid = self.generate_grid(gridder, data)
 
-                        if grid is not None:
-                            data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
-
-                        write_data(data, var_name, base_units, outfile)
+                        write_data(data, var_name, base_units, grid, gridder, outfile)
                 else:
                     data = infile(var_name)
 
@@ -228,10 +233,7 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
                         grid = self.generate_grid(gridder, data)
 
-                    if grid is not None:
-                        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
-
-                    write_data(data, var_name, base_units, outfile)
+                    write_data(data, var_name, base_units, grid, gridder, outfile)
 
         logger.info('Final shape %r', outfile[var_name].shape)
 

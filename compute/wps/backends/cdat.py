@@ -163,7 +163,7 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def execute_processing(self, root, var_name, user_id, job_id, **kwargs):
+    def execute_processing(self, root, var_name, base_units, user_id, job_id, **kwargs):
         logger.info('Configure processing')
 
         root_op = kwargs['operation'][root]
@@ -235,16 +235,17 @@ class CDAT(backend.Backend):
                 index += 1
 
                 cache_list.append({
-                    'key': key,
-                    'cached': {
-                        'path': uri,
-                        'chunked_axis': chunked_axis,
-                        'chunks': chunks,
-                        'mapped': mapped.copy(),
+                    key: {
+                        'cached': {
+                            'path': uri,
+                            'chunked_axis': chunked_axis,
+                            'chunks': chunks,
+                            'mapped': mapped.copy(),
+                        }
                     }
                 })
 
-        process = base.get_process(operation.identifier)
+        process = base.get_process(root_op.identifier)
 
         if len(ingress_task_list) > 0:
             canvas = celery.group(ingress_task_list)
