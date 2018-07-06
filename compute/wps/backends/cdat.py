@@ -12,6 +12,7 @@ from django.conf import settings
 from wps import helpers
 from wps import models
 from wps import tasks
+from wps import WPSError
 from wps.backends import backend
 from wps.tasks import base
 
@@ -108,9 +109,14 @@ class CDAT(backend.Backend):
                 inp = sorted(inp, key=lambda x: x.uri)[0:1]
 
             if re.match('CDAT\.(min|max|sum|average)', operation.identifier) is not None:
-                axis = None
+                axis_param = operation.get_parameter('axes')
+
+                if axis_param is None:
+                    raise WPSError('Missing required parameter "axes"')
+
+                axis = axis_param.values
             else:
-                axis = 'time'
+                axis = None
 
             operation.inputs = [x.name for x in inp]
 

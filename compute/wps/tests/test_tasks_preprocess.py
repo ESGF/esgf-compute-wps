@@ -226,6 +226,47 @@ class PreprocessTestCase(test.TestCase):
             }
         }
 
+        self.chunks_lat = {
+            'base_units': 'days since 1990-1-1 0',
+            'var_name': 'tas',
+            'units': {
+                self.uris[0]: 'days since 1990-1-1 0',
+            },
+            'mapped': {
+                self.uris[0]: {
+                    'time': slice(0, 122),
+                    'lat': slice(0, 100),
+                    'lon': slice(0, 200),
+                }
+            },
+            'cached': {
+                self.uris[0]: {
+                    'path': 'file:///test1_cached.nc',
+                    'mapped': {
+                        'time': slice(0, 122),
+                        'lat': slice(0, 100),
+                        'lon': slice(0, 200),
+                    }
+                }
+            },
+            'chunks': {
+                self.uris[0]: {
+                    'lat': [
+                        slice(0, 10),
+                        slice(10, 20),
+                        slice(20, 30),
+                        slice(30, 40),
+                        slice(40, 50),
+                        slice(50, 60),
+                        slice(60, 70),
+                        slice(70, 80),
+                        slice(80, 90),
+                        slice(90, 100),
+                    ],
+                },
+            }
+        }
+
         self.chunks_missing = {
             'base_units': 'days since 1990-1-1 0',
             'var_name': 'tas',
@@ -424,21 +465,23 @@ class PreprocessTestCase(test.TestCase):
 
         self.assertEqual(data, self.execute)
 
-    def test_generate_chunks_axis_missing(self):
-        with self.assertRaises(wps.WPSError):
-            preprocess.generate_chunks(self.map, self.uris[0], 'lev')
+    def test_generate_chunks_all_axes(self):
+        data = preprocess.generate_chunks(self.cache, self.uris[0], ['time', 'lat', 'lon'])
 
-    def test_generate_chunks_uri_map_is_none(self):
-        data = preprocess.generate_chunks(self.map_error, self.uris[0], 'time')
+        self.assertEqual(data, self.chunks)
 
-        self.assertEqual(data, self.chunks_missing)
+    def test_generate_chunks_lat(self):
+        data = preprocess.generate_chunks(self.cache, self.uris[0], ['lat'])
 
-    def test_generate_chunks_uri_not_mapped(self):
-        with self.assertRaises(wps.WPSError):
-            preprocess.generate_chunks(self.units_single, self.uris[0], 'time')
+        self.assertEqual(data, self.chunks)
+
+    def test_generate_chunks_time(self):
+        data = preprocess.generate_chunks(self.cache, self.uris[0], ['time'])
+
+        self.assertEqual(data, self.chunks_lat)
 
     def test_generate_chunks(self):
-        data = preprocess.generate_chunks(self.cache, self.uris[0], 'time')
+        data = preprocess.generate_chunks(self.cache, self.uris[0], None)
 
         self.assertEqual(data, self.chunks)
 

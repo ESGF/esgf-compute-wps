@@ -96,9 +96,7 @@ def request_execute(self, attrs, job_id=None):
         raise WPSError('Failed to execute status code {code}', code=response.status_code)
 
 @base.cwt_shared_task()
-def generate_chunks(self, attrs, uri, axis, job_id=None):
-    logger.info('Generating chunks for %r over %r', uri, axis)
-
+def generate_chunks(self, attrs, uri, process_axes, job_id=None):
     try:
         mapped = attrs['cached'][uri]['mapped']
     except (KeyError, ValueError, TypeError):
@@ -112,11 +110,31 @@ def generate_chunks(self, attrs, uri, axis, job_id=None):
         except KeyError:
             raise WPSError('{uri} has not been mapped', uri=uri)
 
-    if axis is None:
-        try:
-            axis = [x for x in mapped.keys() if x not in ('time', 't', 'z')][0]
-        except IndexError:
-            raise WSPError('Failed to determine an axis to generate chunks over')
+    TIME = ['time', 't', 'z']
+
+    # If process_axis is None we'll default to the time axis
+    if process_axes is None:
+        axis = [x for x in mapped.keys() if x.lower() in TIME][0]
+    else:
+        # Determine which axes we're not processing
+        axis = [x for x in mapped.keys() if x.lower() not in process_axes]
+
+        # Check if time is one of the not processing axes
+        over_time = any([True for x in axis if x in TIME])
+
+        if over_time:
+            # Set the axis to time
+            axis = [x for x in mapped.keys() if x.lower() in TIME][0]
+        else:
+            # Try to choose the first non-time axis
+            try:
+                axis = axis[0]
+            except IndexError:
+                # Covers a case where we're processing over all axes and we'll
+                # choose the time as default
+                axis = [x for x in mapped.keys() if x.lower() in TIME][0]
+
+    logger.info('Generating chunks over %r', axis)
 
     # Covers an unmapped axis
     try:

@@ -415,7 +415,7 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
-def sum(self, attrs, operation, var_name, base_units, axes, output_path, job_id:
+def sum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.sum, job_id)
 
 @base.register_process('CDAT.max', abstract=""" 
