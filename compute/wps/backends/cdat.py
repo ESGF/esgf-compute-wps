@@ -265,10 +265,109 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def execute_computation(self, **kwargs):
+    def execute_computation(self, root, variable, operation, var_name, base_units, mapped, chunks, cached, user_id, job_id, **kwargs):
         logger.info('Configure computation')
         
         logger.info('%s', json.dumps(kwargs, indent=4, default=helpers.json_dumps_default))
+
+        root_op = operation[root]
+
+        process = base.get_process(root_op.identifier)
+
+        axes = root_op.get_parameter('axes')
+
+        var = variable[root_op.inputs[0]]
+
+        var_mapped = mapped[var.uri]
+
+        orig_mapped = var_mapped.copy()
+
+        var_chunks = chunks[var.uri]
+
+        var_cached = cached[var.uri]
+
+        chunked_axis = var_chunks.keys()[0]
+
+        chunks = var_chunks[chunked_axis]
+
+        index = 0
+
+        op_uuid = uuid.uuid4()
+
+        ingress_task_list = []
+        process_task_list = []
+
+        if var_cached is None:
+            for chunk in chunks:
+                key = '{0}-{1:06}'.format(op_uuid, index)
+
+                filename = '{}.nc'.format(key)
+
+                process_filename = '{}-{}.nc'.format(key, axes.values[0])
+
+                index += 1
+
+                ingress_output = os.path.join(settings.WPS_INGRESS_PATH, filename)
+
+                process_output = os.path.join(settings.WPS_INGRESS_PATH, process_filename)
+
+                var_mapped.update({ chunked_axis: chunk })
+
+                ingress_task_list.append(
+                    tasks.ingress_uri.s(
+                        key, var.uri, var_name, var_mapped.copy(), 
+                        ingress_output, user_id, job_id=job_id).set(
+                            **helpers.DEFAULT_QUEUE) |
+                     process.s(root_op, var_name, base_units, axes.values[0:1],
+                               process_output, job_id=job_id).set(
+                         **helpers.DEFAULT_QUEUE))
+        else:
+            var_mapped = cached[var.uri]['mapped']
+
+            for chunk in chunks:
+                key = '{0}-{1:06}'.format(op_uuid, index)
+
+                filename = '{}.nc'.format(key)
+
+                process_filename = '{}-{}.nc'.format(key, axes.values[0])
+
+                index += 1
+
+                ingress_output = os.path.join(settings.WPS_INGRESS_PATH, filename)
+
+                process_output = os.path.join(settings.WPS_INGRESS_PATH, process_filename)
+
+                var_mapped.update({ chunked_axis: chunk })
+
+                attrs = {
+                    key: {
+                        'cached': {
+                            'path': cached[var.uri]['path'],
+                            'domain': var_mapped.copy(),
+                        }
+                    }
+                }
+
+                process_task_list.append(
+                    process.s(attrs, root_op, var_name, base_units, axes.values[0:1],
+                              process_output, job_id=job_id).set(
+                                  **helpers.DEFAULT_QUEUE))
+
+        if len(ingress_task_list) > 0:
+            canvas = (celery.group(ingress_task_list) | 
+                      tasks.concat_process_output.s(var_name, job_id=job_id).set(
+                          **helpers.DEFAULT_QUEUE) |
+                      tasks.ingress_cache.s(var.uri, var_name, orig_mapped, 
+                                            base_units, job_id=job_id).set(
+                                                **helpers.DEFAULT_QUEUE) |
+                      tasks.ingress_cleanup.s(job_id=job_id).set(
+                          **helpers.DEFAULT_QUEUE))
+        else:
+            canvas = (celery.group(process_task_list) |
+                      tasks.concat_process_output.s(var_name, job_id=job_id).set(
+                          **helpers.DEFAULT_QUEUE))
+
+        canvas.delay()
 
     def execute(self, **kwargs):
         if 'preprocess' in kwargs:

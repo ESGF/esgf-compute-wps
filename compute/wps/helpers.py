@@ -78,7 +78,7 @@ def json_dumps_default(x):
             'data': x.parameterize(),
         }
     else:
-        raise TypeError()
+        raise TypeError(type(x))
 
     return data
 

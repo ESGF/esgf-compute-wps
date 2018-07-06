@@ -289,14 +289,14 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
         }
 
     """
-    if not isinstance(attrs):
+    if not isinstance(attrs, dict):
         raise WPSError('Input from previous task should be type dict got type "{name}"', name=type(attrs))
 
     key = attrs.keys()[0]
 
     value = attrs[key]
 
-    loger.info('Processing key %r', key)
+    logger.info('Processing key %r', key)
 
     if 'ingress' in value:
         logger.info('Source was ingressed')
@@ -304,7 +304,7 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
         uri = value['ingress']['path']
 
         domain = None
-    elif 'cache' in value:
+    elif 'cached' in value:
         logger.info('Source was cached')
 
         uri = value['cached']['path']
@@ -328,7 +328,7 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
 
     axis_indexes = [data.getAxisIndex(axis) for axis in axes]
 
-    if any(lambda x: x < 0, axis_indexes):
+    if any([x < 0 for x in axis_indexes]):
         raise WPSError('Missing axis "{name}"', axis)
 
     logger.info('All axes %r are present in file', axes)
@@ -347,7 +347,7 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
 
     # Remap the time axis if passed the base units
     if base_units is not None:
-        data.getTime().toRelativeTime(base_units)
+        data.getTime().toRelativeTime(str(base_units))
 
         logger.info('Remapped time axis with base units %r', base_units)
 
@@ -379,6 +379,55 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
 
     return attrs
 
+@base.cwt_shared_task()
+def concat_process_output(self, attrs, var_name, job_id):
+    """ Concatenates the process outputs.
+
+    Args:
+        attrs: A dict or list of dicts from previous tasks.
+        job_id: An int referencing the associated job.
+
+    Returns:
+        The input attrs value.
+    """
+    job = self.load_job(job_id)
+
+    if not isinstance(attrs, list):
+        attrs = [attrs]
+
+    attrs = sorted(attrs, key=lambda x: x.values()[0]['processed']['path'])
+
+    output_name = '{}.nc'.format(uuid.uuid4())
+
+    output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
+
+    try:
+        with cdms2.open(output_path, 'w') as outfile:
+            for item in attrs:
+                key = item.keys()[0]
+
+                input_path = item[key]['processed']['path']
+
+                try:
+                    with cdms2.open(input_path) as infile:
+                        data = infile(var_name)
+
+                        outfile.write(data, id=var_name)
+                except cdms2.CDMSError:
+                    raise WPSError('Failed to open input file "{path}"', path=input_path)
+    except cdms2.CDMSError:
+        raise WPSError('Failed to open output file "{path}"', path=output_path)
+
+    output_dap = settings.WPS_DAP_URL.format(filename=output_name)
+
+    var = cwt.Variable(output_dap, var_name)
+
+    logger.info('Marking job complete with output %r', var)
+
+    job.succeeded(json.dumps(var.parameterize()))
+
+    return attrs
+
 @base.register_process('CDAT.regrid', abstract="""
 Regrids a variable to designated grid. Required parameter named "gridder".
 """)
@@ -407,7 +456,7 @@ string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
 def average(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.average, job_id)
+    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, MV.average, job_id)
 
 @base.register_process('CDAT.sum', abstract=""" 
 Computes the sum over an axis. Requires singular parameter named "axes" 
@@ -416,7 +465,7 @@ string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
 def sum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.sum, job_id)
+    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, MV.sum, job_id)
 
 @base.register_process('CDAT.max', abstract=""" 
 Computes the maximum over an axis. Requires singular parameter named "axes" 
@@ -425,7 +474,7 @@ string e.g. 'lat|lon'.
 """)
 @base.cwt_shared_task()
 def maximum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.max, job_id)
+    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, MV.max, job_id)
 
 @base.register_process('CDAT.min', abstract="""
 Computes the minimum over an axis. Requires singular parameter named "axes" 
@@ -434,35 +483,7 @@ string e.g. 'lat|lon'.
                        """)
 @base.cwt_shared_task()
 def minimum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(attrs, operation, var_name, base_units, axes, output_path, MV.min, job_id)
-
-@base.register_process('CDAT.add', abstract="""
-Compute the elementwise addition between two variables.
-""")
-@base.cwt_shared_task()
-def add(self, attrs, operation, base_units):
-    pass
-
-@base.register_process('CDAT.subtract', abstract="""
-Compute the elementwise subtraction between two variables.
-""")
-@base.cwt_shared_task()
-def subtract(self, attrs, operation, base_units):
-    pass
-
-@base.register_process('CDAT.multiply', abstract="""
-Compute the elementwise multiplication between two variables.
-""")
-@base.cwt_shared_task()
-def multiply(self, attrs, operation, base_units):
-    pass
-
-@base.register_process('CDAT.divide', abstract="""
-Compute the elementwise division between two variables.
-""")
-@base.cwt_shared_task()
-def divide(self, attrs, operation, base_units):
-    pass
+    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, MV.min, job_id)
 
 @base.cwt_shared_task()
 def cache_variable(self, parent_variables, variables, domains, operation, user_id, job_id):
