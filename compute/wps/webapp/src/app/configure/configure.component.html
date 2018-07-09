@@ -37,7 +37,7 @@
       </div>
     </div>
   </tab>
-  <tab tabTitle="Workflow">
+  <tab *ngIf="configService.workflowEnabled" tabTitle="Workflow">
     <workflow [config]="config" [datasets]="datasetIDs" [processes]="processes"></workflow>
   </tab>
 </tabs>
