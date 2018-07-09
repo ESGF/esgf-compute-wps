@@ -30,14 +30,12 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
 
         query_files = sorted(query_files)
 
-        try:
-            query_files_reduced = [query_files[0], query_files[-1]]
-        except IndexError:
-            raise WPSError('No files associated with "{variable}" of dataset "{dataset}"', variable=query_variable, dataset=dataset_id)
-
         start = datetime.datetime.now()
 
-        axes = {}
+        axes = {
+            'spatial': {},
+            'temporal': {},
+        }
 
         tasks.load_certificate(user)
 
@@ -45,46 +43,35 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
 
         base_units = None
 
-        for i, url in enumerate(query_files_reduced):
+        for i, url in enumerate(query_files):
             try:
                 logger.debug('Opening file "{}"'.format(url))
 
                 with cdms2.open(url) as infile:
                     header = infile[query_variable]
 
-                    if i == 0:
-                        for x in header.getAxisList():
-                            axis_data = {
-                                'id': x.id,
-                                # Need to convert start/stop to str otherwise Django JsonResponse throws up
-                                'start': str(x[0]),
-                                'stop': str(x[-1]),
-                                'id_alt': (x.attributes.get('axis', None) or x.id).lower(),
-                                'units': x.attributes.get('units', None)
+                    for x in header.getAxisList():
+                        if x.isTime():
+                            if base_units is None:
+                                base_units = x.units
+
+                            x_clone = x.clone()
+
+                            x_clone.toRelativeTime(base_units)
+
+                            axes['temporal'][url] = {
+                                'start': x_clone[0],
+                                'stop': x_clone[-1],
+                                'units': x.units or None,
+                                'length': len(x_clone),
                             }
-
-                            axes[x.id] = axis_data
-
-                            if x.isTime():
-                                base_units = axis_data['units']
-                    else:
-                        time = header.getAxisList(axes=('time'))
-
-                        if len(time) == 0:
-                            logger.debug('No time axis to set stop value')
-
-                            continue
-
-                        # Convert last time value to be relative to the first files units
-                        remapped_time = cdtime.reltime(time[0][-1], time[0].attributes.get('units', None))
-
-                        remapped_time = remapped_time.torel(base_units, time[0].getCalendar())
-
-                        old_stop = axes[time[0].id]['stop']
-
-                        axes[time[0].id]['stop'] = remapped_time.value
-
-                        logger.info('Extending time from "{}" to "{}"'.format(old_stop, remapped_time))
+                        elif i == 0:
+                            axes['spatial'][x.id] = {
+                                'start': x[0],
+                                'stop': x[-1],
+                                'units': x.units or None,
+                                'length': len(x),
+                            }
             except cdms2.CDMSError as e:
                 raise WPSError('Error opening file "{url}": {error}', url=url, error=e.message)
 
