@@ -186,9 +186,6 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
     logger.info('Output path %r', output_path)
 
-    logger.info('%r', combined)
-    logger.info('%r', combined.keys())
-
     with cdms2.open(output_path, 'w') as outfile:
         for key in sorted(combined.keys()):
             item = combined[key]
@@ -504,13 +501,13 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
     return new_attrs
 
 SNG_DATASET_SNG_INPUT = {
-    'dataset': 1,
-    'input': 1,
+    'datasets': 1,
+    'files': 1,
 }
 
 SNG_DATASET_MULTI_INPUT = {
-    'dataset': 1,
-    'input': '*',
+    'datasets': 1,
+    'files': '*',
 }
 
 @base.register_process('CDAT.regrid', abstract="""
