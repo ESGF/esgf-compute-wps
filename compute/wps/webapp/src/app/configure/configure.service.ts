@@ -14,6 +14,8 @@ export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
 
 export class Process {
   uid: string;
+  datasetLimit: number;
+  fileLimit: number;
 
   constructor(
     public identifier: string = '',
@@ -225,10 +227,23 @@ export class Process {
         let vars = curr.inputs.filter((item: any) => { return !(item instanceof Process); });
         let procs = curr.inputs.filter((item: any) => { return (item instanceof Process); });
 
+        if (curr.datasetLimit != Infinity && curr.datasetLimit < curr.inputs.length) {
+          throw `The number of inputs (${curr.inputs.length}) exceeds the maximum allowed (${curr.datasetLimit})`;
+        }
+
         // Add each input variable to the global variable list
         vars.forEach((item: Variable) => {
           // Each file gets an entry
-          item.files.forEach((data: string, i: number) => {
+          let files = item.files.filter((file: File) => {
+            return file.included; 
+          });
+
+          // Check that select files do not exceed the maximum allowed
+          if (curr.fileLimit != Infinity && curr.fileLimit < files.length) {
+            throw `The number of selected files (${files.length}) exceeds the maximum allowed (${curr.fileLimit})`;
+          }
+          
+          files.forEach((data: File, i: number) => {
             let uid = `${item.uid}-${i}`;
 
             // Add string reference to input list
@@ -238,7 +253,7 @@ export class Process {
             if (variable[uid] === undefined) {
               variable[uid] = {
                 id: `${item.id}|${uid}`,
-                uri: data,
+                uri: data.url,
               };
             }
           });
@@ -351,16 +366,33 @@ export class Dataset {
   ) { }
 }
 
+export class File {
+  constructor(
+    public url: string,
+    public included: boolean = true
+  ) { }
+}
+
 export class Variable {
-  uid: string;
+  _files: File[];
 
   constructor(
     public id: string,
-    public axes: Axis[] = [],
-    public files: string[] = [],
+    public axes: Axis[],
+    files: string[],
     public dataset: string = '',
+    public include: boolean = true,
+    public uid: string = '',
   ) { 
     this.uid = Math.random().toString(16).slice(2); 
+
+    this._files = files.map((item: string) => {
+      return new File(item);
+    });
+  }
+
+  get files(): File[] {
+    return this._files;
   }
 }
 
@@ -439,11 +471,23 @@ export class ConfigureService extends WPSService {
       });
   }
 
+  describeProcess(identifier: string) {
+    let params = new URLSearchParams();
+
+    params.append('request', 'DescribeProcess');
+    params.append('service', 'WPS');
+    params.append('identifier', identifier);
+
+    return this.getUnmodified(this.configService.wpsPath, params)
+      .then(response => {
+        return response.text();
+      });
+  }
+
   execute(process: Process, defaults: any = {}): Promise<string> {
     let preparedData: string;
 
     try {
-      //preparedData = process.prepareDataInputsString();
       preparedData = process.prepareDataInputsXML(defaults);
     } catch (e) {
       return Promise.reject(e);
@@ -451,16 +495,7 @@ export class ConfigureService extends WPSService {
 
     let params = new URLSearchParams();
 
-    //params.append('service', 'WPS');
-    //params.append('request', 'execute');
     params.append('api_key', this.authService.user.api_key);
-    //params.append(.id', process.id);
-    //params.append('datainputs', preparedData);
-
-    //return this.getUnmodified('/wps', params)
-    //  .then(response => {
-    //    return response.text(); 
-    //  });
 
     return this.postCSRFUnmodified(this.configService.wpsPath, preparedData, params=params)
       .then(response => {

@@ -19,14 +19,19 @@ declare var $: any;
     </div>
     <div class="form-group">
       <label for="variable">Variable</label>
-      <select [(ngModel)]="config.variable" (change)="loadVariable()" class="form-control" id="variable" name="variable">
-        <option *ngFor="let v of variables" [ngValue]="v">{{v.id}}</option>
-      </select>
+      <div class="input-group">
+        <select [(ngModel)]="config.variable" (change)="loadVariable()" class="form-control" id="variable" name="variable">
+          <option *ngFor="let v of variables" [ngValue]="v">{{v.id}}</option>
+        </select>
+        <span class="input-group-btn">
+          <button type="button" class="btn btn-default" data-toggle="modal" data-target="#filesModal">Files</button>
+        </span>
+      </div>
     </div>
     <div class="form-group">
       <label for="process">Process</label>
       <div class="input-group">
-        <select [(ngModel)]="config.process.identifier" class="form-control" id="process" name="process">
+        <select [(ngModel)]="config.process.identifier" (change)="processChanged($event.target.value)" class="form-control" id="process" name="process">
           <option *ngFor="let proc of processes">{{proc.identifier}}</option>
         </select>
         <span class="input-group-btn">
@@ -43,11 +48,15 @@ declare var $: any;
 })
 export class GeneralConfigComponent implements OnInit { 
   @Input() config: Configuration;
-  @Input() processes: any[];
   @Input() datasetIDs: string[];
 
   variables: Variable[];
   datasets: Dataset[];
+  _processes: any[];
+
+  owsNS = 'http://www.opengis.net/ows/1.1';
+  wpsNS = 'http://www.opengis.net/wps/1.0.0';
+  xlinkNS = 'http://www.w3.org/1999/xlink';
 
   constructor(
     private configureService: ConfigureService,
@@ -67,6 +76,48 @@ export class GeneralConfigComponent implements OnInit {
 
       this.loadDataset();
     }
+  }
+
+  @Input()
+  set processes(values: any[]) {
+    this._processes = values;
+
+    this.processChanged(this.config.process.identifier);
+  }
+
+  get processes() {
+    return this._processes;
+  }
+
+  processChanged(identifier: string) {
+    this.configureService.describeProcess(identifier)
+      .then((data: string) => {
+        let parser = new DOMParser();
+
+        let xmlDoc = parser.parseFromString(data, 'text/xml');
+
+        Array.from(xmlDoc.children[0].children).forEach((desc: any) => {
+          Array.from(desc.getElementsByTagNameNS(this.owsNS, 'Metadata')).forEach((item: any) => {
+            let title = item.getAttributeNS(this.xlinkNS, 'title');
+
+            let items = title.split(':');
+
+            let value = null;
+
+            if (items[1] == '*') {
+              value = Infinity;
+            } else {
+              value = parseInt(items[1]); 
+            }
+
+            if (items[0] == 'datasets') {
+              this.config.process.datasetLimit = value;
+            } else if (items[0] == 'files') {
+              this.config.process.fileLimit = value;
+            }
+          });
+        });
+      });
   }
 
   showAbstract() {
