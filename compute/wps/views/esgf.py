@@ -60,6 +60,7 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
                             x_clone.toRelativeTime(base_units)
 
                             axes['temporal'][url] = {
+                                'id': x.id,
                                 'start': x_clone[0],
                                 'stop': x_clone[-1],
                                 'units': x.units or None,
@@ -67,6 +68,7 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
                             }
                         elif i == 0:
                             axes['spatial'][x.id] = {
+                                'id': x.id,
                                 'start': x[0],
                                 'stop': x[-1],
                                 'units': x.units or None,
@@ -185,7 +187,7 @@ def search_variable(request):
 
         return common.failed(e.message)
     else:
-        return common.success(axes.values())
+        return common.success(axes)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie

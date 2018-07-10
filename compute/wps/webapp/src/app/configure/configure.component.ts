@@ -100,6 +100,57 @@ export class ConfigureComponent implements OnInit {
       });
   }
 
+  onCRSChange(name: any) {
+    let axis = this.config.process.domain.find((item: any) => {
+      return item.id == name;
+    });
+
+    this.updateAxis(axis);
+  }
+
+  updateAxis(axis: Axis) {
+    if (axis.type == 'temporal') {
+      let data = axis.data;
+
+      let start = Infinity;
+      let stop = 0;
+
+      for (let file of this.config.variable.files) {
+        if (file.included) {
+          let fileData = data[file.url];
+
+          if (axis.crs == 'Indices') {
+            start = 0;
+
+            stop += fileData.length;
+          } else if (axis.crs == 'Values') {
+            if (fileData.start < start) {
+              start = fileData.start;
+            }
+
+            if (fileData.stop > stop) {
+              stop = fileData.stop;
+            }
+          }
+        }
+      }
+
+      axis.start = start;
+
+      axis.stop = stop;
+    } else {
+      if (axis.crs == 'Indices') {
+        axis.start = 0;
+
+        axis.stop = axis.length;
+      } else if (axis.crs == 'Values') {
+        axis.start = axis._start;
+
+        axis.stop = axis._stop;
+      }
+    }
+  }
+
   addParameter() {
     this.config.process.parameters.push(new Parameter());
   }

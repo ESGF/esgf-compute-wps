@@ -2,7 +2,7 @@ import { Http, Headers, URLSearchParams, QueryEncoder } from '@angular/http';
 import { Injectable } from '@angular/core';
 import { Params } from '@angular/router';
 
-import { Axis } from './axis.component';
+import { Axis, AxisCollection } from './axis.component';
 import { Parameter } from './parameter.component';
 import { RegridModel } from './regrid.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
@@ -456,7 +456,7 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  searchVariable(config: Configuration): Promise<Axis[]> {
+  searchVariable(config: Configuration): Promise<AxisCollection> {
     let params = new URLSearchParams();
 
     params.append('dataset_id', config.dataset.id);
@@ -467,7 +467,7 @@ export class ConfigureService extends WPSService {
 
     return this.get(this.configService.searchVariablePath, params)
       .then(response => {
-        return response.data as Axis[];
+        return response.data as AxisCollection;
       });
   }
 

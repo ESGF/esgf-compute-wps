@@ -173,14 +173,41 @@ export class GeneralConfigComponent implements OnInit {
     if (this.config.variable.axes === null) {
       this.configureService.searchVariable(this.config)
         .then(data => {
-          // cached copy of the axes
-          this.config.variable.axes = data.map((axis: Axis) => {
-            return {step: 1, crs: 'Values', ...axis}; 
-          });
+          let axes = [];
 
-          // create a copy for editing
-          this.config.process.domain = data.map((axis: Axis) => {
-            return {step: 1, crs: 'Values', ...axis};
+          for (let name of Object.keys(data.spatial)) {
+            let axis = data.spatial[name];
+
+            axes.push(new Axis(axis.id, axis.units, axis.start, axis.stop, axis.length, 'spatial'));
+          }
+
+          let temporal = null;
+
+          for (let url of Object.keys(data.temporal)) {
+            let axis = data.temporal[url];
+
+            if (temporal == null) {
+              temporal = new Axis(axis.id, axis.units, axis.start, axis.stop, axis.length, 'temporal');
+
+              // store original
+              temporal.data = data.temporal;
+            } else {
+              if (axis.start < temporal.start) {
+                temporal.start = axis.start;
+              }
+
+              if (axis.stop > temporal.stop) {
+                temporal.stop = axis.stop;
+              }
+            }
+          }
+
+          axes.push(temporal);
+
+          this.config.variable.axes = axes;
+
+          this.config.process.domain = axes.map((item: Axis) => {
+            return {...item};
           });
         })
         .catch(error => {
@@ -189,7 +216,7 @@ export class GeneralConfigComponent implements OnInit {
     } else {
       // create a copy for editing
       this.config.process.domain = this.config.process.domain.map((axis: Axis) => {
-        return {step: 1, crs: 'Values', ...axis};
+        return {...axis};
       });
     }
   }

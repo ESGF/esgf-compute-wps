@@ -352,9 +352,9 @@ export class WorkflowComponent implements OnInit {
 
     return this.configureService.searchVariable(this.config)
       .then(axes => {
-        variable.axes = axes.map((axis: Axis) => {
-          return {step: 1, ...axis}; 
-        });
+        //variable.axes = axes.map((axis: Axis) => {
+        //  return {step: 1, ...axis}; 
+        //});
 
         this.loading = false;
 
@@ -376,15 +376,7 @@ export class WorkflowComponent implements OnInit {
 
     if (axis != undefined) return;
 
-    this.selectedNode.process.domain.push({
-      id: name,
-      id_alt: null,
-      units: 'None',
-      start: 0,
-      stop: 0,
-      step: 1,
-      crs: 'Values',
-    });
+    this.selectedNode.process.domain.push(new Axis(name, 'None', 0, 0, 0, 'unknown'));
   }
 
   removeAxis(name: string) {

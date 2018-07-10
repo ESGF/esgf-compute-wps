@@ -101,50 +101,6 @@ describe('Configuration Service', () => {
     }));
   });
 
-  it('should return a list of axes', fakeAsync(() => {
-    let mockResult: Axis[] = [
-      {
-        id: 'time',
-        id_alt: 't',
-        start: 0,
-        stop: 2000,
-        step: 2,
-        units: 'days since 1990-1-1',
-        crs: 'Values'
-      },
-      {
-        id: 'longitude',
-        id_alt: 'x',
-        start: 0,
-        stop: 190,
-        step: 2,
-        units: 'degrees west',
-        crs: 'Values'
-      }
-    ];
-    let axisResult: Axis[];
-
-    let config = new Configuration();
-
-    //config.variable = 'tas';
-    config.datasetID = 'mockDatasetID';
-    config.indexNode = 'mockIndexNode';
-
-    service.searchVariable(config)
-      .then((result: Axis[]) => axisResult = result);
-
-    lastConnection.mockRespond(new Response(new ResponseOptions({
-      body: JSON.stringify({
-        status: 'success',
-        data: mockResult
-      })
-    })));
-
-    tick();
-
-    expect(axisResult).toEqual(mockResult);
-  }));
-
   it('should return ESGF search results', fakeAsync(() => {
     let mockResult = {
       tas: {

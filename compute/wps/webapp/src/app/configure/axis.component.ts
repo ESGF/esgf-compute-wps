@@ -9,14 +9,31 @@ import {
 
 import { Subject } from 'rxjs/Subject';
 
-export interface Axis {
-  id: string;
-  id_alt: string;
-  units: string;
-  start: number;
-  stop: number;
-  step: number;
-  crs: string;
+export class AxisCollection {
+  constructor(
+    public spatial: Axis[],
+    public temporal: Axis[],
+  ) { }
+}
+
+export class Axis {
+  constructor(
+    public id: string,
+    public units: string,
+    public _start: number,
+    public _stop: number,
+    public length: number,
+    public type: string,
+    public start = 0,
+    public stop = 0,
+    public step = 1,
+    public crs = 'Values',
+    public data: any = null,
+  ) { 
+    this.start = this._start;
+
+    this.stop = this._stop;
+  }
 }
 
 @Component({
@@ -45,7 +62,7 @@ export interface Axis {
           <div>
             <label for="crs{{axisIndex}}">CRS</label>
             <br />
-            <select [(ngModel)]="axis.crs" name="crs" id="crs{{axisIndex}}" class="form-control">
+            <select [(ngModel)]="axis.crs" (change)="crsChange.emit(axis.id)" name="crs" id="crs{{axisIndex}}" class="form-control">
               <option>Values</option>
               <option>Indices</option>
             </select>
@@ -74,6 +91,7 @@ export class AxisComponent {
   @Input() canRemove: boolean = false;
   @Output() axisChange: EventEmitter<string> = new EventEmitter<string>();
   @Output() axisRemove: EventEmitter<string> = new EventEmitter<string>();
+  @Output() crsChange: EventEmitter<string> = new EventEmitter<string>();
 
   id: string = Math.random().toString(16).slice(2);
   start: Subject<number> = new Subject<number>();

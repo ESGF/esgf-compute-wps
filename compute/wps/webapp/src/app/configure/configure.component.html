@@ -26,7 +26,7 @@
                 </select>
               </div>
               <div *ngFor="let axis of config.process.domain; index as i" class="list-group-item">
-                <axis [axisIndex]="i" [axis]="axis" (axisChange)="map.onAxisChange($event)"></axis>
+                <axis [axisIndex]="i" [axis]="axis" (axisChange)="map.onAxisChange($event)" (crsChange)="onCRSChange($event)"></axis>
               </div>
             </panel>
           </panel-group>
