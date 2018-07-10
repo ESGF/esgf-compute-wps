@@ -1,5 +1,3 @@
-{{- $publicPath := .Values.data.publicPath }}
-{{- $cachePath := .Values.data.cachePath }}
 {{- range .Values.celery.queues }}
 apiVersion: apps/v1beta2
 kind: Deployment
@@ -33,14 +31,14 @@ spec:
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         {{- if not $.Values.development }}
         args: 
-          - -l
-          - info
-          - -c
-          - 1
-          - --max-memory-per-child
+          - "-l"
+          - "info"
+          - "-c"
+          - "1"
+          - "--max-memory-per-child"
           - {{ $.Values.celery.resources.memory | quote }}
-          - -n 
-          - {{ .name }}
+          - "-n"
+          - {{ .name | quote }}
         {{- range $key, $value := .argsExtra }}
           - {{ $key | quote }}
           - {{ $value | quote }}
@@ -111,11 +109,11 @@ spec:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
       - name: public-volume
         hostPath:
-          path: {{ $publicPath }}
+          path: {{ $.Values.data.publicPath }}
           type: DirectoryOrCreate
       - name: cache-volume
         hostPath:
-          path: {{ $cachePath }}
+          path: {{ $.Values.data.cachePath }}
           type: DirectoryOrCreate
       - name: ingress-volume
         hostPath:

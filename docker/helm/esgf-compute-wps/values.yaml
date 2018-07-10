@@ -18,7 +18,7 @@ ingress:
 traefik:
   serviceType: NodePort
 
-  ssl:
+  #ssl:
     #enabled: true
     #enforced: true
     #defaultCert:
