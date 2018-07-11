@@ -100,6 +100,12 @@ export class ConfigureComponent implements OnInit {
       });
   }
 
+  onFilesModified() {
+    this.config.process.domain.forEach((item: any) => {
+      this.updateAxis(item);
+    });
+  }
+
   onCRSChange(name: any) {
     let axis = this.config.process.domain.find((item: any) => {
       return item.id == name;

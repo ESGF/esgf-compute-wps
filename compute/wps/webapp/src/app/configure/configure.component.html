@@ -5,7 +5,7 @@
         <div class="col-md-2">
           <panel-group>
             <panel title="General">
-              <general-config [processes]="processes" [datasetIDs]="datasetIDs" [config]="config"></general-config>
+              <general-config [processes]="processes" [datasetIDs]="datasetIDs" [config]="config" (filesModified)="onFilesModified()"></general-config>
             </panel>
             <panel title="Regrid">
               <regrid [model]="config.process.regrid"></regrid>

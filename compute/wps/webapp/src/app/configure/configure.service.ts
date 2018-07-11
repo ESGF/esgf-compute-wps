@@ -15,7 +15,7 @@ export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
 export class Process {
   uid: string;
   datasetLimit: number;
-  fileLimit: number;
+  inputLimit: number;
 
   constructor(
     public identifier: string = '',
@@ -239,8 +239,8 @@ export class Process {
           });
 
           // Check that select files do not exceed the maximum allowed
-          if (curr.fileLimit != Infinity && curr.fileLimit < files.length) {
-            throw `The number of selected files (${files.length}) exceeds the maximum allowed (${curr.fileLimit})`;
+          if (curr.inputLimit != Infinity && curr.inputLimit < files.length) {
+            throw `The number of selected files (${files.length}) exceeds the maximum allowed (${curr.inputLimit})`;
           }
           
           files.forEach((data: File, i: number) => {

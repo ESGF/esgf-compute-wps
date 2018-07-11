@@ -24,7 +24,7 @@ declare var $: any;
           <option *ngFor="let v of variables" [ngValue]="v">{{v.id}}</option>
         </select>
         <span class="input-group-btn">
-          <button type="button" class="btn btn-default" data-toggle="modal" data-target="#filesModal">Files</button>
+          <button (click)="showFiles()" type="button" class="btn btn-default" data-toggle="modal" data-target="#filesModal">Files</button>
         </span>
       </div>
     </div>
@@ -49,6 +49,7 @@ declare var $: any;
 export class GeneralConfigComponent implements OnInit { 
   @Input() config: Configuration;
   @Input() datasetIDs: string[];
+  @Output() filesModified = new EventEmitter();
 
   variables: Variable[];
   datasets: Dataset[];
@@ -112,12 +113,18 @@ export class GeneralConfigComponent implements OnInit {
 
             if (items[0] == 'datasets') {
               this.config.process.datasetLimit = value;
-            } else if (items[0] == 'files') {
-              this.config.process.fileLimit = value;
+            } else if (items[0] == 'inputs') {
+              this.config.process.inputLimit = value;
             }
           });
         });
       });
+  }
+
+  showFiles() {
+    $('#filesModal').on('hide.bs.modal', (event: any) => {
+      this.filesModified.emit();
+    });
   }
 
   showAbstract() {
