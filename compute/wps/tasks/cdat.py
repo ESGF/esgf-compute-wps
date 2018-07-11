@@ -502,12 +502,12 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
 
 SNG_DATASET_SNG_INPUT = {
     'datasets': 1,
-    'files': 1,
+    'inputs': 1,
 }
 
 SNG_DATASET_MULTI_INPUT = {
     'datasets': 1,
-    'files': '*',
+    'inputs': '*',
 }
 
 @base.register_process('CDAT.regrid', abstract="""
