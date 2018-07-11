@@ -253,7 +253,10 @@ def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id, job_id=No
             variable = get_variable(infile, var_name)
 
             for axis in get_axis_list(variable):
-                dimen = domain.get_dimension(axis.id)
+                try:
+                    dimen = domain.get_dimension(axis.id)
+                except AttributeError:
+                    dimen = None
 
                 if dimen is None:
                     logger.info('Axis %r is not included in domain', axis.id)
@@ -322,7 +325,10 @@ def map_domain(self, attrs, uri, var_name, domain, user_id, job_id=None):
         variable = get_variable(infile, var_name)
 
         for axis in get_axis_list(variable):
-            dimen = domain.get_dimension(axis.id)
+            try:
+                dimen = domain.get_dimension(axis.id)
+            except AttributeError:
+                dimen = None
 
             if dimen is None:
                 shape = axis.shape[0]
