@@ -181,6 +181,8 @@ def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=N
     """
     preprocess.load_credentials(user_id)
 
+    job = self.load_job(job_id)
+
     start = get_now()
 
     logger.info('Domain %r', domain)
@@ -191,7 +193,9 @@ def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=N
     except cdms2.CDMSError:
         raise WPSError('Failed to open "{uri}"', uri=uri)
 
-    logger.info('Read data shape %r', data.shape)
+    shape = data.shape
+
+    logger.info('Read data shape %r', shape)
 
     try:
         with cdms2.open(output_path, 'w') as outfile:
@@ -202,6 +206,8 @@ def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=N
     elapsed = get_now() - start
 
     stat = os.stat(output_path)
+
+    self.update(job, 'Ingressed chunk {}', shape)
 
     attrs = {
         key: {

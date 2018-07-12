@@ -115,6 +115,15 @@ class CWTBaseTask(celery.Task):
 
         return job
 
+    def update(self, job, fmt, *args, **kwargs):
+        percent = kwargs.get('percent', 0)
+
+        message = fmt.format(*args)
+
+        job.update(message, percent)
+
+        logger.info('%s %r', message, percent)
+
     def parse_uniform_arg(self, value, default_start, default_n):
         result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
 

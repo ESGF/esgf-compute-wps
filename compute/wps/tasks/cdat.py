@@ -165,8 +165,6 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
     """
     gridder = operation.get_parameter('gridder')
 
-    logger.info('Gridder %r', gridder)
-
     job = self.load_job(job_id)
 
     if not isinstance(attrs, list):
@@ -184,7 +182,7 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
     try_grid = False
     grid = None
 
-    logger.info('Output path %r', output_path)
+    self.update(job, 'Writing output file {}', output_name)
 
     with cdms2.open(output_path, 'w') as outfile:
         for key in sorted(combined.keys()):
@@ -221,6 +219,8 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
                             grid = self.generate_grid(gridder, data)
 
+                        self.update(job, 'Writing chunk {}', data.shape)
+
                         write_data(data, var_name, base_units, grid, gridder, outfile)
                 else:
                     data = infile(var_name)
@@ -230,11 +230,15 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
                         grid = self.generate_grid(gridder, data)
 
+                    self.update(job, 'Writing chunk {}', data.shape)
+
                     write_data(data, var_name, base_units, grid, gridder, outfile)
 
         logger.info('Final shape %r', outfile[var_name].shape)
 
     output_dap = settings.WPS_DAP_URL.format(filename=output_name)
+
+    self.update(job, 'Finished writing output {}', output_dap)
 
     var = cwt.Variable(output_dap, var_name)
 
@@ -290,6 +294,8 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
     """
     if not isinstance(attrs, dict):
         raise WPSError('Input from previous task should be type dict got type "{name}"', name=type(attrs))
+
+    job = self.load_job(job_id)
 
     key = attrs.keys()[0]
 
@@ -443,6 +449,8 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
 
     time_axis = chunked_axis in ['time', 't', 'z']
 
+    self.update(job, 'Concatenating {} chunks over {}', len(attrs), chunked_axis)
+
     try:
         with cdms2.open(output_path, 'w') as outfile:
             for item in attrs:
@@ -462,11 +470,15 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
 
                         if time_axis:
                             if len(axis_indexes) > 0:
-                                for axis in axis_indexes:
+                                for name, axis in zip(axes, axis_indexes):
                                     if axis == -1:
                                         raise WPSError('Failed to get the axis index for "{name}"', name=axis)
 
+                                    shape = data.shape
+
                                     data = process(data, axis=axis)
+
+                                    self.update(job, 'Processing {} over {} {}', shape, name, data.shape)
 
                             outfile.write(data, id=var_name)
                         else:
@@ -478,11 +490,15 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
                 data = MV.concatenate(chunk_list, axis=chunked_axis_index)
 
                 if len(axis_indexes) > 0:
-                    for axis in axis_indexes:
+                    for name, axis in zip(axes, axis_indexes):
                         if axis == -1:
                             raise WPSError('Failed to get the axis index for "{name}"', name=axis)
 
+                        shape = data.shape
+
                         data = process(data, axis=axis)
+
+                        self.update(job, 'Processing {} over {} {}', shape, name, data.shape)
 
                 outfile.write(data, id=var_name)
     except cdms2.CDMSError:
@@ -490,9 +506,9 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
 
     output_dap = settings.WPS_DAP_URL.format(filename=output_name)
 
-    var = cwt.Variable(output_dap, var_name)
+    self.update(job, 'Finished writing output {}', output_dap)
 
-    logger.info('Marking job complete with output %r', var)
+    var = cwt.Variable(output_dap, var_name)
 
     job.succeeded(json.dumps(var.parameterize()))
 

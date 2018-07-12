@@ -37,6 +37,10 @@ def get_axis_list(variable):
 
 @base.cwt_shared_task()
 def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, job_id=None):
+    job = self.load_job(job_id)
+
+    self.update(job, 'Preparing to execute')
+
     attrs = {}
 
     if not isinstance(attrs_list, list):
@@ -97,6 +101,8 @@ def request_execute(self, attrs, job_id=None):
 
 @base.cwt_shared_task()
 def generate_chunks(self, attrs, uri, process_axes, job_id=None):
+    job = self.load_job(job_id)
+
     try:
         mapped = attrs['cached'][uri]['mapped']
     except (KeyError, ValueError, TypeError):
@@ -155,7 +161,7 @@ def generate_chunks(self, attrs, uri, process_axes, job_id=None):
 
         chunks.append(slice(begin, end))
 
-    logger.info('Split %r of %r into %r chunks', axis, uri, len(chunks))
+    self.update(job, 'Generated chunks for {} over {}', uri, axis)
 
     attrs['chunks'] = {
         uri: {
@@ -195,6 +201,8 @@ def check_cache_entries(uri, var_name, domain, job_id=None):
 
 @base.cwt_shared_task()
 def check_cache(self, attrs, uri, job_id=None):
+    job = self.load_job(job_id)
+
     var_name = attrs['var_name']
 
     mapped = attrs['mapped'][uri]
@@ -205,6 +213,8 @@ def check_cache(self, attrs, uri, job_id=None):
         attrs['cached'] = {
             uri: None
         }
+
+        self.update(job, '{} from {} has not been cached', var_name, uri)
     else:
         dimensions = helpers.decoder(entry.dimensions)
 
@@ -228,11 +238,15 @@ def check_cache(self, attrs, uri, job_id=None):
             }
         }
 
+        self.update(job, 'Found {} from {} in cache', var_name, uri)    
+
     return attrs
 
 @base.cwt_shared_task()
 def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id, job_id=None):
     load_credentials(user_id)
+
+    job = self.load_job(job_id)
 
     base_units = attrs['base_units']
 
@@ -246,7 +260,7 @@ def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id, job_id=No
         for infile in infiles:
             uri = get_uri(infile)
 
-            logger.info('Mapping %r from file %r', var_name, uri)
+            self.update(job, 'Mapping domain for {} from {}', var_name, uri)
 
             mapped = {}
 
@@ -313,6 +327,8 @@ def map_domain_aggregate(self, attrs, uris, var_name, domain, user_id, job_id=No
 def map_domain(self, attrs, uri, var_name, domain, user_id, job_id=None):
     load_credentials(user_id)
 
+    job = self.load_job(job_id)
+
     base_units = attrs['base_units']
 
     attrs['var_name'] = var_name
@@ -320,7 +336,7 @@ def map_domain(self, attrs, uri, var_name, domain, user_id, job_id=None):
     mapped = {}
 
     with cdms2.open(uri) as infile:
-        logger.info('Mapping domain for %r', uri)
+        self.update(job, 'Mapping domain for {} from {}', var_name, uri)
 
         variable = get_variable(infile, var_name)
 
@@ -380,11 +396,16 @@ def map_domain(self, attrs, uri, var_name, domain, user_id, job_id=None):
 
 @base.cwt_shared_task()
 def determine_base_units(self, uris, var_name, user_id, job_id=None):
+    job = self.load_job(job_id)
+
+    job.started()
+
     load_credentials(user_id)
 
     attrs = {
         'units': {},
     }
+
     base_units_list = []
 
     for uri in uris:
@@ -395,7 +416,7 @@ def determine_base_units(self, uris, var_name, user_id, job_id=None):
 
         base_units_list.append(base_units)
 
-    logger.info('Collected base units %r', base_units_list)
+    self.update(job, 'Collected base units {}', base_units_list)
 
     try:
         attrs['base_units'] = sorted(base_units_list)[0]
