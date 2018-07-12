@@ -239,7 +239,7 @@ export class Process {
           });
 
           // Check that select files do not exceed the maximum allowed
-          if (curr.inputLimit != Infinity && curr.inputLimit < files.length) {
+          if (curr.inputLimit != Infinity && curr.inputLimit > 0 && curr.inputLimit < files.length) {
             throw `The number of selected files (${files.length}) exceeds the maximum allowed (${curr.inputLimit})`;
           }
           
