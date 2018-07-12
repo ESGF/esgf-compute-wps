@@ -373,7 +373,22 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
+    def execute_simple(self, identifier, user, job, process, **kwargs):
+        process_task = base.get_process(identifier)
+
+        canvas = process_task.s(user_id=user.id, job_id=job.id, process_id=process.id, **kwargs)
+
+        canvas = canvas.set(**helpers.DEFAULT_QUEUE)
+
+        canvas.delay()
+
     def execute(self, **kwargs):
+        identifier = kwargs['identifier']
+
+        process = base.get_process(identifier)
+
+        metadata = process.METADATA
+
         if 'preprocess' in kwargs:
             root = kwargs['root']
 
@@ -386,5 +401,7 @@ class CDAT(backend.Backend):
                     self.execute_processing(**kwargs)
                 else:
                     self.execute_computation(**kwargs)
+        elif 'inputs' in metadata and metadata['inputs'] == 0:
+            self.execute_simple(**kwargs)
         else:
             self.configure_preprocess(**kwargs)

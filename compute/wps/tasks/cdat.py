@@ -58,11 +58,9 @@ Returns current server health
 def health(self, user_id, job_id, process_id, **kwargs):
     self.PUBLISH = base.ALL
 
-    proc = process.Process(self.request.id)
+    job = self.load_job(job_id)
 
-    proc.initialize(user_id, job_id, process_id)
-
-    proc.job.started()
+    user = self.load_user(user_id)
 
     i = inspect()
 
@@ -88,12 +86,12 @@ def health(self, user_id, job_id, process_id, **kwargs):
     active_users = [x for x in users if active(x)]
 
     data = {
-        'data': {
-            'jobs_running': jobs_running,
-            'jobs_queued': jobs_scheduled+jobs_reserved,
-            'active_users': len(active_users),
-        }
+        'jobs_running': jobs_running,
+        'jobs_queued': jobs_scheduled+jobs_reserved,
+        'active_users': len(active_users),
     }
+
+    job.succeeded(json.dumps(data))
 
     return data
 
@@ -562,7 +560,7 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """, process=MV.sum, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def sum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
+def summation(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.max', abstract=""" 
