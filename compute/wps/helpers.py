@@ -2,6 +2,7 @@
 
 import json
 import logging
+import datetime
 
 import cwt
 import numpy as np
@@ -9,6 +10,12 @@ import numpy as np
 from wps import WPSError
 
 logger = logging.getLogger('wps.helpers')
+
+INGRESS_QUEUE = {
+    'queue': 'ingress',
+    'exchange': 'ingress',
+    'routing_key': 'ingress',
+}
 
 DEFAULT_QUEUE = {
     'queue': 'priority.high',
@@ -77,6 +84,15 @@ def json_dumps_default(x):
             '__type': 'process',
             'data': x.parameterize(),
         }
+    elif isinstance(x, datetime.timedelta):
+        data = {
+            'data': {
+                'days': x.days,
+                'seconds': x.seconds,
+                'microseconds': x.microseconds,
+            },
+            '__type': 'timedelta',
+        }
     else:
         raise TypeError(type(x))
 
@@ -94,5 +110,13 @@ def json_loads_object_hook(x):
         data = cwt.Domain.from_dict(x['data'])
     elif x['__type'] == 'process':
         data = cwt.Process.from_dict(x['data'])
+    elif x['__type'] == 'timedelta':
+        kwargs = {
+            'days': x['data']['days'],
+            'seconds': x['data']['seconds'],
+            'microseconds': x['data']['microseconds'],
+        }
+
+        data = datetime.timedelta(**kwargs)
 
     return data

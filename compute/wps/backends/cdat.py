@@ -127,7 +127,7 @@ class CDAT(backend.Backend):
 
             base = tasks.determine_base_units.s(
                 uris, var_name, user.id, job_id=job.id).set(
-                    **helpers.DEFAULT_QUEUE)
+                    **helpers.INGRESS_QUEUE)
 
             variables.append(
                 (base | 
@@ -135,10 +135,10 @@ class CDAT(backend.Backend):
                      (tasks.map_domain.s(
                          x.uri, var_name, operation.domain, user.id, 
                          job_id=job.id).set(
-                             **helpers.DEFAULT_QUEUE) |
+                             **helpers.INGRESS_QUEUE) |
                       tasks.check_cache.s(
                           x.uri, job_id=job.id).set(
-                              **helpers.DEFAULT_QUEUE) |
+                              **helpers.INGRESS_QUEUE) |
                       tasks.generate_chunks.s(
                           x.uri, axis, job_id=job.id).set(
                               **helpers.DEFAULT_QUEUE)) for x in inp])))
@@ -163,7 +163,8 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def execute_processing(self, root, var_name, base_units, user_id, job_id, **kwargs):
+    def execute_processing(self, root, var_name, base_units, user_id, job_id, 
+                           estimated_size, **kwargs):
         logger.info('Configure processing')
 
         root_op = kwargs['operation'][root]
@@ -177,6 +178,10 @@ class CDAT(backend.Backend):
         ingress_task_list = []
         cache_task_list = []
         cache_list = []
+
+        process_obj = models.Process.objects.get(identifier=root_op.identifier)
+
+        queue = helpers.determine_queue(process_obj, estimated_size)
 
         for inp in root_op.inputs:
             var = kwargs['variable'][inp]
@@ -217,12 +222,12 @@ class CDAT(backend.Backend):
                     ingress_task_list.append(tasks.ingress_uri.s(
                         key, var.uri, var_name, mapped.copy(), ingress_output, 
                         user_id, job_id=job_id).set(
-                            **helpers.DEFAULT_QUEUE))
+                            **helpers.INGRESS_QUEUE))
 
                 cache_task_list.append(tasks.ingress_cache.s(
                     var.uri, var_name, orig_mapped, file_base_units, 
                     job_id=job_id).set(
-                        **helpers.DEFAULT_QUEUE))
+                        **queue))
             else:
                 logger.info('%r is cached', var.name)
 
@@ -253,21 +258,29 @@ class CDAT(backend.Backend):
             canvas = None
 
         if canvas is None:
-            canvas = process.s({}, cache_list, root_op, var_name, base_units, 
+            canvas = (process.s({}, cache_list, root_op, var_name, base_units, 
                                job_id=job_id).set(
-                                   **helpers.DEFAULT_QUEUE)
+                                   **queue) |
+                      tasks.update_process_rates.s(
+                          process_id=process_obj.id, job_id=job_id).set(
+                              **queue))
         else:
             canvas = (canvas |
                       process.s(cache_list, root_op, var_name, base_units,
                                 job_id=job_id).set(
-                                    **helpers.DEFAULT_QUEUE) |
+                                    **queue) |
+                      tasks.update_process_rates.s(
+                          process_id=process_obj.id, job_id=job_id).set(
+                              **queue) | 
                       celery.group(cache_task_list) |
                       tasks.ingress_cleanup.s(job_id=job_id).set(
-                          **helpers.DEFAULT_QUEUE))
+                          **queue))
 
         canvas.delay()
 
-    def execute_computation(self, root, variable, operation, var_name, base_units, mapped, chunks, cached, user_id, job_id, **kwargs):
+    def execute_computation(self, root, variable, operation, var_name, 
+                            base_units, mapped, chunks, cached, user_id, 
+                            job_id, estimated_size, **kwargs):
         logger.info('Configure computation')
         
         root_op = operation[root]
@@ -297,6 +310,10 @@ class CDAT(backend.Backend):
         ingress_task_list = []
         process_task_list = []
 
+        process_obj = models.Process.objects.get(identifier=root_op.identifier)
+
+        queue = helpers.determine_queue(process_obj, estimated_size)
+
         if var_cached is None:
             for chunk in chunks:
                 key = '{0}-{1:06}'.format(op_uuid, index)
@@ -317,10 +334,10 @@ class CDAT(backend.Backend):
                     tasks.ingress_uri.s(
                         key, var.uri, var_name, var_mapped.copy(), 
                         ingress_output, user_id, job_id=job_id).set(
-                            **helpers.DEFAULT_QUEUE) |
+                            **helpers.INGRESS_QUEUE) |
                      process.s(root_op, var_name, base_units, axes.values[0:1],
                                process_output, job_id=job_id).set(
-                         **helpers.DEFAULT_QUEUE))
+                         **queue))
         else:
             var_mapped = cached[var.uri]['mapped']
 
@@ -351,25 +368,31 @@ class CDAT(backend.Backend):
                 process_task_list.append(
                     process.s(attrs, root_op, var_name, base_units, axes.values[0:1],
                               process_output, job_id=job_id).set(
-                                  **helpers.DEFAULT_QUEUE))
+                                  **queue))
 
         if len(ingress_task_list) > 0:
             canvas = (celery.group(ingress_task_list) | 
-                      tasks.concat_process_output.s(var_name, job_id=job_id).set(
-                          **helpers.DEFAULT_QUEUE) |
+                      tasks.concat_process_output.s(
+                          var_name, chunked_axis, process.PROCESS, 
+                          axes.values[1:], job_id=job_id).set(
+                              **queue) |
+                      tasks.update_process_rates.s(
+                          process_id=process_obj.id, job_id=job_id).set(**queue) |
                       tasks.ingress_cache.s(var.uri, var_name, orig_mapped, 
                                             base_units, job_id=job_id).set(
-                                                **helpers.DEFAULT_QUEUE) |
+                                                **queue) |
                       tasks.ingress_cleanup.s(job_id=job_id).set(
-                          **helpers.DEFAULT_QUEUE))
+                          **queue))
         else:
             canvas = (celery.group(process_task_list) |
                       tasks.concat_process_output.s(
                           var_name, chunked_axis, process.PROCESS, 
                           axes.values[1:], job_id=job_id).set(
-                              **helpers.DEFAULT_QUEUE) |
+                              **queue) |
+                      tasks.update_process_rates.s(
+                          process_id=process_obj.id, job_id=job_id).set(**queue) |
                       tasks.process_cleanup.s(job_id=job_id).set(
-                          **helpers.DEFAULT_QUEUE))
+                          **queue))
 
         canvas.delay()
 
@@ -383,12 +406,6 @@ class CDAT(backend.Backend):
         canvas.delay()
 
     def execute(self, **kwargs):
-        identifier = kwargs['identifier']
-
-        process = base.get_process(identifier)
-
-        metadata = process.METADATA
-
         if 'preprocess' in kwargs:
             root = kwargs['root']
 
@@ -401,7 +418,14 @@ class CDAT(backend.Backend):
                     self.execute_processing(**kwargs)
                 else:
                     self.execute_computation(**kwargs)
-        elif 'inputs' in metadata and metadata['inputs'] == 0:
-            self.execute_simple(**kwargs)
         else:
-            self.configure_preprocess(**kwargs)
+            identifier = kwargs['identifier']
+
+            process = base.get_process(identifier)
+
+            metadata = process.METADATA
+
+            if 'inputs' in metadata and metadata['inputs'] == 0:
+                self.execute_simple(**kwargs)
+            else:
+                self.configure_preprocess(**kwargs)

@@ -87,11 +87,11 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
 
         return attrs
 
-    filter_ingress = [x for x in attrs if 'ingress' in x.values()[0]]
+    filter_ingress = [x for x in attrs.values() if 'ingress' in x]
 
-    filter_uri = [x for x in filter_ingress if x.values()[0]['ingress']['uri'] == uri]
+    filter_uri = [x for x in filter_ingress if x['ingress']['uri'] == uri]
 
-    filter_uri_sorted = sorted(filter_uri, key=lambda x: x.keys()[0])
+    filter_uri_sorted = sorted(filter_uri, key=lambda x: x['ingress']['path'])
 
     uid = '{}:{}'.format(uri, var_name)
 
@@ -114,10 +114,8 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
     try:
         with cdms2.open(entry.local_path, 'w') as outfile:
             for item in filter_uri_sorted:
-                item_meta = item.values()[0]
-
                 try:
-                    with cdms2.open(item_meta['ingress']['path']) as infile:
+                    with cdms2.open(item['ingress']['path']) as infile:
                         data = infile(var_name)
 
                         logger.info('Read chunk with shape %r', data.shape)
@@ -140,12 +138,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
 
     entry.set_size()
 
-    new_attrs = {}
-
-    for item in attrs:
-        new_attrs.update(item)
-
-    return new_attrs
+    return attrs
 
 @base.cwt_shared_task()
 def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=None):

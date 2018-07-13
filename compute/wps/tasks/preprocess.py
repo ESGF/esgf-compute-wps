@@ -3,6 +3,7 @@
 import contextlib
 import hashlib
 import json
+import os
 
 import cwt
 import cdms2
@@ -85,6 +86,18 @@ def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, 
     attrs['domain'] = domain
 
     attrs['variable'] = variable
+
+    estimated_size = 0.0
+
+    # estimate total size
+    for item in attrs['mapped'].values():
+        size = reduce(lambda x, y: x * y, [x.stop-x.start for x in item.values()])
+
+        # Convert from bytes to megabytes, the 0.4 factor is just an estimation,
+        # to compensate for compression
+        estimated_size += size * 0.4 / 1000000.0
+
+    attrs['estimated_size'] = estimated_size
 
     return attrs
 
@@ -231,10 +244,13 @@ def check_cache(self, attrs, uri, job_id=None):
 
             new_mapped[key] = slice(start, stop)
 
+        stat = os.stat(entry.local_path)
+
         attrs['cached'] = {
             uri: {
                 'path': entry.local_path,
                 'mapped': new_mapped,
+                'size': stat.st_size / 1000000.0,
             }
         }
 

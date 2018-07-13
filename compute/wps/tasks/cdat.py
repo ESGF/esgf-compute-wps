@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import datetime
 import json
 import os
 import re
@@ -25,6 +26,23 @@ logger = get_task_logger('wps.tasks.cdat')
 OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/json')
 
 PATTERN_AXES_REQ = 'CDAT\.(min|max|average|sum)'
+
+@base.cwt_shared_task()
+def update_process_rates(self, attrs, process_id, job_id):
+    try:
+        process = models.Process.objects.get(id=process_id)
+    except models.Process.DoesNotExist:
+        raise WPSError('Process {id} does not exist', id=process_id)
+
+    processed = attrs.pop('processed')
+
+    stat = os.stat(processed['path'])
+
+    size = stat.st_size / 1000000.0
+
+    process.update_rate(size, processed['elapsed'].seconds)
+
+    return attrs
 
 @base.cwt_shared_task()
 def validate(self, attrs, job_id=None):
@@ -182,6 +200,8 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
     self.update(job, 'Writing output file {}', output_name)
 
+    start = datetime.datetime.now()
+
     with cdms2.open(output_path, 'w') as outfile:
         for key in sorted(combined.keys()):
             item = combined[key]
@@ -236,6 +256,11 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
     output_dap = settings.WPS_DAP_URL.format(filename=output_name)
 
+    combined['processed'] = {
+        'path': output_path,
+        'elapsed': datetime.datetime.now() - start,
+    }
+
     self.update(job, 'Finished writing output {}', output_dap)
 
     var = cwt.Variable(output_dap, var_name)
@@ -244,7 +269,7 @@ def base_retrieve(self, attrs, cached, operation, var_name, base_units, job_id):
 
     job.succeeded(json.dumps(var.parameterize()))
 
-    return attrs
+    return combined
 
 def base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
     """ Process the file passed in attrs.
@@ -318,6 +343,8 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
 
     logger.info('Reading input data from %r', uri)
 
+    start = datetime.datetime.now()
+
     # Read input data
     try:
         with cdms2.open(uri) as infile:
@@ -375,6 +402,7 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
     attrs[key].update({
         'processed': {
             'path': output_path,
+            'elapsed': datetime.datetime.now() - start,
         }
     })
 
@@ -449,12 +477,23 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
 
     self.update(job, 'Concatenating {} chunks over {}', len(attrs), chunked_axis)
 
+    elapsed_total = None
+
+    start = datetime.datetime.now()
+
     try:
         with cdms2.open(output_path, 'w') as outfile:
             for item in attrs:
                 key = item.keys()[0]
 
                 input_path = item[key]['processed']['path']
+
+                elapsed = item[key]['processed']['elapsed']
+
+                if elapsed_total is None:
+                    elapsed_total = elapsed
+                else:
+                    elapsed_total += elapsed
 
                 try:
                     with cdms2.open(input_path) as infile:
@@ -504,6 +543,10 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
 
     output_dap = settings.WPS_DAP_URL.format(filename=output_name)
 
+    elapsed = datetime.datetime.now() - start
+
+    elapsed_total += elapsed
+
     self.update(job, 'Finished writing output {}', output_dap)
 
     var = cwt.Variable(output_dap, var_name)
@@ -511,6 +554,11 @@ def concat_process_output(self, attrs, var_name, chunked_axis, process, axes, jo
     job.succeeded(json.dumps(var.parameterize()))
 
     new_attrs = dict(x.items()[0] for x in attrs)
+
+    new_attrs['processed'] = {
+        'path': output_path,
+        'elapsed': elapsed_total,
+    }
 
     return new_attrs
 
