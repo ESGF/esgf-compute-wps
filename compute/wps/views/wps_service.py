@@ -6,7 +6,6 @@ import StringIO
 import celery
 import cwt
 import django
-import cwt
 from django import http
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
@@ -18,6 +17,7 @@ import wps
 from . import common
 from wps import backends
 from wps import helpers
+from wps import metrics
 from wps import models
 from wps import tasks
 from wps import WPSError
@@ -193,24 +193,97 @@ def get_parameter(params, name, required=True):
 
     return param
 
+def handle_get_capabilities(host=None):
+    if host is None:
+        host = 'default'
+
+    server = models.Server.objects.get(host=host)
+
+    return server.capabilities
+
+def handle_describe_process(identifiers):
+    processes = models.Process.objects.filter(identifier__in=identifiers)
+
+    return wps.process_descriptions_from_processes(processes)
+
+def handle_execute(api_key, identifier, data_inputs):
+    try:
+        user = models.User.objects.filter(auth__api_key=api_key)[0]
+    except IndexError:
+        raise WPSError('Missing API key for WPS execute request')
+
+    try:
+        process = models.Process.objects.get(identifier=identifier)
+    except models.Process.DoesNotExist:
+        raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
+
+    # load the process drescription to get the data input descriptions
+    process_descriptions = cwt.wps.CreateFromDocument(process.description)
+
+    description = process_descriptions.ProcessDescription[0]
+
+    kwargs = {}
+
+    # load up the required data inputs for the process
+    if description.DataInputs is not None:
+        for x in description.DataInputs.Input:
+            input_id = x.Identifier.value().lower()
+
+            try:
+                kwargs[input_id] = data_inputs[input_id]
+            except KeyError:
+                raise WPSError('Missing required input "{input_id}" for process {name}', input_id=input_id, name=identifier)
+
+    server = models.Server.objects.get(host='default')
+
+    job = models.Job.objects.create(server=server, process=process, user=user, extra=json.dumps(data_inputs))
+
+    # at this point we've accepted the job
+    job.accepted()
+
+    kwargs.update({
+        'identifier': identifier,
+        'user': user,
+        'job': job,
+        'process': process,
+    })
+
+    try:
+        backend = backends.Backend.get_backend(process.backend)
+
+        if backend is None:
+            raise WPSError('Unknown backend "{name}"', name=process.backend)
+
+        backend.execute(**kwargs)
+    except Exception as e:
+        job.failed(str(e))
+
+        raise
+
+    return job.report
+
 def handle_get(params, query_string):
     """ Handle an HTTP GET request. """
-    request = get_parameter(params, 'request')
+    request = get_parameter(params, 'request', True).lower()
 
-    service = get_parameter(params, 'service')
-
-    api_key = params.get('api_key')
-
-    operation = request.lower()
-
-    identifier = None
+    service = get_parameter(params, 'service', True)
 
     data_inputs = {}
 
-    if operation == 'describeprocess':
-        identifier = get_parameter(params, 'identifier').split(',')
-    elif operation == 'execute':
-        identifier = get_parameter(params, 'identifier')
+    logger.info('GET request %r, service %r', request, service)
+
+    if request == 'getcapabilities':
+        with metrics.GC_REQ_GET.time():
+            response = handle_get_capabilities() 
+    elif request == 'describeprocess':
+        identifier = get_parameter(params, 'identifier', True).split(',')
+
+        with metrics.DP_REQ_GET.time():
+            response = handle_describe_process(identifier)
+    elif request == 'execute':
+        api_key = get_parameter(params, 'api_key', True)
+
+        identifier = get_parameter(params, 'identifier', True)
 
         query_string = urllib.unquote(query_string)
 
@@ -225,9 +298,12 @@ def handle_get(params, query_string):
 
                 data_inputs = dict(x.split('=') for x in data_inputs.split(';'))
 
-    logger.info('Handling GET request "%s" for API key %s', operation, api_key)
+        with metrics.EX_REQ_GET.time():
+            response = handle_execute(api_key, identifier, data_inputs)
+    else:
+        raise WPSErrro('Operation "{name}" is not supported', name=request)
 
-    return api_key, operation, identifier, data_inputs
+    return response
 
 def handle_post(data, params):
     """ Handle an HTTP POST request. 
@@ -239,6 +315,11 @@ def handle_post(data, params):
     except Exception as e:
         raise WPSError('Malformed WPS execute request')
 
+    if isinstance(request, cwt.wps.CTD_ANON_11):
+        raise WPSError('GetCapabilities POST not supported')
+    elif isinstance(request, cwt.wps.CTD_ANON_12):
+        raise WPSError('DescribeProcess POST not supported')
+
     data_inputs = {}
 
     for x in request.DataInputs.Input:
@@ -248,7 +329,10 @@ def handle_post(data, params):
 
     logger.info('Handling POST request for API key %s', api_key)
 
-    return api_key, 'execute', request.Identifier.value(), data_inputs
+    with metrics.EX_REQ_POST.time():
+        response = handle_execute(api_key, request.Identifier.value(), data_inputs)
+
+    return response
 
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
@@ -284,94 +368,32 @@ def generate(request):
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie
 def wps_entrypoint(request):
+    response = None
+
     try:
-        job = None
-
-        api_key, op, identifier, data_inputs = handle_request(request)
-
-        if op == 'getcapabilities':
-            server = models.Server.objects.get(host='default')
-
-            response = server.capabilities
-        elif op == 'describeprocess':
-            processes = models.Process.objects.filter(identifier__in=identifier)
-
-            response = wps.process_descriptions_from_processes(processes)
-        else:
-            try:
-                user = models.User.objects.filter(auth__api_key=api_key)[0]
-            except IndexError:
-                raise WPSError('Missing API key for WPS execute request')
-
-            try:
-                process = models.Process.objects.get(identifier=identifier)
-            except models.Process.DoesNotExist:
-                raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
-
-            # load the process drescription to get the data input descriptions
-            process_descriptions = cwt.wps.CreateFromDocument(process.description)
-
-            description = process_descriptions.ProcessDescription[0]
-
-            kwargs = {}
-
-            # load up the required data inputs for the process
-            if description.DataInputs is not None:
-                for x in description.DataInputs.Input:
-                    input_id = x.Identifier.value().lower()
-
-                    try:
-                        kwargs[input_id] = data_inputs[input_id]
-                    except KeyError:
-                        raise WPSError('Missing required input "{input_id}" for process {name}', input_id=input_id, name=identifier)
-
-            server = models.Server.objects.get(host='default')
-
-            job = models.Job.objects.create(server=server, process=process, user=user, extra=json.dumps(data_inputs))
-
-            # at this point we've accepted the job
-            job.accepted()
-
-            kwargs.update({
-                'identifier': identifier,
-                'user': user,
-                'job': job,
-                'process': process,
-            })
-
-            backend = backends.Backend.get_backend(process.backend)
-
-            if backend is None:
-                raise WPSError('Unknown backend "{name}"', name=process.backend)
-
-            backend.execute(**kwargs)
-
-            response = job.report
+        response = handle_request(request)
     except WPSExceptionError as e:
         logger.exception('WSPExceptionError')
-        
-        if job is not None:
-            job.failed(str(e))
+
+        metrics.ERRORS.inc()
 
         response = e.report
     except WPSError as e:
         logger.exception('WPSError')
 
-        if job is not None:
-            job.failed(str(e))
+        metrics.ERRORS.inc()
 
         response = wps.exception_report(str(e), cwt.ows.NoApplicableCode)
     except Exception as e:
         logger.exception('Some generic exception')
 
+        metrics.ERRORS.inc()
+
         error = 'Please copy the error and report on Github: {}'.format(str(e))
 
-        if job is not None:
-            job.failed(error)
-
         response = wps.exception_report(error, cwt.ows.NoApplicableCode)
-    finally:
-        return http.HttpResponse(response, content_type='text/xml')
+
+    return http.HttpResponse(response, content_type='text/xml')
 
 @require_http_methods(['GET'])
 def regen_capabilities(request):
