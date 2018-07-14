@@ -150,6 +150,9 @@ postgresql:
     enabled: false
 
 redis:
+  repository: redis
+  tag: 4.0.10
+
   cluster:
     enabled: false
 
