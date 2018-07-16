@@ -11,11 +11,12 @@ import re
 import types
 
 import cwt
+import prometheus_client
+from celery import signals
+from celery import Celery
 from kombu import serialization
 from kombu import Exchange
 from kombu import Queue
-
-from celery import Celery
 
 def default(obj):
     if isinstance(obj, slice):
@@ -128,6 +129,11 @@ app.conf.result_serializer = 'cwt_json'
 app.conf.task_serializer = 'cwt_json'
 
 app.autodiscover_tasks()
+
+if 'CWT_METRICS' in os.environ:
+    @signals.celeryd_after_setup.connect
+    def start_metrics(sender, instance, **kwargs):
+        prometheus_client.start_http_server(8080, '0.0.0.0')
 
 @app.task(bind=True)
 def debug_task(self):
