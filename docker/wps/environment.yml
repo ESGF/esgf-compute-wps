@@ -149,8 +149,10 @@ dependencies:
 - pip:
   - backports-abc==0.5
   - backports.ssl-match-hostname==3.5.0.1
+  - bjoern==2.2.1
   - cdat-info==0.0.0
   - django-webpack-loader==0.6.0
+  - gunicorn==19.3.0
   - mv2==3.0.0
   - prometheus-client==0.2.0
   - regrid2==3.0.0

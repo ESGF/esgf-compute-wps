@@ -2,6 +2,6 @@
 
 source activate wps
 
-pushd /var/www/compute/compute
+base_dir=/var/www/compute/compute
 
-exec celery $SUBCOMMAND -A compute -b $CELERY_BROKER -l INFO $@
+celery $SUBCOMMAND -A compute -b $CELERY_BROKER --workdir $base_dir -l INFO $@
