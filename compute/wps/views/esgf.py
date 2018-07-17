@@ -61,16 +61,16 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
 
                             axes['temporal'][url] = {
                                 'id': x.id,
-                                'start': x_clone[0],
-                                'stop': x_clone[-1],
+                                'start': float(x_clone[0]),
+                                'stop': float(x_clone[-1]),
                                 'units': x.units or None,
                                 'length': len(x_clone),
                             }
                         elif i == 0:
                             axes['spatial'][x.id] = {
                                 'id': x.id,
-                                'start': x[0],
-                                'stop': x[-1],
+                                'start': float(x[0]),
+                                'stop': float(x[-1]),
                                 'units': x.units or None,
                                 'length': len(x),
                             }
