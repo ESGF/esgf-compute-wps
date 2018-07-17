@@ -101,65 +101,58 @@ class CDAT(backend.Backend):
 
         var = dict((x.name, x) for x in variable.values())
 
-        variables = []
+        # Eventually workflow preprocessing will be handlded
+        if len(op.values()) > 1:
+            raise WPSError('Workflows are unsupported')
 
-        for operation in op.values():
-            inp = [x for x in operation.inputs if isinstance(x, cwt.Variable)]
+        operation = op.values()[0]
 
-            if re.match('CDAT\.(subset|regrid|sum|min|max|average)', operation.identifier) is not None:
-                inp = sorted(inp, key=lambda x: x.uri)[0:1]
+        inp = [x for x in operation.inputs if isinstance(x, cwt.Variable)]
 
-            if re.match('CDAT\.(min|max|sum|average)', operation.identifier) is not None:
-                axis_param = operation.get_parameter('axes')
+        if re.match('CDAT\.(subset|regrid|sum|min|max|average)', operation.identifier) is not None:
+            inp = sorted(inp, key=lambda x: x.uri)[0:1]
 
-                if axis_param is None:
-                    raise WPSError('Missing required parameter "axes"')
+        if re.match('CDAT\.(min|max|sum|average)', operation.identifier) is not None:
+            axis_param = operation.get_parameter('axes')
 
-                axis = axis_param.values
-            else:
-                axis = None
+            if axis_param is None:
+                raise WPSError('Missing required parameter "axes"')
 
-            operation.inputs = [x.name for x in inp]
+            axis = axis_param.values
+        else:
+            axis = None
 
-            var_name = set(x.var_name for x in inp).pop()
+        operation.inputs = [x.name for x in inp]
 
-            uris = [x.uri for x in inp]
+        var_name = set(x.var_name for x in inp).pop()
 
-            base = tasks.determine_base_units.s(
-                uris, var_name, user.id, job_id=job.id).set(
-                    **helpers.INGRESS_QUEUE)
+        uris = [x.uri for x in inp]
 
-            variables.append(
-                (base | 
-                 celery.group([
-                     (tasks.map_domain.s(
-                         x.uri, var_name, operation.domain, user.id, 
-                         job_id=job.id).set(
-                             **helpers.INGRESS_QUEUE) |
-                      tasks.check_cache.s(
-                          x.uri, job_id=job.id).set(
-                              **helpers.INGRESS_QUEUE) |
-                      tasks.generate_chunks.s(
-                          x.uri, axis, job_id=job.id).set(
-                              **helpers.DEFAULT_QUEUE)) for x in inp])))
+        base = tasks.determine_base_units.s(
+            uris, var_name, user.id, job_id=job.id).set(
+                **helpers.INGRESS_QUEUE)
+
+        variables = celery.group(
+                 (tasks.map_domain.s(
+                     x.uri, var_name, operation.domain, user.id, 
+                     job_id=job.id).set(
+                         **helpers.INGRESS_QUEUE) |
+                  tasks.check_cache.s(
+                      x.uri, job_id=job.id).set(
+                          **helpers.INGRESS_QUEUE) |
+                  tasks.generate_chunks.s(
+                      x.uri, axis, job_id=job.id).set(
+                          **helpers.DEFAULT_QUEUE)) for x in inp)
 
         analyze = tasks.analyze_wps_request.s(
             var, dom, op, user.id, job_id=job.id).set(
                 **helpers.DEFAULT_QUEUE)
 
-        request = tasks.request_execute.s(job_id=job.id).set(**helpers.DEFAULT_QUEUE)
-
         validate = tasks.validate.s(job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-        if len(variables) == 1:
-            canvas = (variables[0] | analyze | validate | request)
-        else:
-            #canvas = (celery.group(variables) | analyze | validate | request)
-            # Need to fix this, celery isn't liking groups in the header of a 
-            # chord, possible solution is launch a canvas for each group of 
-            # variables in an operation and have a task poll for completion 
-            # manually.
-            raise WPSError('Failed to run preprocessing on multiple variables')
+        request = tasks.request_execute.s(job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+
+        canvas = (base | variables | analyze | validate | request)
 
         canvas.delay()
 
