@@ -106,12 +106,13 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
 
         if shard is not None and len(shard.strip()) > 0:
             params['shards'] = '{}/solr'.format(shard.strip())
-        else:
-            params['distrib'] = 'false'
+
+        # enabled distrib search by default
+        params['distrib'] = 'true'
 
         url = 'http://{}/esg-search/search'.format(index_node)
 
-        logger.info('Requesting "{}"'.format(url))
+        logger.info('Requesting "{}" {}'.format(url, params))
 
         try:
             response = requests.get(url, params)
@@ -119,9 +120,6 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
             raise Exception('Connection timed out')
         except requests.RequestException as e:
             raise Exception('Request failed: "{}"'.format(e))
-
-        #with open('./data/solr_full.json', 'w') as outfile:
-        #    outfile.write(response.content)
 
         try:
             data = json.loads(response.content)
