@@ -30,13 +30,21 @@ do
   esac
 done
 
-docker build -t jasonb87/cwt_common:$DOCKER_TAG --build-arg TAG=$GIT_TAG common/
+docker build -t jasonb87/cwt_common:$DOCKER_TAG -f docker/common/Dockerfile .
 
-docker build -t jasonb87/cwt_celery:$DOCKER_TAG --build-arg TAG=$GIT_TAG celery/
+docker build -t jasonb87/cwt_wps:$DOCKER_TAG -f docker/wps/Dockerfile .
 
-docker build -t jasonb87/cwt_wps:$DOCKER_TAG --build-arg TAG=$GIT_TAG wps/
+docker build -t jasonb87/cwt_celery:$DOCKER_TAG -f docker/celery/Dockerfile .
+
+docker push jasonb87/cwt_common:$DOCKER_TAG
+
+docker push jasonb87/cwt_wps:$DOCKER_TAG
+
+docker push jasonb87/cwt_celery:$DOCKER_TAG
 
 if [[ ! -z "$THREDDS" ]]
 then
   docker build -t jasonb87/cwt_thredds:$THREDDS --build-arg TAG=$THREDDS thredds/
+
+  docker push jasonb87/cwt_thredds:$THREDDS
 fi
