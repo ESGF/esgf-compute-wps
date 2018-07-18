@@ -131,56 +131,63 @@ def generate_chunks(self, attrs, uri, process_axes, job_id=None):
 
     TIME = ['time', 't', 'z']
 
-    # If process_axis is None we'll default to the time axis
-    if process_axes is None:
-        axis = [x for x in mapped.keys() if x.lower() in TIME][0]
-    else:
-        # Determine which axes we're not processing
-        axis = [x for x in mapped.keys() if x.lower() not in process_axes]
-
-        # Check if time is one of the not processing axes
-        over_time = any([True for x in axis if x in TIME])
-
-        if over_time:
-            # Set the axis to time
+    if mapped is not None:
+        # If process_axis is None we'll default to the time axis
+        if process_axes is None:
             axis = [x for x in mapped.keys() if x.lower() in TIME][0]
         else:
-            # Try to choose the first non-time axis
-            try:
-                axis = axis[0]
-            except IndexError:
-                # Covers a case where we're processing over all axes and we'll
-                # choose the time as default
+            # Determine which axes we're not processing
+            axis = [x for x in mapped.keys() if x.lower() not in process_axes]
+
+            # Check if time is one of the not processing axes
+            over_time = any([True for x in axis if x in TIME])
+
+            if over_time:
+                # Set the axis to time
                 axis = [x for x in mapped.keys() if x.lower() in TIME][0]
+            else:
+                # Try to choose the first non-time axis
+                try:
+                    axis = axis[0]
+                except IndexError:
+                    # Covers a case where we're processing over all axes and we'll
+                    # choose the time as default
+                    axis = [x for x in mapped.keys() if x.lower() in TIME][0]
 
-    logger.info('Generating chunks over %r', axis)
+        logger.info('Generating chunks over %r', axis)
 
-    # Covers an unmapped axis
-    try:
-        chunked_axis = mapped[axis]
-    except TypeError:
+        # Covers an unmapped axis
+        try:
+            chunked_axis = mapped[axis]
+        except TypeError:
+            attrs['chunks'] = {
+                uri: None
+            }
+
+            return attrs
+        except KeyError:
+            raise WPSError('Missing "{axis}" axis in the axis mapping', axis=axis)
+
+        chunks = []
+
+        for begin in xrange(chunked_axis.start, chunked_axis.stop, settings.WPS_PARTITION_SIZE):
+            end = min(begin+settings.WPS_PARTITION_SIZE, chunked_axis.stop)
+
+            chunks.append(slice(begin, end))
+
+        self.update(job, 'Generated chunks for {} over {}', uri, axis)
+
+        attrs['chunks'] = {
+            uri: {
+                axis: chunks
+            }
+        }
+    else:
+        self.update(job, 'Skipping {}', uri)
+
         attrs['chunks'] = {
             uri: None
         }
-
-        return attrs
-    except KeyError:
-        raise WPSError('Missing "{axis}" axis in the axis mapping', axis=axis)
-
-    chunks = []
-
-    for begin in xrange(chunked_axis.start, chunked_axis.stop, settings.WPS_PARTITION_SIZE):
-        end = min(begin+settings.WPS_PARTITION_SIZE, chunked_axis.stop)
-
-        chunks.append(slice(begin, end))
-
-    self.update(job, 'Generated chunks for {} over {}', uri, axis)
-
-    attrs['chunks'] = {
-        uri: {
-            axis: chunks
-        }
-    }
 
     return attrs
 
