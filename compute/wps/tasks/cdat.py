@@ -18,8 +18,6 @@ from wps import helpers
 from wps import models
 from wps import WPSError
 from wps.tasks import base
-from wps.tasks import process
-from wps.tasks import file_manager
 
 logger = get_task_logger('wps.tasks.cdat')
 

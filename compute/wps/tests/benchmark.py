@@ -116,7 +116,6 @@ os.environ['WPS_TEST'] = 'test'
 django.setup()
 
 from django.conf import settings
-from wps.tasks import process
 
 settings.WPS_CACHE_PATH = os.path.abspath('./cache')
 

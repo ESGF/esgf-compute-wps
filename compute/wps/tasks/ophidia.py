@@ -9,7 +9,6 @@ from PyOphidia import client
 
 from wps import WPSError
 from wps.tasks import base
-from wps.tasks import process
 
 __ALL__ = [
     'PROCESSES',
