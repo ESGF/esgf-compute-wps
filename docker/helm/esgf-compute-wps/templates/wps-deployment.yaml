@@ -33,7 +33,7 @@ spec:
       initContainers:
       - name: devel-init
         image: {{ .Values.wps.init.image }}:{{ .Values.wps.init.imageTag }} 
-        command: ["sh", "-c", "cd /var/www && rm -rf compute && rm -rf esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-wps compute"]
+        command: ["sh", "-c", "cd /var/www && rm -rf compute && rm -rf esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-wps compute && mkdir -p /var/www/static && cp -rf /opt/conda/envs/wps/lib/python2.7/site-packages/airflow/www/static/* /var/www/static "]
         volumeMounts:
         - mountPath: /var/www
           name: shared-volume
@@ -60,6 +60,8 @@ spec:
         - name: WPS_DEBUG
           value: "1"
         {{- end }}
+        - name: AIRFLOW_HOME
+          value: /etc/config
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:

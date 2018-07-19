@@ -72,6 +72,8 @@ spec:
         - name: WPS_DEBUG
           value: "1"
         {{- end }}
+        - name: AIRFLOW_HOME
+          value: /etc/config
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:
