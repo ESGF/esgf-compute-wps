@@ -1,15 +1,16 @@
+{{- if .Values.wps.ingress.enabled -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ template "esgf-compute-wps.fullname" . }}-wps
+  name: {{ .Release.Name }}-wps
   labels:
-    app: {{ template "esgf-compute-wps.fullname" . }}-wps
-    chart: {{ template "esgf-compute-wps.chart" . }}
+    app: {{ .Release.Name }}-wps
     release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
-{{- if .Values.wps.ingress.annotations }}
+{{- if .Values.ingress.annotations }}
   annotations:
-  {{ toYaml .Values.wps.ingress.annotations | indent 2 }}
+  {{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
 {{- end }}
 spec:
   rules:
@@ -17,9 +18,10 @@ spec:
       paths:
       - path: /auth
         backend:
-          serviceName: {{ template "esgf-compute-wps.fullname" . }}-wps
+          serviceName: {{ .Release.Name }}-wps
           servicePort: 8000
       - path: /wps
         backend:
-          serviceName: {{ template "esgf-compute-wps.fullname" . }}-wps
+          serviceName: {{ .Release.Name }}-wps
           servicePort: 8000
+{{- end }}

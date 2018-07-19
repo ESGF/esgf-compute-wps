@@ -1,15 +1,17 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ template "esgf-compute-wps.fullname" . }}-nginx
+  name: {{ .Release.Name }}-nginx
   labels:
-    app: {{ template "esgf-compute-wps.fullname" . }}-nginx
+    app: {{ .Release.Name }}-nginx
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-{{- if .Values.nginx.annotations }}
+{{- if .Values.annotations }}
   annotations:
-  {{  toYaml .Values.nginx.annotations | indent 4 }} 
+  {{- range $key, $value := .Values.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
 {{- end }}
 spec:
   rules:
@@ -17,5 +19,5 @@ spec:
         paths:
           - path: /static
             backend:
-              serviceName: {{ template "esgf-compute-wps.fullname" . }}-nginx
+              serviceName: {{ .Release.Name }}-nginx
               servicePort: 80

@@ -1,15 +1,17 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ template "esgf-compute-wps.fullname" . }}-thredds
+  name: {{ .Release.Name }}-thredds
   labels:
-    app: {{ template "esgf-compute-wps.fullname" . }}-thredds
+    app: {{ .Release.Name }}-thredds
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-{{- if .Values.thredds.ingress.annotations }}
+{{- if .Values.ingress.annotations }}
   annotations:
-  {{ toYaml .Values.thredds.ingress.annotations | indent 2 }}
+  {{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
 {{- end }}
 spec:
   rules:
@@ -17,5 +19,5 @@ spec:
         paths:
           - path: {{ .Values.thredds.ingress.path }}
             backend:
-              serviceName: {{ template "esgf-compute-wps.fullname" . }}-thredds
+              serviceName: {{ .Release.Name }}-thredds
               servicePort: 8080

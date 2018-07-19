@@ -1,13 +1,13 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: {{ template "esgf-compute-wps.fullname" . }}
-  {{- if .Values.wps.annotations }}
+  name: {{ .Release.Name }}-wps
   annotations:
-    {{ toYaml .Values.wps.annotations | indent 2 }}
-  {{- end }}
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /wps/metrics
+    prometheus.io/port: "8000"
   labels:
-    app: {{ template "esgf-compute-wps.name" . }}-wps
+    app: {{ .Release.Name }}-wps
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -15,16 +15,18 @@ spec:
   replicas: {{ .Values.wps.replicas }}
   selector:
     matchLabels:
-      app: {{ template "esgf-compute-wps.name" . }}-wps
+      app: {{ .Release.Name }}-wps
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ template "esgf-compute-wps.name" . }}-wps
+        app: {{ .Release.Name }}-wps
+        chart: {{ template "esgf-compute-wps.chart" . }}
         release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
     spec:
       containers:
-      - name: {{ template "esgf-compute-wps.name" . }}-wps
+      - name: {{ .Release.Name }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
         {{- if .Values.development }}
         command:
@@ -34,12 +36,12 @@ spec:
         resources:
         {{- if not .Values.development }}
           limits:
-            cpu: {{ .Values.wps.resources.cpuLimit }}
-            memory: {{ .Values.wps.resources.memoryLimit }}
+            cpu: "{{ .Values.wps.resources.cpuLimit }}"
+            memory: "{{ .Values.wps.resources.memoryLimit }}"
         {{- end }}
           requests:
-            cpu: {{ .Values.wps.resources.cpuRequest }}
-            memory: {{ .Values.wps.resources.memoryRequest }}
+            cpu: "{{ .Values.wps.resources.cpuRequest }}"
+            memory: "{{ .Values.wps.resources.memoryRequest }}"
         env:
         {{- if $.Values.development }}
         - name: WPS_DEBUG
@@ -78,7 +80,7 @@ spec:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
               key: oauth_secret
         ports:
-        - containerPort: 8000
+        - containerPort: {{ .Values.wps.service.port }}
           protocol: TCP
         volumeMounts:
         {{- if .Values.development }}
@@ -93,7 +95,7 @@ spec:
         {{- if .Values.development }}
         - name: shared-volume
           hostPath:
-            path: /opt/cwt/data/shared
+            path: {{ .Values.sharedPath }}
         {{- end }}
         - name: config-volume
           configMap:

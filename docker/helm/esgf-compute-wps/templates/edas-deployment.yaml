@@ -39,19 +39,11 @@ spec:
           name: cache-volume
       volumes:
       - name: public-volume
-      {{- if not .Values.development }}
-        persistentVolumeClaim:
-          claimName: {{ template "esgf-compute-wps.name" $ }}-public-pvc
-      {{- else }}
         hostPath:
-          path: /opt/cwt/data/public
-      {{- end }}
+          path: {{ .Values.data.publicPath }}
+          type: DirectoryOrCreate
       - name: cache-volume
-      {{- if not .Values.development }}
-        persistentVolumeClaim:
-          claimName: {{ template "esgf-compute-wps.name" $ }}-cache-pvc
-      {{- else }}
         hostPath:
-          path: /opt/cwt/data/cache
-      {{- end }}
+          path: {{ .Values.data.cachePath }}
+          type: DirectoryOrCreate
 {{- end }}
