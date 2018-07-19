@@ -33,7 +33,7 @@ spec:
       initContainers:
       - name: devel-init
         image: {{ .Values.wps.init.image }}:{{ .Values.wps.init.imageTag }} 
-        command: ["sh", "-c", "cd /var/www && git clone https://github.com/ESGF/esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-wps compute"]
+        command: ["sh", "-c", "cd /var/www && rm -rf compute && rm -rf esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-wps compute"]
         volumeMounts:
         - mountPath: /var/www
           name: shared-volume

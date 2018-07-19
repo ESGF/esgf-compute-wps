@@ -62,7 +62,7 @@ wps:
     prometheus.io/port: "8000"
 
   data:
-    sharedPath: /opt/cwt/data/shard
+    sharedPath: /opt/cwt/data/shared
     staticPath: /opt/cwt/data/static
     publicPath: /opt/cwt/data/public
     cachePath: /opt/cwt/data/cache
