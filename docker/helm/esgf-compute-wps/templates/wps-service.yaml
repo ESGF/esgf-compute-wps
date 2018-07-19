@@ -1,17 +1,19 @@
+{{- range $.Values.wps.ports }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-wps
+  name: {{ $.Release.Name }}-wps
   labels:
-    app: {{ .Release.Name }}-wps
-    chart: {{ template "esgf-compute-wps.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app: {{ $.Release.Name }}-wps
+    chart: {{ template "esgf-compute-wps.chart" $ }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
 spec:
-  type: {{ .Values.wps.service.type }}
   ports:
-    - port: {{ .Values.wps.service.port }}
+    - port: {{ .port }}
       protocol: TCP
+      name: {{ .name }}
   selector:
-    app: {{ .Release.Name }}-wps
-    release: {{ .Release.Name }}
+    app: {{ $.Release.Name }}-wps
+    release: {{ $.Release.Name }}
+{{- end }}

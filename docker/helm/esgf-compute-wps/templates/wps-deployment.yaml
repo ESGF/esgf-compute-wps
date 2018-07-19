@@ -11,6 +11,10 @@ metadata:
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+{{- if $.Values.wps.annotations }}
+  annotations:
+    {{ toYaml $.Values.wps.annotations | indent 2 }}
+{{- end }}
 spec:
   replicas: {{ .Values.wps.replicas }}
   selector:
@@ -25,6 +29,15 @@ spec:
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
     spec:
+    {{- if .Values.development }}
+      initContainers:
+      - name: devel-init
+        image: {{ .Values.wps.init.image }}:{{ .Values.wps.init.imageTag }} 
+        command: ["sh", "-c", "cd /var/www && git clone https://github.com/ESGF/esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-wps compute"]
+        volumeMounts:
+        - mountPath: /var/www
+          name: shared-volume
+    {{- end }}
       containers:
       - name: {{ .Release.Name }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
@@ -36,12 +49,12 @@ spec:
         resources:
         {{- if not .Values.development }}
           limits:
-            cpu: "{{ .Values.wps.resources.cpuLimit }}"
-            memory: "{{ .Values.wps.resources.memoryLimit }}"
+            cpu: {{ .Values.wps.resources.cpuLimit }}
+            memory: {{ .Values.wps.resources.memoryLimit }}
         {{- end }}
           requests:
-            cpu: "{{ .Values.wps.resources.cpuRequest }}"
-            memory: "{{ .Values.wps.resources.memoryRequest }}"
+            cpu: {{ .Values.wps.resources.cpuRequest }}
+            memory: {{ .Values.wps.resources.memoryRequest }}
         env:
         {{- if $.Values.development }}
         - name: WPS_DEBUG
@@ -80,8 +93,11 @@ spec:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
               key: oauth_secret
         ports:
-        - containerPort: {{ .Values.wps.service.port }}
+        {{- range .Values.wps.ports }}
+        - containerPort: {{ .port }}
           protocol: TCP
+          name: {{ .name }}
+        {{- end }}
         volumeMounts:
         {{- if .Values.development }}
         - mountPath: /var/www
@@ -92,15 +108,16 @@ spec:
         - name: static-volume
           mountPath: /var/www/static
       volumes:
-        {{- if .Values.development }}
-        - name: shared-volume
-          hostPath:
-            path: {{ .Values.sharedPath }}
-        {{- end }}
-        - name: config-volume
-          configMap:
-            name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
-        - name: static-volume
-          hostPath:
-            path: {{ .Values.wps.staticPath }}
-            type: DirectoryOrCreate
+      {{- if .Values.development }}
+      - name: shared-volume
+        hostPath:
+          path: {{ .Values.wps.data.sharedPath }}
+          type: DirectoryOrCreate
+      {{- end }}
+      - name: config-volume
+        configMap:
+          name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+      - name: static-volume
+        hostPath:
+          path: {{ .Values.wps.data.staticPath }}
+          type: DirectoryOrCreate

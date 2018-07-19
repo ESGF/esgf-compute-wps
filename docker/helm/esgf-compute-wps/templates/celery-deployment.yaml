@@ -8,12 +8,12 @@ metadata:
     chart: {{ template "esgf-compute-wps.chart" $ }}
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
+{{- if $.Values.celery.annotations }}
+  annotations:
+    {{ toYaml $.Values.celery.annotations | indent 2 }}
+{{- end }}
 spec:
-  {{- if $.Values.development }}
-  replicas: 0
-  {{- else }}
   replicas: {{ .replicas }}
-  {{- end }}
   selector:
     matchLabels:
       app: {{ $.Release.Name }}-celery-{{ .name }}
@@ -31,8 +31,10 @@ spec:
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         {{- if not $.Values.development }}
         args: 
+          - "celery"
+          - "worker"
           - "-l"
-          - "info"
+          - "INFO"
           - "-c"
           - "1"
           - "--max-memory-per-child"
@@ -58,6 +60,13 @@ spec:
           requests:
             cpu: {{ $.Values.celery.resources.cpuRequest | quote }}
             memory: {{ $.Values.celery.resources.memoryRequest | quote }}
+        {{- if .ports }}
+        ports:
+        {{- range .ports }}
+        - containerPort: {{ .port }}
+          name: {{ .name }}
+        {{- end }}
+        {{- end }}
         env:
         {{- if $.Values.development }}
         - name: WPS_DEBUG
@@ -102,22 +111,37 @@ spec:
       {{- if $.Values.development }}
       - name: shared-volume
         hostPath:
-          path: {{ $.Values.sharedPath }}
+          path: /opt/cwt/data/shared
       {{- end }}
       - name: config-volume
         configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
       - name: public-volume
+      {{- if $.Values.development }}
         hostPath:
-          path: {{ $.Values.data.publicPath }}
+          path: {{ $.Values.wps.data.ingressPath }}
           type: DirectoryOrCreate
+      {{- else }}
+        persistentVolumeClaim:
+          claimName: public-pvc
+      {{- end }}
       - name: cache-volume
+      {{- if $.Values.development }}
         hostPath:
-          path: {{ $.Values.data.cachePath }}
+          path: {{ $.Values.wps.data.cachePath }}
           type: DirectoryOrCreate
+      {{- else }}
+        persistentVolumeClaim:
+          claimName: cache-pvc
+      {{- end }}
       - name: ingress-volume
+      {{- if $.Values.development }}
         hostPath:
-          path: {{ $.Values.data.ingressPath }}
+          path: {{ $.Values.wps.data.ingressPath }}
           type: DirectoryOrCreate
+      {{- else }}
+        persistentVolumeClaim:
+          claimName: ingress-pvc
+      {{- end }}
 ---
 {{- end }}

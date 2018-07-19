@@ -37,5 +37,5 @@ spec:
       volumes:
       - name: static-volume
         hostPath:
-          path: {{ .Values.wps.staticPath }}
+          path: {{ .Values.wps.data.staticPath }}
           type: DirectoryOrCreate

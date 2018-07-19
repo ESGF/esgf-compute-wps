@@ -38,14 +38,13 @@ spec:
         volumeMounts:
         - name: public-volume
           mountPath: /data/public
-        - name: cache-volume
-          mountPath: /data/cache
       volumes:
       - name: public-volume
+      {{- if $.Values.development }}
         hostPath:
-          path: {{ .Values.data.publicPath }}
+          path: {{ $.Values.wps.data.ingressPath }}
           type: DirectoryOrCreate
-      - name: cache-volume
-        hostPath:
-          path: {{ .Values.data.cachePath }}
-          type: DirectoryOrCreate
+      {{- else }}
+        persistentVolumeClaim:
+          claimName: public-pvc
+      {{- end }}

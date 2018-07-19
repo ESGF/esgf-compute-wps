@@ -1,20 +1,6 @@
 host: 0.0.0.0
 development: false
 
-sharedPath: /opt/nfs/cwt/shared
-
-data:
-  publicPath: /opt/nfs/cwt/data/public
-  cachePath: /opt/nfs/cwt/data/cache
-  ingressPath: /opt/nfs/cwt/data/ingress
-
-ingress:
-  annotations:
-    ingress.kubernetes.io/ssl-redirect: "true"
-    ingress.kubernetes.io/hsts-max-age: "31536000"
-    ingress.kubernetes.io/hsts-include-subdomains: "true"
-    ingress.kubernetes.io/force-hsts: "true"
-
 traefik:
   serviceType: NodePort
 
@@ -60,11 +46,27 @@ nginx:
 wps:
   replicas: 1
   image: jasonb87/cwt_wps
-  imageTag: 2.0.2
+  imageTag: 2.1.0
   staticPath: /opt/nfs/cwt/static
   activeUserThreshold: 5
   ingressEnabled: true
   certDownloadEnabled: true
+
+  init:
+    image: jasonb87/cwt_common
+    imageTag: 2.1.0
+
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /wps/metrics
+    prometheus.io/port: "8000"
+
+  data:
+    sharedPath: /opt/cwt/data/shard
+    staticPath: /opt/cwt/data/static
+    publicPath: /opt/cwt/data/public
+    cachePath: /opt/cwt/data/cache
+    ingressPath: /opt/cwt/data/ingress
   
   process:
     blacklist: "[]"
@@ -82,16 +84,33 @@ wps:
   email:
     host: "localhost"
 
-  service:
-    type: ClusterIP
-    port: 8000
+  ports:
+    - name: django
+      port: 8000
+
+  persistence:
+    - name: public
+      storageClass: slow
+      size: 10Gi
+
+    - name: ingress
+      storageClass: slow
+      size: 10Gi
+
+    - name: cache
+      storageClass: slow
+      size: 10Gi
 
   ingress:
-    enabled: true
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
 
 celery:
   image: jasonb87/cwt_celery
-  imageTag: 2.0.2
+  imageTag: 2.1.0
 
   resources:
     # Must quote the memory field otherwise large numbers are rendered in
@@ -121,14 +140,6 @@ celery:
       "-c": 1
       "-Q": priority.high
 
-  - name: beat
-    replicas: 1
-    argsExtra:
-      "-c": 1
-
-    environment:
-      SUBCOMMAND: beat
-
 thredds:
   replicas: 1
   image: jasonb87/cwt_thredds
@@ -143,11 +154,16 @@ thredds:
   ingress:
     path: /threddsCWT
     annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
 
 postgresql:
   postgresPassword: abcd1234
   persistence:
     enabled: false
+    existingClaim: postgres-pvc
 
 redis:
   repository: redis
@@ -169,7 +185,7 @@ redis:
       enabled: false
 
 edas:
-  enabled: true
+  enabled: false
   replicas: 1
   image: jasonb87/cwt_edas
   imageTag: latest
@@ -191,3 +207,10 @@ cog:
     memoryRequest: 128Mi
     cpuLimit: 1000m
     memoryLimit: 256Mi
+
+  ingress:
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
