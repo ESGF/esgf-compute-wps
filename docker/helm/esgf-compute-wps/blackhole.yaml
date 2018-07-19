@@ -1,0 +1,174 @@
+host: 192.168.39.254
+development: true
+
+sharedPath: /opt/nfs/cwt/shared
+
+data:
+  publicPath: /opt/nfs/cwt/data/public
+  cachePath: /opt/nfs/cwt/data/cache
+  ingressPath: /opt/nfs/cwt/data/ingress
+
+ingress:
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.kubernetes.io/hsts-max-age: "31536000"
+    ingress.kubernetes.io/hsts-include-subdomains: "true"
+    ingress.kubernetes.io/force-hsts: "true"
+
+traefik:
+  serviceType: NodePort
+
+  ssl:
+    enabled: true
+    enforced: true
+    tlsMinVersion: VersionTLS12
+    defaultCert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVJekNDQWdzQ0NRRFY3TVo3RkRQSjJ6QU5CZ2txaGtpRzl3MEJBUXNGQURCU01Rc3dDUVlEVlFRR0V3SlYKVXpFTE1Ba0dBMVVFQ0F3Q1EwRXhFakFRQmdOVkJBY01DVXhwZG1WeWJXOXlaVEVNTUFvR0ExVUVDZ3dEUTFkVQpNUlF3RWdZRFZRUUREQXREVjFRZ1VtOXZkQ0JEUVRBZUZ3MHhPREEyTVRFeU1qQXlNek5hRncweE9URXdNalF5Ck1qQXlNek5hTUZVeEN6QUpCZ05WQkFZVEFsVlRNUXN3Q1FZRFZRUUlEQUpEUVRFU01CQUdBMVVFQnd3SlRHbDIKWlhKdGIzSmxNUXd3Q2dZRFZRUUtEQU5EVjFReEZ6QVZCZ05WQkFNTURqRTVNaTR4TmpndU16a3VNalUwTUlJQgpJakFOQmdrcWhraUc5dzBCQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBclJTNm9jaDJabE5hWlh5eG5tTDBDQzFrCjgxemJqTXBhRzdKQTdyUzlqOEhtcU1jR1FOalRDUDcrd05Pa3JaVXNjS2FCeUJsdDh3MmFldmlYd1prQjlRSnYKZ1hpVWkwZnhOc21rZzN4OU16QmV6WVllaCttMXdWdjBGTlBtYXZFdUFBM24rd2lBc0lHd0lNVmsxT3AxM3RIcwp0VUpNNXAwNlZBUzV0UmNwbUlad3NMRzljaDd3NXBDTFdkZWlvc1RmK0pESUp1eVUrdWtvZHJGUDVpTEZiUzdiCnh2VDZ0UXM2TDZOS2tLN3NLY1hjUGwzdEM4NUhRMzFocHZsTFFqdVdOUzhMQkZCeUhUUkxKSllmTk1GZjNYaUYKTkNoTlVjNUgvcWpvaHFWZ0dVVFFSbkxXZGp2cGM1U1F4enM5cXp0eHNSc3g5ZFJBUjVQa1p6aVpNWENZY1FJRApBUUFCTUEwR0NTcUdTSWIzRFFFQkN3VUFBNElDQVFCbEp1SUhNUFVDZXlRUUgxclJ1ejdXTlZNeUE5dm5sRUdxClUvREY5SmhVM25XUjliTVd0ek9rS3FRcG4yOXVEOVRtRXRkTmFFZ0VpdjVIdkxqdXp1cUM3RE84cnJTaXpJdHAKcW1QSWJSVGhsdGhWOTA1dHlhdERHRnFmdzRVTnhOdHRoY25KQXE2Z2pTNEJxZCtHSGpYdEhWRzRPR00wVDYxQworZXgvTG9YQmNUQURDZi83bDYxWVE1YTdMZ3UrVGhCZWdGeVNWSGpibkJzQ3pKWUNkOU55YlQzTmx4V1dWN0VXCi9pMi8xR01oc3YveDZTUDJOVkJZZ08wSlhWbDRvTnJMelpjc0V6SnpVWjMwdlpEdUFLU0NBR256NzdzdEZIZzQKS0pkbHVHbXFSenZSRmFoY2dnbEgxSmtJVWtuRGhJRlp6eGdYSUt0bWp3ODhtbElxTWFpSDhtMDRzOG5WS0R3awp1THpUWnVqYWVBYlRINDhPbVY4clZQRlo1eHNSWE1LVEJFREZsY3FiYUVFc0VSK2dOaThHSTZhNFRKZ3lNWFJLCkJQYnI0VDRkSkEyUWhQVklkOE1jZE51K2xWaFYwN291bVlCeXNtRFZaczNZdDNVR0lJWWdzL2d2a0lvL21wVHQKUUtEMTZQM0diSTJxbHEyRjg0SVpuL2lqdWFwRVArWHcrRW1BcTJYaUNPNEdSQStVTFhXY3JzWUFJbEtveGtCTApreDBENnl0QnZqVlFDam4wNm9TQSt6MlRDaHlnVGZmemNibm11azg5STZxdkZ2QWNjeFl5SEVuQk53bTU0VmpCCnlFWHBBMEZwV3RnN1g3TXJtbGRsMElzWlN0QUtlR0ZKcE55WTM1c3JPN2k3dnhKUXBKQy9qUzZQMk9mOUZ3ZHoKVmNhdFBDSU5Edz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    defaultKey: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb2dJQkFBS0NBUUVBclJTNm9jaDJabE5hWlh5eG5tTDBDQzFrODF6YmpNcGFHN0pBN3JTOWo4SG1xTWNHClFOalRDUDcrd05Pa3JaVXNjS2FCeUJsdDh3MmFldmlYd1prQjlRSnZnWGlVaTBmeE5zbWtnM3g5TXpCZXpZWWUKaCttMXdWdjBGTlBtYXZFdUFBM24rd2lBc0lHd0lNVmsxT3AxM3RIc3RVSk01cDA2VkFTNXRSY3BtSVp3c0xHOQpjaDd3NXBDTFdkZWlvc1RmK0pESUp1eVUrdWtvZHJGUDVpTEZiUzdieHZUNnRRczZMNk5La0s3c0tjWGNQbDN0CkM4NUhRMzFocHZsTFFqdVdOUzhMQkZCeUhUUkxKSllmTk1GZjNYaUZOQ2hOVWM1SC9xam9ocVZnR1VUUVJuTFcKZGp2cGM1U1F4enM5cXp0eHNSc3g5ZFJBUjVQa1p6aVpNWENZY1FJREFRQUJBb0lCQURUVnpSc3gvS0xEOHlaago2RHkzYkZOS3VEUnFOa05HU2plR05MZ3B5R3duL3VlcXljZmw2SllvY1ZBZnkzZUp3Q1VyVHhic1hGb0QzeEtHCjdKeVd2cmd5WkNPYjBZeXJDNEYwRUpwcTJEVldJTHFRcEtWTXZNVW44dHlneXdmK1U5S0ViRHAvbi9sQnZhaGoKV2FKOWFEbjZ6MDJOemJmZ2F6dldyWElRZmd3bkRTWDJhc1loNWdPN1JxSkVsaitCN0M1RHEvb1VuNk1JckxvdQpDR2ZEMHV4R1dLVEQzWmc4WWIxc1A3OHVqSHBwbEg4L2VkSUoydmtHNm0yVEZPTXd4Q2p3dS9PQ2JPd0s4VzNICjZNTUZ0ejZBU3Zodkk1U2w1RVVRU1hDRnNyRGlmWXJndzdDa0hoVEV5Lzc3cDYxTk1SWHdxU3FkMi9KRFZEYTQKaEVCUTA2RUNnWUVBNVdRUDdlR3pYVkxqdG1WcG8wdkxoMWFqY0hBbDE0UE1VOW9XM0ZMVHFDQUVjVzQvc2ZYVwpmdmRObTVIb21IQk1aSStTRVlrQ25Bc0E3VVB4aUU2cTVRdkxmMS9BUE1uNlZ1dEdoQXBoTjRHOFNoM051SWF2CjU1VWwrYUhCdkFrdVplSGpBUFdMSGYxSHVVVjNWOVo2QXVVeE44U3R4eXZLSU1ubDYxZjRHaVVDZ1lFQXdTaUEKVTUwTjRZKzNweGxsSER0MXg3Tm9sNWgzbzBucG41TFJQTFZFWWVuR1Fzckt6WDR6cUNGMGp2eUxYZDlUSk9nWgpEa3JVVGx4RUFVUXNHTUpON2hNOWMrUFpLcDhiL2YycDZoc2QwYVlXUHVxM3I1ZGdzejRGNGZXcHlXVURhNjQyCmJzaGdqYmpheEYzZEdRZHhZQVBweUxTbjlvankyL3BRN1NkODVWMENnWUF5Yi8vNHBDbldHVVdzY3p2NUJjOW8Kb0tvckxOMkZONXVUekY0K2I0L09aY3ZVVFJPQVE3ZTREeFJuWW51c0dQVVRIMlpVcUxXRUxmODBMRDVOWkU2NwpNZzY2b1FrWjFLZFF1VWExL2JwR2hDWXNmY1VnRDYxWjFEZVhYZlBGTHBlZkd6M1lsaVRTb1VCR0Fub3RQQ0Z6CnhZVSs1K1gxNXpENGFLdy9SUVp1YVFLQmdETG44YW9Yb2lqb0w0YWljcnRXRUZ4cE5BOS81MGZwbXVDcldPbWUKL0Q2eDFjYVVtNDQ4ekhCcklNVHVXZXlMaHVZYkpUOVhDVXo5bEE2aFlOM0ZsN1ErN2RzMUdXN2FNQTVvWS9lRwozZno2d0xJa09mVFUrRzlFMFZnVDNvTnRVOUYxUUhOQjYvQnQzM29SSXN3TjRodGo3S0V3dTNPRjlEdDFaUTZiCmNaY2hBb0dBYmw1MytoL3Y2c2t3OEVRV1dsTkJFSWtTSFFQVHpra2JDcG1LY0hIR0ZGekNmR04rWGoxV21KbkMKS3owYmlBbUkwVllZcFphVC9jMkxmbW9CWFZ5dVZmTmNrTEJ3aURSaVNwWHdTeDNWRjlWUlkxL2FoYU1RdlMrTgpFSXdSdnFuWWJxdk5aZzhJTmZLZzMyTjNxUm1pYTRoY3pWazduMlRsSGtZNW0wMWIxR0E9Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+
+  rbac:
+    enabled: true
+
+  deployment:
+    hostPort:
+      httpEnabled: true
+      httpsEnabled: true
+
+  dashboard:
+    enabled: true
+    domain: ""
+
+    # Recommend editing the ingress object and adding a path /traefik
+    ingress:
+      annotations:
+        #traefik.ingress.kubernetes.io/whitelist-source-range: ""
+        traefik.frontend.rule.type: PathPrefixStrip
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+
+nginx:
+  replicas: 1
+  image: nginx
+  imageTag: 1.13.8
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 256Mi
+  
+wps:
+  replicas: 1
+  image: jasonb87/cwt_wps
+  imageTag: 2.0.2
+  staticPath: /opt/nfs/cwt/static
+  activeUserThreshold: 5
+  ingressEnabled: true
+  certDownloadEnabled: true
+  
+  process:
+    blacklist: "[]"
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 256Mi
+
+  oauth:
+    client: ""
+    secret: ""
+
+  email:
+    host: "localhost"
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  ingress:
+    enabled: true
+
+celery:
+  image: jasonb87/cwt_celery
+  imageTag: 2.0.2
+
+  resources:
+    # Must quote the memory field otherwise large numbers are rendered in
+    # scientific notation which celery does not like. This value is in KiB.
+    memory: "1024000"
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 1Gi
+
+  queues:
+  - name: ingress
+    replicas: 1
+    argsExtra:
+      "-c": 1
+      "-Q": ingress
+
+thredds:
+  replicas: 1
+  image: jasonb87/cwt_thredds
+  imageTag: 4.6.10
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 512Mi
+
+  ingress:
+    path: /threddsCWT
+    annotations:
+
+postgresql:
+  postgresPassword: abcd1234
+  persistence:
+    enabled: false
+
+redis:
+  repository: redis
+  tag: 4.0.10
+
+  cluster:
+    enabled: false
+
+  usePassword: false
+
+  master:
+    persistence:
+      enabled: false
+
+    service:
+      type: ClusterIP
+
+    securityContext:
+      enabled: false
+
+edas:
+  enabled: false
+  replicas: 1
+  image: jasonb87/cwt_edas
+  imageTag: latest
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 512Mi
+
+cog:
+  enabled: false
+  replicas: 1
+  image: jasonb87/cwt_cog
+  imageTag: latest
+
+  resources:
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 256Mi

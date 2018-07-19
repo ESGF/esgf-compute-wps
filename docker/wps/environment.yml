@@ -5,157 +5,165 @@ channels:
 - defaults
 dependencies:
 - esgf-compute-api=2.1.0=py27_0
-- amqp=2.2.2=py27_0
 - appdirs=1.4.3=py_1
-- asn1crypto=0.22.0=py27_0
+- asn1crypto=0.24.0=py_1
 - attrs=18.1.0=py_1
 - automat=0.7.0=py27_0
-- backports_abc=0.5=py27_0
-- billiard=3.5.0.2=py27_0
-- blas=1.0=openblas
-- blinker=1.4=py_0
-- bokeh=0.12.13=py27_0
-- ca-certificates=2017.11.5=0
-- cdat_info=2.12=py27_1
-- cdms2=2.12=np113py27_0
-- cdtime=2.12=np113py27_2
-- cdutil=2.12=py27_0
-- celery=4.1.0=py27_0
-- certifi=2017.11.5=py27_0
-- cffi=1.11.2=py27_0
-- chardet=3.0.4=py27_0
+- blinker=1.4=py_1
+- cdat_info=8.0=py27_0
+- cdms2=3.0.1=py27h6091dcd_1
+- cdtime=3.0=py27h6091dcd_1
+- certifi=2018.4.16=py27_0
+- cffi=1.11.5=py27_0
+- chardet=3.0.4=py27_2
 - clapack=3.2.1=0
-- click=6.7=py_1
-- cloudpickle=0.5.2=py_0
 - constantly=15.1.0=py_0
-- cryptography=2.1.4=py27_0
-- curl=7.55.1=0
-- dask=0.16.1=py_0
-- dask-core=0.16.1=py_0
+- cryptography=2.2.1=py27hdffb7b8_1
+- curl=7.60.0=0
 - distarray=2.12.2=py27_0
-- distributed=1.20.2=py27_0
-- django=1.11.9=py_0
+- django=1.11.10=py_0
 - enum34=1.1.6=py27_1
-- esmf=7.0.0=8
-- esmpy=7.0.0=py27_1
-- expat=2.2.5=0
-- future=0.16.0=py27_0
-- futures=3.2.0=py27_0
-- g2clib=1.6.0=5
-- genutil=2.12=np113py27_0
+- esmf=7.1.0r=1
+- esmpy=7.1.0r=py27_1
+- expat=2.2.5=hfc679d8_1
+- future=0.16.0=py_1
+- g2clib=1.6.0=3
+- gunicorn=19.9.0=py27_0
 - hdf4=4.2.13=0
-- hdf5=1.8.18=2
-- heapdict=1.0.0=py27_0
+- hdf5=1.10.1=2
 - hyperlink=17.3.1=py_0
-- icu=58.2=0
-- idna=2.6=py27_1
+- idna=2.7=py27_2
 - incremental=17.5.0=py_0
-- ipaddress=1.0.18=py27_0
+- ipaddress=1.0.22=py_1
 - jasper=1.900.1=4
-- jinja2=2.10=py27_0
-- jpeg=9b=2
-- kombu=4.1.0=py27_0
-- krb5=1.14.2=0
+- jpeg=9c=h470a237_0
+- krb5=1.14.6=0
 - lapack=3.6.1=1
-- libcdms=2.12=0
-- libcf=1.0.1=py27_0
-- libdrs=2.12=0
-- libdrs_f=2.12=1
-- libffi=3.2.1=3
-- libiconv=1.15=h470a237_1
-- libnetcdf=4.4.1.1=9
-- libpng=1.6.34=0
+- libcdms=3.0.1=h9ac9557_2
+- libcf=1.0.1=py27_2
+- libdrs=3.0.1=h6e3784b_3
+- libdrs_f=3.0.1=h2cd7f18_3
+- libnetcdf=4.6.1=2
+- libpng=1.6.35=ha92aebf_0
 - libpq=9.6.3=0
-- libsodium=1.0.15=1
-- libssh2=1.8.0=2
-- libtiff=4.0.9=0
-- libxml2=2.9.7=0
-- libxslt=1.1.32=0
-- locket=0.2.0=py27_1
-- lxml=4.1.1=py27_0
-- markupsafe=1.0=py27_0
+- libsodium=1.0.16=0
+- libssh2=1.8.0=h5b517e9_2
+- libtiff=4.0.9=he6b73bb_1
+- mesalib=17.3.9=hdd5ec5b_0
 - mpi=1.0=mpich
 - mpich=3.2.1=h26a2512_4
-- msgpack-python=0.5.1=py27_0
 - myproxyclient=2.0.1=py27_0
-- ncurses=5.9=10
-- netcdf-fortran=4.4.4=5
-- oauthlib=2.0.6=py_0
-- openblas=0.2.20=7
-- openssl=1.0.2n=0
+- netcdf-fortran=4.4.4=7
+- oauthlib=2.1.0=py_0
+- openblas=0.3.1=hd130d23_0
 - ossuuid=1.6.2=0
-- pandas=0.22.0=py27_0
-- partd=0.3.8=py27_0
-- pip=9.0.1=py27_1
 - prometheus_client=0.2.0=py27_0
-- psutil=5.4.0=py27_0
-- psycopg2=2.7.3.2=py27_0
-- pyasn1=0.4.2=py_0
+- psycopg2=2.7.5=py27_0
+- pyasn1=0.4.3=py_0
 - pyasn1-modules=0.2.1=py_0
-- pycosat=0.6.3=py27_0
-- pycparser=2.18=py27_0
+- pycparser=2.18=py_1
 - pyhamcrest=1.9.0=py_2
-- pyjwt=1.5.3=py_0
-- pyopenssl=16.2.0=py27_0
-- pyophidia=1.4.0=py_0
+- pyjwt=1.6.4=py_0
+- pyopenssl=18.0.0=py27_0
+- pyophidia=1.6.0=py_0
 - pysocks=1.6.8=py27_1
-- python=2.7.14=4
-- python-dateutil=2.6.1=py27_0
 - python-openid=2.2.5=py27_0
-- pytz=2017.3=py_2
+- pytz=2018.5=py_0
 - pyxb=1.2.6=py_0
-- pyyaml=3.12=py27_1
-- pyzmq=16.0.2=py27_3
-- readline=7.0=0
-- redis-py=2.10.6=py_0
-- requests=2.18.4=py27_1
-- requests-oauthlib=0.8.0=py27_1
-- ruamel_yaml=0.11.14=py27_0
+- pyzmq=17.1.0=py27hae99301_0
+- requests=2.19.1=py27_1
+- requests-oauthlib=1.0.0=py27_0
 - service_identity=17.0.0=py_0
-- setuptools=38.4.0=py27_0
-- simplejson=3.11.1=py27_0
-- singledispatch=3.4.0.3=py27_0
+- setuptools=39.2.0=py27_0
 - six=1.11.0=py27_1
-- sortedcontainers=1.5.7=py27_0
-- sqlalchemy=1.2.1=py27_0
-- sqlite=3.20.1=2
-- ssl_match_hostname=3.5.0.1=py27_1
-- tblib=1.3.2=py27_0
-- tk=8.6.7=0
-- toolz=0.8.2=py_2
-- tornado=4.5.3=py27_0
 - twisted=18.7.0=py27h470a237_0
-- udunits2=2.2.25=2
-- urllib3=1.22=py27_0
-- vine=1.1.4=py27_0
-- wheel=0.30.0=py27_2
+- urllib3=1.23=py27_0
+- wheel=0.31.1=py27_0
 - xz=5.2.3=0
-- yaml=0.1.6=0
-- zeromq=4.2.1=1
-- zict=0.1.3=py_0
-- zlib=1.2.11=0
+- zeromq=4.2.5=hfc679d8_3
 - zope.interface=4.5.0=py27h470a237_0
-- intel-openmp=2018.0.3=0
+- blas=1.0=openblas
+- ca-certificates=2018.03.07=0
+- libedit=3.1.20170329=h6b74fdf_2
+- libffi=3.2.1=hd88cf55_4
 - libgcc=7.2.0=h69d50b8_2
-- libgcc-ng=7.2.0=h7cc24e2_2
+- libgcc-ng=7.2.0=hdf63c60_3
 - libgfortran=3.0.0=1
 - libgfortran-ng=7.2.0=hdf63c60_3
-- libopenblas=0.2.20=h9ac9557_4
-- libstdcxx-ng=7.2.0=h7a57d05_2
-- mkl=2018.0.3=1
-- nomkl=1.0=0
-- numpy=1.13.3=py27_nomklh2b20989_4
-- redis=4.0.2=h6805cf8_0
+- libopenblas=0.2.20=h9ac9557_7
+- libstdcxx-ng=7.2.0=hdf63c60_3
+- ncurses=6.1=hf484d3e_0
+- nomkl=3.0=0
+- numpy=1.14.2=py27_nomklh2b20989_1
+- openssl=1.0.2o=h20670df_0
+- pip=10.0.1=py27_0
+- python=2.7.15=h1571d57_0
+- readline=7.0=ha6073c6_4
+- sqlite=3.24.0=h84994c4_0
+- tk=8.6.7=hc745277_3
+- zlib=1.2.11=ha838bed_2
 - pip:
+  - alembic==0.8.10
+  - amqp==2.3.2
+  - apache-airflow==1.9.0
+  - babel==2.6.0
   - backports-abc==0.5
-  - backports.ssl-match-hostname==3.5.0.1
+  - billiard==3.5.0.4
   - bjoern==2.2.1
+  - bleach==2.1.2
   - cdat-info==0.0.0
+  - celery==4.2.1
+  - click==6.7
+  - configparser==3.5.0
+  - croniter==0.3.24
+  - dill==0.2.8.2
   - django-webpack-loader==0.6.0
-  - gunicorn==19.3.0
+  - docutils==0.14
+  - flask==0.11.1
+  - flask-admin==1.4.1
+  - flask-cache==0.13.1
+  - flask-login==0.2.11
+  - flask-swagger==0.2.13
+  - flask-wtf==0.14
+  - flower==0.9.2
+  - funcsigs==1.0.0
+  - futures==3.2.0
+  - gitdb2==2.0.4
+  - gitpython==2.1.11
+  - html5lib==1.0.1
+  - itsdangerous==0.24
+  - jinja2==2.8.1
+  - kombu==4.2.1
+  - lockfile==0.12.2
+  - lxml==3.8.0
+  - mako==1.0.7
+  - markdown==2.6.11
+  - markupsafe==1.0
   - mv2==3.0.0
+  - ordereddict==1.1
+  - pandas==0.23.3
   - prometheus-client==0.2.0
+  - psutil==4.4.2
+  - pygments==2.2.0
+  - python-daemon==2.1.2
+  - python-dateutil==2.7.3
+  - python-editor==1.0.3
+  - python-nvd3==0.14.2
+  - python-slugify==1.1.4
+  - pyyaml==3.13
   - regrid2==3.0.0
-  - ruamel-yaml==0.11.14
   - service-identity==17.0.0
+  - setproctitle==1.1.10
+  - singledispatch==3.4.0.3
+  - smmap2==2.0.4
+  - sqlalchemy==1.2.10
+  - tabulate==0.7.7
+  - thrift==0.11.0
+  - tornado==5.1
+  - unidecode==1.0.22
+  - vine==1.1.4
+  - webencodings==0.5.1
+  - werkzeug==0.14.1
+  - wtforms==2.2.1
+  - zope.deprecation==4.3.0
 prefix: /opt/conda/envs/wps

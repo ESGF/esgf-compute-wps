@@ -10,14 +10,22 @@ ENV POSTGRES_HOST=postgres
 
 ENV WPS_HOST=0.0.0.0
 
-RUN mkdir -p /var/log/cwt
+COPY docker/common/environment.yml environment.yml
+
+RUN apt-get update && \
+	apt-get install -y --no-install-recommends build-essential && \
+	conda env create -n wps -f environment.yml && \
+	conda clean -y --all && \
+	rm -rf /opt/conda/pkgs/* && \
+	apt-get autoremove -y build-essential && \
+	rm -rf /usr/share/doc/ && \
+	rm -rf /usr/share/man/ && \
+	rm -rf /usr/share/locale && \
+	rm -rf /var/lib/apt/lists/*
 
 COPY . /var/www/compute
 
-WORKDIR /var/www
-
-RUN conda env create --name wps --file compute/docker/common/environment.yml && \
-	conda clean -y --all
-
-RUN mkdir -p /etc/config && \
-	cp compute/docker/common/django.properties /etc/config/django.properties
+RUN mkdir -p /var/log/cwt && \
+	mkdir -p /etc/config && \
+	cp /var/www/compute/docker/common/app.properties /etc/config/ && \
+	cp /var/www/compute/docker/common/django.properties /etc/config

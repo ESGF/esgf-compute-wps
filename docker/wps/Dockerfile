@@ -1,14 +1,18 @@
 FROM jasonb87/cwt_common:2.1.0
 
+COPY docker/wps/environment.yml environment.yml
+
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 	curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
 	echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list && \
 	apt-get update && \
 	apt-get install -y --no-install-recommends yarn build-essential libev-dev nodejs && \
-	PATH=/opt/conda/envs/wps/bin:$PATH pip install gunicorn==19.3.0 bjoern && \
+	conda env update -n wps -f environment.yml && \
 	apt-get autoremove -y build-essential && \
-	rm -rf /var/lib/apt/lists/* && \
-	conda clean --all -y || exit 0
+	rm -rf /usr/share/doc/ && \
+	rm -rf /usr/share/man/ && \
+	rm -rf /usr/share/locale && \
+	rm -rf /var/lib/apt/lists/*
 
 RUN cd /var/www/compute/compute/wps/webapp && \
 	yarn install && \
