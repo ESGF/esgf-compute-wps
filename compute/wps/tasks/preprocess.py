@@ -91,6 +91,9 @@ def analyze_wps_request(self, attrs_list, variable, domain, operation, user_id, 
 
     # estimate total size
     for item in attrs['mapped'].values():
+        if item is None:
+            continue
+
         size = reduce(lambda x, y: x * y, [x.stop-x.start for x in item.values() if x is not None])
 
         # Convert from bytes to megabytes, the 0.4 factor is just an estimation,
