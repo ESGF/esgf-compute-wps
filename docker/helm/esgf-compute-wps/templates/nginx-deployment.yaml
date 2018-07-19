@@ -1,9 +1,9 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-nginx
+  name: {{ template "esgf-compute-wps.fullname" . }}-nginx
   labels:
-    app: {{ .Release.Name }}-nginx
+    app: {{ template "esgf-compute-wps.fullname" . }}-nginx
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -11,23 +11,23 @@ spec:
   replicas: {{ .Values.nginx.replicas }}
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-nginx
+      app: {{ template "esgf-compute-wps.fullname" . }}-nginx
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-nginx
-        chart: {{ template "esgf-compute-wps.chart" . }}
+        app: {{ template "esgf-compute-wps.fullname" . }}-nginx
         release: {{ .Release.Name }}
-        heritage: {{ .Release.Service }}
     spec:
       containers:
-      - name: {{ .Release.Name }}-nginx
+      - name: {{ template "esgf-compute-wps.fullname" . }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
         resources:
+        {{- if .Values.development }}
           limits:
             cpu: {{ .Values.nginx.resources.cpuLimit | quote }}
             memory: {{ .Values.nginx.resources.memoryLimit | quote }}
+        {{- end }}
           requests:
             cpu: {{ .Values.nginx.resources.cpuRequest | quote }}
             memory: {{ .Values.nginx.resources.memoryRequest | quote }}

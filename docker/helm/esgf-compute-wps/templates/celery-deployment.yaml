@@ -1,44 +1,45 @@
+{{- if .Values.celery.queues }}
 {{- range .Values.celery.queues }}
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: {{ $.Release.Name }}-celery-{{ .name }}
+  name: {{ template "esgf-compute-wps.fullname" $ }}-celery-{{ .name }}
   labels:
-    app: {{ $.Release.Name }}-celery-{{ .name }}
+    app: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}
     chart: {{ template "esgf-compute-wps.chart" $ }}
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
+{{- if $.Values.celery.annotations }}
+  annotations:
+    {{ toYaml $.Values.celery.annotations | indent 2 }}
+{{- end }}
 spec:
-  {{- if $.Values.development }}
-  replicas: 0
-  {{- else }}
   replicas: {{ .replicas }}
-  {{- end }}
   selector:
     matchLabels:
-      app: {{ $.Release.Name }}-celery-{{ .name }}
+      app: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}
       release: {{ $.Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ $.Release.Name }}-celery-{{ .name }}
-        chart: {{ template "esgf-compute-wps.chart" $ }}
+        app: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}
         release: {{ $.Release.Name }}
-        heritage: {{ $.Release.Service }}
     spec:
       containers:
-      - name: {{ $.Release.Name }}-celery-{{ .name }}
+      - name: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         {{- if not $.Values.development }}
         args: 
+          - "celery"
+          - "worker"
+          - "-A"
+          - "compute"
           - "-l"
-          - "info"
-          - "-c"
-          - "1"
+          - "INFO"
           - "--max-memory-per-child"
           - {{ $.Values.celery.resources.memory | quote }}
           - "-n"
-          - {{ .name | quote }}
+          - {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}
         {{- range $key, $value := .argsExtra }}
           - {{ $key | quote }}
           - {{ $value | quote }}
@@ -102,22 +103,35 @@ spec:
       {{- if $.Values.development }}
       - name: shared-volume
         hostPath:
-          path: {{ $.Values.sharedPath }}
+          path: /opt/cwt/data/shared
       {{- end }}
       - name: config-volume
         configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
       - name: public-volume
+      {{- if not $.Values.development }}
+        persistentVolumeClaim:
+          claimName: {{ template "esgf-compute-wps.name" $ }}-public-pvc
+      {{- else }}
         hostPath:
-          path: {{ $.Values.data.publicPath }}
-          type: DirectoryOrCreate
+          path: /opt/cwt/data/public
+      {{- end }}
       - name: cache-volume
+      {{- if not $.Values.development }}
+        persistentVolumeClaim:
+          claimName: {{ template "esgf-compute-wps.name" $ }}-cache-pvc
+      {{- else }}
         hostPath:
-          path: {{ $.Values.data.cachePath }}
-          type: DirectoryOrCreate
+          path: /opt/cwt/data/cache
+      {{- end }}
       - name: ingress-volume
+      {{- if not $.Values.development }}
+        persistentVolumeClaim:
+          claimName: {{ template "esgf-compute-wps.name" $ }}-ingress-pvc
+      {{- else }}
         hostPath:
-          path: {{ $.Values.data.ingressPath }}
-          type: DirectoryOrCreate
+          path: /opt/cwt/data/ingress
+      {{- end }}
 ---
+{{- end }}
 {{- end }}

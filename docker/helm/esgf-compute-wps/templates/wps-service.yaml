@@ -1,17 +1,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-wps
+  name: {{ template "esgf-compute-wps.fullname" . }}-wps
   labels:
-    app: {{ .Release.Name }}-wps
+    app: {{ template "esgf-compute-wps.fullname" . }}-wps
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
-  type: {{ .Values.wps.service.type }}
   ports:
-    - port: {{ .Values.wps.service.port }}
+    - port: 8000
       protocol: TCP
   selector:
-    app: {{ .Release.Name }}-wps
+    app: {{ template "esgf-compute-wps.fullname" . }}-wps
     release: {{ .Release.Name }}

@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-nginx
+  name: {{ template "esgf-compute-wps.fullname" . }}-nginx
   labels:
-    app: {{ .Release.Name }}-nginx
+    app: {{ template "esgf-compute-wps.fullname" . }}-nginx
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
   selector:
-    app: {{ .Release.Name }}-nginx
+    app: {{ template "esgf-compute-wps.fullname" . }}-nginx
     release: {{ .Release.Name }}
   ports:
   - port: 80
