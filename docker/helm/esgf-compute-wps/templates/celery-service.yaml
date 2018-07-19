@@ -1,0 +1,24 @@
+{{- range $.Values.celery.queues }}
+{{- $name := .name }}
+{{- if .ports }}
+{{- range .ports }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name }}-celery-{{ $name }}
+  labels:
+    app: {{ $.Release.Name }}-celery-{{ $name }}
+    chart: {{ template "esgf-compute-wps.chart" $ }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+spec:
+  ports:
+    - port: {{ .port }}
+      protocol: TCP
+      name: {{ .name }}
+  selector:
+    app: {{ $.Release.Name }}-celery-{{ $name }}
+    release: {{ $.Release.Name }}
+{{- end }}
+{{- end }}
+{{- end }}

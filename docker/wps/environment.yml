@@ -26,7 +26,7 @@ dependencies:
 - esmf=7.1.0r=1
 - esmpy=7.1.0r=py27_1
 - expat=2.2.5=hfc679d8_1
-- future=0.16.0=py_1
+- future=0.16.0
 - g2clib=1.6.0=3
 - gunicorn=19.9.0=py27_0
 - hdf4=4.2.13=0
