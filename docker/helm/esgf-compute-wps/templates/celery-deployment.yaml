@@ -64,7 +64,7 @@ spec:
         ports:
         {{- range .ports }}
         - containerPort: {{ .port }}
-          name: {{ .name }}
+          protocol: TCP
         {{- end }}
         {{- end }}
         env:
@@ -98,15 +98,19 @@ spec:
         {{- if $.Values.development }}
         - mountPath: /var/www
           name: shared-volume
+          subPath: shared
         {{- end }}
         - mountPath: /etc/config
           name: config-volume
         - mountPath: /data/public
           name: public-volume
+          subPath: public
         - mountPath: /data/cache
           name: cache-volume
+          subPath: cache
         - mountPath: /data/ingress
           name: ingress-volume
+          subPath: ingress
       volumes:
       {{- if $.Values.development }}
       - name: shared-volume

@@ -38,6 +38,7 @@ spec:
         volumeMounts:
         - name: public-volume
           mountPath: /data/public
+          subPath: public
       volumes:
       - name: public-volume
       {{- if $.Values.development }}

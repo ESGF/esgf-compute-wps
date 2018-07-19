@@ -102,11 +102,13 @@ spec:
         {{- if .Values.development }}
         - mountPath: /var/www
           name: shared-volume
+          subPath: shared
         {{- end }}
         - name: config-volume
           mountPath: /etc/config
         - name: static-volume
           mountPath: /var/www/static
+          subPath: static
       volumes:
       {{- if .Values.development }}
       - name: shared-volume
