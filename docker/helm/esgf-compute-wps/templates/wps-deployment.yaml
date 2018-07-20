@@ -29,15 +29,6 @@ spec:
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
     spec:
-    {{- if .Values.development }}
-      initContainers:
-      - name: devel-init
-        image: {{ .Values.wps.init.image }}:{{ .Values.wps.init.imageTag }} 
-        command: ["sh", "-c", "cd /var/www && rm -rf compute && rm -rf esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-api && git clone https://github.com/ESGF/esgf-compute-wps compute && mkdir -p /var/www/static && cp -rf /opt/conda/envs/wps/lib/python2.7/site-packages/airflow/www/static/* /var/www/static "]
-        volumeMounts:
-        - mountPath: /var/www
-          name: shared-volume
-    {{- end }}
       containers:
       - name: {{ .Release.Name }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
@@ -67,16 +58,16 @@ spec:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
               key: WPS_HOST
-        - name: CELERY_BROKER
+        - name: CELERY_BROKER_URL
           valueFrom:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
-              key: CELERY_BROKER
-        - name: CELERY_BACKEND
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
           valueFrom:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
-              key: CELERY_BACKEND
+              key: CELERY_RESULT_BACKEND
         - name: POSTGRES_HOST
           value: {{ template "postgresql.fullname" . }}
         - name: POSTGRES_PASSWORD

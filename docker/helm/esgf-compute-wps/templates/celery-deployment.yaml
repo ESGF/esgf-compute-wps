@@ -79,16 +79,16 @@ spec:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
               key: WPS_HOST
-        - name: CELERY_BROKER
+        - name: CELERY_BROKER_URL
           valueFrom:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
-              key: CELERY_BROKER
-        - name: CELERY_BACKEND
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
           valueFrom:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
-              key: CELERY_BACKEND
+              key: CELERY_RESULT_BACKEND
         - name: POSTGRES_HOST
           value: {{ template "postgresql.fullname" $ }}
         - name: POSTGRES_PASSWORD

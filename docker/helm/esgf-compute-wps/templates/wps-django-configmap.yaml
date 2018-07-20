@@ -19,7 +19,7 @@ data:
     logging_config_class =
     log_format = [%%(asctime)s] {%%(filename)s:%%(lineno)d} %%(levelname)s - %%(message)s
     simple_log_format = %%(asctime)s %%(levelname)s - %%(message)s
-    executor = SequentialExecutor
+    executor = CeleryExecutor
     sql_alchemy_conn = postgres://postgres:abcd1234@{{ template "postgresql.fullname" . }}/postgres
     sql_alchemy_pool_size = 5
     sql_alchemy_pool_recycle = 3600
