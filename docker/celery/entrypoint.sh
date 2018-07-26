@@ -4,4 +4,4 @@ source activate wps
 
 pushd /var/www/compute/compute
 
-exec $@
+celery worker -A compute -b $CELERY_BROKER $@

@@ -13,4 +13,4 @@ EXPOSE 4356 4357 8000
 
 ENTRYPOINT ["./entrypoint.sh"]
 
-CMD ["celery", "worker", "-A", "compute", "-l", "INFO"]
+CMD ["-l", "INFO"]
