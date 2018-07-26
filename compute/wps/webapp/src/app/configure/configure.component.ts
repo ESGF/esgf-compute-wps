@@ -8,7 +8,7 @@ import {
   Configuration,
   DatasetCollection, Dataset,
   VariableCollection,
-  ConfigureService
+  ConfigureService, File
 } from './configure.service';
 import { NotificationService } from '../core/notification.service';
 
@@ -38,6 +38,20 @@ class Domain {
 
   .list-item-axis {
     margin: 5px 0px 5px 0px;
+  }
+
+  .file-table-container {
+    height: 80vh;
+    overflow: auto;
+  }
+
+  .file-table {
+    table-layout: fixed;
+  }
+
+  .file-url-column {
+    width: 90%;
+    word-wrap: break-word;
   }
   `],
   providers: [ConfigureService]
@@ -98,6 +112,12 @@ export class ConfigureComponent implements OnInit {
       .catch(error => {
         this.notificationService.error(error); 
       });
+  }
+
+  setFileIncluded(included: boolean) {
+    this.config.variable._files.forEach((value: File, index: number, array: File[]) => {
+      value.included = included;
+    });
   }
 
   onFilesModified() {
