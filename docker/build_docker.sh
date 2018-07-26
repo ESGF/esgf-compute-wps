@@ -1,15 +1,14 @@
 #! /bin/bash
 
-THREDDS=""
 
 function usage {
-  echo -e "Usage: $0 [GIT_TAG] [DOCKER_TAG] [--thredds VERSION]"
+  echo -e "Usage: $0 [DOCKER_TAG] [--push] [--thredds VERSION]"
 }
 
-[[ $# -lt 2 ]] && usage && exit 1
+[[ $# -lt 1 ]] && usage && exit 1
 
-GIT_TAG=$1 && shift
-
+THREDDS=""
+PUSH=1
 DOCKER_TAG=$1 && shift
 
 while [[ $# -gt 0 ]]
@@ -19,6 +18,9 @@ do
   shift
 
   case $ARG in
+    --push)
+      PUSH=0
+      ;;
     --thredds)
       THREDDS=$1 && shift
       ;;
@@ -36,11 +38,14 @@ docker build -t jasonb87/cwt_wps:$DOCKER_TAG -f docker/wps/Dockerfile .
 
 docker build -t jasonb87/cwt_celery:$DOCKER_TAG -f docker/celery/Dockerfile .
 
-docker push jasonb87/cwt_common:$DOCKER_TAG
+if [[ $PUSH -eq 0 ]]
+then
+  docker push jasonb87/cwt_common:$DOCKER_TAG
 
-docker push jasonb87/cwt_wps:$DOCKER_TAG
+  docker push jasonb87/cwt_wps:$DOCKER_TAG
 
-docker push jasonb87/cwt_celery:$DOCKER_TAG
+  docker push jasonb87/cwt_celery:$DOCKER_TAG
+fi 
 
 if [[ ! -z "$THREDDS" ]]
 then
