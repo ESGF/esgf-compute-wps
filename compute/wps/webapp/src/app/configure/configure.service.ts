@@ -386,12 +386,26 @@ export class Variable {
   ) { 
     this.uid = Math.random().toString(16).slice(2); 
 
-    this._files = files.map((item: string) => {
-      return new File(item);
+    this._files = files.map((url: string) => {
+      return new File(url);
     });
   }
 
   get files(): File[] {
+    let timeAxis = this.axes.find((axis: Axis) => {
+      return axis.id == 'time';
+    });
+
+    this._files.sort((a: File, b: File) => {
+      let aItem = timeAxis.data[a.url];
+
+      let bItem = timeAxis.data[b.url];
+
+      if (aItem.start < bItem.start) { return -1; }
+      if (aItem.start > bItem.start) { return 1; }
+
+      return 0;
+    });
     return this._files;
   }
 }
