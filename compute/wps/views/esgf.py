@@ -8,7 +8,9 @@ import re
 import cdms2
 import cdtime
 import requests
+from django.conf import settings
 from django.core.cache import cache
+from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
@@ -18,37 +20,33 @@ from wps import tasks
 
 logger = common.logger
 
-TIME_AXIS_IDS = ('time', 't')
+def retrieve_axes(user, dataset_id, variable, urls):
+    base_cache_id = '{}|{}'.format(dataset_id, variable)
 
-def retrieve_axes(user, dataset_id, query_variable, query_files):
-    cache_id = '{}|{}'.format(dataset_id, query_variable)
+    axes = []
+    base_units = None
 
-    axes = cache.get(cache_id)
+    tasks.load_certificate(user)
 
-    if axes is None:
-        logger.info('Dataset variable "{}" not in cache'.format(cache_id))
+    for i, url in enumerate(sorted(urls)):
+        cache_id = '{}|{}'.format(base_cache_id, url)
 
-        query_files = sorted(query_files)
+        data = cache.get(cache_id)
 
-        start = datetime.datetime.now()
+        if data is None:
+            logger.info('Retrieving axes fro %r', url)
 
-        axes = {
-            'spatial': {},
-            'temporal': {},
-        }
+            start = datetime.datetime.now()
 
-        tasks.load_certificate(user)
+            data = {
+                'url': url,
+                'temporal': None,
+                'spatial': None,
+            }
 
-        logger.info('Retrieving axis range for dataset "{}"'.format(dataset_id))
-
-        base_units = None
-
-        for i, url in enumerate(query_files):
             try:
-                logger.debug('Opening file "{}"'.format(url))
-
                 with cdms2.open(url) as infile:
-                    header = infile[query_variable]
+                    header = infile[variable]
 
                     for x in header.getAxisList():
                         if x.isTime():
@@ -59,29 +57,40 @@ def retrieve_axes(user, dataset_id, query_variable, query_files):
 
                             x_clone.toRelativeTime(base_units)
 
-                            axes['temporal'][url] = {
+                            data['temporal'] = {
                                 'id': x.id,
                                 'start': float(x_clone[0]),
                                 'stop': float(x_clone[-1]),
                                 'units': x.units or None,
                                 'length': len(x_clone),
                             }
-                        elif i == 0:
-                            axes['spatial'][x.id] = {
+                        else:
+                            axis = {
                                 'id': x.id,
                                 'start': float(x[0]),
                                 'stop': float(x[-1]),
                                 'units': x.units or None,
                                 'length': len(x),
                             }
-            except cdms2.CDMSError as e:
-                raise WPSError('Error opening file "{url}": {error}', url=url, error=e.message)
 
-        cache.set(cache_id, axes, 24*60*60)
+                            if data['spatial'] is None:
+                                data['spatial'] = [axis]
+                            else:
+                                data['spatial'].append(axis)
+            except cdms2.CDMSError:
+                logger.error('Failed to open %r', url)
 
-        logger.debug('retrieve_axes elapsed time {}'.format(datetime.datetime.now()-start))
-    else:
-        logger.info('Axes for "{}" retrieved from cache'.format(cache_id))
+                raise Exception('Failed to open {}'.format(url))
+
+            #cache.set(data, 24*60*60)
+
+            logger.info('Completed axes retrieval in %r', datetime.datetime.now()-start)
+        else:
+            logger.info('Loaded axes for %r from cache', url)
+
+        axes.append(data)
+
+    logger.info('%r', axes)
 
     return axes
 
@@ -122,9 +131,11 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
             raise Exception('Request failed: "{}"'.format(e))
 
         try:
-            data = json.loads(response.content)
+            response_json = json.loads(response.content)
         except:
             raise Exception('Failed to load JSON response')
+
+        data = parse_solr_docs(response_json['response']['docs'])
 
         # Cache for 1 day
         cache.set(dataset_id, data, 24*60*60)
@@ -133,29 +144,42 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
     else:
         logger.info('Dataset "{}" retrieved from cache'.format(dataset_id))
 
-    return data['response']['docs']
+    return data
 
 def parse_solr_docs(docs):
-    variables = collections.OrderedDict()
+    variables = {}
+    files = []
 
     for doc in docs:
-        var = doc['variable'][0]
+        variable = doc['variable']
 
-        for item in doc['url']:
-            url, mime, urlType = item.split('|')
+        try:
+            open_dap = [x for x in doc['url'] if 'opendap' in x.lower()][0]
+        except IndexError:
+            logger.warning('Skipping %r, missing OpenDAP url', doc['master_id'])
 
-            if urlType.lower() == 'opendap':
-                url = url.replace('.html', '')
+            continue
 
-                if var in variables:
-                    variables[var]['files'].append(url)
-                else:
-                    variables[var] = {'id': var, 'files': [url], 'axes': None}
+        url, _, _ = open_dap.split('|')
 
-    return variables
+        url = url.replace('.html', '')
+
+        if url not in files:
+            files.append(url)
+
+        for var in variable:
+            if var not in variables:
+                variables[var] = []
+
+            index = files.index(url)
+
+            variables[var].append(index)
+
+    return { 'variables': variables, 'files': files }
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
+@cache_control(private=True, max_age=3600)
 def search_variable(request):
     try:
         common.authentication_required(request)
@@ -165,21 +189,31 @@ def search_variable(request):
 
             index_node = request.GET['index_node']
 
-            query_variable = request.GET['variable']
+            variable = request.GET['variable']
+
+            files = request.GET['files']
         except KeyError as e:
             raise common.MissingParameterError(name=e.message)
+
+        files = json.loads(files)
+        
+        if not isinstance(files, list):
+            files = [files]
 
         shard = request.GET.get('shard', None)
 
         query = request.GET.get('query', None)
 
-        docs = search_solr(dataset_id, index_node, shard, query)
+        logger.info('Searching for variable %r', variable)
+        logger.info('Dataset ID %r', dataset_id)
+        logger.info('Index Node %r', index_node)
+        logger.info('Files %r', files)
 
-        dataset_variables = parse_solr_docs(docs)
+        dataset_variables = search_solr(dataset_id, index_node, shard, query)
 
-        query_files = dataset_variables[query_variable]['files']
+        urls = [dataset_variables['files'][int(x)] for x in files]
 
-        axes = retrieve_axes(request.user, dataset_id, query_variable, query_files)
+        axes = retrieve_axes(request.user, dataset_id, variable, urls)
     except WPSError as e:
         logger.exception('Error retrieving ESGF search results')
 
@@ -189,6 +223,7 @@ def search_variable(request):
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
+@cache_control(private=True, max_age=3600)
 def search_dataset(request):
     try:
         common.authentication_required(request)
@@ -204,14 +239,7 @@ def search_dataset(request):
 
         query = request.GET.get('query', None)
 
-        docs = search_solr(dataset_id, index_node, shard, query)
-
-        dataset_variables = parse_solr_docs(docs)
-
-        try:
-            query_variable = dataset_variables.keys()[0]
-        except IndexError as e:
-            raise WPSError('Dataset "{dataset_id}" returned no variables', dataset_id=dataset_id)
+        dataset_variables = search_solr(dataset_id, index_node, shard, query)
     except WPSError as e:
         logger.exception('Error retrieving ESGF search results')
 

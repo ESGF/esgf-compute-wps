@@ -11,9 +11,9 @@ require('leaflet/dist/leaflet.css');
 @Component({
   selector: 'domain-map',
   styles: [`
-  .map-container {
-    min-height: calc(100vh - 100px);
-  }
+    .map-container {
+      height: 85vh;
+    }
   `],
   template: `
   <div #mapContainer class="map-container"></div>

@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { Http, URLSearchParams, RequestOptionsArgs, Headers } from '@angular/http';
 import { Params } from '@angular/router';
 
+import { Process } from '../configure/process';
+
 export interface WPSResponse {
   status: string;
   error?: string;
@@ -10,9 +12,69 @@ export interface WPSResponse {
 
 @Injectable()
 export class WPSService {
+  OWS_NS = 'http://www.opengis.net/ows/1.1';
+  WPS_NS = 'http://www.opengis.net/wps/1.0.0';
+  XLINK_NS = 'http://www.w3.org/1999/xlink';
+
   constructor(
     protected http: Http
   ) { }
+
+  getCapabilities(url: string): Promise<Process[]> {
+    let params = {
+      service: 'WPS',
+      request: 'GetCapabilities',
+    };
+
+    return this.getUnmodified(url, params).then((response: any) => {
+      let parser = new DOMParser();
+
+      let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
+
+      let processes = Array.from(xmlDoc.getElementsByTagNameNS(this.WPS_NS, 'Process')).map((item: any) => {
+        let identifier = item.getElementsByTagNameNS(this.OWS_NS, 'Identifier');
+
+        return new Process(identifier[0].innerHTML);
+      });
+
+      return new Promise<Process[]>((resolve, reject) => {
+        resolve(processes);
+      });
+    });
+  }
+
+  describeProcess(url: string, identifier: string): Promise<any> {
+    let params = {
+      service: 'WPS',
+      request: 'DescribeProcess',
+      identifier: identifier,
+    };
+
+    return this.getUnmodified(url, params).then((response: any) => {
+      let parser = new DOMParser();
+
+      let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
+
+      let abstracts = Array.from(xmlDoc.getElementsByTagNameNS(this.OWS_NS, 'Abstract')).map((item: any) => {
+        return item.innerHTML.replace(/^\n+|\n+$/g, '');
+      });
+
+      let metadata = Array.from(xmlDoc.getElementsByTagNameNS(this.OWS_NS, 'Metadata')).map((item: any) => {
+        let data = item.attributes.getNamedItemNS(this.XLINK_NS, 'title').value.split(':');
+
+        return { name: data[0], value: data[1] };
+      });
+
+      return new Promise<any>((resolve, reject) => {
+        let data = {
+          abstract: abstracts[0] || '',
+          metadata: Object.assign({}, metadata),
+        };
+
+        resolve(data);
+      });
+    });
+  }
 
   getCookie(name: string): string {
     let cookieValue: string = null;

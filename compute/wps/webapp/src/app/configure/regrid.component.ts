@@ -15,7 +15,7 @@ export class RegridModel {
 }
 
 @Component({
-  selector: 'regrid',
+  selector: 'regrid-config',
   styles: [`
   .select-spacer {
     margin-bottom: 5px;

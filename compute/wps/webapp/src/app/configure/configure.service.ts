@@ -24,6 +24,7 @@ export class Process {
     public domainPreset: string = 'World',
     public regrid: RegridModel = new RegridModel('ESMF', 'Linear', 'None', null, null, 3.0, null, null, 4.0),
     public parameters: any[] = [],
+    public description: any = null,
   ) { 
     this.uid = Math.random().toString(16).slice(2); 
   }
@@ -234,9 +235,10 @@ export class Process {
         // Add each input variable to the global variable list
         vars.forEach((item: Variable) => {
           // Each file gets an entry
-          let files = item.files.filter((file: File) => {
-            return file.included; 
-          });
+          //let files = item.files.filter((file: File) => {
+          //  return file.included; 
+          //});
+          let files: File[] = [];
 
           // Check that select files do not exceed the maximum allowed
           if (curr.inputLimit != Infinity && curr.inputLimit > 0 && curr.inputLimit < files.length) {
@@ -369,49 +371,29 @@ export class Dataset {
 export class File {
   constructor(
     public url: string,
-    public included: boolean = true
+    public index: number,
+    public included: boolean = true,
+    public temporal: any = null,
+    public spatial: any = null,
   ) { }
 }
 
 export class Variable {
-  _files: File[];
-
   constructor(
     public id: string,
-    public axes: Axis[],
-    files: string[],
+    public files: number[],
+    public axes: Axis[] = [],
     public dataset: string = '',
     public include: boolean = true,
     public uid: string = '',
   ) { 
     this.uid = Math.random().toString(16).slice(2); 
-
-    this._files = files.map((url: string) => {
-      return new File(url);
-    });
-  }
-
-  get files(): File[] {
-    let timeAxis = this.axes.find((axis: Axis) => {
-      return axis.id == 'time';
-    });
-
-    this._files.sort((a: File, b: File) => {
-      let aItem = timeAxis.data[a.url];
-
-      let bItem = timeAxis.data[b.url];
-
-      if (aItem.start < bItem.start) { return -1; }
-      if (aItem.start > bItem.start) { return 1; }
-
-      return 0;
-    });
-    return this._files;
   }
 }
 
 export interface VariableCollection {
-  [index: string]: Variable;
+  variables: Variable[];
+  files: number[];
 }
 
 export interface RegridOptions {
@@ -452,49 +434,32 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  searchESGF(config: Configuration): Promise<Variable[]> { 
-    let params = new URLSearchParams();
+  searchESGF(dataset_id: string, params: any): Promise<VariableCollection> { 
+    let newParams = {dataset_id: dataset_id, ...params};
 
-    params.append('dataset_id', config.dataset.id);
-    params.append('index_node', config.indexNode);
-    params.append('query', config.query);
-    params.append('shard', config.shard);
-
-    return this.get(this.configService.searchPath, params)
+    return this.get(this.configService.searchPath, newParams)
       .then(response => {
-        return Object.keys(response.data).map((key: string) => {
-          let variable = response.data[key];
+        let variables = Object.keys(response.data.variables).map((name: string) => {
+          let files = response.data.variables[name];
 
-          return new Variable(variable.id, variable.axes, variable.files);
+          return new Variable(name, files);
         });
+
+        return { variables: variables, files: response.data.files } as VariableCollection;
       });
   }
 
-  searchVariable(config: Configuration): Promise<AxisCollection> {
-    let params = new URLSearchParams();
+  searchVariable(variable: string, dataset_id: string, files: number[], params: any): Promise<any[]> {
+    let newParams = {
+      dataset_id: dataset_id,
+      variable: variable,
+      files: JSON.stringify(files),
+      ...params
+    };
 
-    params.append('dataset_id', config.dataset.id);
-    params.append('index_node', config.indexNode);
-    params.append('query', config.query);
-    params.append('shard', config.shard);
-    params.append('variable', config.variable.id);
-
-    return this.get(this.configService.searchVariablePath, params)
+    return this.get(this.configService.searchVariablePath, newParams)
       .then(response => {
-        return response.data as AxisCollection;
-      });
-  }
-
-  describeProcess(identifier: string) {
-    let params = new URLSearchParams();
-
-    params.append('request', 'DescribeProcess');
-    params.append('service', 'WPS');
-    params.append('identifier', identifier);
-
-    return this.getUnmodified(this.configService.wpsPath, params)
-      .then(response => {
-        return response.text();
+        return response.data;
       });
   }
 

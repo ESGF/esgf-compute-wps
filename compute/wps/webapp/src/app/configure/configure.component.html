@@ -1,98 +1,19 @@
 <tabs>
   <tab tabTitle="Process">
-    <div class="container-fluid map-container pane">
+    <div class="container-fluid pane">
       <div class="row">
         <div class="col-md-2">
-          <panel-group>
-            <panel title="General">
-              <general-config [processes]="processes" [datasetIDs]="datasetIDs" [config]="config" (filesModified)="onFilesModified()"></general-config>
-            </panel>
-            <panel title="Regrid">
-              <regrid [model]="config.process.regrid"></regrid>
-            </panel>
-            <panel ignoreBody="true" title="Parameters">
-              <div class="list-group-item">
-                <button type="button" (click)="addParameter()" class="btn btn-default">Add</button>
-              </div>
-              <div *ngFor="let param of config.process?.parameters" class="list-group-item">
-                <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
-              </div>
-            </panel>
-            <panel ignoreBody="true" title="Domain">
-              <div class="list-group-item">
-                <select [(ngModel)]="map.domain" 
-                  (change)="domainChange()" class="form-control" name="value">
-                  <option *ngFor="let domain of domains">{{domain.name}}</option>
-                </select>
-              </div>
-              <div *ngFor="let axis of config.process.domain; index as i" class="list-group-item">
-                <axis [axisIndex]="i" [axis]="axis" (axisChange)="map.onAxisChange($event)" (crsChange)="onCRSChange($event)"></axis>
-              </div>
-            </panel>
-          </panel-group>
+          <process-detail [datasets]="datasets" [params]="params"></process-detail>
         </div>
-        <div class="col-md-10">
-          <domain-map [axes]="config.process.domain"></domain-map>
+        <div class="col-md-10 map-container">
+          <domain-map></domain-map>
         </div>
       </div>
     </div>
   </tab>
+  <!--
   <tab *ngIf="configService.workflowEnabled" tabTitle="Workflow">
     <workflow [config]="config" [datasets]="datasetIDs" [processes]="processes"></workflow>
   </tab>
+  -->
 </tabs>
-<div class="modal fade" id="abstractModal" tabindex="-1" role="dialog">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-        <h4 class="modal-title"></h4>
-      </div>
-      <div class="modal-body">
-        <div id="abstract">
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-<div class="modal fade" id="filesModal" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-        <h4 class="modal-title">Dataset files containing "{{config.variable?.id}}"</h4>
-      </div>
-      <div class="modal-body">
-        <div class="file-table-container">
-          <table class="file-table table table-bordered">
-            <thead>
-              <tr>
-                <td class="file-url-column">Url</td>
-                <td>
-                  <div>
-                    <button class="btn btn-default btn-xs" (click)="setFileIncluded(true)">Select all</button>
-                    <button class="btn btn-default btn-xs" (click)="setFileIncluded(false)">Deselect all</button>
-                  </div>
-                </td>
-              </tr> 
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of config.variable?.files">
-                <td class="file-url-column">
-                  <a href={{item.url|thredds}} target="_blank">{{item.url}}</a>
-                </td>
-                <td>
-                  <input class="form-check-input" type="checkbox" [checked]="item.included" (change)="item.included = $event.target.checked" />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>

@@ -237,18 +237,18 @@ export class WorkflowComponent implements OnInit {
 
       this.config.datasetID = this.model.selectedDataset.dataset.id;
 
-      this.configureService.searchESGF(this.config)
-        .then(data => {
-          data.forEach((value: Variable) => {
-            value.dataset = this.config.datasetID;
-          });
+      //this.configureService.searchESGF(this.config)
+      //  .then(data => {
+      //    //data.forEach((value: Variable) => {
+      //    //  value.dataset = this.config.datasetID;
+      //    //});
 
-          this.model.selectedDataset.dataset.variables = data;
+      //    //this.model.selectedDataset.dataset.variables = data;
 
-          if (data.length > 0) {
-            this.model.selectedVariable = data[0];
-          }
-        });
+      //    //if (data.length > 0) {
+      //    //  this.model.selectedVariable = data[0];
+      //    //}
+      //  });
     } else {
       // needs to be undefined to selected the default option
       this.model.selectedDataset = undefined;
@@ -305,12 +305,12 @@ export class WorkflowComponent implements OnInit {
   loadDomainToProcess(variable: Variable, process: ProcessWrapper) {
     process.process.domainPreset = 'Custom';
 
-    this.loadVariable(variable)
-      .then(() => {
-        process.process.domain = variable.axes.map((axis: Axis) => {
-          return {crs: 'Values', ...axis};
-        });
-      });
+    //this.loadVariable(variable)
+    //  .then(() => {
+    //    process.process.domain = variable.axes.map((axis: Axis) => {
+    //      return {crs: 'Values', ...axis};
+    //    });
+    //  });
   }
 
   loadDomain() {
@@ -322,51 +322,51 @@ export class WorkflowComponent implements OnInit {
   }
 
   loadDataset() {
-    this.loading = true;
+    //this.loading = true;
 
-    this.config.datasetID = this.model.selectedDataset.dataset.id;
+    //this.config.datasetID = this.model.selectedDataset.dataset.id;
 
-    return this.configureService.searchESGF(this.config)
-      .then(variables => {
-        this.model.selectedDataset.dataset.variables = variables;
+    //return this.configureService.searchESGF(this.config)
+    //  .then(variables => {
+    //    this.model.selectedDataset.dataset.variables = variables;
 
-        this.model.selectedVariable = variables[0];
+    //    this.model.selectedVariable = variables[0];
 
-        if (this.model.selectedVariable.axes == null) {
-          this.loadVariable(this.model.selectedVariable);
-        } else {
-          this.loading = false;
-        }
-      })
-      .catch(error => {
-        this.loading = false;
+    //    if (this.model.selectedVariable.axes == null) {
+    //      this.loadVariable(this.model.selectedVariable);
+    //    } else {
+    //      this.loading = false;
+    //    }
+    //  })
+    //  .catch(error => {
+    //    this.loading = false;
 
-        this.notificationService.error(error);
-      });
+    //    this.notificationService.error(error);
+    //  });
   }
 
   loadVariable(variable: Variable) {
-    this.loading = true;
+    //this.loading = true;
 
-    this.config.variable = variable;
+    //this.config.variable = variable;
 
-    return this.configureService.searchVariable(this.config)
-      .then(axes => {
-        //variable.axes = axes.map((axis: Axis) => {
-        //  return {step: 1, ...axis}; 
-        //});
+    //return this.configureService.searchVariable(this.config)
+    //  .then(axes => {
+    //    //variable.axes = axes.map((axis: Axis) => {
+    //    //  return {step: 1, ...axis}; 
+    //    //});
 
-        this.loading = false;
+    //    this.loading = false;
 
-        return variable;
-      })
-      .catch(error => { 
-        this.loading = false; 
+    //    return variable;
+    //  })
+    //  .catch(error => { 
+    //    this.loading = false; 
 
-        this.notificationService.error(error);
+    //    this.notificationService.error(error);
 
-        return null;
-      });
+    //    return null;
+    //  });
   }
 
   addAxis(name: string) {

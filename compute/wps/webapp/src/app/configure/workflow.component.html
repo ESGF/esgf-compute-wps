@@ -20,9 +20,10 @@
             [dragEnabled]="true" 
             [dragData]="x.identifier">{{x.identifier}}</div>
         </panel>
-        <panel title="Regrid">
+        <!--<panel title="Regrid">
           <regrid [model]="model.process.regrid"></regrid>
         </panel>
+        -->
         <panel ignoreBody="true" title="Parameters">
           <li class="list-group-item">
             <button (click)="addParameterWorkflow()" class="btn btn-default">Add</button>
@@ -207,9 +208,10 @@
                 </div>
               </div>
             </panel>
-            <panel title="Regrid">
+            <!--<panel title="Regrid">
               <regrid [model]="selectedNode?.process.regrid"></regrid>
             </panel>
+            -->
             <panel ignoreBody="true" title="Parameters">
               <li class="list-group-item">
                 <button (click)="addParameter()" class="btn btn-default">Add</button>

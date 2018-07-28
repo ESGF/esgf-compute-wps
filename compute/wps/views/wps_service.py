@@ -301,7 +301,7 @@ def handle_get(params, query_string):
         with metrics.EX_REQ_GET.time():
             response = handle_execute(api_key, identifier, data_inputs)
     else:
-        raise WPSErrro('Operation "{name}" is not supported', name=request)
+        raise WPSError('Operation "{name}" is not supported', name=request)
 
     return response
 
