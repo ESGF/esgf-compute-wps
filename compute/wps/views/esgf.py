@@ -179,7 +179,6 @@ def parse_solr_docs(docs):
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
-@cache_control(private=True, max_age=3600)
 def search_variable(request):
     try:
         common.authentication_required(request)

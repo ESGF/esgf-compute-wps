@@ -187,14 +187,18 @@ export class ProcessDetailComponent implements OnInit {
         for (let y = 0; y < file.spatial.length; y++) {
           let axis = file.spatial[y];
 
-          spatial.push(new Axis(
+          let newAxis = new Axis(
             axis.id,
             axis.units,
             axis.start,
             axis.stop,
             axis.length,
             'spatial',
-          ));
+          );
+
+          newAxis.data = axis;
+
+          spatial.push(newAxis);
         }
       }
 
@@ -207,6 +211,8 @@ export class ProcessDetailComponent implements OnInit {
           file.temporal.length,
           'temporal',
         );
+
+        temporal.data = selectedFiles;
       } else {
         if (temporal._start > file.temporal.start) {
           temporal.start = temporal._start = file.temporal.start;

@@ -6,15 +6,24 @@ import {
   OnChanges,
   SimpleChanges,
   OnInit,
+  Pipe,
+  PipeTransform,
 } from '@angular/core';
 
 import { Subject } from 'rxjs/Subject';
 
-export class AxisCollection {
-  constructor(
-    public spatial: Axis[],
-    public temporal: Axis[],
-  ) { }
+import { File } from './configure.service';
+
+enum CRS {
+  Values = 'Values',
+  Indices = 'Indices',
+}
+
+@Pipe({name: 'enumToArray'})
+export class EnumToArrayPipe implements PipeTransform {
+  transform(data: Object) {
+    return Object.keys(data);
+  }
 }
 
 export class Axis {
@@ -86,9 +95,8 @@ export class Domain {
             <div>
             <label for="crs{{axisIndex}}">CRS</label>
             <br />
-            <select [(ngModel)]="axis.crs" name="crs" id="crs{{axis.id}}" class="form-control">
-              <option>Values</option>
-              <option>Indices</option>
+            <select [(ngModel)]="axis.crs" (ngModelChange)="crsChanged(axis, $event)" name="crs" id="crs{{axis.id}}" class="form-control">
+              <option *ngFor="let x of crsEnum | enumToArray" [ngValue]="x">{{x}}</option>
             </select>
           </div>
           <div>
@@ -110,6 +118,8 @@ export class Domain {
   `
 })
 export class DomainComponent implements OnInit {
+  crsEnum = CRS;
+
   id: string = Math.random().toString(16).slice(2);
 
   start = new Subject<any>();
@@ -161,6 +171,38 @@ export class DomainComponent implements OnInit {
 
   get axes() {
     return this.selectedDomain.axes;
+  }
+
+  crsChanged(axis: Axis, value: CRS) {
+    if (axis.crs == CRS.Values) {
+      if (axis.type == 'temporal') {
+        axis.start = Infinity;
+
+        axis.data.forEach((file: File) => {
+          if (file.temporal.start < axis.start) {
+            axis.start = file.temporal.start;
+          }
+
+          if (file.temporal.stop > axis.stop) {
+            axis.stop = file.temporal.stop;
+          }
+        });
+      } else {
+        axis.start = axis.data.start;
+
+        axis.stop = axis.data.stop;
+      }
+    } else if (axis.crs == CRS.Indices) {
+      axis.start = 0;
+
+      if (axis.type == 'temporal') {
+        let axisLengths = axis.data.map((file: File) => { return file.temporal.length; });
+
+        axis.stop = axisLengths.reduce((a: number, b: number) => { return a + b; });
+      } else {
+        axis.stop = axis.data.length;
+      }
+    }
   }
 
   addAxis() {
