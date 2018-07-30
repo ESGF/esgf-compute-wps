@@ -63,7 +63,7 @@ export class Domain {
   `],
   template: `
   <div [class.input-group]="selectedDomain?.id == 'Custom'" style="padding-bottom: 5px;">
-    <select [(ngModel)]="selectedDomain" class="form-control">
+    <select [(ngModel)]="selectedDomain" (ngModelChange)="domainChanged($event)" class="form-control">
       <option *ngFor="let domain of domains" [ngValue]="domain">{{domain.id}}</option>
     </select>
     <span *ngIf="selectedDomain?.id == 'Custom'" class="input-group-btn">
@@ -78,8 +78,8 @@ export class Domain {
             <div class="container-fluid">
               <div class="row">
                 <div class="col-md-10">
-                  <span *ngIf="selectedDomain?.id!='Custom'" id="title">{{axis.id}}</span>
-                  <input *ngIf="selectedDomain?.id=='Custom'" [(ngModel)]="axis.id" type="string" class="form-control"/>
+                  <span *ngIf="!axis.custom" id="title">{{axis.id}}</span>
+                  <input *ngIf="axis.custom" [(ngModel)]="axis.id" type="string" class="form-control"/>
                   <span id="title">({{axis.units}})</span>
                 </div>
                 <div *ngIf="axis.custom" class="col-md-2">
@@ -118,6 +118,8 @@ export class Domain {
   `
 })
 export class DomainComponent implements OnInit {
+  @Output() modified = new EventEmitter<Domain>();
+
   crsEnum = CRS;
 
   id: string = Math.random().toString(16).slice(2);
@@ -139,6 +141,8 @@ export class DomainComponent implements OnInit {
       .distinctUntilChanged()
       .subscribe(data => {
         data.axis.start = data.value;
+
+        this.modified.emit(this.selectedDomain);
       });
 
     this.stop
@@ -146,6 +150,8 @@ export class DomainComponent implements OnInit {
       .distinctUntilChanged()
       .subscribe(data => {
         data.axis.stop = data.value;
+
+        this.modified.emit(this.selectedDomain);
       });
 
     this.step
@@ -153,6 +159,8 @@ export class DomainComponent implements OnInit {
       .distinctUntilChanged()
       .subscribe(data => {
         data.axis.step = data.value;
+
+        this.modified.emit(this.selectedDomain);
       });
   }
 
@@ -167,6 +175,8 @@ export class DomainComponent implements OnInit {
     });
 
     world.axes = axes;
+
+    this.modified.emit(world);
   }
 
   get axes() {
@@ -203,6 +213,18 @@ export class DomainComponent implements OnInit {
         axis.stop = axis.data.length;
       }
     }
+
+    this.modified.emit(this.selectedDomain);
+  }
+
+  domainChanged(value: Domain) {
+    if (value.id == 'Custom' && value.axes.length == 0) {
+      let world = this.domains.find((item: Domain) => { return item.id == 'World' });
+
+      value.axes = world.axes.map((item: Axis) => { return {...item}; });
+    }
+
+    this.modified.emit(this.selectedDomain);
   }
 
   addAxis() {
@@ -213,12 +235,16 @@ export class DomainComponent implements OnInit {
     axis.custom = true;
 
     this.selectedDomain.axes.push(axis);
+
+    this.modified.emit(this.selectedDomain);
   }
 
   removeAxis(axis: Axis) {
     this.selectedDomain.axes = this.selectedDomain.axes.filter((item: Axis) => {
       return axis.id != item.id;
     });
+
+    this.modified.emit(this.selectedDomain);
   }
 
   startChanged(axis: Axis, value: number) {

@@ -45,7 +45,7 @@
     </div>
   </panel>
   <panel title="Domain">
-    <domain [axes]="axes"></domain>
+    <domain [axes]="axes" (modified)="modified.emit($event)"></domain>
   </panel>
 </panel-group>
 <div class="modal fade" id="filesModal" tabindex="-1" role="dialog">

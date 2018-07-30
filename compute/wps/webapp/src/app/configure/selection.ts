@@ -64,7 +64,16 @@ export class Selection extends L.Rectangle {
       marker.addTo(map);
     });
 
-    this.fire('updatedomain', this.getBounds());
+    let bounds = this.getBounds(),
+      nw = bounds.getNorthWest(),
+      se = bounds.getSouthEast();
+
+    let data = {
+      latitude: [nw.lat, se.lat],
+      longitude: [nw.lng, se.lng],
+    };
+
+    this.fire('updatedomain', data);
 
     return this;
   }
@@ -129,7 +138,16 @@ export class Selection extends L.Rectangle {
   }
 
   onMarkerDragEnd(e: any) {
-    this.fire('updatedomain', this.getBounds());
+    let bounds = this.getBounds(),
+      nw = bounds.getNorthWest(),
+      se = bounds.getSouthEast();
+
+    let data = {
+      latitude: [nw.lat, se.lat],
+      longitude: [nw.lng, se.lng],
+    };
+
+    this.fire('updatedomain', data);
   }
 
   repositionResizeMarkers() {

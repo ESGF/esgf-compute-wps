@@ -1,12 +1,12 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
 
 import { Dataset } from './dataset';
 import { Process } from './process';
 import { Variable, VariableCollection, File } from './configure.service';
-//import { Variable } from './variable';
 import { RegridModel } from './regrid.component';
 import { Parameter } from './parameter.component';
 import { Axis } from './axis.component';
+import { Domain } from './domain.component';
 
 import { ConfigureService } from './configure.service';
 import { ConfigService } from '../core/config.service';
@@ -69,6 +69,7 @@ class FileModalState {
 })
 export class ProcessDetailComponent implements OnInit {
   @Input() params: any;
+  @Output() modified = new EventEmitter<Domain>();
 
   _datasets: Dataset[];
   operations: Process[];

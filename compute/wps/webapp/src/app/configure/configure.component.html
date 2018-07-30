@@ -3,7 +3,7 @@
     <div class="container-fluid pane">
       <div class="row">
         <div class="col-md-2">
-          <process-detail [datasets]="datasets" [params]="params"></process-detail>
+          <process-detail [datasets]="datasets" [params]="params" (modified)="domainChanged($event)"></process-detail>
         </div>
         <div class="col-md-10 map-container">
           <domain-map></domain-map>

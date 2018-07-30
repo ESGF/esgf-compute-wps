@@ -1,11 +1,9 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 
-import { AuthService } from '../core/auth.service';
-import { NotificationService } from '../core/notification.service';
-import { ConfigureService } from './configure.service';
-
+import { Domain } from './domain.component';
 import { MapComponent } from './map.component';
+import { NotificationService } from '../core/notification.service';
 
 @Component({
   templateUrl: './configure.component.html',
@@ -26,7 +24,7 @@ import { MapComponent } from './map.component';
     height: 85vh;
   }
   `],
-  providers: [ConfigureService]
+  providers: []
 })
 export class ConfigureComponent implements OnInit { 
   @ViewChild(MapComponent) map: MapComponent;
@@ -37,8 +35,6 @@ export class ConfigureComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private authService: AuthService,
-    private configService: ConfigureService,
     private notificationService: NotificationService
   ) { }
 
@@ -48,5 +44,9 @@ export class ConfigureComponent implements OnInit {
 
       this.params = { index_node: params.index_node, query: params.query };
     });
+  }
+
+  domainChanged(domain: Domain) {
+    this.map.updateDomain(domain);
   }
 }

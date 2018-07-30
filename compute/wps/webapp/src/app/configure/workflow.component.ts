@@ -396,16 +396,16 @@ export class WorkflowComponent implements OnInit {
   }
 
   showDomain() {
-    this.map.domain = this.model.domain;
+    //this.map.domain = this.model.domain;
 
-    this.map.domainChange();
+    //this.map.domainChange();
 
-    jQuery('#map').modal('show');
+    //jQuery('#map').modal('show');
 
-    // need to invalidate the map after it's presented to the user
-    jQuery('#map').on('shown.bs.modal', () => {
-      this.map.map.invalidateSize();
-    });
+    //// need to invalidate the map after it's presented to the user
+    //jQuery('#map').on('shown.bs.modal', () => {
+    //  this.map.map.invalidateSize();
+    //});
   }
 
   showAbstract(process: any) {
@@ -515,18 +515,18 @@ export class WorkflowComponent implements OnInit {
   }
 
   domainChange() {
-    this.map.domain = this.model.domain;
+    //this.map.domain = this.model.domain;
 
-    this.map.domainChange();
+    //this.map.domainChange();
 
-    if (this.model.domain === 'Custom') {
-      jQuery('#map').modal('show');
+    //if (this.model.domain === 'Custom') {
+    //  jQuery('#map').modal('show');
 
-      // need to invalidate the map after it's presented to the user
-      jQuery('#map').on('shown.bs.modal', () => {
-        this.map.map.invalidateSize();
-      });
-    }
+    //  // need to invalidate the map after it's presented to the user
+    //  jQuery('#map').on('shown.bs.modal', () => {
+    //    this.map.map.invalidateSize();
+    //  });
+    //}
   }
 
   determineRootNode() {
