@@ -11,12 +11,14 @@ export interface WPSResponse {
   data?: any;
 }
 
+const WPS_NS = 'http://www.opengis.net/wps/1.0.0';
+const OWS_NS = 'http://www.opengis.net/ows/1.1';
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
+const XSI_NS = 'http://www.w3.org/2001/XMLSchema-instance';
+const SCHEMA_LOCATION = 'http://www.opengis.net/wps/1.0.0/wpsExecute_request.xsd';
+
 @Injectable()
 export class WPSService {
-  OWS_NS = 'http://www.opengis.net/ows/1.1';
-  WPS_NS = 'http://www.opengis.net/wps/1.0.0';
-  XLINK_NS = 'http://www.w3.org/1999/xlink';
-
   constructor(
     protected http: Http,
   ) { }
@@ -32,8 +34,8 @@ export class WPSService {
 
       let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
 
-      let processes = Array.from(xmlDoc.getElementsByTagNameNS(this.WPS_NS, 'Process')).map((item: any) => {
-        let identifier = item.getElementsByTagNameNS(this.OWS_NS, 'Identifier');
+      let processes = Array.from(xmlDoc.getElementsByTagNameNS(WPS_NS, 'Process')).map((item: any) => {
+        let identifier = item.getElementsByTagNameNS(OWS_NS, 'Identifier');
 
         return new Process(identifier[0].innerHTML);
       });
@@ -56,12 +58,12 @@ export class WPSService {
 
       let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
 
-      let abstracts = Array.from(xmlDoc.getElementsByTagNameNS(this.OWS_NS, 'Abstract')).map((item: any) => {
+      let abstracts = Array.from(xmlDoc.getElementsByTagNameNS(OWS_NS, 'Abstract')).map((item: any) => {
         return item.innerHTML.replace(/^\n+|\n+$/g, '');
       });
 
-      let metadata = Array.from(xmlDoc.getElementsByTagNameNS(this.OWS_NS, 'Metadata')).map((item: any) => {
-        let data = item.attributes.getNamedItemNS(this.XLINK_NS, 'title').value.split(':');
+      let metadata = Array.from(xmlDoc.getElementsByTagNameNS(OWS_NS, 'Metadata')).map((item: any) => {
+        let data = item.attributes.getNamedItemNS(XLINK_NS, 'title').value.split(':');
 
         return { name: data[0], value: data[1] };
       });
@@ -89,12 +91,12 @@ export class WPSService {
 
       let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
 
-      let exception = xmlDoc.getElementsByTagNameNS(this.OWS_NS, 'Exception');
+      let exception = xmlDoc.getElementsByTagNameNS(OWS_NS, 'Exception');
 
       if (exception != null && exception.length > 0) {
         let exceptionCode = exception[0].attributes.getNamedItem('exceptionCode').value;
 
-        let exceptionText = exception[0].getElementsByTagNameNS(this.OWS_NS, 'ExceptionText');
+        let exceptionText = exception[0].getElementsByTagNameNS(OWS_NS, 'ExceptionText');
 
         let exceptionData = `${exceptionCode}`;
 
@@ -105,7 +107,7 @@ export class WPSService {
         return Promise.reject(exceptionData);
       }
 
-      let status = xmlDoc.getElementsByTagNameNS(this.WPS_NS, 'Status');
+      let status = xmlDoc.getElementsByTagNameNS(WPS_NS, 'Status');
 
       let creationTime = status[0].attributes.getNamedItem('creationTime');
 
@@ -160,12 +162,6 @@ export class WPSService {
   }
 
   prepareDataInputsXML(process: Process): string {
-    const WPS_NS = 'http://www.opengis.net/wps/1.0.0';
-    const OWS_NS = 'http://www.opengis.net/ows/1.1';
-    const XLINK_NS = 'http://www.w3.org/1999/xlink';
-    const XSI_NS = 'http://www.w3.org/2001/XMLSchema-instance';
-    const SCHEMA_LOCATION = 'http://www.opengis.net/wps/1.0.0/wpsExecute_request.xsd';
-
     let dataInputs = this.prepareDataInputs(process);
 
     let doc = document.implementation.createDocument(WPS_NS, 'wps:Execute', null);
