@@ -36,7 +36,7 @@ export class Process {
         start: item.start,
         end: item.stop,
         step: item.step,
-        crs: item.crs,
+        crs: item.crs.toLowerCase(),
       };
     });
 
