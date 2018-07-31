@@ -5,12 +5,11 @@ import { MapComponent } from './map.component';
 import { Axis } from './axis.component';
 import { 
   ConfigureService, 
-  Configuration,
-  Process, 
   Variable, 
   Dataset, 
   DatasetCollection 
 } from './configure.service';
+import { Process } from './process';
 import { NotificationService } from '../core/notification.service';
 import { ConfigService } from '../core/config.service';
 
@@ -156,7 +155,6 @@ enum EditorState {
 export class WorkflowComponent implements OnInit {
   @Input() processes: any[];
   @Input() datasets: string[];
-  @Input() config: Configuration;
 
   @ViewChild(MapComponent) map: MapComponent;
 
@@ -185,34 +183,34 @@ export class WorkflowComponent implements OnInit {
   ) { 
     this.model.domain = 'World';
 
-    this.model.process = new Process();
+    //this.model.process = new Process();
 
-    this.model.process.domain.push({
-      id: 'lat',
-      start: 90,
-      stop: -90,
-      step: 1,
-      units: 'degress north',
-      crs: 'Values',
-    } as Axis);
+    //this.model.process.domain.push({
+    //  id: 'lat',
+    //  start: 90,
+    //  stop: -90,
+    //  step: 1,
+    //  units: 'degress north',
+    //  crs: 'Values',
+    //} as Axis);
 
-    this.model.process.domain.push({
-      id: 'lon',
-      start: -180,
-      stop: 180,
-      step: 1,
-      units: 'degress west',
-      crs: 'Values',
-    } as Axis);
+    //this.model.process.domain.push({
+    //  id: 'lon',
+    //  start: -180,
+    //  stop: 180,
+    //  step: 1,
+    //  units: 'degress west',
+    //  crs: 'Values',
+    //} as Axis);
 
-    this.model.process.domain.push({
-      id: 'time',
-      start: 0,
-      stop: 0,
-      step: 1,
-      units: 'Custom',
-      crs: 'Values',
-    } as Axis);
+    //this.model.process.domain.push({
+    //  id: 'time',
+    //  start: 0,
+    //  stop: 0,
+    //  step: 1,
+    //  units: 'Custom',
+    //  crs: 'Values',
+    //} as Axis);
 
     this.nodes = [];
 
@@ -234,8 +232,6 @@ export class WorkflowComponent implements OnInit {
 
     if (this.model.availableDatasets.length > 0) {
       this.model.selectedDataset = this.model.availableDatasets[0];
-
-      this.config.datasetID = this.model.selectedDataset.dataset.id;
 
       //this.configureService.searchESGF(this.config)
       //  .then(data => {
@@ -303,7 +299,7 @@ export class WorkflowComponent implements OnInit {
   }
 
   loadDomainToProcess(variable: Variable, process: ProcessWrapper) {
-    process.process.domainPreset = 'Custom';
+    //process.process.domainPreset = 'Custom';
 
     //this.loadVariable(variable)
     //  .then(() => {
@@ -314,11 +310,11 @@ export class WorkflowComponent implements OnInit {
   }
 
   loadDomain() {
-    this.model.process.domain = this.model.selectedVariable.axes.map((axis: Axis) => {
-      return {... axis};
-    });
+    //this.model.process.domain = this.model.selectedVariable.axes.map((axis: Axis) => {
+    //  return {... axis};
+    //});
 
-    $('#datasetExplorer').modal('hide');
+    //$('#datasetExplorer').modal('hide');
   }
 
   loadDataset() {
@@ -370,19 +366,19 @@ export class WorkflowComponent implements OnInit {
   }
 
   addAxis(name: string) {
-    let axis = this.selectedNode.process.domain.find((axis: Axis) => {
-      return axis.id === name;
-    });
+    //let axis = this.selectedNode.process.domain.find((axis: Axis) => {
+    //  return axis.id === name;
+    //});
 
-    if (axis != undefined) return;
+    //if (axis != undefined) return;
 
-    this.selectedNode.process.domain.push(new Axis(name, 'None', 0, 0, 0, 'unknown'));
+    //this.selectedNode.process.domain.push(new Axis(name, 'None', 0, 0, 0, 'unknown'));
   }
 
   removeAxis(name: string) {
-    this.selectedNode.process.domain = this.selectedNode.process.domain.filter((axis: Axis) => {
-      return axis.id != name;
-    });
+    //this.selectedNode.process.domain = this.selectedNode.process.domain.filter((axis: Axis) => {
+    //  return axis.id != name;
+    //});
   }
 
   showExplorer() {
@@ -470,47 +466,47 @@ export class WorkflowComponent implements OnInit {
       parameters: this.model.process.parameters,
     };
 
-    this.configureService.execute(this.rootNode.process, defaults)
-      .then((data: any) => {
-        let parser = new DOMParser();
-        let xml = parser.parseFromString(data, 'text/xml');
-        let el = xml.getElementsByTagName('wps:ExecuteResponse');
-        let link = '';
+    //this.configureService.execute(this.rootNode.process, defaults)
+    //  .then((data: any) => {
+    //    let parser = new DOMParser();
+    //    let xml = parser.parseFromString(data, 'text/xml');
+    //    let el = xml.getElementsByTagName('wps:ExecuteResponse');
+    //    let link = '';
 
-        if (el.length > 0) {
-          let statusLocation = el[0].attributes.getNamedItem('statusLocation').value;
+    //    if (el.length > 0) {
+    //      let statusLocation = el[0].attributes.getNamedItem('statusLocation').value;
 
-          let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
+    //      let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
 
-          link = this.configService.userJobPath;
-        }
-        
-        this.notificationService.message('Succesfully submitted job', link);
-      })
-      .catch(error => {
-        this.notificationService.error(error); 
-      });
+    //      link = this.configService.userJobPath;
+    //    }
+    //    
+    //    this.notificationService.message('Succesfully submitted job', link);
+    //  })
+    //  .catch(error => {
+    //    this.notificationService.error(error); 
+    //  });
   }
 
   domainCopy(node: ProcessWrapper) {
-    this.selectedNode.process.domainPreset = node.process.domainPreset;
+    //this.selectedNode.process.domainPreset = node.process.domainPreset;
 
-    this.selectedNode.process.domain = node.process.domain.map((x: Axis) => {
-      return {...x};
-    });
+    //this.selectedNode.process.domain = node.process.domain.map((x: Axis) => {
+    //  return {...x};
+    //});
   }
 
   domainPresetChange(data: string) {
     if (this.selectedNode != null) {
-      this.selectedNode.process.domainPreset = data;
+      //this.selectedNode.process.domainPreset = data;
 
-      if (data === 'Global') {
-        this.selectedNode.process.domain = this.model.process.domain.map((x: Axis) => { 
-          return {...x};
-        });
-      } else if (data === 'None' || data === 'Custom') {
-        this.selectedNode.process.domain = [];
-      }
+      //if (data === 'Global') {
+      //  this.selectedNode.process.domain = this.model.process.domain.map((x: Axis) => { 
+      //    return {...x};
+      //  });
+      //} else if (data === 'None' || data === 'Custom') {
+      //  this.selectedNode.process.domain = [];
+      //}
     }
   }
 
@@ -555,20 +551,20 @@ export class WorkflowComponent implements OnInit {
       case 46: {
         d3.select('.link-select')
           .each((link: Link) => {
-            this.links = this.links.filter((item: Link) => {
-              if (link !== item) {
-                return true;
-              }
+            //this.links = this.links.filter((item: Link) => {
+            //  if (link !== item) {
+            //    return true;
+            //  }
 
-              let src = item.src.process;
-              let dst = item.dst.process;
+            //  let src = item.src.process;
+            //  let dst = item.dst.process;
 
-              dst.inputs = dst.inputs.filter((proc: Process) => {
-                return src.uid !== proc.uid;
-              });
+            //  dst.inputs = dst.inputs.filter((proc: Process) => {
+            //    return src.uid !== proc.uid;
+            //  });
 
-              return false;
-            });
+            //  return false;
+            //});
           });
 
         this.determineRootNode();
@@ -643,19 +639,19 @@ export class WorkflowComponent implements OnInit {
 
   svgMouseOver() {
     if (this.state === EditorState.Dropped) {
-      this.state = EditorState.None;
+      //this.state = EditorState.None;
 
-      let origin = d3.mouse(d3.event.target);
+      //let origin = d3.mouse(d3.event.target);
 
-      let process = new Process(this.stateData);
+      //let process = new Process(this.stateData);
 
-      process.domainPreset = 'None';
+      //process.domainPreset = 'None';
 
-      this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
+      //this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 
-      this.determineRootNode();
+      //this.determineRootNode();
 
-      this.update();
+      //this.update();
     }
   }
 

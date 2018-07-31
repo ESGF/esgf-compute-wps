@@ -57,9 +57,13 @@ export class MapComponent implements OnInit {
     lat.stop = data.latitude[1];
   }
 
-  getBounds() {
+  getBounds(): L.LatLngBoundsExpression {
+    if (this.domain == undefined) { return null; }
+
     let lng = this.domain.axes.find((axis: Axis) => { return LNG_NAMES.indexOf(axis.id) > -1; });
     let lat = this.domain.axes.find((axis: Axis) => { return LAT_NAMES.indexOf(axis.id) > -1; });
+
+    if (lng == undefined || lat == undefined) { return [[0.0, 0.0], [0.0, 0.0]]; }
 
     let sw = new L.LatLng(lat.stop, lng.start);
     let ne = new L.LatLng(lat.start, lng.stop);

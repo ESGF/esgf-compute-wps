@@ -5,12 +5,14 @@ import { Process } from './process';
 import { Variable, VariableCollection, File } from './configure.service';
 import { RegridModel } from './regrid.component';
 import { Parameter } from './parameter.component';
-import { Axis } from './axis.component';
+import { Axis } from './domain.component';
 import { Domain } from './domain.component';
 
+import { AuthService } from '../core/auth.service';
 import { ConfigureService } from './configure.service';
 import { ConfigService } from '../core/config.service';
 import { WPSService } from '../core/wps.service';
+import { NotificationService } from '../core/notification.service';
 
 declare var $: any;
 
@@ -88,8 +90,10 @@ export class ProcessDetailComponent implements OnInit {
   fileState: FileModalState;
 
   constructor(
+    public authService: AuthService,
     public configService: ConfigService,
     public configureService: ConfigureService,
+    public notificationService: NotificationService,
     public wpsService: WPSService,
   ) { }
 
@@ -115,6 +119,58 @@ export class ProcessDetailComponent implements OnInit {
     if (this._datasets.length > 0) {
       this.changeDataset(this._datasets[0]);
     }
+  }
+
+  downloadScript() {
+    let process = this.selectedOperation;
+
+    process.inputs = this.files.filter((item: File) => { return item.included; });
+
+    process.variable = this.selectedVariable.id;
+
+    process.domain = new Domain('', this.axes);
+
+    process.regrid = this.regridModel;
+
+    process.parameters = this.parameters;
+
+    this.configureService.downloadScript(process).then((data: any) => {
+      let url = URL.createObjectURL(new Blob([data.text]));
+
+      let a = document.createElement('a');
+
+      a.href = url;
+      a.target = '_blank';
+      a.download = data.filename;
+
+      a.click();
+    }).catch((error: any) => {
+      this.notificationService.error(error); 
+    });
+  }
+
+  execute() {
+    let process = this.selectedOperation;
+
+    process.inputs = this.files.filter((item: File) => { return item.included; });
+
+    process.variable = this.selectedVariable.id;
+
+    process.domain = new Domain('', this.axes);
+
+    process.regrid = this.regridModel;
+
+    process.parameters = this.parameters;
+
+    this.wpsService.execute(
+      this.configService.wpsPath,
+      this.authService.user.api_key,
+      process
+    ).then((data: any) => {
+      this.notificationService.message(data);      
+    }).catch((error: any) => {
+      this.notificationService.error(error);
+    });
   }
 
   showFiles() {

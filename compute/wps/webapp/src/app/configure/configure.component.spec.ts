@@ -80,8 +80,6 @@ describe('Configure Component', () => {
   it('should initialize', () => {
     spyOn(config, 'searchESGF').and.returnValue(Promise.resolve(mockResult));
 
-    spyOn(config, 'processes').and.returnValue(Promise.resolve(['test1', 'test2']));
-
     comp.ngOnInit();
 
     fixture.detectChanges();
