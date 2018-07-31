@@ -47,7 +47,7 @@ class WPSScriptGenerator(object):
 
         buf.write('api_key=\'{}\'\n\n'.format(self.user.auth.api_key))
 
-        buf.write('wps = cwt.WPS(\'{}\', api_key=api_key)\n\n'.format(settings.WPS_ENDPOINT))
+        buf.write('wps = cwt.WPSClient(\'{}\', api_key=api_key)\n\n'.format(settings.WPS_ENDPOINT))
 
     def write_variables(self, buf):
         for v in self.variable.values():
@@ -66,7 +66,7 @@ class WPSScriptGenerator(object):
 
     def write_processes(self, buf):
         for o in self.operation.values():
-            buf.write('op-{} = wps.get_process(\'{}\')\n\n'.format(o.name, o.identifier))
+            buf.write('op-{} = wps.process(\'{}\')\n\n'.format(o.name, o.identifier))
 
         op = self.operation.values()[0]
 
@@ -109,8 +109,6 @@ class WPSScriptGenerator(object):
 
     def write_output(self, buf):
         buf.write('print {}.status\n\n'.format(self.root_op))
-
-        buf.write('print {}.output\n\n'.format(self.root_op))
 
         buf.write('try:\n\timport vcs\n\timport cdms2\nexcept:\n\tpass\nelse:\n')
 
