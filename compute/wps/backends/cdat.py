@@ -251,6 +251,8 @@ class CDAT(backend.Backend):
             canvas = None
 
         if canvas is None:
+            logger.info('Setting up canvas to use cached file')
+
             canvas = (process.s({}, cache_list, root_op, var_name, base_units, 
                                job_id=job_id).set(
                                    **queue) |
@@ -258,16 +260,19 @@ class CDAT(backend.Backend):
                           process_id=process_obj.id, job_id=job_id).set(
                               **queue))
         else:
-            canvas = (canvas |
+            logger.info('Setting up canvas to cache after ingress')
+
+            ingress_canvas = (canvas |
                       process.s(cache_list, root_op, var_name, base_units,
                                 job_id=job_id).set(
                                     **queue) |
                       tasks.update_process_rates.s(
                           process_id=process_obj.id, job_id=job_id).set(
-                              **queue) | 
-                      celery.group(cache_task_list) |
-                      tasks.ingress_cleanup.s(job_id=job_id).set(
-                          **queue))
+                              **queue))
+
+            cache_canvas = celery.group(cache_task_list) | tasks.ingress_cleanup.s(job_id=job_id).set(**queue)
+
+            canvas = (ingress_canvas | cache_canvas)
 
         canvas.delay()
 

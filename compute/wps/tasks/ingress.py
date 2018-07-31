@@ -49,10 +49,7 @@ def ingress_cleanup(self, attrs, job_id=None):
     Returns:
         A dict composed of the dicts in attrs argument.
     """
-
-    filter_ingress = [x for x in attrs.values() if 'ingress' in x]
-
-    filter_paths = [x['ingress']['path'] for x in filter_ingress]
+    filter_paths = [x['ingress']['path'] for x in attrs]
 
     for path in filter_paths:
         try:
@@ -61,6 +58,8 @@ def ingress_cleanup(self, attrs, job_id=None):
             logger.exception('Failed to remove %r', path)
 
             continue
+
+        logger.info('Removed ingress file %r', path)
 
     return attrs
 
@@ -138,7 +137,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
 
     entry.set_size()
 
-    return attrs
+    return dict(y for x in filter_uri_sorted for y in x.items())
 
 @base.cwt_shared_task()
 def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=None):

@@ -110,7 +110,12 @@ def request_execute(self, attrs, job_id=None):
         'data': helpers.encoder(attrs)
     }
 
-    response = requests.post(settings.WPS_EXECUTE_URL, data=data, verify=False)
+    try:
+        response = requests.post(settings.WPS_EXECUTE_URL, data=data, verify=False)
+    except Exception:
+        logger.exception('Error requesting execute')
+
+        raise WPSError('Error requesting execution')
 
     if not response.ok:
         raise WPSError('Failed to execute status code {code}', code=response.status_code)
