@@ -58,9 +58,13 @@ def check_certificate(user):
     now = datetime.now()
 
     if now >= after:
+        logger.info('Certificate not valid after %r, now %r', after, now)
+
         return False
 
     if now <= before:
+        logger.info('Certificate not valid before %r, now %r', before, now)
+
         return False
 
     return True
