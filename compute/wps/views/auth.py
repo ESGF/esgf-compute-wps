@@ -16,6 +16,7 @@ from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.cache import never_cache
 from openid.consumer import discover
 from myproxy.client import MyProxyClient
 

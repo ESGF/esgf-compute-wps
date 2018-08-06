@@ -6,3 +6,4 @@ from .credentials import *
 from .edas import *
 from .ophidia import *
 from .cache import *
+from .job import *

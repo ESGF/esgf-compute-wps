@@ -2,7 +2,9 @@
 
 import json
 import re
+import signal
 from functools import partial
+from contextlib import contextmanager
 
 import cdms2
 import celery
@@ -11,31 +13,13 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 
 from wps import models
+from wps import AccessError
 from wps import WPSError
+from wps.tasks import credentials
 
 logger = get_task_logger('wps.tasks.base')
 
-FAILURE = 1
-RETRY = 2
-SUCCESS = 4
-ALL = FAILURE | RETRY | SUCCESS
-
 REGISTRY = {}
-
-class AccessError(WPSError):
-    def __init__(self, url, reason):
-        if reason == '':
-            reason = 'Unknown'
-
-        msg = 'Error accessing "{url}": {reason}'
-
-        super(AccessError, self).__init__(msg, url=url, reason=reason)
-
-class MissingJobError(WPSError):
-    def __init__(self, job_id):
-        msg = 'Error job with id "{id}" does not exist'
-
-        super(MissingJobError, self).__init__(msg, job_id=job_id)
 
 def get_process(identifier):
     try:
@@ -60,44 +44,48 @@ def register_process(identifier, **kwargs):
         func.METADATA = kwargs.get('metadata', {})
 
         return func
-    
+
     return wrapper
+
+class Timeout(object):
+    def __init__(self, seconds, url):
+        self.seconds = seconds
+        self.url = url
+
+    def handle_timeout(self, signum, frame):
+        raise AccessError(url, '')
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        signal.alarm(0)
 
 class CWTBaseTask(celery.Task):
 
-    def load(self, parent_variables, variables, domains, operation):
-        """ Load a processes inputs.
+    def get_axis_list(self, variable):
+        return variable.getAxisList()
 
-        Loads each value into their associated container class.
+    def get_variable(self, infile, var_name):
+        return infile[var_name]
 
-        Args:
-            variables: A dict mapping names of Variables to their representations.
-            domains: A dict mapping names of Domains to their representations.
-            operations: A dict mapping names of Processes to their representations.
+    @contextmanager
+    def open(self, uri):
+        with Timeout(30, uri):
+            fd = cdms2.open(uri)
 
-        Returns:
-            A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
-            object of their respective container type.
-        """
-        if isinstance(parent_variables, dict):
-            variables.update(parent_variables)
-        elif isinstance(parent_variables, list):
-            for parent in parent_variables:
-                if isinstance(parent, dict):
-                    variables.update(parent)
+        try:
+            yield fd
+        finally:
+            fd.close()
 
-        v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
+    def load_credentials(self, user_id):
+        user = self.load_user(user_id)
 
-        d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
+        credentials.load_certificate(user)
 
-        o = cwt.Process.from_dict(operation)
-
-        if o.domain is not None:
-            o.domain = d[o.domain]
-
-        o.inputs = [v[i] for i in o.inputs]
-
-        return v, d, o
+        return user
 
     def load_user(self, user_id):
         try:
@@ -199,14 +187,6 @@ class CWTBaseTask(celery.Task):
 
         return target.getGrid()
 
-    def __can_publish(self, pub_type):
-        publish = getattr(self, 'PUBLISH', None)
-
-        if publish is None:
-            return False
-
-        return (publish & pub_type) > 0
-
     def __get_job(self, **kwargs):
         try:
             job = models.Job.objects.get(pk=kwargs['job_id'])
@@ -222,37 +202,18 @@ class CWTBaseTask(celery.Task):
             return job
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
-        #if not self.__can_publish(RETRY):
-        #    return
-
         job = self.__get_job(**kwargs)
 
         if job is not None:
             job.retry(exc)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        #if not self.__can_publish(FAILURE):
-        #    return
-
         job = self.__get_job(**kwargs)
 
         if job is not None:
             job.failed(str(exc))
 
     def on_success(self, retval, task_id, args, kwargs):
-        #if not self.__can_publish(SUCCESS):
-        #    return
+        pass
 
-        job = self.__get_job(**kwargs)
-
-        #if job is not None:
-        #    job.succeeded(json.dumps(retval.values()[0]))
-
-cwt_shared_task = partial(shared_task,
-                          bind=True,
-                          base=CWTBaseTask,
-                          autoretry_for=(AccessError,),
-                          retry_backoff=60,
-                          retry_kwargs={
-                              'max_retries': 5
-                          })
+cwt_shared_task = partial(shared_task, bind=True, base=CWTBaseTask)

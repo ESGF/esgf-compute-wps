@@ -24,6 +24,9 @@ DEFAULT_QUEUE = {
 }
 
 def int_or_float(value):
+    if isinstance(value, (int, float)):
+        return value
+
     try:
         return int(value)
     except ValueError:

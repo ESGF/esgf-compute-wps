@@ -431,10 +431,7 @@ def status(request, job_id):
 @require_http_methods(['POST'])
 @csrf_exempt
 def execute(request):
-    try:
-        data = helpers.decoder(request.POST['data'])
-    except (KeyError, ValueError):
-        return http.HttpResponseBadRequest()
+    data = helpers.decoder(request.body)
 
     backend = backends.Backend.get_backend('CDAT')
 

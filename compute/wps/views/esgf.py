@@ -222,7 +222,6 @@ def search_variable(request):
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
-@cache_control(private=True, max_age=3600)
 def search_dataset(request):
     try:
         common.authentication_required(request)

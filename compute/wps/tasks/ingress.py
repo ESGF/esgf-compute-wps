@@ -6,6 +6,7 @@ import hashlib
 import os
 
 import cdms2
+from cdms2 import MV2 as MV
 from django.conf import settings
 from celery.utils import log
 
@@ -14,11 +15,6 @@ from wps import models
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import preprocess
-
-__ALL__ = [
-    'preprocess',
-    'ingress',
-]
 
 logger = log.get_task_logger('wps.tasks.ingress')
 
@@ -64,7 +60,7 @@ def ingress_cleanup(self, attrs, job_id=None):
     return attrs
 
 @base.cwt_shared_task()
-def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
+def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_units, job_id):
     """ Cached ingress items.
 
     Args:
@@ -79,14 +75,14 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
     Returns: 
         A dict composed of the dicts from attrs.
     """
-    entry = preprocess.check_cache_entries(uri, var_name, domain)
+    entry = preprocess.check_cache_entries(uri, var_name, domain, job_id)
 
     if entry is not None:
         logger.info('%r of %r has been cached', var_name, uri)
 
         return attrs
 
-    filter_ingress = [x for x in attrs.values() if 'ingress' in x]
+    filter_ingress = [x for x in attrs.values() if isinstance(x, dict) and 'ingress' in x]
 
     filter_uri = [x for x in filter_ingress if x['ingress']['uri'] == uri]
 
@@ -110,6 +106,9 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
 
     logger.info('Created cached entry for %r of %r with dimensions %r', var_name, uri, kwargs['dimensions'])
 
+    chunk_axis = None
+    chunk_list = []
+
     try:
         with cdms2.open(entry.local_path, 'w') as outfile:
             for item in filter_uri_sorted:
@@ -119,12 +118,29 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
 
                         logger.info('Read chunk with shape %r', data.shape)
 
-                        data.getTime().toRelativeTime(str(base_units))
+                        if chunk_axis is None:
+                            chunk_axis_index = data.getAxisIndex(chunk_axis_name)
 
-                        outfile.write(data, id=var_name)
+                            if chunk_axis_index == -1:
+                                raise WPSError('Failed to find axis {}', chunk_axis_name)
+
+                            chunk_axis = data.getAxis(chunk_axis_index)
+
+                        if chunk_axis.isTime():
+                            if base_units is not None:
+                                data.getTime().toRelativeTime(str(base_units))
+
+                            outfile.write(data, id=var_name)
+                        else:
+                            chunk_list.append(data)
                 except cdms2.CDMSError as e:
                     raise base.AccessError(item_meta['ingress']['path'], e)
             
+            if not chunk_axis.isTime():
+                data = MV.concatenate(chunk_list, axis=chunk_axis_index)
+
+                outfile.write(data, id=var_name)
+
             logger.info('Wrote cache file with shape %r', outfile[var_name].shape)
     except cdms2.CDMSError as e:
         logger.exception('Failed to write local file %r', entry.local_path)
@@ -140,7 +156,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, base_units, job_id=None):
     return dict(y for x in filter_uri_sorted for y in x.items())
 
 @base.cwt_shared_task()
-def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=None):
+def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id=None):
     """ Ingress a portion of data.
 
     Args:
@@ -161,17 +177,16 @@ def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=N
         size: A float denoting the size in MegaBytes.
 
         {
-            "key": {
-                "ingress": {
-                    "uri": "https://aims3.llnl.gov/path/filename.nc",
-                    "path": "file:///path/filename.nc",
-                    "elapsed": datetime.timedelta(0, 0, 3),
-                    "size": 3.28
-                }
+            "output_path": {
+                "ingress": True,
+                "uri": "https://aims3.llnl.gov/path/filename.nc",
+                "path": "output_path",
+                "elapsed": datetime.timedelta(0, 0, 3),
+                "size": 3.28
             }
         }
     """
-    preprocess.load_credentials(user_id)
+    self.load_credentials(user_id)
 
     job = self.load_job(job_id)
 
@@ -202,13 +217,12 @@ def ingress_uri(self, key, uri, var_name, domain, output_path, user_id, job_id=N
     self.update(job, 'Ingressed chunk {}', shape)
 
     attrs = {
-        key: {
-            'ingress': {
-                'uri': uri,
-                'path': output_path,
-                'elapsed': elapsed,
-                'size': stat.st_size / 1000000.0,
-            }
+        output_path: {
+            'ingress': True,
+            'uri': uri,
+            'path': output_path,
+            'elapsed': elapsed,
+            'size': stat.st_size / 1000000.0,
         }
     }
 
