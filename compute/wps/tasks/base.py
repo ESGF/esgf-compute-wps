@@ -11,6 +11,8 @@ import celery
 import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 
 from wps import models
 from wps import AccessError
@@ -136,6 +138,45 @@ class CWTBaseTask(celery.Task):
         return start, default_n, delta
 
     def generate_grid(self, gridder, chunk):
+        if isinstance(gridder.grid, cwt.Variable):
+            grid = self.read_grid_from_file(gridder)
+        else:
+            grid = self.generate_user_defined_grid(gridder)
+
+        if grid is None:
+            return None
+
+        target = cdms2.MV2.ones(grid.shape)
+
+        target.setAxisList(grid.getAxisList())
+
+        domain = {}
+
+        for axis in chunk.getAxisList():
+            if not axis.isTime():
+                domain[axis.id] = (axis[0], axis[-1])
+
+        target = target(**domain)
+
+        return target.getGrid()
+
+    def read_grid_from_file(gridder):
+        url_validator = URLValidator(['https', 'http'])
+
+        try:
+            url_validator(gridder.grid.uri)
+        except ValidationError:
+            raise WPSError('Path to grid file is not an OpenDAP url: {}', gridder.grid.uri)
+
+        try:
+            with cdms2.open(gridder.grid) as infile:
+                data = infile(gridder.grid.var_name)
+        except cdms2.CDMSError:
+            raise WPSError('Failed to read the grid from {} in {}', gridder.grid.var_name, gridder.grid.uri)
+
+        return data.getGrid()
+
+    def generate_grid_from_definition(gridder, chunk):
         try:
             grid_type, grid_param = gridder.grid.split('~')
         except AttributeError:
@@ -163,7 +204,7 @@ class CWTBaseTask(celery.Task):
 
             logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
                 grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
-        else:
+        elif grid_type.lower() == 'gaussian':
             try:
                 nlats = int(grid_param)
             except ValueError:
@@ -172,20 +213,10 @@ class CWTBaseTask(celery.Task):
             grid = cdms2.createGaussianGrid(nlats)
 
             logger.info('Created target gaussian grid {}'.format(grid.shape))
+        else:
+            raise WPSError('Unknown grid type for regridding: {}', grid_type)
 
-        target = cdms2.MV2.ones(grid.shape)
-
-        target.setAxisList(grid.getAxisList())
-
-        domain = {}
-
-        for axis in chunk.getAxisList():
-            if not axis.isTime():
-                domain[axis.id] = (axis[0], axis[-1])
-
-        target = target(**domain)
-
-        return target.getGrid()
+        return grid
 
     def __get_job(self, **kwargs):
         try:
