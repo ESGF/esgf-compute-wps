@@ -107,29 +107,24 @@ def write_data(data, var_name, base_units, grid, gridder, outfile):
     outfile.write(data, id=var_name)
 
 def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
-    """ Reconstructs file described by attrs and cached.
+    """ Retrieve file(s).
 
-    Expected format for attrs argument.
+    This is the base for aggregate, subset and regrid.
+
+    Expected format for "attrs" argument.
 
     {
         "key": {
             "path": "https://aims3.llnl.gov/path/filename.nc",
-            "ingress": {
-                "path": "file:///path/filename.nc",
-            }
-            --- or ---
-            "cached": {
-                "path": "file:///path/filename.nc",
-                "chunked_axis": "time",
-                "chunks": {
-                    "time": [slice(0, 10), slice(10, 12)],
-                },
-                "mapped": {
-                    "time": slice(0, 10),
-                    "lat": slice(0, 100),
-                    "lon": slice(0, 200),
-                },
-            }
+            "chunked_axis": "time",
+            "chunks": {
+                "time": [slice(0, 10), slice(10, 12)],
+            },
+            "mapped": {
+                "time": slice(0, 10),
+                "lat": slice(0, 100),
+                "lon": slice(0, 200),
+            },
         }
     }
 
@@ -142,8 +137,7 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
         job_id: An int of the current job id.
 
     Returns:
-        A list of dicts, this should be the combination of attrs and cached 
-        arguments.
+        The input attrs.
     """
     gridder = operation.get_parameter('gridder')
 
@@ -162,15 +156,15 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
     generated_grid = True
 
     with cdms2.open(output_path, 'w') as outfile:
+        # Expect the keys to be given in a sortable format
         for key in sorted(keys):
             current = attrs[key]
 
-            if 'cached' in current:
-                url = current['path']
-            else:
-                url = current['path']
+            url = current['path']
 
             with cdms2.open(url) as infile:
+                # If the file is cached we still read it in chunks to reduce
+                # memory usage
                 if 'cached' in current:
                     chunk_axis = current['chunk_axis']
 
@@ -179,6 +173,7 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
                     mapped = current['mapped']
 
                     for chunk in chunk_list:
+                        # Update the map with the chunked axis
                         mapped.update({ chunk_axis: chunk })
 
                         data = infile(var_name, **mapped)
@@ -204,7 +199,7 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
     return attrs
 
 def base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
-    """ Process the file passed in attrs.
+    """ Process file.
 
     Expected format for attrs argument.
 
@@ -218,28 +213,18 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
         }
     }
 
-
     Args:
         attrs: A dict describing the file to be processed.
+        key: A key used to identify the data in attrs.
         operation: A cwt.Process object.
         var_name: A str variable name.
-        base_units: A str containing the base units.
-        axes: A list of str axis names to operate over.
+        base_units: A str units used to base the time axis.
+        axes: A list of str names of axes to operate over.
         output_path: A str containing the output path.
-        mv_func: An instance of the MV2 function.
         job_id: An int of the current job id. 
 
     Returns:
-        A dict with the following format:
-
-        {
-            "key": {
-                "process": {
-                    "path": "file:///path/filename.nc", 
-                }
-            }
-        }
-
+        The input attrs dict.
     """
     job = self.load_job(job_id)
 
@@ -252,16 +237,20 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
     else:
         mapped = {}
 
+    # Read input data
     with cdms2.open(inp['path']) as infile:
         data = infile(var_name, **mapped)
 
+    # Generate grid if needed
     if gridder is not None:
         grid = self.generate_grid(gridder, data)
 
         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
+    # Grab the indexes of the axes
     axes_index = [data.getAxisIndex(str(x)) for x in axes]
 
+    # Process axes
     for axis in axes_index:
         data = self.PROCESS(data, axis=axis)
 
@@ -272,10 +261,14 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
 
 @base.cwt_shared_task()
 def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, output_path, job_id):
-    """ Concatenates the process outputs.
+    """ Concatenates inputs over chunked_axis.
 
     Args:
         attrs: A dict or list of dicts from previous tasks.
+        input_paths: A list of inputs to be concatenated.
+        var_name: A str variable name.
+        chunked_axis: A str name of the chunked axis.
+        output_path: A str path to write the output to.
         job_id: An int referencing the associated job.
 
     Returns:
