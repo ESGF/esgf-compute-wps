@@ -35,31 +35,6 @@ def read_data(infile, var_name, domain):
     return data
 
 @base.cwt_shared_task()
-def ingress_cleanup(self, attrs, job_id=None):
-    """ Cleanup the ingressed files.
-
-    Args:
-        attrs: A list of dicts from previous tasks.
-        job_id: An int referencing the job.
-
-    Returns:
-        A dict composed of the dicts in attrs argument.
-    """
-    filter_paths = [x['ingress']['path'] for x in attrs]
-
-    for path in filter_paths:
-        try:
-            os.remove(path)
-        except OSError:
-            logger.exception('Failed to remove %r', path)
-
-            continue
-
-        logger.info('Removed ingress file %r', path)
-
-    return attrs
-
-@base.cwt_shared_task()
 def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_units, job_id):
     """ Cached ingress items.
 

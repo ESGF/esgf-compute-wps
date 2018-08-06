@@ -25,6 +25,16 @@ OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/jso
 
 PATTERN_AXES_REQ = 'CDAT\.(min|max|average|sum)'
 
+@base.cwt_shared_task()
+def cleanup(self, attrs, file_paths, job_id):
+    for path in file_paths:
+        try:
+            os.remove(path)
+        except:
+            logger.exception('Failed to remove %r', path)
+
+    return attrs
+
 @base.register_process('CDAT.health', abstract="""
 Returns current server health
 """, data_inputs=[], metadata={'inputs': 0})
@@ -162,11 +172,11 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
 
             with cdms2.open(url) as infile:
                 if 'cached' in current:
-                    chunk_axis = current['cached']['chunk_axis']
+                    chunk_axis = current['chunk_axis']
 
-                    chunk_list = current['cached']['chunk_list']
+                    chunk_list = current['chunk_list']
 
-                    mapped = current['cached']['mapped']
+                    mapped = current['mapped']
 
                     for chunk in chunk_list:
                         mapped.update({ chunk_axis: chunk })

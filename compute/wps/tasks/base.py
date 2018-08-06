@@ -138,12 +138,13 @@ class CWTBaseTask(celery.Task):
         return start, default_n, delta
 
     def generate_grid(self, gridder, chunk):
-        if isinstance(gridder.grid, cwt.Variable):
-            grid = self.read_grid_from_file(gridder)
-        else:
-            grid = self.generate_user_defined_grid(gridder)
-
-        if grid is None:
+        try:
+            if isinstance(gridder.grid, cwt.Variable):
+                grid = self.read_grid_from_file(gridder)
+            else:
+                grid = self.generate_user_defined_grid(gridder)
+        except AttributeError:
+            # Handle when gridder is None
             return None
 
         target = cdms2.MV2.ones(grid.shape)
