@@ -156,9 +156,9 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
             current = attrs[key]
 
             if 'cached' in current:
-                url = current['cached']['path']
+                url = current['path']
             else:
-                url = current['ingress']['path']
+                url = current['path']
 
             with cdms2.open(url) as infile:
                 if 'cached' in current:
@@ -191,12 +191,9 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
 
     output_dap = settings.WPS_DAP_URL.format(filename=output_name)
 
-    # Update dict with success
-    attrs['output'] = cwt.Variable(output_dap, var_name)
-
     return attrs
 
-def base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
+def base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
     """ Process the file passed in attrs.
 
     Expected format for attrs argument.
@@ -236,58 +233,30 @@ def base_process(self, attrs, operation, var_name, base_units, axes, output_path
     """
     job = self.load_job(job_id)
 
-    inp = attrs.values()[0]
+    inp = attrs[key]
 
     gridder = operation.get_parameter('gridder')
 
-    if 'ingress' in inp:
-        ingress = inp['ingress']
-
-        with cdms2.open(ingress['path']) as infile:
-            data = infile(var_name)
-
-        if gridder is not None:
-            grid = self.generate_grid(gridder, data)
-
-            data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
-
-        if base_units is not None:
-            data.getTime().toRelativeTime(str(base_units))
-
-        axes_index = [data.getAxisIndex(str(x)) for x in axes]
-
-        for axis in axes_index:
-            data = self.PROCESS(data, axis=axis)
-
-        with cdms2.open(output_path, 'w') as outfile:
-            outfile.write(data, id=var_name)
-    elif 'cached' in attrs:
-        cached = attrs['cached']
-
-        mapped = cached['mapped']
-
-        with cdms2.open(cached['path']) as infile:
-            data = infile(var_name, **mapped)
-
-        if gridder is not None:
-            grid = self.generate_grid(gridder, data)
-
-            data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
-
-        if base_units is not None:
-            data.getTime().toRelativeTime(str(base_units))
-
-        axes_index = [data.getAxisIndex(str(x)) for x in axes]
-
-        for axis in axes_index:
-            data = self.PROCESS(data, axis=axis)
-
-        with cdms2.open(output_path, 'w') as outfile:
-            outfile.write(data, id=var_name)
+    if 'cached' in inp:
+        mapped = inp['mapped']
     else:
-        raise WPSError('Something went wrong input was neither ingressed or cached')
+        mapped = {}
 
-    attrs['processed'] = output_path
+    with cdms2.open(inp['path']) as infile:
+        data = infile(var_name, **mapped)
+
+    if gridder is not None:
+        grid = self.generate_grid(gridder, data)
+
+        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
+
+    axes_index = [data.getAxisIndex(str(x)) for x in axes]
+
+    for axis in axes_index:
+        data = self.PROCESS(data, axis=axis)
+
+    with cdms2.open(output_path, 'w') as outfile:
+        outfile.write(data, id=var_name)
 
     return attrs
 
@@ -361,8 +330,8 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """, process=MV.average, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def average(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
+def average(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
+    return base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.sum', abstract=""" 
 Computes the sum over an axis. Requires singular parameter named "axes" 
@@ -370,8 +339,8 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """, process=MV.sum, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def summation(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
+def summation(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
+    return base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.max', abstract=""" 
 Computes the maximum over an axis. Requires singular parameter named "axes" 
@@ -379,8 +348,8 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """, process=MV.max, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def maximum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
+def maximum(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
+    return base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.min', abstract="""
 Computes the minimum over an axis. Requires singular parameter named "axes" 
@@ -388,5 +357,5 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """, process=MV.min, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def minimum(self, attrs, operation, var_name, base_units, axes, output_path, job_id):
-    return base_process(self, attrs, operation, var_name, base_units, axes, output_path, job_id)
+def minimum(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
+    return base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id)

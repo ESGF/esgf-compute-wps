@@ -84,9 +84,9 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
 
     filter_ingress = [x for x in attrs.values() if isinstance(x, dict) and 'ingress' in x]
 
-    filter_uri = [x for x in filter_ingress if x['ingress']['uri'] == uri]
+    filter_uri = [x for x in filter_ingress if x['uri'] == uri]
 
-    filter_uri_sorted = sorted(filter_uri, key=lambda x: x['ingress']['path'])
+    filter_uri_sorted = sorted(filter_uri, key=lambda x: x['path'])
 
     uid = '{}:{}'.format(uri, var_name)
 
@@ -113,7 +113,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
         with cdms2.open(entry.local_path, 'w') as outfile:
             for item in filter_uri_sorted:
                 try:
-                    with cdms2.open(item['ingress']['path']) as infile:
+                    with cdms2.open(item['path']) as infile:
                         data = infile(var_name)
 
                         logger.info('Read chunk with shape %r', data.shape)
@@ -134,7 +134,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
                         else:
                             chunk_list.append(data)
                 except cdms2.CDMSError as e:
-                    raise base.AccessError(item_meta['ingress']['path'], e)
+                    raise base.AccessError(item_meta['path'], e)
             
             if not chunk_axis.isTime():
                 data = MV.concatenate(chunk_list, axis=chunk_axis_index)

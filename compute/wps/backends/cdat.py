@@ -269,13 +269,18 @@ class CDAT(backend.Backend):
             mapped = preprocess['mapped']
 
             if cached is None:
+                chunks = preprocess['chunks']
+
+                chunk_axis = chunks.keys()[0]
+
                 try:
                     ingress_paths, ingress = self.generate_ingress_tasks(op_uid, url, var_name, user_id, job_id, **kwargs)
                 except FileNotIncludedError:
                     continue
 
                 cache.append(tasks.ingress_cache.s(
-                    url, var_name, mapped, base_units, job_id=job_id).set(
+                    url, var_name, mapped, chunk_axis, base_units, 
+                    job_id=job_id).set(
                         **helpers.DEFAULT_QUEUE))
             else:
                 self.generate_cache_entry(op_uid, url, cache_files, **kwargs)
@@ -350,7 +355,7 @@ class CDAT(backend.Backend):
             axes_sig = '-'.join(axes.values)
             process_chains = []
 
-            for ingress_task in ingress:
+            for ingress_path, ingress_task in zip(ingress_paths, ingress):
                 output_paths.append('{}/{}-{:08}-{}.nc'.format(
                     settings.WPS_INGRESS_PATH, op_uid, index, axes_sig))
 
@@ -358,8 +363,8 @@ class CDAT(backend.Backend):
 
                 process_chains.append(
                     celery.chain(ingress_task, process.s(
-                        op, var.var_name, base_units, axes.values, output_paths[-1], 
-                        job_id=job_id).set(
+                        ingress_path, op, var.var_name, base_units, 
+                        axes.values, output_paths[-1], job_id=job_id).set(
                             **helpers.DEFAULT_QUEUE)))
         else:
             self.generate_cache_entry(op_uid, var.uri, cache_files, **kwargs)
@@ -385,14 +390,15 @@ class CDAT(backend.Backend):
                 mapped.update({chunk_axis: chunk})
 
                 data = {
-                    'cached': {
+                    var.uri: {
+                        'cached': True,
                         'path': cached['path'],
                         'mapped': mapped,
                     }
                 }
 
                 process_chains.append(process.s(
-                    data, op, var.var_name, base_units, axes.values, 
+                    data, var.uri, op, var.var_name, base_units, axes.values, 
                     output_paths[-1], job_id=job_id).set(
                         **helpers.DEFAULT_QUEUE))
 
