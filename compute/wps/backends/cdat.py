@@ -240,7 +240,8 @@ class CDAT(backend.Backend):
 
         cache_files[key] = cache_entry
 
-    def execute_processing(self, root, sort, base_units, variable, domain, operation, user_id, job_id, **kwargs):
+    def execute_processing(self, root, sort, base_units, variable, domain, 
+                           operation, user_id, job_id, **kwargs):
         op = operation[root]
 
         logger.info('Executing %r', op)
@@ -251,7 +252,8 @@ class CDAT(backend.Backend):
         var_name = set([x.var_name for x in variable.values()]).pop()
 
         # Sort the inputs so we generate the ingress chunks in order
-        urls = sorted([variable[x].uri for x in op.inputs], key=lambda x: kwargs[x][sort])
+        urls = sorted([variable[x].uri for x in op.inputs], 
+                      key=lambda x: kwargs[x][sort])
 
         ingress = []
         cache = []
@@ -275,7 +277,8 @@ class CDAT(backend.Backend):
                 chunk_axis = chunks.keys()[0]
 
                 try:
-                    ingress_paths, ingress = self.generate_ingress_tasks(op_uid, url, var_name, user_id, job_id, **kwargs)
+                    ingress_paths, ingress = self.generate_ingress_tasks(
+                        op_uid, url, var_name, user_id, job_id, **kwargs)
                 except FileNotIncludedError:
                     continue
 
@@ -290,7 +293,7 @@ class CDAT(backend.Backend):
 
         del kwargs['index']
 
-        output_path = '{}\{}.nc'.format(settings.WPS_LOCAL_OUTPUT_PATH, op_uid)
+        output_path = '{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, op_uid)
 
         success = tasks.job_succeeded.s(
             output_path, None, var_name, job_id=job_id).set(
@@ -300,7 +303,8 @@ class CDAT(backend.Backend):
 
         if len(ingress) > 0:
             process_task = process.s(
-                ingress_paths, op, var_name, base_units, job_id=job_id).set(
+                ingress_paths, op, var_name, base_units, output_path, 
+                job_id=job_id).set(
                     **helpers.DEFAULT_QUEUE)
 
             ingress_and_process = celery.group(x for x in ingress) | process_task
@@ -314,14 +318,15 @@ class CDAT(backend.Backend):
         else:
             process_task = process.s(
                 cache_files, cache_files.keys(), op, var_name, base_units, 
-                job_id=job_id).set(
+                output_path, job_id=job_id).set(
                     **helpers.DEFAULT_QUEUE)
 
             canvas = process_task | success
 
         canvas.delay()
 
-    def execute_computation(self, root, base_units, variable, domain, operation, user_id, job_id, **kwargs):
+    def execute_computation(self, root, base_units, variable, domain, 
+                            operation, user_id, job_id, **kwargs):
         op = operation[root]
 
         logger.info('Executing %r', op)
@@ -350,14 +355,16 @@ class CDAT(backend.Backend):
         process = base.get_process(op.identifier)
 
         if cached is None:
-            ingress_paths, ingress = self.generate_ingress_tasks(op_uid, var.uri, var.var_name, user_id, job_id, **kwargs)
+            ingress_paths, ingress = self.generate_ingress_tasks(
+                op_uid, var.uri, var.var_name, user_id, job_id, **kwargs)
 
             cleanup_paths.extend(ingress_paths)
 
             mapped = preprocess['mapped'].copy()
 
             cache = tasks.ingress_cache.s(
-                var.uri, var.var_name, mapped, chunk_axis, base_units, job_id=job_id).set(
+                var.uri, var.var_name, mapped, chunk_axis, base_units, 
+                job_id=job_id).set(
                     **helpers.DEFAULT_QUEUE)
 
             index = 0
@@ -424,7 +431,7 @@ class CDAT(backend.Backend):
             job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
 
-        output_path = '{}/{}.nc'.format(settings.WPS_LOCAL_OUTPUT_PATH, op_uid)
+        output_path = '{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, op_uid)
 
         success = tasks.job_succeeded.s(
             concat_path, output_path, var.var_name, job_id=job_id).set(

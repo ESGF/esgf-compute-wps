@@ -39,7 +39,7 @@ def cleanup(self, attrs, file_paths, job_id):
 Returns current server health
 """, data_inputs=[], metadata={'inputs': 0})
 @base.cwt_shared_task()
-def health(self, user_id, job_id, process_id, **kwargs):
+def health(self, user_id, job_id, **kwargs):
     job = self.load_job(job_id)
 
     user = self.load_user(user_id)
@@ -77,20 +77,11 @@ def health(self, user_id, job_id, process_id, **kwargs):
 
     return data
 
-def read_data(infile, var_name, domain):
+def read_data(infile, var_name, domain=None):
     if domain is None:
-        # Read whole file is domain is None, mostly used for ingress
-        # files
         data = infile(var_name)
     else:
-        # Attempt to grab the time dimension from the domain
-        try:
-            time = domain.pop('time')
-        except KeyError:
-            # Grab data without time dimension
-            data = infile(var_name, **domain)
-        else:
-            data = infile(var_name, time=time, **domain)
+        data = infile(var_name, **domain)
 
     return data
 
@@ -106,7 +97,7 @@ def write_data(data, var_name, base_units, grid, gridder, outfile):
 
     outfile.write(data, id=var_name)
 
-def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
+def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
     """ Retrieve file(s).
 
     This is the base for aggregate, subset and regrid.
@@ -148,21 +139,17 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
 
     attrs = dict(y for x in attrs for y in x.items())
 
-    output_name = '{}.nc'.format(uuid.uuid4())
-
-    output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
-
     grid = None
     generated_grid = True
 
-    with cdms2.open(output_path, 'w') as outfile:
+    with self.open(output_path, 'w') as outfile:
         # Expect the keys to be given in a sortable format
         for key in sorted(keys):
             current = attrs[key]
 
             url = current['path']
 
-            with cdms2.open(url) as infile:
+            with self.open(url) as infile:
                 # If the file is cached we still read it in chunks to reduce
                 # memory usage
                 if 'cached' in current:
@@ -176,7 +163,7 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
                         # Update the map with the chunked axis
                         mapped.update({ chunk_axis: chunk })
 
-                        data = infile(var_name, **mapped)
+                        data = read_data(infile, var_name, mapped)
 
                         if generated_grid:
                             generated_grid = False
@@ -185,7 +172,7 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
 
                         write_data(data, var_name, base_units, grid, gridder, outfile)
                 else:
-                    data = infile(var_name)
+                    data = read_data(infile, var_name)
 
                     if generated_grid:
                         generated_grid = False
@@ -193,8 +180,6 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id):
                         grid = self.generate_grid(gridder, data)
 
                     write_data(data, var_name, base_units, grid, gridder, outfile)
-
-    output_dap = settings.WPS_DAP_URL.format(filename=output_name)
 
     return attrs
 
@@ -310,22 +295,22 @@ SNG_DATASET_MULTI_INPUT = {
 Regrids a variable to designated grid. Required parameter named "gridder".
 """, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def regrid(self, attrs, keys, operation, var_name, base_units, job_id):
-    return base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id)
+def regrid(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
+    return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
 
 @base.register_process('CDAT.subset', abstract="""
 Subset a variable by provided domain. Supports regridding.
 """, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def subset(self, attrs, keys, operation, var_name, base_units, job_id):
-    return base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id)
+def subset(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
+    return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
 
 @base.register_process('CDAT.aggregate', abstract="""
 Aggregate a variable over multiple files. Supports subsetting and regridding.
 """, metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
-def aggregate(self, attrs, keys, operation, var_name, base_units, job_id):
-    return base_retrieve(self, attrs, keys, operation, var_name, base_units, job_id)
+def aggregate(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
+    return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
 
 @base.register_process('CDAT.average', abstract=""" 
 Computes the average over an axis. Requires singular parameter named "axes" 
