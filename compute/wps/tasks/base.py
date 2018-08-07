@@ -137,7 +137,36 @@ class CWTBaseTask(celery.Task):
 
         return start, default_n, delta
 
-    def generate_grid(self, gridder, chunk):
+    def generate_selector(self, variable):
+        """ Generates a selector for a variable.
+        
+        Iterates over the axis list and creates a dict selector for the 
+        variabel.
+
+        Args:
+            variable: A cdms2.fvariable.FileVariable or cdms2.tvariable.TransientVariable.
+
+        Returns:
+            A dict keyed with the axis names and values of the axis endpoints as
+            a tuple.
+        """
+        selector = {}
+
+        for axis in variable.getAxisList():
+            selector[axis.id] = (axis[0], axis[-1])
+
+        return selector
+
+    def subset_grid(self, grid, selector):
+        target = cdms2.MV2.ones(grid.shape)
+
+        target.setAxisList(grid.getAxisList())
+
+        target = target(**selector)
+
+        return target.getGrid()
+
+    def generate_grid(self, gridder):
         try:
             if isinstance(gridder.grid, cwt.Variable):
                 grid = self.read_grid_from_file(gridder)
@@ -147,19 +176,7 @@ class CWTBaseTask(celery.Task):
             # Handle when gridder is None
             return None
 
-        target = cdms2.MV2.ones(grid.shape)
-
-        target.setAxisList(grid.getAxisList())
-
-        domain = {}
-
-        for axis in chunk.getAxisList():
-            if not axis.isTime():
-                domain[axis.id] = (axis[0], axis[-1])
-
-        target = target(**domain)
-
-        return target.getGrid()
+        return grid
 
     def read_grid_from_file(gridder):
         url_validator = URLValidator(['https', 'http'])
@@ -184,6 +201,8 @@ class CWTBaseTask(celery.Task):
             return None
         except ValueError:
             raise WPSError('Error generating grid "{name}"', name=gridder.grid)
+
+        logger.info('Generating grid %r %r', grid_type, grid_param)
 
         if grid_type.lower() == 'uniform':
             result = re.match('^(.*)x(.*)$', grid_param)

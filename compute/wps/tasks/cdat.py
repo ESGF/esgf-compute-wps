@@ -77,25 +77,56 @@ def health(self, user_id, job_id, **kwargs):
 
     return data
 
-def read_data(infile, var_name, domain=None):
-    if domain is None:
-        data = infile(var_name)
-    else:
-        data = infile(var_name, **domain)
+def retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped=None):
+    """ Retrieves data and writes to output.
+    
+    Reads a subset of the input data where mapped is a dict selector. Will
+    regrid the data and rebase the time access. Finally write data to output
+    file.
 
-    return data
+    Args:
+        infile: A cdms2.dataset.CdmsFile object.
+        outfile: A cdms2.dataset.CdmsFile object.
+        var_name: A str variable name.
+        grid: A cdms2.grid.* object.
+        gridder: A cwt.Gridder object.
+        base_units: A str units to rebase the time axis.
+        mapped: A dict selector to subset data.
 
-def write_data(data, var_name, base_units, grid, gridder, outfile):
-    # Don't always need to adjust the time axis
-    if base_units is not None:
-        data.getTime().toRelativeTime(str(base_units))
+    Returns:
+        None
+
+    """
+    if mapped is None:
+        mapped = {}
+
+    data = infile(var_name, **mapped)
 
     if grid is not None:
         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
-        logger.info('Regrid to shape %r', data.shape)
+    if base_units is not None:
+        data.getTime().toRelativeTime(base_units)
 
     outfile.write(data, id=var_name)
+
+def retrieve_data_cached(self, infile, outfile, var_name, grid, gridder, base_units, mapped, chunk_axis, chunk_list, **kwargs):
+    """ Retrieves cached data.
+
+    Really just a convenience method. Splits out mapped, chunk_axis and 
+    chunk_list from a dict. 
+
+    Will subset a grid if supplied and then retrieves each chunk from the cached
+    file.
+
+    """
+    if grid is not None:
+        grid = self.subset_grid(grid, mapped)
+
+    for chunk in chunk_list:
+        mapped.update({chunk_axis: chunk})
+
+        retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped)
 
 def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
     """ Retrieve file(s).
@@ -140,46 +171,28 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
     attrs = dict(y for x in attrs for y in x.items())
 
     grid = None
-    generated_grid = True
+    selector = None
 
     with self.open(output_path, 'w') as outfile:
         # Expect the keys to be given in a sortable format
         for key in sorted(keys):
             current = attrs[key]
 
-            url = current['path']
+            with self.open(current['path']) as infile:
+                # Generate the grid once
+                if grid is None and gridder is not None:
+                    grid = self.generate_grid(gridder)
 
-            with self.open(url) as infile:
-                # If the file is cached we still read it in chunks to reduce
-                # memory usage
                 if 'cached' in current:
-                    chunk_axis = current['chunk_axis']
-
-                    chunk_list = current['chunk_list']
-
-                    mapped = current['mapped']
-
-                    for chunk in chunk_list:
-                        # Update the map with the chunked axis
-                        mapped.update({ chunk_axis: chunk })
-
-                        data = read_data(infile, var_name, mapped)
-
-                        if generated_grid:
-                            generated_grid = False
-
-                            grid = self.generate_grid(gridder, data)
-
-                        write_data(data, var_name, base_units, grid, gridder, outfile)
+                    retrieve_data_cached(self, infile, outfile, var_name, grid, gridder, base_units, **current)
                 else:
-                    data = read_data(infile, var_name)
+                    # Subset the grid to the target shape
+                    if selector is None and grid is not None:
+                        selector = self.generate_selector(infile[var_name])
 
-                    if generated_grid:
-                        generated_grid = False
-
-                        grid = self.generate_grid(gridder, data)
-
-                    write_data(data, var_name, base_units, grid, gridder, outfile)
+                        grid = self.subset_grid(grid, selector)
+                    
+                    retrieve_data(infile, outfile, var_name, grid, gridder, base_units)
 
     return attrs
 
@@ -217,18 +230,22 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
 
     gridder = operation.get_parameter('gridder')
 
-    if 'cached' in inp:
-        mapped = inp['mapped']
-    else:
-        mapped = {}
+    mapped = inp.get('mapped', {})
 
     # Read input data
-    with cdms2.open(inp['path']) as infile:
+    with self.open(inp['path']) as infile:
         data = infile(var_name, **mapped)
 
     # Generate grid if needed
     if gridder is not None:
-        grid = self.generate_grid(gridder, data)
+        # If we're processing an ingressed file we need to generate a selector
+        # to subset the target grid.
+        if len(mapped) == 0:
+            mapped = self.generate_selector(data)
+
+        grid = self.generate_grid(gridder)
+
+        grid = self.subset_grid(grid, mapped)
 
         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
@@ -239,7 +256,7 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
     for axis in axes_index:
         data = self.PROCESS(data, axis=axis)
 
-    with cdms2.open(output_path, 'w') as outfile:
+    with self.open(output_path, 'w') as outfile:
         outfile.write(data, id=var_name)
 
     return attrs
@@ -264,14 +281,14 @@ def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, outp
     data_list = []
 
     for input_path in sorted(input_paths):
-        with cdms2.open(input_path) as infile:
+        with self.open(input_path) as infile:
             data_list.append(infile(var_name))
 
     axis_index = data_list[0].getAxisIndex(chunked_axis)
 
     data = MV.concatenate(data_list, axis=axis_index)
 
-    with cdms2.open(output_path, 'w') as outfile:
+    with self.open(output_path, 'w') as outfile:
         outfile.write(data, id=var_name)
 
     new_attrs = {}
