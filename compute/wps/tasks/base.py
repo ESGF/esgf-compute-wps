@@ -194,7 +194,7 @@ class CWTBaseTask(celery.Task):
 
         return data.getGrid()
 
-    def generate_grid_from_definition(gridder, chunk):
+    def generate_user_defined_grid(self, gridder):
         try:
             grid_type, grid_param = gridder.grid.split('~')
         except AttributeError:
