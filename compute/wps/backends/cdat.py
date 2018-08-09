@@ -164,7 +164,6 @@ class CDAT(backend.Backend):
 
             canvas = canvas | map_domain
         else:
-
             for uri in uris:
                 map_domain = tasks.map_domain.s(
                     uri, var_name, op.domain, user.id, job_id=job.id).set(
@@ -270,6 +269,11 @@ class CDAT(backend.Backend):
             cached = preprocess['cached']
 
             mapped = preprocess['mapped']
+
+            if mapped is None:
+                logger.info('Skipping %r', url)
+
+                continue
 
             if cached is None:
                 chunks = preprocess['chunks']

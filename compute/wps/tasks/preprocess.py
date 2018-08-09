@@ -145,6 +145,11 @@ def check_cache(self, attrs, uri, var_name, job_id):
 
     mapped = attrs[uri]['mapped']
 
+    if mapped is None:
+        attrs[uri]['cached'] = None
+
+        return attrs
+
     entry = check_cache_entries(uri, var_name, mapped, job_id)
 
     if entry is None:
@@ -296,10 +301,16 @@ def map_domain(self, attrs, uri, var_name, domain, user_id, job_id):
 
                 mapped[axis.id] = map_domain_axis(axis, item[0], base_units)
 
-            for index in axes_indexes.keys():
-                axis = variable.getAxis(index)
+                if mapped[axis.id] == None:
+                    mapped = None
 
-                mapped[axis.id] = map_domain_axis(axis, None, base_units)
+                    break
+
+            if mapped is not None:
+                for index in axes_indexes.keys():
+                    axis = variable.getAxis(index)
+
+                    mapped[axis.id] = map_domain_axis(axis, None, base_units)
 
     file_attrs['mapped'] = mapped
 
