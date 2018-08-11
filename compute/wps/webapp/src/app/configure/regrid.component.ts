@@ -12,6 +12,14 @@ export class RegridModel {
     public nLons: number,
     public deltaLons: number
   ) { }
+
+  validate() {
+    if (this.regridType == 'Gaussian') {
+      if (this.nLats < 1) {
+        throw `Invalid number of latitudes "${this.nLats}"`;
+      }
+    }
+  }
 }
 
 @Component({

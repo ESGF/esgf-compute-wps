@@ -17,6 +17,26 @@ export class Process {
     this.uid = this.newUID();
   }
 
+  validate() {
+    this.parameters.forEach((param: Parameter) => {
+      param.validate();
+    });
+
+    console.log(this.regrid);
+
+    if (this.regrid != null && this.regrid.regridType != 'None') {
+      this.regrid.validate();
+    }
+
+    let metadata = this.description.metadata;
+
+    if (metadata != undefined && metadata.inputs != Infinity) {
+      if (metadata.inputs < this.inputs.length) {
+        throw `Invalid number of inputs, ${this.inputs.length} are selected, expected ${metadata.inputs}`;
+      }
+    }
+  }
+
   newUID(): string {
     return Math.random().toString(16).slice(2);
   }

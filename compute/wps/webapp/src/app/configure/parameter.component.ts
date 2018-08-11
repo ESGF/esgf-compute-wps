@@ -9,6 +9,14 @@ export class Parameter {
   ) { 
     this.uid = Math.random().toString(16).slice(2);
   }
+
+  validate() {
+    if (this.key == '') {
+      throw `Parameter must have a key`;
+    } else if (this.value == '') {
+      throw `Parameter "${this.key}" must have a value`;
+    }
+  }
 }
 
 @Component({

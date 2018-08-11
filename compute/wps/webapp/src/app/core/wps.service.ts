@@ -64,8 +64,18 @@ export class WPSService {
 
       let metadata = Array.from(xmlDoc.getElementsByTagNameNS(OWS_NS, 'Metadata')).map((item: any) => {
         let data = item.attributes.getNamedItemNS(XLINK_NS, 'title').value.split(':');
+        let result = {};
+        let name = data[0];
 
-        return { name: data[0], value: data[1] };
+        if (data[1] == '*') {
+          result[name] = Infinity;
+        } else {
+          result[name] = data[1];
+        }
+
+        return result;
+      }).reduce((a: any, b: any) => {
+        return Object.assign(a, b); 
       });
 
       return new Promise<any>((resolve, reject) => {
@@ -80,6 +90,12 @@ export class WPSService {
   }
 
   execute(url: string, api_key: string, process: Process): Promise<string> {
+    try {
+      process.validate();
+    } catch(err) {
+      return Promise.reject(err);
+    }
+
     let data = this.prepareDataInputsXML(process);
 
     let params = new URLSearchParams();
