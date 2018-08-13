@@ -73,8 +73,8 @@ class CWTBaseTask(celery.Task):
         return infile[var_name]
 
     @contextmanager
-    def open(self, uri, mode='r'):
-        with Timeout(30, uri):
+    def open(self, uri, mode='r', timeout=30):
+        with Timeout(timeout, uri):
             fd = cdms2.open(uri, mode)
 
         try:

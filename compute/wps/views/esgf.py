@@ -2,6 +2,7 @@
 
 import collections
 import datetime
+import hashlib
 import json
 import re
 
@@ -17,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 from . import common
 from wps import WPSError
 from wps import tasks
+from wps import helpers
 
 logger = common.logger
 
@@ -26,17 +28,19 @@ def retrieve_axes(user, dataset_id, variable, urls):
     axes = []
     base_units = None
 
+    start = datetime.datetime.now()
+
     tasks.load_certificate(user)
 
     for i, url in enumerate(sorted(urls)):
         cache_id = '{}|{}'.format(base_cache_id, url)
 
+        cache_id = hashlib.md5(cache_id).hexdigest()
+
         data = cache.get(cache_id)
 
         if data is None:
             logger.info('Retrieving axes fro %r', url)
-
-            start = datetime.datetime.now()
 
             data = {
                 'url': url,
@@ -82,15 +86,15 @@ def retrieve_axes(user, dataset_id, variable, urls):
 
                 raise Exception('Failed to open {}'.format(url))
 
-            #cache.set(data, 24*60*60)
-
-            logger.info('Completed axes retrieval in %r', datetime.datetime.now()-start)
+            cache.set(data, 24*60*60)
         else:
             logger.info('Loaded axes for %r from cache', url)
 
         axes.append(data)
 
-    logger.info('%r', axes)
+    elapsed = datetime.datetime.now() - start
+
+    logger.info('%r %s', len(urls), elapsed)
 
     return axes
 
@@ -135,9 +139,8 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
         except:
             raise Exception('Failed to load JSON response')
 
-        data = parse_solr_docs(response_json['response']['docs'])
+        data = parse_solr_docs(response_json)
 
-        # Cache for 1 day
         cache.set(dataset_id, data, 24*60*60)
 
         logger.debug('search_solr elapsed time {}'.format(datetime.datetime.now()-start))
@@ -146,11 +149,11 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
 
     return data
 
-def parse_solr_docs(docs):
+def parse_solr_docs(response):
     variables = {}
     files = []
 
-    for doc in docs:
+    for doc in response['response']['docs']:
         variable = doc['variable']
 
         try:
@@ -167,7 +170,7 @@ def parse_solr_docs(docs):
         if url not in files:
             files.append(url)
 
-        for var in variable:
+        for x, var in enumerate(variable):
             if var not in variables:
                 variables[var] = []
 
