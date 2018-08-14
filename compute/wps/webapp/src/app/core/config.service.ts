@@ -7,6 +7,7 @@ export class ConfigService {
 
   esgfURL = 'https://esgf.llnl.gov';
   cogURL = 'https://esgf-node.llnl.gov/search/esgf-llnl';
+  apiURL = 'https://github.com/ESGF/esgf-compute-api';
   basePath = '/wps/home';
   
   // WebApp paths

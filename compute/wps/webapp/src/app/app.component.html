@@ -4,8 +4,9 @@
       <div class="container-fluid">
         <a class="navbar-brand" routerLink="{{configService.basePath}}">WPS</a>
         <ul class="nav navbar-nav navbar-left">
-          <li *ngIf="configService.esgfURL != null"><a href="{{configService.esgfURL}}" target="_blank">ESGF</a></li>
-          <li *ngIf="configService.cogURL != null"><a href="{{configService.cogURL}}" target="_blank">CoG</a></li>
+          <li><a href="{{configService.esgfURL}}" target="_blank">ESGF</a></li>
+          <li><a href="{{configService.cogURL}}" target="_blank">CoG</a></li>
+          <li><a href="{{configService.apiURL}}" target="_blank">API</a></li>
           <li *ngIf="logged && admin">
             <a class="admin" routerLink="{{configService.adminPath}}">Admin</a>
           </li>
