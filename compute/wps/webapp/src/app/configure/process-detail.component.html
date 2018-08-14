@@ -58,6 +58,10 @@
         <h4 class="modal-title">Dataset files containing "{{selectedVariable?.id}}"</h4>
       </div>
       <div class="modal-body">
+        <div class="form-group">
+          <label for="filterInput">Filter</label>
+          <input (keyup)="_filterPattern.next($event.target.value)" id="filterInput" class="form-control" type="text" placeholder="Filter..."/>
+        </div>
         <div class="file-table-container">
           <table class="file-table table table-bordered">
             <thead>
@@ -72,7 +76,7 @@
               </tr> 
             </thead>
             <tbody>
-              <tr *ngFor="let item of files | slice:fileState?.start:fileState?.stop">
+              <tr *ngFor="let item of files | filter:filterPattern | slice:fileState?.start:fileState?.stop">
                 <td class="file-url-column">
                   <a href={{item.url|thredds}} target="_blank">{{item.url}}</a>
                 </td>

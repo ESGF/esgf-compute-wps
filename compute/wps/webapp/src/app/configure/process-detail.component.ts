@@ -14,6 +14,8 @@ import { ConfigService } from '../core/config.service';
 import { WPSService } from '../core/wps.service';
 import { NotificationService } from '../core/notification.service';
 
+import { Subject } from 'rxjs/Subject';
+
 declare var $: any;
 
 class FileModalState {
@@ -89,6 +91,9 @@ export class ProcessDetailComponent implements OnInit {
 
   fileState: FileModalState;
 
+  filterPattern = '';
+  _filterPattern = new Subject<string>();
+
   constructor(
     public authService: AuthService,
     public configService: ConfigService,
@@ -108,6 +113,13 @@ export class ProcessDetailComponent implements OnInit {
 
       this.changeOperation(this.operations[0]);
     });
+
+    this._filterPattern.
+      debounceTime(100).
+      distinctUntilChanged().
+      subscribe((value: string) => {
+        this.filterPattern = value;
+      });
   }
 
   @Input()

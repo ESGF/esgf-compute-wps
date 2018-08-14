@@ -12,6 +12,7 @@ import { RegridComponent } from './regrid.component';
 import { ConfigureComponent } from './configure.component';
 import { ProcessDetailComponent } from './process-detail.component';
 import { EnumToArrayPipe } from './domain.component';
+import { FilterPipe } from './filter.pipe';
 
 import { ConfigureService } from './configure.service';
 
@@ -34,11 +35,13 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     RegridComponent,
     ProcessDetailComponent,
     EnumToArrayPipe,
+    FilterPipe,
   ],
   exports: [],
   providers: [
     ConfigureService,
     EnumToArrayPipe,
+    FilterPipe,
   ]
 })
 export class ConfigureModule { }
