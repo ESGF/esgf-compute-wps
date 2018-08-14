@@ -10,7 +10,7 @@ metadata:
     heritage: {{ $.Release.Service }}
 {{- if .annotations }}
   annotations:
-    {{ toYaml .annotations | indent 2 }}
+  {{- .annotations | toYaml | trimSuffix "\n" | nindent 4 }}
 {{- end }}
 spec:
   replicas: {{ .replicas }}
