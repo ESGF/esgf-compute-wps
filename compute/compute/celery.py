@@ -14,9 +14,12 @@ import cwt
 import prometheus_client
 from celery import signals
 from celery import Celery
+from celery.utils.log import get_task_logger
 from kombu import serialization
 from kombu import Exchange
 from kombu import Queue
+
+logger = get_task_logger()
 
 def default(obj):
     if isinstance(obj, slice):
@@ -131,9 +134,11 @@ app.conf.task_serializer = 'cwt_json'
 app.autodiscover_tasks()
 
 if 'CWT_METRICS' in os.environ:
-    @signals.celeryd_after_setup.connect
-    def start_metrics(sender, instance, **kwargs):
+    @signals.worker_ready.connect
+    def start_metrics(sender, signal, **kwargs):
         prometheus_client.start_http_server(8080, '0.0.0.0')
+
+        logger.info('Started metrics server')
 
 @app.task(bind=True)
 def debug_task(self):
