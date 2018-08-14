@@ -22,8 +22,6 @@ export class Process {
       param.validate();
     });
 
-    console.log(this.regrid);
-
     if (this.regrid != null && this.regrid.regridType != 'None') {
       this.regrid.validate();
     }
@@ -31,7 +29,7 @@ export class Process {
     let metadata = this.description.metadata;
 
     if (metadata != undefined && metadata.inputs != Infinity) {
-      if (metadata.inputs < this.inputs.length) {
+      if (metadata.inputs > 0 && metadata.inputs < this.inputs.length) {
         throw `Invalid number of inputs, ${this.inputs.length} are selected, expected ${metadata.inputs}`;
       }
     }
