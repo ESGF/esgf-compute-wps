@@ -112,6 +112,8 @@ export class ProcessDetailComponent implements OnInit {
       });
 
       this.changeOperation(this.operations[0]);
+    }).catch((error: any) => {
+      this.notificationService.error(error); 
     });
 
     this._filterPattern.
@@ -240,6 +242,8 @@ export class ProcessDetailComponent implements OnInit {
       }
 
       this.updateDomain(selectedFiles);
+    }).catch((error: any) => {
+      this.notificationService.error(error); 
     });
   }
 
@@ -316,6 +320,8 @@ export class ProcessDetailComponent implements OnInit {
       this.selectedDataset.variableCollection = result;
 
       this.changeVariable(result.variables[0]);
+    }).catch((error: any) => {
+      this.notificationService.error(error); 
     });
   }
 
