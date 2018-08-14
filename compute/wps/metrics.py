@@ -1,24 +1,31 @@
 import logging
 
-from django.conf import settings
-from prometheus_client import REGISTRY
 from prometheus_client import Counter
 from prometheus_client import Gauge
+from prometheus_client import Histogram
 from prometheus_client import Summary
 from prometheus_client import CollectorRegistry
-from prometheus_client import pushadd_to_gateway
 
-logger = logging.getLogger('wps.metrics')
+WPS = CollectorRegistry(auto_describe=True)
+CELERY = CollectorRegistry(auto_describe=True)
 
-REQUESTS = Summary('cwt_wps_requests', 'WPS Requests', ['method', 'request'], registry=REGISTRY)
+WPS_CAPABILITIES = Summary('wps_get_capabilities_seconds',
+                             'WPS GetCapabilities', ['method'],
+                             registry=WPS)
 
-GC_REQ_GET = REQUESTS.labels('get', 'getcapabilities')
-GC_REQ_POST = REQUESTS.labels('post', 'getcapabilities')
+WPS_CAPABILITIES_GET = WPS_CAPABILITIES.labels('get')
+WPS_CAPABILITIES_POST = WPS_CAPABILITIES.labels('post')
 
-DP_REQ_GET = REQUESTS.labels('get', 'describeprocess')
-DP_REQ_POST = REQUESTS.labels('post', 'describeprocess')
+WPS_DESCRIBE = Summary('wps_describe_process_seconds', 'WPS DescribeProcess', 
+                         ['method'], registry=WPS)
 
-EX_REQ_GET = REQUESTS.labels('get', 'execute')
-EX_REQ_POST = REQUESTS.labels('post', 'execute')
+WPS_DESCRIBE_GET = WPS_DESCRIBE.labels('get')
+WPS_DESCRIBE_POST = WPS_DESCRIBE.labels('post')
 
-ERRORS = Counter('cwt_wps_requests_error', 'WPS Requests errors', registry=REGISTRY)
+WPS_EXECUTE = Summary('wps_execute_seconds', 'WPS Execute', ['method'],
+                        registry=WPS)
+
+WPS_EXECUTE_GET = WPS_EXECUTE.labels('get')
+WPS_EXECUTE_POST = WPS_EXECUTE.labels('post')
+
+WPS_ERRORS = Counter('wps_errors', 'WPS Errors', registry=WPS)

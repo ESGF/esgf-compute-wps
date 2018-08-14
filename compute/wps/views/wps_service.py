@@ -271,12 +271,12 @@ def handle_get(params, query_string):
     logger.info('GET request %r, service %r', request, service)
 
     if request == 'getcapabilities':
-        with metrics.GC_REQ_GET.time():
+        with metrics.WPS_CAPABILITIES_GET.time():
             response = handle_get_capabilities() 
     elif request == 'describeprocess':
         identifier = get_parameter(params, 'identifier', True).split(',')
 
-        with metrics.DP_REQ_GET.time():
+        with metrics.WPS_DESCRIBE_GET.time():
             response = handle_describe_process(identifier)
     elif request == 'execute':
         api_key = get_parameter(params, 'api_key', True)
@@ -296,7 +296,7 @@ def handle_get(params, query_string):
 
                 data_inputs = dict(x.split('=') for x in data_inputs.split(';'))
 
-        with metrics.EX_REQ_GET.time():
+        with metrics.WPS_EXECUTE_GET.time():
             response = handle_execute(api_key, identifier, data_inputs)
     else:
         raise WPSError('Operation "{name}" is not supported', name=request)
@@ -327,11 +327,12 @@ def handle_post(data, params):
 
     logger.info('Handling POST request for API key %s', api_key)
 
-    with metrics.EX_REQ_POST.time():
+    with metrics.WPS_EXECUTE_POST.time():
         response = handle_execute(api_key, request.Identifier.value(), data_inputs)
 
     return response
 
+@metrics.WPS_ERRORS.count_exceptions()
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
     if request.method == 'GET':
