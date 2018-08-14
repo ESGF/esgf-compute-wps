@@ -19,7 +19,7 @@ from kombu import serialization
 from kombu import Exchange
 from kombu import Queue
 
-logger = get_task_logger()
+logger = get_task_logger('compute.celery')
 
 def default(obj):
     if isinstance(obj, slice):
