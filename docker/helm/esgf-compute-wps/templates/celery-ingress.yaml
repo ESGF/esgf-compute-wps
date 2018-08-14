@@ -1,8 +1,10 @@
 {{- range .Values.celery.queues }}
 {{- $name := .name }}
+{{- if .ingress }}
+{{- $annotations := .ingress.annotations }}
+{{- $path := .ingress.path }}
 {{- range .ports }}
 {{- $port := .port }}
-{{- if .ingress }}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -10,9 +12,9 @@ metadata:
   labels:
     app: {{ $.Release.Name }}-celery-{{ $name }}
     release: {{ $.Release.Name }}
-{{- if .ingress.annotations }}
+{{- if $annotations }}
   annotations:
-    {{ toYaml .ingress.annotations | indent 2 }}
+    {{ toYaml $annotations | indent 2 }}
 {{- end }}
 spec:
   rules:
@@ -21,8 +23,8 @@ spec:
       - backend:
           serviceName: {{ $.Release.Name }}-celery-{{ $name }}
           servicePort: {{ $port }}
-      {{- if .ingress.path }}
-        path: {{ .ingress.path }}
+      {{- if $path }}
+        path: {{ $path }}
       {{- end }}
 {{- end }}
 {{- end }}

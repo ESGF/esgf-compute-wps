@@ -8,9 +8,9 @@ metadata:
     chart: {{ template "esgf-compute-wps.chart" $ }}
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
-{{- if $.Values.celery.annotations }}
+{{- if .annotations }}
   annotations:
-    {{ toYaml $.Values.celery.annotations | indent 2 }}
+    {{ toYaml .annotations | indent 2 }}
 {{- end }}
 spec:
   replicas: {{ .replicas }}
@@ -72,8 +72,10 @@ spec:
         - name: WPS_DEBUG
           value: "1"
         {{- end }}
-        - name: AIRFLOW_HOME
-          value: /etc/config
+        {{- if $.Values.celery.metrics }}
+        - name: CWT_METRICS
+          value: "1"
+        {{- end }}
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:

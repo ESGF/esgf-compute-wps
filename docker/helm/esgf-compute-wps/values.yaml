@@ -112,6 +112,8 @@ celery:
   image: jasonb87/cwt_celery
   imageTag: 2.1.0
 
+  metrics: true
+
   resources:
     # Must quote the memory field otherwise large numbers are rendered in
     # scientific notation which celery does not like. This value is in KiB.
@@ -127,18 +129,45 @@ celery:
     argsExtra:
       "-c": 1
       "-Q": ingress
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    ports:
+      - port: 8080
+        name: metrics
+    ingress:
+      path: /metrics
 
   - name: priority-low
     replicas: 1
     argsExtra:
       "-c": 1
       "-Q": priority.low
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    ports:
+      - port: 8080
+        name: metrics
+    ingress:
+      path: /metrics
 
   - name: priority-high
     replicas: 1
     argsExtra:
       "-c": 1
       "-Q": priority.high
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    ports:
+      - port: 8080
+        name: metrics
+    ingress:
+      path: /metrics
 
 thredds:
   replicas: 1
