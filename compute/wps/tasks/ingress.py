@@ -189,7 +189,9 @@ def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id=None):
 
     stat = os.stat(output_path)
 
-    self.update(job, 'Ingressed chunk {}', shape)
+    size = stat.st_size / 1000000.0
+
+    self.update(job, 'Ingressed chunk {} {} MB in {}', shape, size, elapsed)
 
     attrs = {
         output_path: {
@@ -197,7 +199,7 @@ def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id=None):
             'uri': uri,
             'path': output_path,
             'elapsed': elapsed,
-            'size': stat.st_size / 1000000.0,
+            'size': size,
         }
     }
 

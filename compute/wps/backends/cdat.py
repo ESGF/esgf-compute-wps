@@ -137,7 +137,7 @@ class CDAT(backend.Backend):
         logger.info('var_name %r', var_name)
         logger.info('uris %r', uris)
 
-        start = tasks.start_job.s(job_id=job.id).set(
+        start = tasks.job_started.s(job_id=job.id).set(
             **helpers.INGRESS_QUEUE)
 
         base = tasks.determine_base_units.si(

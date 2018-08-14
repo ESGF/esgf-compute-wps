@@ -161,9 +161,9 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
     Returns:
         The input attrs.
     """
-    gridder = operation.get_parameter('gridder')
-
     job = self.load_job(job_id)
+
+    gridder = operation.get_parameter('gridder')
 
     if not isinstance(attrs, list):
         attrs = [attrs]
@@ -183,16 +183,30 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
                 if grid is None and gridder is not None:
                     grid = self.generate_grid(gridder)
 
+                    self.update(job, 'Generated grid {!r}', grid)
+
                 if 'cached' in current:
                     retrieve_data_cached(self, infile, outfile, var_name, grid, gridder, base_units, **current)
+
+                    self.update(job, 'Building file from cache')
                 else:
                     # Subset the grid to the target shape
                     if selector is None and grid is not None:
                         selector = self.generate_selector(infile[var_name])
 
+                        self.update(job, 'Generated subset selector {!r}',
+                                    selector)
+
                         grid = self.subset_grid(grid, selector)
+
+                        self.update(job, 'Subsetting grid {!r}', grid)
                     
                     retrieve_data(infile, outfile, var_name, grid, gridder, base_units)
+
+                    self.update(job, 'Building file from ingressed data')
+
+            self.update(job, 'Finished building file {}',
+                        output_path.split('/')[-1])
 
     return attrs
 
@@ -226,6 +240,9 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
     """
     job = self.load_job(job_id)
 
+    self.update(job, 'Processing chunk of "{}" with {} over {}', var_name,
+                operation.identifier, axes)
+
     inp = attrs[key]
 
     gridder = operation.get_parameter('gridder')
@@ -247,6 +264,8 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
 
         grid = self.subset_grid(grid, mapped)
 
+        self.update(job, 'Regridding to {}', grid.shape)
+
         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
     # Grab the indexes of the axes
@@ -258,6 +277,8 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
 
     with self.open(output_path, 'w') as outfile:
         outfile.write(data, id=var_name)
+
+    self.update(job, 'Finished processing chunk')
 
     return attrs
 
@@ -278,6 +299,9 @@ def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, outp
     """
     job = self.load_job(job_id)
 
+    self.update(job, 'Concatenating {} chunks over {}', len(input_paths),
+                chunked_axis)
+
     data_list = []
 
     for input_path in sorted(input_paths):
@@ -295,6 +319,9 @@ def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, outp
 
     for item in attrs:
         new_attrs.update(item)
+
+    self.update(job, 'Finished concatentating chunks, final shape {}',
+                data.shape)
 
     return new_attrs
 

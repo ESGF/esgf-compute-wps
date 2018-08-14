@@ -31,7 +31,7 @@ def job_succeeded(self, attrs, output_path, move_path, var_name, job_id):
     return attrs
 
 @base.cwt_shared_task()
-def start_job(self, job_id):
+def job_started(self, job_id):
     job = self.load_job(job_id)
 
     job.started()

@@ -22,8 +22,6 @@ logger = get_task_logger('wps.tasks.preprocess')
 def wps_execute(self, attrs, variable, domain, operation, user_id, job_id):
     job = self.load_job(job_id)
 
-    self.update(job, 'Preparing to execute')
-
     if not isinstance(attrs, list):
         attrs = [attrs]
 
@@ -71,9 +69,13 @@ def wps_execute(self, attrs, variable, domain, operation, user_id, job_id):
     if not response.ok:
         raise WPSError('Failed to request execute: {} {}', response.reason, response.status_code)
 
+    self.update(job, 'Preprocessing finished, submitting for execution for execution')
+
 @base.cwt_shared_task()
 def generate_chunks(self, attrs, uri, process_axes, job_id):
     job = self.load_job(job_id)
+
+    self.update(job, 'Generating chunks for {!r}', uri)
 
     try:
         mapped = attrs[uri]['cached']['mapped']
@@ -108,6 +110,8 @@ def generate_chunks(self, attrs, uri, process_axes, job_id):
     attrs[uri]['chunks'] = {
         chunked_axis: chunks,
     }
+
+    self.update(job, 'Generated {} chunks for {}', len(chunks), uri)
 
     return attrs
 
@@ -226,6 +230,8 @@ def map_domain_time_indices(self, attrs, var_name, domain, user_id, job_id):
     """
     job = self.load_job(job_id)
 
+    self.update(job, 'Mapping domain "{}" for aggregation', domain.name)
+
     self.load_credentials(user_id)
 
     sort = attrs['sort']
@@ -263,11 +269,15 @@ def map_domain_time_indices(self, attrs, var_name, domain, user_id, job_id):
 
         mapped.update(mapped_domain)
 
+    self.update('Finished mapping domain')
+
     return mapped
 
 @base.cwt_shared_task()
 def map_domain(self, attrs, uri, var_name, domain, user_id, job_id):
     job = self.load_job(job_id)
+
+    self.update(job, 'Mapping domain {}', domain.name)
 
     self.load_credentials(user_id)
 
@@ -311,6 +321,8 @@ def map_domain(self, attrs, uri, var_name, domain, user_id, job_id):
                     axis = variable.getAxis(index)
 
                     mapped[axis.id] = map_domain_axis(axis, None, base_units)
+
+    self.update(job, 'Finished mapping domain')
 
     file_attrs['mapped'] = mapped
 
