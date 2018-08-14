@@ -110,9 +110,11 @@ class CWTBaseTask(celery.Task):
 
         message = fmt.format(*args)
 
-        job.update(message, percent)
+        tagged_message = '[{}] {}'.format(self.request.id, message)
 
-        logger.info('%s %r', message, percent)
+        job.update(tagged_message, percent)
+
+        logger.info('%s %r', tagged_message, percent)
 
     def parse_uniform_arg(self, value, default_start, default_n):
         result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
