@@ -220,6 +220,14 @@ export class ProcessDetailComponent implements OnInit {
     let selectedFiles = this.files.filter((item: File) => {
       return item.included;
     });
+
+    if (selectedFiles.length == 0) {
+      this.notificationService.warn('You have not files selected');
+
+      this.axes = [];
+
+      return;
+    }
     
     let selectedIndexes = selectedFiles.map((item: File) => {
       return item.index; 
