@@ -4,6 +4,7 @@ import contextlib
 import datetime
 import hashlib
 import os
+from urlparse import urlparse
 
 import cdms2
 from cdms2 import MV2 as MV
@@ -11,6 +12,7 @@ from django.conf import settings
 from celery.utils import log
 
 from wps import helpers
+from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.tasks import base
@@ -52,6 +54,8 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
     """
     entry = preprocess.check_cache_entries(uri, var_name, domain, job_id)
 
+    # Really should never hit this, if we're calling this task the file should
+    # have been ingressed.
     if entry is not None:
         logger.info('%r of %r has been cached', var_name, uri)
 
@@ -128,6 +132,8 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
 
     entry.set_size()
 
+    entry.save()
+
     return dict(y for x in filter_uri_sorted for y in x.items())
 
 @base.cwt_shared_task()
@@ -187,7 +193,13 @@ def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id=None):
 
     elapsed = get_now() - start
 
+    parsed = urlparse(uri)
+
+    host = 'local' if parsed.netloc == '' else parsed.netloc
+
     stat = os.stat(output_path)
+
+    metrics.INGRESS_BYTES.labels(host.lower()).inc(stat.st_size)
 
     size = stat.st_size / 1000000.0
 

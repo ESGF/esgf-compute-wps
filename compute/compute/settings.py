@@ -80,7 +80,7 @@ TEST = 'WPS_TEST' in os.environ
 
 WPS_HOST = os.environ.get('WPS_HOST', '0.0.0.0')
 
-ALLOWED_HOSTS = [ WPS_HOST ]
+ALLOWED_HOSTS = [ WPS_HOST, '172.17.0.17' ]
 
 DJANGO_CONFIG_PATH = os.environ.get('DJANGO_CONFIG_PATH', '/etc/config/django.properties')
 

@@ -6,4 +6,4 @@ class WpsConfig(AppConfig):
     name = 'wps'
 
     def ready(self):
-        pass
+        from wps import signals

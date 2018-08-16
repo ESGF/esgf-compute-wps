@@ -29,10 +29,6 @@ from wps import helpers
 
 logger = logging.getLogger('wps.models')
 
-KBYTE = 1024
-MBYTE = KBYTE * KBYTE
-GBYTE = MBYTE * KBYTE
-
 ProcessAccepted = 'ProcessAccepted'
 ProcessStarted = 'ProcessStarted'
 ProcessPaused = 'ProcessPaused'
@@ -321,7 +317,7 @@ class Cache(models.Model):
     def set_size(self):
         stat = os.stat(self.local_path)
 
-        self.size = stat.st_size / GBYTE
+        self.size = stat.st_size
 
         self.save()
 
@@ -333,17 +329,7 @@ class Cache(models.Model):
 
             size = size * infile[var_name].dtype.itemsize
 
-        size = size / GBYTE
-
         return size
-
-def cache_clean_files(sender, **kwargs):
-    cache = kwargs['instance']
-
-    if os.path.exists(cache.local_path):
-        os.remove(cache.local_path)
-
-signals.post_delete.connect(cache_clean_files, sender=Cache)
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)

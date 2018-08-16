@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import datetime
+import glob
 import json
 import importlib
 import os
@@ -11,15 +12,11 @@ import re
 import types
 
 import cwt
-import prometheus_client
 from celery import signals
 from celery import Celery
-from celery.utils.log import get_task_logger
 from kombu import serialization
 from kombu import Exchange
 from kombu import Queue
-
-logger = get_task_logger('compute.celery')
 
 def default(obj):
     if isinstance(obj, slice):
@@ -133,12 +130,62 @@ app.conf.task_serializer = 'cwt_json'
 
 app.autodiscover_tasks()
 
+# Enable metrics publishing for this celery worker
+# We should use the value of CWT_METRICS as the path, so we can sync it between
+# the metrics module and here.
 if 'CWT_METRICS' in os.environ:
+    def serve_metrics():
+        metrics_path = '/tmp/cwt_metrics'
+
+        # Need to clear out any residual files
+        files = glob.glob('{}/*'.format(metrics_path))
+
+        for f in files:
+            os.remove(f)
+
+        # Tell prometheus_client to operate in multiprocess mode. Documentation is
+        # here https://github.com/prometheus/client_python, though it's not clear.
+        # Basically in multiprocess mode metrics are written to a shared directory
+        # where they are aggregate and served up.
+        os.environ['prometheus_multiproc_dir'] = metrics_path
+
+        from prometheus_client import make_wsgi_app
+        from prometheus_client import multiprocess
+        from wsgiref.simple_server import make_server
+
+        from wps import metrics
+
+        # converts the registry to a multiprocess registry, allowing for the
+        # aggregation of the metrics between threads.
+        multiprocess.MultiProcessCollector(metrics.CELERY)
+
+        app = make_wsgi_app(registry=metrics.CELERY)
+
+        httpd = make_server('0.0.0.0', 8080, app)
+
+        httpd.serve_forever()
+
     @signals.worker_ready.connect
     def start_metrics(sender, signal, **kwargs):
-        prometheus_client.start_http_server(8080, '0.0.0.0')
+        from celery.utils.log import get_task_logger
 
-        logger.info('Started metrics server')
+        logger = get_task_logger('compute.celery')
+
+        from multiprocessing import Process
+
+        ph = Process(target=serve_metrics)
+
+        ph.start()
+
+        logger.info('Started metrics process')
+
+        @signals.worker_shutdown.connect
+        def shutdown_metrics(**kwargs):
+            ph.terminate()
+
+            ph.join()
+
+            logger.info('Terminated metrics process')
 
 @app.task(bind=True)
 def debug_task(self):
