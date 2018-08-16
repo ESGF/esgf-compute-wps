@@ -14,17 +14,23 @@ logger = get_task_logger('wps.signals')
 
 @receiver(post_save, sender=models.Cache)
 def cache_save(sender, instance, **kwargs):
-    entries = model.Cache.objects.all()
+    logger.info('Cache entry created')
 
-    metrics.CACHE_BYTES.observe(sum(x.size for x in entries))
+    entries = models.Cache.objects.all()
+
+    metrics.CACHE_BYTES.observe(sum(float(x.size) for x in entries if x.size is
+                                   not None))
 
     metrics.CACHE_FILES.observe(entries.count())
 
 @receiver(post_delete, sender=models.Cache)
 def cache_delete(sender, instance, **kwargs):
-    entries = model.Cache.objects.all()
+    logger.info('Cache entry deleted')
 
-    metrics.CACHE_BYTES.observe(sum(x.size for x in entries))
+    entries = models.Cache.objects.all()
+
+    metrics.CACHE_BYTES.observe(sum(float(x.size) for x in entries if x.size is
+                                   not None))
 
     metrics.CACHE_FILES.observe(entries.count())
 
