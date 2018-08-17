@@ -74,7 +74,7 @@ spec:
         {{- end }}
         {{- if $.Values.celery.metrics }}
         - name: CWT_METRICS
-          value: "1"
+          value: {{ $.Values.celery.metrics | quote }}
         {{- end }}
         - name: WPS_HOST
           valueFrom:
@@ -103,6 +103,11 @@ spec:
         - mountPath: /var/www
           name: shared-volume
           subPath: shared
+        {{- end }}
+        {{- if $.Values.celery.metrics }}
+        - mountPath: /data/metrics
+          name: metrics-volume
+          subPath: {{ $.Release.Name }}-celery-{{ .name }}
         {{- end }}
         - mountPath: /etc/config
           name: config-volume
@@ -150,6 +155,17 @@ spec:
       {{- else }}
         persistentVolumeClaim:
           claimName: ingress-pvc
+      {{- end }}
+      {{- if $.Values.celery.metrics }}
+      - name: metrics-volume
+        {{- if $.Values.development }}
+        hostPath:  
+          path: /opt/cwt/data/metrics
+          type: DirectoryOrCreate
+        {{- else }}
+        persistentVolumeClaim:
+          claimName: metrics-pvc
+        {{- end}}
       {{- end }}
 ---
 {{- end }}

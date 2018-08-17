@@ -112,7 +112,7 @@ celery:
   image: jasonb87/cwt_celery
   imageTag: 2.1.0
 
-  metrics: true
+  metrics: /data/metrics
 
   resources:
     # Must quote the memory field otherwise large numbers are rendered in
