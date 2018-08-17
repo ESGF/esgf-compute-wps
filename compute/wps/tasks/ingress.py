@@ -81,7 +81,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
         'dimensions': helpers.encoder(dimensions),
     }
 
-    entry = models.Cache.objects.create(**kwargs)
+    entry = models.Cache(**kwargs)
 
     logger.info('Created cached entry for %r of %r with dimensions %r', var_name, uri, kwargs['dimensions'])
 
@@ -131,8 +131,6 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
         raise base.AccessError(local_path, e)
 
     entry.set_size()
-
-    entry.save()
 
     return dict(y for x in filter_uri_sorted for y in x.items())
 

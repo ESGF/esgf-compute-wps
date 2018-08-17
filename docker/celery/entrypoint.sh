@@ -4,41 +4,32 @@ source activate wps
 
 pushd /var/www/compute/compute
 
-metrics_path='/tmp/cwt_metrics'
+exec celery worker -A compute -b ${CELERY_BROKER_URL} ${@} &
 
-rm -rf $metrics_path
+celery_ret=${?}
+celery_pid=${!}
 
-mkdir $metrics_path
+if [[ ${celery_ret} -ne 0 ]]; then
+  echo "Celery failed to start"
 
-exec celery worker -A compute -b $CELERY_BROKER_URL $@ &
-
-status=$?
-
-if [[ $status -ne 0 ]]; then
-  echo "Failed to start Celery worker"
-
-  exit $status
+  return ${celery_ret}
 fi
 
 exec python wps/metrics.py &
 
-status=$?
+metrics_ret=${?}
+metrics_pid=${!}
 
-if [[ $status -ne 0 ]]; then
-  echo "Failed to start metrics server"
+if [[ ${metrics_ret} -ne 0 ]]; then
+  echo "Metrics failed to start"
 
-  exit $status
+  return ${metrics_ret}
 fi
 
 while sleep 60; do
-  ps aux | grep metrics.py | grep -q -v grep
-  status1=$?
-  ps aux | grep celery | grep -q -v grep
-  status2=$?
+  if [[ $(kill -0 ${celery_pid}) -ne 0 ]] || [[ $(kill -0 ${metrics_pid}) -ne 0 ]]; then
+    echo "Child process died"
 
-  if [[ $status1 -ne 0 ]] || [[ $status2 -ne 0 ]]; then
-    echo "Something happend to a child process"
-
-    exit 1
+    exit 1 
   fi
 done

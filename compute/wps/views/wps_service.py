@@ -374,19 +374,13 @@ def wps_entrypoint(request):
     except WPSExceptionError as e:
         logger.exception('WSPExceptionError')
 
-        metrics.ERRORS.inc()
-
         response = e.report
     except WPSError as e:
         logger.exception('WPSError')
 
-        metrics.ERRORS.inc()
-
         response = wps.exception_report(str(e), cwt.ows.NoApplicableCode)
     except Exception as e:
         logger.exception('Some generic exception')
-
-        metrics.ERRORS.inc()
 
         error = 'Please copy the error and report on Github: {}'.format(str(e))
 
