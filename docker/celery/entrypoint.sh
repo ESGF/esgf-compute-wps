@@ -16,6 +16,8 @@ if [[ ${celery_ret} -ne 0 ]]; then
 fi
 
 if [[ -n "${CWT_METRICS}" ]]; then
+  [[ ! -e "${CWT_METRICS}" ]] && mkdir "${CWT_METRICS}"
+
   exec python wps/metrics.py &
 
   metrics_ret=${?}
@@ -27,6 +29,8 @@ if [[ -n "${CWT_METRICS}" ]]; then
     return ${metrics_ret}
   fi
 fi
+
+trap "{ rm -rf ${CWT_METRICS}; }" SIGINT SIGTERM
 
 while sleep 60; do
   if [[ $(kill -0 ${celery_pid}) -ne 0 ]]; then
