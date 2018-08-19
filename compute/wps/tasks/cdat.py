@@ -15,6 +15,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from wps import helpers
+from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.tasks import base
@@ -208,6 +209,10 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
             self.update(job, 'Finished building file {}',
                         output_path.split('/')[-1])
 
+    stat = os.stat(output_path)
+
+    metrics.UPLOAD_BYTES.inc(stat.st_size)
+
     return attrs
 
 def base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
@@ -322,6 +327,10 @@ def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, outp
 
     self.update(job, 'Finished concatentating chunks, final shape {}',
                 data.shape)
+
+    stat = os.stat(output_path)
+
+    metrics.UPLOAD_BYTES.inc(stat.st_size)
 
     return new_attrs
 

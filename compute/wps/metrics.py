@@ -12,6 +12,8 @@ from prometheus_client import CollectorRegistry
 
 WPS = CollectorRegistry()
 
+UPLOAD_BYTES = Counter('wps_upload_bytes', 'Number of uploaded bytes')
+
 INGRESS_BYTES = Counter('wps_ingress_bytes', 'Number of ingressed bytes', ['host'])
 
 CACHE_BYTES = Summary('wps_cache_bytes', 'Number of cached bytes')
