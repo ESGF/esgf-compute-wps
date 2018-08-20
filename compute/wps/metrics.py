@@ -12,6 +12,10 @@ from prometheus_client import CollectorRegistry
 
 WPS = CollectorRegistry()
 
+JOBS_QUEUED = Gauge('wps_jobs_queued', 'Number of jobs queued')
+
+JOBS_RUNNING = Gauge('wps_jobs_running', 'Number of jobs running')
+
 UPLOAD_BYTES = Counter('wps_upload_bytes', 'Number of uploaded bytes')
 
 INGRESS_BYTES = Counter('wps_ingress_bytes', 'Number of ingressed bytes', ['host'])
