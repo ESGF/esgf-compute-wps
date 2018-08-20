@@ -22,9 +22,9 @@ def cache_save(sender, instance, **kwargs):
 
     logger.info('Cache has %r entries with a size of %s bytes', count, size)
 
-    metrics.CACHE_BYTES.observe(size)
+    metrics.CACHE_BYTES.set(size)
 
-    metrics.CACHE_FILES.observe(count)
+    metrics.CACHE_FILES.set(count)
 
 @receiver(post_delete, sender=models.Cache)
 def cache_delete(sender, instance, **kwargs):
@@ -36,9 +36,9 @@ def cache_delete(sender, instance, **kwargs):
 
     logger.info('Cache has %r entries with a size of %s bytes', count, size)
 
-    metrics.CACHE_BYTES.observe(size)
+    metrics.CACHE_BYTES.set(size)
 
-    metrics.CACHE_FILES.observe(count)
+    metrics.CACHE_FILES.set(count)
 
     if os.path.exists(instance.local_path):
         os.remove(instance.local_path)
