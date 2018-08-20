@@ -16,6 +16,9 @@ UPLOAD_BYTES = Counter('wps_upload_bytes', 'Number of uploaded bytes')
 
 INGRESS_BYTES = Counter('wps_ingress_bytes', 'Number of ingressed bytes', ['host'])
 
+INGRESS_SECONDS = Counter('wps_ingress_seconds', 'Number of seconds spent'
+                          'ingressing data', ['host'])
+
 CACHE_BYTES = Summary('wps_cache_bytes', 'Number of cached bytes')
 
 CACHE_FILES = Summary('wps_cache_files', 'Number of cached files')

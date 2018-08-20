@@ -199,6 +199,8 @@ def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id=None):
 
     metrics.INGRESS_BYTES.labels(host.lower()).inc(stat.st_size)
 
+    metrics.INGRESS_SECONDS.labels(host.lower()).inc(elapsed.total_seconds())
+
     size = stat.st_size / 1000000.0
 
     self.update(job, 'Ingressed chunk {} {} MB in {}', shape, size, elapsed)
