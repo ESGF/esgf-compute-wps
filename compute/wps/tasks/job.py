@@ -5,9 +5,23 @@ import os
 import shutil
 
 import cwt
+from celery.utils.log import get_task_logger
 from django.conf import settings
 
+from wps import metrics
 from wps.tasks import base
+
+logger = get_task_logger('wps.tasks.job')
+
+@base.cwt_shared_task()
+def job_started(self, job_id):
+    job = self.load_job(job_id)
+
+    job.started()
+
+    metrics.JOBS_QUEUED.set(metrics.jobs_queued())
+
+    metrics.JOBS_RUNNING.set(metrics.jobs_running())
 
 @base.cwt_shared_task()
 def job_succeeded(self, attrs, output_path, move_path, var_name, job_id):
@@ -28,10 +42,6 @@ def job_succeeded(self, attrs, output_path, move_path, var_name, job_id):
 
     job.succeeded(json.dumps(output.parameterize()))
 
+    metrics.JOBS_RUNNING.set(metrics.jobs_running())
+
     return attrs
-
-@base.cwt_shared_task()
-def job_started(self, job_id):
-    job = self.load_job(job_id)
-
-    job.started()

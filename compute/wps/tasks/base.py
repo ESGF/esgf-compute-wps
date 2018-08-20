@@ -14,6 +14,7 @@ from celery.utils.log import get_task_logger
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 
+from wps import metrics
 from wps import models
 from wps import AccessError
 from wps import WPSError
@@ -265,6 +266,8 @@ class CWTBaseTask(celery.Task):
 
         if job is not None:
             job.failed(str(exc))
+
+            metrics.JOBS_RUNNING.set(metrics.jobs_running())
 
     def on_success(self, retval, task_id, args, kwargs):
         pass

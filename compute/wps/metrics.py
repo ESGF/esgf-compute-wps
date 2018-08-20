@@ -10,6 +10,24 @@ from prometheus_client import Histogram
 from prometheus_client import Summary
 from prometheus_client import CollectorRegistry
 
+from celery.task.control import inspect
+
+def jobs_queued():
+    i = inspect()
+
+    scheduled = sum(len(x) for x in i.scheduled().values())
+
+    reserved = sum(len(x) for x in i.reserved().values())
+
+    return scheduled + reserved
+
+def jobs_running():
+    i = inspect()
+
+    active = sum(len(x) for x in i.active().values())
+
+    return active
+
 WPS = CollectorRegistry()
 
 JOBS_QUEUED = Gauge('wps_jobs_queued', 'Number of jobs queued')
