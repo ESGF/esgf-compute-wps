@@ -258,6 +258,8 @@ def handle_execute(api_key, identifier, data_inputs):
 
         raise
 
+    metrics.WPS_OPERATION.labels(identifier.lower()).inc()
+
     metrics.JOBS_QUEUED.set(metrics.jobs_queued())
 
     return job.report

@@ -9,6 +9,7 @@ from prometheus_client import Gauge
 from prometheus_client import Histogram
 from prometheus_client import Summary
 from prometheus_client import CollectorRegistry
+from prometheus_client import REGISTRY
 
 from celery.task.control import inspect
 
@@ -28,7 +29,10 @@ def jobs_running():
 
     return active
 
-WPS = CollectorRegistry()
+if 'CWT_METRICS' in os.environ:
+    WPS = CollectorRegistry()
+else:
+    WPS = REGISTRY
 
 JOBS_QUEUED = Gauge('wps_jobs_queued', 'Number of jobs queued',
                     multiprocess_mode='livesum')
@@ -48,6 +52,9 @@ CACHE_BYTES = Gauge('wps_cache_bytes', 'Number of cached bytes',
 
 CACHE_FILES = Gauge('wps_cache_files', 'Number of cached files',
                     multiprocess_mode='livesum')
+
+WPS_OPERATION = Counter('wps_operation', 'Number of times an operation has been'
+                        'requested', ['identifier'])
 
 WPS_CAPABILITIES = Summary('wps_get_capabilities_seconds',
                              'WPS GetCapabilities', ['method'])
