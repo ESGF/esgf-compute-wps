@@ -52,10 +52,6 @@ wps:
   ingressEnabled: true
   certDownloadEnabled: true
 
-  init:
-    image: jasonb87/cwt_common
-    imageTag: 2.1.0
-
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/path: /wps/metrics
@@ -88,19 +84,6 @@ wps:
     - name: django
       port: 8000
 
-  persistence:
-    - name: public
-      storageClass: slow
-      size: 10Gi
-
-    - name: ingress
-      storageClass: slow
-      size: 10Gi
-
-    - name: cache
-      storageClass: slow
-      size: 10Gi
-
   ingress:
     annotations:
       ingress.kubernetes.io/ssl-redirect: "true"
@@ -122,6 +105,19 @@ celery:
     memoryRequest: 128Mi
     cpuLimit: 1000m
     memoryLimit: 1Gi
+
+  persistence:
+    public:
+      storageClassName: slow
+      size: 10Gi
+
+    ingress:
+      storageClassName: slow
+      size: 10Gi
+
+    cache:
+      storageClassName: slow
+      size: 10Gi
 
   queues:
   - name: ingress

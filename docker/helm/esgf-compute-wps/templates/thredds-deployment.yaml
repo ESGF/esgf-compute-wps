@@ -41,11 +41,5 @@ spec:
           subPath: public
       volumes:
       - name: public-volume
-      {{- if $.Values.development }}
-        hostPath:
-          path: {{ $.Values.wps.data.ingressPath }}
-          type: DirectoryOrCreate
-      {{- else }}
         persistentVolumeClaim:
           claimName: public-pvc
-      {{- end }}

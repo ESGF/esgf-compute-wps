@@ -130,42 +130,17 @@ spec:
         configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
       - name: public-volume
-      {{- if $.Values.development }}
-        hostPath:
-          path: {{ $.Values.wps.data.ingressPath }}
-          type: DirectoryOrCreate
-      {{- else }}
         persistentVolumeClaim:
           claimName: public-pvc
-      {{- end }}
       - name: cache-volume
-      {{- if $.Values.development }}
-        hostPath:
-          path: {{ $.Values.wps.data.cachePath }}
-          type: DirectoryOrCreate
-      {{- else }}
         persistentVolumeClaim:
           claimName: cache-pvc
-      {{- end }}
       - name: ingress-volume
-      {{- if $.Values.development }}
-        hostPath:
-          path: {{ $.Values.wps.data.ingressPath }}
-          type: DirectoryOrCreate
-      {{- else }}
         persistentVolumeClaim:
           claimName: ingress-pvc
-      {{- end }}
       {{- if $.Values.celery.metrics }}
       - name: metrics-volume
-        {{- if $.Values.development }}
-        hostPath:  
-          path: /opt/cwt/data/metrics
-          type: DirectoryOrCreate
-        {{- else }}
-        persistentVolumeClaim:
-          claimName: metrics-pvc
-        {{- end}}
+        emptyDir: {}
       {{- end }}
 ---
 {{- end }}

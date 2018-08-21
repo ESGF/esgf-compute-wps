@@ -1,0 +1,50 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: public-pvc
+  app: {{ $.Release.Name }}-public-pvc
+  chart: {{ template "esgf-compute-wps.chart" $ }}
+  release: {{ $.Release.Name }}
+  heritage: {{ $.Release.Service }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ $.Values.celery.persistence.public.size }}
+  storageClassName: {{ $.Values.celery.persistence.public.storageClassName }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: cache-pvc
+  app: {{ $.Release.Name }}-cache-pvc
+  chart: {{ template "esgf-compute-wps.chart" $ }}
+  release: {{ $.Release.Name }}
+  heritage: {{ $.Release.Service }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ $.Values.celery.persistence.cache.size }}
+  storageClassName: {{ $.Values.celery.persistence.cache.storageClassName }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: ingress-pvc
+  app: {{ $.Release.Name }}-ingress-pvc
+  chart: {{ template "esgf-compute-wps.chart" $ }}
+  release: {{ $.Release.Name }}
+  heritage: {{ $.Release.Service }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ $.Values.celery.persistence.ingress.size }}
+  storageClassName: {{ $.Values.celery.persistence.ingress.storageClassName }}
