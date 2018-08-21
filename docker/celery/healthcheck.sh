@@ -1,12 +1,21 @@
 #! /bin/bash
 
-cd /var/www/compute/compute
+pushd /var/www/compute/compute
 
-celery inspect ping -A compute -b $CELERY_BROKER -d celery@$HOSTNAME
+source activate wps
 
-if [[ $? -ge 1 ]]
+celery inspect ping -A compute -b $CELERY_BROKER_URL
+
+if [[ $? -ne 0 ]]
 then
-  exit 1
+  exit $?
+fi
+
+curl http://127.0.0.1:8080/metrics
+
+if [[ $? -ne 0 ]]
+then
+  exit $?
 fi
 
 exit 0
