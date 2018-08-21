@@ -1,3 +1,4 @@
+from .metrics import *
 from .ingress import *
 from .preprocess import *
 from .cdat import *

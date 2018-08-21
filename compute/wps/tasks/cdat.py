@@ -36,48 +36,6 @@ def cleanup(self, attrs, file_paths, job_id):
 
     return attrs
 
-@base.register_process('CDAT.health', abstract="""
-Returns current server health
-""", data_inputs=[], metadata={'inputs': 0})
-@base.cwt_shared_task()
-def health(self, user_id, job_id, **kwargs):
-    job = self.load_job(job_id)
-
-    user = self.load_user(user_id)
-
-    i = inspect()
-
-    active = i.active()
-
-    jobs_running = sum(len(x) for x in active.values())
-
-    scheduled = i.scheduled()
-
-    reserved = i.reserved()
-
-    jobs_scheduled = sum(len(x) for x in scheduled.values())
-
-    jobs_reserved = sum(len(x) for x in reserved.values())
-
-    users = models.User.objects.all()
-
-    threshold = timezone.now() - settings.ACTIVE_USER_THRESHOLD
-
-    def active(user):
-        return user.last_login >= threshold
-
-    active_users = [x for x in users if active(x)]
-
-    data = {
-        'jobs_running': jobs_running,
-        'jobs_queued': jobs_scheduled+jobs_reserved,
-        'active_users': len(active_users),
-    }
-
-    job.succeeded(json.dumps(data))
-
-    return data
-
 def retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped=None):
     """ Retrieves data and writes to output.
     

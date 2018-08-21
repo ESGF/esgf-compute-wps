@@ -48,6 +48,11 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
                 for replacement in self.defaults.iteritems():
                     if replacement[0] in value:
                         value = value.replace(*replacement)
+        # Error with calling NoSectionError
+        except TypeError:
+            value = default
+
+            pass
         except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
             value = default
 
@@ -105,6 +110,10 @@ EMAIL_HOST = config.get_value('email', 'host', 'localhost')
 EMAIL_PORT = config.get_value('email', 'port', 25, int)
 EMAIL_HOST_PASSWORD = config.get_value('email', 'password', '')
 EMAIL_HOST_USER = config.get_value('email', 'user', '')
+
+METRICS_HOST = config.get_value('metrics', 'host',
+                                'http://172.17.0.8:9090/prometheus/api/v1/query')
+METRICS_ARCHIVE_HOST = config.get_value('metrics', 'archive.host', '')
 
 WPS_VERSION = '1.0.0'
 WPS_LANG = 'en-US'
