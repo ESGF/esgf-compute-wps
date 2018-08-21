@@ -21,6 +21,7 @@ from openid.consumer import discover
 from myproxy.client import MyProxyClient
 
 from wps import forms
+from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.auth import oauth2
@@ -147,6 +148,8 @@ def create(request):
 
         return common.failed(str(e))
     else:
+        metrics.USERS.inc()
+
         return common.success('Successfully created account for "{}"'.format(data['username']))
 
 @require_http_methods(['POST'])

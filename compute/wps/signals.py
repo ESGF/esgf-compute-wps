@@ -3,14 +3,35 @@
 import os
 from celery.utils.log import get_task_logger
 
+from django.conf import settings
+from django.contrib.auth.signals import user_logged_in
+from django.contrib.auth.signals import user_logged_out
 from django.db.models.signals import post_save
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
+from django.utils import timezone
 
 from wps import metrics
 from wps import models
 
 logger = get_task_logger('wps.signals')
+
+def is_active(user):
+    last = timezone.now() - user.last_login
+
+    return last <= settings.ACTIVE_USER_THRESHOLD
+
+@receiver(user_logged_in)
+def user_login(sender, request, user, **kwargs):
+    active_users = [x for x in models.User.objects.all() if is_active(x)]
+
+    metrics.USERS_ACTIVE.set(len(active_users))
+
+@receiver(user_logged_out)
+def user_logout(sender, request, user, **kwargs):
+    active_users = [x for x in models.User.objects.all() if is_active(x)]
+
+    metrics.USERS_ACTIVE.sec(len(active_users))
 
 @receiver(post_save, sender=models.Cache)
 def cache_save(sender, instance, **kwargs):

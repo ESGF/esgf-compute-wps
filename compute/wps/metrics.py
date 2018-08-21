@@ -34,6 +34,10 @@ if 'CWT_METRICS' in os.environ:
 else:
     WPS = REGISTRY
 
+USERS_ACTIVE = Gauge('wps_users_active', 'Number of active users')
+
+USERS = Counter('wps_users', 'Number of registered users')
+
 JOBS_QUEUED = Gauge('wps_jobs_queued', 'Number of jobs queued',
                     multiprocess_mode='livesum')
 

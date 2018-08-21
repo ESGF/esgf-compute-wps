@@ -1,6 +1,5 @@
 import json
 import os
-from datetime import datetime
 
 import cdms2
 import cwt
@@ -35,9 +34,7 @@ def query_prometheus(**kwargs):
 
     logger.info('%r', data)
 
-    value = data['data']['result'][0]['value'][1]
-
-    return value
+    return data['data']['result']
 
 @base.register_process('CDAT.metrics', abstract="""
                        Returns the current metrics of the server.
@@ -54,24 +51,28 @@ def health(self, user_id, job_id, **kwargs):
 
     upload = query_prometheus(query='sum(delta(wps_upload_bytes[1d]))')
 
+    cpu = query_prometheus(query='avg(100-(irate(node_cpu_seconds_total{mode="idle"}[1d])*100))')
+
+    nodes = query_prometheus(query='machine_cpu_cores')
+
     data = {
         'usage': {
             'files': None,
             'services': [],
             'data': {
                 'units': 'Bytes',
-                'download': download,
-                'upload': upload,
+                'download': download[0]['value'][1],
+                'upload': upload[0]['value'][1],
             }
         },
         'health': {
             'users': None,
             'queued': jobs_queued,
             'running': jobs_running,
-            'nodes': None,
-            'cpu': None,
+            'nodes': len(nodes),
+            'cpu': cpu[0]['value'][1],
         },
-        'time': datetime.now().ctime(),
+        'time': timezone.now().ctime(),
     }
 
     job.succeeded(json.dumps(data))
