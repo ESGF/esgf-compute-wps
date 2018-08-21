@@ -184,8 +184,9 @@ thredds:
 postgresql:
   postgresPassword: abcd1234
   persistence:
-    enabled: false
-    existingClaim: postgres-pvc
+    enabled: true
+    storageClass: slow
+    size: 10Gi
 
 redis:
   repository: redis
