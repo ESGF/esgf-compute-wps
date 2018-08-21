@@ -1,6 +1,21 @@
 host: 0.0.0.0
 development: false
 
+prometheus:
+  server:
+    prefixURL: /prometheus
+    baseURL: /prometheus
+
+    ingress:
+      enabled: true
+      hosts:
+      - /prometheus
+
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+      storageClass: slow
+
 traefik:
   serviceType: NodePort
 
