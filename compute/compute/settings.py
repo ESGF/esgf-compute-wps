@@ -66,8 +66,6 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
         if conv is not None:
             value = conv(value)
 
-        logger.info('Loaded "{}" for key "{}"'.format(value, key))
-
         return value
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -83,19 +81,24 @@ SECRET_KEY = '+a#&@l4!^)i5cn=!*ye^!42xcmyqs3l&j368ow^-y=3fs-txq6'
 DEBUG = 'WPS_DEBUG' in os.environ
 TEST = 'WPS_TEST' in os.environ
 
-WPS_HOST = os.environ.get('WPS_HOST', '0.0.0.0')
-
-ALLOWED_HOSTS = [ WPS_HOST, '172.17.0.17' ]
-
 DJANGO_CONFIG_PATH = os.environ.get('DJANGO_CONFIG_PATH', '/etc/config/django.properties')
+
+WPS_HOST = os.environ.get('WPS_HOST', '127.0.0.1')
 
 config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH, {
     '{host}': WPS_HOST,
 })
 
-add_allowed_hosts = config.get_value('default', 'allowed.hosts', '')
+cidr = config.get_value('default', 'allowed.cidr', None, list)
 
-ALLOWED_HOSTS.extend(add_allowed_hosts.split(','))
+if cidr is not None:
+    ALLOWED_HOSTS = ['*']
+
+    cidr.append(WPS_HOST)
+
+    ALLOWED_CIDR_NETS = cidr
+else:
+    ALLOQED_HOSTS = [WPS_HOST]
 
 #SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
@@ -197,11 +200,10 @@ else:
         ]
 
 MIDDLEWARE = [
+    'allow_cidr.middleware.AllowCIDRMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-#    'django.middleware.cache.UpdateCacheMiddleware',
     'django.middleware.common.CommonMiddleware',
-#    'django.middleware.cache.FetchFromCacheMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',

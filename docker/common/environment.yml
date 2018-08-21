@@ -184,6 +184,7 @@ dependencies:
 - zope=1.0=py27_0
 - zope.deprecation=4.3.0=py27_1
 - pip:
+  - django-allow-cidr==0.3.1
   - apache-airflow==1.9.0
   - babel==2.6.0
   - backports-abc==0.5
