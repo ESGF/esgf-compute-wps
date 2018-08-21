@@ -31,8 +31,6 @@ spec:
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         {{- if not $.Values.development }}
         args: 
-          - "celery"
-          - "worker"
           - "-l"
           - "INFO"
           - "-c"
@@ -50,6 +48,22 @@ spec:
         command:
           - sleep
           - infinity
+        {{- end }}
+        {{- if not $.Values.development }}
+        livenessProbe:
+          exec:
+            command:
+            - bash
+            - /var/www/compute/docker/celery/healthcheck.sh
+          initialDelaySeconds: 3
+          periodSeconds: 60
+        readinessProbe:
+          exec:
+            command:
+            - bash
+            - /var/www/compute/docker/celery/healthcheck.sh
+          initialDelaySeconds: 3
+          periodSeconds: 60
         {{- end }}
         resources:
           {{- if not $.Values.development }}

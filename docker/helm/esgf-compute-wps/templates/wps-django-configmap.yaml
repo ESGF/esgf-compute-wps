@@ -10,7 +10,7 @@ metadata:
 data:
   django.properties: |
     [default]
-    allowed.hosts={{ .Values.host }}
+    allowed.cidr={{ .Values.wps.allowedCIDR }}
     active.user.threshold={{ .Values.wps.activeUserThreshold }}
     ingress.enabled={{ .Values.wps.ingressEnabled }}
     process.blacklist={{ .Values.wps.process.blacklist }}

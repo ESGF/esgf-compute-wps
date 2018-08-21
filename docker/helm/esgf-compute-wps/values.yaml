@@ -132,8 +132,6 @@ celery:
     ports:
       - port: 8080
         name: metrics
-    ingress:
-      path: /metrics
 
   - name: priority-low
     replicas: 1
@@ -147,8 +145,6 @@ celery:
     ports:
       - port: 8080
         name: metrics
-    ingress:
-      path: /metrics
 
   - name: priority-high
     replicas: 1
@@ -162,8 +158,6 @@ celery:
     ports:
       - port: 8080
         name: metrics
-    ingress:
-      path: /metrics
 
 thredds:
   replicas: 1
