@@ -132,6 +132,8 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
     grid = None
     selector = None
 
+    start = self.get_now()
+
     with self.open(output_path, 'w') as outfile:
         # Expect the keys to be given in a sortable format
         for key in sorted(keys):
@@ -167,9 +169,13 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
             self.update(job, 'Finished building file {}',
                         output_path.split('/')[-1])
 
+    elapsed = self.get_now() - start
+
     stat = os.stat(output_path)
 
-    metrics.UPLOAD_BYTES.inc(stat.st_size)
+    metrics.PROCESS_BYTES.labels(operation.identifier).inc(stat.st_size)
+
+    metrics.PROCESS_SECONDS.labels(operation.identifier).inc(elapsed.total_seconds())
 
     return attrs
 
@@ -212,6 +218,8 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
 
     mapped = inp.get('mapped', {})
 
+    start = self.get_now()
+
     # Read input data
     with self.open(inp['path']) as infile:
         data = infile(var_name, **mapped)
@@ -241,12 +249,16 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
     with self.open(output_path, 'w') as outfile:
         outfile.write(data, id=var_name)
 
+    elapsed = self.get_now() - start
+
     self.update(job, 'Finished processing chunk')
+
+    attrs[key]['elapsed'] = elapsed.total_seconds()
 
     return attrs
 
 @base.cwt_shared_task()
-def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, output_path, job_id):
+def concat_process_output(self, attrs, input_paths, operation, var_name, chunked_axis, output_path, job_id):
     """ Concatenates inputs over chunked_axis.
 
     Args:
@@ -267,6 +279,8 @@ def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, outp
 
     data_list = []
 
+    start = self.get_now()
+
     for input_path in sorted(input_paths):
         with self.open(input_path) as infile:
             data_list.append(infile(var_name))
@@ -278,6 +292,8 @@ def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, outp
     with self.open(output_path, 'w') as outfile:
         outfile.write(data, id=var_name)
 
+    elapsed = self.get_now() - start
+
     new_attrs = {}
 
     for item in attrs:
@@ -288,7 +304,13 @@ def concat_process_output(self, attrs, input_paths, var_name, chunked_axis, outp
 
     stat = os.stat(output_path)
 
-    metrics.UPLOAD_BYTES.inc(stat.st_size)
+    metrics.PROCESS_BYTES.labels(operation.identifier).inc(stat.st_size)
+
+    total_seconds = sum(x['elapsed'] for x in new_attrs.values())
+
+    total_seconds += elapsed.total_seconds()
+
+    metrics.PROCESS_SECONDS.labels(operation.identifier).inc(total_seconds)
 
     return new_attrs
 

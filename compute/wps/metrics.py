@@ -44,7 +44,11 @@ JOBS_QUEUED = Gauge('wps_jobs_queued', 'Number of jobs queued',
 JOBS_RUNNING = Gauge('wps_jobs_running', 'Number of jobs running',
                      multiprocess_mode='livesum')
 
-UPLOAD_BYTES = Counter('wps_upload_bytes', 'Number of uploaded bytes')
+PROCESS_BYTES = Counter('wps_process_bytes', 'Number of bytes processed',
+                        ['identifier'])
+
+PROCESS_SECONDS = Counter('wps_process_seconds', 'NUmber of seconds spent'
+                          'processing data', ['identifier'])
 
 INGRESS_BYTES = Counter('wps_ingress_bytes', 'Number of ingressed bytes', ['host'])
 

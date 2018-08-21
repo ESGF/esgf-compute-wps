@@ -3,8 +3,9 @@
 import json
 import re
 import signal
-from functools import partial
 from contextlib import contextmanager
+from datetime import datetime
+from functools import partial
 
 import cdms2
 import celery
@@ -82,6 +83,9 @@ class CWTBaseTask(celery.Task):
             yield fd
         finally:
             fd.close()
+
+    def get_now(self):
+        return datetime.now()
 
     def load_credentials(self, user_id):
         user = self.load_user(user_id)

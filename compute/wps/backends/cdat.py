@@ -431,7 +431,7 @@ class CDAT(backend.Backend):
         concat_path = '{}/{}-concat'.format(settings.WPS_INGRESS_PATH, op_uid)
 
         concat = tasks.concat_process_output.s(
-            output_paths, var.var_name, chunk_axis, concat_path, 
+            output_paths, op, var.var_name, chunk_axis, concat_path, 
             job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
 
