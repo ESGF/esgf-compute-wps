@@ -10,6 +10,9 @@ traefik:
     #defaultCert:
     #defaultKey:
 
+  cpuLimit: 200m
+  memoryLimit: 256Mi
+
   rbac:
     enabled: true
 
