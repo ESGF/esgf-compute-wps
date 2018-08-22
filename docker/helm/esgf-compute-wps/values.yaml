@@ -16,6 +16,9 @@ prometheus:
       size: 10Gi
       storageClass: slow
 
+    global:
+      scrape_interval: 1m
+
 traefik:
   serviceType: NodePort
 
@@ -58,8 +61,8 @@ nginx:
   resources:
     cpuRequest: 100m
     memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 256Mi
+    cpuLimit: 200m
+    memoryLimit: 512Mi
   
 wps:
   replicas: 1
@@ -88,8 +91,8 @@ wps:
   resources:
     cpuRequest: 100m
     memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 256Mi
+    cpuLimit: 200m
+    memoryLimit: 512Mi
 
   oauth:
     client: ""

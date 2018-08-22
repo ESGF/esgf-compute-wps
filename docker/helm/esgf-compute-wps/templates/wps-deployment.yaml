@@ -44,12 +44,14 @@ spec:
             port: 8000
           initialDelaySeconds: 3
           periodSeconds: 60
+          timeoutSeconds: 240
         readinessProbe:
           httpGet:
             path: /wps/
             port: 8000
           initialDelaySeconds: 3
           periodSeconds: 60
+          timeoutSeconds: 240
         {{- end }}
         resources:
         {{- if not .Values.development }}
