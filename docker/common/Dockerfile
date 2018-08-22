@@ -2,9 +2,9 @@ FROM continuumio/miniconda:4.3.27
 
 LABEL maintainer="boutte3@llnl.gov"
 
-ENV CELERY_BROKER=redis://redis/0
+ENV CELERY_BROKER_URL=redis://redis/0
 
-ENV CELERY_BACKEND=redis://redis/0
+ENV CELERY_RESULT_BACKEND=redis://redis/0
 
 ENV POSTGRES_HOST=postgres
 
