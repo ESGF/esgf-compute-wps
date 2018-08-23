@@ -8,7 +8,7 @@ function check_postgres() {
 
 source activate wps
 
-app_root="/var/www/compute/compute"
+app_root=/var/www/webapp/compute
 
 while [[ $(check_postgres) -ne 0 ]]; do
   sleep 1 

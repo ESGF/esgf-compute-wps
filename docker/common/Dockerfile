@@ -23,9 +23,11 @@ RUN apt-get update && \
 	rm -rf /usr/share/locale && \
 	rm -rf /var/lib/apt/lists/*
 
-COPY . /var/www/compute
+COPY . /var/www/webapp
+
+WORKDIR /var/www/webapp
 
 RUN mkdir -p /var/log/cwt && \
 	mkdir -p /etc/config && \
-	cp /var/www/compute/docker/common/app.properties /etc/config/ && \
-	cp /var/www/compute/docker/common/django.properties /etc/config
+  cp /var/www/webapp/docker/common/app.properties /etc/config && \
+  cp /var/www/webapp/docker/common/django.properties /etc/config

@@ -11,11 +11,11 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 	rm -rf /usr/share/locale && \
 	rm -rf /var/lib/apt/lists/*
 
-RUN cd /var/www/compute/compute/wps/webapp && \
-	yarn install && \
-	./node_modules/.bin/webpack --config config/webpack.prod
+WORKDIR /var/www/webapp/docker/wps 
 
-WORKDIR /var/www/compute/docker/wps
+RUN cd /var/www/webapp/compute/wps/webapp && \
+  yarn install && \
+  ./node_modules/.bin/webpack --config config/webpack.prod
 
 EXPOSE 8000
 
