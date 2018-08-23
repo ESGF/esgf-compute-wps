@@ -1,6 +1,6 @@
 #! /bin/bash
 
-pushd /var/www/compute/compute
+pushd ${CWT_BASE}
 
 source activate wps
 

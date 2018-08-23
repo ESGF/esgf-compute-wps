@@ -27,6 +27,8 @@ COPY . /var/www/webapp
 
 WORKDIR /var/www/webapp
 
+ENV CWT_BASE=/var/www/webapp/compute
+
 RUN mkdir -p /var/log/cwt && \
 	mkdir -p /etc/config && \
   cp /var/www/webapp/docker/common/app.properties /etc/config && \

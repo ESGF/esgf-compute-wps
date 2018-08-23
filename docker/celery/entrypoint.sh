@@ -2,7 +2,7 @@
 
 source activate wps
 
-pushd /var/www/webapp/compute
+pushd $CWT_BASE
 
 exec celery worker -A compute -b ${CELERY_BROKER_URL} ${@} &
 
