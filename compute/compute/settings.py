@@ -89,8 +89,15 @@ config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH, {
     '{host}': WPS_HOST,
 })
 
+# Celery Settings
+broker_url = config.get_value('default', 'celery.broker',
+                              'redis://your-boxer-redis-master:6379/0')
+result_backend = config.get_value('default', 'celery.backend',
+                                  'redis://your-boxer-redis-master:6379/0')
+
 cidr = config.get_value('default', 'allowed.cidr', None, list)
 
+# CWT WPS Settings
 if cidr is not None:
     ALLOWED_HOSTS = ['*']
 

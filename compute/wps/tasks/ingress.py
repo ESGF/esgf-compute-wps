@@ -135,7 +135,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
     return dict(y for x in filter_uri_sorted for y in x.items())
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id=None):
+def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
     """ Ingress a portion of data.
 
     Args:
@@ -173,21 +173,15 @@ def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id=None):
 
     logger.info('Domain %r', domain)
 
-    try:
-        with cdms2.open(uri) as infile:
-            data = read_data(infile, var_name, domain)
-    except cdms2.CDMSError:
-        raise WPSError('Failed to open "{uri}"', uri=uri)
+    with self.open(uri) as infile:
+        data = read_data(infile, var_name, domain)
 
     shape = data.shape
 
     logger.info('Read data shape %r', shape)
 
-    try:
-        with cdms2.open(output_path, 'w') as outfile:
-            outfile.write(data, id=var_name)
-    except cdms2.CDMSError:
-        raise WPSError('Failed to open "{uri}"', uri=output_path)
+    with self.open(output_path, 'w') as outfile:
+        outfile.write(data, id=var_name)
 
     elapsed = get_now() - start
 

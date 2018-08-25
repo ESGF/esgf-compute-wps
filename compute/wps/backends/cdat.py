@@ -20,7 +20,11 @@ __ALL__ = ['CDAT']
 
 logger = logging.getLogger('wps.backends')
 
-PROCESSING_OP = 'CDAT\.(subset|aggregate|regrid)'
+# These operations require only a single input
+SINGLE_INPUT = 'CDAT\.(subset|regrid|sum|min|max|average)'
+
+# These operations require axes parameter
+REQUIRE_AXES = 'CDAT\.(min|max|sum|average)'
 
 class FileNotIncludedError(WPSError):
     pass
@@ -93,86 +97,127 @@ class CDAT(backend.Backend):
 
         return variable, domain, operation
 
-    def configure_preprocess(self, variable, domain, operation, user, job, **kwargs):
-        logger.info('Configuring preprocess')
+    def extract_configuration(self, variable, domain, operation):
+        """ Extracts the configuration.
 
-        variable, domain, operation = self.load_data_inputs(variable, domain, operation)
+        Extracts the required configuration items from the CWT WPS execute
+        request.
 
-        # Eventually workflow preprocessing will be handlded
+        Args:
+            variable: A dict keyed with the names of the cwt.Variables
+            objects.
+            domain: A dict keyed with the names of the cwt.Domain obejcts.
+            operation: A dict keyed with the name of the cwt.Process objects.
+
+        Returns:
+            A dict with the following items:
+
+                operation: A cwt.Process object which is the root operation.
+                axis: A list of str axes if provided.
+                time_axis: A cwt.Dimension object for the time axis in the
+                domain.
+                var_name: A str variable name.
+                uris: A list of str URIs.
+        """
+        data = {}
+
         if len(operation.values()) > 1:
             raise WPSError('Workflows are unsupported')
 
-        op = operation.values()[0]
+        data['operation'] = operation.values()[0]
 
-        inputs = [x for x in op.inputs if isinstance(x, cwt.Variable)]
+        inputs = [x for x in data['operation'].inputs if isinstance(x, cwt.Variable)]
 
-        SINGLE_INPUT = 'CDAT\.(subset|regrid|sum|min|max|average)'
-        REQUIRE_AXES = 'CDAT\.(min|max|sum|average)'
-
-        if re.match(SINGLE_INPUT, op.identifier) is not None:
+        if re.match(SINGLE_INPUT, data['operation'].identifier) is not None:
             inputs = sorted(inputs, key=lambda x: x.uri)[0:1]
 
-        if re.match(REQUIRE_AXES, op.identifier) is not None:
-            axis_param = op.get_parameter('axes')
+        if re.match(REQUIRE_AXES, data['operation'].identifier) is not None:
+            axis_param = data['operation'].get_parameter('axes')
 
             if axis_param is None:
                 raise WPSError('Missing required parameter "axes"')
 
-            axis = axis_param.values
+            data['axis'] = axis_param.values
         else:
-            axis = None
+            data['axis'] = None
 
         try:
-            time_dimen = op.domain.get_dimension('time')
+            data['time_axis'] = data['operation'].domain.get_dimension('time')
         except AttributeError:
-            time_dimen = None
+            data['time_axis'] = None
 
-        var_name = set(x.var_name for x in inputs).pop()
+        data['var_name'] = set(x.var_name for x in inputs).pop()
 
-        uris = [x.uri for x in inputs]
+        data['uris'] = [x.uri for x in inputs]
 
-        logger.info('operation %r', op)
-        logger.info('domain %r', op.domain)
-        logger.info('axis %r', axis)
-        logger.info('var_name %r', var_name)
-        logger.info('uris %r', uris)
+        return data
+
+    def configure_preprocess(self, variable, domain, operation, user, job, **kwargs):
+        """ Configures the preprocess workflow.
+
+        Args:
+            variable: A dict keyed with the names of cwt.Variable objects.
+            domain: A dict keyed with the names of cwt.Domain objects.
+            operation: A dict keyed with the names of cwt.Process objects.
+            user: A wps.models.User object.
+            job: A wps.models.Job object.
+            **kwargs: Misc named args.
+
+        Returns:
+            None
+        """
+        logger.info('Configuring preprocess')
+
+        variable, domain, operation = self.load_data_inputs(variable, domain, operation)
+
+        config = self.extract_configuration(variable, domain, operation)
 
         start = tasks.job_started.s(job_id=job.id).set(
             **helpers.INGRESS_QUEUE)
 
         base = tasks.determine_base_units.si(
-            uris, var_name, user.id, job_id=job.id).set(
+            config['uris'], config['var_name'], user.id, job_id=job.id).set(
                 **helpers.INGRESS_QUEUE)
 
+        # Start of the chain will mark the job started and get the base units
+        # of all files.
         canvas = start | base
 
         analysis = {}
 
-        for uri in uris:
+        # For each file we'll check the cache and generate the chunks over the
+        # termporal axis.
+        for uri in config['uris']:
             check_cache = tasks.check_cache.s(
-                uri, var_name, job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+                uri, config['var_name'], job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
             generate_chunks = tasks.generate_chunks.s(
-                uri, axis, job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+                uri, config['axis'], job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
             analysis[uri] = [check_cache, generate_chunks]
 
-        if time_dimen is not None and time_dimen.crs.name == cwt.INDICES.name:
+        # The way the domain is mapped depends on some criteria. If the time
+        # axis is given and is of CRS type indices then we need to generate the
+        # mapped domain for each file in serial, since the current depends on
+        # the previous. If the time axis is not given or is of CRS type values
+        # then the mapped domain can be compute in parallel for each file.
+        if config['time_axis'] is not None and config['time_axis'].crs.name == cwt.INDICES.name:
             map_domain = tasks.map_domain_time_indices.s(
-                var_name, op.domain, user.id, job_id=job.id).set(
+                config['var_name'], data['operation'].domain, user.id, job_id=job.id).set(
                     **helpers.INGRESS_QUEUE)
 
             canvas = canvas | map_domain
         else:
-            for uri in uris:
+            for uri in config['uris']:
                 map_domain = tasks.map_domain.s(
-                    uri, var_name, op.domain, user.id, job_id=job.id).set(
+                    uri, config['var_name'], config['operation'].domain, user.id, job_id=job.id).set(
                         **helpers.INGRESS_QUEUE)
 
                 analysis[uri].insert(0, map_domain)
 
             canvas = canvas | celery.group(celery.chain(x) for x in analysis.values())
 
+        # Setup the task to submit the job for actual execution.
         execute = tasks.wps_execute.s(
             variable, domain, operation, user_id=user.id, job_id=job.id).set(
                 **helpers.DEFAULT_QUEUE)
@@ -311,7 +356,9 @@ class CDAT(backend.Backend):
                 job_id=job_id).set(
                     **helpers.DEFAULT_QUEUE)
 
-            ingress_and_process = celery.group(x for x in ingress) | process_task
+            #ingress_and_process = celery.group(x for x in ingress) | process_task
+            ingress_and_process = celery.chord(header=ingress,
+                                               body=process_task)
 
             cleanup = tasks.cleanup.s(cleanup_paths, job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
@@ -463,6 +510,8 @@ class CDAT(backend.Backend):
         canvas.delay()
 
     def execute(self, **kwargs):
+        PROCESSING_OP = 'CDAT\.(subset|aggregate|regrid)'
+
         if 'preprocess' in kwargs:
             root = kwargs['root']
 

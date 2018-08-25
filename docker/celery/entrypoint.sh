@@ -4,7 +4,7 @@ source activate wps
 
 pushd $CWT_BASE
 
-exec celery worker -A compute -b ${CELERY_BROKER_URL} ${@} &
+exec celery worker -A compute ${@} &
 
 celery_ret=${?}
 celery_pid=${!}

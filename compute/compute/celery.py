@@ -107,13 +107,9 @@ serialization.register('cwt_json', encoder, decoder, 'application/json')
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'compute.settings')
 
-app = Celery(
-    'compute',
-    backend = os.getenv('CELERY_BACKEND', 'redis://0.0.0.0'),
-    broker = os.getenv('CELERY_BROKER', 'redis://0.0.0.0'),
-)
+app = Celery('compute')
 
-app.config_from_object('django.conf:settings', namespace='CELERY')
+app.config_from_object('compute.settings')
 
 ingress_exchange = Exchange('ingress', type='topic')
 priority_exchange = Exchange('priority', type='topic')
