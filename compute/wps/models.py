@@ -35,12 +35,6 @@ ProcessPaused = 'ProcessPaused'
 ProcessSucceeded = 'ProcessSucceeded'
 ProcessFailed = 'ProcessFailed'
 
-class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    message = models.TextField()
-    created_date = models.DateTimeField(auto_now_add=True)
-    enabled = models.BooleanField(default=True)
-
 class DjangoOpenIDStore(interface.OpenIDStore):
     # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py
 
@@ -363,71 +357,6 @@ class Process(models.Model):
     abstract = models.TextField()
     description = models.TextField()
     enabled = models.BooleanField(default=True)
-    process_rate = models.FloatField(default=0.0)
-
-    def update_rate(self, size, elapsed):
-        """ Updates the processing rate and adds a timining.
-
-        Args:
-            size: An integer of the number of megabytes processed.
-            elapsed: An integer of the number of seconds taken to process.
-        """
-        n = self.timing_set.count()
-
-        try:
-            rate = float(size) / float(elapsed)
-        except ZeroDivisionError:
-            rate = 0.0
-
-        logger.info('Old rate %s from %s entries, updating with new rate %s', self.process_rate, n, rate)
-
-        self.process_rate = ((F('process_rate') * n) + rate) / (n + 1)
-
-        self.save()
-
-        self.timing_set.create(elapsed=elapsed)
-
-    def get_usage(self, rollover=True):
-        try:
-            latest = self.processusage_set.latest('created_date')
-        except ProcessUsage.DoesNotExist:
-            latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
-
-        if rollover:
-            now = datetime.datetime.now()
-
-            if now.month > latest.created_date.month:
-                latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
-
-        return latest
-
-    def executed(self):
-        usage = self.get_usage()
-
-        usage.executed = F('executed') + 1
-
-        usage.save()
-
-    def success(self):
-        usage = self.get_usage()
-
-        usage.success = F('success') + 1
-
-        usage.save()
-
-    def failed(self):
-        usage = self.get_usage()
-
-        usage.failed = F('failed') + 1
-
-        usage.save()
-
-    def retry(self):
-        usage = self.get_usage()
-
-        usage.retry = F('retry') + 1
-
-        usage.save()
 
     def track(self, user):
         user_process_obj, _ = UserProcess.objects.get_or_create(user=user, process=self)
@@ -437,30 +366,11 @@ class Process(models.Model):
         user_process_obj.save()
 
     def to_json(self, usage=False):
-        data = {
+        return {
             'identifier': self.identifier,
             'backend': self.backend,
             'enabled': self.enabled
         }
-
-        if usage:
-            try:
-                usage_obj = self.processusage_set.latest('created_date')
-            except ProcessUsage.DoesNotExist:
-                data.update({
-                    'executed': None,
-                    'success': None,
-                    'failed': None,
-                    'retry': None
-                })
-            else:
-                data.update(usage_obj.to_json())
-
-        return data
-
-class Timing(models.Model):
-    process = models.ForeignKey(Process, on_delete=models.CASCADE)
-    elapsed = models.BigIntegerField()
 
 class UserProcess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -476,23 +386,6 @@ class UserProcess(models.Model):
         data['requested_date'] = self.requested_date
 
         return data
-
-class ProcessUsage(models.Model):
-    process = models.ForeignKey(Process, on_delete=models.CASCADE)
-
-    created_date = models.DateTimeField(auto_now_add=True)
-    executed = models.PositiveIntegerField()
-    success = models.PositiveIntegerField()
-    failed = models.PositiveIntegerField()
-    retry = models.PositiveIntegerField()
-
-    def to_json(self):
-        return {
-            'executed': self.executed,
-            'success': self.success,
-            'failed': self.failed,
-            'retry': self.retry
-        }
 
 class Server(models.Model):
     host = models.CharField(max_length=128, unique=True)
@@ -596,8 +489,6 @@ class Job(models.Model):
         return latest is not None and latest.status == ProcessStarted
 
     def accepted(self):
-        self.process.executed()
-
         self.status_set.create(status=ProcessAccepted)
 
     def started(self):
@@ -607,8 +498,6 @@ class Job(models.Model):
             status.set_message('Job Started')
 
     def succeeded(self, output=None):
-        self.process.success()
-
         status = self.status_set.create(status=ProcessSucceeded)
 
         if output is None:
@@ -619,8 +508,6 @@ class Job(models.Model):
         status.save()
 
     def failed(self, exception=None):
-        self.process.failed()
-
         status = self.status_set.create(status=ProcessFailed)
 
         if exception is not None:
@@ -629,8 +516,6 @@ class Job(models.Model):
             status.save()
 
     def retry(self, exception):
-        self.process.retry()
-
         self.update_status('Retrying... {}'.format(exception), 0)
 
     def update(self, message, percent=0):

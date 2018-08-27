@@ -288,6 +288,8 @@ class CDAT(backend.Backend):
                            operation, user_id, job_id, **kwargs):
         op = operation[root]
 
+        process = models.Process.objects.get(identifier=op.identifier)
+
         logger.info('Executing %r', op)
 
         op_uid = uuid.uuid4()
@@ -345,7 +347,7 @@ class CDAT(backend.Backend):
         output_path = '{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, op_uid)
 
         success = tasks.job_succeeded.s(
-            output_path, None, var_name, job_id=job_id).set(
+            variable.values(), output_path, None, var_name, process.id, user_id, job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
 
         process = base.get_process(op.identifier)

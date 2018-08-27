@@ -110,6 +110,14 @@ class CWTBaseTask(celery.Task):
 
         return job
 
+    def load_process(self, process_id):
+        try:
+            process = models.Process.objects.get(pk=process_id)
+        except models.Process.DoesNotExist:
+            raise WPSError('Process "{id}" does not exist', id=process_id)
+
+        return process
+
     def update(self, job, fmt, *args, **kwargs):
         percent = kwargs.get('percent', 0)
 
