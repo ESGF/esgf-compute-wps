@@ -508,9 +508,9 @@ class Job(models.Model):
         status.save()
 
     def failed(self, exception=None):
-        status = self.status_set.create(status=ProcessFailed)
+        status, created = self.status_set.get_or_create(status=ProcessFailed)
 
-        if exception is not None:
+        if created and exception is not None:
             status.exception = wps.exception_report(exception, cwt.ows.NoApplicableCode)
 
             status.save()
