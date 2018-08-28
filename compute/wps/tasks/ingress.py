@@ -37,6 +37,16 @@ def read_data(infile, var_name, domain):
     return data
 
 @base.cwt_shared_task()
+def ingress_cleanup(self, attrs, file_paths, job_id):
+    for path in file_paths:
+        try:
+            os.remove(path)
+        except:
+            logger.warning('Failed to remove %r', path)
+
+    return attrs
+
+@base.cwt_shared_task()
 def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_units, job_id):
     """ Cached ingress items.
 
@@ -89,10 +99,10 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
     chunk_list = []
 
     try:
-        with cdms2.open(entry.local_path, 'w') as outfile:
+        with self.open(entry.local_path, 'w') as outfile:
             for item in filter_uri_sorted:
                 try:
-                    with cdms2.open(item['path']) as infile:
+                    with self.open(item['path']) as infile:
                         data = infile(var_name)
 
                         logger.info('Read chunk with shape %r', data.shape)
@@ -113,7 +123,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
                         else:
                             chunk_list.append(data)
                 except cdms2.CDMSError as e:
-                    raise base.AccessError(item_meta['path'], e)
+                    raise base.AccessError(item['path'], e)
             
             if not chunk_axis.isTime():
                 data = MV.concatenate(chunk_list, axis=chunk_axis_index)
@@ -132,7 +142,7 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
 
     entry.set_size()
 
-    return dict(y for x in filter_uri_sorted for y in x.items())
+    return attrs
 
 @base.cwt_shared_task()
 def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):

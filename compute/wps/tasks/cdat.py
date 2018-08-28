@@ -26,16 +26,6 @@ OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/jso
 
 PATTERN_AXES_REQ = 'CDAT\.(min|max|average|sum)'
 
-@base.cwt_shared_task()
-def cleanup(self, attrs, file_paths, job_id):
-    for path in file_paths:
-        try:
-            os.remove(path)
-        except:
-            logger.exception('Failed to remove %r', path)
-
-    return attrs
-
 def retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped=None):
     """ Retrieves data and writes to output.
     
