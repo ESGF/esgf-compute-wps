@@ -22,134 +22,160 @@ from wps import helpers
 
 logger = common.logger
 
-def retrieve_axes(user, dataset_id, variable, urls):
-    base_cache_id = '{}|{}'.format(dataset_id, variable)
+def describe_axis(axis):
+    """ Describe an axis.
+    Args:
+        axis: A cdms2.axis.TransientAxis or cdms2.axis.FileAxis.
 
-    axes = []
+    Returns:
+        A dict describing the axis.
+    """
+    return {
+        'id': axis.id,
+        'start': float(axis[0]),
+        'stop': float(axis[-1]),
+        'units': axis.units or None,
+        'length': len(axis),
+    }
+
+def process_axes(header):
+    """ Processes the axes of a file.
+    Args:
+        header: A cdms2.fvariable.FileVariable.
+
+    Returns:
+        A dict containing the url, temporal and spatial axes.
+    """
+    data = {}
     base_units = None
 
-    start = datetime.datetime.now()
+    for axis in header.getAxisList():
+        logger.info('Processing axis %r', axis.id)
 
-    tasks.load_certificate(user)
+        if axis.isTime():
+            if base_units is None:
+                base_units = axis.units
 
-    for i, url in enumerate(sorted(urls)):
-        cache_id = '{}|{}'.format(base_cache_id, url)
+            axis_clone = axis.clone()
 
-        cache_id = hashlib.md5(cache_id).hexdigest()
+            axis_clone.toRelativeTime(base_units)
 
-        data = cache.get(cache_id)
-
-        if data is None:
-            logger.info('Retrieving axes fro %r', url)
-
-            data = {
-                'url': url,
-                'temporal': None,
-                'spatial': None,
-            }
-
-            try:
-                with cdms2.open(url) as infile:
-                    header = infile[variable]
-
-                    for x in header.getAxisList():
-                        if x.isTime():
-                            if base_units is None:
-                                base_units = x.units
-
-                            x_clone = x.clone()
-
-                            x_clone.toRelativeTime(base_units)
-
-                            data['temporal'] = {
-                                'id': x.id,
-                                'start': float(x_clone[0]),
-                                'stop': float(x_clone[-1]),
-                                'units': x.units or None,
-                                'length': len(x_clone),
-                            }
-                        else:
-                            axis = {
-                                'id': x.id,
-                                'start': float(x[0]),
-                                'stop': float(x[-1]),
-                                'units': x.units or None,
-                                'length': len(x),
-                            }
-
-                            if data['spatial'] is None:
-                                data['spatial'] = [axis]
-                            else:
-                                data['spatial'].append(axis)
-            except cdms2.CDMSError:
-                logger.error('Failed to open %r', url)
-
-                raise Exception('Failed to open {}'.format(url))
-
-            cache.set(data, 24*60*60)
+            data['temporal'] = describe_axis(axis_clone)
         else:
-            logger.info('Loaded axes for %r from cache', url)
+            desc = describe_axis(axis)
 
-        axes.append(data)
-
-    elapsed = datetime.datetime.now() - start
-
-    logger.info('%r %s', len(urls), elapsed)
-
-    return axes
-
-def search_solr(dataset_id, index_node, shard=None, query=None):
-    data = cache.get(dataset_id)
-
-    if data is None:
-        logger.info('Dataset "{}" not in cache'.format(dataset_id))
-
-        start = datetime.datetime.now()
-
-        params = {
-            'type': 'File',
-            'dataset_id': dataset_id,
-            'format': 'application/solr+json',
-            'offset': 0,
-            'limit': 8000
-        }
-
-        if query is not None and len(query.strip()) > 0:
-            params['query'] = query.strip()
-
-        if shard is not None and len(shard.strip()) > 0:
-            params['shards'] = '{}/solr'.format(shard.strip())
-
-        # enabled distrib search by default
-        params['distrib'] = 'true'
-
-        url = 'http://{}/esg-search/search'.format(index_node)
-
-        logger.info('Requesting "{}" {}'.format(url, params))
-
-        try:
-            response = requests.get(url, params)
-        except requests.ConnectionError:
-            raise Exception('Connection timed out')
-        except requests.RequestException as e:
-            raise Exception('Request failed: "{}"'.format(e))
-
-        try:
-            response_json = json.loads(response.content)
-        except:
-            raise Exception('Failed to load JSON response')
-
-        data = parse_solr_docs(response_json)
-
-        cache.set(dataset_id, data, 24*60*60)
-
-        logger.debug('search_solr elapsed time {}'.format(datetime.datetime.now()-start))
-    else:
-        logger.info('Dataset "{}" retrieved from cache'.format(dataset_id))
+            if 'spatial' not in data:
+                data['spatial'] = [desc]
+            else:
+                data['spatial'].append(desc)
 
     return data
 
+def process_url(prefix_id, url, variable):
+    """ Processes a url.
+    Args:
+        prefix_id: A str prefix to build the cache id.
+        url: A str url path.
+        variable: A str variable name.
+
+    Returns:
+        A list of dicts describing each files axes.
+    """
+    cache_id = '{}|{}'.format(prefix_id, url)
+
+    cache_id = hashlib.md5(cache_id).hexdigest()
+
+    data = cache.get(cache_id)
+
+    logger.info('Processing %r in %r', variable, url)
+
+    if data is None:
+        data = { 'url': url }
+
+        with cdms2.open(url) as infile:
+            axes = process_axes(infile[variable])
+
+        data.update(axes)
+
+        cache.set(cache_id, data, 24*60*60)
+
+    return data
+
+def retrieve_axes(user, dataset_id, variable, urls):
+    """ Retrieves the axes for a set of urls.
+    Args:
+        user: A wps.models.User object.
+        dataset_id: A str dataset id.
+        variable: A str variable name.
+        urls: A list of str url paths.
+        
+    Returns:
+        A list of dicts containing the axes of each file.
+    """
+    prefix_id = '{}|{}'.format(dataset_id, variable)
+
+    axes = []
+
+    tasks.load_certificate(user)
+
+    for url in sorted(urls):
+        data = process_url(prefix_id, url, variable)
+
+        axes.append(data)
+
+    return axes
+
+def search_params(dataset_id, query, shard):
+    """ Prepares search params for ESGF.
+    Args:
+        dataset_id: A str dataset id.
+        query: A str search query.
+        shard: A str shard to search.
+
+    Returns:
+        A dict containing the search params.
+    """
+    params = {
+        'type': 'File',
+        'dataset_id': dataset_id,
+        'format': 'application/solr+json',
+        'offset': 0,
+        'limit': 10000,
+    }
+
+    if query is not None and len(query.strip()) > 0:
+        params['query'] = query.strip()
+
+    if shard is not None and len(shard.strip()) > 0:
+        params['shards'] = '{}/solr'.format(shard.strip())
+
+    # enabled distrib search by default
+    params['distrib'] = 'true'
+
+    logger.info('ESGF search params %r', params)
+
+    return params
+
 def parse_solr_docs(response):
+    """ Parses the solr response docs.
+    Args:
+        response: A str response from a solr search in json format.
+
+    Returns:
+        A dict containing the parsed variables and files.
+
+        {
+            "variables": {
+                "tas": [0,2,3,4]
+            },
+            "files": [
+                'file1.nc',
+                'file2.nc',
+                ...
+                'file20.nc',
+            ]
+        }
+    """
     variables = {}
     files = []
 
@@ -176,9 +202,49 @@ def parse_solr_docs(response):
 
             index = files.index(url)
 
+            # Collect the indexes of the files containing this variable
             variables[var].append(index)
 
     return { 'variables': variables, 'files': files }
+
+
+def search_solr(dataset_id, index_node, shard=None, query=None):
+    """ Search ESGF solr.
+    Args:
+        dataset_id: A str dataset id.
+        index_node: A str of the host to run the search on.
+        shard: A str shard name to pass.
+        query: A str query to pass.
+
+    Returns:
+        A dict containing the parsed solr documents.
+    """
+    data = cache.get(dataset_id)
+
+    if data is None:
+        params = search_params(dataset_id, query, shard)
+
+        url = 'http://{}/esg-search/search'.format(index_node)
+
+        logger.info('Searching %r', url)
+
+        try:
+            response = requests.get(url, params)
+        except requests.ConnectionError:
+            raise Exception('Connection timed out')
+        except requests.RequestException as e:
+            raise Exception('Request failed: "{}"'.format(e))
+
+        try:
+            response_json = json.loads(response.content)
+        except:
+            raise Exception('Failed to load JSON response')
+
+        data = parse_solr_docs(response_json)
+
+        cache.set(dataset_id, data, 24*60*60)
+
+    return data
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -205,11 +271,6 @@ def search_variable(request):
         shard = request.GET.get('shard', None)
 
         query = request.GET.get('query', None)
-
-        logger.info('Searching for variable %r', variable)
-        logger.info('Dataset ID %r', dataset_id)
-        logger.info('Index Node %r', index_node)
-        logger.info('Files %r', files)
 
         dataset_variables = search_solr(dataset_id, index_node, shard, query)
 
