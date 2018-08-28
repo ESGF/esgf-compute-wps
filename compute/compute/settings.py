@@ -103,9 +103,11 @@ if cidr is not None:
 
     cidr.append(WPS_HOST)
 
+    cidr = [x for x in cidr if x != '']
+
     ALLOWED_CIDR_NETS = cidr
 else:
-    ALLOQED_HOSTS = [WPS_HOST]
+    ALLOWED_HOSTS = [WPS_HOST]
 
 #SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
