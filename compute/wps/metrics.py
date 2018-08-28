@@ -16,16 +16,25 @@ from celery.task.control import inspect
 def jobs_queued():
     i = inspect()
 
-    scheduled = sum(len(x) for x in i.scheduled().values())
+    try:
+        scheduled = sum(len(x) for x in i.scheduled().values())
+    except AttributeError:
+        scheduled = 0
 
-    reserved = sum(len(x) for x in i.reserved().values())
+    try:
+        reserved = sum(len(x) for x in i.reserved().values())
+    except AttributeError:
+        reserved = 0
 
     return scheduled + reserved
 
 def jobs_running():
     i = inspect()
 
-    active = sum(len(x) for x in i.active().values())
+    try:
+        active = sum(len(x) for x in i.active().values())
+    except AttributeError:
+        active = 0
 
     return active
 

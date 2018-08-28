@@ -17,7 +17,11 @@ from wps import models
 logger = get_task_logger('wps.signals')
 
 def is_active(user):
-    last = timezone.now() - user.last_login
+    try:
+        last = timezone.now() - user.last_login
+    except TypeError:
+        # Handle when user.last_login is None
+        return False
 
     return last <= settings.ACTIVE_USER_THRESHOLD
 

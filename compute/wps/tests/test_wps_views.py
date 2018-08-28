@@ -92,7 +92,9 @@ class WPSViewsTestCase(test.TestCase):
 
         response = self.client.get('/wps/', data)
 
-        self.assertContains(response, 'Missing API key for WPS execute request')
+        expected = '<?xml version="1.0" ?><ows:ExceptionReport version="1.0.0" xmlns:ows="http://www.opengis.net/ows/1.1"><ows:Exception exceptionCode="MissingParameterValue"><ows:ExceptionText>api_key</ows:ExceptionText></ows:Exception></ows:ExceptionReport>'
+
+        self.assertContains(response, expected)
 
     def test_wps_describe_process_multiple(self):
         data = {
