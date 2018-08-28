@@ -269,7 +269,7 @@ def map_domain_time_indices(self, attrs, var_name, domain, user_id, job_id):
 
         mapped.update(mapped_domain)
 
-    self.update('Finished mapping domain')
+    self.update(job, 'Finished mapping domain')
 
     return mapped
 
@@ -277,7 +277,7 @@ def map_domain_time_indices(self, attrs, var_name, domain, user_id, job_id):
 def map_domain(self, attrs, uri, var_name, domain, user_id, job_id):
     job = self.load_job(job_id)
 
-    self.update(job, 'Mapping domain {}', domain.name)
+    self.update(job, 'Mapping domain {}', domain)
 
     self.load_credentials(user_id)
 
