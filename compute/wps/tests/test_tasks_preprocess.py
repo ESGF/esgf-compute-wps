@@ -72,7 +72,7 @@ class PreprocessTestCase(test.TestCase):
         self.time3 = time3
 
     @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('requests.get')
+    @mock.patch('requests.post')
     def test_wps_execute(self, mock_get, mock_job):
         attrs = [
             {
