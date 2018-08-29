@@ -35,7 +35,7 @@ def user_login(sender, request, user, **kwargs):
 def user_logout(sender, request, user, **kwargs):
     active_users = [x for x in models.User.objects.all() if is_active(x)]
 
-    metrics.USERS_ACTIVE.sec(len(active_users))
+    metrics.USERS_ACTIVE.set(len(active_users))
 
 @receiver(post_save, sender=models.Cache)
 def cache_save(sender, instance, **kwargs):
