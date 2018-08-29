@@ -30,9 +30,7 @@ class AuthViewsTestCase(test.TestCase):
         return data
 
     def check_redirect(self, response, redirect_count):
-        self.assertEqual(response.status_code, 200)
-
-        self.assertEqual(len(response.redirect_chain), redirect_count)
+        self.assertEqual(response.status_code, 302)
 
     def test_reset_password_missing_parameter(self):
         response = self.client.get('/auth/reset/', {})
@@ -226,7 +224,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertEqual(data['type'], 'myproxyclient')
 
     def test_oauth2_callback_invalid_state(self):
-        response = self.client.get('/auth/callback/', {}, follow=True)
+        response = self.client.get('/auth/callback/', {})
 
         self.check_redirect(response, 1)
 
@@ -254,7 +252,7 @@ class AuthViewsTestCase(test.TestCase):
 
         session.save()
 
-        response = self.client.get('/auth/callback/', {}, follow=True)
+        response = self.client.get('/auth/callback/', {})
 
         self.check_redirect(response, 1)
 
@@ -333,7 +331,7 @@ class AuthViewsTestCase(test.TestCase):
 
         mock_openid.return_value = ('http://testbad.com/openid', {'email': user.email})
 
-        response = self.client.get('/auth/callback/openid/', {}, follow=True)
+        response = self.client.get('/auth/callback/openid/', {})
 
         self.assertIn('_auth_user_id', self.client.session)
         self.check_redirect(response, 1)
@@ -342,7 +340,7 @@ class AuthViewsTestCase(test.TestCase):
     def test_user_login_openid_callback(self, mock_openid):
         mock_openid.return_value = ('http://testbad.com/openid', {'email': 'http://testbad.com/openid/new_user'})
 
-        response = self.client.get('/auth/callback/openid/', {}, follow=True)
+        response = self.client.get('/auth/callback/openid/', {})
 
         self.assertIn('_auth_user_id', self.client.session)
         self.check_redirect(response, 1)
