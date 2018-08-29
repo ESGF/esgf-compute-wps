@@ -28,19 +28,24 @@ class CacheModelTestCase(test.TestCase):
         self.cached = models.Cache.objects.create(
             uid='uid',
             url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=helpers.json_dumps_default)
+            dimensions=json.dumps(dimensions,
+                                  default=helpers.json_dumps_default),
+            size=120000,
         )
 
         self.invalid_dimensions = models.Cache.objects.create(
             uid='uid',
             url='file:///test1.nc',
             dimensions='dasdasd',
+            size=120000,
         )
 
         self.missing_var_name = models.Cache.objects.create(
             uid='uid',
             url='file:///test1.nc',
-            dimensions=json.dumps(dimensions_sans_var_name, default=helpers.json_dumps_default)
+            dimensions=json.dumps(dimensions_sans_var_name,
+                                  default=helpers.json_dumps_default),
+            size=120000,
         )
 
         self.mock_time = mock.MagicMock()
@@ -229,7 +234,8 @@ class CacheModelTestCase(test.TestCase):
         cache = models.Cache.objects.create(
             uid='uid',
             url='file:///test1.nc',
-            dimensions=''
+            dimensions='',
+            size=1200000,
         )
 
         filename_hash = hashlib.sha256(cache.uid+cache.dimensions).hexdigest()
