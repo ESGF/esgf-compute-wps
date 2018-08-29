@@ -1,3 +1,5 @@
+import unittest
+
 import cwt
 import mock
 from django import test
@@ -7,6 +9,7 @@ from wps import models
 from wps import WPSError
 from wps.backends import ophidia
 
+@unittest.skip('whole module needs a rewrite')
 class OphidiaBackendTestCase(test.TestCase):
     fixtures = ['servers.json', 'users.json', 'processes.json']
 
