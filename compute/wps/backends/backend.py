@@ -40,6 +40,24 @@ class Backend(object):
         self.processes = []
 
     def add_process(self, identifier, name, metadata, data_inputs=None, process_outputs=None, abstract=None):
+        """ Adds a process/operation to a backend.
+    
+        Metadata should be formed as follows:
+            {
+                'inputs': 2,
+            }
+
+        Args:
+            identifier: A str identifer for the process.
+            name: A str name for the process.
+            metadata: A dict of metadata.
+            data_inputs: A list of cwt.wps.DataInputDescription.
+            process_outputs: A list of cwt.wps.ProcessOutputDescription.
+            abstract: A str abstract for the process.
+
+        Returns:
+            None
+        """
         if abstract is None:
             abstract = ''
 

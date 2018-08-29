@@ -36,7 +36,7 @@ class BackendsTestCase(test.TestCase):
     def test_add_process_without_abstract(self):
         backend = backends.Backend()
 
-        backend.add_process('id', 'name')
+        backend.add_process('id', 'name', {})
 
         self.assertEqual(len(backend.processes), 1)
 
@@ -47,7 +47,7 @@ class BackendsTestCase(test.TestCase):
 
         backend = backends.Backend()
 
-        backend.add_process('id', 'name', abstract='abstract', data_inputs=inputs, process_outputs=outputs)
+        backend.add_process('id', 'name', {}, abstract='abstract', data_inputs=inputs, process_outputs=outputs)
 
         self.assertEqual(len(backend.processes), 1)
 
@@ -59,7 +59,7 @@ class BackendsTestCase(test.TestCase):
     def test_add_process_not_data_inputs(self):
         backend = backends.Backend()
 
-        backend.add_process('id', 'name', abstract='abstract', data_inputs=[])
+        backend.add_process('id', 'name', {}, abstract='abstract', data_inputs=[])
 
         self.assertEqual(len(backend.processes), 1)
 
@@ -73,7 +73,7 @@ class BackendsTestCase(test.TestCase):
     def test_add_process(self):
         backend = backends.Backend()
 
-        backend.add_process('id', 'name', abstract='abstract')
+        backend.add_process('id', 'name', {}, abstract='abstract')
 
         self.assertEqual(len(backend.processes), 1)
 
