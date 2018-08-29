@@ -2,6 +2,7 @@
 
 import os
 import json
+import datetime
 
 import cwt
 import mock
@@ -37,13 +38,20 @@ class CDATTaskTestCase(test.TestCase):
     @mock.patch('wps.tasks.CWTBaseTask.load_job')
     @mock.patch('wps.tasks.CWTBaseTask.open')
     @mock.patch('wps.tasks.base.cdms2.MV2.concatenate')
-    def test_concat_process_output(self, mock_mv, mock_open, mock_job):
+    @mock.patch('os.stat')
+    def test_concat_process_output(self, mock_stat, mock_mv, mock_open, mock_job):
+        type(mock_stat.return_value).st_size = 1200000
+
         attrs = [
             {
-                "file01.nc": {},
+                "file01.nc": {
+                    'elapsed': 120,
+                },
             },
             {
-                "file02.nc": {},
+                "file02.nc": {
+                    'elapsed': 60,
+                },
             }
         ]
 
@@ -53,7 +61,9 @@ class CDATTaskTestCase(test.TestCase):
 
         mock_open.return_value.__enter__.return_value = mock_file
 
-        result = cdat.concat_process_output(attrs, input_paths, 'tas', 'time', './output.nc', 0)
+        mock_op = mock.MagicMock()
+
+        result = cdat.concat_process_output(attrs, input_paths, mock_op, 'tas', 'time', './output.nc', 0)
 
         mock_open.assert_any_call('file01.nc')
         mock_open.assert_any_call('file02.nc')
@@ -78,7 +88,10 @@ class CDATTaskTestCase(test.TestCase):
 
         self.assertEqual(result, grouped)
 
-    def test_base_process_gridder(self):
+    @mock.patch('os.stat')
+    def test_base_process_gridder(self, mock_stat):
+        type(mock_stat.return_value).st_size = 1200000
+
         mapped = {
             'time': slice(0, 1),
             'lat': slice(20, 30),
@@ -212,7 +225,10 @@ class CDATTaskTestCase(test.TestCase):
         self.assertEqual(outfile.mock_write, ((mock_self.PROCESS.return_value,), {'id': 'tas'}))
 
     @mock.patch('wps.tasks.cdat.retrieve_data_cached')
-    def test_base_retrieve_cached(self, mock_retrieve):
+    @mock.patch('os.stat')
+    def test_base_retrieve_cached(self, mock_stat, mock_retrieve):
+        type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=1200000)
+
         attrs = {
             'file01.nc': {
                 'cached': True,
@@ -220,7 +236,12 @@ class CDATTaskTestCase(test.TestCase):
             }
         }
 
+        now = datetime.datetime.now()
+
         mock_self = mock.MagicMock()
+
+        mock_self.get_now.side_effect = [now,
+                                         now+datetime.timedelta(seconds=30)]
 
         op = cwt.Process('CDAT.subset')
 
@@ -234,7 +255,12 @@ class CDATTaskTestCase(test.TestCase):
         self.assertEqual(mock_retrieve.call_count, 1)
 
     @mock.patch('wps.tasks.cdat.retrieve_data')
-    def test_base_retrieve_regrid(self, mock_retrieve):
+    @mock.patch('os.stat')
+    def test_base_retrieve_regrid(self, mock_stat, mock_retrieve):
+        now = datetime.datetime.now()
+
+        type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=1200000)
+
         attrs = {
             'file01.nc': {
                 'path': './file01.nc',
@@ -242,6 +268,9 @@ class CDATTaskTestCase(test.TestCase):
         }
 
         mock_self = mock.MagicMock()
+
+        mock_self.get_now.side_effect = [now,
+                                         now+datetime.timedelta(seconds=30)]
 
         op = cwt.Process('CDAT.subset')
 
@@ -262,7 +291,10 @@ class CDATTaskTestCase(test.TestCase):
             mock_self.generate_selector.return_value)
 
     @mock.patch('wps.tasks.cdat.retrieve_data')
-    def test_base_retrieve(self, mock_retrieve):
+    @mock.patch('os.stat')
+    def test_base_retrieve(self, mock_stat, mock_retrieve):
+        type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=1200000)
+
         keys = ['file01.nc', 'file02.nc']
         
         attrs = [
@@ -278,7 +310,12 @@ class CDATTaskTestCase(test.TestCase):
             }
         ]
 
+        now = datetime.datetime.now()
+
         mock_self = mock.MagicMock()
+
+        mock_self.get_now.side_effect = [now,
+                                         now+datetime.timedelta(seconds=30)]
 
         op = cwt.Process('CDAT.subset')
 
@@ -410,28 +447,3 @@ class CDATTaskTestCase(test.TestCase):
 
         self.assertEqual(mock_outfile.mock_write[0], (mock_infile.returned[0][0],))
         self.assertEqual(mock_outfile.mock_write[1], {'id': 'tas'})
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('wps.tasks.CWTBaseTask.load_user')
-    def test_health(self, mock_user, mock_job):
-        cdat.health(0, 1)
-
-        mock_user.assert_called_with(0)
-
-        mock_job.assert_called_with(1)
-
-        data = json.dumps({
-            'jobs_running': 0,
-            'active_users': 0,
-            'jobs_queued': 0,
-        })
-
-        mock_job.return_value.succeeded.assert_called_with(data)
-
-    @mock.patch('os.remove')
-    def test_cleanup(self, mock_remove):
-        file_paths = ['file1.nc', 'file2.nc', 'file3.nc']
-
-        cdat.cleanup({}, file_paths, job_id=0)
-
-        self.assertEqual(mock_remove.call_count, 3)
