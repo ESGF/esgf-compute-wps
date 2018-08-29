@@ -9,82 +9,6 @@ from wps.tasks import base
 class CWTBaseTaskTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
 
-
-    def test_cwt_base_load_multiple_parent_variables(self):
-        parent_variables = [
-            {
-                'v1': {'id': 'tas|v1', 'uri': 'file:///test1.nc'} 
-            },
-            {
-                'v2': {'id': 'tas|v2', 'uri': 'file:///test2.nc'}
-            }
-        ]
-
-        variables = {
-            'v0': {'id': 'tas|v0', 'uri': 'file:///test.nc'}
-        }
-
-        domains = {
-            'd0': {'id': 'd0', 'time': {'start': '20', 'end': '200', 'crs': 'values'}},
-        }
-
-        operation = {'name': 'CDAT.subset', 'input': ['v0'], 'domain': 'd0'}
-
-        task = base.CWTBaseTask()
-
-        v, d, o = task.load(parent_variables, variables, domains, operation) 
-
-        self.assertEqual(len(v), 3)
-
-    def test_cwt_base_load_parent_variables(self):
-        parent_variables = {
-            'v1': {'id': 'tas|v1', 'uri': 'file:///test1.nc'} 
-        }
-
-        variables = {
-            'v0': {'id': 'tas|v0', 'uri': 'file:///test.nc'}
-        }
-
-        domains = {
-            'd0': {'id': 'd0', 'time': {'start': '20', 'end': '200', 'crs': 'values'}},
-        }
-
-        operation = {'name': 'CDAT.subset', 'input': ['v0'], 'domain': 'd0'}
-
-        task = base.CWTBaseTask()
-
-        v, d, o = task.load(parent_variables, variables, domains, operation) 
-
-        self.assertEqual(len(v), 2)
-
-    def test_cwt_base_load(self):
-        variables = {
-            'v0': {'id': 'tas|v0', 'uri': 'file:///test.nc'}
-        }
-
-        domains = {
-            'd0': {'id': 'd0', 'time': {'start': '20', 'end': '200', 'crs': 'values'}},
-        }
-
-        operation = {'name': 'CDAT.subset', 'input': ['v0'], 'domain': 'd0'}
-
-        task = base.CWTBaseTask()
-
-        v, d, o = task.load(None, variables, domains, operation) 
-
-        self.assertIsInstance(v, dict)
-        self.assertIn('v0', v)
-        self.assertIsInstance(v['v0'], cwt.Variable)
-
-        self.assertIsInstance(d, dict)
-        self.assertIn('d0', d)
-        self.assertIsInstance(d['d0'], cwt.Domain)
-
-        self.assertIsInstance(o, cwt.Process)
-        self.assertEqual(o.domain, d['d0'])
-        self.assertEqual(len(o.inputs), 1)
-        self.assertEqual(o.inputs[0], v['v0'])
-
     @mock.patch('wps.tasks.base.models.Job.objects.get')
     def test_cwt_base_task_missing_job(self, mock_get):
         job = models.Job.objects.first()
@@ -93,14 +17,10 @@ class CWTBaseTaskTestCase(test.TestCase):
 
         task = base.CWTBaseTask()
 
-        task.PUBLISH = base.ALL
-
         task.on_success(None, 0, None, {})
 
     def test_cwt_base_task_missing_job_id(self):
         task = base.CWTBaseTask()
-
-        task.PUBLISH = base.ALL
 
         task.on_success(None, 0, None, {})
 
