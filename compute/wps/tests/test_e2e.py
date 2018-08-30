@@ -23,7 +23,7 @@ class Timeout(object):
     def __exit__(self, exc_type, exc_value, traceback):
         signal.alarm(0)
 
-@test.tag('e2e')
+@unittest.skip('Needs to be run explicitly')
 class E2EUnitTest(test.TestCase):
     def setUp(self):
         try:
