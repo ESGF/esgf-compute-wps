@@ -10,7 +10,6 @@ from django.conf import settings
 from wps import backends
 from wps import models
 
-#@unittest.skip('whole module needs a rewrite')
 #class EDASBackendTestCase(test.TestCase):
 #    fixtures = ['users.json', 'processes.json', 'servers.json']
 #

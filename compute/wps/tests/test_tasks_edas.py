@@ -12,7 +12,6 @@ from wps import WPSError
 from wps.tasks import cdat
 from wps.tasks import edas
 
-#@unittest.skip('Whole module needs updating')
 #class EDASTaskTestCase(test.TestCase):
 #    fixtures = ['processes.json', 'servers.json', 'users.json']
 #
