@@ -7,6 +7,7 @@ import mock
 from django import test
 
 from . import helpers
+from wps import metrics
 from wps import models
 from wps.views import wps_service
 
@@ -51,9 +52,7 @@ class WPSViewsTestCase(test.TestCase):
 
     @mock.patch('wps.backends.Backend.get_backend')
     def test_wps_execute_post(self, mock_get_backend):
-        mock_backend = mock.MagicMock()
-
-        mock_get_backend.return_value = mock_backend
+        metrics.jobs_queued = mock.MagicMock(return_value=2)
 
         variable = cwt.wps.data_input('variable', 'variable', '')
         operation = cwt.wps.data_input('operation', 'operation', '')
@@ -66,8 +65,6 @@ class WPSViewsTestCase(test.TestCase):
         response = self.client.post('/wps/?api_key=abcd1234', execute_request.toxml(bds=cwt.bds), content_type='text\\xml')
 
         self.assertContains(response, 'wps:ExecuteResponse')
-
-        mock_backend.execute.assert_called()
 
     def test_wps_execute_unknown_user(self):
         data = {
