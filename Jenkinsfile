@@ -35,7 +35,7 @@ pipeline {
 
           cd compute
 
-          python manage.py test --with-xunit --with-xunit-file ../xunit.xml
+          python manage.py test --with-xunit --with-xunit-file ../xunit.xml --with-coverage --cover-xml --cover-xml-file ../coverage.xml --cover-package=wps
 
           sed 's/skip=/skipped=/' -i.bak ../xunit.xml
           '''
@@ -46,10 +46,14 @@ pipeline {
   post {
     always {
       archiveArtifacts 'xunit.xml'
+
+      archiveArtifacts 'coverage.xml'
     }
 
     success {
       xunit testTimeMargin: '3000', thresholdMode: 1, thresholds: [], tools: [JUnit(deleteOutputFiles: true, failIfNotNew: true, pattern: 'xunit.xml', skipNoTestFiles: true, stopProcessingIfError: true)]
+
+      cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '70, 0, 0', failUnhealthy: false, failUnstable: false, lineCoverageTargets: '80, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '80, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
     }    
   }
 }
