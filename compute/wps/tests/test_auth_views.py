@@ -2,9 +2,9 @@ import datetime
 import json
 import mock
 from django import test
+from django.conf import settings
 
 from wps import models
-from wps import settings
 from wps.auth import openid
 from wps.views import auth
 
@@ -30,9 +30,7 @@ class AuthViewsTestCase(test.TestCase):
         return data
 
     def check_redirect(self, response, redirect_count):
-        self.assertEqual(response.status_code, 200)
-
-        self.assertEqual(len(response.redirect_chain), redirect_count)
+        self.assertEqual(response.status_code, 302)
 
     def test_reset_password_missing_parameter(self):
         response = self.client.get('/auth/reset/', {})
@@ -91,7 +89,7 @@ class AuthViewsTestCase(test.TestCase):
         data = self.check_success(response)['data']
 
         self.assertIn('redirect', data)
-        self.assertEqual(data['redirect'], settings.LOGIN_URL)
+        self.assertEqual(data['redirect'], settings.WPS_LOGIN_URL)
 
         user.auth.refresh_from_db()
 
@@ -149,7 +147,7 @@ class AuthViewsTestCase(test.TestCase):
 
         mock_send_mail.assert_called()
 
-        self.assertEqual(data['redirect'], settings.LOGIN_URL)
+        self.assertEqual(data['redirect'], settings.WPS_LOGIN_URL)
 
     def test_login_mpc_not_logged_in(self):
         response = self.client.post('/auth/login/mpc/', {})
@@ -226,7 +224,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertEqual(data['type'], 'myproxyclient')
 
     def test_oauth2_callback_invalid_state(self):
-        response = self.client.get('/auth/callback/', {}, follow=True)
+        response = self.client.get('/auth/callback/', {})
 
         self.check_redirect(response, 1)
 
@@ -254,7 +252,7 @@ class AuthViewsTestCase(test.TestCase):
 
         session.save()
 
-        response = self.client.get('/auth/callback/', {}, follow=True)
+        response = self.client.get('/auth/callback/', {})
 
         self.check_redirect(response, 1)
 
@@ -323,8 +321,8 @@ class AuthViewsTestCase(test.TestCase):
         self.assertEqual(data['openid'], user.auth.openid_url)
         self.assertFalse(data['admin'])
         self.assertTrue(data['local_init'])
-        self.assertEqual(data['api_key'], '')
-        self.assertEqual(data['type'], '')
+        self.assertEqual(data['api_key'], 'abcd1234')
+        self.assertEqual(data['type'], 'oauth2')
         self.assertEqual(data['email'], user.email)
 
     @mock.patch('wps.views.auth.openid.complete')
@@ -333,19 +331,19 @@ class AuthViewsTestCase(test.TestCase):
 
         mock_openid.return_value = ('http://testbad.com/openid', {'email': user.email})
 
-        response = self.client.get('/auth/callback/openid', {}, follow=True)
+        response = self.client.get('/auth/callback/openid/', {})
 
         self.assertIn('_auth_user_id', self.client.session)
-        self.check_redirect(response, 2)
+        self.check_redirect(response, 1)
 
     @mock.patch('wps.views.auth.openid.complete')
     def test_user_login_openid_callback(self, mock_openid):
         mock_openid.return_value = ('http://testbad.com/openid', {'email': 'http://testbad.com/openid/new_user'})
 
-        response = self.client.get('/auth/callback/openid', {}, follow=True)
+        response = self.client.get('/auth/callback/openid/', {})
 
         self.assertIn('_auth_user_id', self.client.session)
-        self.check_redirect(response, 2)
+        self.check_redirect(response, 1)
 
     def test_user_login_openid_invalid(self):
         response = self.client.post('/auth/login/openid/', {})

@@ -1,28 +1,22 @@
-FROM jasonb87/cwt_common:2.0.2
+FROM jasonb87/cwt_common:2.1.0
 
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 	curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
 	echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list && \
 	apt-get update && \
-	apt-get install -y --no-install-recommends yarn build-essential libev-dev nodejs && \
-	conda install -n wps -c conda-forge gunicorn=19.3.0 && \
-	PATH=/opt/conda/envs/wps/bin:$PATH pip install bjoern && \	
+	apt-get install -y --no-install-recommends yarn build-essential nodejs && \
 	apt-get autoremove -y build-essential && \
-	rm -rf /var/lib/apt/lists/* && \
-	conda clean --all -y || exit 0
+	rm -rf /usr/share/doc/ && \
+	rm -rf /usr/share/man/ && \
+	rm -rf /usr/share/locale && \
+	rm -rf /var/lib/apt/lists/*
 
-RUN cd /var/www/compute/compute/wps/webapp && \
-	yarn install && \
-	./node_modules/.bin/webpack --config config/webpack.prod
+WORKDIR /var/www/webapp/docker/wps 
 
-COPY entrypoint.sh entrypoint.sh
-
-COPY healthcheck.sh healthcheck.sh
-
-COPY app.py app.py
+RUN cd /var/www/webapp/compute/wps/webapp && \
+  yarn install && \
+  ./node_modules/.bin/webpack --config config/webpack.prod
 
 EXPOSE 8000
-
-HEALTHCHECK CMD ./healthcheck.sh
 
 ENTRYPOINT ["./entrypoint.sh"]

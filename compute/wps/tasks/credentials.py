@@ -5,10 +5,10 @@ import logging
 import os
 from datetime import datetime
 
+from django.conf import settings
 from openid.consumer import discover
 from OpenSSL import crypto
 
-from wps import settings
 from wps import WPSError
 from wps.auth import oauth2
 from wps.auth import openid
@@ -58,9 +58,13 @@ def check_certificate(user):
     now = datetime.now()
 
     if now >= after:
+        logger.info('Certificate not valid after %r, now %r', after, now)
+
         return False
 
     if now <= before:
+        logger.info('Certificate not valid before %r, now %r', before, now)
+
         return False
 
     return True
@@ -122,7 +126,7 @@ def load_certificate(user):
     if not check_certificate(user):
         refresh_certificate(user)
 
-    user_path = os.path.join(settings.USER_TEMP_PATH, str(user.id))
+    user_path = os.path.join(settings.WPS_USER_TEMP_PATH, str(user.id))
 
     if not os.path.exists(user_path):
         os.makedirs(user_path)
@@ -154,7 +158,7 @@ def load_certificate(user):
             outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
             outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
             outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
+            outfile.write('HTTP.SSL.CAPATH={}\n'.format(settings.WPS_CA_PATH))
             outfile.write('HTTP.SSL.VERIFY=0\n')
 
         logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))

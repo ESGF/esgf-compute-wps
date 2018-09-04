@@ -34,8 +34,9 @@ spec:
         volumeMounts:
         - mountPath: /usr/share/nginx/html/static
           name: static-volume
+          subPath: static
       volumes:
       - name: static-volume
         hostPath:
-          path: {{ .Values.wps.staticPath }}
+          path: {{ .Values.wps.data.staticPath }}
           type: DirectoryOrCreate

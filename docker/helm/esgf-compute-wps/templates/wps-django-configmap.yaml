@@ -10,7 +10,11 @@ metadata:
 data:
   django.properties: |
     [default]
-    allowed.hosts={{ .Values.host }}
+    allowed.cidr={{ .Values.wps.allowedCIDR }}
+    active.user.threshold={{ .Values.wps.activeUserThreshold }}
+    ingress.enabled={{ .Values.wps.ingressEnabled }}
+    process.blacklist={{ .Values.wps.process.blacklist }}
+    cert.download.enabled={{ .Values.wps.certDownloadEnabled }}
 
     [email]
     host={{ .Values.wps.email.host | default "localhost" }}
@@ -20,14 +24,14 @@ data:
 
     [wps]
     wps.dap=true
-    wps.endpoint=http://{{ .Values.host }}/wps
-    wps.status_location=http://{{ .Values.host }}/wps
+    wps.endpoint=http://{{ .Values.host }}/wps/
+    wps.status_location=http://{{ .Values.host }}/wps/status/{job_id}/
     wps.dap_url=http://{{ .Values.host }}/threddsCWT/dodsC/public/{filename}
     wps.login_url=http://{{ .Values.host }}/wps/home/auth/login/openid
     wps.profile_url=http://{{ .Values.host }}/wps/home/user/profile
-    wps.oauth2.callback=https://{{ .Values.host }}/auth/callback
+    wps.oauth2.callback=https://{{ .Values.host }}/auth/callback/
     wps.openid.trust.root=http://{{ .Values.host }}/
-    wps.openid.return.to=http://{{ .Values.host }}/auth/callback/openid
+    wps.openid.return.to=http://{{ .Values.host }}/auth/callback/openid/
     wps.openid.callback.success=http://{{ .Values.host }}/wps/home/auth/login/callback
     wps.password.reset.url=http://{{ .Values.host }}/wps/home/auth/reset
     wps.ca.path=/tmp/certs

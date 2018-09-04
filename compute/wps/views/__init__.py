@@ -1,4 +1,4 @@
-from .admin import *
+from .metrics import *
 from .auth import *
 from .esgf import *
 from .job import *

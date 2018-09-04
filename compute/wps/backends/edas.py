@@ -5,11 +5,10 @@ import cwt
 import zmq
 from celery.task.control import inspect
 from celery.task.control import revoke
+from django.conf import settings
 
 from wps import models
-from wps import settings
 from wps import tasks
-from wps import wps_xml
 from wps import WPSError
 from wps.backends import backend
 
@@ -32,7 +31,7 @@ class EDAS(backend.Backend):
 
         socket = context.socket(zmq.REQ)
 
-        socket.connect('tcp://{}:{}'.format(settings.EDAS_HOST, settings.EDAS_REQ_PORT))
+        socket.connect('tcp://{}:{}'.format(settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT))
 
         socket.send(str('0!getCapabilities!WPS'))
 
@@ -42,7 +41,7 @@ class EDAS(backend.Backend):
 
             socket.close()
 
-            raise EDASCommunicationError(settings.EDAS_HOST, settings.EDAS_REQ_PORT)
+            raise EDASCommunicationError(settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT)
 
         data = socket.recv()
 
@@ -72,7 +71,7 @@ class EDAS(backend.Backend):
 
             abstract = desc_tag.text
 
-            self.add_process(identifier, title, abstract)
+            self.add_process(identifier, title, abstract=abstract)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         if len(operations) == 0:
@@ -92,7 +91,7 @@ class EDAS(backend.Backend):
         variable_dict = dict((x, variables[x].parameterize()) for x in operation.inputs)
 
         if domain is not None:
-            domain_dict = dict({domain: domains[operation.domain].parameterize()})
+            domain_dict = { domain.name: domain.parameterize() }
         else:
             domain_dict = {}
 
@@ -106,7 +105,7 @@ class EDAS(backend.Backend):
 
         cache_task = tasks.cache_variable.si({}, variable_dict, domain_dict, cache_op, **params)
 
-        operation.inputs = [operation.name]
+        operation.inputs = [cwt.Variable('', '', name=operation.name)]
 
         edas_task = tasks.edas_submit.s({}, domain_dict, operation.parameterize(), **params)
 

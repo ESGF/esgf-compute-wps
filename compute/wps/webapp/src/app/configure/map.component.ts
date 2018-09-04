@@ -2,18 +2,21 @@ import { Component, Input, OnInit, ViewChild } from '@angular/core';
 
 import { Axis } from './axis.component';
 import { Selection } from './selection';
-import { LAT_NAMES, LNG_NAMES } from './configure.service';
+import { Domain } from './domain.component';
 
 import * as L from 'leaflet';
 
 require('leaflet/dist/leaflet.css');
 
+const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
+const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
+
 @Component({
   selector: 'domain-map',
   styles: [`
-  .map-container {
-    min-height: calc(100vh - 100px);
-  }
+    .map-container {
+      height: 85vh;
+    }
   `],
   template: `
   <div #mapContainer class="map-container"></div>
@@ -22,9 +25,7 @@ require('leaflet/dist/leaflet.css');
 export class MapComponent implements OnInit {
   @ViewChild('mapContainer') mapContainer: any;
 
-  @Input() axes: Axis[];
-
-  domain: string;
+  domain: Domain;
   map: L.Map;
   selection: Selection;
 
@@ -32,69 +33,48 @@ export class MapComponent implements OnInit {
     this.map = L.map(this.mapContainer.nativeElement).setView(L.latLng(0.0, 0.0), 1);
 
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
+      crossOrigin: true,
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(this.map);
 
     this.selection = new Selection(this.map, [[90, -180], [-90, 180]], {color: '#4db8ff'});
 
-    this.selection.on('updatedomain', (data: any) => this.updateDomain(data));
+    this.selection.on('updatedomain', (data: any) => this.selectionUpdated(data));
+
+    this.selection.addTo(this.map);
   }
 
-  updateDomain(data: any) {
-    let nw = data.getNorthWest(),
-      se = data.getSouthEast();
+  selectionUpdated(data: any) {
+    if (this.domain == undefined) { return; }
 
-    this.axes.forEach((axis: Axis) => {
-      if (LNG_NAMES.some((x: string) => x === axis.id)) {
-        axis.start = nw.lng;
+    let lng = this.domain.axes.find((axis: Axis) => { return LNG_NAMES.indexOf(axis.id) > -1; });
+    let lat = this.domain.axes.find((axis: Axis) => { return LAT_NAMES.indexOf(axis.id) > -1; });
 
-        axis.stop = se.lng;
-      } else if (LAT_NAMES.some((x: string) => x === axis.id)) {
-        axis.start = se.lat;
+    lng.start = data.longitude[0];
+    lng.stop = data.longitude[1];
 
-        axis.stop = nw.lat;
-      }
-    });
+    lat.start = data.latitude[0];
+    lat.stop = data.latitude[1];
   }
 
-  onAxisChange(id: string) {
-    if (LNG_NAMES.indexOf(id) === -1 && LAT_NAMES.indexOf(id) === -1) {
-      return;
-    }
-    
-    if (this.domain !== 'Custom') {
-      this.domain = 'Custom';
-    }
+  getBounds(): L.LatLngBoundsExpression {
+    if (this.domain == undefined) { return null; }
 
-    let lon = this.axes.find((axis: Axis) => LNG_NAMES.indexOf(axis.id) >= 0);
-    let lat = this.axes.find((axis: Axis) => LAT_NAMES.indexOf(axis.id) >= 0);
+    let lng = this.domain.axes.find((axis: Axis) => { return LNG_NAMES.indexOf(axis.id) > -1; });
+    let lat = this.domain.axes.find((axis: Axis) => { return LAT_NAMES.indexOf(axis.id) > -1; });
 
-    this.selection.off('updatedomain');
+    if (lng == undefined || lat == undefined) { return [[0.0, 0.0], [0.0, 0.0]]; }
 
-    if (!this.map.hasLayer(this.selection)) {
-      this.selection.addTo(this.map);
-    }
+    let sw = new L.LatLng(lat.stop, lng.start);
+    let ne = new L.LatLng(lat.start, lng.stop);
+    let bounds = new L.LatLngBounds(sw, ne);
 
-    this.selection.updateBounds([[lat.stop, lon.start], [lat.start, lon.stop]]);
-
-    this.selection.on('updatedomain', (data: any) => this.updateDomain(data));
+    return bounds;
   }
 
-  domainChange() {
-    switch (this.domain) {
-      case 'World':
-        if (this.map.hasLayer(this.selection)) {
-          this.selection.removeFrom(this.map);
-        }
+  updateDomain(domain: Domain) {
+    this.domain = domain;
 
-        break;
-      case 'Custom':
-        if (!this.map.hasLayer(this.selection)) {
-          this.selection.addTo(this.map);
-        }
-
-        break;
-    }
+    this.selection.updateBounds(this.getBounds());
   }
 }

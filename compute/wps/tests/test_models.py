@@ -1,391 +1,246 @@
 import hashlib
 import json
 
+import cdms2
 import mock
 from django import test
+from django.conf import settings
 
-from . import helpers
+from wps import helpers
 from wps import models
-from wps import settings
 
 class CacheModelTestCase(test.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        super(CacheModelTestCase, cls).setUpClass()
-
-        cls.time = helpers.generate_time('days since 1990', 365)
-
-    def test_cache_is_superset_invalid_time(self):
+    def setUp(self):
         dimensions = {
-            'variable': 'tas',
-            'temporal': slice(100, 200),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
+            'var_name': 'tas',
+            'time': slice(25, 125),
+            'lat': slice(50, 75),
+            'lon': slice(100, 125),
         }
 
-        cache = models.Cache.objects.create(
+        dimensions_sans_var_name = {
+            'time': slice(25, 125),
+            'lat': slice(50, 75),
+            'lon': slice(100, 125),
+        }
+
+        self.cached = models.Cache.objects.create(
             uid='uid',
             url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
+            dimensions=json.dumps(dimensions,
+                                  default=helpers.json_dumps_default),
+            size=120000,
         )
 
-        value = {
-            'temporal': slice(100, 720),
-            'spatial': {
-                'lat': slice(20, 40),
-                'lon': slice(20, 80),
-            }
-        }
-
-        self.assertFalse(cache.is_superset(value))
-
-    def test_cache_is_superset_invalid_spatial(self):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(100, 200),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
-        }
-
-        cache = models.Cache.objects.create(
+        self.invalid_dimensions = models.Cache.objects.create(
             uid='uid',
             url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
+            dimensions='dasdasd',
+            size=120000,
         )
 
-        value = {
-            'temporal': slice(120, 180),
-            'spatial': {
-                'lat': slice(20, 40),
-                'lon': slice(20, 720),
-            }
-        }
-
-        self.assertFalse(cache.is_superset(value))
-
-    def test_cache_is_superset_missing_in_cache(self):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(100, 200),
-            'spatial': {
-                'lat': slice(0, 90),
-            }
-        }
-
-        cache = models.Cache.objects.create(
+        self.missing_var_name = models.Cache.objects.create(
             uid='uid',
             url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
+            dimensions=json.dumps(dimensions_sans_var_name,
+                                  default=helpers.json_dumps_default),
+            size=120000,
         )
 
-        value = {
-            'temporal': slice(120, 180),
-            'spatial': {
-                'lat': slice(20, 40),
-                'lon': slice(20, 80),
-            }
-        }
+        self.mock_time = mock.MagicMock()
+        type(self.mock_time).id = mock.PropertyMock(return_value='time')
+        type(self.mock_time).shape = mock.PropertyMock(return_value=(100,))
 
-        self.assertTrue(cache.is_superset(value))
+        self.mock_lat = mock.MagicMock()
+        type(self.mock_lat).id = mock.PropertyMock(return_value='lat')
+        type(self.mock_lat).shape = mock.PropertyMock(return_value=(25,))
 
-    def test_cache_is_superset_missing_in_file(self):
+        self.mock_lon = mock.MagicMock()
+        type(self.mock_lon).id = mock.PropertyMock(return_value='lon')
+        type(self.mock_lon).shape = mock.PropertyMock(return_value=(25,))
+        
+        self.mock_lev = mock.MagicMock()
+        type(self.mock_lev).id = mock.PropertyMock(return_value='lev')
+        type(self.mock_lev).shape = mock.PropertyMock(return_value=(25,))
+
+
+    @mock.patch('os.path.exists')
+    @mock.patch('cdms2.open')
+    def test_valid_local_missing(self, mock_open, mock_exist):
+        mock_open.return_value.variables.__contains__.return_value = True
+        mock_open.return_value.__getitem__.return_value.getAxisIndex.return_value = 1
+        mock_open.return_value.__getitem__.return_value.getAxis.side_effect = [
+            self.mock_time,
+            self.mock_lat,
+            self.mock_lon,
+        ]
+
+        mock_exist.return_value = False
+
+        result = self.cached.valid
+
+        self.assertFalse(result)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('cdms2.open')
+    def test_valid_invalid_dimensions(self, mock_open, mock_exist):
+        mock_open.return_value.variables.__contains__.return_value = True
+        mock_open.return_value.__getitem__.return_value.getAxisIndex.return_value = 1
+        mock_open.return_value.__getitem__.return_value.getAxis.side_effect = [
+            self.mock_time,
+            self.mock_lat,
+            self.mock_lon,
+        ]
+
+        mock_exist.return_value = True
+
+        result = self.invalid_dimensions.valid
+
+        self.assertFalse(result)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('cdms2.open')
+    def test_valid_missing_cdms2_error(self, mock_open, mock_exist):
+        mock_open.side_effect = cdms2.CDMSError()
+
+        mock_exist.return_value = True
+
+        result = self.cached.valid
+
+        self.assertFalse(result)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('cdms2.open')
+    def test_valid_missing_var_name(self, mock_open, mock_exist):
+        mock_open.return_value.variables.__contains__.return_value = True
+        mock_open.return_value.__getitem__.return_value.getAxisIndex.return_value = 1
+        mock_open.return_value.__getitem__.return_value.getAxis.side_effect = [
+            self.mock_time,
+            self.mock_lat,
+            self.mock_lon,
+        ]
+
+        mock_exist.return_value = True
+
+        result = self.missing_var_name.valid
+
+        self.assertFalse(result)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('cdms2.open')
+    def test_valid_missing_variable(self, mock_open, mock_exist):
+        mock_open.return_value.variables.__contains__.return_value = False
+        mock_open.return_value.__getitem__.return_value.getAxisIndex.return_value = 1
+        mock_open.return_value.__getitem__.return_value.getAxis.side_effect = [
+            self.mock_time,
+            self.mock_lat,
+            self.mock_lon,
+        ]
+
+        mock_exist.return_value = True
+
+        result = self.cached.valid
+
+        self.assertFalse(result)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('cdms2.open')
+    def test_valid_missing_axis(self, mock_open, mock_exist):
+        mock_open.return_value.variables.__contains__.return_value = True
+        mock_open.return_value.__getitem__.return_value.getAxisIndex.return_value = -1
+        mock_open.return_value.__getitem__.return_value.getAxis.side_effect = [
+            self.mock_time,
+            self.mock_lat,
+            self.mock_lon,
+        ]
+
+        mock_exist.return_value = True
+
+        result = self.cached.valid
+
+        self.assertFalse(result)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('cdms2.open')
+    def test_valid_mismatch_size(self, mock_open, mock_exist):
+        type(self.mock_time).shape = mock.PropertyMock(return_value=(500,))
+
+        mock_open.return_value.variables.__contains__.return_value = True
+        mock_open.return_value.__getitem__.return_value.getAxisIndex.return_value = 1
+        mock_open.return_value.__getitem__.return_value.getAxis.side_effect = [
+            self.mock_time,
+            self.mock_lat,
+            self.mock_lon,
+        ]
+
+        mock_exist.return_value = True
+
+        result = self.cached.valid
+
+        self.assertFalse(result)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('cdms2.open')
+    def test_valid(self, mock_open, mock_exist):
+        mock_open.return_value.variables.__contains__.return_value = True
+        mock_open.return_value.__getitem__.return_value.getAxisIndex.return_value = 1
+        mock_open.return_value.__getitem__.return_value.getAxis.side_effect = [
+            self.mock_lat,
+            self.mock_lon,
+            self.mock_time,
+        ]
+
+        mock_exist.return_value = True
+
+        result = self.cached.valid
+
+        self.assertTrue(result)
+
+    def test_cache_is_superset_lower_out_bounds(self):
         dimensions = {
-            'variable': 'tas',
-            'temporal': slice(100, 200),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
+            'time': slice(50, 125),
+            'lat': slice(0, 65),
+            'lon': slice(110, 125),
         }
 
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
+        result = self.cached.is_superset(dimensions)
 
-        value = {
-            'temporal': slice(120, 180),
-            'spatial': {
-                'lon': slice(20, 80),
-            }
+        self.assertFalse(result)
+
+    def test_cache_is_superset_upper_out_bounds(self):
+        dimensions = {
+            'time': slice(50, 500),
+            'lat': slice(53, 65),
+            'lon': slice(110, 125),
         }
 
-        self.assertFalse(cache.is_superset(value))
+        result = self.cached.is_superset(dimensions)
+
+        self.assertFalse(result)
 
     def test_cache_is_superset(self):
         dimensions = {
-            'variable': 'tas',
-            'temporal': slice(100, 200),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
+            'time': slice(50, 125),
+            'lat': slice(53, 65),
+            'lon': slice(110, 125),
         }
 
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
+        result = self.cached.is_superset(dimensions)
 
-        value = {
-            'temporal': slice(120, 180),
-            'spatial': {
-                'lat': slice(20, 40),
-                'lon': slice(20, 80),
-            }
-        }
-
-        self.assertTrue(cache.is_superset(value))
-
-    @mock.patch('wps.models.os.path.exists')
-    def test_cache_valid_does_not_exist(self, mock_exists):
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=''
-        )
-
-        mock_exists.return_value = False
-
-        self.assertFalse(cache.valid)
-
-    @mock.patch('wps.models.os.path.exists')
-    def test_cache_valid_missing_key(self, mock_exists):
-        dimensions = {}
-
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
-
-        mock_exists.return_value = True
-
-        self.assertFalse(cache.valid)
-
-    @mock.patch('wps.models.os.path.exists')
-    @mock.patch('wps.models.cdms2.open')
-    def test_cache_valid_missing_variable(self, mock_open, mock_exists):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(100, 200),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
-        }
-
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
-
-        mock_exists.return_value = True
-
-        mock_open.return_value.__enter__.return_value.__contains__.return_value = False
-
-        self.assertFalse(cache.valid)
-
-    @mock.patch('wps.models.os.path.exists')
-    @mock.patch('wps.models.cdms2.open')
-    def test_cache_valid_missing_temporal_axis(self, mock_open, mock_exists):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(100, 200),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
-        }
-
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
-
-        mock_exists.return_value = True
-
-        mock_context = mock_open.return_value.__enter__.return_value
-
-        mock_context.__contains__.return_value = True
-
-        mock_context.__getitem__.return_value.getTime.return_value = None
-
-        self.assertFalse(cache.valid)
-
-    @mock.patch('wps.models.os.path.exists')
-    @mock.patch('wps.models.cdms2.open')
-    def test_cache_valid_invalid_temporal_axis(self, mock_open, mock_exists):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(100, 200),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
-        }
-
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
-
-        mock_exists.return_value = True
-
-        mock_context = mock_open.return_value.__enter__.return_value
-
-        mock_context.__contains__.return_value = True
-
-        mock_context.__getitem__.return_value.getTime.return_value = self.time
-
-        self.assertFalse(cache.valid)
-
-    @mock.patch('wps.models.os.path.exists')
-    @mock.patch('wps.models.cdms2.open')
-    def test_cache_valid_missing_spatial(self, mock_open, mock_exists):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(0, 365),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
-        }
-
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
-
-        mock_exists.return_value = True
-
-        mock_context = mock_open.return_value.__enter__.return_value
-
-        mock_context.__contains__.return_value = True
-
-        mock_context.__getitem__.return_value.getTime.return_value = self.time
-
-        mock_context.__getitem__.return_value.getAxisIndex.return_value = -1
-
-        self.assertFalse(cache.valid)
-
-    @mock.patch('wps.models.os.path.exists')
-    @mock.patch('wps.models.cdms2.open')
-    def test_cache_valid_invalid_spatial_size(self, mock_open, mock_exists):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(0, 365),
-            'spatial': {
-                'lat': slice(0, 90),
-                'lon': slice(0, 180),
-            }
-        }
-
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
-
-        mock_exists.return_value = True
-
-        mock_context = mock_open.return_value.__enter__.return_value
-
-        mock_context.__contains__.return_value = True
-
-        mock_context.__getitem__.return_value.getTime.return_value = self.time
-
-        mock_context.__getitem__.return_value.getAxisIndex.return_value = 1
-
-        mock_context.__getitem__.return_value.getAxis.side_effect = [helpers.latitude, helpers.longitude]
-
-        self.assertFalse(cache.valid)
-
-    @mock.patch('wps.models.os.path.exists')
-    @mock.patch('wps.models.cdms2.open')
-    def test_cache_valid_tuple(self, mock_open, mock_exists):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(0, 365),
-            'spatial': {
-                'lat': slice(0, 180),
-                'lon': slice(0, 360),
-            }
-        }
-
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
-
-        mock_exists.return_value = True
-
-        mock_context = mock_open.return_value.__enter__.return_value
-
-        mock_context.variables = {'tas': True}
-
-        mock_context.__getitem__.return_value.getTime.return_value = self.time
-
-        mock_context.__getitem__.return_value.getAxisIndex.return_value = 1
-
-        mock_context.__getitem__.return_value.getAxis.side_effect = [helpers.latitude, helpers.longitude]
-
-        self.assertTrue(cache.valid)
-
-    @mock.patch('wps.models.os.path.exists')
-    @mock.patch('wps.models.cdms2.open')
-    def test_cache_valid(self, mock_open, mock_exists):
-        dimensions = {
-            'variable': 'tas',
-            'temporal': slice(0, 365),
-            'spatial': {
-                'lat': slice(0, 180),
-                'lon': slice(0, 360),
-            }
-        }
-
-        cache = models.Cache.objects.create(
-            uid='uid',
-            url='file:///test1.nc',
-            dimensions=json.dumps(dimensions, default=models.slice_default)
-        )
-
-        mock_exists.return_value = True
-
-        mock_context = mock_open.return_value.__enter__.return_value
-
-        mock_context.variables = {'tas': True}
-
-        mock_context.__getitem__.return_value.getTime.return_value = self.time
-
-        mock_context.__getitem__.return_value.getAxisIndex.return_value = 1
-
-        mock_context.__getitem__.return_value.getAxis.side_effect = [helpers.latitude, helpers.longitude]
-
-        self.assertTrue(cache.valid)
+        self.assertTrue(result)
 
     def test_cache_local_path(self):
         cache = models.Cache.objects.create(
             uid='uid',
             url='file:///test1.nc',
-            dimensions=''
+            dimensions='',
+            size=1200000,
         )
 
         filename_hash = hashlib.sha256(cache.uid+cache.dimensions).hexdigest()
 
-        expected = '{}/{}.nc'.format(settings.CACHE_PATH, filename_hash)
+        expected = '{}/{}.nc'.format(settings.WPS_CACHE_PATH, filename_hash)
 
         local_path = cache.local_path
 

@@ -8,8 +8,8 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 data:
-  CELERY_BACKEND: redis://{{ template "redis.fullname" . }}-master/0
-  CELERY_BROKER: redis://{{ template "redis.fullname" . }}-master/0
+  CELERY_BROKER_URL: redis://{{ template "redis.fullname" . }}-master/0
+  CELERY_RESULT_BACKEND: redis://{{ template "redis.fullname" . }}-master/0
   POSTGRES_HOST: postgres
   {{- if .Values.development }}
   WPS_DEBUG: "1"

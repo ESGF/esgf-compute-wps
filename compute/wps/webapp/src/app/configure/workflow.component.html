@@ -20,9 +20,10 @@
             [dragEnabled]="true" 
             [dragData]="x.identifier">{{x.identifier}}</div>
         </panel>
-        <panel title="Regrid">
+        <!--<panel title="Regrid">
           <regrid [model]="model.process.regrid"></regrid>
         </panel>
+        -->
         <panel ignoreBody="true" title="Parameters">
           <li class="list-group-item">
             <button (click)="addParameterWorkflow()" class="btn btn-default">Add</button>
@@ -161,57 +162,111 @@
           <h4 class="modal-title" id="configureLabel">Configure Process ({{selectedNode?.display()}})</h4>
         </div>
         <div class="modal-body">
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <h4 class="panel-title">Inputs</h4>
-            </div>
-            <div class="panel-body">
-              <div class="form-group">
+          <panel-group>
+            <panel ignoreBody="true" title="Inputs">
+              <div class="list-group-item">
                 <select [(ngModel)]="model.selectedDataset" class="form-control">
                   <option disabled hidden [ngValue]="undefined">No datasets available</option>
                   <option *ngFor="let x of model.availableDatasets" [ngValue]="x">{{x.display()}}</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="list-group-item">
                 <div class="input-group">
                   <select [(ngModel)]="model.selectedVariable" class="form-control">
                     <option disabled hidden [ngValue]="undefined">No variables available</option>
                     <option *ngFor="let x of model.selectedDataset?.dataset.variables" [ngValue]="x">{{x.id}}</option>
                   </select>
                   <span class="input-group-btn">
-                    <button (click)="addInput(model.selectedVariable)" class="btn btn-default">Add</button>
+                    <button (click)="selectedNode?.process.addInput(model.selectedVariable)" class="btn btn-default">Add</button>
                   </span>
                 </div>
               </div>
-            </div>
-            <div class="list-group">
-              <div *ngFor="let x of selectedNode?.inputDatasets()" class="list-group-item clearfix">
-                <span>{{x.dataset}} - <b>{{x.id}}</b></span>
-                <span class="pull-right">
-                  <span (click)="removeInput(x)" class="btn btn-xs btn-default">
-                    <span class="glyphicon glyphicon-remove"></span>
+              <div *ngFor="let item of selectedNode?.process.inputs" class="list-group-item container-fluid">
+                <div class="row">
+                  <div *ngIf="isVariable(item); else processBlock">
+                    <div class="col-md-9">
+                      {{item.dataset}} | <b>{{item.id}}</b>
+                    </div>
+                    <div class="col-md-2">
+                      <button (click)="loadDomainToProcess(item, selectedNode)" type="button" class="btn btn-default">
+                        Load Domain
+                      </button>
+                    </div>
+                  </div>
+                  <ng-template #processBlock>
+                    <div>
+                      <div class="col-md-11">
+                        {{item.identifier}}
+                      </div>
+                    </div>
+                  </ng-template>
+                  <div class="col-md-1">
+                    <button (click)="removeInput(selectedNode, item)" type="button" class="btn btn-default">
+                      <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </panel>
+            <!--<panel title="Regrid">
+              <regrid [model]="selectedNode?.process.regrid"></regrid>
+            </panel>
+            -->
+            <panel ignoreBody="true" title="Parameters">
+              <li class="list-group-item">
+                <button (click)="addParameter()" class="btn btn-default">Add</button>
+              </li>
+              <li *ngFor="let param of selectedNode?.process.parameters" class="list-group-item">
+                <parameter [param]="param" (remove)="removeParameter($event)"></parameter>
+              </li>
+            </panel>
+            <panel ignoreBody="true" title="Domain">
+              <div class="list-group-item">
+                <div class="input-group select-spacer">
+                  <select (ngModelChange)="domainPresetChange($event)" [ngModel]="selectedNode?.process.domainPreset" class="form-control">
+                    <option>None</option>
+                    <option>Global</option>
+                    <option>Custom</option>
+                  </select>
+                  <div class="input-group-btn">
+                    <button
+                      type="button" 
+                      class="btn btn-default dropdown-toggle" 
+                      data-toggle="dropdown">Copy from <div class="caret"></div></button>
+                    <ul class="dropdown-menu dropdown-menu-right">
+                      <li *ngIf="copyNodes != undefined && copyNodes.length == 0">
+                        <a>None</a>
+                      </li>
+                      <li *ngFor="let x of copyNodes" (click)="domainCopy(x)" class="dropdown-item">
+                        <a>{{x.process.identifier}}</a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div *ngIf="selectedNode?.process.domainPreset === 'Custom'" class="list-group-item">
+                <div class="input-group">
+                  <input #axisName type="text" class="form-control" placehold="Dimension name" axisName.value=''>
+                  <span class="input-group-btn">
+                    <button (click)="addAxis(axisName.value)" type="button" class="btn btn-default">
+                      Add
+                    </button>
                   </span>
-                </span>
+                </div>
               </div>
-            </div>
-          </div>
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <h4 class="panel-title">Parameters</h4>
-            </div>
-            <div class="panel-body">
-              <div class="btn-group">
-                <button (click)="addParameter()" type="button" class="btn btn-default">Add</button>
+              <div *ngFor="let x of selectedNode?.process.domain; index as i" class="list-group-item">
+                <axis [axis]="x"
+                  [axisIndex]="i" 
+                  [canRemove]="selectedNode?.process.domainPreset === 'Custom'"
+                  (axisRemove)="removeAxis($event)">
+                </axis>
               </div>
-            </div>
-            <div class="list-group">
-              <parameter *ngFor="let x of selectedNode?.process.parameters" [param]="x" (remove)="removeParameter($event)" ></parameter>              
-            </div>
-          </div>
+            </panel>
+          </panel-group>
         </div>
         <div class="modal-footer">
+          <button (click)="removeNode(selectedNode)" type="button" class="btn btn-danger" style="float: left;">Remove</button>
           <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-          <button (click)="removeNode(selectedNode)" type="button" class="btn btn-danger">Remove</button>
         </div>
       </div>
     </div>

@@ -1,28 +1,35 @@
 host: 0.0.0.0
 development: false
 
-sharedPath: /opt/nfs/cwt/shared
+prometheus:
+  server:
+    prefixURL: /prometheus
+    baseURL: /prometheus
 
-data:
-  publicPath: /opt/nfs/cwt/data/public
-  cachePath: /opt/nfs/cwt/data/cache
-  ingressPath: /opt/nfs/cwt/data/ingress
+    ingress:
+      enabled: true
+      hosts:
+      - /prometheus
 
-ingress:
-  annotations:
-    ingress.kubernetes.io/ssl-redirect: "true"
-    ingress.kubernetes.io/hsts-max-age: "31536000"
-    ingress.kubernetes.io/hsts-include-subdomains: "true"
-    ingress.kubernetes.io/force-hsts: "true"
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+      storageClass: slow
+
+    global:
+      scrape_interval: 1m
 
 traefik:
   serviceType: NodePort
 
-  ssl:
+  #ssl:
     #enabled: true
     #enforced: true
     #defaultCert:
     #defaultKey:
+
+  cpuLimit: 200m
+  memoryLimit: 256Mi
 
   rbac:
     enabled: true
@@ -54,20 +61,38 @@ nginx:
   resources:
     cpuRequest: 100m
     memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 256Mi
+    cpuLimit: 200m
+    memoryLimit: 512Mi
   
 wps:
   replicas: 1
   image: jasonb87/cwt_wps
-  imageTag: 2.0.2
+  imageTag: 2.1.0
   staticPath: /opt/nfs/cwt/static
+  activeUserThreshold: 5
+  ingressEnabled: true
+  certDownloadEnabled: true
+
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /wps/metrics
+    prometheus.io/port: "8000"
+
+  data:
+    sharedPath: /opt/cwt/data/shared
+    staticPath: /opt/cwt/data/static
+    publicPath: /opt/cwt/data/public
+    cachePath: /opt/cwt/data/cache
+    ingressPath: /opt/cwt/data/ingress
+  
+  process:
+    blacklist: "[]"
 
   resources:
     cpuRequest: 100m
     memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 256Mi
+    cpuLimit: 200m
+    memoryLimit: 512Mi
 
   oauth:
     client: ""
@@ -76,83 +101,84 @@ wps:
   email:
     host: "localhost"
 
-  service:
-    type: ClusterIP
-    port: 8000
+  ports:
+    - name: django
+      port: 8000
 
   ingress:
-    enabled: true
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
 
 celery:
+  image: jasonb87/cwt_celery
+  imageTag: 2.1.0
+
+  metrics: /data/metrics
+
+  resources:
+    # Must quote the memory field otherwise large numbers are rendered in
+    # scientific notation which celery does not like. This value is in KiB.
+    memory: "1024000"
+    cpuRequest: 100m
+    memoryRequest: 128Mi
+    cpuLimit: 1000m
+    memoryLimit: 1Gi
+
+  persistence:
+    public:
+      storageClassName: slow
+      size: 10Gi
+
+    ingress:
+      storageClassName: slow
+      size: 10Gi
+
+    cache:
+      storageClassName: slow
+      size: 10Gi
+
+  queues:
   - name: ingress
     replicas: 1
-    image: jasonb87/cwt_celery
-    imageTag: 2.0.2
     argsExtra:
       "-c": 1
       "-Q": ingress
-
-    resources:
-      # Must quote the memory field otherwise large numbers are rendered in
-      # scientific notation which celery does not like. This value is in KiB.
-      memory: "1024000"
-      cpuRequest: 100m
-      memoryRequest: 128Mi
-      cpuLimit: 1000m
-      memoryLimit: 512Mi
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    ports:
+      - port: 8080
+        name: metrics
 
   - name: priority-low
     replicas: 1
-    image: jasonb87/cwt_celery
-    imageTag: 2.0.2
     argsExtra:
       "-c": 1
       "-Q": priority.low
-
-    resources:
-      # Must quote the memory field otherwise large numbers are rendered in
-      # scientific notation which celery does not like. This value is in KiB.
-      memory: "1024000"
-      cpuRequest: 100m
-      memoryRequest: 128Mi
-      cpuLimit: 1000m
-      memoryLimit: 512Mi
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    ports:
+      - port: 8080
+        name: metrics
 
   - name: priority-high
     replicas: 1
-    image: jasonb87/cwt_celery
-    imageTag: 2.0.2
     argsExtra:
       "-c": 1
       "-Q": priority.high
-
-    resources:
-      # Must quote the memory field otherwise large numbers are rendered in
-      # scientific notation which celery does not like. This value is in KiB.
-      memory: "1024000"
-      cpuRequest: 100m
-      memoryRequest: 128Mi
-      cpuLimit: 1000m
-      memoryLimit: 512Mi
-
-  - name: beat
-    replicas: 1
-    image: jasonb87/cwt_celery
-    imageTag: 2.0.2
-    argsExtra:
-      "-c": 1
-
-    environment:
-      SUBCOMMAND: beat
-
-    resources:
-      # Must quote the memory field otherwise large numbers are rendered in
-      # scientific notation which celery does not like. This value is in KiB.
-      memory: "1024000"
-      cpuRequest: 100m
-      memoryRequest: 128Mi
-      cpuLimit: 1000m
-      memoryLimit: 512Mi
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    ports:
+      - port: 8080
+        name: metrics
 
 thredds:
   replicas: 1
@@ -168,13 +194,22 @@ thredds:
   ingress:
     path: /threddsCWT
     annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
 
 postgresql:
   postgresPassword: abcd1234
   persistence:
-    enabled: false
+    enabled: true
+    storageClass: slow
+    size: 10Gi
 
 redis:
+  repository: redis
+  tag: 4.0.10
+
   cluster:
     enabled: false
 
@@ -191,7 +226,7 @@ redis:
       enabled: false
 
 edas:
-  enabled: true
+  enabled: false
   replicas: 1
   image: jasonb87/cwt_edas
   imageTag: latest
@@ -213,3 +248,10 @@ cog:
     memoryRequest: 128Mi
     cpuLimit: 1000m
     memoryLimit: 256Mi
+
+  ingress:
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"

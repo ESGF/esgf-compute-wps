@@ -12,7 +12,8 @@ import time
 from urlparse import urlparse
 
 import cdms2
-from cwt import wps_lib
+import cwt
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import F
@@ -23,28 +24,16 @@ from openid import association
 from openid.store import interface
 from openid.store import nonce
 
-from wps import settings
-from wps import wps_xml
+import wps
+from wps import helpers
 
 logger = logging.getLogger('wps.models')
 
-KBYTE = 1024
-MBYTE = KBYTE * KBYTE
-GBYTE = MBYTE * KBYTE
-
-STATUS = {
-    'ProcessAccepted': wps_lib.ProcessAccepted,
-    'ProcessStarted': wps_lib.ProcessStarted,
-    'ProcessPaused': wps_lib.ProcessPaused,
-    'ProcessSucceeded': wps_lib.ProcessSucceeded,
-    'ProcessFailed': wps_lib.ProcessFailed,
-}
-
-class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    message = models.TextField()
-    created_date = models.DateTimeField(auto_now_add=True)
-    enabled = models.BooleanField(default=True)
+ProcessAccepted = 'ProcessAccepted'
+ProcessStarted = 'ProcessStarted'
+ProcessPaused = 'ProcessPaused'
+ProcessSucceeded = 'ProcessSucceeded'
+ProcessFailed = 'ProcessFailed'
 
 class DjangoOpenIDStore(interface.OpenIDStore):
     # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py
@@ -212,29 +201,6 @@ class UserFile(models.Model):
 
         return data
 
-def slice_default(obj):
-    if isinstance(obj, slice):
-        return {'slice': '{}:{}:{}'.format(obj.start, obj.stop, obj.step)}
-
-    return json.JSONEncoder.default(obj)
-
-def slice_object_hook(obj):
-    if 'slice' not in obj:
-        return obj
-
-    data = obj['slice'].split(':')
-
-    start = int(data[0])
-
-    stop = int(data[1])
-
-    if data[2] == 'None':
-        step = None
-    else:
-        step = int(data[2])
-
-    return slice(start, stop, step)
-
 class Cache(models.Model):
     uid = models.CharField(max_length=256)
     url = models.CharField(max_length=513)
@@ -249,121 +215,87 @@ class Cache(models.Model):
 
         file_name = '{}.nc'.format(dimension_hash)
 
-        return os.path.join(settings.CACHE_PATH, file_name)
+        return os.path.join(settings.WPS_CACHE_PATH, file_name)
 
     @property
     def valid(self):
+        logger.info('Validating cached file %r', self.local_path)
+
         if not os.path.exists(self.local_path):
-            logger.info('Cache file does not exist on disk')
+            logger.info('Invalid cached file %r is missing', self.local_path)
 
             return False
-
-        data = json.loads(self.dimensions, object_hook=slice_object_hook)
-
-        logger.info('Checking domain "{}"'.format(data))
 
         try:
-            var_name = data['variable']
-
-            temporal = data['temporal']
-
-            spatial = data['spatial']
-        except KeyError as e:
-            logger.info('Missing key "{}" in dimensions'.format(e))
+            data = helpers.decoder(self.dimensions)
+        except ValueError:
+            logger.info('Invalid failed to load dimensions of cached file %r', self.dimensions)
 
             return False
 
-        with cdms2.open(self.local_path) as infile:
+        try:
+            var_name = data['var_name']
+        except KeyError:
+            logger.info('Invalid missing var_name from cached metadata')
+
+            return False
+       
+        del data['var_name']
+
+        infile = None
+
+        try:
+            infile = cdms2.open(self.local_path)
+        except cdms2.CDMSError:
+            logger.info('Invalid failed to open cached file %r', self.local_path)
+
+            return False
+        else:
             if var_name not in infile.variables:
-                logger.info('Cache file does not contain variable "{}"'.format(var_name))
+                logger.info('Invalid variable %r not in cached file', var_name)
 
                 return False
 
-            temporal_axis = infile[var_name].getTime()
+            variable = infile[var_name]
 
-            if temporal_axis is None:
-                logger.info('Cache file is missing a temporal axis')
+            for name, value in data.iteritems():
+                axis_index = variable.getAxisIndex(name)
 
-                return False
-
-            if not self.__axis_valid(temporal_axis, temporal):
-                logger.info('Cache files temporal axis is invalid')
-
-                return False
-
-            for name, spatial_def in spatial.items():
-                spatial_axis_index = infile[var_name].getAxisIndex(name)
-
-                if spatial_axis_index == -1:
-                    logger.info('Cache file is missing spatial axis "{}"'.format(name))
+                if axis_index == -1:
+                    logger.info('Invalid axis %r is missing from cached file', name)
 
                     return False
 
-                spatial_axis = infile[var_name].getAxis(spatial_axis_index)
+                axis = variable.getAxis(axis_index)
 
-                if not self.__axis_valid(spatial_axis, spatial_def):
-                    logger.info('Cache files spatial axis "{}" is invalid'.format(name))
+                expected = value.stop - value.start
+
+                if expected != axis.shape[0]:
+                    logger.info('Invalid axis %r expected %r found %r', axis.id, expected, axis.shape[0])
 
                     return False
+        finally:
+            if infile:
+                infile.close()
 
         return True
 
-    def __axis_valid(self, axis_data, axis_def):
-        axis_size = axis_data.shape[0]
-
-        if isinstance(axis_def, slice):
-            expected_size = axis_def.stop - axis_def.start
-        else:
-            logger.info('Axis definition is unknown')
-
-            return False
-
-        logger.info('Cache files axis actual size {}, expected size {}'.format(axis_size, expected_size))
-
-        return axis_size == expected_size
-
-    def __cmp_axis(self, value, cached):
-        logger.info('Axis {} cached {}'.format(value, cached))
-
-        if (value is not None and cached is None or
-                value is None and cached is None):
-            return True
-
-        if ((value is None and cached is not None) or
-                value.start < cached.start or
-                value.stop > cached.stop):
-            return False
-
-        return  True
-
     def is_superset(self, domain):
-        temporal = domain['temporal']
-
-        spatial = domain['spatial']
-
         try:
-            cached = json.loads(self.dimensions, object_hook=slice_object_hook)
+            cached = json.loads(self.dimensions, object_hook=helpers.json_loads_object_hook)
         except ValueError:
             return False
 
-        logger.info('Checking if "{}" is a superset of "{}"'.format(cached, domain))
+        del cached['var_name']
 
-        cached_temporal = cached['temporal']
+        for name, value in domain.iteritems():
+            try:
+                cached_value = cached[name] 
+            except KeyError:
+                return False
 
-        if not self.__cmp_axis(temporal, cached_temporal):
-            logger.info('Temporal axis is does not match')
-
-            return False
-
-        cached_spatial = cached['spatial']
-
-        for name, cached_spatial_axis in cached_spatial.items():
-            if name == 'variable':
-                continue
-
-            if not self.__cmp_axis(spatial.get(name), cached_spatial_axis):
-                logger.info('Spatial axis "{}" does not match'.format(name))
-
+            if (value.start < cached_value.start or
+                    value.stop > cached_value.stop):
                 return False
 
         return True
@@ -379,7 +311,7 @@ class Cache(models.Model):
     def set_size(self):
         stat = os.stat(self.local_path)
 
-        self.size = stat.st_size / GBYTE
+        self.size = stat.st_size
 
         self.save()
 
@@ -391,17 +323,7 @@ class Cache(models.Model):
 
             size = size * infile[var_name].dtype.itemsize
 
-        size = size / GBYTE
-
         return size
-
-def cache_clean_files(sender, **kwargs):
-    cache = kwargs['instance']
-
-    if os.path.exists(cache.local_path):
-        os.remove(cache.local_path)
-
-signals.post_delete.connect(cache_clean_files, sender=Cache)
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -435,68 +357,6 @@ class Process(models.Model):
     abstract = models.TextField()
     description = models.TextField()
     enabled = models.BooleanField(default=True)
-    process_rate = models.FloatField(default=0.0)
-
-    def update_rate(self, size, elapsed):
-        """ Updates the processing rate and adds a timining.
-
-        Args:
-            size: An integer of the number of megabytes processed.
-            elapsed: An integer of the number of seconds taken to process.
-        """
-        n = self.timing_set.count()
-
-        rate = float(size) / float(elapsed)
-
-        logger.info('Old rate %s from %s entries, updating with new rate %s', self.process_rate, n, rate)
-
-        self.process_rate = ((F('process_rate') * n) + rate) / (n + 1)
-
-        self.save()
-
-        self.timing_set.create(elapsed=elapsed)
-
-    def get_usage(self, rollover=True):
-        try:
-            latest = self.processusage_set.latest('created_date')
-        except ProcessUsage.DoesNotExist:
-            latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
-
-        if rollover:
-            now = datetime.datetime.now()
-
-            if now.month > latest.created_date.month:
-                latest = self.processusage_set.create(executed=0, success=0, failed=0, retry=0)
-
-        return latest
-
-    def executed(self):
-        usage = self.get_usage()
-
-        usage.executed = F('executed') + 1
-
-        usage.save()
-
-    def success(self):
-        usage = self.get_usage()
-
-        usage.success = F('success') + 1
-
-        usage.save()
-
-    def failed(self):
-        usage = self.get_usage()
-
-        usage.failed = F('failed') + 1
-
-        usage.save()
-
-    def retry(self):
-        usage = self.get_usage()
-
-        usage.retry = F('retry') + 1
-
-        usage.save()
 
     def track(self, user):
         user_process_obj, _ = UserProcess.objects.get_or_create(user=user, process=self)
@@ -506,30 +366,11 @@ class Process(models.Model):
         user_process_obj.save()
 
     def to_json(self, usage=False):
-        data = {
+        return {
             'identifier': self.identifier,
             'backend': self.backend,
             'enabled': self.enabled
         }
-
-        if usage:
-            try:
-                usage_obj = self.processusage_set.latest('created_date')
-            except ProcessUsage.DoesNotExist:
-                data.update({
-                    'executed': None,
-                    'success': None,
-                    'failed': None,
-                    'retry': None
-                })
-            else:
-                data.update(usage_obj.to_json())
-
-        return data
-
-class Timing(models.Model):
-    process = models.ForeignKey(Process, on_delete=models.CASCADE)
-    elapsed = models.BigIntegerField()
 
 class UserProcess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -545,23 +386,6 @@ class UserProcess(models.Model):
         data['requested_date'] = self.requested_date
 
         return data
-
-class ProcessUsage(models.Model):
-    process = models.ForeignKey(Process, on_delete=models.CASCADE)
-
-    created_date = models.DateTimeField(auto_now_add=True)
-    executed = models.PositiveIntegerField()
-    success = models.PositiveIntegerField()
-    failed = models.PositiveIntegerField()
-    retry = models.PositiveIntegerField()
-
-    def to_json(self):
-        return {
-            'executed': self.executed,
-            'success': self.success,
-            'failed': self.failed,
-            'retry': self.retry
-        }
 
 class Server(models.Model):
     host = models.CharField(max_length=128, unique=True)
@@ -615,78 +439,87 @@ class Job(models.Model):
 
     @property
     def report(self):
-        location = settings.STATUS_LOCATION.format(job_id=self.id)
+        location = settings.WPS_STATUS_LOCATION.format(job_id=self.id)
 
         latest = self.status_set.latest('created_date')
 
         if latest.exception is not None:
-            exc_report = wps_lib.ExceptionReport.from_xml(latest.exception)
+            ex_report = cwt.wps.CreateFromDocument(latest.exception)
 
-            status = STATUS.get(latest.status)(exception_report=exc_report)
-        elif latest.status == 'ProcessStarted':
+            status = cwt.wps.status_failed_from_report(ex_report)
+        elif latest.status == ProcessAccepted:
+            status = cwt.wps.status_accepted('Job accepted')
+        elif latest.status == ProcessStarted:
             message = latest.message_set.latest('created_date')
 
-            status = STATUS.get(latest.status)(value=message.message, percent_completed=message.percent)
-        else:
-            status = STATUS.get(latest.status)()
+            status = cwt.wps.status_started(message.message, message.percent)
+        elif latest.status == ProcessPaused:
+            message = latest.message_set.latest('created_date')
 
-        report = wps_xml.execute_response(location, status, self.process.identifier)
+            status = cwt.wps.status_paused(message.message, message.percent)
+        elif latest.status == ProcessSucceeded:
+            status = cwt.wps.status_succeeded('Job succeeded')
 
-        if latest.output is not None:
-            output = wps_xml.load_output(latest.output)
+        outputs = []
 
-            report.add_output(output)
+        outputs.append(cwt.wps.output_data('output', 'output', latest.output))
 
-        return report.xml()
+        process = cwt.wps.process(self.process.identifier, self.process.identifier, '1.0.0')
+
+        args = [
+            process,
+            status,
+            '1.0.0',
+            'en-US',
+            settings.WPS_ENDPOINT,
+            location,
+            outputs
+        ]
+
+        response = cwt.wps.execute_response(*args)
+
+        cwt.bds.reset()
+
+        return response.toxml(bds=cwt.bds)
 
     @property
     def is_started(self):
         latest = self.status_set.latest('created_date')
 
-        return latest is not None and latest.status == 'ProcessStarted'
+        return latest is not None and latest.status == ProcessStarted
 
     def accepted(self):
-        self.process.executed()
-
-        self.status_set.create(status=wps_lib.ProcessAccepted())
+        self.status_set.create(status=ProcessAccepted)
 
     def started(self):
         if not self.is_started:
-            status = self.status_set.create(status=str(wps_lib.ProcessStarted()).split(' ')[0])
+            status = self.status_set.create(status=ProcessStarted)
 
             status.set_message('Job Started')
 
     def succeeded(self, output=None):
-        self.process.success()
+        status = self.status_set.create(status=ProcessSucceeded)
 
-        status = self.status_set.create(status=wps_lib.ProcessSucceeded())
+        if output is None:
+            output = ''
 
-        if output is not None:
-            status.output = wps_xml.create_output(output)
+        status.output = output
 
-            status.save()
+        status.save()
 
     def failed(self, exception=None):
-        self.process.failed()
+        status, created = self.status_set.get_or_create(status=ProcessFailed)
 
-        status = self.status_set.create(status=wps_lib.ProcessFailed())
-
-        if exception is not None:
-            exc_report = wps_lib.ExceptionReport(settings.VERSION)
-
-            exc_report.add_exception(wps_lib.NoApplicableCode, exception)
-
-            status.exception = exc_report.xml()
+        if created and exception is not None:
+            status.exception = wps.exception_report(exception, cwt.ows.NoApplicableCode)
 
             status.save()
 
     def retry(self, exception):
-        self.process.retry()
-
         self.update_status('Retrying... {}'.format(exception), 0)
 
-    def update_status(self, message, percent=0):
-        started = self.status_set.filter(status='ProcessStarted').latest('created_date')
+    def update(self, message, percent=0):
+        started = self.status_set.filter(status=ProcessStarted).latest('created_date')
 
         started.set_message(message, percent)
 

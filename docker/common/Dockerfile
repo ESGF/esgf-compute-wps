@@ -2,25 +2,34 @@ FROM continuumio/miniconda:4.3.27
 
 LABEL maintainer="boutte3@llnl.gov"
 
-ARG TAG=master
+ENV CELERY_BROKER_URL=redis://redis/0
 
-ENV CELERY_BROKER=redis://redis/0
-
-ENV CELERY_BACKEND=redis://redis/0
+ENV CELERY_RESULT_BACKEND=redis://redis/0
 
 ENV POSTGRES_HOST=postgres
 
 ENV WPS_HOST=0.0.0.0
 
-COPY environment.yml environment.yml
+COPY docker/common/environment.yml environment.yml
 
-RUN conda env create --name wps --file environment.yml && \
-	PATH=/opt/conda/envs/wps/bin:$PATH pip install django-webpack-loader && \
-	conda clean -y --all 
+RUN apt-get update && \
+	apt-get install -y --no-install-recommends build-essential libev-dev && \
+	conda env create -n wps -f environment.yml && \
+	conda clean -y --all && \
+	rm -rf /opt/conda/pkgs/* && \
+	apt-get autoremove -y build-essential && \
+	rm -rf /usr/share/doc/ && \
+	rm -rf /usr/share/man/ && \
+	rm -rf /usr/share/locale && \
+	rm -rf /var/lib/apt/lists/*
 
-WORKDIR /var/www
+COPY . /var/www/webapp
 
-RUN git clone --depth=1 --branch=${TAG} https://github.com/ESGF/esgf-compute-wps compute && \
-	mkdir -p /var/log/cwt
+WORKDIR /var/www/webapp
 
-COPY django.properties /etc/config/django.properties
+ENV CWT_BASE=/var/www/webapp/compute
+
+RUN mkdir -p /var/log/cwt && \
+	mkdir -p /etc/config && \
+  cp /var/www/webapp/docker/common/app.properties /etc/config && \
+  cp /var/www/webapp/docker/common/django.properties /etc/config

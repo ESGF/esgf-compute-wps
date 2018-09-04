@@ -2,17 +2,209 @@ import { Injectable } from '@angular/core';
 import { Http, URLSearchParams, RequestOptionsArgs, Headers } from '@angular/http';
 import { Params } from '@angular/router';
 
+import { Process } from '../configure/process';
+import { AuthService } from '../core/auth.service';
+
 export interface WPSResponse {
   status: string;
   error?: string;
   data?: any;
 }
 
+const WPS_NS = 'http://www.opengis.net/wps/1.0.0';
+const OWS_NS = 'http://www.opengis.net/ows/1.1';
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
+const XSI_NS = 'http://www.w3.org/2001/XMLSchema-instance';
+const SCHEMA_LOCATION = 'http://www.opengis.net/wps/1.0.0/wpsExecute_request.xsd';
+
 @Injectable()
 export class WPSService {
   constructor(
-    protected http: Http
+    protected http: Http,
   ) { }
+
+  getCapabilities(url: string): Promise<Process[]> {
+    let params = {
+      service: 'WPS',
+      request: 'GetCapabilities',
+    };
+
+    return this.getUnmodified(url, params).then((response: any) => {
+      let parser = new DOMParser();
+
+      let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
+
+      let processes = Array.from(xmlDoc.getElementsByTagNameNS(WPS_NS, 'Process')).map((item: any) => {
+        let identifier = item.getElementsByTagNameNS(OWS_NS, 'Identifier');
+
+        return new Process(identifier[0].innerHTML);
+      });
+
+      return new Promise<Process[]>((resolve, reject) => {
+        resolve(processes);
+      });
+    });
+  }
+
+  describeProcess(url: string, identifier: string): Promise<any> {
+    let params = {
+      service: 'WPS',
+      request: 'DescribeProcess',
+      identifier: identifier,
+    };
+
+    return this.getUnmodified(url, params).then((response: any) => {
+      let parser = new DOMParser();
+
+      let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
+
+      let abstracts = Array.from(xmlDoc.getElementsByTagNameNS(OWS_NS, 'Abstract')).map((item: any) => {
+        return item.innerHTML.replace(/^\n+|\n+$/g, '');
+      });
+
+      let metadata = Array.from(xmlDoc.getElementsByTagNameNS(OWS_NS, 'Metadata')).map((item: any) => {
+        let data = item.attributes.getNamedItemNS(XLINK_NS, 'title').value.split(':');
+        let result = {};
+        let name = data[0];
+
+        if (data[1] == '*') {
+          result[name] = Infinity;
+        } else {
+          result[name] = data[1];
+        }
+
+        return result;
+      }).reduce((a: any, b: any) => {
+        return Object.assign(a, b); 
+      });
+
+      return new Promise<any>((resolve, reject) => {
+        let data = {
+          abstract: abstracts[0] || '',
+          metadata: Object.assign({}, metadata),
+        };
+
+        resolve(data);
+      });
+    });
+  }
+
+  execute(url: string, api_key: string, process: Process): Promise<string> {
+    try {
+      process.validate();
+    } catch(err) {
+      return Promise.reject(err);
+    }
+
+    let data = this.prepareDataInputsXML(process);
+
+    let params = new URLSearchParams();
+
+    params.append('api_key', api_key);
+
+    return this.postCSRFUnmodified(url, data, params=params).then((response: any) => {
+      let parser = new DOMParser();
+
+      let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
+
+      let exception = xmlDoc.getElementsByTagNameNS(OWS_NS, 'Exception');
+
+      if (exception != null && exception.length > 0) {
+        let exceptionCode = exception[0].attributes.getNamedItem('exceptionCode').value;
+
+        let exceptionText = exception[0].getElementsByTagNameNS(OWS_NS, 'ExceptionText');
+
+        let exceptionData = `${exceptionCode}`;
+
+        if (exceptionText != null && exceptionText.length > 0) {
+          exceptionData = `${exceptionData}: ${exceptionText[0].innerHTML}`;
+        }
+
+        return Promise.reject(exceptionData);
+      }
+
+      let status = xmlDoc.getElementsByTagNameNS(WPS_NS, 'Status');
+
+      let creationTime = status[0].attributes.getNamedItem('creationTime');
+
+      let state = status[0].children[0].localName;
+
+      return Promise.resolve(`Process entered state "${state}" as of ${creationTime.value}`);
+    });
+  }
+
+  createAttribute(doc: any, node: any, name: string, value: string) {
+    let attribute = doc.createAttribute(name);
+
+    attribute.value = value;
+
+    node.setAttributeNode(attribute);
+  }
+
+  createAttributeNS(doc: any, node: any, ns: string, name: string, value: string) {
+    let attribute = doc.createAttributeNS(ns, name);
+
+    attribute.value = value;
+
+    node.setAttributeNode(attribute);
+  }
+
+  createElementNS(doc: any, node: any, ns: string, name: string, value: string = null) {
+    let newNode = doc.createElementNS(ns, name);
+
+    if (value != null) {
+      newNode.innerHTML = value;
+    }
+
+    node.appendChild(newNode);
+
+    return newNode;
+  }
+
+  prepareDataInputs(process: Process): any {
+    let data = {
+      variable: JSON.stringify(process.getVariable()),
+      domain: JSON.stringify(process.getDomain()),
+      operation: JSON.stringify(process.getOperation()),
+    };
+
+    return data;
+  }
+
+  prepareDataInputsString(process: Process): string {
+    let data = this.prepareDataInputs(process);
+
+    return `[variable=${data.variable}|domain=${data.domain}|operation=${data.operation}]`;
+  }
+
+  prepareDataInputsXML(process: Process): string {
+    let dataInputs = this.prepareDataInputs(process);
+
+    let doc = document.implementation.createDocument(WPS_NS, 'wps:Execute', null);
+
+    let root = doc.documentElement;
+
+    this.createAttribute(doc, root, 'service', 'WPS');
+    this.createAttribute(doc, root, 'version', '1.0.0');
+
+    this.createElementNS(doc, root, OWS_NS, 'ows:Identifier', process.identifier);
+
+    let dataInputsElement = this.createElementNS(doc, root, WPS_NS, 'wps:DataInputs');
+
+    for (let key in dataInputs) {
+      let inputElement = this.createElementNS(doc, dataInputsElement, WPS_NS, 'wps:Input');
+
+      this.createElementNS(doc, inputElement, OWS_NS, 'ows:Identifier', key);
+      
+      this.createElementNS(doc, inputElement, OWS_NS, 'ows:Title', key);
+
+      let dataElement = this.createElementNS(doc, inputElement, WPS_NS, 'wps:Data');
+
+      this.createElementNS(doc, dataElement, WPS_NS, 'wps:LiteralData', dataInputs[key]);
+    }
+
+    return new XMLSerializer().serializeToString(doc.documentElement);
+  }
 
   getCookie(name: string): string {
     let cookieValue: string = null;
@@ -94,13 +286,6 @@ export class WPSService {
 
         return response;
       });
-  }
-
-  notification(): Promise<WPSResponse> {
-    return this.http.get('/wps/notification')
-      .toPromise()
-      .then(response => response.json() as WPSResponse)
-      .catch(this.handleError);
   }
 
   protected handleError(error: any): Promise<any> {

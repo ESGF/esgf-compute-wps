@@ -4,12 +4,11 @@ import uuid
 
 import cwt
 from celery.utils.log import get_task_logger
+from django.conf import settings
 from PyOphidia import client
 
-from wps import settings
 from wps import WPSError
 from wps.tasks import base
-from wps.tasks import process
 
 __ALL__ = [
     'PROCESSES',
@@ -110,7 +109,7 @@ def oph_submit(self, parent_variables, variables, domains, operation, user_id, j
 
     v, d, o = self.load(parent_variables, variables, domains, operation)
 
-    oph_client = client.Client(settings.OPH_USER, settings.OPH_PASSWORD, settings.OPH_HOST, settings.OPH_PORT)
+    oph_client = client.Client(settings.WPS_OPHIDIA_USER, settings.WPS_OPHIDIA_PASSWORD, settings.WPS_OPHIDIA_HOST, settings.WPS_OPHIDIA_PORT)
 
     workflow = OphidiaWorkflow(oph_client)
 
@@ -119,7 +118,7 @@ def oph_submit(self, parent_variables, variables, domains, operation, user_id, j
     cores = o.get_parameter('cores')
 
     if cores is None:
-        cores = settings.OPH_DEFAULT_CORES
+        cores = settings.WPS_OPHIDIA_DEFAULT_CORES
     else:
         cores = cores.values[0]
 
@@ -167,7 +166,7 @@ def oph_submit(self, parent_variables, variables, domains, operation, user_id, j
     output_name = '{}'.format(uuid.uuid4())
 
     export_task = OphidiaTask('export data', 'oph_exportnc2')
-    export_task.add_arguments(output_path=settings.OPH_OUTPUT_PATH, output_name=output_name, ncores=cores, force='yes')
+    export_task.add_arguments(output_path=settings.WPS_OPHIDIA_OUTPUT_PATH, output_name=output_name, ncores=cores, force='yes')
     export_task.add_dependencies(reduce_task)
 
     proc.log('Added export task')
@@ -184,7 +183,7 @@ def oph_submit(self, parent_variables, variables, domains, operation, user_id, j
 
     proc.log('No errors reported by Ophidia')
 
-    output_url = settings.OPH_OUTPUT_URL.format(output_path=settings.OPH_OUTPUT_PATH, output_name=output_name)
+    output_url = settings.WPS_OPHIDIA_OUTPUT_URL.format(output_path=settings.WPS_OPHIDIA_OUTPUT_PATH, output_name=output_name)
 
     output_var  = cwt.Variable(output_url, inp.var_name, name=o.name)
 

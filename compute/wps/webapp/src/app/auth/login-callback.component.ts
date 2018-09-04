@@ -3,6 +3,7 @@ import { ActivatedRoute, Router, NavigationExtras } from '@angular/router';
 
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
+import { ConfigService } from '../core/config.service';
 
 @Component({ 
   template: '',
@@ -11,17 +12,22 @@ export class LoginCallbackComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private notificationService: NotificationService,
-    private router: Router
+    private configService: ConfigService,
+    private activated: ActivatedRoute,
+    private router: Router,
   ) { }
 
   ngOnInit() {
-    this.authService.isLoggedIn$.subscribe((value: boolean) => {
-      if (value) {
-        this.router.navigate(['/wps/home/user/profile']);
+    setTimeout(() => {
+      this.activated.queryParams.subscribe((v: any) => {
+        if ('expires' in v) {
+          this.authService.setExpires(v['expires']);
 
-        this.notificationService.message('Successfully authenticated to ESGF OpenID');
-      }
+          this.router.navigate([this.configService.profilePath]);
+
+          this.notificationService.message('Successfully authenticated to ESGF OpenID');
+        }
+      });
     });
   }
 }
-

@@ -9,6 +9,7 @@ import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
 import { LoginComponent } from './login.component';
+import { ConfigService } from '../core/config.service';
 
 describe('Forgot Password Component', () => {
   let fixture: ComponentFixture<LoginComponent>;
@@ -17,6 +18,7 @@ describe('Forgot Password Component', () => {
   let router: any;
   let auth: AuthService;
   let notification: NotificationService;
+  let config: ConfigService;
 
   let username: DebugElement;
   let password: DebugElement;
@@ -30,6 +32,7 @@ describe('Forgot Password Component', () => {
         {provide: Router, useValue: jasmine.createSpyObj('router', ['navigateByUrl'])},
         AuthService,
         NotificationService,
+        ConfigService,
       ],
     });
 
@@ -42,6 +45,8 @@ describe('Forgot Password Component', () => {
     router = fixture.debugElement.injector.get(Router);
 
     notification = fixture.debugElement.injector.get(NotificationService);
+
+    config = fixture.debugElement.injector.get(ConfigService);
 
     spyOn(notification, 'error');
 
@@ -103,9 +108,9 @@ describe('Forgot Password Component', () => {
   it('should redirect with redirectUrl, preserving parameters', fakeAsync(() => {
     auth.isLoggedIn$ = new BehaviorSubject<boolean>(true);
 
-    let redirect = '/wps/home/configure?dataset_id=test';
+    let redirect = `${config.configurePath}?dataset_id=test`;
 
-    auth.redirectUrl = redirect
+    auth.redirectUrl = redirect;
 
     comp.ngOnInit();
 
@@ -118,9 +123,9 @@ describe('Forgot Password Component', () => {
   it('should redirect with redirectUrl', fakeAsync(() => {
     auth.isLoggedIn$ = new BehaviorSubject<boolean>(true);
 
-    let redirect = '/wps/home/configure';
+    let redirect = config.configurePath;
 
-    auth.redirectUrl = redirect
+    auth.redirectUrl = redirect;
 
     comp.ngOnInit();
 
@@ -138,6 +143,6 @@ describe('Forgot Password Component', () => {
     fixture.detectChanges();
 
     expect(router.navigateByUrl).toHaveBeenCalled();
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/wps/home/user/profile');
+    expect(router.navigateByUrl).toHaveBeenCalledWith(config.profilePath);
   }));
 });

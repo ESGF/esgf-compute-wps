@@ -25,7 +25,7 @@
   "fields": {
     "identifier": "CDAT.subset",
     "backend": "Local",
-    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Cdat.Subset</ows:Title>\n    <ows:Abstract></ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDAT.subset</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "description": "<?xml version=\"1.0\" ?><wps:ProcessDescriptions service=\"WPS\" version=\"1.0.0\" xml:lang=\"en-US\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xml=\"http://www.w3.org/XML/1998/namespace\"><ProcessDescription wps:processVersion=\"1.0.0\"><ows:Identifier>CDAT.subset</ows:Identifier><ows:Title>CDAT.subset</ows:Title><ows:Abstract>Subset a variable by provided domain. Supports regridding.</ows:Abstract><DataInputs><Input maxOccurs=\"1\" minOccurs=\"1\"><ows:Identifier>variable</ows:Identifier><ows:Title>variable</ows:Title><ComplexData><Default><Format><MimeType>application/json</MimeType></Format></Default><Supported><Format><MimeType>application/json</MimeType></Format></Supported></ComplexData></Input><Input maxOccurs=\"1\" minOccurs=\"1\"><ows:Identifier>domain</ows:Identifier><ows:Title>domain</ows:Title><ComplexData><Default><Format><MimeType>application/json</MimeType></Format></Default><Supported><Format><MimeType>application/json</MimeType></Format></Supported></ComplexData></Input><Input maxOccurs=\"1\" minOccurs=\"1\"><ows:Identifier>operation</ows:Identifier><ows:Title>operation</ows:Title><ComplexData><Default><Format><MimeType>application/json</MimeType></Format></Default><Supported><Format><MimeType>application/json</MimeType></Format></Supported></ComplexData></Input></DataInputs><ProcessOutputs><Output><ows:Identifier>output</ows:Identifier><ows:Title>output</ows:Title><ComplexOutput><Default><Format><MimeType>application/json</MimeType></Format></Default><Supported><Format><MimeType>application/json</MimeType></Format></Supported></ComplexOutput></Output></ProcessOutputs></ProcessDescription></wps:ProcessDescriptions>",
     "enabled": true
   }
 },
@@ -55,7 +55,7 @@
   "fields": {
     "identifier": "CDAT.aggregate",
     "backend": "Local",
-    "description": "<wps:ProcessDescriptions xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" lang=\"en-US\" version=\"1.0.0\" service=\"WPS\">\n  <wps:ProcessDescription wps:processVersion=\"1.0.0\" statusSupported=\"True\" storeSupported=\"True\">\n    <ows:Title>Cdat.Aggregate</ows:Title>\n    <ows:Abstract></ows:Abstract>\n    <DataInputs>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>variable</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Variable</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>domain</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Domain</ows:Title>\n      </Input>\n      <Input maxOccurs=\"1\" minOccurs=\"1\">\n        <ows:Identifier>operation</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Operation</ows:Title>\n      </Input>\n    </DataInputs>\n    <ProcessOutputs>\n      <OutputDescription>\n        <ows:Identifier>output</ows:Identifier>\n        <ComplexOutput maximumMegabytes=\"0\">\n          <Default>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Default>\n          <Supported>\n            <Format>\n              <MimeType>text/json</MimeType>\n            </Format>\n          </Supported>\n        </ComplexOutput>\n        <ows:Title>Output</ows:Title>\n      </OutputDescription>\n    </ProcessOutputs>\n    <ows:Identifier>CDAT.aggregate</ows:Identifier>\n  </wps:ProcessDescription>\n</wps:ProcessDescriptions>\n",
+    "description": "<?xml version=\"1.0\" ?><wps:ProcessDescriptions service=\"WPS\" version=\"1.0.0\" xml:lang=\"en-US\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:xml=\"http://www.w3.org/XML/1998/namespace\"><ProcessDescription wps:processVersion=\"1.0.0\"><ows:Identifier>CDAT.aggregate</ows:Identifier><ows:Title>CDAT.aggregate</ows:Title><ows:Abstract>Aggregate a variable over multiple files. Supports subsetting and regridding.</ows:Abstract><DataInputs><Input maxOccurs=\"1\" minOccurs=\"1\"><ows:Identifier>variable</ows:Identifier><ows:Title>variable</ows:Title><ComplexData><Default><Format><MimeType>application/json</MimeType></Format></Default><Supported><Format><MimeType>application/json</MimeType></Format></Supported></ComplexData></Input><Input maxOccurs=\"1\" minOccurs=\"1\"><ows:Identifier>domain</ows:Identifier><ows:Title>domain</ows:Title><ComplexData><Default><Format><MimeType>application/json</MimeType></Format></Default><Supported><Format><MimeType>application/json</MimeType></Format></Supported></ComplexData></Input><Input maxOccurs=\"1\" minOccurs=\"1\"><ows:Identifier>operation</ows:Identifier><ows:Title>operation</ows:Title><ComplexData><Default><Format><MimeType>application/json</MimeType></Format></Default><Supported><Format><MimeType>application/json</MimeType></Format></Supported></ComplexData></Input></DataInputs><ProcessOutputs><Output><ows:Identifier>output</ows:Identifier><ows:Title>output</ows:Title><ComplexOutput><Default><Format><MimeType>application/json</MimeType></Format></Default><Supported><Format><MimeType>application/json</MimeType></Format></Supported></ComplexOutput></Output></ProcessOutputs></ProcessDescription></wps:ProcessDescriptions>",
     "enabled": true
   }
 },
@@ -297,150 +297,6 @@
     "process": 1072,
     "requested_date": "2017-11-11T10:14:06.541Z",
     "requested": 491
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 1,
-  "fields": {
-    "process": 1069,
-    "created_date": "2017-11-11T10:14:06.561Z",
-    "executed": 7,
-    "success": 2,
-    "failed": 1,
-    "retry": 4
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 2,
-  "fields": {
-    "process": 1064,
-    "created_date": "2017-11-11T10:14:06.608Z",
-    "executed": 4,
-    "success": 1,
-    "failed": 3,
-    "retry": 0
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 3,
-  "fields": {
-    "process": 1072,
-    "created_date": "2017-11-11T10:14:06.756Z",
-    "executed": 6,
-    "success": 2,
-    "failed": 4,
-    "retry": 0
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 4,
-  "fields": {
-    "process": 1066,
-    "created_date": "2017-11-11T10:14:06.899Z",
-    "executed": 7,
-    "success": 1,
-    "failed": 2,
-    "retry": 4
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 5,
-  "fields": {
-    "process": 1063,
-    "created_date": "2017-11-11T10:14:06.993Z",
-    "executed": 6,
-    "success": 3,
-    "failed": 2,
-    "retry": 1
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 6,
-  "fields": {
-    "process": 1068,
-    "created_date": "2017-11-11T10:14:07.136Z",
-    "executed": 7,
-    "success": 2,
-    "failed": 5,
-    "retry": 0
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 7,
-  "fields": {
-    "process": 1071,
-    "created_date": "2017-11-11T10:14:07.188Z",
-    "executed": 5,
-    "success": 1,
-    "failed": 2,
-    "retry": 2
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 8,
-  "fields": {
-    "process": 1067,
-    "created_date": "2017-11-11T10:14:07.281Z",
-    "executed": 6,
-    "success": 3,
-    "failed": 2,
-    "retry": 1
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 9,
-  "fields": {
-    "process": 1065,
-    "created_date": "2017-11-11T10:14:07.364Z",
-    "executed": 5,
-    "success": 0,
-    "failed": 3,
-    "retry": 2
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 10,
-  "fields": {
-    "process": 1070,
-    "created_date": "2017-11-11T10:14:07.529Z",
-    "executed": 6,
-    "success": 4,
-    "failed": 0,
-    "retry": 2
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 11,
-  "fields": {
-    "process": 1074,
-    "created_date": "2017-11-11T10:14:07.580Z",
-    "executed": 4,
-    "success": 1,
-    "failed": 3,
-    "retry": 0
-  }
-},
-{
-  "model": "wps.processusage",
-  "pk": 12,
-  "fields": {
-    "process": 1073,
-    "created_date": "2017-11-11T10:14:08.103Z",
-    "executed": 4,
-    "success": 0,
-    "failed": 3,
-    "retry": 1
   }
 }
 ]

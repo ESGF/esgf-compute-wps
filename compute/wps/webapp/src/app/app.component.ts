@@ -27,14 +27,12 @@ export class AppComponent implements OnInit, OnDestroy {
 
   notificationSub: Subscription;
 
-  notification: string = '';
   message: string = '';
   messageLink: string = null;
   warn: string = '';
   error: string = '';
 
   clearTimer: any;
-  notificationTimer: any;
 
   constructor(
     private router: Router,

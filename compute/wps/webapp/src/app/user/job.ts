@@ -48,7 +48,7 @@ export class Job {
 
 export interface Status {
   status: string;
-  output?: string;
+  output?: any;
   exception?: string;
   messages?: Message[];
   created_date: Date;

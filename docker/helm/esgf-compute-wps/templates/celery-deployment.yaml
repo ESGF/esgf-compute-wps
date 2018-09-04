@@ -1,6 +1,4 @@
-{{- $publicPath := .Values.data.publicPath }}
-{{- $cachePath := .Values.data.cachePath }}
-{{- range .Values.celery }}
+{{- range .Values.celery.queues }}
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
@@ -10,6 +8,10 @@ metadata:
     chart: {{ template "esgf-compute-wps.chart" $ }}
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
+{{- if .annotations }}
+  annotations:
+  {{- .annotations | toYaml | trimSuffix "\n" | nindent 4 }}
+{{- end }}
 spec:
   replicas: {{ .replicas }}
   selector:
@@ -26,17 +28,17 @@ spec:
     spec:
       containers:
       - name: {{ $.Release.Name }}-celery-{{ .name }}
-        image: {{ .image }}:{{ .imageTag }}
+        image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         {{- if not $.Values.development }}
         args: 
-          - -l
-          - info
-          - -c
-          - 1
-          - --max-memory-per-child
-          - {{ .resources.memory | quote }}
-          - -n 
-          - {{ .name }}
+          - "-l"
+          - "INFO"
+          - "-c"
+          - "1"
+          - "--max-memory-per-child"
+          - {{ $.Values.celery.resources.memory | quote }}
+          - "-n"
+          - {{ .name | quote }}
         {{- range $key, $value := .argsExtra }}
           - {{ $key | quote }}
           - {{ $value | quote }}
@@ -47,33 +49,62 @@ spec:
           - sleep
           - infinity
         {{- end }}
+        {{- if not $.Values.development }}
+        livenessProbe:
+          exec:
+            command:
+            - bash
+            - /var/www/webapp/docker/celery/healthcheck.sh
+          initialDelaySeconds: 3
+          periodSeconds: 60
+        readinessProbe:
+          exec:
+            command:
+            - bash
+            - /var/www/webapp/docker/celery/healthcheck.sh
+          initialDelaySeconds: 3
+          periodSeconds: 60
+        {{- end }}
         resources:
+          {{- if not $.Values.development }}
           limits:
-            cpu: {{ .resources.cpuLimit | quote }}
-            memory: {{ .resources.memoryLimit | quote }}
+            cpu: {{ $.Values.celery.resources.cpuLimit | quote }}
+            memory: {{ $.Values.celery.resources.memoryLimit | quote }}
+          {{- end }}
           requests:
-            cpu: {{ .resources.cpuRequest | quote }}
-            memory: {{ .resources.memoryRequest | quote }}
+            cpu: {{ $.Values.celery.resources.cpuRequest | quote }}
+            memory: {{ $.Values.celery.resources.memoryRequest | quote }}
+        {{- if .ports }}
+        ports:
+        {{- range .ports }}
+        - containerPort: {{ .port }}
+          protocol: TCP
+        {{- end }}
+        {{- end }}
         env:
         {{- if $.Values.development }}
         - name: WPS_DEBUG
           value: "1"
+        {{- end }}
+        {{- if $.Values.celery.metrics }}
+        - name: CWT_METRICS
+          value: {{ $.Values.celery.metrics | quote }}
         {{- end }}
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
               key: WPS_HOST
-        - name: CELERY_BROKER
+        - name: CELERY_BROKER_URL
           valueFrom:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
-              key: CELERY_BROKER
-        - name: CELERY_BACKEND
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
           valueFrom:
             configMapKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
-              key: CELERY_BACKEND
+              key: CELERY_RESULT_BACKEND
         - name: POSTGRES_HOST
           value: {{ template "postgresql.fullname" $ }}
         - name: POSTGRES_PASSWORD
@@ -85,35 +116,45 @@ spec:
         {{- if $.Values.development }}
         - mountPath: /var/www
           name: shared-volume
+          subPath: shared
+        {{- end }}
+        {{- if $.Values.celery.metrics }}
+        - mountPath: /data/metrics
+          name: metrics-volume
+          subPath: {{ $.Release.Name }}-celery-{{ .name }}
         {{- end }}
         - mountPath: /etc/config
           name: config-volume
         - mountPath: /data/public
           name: public-volume
+          subPath: public
         - mountPath: /data/cache
           name: cache-volume
+          subPath: cache
         - mountPath: /data/ingress
           name: ingress-volume
+          subPath: ingress
       volumes:
       {{- if $.Values.development }}
       - name: shared-volume
         hostPath:
-          path: {{ $.Values.sharedPath }}
+          path: /opt/cwt/data/shared
       {{- end }}
       - name: config-volume
         configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
       - name: public-volume
-        hostPath:
-          path: {{ $publicPath }}
-          type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: public-pvc
       - name: cache-volume
-        hostPath:
-          path: {{ $cachePath }}
-          type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: cache-pvc
       - name: ingress-volume
-        hostPath:
-          path: {{ $.Values.data.ingressPath }}
-          type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: ingress-pvc
+      {{- if $.Values.celery.metrics }}
+      - name: metrics-volume
+        emptyDir: {}
+      {{- end }}
 ---
 {{- end }}

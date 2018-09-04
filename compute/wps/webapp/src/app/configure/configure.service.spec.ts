@@ -5,7 +5,7 @@ import { Response, ResponseOptions } from '@angular/http';
 import { MockBackend, MockConnection } from '@angular/http/testing';
 
 import { Axis } from './axis.component';
-import { Configuration, ConfigureService, VariableCollection, Dataset } from './configure.service';
+import { ConfigureService, VariableCollection, Dataset } from './configure.service';
 
 describe('Configuration Service', () => {
   let injector: ReflectiveInjector;
@@ -13,8 +13,6 @@ describe('Configuration Service', () => {
   let lastConnection: MockConnection;
 
   let service: ConfigureService; 
-
-  let testConfig: Configuration;
 
   beforeEach(() => {
     injector = ReflectiveInjector.resolveAndCreate([
@@ -28,7 +26,6 @@ describe('Configuration Service', () => {
     backend = injector.get(ConnectionBackend) as MockBackend;
     backend.connections.subscribe((connection: any) => lastConnection = connection);
 
-    testConfig = new Configuration();
     //testConfig.process = 'testProcess';
     //testConfig.variable = 'tas';    
     //testConfig.dataset = {
@@ -101,48 +98,6 @@ describe('Configuration Service', () => {
     }));
   });
 
-  it('should return a list of axes', fakeAsync(() => {
-    let mockResult: Axis[] = [
-      {
-        id: 'time',
-        id_alt: 't',
-        start: 0,
-        stop: 2000,
-        step: 2,
-        units: 'days since 1990-1-1'
-      },
-      {
-        id: 'longitude',
-        id_alt: 'x',
-        start: 0,
-        stop: 190,
-        step: 2,
-        units: 'degrees west'
-      }
-    ];
-    let axisResult: Axis[];
-
-    let config = new Configuration();
-
-    //config.variable = 'tas';
-    config.datasetID = 'mockDatasetID';
-    config.indexNode = 'mockIndexNode';
-
-    service.searchVariable(config)
-      .then((result: Axis[]) => axisResult = result);
-
-    lastConnection.mockRespond(new Response(new ResponseOptions({
-      body: JSON.stringify({
-        status: 'success',
-        data: mockResult
-      })
-    })));
-
-    tick();
-
-    expect(axisResult).toEqual(mockResult);
-  }));
-
   it('should return ESGF search results', fakeAsync(() => {
     let mockResult = {
       tas: {
@@ -160,43 +115,5 @@ describe('Configuration Service', () => {
       }
     };
     let searchResult: VariableCollection;
-
-    let config: Configuration = new Configuration();
-
-    config.datasetID = 'mockID';
-    config.indexNode = 'mockIndexNode';
-
-    //service.searchESGF(config)
-    //  .then((result: VariableCollection) => searchResult = result);
-
-    lastConnection.mockRespond(new Response(new ResponseOptions({
-      body: JSON.stringify({
-        status: 'success',
-        data: mockResult,
-      })
-    })));
-
-    tick();
-
-    //expect(searchResult).toEqual(mockResult);
-  }));
-
-  it('should return a list of processes', fakeAsync(() => {
-    let mockProcesses = ['test1', 'test2', 'test3'];
-    let processes: string[];
-
-    service.processes()
-      .then((data: string[]) => processes = data);
-
-    lastConnection.mockRespond(new Response(new ResponseOptions({
-      body: JSON.stringify({
-        status: 'success',
-        data: mockProcesses
-      })
-    })));
-
-    tick();
-
-    expect(processes).toEqual(mockProcesses);
   }));
 });

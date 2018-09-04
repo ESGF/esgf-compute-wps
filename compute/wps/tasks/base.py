@@ -1,53 +1,29 @@
 #! /usr/bin/env python
 
 import json
+import re
+import signal
+from contextlib import contextmanager
+from datetime import datetime
 from functools import partial
 
+import cdms2
 import celery
 import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 
+from wps import metrics
 from wps import models
+from wps import AccessError
 from wps import WPSError
+from wps.tasks import credentials
 
 logger = get_task_logger('wps.tasks.base')
 
-__ALL__ = [
-    'FAILURE',
-    'RETRY',
-    'SUCCESS',
-    'ALL',
-    'REGISTRY',
-    'get_process',
-    'register_process',
-    'CWTBaseTask',
-    'cwt_shared_task',
-    'AccessError',
-    'MissingJobError',
-]
-
-FAILURE = 1
-RETRY = 2
-SUCCESS = 4
-ALL = FAILURE | RETRY | SUCCESS
-
 REGISTRY = {}
-
-class AccessError(WPSError):
-    def __init__(self, url, reason):
-        if reason == '':
-            reason = 'Unknown'
-
-        msg = 'Error accessing "{url}": {reason}'
-
-        super(AccessError, self).__init__(msg, url=url, reason=reason)
-
-class MissingJobError(WPSError):
-    def __init__(self, job_id):
-        msg = 'Error job with id "{id}" does not exist'
-
-        super(MissingJobError, self).__init__(msg, job_id=job_id)
 
 def get_process(identifier):
     try:
@@ -55,117 +31,259 @@ def get_process(identifier):
     except KeyError as e:
         raise WPSError('Missing process "{identifier}"', identifier=identifier)
 
-def register_process(identifier, aliases=None, abstract=None):
-    if abstract is None:
-        abstract = ''
-
-    if aliases is not None and not isinstance(aliases, (list, tuple)):
-        aliases = [aliases]
-
+def register_process(identifier, **kwargs):
     def wrapper(func):
         REGISTRY[identifier] = func
 
-        if aliases is not None:
-            for alias in aliases:
-                REGISTRY[alias] = func
-
         func.IDENTIFIER = identifier
 
-        func.ABSTRACT = abstract
+        func.ABSTRACT = kwargs.get('abstract', '')
+
+        func.INPUT = kwargs.get('data_inputs')
+
+        func.OUTPUT = kwargs.get('process_outputs')
+
+        func.PROCESS = kwargs.get('process')
+
+        func.METADATA = kwargs.get('metadata', {})
 
         return func
-    
+
     return wrapper
+
+class Timeout(object):
+    def __init__(self, seconds, url):
+        self.seconds = seconds
+        self.url = url
+
+    def handle_timeout(self, signum, frame):
+        raise AccessError(url, '')
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        signal.alarm(0)
 
 class CWTBaseTask(celery.Task):
 
-    def load(self, parent_variables, variables, domains, operation):
-        """ Load a processes inputs.
+    def get_axis_list(self, variable):
+        return variable.getAxisList()
 
-        Loads each value into their associated container class.
+    def get_variable(self, infile, var_name):
+        return infile[var_name]
+
+    @contextmanager
+    def open(self, uri, mode='r', timeout=30):
+        with Timeout(timeout, uri):
+            fd = cdms2.open(uri, mode)
+
+        try:
+            yield fd
+        finally:
+            fd.close()
+
+    def get_now(self):
+        return datetime.now()
+
+    def load_credentials(self, user_id):
+        user = self.load_user(user_id)
+
+        credentials.load_certificate(user)
+
+        return user
+
+    def load_user(self, user_id):
+        try:
+            user = models.User.objects.get(pk=user_id)
+        except models.User.DoesNotExist:
+            raise WPSError('User "{id}" does not exist', id=user_id)
+
+        return user
+
+    def load_job(self, job_id):
+        try:
+            job = models.Job.objects.get(pk=job_id)
+        except models.Job.DoesNotExist:
+            raise WPSError('Job "{id}" does not exist', id=job_id)
+
+        return job
+
+    def load_process(self, process_id):
+        try:
+            process = models.Process.objects.get(pk=process_id)
+        except models.Process.DoesNotExist:
+            raise WPSError('Process "{id}" does not exist', id=process_id)
+
+        return process
+
+    def update(self, job, fmt, *args, **kwargs):
+        percent = kwargs.get('percent', 0)
+
+        message = fmt.format(*args)
+
+        tagged_message = '[{}] {}'.format(self.request.id, message)
+
+        job.update(tagged_message, percent)
+
+        logger.info('%s %r', tagged_message, percent)
+
+    def parse_uniform_arg(self, value, default_start, default_n):
+        result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
+
+        if result is None:
+            raise WPSError('Failed to parse uniform argument {value}', value=value)
+
+        groups = result.groups()
+
+        if groups[1] is None:
+            delta = int(groups[0])
+
+            default_n = default_n / delta
+        else:
+            default_start = int(groups[1])
+
+            default_n = int(groups[2])
+
+            delta = int(groups[3])
+
+        start = default_start + (delta / 2.0)
+
+        return start, default_n, delta
+
+    def generate_selector(self, variable):
+        """ Generates a selector for a variable.
+        
+        Iterates over the axis list and creates a dict selector for the 
+        variabel.
 
         Args:
-            variables: A dict mapping names of Variables to their representations.
-            domains: A dict mapping names of Domains to their representations.
-            operations: A dict mapping names of Processes to their representations.
+            variable: A cdms2.fvariable.FileVariable or cdms2.tvariable.TransientVariable.
 
         Returns:
-            A tuple of 3 dictionaries. Each dictionary maps unqiue names to an
-            object of their respective container type.
+            A dict keyed with the axis names and values of the axis endpoints as
+            a tuple.
         """
-        if isinstance(parent_variables, dict):
-            variables.update(parent_variables)
-        elif isinstance(parent_variables, list):
-            for parent in parent_variables:
-                if isinstance(parent, dict):
-                    variables.update(parent)
+        selector = {}
 
-        v = dict((x, cwt.Variable.from_dict(y)) for x, y in variables.iteritems())
+        for axis in variable.getAxisList():
+            selector[axis.id] = (axis[0], axis[-1])
 
-        d = dict((x, cwt.Domain.from_dict(y)) for x, y in domains.iteritems())
+        return selector
 
-        o = cwt.Process.from_dict(operation)
+    def subset_grid(self, grid, selector):
+        target = cdms2.MV2.ones(grid.shape)
 
-        if o.domain is not None:
-            o.domain = d[o.domain]
+        target.setAxisList(grid.getAxisList())
 
-        o.inputs = [v[i] for i in o.inputs]
+        target = target(**selector)
 
-        return v, d, o
+        return target.getGrid()
 
-    def __can_publish(self, pub_type):
-        publish = getattr(self, 'PUBLISH', None)
+    def generate_grid(self, gridder):
+        try:
+            if isinstance(gridder.grid, cwt.Variable):
+                grid = self.read_grid_from_file(gridder)
+            else:
+                grid = self.generate_user_defined_grid(gridder)
+        except AttributeError:
+            # Handle when gridder is None
+            return None
 
-        if publish is None:
-            return False
+        return grid
 
-        return (publish & pub_type) > 0
+    def read_grid_from_file(gridder):
+        url_validator = URLValidator(['https', 'http'])
+
+        try:
+            url_validator(gridder.grid.uri)
+        except ValidationError:
+            raise WPSError('Path to grid file is not an OpenDAP url: {}', gridder.grid.uri)
+
+        try:
+            with cdms2.open(gridder.grid) as infile:
+                data = infile(gridder.grid.var_name)
+        except cdms2.CDMSError:
+            raise WPSError('Failed to read the grid from {} in {}', gridder.grid.var_name, gridder.grid.uri)
+
+        return data.getGrid()
+
+    def generate_user_defined_grid(self, gridder):
+        try:
+            grid_type, grid_param = gridder.grid.split('~')
+        except AttributeError:
+            return None
+        except ValueError:
+            raise WPSError('Error generating grid "{name}"', name=gridder.grid)
+
+        logger.info('Generating grid %r %r', grid_type, grid_param)
+
+        if grid_type.lower() == 'uniform':
+            result = re.match('^(.*)x(.*)$', grid_param)
+
+            if result is None:
+                raise WPSError('Failed to parse uniform configuration from {value}', value=grid_param)
+
+            try:
+                start_lat, nlat, delta_lat = self.parse_uniform_arg(result.group(1), -90.0, 180.0)
+            except WPSError:
+                raise
+
+            try:
+                start_lon, nlon, delta_lon = self.parse_uniform_arg(result.group(2), 0.0, 360.0)
+            except WPSError:
+                raise
+
+            grid = cdms2.createUniformGrid(start_lat, nlat, delta_lat, start_lon, nlon, delta_lon)
+
+            logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
+                grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
+        elif grid_type.lower() == 'gaussian':
+            try:
+                nlats = int(grid_param)
+            except ValueError:
+                raise WPSError('Error converting gaussian parameter to an int')
+
+            grid = cdms2.createGaussianGrid(nlats)
+
+            logger.info('Created target gaussian grid {}'.format(grid.shape))
+        else:
+            raise WPSError('Unknown grid type for regridding: {}', grid_type)
+
+        return grid
 
     def __get_job(self, **kwargs):
         try:
             job = models.Job.objects.get(pk=kwargs['job_id'])
-        except (models.Job.DoesNotExist, KeyError) as e:
-            if isinstance(e, KeyError):
-                logger.exception('Job ID was not passed to the process')
-            else:
-                logger.exception('Job "{id}" does not exist'.format(job_id=kwargs.get('job_id')))
+        except KeyError:
+            logger.exception('Job ID was not passed to the process %r', kwargs)
+
+            return None
+        except models.Job.DoesNotExist:
+            logger.exception('Job "{id}" does not exist'.format(job_id=kwargs.get('job_id')))
 
             return None
         else:
             return job
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
-        if not self.__can_publish(RETRY):
-            return
-
         job = self.__get_job(**kwargs)
 
         if job is not None:
             job.retry(exc)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        if not self.__can_publish(FAILURE):
-            return
-
         job = self.__get_job(**kwargs)
+
+        logger.info('FAILED FAILED')
 
         if job is not None:
             job.failed(str(exc))
 
+            metrics.JOBS_RUNNING.set(metrics.jobs_running())
+
     def on_success(self, retval, task_id, args, kwargs):
-        if not self.__can_publish(SUCCESS):
-            return
+        pass
 
-        job = self.__get_job(**kwargs)
-
-        if job is not None:
-            job.succeeded(json.dumps(retval.values()[0]))
-
-cwt_shared_task = partial(shared_task,
-                          bind=True,
-                          base=CWTBaseTask,
-                          autoretry_for=(AccessError,),
-                          retry_backoff=60,
-                          retry_kwargs={
-                              'max_retries': 5
-                          })
+cwt_shared_task = partial(shared_task, bind=True, base=CWTBaseTask)

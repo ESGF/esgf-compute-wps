@@ -1,284 +1,222 @@
 #! /usr/bin/env python
 
-import cdms2
-import cwt
+import contextlib
 import datetime
 import hashlib
-import json
 import os
-import requests
-import uuid
+from urlparse import urlparse
+
+import cdms2
+from cdms2 import MV2 as MV
 from django.conf import settings
 from celery.utils import log
 
 from wps import helpers
+from wps import metrics
 from wps import models
+from wps import WPSError
 from wps.tasks import base
-from wps.tasks import process
-from wps.tasks import file_manager
-
-__ALL__ = [
-    'preprocess',
-    'ingress',
-]
+from wps.tasks import preprocess
 
 logger = log.get_task_logger('wps.tasks.ingress')
 
-def is_workflow(operations):
-    root_node = None
+def get_now():
+    return datetime.datetime.now()
 
-    operations = dict((x, cwt.Process.from_dict(y)) for x, y in operations.iteritems())
+def read_data(infile, var_name, domain):
+    time = None
 
-    # flatten out list of inputs from operations
-    op_inputs = [i for op in operations.values() for i in op.inputs]
+    if 'time' in domain:
+        time = domain.pop('time')
 
-    # find the root operation, this node will not be an input to any other operation
-    for op in operations.values():
-        if op.name not in op_inputs:
-            if root_node is not None:
-                raise base.WPSError('Dangling operations, there can only be a single operation that is not an input')
-
-            root_node = op
-
-    if root_node is None:
-        raise base.WPSError('Malformed WPS execute request, atleast one operation must be provided')
-
-    # considered a workflow if any of the root operations inputs are another operation
-    return root_node, any(i in operations.keys() for i in root_node.inputs)
-
-@base.cwt_shared_task()
-def preprocess(self, identifier, variables, domains, operations, user_id, job_id):
-    self.PUBLISH = base.RETRY | base.FAILURE
-
-    logger.info('Preprocessing job %s user %s', job_id, user_id)
-    logger.info('Identifier %r', identifier)
-    logger.info('Variables %r', variables)
-    logger.info('Domains %r', domains)
-    logger.info('Operations %r', operations)
-
-    root_node, workflow = is_workflow(operations)
-
-    if workflow:
-        raise base.WPSError('Workflow disabled')
+    if time is None:
+        data = infile(var_name, **domain)
     else:
-        logger.info('Setting up a single process pipeline')
+        data = infile(var_name, time=time, **domain)
 
-        _, _, o = self.load({}, variables, domains, operations.values()[0])
-
-        data = {
-            'identifier': identifier,
-            'variables': json.dumps(variables),
-            'domains': json.dumps(domains),
-            'operation': json.dumps(o.parameterize()),
-            'user_id': user_id,
-            'job_id': job_id,
-        }
-
-        proc = process.Process(self.request.id)
-
-        proc.initialize(user_id, job_id)
-
-        with file_manager.DataSetCollection.from_variables(o.inputs) as collection:
-            logger.info('INGRESS %r', settings.INGRESS_ENABLED)
-
-            if not proc.check_cache(collection, o.domain) and settings.INGRESS_ENABLED:
-                logger.info('Configuring an ingress pipeline')
-
-                chunk_map = proc.generate_chunk_map(collection, o.domain)
-
-                data['type'] = 'ingress'
-
-                data['chunk_map'] = json.dumps(chunk_map, default=helpers.json_dumps_default)
-            else:
-                logger.info('Configuring an execute pipeline')
-
-                domain_map = proc.generate_domain_map(collection)
-
-                data['type'] = 'execute'
-
-                data['domain_map'] = json.dumps(domain_map, default=helpers.json_dumps_default)
-
-            data['estimate_size'] = collection.estimate_size(o.domain)
-
-    session = requests.Session()
-
-    response = session.get(settings.WPS_ENDPOINT, verify=False)
-
-    csrf_token = session.cookies.get('csrftoken')
-
-    logger.info('Retrieved CSRF token')
-
-    headers = { 'X-CSRFToken': csrf_token }
-
-    response = session.post(settings.WPS_EXECUTE_URL, data, headers=headers, verify=False)
-
-    if not response.ok:
-        raise base.WPSError('Failed to ingress data status code {code}', code=response.status_code)
-
-    logger.info('Successfuly submitted the execute request')
+    return data
 
 @base.cwt_shared_task()
-def ingress(self, input_url, var_name, domain, base_units, output_uri):
-    self.PUBLISH = base.RETRY | base.FAILURE
+def ingress_cleanup(self, attrs, file_paths, job_id):
+    for path in file_paths:
+        try:
+            os.remove(path)
+        except:
+            logger.warning('Failed to remove %r', path)
 
-    logger.info('Ingress "%s" from %s', var_name, input_url)
+    return attrs
 
-    domain = json.loads(domain, object_hook=helpers.json_loads_object_hook)
+@base.cwt_shared_task()
+def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_units, job_id):
+    """ Cached ingress items.
 
-    temporal = domain['temporal']
+    Args:
+        attrs: A list of dicts from previous tasks.
+        uri: A str uri for the source being cached.
+        var_name: A str variable name.
+        domain: A dict referencing the portion of the source file compose by the
+            group of ingressed files.
+        base_units: A str with the base units.
+        job_id: An int referencing the job.
 
-    spatial = domain['spatial']
+    Returns: 
+        A dict composed of the dicts from attrs.
+    """
+    entry = preprocess.check_cache_entries(uri, var_name, domain, job_id)
 
-    start = datetime.datetime.now()
+    # Really should never hit this, if we're calling this task the file should
+    # have been ingressed.
+    if entry is not None:
+        logger.info('%r of %r has been cached', var_name, uri)
 
-    try:
-        with cdms2.open(input_url) as infile, cdms2.open(output_uri, 'w') as outfile:
-            data = infile(var_name, time=temporal, **spatial)
+        return attrs
 
-            data.getTime().toRelativeTime(base_units)
+    filter_ingress = [x for x in attrs.values() if isinstance(x, dict) and 'ingress' in x]
 
-            outfile.write(data, id=var_name)
-    except cdms2.CDMSError as e:
-        raise base.AccessError('', e.message)
+    filter_uri = [x for x in filter_ingress if x['uri'] == uri]
 
-    delta = datetime.datetime.now() - start
+    filter_uri_sorted = sorted(filter_uri, key=lambda x: x['path'])
 
-    stat = os.stat(output_uri)
+    uid = '{}:{}'.format(uri, var_name)
 
-    variable = cwt.Variable(output_uri, var_name)
-
-    return { 
-        'delta': delta.seconds,
-        'size': stat.st_size / 1048576.0,
-        'variable': variable.parameterize() 
+    dimensions = {
+        'var_name': var_name,
     }
 
-@base.cwt_shared_task()
-def ingress_cache(self, ingress_chunks, ingress_map, job_id, process_id=None):
-    self.PUBLISH = base.ALL
+    dimensions.update(domain)
+    
+    kwargs = {
+        'uid': hashlib.sha256(uid).hexdigest(),
+        'url': uri,
+        'dimensions': helpers.encoder(dimensions),
+    }
 
-    logger.info('Generating cache files from ingressed data')
+    entry = models.Cache(**kwargs)
 
-    collection = file_manager.DataSetCollection()
+    logger.info('Created cached entry for %r of %r with dimensions %r', var_name, uri, kwargs['dimensions'])
 
-    elapsed = 0.0
-    size = 0.0
-    variable_name = None
-    variables = []
-
-    for chunk in ingress_chunks:
-        elapsed += chunk['delta']
-
-        size += chunk['size']
-
-        variables.append(cwt.Variable.from_dict(chunk['variable']))
-
-    ingress_map = json.loads(ingress_map, object_hook=helpers.json_loads_object_hook)
-
-    output_name = '{}.nc'.format(str(uuid.uuid4()))
-
-    output_path = os.path.join(settings.WPS_LOCAL_OUTPUT_PATH, output_name)
-
-    output_url = settings.WPS_DAP_URL.format(filename=output_name)
-
-    logger.info('Writing output to %s', output_path)
+    chunk_axis = None
+    chunk_list = []
 
     try:
-        with cdms2.open(output_path, 'w') as outfile:
-            start = datetime.datetime.now()
-    
-            for url in sorted(ingress_map.keys()):
-                meta = ingress_map[url]
-
-                logger.info('Processing source input %s', url)
-
-                cache = None
-                cache_obj = None
-
-                if variable_name is None:
-                    variable_name = meta['variable_name']
-
-                dataset = file_manager.DataSet(cwt.Variable(url, variable_name))
-
-                dataset.temporal = meta['temporal']
-
-                dataset.spatial = meta['spatial']
-
-                logger.info('Processing "%s" ingressed chunks of data', len(meta['ingress_chunks']))
-
-                # Try/except to handle closing of cache_obj
+        with self.open(entry.local_path, 'w') as outfile:
+            for item in filter_uri_sorted:
                 try:
-                    for chunk in meta['ingress_chunks']:
-                        # Try/except to handle opening of chunk
-                        try:
-                            with cdms2.open(chunk) as infile:
-                                if cache is None:
-                                    dataset.file_obj = infile
+                    with self.open(item['path']) as infile:
+                        data = infile(var_name)
 
-                                    domain = collection.generate_dataset_domain(dataset)
+                        logger.info('Read chunk with shape %r', data.shape)
 
-                                    dimensions = json.dumps(domain, default=models.slice_default)
+                        if chunk_axis is None:
+                            chunk_axis_index = data.getAxisIndex(chunk_axis_name)
 
-                                    uid = '{}:{}'.format(dataset.url, dataset.variable_name)
+                            if chunk_axis_index == -1:
+                                raise WPSError('Failed to find axis {}', chunk_axis_name)
 
-                                    uid_hash = hashlib.sha256(uid).hexdigest()
+                            chunk_axis = data.getAxis(chunk_axis_index)
 
-                                    cache = models.Cache.objects.create(uid=uid_hash, url=dataset.url, dimensions=dimensions)
+                        if chunk_axis.isTime():
+                            if base_units is not None:
+                                data.getTime().toRelativeTime(str(base_units))
 
-                                    try:
-                                        cache_obj = cdms2.open(cache.local_path, 'w')
-                                    except cdms2.CDMSError as e:
-                                        raise base.AccessError(cache.local_path, e)
+                            outfile.write(data, id=var_name)
+                        else:
+                            chunk_list.append(data)
+                except cdms2.CDMSError as e:
+                    raise base.AccessError(item['path'], e)
+            
+            if not chunk_axis.isTime():
+                data = MV.concatenate(chunk_list, axis=chunk_axis_index)
 
-                                try:
-                                    data = infile(variable_name)
-                                except Exception as e:
-                                    raise base.WPSError('Error reading data from {url} error {error}', url=infile.id, error=e)
+                outfile.write(data, id=var_name)
 
-                                try:
-                                    cache_obj.write(data, id=variable_name)
-                                except Exception as e:
-                                    logger.exception('%r', data)
+            logger.info('Wrote cache file with shape %r', outfile[var_name].shape)
+    except cdms2.CDMSError as e:
+        logger.exception('Failed to write local file %r', entry.local_path)
 
-                                    raise base.WPSError('Error writing data to cache file {url} error {error}', url=cache_obj.id, error=e)
+        local_path = entry.local_path
 
-                                try:
-                                    outfile.write(data, id=variable_name)
-                                except Exception as e:
-                                    logger.exception('%r', data)
+        entry.delete()
 
-                                    raise base.WPSError('Error writing data to output file {url} error {error}', url=outfile.id, error=e)
-                        except cdms2.CDMSError as e:
-                            raise base.AccessError(chunk, e)
-                except:
-                    raise
-                finally:
-                    if cache_obj is not None:
-                        cache_obj.close()
+        raise base.AccessError(local_path, e)
 
-            delta = datetime.datetime.now() - start
+    entry.set_size()
 
-            elapsed += delta.seconds
+    return attrs
 
-            stat = os.stat(outfile.id)
+@base.cwt_shared_task()
+def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
+    """ Ingress a portion of data.
 
-            size += (stat.st_size / 1048576.0) 
-    except:
-        raise
-    finally:
-        # Clean up the ingressed files
-        for url, meta in ingress_map.iteritems():
-            for chunk in meta['ingress_chunks']:
-                os.remove(chunk)
+    Args:
+        key: A str containing a unique identifier for this request.
+        uri: A str uri of the source file.
+        var_name: A str variable name.
+        domain: A dict containing the portion of the file.
+        output_path: A str path for the output to be written.
+        user_id: An int referencing the owner of the request.
+        job_id: An int referencing the job this request belongs to.
 
-    if process_id is not None:
-        try:
-            process = models.Process.objects.get(pk=process_id)
-        except models.Process.DoesNotExist:
-            raise base.WPSError('Error no process with id "{id}" exists', id=process_id)
+    Return:
+        A dict with the following format:
 
-        process.update_rate(size, elapsed)
+        key: Unique identifier.
+        path: A string path to the output file.
+        elapsed: A datetime.timedelta containing the elapsed time.
+        size: A float denoting the size in MegaBytes.
 
-    variable = cwt.Variable(output_url, variable_name)
+        {
+            "output_path": {
+                "ingress": True,
+                "uri": "https://aims3.llnl.gov/path/filename.nc",
+                "path": "output_path",
+                "elapsed": datetime.timedelta(0, 0, 3),
+                "size": 3.28
+            }
+        }
+    """
+    self.load_credentials(user_id)
 
-    return { variable.name: variable.parameterize() }
+    job = self.load_job(job_id)
+
+    start = get_now()
+
+    logger.info('Domain %r', domain)
+
+    with self.open(uri) as infile:
+        data = read_data(infile, var_name, domain)
+
+    shape = data.shape
+
+    logger.info('Read data shape %r', shape)
+
+    with self.open(output_path, 'w') as outfile:
+        outfile.write(data, id=var_name)
+
+    elapsed = get_now() - start
+
+    parsed = urlparse(uri)
+
+    host = 'local' if parsed.netloc == '' else parsed.netloc
+
+    stat = os.stat(output_path)
+
+    metrics.INGRESS_BYTES.labels(host.lower()).inc(stat.st_size)
+
+    metrics.INGRESS_SECONDS.labels(host.lower()).inc(elapsed.total_seconds())
+
+    size = stat.st_size / 1000000.0
+
+    self.update(job, 'Ingressed chunk {} {} MB in {}', shape, size, elapsed)
+
+    attrs = {
+        output_path: {
+            'ingress': True,
+            'uri': uri,
+            'path': output_path,
+            'elapsed': elapsed,
+            'size': size,
+        }
+    }
+
+    return attrs

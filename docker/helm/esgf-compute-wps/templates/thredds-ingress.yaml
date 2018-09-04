@@ -7,11 +7,9 @@ metadata:
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-{{- if .Values.ingress.annotations }}
+{{- if .Values.thredds.ingress.annotations }}
   annotations:
-  {{- range $key, $value := .Values.ingress.annotations }}
-    {{ $key }}: {{ $value | quote }}
-  {{- end }}
+    {{ toYaml .Values.thredds.ingress.annotations | indent 2 }}
 {{- end }}
 spec:
   rules:
