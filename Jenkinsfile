@@ -5,13 +5,12 @@ pipeline {
     stage('Build frontend') {
       steps {
         checkout scm
-          //checkout([$class: 'GitSCM', branches: [[name: '*/cdat_update']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[url: 'https://github.com/ESGF/esgf-compute-wps']]])
 
-          dir('compute/wps/webapp') {
-            sh 'yarn install'
+        dir('compute/wps/webapp') {
+          sh 'yarn install'
 
-              sh './node_modules/.bin/webpack --config config/webpack.prod.js'
-          }
+          sh './node_modules/.bin/webpack --config config/webpack.prod.js'
+        }
       }
     }
 
@@ -35,10 +34,10 @@ pipeline {
 
           cd compute
 
-          python manage.py test --with-xunit --with-xunit-file ../xunit.xml --with-coverage --cover-xml --cover-xml-file ../coverage.xml --cover-package=wps
+          python manage.py test --with-xunit --xunit-file ../xunit.xml --with-coverage --cover-xml --cover-xml-file ../coverage.xml --cover-package=wps
 
           sed 's/skip=/skipped=/' -i.bak ../xunit.xml
-          '''
+        '''
       }
     }
   }
