@@ -6,14 +6,14 @@ metadata:
     name: public-pv
 spec:
   capacity:
-    storage: 10Gi
+    storage: 200Gi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/cwt/data/public
+    path: /opt/nfs/cwt/data
     type: DirectoryOrCreate
 ---
 apiVersion: v1
@@ -24,14 +24,14 @@ metadata:
     name: cache-pv
 spec:
   capacity:
-    storage: 10Gi
+    storage: 200Gi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/cwt/data/cache
+    path: /opt/nfs/cwt/data
     type: DirectoryOrCreate
 ---
 apiVersion: v1
@@ -42,14 +42,14 @@ metadata:
     name: ingress-pv
 spec:
   capacity:
-    storage: 10Gi
+    storage: 200Gi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/cwt/data/ingress
+    path: /opt/nfs/cwt/data
     type: DirectoryOrCreate
 ---
 apiVersion: v1
@@ -58,14 +58,14 @@ metadata:
   name: pv0004
 spec:
   capacity:
-    storage: 10Gi
+    storage: 80Gi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/cwt/data/ingress
+    path: /opt/cwt
     type: DirectoryOrCreate
 ---
 apiVersion: v1
@@ -81,5 +81,21 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/cwt/data/ingress
+    path: /opt/cwt
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv0006
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: slow
+  hostPath:
+    path: /opt/cwt
     type: DirectoryOrCreate

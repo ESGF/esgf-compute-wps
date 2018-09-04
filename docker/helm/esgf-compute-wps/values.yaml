@@ -11,17 +11,21 @@ prometheus:
       hosts:
       - /prometheus
 
+      annotations:
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+
     persistentVolume:
       enabled: true
       size: 10Gi
       storageClass: slow
 
-    global:
-      scrape_interval: 1m
-
 traefik:
   serviceType: NodePort
 
+  # Entrypoint SSL
   #ssl:
     #enabled: true
     #enforced: true
@@ -43,7 +47,7 @@ traefik:
     enabled: true
     domain: ""
 
-    # Add authentication to the dashboard
+    # Dashboard Authentication
     # See for accepted passwords: https://docs.traefik.io/configuration/entrypoints/#basic-authentication
     # Should be K/V pair e.g. user01: password
     #auth:
