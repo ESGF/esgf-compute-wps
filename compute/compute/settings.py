@@ -15,6 +15,7 @@ import datetime
 import kombu
 import logging
 import os
+import netaddr
 
 logger = logging.getLogger('settings')
 
@@ -101,7 +102,8 @@ cidr = config.get_value('default', 'allowed.cidr', None, list)
 if cidr is not None:
     ALLOWED_HOSTS = ['*']
 
-    cidr.append(WPS_HOST)
+    if netaddr.valid_ipv4(WPS_HOST):
+	    cidr.append(WPS_HOST)
 
     cidr = [x for x in cidr if x != '']
 
@@ -109,7 +111,6 @@ if cidr is not None:
 else:
     ALLOWED_HOSTS = [WPS_HOST]
 
-#SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
 ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, int, lambda x: datetime.timedelta(days=x))
