@@ -46,7 +46,6 @@ spec:
           name: static-volume
       volumes:
       - name: static-volume
-        hostPath:
-          path: {{ .Values.wps.staticPath }}
-          type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: static-pvc
 {{- end }}

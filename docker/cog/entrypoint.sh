@@ -2,9 +2,11 @@
 
 pushd /usr/local/cog/cog_install
 
-git fetch
+git checkout master
 
-git checkout cwt
+rm static/cog/img/rel_interstitial_loading.gif
+
+git pull
 
 popd
 
