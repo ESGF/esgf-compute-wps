@@ -1,0 +1,36 @@
+{{- range $key, $val := .Values.persistence }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $key }}-pv
+  labels:
+    name: {{ $key }}-pv
+spec:
+  capacity:
+    storage: {{ $val.capacity }}
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ $val.storageClassName }}
+  hostPath:
+    path: {{ $val.path }}
+    type: DirectoryOrCreate
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ $key }}-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ $val.capacity }}
+  storageClassName: {{ $val.storageClassName }}
+  selector:
+    matchLabels:
+      name: {{ $key }}-pv
+---
+{{- end }}

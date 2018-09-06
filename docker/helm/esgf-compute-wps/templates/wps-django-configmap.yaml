@@ -10,7 +10,9 @@ metadata:
 data:
   django.properties: |
     [default]
+    {{- if .Values.wps.allowedCIDR }}
     allowed.cidr={{ .Values.wps.allowedCIDR }}
+    {{- end }}
     active.user.threshold={{ .Values.wps.activeUserThreshold }}
     ingress.enabled={{ .Values.wps.ingressEnabled }}
     process.blacklist={{ .Values.wps.process.blacklist }}
@@ -36,6 +38,7 @@ data:
     wps.password.reset.url=http://{{ .Values.host }}/wps/home/auth/reset
     wps.ca.path=/tmp/certs
     wps.local.output.path=/data/public
+    wps.ingress.path=/data/ingress
     wps.user.temp.path=/tmp
     wps.admin.email=admin@aims2.llnl.gov
     wps.cache.path=/tmp/django/cache

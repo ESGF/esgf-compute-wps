@@ -119,16 +119,14 @@ spec:
           mountPath: /var/www/static
           subPath: static
       volumes:
-      {{- if .Values.development }}
-      - name: shared-volume
-        hostPath:
-          path: {{ .Values.wps.data.sharedPath }}
-          type: DirectoryOrCreate
-      {{- end }}
       - name: config-volume
         configMap:
           name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+      {{- if .Values.development }}
+      - name: shared-volume
+        persistentVolumeClaim:
+          claimName: shared-pvc
+      {{- end }}
       - name: static-volume
-        hostPath:
-          path: {{ .Values.wps.data.staticPath }}
-          type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: static-pvc

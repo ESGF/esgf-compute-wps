@@ -1,6 +1,47 @@
 host: 0.0.0.0
 development: false
 
+persistence:
+  shared:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+  static:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+  public:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
+  cache:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
+  ingress:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
+  prometheus:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+  postgresql:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+  redis:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
 prometheus:
   server:
     prefixURL: /prometheus
@@ -19,8 +60,7 @@ prometheus:
 
     persistentVolume:
       enabled: true
-      size: 10Gi
-      storageClass: slow
+      existingClaim: prometheus-pvc
 
 traefik:
   serviceType: NodePort
@@ -76,22 +116,15 @@ wps:
   replicas: 1
   image: jasonb87/cwt_wps
   imageTag: 2.1.0
-  staticPath: /opt/nfs/cwt/static
   activeUserThreshold: 5
   ingressEnabled: true
   certDownloadEnabled: true
+  allowedCIDR: 172.17.0.0/16
 
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/path: /wps/metrics
     prometheus.io/port: "8000"
-
-  data:
-    sharedPath: /opt/cwt/data/shared
-    staticPath: /opt/cwt/data/static
-    publicPath: /opt/cwt/data/public
-    cachePath: /opt/cwt/data/cache
-    ingressPath: /opt/cwt/data/ingress
   
   process:
     blacklist: "[]"
@@ -124,8 +157,6 @@ celery:
   image: jasonb87/cwt_celery
   imageTag: 2.1.0
 
-  metrics: /data/metrics
-
   resources:
     # Must quote the memory field otherwise large numbers are rendered in
     # scientific notation which celery does not like. This value is in KiB.
@@ -134,19 +165,6 @@ celery:
     memoryRequest: 128Mi
     cpuLimit: 1000m
     memoryLimit: 1Gi
-
-  persistence:
-    public:
-      storageClassName: slow
-      size: 10Gi
-
-    ingress:
-      storageClassName: slow
-      size: 10Gi
-
-    cache:
-      storageClassName: slow
-      size: 10Gi
 
   queues:
   - name: ingress
@@ -209,10 +227,10 @@ thredds:
 
 postgresql:
   postgresPassword: abcd1234
+
   persistence:
     enabled: true
-    storageClass: slow
-    size: 10Gi
+    existingClaim: postgresql-pvc
 
 redis:
   repository: redis
@@ -223,10 +241,10 @@ redis:
 
   usePassword: false
 
-  master:
-    persistence:
-      enabled: false
+  persistence:
+    existingClaim: redis-pvc
 
+  master:
     service:
       type: ClusterIP
 

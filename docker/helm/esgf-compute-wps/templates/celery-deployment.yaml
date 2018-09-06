@@ -113,18 +113,13 @@ spec:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
               key: postgres_password
         volumeMounts:
+        - mountPath: /etc/config
+          name: config-volume
         {{- if $.Values.development }}
         - mountPath: /var/www
           name: shared-volume
           subPath: shared
         {{- end }}
-        {{- if $.Values.celery.metrics }}
-        - mountPath: /data/metrics
-          name: metrics-volume
-          subPath: {{ $.Release.Name }}-celery-{{ .name }}
-        {{- end }}
-        - mountPath: /etc/config
-          name: config-volume
         - mountPath: /data/public
           name: public-volume
           subPath: public
@@ -135,14 +130,14 @@ spec:
           name: ingress-volume
           subPath: ingress
       volumes:
-      {{- if $.Values.development }}
-      - name: shared-volume
-        hostPath:
-          path: /opt/cwt/data/shared
-      {{- end }}
       - name: config-volume
         configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+      {{- if $.Values.development }}
+      - name: shared-volume
+        persistentVolumeClaim:
+          claimName: shared-pvc
+      {{- end }}
       - name: public-volume
         persistentVolumeClaim:
           claimName: public-pvc
@@ -152,9 +147,5 @@ spec:
       - name: ingress-volume
         persistentVolumeClaim:
           claimName: ingress-pvc
-      {{- if $.Values.celery.metrics }}
-      - name: metrics-volume
-        emptyDir: {}
-      {{- end }}
 ---
 {{- end }}
