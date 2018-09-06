@@ -486,8 +486,10 @@ class CDAT(backend.Backend):
 
         output_path = '{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, op_uid)
 
+        process_obj = models.Process.objects.get(identifier=process.IDENTIFIER)
+
         success = tasks.job_succeeded.s(
-            concat_path, output_path, var.var_name, job_id=job_id).set(
+            variable.values(), concat_path, None, var.var_name, process_obj.id, user_id, job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
 
         canvas = celery.group(x for x in process_chains) | concat | success

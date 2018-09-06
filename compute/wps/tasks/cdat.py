@@ -154,10 +154,11 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
                     
                     retrieve_data(infile, outfile, var_name, grid, gridder, base_units)
 
-                    self.update(job, 'Building file from ingressed data')
+                    self.update(job, 'Building file from ingressed data {}',
+                                current['path'].split()[-1])
 
-            self.update(job, 'Finished building file {}',
-                        output_path.split('/')[-1])
+        self.update(job, 'Finished building file {}',
+                    output_path.split('/')[-1])
 
     elapsed = self.get_now() - start
 
