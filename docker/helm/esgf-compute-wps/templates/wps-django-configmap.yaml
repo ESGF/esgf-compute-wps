@@ -31,7 +31,7 @@ data:
     wps.dap_url=http://{{ .Values.host }}/threddsCWT/dodsC/public/{filename}
     wps.login_url=http://{{ .Values.host }}/wps/home/auth/login/openid
     wps.profile_url=http://{{ .Values.host }}/wps/home/user/profile
-    wps.oauth2.callback=https://{{ .Values.host }}/auth/callback/
+    wps.oauth2.callback=https://{{ .Values.host }}/auth/callback
     wps.openid.trust.root=http://{{ .Values.host }}/
     wps.openid.return.to=http://{{ .Values.host }}/auth/callback/openid/
     wps.openid.callback.success=http://{{ .Values.host }}/wps/home/auth/login/callback
