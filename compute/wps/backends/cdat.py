@@ -362,7 +362,7 @@ class CDAT(backend.Backend):
             ingress_and_process = celery.chord(header=ingress,
                                                body=process_task)
 
-            cleanup = tasks.cleanup.s(cleanup_paths, job_id=job_id).set(
+            cleanup = tasks.ingress_cleanup.s(cleanup_paths, job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
 
             finalize = celery.group(x for x in cache) | cleanup
@@ -495,7 +495,7 @@ class CDAT(backend.Backend):
         if len(ingress) > 0:
             canvas = canvas | cache
 
-        cleanup = tasks.cleanup.s(cleanup_paths, job_id=job_id).set(
+        cleanup = tasks.ingress_cleanup.s(cleanup_paths, job_id=job_id).set(
             **helpers.DEFAULT_QUEUE)
 
         canvas = canvas | cleanup
