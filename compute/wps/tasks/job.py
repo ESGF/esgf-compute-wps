@@ -21,10 +21,6 @@ def job_started(self, job_id):
 
     job.started()
 
-    metrics.JOBS_QUEUED.set(metrics.jobs_queued())
-
-    metrics.JOBS_RUNNING.set(metrics.jobs_running())
-
 @base.cwt_shared_task()
 def job_succeeded(self, attrs, variables, output_path, move_path, var_name,
                   process_id, user_id, job_id):
@@ -51,8 +47,6 @@ def job_succeeded(self, attrs, variables, output_path, move_path, var_name,
     output = cwt.Variable(url, var_name)
 
     job.succeeded(json.dumps(output.parameterize()))
-
-    metrics.JOBS_RUNNING.set(metrics.jobs_running())
 
     process.track(user)
 
