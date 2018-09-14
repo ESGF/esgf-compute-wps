@@ -23,7 +23,6 @@ def track_file(variable):
     FILE_ACCESSED.labels(parts.hostname, filename, variable.uri,
                          variable.var_name).inc()
 
-
 def jobs_queued():
     i = inspect()
 
