@@ -192,7 +192,7 @@ class CDAT(backend.Backend):
                 uri, config['var_name'], job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
             generate_chunks = tasks.generate_chunks.s(
-                uri, config['axis'], job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+                operation, uri, config['axis'], job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
             analysis[uri] = [check_cache, generate_chunks]
 
