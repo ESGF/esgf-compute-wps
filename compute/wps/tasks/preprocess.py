@@ -91,7 +91,7 @@ def generate_chunks(self, attrs, operation, uri, process_axes, job_id):
     # Determine the axis to generate chunks for, defaults to time axis
     if operation.identifier == 'CDAT.average' and len(process_axes) > 1:
         chunked_axis = None
-    elif process_axes == None or 'time' not in process_axes:
+    elif process_axes is None or 'time' not in process_axes:
         chunked_axis = 'time'
     else:
         process_axes = set(process_axes)
