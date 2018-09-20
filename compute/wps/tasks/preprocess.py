@@ -207,7 +207,7 @@ def check_cache(self, attrs, uri, var_name, job_id):
 
             stop = mapped_axis.stop - orig_axis.start
 
-            new_mapped[key] = slice(start, stop)
+            new_mapped[key] = slice(start, stop, mapped_axis.step)
 
         attrs[uri]['cached'] = {
             'path': entry.local_path,
