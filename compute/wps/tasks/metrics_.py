@@ -19,18 +19,8 @@ from wps.tasks import base
 
 logger = get_task_logger('wps.tasks.metrics')
 
-class PrometheusError(WPSError):
-    pass
-
 def query_prometheus(**kwargs):
-    try:
-        response = requests.get(settings.METRICS_HOST, params=kwargs,
-                                timeout=(1, 30))
-    except requests.ConnectionError:
-        logger.exception('Error connecting to prometheus server at %r',
-                         settings.METRICS_HOST)
-
-        raise PrometheusError('Error connecting to metrics server')
+    response = requests.get(settings.METRICS_HOST, params=kwargs)
 
     if not response.ok:
         raise WPSError('Failed querying "{}" {}: {}', settings.METRICS_HOST,
@@ -46,6 +36,7 @@ def query_prometheus(**kwargs):
     logger.info('%r', data)
 
     return data['data']['result']
+
 
 def query_single_value(type=int, **kwargs):
     try:
@@ -99,36 +90,30 @@ def metrics_task(self, user_id, job_id, **kwargs):
 
     operator = {}
 
-    try:
-        for item in set(operator_count.keys()+operator_avg_time.keys()):
-            operator[item] = {}
+    for item in set(operator_count.keys()+operator_avg_time.keys()):
+        operator[item] = {}
 
-            if item in operator_count:
-                operator[item]['count'] = operator_count[item]
+        if item in operator_count:
+            operator[item]['count'] = operator_count[item]
 
-            if item in operator_avg_time:
-                operator[item]['avg_time'] = operator_avg_time[item]
-    except AttributeError:
-        operator['operations'] = 'Unavailable'
+        if item in operator_avg_time:
+            operator[item]['avg_time'] = operator_avg_time[item]
 
     file_count = query_multiple_value('url', query='sum(wps_file_accessed{url!=""}) by (url)')
 
     file = {}
 
-    try:
-        for item in file_count.keys():
-            logger.info('%r', item)
+    for item in file_count.keys():
+        logger.info('%r', item)
 
-            try:
-                url_obj = models.File.objects.filter(url=item)[0]
-            except IndexError:
-                count = 0
-            else:
-                count = url_obj.userfile_set.all().distinct('user').count()
+        try:
+            url_obj = models.File.objects.filter(url=item)[0]
+        except IndexError:
+            count = 0
+        else:
+            count = url_obj.userfile_set.all().distinct('user').count()
 
-            file[item] = {'count': file_count[item], 'unique_users': count }
-    except AttributeError:
-        file['files'] = 'Unavailable'
+        file[item] = {'count': file_count[item], 'unique_users': count }
 
     data = {
         'health': {
