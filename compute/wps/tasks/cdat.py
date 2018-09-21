@@ -8,6 +8,7 @@ import uuid
 
 import cdms2
 import cwt
+import cdutil
 from cdms2 import MV2 as MV
 from celery.task.control import inspect
 from celery.utils.log import get_task_logger
@@ -28,7 +29,7 @@ PATTERN_AXES_REQ = 'CDAT\.(min|max|average|sum)'
 
 def retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped=None):
     """ Retrieves data and writes to output.
-    
+
     Reads a subset of the input data where mapped is a dict selector. Will
     regrid the data and rebase the time access. Finally write data to output
     file.
@@ -151,7 +152,7 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
                         grid = self.subset_grid(grid, selector)
 
                         self.update(job, 'Subsetting grid {!r}', grid)
-                    
+
                     retrieve_data(infile, outfile, var_name, grid, gridder, base_units)
 
                     self.update(job, 'Building file from ingressed data {}',
@@ -207,6 +208,8 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
 
     gridder = operation.get_parameter('gridder')
 
+    weightoptions = operation.get_parameter('weightoptions')
+
     mapped = inp.get('mapped', {})
 
     start = self.get_now()
@@ -233,9 +236,21 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
     # Grab the indexes of the axes
     axes_index = [data.getAxisIndex(str(x)) for x in axes]
 
-    # Process axes
-    for axis in axes_index:
-        data = self.PROCESS(data, axis=axis)
+    if operation.identifier == 'CDAT.average':
+        axes_sig = ''.join([str(x) for x in axes_index])
+
+        if weightoptions is not None:
+            weightoptions = weightoptions.values[0]
+
+        logger.info('Averaging over axes %r', axes_sig)
+
+        data = self.PROCESS(data, axis=axes_sig, weights=weightoptions)
+    else:
+        # Process over all axes except the chunking axis
+        for axis in axes_index:
+            logger.info('Processing %r over axis %r', self.PROCESS, axis)
+
+            data = self.PROCESS(data, axis=axis)
 
     with self.open(output_path, 'w') as outfile:
         outfile.write(data, id=var_name)
@@ -316,58 +331,64 @@ SNG_DATASET_MULTI_INPUT = {
 }
 
 @base.register_process('CDAT.regrid', abstract="""
-Regrids a variable to designated grid. Required parameter named "gridder".
-""", metadata=SNG_DATASET_SNG_INPUT)
+                       Regrids a variable to designated grid. Required parameter named "gridder".
+                       """, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def regrid(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
     return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
 
 @base.register_process('CDAT.subset', abstract="""
-Subset a variable by provided domain. Supports regridding.
-""", metadata=SNG_DATASET_SNG_INPUT)
+                       Subset a variable by provided domain. Supports regridding.
+                       """, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def subset(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
     return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
 
 @base.register_process('CDAT.aggregate', abstract="""
-Aggregate a variable over multiple files. Supports subsetting and regridding.
-""", metadata=SNG_DATASET_MULTI_INPUT)
+                       Aggregate a variable over multiple files. Supports subsetting and regridding.
+                       """, metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
 def aggregate(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
     return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
 
 @base.register_process('CDAT.average', abstract=""" 
-Computes the average over an axis. Requires singular parameter named "axes" 
-whose value will be used to process over. The value should be a "|" delimited
-string e.g. 'lat|lon'.
-""", process=MV.average, metadata=SNG_DATASET_SNG_INPUT)
+                       Computes the average over axes. 
+
+                       Required parameters:
+                         axes: A list of axes to operate on. Should be separated by "|".
+
+                       Optional parameters:
+                         weightoptions: A string whos value is "generate",
+                           "equal", "weighted", "unweighted". See documentation
+                           at https://cdat.llnl.gov/documentation/utilities/utilities-1.html
+                       """, process=cdutil.averager, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def average(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.sum', abstract=""" 
-Computes the sum over an axis. Requires singular parameter named "axes" 
-whose value will be used to process over. The value should be a "|" delimited
-string e.g. 'lat|lon'.
-""", process=MV.sum, metadata=SNG_DATASET_SNG_INPUT)
+                       Computes the sum over an axis. Requires singular parameter named "axes" 
+                       whose value will be used to process over. The value should be a "|" delimited
+                       string e.g. 'lat|lon'.
+                       """, process=MV.sum, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def summation(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.max', abstract=""" 
-Computes the maximum over an axis. Requires singular parameter named "axes" 
-whose value will be used to process over. The value should be a "|" delimited
-string e.g. 'lat|lon'.
-""", process=MV.max, metadata=SNG_DATASET_SNG_INPUT)
+                       Computes the maximum over an axis. Requires singular parameter named "axes" 
+                       whose value will be used to process over. The value should be a "|" delimited
+                       string e.g. 'lat|lon'.
+                       """, process=MV.max, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def maximum(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id)
 
 @base.register_process('CDAT.min', abstract="""
-Computes the minimum over an axis. Requires singular parameter named "axes" 
-whose value will be used to process over. The value should be a "|" delimited
-string e.g. 'lat|lon'.
-""", process=MV.min, metadata=SNG_DATASET_SNG_INPUT)
+                       Computes the minimum over an axis. Requires singular parameter named "axes" 
+                       whose value will be used to process over. The value should be a "|" delimited
+                       string e.g. 'lat|lon'.
+                       """, process=MV.min, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def minimum(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id):
     return base_process(self, attrs, key, operation, var_name, base_units, axes, output_path, job_id)
