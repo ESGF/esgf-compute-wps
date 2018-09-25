@@ -52,8 +52,9 @@ data:
     wps.cache.freed.percent=0.25
 
     [edas]
-    wps.edas.host=edas
-    wps.edas.timeout=30
+    wps.edas.enabled={{ .Values.edas.enabled }}
+    wps.edas.host={{ .Release.Name }}-edas
+    wps.edas.timeout={{ .Values.edas.timeout }}
     wps.edas.req.port=5670
     wps.edas.res.port=5671
 

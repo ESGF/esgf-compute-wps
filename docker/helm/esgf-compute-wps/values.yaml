@@ -2,6 +2,11 @@ host: 0.0.0.0
 development: false
 
 persistence:
+  edas:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
   shared:
     storageClassName: slow
     capacity: 10Gi
@@ -256,13 +261,15 @@ edas:
   enabled: false
   replicas: 1
   image: jasonb87/cwt_edas
-  imageTag: latest
+  imageTag: 1.2.3
+
+  timeout: 30
 
   resources:
     cpuRequest: 100m
     memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 512Mi
+    cpuLimit: 2000m
+    memoryLimit: 2Gi
 
 cog:
   enabled: false

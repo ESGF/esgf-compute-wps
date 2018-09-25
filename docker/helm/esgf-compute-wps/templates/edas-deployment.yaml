@@ -26,24 +26,20 @@ spec:
       - name: {{ .Release.Name }}-edas
         image: {{ .Values.edas.image }}:{{ .Values.edas.imageTag }}
         resources:
+          {{- if not .Values.development }}
           limits:
             cpu: {{ .Values.edas.resources.cpuLimit | quote }}
             memory: {{ .Values.edas.resources.memoryLimit | quote }}
+          {{- end }}
           requests:
             cpu: {{ .Values.edas.resources.cpuRequest | quote }}
             memory: {{ .Values.edas.resources.memoryRequest | quote }}
         volumeMounts:
-        - mountPath: /data/public
-          name: public-volume
-        - mountPath: /data/cache
-          name: cache-volume
+        - mountPath: /data/edas
+          name: edas-volume
+          subPath: edas
       volumes:
-      - name: public-volume
-        hostPath:
-          path: {{ .Values.data.publicPath }}
-          type: DirectoryOrCreate
-      - name: cache-volume
-        hostPath:
-          path: {{ .Values.data.cachePath }}
-          type: DirectoryOrCreate
+      - name: edas-volume
+        persistentVolumeClaim:
+          claimName: edas-pvc
 {{- end }}
