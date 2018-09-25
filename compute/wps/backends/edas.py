@@ -11,6 +11,7 @@ from wps import models
 from wps import tasks
 from wps import WPSError
 from wps.backends import backend
+from wps.tasks import helpers
 
 __ALL__ = ['EDAS']
 
@@ -75,9 +76,8 @@ class EDAS(backend.Backend):
 
             self.add_process(identifier, title, metadata, abstract=abstract)
 
-    def execute(self, identifier, variables, domains, operations, **kwargs):
-        if len(operations) == 0:
-            raise Exception('Must provide atleast one operation')
+    def execute(self, identifier, variable, domain, operation, **kwargs):
+        logger.debug('%r', kwargs)
 
         logger.info('Executing process "{}"'.format(identifier))
 
@@ -86,29 +86,10 @@ class EDAS(backend.Backend):
             'job_id': kwargs.get('job').id
         }
 
-        operation = operations.values()[0]
+        variable, domain, operation = self.load_data_inputs(variable, domain, operation)
 
-        domain = operation.domain
+        operation = operation.values()[0]
 
-        variable_dict = dict((x, variables[x].parameterize()) for x in operation.inputs)
+        canvas = tasks.edas_submit.si(variable.values(), operation.domain, operation, **params).set(**helpers.DEFAULT_QUEUE)
 
-        if domain is not None:
-            domain_dict = { domain.name: domain.parameterize() }
-        else:
-            domain_dict = {}
-
-        cache_op = operation.parameterize()
-
-        logger.info('Variables {}'.format(variable_dict))
-
-        logger.info('Domains {}'.format(domain_dict))
-
-        logger.info('Operation {}'.format(operation))
-
-        cache_task = tasks.cache_variable.si({}, variable_dict, domain_dict, cache_op, **params)
-
-        operation.inputs = [cwt.Variable('', '', name=operation.name)]
-
-        edas_task = tasks.edas_submit.s({}, domain_dict, operation.parameterize(), **params)
-
-        return (cache_task | edas_task)
+        canvas.delay()

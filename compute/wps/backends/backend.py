@@ -1,3 +1,4 @@
+import json
 import logging
 
 import cwt
@@ -94,6 +95,62 @@ class Backend(object):
         }
 
         self.processes.append(process)
+
+    def load_data_inputs(self, variable_raw, domain_raw, operation_raw):
+        variable = {}
+
+        for item in json.loads(variable_raw):
+            v = cwt.Variable.from_dict(item)
+
+            variable[v.name] = v
+
+        logger.info('Loaded %r variables', len(variable))
+
+        domain = {}
+
+        for item in json.loads(domain_raw):
+            d = cwt.Domain.from_dict(item)
+
+            domain[d.name] = d
+
+        logger.info('Loaded %r domains', len(domain))
+
+        operation = {}
+
+        for item in json.loads(operation_raw):
+            o = cwt.Process.from_dict(item)
+
+            operation[o.name] = o
+
+        logger.info('Loaded %r operations', len(operation))
+
+        for o in operation.values():
+            if o.domain is not None:
+                logger.info('Resolving domain %r', o.domain)
+
+                o.domain = domain[o.domain]
+
+            inputs = []
+
+            for inp in o.inputs:
+                if inp in variable:
+                    inputs.append(variable[inp])
+                elif inp in operation:
+                    inputs.append(operation[inp])
+                else:
+                    kwargs = {
+                        'inp': inp,
+                        'name': o.name,
+                        'id': o.identifier,
+                    }
+
+                    raise WPSError('Unabled to resolve input "{inp}" for operation "{name}" - "{id}"', **kwargs)
+
+                logger.info('Resolved input %r', inp)
+
+            o.inputs = inputs
+
+        return variable, domain, operation
 
     def initialize(self):
         pass
