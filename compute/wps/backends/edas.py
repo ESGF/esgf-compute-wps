@@ -62,6 +62,8 @@ class EDAS(backend.Backend):
 
         tags = root.findall('./processes/*')
 
+        metadata = {'inputs': '*', 'datasets': '*'}
+
         for tag in tags:
             desc_tag = tag.find('description')
 
@@ -71,7 +73,7 @@ class EDAS(backend.Backend):
 
             abstract = desc_tag.text
 
-            self.add_process(identifier, title, abstract=abstract)
+            self.add_process(identifier, title, metadata, abstract=abstract)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
         if len(operations) == 0:
