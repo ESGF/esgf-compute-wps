@@ -1,6 +1,6 @@
 pipeline {
   agent any;
-
+  
   stages {
     stage('Build frontend') {
       steps {
@@ -17,20 +17,24 @@ pipeline {
     stage('Install dependencies') {
       steps {
         sh '''#! /bin/bash
-          export WPS_TEST=1
-          export DJANGO_CONFIG_PATH=${PWD}/docker/common/django.properties
-    
-          trap "conda env remove -n wps -y;" SIGINT SIGTERM EXIT
+          export
+        
+          conda env create -n wps-${NODE_NAME} --file docker/common/environment.yml
 
-          conda env create -n wps --file docker/common/environment.yml
-
-          source activate wps
+          source activate wps-${NODE_NAME}
 
           conda install -c conda-forge gunicorn=19.3.0
-
+          
           pip install django-webpack-loader bjoern
 
           pip install -r compute/wps/tests/requirements.txt
+        '''
+          
+        sh '''#! /bin/bash
+          export WPS_TEST=1
+          export DJANGO_CONFIG_PATH=${PWD}/docker/common/django.properties
+
+          source activate wps-${NODE_NAME}
 
           cd compute
 
@@ -44,6 +48,8 @@ pipeline {
 
   post {
     always {
+      sh 'conda env remove -y -n wps-${NODE_NAME}'
+        
       archiveArtifacts 'xunit.xml'
 
       archiveArtifacts 'coverage.xml'
