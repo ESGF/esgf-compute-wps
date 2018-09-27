@@ -136,7 +136,7 @@ class CDAT(backend.Backend):
                 uri, config['var_name'], job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
             generate_chunks = tasks.generate_chunks.s(
-                uri, config['axis'], job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+                config['operation'], uri, config['axis'], job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
             analysis[uri] = [check_cache, generate_chunks]
 
@@ -433,7 +433,7 @@ class CDAT(backend.Backend):
         process_obj = models.Process.objects.get(identifier=process.IDENTIFIER)
 
         success = tasks.job_succeeded.s(
-            variable.values(), concat_path, None, var.var_name, process_obj.id, user_id, job_id=job_id).set(
+            variable.values(), concat_path, output_path, var.var_name, process_obj.id, user_id, job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
 
         canvas = celery.group(x for x in process_chains) | concat | success
