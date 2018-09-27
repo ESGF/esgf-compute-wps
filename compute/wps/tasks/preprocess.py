@@ -3,6 +3,7 @@
 import contextlib
 import hashlib
 import json
+import math
 import os
 
 import cwt
@@ -72,7 +73,7 @@ def wps_execute(self, attrs, variable, domain, operation, user_id, job_id):
     self.update(job, 'Preprocessing finished, submitting for execution for execution')
 
 @base.cwt_shared_task()
-def generate_chunks(self, attrs, uri, process_axes, job_id):
+def generate_chunks(self, attrs, operation, uri, process_axes, job_id):
     job = self.load_job(job_id)
 
     self.update(job, 'Generating chunks for {!r}', uri)
@@ -87,7 +88,10 @@ def generate_chunks(self, attrs, uri, process_axes, job_id):
 
         return attrs
 
-    if process_axes == None:
+    # Determine the axis to generate chunks for, defaults to time axis
+    if operation.identifier == 'CDAT.average' and len(process_axes) > 1:
+        chunked_axis = None
+    elif process_axes is None or 'time' not in process_axes:
         chunked_axis = 'time'
     else:
         process_axes = set(process_axes)
@@ -98,12 +102,41 @@ def generate_chunks(self, attrs, uri, process_axes, job_id):
 
         chunked_axis = list(candidates)[0]
 
+    axis_size = dict((x, (y.stop-y.start)/y.step) for x, y in mapped.iteritems())
+
+    chunk_axis_size = dict(x for x in axis_size.items() if chunked_axis is None
+                           or x[0] != chunked_axis)
+
+    logger.info('Worker memory size %r', settings.WORKER_MEMORY)
+
+    est_total_size = reduce(lambda x, y: x*y, axis_size.values())*4
+
+    logger.info('Estimated size in memory %r', est_total_size)
+
+    est_chunk_size = reduce(lambda x, y: x*y, chunk_axis_size.values())*4
+
+    logger.info('Estimated chunk size in memory %r', est_chunk_size)
+
+    chunks_total = est_total_size/est_chunk_size
+
+    logger.info('Chunks total %r', chunks_total)
+
+    chunks_per_worker = round((settings.WORKER_MEMORY*0.50)/est_chunk_size)
+
+    logger.info('Chunks per worker %r', chunks_per_worker)
+
+    if chunks_per_worker == 0:
+        raise WPSError('Chunk size of %r bytes is too large for workers memory try reducing the size by subsetting', 
+                       est_chunk_size)
+
+    partition_size = int(min(chunks_per_worker, chunks_total))
+
     chunks = []
 
     chunk_axis = mapped[chunked_axis]
 
-    for begin in xrange(chunk_axis.start, chunk_axis.stop, settings.WPS_PARTITION_SIZE):
-        end = min(begin+settings.WPS_PARTITION_SIZE, chunk_axis.stop)
+    for begin in xrange(chunk_axis.start, chunk_axis.stop, partition_size):
+        end = min(begin+partition_size, chunk_axis.stop)
 
         chunks.append(slice(begin, end, chunk_axis.step))
 
@@ -174,7 +207,7 @@ def check_cache(self, attrs, uri, var_name, job_id):
 
             stop = mapped_axis.stop - orig_axis.start
 
-            new_mapped[key] = slice(start, stop)
+            new_mapped[key] = slice(start, stop, mapped_axis.step)
 
         attrs[uri]['cached'] = {
             'path': entry.local_path,
