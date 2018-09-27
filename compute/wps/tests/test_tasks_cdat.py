@@ -187,6 +187,61 @@ class CDATTaskTestCase(test.TestCase):
         self.assertTrue(infile.called)
         self.assertEqual(infile.returned[0][1:], (('tas',), mapped))
 
+    def test_base_process_average_multiple(self):
+        attrs = {
+            'file01.nc': {
+                'path': './file01.nc',
+            }
+        }
+
+        mock_self = mock.MagicMock()
+
+        infile = MockFile()
+        outfile = MockFile()
+
+        mock_self.open.return_value.__enter__.side_effect = [infile, outfile]
+
+        op = cwt.Process('CDAT.average')
+
+        op.add_parameters(weightoptions=['generate'])
+
+        cdat.base_process(mock_self, attrs, 'file01.nc', op, 'tas', 'days since 1990-01-01', ['lat', 'lon'], './output.nc', 0)
+
+        axis_expected = ''.join([str(infile.returned[0][0].getAxisIndex.return_value) for _ in
+                 range(2)])
+
+        self.assertEqual(mock_self.PROCESS.call_count, 1)
+        mock_self.PROCESS.assert_called_with(
+            infile.returned[0][0], 
+            axis=axis_expected,
+            weights='generate')
+
+    def test_base_process_average(self):
+        attrs = {
+            'file01.nc': {
+                'path': './file01.nc',
+            }
+        }
+
+        mock_self = mock.MagicMock()
+
+        infile = MockFile()
+        outfile = MockFile()
+
+        mock_self.open.return_value.__enter__.side_effect = [infile, outfile]
+
+        op = cwt.Process('CDAT.average')
+
+        op.add_parameters(weightoptions=['generate'])
+
+        cdat.base_process(mock_self, attrs, 'file01.nc', op, 'tas', 'days since 1990-01-01', ['lat'], './output.nc', 0)
+
+        self.assertEqual(mock_self.PROCESS.call_count, 1)
+        mock_self.PROCESS.assert_called_with(
+            infile.returned[0][0], 
+            axis=str(infile.returned[0][0].getAxisIndex.return_value),
+            weights='generate')
+
     def test_base_process(self):
         attrs = {
             'file01.nc': {
