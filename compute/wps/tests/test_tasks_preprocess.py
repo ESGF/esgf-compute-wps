@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import copy
 import mock
 
 import cwt
@@ -26,6 +27,9 @@ class FakeCache(object):
 class PreprocessTestCase(test.TestCase):
 
     def setUp(self):
+        self.op = cwt.Process('CDAT.subset')
+        self.op2 = cwt.Process('CDAT.average')
+
         lat = mock.MagicMock()
         lat.isTime.return_value = False
         lat.id = 'lat'
@@ -147,6 +151,77 @@ class PreprocessTestCase(test.TestCase):
         mock_get.assert_called_with(settings.WPS_EXECUTE_URL, data=expected, verify=False)
 
     @mock.patch('wps.tasks.CWTBaseTask.load_job')
+    def test_generate_chunks_memory_check_average_multiple(self, mock_job):
+        attrs = {
+            'sort': 'units',
+            'base_units': 'days since 1990-01-01',
+            'file1.nc': {
+                'units': 'days since 2001-01-01',
+                'first': 30,
+                'cached': None,
+                'mapped': {
+                    'lat': slice(100, 200, 1),
+                    'lon': slice(50, 100, 1),
+                    'time': slice(0, 1500, 1),
+                }
+            }
+        }
+
+        # Should fail, max memory is 16000000 and axis dependency causes size
+        # to be 100*50*1500*4=30000000, which is too large
+        with self.settings(WORKER_MEMORY=1600000), self.assertRaises(WPSError):
+            result = tasks.generate_chunks(attrs, self.op2, 'file1.nc', ['lat',
+                                                                        'lon'], 0)
+
+    @mock.patch('wps.tasks.CWTBaseTask.load_job')
+    def test_generate_chunks_memory_check_average(self, mock_job):
+        attrs = {
+            'sort': 'units',
+            'base_units': 'days since 1990-01-01',
+            'file1.nc': {
+                'units': 'days since 2001-01-01',
+                'first': 30,
+                'cached': None,
+                'mapped': {
+                    'lat': slice(100, 200, 1),
+                    'lon': slice(50, 100, 1),
+                    'time': slice(0, 1500, 1),
+                }
+            }
+        }
+
+        with self.settings(WORKER_MEMORY=1600000):
+            result = tasks.generate_chunks(attrs, self.op2, 'file1.nc', ['lat'], 0)
+
+        expected = copy.deepcopy(attrs)
+
+        expected['file1.nc']['chunks'] = {
+            'time': [slice(x, min(x+40, 1500), 1) for x in xrange(0, 1500, 40)],
+        }
+
+        self.assertEqual(result, expected)
+
+    @mock.patch('wps.tasks.CWTBaseTask.load_job')
+    def test_generate_chunks_memory_check_error(self, mock_job):
+        attrs = {
+            'sort': 'units',
+            'base_units': 'days since 1990-01-01',
+            'file1.nc': {
+                'units': 'days since 2001-01-01',
+                'first': 30,
+                'cached': None,
+                'mapped': {
+                    'lat': slice(100, 200, 1),
+                    'lon': slice(50, 100, 1),
+                    'time': slice(0, 1500, 1),
+                }
+            }
+        }
+
+        with self.settings(WORKER_MEMORY=2048), self.assertRaises(WPSError):
+            tasks.generate_chunks(attrs, self.op, 'file1.nc', None, 0)
+
+    @mock.patch('wps.tasks.CWTBaseTask.load_job')
     def test_generate_chunks_cached(self, mock_job):
         attrs = {
             'sort': 'units',
@@ -170,13 +245,15 @@ class PreprocessTestCase(test.TestCase):
             }
         }
 
-        result = tasks.generate_chunks(attrs, 'file1.nc', None, 0)
+        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', None, 0)
 
-        attrs['file1.nc']['chunks'] = {
-            'time': [slice(x, x+20) for x in xrange(200, 1100, 20)],
+        expected = copy.deepcopy(attrs)
+
+        expected['file1.nc']['chunks'] = {
+            'time': [slice(200, 1100, 1)],
         }
 
-        self.assertEqual(result, attrs)
+        self.assertEqual(result, expected)
         
     @mock.patch('wps.tasks.CWTBaseTask.load_job')
     def test_generate_chunks_temporal(self, mock_job):
@@ -195,13 +272,15 @@ class PreprocessTestCase(test.TestCase):
             }
         }
 
-        result = tasks.generate_chunks(attrs, 'file1.nc', ['time'], 0)
+        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', ['time'], 0)
 
-        attrs['file1.nc']['chunks'] = {
-            'lat': [slice(x, x+20) for x in xrange(100, 200, 20)],
+        expected = copy.deepcopy(attrs)
+
+        expected['file1.nc']['chunks'] = {
+            'lat': [slice(100, 200, 1)],
         }
 
-        self.assertEqual(result, attrs)
+        self.assertEqual(result, expected)
 
     @mock.patch('wps.tasks.CWTBaseTask.load_job')
     def test_generate_chunks_spatial(self, mock_job):
@@ -220,13 +299,15 @@ class PreprocessTestCase(test.TestCase):
             }
         }
 
-        result = tasks.generate_chunks(attrs, 'file1.nc', ['lat'], 0)
+        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', ['lat'], 0)
 
-        attrs['file1.nc']['chunks'] = {
-            'time': [slice(x, x+20) for x in xrange(0, 1500, 20)],
+        expected = copy.deepcopy(attrs)
+
+        expected['file1.nc']['chunks'] = {
+            'time': [slice(0, 1500, 1)],
         }
 
-        self.assertEqual(result, attrs)
+        self.assertEqual(result, expected)
 
     @mock.patch('wps.tasks.CWTBaseTask.load_job')
     def test_generate_chunks_temporal_spatial(self, mock_job):
@@ -245,13 +326,15 @@ class PreprocessTestCase(test.TestCase):
             }
         }
 
-        result = tasks.generate_chunks(attrs, 'file1.nc', ['time', 'lat'], 0)
+        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', ['time', 'lat'], 0)
 
-        attrs['file1.nc']['chunks'] = {
-            'lon': [slice(x, x+20) for x in xrange(50, 100, 20)],
+        expected = copy.deepcopy(attrs)
+
+        expected['file1.nc']['chunks'] = {
+            'lon': [slice(50, 100, 1)],
         }
 
-        self.assertEqual(result, attrs)
+        self.assertEqual(result, expected)
         
     @mock.patch('wps.tasks.CWTBaseTask.load_job')
     def test_generate_chunks_spatial_temporal(self, mock_job):
@@ -270,13 +353,45 @@ class PreprocessTestCase(test.TestCase):
             }
         }
 
-        result = tasks.generate_chunks(attrs, 'file1.nc', ['lat', 'time'], 0)
+        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', ['lat', 'time'], 0)
 
-        attrs['file1.nc']['chunks'] = {
-            'lon': [slice(x, x+20) for x in xrange(50, 100, 20)],
+        expected = copy.deepcopy(attrs)
+
+        expected['file1.nc']['chunks'] = {
+            'lon': [slice(50, 100, 1)],
         }
 
-        self.assertEqual(result, attrs)
+        self.assertEqual(result, expected)
+
+    @mock.patch('wps.tasks.CWTBaseTask.load_job')
+    def test_generate_chunks_multiple(self, mock_job):
+        attrs = {
+            'sort': 'units',
+            'base_units': 'days since 1990-01-01',
+            'file1.nc': {
+                'units': 'days since 2001-01-01',
+                'first': 30,
+                'cached': None,
+                'mapped': {
+                    'lat': slice(100, 200, 1),
+                    'lon': slice(50, 100, 1),
+                    'time': slice(0, 1500, 1),
+                }
+            }
+        }
+
+        with self.settings(WORKER_MEMORY=160000):
+            result = tasks.generate_chunks(attrs, self.op, 'file1.nc', None, 0)
+
+        print result
+
+        expected = copy.deepcopy(attrs)
+
+        expected['file1.nc']['chunks'] = {
+            'time': [slice(x, x+4, 1) for x in xrange(0, 1500, 4)]
+        }
+
+        self.assertEqual(result, expected)
 
     @mock.patch('wps.tasks.CWTBaseTask.load_job')
     def test_generate_chunks(self, mock_job):
@@ -295,13 +410,13 @@ class PreprocessTestCase(test.TestCase):
             }
         }
 
-        result = tasks.generate_chunks(attrs, 'file1.nc', None, 0)
+        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', None, 0)
 
-        attrs['file1.nc']['chunks'] = {
-            'time': [slice(x, x+20) for x in xrange(0, 1500, 20)],
-        }
+        expected = copy.deepcopy(attrs)
 
-        self.assertEqual(result, attrs)
+        expected['file1.nc']['chunks'] = {'time': [slice(0, 1500, 1)]}
+
+        self.assertEqual(result, expected)
 
     @mock.patch('wps.models.Cache.objects.filter')
     def test_check_cache_entries_superset(self, mock_filter):
@@ -380,6 +495,8 @@ class PreprocessTestCase(test.TestCase):
             'time': slice(0, 2000),
         }
 
+        self.maxDiff = None
+
         type(mock_entries.return_value).dimensions = mock.PropertyMock(return_value=helpers.encoder(data))
         type(mock_entries.return_value).local_path = mock.PropertyMock(return_value='./file1.nc')
 
@@ -408,9 +525,9 @@ class PreprocessTestCase(test.TestCase):
                 'cached': {
                     'path': './file1.nc',
                     'mapped': {
-                        'lat': slice(80, 180),
-                        'lon': slice(10, 60),
-                        'time': slice(0, 1500),
+                        'lat': slice(80, 180, 1),
+                        'lon': slice(10, 60, 1),
+                        'time': slice(0, 1500, 1),
                     }
                 },
                 'mapped': {

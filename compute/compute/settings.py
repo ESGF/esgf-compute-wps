@@ -117,6 +117,7 @@ ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, 
 INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', True, bool)
 PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
+WORKER_MEMORY = config.get_value('default', 'worker.memory', 1e9, int)
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
