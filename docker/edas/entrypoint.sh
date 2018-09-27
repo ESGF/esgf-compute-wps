@@ -6,4 +6,4 @@ source activate edas
 
 source bin/setup_runtime.sh
 
-exec bin/startup_edas_local.sh
+exec sbt "run 5670 5671 /root/.edas/cache/edas.properties"
