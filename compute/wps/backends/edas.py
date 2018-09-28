@@ -1,4 +1,5 @@
 import logging
+import uuid
 import xml.etree.ElementTree as ET
 
 import cwt
@@ -27,6 +28,32 @@ class EDAS(backend.Backend):
     def initialize(self):
         pass
 
+    def parse_get_capabilities(self, data):
+        index = data.index('!')
+
+        header = data[:index]
+
+        body = data[index+1:]
+
+        operations = body.split('|')
+
+        capabilities = {}
+
+        for x in operations:
+            id, lang, ops = x.split('!')
+
+            kernels = ops.split('~')
+
+            for y in kernels:
+                name, title = y.split(';')
+
+                capabilities[name] = {
+                    'module': id,
+                    'title': title
+                }
+
+        return capabilities
+
     def get_capabilities(self):
         context = zmq.Context.instance()
 
@@ -34,7 +61,9 @@ class EDAS(backend.Backend):
 
         socket.connect('tcp://{}:{}'.format(settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT))
 
-        socket.send(str('0!getCapabilities!WPS'))
+        id = uuid.uuid4()
+
+        socket.send('{}!getCapabilities!WPS'.format(id))
 
         # Poll so we can timeout eventually
         if (socket.poll(10 * 1000) == 0):
@@ -48,9 +77,32 @@ class EDAS(backend.Backend):
 
         socket.close()
 
-        header, response = data.split('!')
+        response = self.parse_get_capabilities(data)
 
         return response
+
+    def describe_process(self, identifier):
+        context = zmq.Context.instance()
+
+        socket = context.socket(zmq.REQ)
+
+        socket.connect('tcp://{}:{}'.format(settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT))
+
+        id = uuid.uuid4()
+
+        request = '{}!describeprocess!noop'.format(id)
+
+        socket.send(request)
+
+        # Poll so we can timeout eventually
+        if (socket.poll(10 * 1000) == 0):
+            logger.info('Failed to retrieve EDAS response')
+
+            socket.close()
+
+            raise EDASCommunicationError(settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT)
+
+        data = socket.recv()
 
     def populate_processes(self):
         server = models.Server.objects.get(host='default')
@@ -59,22 +111,14 @@ class EDAS(backend.Backend):
 
         response = self.get_capabilities()
 
-        root = ET.fromstring(str(response))
-
-        tags = root.findall('./processes/*')
-
         metadata = {'inputs': '*', 'datasets': '*'}
 
-        for tag in tags:
-            desc_tag = tag.find('description')
+        for x, y in response.iteritems():
+            #desc = self.describe_process(x)
 
-            identifier = desc_tag.attrib.get('id')
+            identifier = 'EDASK.{}:{}'.format(y['module'], x)
 
-            title = desc_tag.attrib.get('title')
-
-            abstract = desc_tag.text
-
-            self.add_process(identifier, title, metadata, abstract=abstract)
+            self.add_process(identifier, y['title'], metadata, abstract='')
 
     def execute(self, identifier, variable, domain, operation, **kwargs):
         logger.debug('%r', kwargs)
