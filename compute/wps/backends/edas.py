@@ -90,7 +90,7 @@ class EDAS(backend.Backend):
 
         id = uuid.uuid4()
 
-        request = '{}!describeprocess!noop'.format(id)
+        request = '{}!describeprocess!{}'.format(id, identifier)
 
         socket.send(request)
 
@@ -114,9 +114,9 @@ class EDAS(backend.Backend):
         metadata = {'inputs': '*', 'datasets': '*'}
 
         for x, y in response.iteritems():
-            #desc = self.describe_process(x)
+            identifier = '{}.{}'.format(y['module'], x)
 
-            identifier = 'EDASK.{}:{}'.format(y['module'], x)
+            #desc = self.describe_process(identifier)
 
             self.add_process(identifier, y['title'], metadata, abstract='')
 
@@ -134,6 +134,10 @@ class EDAS(backend.Backend):
 
         operation = operation.values()[0]
 
-        canvas = tasks.edas_submit.si(variable.values(), operation.domain, operation, **params).set(**helpers.DEFAULT_QUEUE)
+        start = tasks.job_started.s(job_id=params['job_id']).set(**helpers.DEFAULT_QUEUE)
+
+        submit = tasks.edas_submit.si(variable.values(), operation.domain, operation, **params).set(**helpers.DEFAULT_QUEUE)
+
+        canvas = start | submit
 
         canvas.delay()
