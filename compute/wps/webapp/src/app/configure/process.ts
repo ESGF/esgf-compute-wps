@@ -40,12 +40,16 @@ export class Process {
   }
 
   getVariable(): any {
+    if (this.inputs == null) { return []; }
+
     return this.inputs.map((item: File) => {
       return {uri: item.url, id: `${this.variable}|${item.uid}`};
     });
   }
 
   getDomain(): any {
+    if (this.domain == null) { return []; }
+
     let domain = {};
 
     this.domain.axes.map((item: Axis) => {
@@ -69,11 +73,15 @@ export class Process {
       result: this.newUID(),
     };
 
-    operation['input'] = this.inputs.map((item: File) => {
-      return item.uid;
-    });
+    if (this.inputs != null) {
+      operation['input'] = this.inputs.map((item: File) => {
+        return item.uid;
+      });
+    }
 
-    operation['domain'] = this.domain.id;
+    if (this.domain != null) {
+      operation['domain'] = this.domain.id;
+    }
 
     for (let x of this.parameters) {
       operation[x.key] = x.value;
