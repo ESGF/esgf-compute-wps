@@ -399,6 +399,8 @@ class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     process = models.ForeignKey(Process, on_delete=models.CASCADE, null=True)
+    steps_completed = models.IntegerField(default=0)
+    steps_total = models.IntegerField(default=0)
     extra = models.TextField(null=True)
 
     @property
@@ -488,6 +490,46 @@ class Job(models.Model):
 
         return latest is not None and latest.status == ProcessStarted
 
+    @property
+    def steps_progress(self):
+        try:
+            return (self.steps_completed + 1) * 100.0 / self.steps_total
+        except ZeroDivisionError:
+            return 0.0
+
+    @property
+    def steps(self):
+        return self.steps_total
+
+    @steps.setter
+    def steps(self, x):
+        self.steps_total = x
+
+        self.save()
+
+    def steps_inc_total(self, steps=None):
+        if steps is None:
+            steps = 1
+
+        self.steps_total = F('steps_total') + steps
+
+        self.save()
+
+    def steps_reset(self):
+        self.steps_total = 0
+
+        self.steps_completed = 0
+
+        self.save()
+
+    def steps_inc(self, steps=None):
+        if steps is None:
+            steps = 1
+
+        self.steps_completed = F('steps_completed') + steps
+
+        self.save()
+
     def accepted(self):
         self.status_set.create(status=ProcessAccepted)
 
@@ -495,7 +537,7 @@ class Job(models.Model):
         if not self.is_started:
             status = self.status_set.create(status=ProcessStarted)
 
-            status.set_message('Job Started')
+            status.set_message('Job Started', self.steps_progress)
 
     def succeeded(self, output=None):
         status = self.status_set.create(status=ProcessSucceeded)
@@ -518,10 +560,10 @@ class Job(models.Model):
     def retry(self, exception):
         self.update_status('Retrying... {}'.format(exception), 0)
 
-    def update(self, message, percent=0):
+    def update(self, message):
         started = self.status_set.filter(status=ProcessStarted).latest('created_date')
 
-        started.set_message(message, percent)
+        started.set_message(message, self.steps_progress)
 
     def statusSince(self, date):
         return [
