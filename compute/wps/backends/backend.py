@@ -4,6 +4,7 @@ import cwt
 from django import db
 
 from wps import models
+from wps import WPSError
 
 logger = logging.getLogger('wps.backends')
 
@@ -38,6 +39,14 @@ class Backend(object):
 
     def __init__(self):
         self.processes = []
+
+    def load_job(self, job_id):
+        try:
+            job = models.Job.objects.get(pk=job_id)
+        except models.Job.DoesNotExist:
+            raise WPSError('Job {} does not exist', job_id)
+        
+        return job
 
     def add_process(self, identifier, name, metadata, data_inputs=None, process_outputs=None, abstract=None):
         """ Adds a process/operation to a backend.

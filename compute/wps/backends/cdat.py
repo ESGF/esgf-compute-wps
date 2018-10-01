@@ -179,6 +179,9 @@ class CDAT(backend.Backend):
             config['uris'], config['var_name'], user.id, job_id=job.id).set(
                 **helpers.INGRESS_QUEUE)
 
+        # Start tracking steps
+        steps = 2
+
         # Start of the chain will mark the job started and get the base units
         # of all files.
         canvas = start | base
@@ -203,10 +206,12 @@ class CDAT(backend.Backend):
         # then the mapped domain can be compute in parallel for each file.
         if config['time_axis'] is not None and config['time_axis'].crs.name == cwt.INDICES.name:
             map_domain = tasks.map_domain_time_indices.s(
-                config['var_name'], data['operation'].domain, user.id, job_id=job.id).set(
+                config['var_name'], config['operation'].domain, user.id, job_id=job.id).set(
                     **helpers.INGRESS_QUEUE)
 
             canvas = canvas | map_domain
+
+            steps += 1
         else:
             for uri in config['uris']:
                 map_domain = tasks.map_domain.s(
@@ -215,12 +220,18 @@ class CDAT(backend.Backend):
 
                 analysis[uri].insert(0, map_domain)
 
-            canvas = canvas | celery.group(celery.chain(x) for x in analysis.values())
+        canvas = canvas | celery.group(celery.chain(x) for x in analysis.values())
+
+        steps += (len(analysis) * len(analysis.values()[0]))
 
         # Setup the task to submit the job for actual execution.
         execute = tasks.wps_execute.s(
             variable, domain, operation, user_id=user.id, job_id=job.id).set(
                 **helpers.DEFAULT_QUEUE)
+
+        steps += 1
+
+        job.steps = steps
 
         canvas = canvas | execute
 
@@ -286,6 +297,10 @@ class CDAT(backend.Backend):
 
     def execute_processing(self, root, sort, base_units, variable, domain, 
                            operation, user_id, job_id, **kwargs):
+        job = self.load_job(job_id)
+
+        job.steps_reset()
+
         op = operation[root]
 
         process = models.Process.objects.get(identifier=op.identifier)
@@ -339,6 +354,8 @@ class CDAT(backend.Backend):
                     url, var_name, mapped, chunk_axis, base_units, 
                     job_id=job_id).set(
                         **helpers.DEFAULT_QUEUE))
+
+                job.steps_inc_total(len(ingress)+1)
             else:
                 self.generate_cache_entry(op_uid, url, cache_files, **kwargs)
 
@@ -350,6 +367,8 @@ class CDAT(backend.Backend):
             variable.values(), output_path, None, var_name, process.id, user_id, job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
 
+        job.steps_inc_total()
+
         process = base.get_process(op.identifier)
 
         if len(ingress) > 0:
@@ -358,7 +377,6 @@ class CDAT(backend.Backend):
                 job_id=job_id).set(
                     **helpers.DEFAULT_QUEUE)
 
-            #ingress_and_process = celery.group(x for x in ingress) | process_task
             ingress_and_process = celery.chord(header=ingress,
                                                body=process_task)
 
@@ -368,6 +386,8 @@ class CDAT(backend.Backend):
             finalize = celery.group(x for x in cache) | cleanup
 
             canvas = ingress_and_process | success | finalize
+
+            job.steps_inc_total(3)
         else:
             process_task = process.s(
                 cache_files, cache_files.keys(), op, var_name, base_units, 
@@ -376,10 +396,14 @@ class CDAT(backend.Backend):
 
             canvas = process_task | success
 
+            job.steps_inc_total(2)
+
         canvas.delay()
 
     def execute_computation(self, root, base_units, variable, domain, 
                             operation, user_id, job_id, **kwargs):
+        job = self.load_job(job_id)
+
         op = operation[root]
 
         logger.info('Executing %r', op)
@@ -406,6 +430,8 @@ class CDAT(backend.Backend):
         kwargs['index'] = 0
 
         process = base.get_process(op.identifier)
+
+        job.steps_reset()
 
         if cached is None:
             ingress_paths, ingress = self.generate_ingress_tasks(
@@ -437,6 +463,8 @@ class CDAT(backend.Backend):
                             **helpers.DEFAULT_QUEUE)))
 
             cleanup_paths.extend(output_paths)
+
+            job.steps_inc_total((len(process_chains)*2)+1)
         else:
             self.generate_cache_entry(op_uid, var.uri, cache_files, **kwargs)
 
@@ -475,6 +503,8 @@ class CDAT(backend.Backend):
 
             cleanup_paths.extend(output_paths)
 
+            job.steps_inc_total(len(process_chains))
+
         del kwargs['index']
 
         concat_path = '{}/{}-concat'.format(settings.WPS_INGRESS_PATH, op_uid)
@@ -501,6 +531,8 @@ class CDAT(backend.Backend):
             **helpers.DEFAULT_QUEUE)
 
         canvas = canvas | cleanup
+
+        job.steps_inc_total(3)
 
         canvas.delay()
 

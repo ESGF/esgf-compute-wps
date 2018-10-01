@@ -119,15 +119,13 @@ class CWTBaseTask(celery.Task):
         return process
 
     def update(self, job, fmt, *args, **kwargs):
-        percent = kwargs.get('percent', 0)
-
         message = fmt.format(*args)
 
         tagged_message = '[{}] {}'.format(self.request.id, message)
 
-        job.update(tagged_message, percent)
+        job.update(tagged_message)
 
-        logger.info('%s %r', tagged_message, percent)
+        logger.info('%s %r', tagged_message, job.steps_progress)
 
     def parse_uniform_arg(self, value, default_start, default_n):
         result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
@@ -284,6 +282,8 @@ class CWTBaseTask(celery.Task):
             metrics.JOBS_RUNNING.set(metrics.jobs_running())
 
     def on_success(self, retval, task_id, args, kwargs):
-        pass
+        job = self.__get_job(**kwargs)
+
+        job.steps_inc()
 
 cwt_shared_task = partial(shared_task, bind=True, base=CWTBaseTask)
