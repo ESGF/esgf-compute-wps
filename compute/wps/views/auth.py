@@ -283,7 +283,8 @@ def oauth2_callback(request):
 
         logger.info('Retrieved Certificated for OpenID {}'.format(openid_url))
 
-        user.auth.update('oauth2', [cert, key], token=new_token)
+        user.auth.update('oauth2', [cert, key], token=new_token,
+                         state=oauth_state)
     except KeyError as e:
         pass
     except WPSError as e:
