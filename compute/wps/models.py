@@ -540,6 +540,8 @@ class Job(models.Model):
             status.set_message('Job Started', self.steps_progress)
 
     def succeeded(self, output=None):
+        self.update('Job succeeded')
+
         status = self.status_set.create(status=ProcessSucceeded)
 
         if output is None:
@@ -550,6 +552,8 @@ class Job(models.Model):
         status.save()
 
     def failed(self, exception=None):
+        self.update('Job Failed')
+
         status, created = self.status_set.get_or_create(status=ProcessFailed)
 
         if created and exception is not None:
@@ -558,9 +562,11 @@ class Job(models.Model):
             status.save()
 
     def retry(self, exception):
-        self.update_status('Retrying... {}'.format(exception), 0)
+        self.update('Retrying... {}', exception)
 
-    def update(self, message):
+    def update(self, message, *args, **kwargs):
+        message = message.format(*args, **kwargs)
+
         started = self.status_set.filter(status=ProcessStarted).latest('created_date')
 
         started.set_message(message, self.steps_progress)

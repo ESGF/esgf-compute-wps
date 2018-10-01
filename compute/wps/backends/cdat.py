@@ -180,7 +180,7 @@ class CDAT(backend.Backend):
                 **helpers.INGRESS_QUEUE)
 
         # Start tracking steps
-        steps = 2
+        job.steps_inc_total(2)
 
         # Start of the chain will mark the job started and get the base units
         # of all files.
@@ -211,7 +211,7 @@ class CDAT(backend.Backend):
 
             canvas = canvas | map_domain
 
-            steps += 1
+            job.steps_inc_total()
         else:
             for uri in config['uris']:
                 map_domain = tasks.map_domain.s(
@@ -222,16 +222,14 @@ class CDAT(backend.Backend):
 
         canvas = canvas | celery.group(celery.chain(x) for x in analysis.values())
 
-        steps += (len(analysis) * len(analysis.values()[0]))
+        job.steps_inc_total(len(analysis) * len(analysis.values()[0]))
 
         # Setup the task to submit the job for actual execution.
         execute = tasks.wps_execute.s(
             variable, domain, operation, user_id=user.id, job_id=job.id).set(
                 **helpers.DEFAULT_QUEUE)
 
-        steps += 1
-
-        job.steps = steps
+        job.steps_inc_total()
 
         canvas = canvas | execute
 
@@ -300,6 +298,8 @@ class CDAT(backend.Backend):
         job = self.load_job(job_id)
 
         job.steps_reset()
+
+        job.update('Starting processing')
 
         op = operation[root]
 
@@ -404,6 +404,10 @@ class CDAT(backend.Backend):
                             operation, user_id, job_id, **kwargs):
         job = self.load_job(job_id)
 
+        job.steps_reset()
+
+        job.update('Starting computation')
+
         op = operation[root]
 
         logger.info('Executing %r', op)
@@ -430,8 +434,6 @@ class CDAT(backend.Backend):
         kwargs['index'] = 0
 
         process = base.get_process(op.identifier)
-
-        job.steps_reset()
 
         if cached is None:
             ingress_paths, ingress = self.generate_ingress_tasks(
