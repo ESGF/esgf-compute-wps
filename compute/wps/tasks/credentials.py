@@ -99,7 +99,12 @@ def refresh_certificate(user):
     if 'token' not in extra:
         raise WPSError('Missing OAuth2 token, try authenticating with OAuth2 again')
 
-    cert, key, new_token = oauth2.get_certificate(extra['token'], auth_service.server_url, cert_service.server_url)
+    try:
+        cert, key, new_token = oauth2.get_certificate(extra['token'],
+                                                      extra['state'],
+                                                      auth_service.server_url, cert_service.server_url) 
+    except KeyError as e:
+        raise WPSError('Missing OAuth2 {!r}', e)
 
     logger.info('Retrieved certificate and new token')
 

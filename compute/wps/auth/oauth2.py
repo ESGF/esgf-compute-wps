@@ -19,13 +19,14 @@ def get_env(key):
     except KeyError:
         raise OAuth2Error('Environment variable "{}" has not been set'.format(key))
 
-def get_certificate(token, refresh_url, cert_url):
+def get_certificate(token, state, refresh_url, cert_url):
     client_id = get_env('OAUTH_CLIENT')
 
     secret = get_env('OAUTH_SECRET')
 
     slcs = OAuth2Session(client_id,
                          token=token,
+                         state=state,
                          auto_refresh_url=refresh_url,
                          auto_refresh_kwargs = {
                                                 'client_id': client_id,
