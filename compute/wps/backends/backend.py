@@ -2,6 +2,7 @@ import logging
 
 import cwt
 from django import db
+from django.conf import settings
 
 from wps import models
 
@@ -38,6 +39,20 @@ class Backend(object):
 
     def __init__(self):
         self.processes = []
+
+    def load_user(self, user_id):
+        try:
+            user = models.User.objects.get(pk=user_id)
+        except models.User.DoesNotExist:
+            raise WPSError('User "{}" does not exist', user_id)
+
+        return user
+
+    def generate_output_path(self, user, filename):
+        job_id = user.job_set.count()
+
+        return '{}/{}/{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, user.id,
+                                       job_id, filename)
 
     def add_process(self, identifier, name, metadata, data_inputs=None, process_outputs=None, abstract=None):
         """ Adds a process/operation to a backend.

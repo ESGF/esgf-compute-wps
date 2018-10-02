@@ -125,6 +125,8 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
 
     start = self.get_now()
 
+    os.makedirs(os.path.dirname(output_path))
+
     with self.open(output_path, 'w') as outfile:
         # Expect the keys to be given in a sortable format
         for key in sorted(keys):

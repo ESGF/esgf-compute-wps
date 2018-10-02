@@ -38,15 +38,15 @@ def job_succeeded(self, attrs, variables, output_path, move_path, var_name,
     process = self.load_process(process_id)
 
     if move_path is not None:
+        os.makedirs(os.path.dirname(move_path))
+
         shutil.move(output_path, move_path)
         
-        _, filename = os.path.split(move_path)
+        output_path = move_path
 
-        url = settings.WPS_DAP_URL.format(filename=filename)
-    else:
-        _, filename = os.path.split(output_path)
+    relpath = os.path.relpath(output_path, settings.WPS_PUBLIC_PATH)
 
-        url = settings.WPS_DAP_URL.format(filename=filename)
+    url = settings.WPS_DAP_URL.format(filename=relpath)
 
     output = cwt.Variable(url, var_name)
 
