@@ -72,6 +72,13 @@ nginx:
     memoryRequest: 128Mi
     cpuLimit: 200m
     memoryLimit: 512Mi
+
+  ingress:
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
   
 wps:
   replicas: 1
