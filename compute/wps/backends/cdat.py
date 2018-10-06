@@ -226,7 +226,7 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def generate_ingress_tasks(self, op_uid, url, var_name, user_id, job_id, **kwargs):
+    def generate_ingress_tasks(self, op_uid, url, var_name, user_id, job_id, kwargs):
         preprocess = kwargs[url]
 
         chunks = preprocess['chunks']
@@ -329,7 +329,7 @@ class CDAT(backend.Backend):
 
                 try:
                     ingress_paths, ingress = self.generate_ingress_tasks(
-                        op_uid, url, var_name, user_id, job_id, **kwargs)
+                        op_uid, url, var_name, user_id, job_id, kwargs)
                 except FileNotIncludedError:
                     continue
 
@@ -409,7 +409,7 @@ class CDAT(backend.Backend):
 
         if cached is None:
             ingress_paths, ingress = self.generate_ingress_tasks(
-                op_uid, var.uri, var.var_name, user_id, job_id, **kwargs)
+                op_uid, var.uri, var.var_name, user_id, job_id, kwargs)
 
             cleanup_paths.extend(ingress_paths)
 
