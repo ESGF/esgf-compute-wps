@@ -383,7 +383,8 @@ def determine_base_units(self, uris, var_name, user_id, job_id):
     sort = None
     base_units = None
 
-    check_units = reduce(lambda x, y: x if x['units'] == y['units'] else None, files.values())
+    check_units = reduce(lambda x, y: x if (x is not None and x['units'] ==
+                                            y['units']) else None, files.values())
 
     if check_units is None:
         sort = 'units'
