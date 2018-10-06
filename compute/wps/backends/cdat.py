@@ -301,7 +301,7 @@ class CDAT(backend.Backend):
         urls = sorted([variable[x].uri for x in op.inputs], 
                       key=lambda x: kwargs[x][sort])
 
-        ingress = []
+        ingress_tasks = []
         cache = []
         cache_files = {}
         cleanup_paths = []
@@ -333,6 +333,8 @@ class CDAT(backend.Backend):
                 except FileNotIncludedError:
                     continue
 
+                ingress_tasks.extend(ingress)
+
                 cleanup_paths.extend(ingress_paths)
 
                 cache.append(tasks.ingress_cache.s(
@@ -352,14 +354,13 @@ class CDAT(backend.Backend):
 
         process = base.get_process(op.identifier)
 
-        if len(ingress) > 0:
+        if len(ingress_tasks) > 0:
             process_task = process.s(
                 ingress_paths, op, var_name, base_units, output_path, 
                 job_id=job_id).set(
                     **helpers.DEFAULT_QUEUE)
 
-            #ingress_and_process = celery.group(x for x in ingress) | process_task
-            ingress_and_process = celery.chord(header=ingress,
+            ingress_and_process = celery.chord(header=ingress_tasks,
                                                body=process_task)
 
             cleanup = tasks.ingress_cleanup.s(cleanup_paths, job_id=job_id).set(
