@@ -163,16 +163,36 @@ export class ProcessDetailComponent implements OnInit {
     });
   }
 
+  getSelectedFiles() {
+    if (this.files == null) { throw 'No files have been selected'; }
+
+    return this.files.filter((item: File) => { return item.included; });
+  }
+
+  getSelectedVariableName() {
+    if (this.selectedVariable == null) { throw 'No Variable has been selected'; }
+
+    return this.selectedVariable.id;
+  }
+
   execute() {
     let process = this.selectedOperation;
 
-    process.inputs = this.files.filter((item: File) => { return item.included; });
+    if (process.description.metadata.inputs > 0) {
+      try {
+        process.inputs = this.getSelectedFiles();
 
-    process.variable = this.selectedVariable.id;
+        process.variable = this.getSelectedVariableName();
 
-    process.domain = new Domain('', this.axes);
+        process.domain = new Domain('', this.axes);
 
-    process.regrid = this.regridModel;
+        process.regrid = this.regridModel;
+      } catch(e) {
+        this.notificationService.error(e);
+
+        return;
+      }
+    }
 
     process.parameters = this.parameters;
 
