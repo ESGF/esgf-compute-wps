@@ -163,8 +163,8 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
                     self.update(job, 'Building file from ingressed data {}',
                                 current['path'].split('/')[-1])
 
-        self.update(job, 'Finished building file {}',
-                    output_path.split('/')[-1])
+    self.update(job, 'Finished building file {}',
+                output_path.split('/')[-1])
 
     elapsed = self.get_now() - start
 

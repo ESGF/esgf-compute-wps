@@ -5,6 +5,7 @@ from django import db
 from django.conf import settings
 
 from wps import models
+from wps import WPSError
 
 logger = logging.getLogger('wps.backends')
 
@@ -47,6 +48,14 @@ class Backend(object):
             raise WPSError('User "{}" does not exist', user_id)
 
         return user
+
+    def load_job(self, job_id):
+        try:
+            job = models.Job.objects.get(pk=job_id)
+        except models.Job.DoesNotExist:
+            raise WPSError('Job {} does not exist', job_id)
+        
+        return job
 
     def generate_output_path(self, user, filename):
         job_id = user.job_set.count()

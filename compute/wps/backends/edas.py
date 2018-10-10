@@ -73,15 +73,15 @@ class EDAS(backend.Backend):
 
             self.add_process(identifier, title, abstract=abstract)
 
-    def execute(self, identifier, variables, domains, operations, **kwargs):
+    def execute(self, identifier, variables, domains, operations, user, job, **kwargs):
         if len(operations) == 0:
             raise Exception('Must provide atleast one operation')
 
         logger.info('Executing process "{}"'.format(identifier))
 
         params = {
-            'user_id': kwargs.get('user').id,
-            'job_id': kwargs.get('job').id
+            'user_id': user.id,
+            'job_id': job.id,
         }
 
         operation = operations.values()[0]
