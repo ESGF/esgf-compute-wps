@@ -83,15 +83,19 @@ class CredentailsTestCase(test.TestCase):
 
         mock_discover.return_value = ('url', mock_services)
 
-        self.user.auth.extra = '{"token": "token value"}'
+        extra = '{"token": "token value", "state": "state value"}'
+
+        self.user.auth.extra = extra
 
         self.user.auth.cert = 'some cert'
 
         cert = tasks.refresh_certificate(self.user)
 
+        expected_extra = '{"token": "new token value", "state": "state value"}'
+
         self.assertEqual(cert, 'cert valuekey value')
         self.assertEqual(self.user.auth.cert, 'cert valuekey value')
-        self.assertEqual(self.user.auth.extra, '{"token": "new token value"}')
+        self.assertEqual(self.user.auth.extra, expected_extra)
 
     def test_check_certificate_missing_certificate(self):
         with self.assertRaises(tasks.CertificateError):

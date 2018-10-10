@@ -269,24 +269,33 @@ def oauth2_callback(request):
 
         oauth_state = request.session.pop('oauth_state')
 
+        logger.info('Handling OAuth2 callback for %r current state %r',
+                    openid_url, oauth_state)
+
         user = models.User.objects.get(auth__openid_url = openid_url)
+
+        logger.info('Discovering token and certificate services')
 
         token_service, cert_service = openid.services(openid_url, (URN_ACCESS, URN_RESOURCE))
 
         request_url = '{}?{}'.format(settings.WPS_OAUTH2_CALLBACK, request.META['QUERY_STRING'])
 
+        logger.info('Getting token from service')
+
         token = oauth2.get_token(token_service.server_url, request_url, oauth_state)
 
-        logger.info('Retrieved OAuth2 token for OpenID {}'.format(openid_url))
+        logger.info('Getting certificate from service')
 
-        cert, key, new_token = oauth2.get_certificate(token, token_service.server_url, cert_service.server_url)
+        cert, key, new_token = oauth2.get_certificate(token, oauth_state, token_service.server_url, cert_service.server_url)
 
-        logger.info('Retrieved Certificated for OpenID {}'.format(openid_url))
+        logger.info('Updating user with token, certificate and state')
 
-        user.auth.update('oauth2', [cert, key], token=new_token)
+        user.auth.update('oauth2', [cert, key], token=new_token, state=oauth_state)
     except KeyError as e:
+        logger.exception('Missing %r key from session data', e)
+
         pass
-    except WPSError as e:
+    except (WPSError, oauth2.OAuth2Error) as e:
         logger.exception('OAuth2 callback failed')
 
         if user is not None:
@@ -297,8 +306,10 @@ def oauth2_callback(request):
             user.auth.extra = json.dumps(extra)
 
             user.auth.save()
-    finally:
-        return redirect(settings.WPS_PROFILE_URL)
+    
+    logger.info('Finished handling OAuth2 callback, redirect to profile')
+
+    return redirect(settings.WPS_PROFILE_URL)
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
