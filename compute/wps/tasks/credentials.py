@@ -44,7 +44,7 @@ def check_certificate(user):
         returns true if valid otherwise false.
     """
     if user.auth.cert == '':
-        raise CertificateError(user, 'Missing certificate')
+        return False
 
     try:
         cert = crypto.load_certificate(crypto.FILETYPE_PEM, user.auth.cert)
