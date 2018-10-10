@@ -10,6 +10,7 @@ from django.conf import settings
 
 from wps import metrics
 from wps import models
+from wps import WPSError
 from wps.tasks import base
 
 logger = get_task_logger('wps.tasks.job')
@@ -38,7 +39,10 @@ def job_succeeded(self, attrs, variables, output_path, move_path, var_name,
     process = self.load_process(process_id)
 
     if move_path is not None:
-        os.makedirs(os.path.dirname(move_path))
+        try:
+            os.makedirs(os.path.dirname(move_path))
+        except OSError:
+            raise WPSError('Failed to create output directory')
 
         shutil.move(output_path, move_path)
         
