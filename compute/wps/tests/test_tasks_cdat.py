@@ -281,7 +281,8 @@ class CDATTaskTestCase(test.TestCase):
 
     @mock.patch('wps.tasks.cdat.retrieve_data_cached')
     @mock.patch('os.stat')
-    def test_base_retrieve_cached(self, mock_stat, mock_retrieve):
+    @mock.patch('os.makedirs')
+    def test_base_retrieve_cached(self, mock_make, mock_stat, mock_retrieve):
         type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=1200000)
 
         attrs = {
@@ -311,7 +312,8 @@ class CDATTaskTestCase(test.TestCase):
 
     @mock.patch('wps.tasks.cdat.retrieve_data')
     @mock.patch('os.stat')
-    def test_base_retrieve_regrid(self, mock_stat, mock_retrieve):
+    @mock.patch('os.makedirs')
+    def test_base_retrieve_regrid(self, mock_make, mock_stat, mock_retrieve):
         now = datetime.datetime.now()
 
         type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=1200000)
@@ -347,7 +349,8 @@ class CDATTaskTestCase(test.TestCase):
 
     @mock.patch('wps.tasks.cdat.retrieve_data')
     @mock.patch('os.stat')
-    def test_base_retrieve(self, mock_stat, mock_retrieve):
+    @mock.patch('os.makedirs')
+    def test_base_retrieve(self, mock_make, mock_stat, mock_retrieve):
         type(mock_stat.return_value).st_size = mock.PropertyMock(return_value=1200000)
 
         keys = ['file01.nc', 'file02.nc']

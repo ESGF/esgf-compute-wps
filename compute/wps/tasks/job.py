@@ -10,6 +10,7 @@ from django.conf import settings
 
 from wps import metrics
 from wps import models
+from wps import WPSError
 from wps.tasks import base
 
 logger = get_task_logger('wps.tasks.job')
@@ -38,15 +39,18 @@ def job_succeeded(self, attrs, variables, output_path, move_path, var_name,
     process = self.load_process(process_id)
 
     if move_path is not None:
+        try:
+            os.makedirs(os.path.dirname(move_path))
+        except OSError:
+            raise WPSError('Failed to create output directory')
+
         shutil.move(output_path, move_path)
         
-        _, filename = os.path.split(move_path)
+        output_path = move_path
 
-        url = settings.WPS_DAP_URL.format(filename=filename)
-    else:
-        _, filename = os.path.split(output_path)
+    relpath = os.path.relpath(output_path, settings.WPS_PUBLIC_PATH)
 
-        url = settings.WPS_DAP_URL.format(filename=filename)
+    url = settings.WPS_DAP_URL.format(filename=relpath)
 
     output = cwt.Variable(url, var_name)
 

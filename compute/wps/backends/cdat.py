@@ -288,6 +288,8 @@ class CDAT(backend.Backend):
                            operation, user_id, job_id, **kwargs):
         op = operation[root]
 
+        user = self.load_user(user_id)
+
         process = models.Process.objects.get(identifier=op.identifier)
 
         logger.info('Executing %r', op)
@@ -344,7 +346,7 @@ class CDAT(backend.Backend):
 
         del kwargs['index']
 
-        output_path = '{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, op_uid)
+        output_path = self.generate_output_path(user, op_uid)
 
         success = tasks.job_succeeded.s(
             variable.values(), output_path, None, var_name, process.id, user_id, job_id=job_id).set(
@@ -381,6 +383,8 @@ class CDAT(backend.Backend):
     def execute_computation(self, root, base_units, variable, domain, 
                             operation, user_id, job_id, **kwargs):
         op = operation[root]
+
+        user = self.load_user(user_id)
 
         logger.info('Executing %r', op)
 
@@ -484,7 +488,7 @@ class CDAT(backend.Backend):
             job_id=job_id).set(
                 **helpers.DEFAULT_QUEUE)
 
-        output_path = '{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, op_uid)
+        output_path = self.generate_output_path(user, op_uid)
 
         process_obj = models.Process.objects.get(identifier=process.IDENTIFIER)
 
