@@ -263,7 +263,7 @@ class CDAT(backend.Backend):
 
         return ingress_paths, ingress_tasks
 
-    def generate_cache_entry(self, op_uid, url, cache_files, **kwargs):
+    def generate_cache_entry(self, op_uid, url, cache_files, kwargs):
         key = '{}-{:08}'.format(op_uid, kwargs['index'])
 
         kwargs['index'] += 1
@@ -323,6 +323,8 @@ class CDAT(backend.Backend):
                 continue
 
             if cached is None:
+                logger.info('Ingressing data')
+
                 chunks = preprocess['chunks']
 
                 chunk_axis = chunks.keys()[0]
@@ -342,7 +344,9 @@ class CDAT(backend.Backend):
                     job_id=job_id).set(
                         **helpers.DEFAULT_QUEUE))
             else:
-                self.generate_cache_entry(op_uid, url, cache_files, **kwargs)
+                logger.info('Using cached data')
+
+                self.generate_cache_entry(op_uid, url, cache_files, kwargs)
 
         del kwargs['index']
 
