@@ -321,6 +321,10 @@ def login_mpc(request):
 
         host, port = g.groups()
 
+        from OpenSSL import SSL
+
+        MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
+
         try:
             m = MyProxyClient(hostname=host, caCertDir=settings.WPS_CA_PATH)
 
