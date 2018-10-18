@@ -235,7 +235,7 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def generate_ingress_tasks(self, op_uid, url, var_name, user_id, job_id, **kwargs):
+    def generate_ingress_tasks(self, op_uid, url, var_name, user_id, job_id, kwargs):
         preprocess = kwargs[url]
 
         chunks = preprocess['chunks']
@@ -272,7 +272,7 @@ class CDAT(backend.Backend):
 
         return ingress_paths, ingress_tasks
 
-    def generate_cache_entry(self, op_uid, url, cache_files, **kwargs):
+    def generate_cache_entry(self, op_uid, url, cache_files, kwargs):
         key = '{}-{:08}'.format(op_uid, kwargs['index'])
 
         kwargs['index'] += 1
@@ -318,7 +318,7 @@ class CDAT(backend.Backend):
         urls = sorted([variable[x].uri for x in op.inputs], 
                       key=lambda x: kwargs[x][sort])
 
-        ingress = []
+        ingress_tasks = []
         cache = []
         cache_files = {}
         cleanup_paths = []
@@ -340,15 +340,19 @@ class CDAT(backend.Backend):
                 continue
 
             if cached is None:
+                logger.info('Ingressing data')
+
                 chunks = preprocess['chunks']
 
                 chunk_axis = chunks.keys()[0]
 
                 try:
                     ingress_paths, ingress = self.generate_ingress_tasks(
-                        op_uid, url, var_name, user_id, job_id, **kwargs)
+                        op_uid, url, var_name, user_id, job_id, kwargs)
                 except FileNotIncludedError:
                     continue
+
+                ingress_tasks.extend(ingress)
 
                 cleanup_paths.extend(ingress_paths)
 
@@ -359,7 +363,9 @@ class CDAT(backend.Backend):
 
                 job.steps_inc_total(len(ingress)+1)
             else:
-                self.generate_cache_entry(op_uid, url, cache_files, **kwargs)
+                logger.info('Using cached data')
+
+                self.generate_cache_entry(op_uid, url, cache_files, kwargs)
 
         del kwargs['index']
 
@@ -373,13 +379,13 @@ class CDAT(backend.Backend):
 
         process = base.get_process(op.identifier)
 
-        if len(ingress) > 0:
+        if len(ingress_tasks) > 0:
             process_task = process.s(
                 ingress_paths, op, var_name, base_units, output_path, 
                 job_id=job_id).set(
                     **helpers.DEFAULT_QUEUE)
 
-            ingress_and_process = celery.chord(header=ingress,
+            ingress_and_process = celery.chord(header=ingress_tasks,
                                                body=process_task)
 
             cleanup = tasks.ingress_cleanup.s(cleanup_paths, job_id=job_id).set(
@@ -441,7 +447,7 @@ class CDAT(backend.Backend):
 
         if cached is None:
             ingress_paths, ingress = self.generate_ingress_tasks(
-                op_uid, var.uri, var.var_name, user_id, job_id, **kwargs)
+                op_uid, var.uri, var.var_name, user_id, job_id, kwargs)
 
             cleanup_paths.extend(ingress_paths)
 

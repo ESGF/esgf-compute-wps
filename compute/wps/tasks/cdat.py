@@ -50,13 +50,16 @@ def retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped=N
     if mapped is None:
         mapped = {}
 
+    logger.info('Retrieving data selector %r, grid %r, base_units %r', mapped,
+                grid, base_units)
+
     data = infile(var_name, **mapped)
 
     if grid is not None:
         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
     if base_units is not None:
-        data.getTime().toRelativeTime(base_units)
+        data.getTime().toRelativeTime(str(base_units))
 
     outfile.write(data, id=var_name)
 

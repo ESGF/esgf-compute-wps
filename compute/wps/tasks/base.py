@@ -77,7 +77,7 @@ class CWTBaseTask(celery.Task):
     @contextmanager
     def open(self, uri, mode='r', timeout=30):
         with Timeout(timeout, uri):
-            fd = cdms2.open(uri, mode)
+            fd = cdms2.open(str(uri), mode)
 
         try:
             yield fd
