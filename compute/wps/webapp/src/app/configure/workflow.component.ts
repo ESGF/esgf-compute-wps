@@ -12,6 +12,7 @@ import {
 import { Process } from './process';
 import { NotificationService } from '../core/notification.service';
 import { ConfigService } from '../core/config.service';
+import { WPSService } from '../core/wps.service';
 
 import * as d3 from 'd3';
 
@@ -153,12 +154,13 @@ enum EditorState {
   templateUrl: './workflow.component.html'
 })
 export class WorkflowComponent implements OnInit {
-  @Input() processes: any[];
   @Input() datasets: string[];
 
   @ViewChild(MapComponent) map: MapComponent;
 
   model: WorkflowModel = new WorkflowModel();
+
+  processes: string[];
 
   copyNodes: ProcessWrapper[];
   nodes: ProcessWrapper[];
@@ -179,77 +181,20 @@ export class WorkflowComponent implements OnInit {
   constructor(
     private configureService: ConfigureService,
     private configService: ConfigService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private wpsService: WPSService,
   ) { 
-    this.model.domain = 'World';
-
-    //this.model.process = new Process();
-
-    //this.model.process.domain.push({
-    //  id: 'lat',
-    //  start: 90,
-    //  stop: -90,
-    //  step: 1,
-    //  units: 'degress north',
-    //  crs: 'Values',
-    //} as Axis);
-
-    //this.model.process.domain.push({
-    //  id: 'lon',
-    //  start: -180,
-    //  stop: 180,
-    //  step: 1,
-    //  units: 'degress west',
-    //  crs: 'Values',
-    //} as Axis);
-
-    //this.model.process.domain.push({
-    //  id: 'time',
-    //  start: 0,
-    //  stop: 0,
-    //  step: 1,
-    //  units: 'Custom',
-    //  crs: 'Values',
-    //} as Axis);
-
     this.nodes = [];
 
     this.links = [];
 
     this.state = EditorState.None;
+
+    this.wpsService.getCapabilities('/wps/')
+      .then((processes: string[]) => this.processes = processes);
   }
 
   ngOnInit() {
-    this.model.availableDatasets = [];
-
-    let datasets = this.datasets.map((value: string) => { 
-      let dataset = new Dataset(value);
-
-      return new DatasetWrapper(dataset); 
-    });
-    
-    this.model.availableDatasets = this.model.availableDatasets.concat(datasets);
-
-    if (this.model.availableDatasets.length > 0) {
-      this.model.selectedDataset = this.model.availableDatasets[0];
-
-      //this.configureService.searchESGF(this.config)
-      //  .then(data => {
-      //    //data.forEach((value: Variable) => {
-      //    //  value.dataset = this.config.datasetID;
-      //    //});
-
-      //    //this.model.selectedDataset.dataset.variables = data;
-
-      //    //if (data.length > 0) {
-      //    //  this.model.selectedVariable = data[0];
-      //    //}
-      //  });
-    } else {
-      // needs to be undefined to selected the default option
-      this.model.selectedDataset = undefined;
-    }
-
     d3.select(window)
       .on('keydown', () => this.removeElements())
 
@@ -633,6 +578,8 @@ export class WorkflowComponent implements OnInit {
 
   dropped(event: any) {
     this.state = EditorState.Dropped;
+
+    console.log(event.dragData);
 
     this.stateData = event.dragData;
   }

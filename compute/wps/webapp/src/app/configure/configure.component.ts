@@ -19,16 +19,10 @@ import { NotificationService } from '../core/notification.service';
   .list-item-axis {
     margin: 5px 0px 5px 0px;
   }
-
-  .container-main {
-    height: 85vh;
-  }
   `],
   providers: []
 })
 export class ConfigureComponent implements OnInit { 
-  @ViewChild(MapComponent) map: MapComponent;
-
   params: any;
   datasets: string[];
 
@@ -44,9 +38,5 @@ export class ConfigureComponent implements OnInit {
 
       this.params = { index_node: params.index_node, query: params.query };
     });
-  }
-
-  domainChanged(domain: Domain) {
-    this.map.updateDomain(domain);
   }
 }

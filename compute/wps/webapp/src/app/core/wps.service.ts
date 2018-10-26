@@ -23,7 +23,7 @@ export class WPSService {
     protected http: Http,
   ) { }
 
-  getCapabilities(url: string): Promise<Process[]> {
+  getCapabilities(url: string): Promise<string[]> {
     let params = {
       service: 'WPS',
       request: 'GetCapabilities',
@@ -37,12 +37,10 @@ export class WPSService {
       let processes = Array.from(xmlDoc.getElementsByTagNameNS(WPS_NS, 'Process')).map((item: any) => {
         let identifier = item.getElementsByTagNameNS(OWS_NS, 'Identifier');
 
-        return new Process(identifier[0].innerHTML);
+        return identifier[0].innerHTML;
       });
 
-      return new Promise<Process[]>((resolve, reject) => {
-        resolve(processes);
-      });
+      return processes.sort();
     });
   }
 

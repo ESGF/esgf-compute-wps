@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 
 import { TabComponent, TabsComponent } from './tab.component';
 import { PaginationComponent, PaginationTableComponent } from './pagination.component';
-import { PanelComponent, PanelGroupComponent } from './panel.component';
+import { PanelComponent } from './panel.component';
 
 import { StatsService } from './stats.service';
 
@@ -17,7 +17,6 @@ import { ThreddsPipe } from './thredds.pipe';
     PaginationComponent,
     PaginationTableComponent,
     PanelComponent,
-    PanelGroupComponent,
     ThreddsPipe
   ],
   exports: [
@@ -27,7 +26,6 @@ import { ThreddsPipe } from './thredds.pipe';
     PaginationComponent,
     PaginationTableComponent,
     PanelComponent,
-    PanelGroupComponent,
     ThreddsPipe
   ],
   providers: [ StatsService ]
