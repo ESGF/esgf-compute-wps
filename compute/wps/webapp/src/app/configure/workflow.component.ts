@@ -579,26 +579,22 @@ export class WorkflowComponent implements OnInit {
   dropped(event: any) {
     this.state = EditorState.Dropped;
 
-    console.log(event.dragData);
-
     this.stateData = event.dragData;
   }
 
   svgMouseOver() {
     if (this.state === EditorState.Dropped) {
-      //this.state = EditorState.None;
+      this.state = EditorState.None;
 
-      //let origin = d3.mouse(d3.event.target);
+      let origin = d3.mouse(d3.event.target);
 
-      //let process = new Process(this.stateData);
+      let process = new Process(this.stateData);
 
-      //process.domainPreset = 'None';
-
-      //this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
+      this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 
       //this.determineRootNode();
 
-      //this.update();
+      this.update();
     }
   }
 
