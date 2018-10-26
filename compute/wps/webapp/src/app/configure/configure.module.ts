@@ -10,9 +10,9 @@ import { ParameterComponent } from './parameter.component';
 import { MapComponent } from './map.component';
 import { RegridComponent } from './regrid.component';
 import { ConfigureComponent } from './configure.component';
-import { ProcessDetailComponent } from './process-detail.component';
 import { EnumToArrayPipe } from './domain.component';
 import { FilterPipe } from './filter.pipe';
+import { WorkflowComponent } from './workflow.component';
 
 import { ConfigureService } from './configure.service';
 
@@ -33,9 +33,9 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     ParameterComponent,
     MapComponent,
     RegridComponent,
-    ProcessDetailComponent,
     EnumToArrayPipe,
     FilterPipe,
+    WorkflowComponent,
   ],
   exports: [],
   providers: [
