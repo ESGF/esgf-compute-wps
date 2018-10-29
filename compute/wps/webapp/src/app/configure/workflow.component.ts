@@ -13,80 +13,14 @@ import { Process } from './process';
 import { NotificationService } from '../core/notification.service';
 import { ConfigService } from '../core/config.service';
 import { WPSService } from '../core/wps.service';
+import { ProcessWrapper } from './process-wrapper';
+import { Link } from './link';
+import { EditorState } from './editor-state.enum';
 
 import * as d3 from 'd3';
 
 declare var jQuery: any;
 declare var $: any;
-
-class WorkflowModel { 
-  domain: string;
-  axes: Axis[];
-
-  process: Process;
-  selectedVariable: Variable;
-
-  selectedDataset: DatasetWrapper;
-  availableDatasets: DatasetWrapper[] = [];
-}
-
-interface Displayable { 
-  display(): string;
-  uid(): string;
-}
-
-class DatasetWrapper implements Displayable {
-  constructor(
-    public dataset: Dataset,
-  ) { }
-
-  display() {
-    return this.dataset.id;
-  }
-
-  uid() {
-    return this.display();
-  }
-}
-
-class ProcessWrapper implements Displayable {
-  constructor(
-    public process: Process,
-    public x: number,
-    public y: number
-  ) { }
-
-  display() {
-    return this.process.identifier;
-  }
-
-  uid() {
-    return this.process.uid;
-  }
-
-  inputDatasets() {
-    return this.process.inputs.filter((value: any) => {
-      return !(value instanceof Process);
-    });
-  }
-}
-
-class Link {
-  constructor(
-    public src: ProcessWrapper,
-    public dst?: ProcessWrapper
-  ) { }
-
-  uid() {
-    return `${this.src.uid()}:${this.dst.uid()}`;
-  }
-}
-
-enum EditorState {
-  None,
-  Dropped,
-  Connecting,
-}
 
 @Component({
   selector: 'workflow',
@@ -154,12 +88,6 @@ enum EditorState {
   templateUrl: './workflow.component.html'
 })
 export class WorkflowComponent implements OnInit {
-  @Input() datasets: string[];
-
-  @ViewChild(MapComponent) map: MapComponent;
-
-  model: WorkflowModel = new WorkflowModel();
-
   processes: string[];
 
   copyNodes: ProcessWrapper[];
@@ -239,257 +167,6 @@ export class WorkflowComponent implements OnInit {
       .classed('nodes', true);
   }
 
-  isVariable(item: any) {
-    return item instanceof Variable;
-  }
-
-  loadDomainToProcess(variable: Variable, process: ProcessWrapper) {
-    //process.process.domainPreset = 'Custom';
-
-    //this.loadVariable(variable)
-    //  .then(() => {
-    //    process.process.domain = variable.axes.map((axis: Axis) => {
-    //      return {crs: 'Values', ...axis};
-    //    });
-    //  });
-  }
-
-  loadDomain() {
-    //this.model.process.domain = this.model.selectedVariable.axes.map((axis: Axis) => {
-    //  return {... axis};
-    //});
-
-    //$('#datasetExplorer').modal('hide');
-  }
-
-  loadDataset() {
-    //this.loading = true;
-
-    //this.config.datasetID = this.model.selectedDataset.dataset.id;
-
-    //return this.configureService.searchESGF(this.config)
-    //  .then(variables => {
-    //    this.model.selectedDataset.dataset.variables = variables;
-
-    //    this.model.selectedVariable = variables[0];
-
-    //    if (this.model.selectedVariable.axes == null) {
-    //      this.loadVariable(this.model.selectedVariable);
-    //    } else {
-    //      this.loading = false;
-    //    }
-    //  })
-    //  .catch(error => {
-    //    this.loading = false;
-
-    //    this.notificationService.error(error);
-    //  });
-  }
-
-  loadVariable(variable: Variable) {
-    //this.loading = true;
-
-    //this.config.variable = variable;
-
-    //return this.configureService.searchVariable(this.config)
-    //  .then(axes => {
-    //    //variable.axes = axes.map((axis: Axis) => {
-    //    //  return {step: 1, ...axis}; 
-    //    //});
-
-    //    this.loading = false;
-
-    //    return variable;
-    //  })
-    //  .catch(error => { 
-    //    this.loading = false; 
-
-    //    this.notificationService.error(error);
-
-    //    return null;
-    //  });
-  }
-
-  addAxis(name: string) {
-    //let axis = this.selectedNode.process.domain.find((axis: Axis) => {
-    //  return axis.id === name;
-    //});
-
-    //if (axis != undefined) return;
-
-    //this.selectedNode.process.domain.push(new Axis(name, 'None', 0, 0, 0, 'unknown'));
-  }
-
-  removeAxis(name: string) {
-    //this.selectedNode.process.domain = this.selectedNode.process.domain.filter((axis: Axis) => {
-    //  return axis.id != name;
-    //});
-  }
-
-  showExplorer() {
-    this.loadVariable(this.model.selectedVariable);
-
-    $('#datasetExplorer').modal('show');    
-  }
-
-  showHelp() {
-    jQuery('#help').modal('show');
-  }
-
-  showDomain() {
-    //this.map.domain = this.model.domain;
-
-    //this.map.domainChange();
-
-    //jQuery('#map').modal('show');
-
-    //// need to invalidate the map after it's presented to the user
-    //jQuery('#map').on('shown.bs.modal', () => {
-    //  this.map.map.invalidateSize();
-    //});
-  }
-
-  showAbstract(process: any) {
-    // Really ugly way to parse XML
-    // TODO replace with better parsing
-    let parser = new DOMParser();
-
-    let xmlDoc = parser.parseFromString(process.description, 'text/xml');
-
-    let description = xmlDoc.children[0].children[0];
-
-    let abstractText = '';
-    let titleText = '';
-
-    Array.from(description.children).forEach((item: any) => {
-      if (item.localName === 'Identifier') {
-        titleText = item.innerHTML;
-      } else if (item.localName === 'Abstract') {
-        abstractText = item.innerHTML;
-      }
-    });
-
-    let modal = $('#abstractModal');
-
-    modal.find('.modal-title').html(`"${titleText}" Abstract`);
-
-    if (abstractText === '') { abstractText = 'No abstract available'; }
-
-    modal.find('#abstract').html(abstractText);
-  }
-
-  onScript() {
-    this.notificationService.error('Workflow script is unsupported at the moment');
-  }
-
-  onExecute() {
-    // Cover a few workflow specific checks before executing
-    if (this.nodes.length === 0) {
-      this.notificationService.error('Workflow must contain atleast 1 process');
-
-      return;
-    }
-
-    if (this.rootNode == null) {
-      this.notificationService.error('Workflow must converge to a single process');
-
-      return;
-    }
-
-    // Assign values from our model
-    // These values are not stored in rootNode since this changes with the state
-    // of the graph
-    //this.rootNode.process.domain = this.model.process.domain;
-
-    //this.rootNode.process.regrid = this.model.process.regrid;
-
-    //this.rootNode.process.parameters = this.model.process.parameters;
-
-    let defaults = {
-      domain: this.model.process.domain,
-      regrid: this.model.process.regrid,
-      parameters: this.model.process.parameters,
-    };
-
-    //this.configureService.execute(this.rootNode.process, defaults)
-    //  .then((data: any) => {
-    //    let parser = new DOMParser();
-    //    let xml = parser.parseFromString(data, 'text/xml');
-    //    let el = xml.getElementsByTagName('wps:ExecuteResponse');
-    //    let link = '';
-
-    //    if (el.length > 0) {
-    //      let statusLocation = el[0].attributes.getNamedItem('statusLocation').value;
-
-    //      let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
-
-    //      link = this.configService.userJobPath;
-    //    }
-    //    
-    //    this.notificationService.message('Succesfully submitted job', link);
-    //  })
-    //  .catch(error => {
-    //    this.notificationService.error(error); 
-    //  });
-  }
-
-  domainCopy(node: ProcessWrapper) {
-    //this.selectedNode.process.domainPreset = node.process.domainPreset;
-
-    //this.selectedNode.process.domain = node.process.domain.map((x: Axis) => {
-    //  return {...x};
-    //});
-  }
-
-  domainPresetChange(data: string) {
-    if (this.selectedNode != null) {
-      //this.selectedNode.process.domainPreset = data;
-
-      //if (data === 'Global') {
-      //  this.selectedNode.process.domain = this.model.process.domain.map((x: Axis) => { 
-      //    return {...x};
-      //  });
-      //} else if (data === 'None' || data === 'Custom') {
-      //  this.selectedNode.process.domain = [];
-      //}
-    }
-  }
-
-  domainChange() {
-    //this.map.domain = this.model.domain;
-
-    //this.map.domainChange();
-
-    //if (this.model.domain === 'Custom') {
-    //  jQuery('#map').modal('show');
-
-    //  // need to invalidate the map after it's presented to the user
-    //  jQuery('#map').on('shown.bs.modal', () => {
-    //    this.map.map.invalidateSize();
-    //  });
-    //}
-  }
-
-  determineRootNode() {
-    if (this.nodes.length === 1) {
-      this.rootNode = this.nodes[0];
-    } else {
-      let notSrc = this.nodes.filter((value: ProcessWrapper) => {
-        let check = this.links.some((link: Link) => {
-          return link.src === value;
-        });
-
-        return !check;
-      });
-
-      if (notSrc.length === 1) {
-        this.rootNode = notSrc[0];
-      } else {
-        this.rootNode = null;
-      }
-    }
-  }
-
   removeElements() {
     switch (d3.event.keyCode) {
       case 8:
@@ -512,16 +189,12 @@ export class WorkflowComponent implements OnInit {
             //});
           });
 
-        this.determineRootNode();
-
         this.update();
       }
       break;
     }
   }
 
-  removeInput(process: ProcessWrapper, input: Process): any;
-  removeInput(process: ProcessWrapper, input: Variable): any;
   removeInput(process: any, input: any): any {
     process.process.removeInput(input); 
     
@@ -532,30 +205,6 @@ export class WorkflowComponent implements OnInit {
 
       this.update();
     }
-  }
-
-  addParameterWorkflow() {
-    this.model.process.parameters.push(new Parameter());
-  }
-
-  removeParameterWorkflow(param: Parameter) {
-    let newParams = this.model.process.parameters.filter((value: Parameter) => {
-      return param.uid != value.uid;
-    });
-
-    this.model.process.parameters = newParams;
-  }
-
-  addParameter() {
-    this.selectedNode.process.parameters.push({key: '', value: ''} as Parameter); 
-  }
-
-  removeParameter(param: Parameter) {
-    let newParams = this.selectedNode.process.parameters.filter((value: Parameter) => {
-      return param.key !== value.key || param.value !== value.value;
-    });
-
-    this.selectedNode.process.parameters = newParams;
   }
 
   removeNode(node: ProcessWrapper) {
@@ -570,8 +219,6 @@ export class WorkflowComponent implements OnInit {
     });
 
     this.selectedNode = node = null;
-
-    this.determineRootNode();
 
     this.update();
   }
@@ -592,18 +239,8 @@ export class WorkflowComponent implements OnInit {
 
       this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 
-      //this.determineRootNode();
-
       this.update();
     }
-  }
-
-  nodeClick() {
-    this.selectedNode = <ProcessWrapper>d3.select(d3.event.target).datum();
-
-    this.copyNodes = this.nodes.filter((x: ProcessWrapper) => x.process.uid !== this.selectedNode.process.uid);
-
-    jQuery('#configure').modal('show');
   }
 
   nodeMouseEnter() {
@@ -675,8 +312,6 @@ export class WorkflowComponent implements OnInit {
 
           this.links.push(this.stateData);
 
-          this.determineRootNode();
-
           this.update();
         }
       }
@@ -718,7 +353,7 @@ export class WorkflowComponent implements OnInit {
     let newNodes = nodes.enter()
       .append('g')
       .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
-      .on('click', () => this.nodeClick())
+    //.on('click', () => this.nodeClick())
       .on('mouseenter', () => this.nodeMouseEnter())
       .on('mouseleave', () => this.nodeMouseLeave())
       .call(d3.drag()
