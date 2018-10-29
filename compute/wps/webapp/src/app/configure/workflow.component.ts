@@ -5,7 +5,6 @@ import { MapComponent } from './map.component';
 import { Axis } from './axis.component';
 import { 
   ConfigureService, 
-  Variable, 
   Dataset, 
   DatasetCollection 
 } from './configure.service';
@@ -16,6 +15,7 @@ import { WPSService } from '../core/wps.service';
 import { ProcessWrapper } from './process-wrapper';
 import { Link } from './link';
 import { EditorState } from './editor-state.enum';
+import { Variable } from './variable';
 
 import * as d3 from 'd3';
 
@@ -173,20 +173,20 @@ export class WorkflowComponent implements OnInit {
       case 46: {
         d3.select('.link-select')
           .each((link: Link) => {
-            //this.links = this.links.filter((item: Link) => {
-            //  if (link !== item) {
-            //    return true;
-            //  }
+            this.links = this.links.filter((item: Link) => {
+              if (link !== item) {
+                return true;
+              }
 
-            //  let src = item.src.process;
-            //  let dst = item.dst.process;
+              let src = item.src.process;
+              let dst = item.dst.process;
 
-            //  dst.inputs = dst.inputs.filter((proc: Process) => {
-            //    return src.uid !== proc.uid;
-            //  });
+              dst.inputs = dst.inputs.filter((proc: Process) => {
+                return src.uid !== proc.uid;
+              });
 
-            //  return false;
-            //});
+              return false;
+            });
           });
 
         this.update();
@@ -246,20 +246,20 @@ export class WorkflowComponent implements OnInit {
   nodeMouseEnter() {
     if (this.state === EditorState.Connecting) {
       this.stateData.dst = d3.select(d3.event.target).datum();
-
-      d3.select(d3.event.target)
-        .select('circle')
-        .classed('node-connect', true);
     }
+
+    d3.select(d3.event.target)
+      .select('circle')
+      .classed('node-connect', true);
   }
 
   nodeMouseLeave() {
     if (this.state === EditorState.Connecting) {
       this.stateData.dst = null;
-
-      d3.select('.node-connect')
-        .classed('node-connect', false);
     }
+
+    d3.select('.node-connect')
+      .classed('node-connect', false);
   }
 
   drag() {

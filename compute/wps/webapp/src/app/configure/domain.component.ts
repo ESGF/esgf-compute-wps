@@ -12,7 +12,7 @@ import {
 
 import { Subject } from 'rxjs/Subject';
 
-import { File } from './configure.service';
+import { File } from './file';
 
 enum CRS {
   Values = 'Values',

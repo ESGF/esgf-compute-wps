@@ -7,8 +7,10 @@ import { Parameter } from './parameter.component';
 import { RegridModel } from './regrid.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
 import { ConfigService } from '../core/config.service';
-import { Process } from './process';
 import { AuthService } from '../core/auth.service';
+import { Process } from './process';
+import { File } from './file';
+import { Variable } from './variable';
 
 export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
 export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
@@ -22,32 +24,6 @@ export class Dataset {
     public id: string,
     public variables: Variable[] = []
   ) { }
-}
-
-export class File {
-  constructor(
-    public url: string,
-    public index: number,
-    public included: boolean = true,
-    public temporal: any = null,
-    public spatial: any = null,
-    public uid: string = '',
-  ) { 
-    this.uid = Math.random().toString(16).slice(2);  
-  }
-}
-
-export class Variable {
-  constructor(
-    public id: string,
-    public files: number[],
-    public axes: Axis[] = [],
-    public dataset: string = '',
-    public include: boolean = true,
-    public uid: string = '',
-  ) { 
-    this.uid = Math.random().toString(16).slice(2); 
-  }
 }
 
 export interface VariableCollection {

@@ -1,20 +1,21 @@
 import { Axis, Domain } from './domain.component';
-import { File } from './configure.service';
+import { File } from './file';
 import { Parameter } from './parameter.component';
 import { RegridModel } from './regrid.component';
+import { Input } from './input';
+import { UID } from './uid';
 
-export class Process {
+export class Process extends UID implements Input {
   constructor(
     public identifier: string,
     public description: any = null,
-    public inputs: File[] = null,
+    public inputs: Input[] = [],
     public variable: string = '',
     public domain: Domain = null,
     public regrid: RegridModel = null,
-    public parameters: Parameter[] = null,
-    public uid: string = '',
+    public parameters: Parameter[] = [],
   ) { 
-    this.uid = this.newUID();
+    super();
   }
 
   validate() {
@@ -33,10 +34,6 @@ export class Process {
         throw `Invalid number of inputs, ${this.inputs.length} are selected, expected ${metadata.inputs}`;
       }
     }
-  }
-
-  newUID(): string {
-    return Math.random().toString(16).slice(2);
   }
 
   getVariable(): any {
