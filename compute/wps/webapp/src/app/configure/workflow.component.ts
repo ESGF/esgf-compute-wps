@@ -171,25 +171,15 @@ export class WorkflowComponent implements OnInit {
     switch (d3.event.keyCode) {
       case 8:
       case 46: {
-        d3.select('.link-select')
-          .each((link: Link) => {
-            this.links = this.links.filter((item: Link) => {
-              if (link !== item) {
-                return true;
-              }
+        let selectedLinks = this.svgLinks.selectAll('.link-select');
 
-              let src = item.src.process;
-              let dst = item.dst.process;
+        selectedLinks.each((d: any, i: number, g: any) => {
+          this.links = this.links.filter((item: Link) => item != d);
+        });
 
-              dst.inputs = dst.inputs.filter((proc: Process) => {
-                return src.uid !== proc.uid;
-              });
+        selectedLinks = selectedLinks.data(this.links, (item: Link) => item.uid);
 
-              return false;
-            });
-          });
-
-        this.update();
+        selectedLinks.exit().remove();
       }
       break;
     }
@@ -328,7 +318,7 @@ export class WorkflowComponent implements OnInit {
       .attr('d', (d: any) => {
         return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
       })
-      .data(this.links, (item: Link) => { return item.uid(); });
+      .data(this.links, (item: Link) => { return item.uid; });
 
     links.exit().remove();
 
@@ -339,8 +329,13 @@ export class WorkflowComponent implements OnInit {
         return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
       })
       .on('click', (data: any, index: any, group: any) => {
-        d3.select(group[index])
-          .classed('link-select', true);
+        let link = d3.select(group[index]);
+
+        if (link.classed('link-select')) {
+          link.classed('link-select', false);
+        } else {
+          link.classed('link-select', true);
+        }
       });;
 
     let nodes = this.svgNodes
