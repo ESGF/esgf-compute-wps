@@ -11,4 +11,8 @@ export class File extends UID implements Input {
   ) { 
     super();
   }
+
+  display() {
+    return this.url;
+  }
 }

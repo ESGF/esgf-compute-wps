@@ -22,7 +22,7 @@ import { Dataset } from './dataset';
           <h4 class="modal-title">Configure "{{process?.identifier}}"</h4>
         </div>
         <div class="modal-body">
-          <panel title="Data Inputs">
+          <panel title="Inputs">
             <div class="container-fluid">
               <div class="row">
                 <div class="col-md-2">
@@ -60,7 +60,7 @@ import { Dataset } from './dataset';
                 <div class="col-md-12">
                   <div class="container-fluid">
                     <div *ngFor="let x of selectedVariable?.files" class="row">
-                      <div class="col-md-10"><a (click)="onAddFile(selectedVariable, x)">{{x}}</a></div> 
+                      <div class="col-md-10"><a (click)="onAddFile(selectedVariable, x)">{{x | filename}}</a></div> 
                     </div>
                   </div>
                 </div>
@@ -69,7 +69,7 @@ import { Dataset } from './dataset';
                 <div class="col-md-12">
                   <div class="container-fluid">
                     <div *ngFor="let x of process?.inputs" class="row">
-                      <div class="col-md-10"><a>{{x}}</a></div> 
+                      <div class="col-md-10"><a>{{x.display()}}</a></div> 
                     </div>
                   </div>
                 </div>

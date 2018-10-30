@@ -18,6 +18,10 @@ export class Process extends UID implements Input {
     super();
   }
 
+  display() {
+    return this.identifier;
+  }
+
   validate() {
     this.parameters.forEach((param: Parameter) => {
       param.validate();
