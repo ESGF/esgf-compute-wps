@@ -13,6 +13,7 @@ import { ConfigureComponent } from './configure.component';
 import { EnumToArrayPipe } from './domain.component';
 import { FilterPipe } from './filter.pipe';
 import { WorkflowComponent } from './workflow.component';
+import { ProcessConfigureComponent } from './process-configure.component';
 
 import { ConfigureService } from './configure.service';
 
@@ -36,6 +37,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     EnumToArrayPipe,
     FilterPipe,
     WorkflowComponent,
+    ProcessConfigureComponent,
   ],
   exports: [],
   providers: [

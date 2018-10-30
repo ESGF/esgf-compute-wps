@@ -5,7 +5,7 @@ import { Response, ResponseOptions } from '@angular/http';
 import { MockBackend, MockConnection } from '@angular/http/testing';
 
 import { Axis } from './axis.component';
-import { ConfigureService, VariableCollection, Dataset } from './configure.service';
+import { ConfigureService } from './configure.service';
 
 describe('Configuration Service', () => {
   let injector: ReflectiveInjector;
@@ -114,6 +114,5 @@ describe('Configuration Service', () => {
         ]
       }
     };
-    let searchResult: VariableCollection;
   }));
 });

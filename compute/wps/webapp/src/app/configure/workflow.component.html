@@ -1,7 +1,7 @@
 <div class="container-fluid pane">
   <div class="row">
     <div class="col-md-2">
-      <panel title="Processes" listGroup=true>
+      <panel title="Processes" [listGroup]="true" [scrollable]="true">
         <li *ngFor="let process of processes" 
           dnd-draggable
           [dragEnabled]="true"
@@ -72,3 +72,8 @@
     </div>
   </div>
 </div>
+<process-configure 
+             [params]=params
+             [datasetID]=datasetID
+             [process]=selectedNode?.process>
+</process-configure>

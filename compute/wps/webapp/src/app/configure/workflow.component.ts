@@ -3,11 +3,7 @@ import { Component, Input, OnInit, ViewEncapsulation, ViewChild } from '@angular
 import { Parameter } from './parameter.component';
 import { MapComponent } from './map.component';
 import { Axis } from './axis.component';
-import { 
-  ConfigureService, 
-  Dataset, 
-  DatasetCollection 
-} from './configure.service';
+import { ConfigureService } from './configure.service';
 import { Process } from './process';
 import { NotificationService } from '../core/notification.service';
 import { ConfigService } from '../core/config.service';
@@ -88,12 +84,14 @@ declare var $: any;
   templateUrl: './workflow.component.html'
 })
 export class WorkflowComponent implements OnInit {
+  @Input() datasetID: string[];
+  @Input() params: any;
+
   processes: string[];
 
   copyNodes: ProcessWrapper[];
   nodes: ProcessWrapper[];
   links: Link[];
-  rootNode: ProcessWrapper;
   selectedNode: ProcessWrapper;
 
   loading: boolean = false;
@@ -233,6 +231,12 @@ export class WorkflowComponent implements OnInit {
     }
   }
 
+  nodeClick() {
+    this.selectedNode = <ProcessWrapper>d3.select(d3.event.target).datum();
+
+    $('#processConfigureModal').modal('show');
+  }
+
   nodeMouseEnter() {
     if (this.state === EditorState.Connecting) {
       this.stateData.dst = d3.select(d3.event.target).datum();
@@ -348,7 +352,7 @@ export class WorkflowComponent implements OnInit {
     let newNodes = nodes.enter()
       .append('g')
       .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
-    //.on('click', () => this.nodeClick())
+      .on('click', () => this.nodeClick())
       .on('mouseenter', () => this.nodeMouseEnter())
       .on('mouseleave', () => this.nodeMouseLeave())
       .call(d3.drag()

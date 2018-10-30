@@ -11,30 +11,10 @@ import { AuthService } from '../core/auth.service';
 import { Process } from './process';
 import { File } from './file';
 import { Variable } from './variable';
+import { Dataset } from './dataset';
 
 export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
 export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
-
-export interface DatasetCollection { 
-  [index: string]: Dataset;
-}
-
-export class Dataset {
-  constructor(
-    public id: string,
-    public variables: Variable[] = []
-  ) { }
-}
-
-export interface VariableCollection {
-  variables: Variable[];
-  files: number[];
-}
-
-export interface RegridOptions {
-  lats: number;
-  lons: number;
-}
 
 @Injectable()
 export class ConfigureService extends WPSService {
@@ -45,18 +25,28 @@ export class ConfigureService extends WPSService {
     super(http); 
   }
 
-  searchESGF(dataset_id: string, params: any): Promise<VariableCollection> { 
+  searchESGF(dataset_id: string, params: any): Promise<Dataset> { 
     let newParams = {dataset_id: dataset_id, ...params};
 
     return this.get(this.configService.searchPath, newParams)
       .then(response => {
         let variables = Object.keys(response.data.variables).map((name: string) => {
-          let files = response.data.variables[name];
+          let files = response.data.variables[name].map((index: number) => {
+            return response.data.files[index]; 
+          });
 
           return new Variable(name, files);
+        }).sort((x: Variable, y: Variable) => {
+          if (x.name < y.name) {
+            return -1;
+          } else if (x.name > y.name) {
+            return 1;
+          } else {
+            return 0;
+          }
         });
 
-        return { variables: variables, files: response.data.files } as VariableCollection;
+        return new Dataset(dataset_id, variables);
       });
   }
 
