@@ -18,13 +18,14 @@ import { Component, Input } from '@angular/core';
       </h4>
     </div>
     <div class="panel-collapse collapse" id="{{uid}}">
-      <div class="panel-body scrollable" *ngIf="!listGroup; else listGroup">
-        <ng-content></ng-content>
+      <ul *ngIf="listGroup==true" class="list-group" [class.scrollable]="scrollable">
+        <ng-container *ngTemplateOutlet="content"></ng-container>
+      </ul>
+      <div *ngIf="listGroup==false" class="panel-body" [class.scrollable]="scrollable">
+        <ng-container *ngTemplateOutlet="content"></ng-container>
       </div>
-      <ng-template #listGroup>
-        <ul class="list-group scrollable">
-          <ng-content></ng-content>
-        </ul>
+      <ng-template #content>
+        <ng-content></ng-content>
       </ng-template>
     </div>
   </div>
