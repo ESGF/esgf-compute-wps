@@ -63,27 +63,22 @@ import { NotificationService } from '../core/notification.service';
                 </div>
               </div>
               <br/>
-              <div class="row">
+              <div *ngIf="selectedVariable!=null" class="row">
                 <div class="col-md-12">
-                  <panel title="Files" [listGroup]="true" [collapse]="false">
-                    <li *ngFor="let x of selectedVariable?.files" class="list-group-item" dnd-draggable [dragEnabled]="true" [dragData]="x">
-                      <a (click)="addFile(x)">{{x | filename}}</a>
-                    </li>
-                  </panel>
-                </div>
-              </div>
-              <div class="row">
-                <div class="col-md-12">
-                  <panel title="Inputs" [listGroup]="true" [collapse]="false" dnd-droppable (onDropSuccess)="addFile($event.dragData)">
-                    <li *ngFor="let x of process?.inputs" class="list-group-item">
+                  <panel title="Files" [listGroup]="true" [collapse]="false" [scrollable]="true">
+                    <li class="list-group-item">
                       <div class="row">
-                        <div class="col-md-10 form-control-static">
-                          {{x.display()}}
+                        <div class="col-md-10">
+                          <input #filterText type="text" class="form-control">
                         </div>
                         <div class="col-md-2">
-                          <button type="button" class="btn btn-default" (click)="removeFile(x)">Remove</button>
+                          <button type="button" class="btn btn-default" (click)="selectAll()">{{!selectAllToggle ? "Des" : "S" }}elect All</button>
                         </div>
                       </div>
+                    </li>
+                    <li *ngFor="let x of selectedVariable?.files | filter:filterText.value" class="list-group-item" [class.list-group-item-success]="isSelected(x)" (click)="toggleFile(x)">
+                      <span *ngIf="isSelected(x)" class="badge">{{getIndex(x)+1}}</span>
+                      {{x | filename}}
                     </li>
                   </panel>
                 </div>
@@ -109,6 +104,7 @@ export class ProcessConfigureComponent {
   @Input() process: Process;
   @Input() params: any;
 
+  selectAllToggle = true;
   selectedDataset: string;
   selectedVariable: Variable;
 
@@ -126,20 +122,36 @@ export class ProcessConfigureComponent {
       .then((data: Dataset) => this.dataset = data);
   }
 
-  removeFile(variable: Variable) {
-    this.process.inputs = this.process.inputs.filter((item: Variable|Process) => {
-      if (item instanceof Variable) {
-        if ((<Variable>item).name == variable.name && (<Variable>item).files == variable.files) {
-          return false;
+  selectAll() {
+    if (this.selectAllToggle) { 
+      this.selectedVariable.files.forEach((item: string) => {
+        if (!this.isSelected(item)) {
+          this.process.inputs.push(new Variable(this.selectedVariable.name, [item]));
         }
+      });
+    } else {
+      this.process.inputs.splice(0, this.process.inputs.length);
+    }
+
+    this.selectAllToggle = !this.selectAllToggle;
+  }
+
+  getIndex(file: string) {
+    return this.process.inputs.findIndex((item: Variable|Process) => {
+      if (item instanceof Variable) {
+        return (<Variable>item).files[0] == file;
       }
 
-      return true;
+      return false;
     });
   }
 
-  addFile(file: string) {
-    let match = this.process.inputs.find((item: Variable|Process) => {
+  isSelected(file: string) {
+    return this.getIndex(file) != -1;
+  }
+
+  toggleFile(file: string) {
+    let match = this.process.inputs.findIndex((item: Variable|Process) => {
       if (item instanceof Variable) {
         return (<Variable>item).files[0] == file;
       }
@@ -147,12 +159,20 @@ export class ProcessConfigureComponent {
       return false;
     });
 
-    if (match !=  undefined) {
-      this.notificationService.error('Cannot add duplicate file');
+    if (match != -1) {
+      if (!this.selectAllToggle) {
+        this.selectAllToggle = true;
+      }
 
-      return;
+      this.process.inputs.splice(match, 1);
+    } else {
+      this.process.inputs.push(new Variable(this.selectedVariable.name, [file]));
+
+      let inputVariables = this.process.inputs.filter((item: Variable|Process) => item instanceof Variable);
+
+      if (inputVariables.length == this.selectedVariable.files.length) {
+        this.selectAllToggle = false;
+      }
     }
-
-    this.process.inputs.push(new Variable(this.selectedVariable.name, [file]));
   }
 }
