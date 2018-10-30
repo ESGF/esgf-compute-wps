@@ -55,7 +55,7 @@ export class Domain {
 }
 
 @Component({
-  selector: 'domain',
+  selector: 'domain-config',
   styles: [`
   .panel-group {
     margin-bottom: 3px;   

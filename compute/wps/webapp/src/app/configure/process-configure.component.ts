@@ -92,6 +92,7 @@ import { NotificationService } from '../core/notification.service';
             <parameter-config [params]=process?.parameters></parameter-config>
           </panel>
           <panel title="Domain">
+            <domain-config></domain-config>
           </panel>
         </div>
       </div>
