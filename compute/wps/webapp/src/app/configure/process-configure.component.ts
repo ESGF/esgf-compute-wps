@@ -4,6 +4,7 @@ import { Process } from './process';
 import { ConfigureService } from './configure.service';
 import { Variable } from './variable';
 import { Dataset } from './dataset';
+import { NotificationService } from '../core/notification.service';
 
 @Component({
   selector: 'process-configure',
@@ -37,9 +38,12 @@ import { Dataset } from './dataset';
                   </div>
                 </div>
                 <div class="col-md-10">
-                  {{selectedDataset}}
+                  <div class="form-control-static">
+                    {{selectedDataset}}
+                  </div>
                 </div>
               </div>
+              <br/>
               <div class="row">
                 <div class="col-md-2">
                   <div class="dropdown">
@@ -53,25 +57,35 @@ import { Dataset } from './dataset';
                   </div>
                 </div>
                 <div class="col-md-10">
-                  {{selectedVariable?.name}}
+                  <div class="form-control-static">
+                    {{selectedVariable?.name}}
+                  </div>
+                </div>
+              </div>
+              <br/>
+              <div class="row">
+                <div class="col-md-12">
+                  <panel title="Files" [listGroup]="true" [collapse]="false">
+                    <li *ngFor="let x of selectedVariable?.files" class="list-group-item" dnd-draggable [dragEnabled]="true" [dragData]="x">
+                      <a (click)="addFile(x)">{{x | filename}}</a>
+                    </li>
+                  </panel>
                 </div>
               </div>
               <div class="row">
                 <div class="col-md-12">
-                  <div class="container-fluid">
-                    <div *ngFor="let x of selectedVariable?.files" class="row">
-                      <div class="col-md-10"><a (click)="onAddFile(selectedVariable, x)">{{x | filename}}</a></div> 
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="row">
-                <div class="col-md-12">
-                  <div class="container-fluid">
-                    <div *ngFor="let x of process?.inputs" class="row">
-                      <div class="col-md-10"><a>{{x.display()}}</a></div> 
-                    </div>
-                  </div>
+                  <panel title="Inputs" [listGroup]="true" [collapse]="false" dnd-droppable (onDropSuccess)="addFile($event.dragData)">
+                    <li *ngFor="let x of process?.inputs" class="list-group-item">
+                      <div class="row">
+                        <div class="col-md-10 form-control-static">
+                          {{x.display()}}
+                        </div>
+                        <div class="col-md-2">
+                          <button type="button" class="btn btn-default" (click)="removeFile(x)">Remove</button>
+                        </div>
+                      </div>
+                    </li>
+                  </panel>
                 </div>
               </div>
             </div>
@@ -102,8 +116,8 @@ export class ProcessConfigureComponent {
 
   constructor(
     private configureService: ConfigureService,
-  ) {
-  }
+    private notificationService: NotificationService,
+  ) { }
 
   selectDataset(dataset: string) {
     this.selectedDataset = dataset;
@@ -112,7 +126,33 @@ export class ProcessConfigureComponent {
       .then((data: Dataset) => this.dataset = data);
   }
 
-  onAddFile(variable: Variable, file: string) {
-    this.process.inputs.push(new Variable(variable.name, [file]));
+  removeFile(variable: Variable) {
+    this.process.inputs = this.process.inputs.filter((item: Variable|Process) => {
+      if (item instanceof Variable) {
+        if ((<Variable>item).name == variable.name && (<Variable>item).files == variable.files) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  addFile(file: string) {
+    let match = this.process.inputs.find((item: Variable|Process) => {
+      if (item instanceof Variable) {
+        return (<Variable>item).files[0] == file;
+      }
+
+      return false;
+    });
+
+    if (match !=  undefined) {
+      this.notificationService.error('Cannot add duplicate file');
+
+      return;
+    }
+
+    this.process.inputs.push(new Variable(this.selectedVariable.name, [file]));
   }
 }

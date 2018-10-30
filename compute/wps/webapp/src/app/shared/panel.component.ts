@@ -12,12 +12,18 @@ import { Component, Input } from '@angular/core';
   <div class="panel panel-default">
     <div class="panel-heading" role="tab">
       <h4 class="panel-title">
-        <a class="collapsed" role="button" data-toggle="collapse" href="#{{uid}}">
+        <a *ngIf="collapse==true; else noCollapse" class="collapsed" role="button" data-toggle="collapse" href="#{{uid}}">
           {{title}}
         </a>
+        <ng-template #noCollapse>
+          {{title}}
+        </ng-template>
       </h4>
     </div>
-    <div class="panel-collapse collapse" id="{{uid}}">
+    <div *ngIf="collapse==true; else innerWrap" class="panel-collapse collapse" id="{{uid}}">
+      <ng-container *ngTemplateOutlet="innerWrap"></ng-container>
+    </div>
+    <ng-template #innerWrap> 
       <ul *ngIf="listGroup==true" class="list-group" [class.scrollable]="scrollable">
         <ng-container *ngTemplateOutlet="content"></ng-container>
       </ul>
@@ -27,7 +33,7 @@ import { Component, Input } from '@angular/core';
       <ng-template #content>
         <ng-content></ng-content>
       </ng-template>
-    </div>
+    </ng-template>
   </div>
   `
 })
@@ -35,6 +41,7 @@ export class PanelComponent {
   @Input() title: string;
   @Input() listGroup = false;
   @Input() scrollable = false;
+  @Input() collapse = true;
 
   uid: string;
   
