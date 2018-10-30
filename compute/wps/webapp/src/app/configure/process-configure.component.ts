@@ -76,6 +76,13 @@ import { Dataset } from './dataset';
               </div>
             </div>
           </panel>
+          <panel title="Regrid">
+            <regrid-config [model]=process?.regrid></regrid-config>
+          </panel>
+          <panel title="Parameters">
+          </panel>
+          <panel title="Domain">
+          </panel>
         </div>
       </div>
     </div>

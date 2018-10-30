@@ -12,7 +12,7 @@ export class Process extends UID implements Input {
     public inputs: Input[] = [],
     public variable: string = '',
     public domain: Domain = null,
-    public regrid: RegridModel = null,
+    public regrid: RegridModel = new RegridModel(),
     public parameters: Parameter[] = [],
   ) { 
     super();

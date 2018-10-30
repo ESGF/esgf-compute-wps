@@ -1,17 +1,32 @@
 import { Component, Input } from '@angular/core';
 
 export class RegridModel {
-  constructor(
-    public regridTool: string,
-    public regridMethod: string,
-    public regridType: string,
-    public startLats: number,
-    public nLats: number,
-    public deltaLats: number,
-    public startLons: number,
-    public nLons: number,
-    public deltaLons: number
-  ) { }
+  tool = ['ESMF', 'Regrid2'];
+
+  method = [
+    ['Conserve', 'Linear', 'Patch'],
+    ['Area Weighted',],
+  ];
+
+  regridTool = this.tool[0];
+  regridMethod = this.method[0][0];
+  regridType = 'None';
+  startLats = 0.0;
+  nLats = 180.0;
+  deltaLats = 1.0;
+  startLons = 0.0;
+  nLons = 360.0;
+  deltaLons = 1.0;
+
+  methods() {
+    let index = this.tool.indexOf(this.regridTool);
+
+    if (index == -1) {
+      return ['No methods'];
+    }
+
+    return this.method[index];
+  }
 
   validate() {
     if (this.regridType == 'Gaussian') {
@@ -32,8 +47,8 @@ export class RegridModel {
   template: `
   <label for="regridTool">Tool</label>
   <select [ngModel]="model?.regridTool" (ngModelChange)="regridToolChange($event)" class="form-control select-spacer" id="regridTool" name="regridTool">
-    <option *ngFor="let tool of regridOptions">
-      {{ tool.name }}
+    <option *ngFor="let tool of model?.tool">
+      {{ tool }}
     </option>
   </select>
   <label for="regridMethod">Method</label>
@@ -81,31 +96,29 @@ export class RegridModel {
   `
 })
 export class RegridComponent { 
-  @Input() model: RegridModel;
+  private _model: RegridModel;
+
+  @Input()
+  set model(model: RegridModel) {
+    this._model = model;
+
+    if (model != null) {
+      this.regridMethods = model.methods()
+    }
+  }
+
+  get model() {
+    return this._model;
+  }
 
   regridMethods: string[] = [];
-
-  regridOptions = [
-    {
-      name: 'ESMF',
-      methods: ['Conserve', 'Linear', 'Patch']
-    },
-    {
-      name: 'Regrid2',
-      methods: ['Area Weighted']
-    }
-  ]
-
-  constructor() {
-    this.regridMethods = this.regridOptions[0].methods;
-  }
 
   regridToolChange(data: any) {
     if (this.model != null) {
       this.model.regridTool = data;
     }
 
-    this.regridMethods = this.regridOptions.filter(x => x.name === data)[0].methods
+    this.regridMethods = this.model.methods();
 
     if (this.regridMethods.find(x => x == this.model.regridMethod) == undefined) {
       this.model.regridMethod = this.regridMethods[0];
@@ -119,7 +132,7 @@ export class RegridComponent {
       if (data == 'Gaussian') {
         this.model.nLats = 32;
       } else if (data == 'Uniform' && this.model.nLats != null) {
-        this.model.nLats = null;
+        this.model.nLats = 180.0;
       }
     }
   }
