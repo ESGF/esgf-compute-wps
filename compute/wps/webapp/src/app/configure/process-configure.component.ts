@@ -79,7 +79,8 @@ import { Dataset } from './dataset';
           <panel title="Regrid">
             <regrid-config [model]=process?.regrid></regrid-config>
           </panel>
-          <panel title="Parameters">
+          <panel title="Parameters" [listGroup]="true">
+            <parameter-config [params]=process?.parameters></parameter-config>
           </panel>
           <panel title="Domain">
           </panel>

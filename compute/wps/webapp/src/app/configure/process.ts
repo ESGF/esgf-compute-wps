@@ -1,6 +1,6 @@
 import { Axis, Domain } from './domain.component';
 import { File } from './file';
-import { Parameter } from './parameter.component';
+import { Parameter } from './parameter';
 import { RegridModel } from './regrid.component';
 import { Input } from './input';
 import { UID } from './uid';

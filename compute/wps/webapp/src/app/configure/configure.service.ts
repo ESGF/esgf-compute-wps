@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { Params } from '@angular/router';
 
 import { Axis, AxisCollection } from './axis.component';
-import { Parameter } from './parameter.component';
+import { Parameter } from './parameter';
 import { RegridModel } from './regrid.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
 import { ConfigService } from '../core/config.service';

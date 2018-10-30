@@ -1,6 +1,6 @@
 import { Component, Input, OnInit, ViewEncapsulation, ViewChild } from '@angular/core';
 
-import { Parameter } from './parameter.component';
+import { Parameter } from './parameter';
 import { MapComponent } from './map.component';
 import { Axis } from './axis.component';
 import { ConfigureService } from './configure.service';

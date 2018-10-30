@@ -1,49 +1,75 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 
-export class Parameter {
-  uid: string;
-
-  constructor(
-    public key: string = '',
-    public value: string = ''
-  ) { 
-    this.uid = Math.random().toString(16).slice(2);
-  }
-
-  validate() {
-    if (this.key == '') {
-      throw `Parameter must have a key`;
-    } else if (this.value == '') {
-      throw `Parameter "${this.key}" must have a value`;
-    }
-  }
-}
+import { Parameter } from './parameter';
+import { NotificationService } from '../core/notification.service';
 
 @Component({
-  selector: 'parameter',
+  selector: 'parameter-config',
   styles: [`
   .split {
     max-width: 5.5vw;
   }
   `],
   template: `
-    <div class="form-inline clearfix">
-      <input [(ngModel)]="param.key" name="key" class="form-control split" type="text" placeholder="Key">
-      <input [(ngModel)]="param.value" name="value" class="form-control split" type="text" placeholder="Value">
-      <span>
-        <span (click)="onRemove()" class="btn btn-xs btn-default">
-          <span class="glyphicon glyphicon-remove"></span>
-        </span>
-      </span>
-    </div>
+  <ng-container>
+    <li class="list-group-item">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-md-5"><input #keyInput class="form-control" placeholder="Key" type="text"></div>
+          <div class="col-md-5"><input #valueInput class="form-control" placeholder="Value" type="text"></div>
+          <div class="col-md-2"><button (click)="addParameter(keyInput.value, valueInput.value)" class="btn btn-default" type="button">Add</button></div>
+        </div>
+      </div>
+    </li>
+    <li class="list-group-item" *ngFor="let x of params">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-md-5"><input disabled class="form-control" type="text" value="{{x.key}}"></div>
+          <div class="col-md-5"><input disabled class="form-control" type="text" value="{{x.value}}"></div>
+          <div class="col-md-2"><button (click)="removeParameter(x)" class="btn btn-default" type="button">Remove</button></div>
+        </div>
+      </div>
+    </li>
+  </ng-container>
   `
 })
 export class ParameterComponent {
-  @Input() param: Parameter;
+  @Input() params: Parameter[];
 
-  @Output() remove: EventEmitter<Parameter> = new EventEmitter<Parameter>();
+  key = '';
+  value = '';
 
-  onRemove() {
-    this.remove.emit(this.param);
+  constructor(
+    private notificationService: NotificationService,
+  ) { }
+
+  removeParameter(param: Parameter) {
+    this.params = this.params.filter((item: Parameter) => {
+      return item.uid != param.uid;
+    });
+  }
+
+  addParameter(key: string, value: string) {
+    if (!key) {
+      this.notificationService.error('Missing key');
+
+      return;
+    }
+
+    if (!value) {
+      this.notificationService.error('Missing value');
+
+      return;
+    }
+
+    let match = this.params.find((item: Parameter) => item.key === key);
+
+    if (match != undefined) {
+      this.notificationService.error(`Duplicate parameter key "${key}"`);
+
+      return;
+    }
+
+    this.params.push(new Parameter(key, value));
   }
 }
