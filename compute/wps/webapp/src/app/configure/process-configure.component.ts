@@ -5,6 +5,7 @@ import { ConfigureService } from './configure.service';
 import { Variable } from './variable';
 import { Dataset } from './dataset';
 import { NotificationService } from '../core/notification.service';
+import { FileMeta } from './file-meta';
 
 @Component({
   selector: 'process-configure',
@@ -151,6 +152,26 @@ export class ProcessConfigureComponent {
     return this.getIndex(file) != -1;
   }
 
+  getFileMeta(file: string, variable: Variable) {
+    if (variable.fileHasMeta(file)) {
+      return;
+    }
+
+    let fileIndex = this.dataset.fileMap.indexOf(file);
+
+    if (fileIndex == -1) {
+      this.notificationService.error('Unable to determine file mapping');
+
+      return;
+    }
+
+    this.configureService.searchVariable(this.selectedVariable.name, this.selectedDataset, [fileIndex], this.params)
+      .then((data: FileMeta[]) => {
+        variable.addMeta(file, data[0]);
+      })
+      .catch((text: string) => this.notificationService.error(text));
+  }
+
   toggleFile(file: string) {
     let match = this.process.inputs.findIndex((item: Variable|Process) => {
       if (item instanceof Variable) {
@@ -167,7 +188,11 @@ export class ProcessConfigureComponent {
 
       this.process.inputs.splice(match, 1);
     } else {
-      this.process.inputs.push(new Variable(this.selectedVariable.name, [file]));
+      let variable = new Variable(this.selectedVariable.name, [file]);
+
+      this.getFileMeta(file, variable);
+      
+      this.process.inputs.push(variable);
 
       let inputVariables = this.process.inputs.filter((item: Variable|Process) => item instanceof Variable);
 

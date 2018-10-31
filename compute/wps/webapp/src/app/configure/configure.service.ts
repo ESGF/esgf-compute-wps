@@ -12,9 +12,7 @@ import { Process } from './process';
 import { File } from './file';
 import { Variable } from './variable';
 import { Dataset } from './dataset';
-
-export const LNG_NAMES: string[] = ['longitude', 'lon', 'x'];
-export const LAT_NAMES: string[] = ['latitude', 'lat', 'y'];
+import { FileMeta } from './file-meta';
 
 @Injectable()
 export class ConfigureService extends WPSService {
@@ -46,11 +44,11 @@ export class ConfigureService extends WPSService {
           }
         });
 
-        return new Dataset(dataset_id, variables);
+        return new Dataset(dataset_id, variables, response.data.files);
       });
   }
 
-  searchVariable(variable: string, dataset_id: string, files: number[], params: any): Promise<any[]> {
+  searchVariable(variable: string, dataset_id: string, files: number[], params: any): Promise<FileMeta[]> {
     let newParams = {
       dataset_id: dataset_id,
       variable: variable,
@@ -60,7 +58,7 @@ export class ConfigureService extends WPSService {
 
     return this.get(this.configService.searchVariablePath, newParams)
       .then(response => {
-        return response.data;
+        return response.data as FileMeta[];
       });
   }
 
