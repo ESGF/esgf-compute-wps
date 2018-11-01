@@ -183,16 +183,16 @@ export class WorkflowComponent implements OnInit {
     }
   }
 
-  removeInput(process: any, input: any): any {
-    process.process.removeInput(input); 
-    
-    if (input instanceof Process) {
-      this.links = this.links.filter((x: Link) => {
-        return x.src.uid() != input.uid && x.dst.uid() != process.uid();
-      });
+  removeProcessInput(process: Process) {
+    this.links = this.links.filter((item: Link) => {
+      if (item.src.process == process || item.dst.process == process) {
+        return false;
+      }
 
-      this.update();
-    }
+      return true;
+    });
+
+    this.update();
   }
 
   removeNode(node: ProcessWrapper) {

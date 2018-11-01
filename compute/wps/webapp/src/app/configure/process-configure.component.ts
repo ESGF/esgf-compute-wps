@@ -64,7 +64,7 @@ import { FileMeta } from './file-meta';
                 </div>
               </div>
               <br/>
-              <div *ngIf="selectedVariable!=null" class="row">
+              <div *ngIf="selectedVariable" class="row">
                 <div class="col-md-12">
                   <panel title="Files" [listGroup]="true" [collapse]="false" [scrollable]="true">
                     <li class="list-group-item">
@@ -73,13 +73,49 @@ import { FileMeta } from './file-meta';
                           <input #filterText type="text" class="form-control">
                         </div>
                         <div class="col-md-2">
-                          <button type="button" class="btn btn-default" (click)="selectAll()">{{!selectAllToggle ? "Des" : "S" }}elect All</button>
+                          <button type="button" class="btn btn-default" (click)="addAllInputFiles()">Add All</button>
                         </div>
                       </div>
                     </li>
-                    <li *ngFor="let x of selectedVariable?.files | filter:filterText.value" class="list-group-item" [class.list-group-item-success]="isSelected(x)" (click)="toggleFile(x)">
-                      <span *ngIf="isSelected(x)" class="badge">{{getIndex(x)+1}}</span>
+                    <li 
+                      *ngFor="let x of selectedVariable?.files | filter:filterText.value"
+                      class="list-group-item"
+                      [class.list-group-item-success]="isInput(x)"
+                      (click)="addInputFile(x)">
                       {{x | filename}}
+                    </li>
+                  </panel>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-12">
+                  <panel 
+                    title="Process Inputs"
+                    [listGroup]="true"
+                    [collapse]="false"
+                    [scrollable]="true"
+                    dnd-sortable-container
+                    [sortableData]="process?.inputs">
+                    <li class="list-group-item">
+                      <div class="row">
+                        <div class="col-md-10">
+                        </div>
+                        <div class="col-md-2">
+                          <button type="button" class="btn btn-default" (click)="removeAllInputs()">Remove All</button>
+                        </div>
+                      </div>
+                    </li>
+                    <li *ngFor="let x of process?.inputs; let i = index" class="list-group-item" dnd-sortable [sortableIndex]="i">
+                      <div class="row">
+                        <div class="col-md-10">
+                          {{x.display()}}
+                        </div>
+                        <div class="col-md-2">
+                          <button type="button" class="close" (click)="removeInput(x)">
+                            <span aria-hidden="true">&times;</span>
+                          </button>
+                        </div>
+                      </div>
                     </li>
                   </panel>
                 </div>
@@ -106,7 +142,8 @@ export class ProcessConfigureComponent {
   @Input() process: Process;
   @Input() params: any;
 
-  selectAllToggle = true;
+  @Output() removeProcessInput = new EventEmitter<Process>();
+
   selectedDataset: string;
   selectedVariable: Variable;
 
@@ -124,20 +161,6 @@ export class ProcessConfigureComponent {
       .then((data: Dataset) => this.dataset = data);
   }
 
-  selectAll() {
-    if (this.selectAllToggle) { 
-      this.selectedVariable.files.forEach((item: string) => {
-        if (!this.isSelected(item)) {
-          this.process.inputs.push(new Variable(this.selectedVariable.name, [item]));
-        }
-      });
-    } else {
-      this.process.inputs.splice(0, this.process.inputs.length);
-    }
-
-    this.selectAllToggle = !this.selectAllToggle;
-  }
-
   getIndex(file: string) {
     return this.process.inputs.findIndex((item: Variable|Process) => {
       if (item instanceof Variable) {
@@ -148,7 +171,7 @@ export class ProcessConfigureComponent {
     });
   }
 
-  isSelected(file: string) {
+  isInput(file: string) {
     return this.getIndex(file) != -1;
   }
 
@@ -172,7 +195,39 @@ export class ProcessConfigureComponent {
       .catch((text: string) => this.notificationService.error(text));
   }
 
-  toggleFile(file: string) {
+  removeInput(item: Variable|Process) {
+    if (item instanceof Variable) {
+      this.process.inputs = this.process.inputs.filter((x: Variable) => {
+        if ((<Variable>item).name == x.name && (<Variable>item).files == x.files) {
+          return false;
+        }
+
+        return true;
+      });
+    } else if (item instanceof Process) {
+      this.removeProcessInput.emit(item);
+    }
+  }
+
+  removeAllInputs() {
+    this.process.inputs.forEach((item: Variable|Process) => {
+      if (item instanceof Process) {
+        this.removeProcessInput.emit(item);
+      }
+    });
+
+    this.process.clearInputs();
+  }
+
+  addAllInputFiles() {
+    this.selectedVariable.files.forEach((item: string) => {
+      if (!this.isInput(item)) {
+        this.process.inputs.push(new Variable(this.selectedVariable.name, [item]));
+      }
+    });
+  }
+
+  addInputFile(file: string) {
     let match = this.process.inputs.findIndex((item: Variable|Process) => {
       if (item instanceof Variable) {
         return (<Variable>item).files[0] == file;
@@ -182,10 +237,6 @@ export class ProcessConfigureComponent {
     });
 
     if (match != -1) {
-      if (!this.selectAllToggle) {
-        this.selectAllToggle = true;
-      }
-
       this.process.inputs.splice(match, 1);
     } else {
       let variable = new Variable(this.selectedVariable.name, [file]);
@@ -193,12 +244,6 @@ export class ProcessConfigureComponent {
       this.getFileMeta(file, variable);
       
       this.process.inputs.push(variable);
-
-      let inputVariables = this.process.inputs.filter((item: Variable|Process) => item instanceof Variable);
-
-      if (inputVariables.length == this.selectedVariable.files.length) {
-        this.selectAllToggle = false;
-      }
     }
   }
 }

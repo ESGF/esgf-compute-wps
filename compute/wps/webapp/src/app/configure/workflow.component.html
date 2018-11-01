@@ -73,6 +73,7 @@
   </div>
 </div>
 <process-configure 
+             (removeProcessInput)="removeProcessInput($event)"
              [params]=params
              [datasetID]=datasetID
              [process]=selectedNode?.process>

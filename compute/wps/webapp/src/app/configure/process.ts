@@ -4,12 +4,13 @@ import { Parameter } from './parameter';
 import { RegridModel } from './regrid.component';
 import { Input } from './input';
 import { UID } from './uid';
+import { Variable } from './variable';
 
 export class Process extends UID implements Input {
   constructor(
     public identifier: string,
     public description: any = null,
-    public inputs: Input[] = [],
+    public inputs: (Variable|Process)[] = [],
     public variable: string = '',
     public domain: Domain = null,
     public regrid: RegridModel = new RegridModel(),
@@ -20,6 +21,20 @@ export class Process extends UID implements Input {
 
   display() {
     return this.identifier;
+  }
+
+  clearInputs() {
+    this.inputs.splice(0, this.inputs.length);
+  }
+
+  removeInput(input: Variable|Process) {
+    this.inputs = this.inputs.filter((item: Variable|Process) => {
+      if (input.uid == item.uid) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
   validate() {
@@ -43,9 +58,9 @@ export class Process extends UID implements Input {
   getVariable(): any {
     if (this.inputs == null) { return []; }
 
-    return this.inputs.map((item: File) => {
-      return {uri: item.url, id: `${this.variable}|${item.uid}`};
-    });
+    //return this.inputs.map((item: File) => {
+    //  return {uri: item.url, id: `${this.variable}|${item.uid}`};
+    //});
   }
 
   getDomain(): any {
@@ -74,11 +89,11 @@ export class Process extends UID implements Input {
       result: this.newUID(),
     };
 
-    if (this.inputs != null) {
-      operation['input'] = this.inputs.map((item: File) => {
-        return item.uid;
-      });
-    }
+    //if (this.inputs != null) {
+    //  operation['input'] = this.inputs.map((item: File) => {
+    //    return item.uid;
+    //  });
+    //}
 
     if (this.domain != null) {
       operation['domain'] = this.domain.id;
