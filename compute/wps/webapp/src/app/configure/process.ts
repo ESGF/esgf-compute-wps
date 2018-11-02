@@ -1,20 +1,19 @@
-import { Axis, Domain } from './domain.component';
-import { File } from './file';
 import { Parameter } from './parameter';
 import { RegridModel } from './regrid.component';
 import { Input } from './input';
 import { UID } from './uid';
 import { Variable } from './variable';
+import { Domain } from './domain';
 
 export class Process extends UID implements Input {
+  public description: any;
+  public inputs: (Variable|Process)[] = [];
+  public domain: Domain;
+  public regrid: RegridModel = new RegridModel();
+  public parameters: Parameter[] = [];
+
   constructor(
     public identifier: string,
-    public description: any = null,
-    public inputs: (Variable|Process)[] = [],
-    public variable: string = '',
-    public domain: Domain = null,
-    public regrid: RegridModel = new RegridModel(),
-    public parameters: Parameter[] = [],
   ) { 
     super();
   }
@@ -68,17 +67,17 @@ export class Process extends UID implements Input {
 
     let domain = {};
 
-    this.domain.axes.map((item: Axis) => {
-      domain[item.id] = {
-        id: item.id,
-        start: item.start,
-        end: item.stop,
-        step: item.step,
-        crs: item.crs.toLowerCase(),
-      };
-    });
+    //this.domain.axes.map((item: Axis) => {
+    //  domain[item.id] = {
+    //    id: item.id,
+    //    start: item.start,
+    //    end: item.stop,
+    //    step: item.step,
+    //    crs: item.crs.toLowerCase(),
+    //  };
+    //});
 
-    domain['id'] = this.domain.id = this.newUID();
+    //domain['id'] = this.domain.id = this.newUID();
 
     return [domain];
   }
@@ -96,7 +95,7 @@ export class Process extends UID implements Input {
     //}
 
     if (this.domain != null) {
-      operation['domain'] = this.domain.id;
+      //operation['domain'] = this.domain.id;
     }
 
     for (let x of this.parameters) {

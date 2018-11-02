@@ -7,10 +7,8 @@ import { DndModule } from 'ng2-dnd';
 import { DomainComponent } from './domain.component';
 import { AxisComponent } from './axis.component';
 import { ParameterComponent } from './parameter.component';
-import { MapComponent } from './map.component';
 import { RegridComponent } from './regrid.component';
 import { ConfigureComponent } from './configure.component';
-import { EnumToArrayPipe } from './domain.component';
 import { FilterPipe } from './filter.pipe';
 import { FilenamePipe } from './filename.pipe';
 import { WorkflowComponent } from './workflow.component';
@@ -33,9 +31,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     ConfigureComponent,
     AxisComponent,
     ParameterComponent,
-    MapComponent,
     RegridComponent,
-    EnumToArrayPipe,
     FilterPipe,
     FilenamePipe,
     WorkflowComponent,
@@ -44,7 +40,6 @@ import { ConfigureRoutingModule } from './configure-routing.module';
   exports: [],
   providers: [
     ConfigureService,
-    EnumToArrayPipe,
     FilterPipe,
     FilenamePipe,
   ]

@@ -4,7 +4,6 @@ import { BaseRequestOptions, ConnectionBackend, Http, RequestOptions } from '@an
 import { Response, ResponseOptions } from '@angular/http';
 import { MockBackend, MockConnection } from '@angular/http/testing';
 
-import { Axis } from './axis.component';
 import { ConfigureService } from './configure.service';
 
 describe('Configuration Service', () => {

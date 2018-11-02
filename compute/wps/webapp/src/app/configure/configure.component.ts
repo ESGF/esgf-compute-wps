@@ -1,8 +1,6 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 
-import { Domain } from './domain.component';
-import { MapComponent } from './map.component';
 import { NotificationService } from '../core/notification.service';
 
 @Component({

@@ -76,14 +76,10 @@ export class WPSService {
         return Object.assign(a, b); 
       });
 
-      return new Promise<any>((resolve, reject) => {
-        let data = {
-          abstract: abstracts[0] || '',
-          metadata: Object.assign({}, metadata),
-        };
-
-        resolve(data);
-      });
+      return {
+        abstract: abstracts[0] || 'Not available',
+        metadata: metadata,
+      };
     });
   }
 

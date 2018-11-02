@@ -1,8 +1,6 @@
 import { Component, Input, OnInit, ViewEncapsulation, ViewChild } from '@angular/core';
 
 import { Parameter } from './parameter';
-import { MapComponent } from './map.component';
-import { Axis } from './axis.component';
 import { ConfigureService } from './configure.service';
 import { Process } from './process';
 import { NotificationService } from '../core/notification.service';
@@ -224,6 +222,11 @@ export class WorkflowComponent implements OnInit {
       let origin = d3.mouse(d3.event.target);
 
       let process = new Process(this.stateData);
+
+      this.wpsService.describeProcess('/wps/', process.identifier)
+        .then((description: any) => {
+          process.description = description;
+        });
 
       this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 

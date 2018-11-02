@@ -2,7 +2,6 @@ import { Http, Headers, URLSearchParams, QueryEncoder } from '@angular/http';
 import { Injectable } from '@angular/core';
 import { Params } from '@angular/router';
 
-import { Axis, AxisCollection } from './axis.component';
 import { Parameter } from './parameter';
 import { RegridModel } from './regrid.component';
 import { WPSService, WPSResponse } from '../core/wps.service';
@@ -12,7 +11,7 @@ import { Process } from './process';
 import { File } from './file';
 import { Variable } from './variable';
 import { Dataset } from './dataset';
-import { FileMeta } from './file-meta';
+import { Domain } from './domain';
 
 @Injectable()
 export class ConfigureService extends WPSService {
@@ -29,26 +28,20 @@ export class ConfigureService extends WPSService {
     return this.get(this.configService.searchPath, newParams)
       .then(response => {
         let variables = Object.keys(response.data.variables).map((name: string) => {
-          let files = response.data.variables[name].map((index: number) => {
-            return response.data.files[index]; 
+          return response.data.variables[name].map((index: number) => {
+            return new Variable(name, response.data.files[index], index);
           });
+        }).reduce((acc: any, cur: any) => {
+          return acc.concat(cur);
+        }, []);
 
-          return new Variable(name, files);
-        }).sort((x: Variable, y: Variable) => {
-          if (x.name < y.name) {
-            return -1;
-          } else if (x.name > y.name) {
-            return 1;
-          } else {
-            return 0;
-          }
-        });
+        let variableNames = Object.keys(response.data.variables).sort();
 
-        return new Dataset(dataset_id, variables, response.data.files);
+        return new Dataset(dataset_id, variables, variableNames);
       });
   }
 
-  searchVariable(variable: string, dataset_id: string, files: number[], params: any): Promise<FileMeta[]> {
+  searchVariable(variable: string, dataset_id: string, files: number[], params: any): Promise<Domain[]> {
     let newParams = {
       dataset_id: dataset_id,
       variable: variable,
@@ -58,7 +51,7 @@ export class ConfigureService extends WPSService {
 
     return this.get(this.configService.searchVariablePath, newParams)
       .then(response => {
-        return response.data as FileMeta[];
+        return response.data.map((item: any) => Domain.fromJSON(item));
       });
   }
 

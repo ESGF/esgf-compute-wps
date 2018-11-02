@@ -5,7 +5,7 @@ import { ConfigureService } from './configure.service';
 import { Variable } from './variable';
 import { Dataset } from './dataset';
 import { NotificationService } from '../core/notification.service';
-import { FileMeta } from './file-meta';
+import { Domain } from './domain';
 
 @Component({
   selector: 'process-configure',
@@ -53,13 +53,13 @@ import { FileMeta } from './file-meta';
                       <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu scrollable" aria-labelledby="varibaleDropdown">
-                      <li *ngFor="let x of dataset?.variables"><a (click)="selectedVariable=x">{{x.name}}</a></li>
+                      <li *ngFor="let x of dataset?.variableNames"><a (click)="selectedVariable=x">{{x}}</a></li>
                     </ul>
                   </div>
                 </div>
                 <div class="col-md-10">
                   <div class="form-control-static">
-                    {{selectedVariable?.name}}
+                    {{selectedVariable}}
                   </div>
                 </div>
               </div>
@@ -78,11 +78,11 @@ import { FileMeta } from './file-meta';
                       </div>
                     </li>
                     <li 
-                      *ngFor="let x of selectedVariable?.files | filter:filterText.value"
+                      *ngFor="let x of dataset.getVariables(selectedVariable) | filter:filterText.value"
                       class="list-group-item"
                       [class.list-group-item-success]="isInput(x)"
                       (click)="addInputFile(x)">
-                      {{x | filename}}
+                      {{x.file | filename}}
                     </li>
                   </panel>
                 </div>
@@ -128,8 +128,8 @@ import { FileMeta } from './file-meta';
           <panel title="Parameters" [listGroup]="true">
             <parameter-config [params]=process?.parameters></parameter-config>
           </panel>
-          <panel title="Domain">
-            <domain-config></domain-config>
+          <panel title="Domain" [listGroup]="true">
+            <domain-config [candidateDomain]="domain"></domain-config>
           </panel>
         </div>
       </div>
@@ -145,9 +145,10 @@ export class ProcessConfigureComponent {
   @Output() removeProcessInput = new EventEmitter<Process>();
 
   selectedDataset: string;
-  selectedVariable: Variable;
+  selectedVariable: string;
 
   dataset: Dataset;
+  domain: Domain;
 
   constructor(
     private configureService: ConfigureService,
@@ -161,36 +162,34 @@ export class ProcessConfigureComponent {
       .then((data: Dataset) => this.dataset = data);
   }
 
-  getIndex(file: string) {
+  getIndex(variable: Variable) {
     return this.process.inputs.findIndex((item: Variable|Process) => {
       if (item instanceof Variable) {
-        return (<Variable>item).files[0] == file;
+        return (<Variable>item).file === variable.file;
       }
 
       return false;
     });
   }
 
-  isInput(file: string) {
-    return this.getIndex(file) != -1;
+  isInput(variable: Variable) {
+    return this.getIndex(variable) != -1;
   }
 
-  getFileMeta(file: string, variable: Variable) {
-    if (variable.fileHasMeta(file)) {
+  getFileDomain(variable: Variable) {
+    if (variable.domain != null) {
       return;
     }
 
-    let fileIndex = this.dataset.fileMap.indexOf(file);
+    this.configureService.searchVariable(this.selectedVariable, this.selectedDataset, [variable.index], this.params)
+      .then((data: Domain[]) => {
+        if (this.domain == null) {
+          this.domain = Object.create(Domain.prototype);
 
-    if (fileIndex == -1) {
-      this.notificationService.error('Unable to determine file mapping');
+          Object.assign(this.domain, data[0]);
+        }
 
-      return;
-    }
-
-    this.configureService.searchVariable(this.selectedVariable.name, this.selectedDataset, [fileIndex], this.params)
-      .then((data: FileMeta[]) => {
-        variable.addMeta(file, data[0]);
+        variable.domain = data[0];
       })
       .catch((text: string) => this.notificationService.error(text));
   }
@@ -198,7 +197,7 @@ export class ProcessConfigureComponent {
   removeInput(item: Variable|Process) {
     if (item instanceof Variable) {
       this.process.inputs = this.process.inputs.filter((x: Variable) => {
-        if ((<Variable>item).name == x.name && (<Variable>item).files == x.files) {
+        if ((<Variable>item).name == x.name && (<Variable>item).file == x.file) {
           return false;
         }
 
@@ -220,17 +219,21 @@ export class ProcessConfigureComponent {
   }
 
   addAllInputFiles() {
-    this.selectedVariable.files.forEach((item: string) => {
-      if (!this.isInput(item)) {
-        this.process.inputs.push(new Variable(this.selectedVariable.name, [item]));
-      }
-    });
+    this.process.inputs.concat(this.dataset.getVariables(this.selectedVariable));
   }
 
-  addInputFile(file: string) {
+  addInputFile(variable: Variable) {
+    let allowed = this.process.description.metadata.inputs;
+
+    if ((this.process.inputs.length + 1) > allowed) {
+      this.notificationService.error(`Cannot add input, exceeding maximum allowed (${allowed}).`);
+
+      return;
+    }
+
     let match = this.process.inputs.findIndex((item: Variable|Process) => {
       if (item instanceof Variable) {
-        return (<Variable>item).files[0] == file;
+        return (<Variable>item).file === variable.file;
       }
 
       return false;
@@ -239,9 +242,7 @@ export class ProcessConfigureComponent {
     if (match != -1) {
       this.process.inputs.splice(match, 1);
     } else {
-      let variable = new Variable(this.selectedVariable.name, [file]);
-
-      this.getFileMeta(file, variable);
+      this.getFileDomain(variable);
       
       this.process.inputs.push(variable);
     }

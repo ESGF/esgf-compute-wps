@@ -1,85 +1,86 @@
-import { 
-  Component,
-  Input,
-  Output,
-  EventEmitter,
-  OnChanges,
-  SimpleChanges 
-} from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 
-import { Subject } from 'rxjs/Subject';
-
-export class AxisCollection {
-  constructor(
-    public spatial: Axis[],
-    public temporal: Axis[],
-  ) { }
-}
-
-export class Axis {
-  constructor(
-    public id: string,
-    public units: string,
-    public _start: number,
-    public _stop: number,
-    public length: number,
-    public type: string,
-    public start = 0,
-    public stop = 0,
-    public step = 1,
-    public crs = 'Values',
-    public data: any = null,
-  ) { 
-    this.start = this._start;
-
-    this.stop = this._stop;
-  }
-}
+import { Axis } from './axis';
+import { CRS } from './crs.enum';
 
 @Component({
-  selector: 'axis',
+  selector: 'axis-config',
   template: `
-  <div class="panel panel-default">
-    <div class="panel-heading">
-      <div class="panel-title">
-        <a role="button" data-toggle="collapse" data-parent="#accordionAxis" href="#collapse{{id}}{{axisIndex}}">
-          <div class="container-fluid">
-            <div class="row">
-              <div class="col-md-10">
-                <span id="title">{{axis.id}} ({{axis.units}})</span>
-              </div>
-              <div *ngIf="canRemove" class="col-md-2">
-                <button (click)="axisRemove.emit(axis.id)" class="close">&times;</button>
-              </div>
+  <div class="row">
+    <div class="col-md-12">
+      <div class="row form-horizontal">
+        <div class="col-md-1">
+          <label for="name" class="form-control-static">Name</label>
+        </div>
+        <div class="col-md-3">
+          <input 
+            [(ngModel)]="axis.id"
+            *ngIf="axis.custom; else staticID"
+            class="form-control"
+            id="name" 
+            type="text">
+          <ng-template #staticID>
+            <div class="form-control-static" id="name">
+              {{axis.id}}
             </div>
-          </div>
-        </a>
+          </ng-template>
+        </div>
+        <div class="col-md-1">
+          <label for="start" class="form-control-static">Start</label>
+        </div>
+        <div class="col-md-2">
+          <input 
+            [(ngModel)]="axis.start"
+            class="form-control" 
+            id="start" 
+            type="number">
+        </div>
+        <div class="col-md-1">
+          <label for="crs" class="form-control-static">CRS</label>
+        </div>
+        <div class="col-md-2">
+          <select 
+            [(ngModel)]="axis.crs"
+            class="form-control" 
+            id="crs">
+            <option value="CRS.Values">Values</option>
+            <option value="CRS.Indices">Indices</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button (click)="onRemove.emit(axis)" type="button" class="btn btn-danger pull-right">&times;</button>
+        </div>
       </div>
-    </div>
-    <div id="collapse{{id}}{{axisIndex}}" class="panel-collapse collapse">
-      <div class="panel-body">
-        <form #dimForm{{axisIndex}}="ngForm">
-          <div>
-            <label for="crs{{axisIndex}}">CRS</label>
-            <br />
-            <select [(ngModel)]="axis.crs" (change)="crsChange.emit(axis.id)" name="crs" id="crs{{axisIndex}}" class="form-control">
-              <option>Values</option>
-              <option>Indices</option>
-            </select>
+      <br />
+      <div class="row form-horizontal">
+        <div class="col-md-1">
+          <label *ngIf="!axis.custom" for="units" class="form-control-static">Units</label>
+        </div>
+        <div class="col-md-3">
+          <div class="form-control-static" id="units">
+            {{axis.units}}
           </div>
-          <div>
-            <label for="start{{axisIndex}}">Start</label>     
-            <input [ngModel]="axis.start" (ngModelChange)="start.next($event)" name="start" class="form-control" type="string" id="start{{axisIndex}}">
-          </div>
-          <div>
-            <label for="stop{{axisIndex}}">Stop</label> 
-            <input [ngModel]="axis.stop" (ngModelChange)="stop.next($event)" name="stop" class="form-control" type="string" id="stop{{axisIndex}}">
-          </div>
-          <div>
-            <label for="step{{axisIndex}}">Step</label> 
-            <input [ngModel]="axis.step" (ngModelChange)="step.next($event)" name="step" class="form-control" type="string" id="step{{axisIndex}}">
-          </div>
-        </form>
+        </div>
+        <div class="col-md-1">
+          <label for="stop" class="form-control-static">Stop</label>
+        </div>
+        <div class="col-md-2">
+          <input
+            [(ngModel)]="axis.stop"
+            class="form-control" 
+            id="stop" 
+            type="number">
+        </div>
+        <div class="col-md-1">
+          <label for="step" class="form-control-static">Step</label>
+        </div>
+        <div class="col-md-2">
+          <input 
+            [(ngModel)]="axis.step"
+            class="form-control" 
+            id="step" 
+            type="number">
+        </div>
       </div>
     </div>
   </div>
@@ -87,43 +88,14 @@ export class Axis {
 })
 export class AxisComponent {
   @Input() axis: Axis;
-  @Input() axisIndex: number;
-  @Input() canRemove: boolean = false;
-  @Output() axisChange: EventEmitter<string> = new EventEmitter<string>();
-  @Output() axisRemove: EventEmitter<string> = new EventEmitter<string>();
-  @Output() crsChange: EventEmitter<string> = new EventEmitter<string>();
 
-  id: string = Math.random().toString(16).slice(2);
-  start: Subject<number> = new Subject<number>();
-  stop: Subject<number> = new Subject<number>();
-  step: Subject<number> = new Subject<number>();
+  @Output() onRemove = new EventEmitter<Axis>();
 
   constructor() {
-    this.start
-      .debounceTime(1000)
-      .distinctUntilChanged()
-      .subscribe(value => {
-        this.axis.start = +value;
 
-        this.axisChange.emit(this.axis.id);
-      });
+  }
 
-    this.stop
-      .debounceTime(1000)
-      .distinctUntilChanged()
-      .subscribe(value => {
-        this.axis.stop = +value;
-
-        this.axisChange.emit(this.axis.id);
-      });
-
-    this.step
-      .debounceTime(1000)
-      .distinctUntilChanged()
-      .subscribe(value => {
-        this.axis.step = +value;
-
-        this.axisChange.emit(this.axis.id);
-      });
+  changeCRS(crs: CRS) {
+    this.axis.reset(crs);
   }
 }
