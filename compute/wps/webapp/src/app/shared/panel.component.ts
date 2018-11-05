@@ -7,6 +7,10 @@ import { Component, Input } from '@angular/core';
     max-height: 50vh;
     overflow-y: scroll;
   }
+
+  .panel {
+    margin-top: 5px;
+  }
   `],
   template: `
   <div class="panel panel-default">

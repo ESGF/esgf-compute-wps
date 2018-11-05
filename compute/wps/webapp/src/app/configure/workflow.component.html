@@ -1,21 +1,23 @@
 <div class="container-fluid pane">
   <div class="row">
     <div class="col-md-3">
-      <panel title="Processes" [listGroup]="true" [scrollable]="true">
-        <li *ngFor="let process of processes" 
-          dnd-draggable
-          [dragEnabled]="true"
-          [dragData]="process"
-          class="list-group-item">
-          {{process}}
-        </li>
-      </panel>
-      <panel title="Regrid">
-        <regrid-config [model]="regrid"></regrid-config>
-      </panel>
-      <panel title="Parameter" [listGroup]="true" [scrollable]="true">
-        <parameter-config [params]="parameters"></parameter-config>
-      </panel>
+      <div class="panel-group" role="tablist">
+        <panel title="Processes" [listGroup]="true" [scrollable]="true">
+          <li *ngFor="let process of processes" 
+            dnd-draggable
+            [dragEnabled]="true"
+            [dragData]="process"
+            class="list-group-item">
+            {{process}}
+          </li>
+        </panel>
+        <panel title="Regrid">
+          <regrid-config [model]="regrid"></regrid-config>
+        </panel>
+        <panel title="Parameter" [listGroup]="true" [scrollable]="true">
+          <parameter-config [params]="parameters"></parameter-config>
+        </panel>
+      </div>
     </div>
     <div class="col-md-9">
       <div class="fill">
