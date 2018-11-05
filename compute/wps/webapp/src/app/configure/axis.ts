@@ -16,6 +16,7 @@ export class Axis extends UID {
 
   public units: string;
   public id: string;
+  public step: number;
 
   public custom = false;
   public crs = CRS.Values;

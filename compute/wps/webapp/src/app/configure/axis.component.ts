@@ -1,4 +1,5 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
 
 import { Axis } from './axis';
 import { CRS } from './crs.enum';
@@ -6,14 +7,15 @@ import { CRS } from './crs.enum';
 @Component({
   selector: 'axis-config',
   template: `
-  <div class="row">
+  <div class="row" [formGroup]="form">
     <div class="col-md-12">
       <div class="row form-horizontal">
         <div class="col-md-1">
           <label for="name" class="form-control-static">Name</label>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3" [class.has-error]="id.invalid">
           <input 
+            formControlName="id"
             [(ngModel)]="axis.id"
             *ngIf="axis.custom; else staticID"
             class="form-control"
@@ -30,6 +32,7 @@ import { CRS } from './crs.enum';
         </div>
         <div class="col-md-2">
           <input 
+            formControlName="start"
             [(ngModel)]="axis.start"
             class="form-control" 
             id="start" 
@@ -40,6 +43,7 @@ import { CRS } from './crs.enum';
         </div>
         <div class="col-md-2">
           <select 
+            formControlName="crs"
             [(ngModel)]="axis.crs"
             (change)="axis.reset(axis.crs)"
             class="form-control" 
@@ -66,6 +70,7 @@ import { CRS } from './crs.enum';
         </div>
         <div class="col-md-2">
           <input
+            formControlName="stop"
             [(ngModel)]="axis.stop"
             class="form-control" 
             id="stop" 
@@ -76,6 +81,7 @@ import { CRS } from './crs.enum';
         </div>
         <div class="col-md-2">
           <input 
+            formControlName="step"
             [(ngModel)]="axis.step"
             class="form-control" 
             id="step" 
@@ -86,15 +92,40 @@ import { CRS } from './crs.enum';
   </div>
   `
 })
-export class AxisComponent {
+export class AxisComponent implements OnInit {
   @Input() axis: Axis;
 
   @Output() onRemove = new EventEmitter<Axis>();
 
   crs = CRS;
 
-  constructor() {
+  form: FormGroup;
+  id: FormControl;
+  start: FormControl;
+  stop: FormControl;
+  step: FormControl;
+  _crs: FormControl;
 
+  ngOnInit() {
+    this.id = new FormControl(this.axis.id, [
+      Validators.required,
+    ]);
+
+    this.start = new FormControl(this.axis.start, []);
+
+    this.stop = new FormControl(this.axis.stop, []);
+
+    this.step = new FormControl(this.axis.step, []);
+
+    this._crs = new FormControl(this.axis.crs, []);
+    
+    this.form = new FormGroup({
+      id: this.id,
+      start: this.start,
+      stop: this.stop,
+      step: this.step,
+      crs: this._crs,
+    });
   }
 
   changeCRS(crs: CRS) {
