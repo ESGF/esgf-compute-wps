@@ -10,6 +10,7 @@ import { ProcessWrapper } from './process-wrapper';
 import { Link } from './link';
 import { EditorState } from './editor-state.enum';
 import { Variable } from './variable';
+import { RegridModel } from './regrid.component';
 
 import * as d3 from 'd3';
 
@@ -87,15 +88,15 @@ export class WorkflowComponent implements OnInit {
 
   processes: string[];
 
-  copyNodes: ProcessWrapper[];
   nodes: ProcessWrapper[];
   links: Link[];
   selectedNode: ProcessWrapper;
 
-  loading: boolean = false;
-
   state: EditorState;
   stateData: any;
+
+  regrid: RegridModel = new RegridModel();
+  parameters: Parameter[] = [];
 
   svg: any;
   svgLinks: any;
