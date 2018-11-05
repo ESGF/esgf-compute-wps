@@ -1,11 +1,23 @@
 import { Process } from './process';
+import { Dataset } from './dataset';
+import { Domain } from './domain';
 
 export class ProcessWrapper {
+  public selectedDataset: string;
+  public selectedVariable: string;
+
+  public dataset: Dataset;
+  public domain: Domain;
+
   constructor(
     public process: Process,
     public x: number,
     public y: number
   ) { }
+
+  setSelectedVariable(value: string) {
+    this.selectedVariable = value;
+  }
 
   display() {
     return this.process.identifier;

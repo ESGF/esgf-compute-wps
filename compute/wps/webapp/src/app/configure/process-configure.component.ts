@@ -1,11 +1,14 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, AfterViewInit } from '@angular/core';
 
 import { Process } from './process';
+import { ProcessWrapper } from './process-wrapper';
 import { ConfigureService } from './configure.service';
 import { Variable } from './variable';
 import { Dataset } from './dataset';
 import { NotificationService } from '../core/notification.service';
 import { Domain } from './domain';
+
+declare var $: any;
 
 @Component({
   selector: 'process-configure',
@@ -40,7 +43,7 @@ import { Domain } from './domain';
                 </div>
                 <div class="col-md-10">
                   <div class="form-control-static">
-                    {{selectedDataset}}
+                    {{processWrapper?.selectedDataset}}
                   </div>
                 </div>
               </div>
@@ -53,18 +56,18 @@ import { Domain } from './domain';
                       <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu scrollable" aria-labelledby="varibaleDropdown">
-                      <li *ngFor="let x of dataset?.variableNames"><a (click)="selectedVariable=x">{{x}}</a></li>
+                      <li *ngFor="let x of processWrapper?.dataset?.variableNames"><a (click)="processWrapper?.setSelectedVariable(x)">{{x}}</a></li>
                     </ul>
                   </div>
                 </div>
                 <div class="col-md-10">
                   <div class="form-control-static">
-                    {{selectedVariable}}
+                    {{processWrapper?.selectedVariable}}
                   </div>
                 </div>
               </div>
               <br/>
-              <div *ngIf="selectedVariable" class="row">
+              <div *ngIf="processWrapper?.selectedVariable" class="row">
                 <div class="col-md-12">
                   <panel title="Files" [listGroup]="true" [collapse]="false" [scrollable]="true">
                     <li class="list-group-item">
@@ -78,7 +81,7 @@ import { Domain } from './domain';
                       </div>
                     </li>
                     <li 
-                      *ngFor="let x of dataset.getVariables(selectedVariable) | filter:filterText.value"
+                      *ngFor="let x of processWrapper?.dataset?.getVariables(processWrapper?.selectedVariable) | filter:filterText.value"
                       class="list-group-item"
                       [class.list-group-item-success]="isInput(x)"
                       (click)="addInputFile(x)">
@@ -129,7 +132,7 @@ import { Domain } from './domain';
             <parameter-config [params]=process?.parameters></parameter-config>
           </panel>
           <panel title="Domain" [listGroup]="true">
-            <domain-config [candidateDomain]="domain"></domain-config>
+            <domain-config [candidateDomain]="processWrapper?.domain"></domain-config>
           </panel>
         </div>
       </div>
@@ -139,27 +142,25 @@ import { Domain } from './domain';
 })
 export class ProcessConfigureComponent {
   @Input() datasetID: string[];
-  @Input() process: Process;
+  @Input() processWrapper: ProcessWrapper;
   @Input() params: any;
 
   @Output() removeProcessInput = new EventEmitter<Process>();
-
-  selectedDataset: string;
-  selectedVariable: string;
-
-  dataset: Dataset;
-  domain: Domain;
 
   constructor(
     private configureService: ConfigureService,
     private notificationService: NotificationService,
   ) { }
 
+  get process() {
+    return (this.processWrapper == null) ? null : this.processWrapper.process;
+  }
+
   selectDataset(dataset: string) {
-    this.selectedDataset = dataset;
+    this.processWrapper.selectedDataset = dataset;
 
     this.configureService.searchESGF(dataset, this.params)
-      .then((data: Dataset) => this.dataset = data);
+      .then((data: Dataset) => this.processWrapper.dataset = data);
   }
 
   getIndex(variable: Variable) {
@@ -181,12 +182,16 @@ export class ProcessConfigureComponent {
       return;
     }
 
-    this.configureService.searchVariable(this.selectedVariable, this.selectedDataset, [variable.index], this.params)
+    this.configureService.searchVariable(
+      this.processWrapper.selectedVariable, 
+      this.processWrapper.selectedDataset, 
+      [variable.index], 
+      this.params)
       .then((data: Domain[]) => {
-        if (this.domain == null) {
-          this.domain = Object.create(Domain.prototype);
+        if (this.processWrapper.domain == null) {
+          this.processWrapper.domain = Object.create(Domain.prototype);
 
-          Object.assign(this.domain, data[0]);
+          Object.assign(this.processWrapper.domain, data[0]);
         }
 
         variable.domain = data[0];
@@ -219,7 +224,7 @@ export class ProcessConfigureComponent {
   }
 
   addAllInputFiles() {
-    this.process.inputs.concat(this.dataset.getVariables(this.selectedVariable));
+    this.process.inputs.concat(this.processWrapper.dataset.getVariables(this.processWrapper.selectedVariable));
   }
 
   addInputFile(variable: Variable) {
