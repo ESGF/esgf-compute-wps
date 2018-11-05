@@ -30,8 +30,6 @@ export class Axis extends UID {
   }
 
   reset(crs: CRS) {
-    console.log(crs);
-    console.log(typeof crs);
     switch(crs) {
     case CRS.Values:
         this.start = this._start;
@@ -39,7 +37,6 @@ export class Axis extends UID {
         this.stop = this._stop;
         break;
     case CRS.Indices:
-        console.log('fuck');
         this.start = 0;
 
         this.stop = this._length;

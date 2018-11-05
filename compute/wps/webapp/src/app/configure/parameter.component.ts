@@ -1,4 +1,5 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
 
 import { Parameter } from './parameter';
 import { NotificationService } from '../core/notification.service';
@@ -12,11 +13,15 @@ import { NotificationService } from '../core/notification.service';
   `],
   template: `
   <ng-container>
-    <li class="list-group-item">
+    <li class="list-group-item" [formGroup]="form">
       <div class="container-fluid">
         <div class="row">
-          <div class="col-md-5"><input #keyInput class="form-control" placeholder="Key" type="text"></div>
-          <div class="col-md-5"><input #valueInput class="form-control" placeholder="Value" type="text"></div>
+          <div class="col-md-5" [class.has-error]="keyControl.invalid">
+            <input formControlName="key" #keyInput class="form-control" placeholder="Key" type="text">
+          </div>
+          <div class="col-md-5" [class.has-error]="valueControl.invalid">
+            <input formControlName="value" #valueInput class="form-control" placeholder="Value" type="text">
+          </div>
           <div class="col-md-2"><button (click)="addParameter(keyInput.value, valueInput.value)" class="btn btn-default" type="button">Add</button></div>
         </div>
       </div>
@@ -33,15 +38,31 @@ import { NotificationService } from '../core/notification.service';
   </ng-container>
   `
 })
-export class ParameterComponent {
+export class ParameterComponent implements OnInit {
   @Input() params: Parameter[];
 
-  key = '';
-  value = '';
+  form: FormGroup;
+  keyControl: FormControl;
+  valueControl: FormControl;
 
   constructor(
     private notificationService: NotificationService,
   ) { }
+
+  ngOnInit() {
+    this.keyControl = new FormControl('', [
+      Validators.required,
+    ]);
+
+    this.valueControl = new FormControl('', [
+      Validators.required,
+    ]);
+
+    this.form = new FormGroup({
+      key: this.keyControl,
+      value: this.valueControl,
+    });
+  }
 
   removeParameter(param: Parameter) {
     this.params = this.params.filter((item: Parameter) => {
@@ -50,14 +71,20 @@ export class ParameterComponent {
   }
 
   addParameter(key: string, value: string) {
-    if (!key) {
-      this.notificationService.error('Missing key');
+    if (this.form.invalid) {
+      let error = Object.keys(this.form.controls).map((key: string) => {
+        return [key, this.form.controls[key]];
+      }).find((item: any[]) => {
+        if (item[1].invalid) {
+          return true;
+        }
 
-      return;
-    }
+        return false;
+      });
 
-    if (!value) {
-      this.notificationService.error('Missing value');
+      let errorMessage = Object.keys((<FormControl>error[1]).errors).join(', ');
+
+      this.notificationService.error(`Parameter error: ${error[0]} ${errorMessage}`);
 
       return;
     }

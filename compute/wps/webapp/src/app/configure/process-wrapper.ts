@@ -8,6 +8,7 @@ export class ProcessWrapper {
 
   public dataset: Dataset;
   public domain: Domain;
+  public errors = false;
 
   constructor(
     public process: Process,

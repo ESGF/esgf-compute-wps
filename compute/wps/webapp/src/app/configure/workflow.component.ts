@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, ViewEncapsulation, ViewChild } from '@angular/core';
+import { Component, Input, OnInit, AfterViewInit, ViewEncapsulation, ViewChild } from '@angular/core';
 
 import { Parameter } from './parameter';
 import { ConfigureService } from './configure.service';
@@ -14,7 +14,6 @@ import { RegridModel } from './regrid.component';
 
 import * as d3 from 'd3';
 
-declare var jQuery: any;
 declare var $: any;
 
 @Component({
@@ -23,6 +22,10 @@ declare var $: any;
   styles: [`
   svg {
     border: 1px solid #ddd;
+  }
+
+  .error {
+    stroke: #ff0000!important;
   }
 
   .pane {
@@ -82,7 +85,7 @@ declare var $: any;
   `],
   templateUrl: './workflow.component.html'
 })
-export class WorkflowComponent implements OnInit {
+export class WorkflowComponent implements OnInit, AfterViewInit {
   @Input() datasetID: string[];
   @Input() params: any;
 
@@ -164,6 +167,12 @@ export class WorkflowComponent implements OnInit {
       .classed('nodes', true);
   }
 
+  ngAfterViewInit() {
+    $('#processConfigureModal').on('hidden.bs.modal', (e: any) => {
+      this.update();
+    });
+  }
+
   removeElements() {
     switch (d3.event.keyCode) {
       case 8:
@@ -195,7 +204,7 @@ export class WorkflowComponent implements OnInit {
   }
 
   removeNode(node: ProcessWrapper) {
-    jQuery('#configure').modal('hide');
+    $('#configure').modal('hide');
 
     this.links = this.links.filter((value: Link) => {
       return value.src.uid() !== node.uid() && value.dst.uid() !== node.uid();
@@ -351,6 +360,13 @@ export class WorkflowComponent implements OnInit {
       .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
       .data(this.nodes, (item: ProcessWrapper) => { return item.uid(); });
 
+    // Update the error class on circles
+    this.svgNodes
+      .selectAll('circle')
+      .classed('error', (d: ProcessWrapper) => {
+        return d.errors;
+      });
+
     nodes.exit().remove();
 
     let newNodes = nodes.enter()
@@ -367,6 +383,9 @@ export class WorkflowComponent implements OnInit {
 
     newNodes.append('circle')
       .attr('r', '60')
+      .classed('error', (d: ProcessWrapper) => {
+        return d.errors;
+      })
       .classed('node', true);
 
     newNodes.append('text')

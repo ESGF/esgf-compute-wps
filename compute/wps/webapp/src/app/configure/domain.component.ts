@@ -1,7 +1,8 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, ViewChildren, QueryList } from '@angular/core';
 
 import { Domain } from './domain';
 import { Axis } from './axis';
+import { AxisComponent } from './axis.component';
 
 @Component({
   selector: 'domain-config',
@@ -41,14 +42,23 @@ import { Axis } from './axis';
 export class DomainComponent implements OnInit {
   @Input() candidateDomain: Domain;
 
+  @ViewChildren(AxisComponent)
+  private axes: QueryList<AxisComponent>;
+
   domain: Domain = new Domain();
 
-  constructor() {
+  constructor() { }
 
-  }
+  ngOnInit() { }
 
-  ngOnInit() {
+  errors() {
+    return this.axes.find((item: AxisComponent) => {
+      if (item.form.invalid) {
+        return true;
+      }
 
+      return false;
+    }) != undefined;
   }
 
   addCustomAxis() {

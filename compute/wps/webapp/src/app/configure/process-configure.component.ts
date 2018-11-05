@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, AfterViewInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, AfterViewInit } from '@angular/core';
 
 import { Process } from './process';
 import { ProcessWrapper } from './process-wrapper';
@@ -7,6 +7,7 @@ import { Variable } from './variable';
 import { Dataset } from './dataset';
 import { NotificationService } from '../core/notification.service';
 import { Domain } from './domain';
+import { DomainComponent } from './domain.component';
 
 declare var $: any;
 
@@ -140,17 +141,26 @@ declare var $: any;
   </div>
   `
 })
-export class ProcessConfigureComponent {
+export class ProcessConfigureComponent implements AfterViewInit {
   @Input() datasetID: string[];
   @Input() processWrapper: ProcessWrapper;
   @Input() params: any;
 
   @Output() removeProcessInput = new EventEmitter<Process>();
 
+  @ViewChild(DomainComponent)
+  private domainComponent: DomainComponent;
+
   constructor(
     private configureService: ConfigureService,
     private notificationService: NotificationService,
   ) { }
+
+  ngAfterViewInit() {
+    $('#processConfigureModal').on('hidden.bs.modal', (e: any) => {
+      this.processWrapper.errors = this.domainComponent.errors();
+    });
+  }
 
   get process() {
     return (this.processWrapper == null) ? null : this.processWrapper.process;
@@ -182,7 +192,7 @@ export class ProcessConfigureComponent {
       return;
     }
 
-    this.configureService.searchVariable(
+    return this.configureService.searchVariable(
       this.processWrapper.selectedVariable, 
       this.processWrapper.selectedDataset, 
       [variable.index], 
@@ -247,9 +257,9 @@ export class ProcessConfigureComponent {
     if (match != -1) {
       this.process.inputs.splice(match, 1);
     } else {
-      this.getFileDomain(variable);
-      
-      this.process.inputs.push(variable);
+      this.getFileDomain(variable).then(() => {
+        this.process.inputs.push(variable);
+      });
     }
   }
 }
