@@ -11,6 +11,7 @@ import { RegridComponent } from './regrid.component';
 import { ConfigureComponent } from './configure.component';
 import { FilterPipe } from './filter.pipe';
 import { FilenamePipe } from './filename.pipe';
+import { EnumPipe } from './enum.pipe';
 import { WorkflowComponent } from './workflow.component';
 import { ProcessConfigureComponent } from './process-configure.component';
 
@@ -34,6 +35,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     RegridComponent,
     FilterPipe,
     FilenamePipe,
+    EnumPipe,
     WorkflowComponent,
     ProcessConfigureComponent,
   ],
@@ -42,6 +44,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     ConfigureService,
     FilterPipe,
     FilenamePipe,
+    EnumPipe,
   ]
 })
 export class ConfigureModule { }

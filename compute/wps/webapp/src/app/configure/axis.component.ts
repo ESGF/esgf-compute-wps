@@ -41,10 +41,10 @@ import { CRS } from './crs.enum';
         <div class="col-md-2">
           <select 
             [(ngModel)]="axis.crs"
+            (change)="axis.reset(axis.crs)"
             class="form-control" 
             id="crs">
-            <option value="CRS.Values">Values</option>
-            <option value="CRS.Indices">Indices</option>
+            <option *ngFor="let x of crs | enum" value="{{x.value}}">{{x.key}}</option>
           </select>
         </div>
         <div class="col-md-2">
@@ -90,6 +90,8 @@ export class AxisComponent {
   @Input() axis: Axis;
 
   @Output() onRemove = new EventEmitter<Axis>();
+
+  crs = CRS;
 
   constructor() {
 
