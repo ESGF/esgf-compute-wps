@@ -23,19 +23,7 @@
     </nav>
   </div>
   <div class="container-fluid">
-    <div class="alert alert-dismissible alert-success" [class.hidden]="message === ''" role="alert">
-      <button type="button" class="close" (click)="hideMessage();"><span aria-hidden="true">&times;</span></button>
-      <a *ngIf="messageLink !== null; else noLink" routerLink="{{messageLink}}" class="alert-link">{{message}}</a>
-      <ng-template #noLink>{{message}}</ng-template>
-    </div>
-    <div class="alert alert-dismissible alert-warning" [class.hidden]="warn === ''" role="alert">
-      <button type="button" class="close" (click)="hideWarning();"><span aria-hidden="true">&times;</span></button>
-      {{warn}}
-    </div>
-    <div class="alert alert-dismissible alert-danger" [class.hidden]="error === ''" role="alert">
-      <button type="button" class="close" (click)="hideError();"><span aria-hidden="true">&times;</span></button>
-      {{error}}
-    </div>
+    <notification></notification>
     <router-outlet></router-outlet>
   </div>
 </div>

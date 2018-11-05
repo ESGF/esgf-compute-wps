@@ -6,6 +6,7 @@ import { RouterModule } from '@angular/router';
 
 import { AuthService } from './auth.service';
 import { ConfigService } from './config.service';
+import { NotificationComponent } from './notification.component';
 import { NotificationService } from './notification.service';
 import { WPSService } from './wps.service';
 
@@ -16,8 +17,12 @@ import { WPSService } from './wps.service';
     HttpModule,
     DndModule.forRoot(),
   ],
-  declarations: [],
-  exports: [],
+  declarations: [
+    NotificationComponent,
+  ],
+  exports: [
+    NotificationComponent,
+  ],
   providers: [
     AuthService,
     ConfigService,
