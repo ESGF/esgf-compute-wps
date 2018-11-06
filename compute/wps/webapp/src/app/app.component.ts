@@ -1,5 +1,4 @@
-import { Component, OnInit } from '@angular/core';
-import { Router, NavigationEnd } from '@angular/router';
+import { Component, OnInit, ViewChild } from '@angular/core';
 
 import { Subscription } from 'rxjs/Subscription';
 
@@ -9,6 +8,7 @@ import { AuthService } from './core/auth.service';
 import { ConfigService } from './core/config.service';
 import { User } from './user/user.service';
 import { WPSService, WPSResponse } from './core/wps.service';
+import { NotificationComponent } from './core/notification.component';
 
 @Component({
   selector: 'my-app',
@@ -16,21 +16,23 @@ import { WPSService, WPSResponse } from './core/wps.service';
 })
 
 export class AppComponent implements OnInit { 
+  @ViewChild(NotificationComponent)
+  private notificationComponent: NotificationComponent;
+
   admin: boolean = false;
   logged: boolean = false;
 
   loggedSub: Subscription;
 
-  clearTimer: any;
-
   constructor(
-    private router: Router,
     private authService: AuthService,
     private configService: ConfigService,
-    private wpsService: WPSService
+    private wpsService: WPSService,
   ) { }
 
   ngOnInit() {
+    this.notificationComponent.subscribe();
+
     this.authService.user$.subscribe((user: User) => {
       if (user != null) {
         this.admin = user.admin;

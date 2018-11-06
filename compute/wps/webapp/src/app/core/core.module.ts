@@ -1,4 +1,4 @@
-import { NgModule } from '@angular/core';
+import { NgModule, ModuleWithProviders, Optional, SkipSelf } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpModule } from '@angular/http';
 import { DndModule } from 'ng2-dnd';
@@ -26,8 +26,16 @@ import { WPSService } from './wps.service';
   providers: [
     AuthService,
     ConfigService,
-    NotificationService,
     WPSService
   ]
 })
-export class CoreModule { }
+export class CoreModule { 
+  static forRoot(): ModuleWithProviders {
+    return {
+      ngModule: CoreModule,
+      providers: [
+        NotificationService,
+      ]
+    };
+  }
+}

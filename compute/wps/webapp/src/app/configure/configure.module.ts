@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule } from '@angular/forms';
 import { SharedModule } from '../shared/shared.module';
 import { DndModule } from 'ng2-dnd';
+import { CoreModule } from '../core/core.module';
 
 import { DomainComponent } from './domain.component';
 import { AxisComponent } from './axis.component';
@@ -27,6 +28,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     ReactiveFormsModule,
     ConfigureRoutingModule,
     SharedModule,
+    CoreModule,
     DndModule,
   ],
   declarations: [

@@ -8,6 +8,7 @@ import { Dataset } from './dataset';
 import { NotificationService } from '../core/notification.service';
 import { Domain } from './domain';
 import { DomainComponent } from './domain.component';
+import { NotificationComponent } from '../core/notification.component';
 
 declare var $: any;
 
@@ -28,6 +29,7 @@ declare var $: any;
           <h4 class="modal-title">Configure "{{process?.identifier}}"</h4>
         </div>
         <div class="modal-body panel-group">
+          <notification></notification>
           <panel title="Inputs">
             <div class="container-fluid">
               <div class="row">
@@ -151,13 +153,22 @@ export class ProcessConfigureComponent implements AfterViewInit {
   @ViewChild(DomainComponent)
   private domainComponent: DomainComponent;
 
+  @ViewChild(NotificationComponent)
+  private notificationComponent: NotificationComponent;
+
   constructor(
     private configureService: ConfigureService,
     private notificationService: NotificationService,
   ) { }
 
   ngAfterViewInit() {
+    $('#processConfigureModal').on('show.bs.modal', (e: any) => {
+      this.notificationComponent.subscribe();
+    });
+
     $('#processConfigureModal').on('hidden.bs.modal', (e: any) => {
+      this.notificationComponent.unsubscribe();
+
       this.processWrapper.errors = this.domainComponent.errors();
     });
   }

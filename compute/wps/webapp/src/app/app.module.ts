@@ -16,7 +16,7 @@ import { AppRoutingModule } from './app-routing.module';
 @NgModule({
   imports: [
     BrowserModule,
-    CoreModule,
+    CoreModule.forRoot(),
     SharedModule,
     AdminModule,
     AuthModule,
