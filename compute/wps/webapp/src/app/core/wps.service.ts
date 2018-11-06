@@ -151,15 +151,7 @@ export class WPSService {
   }
 
   dataInputJSON(dataInput: any) {
-    let stringify = [];
-
-    for (let x in dataInput) {
-      let item = dataInput[x];
-
-      stringify.push(item);
-    }
-
-    return stringify.join(',');
+    return JSON.stringify(Object.keys(dataInput).map((key: string) => dataInput[key]));
   }
 
   prepareDataInputs(processes: Process[]): any {
