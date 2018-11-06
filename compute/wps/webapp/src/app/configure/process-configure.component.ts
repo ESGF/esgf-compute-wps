@@ -281,8 +281,12 @@ export class ProcessConfigureComponent implements AfterViewInit {
     if (match != -1) {
       this.process.inputs.splice(match, 1);
     } else {
-      this.getFileDomain(variable).then(() => {
-        this.process.inputs.push(variable);
+      this.process.inputs.push(variable);
+
+      this.getFileDomain(variable).catch(() => {
+        this.process.removeInput(variable);
+
+        this.notificationService.error(`Removed ${variable.display()}, failed to retrieve metadata`);
       });
     }
   }
