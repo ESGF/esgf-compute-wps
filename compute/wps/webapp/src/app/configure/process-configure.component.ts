@@ -138,6 +138,10 @@ declare var $: any;
             <domain-config [candidateDomain]="processWrapper?.domain"></domain-config>
           </panel>
         </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger pull-left" (click)="removeProcess()">Remove</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
       </div>
     </div>
   </div>
@@ -149,6 +153,7 @@ export class ProcessConfigureComponent implements AfterViewInit {
   @Input() params: any;
 
   @Output() inputRemoved = new EventEmitter<Variable|Process>();
+  @Output() removed = new EventEmitter<Process>();
 
   @ViewChild(DomainComponent)
   private domainComponent: DomainComponent;
@@ -175,6 +180,12 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
   get process() {
     return (this.processWrapper == null) ? null : this.processWrapper.process;
+  }
+
+  removeProcess() {
+    this.removed.emit(this.process);
+
+    $('#processConfigureModal').modal('hide');
   }
 
   selectDataset(dataset: string) {
