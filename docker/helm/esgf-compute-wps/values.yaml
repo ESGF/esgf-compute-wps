@@ -139,11 +139,11 @@ celery:
   resources:
     # Must quote the memory field otherwise large numbers are rendered in
     # scientific notation which celery does not like. This value is in KiB.
-    memory: "1024000"
+    memory: "200000000"
     cpuRequest: 100m
-    memoryRequest: 128Mi
+    memoryRequest: 64Mi
     cpuLimit: 1000m
-    memoryLimit: 1Gi
+    memoryLimit: 256Mi
 
   queues:
   - name: ingress

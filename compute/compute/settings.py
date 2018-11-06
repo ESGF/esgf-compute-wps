@@ -117,7 +117,7 @@ ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, 
 INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', True, bool)
 PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
-WORKER_MEMORY = config.get_value('default', 'worker.memory', 1e9, int)
+WORKER_MEMORY = config.get_value('default', 'worker.memory', 2e8, int)
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
@@ -134,7 +134,7 @@ WPS_LANG = 'en-US'
 WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
 WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/status/{job_id}/')
 WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url',
-                                   'https://{host}/wps/execute/')
+                                   'http://10.1.1.208:8000/wps/execute/')
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
 WPS_PUBLIC_PATH = config.get_value('wps', 'wps.public_path', '/data/public')
 WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)
