@@ -135,7 +135,10 @@ declare var $: any;
             <parameter-config [params]=process?.parameters></parameter-config>
           </panel>
           <panel title="Domain" [listGroup]="true">
-            <domain-config [candidateDomain]="processWrapper?.domain"></domain-config>
+            <domain-config 
+              [domain]="processWrapper?.process?.domain"
+              [candidateDomain]="domain">
+            </domain-config>
           </panel>
         </div>
         <div class="modal-footer">
@@ -161,6 +164,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
   @ViewChild(NotificationComponent)
   private notificationComponent: NotificationComponent;
 
+  private domain: Domain;
+
   constructor(
     private configureService: ConfigureService,
     private notificationService: NotificationService,
@@ -168,6 +173,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
   ngAfterViewInit() {
     $('#processConfigureModal').on('show.bs.modal', (e: any) => {
+      this.reset();
+
       this.notificationComponent.subscribe();
     });
 
@@ -176,6 +183,10 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
       this.processWrapper.errors = this.domainComponent.errors();
     });
+  }
+
+  reset() {
+    this.domain = null; 
   }
 
   get process() {
@@ -220,13 +231,13 @@ export class ProcessConfigureComponent implements AfterViewInit {
       [variable.index], 
       this.params)
       .then((data: Domain[]) => {
-        if (this.processWrapper.domain == null) {
-          this.processWrapper.domain = Object.create(Domain.prototype);
+        if (this.domain == null) {
+          this.domain = new Domain();
 
-          Object.assign(this.processWrapper.domain, data[0]);
+          Object.assign(this.domain, data[0]);
         }
 
-        variable.domain = data[0];
+        variable.domain = this.domain;
       })
       .catch((text: string) => this.notificationService.error(text));
   }

@@ -12,6 +12,13 @@ export class Variable extends UID implements Input {
     super();
   }
 
+  toJSON() {
+    return {
+      id: `${this.name}|${this.uid}`,
+      uri: this.file,
+    }
+  }
+
   display() {
     let parts;
 

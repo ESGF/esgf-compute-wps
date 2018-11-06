@@ -3,6 +3,7 @@ import { Http, URLSearchParams, RequestOptionsArgs, Headers } from '@angular/htt
 import { Params } from '@angular/router';
 
 import { Process } from '../configure/process';
+import { Variable } from '../configure/variable';
 import { AuthService } from '../core/auth.service';
 
 export interface WPSResponse {
@@ -83,14 +84,8 @@ export class WPSService {
     });
   }
 
-  execute(url: string, api_key: string, process: Process): Promise<string> {
-    try {
-      process.validate();
-    } catch(err) {
-      return Promise.reject(err);
-    }
-
-    let data = this.prepareDataInputsXML(process);
+  execute(url: string, api_key: string, processes: Process[]): Promise<string> {
+    let data = this.prepareDataInputsXML(processes);
 
     let params = new URLSearchParams();
 
@@ -155,24 +150,52 @@ export class WPSService {
     return newNode;
   }
 
-  prepareDataInputs(process: Process): any {
-    let data = {
-      variable: JSON.stringify(process.getVariable()),
-      domain: JSON.stringify(process.getDomain()),
-      operation: JSON.stringify(process.getOperation()),
-    };
+  dataInputJSON(dataInput: any) {
+    let stringify = [];
 
-    return data;
+    for (let x in dataInput) {
+      let item = dataInput[x];
+
+      stringify.push(item);
+    }
+
+    return stringify.join(',');
   }
 
-  prepareDataInputsString(process: Process): string {
-    let data = this.prepareDataInputs(process);
+  prepareDataInputs(processes: Process[]): any {
+    let variables = {};
+    let domains = {};
+    let operations = {};
+
+    for (let process of processes) {
+      operations[process.uid] = process.toJSON();
+
+      if (process.domain != null && process.domain.isValid() && !(process.domain.uid in domains)) {
+        domains[process.domain.uid] = process.domain.toJSON(); 
+      }
+
+      for (let input of process.inputs) {
+        if (input instanceof Variable) {
+          variables[input.uid] = input.toJSON();
+        }
+      }
+    }
+
+    return { 
+      variable: this.dataInputJSON(variables),
+      domain: this.dataInputJSON(domains),
+      operation: this.dataInputJSON(operations),
+    };
+  }
+
+  prepareDataInputsString(processes: Process[]): string {
+    let data = this.prepareDataInputs(processes);
 
     return `[variable=${data.variable}|domain=${data.domain}|operation=${data.operation}]`;
   }
 
-  prepareDataInputsXML(process: Process): string {
-    let dataInputs = this.prepareDataInputs(process);
+  prepareDataInputsXML(processes: Process[]): string {
+    let dataInputs = this.prepareDataInputs(processes);
 
     let doc = document.implementation.createDocument(WPS_NS, 'wps:Execute', null);
 
@@ -181,7 +204,11 @@ export class WPSService {
     this.createAttribute(doc, root, 'service', 'WPS');
     this.createAttribute(doc, root, 'version', '1.0.0');
 
-    this.createElementNS(doc, root, OWS_NS, 'ows:Identifier', process.identifier);
+    if (processes.length == 1) {
+      this.createElementNS(doc, root, OWS_NS, 'ows:Identifier', processes[0].identifier);
+    } else {
+      this.createElementNS(doc, root, OWS_NS, 'ows:Identifier', 'CDAT.workflow');
+    }
 
     let dataInputsElement = this.createElementNS(doc, root, WPS_NS, 'wps:DataInputs');
 

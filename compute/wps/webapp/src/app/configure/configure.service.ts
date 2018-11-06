@@ -55,11 +55,11 @@ export class ConfigureService extends WPSService {
       });
   }
 
-  downloadScript(process: Process): Promise<any> {
+  downloadScript(processes: Process[]): Promise<any> {
     let preparedData: string;
     
     try {
-      preparedData = this.prepareDataInputsString(process);
+      preparedData = this.prepareDataInputsString(processes);
     } catch (e) {
       return Promise.reject(e);
     }

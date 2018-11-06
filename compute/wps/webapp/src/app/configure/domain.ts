@@ -1,13 +1,38 @@
 import { Axis, AxisJSON } from './axis';
+import { UID } from './uid';
 
 export interface DomainJSON {
   temporal: AxisJSON;
   spatial: AxisJSON[];
 }
 
-export class Domain {
+export class Domain extends UID {
   public temporal: Axis;
   public spatial: Axis[] = [];
+
+  constructor() {
+    super();
+  }
+
+  toJSON() {
+    let data = {
+      id: this.uid,
+    };
+
+    if (this.temporal != null) {
+      data[this.temporal.id] = this.temporal.toJSON();
+    }
+
+    for (let axis of this.spatial) {
+      data[axis.id] = axis.toJSON();
+    }
+
+    return data;
+  }
+
+  isValid() {
+    return this.temporal != null || this.spatial.length > 0;
+  }
 
   remove(axis: Axis) {
     if (this.temporal && this.temporal.uid === axis.uid) {

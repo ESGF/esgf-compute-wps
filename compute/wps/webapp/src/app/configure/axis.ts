@@ -29,6 +29,15 @@ export class Axis extends UID {
     super();
   }
 
+  toJSON() {
+    return {
+      start: this.start,
+      stop: this.stop,
+      step: this.step,
+      crs: this.crs,
+    }
+  }
+
   reset(crs: CRS) {
     switch(crs) {
     case CRS.Values:

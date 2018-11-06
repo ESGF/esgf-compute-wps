@@ -8,7 +8,7 @@ import { Domain } from './domain';
 export class Process extends UID implements Input {
   public description: any;
   public inputs: (Variable|Process)[] = [];
-  public domain: Domain;
+  public domain: Domain = new Domain();
   public regrid: RegridModel = new RegridModel();
   public parameters: Parameter[] = [];
 
@@ -54,59 +54,24 @@ export class Process extends UID implements Input {
     }
   }
 
-  getVariable(): any {
-    if (this.inputs == null) { return []; }
-
-    //return this.inputs.map((item: File) => {
-    //  return {uri: item.url, id: `${this.variable}|${item.uid}`};
-    //});
-  }
-
-  getDomain(): any {
-    if (this.domain == null) { return []; }
-
-    let domain = {};
-
-    //this.domain.axes.map((item: Axis) => {
-    //  domain[item.id] = {
-    //    id: item.id,
-    //    start: item.start,
-    //    end: item.stop,
-    //    step: item.step,
-    //    crs: item.crs.toLowerCase(),
-    //  };
-    //});
-
-    //domain['id'] = this.domain.id = this.newUID();
-
-    return [domain];
-  }
-
-  getOperation(): any {
-    let operation = {
+  toJSON() {
+    let data = {
       name: this.identifier,
-      result: this.newUID(),
+      input: this.inputs.map((item: Variable|Process) => { return item.uid; }),
+      result: this.uid,
     };
 
-    //if (this.inputs != null) {
-    //  operation['input'] = this.inputs.map((item: File) => {
-    //    return item.uid;
-    //  });
-    //}
-
-    if (this.domain != null) {
-      //operation['domain'] = this.domain.id;
+    if (this.domain != null && this.domain.isValid()) {
+      data['domain'] = this.domain.uid;
     }
 
-    for (let x of this.parameters) {
-      operation[x.key] = x.value;
+    if (this.parameters.length > 0) {
+      for (let key in this.parameters) {
+        Object.assign(data, this.parameters[key].toJSON());
+      }
     }
 
-    if (this.regrid != null && this.regrid.regridType != 'None') {
-      operation['gridder'] = this.buildRegrid(); 
-    }
-
-    return [operation];
+    return data;
   }
 
   buildRegrid() {

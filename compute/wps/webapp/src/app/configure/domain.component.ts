@@ -40,12 +40,11 @@ import { AxisComponent } from './axis.component';
   `
 })
 export class DomainComponent implements OnInit {
+  @Input() domain: Domain;
   @Input() candidateDomain: Domain;
 
   @ViewChildren(AxisComponent)
   private axes: QueryList<AxisComponent>;
-
-  domain: Domain = new Domain();
 
   constructor() { }
 

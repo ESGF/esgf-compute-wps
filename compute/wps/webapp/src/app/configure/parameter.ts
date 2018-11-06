@@ -8,6 +8,14 @@ export class Parameter extends UID {
     super();
   }
 
+  toJSON() {
+    let data = {};
+
+    data[this.key] = this.value;
+
+    return data;
+  }
+
   validate() {
     if (this.key == '') {
       throw `Parameter must have a key`;

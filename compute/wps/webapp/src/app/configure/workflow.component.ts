@@ -11,6 +11,7 @@ import { Link } from './link';
 import { EditorState } from './editor-state.enum';
 import { Variable } from './variable';
 import { RegridModel } from './regrid.component';
+import { AuthService } from '../core/auth.service';
 
 import * as d3 from 'd3';
 
@@ -111,6 +112,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     private configService: ConfigService,
     private notificationService: NotificationService,
     private wpsService: WPSService,
+    private authService: AuthService,
   ) { 
     this.nodes = [];
 
@@ -171,6 +173,22 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     $('#processConfigureModal').on('hidden.bs.modal', (e: any) => {
       this.update();
     });
+  }
+
+  execute() {
+    if (this.authService.user === null) {
+      this.notificationService.error('Must be logged in to execute a workflow');
+
+      return;
+    }
+
+    let processes = this.nodes.map((item: ProcessWrapper) => item.process);
+    let api_key = this.authService.user.api_key;
+
+    this.wpsService.execute('/wps/', api_key, processes)
+      .catch((e: string) => {
+        this.notificationService.error(`Execute failed: ${e}`); 
+      });
   }
 
   removeElements() {
