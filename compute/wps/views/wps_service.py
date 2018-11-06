@@ -251,6 +251,9 @@ def handle_execute(api_key, identifier, data_inputs):
 
         backend.execute(**kwargs)
     except Exception as e:
+        if not job.is_started:
+            job.started()
+
         job.failed(str(e))
 
         raise
