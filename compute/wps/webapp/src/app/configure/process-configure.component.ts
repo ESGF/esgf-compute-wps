@@ -148,7 +148,7 @@ export class ProcessConfigureComponent implements AfterViewInit {
   @Input() processWrapper: ProcessWrapper;
   @Input() params: any;
 
-  @Output() removeProcessInput = new EventEmitter<Process>();
+  @Output() inputRemoved = new EventEmitter<Variable|Process>();
 
   @ViewChild(DomainComponent)
   private domainComponent: DomainComponent;
@@ -230,14 +230,16 @@ export class ProcessConfigureComponent implements AfterViewInit {
         return true;
       });
     } else if (item instanceof Process) {
-      this.removeProcessInput.emit(item);
+      this.inputRemoved.emit(item);
+
+      this.process.removeInput(item);
     }
   }
 
   removeAllInputs() {
     this.process.inputs.forEach((item: Variable|Process) => {
       if (item instanceof Process) {
-        this.removeProcessInput.emit(item);
+        this.inputRemoved.emit(item);
       }
     });
 

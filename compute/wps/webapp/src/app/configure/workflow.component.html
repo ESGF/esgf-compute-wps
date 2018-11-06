@@ -27,7 +27,7 @@
   </div>
 </div>
 <process-configure 
-             (removeProcessInput)="removeProcessInput($event)"
+             (inputRemoved)="removeInput($event)"
              [params]=params
              [datasetID]=datasetID
              [processWrapper]=selectedNode>

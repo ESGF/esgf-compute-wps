@@ -191,14 +191,18 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     }
   }
 
-  removeProcessInput(process: Process) {
-    this.links = this.links.filter((item: Link) => {
-      if (item.src.process == process || item.dst.process == process) {
-        return false;
-      }
+  removeInput(item: Variable|Process) {
+    if (item instanceof Process) {
+      this.links = this.links.filter((x: Link) => {
+        if (x.src.process == item || x.dst.process == item) {
+          return false;
+        }
 
-      return true;
-    });
+        return true;
+      });
+    } else {
+      throw new Error('Removing something other than a process');
+    }
 
     this.update();
   }
