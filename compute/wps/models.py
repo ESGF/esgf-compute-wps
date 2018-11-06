@@ -313,7 +313,7 @@ class Cache(models.Model):
     def set_size(self):
         stat = os.stat(self.local_path)
 
-        self.size = stat.st_size
+        self.size = stat.st_size / 1e9
 
         self.save()
 
