@@ -2,6 +2,11 @@
   <div class="row">
     <div class="col-md-3">
       <div class="panel-group" role="tablist">
+        <panel title="General" [listGroup]="true" [collapse]="false">
+          <li class="list-group-item">
+            <button type="button" class="btn btn-default">Execute</button>
+          </li>
+        </panel>
         <panel title="Processes" [listGroup]="true" [scrollable]="true">
           <li *ngFor="let process of processes" 
             dnd-draggable

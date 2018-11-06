@@ -322,20 +322,26 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
 
       this.svgDrag.classed('hidden', true);
 
-      if (this.stateData !== null && this.stateData.dst !== null) {
-        let exists = this.links.findIndex((link: Link) => {
-          return link.src === this.stateData.src && link.dst === this.stateData.dst;
-        });
+      if (this.stateData !== null && this.stateData.dst !== null) {   
+        let checkPath = this.pathExists(this.stateData.dst.process, this.stateData.src.process);
 
-        if (exists === -1) {
-          let src = this.stateData.src,
-            dst = this.stateData.dst;
+        if (!checkPath) {
+          let exists = this.links.findIndex((link: Link) => {
+            return link.src === this.stateData.src && link.dst === this.stateData.dst;
+          });
 
-          dst.process.inputs.push(src.process);
+          if (exists === -1) {
+            let src = this.stateData.src,
+              dst = this.stateData.dst;
 
-          this.links.push(this.stateData);
+            dst.process.inputs.push(src.process);
 
-          this.update();
+            this.links.push(this.stateData);
+
+            this.update();
+          }
+        } else {
+          this.notificationService.error('Cannot complete connection, creating a loop');
         }
       }
 
@@ -343,6 +349,35 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
 
       this.stateData = null;
     }
+  }
+
+  pathExists(src: Process, dst: Process) {
+    let stack = [src];
+    let nodes = this.nodes.map((item: ProcessWrapper) => { return item.process; });
+
+    while (stack.length > 0) {
+      let node = stack.pop();
+
+      if (node.uid == dst.uid) {
+        return true;
+      }
+
+      let inputs = nodes.filter((item: Process) => { 
+        return item.inputs.findIndex((x: Variable|Process) => {
+          if (x instanceof Process && x.uid === node.uid) {
+            return true; 
+          }
+
+          return false;
+        }) != -1;
+      });
+
+      for (let x of inputs) {
+        stack.push(x);
+      }
+    }
+
+    return false;
   }
   
   update() {
