@@ -52,6 +52,8 @@ class Command(BaseCommand):
 
                                 self.stdout.write(self.style.SUCCESS('  Removed blacklist process "{}"'.format(process.identifier)))
                         else:
+                            del process['proc']
+
                             try:
                                 process = models.Process.objects.create(**process)
                             except db.IntegrityError:
