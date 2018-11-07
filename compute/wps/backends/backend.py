@@ -64,7 +64,14 @@ class Backend(object):
         return '{}/{}/{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, user.id,
                                        job_id, filename)
 
-    def add_process(self, identifier, name, metadata, data_inputs=None, process_outputs=None, abstract=None):
+    def get_process(self, identifier):
+        for x in self.processes:
+            if x['identifier'] == identifier:
+                return x['proc']
+
+        raise WPSError('Missing process with identifier "{}"', identifier)
+
+    def add_process(self, identifier, name, proc):
         """ Adds a process/operation to a backend.
     
         Metadata should be formed as follows:
@@ -83,26 +90,17 @@ class Backend(object):
         Returns:
             None
         """
-        if abstract is None:
-            abstract = ''
-
-        if data_inputs is None:
-            data_inputs = DATA_INPUTS
-
-        if process_outputs is None:
-            process_outputs = [OUTPUT]
-
         args = [
             identifier,
             identifier,
             '1.0.0',
-            process_outputs,
+            proc.OUTPUT or [OUTPUT],
         ]
 
         kwargs = {
-            'metadata': metadata,
-            'data_inputs': data_inputs,
-            'abstract': abstract,
+            'metadata': proc.METADATA or {},
+            'data_inputs': proc.INPUT or DATA_INPUTS,
+            'abstract': proc.ABSTRACT or '',
         }
 
         description = cwt.wps.process_description(*args, **kwargs)
@@ -114,8 +112,9 @@ class Backend(object):
         process = {
             'identifier': identifier,
             'backend': self.NAME,
-            'abstract': abstract,
-            'description': descriptions.toxml(bds=cwt.bds)
+            'abstract': proc.ABSTRACT,
+            'description': descriptions.toxml(bds=cwt.bds),
+            'proc': proc,
         }
 
         self.processes.append(process)

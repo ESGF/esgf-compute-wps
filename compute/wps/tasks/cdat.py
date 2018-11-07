@@ -356,6 +356,11 @@ SNG_DATASET_MULTI_INPUT = {
     'inputs': '*',
 }
 
+@base.register_process('CDAT.workflow', metadata={}, hidden=True)
+@base.cwt_shared_task()
+def workflow(self):
+    pass
+
 @base.register_process('CDAT.regrid', abstract="""
                        Regrids a variable to designated grid. Required parameter named "gridder".
                        """, metadata=SNG_DATASET_SNG_INPUT)

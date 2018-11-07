@@ -47,6 +47,8 @@ def register_process(identifier, **kwargs):
 
         func.METADATA = kwargs.get('metadata', {})
 
+        func.HIDDEN = kwargs.get('hidden', False)
+
         return func
 
     return wrapper
