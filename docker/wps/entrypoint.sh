@@ -1,5 +1,13 @@
 #! /bin/bash
 
+function cleanup() {
+  kill -15 $child_pid
+
+  wait "$child_pid"
+}
+
+trap cleanup SIGINT SIGTERM
+
 function check_postgres() {
   python -c "import psycopg2; psycopg2.connect(host='${POSTGRES_HOST}', password='${POSTGRES_PASSWORD}', user='postgres')" 2>/dev/null
 
@@ -24,7 +32,15 @@ python $app_root/manage.py capabilities
 
 if [ -z "${WPS_DEBUG}" ]
 then
-  python app.py "0.0.0.0" "8000"
+  python app.py "0.0.0.0" "8000" &
+
+  child_pid=$!
+
+  wait "$child_pid"
 else
-  gunicorn -b 0.0.0.0:8000 --reload --chdir $app_root/ compute.wsgi $@
+  gunicorn -b 0.0.0.0:8000 --reload --chdir $app_root/ compute.wsgi $@ &
+
+  child_pid=$!
+
+  wait "$child_pid"
 fi

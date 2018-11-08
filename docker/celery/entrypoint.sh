@@ -1,47 +1,37 @@
 #! /bin/bash
 
+function cleanup() {
+  kill -15 ${celery_pid} &>/dev/null
+
+  echo "Killed celery"
+
+  wait ${celery_pid}
+
+  kill -15 ${metrics_pid} &>/dev/null
+
+  echo "Killed metrics"
+
+  wait ${metrics_pid}
+
+  rm -rf ${CWT_METRICS}
+}
+
+trap cleanup SIGINT SIGTERM
+
 source activate wps
 
 pushd $CWT_BASE
 
-exec celery worker -A compute ${@} &
+celery worker -A compute ${@} &
 
-celery_ret=${?}
-celery_pid=${!}
-
-if [[ ${celery_ret} -ne 0 ]]; then
-  echo "Celery failed to start"
-
-  return ${celery_ret}
-fi
+celery_pid=$!
 
 if [[ -n "${CWT_METRICS}" ]]; then
   [[ ! -e "${CWT_METRICS}" ]] && mkdir "${CWT_METRICS}"
 
-  exec python wps/metrics.py &
+  python wps/metrics.py &
 
-  metrics_ret=${?}
-  metrics_pid=${!}
-
-  if [[ ${metrics_ret} -ne 0 ]]; then
-    echo "Metrics failed to start"
-
-    return ${metrics_ret}
-  fi
+  metrics_pid=$!
 fi
 
-trap "{ kill -9 ${celery_pid}; kill -9 ${metrics_pid}; rm -f ${CWT_METRICS}/*gauge*;" SIGINT SIGTERM
-
-while sleep 60; do
-  if [[ $(kill -0 ${celery_pid}) -ne 0 ]]; then
-    echo "Celery process died"
-
-    exit 1
-  fi
-
-  if [[ -n "${CWT_METRICS}" ]] && [[ $(kill -0 ${metrics_pid}) -ne 0 ]]; then
-    echo "Metrics process died"
-
-    exit 1
-  fi
-done
+wait
