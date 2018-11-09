@@ -32,7 +32,7 @@ export class Axis extends UID {
   toJSON() {
     return {
       start: this.start,
-      stop: this.stop,
+      end: this.stop,
       step: this.step,
       crs: this.crs,
     }
