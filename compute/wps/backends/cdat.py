@@ -233,16 +233,11 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def generate_ingress_tasks(self, op_uid, url, var_name, user_id, job_id, kwargs):
-        preprocess = kwargs[url]
-
-        chunks = preprocess['chunks']
-
+    def generate_ingress_tasks(self, uid, var, user_id, job_id,
+                               state, chunks, mapped, **kwargs):
         chunk_axis = chunks.keys()[0]
 
         chunk_list = chunks.values()[0]
-
-        mapped = preprocess['mapped']
 
         if mapped is None:
             raise FileNotIncludedError()
@@ -251,9 +246,9 @@ class CDAT(backend.Backend):
         ingress_tasks = []
 
         for chunk in chunk_list:
-            key = '{}-{:08}'.format(op_uid, kwargs['index'])
+            key = '{}-{:08}'.format(uid, state['index'])
 
-            kwargs['index'] += 1
+            state['index'] += 1
 
             ingress_paths.append('{}/{}.nc'.format(
                 settings.WPS_INGRESS_PATH, key))
@@ -264,22 +259,19 @@ class CDAT(backend.Backend):
 
             ingress_tasks.append(
                 tasks.ingress_uri.s(
-                    url, var_name, mapped_copy, ingress_paths[-1], user_id, 
-                    job_id=job_id).set(
+                    var.uri, var.var_name, mapped_copy,
+                    ingress_paths[-1], user_id, job_id=job_id).set(
                         **helpers.INGRESS_QUEUE))
 
-        return ingress_paths, ingress_tasks
+        return {
+            'paths': ingress_paths,
+            'tasks': ingress_tasks,
+        }
 
-    def generate_cache_entry(self, op_uid, url, cache_files, kwargs):
-        key = '{}-{:08}'.format(op_uid, kwargs['index'])
+    def generate_cache_entry(self, uid, state, cached, chunks, **kwargs):
+        key = '{}-{:08}'.format(uid, state['index'])
 
-        kwargs['index'] += 1
-
-        preprocess = kwargs[url]
-
-        cached = preprocess['cached']
-
-        chunks = preprocess['chunks']
+        state['index'] += 1
 
         cache_entry = {'cached': True}
 
@@ -289,116 +281,106 @@ class CDAT(backend.Backend):
 
         cache_entry['chunk_list'] = chunks.values()[0]
 
-        cache_files[key] = cache_entry
+        state['cache_files'][key] = cache_entry
 
-    def execute_processing(self, root, sort, base_units, variable, domain, 
-                           operation, user_id, job_id, **kwargs):
+    def configure_processing(self, op, base_units, user, job, **kwargs):
+        var_name = None
+
+        ingress_paths = []
+        ingress_tasks = []
+        cache_tasks = []
+
+        state = {'index': 0, 'cache_files': {}}
+
+        variable = sorted([self.get_variable(x, **kwargs) for x in op.inputs],
+                          key=lambda x: kwargs[x.uri][sort])
+
+        for var in variable:
+            if var_name is None:
+                var_name = var.var_name
+
+            preprocess = kwargs[var.uri]
+
+            if preprocess['mapped'] is None:
+                continue
+
+            if preprocess['cached'] is None:
+                ingress = self.generate_ingress_tasks(op.name, var, user.id,
+                                                      job.id, state,
+                                                      **preprocess)
+
+                ingress_tasks.extend(ingress['tasks'])
+
+                ingress_paths.extend(ingress['paths'])
+
+                chunk_axis = preprocess['chunks'].keys()[0]
+
+                cache_tasks.append(tasks.ingress_cache.s(var.uri, var.var_name,
+                                                         preprocess['mapped'].copy(),
+                                                         chunk_axis,
+                                                         base_units,
+                                                         job_id=job.id).set(**helpers.DEFAULT_QUEUE))
+
+                job.steps_inc_total(len(ingress)+1)
+            else:
+                self.generate_cache_entry(op.name, state, **preprocess)
+
+        return {
+            'var_name': var_name, 
+            'ingress_paths': ingress_paths,
+            'ingress_taks': ingress_tasks,
+            'cache_tasks': cache_tasks,
+            'cache_files': state['cache_files'],
+        }
+
+    def execute_processing(self, user_id, job_id, sort, base_units, **kwargs):
         job = self.load_job(job_id)
 
         job.steps_reset()
 
         job.update('Starting processing')
 
-        op = operation[root]
-
         user = self.load_user(user_id)
+
+        op = self.get_operation(**kwargs)
 
         process = models.Process.objects.get(identifier=op.identifier)
 
-        logger.info('Executing %r', op)
+        config = self.configure_processing(op, base_units, user, job, **kwargs)
 
-        op_uid = uuid.uuid4()
-
-        # Should produce a single value
-        var_name = set([x.var_name for x in variable.values()]).pop()
-
-        # Sort the inputs so we generate the ingress chunks in order
-        urls = sorted([variable[x].uri for x in op.inputs], 
-                      key=lambda x: kwargs[x][sort])
-
-        ingress_tasks = []
-        cache = []
-        cache_files = {}
-        cleanup_paths = []
-
-        kwargs['index'] = 0
-
-        for url in urls:
-            logger.info('Processing %r', url)
-
-            preprocess = kwargs[url]
-
-            cached = preprocess['cached']
-
-            mapped = preprocess['mapped']
-
-            if mapped is None:
-                logger.info('Skipping %r', url)
-
-                continue
-
-            if cached is None:
-                logger.info('Ingressing data')
-
-                chunks = preprocess['chunks']
-
-                chunk_axis = chunks.keys()[0]
-
-                try:
-                    ingress_paths, ingress = self.generate_ingress_tasks(
-                        op_uid, url, var_name, user_id, job_id, kwargs)
-                except FileNotIncludedError:
-                    continue
-
-                ingress_tasks.extend(ingress)
-
-                cleanup_paths.extend(ingress_paths)
-
-                cache.append(tasks.ingress_cache.s(
-                    url, var_name, mapped, chunk_axis, base_units, 
-                    job_id=job_id).set(
-                        **helpers.DEFAULT_QUEUE))
-
-                job.steps_inc_total(len(ingress)+1)
-            else:
-                logger.info('Using cached data')
-
-                self.generate_cache_entry(op_uid, url, cache_files, kwargs)
-
-        del kwargs['index']
-
-        output_path = self.generate_output_path(user, op_uid)
+        output_path = self.generate_output_path(user, op.name)
 
         success = tasks.job_succeeded.s(
-            variable.values(), output_path, None, var_name, process.id, user_id, job_id=job_id).set(
+            variable, output_path, None, var_name, process.id, user.id,
+            job_id=job.id).set(
                 **helpers.DEFAULT_QUEUE)
 
         job.steps_inc_total()
 
         process = base.get_process(op.identifier)
 
-        if len(ingress_tasks) > 0:
-            process_task = process.s(
-                ingress_paths, op, var_name, base_units, output_path, 
-                job_id=job_id).set(
-                    **helpers.DEFAULT_QUEUE)
+        if len(config['ingress_tasks']) > 0:
+            process_task = process.s(config['ingress_paths'], op,
+                                     config['var_name'], base_units,
+                                     output_path,
+                                     job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-            ingress_and_process = celery.chord(header=ingress_tasks,
+            ingress_and_process = celery.chord(header=config['ingress_tasks'],
                                                body=process_task)
 
-            cleanup = tasks.ingress_cleanup.s(cleanup_paths, job_id=job_id).set(
+            cleanup = tasks.ingress_cleanup.s(config['ingress_paths'], job_id=job.id).set(
                 **helpers.DEFAULT_QUEUE)
 
-            finalize = celery.group(x for x in cache) | cleanup
+            finalize = celery.group(x for x in config['cache_tasks']) | cleanup
 
             canvas = ingress_and_process | success | finalize
 
             job.steps_inc_total(3)
         else:
-            process_task = process.s(
-                cache_files, cache_files.keys(), op, var_name, base_units, 
-                output_path, job_id=job_id).set(
-                    **helpers.DEFAULT_QUEUE)
+            process_task = process.s(config['cache_files'],
+                                     config['cache_files'].keys(), op, var_name,
+                                     base_units, output_path,
+                                     job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
             canvas = process_task | success
 
@@ -406,145 +388,180 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def execute_computation(self, root, base_units, variable, domain, 
-                            operation, user_id, job_id, **kwargs):
+    def get_operation(self, root, operation, **kwargs):
+        return operation[root]
+
+    def get_variable(self, name, variable, **kwargs):
+        return variable[name]
+
+    def configure_ingress_computation(self, var, op, user, job, base_units, mapped, chunks, **kwargs):
+        state = {'index': 0}
+
+        axes = op.get_parameter('axes')
+
+        process = base.get_process(op.identifier)
+
+        chunk_axis = chunks.keys()[0]
+
+        ingress = self.generate_ingress_tasks(op.name, var, user.id,
+                                              job.id, state, chunks, mapped)
+
+        cache = tasks.ingress_cache.s(var.uri, var.var_name, mapped.copy(),
+                                      chunk_axis, base_units,
+                                      job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+
+        index = 0
+        axes_sig = '-'.join(axes.values)
+        process_paths = []
+        process_chains = []
+
+        for path, task in zip(ingress['paths'], ingress['tasks']):
+            filename = '{}-{:08}-{}.nc'.format(op.name, index, axes_sig)
+
+            index += 1
+
+            process_paths.append(os.path.join(settings.WPS_INGRESS_PATH,
+                                              filename))
+            
+            process_chains.append(celery.chain(task, process.s(path, op,
+                                                               var.var_name,
+                                                               base_units,
+                                                               axes.values,
+                                                               process_paths[-1],
+                                                               job_id=job.id).set(
+                                                                   **helpers.DEFAULT_QUEUE)))
+
+        job.steps_inc_total((len(process_chains)*2)+1)
+
+        return {
+            'temp_paths': ingress['paths'],
+            'cache': cache,
+            'chunk_axis': chunk_axis,
+            'process_paths': process_paths,
+            'process_chains': process_chains,
+        }
+
+    def configure_cached_computation(self, var, op, user, job, base_units, **kwargs):
+        state = {'index': 0, 'cache_files': {}}
+
+        axes = op.get_parameter('axes')
+
+        process = base.get_process(op.identifier)
+
+        self.generate_cache_entry(op.name, state, **kwargs)
+
+        cached = state['cache_files'].values()[0]
+
+        index = 0
+        axes_sig = '-'.join(axes.values)
+        process_paths = []
+        process_chains = []
+
+        file_attrs = {
+            'cached': True,
+            'path': cached['path'],
+        }
+
+        attrs = {
+            var.uri: file_attrs,
+        }
+
+        for chunk in cached['chunk_list']:
+            filename = '{}-{:08}-{}.nc'.format(op.name, index, axes_sig)
+
+            index += 1
+
+            process_paths.append(os.path.join(settings.WPS_INGRESS_PATH,
+                                             filename))
+        
+            mapped = cached['mapped'].copy()
+
+            mapped.update({ cached['chunk_axis']: chunk })
+
+            file_attrs['mapped'] = mapped
+
+            process_chains.append(process.s(attrs, var.uri, op, var.var_name,
+                                            base_units, axes.values,
+                                            process_paths[-1],
+                                            job_id=job.id).set(**helpers.DEFAULT_QUEUE))
+
+        job.steps_inc_total(len(process_chains))
+
+        return {
+            'temp_paths': [],
+            'chunk_axis': cached['chunk_axis'],
+            'process_paths': process_paths,
+            'process_chains': process_chains,
+        }
+
+    def configure_computation(self, user, job, base_units, **kwargs):
+        op = self.get_operation(**kwargs)
+
+        var = self.get_variable(op.inputs[0], **kwargs)
+
+        preprocess = kwargs[var.uri]
+
+        if preprocess['cached'] is None:
+            config = self.configure_ingress_computation(var, op, user, job,
+                                                        base_units,
+                                                        **preprocess)
+        else:
+            config = self.configure_cached_computation(var, op, user, job,
+                                                       base_units,
+                                                       **preprocess)
+
+        return config
+
+    def execute_computation(self, user_id, job_id, **kwargs):
         job = self.load_job(job_id)
 
         job.steps_reset()
 
         job.update('Starting computation')
 
-        op = operation[root]
-
         user = self.load_user(user_id)
 
-        logger.info('Executing %r', op)
-
-        op_uid = uuid.uuid4()
-
-        axes = op.get_parameter('axes')
-
-        var = variable[op.inputs[0]]
-
-        preprocess = kwargs[var.uri]
-
-        cached = preprocess['cached']
-
-        chunks = preprocess['chunks']
-
-        chunk_axis = chunks.keys()[0]
-
-        ingress = []
-        cache_files = {}
-        output_paths = []
-        cleanup_paths = []
-
-        kwargs['index'] = 0
-
-        process = base.get_process(op.identifier)
-
-        if cached is None:
-            ingress_paths, ingress = self.generate_ingress_tasks(
-                op_uid, var.uri, var.var_name, user_id, job_id, kwargs)
-
-            cleanup_paths.extend(ingress_paths)
-
-            mapped = preprocess['mapped'].copy()
-
-            cache = tasks.ingress_cache.s(
-                var.uri, var.var_name, mapped, chunk_axis, base_units, 
-                job_id=job_id).set(
-                    **helpers.DEFAULT_QUEUE)
-
-            index = 0
-            axes_sig = '-'.join(axes.values)
-            process_chains = []
-
-            for ingress_path, ingress_task in zip(ingress_paths, ingress):
-                output_paths.append('{}/{}-{:08}-{}.nc'.format(
-                    settings.WPS_INGRESS_PATH, op_uid, index, axes_sig))
-
-                index += 1 
-
-                process_chains.append(
-                    celery.chain(ingress_task, process.s(
-                        ingress_path, op, var.var_name, base_units, 
-                        axes.values, output_paths[-1], job_id=job_id).set(
-                            **helpers.DEFAULT_QUEUE)))
-
-            cleanup_paths.extend(output_paths)
-
-            job.steps_inc_total((len(process_chains)*2)+1)
+        if kwargs['identifier'] == 'CDAT.average':
+            pass
         else:
-            self.generate_cache_entry(op_uid, var.uri, cache_files, **kwargs)
+            op = self.get_operation(**kwargs)
 
-            cached = cache_files.values()[0]
+            var = self.get_variable(op.inputs[0], **kwargs)
 
-            chunk_axis = cached['chunk_axis']
+            config = self.configure_computation(user, job, **kwargs)
 
-            chunk_list = cached['chunk_list']
+            concat_path = '{}/{}-concat'.format(settings.WPS_INGRESS_PATH,
+                                                op.name)
 
-            index = 0
-            axes_sig = '-'.join(axes.values)
-            process_chains = []
+            concat = tasks.concat_process_output.s(config['process_paths'],
+                                                   op, var.var_name,
+                                                   config['chunk_axis'],
+                                                   concat_path,
+                                                   job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-            for chunk in chunk_list:
-                output_paths.append('{}/{}-{:08}-{}.nc'.format(
-                    settings.WPS_INGRESS_PATH, op_uid, index, axes_sig))
+            output_path = self.generate_output_path(user, op.name)
 
-                index += 1
+            process_obj = models.Process.objects.get(identifier=op.identifier)
 
-                mapped = preprocess['mapped'].copy()
+            success = tasks.job_succeeded.s([var], concat_path, output_path, var.var_name,
+                                            process_obj.id, user.id,
+                                            job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-                mapped.update({chunk_axis: chunk})
+            canvas = celery.group(x for x in config['process_chains']) | concat | success
 
-                data = {
-                    var.uri: {
-                        'cached': True,
-                        'path': cached['path'],
-                        'mapped': mapped,
-                    }
-                }
+            if 'cache' in config:
+                canvas = canvas | config['cache']
 
-                process_chains.append(process.s(
-                    data, var.uri, op, var.var_name, base_units, axes.values, 
-                    output_paths[-1], job_id=job_id).set(
-                        **helpers.DEFAULT_QUEUE))
+            cleanup = tasks.ingress_cleanup.s(config['temp_paths'] +
+                                              config['process_paths'] +
+                                              [concat_path],
+                                              job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-            cleanup_paths.extend(output_paths)
+            canvas = canvas | cleanup
 
-            job.steps_inc_total(len(process_chains))
+            job.steps_inc_total(3)
 
-        del kwargs['index']
-
-        concat_path = '{}/{}-concat'.format(settings.WPS_INGRESS_PATH, op_uid)
-
-        concat = tasks.concat_process_output.s(
-            output_paths, op, var.var_name, chunk_axis, concat_path, 
-            job_id=job_id).set(
-                **helpers.DEFAULT_QUEUE)
-
-        output_path = self.generate_output_path(user, op_uid)
-
-        process_obj = models.Process.objects.get(identifier=process.IDENTIFIER)
-
-        success = tasks.job_succeeded.s(
-            variable.values(), concat_path, output_path, var.var_name, process_obj.id, user_id, job_id=job_id).set(
-                **helpers.DEFAULT_QUEUE)
-
-        canvas = celery.group(x for x in process_chains) | concat | success
-
-        if len(ingress) > 0:
-            canvas = canvas | cache
-
-        cleanup = tasks.ingress_cleanup.s(cleanup_paths, job_id=job_id).set(
-            **helpers.DEFAULT_QUEUE)
-
-        canvas = canvas | cleanup
-
-        job.steps_inc_total(3)
-
-        canvas.delay()
+            canvas.delay()
 
     def execute_simple(self, identifier, user, job, process, **kwargs):
         process_task = base.get_process(identifier)
@@ -562,10 +579,13 @@ class CDAT(backend.Backend):
         variable, domain, operation = self.load_data_inputs(variable, domain,
                                                             operation)
 
-        canvas = process_task.s(variable, domain, operation, user_id=user.id,
-                                job_id=job.id, **kwargs)
+        start = tasks.job_started.s(job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-        canvas = canvas.set(**helpers.DEFAULT_QUEUE)
+        workflow = process_task.si(variable, domain, operation, user_id=user.id,
+                                job_id=job.id,
+                                 **kwargs).set(**helpers.DEFAULT_QUEUE)
+
+        canvas = start | workflow;
 
         canvas.delay()
 
