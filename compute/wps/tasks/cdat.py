@@ -358,8 +358,58 @@ SNG_DATASET_MULTI_INPUT = {
 
 @base.register_process('CDAT.workflow', metadata={}, hidden=True)
 @base.cwt_shared_task()
-def workflow(self):
-    pass
+def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
+    user = self.load_user(user_id)
+
+    job = self.load_job(job_id)
+
+    job.started()
+
+    adjacency = dict((x, dict((y, True if x in operation[y].inputs else False)
+                              for y in operation.keys())) for x in operation.keys())
+
+    logger.info('%r', adjacency)
+
+    sources = [x for x in operation.keys() if not any(adjacency[y][x] for y
+                                                        in operation.keys())]
+
+    logger.info('%r', sources)
+
+    sorted = []
+
+    while len(sources) > 0:
+        item = sources.pop()
+
+        sorted.append(operation[item])
+
+        for x in adjacency[item].keys():
+            if adjacency[item][x]:
+                sources.append(x)
+
+    logger.info('sorted %r', sorted)
+
+    client = cwt.WPSClient('http://172.17.0.15:8000/wps/',
+                           api_key=user.auth.api_key, verify=False)
+
+    for op in sorted:
+        op_inputs = [variable[y] for y in op.inputs]
+
+        op_domain = domain.get(op.domain, None)
+
+        op.inputs = []
+
+        if 'domain' in op.parameters:
+            del op.parameters['domain']
+
+        logger.info('%r', op.parameters)
+
+        client.execute(op, inputs=op_inputs, domain=op_domain, **op.parameters) 
+        
+        op.wait() 
+
+        logger.info('%r', op.output)
+
+        variable[op.name] = op.output
 
 @base.register_process('CDAT.regrid', abstract="""
                        Regrids a variable to designated grid. Required parameter named "gridder".

@@ -555,24 +555,36 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
+    def execute_workflow(self, identifier, variable, domain, operation, user,
+                         job, process, **kwargs):
+        process_task = base.get_process(identifier)
+
+        variable, domain, operation = self.load_data_inputs(variable, domain,
+                                                            operation)
+
+        canvas = process_task.s(variable, domain, operation, user_id=user.id,
+                                job_id=job.id, **kwargs)
+
+        canvas = canvas.set(**helpers.DEFAULT_QUEUE)
+
+        canvas.delay()
+
     def execute(self, **kwargs):
         PROCESSING_OP = 'CDAT\.(subset|aggregate|regrid)'
 
-        if 'preprocess' in kwargs:
-            root = kwargs['root']
+        identifier = kwargs['identifier']
 
-            root_op = kwargs['operation'][root]
+        is_workflow = identifier == 'CDAT.workflow'
 
-            if kwargs['workflow']:
-                raise WPSError('Workflows have been disabled')
+        if 'preprocess' in kwargs or is_workflow:
+            if is_workflow:
+                self.execute_workflow(**kwargs)
             else:
-                if re.match(PROCESSING_OP, root_op.identifier) is not None:
+                if re.match(PROCESSING_OP, identifier) is not None:
                     self.execute_processing(**kwargs)
                 else:
                     self.execute_computation(**kwargs)
         else:
-            identifier = kwargs['identifier']
-
             process = base.get_process(identifier)
 
             metadata = process.METADATA

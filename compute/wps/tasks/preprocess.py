@@ -47,6 +47,8 @@ def wps_execute(self, attrs, variable, domain, operation, user_id, job_id):
     if len(candidates) > 1:
         raise WPSError('Invalid workflow there should only be a single root process')
 
+    new_attrs['identifier'] = candidates[0].identifier
+    
     new_attrs['root'] = candidates[0].name
 
     # Workflow if inputs includes any processes
