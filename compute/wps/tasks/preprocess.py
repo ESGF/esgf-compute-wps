@@ -80,6 +80,8 @@ def generate_chunks(self, attrs, operation, uri, process_axes, job_id):
 
     self.update(job, 'Generating chunks for {!r}', uri)
 
+    logger.info('Process axes %r', process_axes)
+
     try:
         mapped = attrs[uri]['cached']['mapped']
     except (TypeError, KeyError):
@@ -93,7 +95,7 @@ def generate_chunks(self, attrs, operation, uri, process_axes, job_id):
     # Determine the axis to generate chunks for, defaults to time axis
     if operation.identifier == 'CDAT.average' and len(process_axes) > 1:
         chunked_axis = None
-    elif process_axes is None or 'time' not in process_axes:
+    elif process_axes is None or ('time' in mapped and 'time' not in process_axes):
         chunked_axis = 'time'
     else:
         process_axes = set(process_axes)
@@ -135,12 +137,13 @@ def generate_chunks(self, attrs, operation, uri, process_axes, job_id):
 
     chunks = []
 
-    chunk_axis = mapped[chunked_axis]
+    if chunked_axis is not None:
+        chunk_axis = mapped[chunked_axis]
 
-    for begin in xrange(chunk_axis.start, chunk_axis.stop, partition_size):
-        end = min(begin+partition_size, chunk_axis.stop)
+        for begin in xrange(chunk_axis.start, chunk_axis.stop, partition_size):
+            end = min(begin+partition_size, chunk_axis.stop)
 
-        chunks.append(slice(begin, end, chunk_axis.step))
+            chunks.append(slice(begin, end, chunk_axis.step))
 
     attrs[uri]['chunks'] = {
         chunked_axis: chunks,
@@ -377,10 +380,16 @@ def determine_base_units(self, uris, var_name, user_id, job_id):
         with self.open(uri) as infile:
             time = self.get_variable(infile, var_name).getTime()
 
-            files[uri] = {
-                'units': time.units,
-                'first': time[0],
-            }
+            if time:
+                files[uri] = {
+                    'units': time.units,
+                    'first': time[0],
+                }
+            else:
+                files[uri] = {
+                    'units': None,
+                    'first': 0,
+                }
 
     sort = None
     base_units = None
