@@ -268,15 +268,20 @@ def base_process(self, attrs, key, operation, var_name, base_units, axes, output
         if weightoptions is not None:
             weightoptions = weightoptions.values[0]
 
-        logger.info('Averaging over axes %r', axes_sig)
+        logger.info('Averaging over axes %r %r', axes_sig, weightoptions)
 
-        data = self.PROCESS(data, axis=axes_sig, weights=weightoptions)
+        try:
+            data = self.PROCESS(data, axis=axes_sig, weights=weightoptions)
+        except cdutil.AveragerError as e:
+            raise WPSError(''.join(e))
     else:
         # Process over all axes except the chunking axis
         for axis in axes_index:
             logger.info('Processing %r over axis %r', self.PROCESS, axis)
 
             data = self.PROCESS(data, axis=axis)
+
+    logger.info('Writing output file %r', output_path)
 
     with self.open(output_path, 'w') as outfile:
         outfile.write(data, id=var_name)
@@ -363,17 +368,14 @@ def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
 
     job = self.load_job(job_id)
 
-    job.started()
+    job.update('Building graph')
 
     adjacency = dict((x, dict((y, True if x in operation[y].inputs else False)
                               for y in operation.keys())) for x in operation.keys())
 
-    logger.info('%r', adjacency)
 
     sources = [x for x in operation.keys() if not any(adjacency[y][x] for y
                                                         in operation.keys())]
-
-    logger.info('%r', sources)
 
     sorted = []
 
@@ -386,7 +388,7 @@ def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
             if adjacency[item][x]:
                 sources.append(x)
 
-    logger.info('sorted %r', sorted)
+    job.update('Built graph')
 
     client = cwt.WPSClient('http://172.17.0.15:8000/wps/',
                            api_key=user.auth.api_key, verify=False)

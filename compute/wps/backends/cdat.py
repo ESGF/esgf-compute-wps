@@ -360,6 +360,8 @@ class CDAT(backend.Backend):
         process = base.get_process(op.identifier)
 
         if len(config['ingress_tasks']) > 0:
+            logger.info('Processing from ingress')
+
             process_task = process.s(config['ingress_paths'], op,
                                      config['var_name'], base_units,
                                      output_path,
@@ -377,6 +379,8 @@ class CDAT(backend.Backend):
 
             job.steps_inc_total(3)
         else:
+            logger.info('Processing from cache')
+
             process_task = process.s(config['cache_files'],
                                      config['cache_files'].keys(), op, var_name,
                                      base_units, output_path,
@@ -442,9 +446,13 @@ class CDAT(backend.Backend):
         }
 
     def configure_cached_computation(self, var, op, user, job, base_units, **kwargs):
+        logger.info('Configuring computation from cache')
+
         state = {'index': 0, 'cache_files': {}}
 
         axes = op.get_parameter('axes')
+
+        logger.info('Computing over %r', axes)
 
         process = base.get_process(op.identifier)
 
@@ -473,7 +481,7 @@ class CDAT(backend.Backend):
 
             process_paths.append(os.path.join(settings.WPS_INGRESS_PATH,
                                              filename))
-        
+
             mapped = cached['mapped'].copy()
 
             mapped.update({ cached['chunk_axis']: chunk })
@@ -484,6 +492,8 @@ class CDAT(backend.Backend):
                                             base_units, axes.values,
                                             process_paths[-1],
                                             job_id=job.id).set(**helpers.DEFAULT_QUEUE))
+
+            logger.info('Compute chunk %r to %r', chunk, process_paths[-1])
 
         job.steps_inc_total(len(process_chains))
 
@@ -521,17 +531,26 @@ class CDAT(backend.Backend):
 
         user = self.load_user(user_id)
 
-        if kwargs['identifier'] == 'CDAT.average':
-            pass
-        else:
-            op = self.get_operation(**kwargs)
+        #if kwargs['identifier'] == 'CDAT.average':
+        #    raise Exception('BYE')
+        #else:
+        op = self.get_operation(**kwargs)
 
-            var = self.get_variable(op.inputs[0], **kwargs)
+        var = self.get_variable(op.inputs[0], **kwargs)
 
-            config = self.configure_computation(user, job, **kwargs)
+        config = self.configure_computation(user, job, **kwargs)
 
+        output_path = self.generate_output_path(user, op.name)
+
+        process_obj = models.Process.objects.get(identifier=op.identifier)
+
+        extra_cleanup_paths = []
+
+        if len(config['process_chains']) > 1:
             concat_path = '{}/{}-concat'.format(settings.WPS_INGRESS_PATH,
                                                 op.name)
+
+            extra_cleanup_paths.append(concat_path)
 
             concat = tasks.concat_process_output.s(config['process_paths'],
                                                    op, var.var_name,
@@ -539,29 +558,36 @@ class CDAT(backend.Backend):
                                                    concat_path,
                                                    job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-            output_path = self.generate_output_path(user, op.name)
-
-            process_obj = models.Process.objects.get(identifier=op.identifier)
-
             success = tasks.job_succeeded.s([var], concat_path, output_path, var.var_name,
                                             process_obj.id, user.id,
                                             job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
+            logger.info('Executing multiple process chains')
+
             canvas = celery.group(x for x in config['process_chains']) | concat | success
+        else:
+            success = tasks.job_succeeded.s([var], config['process_paths'][0],
+                                            output_path, var.var_name,
+                                            process_obj.id, user.id,
+                                            job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-            if 'cache' in config:
-                canvas = canvas | config['cache']
+            logger.info('Executing single process chain')
 
-            cleanup = tasks.ingress_cleanup.s(config['temp_paths'] +
-                                              config['process_paths'] +
-                                              [concat_path],
-                                              job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+            canvas = config['process_chains'][0] | success
 
-            canvas = canvas | cleanup
+        if 'cache' in config:
+            canvas = canvas | config['cache']
 
-            job.steps_inc_total(3)
+        cleanup = tasks.ingress_cleanup.s(config['temp_paths'] +
+                                          config['process_paths'] +
+                                          extra_cleanup_paths,
+                                          job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-            canvas.delay()
+        canvas = canvas | cleanup
+
+        job.steps_inc_total(3)
+
+        canvas.delay()
 
     def execute_simple(self, identifier, user, job, process, **kwargs):
         process_task = base.get_process(identifier)
