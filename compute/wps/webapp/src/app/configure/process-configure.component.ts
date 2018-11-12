@@ -132,7 +132,10 @@ declare var $: any;
             <regrid-config [model]=process?.regrid></regrid-config>
           </panel>
           <panel title="Parameters" [listGroup]="true">
-            <parameter-config [params]=process?.parameters></parameter-config>
+            <parameter-config 
+              (add)="process?.addParameter($event)"
+              (remove)="process?.removeParameter($event)">
+              </parameter-config>
           </panel>
           <panel title="Domain" [listGroup]="true">
             <domain-config 
@@ -268,10 +271,6 @@ export class ProcessConfigureComponent implements AfterViewInit {
     this.process.clearInputs();
   }
 
-  addAllInputFiles() {
-    this.process.inputs.concat(this.processWrapper.dataset.getVariables(this.processWrapper.selectedVariable));
-  }
-
   addInputFile(variable: Variable) {
     let allowed = this.process.description.metadata.inputs;
 
@@ -300,5 +299,9 @@ export class ProcessConfigureComponent implements AfterViewInit {
         this.notificationService.error(`Removed ${variable.display()}, failed to retrieve metadata`);
       });
     }
+  }
+
+  addAllInputFiles() {
+    this.process.inputs.concat(this.processWrapper.dataset.getVariables(this.processWrapper.selectedVariable));
   }
 }

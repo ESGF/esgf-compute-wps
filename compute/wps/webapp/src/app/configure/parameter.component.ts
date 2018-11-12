@@ -26,7 +26,7 @@ import { NotificationService } from '../core/notification.service';
         </div>
       </div>
     </li>
-    <li class="list-group-item" *ngFor="let x of params">
+    <li class="list-group-item" *ngFor="let x of model">
       <div class="container-fluid">
         <div class="row">
           <div class="col-md-5"><input disabled class="form-control" type="text" value="{{x.key}}"></div>
@@ -39,7 +39,10 @@ import { NotificationService } from '../core/notification.service';
   `
 })
 export class ParameterComponent implements OnInit {
-  @Input() params: Parameter[];
+  @Output() add = new EventEmitter<Parameter>();
+  @Output() remove = new EventEmitter<Parameter>();
+
+  model: Parameter[] = [];
 
   form: FormGroup;
   keyControl: FormControl;
@@ -64,12 +67,6 @@ export class ParameterComponent implements OnInit {
     });
   }
 
-  removeParameter(param: Parameter) {
-    this.params = this.params.filter((item: Parameter) => {
-      return item.uid != param.uid;
-    });
-  }
-
   addParameter(key: string, value: string) {
     if (this.form.invalid) {
       let error = Object.keys(this.form.controls).map((key: string) => {
@@ -89,7 +86,7 @@ export class ParameterComponent implements OnInit {
       return;
     }
 
-    let match = this.params.find((item: Parameter) => item.key === key);
+    let match = this.model.find((item: Parameter) => item.key === key);
 
     if (match != undefined) {
       this.notificationService.error(`Duplicate parameter key "${key}"`);
@@ -97,6 +94,22 @@ export class ParameterComponent implements OnInit {
       return;
     }
 
-    this.params.push(new Parameter(key, value));
+    let param = new Parameter(key, value);
+
+    this.model.push(param);
+
+    this.add.emit(param);
+  }
+
+  removeParameter(item: Parameter) {
+    this.model = this.model.filter((x: Parameter) => {
+      if (item.uid === x.uid) {
+        return false;
+      }
+
+      return true;
+    });
+
+    this.remove.emit(item);
   }
 }

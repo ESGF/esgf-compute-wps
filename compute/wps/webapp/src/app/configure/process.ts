@@ -26,6 +26,20 @@ export class Process extends UID implements Input {
     this.inputs.splice(0, this.inputs.length);
   }
 
+  addParameter(item: Parameter) {
+    this.parameters.push(item);
+  }
+
+  removeParameter(item: Parameter) {
+    this.parameters = this.parameters.filter((x: Parameter) => {
+      if (item.uid === x.uid) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
   removeInput(input: Variable|Process) {
     this.inputs = this.inputs.filter((item: Variable|Process) => {
       if (input.uid == item.uid) {
