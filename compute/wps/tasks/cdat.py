@@ -390,8 +390,16 @@ def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
 
     job.update('Built graph')
 
-    client = cwt.WPSClient('http://172.17.0.15:8000/wps/',
+    client = cwt.WPSClient('http://172.17.0.19:8000/wps/',
                            api_key=user.auth.api_key, verify=False)
+
+    job.update('Executing graph')
+
+    output = []
+
+    attrs = {
+        'output': output,
+    }
 
     for op in sorted:
         op_inputs = [variable[y] for y in op.inputs]
@@ -403,15 +411,24 @@ def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
         if 'domain' in op.parameters:
             del op.parameters['domain']
 
-        logger.info('%r', op.parameters)
-
         client.execute(op, inputs=op_inputs, domain=op_domain, **op.parameters) 
-        
-        op.wait() 
 
-        logger.info('%r', op.output)
+        job.update('Executing "{}"', op.identifier)
+        
+        result = op.wait() 
+
+        if not result:
+            raise WPSError(op.exception_message)
+
+        job.update('{!r} finished with {!r}', op.identifier, op.output)
+
+        name = '{}-{}'.format(op.identifier, op.name)
+
+        output.append(cwt.Variable(op.output.uri, op.output.var_name, name=name))
 
         variable[op.name] = op.output
+
+    return attrs
 
 @base.register_process('CDAT.regrid', abstract="""
                        Regrids a variable to designated grid. Required parameter named "gridder".

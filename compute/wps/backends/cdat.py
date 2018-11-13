@@ -611,7 +611,13 @@ class CDAT(backend.Backend):
                                 job_id=job.id,
                                  **kwargs).set(**helpers.DEFAULT_QUEUE)
 
-        canvas = start | workflow;
+        var_name = set(x.var_name for x in variable.values()).pop()
+
+        succeeded = tasks.job_succeeded_workflow.s(variable.values(),
+                                                   process.id, user.id,
+                                                   job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+
+        canvas = start | workflow | succeeded;
 
         canvas.delay()
 
