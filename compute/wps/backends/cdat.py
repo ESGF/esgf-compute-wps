@@ -531,9 +531,6 @@ class CDAT(backend.Backend):
 
         user = self.load_user(user_id)
 
-        #if kwargs['identifier'] == 'CDAT.average':
-        #    raise Exception('BYE')
-        #else:
         op = self.get_operation(**kwargs)
 
         var = self.get_variable(op.inputs[0], **kwargs)
