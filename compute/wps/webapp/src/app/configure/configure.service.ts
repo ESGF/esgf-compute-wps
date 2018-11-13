@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { Params } from '@angular/router';
 
 import { Parameter } from './parameter';
-import { RegridModel } from './regrid.component';
+import { RegridModel } from './regrid';
 import { WPSService, WPSResponse } from '../core/wps.service';
 import { ConfigService } from '../core/config.service';
 import { AuthService } from '../core/auth.service';

@@ -1,5 +1,5 @@
 import { Parameter } from './parameter';
-import { RegridModel } from './regrid.component';
+import { RegridModel } from './regrid';
 import { Input } from './input';
 import { UID } from './uid';
 import { Variable } from './variable';
@@ -85,34 +85,8 @@ export class Process extends UID implements Input {
       }
     }
 
-    return data;
-  }
-
-  buildRegrid() {
-    let data = {
-      tool: this.regrid.regridTool,
-      method: this.regrid.regridMethod,
-    };
-
-    if (this.regrid.regridType === 'Gaussian') {
-      data['grid'] = `gaussian~${this.regrid.nLats}`;
-    } else if (this.regrid.regridType === 'Uniform') {
-      let lats = '';
-      let lons = '';
-
-      if (this.regrid.startLats != null && this.regrid.deltaLats != null) {
-        lats = `${this.regrid.startLats}:${this.regrid.nLats}:${this.regrid.deltaLats}` 
-      } else {
-        lats = `${this.regrid.deltaLats}`
-      }
-
-      if (this.regrid.startLons != null && this.regrid.deltaLons != null) {
-        lons = `${this.regrid.startLons}:${this.regrid.nLons}:${this.regrid.deltaLons}`
-      } else {
-        lons = `${this.regrid.deltaLons}`
-      }
-
-      data['grid'] = `uniform~${lats}x${lons}`;
+    if (this.regrid.regridType !== 'None') {
+      data['gridder'] = this.regrid.toJSON();
     }
 
     return data;

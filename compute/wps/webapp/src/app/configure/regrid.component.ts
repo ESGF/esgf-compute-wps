@@ -1,41 +1,6 @@
 import { Component, Input } from '@angular/core';
 
-export class RegridModel {
-  tool = ['ESMF', 'Regrid2'];
-
-  method = [
-    ['Conserve', 'Linear', 'Patch'],
-    ['Area Weighted',],
-  ];
-
-  regridTool = this.tool[0];
-  regridMethod = this.method[0][0];
-  regridType = 'None';
-  startLats = 0.0;
-  nLats = 180.0;
-  deltaLats = 1.0;
-  startLons = 0.0;
-  nLons = 360.0;
-  deltaLons = 1.0;
-
-  methods() {
-    let index = this.tool.indexOf(this.regridTool);
-
-    if (index == -1) {
-      return ['No methods'];
-    }
-
-    return this.method[index];
-  }
-
-  validate() {
-    if (this.regridType == 'Gaussian') {
-      if (this.nLats < 1) {
-        throw `Invalid number of latitudes "${this.nLats}"`;
-      }
-    }
-  }
-}
+import { RegridModel } from './regrid';
 
 @Component({
   selector: 'regrid-config',

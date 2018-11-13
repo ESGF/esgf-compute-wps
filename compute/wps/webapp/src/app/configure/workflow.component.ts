@@ -10,7 +10,7 @@ import { ProcessWrapper } from './process-wrapper';
 import { Link } from './link';
 import { EditorState } from './editor-state.enum';
 import { Variable } from './variable';
-import { RegridModel } from './regrid.component';
+import { RegridModel } from './regrid';
 import { AuthService } from '../core/auth.service';
 
 import * as d3 from 'd3';
