@@ -99,8 +99,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
   state: EditorState;
   stateData: any;
 
-  regrid: RegridModel = new RegridModel();
-  parameters: Parameter[] = [];
+  base = new Process('dummy');
 
   svg: any;
   svgLinks: any;
@@ -184,6 +183,16 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
 
     let processes = this.nodes.map((item: ProcessWrapper) => item.process);
     let api_key = this.authService.user.api_key;
+
+    processes.forEach((item: Process) => {
+      if (this.base.parameters.length > 0 && item.parameters.length == 0) {
+        Object.assign(item.parameters, this.base.parameters);
+      }
+
+      if (this.base.regrid.regridType != 'None' && item.regrid.regridType == 'None') {
+        Object.assign(item.regrid, this.base.regrid);
+      }
+    });
 
     this.wpsService.execute('/wps/', api_key, processes)
       .catch((e: string) => {

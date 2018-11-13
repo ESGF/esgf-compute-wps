@@ -17,10 +17,14 @@
           </li>
         </panel>
         <panel title="Regrid">
-          <regrid-config [model]="regrid"></regrid-config>
+          <regrid-config
+            [model]="base.regrid">
+          </regrid-config>
         </panel>
         <panel title="Parameter" [listGroup]="true" [scrollable]="true">
-          <parameter-config></parameter-config>
+          <parameter-config 
+            [process]="base">
+          </parameter-config>
         </panel>
       </div>
     </div>
