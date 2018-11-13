@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { FormGroup, FormControl, Validators } from '@angular/forms';
 
+import { Process } from './process';
 import { Parameter } from './parameter';
 import { NotificationService } from '../core/notification.service';
 
@@ -26,7 +27,7 @@ import { NotificationService } from '../core/notification.service';
         </div>
       </div>
     </li>
-    <li class="list-group-item" *ngFor="let x of model">
+    <li class="list-group-item" *ngFor="let x of process?.parameters">
       <div class="container-fluid">
         <div class="row">
           <div class="col-md-5"><input disabled class="form-control" type="text" value="{{x.key}}"></div>
@@ -39,10 +40,7 @@ import { NotificationService } from '../core/notification.service';
   `
 })
 export class ParameterComponent implements OnInit {
-  @Output() add = new EventEmitter<Parameter>();
-  @Output() remove = new EventEmitter<Parameter>();
-
-  model: Parameter[] = [];
+  @Input() process: Process;
 
   form: FormGroup;
   keyControl: FormControl;
@@ -86,7 +84,7 @@ export class ParameterComponent implements OnInit {
       return;
     }
 
-    let match = this.model.find((item: Parameter) => item.key === key);
+    let match = this.process.parameters.find((item: Parameter) => item.key === key);
 
     if (match != undefined) {
       this.notificationService.error(`Duplicate parameter key "${key}"`);
@@ -94,22 +92,16 @@ export class ParameterComponent implements OnInit {
       return;
     }
 
-    let param = new Parameter(key, value);
-
-    this.model.push(param);
-
-    this.add.emit(param);
+    this.process.parameters.push(new Parameter(key, value));
   }
 
   removeParameter(item: Parameter) {
-    this.model = this.model.filter((x: Parameter) => {
+    this.process.parameters = this.process.parameters.filter((x: Parameter) => {
       if (item.uid === x.uid) {
         return false;
       }
 
       return true;
     });
-
-    this.remove.emit(item);
   }
 }

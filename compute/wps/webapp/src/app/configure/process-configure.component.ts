@@ -133,8 +133,7 @@ declare var $: any;
           </panel>
           <panel title="Parameters" [listGroup]="true">
             <parameter-config 
-              (add)="process?.addParameter($event)"
-              (remove)="process?.removeParameter($event)">
+              [process]="process">
               </parameter-config>
           </panel>
           <panel title="Domain" [listGroup]="true">
