@@ -19,11 +19,11 @@
                 <div class="col-md-8">{{message.message}}</div>
               </div>
               <ng-container *ngIf="current.output !== null; else exception">
-                <ng-container *ngIf="current.output.output != undefined; else singleOutput">
+                <ng-container *ngIf="current.output.outputs != undefined; else singleOutput">
                   <div class="row">
                     <div class="col-md-1"></div>
                     <div class="col-md-11">
-                      <div *ngFor="let x of current.output.output">
+                      <div *ngFor="let x of current.output.outputs">
                         <a href="{{x.uri}}.html" target="_blank">{{x.id}}</a>
                       </div>
                     </div>
