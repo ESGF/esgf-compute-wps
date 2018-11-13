@@ -390,8 +390,8 @@ def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
 
     job.update('Built graph')
 
-    client = cwt.WPSClient('http://172.17.0.19:8000/wps/',
-                           api_key=user.auth.api_key, verify=False)
+    client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=user.auth.api_key,
+                           verify=False)
 
     job.update('Executing graph')
 
