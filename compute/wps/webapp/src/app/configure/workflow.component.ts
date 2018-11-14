@@ -224,6 +224,14 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
   }
 
   removeProcess(item: Process) {
+    this.links = this.links.filter((x: Link) => {
+      if (x.src.process == item || x.dst.process == item) {
+        return false;
+      }
+
+      return true;
+    });
+
     this.nodes = this.nodes.filter((x: ProcessWrapper) => {
       if (item.uid === x.process.uid) {
         return false;
