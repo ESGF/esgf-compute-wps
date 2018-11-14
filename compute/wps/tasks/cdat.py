@@ -5,6 +5,7 @@ import json
 import os
 import re
 import uuid
+from datetime import datetime
 
 import cdms2
 import cwt
@@ -361,14 +362,10 @@ SNG_DATASET_MULTI_INPUT = {
     'inputs': '*',
 }
 
-@base.register_process('CDAT.workflow', metadata={}, hidden=True)
-@base.cwt_shared_task()
-def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
-    user = self.load_user(user_id)
+def build_execute_graph(self, operation, job):
+    self.update(job, 'Building execution graph')
 
-    job = self.load_job(job_id)
-
-    job.update('Building graph')
+    start = datetime.now()
 
     adjacency = dict((x, dict((y, True if x in operation[y].inputs else False)
                               for y in operation.keys())) for x in operation.keys())
@@ -388,18 +385,25 @@ def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
             if adjacency[item][x]:
                 sources.append(x)
 
-    job.update('Built graph')
+    elapsed = datetime.now() - start
+
+    self.update(job, 'Finished building execution graph {}', elapsed)
+
+    return sorted
+
+@base.register_process('CDAT.workflow', metadata={}, hidden=True)
+@base.cwt_shared_task()
+def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
+    user = self.load_user(user_id)
+
+    job = self.load_job(job_id)
+
+    sorted = build_execute_graph(self, operation, job)
 
     client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=user.auth.api_key,
                            verify=False)
 
-    job.update('Executing graph')
-
     output = []
-
-    attrs = {
-        'output': output,
-    }
 
     for op in sorted:
         op_inputs = [variable[y] for y in op.inputs]
@@ -413,20 +417,27 @@ def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
 
         client.execute(op, inputs=op_inputs, domain=op_domain, **op.parameters) 
 
-        job.update('Executing "{}"', op.identifier)
+        self.update(job, 'Executing "{}"', op.identifier)
         
         result = op.wait() 
 
         if not result:
             raise WPSError(op.exception_message)
 
-        job.update('{!r} finished with {!r}', op.identifier, op.output)
+        self.update(job, '{!r} finished with output {!r}', op.identifier,
+                    op.output)
 
         name = '{}-{}'.format(op.identifier, op.name)
 
         output.append(cwt.Variable(op.output.uri, op.output.var_name, name=name))
 
         variable[op.name] = op.output
+
+    self.update(job, 'Finished executing workflow')
+
+    attrs = {
+        'output': output,
+    }
 
     return attrs
 
