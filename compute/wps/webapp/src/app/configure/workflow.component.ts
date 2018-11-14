@@ -182,6 +182,9 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
         this.startTour();
       }
     });
+
+    $('#processConfigureModal')
+      .on('hidden.bs.modal', () => this.update());
   }
 
   startTour() {
