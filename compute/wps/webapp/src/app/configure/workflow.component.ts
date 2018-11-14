@@ -90,11 +90,12 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
   @Input() datasetID: string[];
   @Input() params: any;
 
-  processes: string[];
+  processes: Process[];
 
   nodes: ProcessWrapper[];
   links: Link[];
   selectedNode: ProcessWrapper;
+  selectedAbstract: Process;
 
   state: EditorState;
   stateData: any;
@@ -120,7 +121,11 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     this.state = EditorState.None;
 
     this.wpsService.getCapabilities('/wps/')
-      .then((processes: string[]) => this.processes = processes);
+      .then((processes: string[]) => {
+        this.processes = processes.map((identifier: string) => {
+          return new Process(identifier);
+        });
+      });
   }
 
   ngOnInit() {
@@ -268,18 +273,35 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     this.stateData = event.dragData;
   }
 
+  showAbstract(process: Process) {
+    this.selectedAbstract = process;
+
+    if (process.description == null) {
+      this.wpsService.describeProcess('/wps/', process.identifier)
+        .then((description: any) => {
+          process.description = description;
+        });
+    }
+
+    $('#processAbstractModal').modal('show');
+  }
+
   svgMouseOver() {
     if (this.state === EditorState.Dropped) {
       this.state = EditorState.None;
 
       let origin = d3.mouse(d3.event.target);
 
-      let process = new Process(this.stateData);
+      let process = new Process(this.stateData.identifier);
 
-      this.wpsService.describeProcess('/wps/', process.identifier)
-        .then((description: any) => {
-          process.description = description;
-        });
+      if (this.stateData.description != null) {
+        process.description = {...this.stateData.description};
+      } else {
+        this.wpsService.describeProcess('/wps/', process.identifier)
+          .then((description: any) => {
+            process.description = description;
+          });
+      }
 
       this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
 

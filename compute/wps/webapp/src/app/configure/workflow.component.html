@@ -12,8 +12,9 @@
             dnd-draggable
             [dragEnabled]="true"
             [dragData]="process"
+            (click)="showAbstract(process)"
             class="list-group-item">
-            {{process}}
+            {{process.display()}}
           </li>
         </panel>
         <panel title="Regrid">
@@ -42,3 +43,6 @@
              [datasetID]=datasetID
              [processWrapper]=selectedNode>
 </process-configure>
+<process-abstract
+             [process]=selectedAbstract>
+</process-abstract>

@@ -16,6 +16,7 @@ import { FilenamePipe } from './filename.pipe';
 import { EnumPipe } from './enum.pipe';
 import { WorkflowComponent } from './workflow.component';
 import { ProcessConfigureComponent } from './process-configure.component';
+import { ProcessAbstractComponent } from './process-abstract.component';
 
 import { ConfigureService } from './configure.service';
 
@@ -42,6 +43,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
     EnumPipe,
     WorkflowComponent,
     ProcessConfigureComponent,
+    ProcessAbstractComponent,
   ],
   exports: [],
   providers: [
