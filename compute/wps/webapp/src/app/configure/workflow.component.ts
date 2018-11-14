@@ -1,5 +1,7 @@
 import { Component, Input, OnInit, AfterViewInit, ViewEncapsulation, ViewChild } from '@angular/core';
 
+import { JoyrideService } from 'ngx-joyride';
+
 import { Parameter } from './parameter';
 import { ConfigureService } from './configure.service';
 import { Process } from './process';
@@ -113,6 +115,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     private notificationService: NotificationService,
     private wpsService: WPSService,
     private authService: AuthService,
+    private joyrideService: JoyrideService,
   ) { 
     this.nodes = [];
 
@@ -174,8 +177,45 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit() {
-    $('#processConfigureModal').on('hidden.bs.modal', (e: any) => {
-      this.update();
+    $('#workflow').ready(() => {
+      if (localStorage.getItem('tourCompleted') == null) {
+        this.startTour();
+      }
+    });
+  }
+
+  startTour() {
+    $('#processPanel').collapse('show');
+    $('#regridPanel').collapse('show');
+    $('#parameterPanel').collapse('show');
+
+    let tour = this.joyrideService.startTour({
+      steps: [
+        'editor',
+        'globalRegrid',
+        'globalParameter',
+        'processes',
+        'process',
+      ], 
+      themeColor: '#808080',
+    }).subscribe((step: any) => {
+      if (step.number === 4) {
+        this.selectedNode = this.addProcess('CDAT.subset', [200, 200], true);
+      }
+    }, (error) => {
+      tour.unsubscribe();
+    }, () => {
+      $('#processPanel').collapse('hide');
+      $('#regridPanel').collapse('hide');
+      $('#parameterPanel').collapse('hide');
+
+      this.removeProcess(this.selectedNode.process);
+
+      this.selectedNode = null;
+
+      localStorage.setItem('tourCompleted', 'true');
+
+      tour.unsubscribe();
     });
   }
 
@@ -294,14 +334,10 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     $('#processAbstractModal').modal('show');
   }
 
-  svgMouseOver() {
-    if (this.state === EditorState.Dropped) {
-      this.state = EditorState.None;
+  addProcess(identifier: string, origin: [number,number], skipDescription=false) {
+    let process = new Process(identifier);
 
-      let origin = d3.mouse(d3.event.target);
-
-      let process = new Process(this.stateData.identifier);
-
+    if (!skipDescription) {
       if (this.stateData.description != null) {
         process.description = {...this.stateData.description};
       } else {
@@ -310,10 +346,24 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
             process.description = description;
           });
       }
+    }
 
-      this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
+    let processWrapper = new ProcessWrapper(process, origin[0], origin[1]);
 
-      this.update();
+    this.nodes.push(processWrapper);
+
+    this.update();
+
+    return processWrapper;
+  }
+
+  svgMouseOver() {
+    if (this.state === EditorState.Dropped) {
+      this.state = EditorState.None;
+
+      let origin = d3.mouse(d3.event.target);
+
+      this.addProcess(this.stateData.identifier, origin);
     }
   }
 

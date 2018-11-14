@@ -46,10 +46,5 @@ export class PanelComponent {
   @Input() listGroup = false;
   @Input() scrollable = false;
   @Input() collapse = true;
-
-  uid: string;
-  
-  constructor() { 
-    this.uid = Math.random().toString(16).slice(2);
-  }
+  @Input() uid: string;
 }

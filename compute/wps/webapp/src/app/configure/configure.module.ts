@@ -6,6 +6,8 @@ import { SharedModule } from '../shared/shared.module';
 import { DndModule } from 'ng2-dnd';
 import { CoreModule } from '../core/core.module';
 
+import { JoyrideModule } from 'ngx-joyride';
+
 import { DomainComponent } from './domain.component';
 import { AxisComponent } from './axis.component';
 import { ParameterComponent } from './parameter.component';
@@ -24,6 +26,7 @@ import { ConfigureRoutingModule } from './configure-routing.module';
 
 @NgModule({
   imports: [ 
+    JoyrideModule.forChild(),
     CommonModule,
     FormsModule,
     ReactiveFormsModule,

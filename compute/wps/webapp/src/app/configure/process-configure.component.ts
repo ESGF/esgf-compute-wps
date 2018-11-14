@@ -1,5 +1,7 @@
 import { Component, Input, Output, EventEmitter, ViewChild, AfterViewInit } from '@angular/core';
 
+import { JoyrideService } from 'ngx-joyride';
+
 import { Process } from './process';
 import { ProcessWrapper } from './process-wrapper';
 import { ConfigureService } from './configure.service';
@@ -30,7 +32,7 @@ declare var $: any;
         </div>
         <div class="modal-body panel-group">
           <notification></notification>
-          <panel title="Inputs">
+          <panel title="Inputs" uid="inputPanel">
             <div class="container-fluid">
               <div class="row">
                 <div class="col-md-2">
@@ -128,15 +130,15 @@ declare var $: any;
               </div>
             </div>
           </panel>
-          <panel title="Regrid">
+          <panel title="Regrid" uid="regridPanel">
             <regrid-config [model]=process?.regrid></regrid-config>
           </panel>
-          <panel title="Parameters" [listGroup]="true">
+          <panel title="Parameters" [listGroup]="true" uid="parameterPanel">
             <parameter-config 
               [process]="process">
               </parameter-config>
           </panel>
-          <panel title="Domain" [listGroup]="true">
+          <panel title="Domain" [listGroup]="true" uid="domainPanel">
             <domain-config 
               [domain]="processWrapper?.process?.domain"
               [candidateDomain]="domain">
@@ -171,6 +173,7 @@ export class ProcessConfigureComponent implements AfterViewInit {
   constructor(
     private configureService: ConfigureService,
     private notificationService: NotificationService,
+    private joyrideService: JoyrideService,
   ) { }
 
   ngAfterViewInit() {

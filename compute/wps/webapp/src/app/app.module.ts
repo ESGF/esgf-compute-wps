@@ -1,6 +1,8 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
+import { JoyrideModule } from 'ngx-joyride';
+
 import { AppComponent } from './app.component';
 import { HomeComponent } from './home.component';
 
@@ -15,6 +17,7 @@ import { AppRoutingModule } from './app-routing.module';
 
 @NgModule({
   imports: [
+    JoyrideModule.forRoot(),
     BrowserModule,
     CoreModule.forRoot(),
     SharedModule,
