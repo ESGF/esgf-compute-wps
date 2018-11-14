@@ -137,7 +137,7 @@ def search_params(dataset_id, query, shard):
     """
     params = {
         'type': 'File',
-        'dataset_id': dataset_id,
+        'dataset_id': dataset_id.strip(),
         'format': 'application/solr+json',
         'offset': 0,
         'limit': 10000,
@@ -255,8 +255,6 @@ def search_variable(request):
         try:
             dataset_id = request.GET['dataset_id']
 
-            index_node = request.GET['index_node']
-
             variable = request.GET['variable']
 
             files = request.GET['files']
@@ -267,6 +265,8 @@ def search_variable(request):
         
         if not isinstance(files, list):
             files = [files]
+
+        index_node = request.GET.get('index_node', settings.ESGF_SEARCH)
 
         shard = request.GET.get('shard', None)
 
@@ -292,10 +292,10 @@ def search_dataset(request):
 
         try:
             dataset_id = request.GET['dataset_id']
-
-            index_node = request.GET['index_node']
         except KeyError as e:
             raise common.MissingParameterError(name=e.message)
+
+        index_node = request.GET.get('index_node', settings.ESGF_SEARCH)
 
         shard = request.GET.get('shard', None)
 
