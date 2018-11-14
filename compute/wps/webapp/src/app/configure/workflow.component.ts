@@ -372,25 +372,31 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
       this.svgDrag.classed('hidden', true);
 
       if (this.stateData !== null && this.stateData.dst !== null) {   
-        let checkPath = this.pathExists(this.stateData.dst.process, this.stateData.src.process);
+        let dstProcess = this.stateData.dst.process;
 
-        if (!checkPath) {
-          let exists = this.links.findIndex((link: Link) => {
-            return link.src === this.stateData.src && link.dst === this.stateData.dst;
-          });
-
-          if (exists === -1) {
-            let src = this.stateData.src,
-              dst = this.stateData.dst;
-
-            dst.process.inputs.push(src.process);
-
-            this.links.push(this.stateData);
-
-            this.update();
-          }
+        if (dstProcess.inputs.length + 1 > dstProcess.description.metadata.inputs) {
+          this.notificationService.error('Cannot complete connection, destination has exceeded maximum number of inputs');
         } else {
-          this.notificationService.error('Cannot complete connection, creating a loop');
+          let checkPath = this.pathExists(this.stateData.dst.process, this.stateData.src.process);
+
+          if (!checkPath) {
+            let exists = this.links.findIndex((link: Link) => {
+              return link.src === this.stateData.src && link.dst === this.stateData.dst;
+            });
+
+            if (exists === -1) {
+              let src = this.stateData.src,
+                dst = this.stateData.dst;
+
+              dst.process.inputs.push(src.process);
+
+              this.links.push(this.stateData);
+
+              this.update();
+            }
+          } else {
+            this.notificationService.error('Cannot complete connection, creating a loop');
+          }
         }
       }
 
