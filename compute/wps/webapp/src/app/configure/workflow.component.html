@@ -25,7 +25,7 @@
         <div
           [stepContent]="globalRegridContent"
           joyrideStep="globalRegrid">
-          <panel title="Regrid" uid="regridPanel">
+          <panel title="Regrid" uid="globalRegridPanel">
             <regrid-config
               [model]="base.regrid">
             </regrid-config>
@@ -34,7 +34,7 @@
         <div
           [stepContent]="globalParameterContent"
           joyrideStep="globalParameter">
-          <panel title="Parameter" [listGroup]="true" [scrollable]="true" uid="parameterPanel">
+          <panel title="Parameter" [listGroup]="true" [scrollable]="true" uid="globalParameterPanel">
             <parameter-config 
               [process]="base">
             </parameter-config>

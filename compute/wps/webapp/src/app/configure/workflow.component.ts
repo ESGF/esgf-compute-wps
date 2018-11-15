@@ -189,8 +189,8 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
 
   startTour() {
     $('#processPanel').collapse('show');
-    $('#regridPanel').collapse('show');
-    $('#parameterPanel').collapse('show');
+    $('#globalRegridPanel').collapse('show');
+    $('#globalParameterPanel').collapse('show');
 
     let tour = this.joyrideService.startTour({
       steps: [
@@ -209,8 +209,8 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
       tour.unsubscribe();
     }, () => {
       $('#processPanel').collapse('hide');
-      $('#regridPanel').collapse('hide');
-      $('#parameterPanel').collapse('hide');
+      $('#globalRegridPanel').collapse('hide');
+      $('#globalParameterPanel').collapse('hide');
 
       this.removeProcess(this.selectedNode.process);
 

@@ -332,8 +332,6 @@ export class ProcessConfigureComponent implements AfterViewInit {
     this.configureService
       .combineTemporal(temporal)
       .then((item: any) => {
-        console.log(this.processWrapper.process.inputs.map((item: Variable) => item.domain));
-
         if (process.domain.temporal != null) {
           process.domain.temporal.updateValues(item);
 
@@ -345,8 +343,6 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
           this.processWrapper.domain.temporal.updateLength(length);
         }
-
-        console.log(this.processWrapper.process.inputs.map((item: Variable) => item.domain));
       })
       .catch((error: string) => {
         this.notificationService.error(`Failed to combine the temporal axes: ${error}`);
