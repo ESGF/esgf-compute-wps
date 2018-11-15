@@ -5,6 +5,7 @@ import json
 import os
 import re
 import uuid
+from collections import deque
 from datetime import datetime
 
 import cdms2
@@ -389,7 +390,42 @@ def build_execute_graph(self, operation, job):
 
     self.update(job, 'Finished building execution graph {}', elapsed)
 
-    return sorted
+    return deque(sorted)
+
+def prepare_operation(variable, domain, op):
+    op.inputs = [variable[x] for x in op.inputs]
+
+    op.domain = domain.get(op.domain, None)
+
+    if 'domain' in op.parameters:
+        del op.parameters['domain']
+
+    return op
+
+def wait_for_inputs(self, op, variable, job, executing, output, **kwargs):
+    for x in op.inputs:
+        if x in executing:
+            wait_op = executing[x]
+
+            result = wait_op.wait()
+
+            if not result:
+                raise WPSError('Operation "{}" failed due to missing input from'
+                               '"{}"', op.identifier, wait_op.identifier)
+
+            self.update(job, '{!r} finished with output {!r}', wait_op.identifier,
+                        wait_op.output)
+
+            del executing[x]
+
+            name = '{}-{}'.format(wait_op.identifier, wait_op.name)
+
+            new_variable = cwt.Variable(wait_op.output.uri,
+                                        wait_op.output.var_name, name=name)
+
+            output.append(new_variable)
+
+            variable[wait_op.name] = new_variable
 
 @base.register_process('CDAT.workflow', metadata={}, hidden=True)
 @base.cwt_shared_task()
@@ -403,40 +439,46 @@ def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
     client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=user.auth.api_key,
                            verify=False)
 
-    output = []
+    state = {
+        'executing': {},
+        'output': [],
+    }
 
-    for op in sorted:
-        op_inputs = [variable[y] for y in op.inputs]
+    while len(sorted) > 0:
+        op = sorted.popleft()
 
-        op_domain = domain.get(op.domain, None)
+        if not all(x in variable for x in op.inputs):
+            wait_for_inputs(self, op, variable, job, **state)
 
-        op.inputs = []
+        op = prepare_operation(variable, domain, op)
 
-        if 'domain' in op.parameters:
-            del op.parameters['domain']
-
-        client.execute(op, inputs=op_inputs, domain=op_domain, **op.parameters) 
+        client.execute(op, **op.parameters)
 
         self.update(job, 'Executing "{}"', op.identifier)
-        
-        result = op.wait() 
+
+        state['executing'][op.name] = op
+
+    for x in state['executing'].values():
+        result = x.wait()
 
         if not result:
-            raise WPSError(op.exception_message)
+            raise WPSError('Operation "{}" failed due to missing input from'
+                           '"{}"', op.identifier, x.identifier)
 
-        self.update(job, '{!r} finished with output {!r}', op.identifier,
-                    op.output)
+        self.update(job, '{!r} finished with output {!r}', x.identifier,
+                    x.output)
 
-        name = '{}-{}'.format(op.identifier, op.name)
+        name = '{}-{}'.format(x.identifier, x.name)
 
-        output.append(cwt.Variable(op.output.uri, op.output.var_name, name=name))
+        new_variable = cwt.Variable(x.output.uri,
+                                    x.output.var_name, name=name)
 
-        variable[op.name] = op.output
+        state['output'].append(new_variable)
 
     self.update(job, 'Finished executing workflow')
 
     attrs = {
-        'output': output,
+        'output': state['output'],
     }
 
     return attrs
