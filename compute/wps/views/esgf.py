@@ -308,3 +308,30 @@ def search_dataset(request):
         return common.failed(e.message)
     else:
         return common.success(dataset_variables)
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def combine(request):
+    try:
+        try:
+            axes = json.loads(request.body)['axes']
+        except KeyError as e:
+            raise common.MissingParameterError(name=e)
+
+        axes = sorted(axes, key=lambda x: x['units'])
+
+        base_units = axes[0]['units']
+
+        stop = cdtime.reltime(axes[-1]['stop'], axes[-1]['units'])
+
+        data = {
+            'units': base_units,
+            'start': axes[0]['start'],
+            'stop': stop.torel(base_units).value,
+        }
+    except WPSError as e:
+        logger.exception('Error combining temporal axes')
+
+        return common.failed(e.message)
+    else:
+        return common.success(data)

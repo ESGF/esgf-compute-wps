@@ -16,6 +16,7 @@ urlpatterns = [
     url(r'^home/?', views.home, name='home'),
     url(r'^regen_capabilities/$', views.regen_capabilities),
     url(r'^metrics/?$', views.metrics_view),
+    url(r'^combine/?$', views.combine),
 ]
 
 #if settings.DEBUG:

@@ -22,6 +22,23 @@ export class ConfigureService extends WPSService {
     super(http); 
   }
 
+  combineTemporal(item: any[]): Promise<any> {
+    let data = JSON.stringify({
+        'axes': item,
+    });
+      
+    return this.postCSRFUnmodified('/wps/combine', data)
+      .then(result => {
+        let response = result.json() as WPSResponse;
+
+        if (response.status === 'failed') {
+          throw response.error;
+        }
+     
+        return response.data;
+      });
+  }
+
   searchESGF(dataset_id: string, params: any): Promise<Dataset> { 
     let newParams = {dataset_id: dataset_id, ...params};
 

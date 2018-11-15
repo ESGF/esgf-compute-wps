@@ -11,6 +11,7 @@ import { NotificationService } from '../core/notification.service';
 import { Domain } from './domain';
 import { DomainComponent } from './domain.component';
 import { NotificationComponent } from '../core/notification.component';
+import { Axis } from './axis';
 
 declare var $: any;
 
@@ -43,13 +44,24 @@ declare var $: any;
                     </button>
                     <ul class="dropdown-menu" aria-labelledby="datasetDropdown">
                       <li *ngFor="let x of datasetID"><a (click)="selectDataset(x)">{{x}}</a></li>
+                      <li><a (click)="newDataset = true">Add new dataset</a></li>
                     </ul>
                   </div>
                 </div>
                 <div class="col-md-10">
-                  <div class="form-control-static">
+                  <div *ngIf="!newDataset; else customDataset" class="form-control-static">
                     {{processWrapper?.selectedDataset}}
                   </div>
+                  <ng-template #customDataset>
+                    <div class="row">
+                      <div class="col-md-8">
+                        <input type="text" #dataset class="form-control">
+                      </div>
+                      <div class="col-md-2">
+                        <button (click)="addDataset(dataset.value)" type="button" class="btn btn-default">Add</button>
+                      </div>
+                    </div>
+                  </ng-template>
                 </div>
               </div>
               <br/>
@@ -141,7 +153,7 @@ declare var $: any;
           <panel title="Domain" [listGroup]="true" uid="domainPanel">
             <domain-config 
               [domain]="processWrapper?.process?.domain"
-              [candidateDomain]="domain">
+              [candidateDomain]="processWrapper?.domain">
             </domain-config>
           </panel>
         </div>
@@ -168,7 +180,7 @@ export class ProcessConfigureComponent implements AfterViewInit {
   @ViewChild(NotificationComponent)
   private notificationComponent: NotificationComponent;
 
-  private domain: Domain;
+  private newDataset = false;
 
   constructor(
     private configureService: ConfigureService,
@@ -190,8 +202,15 @@ export class ProcessConfigureComponent implements AfterViewInit {
     });
   }
 
+  addDataset(value: string) {
+    this.newDataset = false;
+
+    this.datasetID.push(value)
+
+    this.selectDataset(value); 
+  }
+
   reset() {
-    this.domain = null; 
   }
 
   get process() {
@@ -208,7 +227,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
     this.processWrapper.selectedDataset = dataset;
 
     this.configureService.searchESGF(dataset, this.params)
-      .then((data: Dataset) => this.processWrapper.dataset = data);
+      .then((data: Dataset) => this.processWrapper.dataset = data)
+      .catch((error: string) => this.notificationService.error(error));
   }
 
   getIndex(variable: Variable) {
@@ -230,21 +250,29 @@ export class ProcessConfigureComponent implements AfterViewInit {
       return;
     }
 
-    return this.configureService.searchVariable(
-      this.processWrapper.selectedVariable, 
-      this.processWrapper.selectedDataset, 
-      [variable.index], 
-      this.params)
-      .then((data: Domain[]) => {
-        if (this.domain == null) {
-          this.domain = new Domain();
+    return new Promise((resolve, reject) => {
+      this.configureService.searchVariable(
+        this.processWrapper.selectedVariable, 
+        this.processWrapper.selectedDataset, 
+        [variable.index], 
+        this.params)
+        .then((data: Domain[]) => {
+          variable.domain = data[0].clone();
 
-          Object.assign(this.domain, data[0]);
-        }
+          if (this.processWrapper.domain == null) {
+            this.processWrapper.domain = data[0].clone();
+          }
 
-        variable.domain = this.domain;
-      })
-      .catch((text: string) => this.notificationService.error(text));
+          resolve();
+        })
+        .catch((error: string) => {
+          this.process.removeInput(variable);
+
+          this.notificationService.error(`Removed ${variable.display()}, failed to retrieve metadata: ${error}`);
+
+          reject();
+        });
+    });
   }
 
   removeInput(item: Variable|Process) {
@@ -256,6 +284,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
         return true;
       });
+
+      this.updateDomain();
     } else if (item instanceof Process) {
       this.inputRemoved.emit(item);
 
@@ -271,6 +301,57 @@ export class ProcessConfigureComponent implements AfterViewInit {
     });
 
     this.process.clearInputs();
+  }
+
+  updateDomain() {
+    let process = this.processWrapper.process;
+
+    if (process.inputs.length === 0) {
+      return;
+    }
+
+    let temporal = process.inputs
+      .filter((item: Variable|Process) => {
+        return item instanceof Variable ? true : false;
+      })
+      .map((item: Variable) => {
+        let temporal = item.domain.temporal;
+
+        return {
+          units: temporal.units,
+          start: temporal.start,
+          stop: temporal.stop,
+          length: temporal.length,
+        };
+      });
+
+    let length = temporal
+      .map((x: any) => x.length)
+      .reduce((x: number, y: number) => x + y);
+
+    this.configureService
+      .combineTemporal(temporal)
+      .then((item: any) => {
+        console.log(this.processWrapper.process.inputs.map((item: Variable) => item.domain));
+
+        if (process.domain.temporal != null) {
+          process.domain.temporal.updateValues(item);
+
+          process.domain.temporal.updateLength(length);
+        }
+
+        if (this.processWrapper.domain.temporal != null) {
+          this.processWrapper.domain.temporal.updateValues(item);
+
+          this.processWrapper.domain.temporal.updateLength(length);
+        }
+
+        console.log(this.processWrapper.process.inputs.map((item: Variable) => item.domain));
+      })
+      .catch((error: string) => {
+        this.notificationService.error(`Failed to combine the temporal axes: ${error}`);
+      });
+
   }
 
   addInputFile(variable: Variable) {
@@ -290,16 +371,17 @@ export class ProcessConfigureComponent implements AfterViewInit {
       return false;
     });
 
-    if (match != -1) {
-      this.process.inputs.splice(match, 1);
-    } else {
+    if (match == -1) {
       this.process.inputs.push(variable);
 
-      this.getFileDomain(variable).catch(() => {
-        this.process.removeInput(variable);
-
-        this.notificationService.error(`Removed ${variable.display()}, failed to retrieve metadata`);
-      });
+      if (variable.domain == null) {
+        this.getFileDomain(variable)
+          .then(() => {
+            this.updateDomain();
+          });
+      } else {
+        this.updateDomain();
+      }
     }
   }
 

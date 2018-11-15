@@ -14,6 +14,24 @@ export class Domain extends UID {
     super();
   }
 
+  clone() {
+    let copy = new Domain();
+
+    if (this.temporal != null) {
+      let copyAxis = new Axis();
+
+      copy.temporal = Object.assign(copyAxis, this.temporal);
+    }
+
+    copy.spatial = this.spatial.map((x: Axis) => {
+      let copyAxis = new Axis();
+
+      return Object.assign(copyAxis, x);
+    });
+
+    return copy;
+  }
+
   toJSON() {
     let data = {
       id: this.uid,

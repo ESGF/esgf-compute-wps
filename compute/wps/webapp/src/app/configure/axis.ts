@@ -29,6 +29,28 @@ export class Axis extends UID {
     super();
   }
 
+  updateValues(value: any) {
+    this._start = value.start;
+
+    this._stop = value.stop;
+
+    if (this.crs === CRS.Values) {
+      this.start = value.start;
+
+      this.stop = value.stop;
+    }
+
+    this.units = value.units;
+  }
+
+  updateLength(value: number) {
+    this._length = value;
+
+    if (this.crs === CRS.Indices) {
+      this.stop = value;
+    }
+  }
+
   toJSON() {
     return {
       start: this.start,
