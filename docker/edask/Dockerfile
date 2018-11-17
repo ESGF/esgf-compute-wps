@@ -1,4 +1,4 @@
-FROM continuumio/miniconda:4.3.27
+FROM continuumio/miniconda3:4.5.11
 
 RUN git clone https://github.com/nasa-nccs-cds/edask
 
@@ -12,9 +12,9 @@ RUN conda env create -n edask -f environment.yaml && \
       mkdir -p /opt/conda/envs/edask/lib/python3.6/site-packages/resources && \
       touch /opt/conda/envs/edask/lib/python3.6/site-packages/resources/parameters
 
-ENV UVCDAT_ANONYMOUS_LOG=no
+COPY app.conf /root/.edask/conf/app.conf
 
-ENV EDAS_CACHE_DIR=/data/edas
+ENV UVCDAT_ANONYMOUS_LOG=no
 
 COPY server.py server.py
 
