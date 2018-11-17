@@ -354,7 +354,7 @@ class CDAT(backend.Backend):
 
         config = self.configure_processing(op, base_units, user, job, **kwargs)
 
-        output_path = self.generate_output_path(user, op.name)
+        output_path = self.generate_output_path(user, job, op.name)
 
         success = tasks.job_succeeded.s(
             kwargs['variable'].values(), output_path, None, config['var_name'],
@@ -560,7 +560,7 @@ class CDAT(backend.Backend):
 
         config = self.configure_computation(user, job, **kwargs)
 
-        output_path = self.generate_output_path(user, op.name)
+        output_path = self.generate_output_path(user, job, op.name)
 
         process_obj = models.Process.objects.get(identifier=op.identifier)
 

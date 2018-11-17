@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 import cwt
 from django import db
@@ -58,11 +59,12 @@ class Backend(object):
         
         return job
 
-    def generate_output_path(self, user, filename):
-        job_id = user.job_set.count()
+    def generate_output_path(self, user, job, filename):
+        if not filename.endswith('.nc'):
+            filename = '{}.nc'.format(filename)
 
-        return '{}/{}/{}/{}.nc'.format(settings.WPS_PUBLIC_PATH, user.id,
-                                       job_id, filename)
+        return os.path.join(settings.WPS_PUBLIC_PATH, str(user.id), str(job.id),
+                            filename)
 
     def get_process(self, identifier):
         for x in self.processes:
