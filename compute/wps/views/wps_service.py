@@ -236,6 +236,11 @@ def handle_execute(api_key, identifier, data_inputs):
 
     job = models.Job.objects.create(server=server, process=process, user=user, extra=json.dumps(data_inputs))
 
+    # at this point we've accepted the job
+    job.accepted()
+
+    logger.info('Acceped job %r', job.id)
+
     kwargs.update({
         'identifier': identifier,
         'user': user,
