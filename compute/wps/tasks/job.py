@@ -55,7 +55,7 @@ def job_succeeded(self, attrs, variables, output_path, move_path, var_name,
         try:
             os.makedirs(os.path.dirname(move_path))
         except OSError:
-            raise WPSError('Failed to create output directory')
+            raise WPSError('Failed to create output directory {!r}', move_path)
 
         shutil.move(output_path, move_path)
         

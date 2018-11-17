@@ -213,6 +213,7 @@ def base_process(self, attrs, keys, operation, var_name, base_units,
         operation: A cwt.Process object.
         var_name: A str variable name.
         base_units: A str units used to base the time axis.
+        chunked_axis: A str name of the chunk axis.
         axes: A list of str names of axes to operate over.
         output_path: A str containing the output path.
         job_id: An int of the current job id. 
@@ -288,8 +289,6 @@ def base_process(self, attrs, keys, operation, var_name, base_units,
                     data = self.PROCESS(data, axis=axes_sig, weights=weightoptions)
                 except cdutil.AveragerError as e:
                     raise WPSError(''.join(e))
-
-                data_chunks.append(data)
             else:
                 # Process over all axes except the chunking axis
                 for axis in axes_index:
@@ -297,7 +296,10 @@ def base_process(self, attrs, keys, operation, var_name, base_units,
 
                     data = self.PROCESS(data, axis=axis)
 
+            if chunked_axis == 'time':
                 outfile.write(data, id=var_name)
+            else:
+                data_chunks.append(data)
 
         if len(data_chunks) > 0:
             axis_index = data_chunks[0].getAxisIndex(chunked_axis)

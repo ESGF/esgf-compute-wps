@@ -276,9 +276,9 @@ class CWTBaseTask(celery.Task):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         job = self.__get_job(**kwargs)
 
-        if job is None:
-            logger.error('Job %r does not exist', kwargs.get('job_id', None))
-        else:
+        logger.info('Task %r failed args %r kwargs %r', task_id, args, kwargs)
+
+        if job is not None:
             job.failed(str(exc))
 
     def on_success(self, retval, task_id, args, kwargs):
