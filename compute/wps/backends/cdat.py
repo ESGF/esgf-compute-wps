@@ -242,31 +242,41 @@ class CDAT(backend.Backend):
         if mapped is None:
             raise FileNotIncludedError()
 
-        ingress_paths = []
-        ingress_tasks = []
+        chunk_length = len(chunk_list)
 
-        for chunk in chunk_list:
-            key = '{}-{:08}'.format(uid, state['index'])
+        items_per_task = int(chunk_length/settings.WORKER_PER_USER)
 
-            state['index'] += 1
+        logger.info('Items per task %r', items_per_task)
 
-            ingress_paths.append('{}/{}.nc'.format(
-                settings.WPS_INGRESS_PATH, key))
+        chunk_groups = [chunk_list[x:x+items_per_task] for x in xrange(0,
+                                                                 chunk_length,
+                                                                 items_per_task)]
 
-            mapped_copy = mapped.copy()
+        ingresses = []
 
-            mapped_copy.update({chunk_axis: chunk})
+        for group in chunk_groups:
+            group_maps = {}
 
-            ingress_tasks.append(
-                tasks.ingress_uri.s(
-                    var.uri, var.var_name, mapped_copy,
-                    ingress_paths[-1], user_id, job_id=job_id).set(
-                        **helpers.INGRESS_QUEUE))
+            for chunk in group:
+                key = '{}-{:08}'.format(uid, state['index'])
 
-        return {
-            'paths': ingress_paths,
-            'tasks': ingress_tasks,
-        }
+                state['index'] += 1
+
+                ingress_path = '{}/{}.nc'.format(settings.WPS_INGRESS_PATH, key)
+
+                mapped_copy = mapped.copy()
+                
+                mapped_copy.update({chunk_axis: chunk})
+
+                group_maps[ingress_path] = mapped_copy
+
+            ingress_task = tasks.ingress_uri.s(var.uri, var.var_name,
+                                               group_maps, user_id,
+                                               job_id=job_id).set(**helpers.INGRESS_QUEUE)
+
+            ingresses.append((group_maps.keys(), ingress_task))
+
+        return ingresses
 
     def generate_cache_entry(self, uid, state, cached, chunks, **kwargs):
         key = '{}-{:08}'.format(uid, state['index'])
@@ -283,11 +293,10 @@ class CDAT(backend.Backend):
 
         state['cache_files'][key] = cache_entry
 
-    def configure_processing(self, op, base_units, user, job, **kwargs):
+    def configure_processing(self, op, base_units, user, job, sort, **kwargs):
         var_name = None
 
-        ingress_paths = []
-        ingress_tasks = []
+        ingresses = []
         cache_tasks = []
 
         state = {'index': 0, 'cache_files': {}}
@@ -309,9 +318,7 @@ class CDAT(backend.Backend):
                                                       job.id, state,
                                                       **preprocess)
 
-                ingress_tasks.extend(ingress['tasks'])
-
-                ingress_paths.extend(ingress['paths'])
+                ingresses.extend(ingress)
 
                 chunk_axis = preprocess['chunks'].keys()[0]
 
@@ -327,13 +334,12 @@ class CDAT(backend.Backend):
 
         return {
             'var_name': var_name, 
-            'ingress_paths': ingress_paths,
-            'ingress_taks': ingress_tasks,
+            'ingresses': ingresses,
             'cache_tasks': cache_tasks,
             'cache_files': state['cache_files'],
         }
 
-    def execute_processing(self, user_id, job_id, sort, base_units, **kwargs):
+    def execute_processing(self, user_id, job_id, base_units, **kwargs):
         job = self.load_job(job_id)
 
         job.steps_reset()
@@ -351,26 +357,28 @@ class CDAT(backend.Backend):
         output_path = self.generate_output_path(user, op.name)
 
         success = tasks.job_succeeded.s(
-            variable, output_path, None, var_name, process.id, user.id,
-            job_id=job.id).set(
-                **helpers.DEFAULT_QUEUE)
+            kwargs['variable'].values(), output_path, None, config['var_name'],
+            process.id, user.id,job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
         job.steps_inc_total()
 
         process = base.get_process(op.identifier)
 
-        if len(config['ingress_tasks']) > 0:
+        if len(config['ingresses']) > 0:
             logger.info('Processing from ingress')
 
-            process_task = process.s(config['ingress_paths'], op,
-                                     config['var_name'], base_units,
-                                     output_path,
+            ingress_paths = [y for x in config['ingresses'] for y in x[0]]
+
+            ingress_tasks = [x[1] for x in config['ingresses']]
+
+            process_task = process.s(ingress_paths, op, config['var_name'],
+                                     base_units, output_path,
                                      job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
-            ingress_and_process = celery.chord(header=config['ingress_tasks'],
+            ingress_and_process = celery.chord(header=ingress_tasks,
                                                body=process_task)
 
-            cleanup = tasks.ingress_cleanup.s(config['ingress_paths'], job_id=job.id).set(
+            cleanup = tasks.ingress_cleanup.s(ingress_paths, job_id=job.id).set(
                 **helpers.DEFAULT_QUEUE)
 
             finalize = celery.group(x for x in config['cache_tasks']) | cleanup
@@ -382,7 +390,8 @@ class CDAT(backend.Backend):
             logger.info('Processing from cache')
 
             process_task = process.s(config['cache_files'],
-                                     config['cache_files'].keys(), op, var_name,
+                                     config['cache_files'].keys(), op,
+                                     config['var_name'],
                                      base_units, output_path,
                                      job_id=job.id).set(**helpers.DEFAULT_QUEUE)
 
@@ -416,10 +425,13 @@ class CDAT(backend.Backend):
 
         index = 0
         axes_sig = '-'.join(axes.values)
+        temp_paths = []
         process_paths = []
         process_chains = []
 
-        for path, task in zip(ingress['paths'], ingress['tasks']):
+        for paths, task in ingress:
+            temp_paths.extend(paths)
+
             filename = '{}-{:08}-{}.nc'.format(op.name, index, axes_sig)
 
             index += 1
@@ -427,9 +439,10 @@ class CDAT(backend.Backend):
             process_paths.append(os.path.join(settings.WPS_INGRESS_PATH,
                                               filename))
             
-            process_chains.append(celery.chain(task, process.s(path, op,
+            process_chains.append(celery.chain(task, process.s(paths, op,
                                                                var.var_name,
                                                                base_units,
+                                                               chunk_axis,
                                                                axes.values,
                                                                process_paths[-1],
                                                                job_id=job.id).set(
@@ -438,7 +451,7 @@ class CDAT(backend.Backend):
         job.steps_inc_total((len(process_chains)*2)+1)
 
         return {
-            'temp_paths': ingress['paths'],
+            'temp_paths': temp_paths,
             'cache': cache,
             'chunk_axis': chunk_axis,
             'process_paths': process_paths,
@@ -460,40 +473,50 @@ class CDAT(backend.Backend):
 
         cached = state['cache_files'].values()[0]
 
+        chunk_list = cached['chunk_list']
+
+        chunk_list_length = len(chunk_list)
+
+        chunk_axis = cached['chunk_axis']
+
+        items_per_worker = int(chunk_list_length/settings.WORKER_PER_USER)
+
+        logger.info('Items per worker %r', items_per_worker)
+
+        chunk_groups = [chunk_list[x:x+items_per_worker] for x in
+                        xrange(0, chunk_list_length, items_per_worker)]
+
         index = 0
         axes_sig = '-'.join(axes.values)
         process_paths = []
         process_chains = []
 
-        file_attrs = {
-            'cached': True,
-            'path': cached['path'],
-        }
+        for group in chunk_groups:
+            keys = []
+            attrs = {}
 
-        attrs = {
-            var.uri: file_attrs,
-        }
-
-        for chunk in cached['chunk_list']:
             filename = '{}-{:08}-{}.nc'.format(op.name, index, axes_sig)
 
             index += 1
 
-            process_paths.append(os.path.join(settings.WPS_INGRESS_PATH,
-                                             filename))
+            process_paths.append(os.path.join(settings.WPS_INGRESS_PATH, filename))
 
-            mapped = cached['mapped'].copy()
+            for i, chunk in enumerate(group):
+                mapped = cached['mapped'].copy()
 
-            mapped.update({ cached['chunk_axis']: chunk })
+                mapped.update({chunk_axis: chunk})
 
-            file_attrs['mapped'] = mapped
+                keys.append(str(i))
 
-            process_chains.append(process.s(attrs, var.uri, op, var.var_name,
-                                            base_units, axes.values,
-                                            process_paths[-1],
+                attrs[keys[-1]] = {
+                    'path': cached['path'],
+                    'mapped': mapped,
+                }
+
+            process_chains.append(process.s(attrs, keys, op, var.var_name,
+                                            base_units, chunk_axis,
+                                            axes.values, process_paths[-1],
                                             job_id=job.id).set(**helpers.DEFAULT_QUEUE))
-
-            logger.info('Compute chunk %r to %r', chunk, process_paths[-1])
 
         job.steps_inc_total(len(process_chains))
 

@@ -4,6 +4,7 @@ import contextlib
 import datetime
 import hashlib
 import os
+import psutil
 from urlparse import urlparse
 
 import cdms2
@@ -17,6 +18,7 @@ from wps import models
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import preprocess
+from wps.utils import Timer
 
 logger = log.get_task_logger('wps.tasks.ingress')
 
@@ -145,15 +147,14 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
     return attrs
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
+def ingress_uri(self, uri, var_name, group_maps, user_id, job_id):
     """ Ingress a portion of data.
 
     Args:
         key: A str containing a unique identifier for this request.
         uri: A str uri of the source file.
         var_name: A str variable name.
-        domain: A dict containing the portion of the file.
-        output_path: A str path for the output to be written.
+        group_maps: A dict mapping file paths to chunk slices.
         user_id: An int referencing the owner of the request.
         job_id: An int referencing the job this request belongs to.
 
@@ -179,44 +180,46 @@ def ingress_uri(self, uri, var_name, domain, output_path, user_id, job_id):
 
     job = self.load_job(job_id)
 
-    start = get_now()
-
-    logger.info('Domain %r', domain)
-
-    with self.open(uri) as infile:
-        data = read_data(infile, var_name, domain)
-
-    shape = data.shape
-
-    logger.info('Read data shape %r', shape)
-
-    with self.open(output_path, 'w') as outfile:
-        outfile.write(data, id=var_name)
-
-    elapsed = get_now() - start
-
     parsed = urlparse(uri)
 
     host = 'local' if parsed.netloc == '' else parsed.netloc
 
-    stat = os.stat(output_path)
+    attrs = {}
+    total_size = 0
+    total_elapsed = datetime.timedelta()
 
-    metrics.INGRESS_BYTES.labels(host.lower()).inc(stat.st_size)
+    for output_path, domain in group_maps.iteritems():
+        start = get_now()
 
-    metrics.INGRESS_SECONDS.labels(host.lower()).inc(elapsed.total_seconds())
+        with self.open(uri) as infile:
+            data = infile(var_name, **domain)
 
-    size = stat.st_size / 1000000.0
+        shape = data.shape
 
-    self.update(job, 'Ingressed chunk {} {} MB in {}', shape, size, elapsed)
+        with self.open(output_path, 'w') as outfile:
+            outfile.write(data, id=var_name)
 
-    attrs = {
-        output_path: {
+        elapsed = get_now() - start
+
+        total_elapsed += elapsed
+
+        stat = os.stat(output_path)
+
+        total_size += stat.st_size
+
+        logger.info('Ingressed %r size %r in %r to %r', shape, stat.st_size,
+                    elapsed.total_seconds(), output_path)
+
+        attrs[output_path] = {
             'ingress': True,
             'uri': uri,
             'path': output_path,
-            'elapsed': elapsed,
-            'size': size,
         }
-    }
+
+    metrics.INGRESS_BYTES.labels(host.lower()).inc(total_size)
+
+    metrics.INGRESS_SECONDS.labels(host.lower()).inc(total_elapsed.total_seconds())
+
+    size = total_size / 1000000.0
 
     return attrs

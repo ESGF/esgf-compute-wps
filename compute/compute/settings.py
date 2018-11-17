@@ -117,8 +117,15 @@ ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, 
 INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', True, bool)
 PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
-WORKER_MEMORY = config.get_value('default', 'worker.memory', 2e8, int)
 ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')
+
+WORKER_CPU_COUNT = config.get_value('default', 'worker.cpu_count', 2, int)
+WORKER_CPU_UNITS = config.get_value('default', 'worker.cpu_units', 200, int)
+WORKER_MEMORY = config.get_value('default', 'worker.memory', 8e6, int)
+WORKER_USER_PERCENT = config.get_value('default', 'worker.user_percent', 0.10,
+                                       float)
+WORKER_PER_USER = ((WORKER_CPU_COUNT*1000)/WORKER_CPU_UNITS)*WORKER_USER_PERCENT
+
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host', 'localhost')
