@@ -18,7 +18,6 @@ from wps import models
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import preprocess
-from wps.utils import Timer
 
 logger = log.get_task_logger('wps.tasks.ingress')
 
