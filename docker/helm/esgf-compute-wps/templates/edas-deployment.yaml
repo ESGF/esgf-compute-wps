@@ -43,7 +43,12 @@ spec:
         - mountPath: /data/edas
           name: edas-volume
           subPath: edas
+        - mountPath: /root/.edask/conf
+          name: edas-configmap-volume
       volumes:
+      - name: edas-configmap-volume
+        configMap:
+          name: {{ template "esgf-compute-wps.fullname" $ }}-edas-configmap
       - name: edas-volume
         persistentVolumeClaim:
           claimName: edas-pvc
