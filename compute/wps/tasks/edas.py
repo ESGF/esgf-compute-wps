@@ -37,14 +37,30 @@ def prepare_data_inputs(variable, domain, operation):
 
     operation.description = Dummy()
 
-    variable = json.dumps([x.parameterize() for x in variable])
+    data_inputs = '[';
 
-    domain = json.dumps([domain.parameterize()])
+    parts = operation.identifier.split('.')
 
-    operation = json.dumps([operation.parameterize()])
+    operation = cwt.Process(parts[1].replace('-', '.'))
 
-    data_inputs = '[variable={};domain={};operation={}]'.format(
-        variable, domain, operation)
+    operation.inputs = [x.name for x in variable]
+
+    variable = [x.parameterize() for x in variable]
+
+    if len(variable) > 0:
+        data_inputs = '{}variable = {}'.format(data_inputs,
+                                               json.dumps(variable))
+
+    if domain is None:
+        domain = cwt.Domain()
+
+    operation.domain = domain.name
+
+    data_inputs = '{};domain = {}'.format(data_inputs,
+                                          json.dumps([domain.parameterize()]))
+
+    data_inputs = '{};operation = {}]'.format(data_inputs,
+                                              json.dumps([operation.parameterize()]))
 
     logger.info('Data Inputs "%r"', data_inputs)
 
