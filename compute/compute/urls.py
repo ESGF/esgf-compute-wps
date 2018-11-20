@@ -20,7 +20,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     url(r'^auth/', include('wps.urls_auth')),
-    url(r'^wps/', include('wps.urls')),
+    url(r'^wps/?', include('wps.urls')),
 ]
 
 #if settings.DEBUG:
