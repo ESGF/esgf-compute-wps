@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "esgf-compute-wps.fullname" . }}-edas-configmap
+  name: {{ template "esgf-compute-wps.fullname" . }}-edask-configmap
   labels:
     app: {{ template "esgf-compute-wps.name" . }}
     chart: {{ template "esgf-compute-wps.chart" . }}
@@ -9,6 +9,9 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   app.conf: |
+{{ if .Values.edask.scheduler }}
+    dask.scheduler={{ .Values.edask.scheduler.address }}
+{{ end }}
     client.address=127.0.0.1
     request.port=4556
     response.port=4557
