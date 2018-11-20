@@ -35,21 +35,29 @@ class EDAS(backend.Backend):
 
         body = data[index+1:]
 
-        operations = body.split('|')
-
         capabilities = {}
 
-        for x in operations:
-            id, lang, ops = x.split('!')
+        root = ET.fromstring(body)
 
-            kernels = ops.split('~')
+        for module in root:
+            module_name = module.attrib['name']
 
-            for y in kernels:
-                name, title = y.split(';')
+            logger.info('Processing module %r', module_name)
+
+            for kernel in module:
+                name = kernel.attrib['name']
+
+                logger.info('\tProcessing kernel %r', name)
+
+                id = '{}:{}'.format(module_name, name)
+
+                #describe = self.describe_process(id)
+
+                title = kernel.attrib['title']
 
                 capabilities[name] = {
-                    'module': id,
-                    'title': title
+                    'module': module_name,
+                    'title': title,
                 }
 
         return capabilities
@@ -63,7 +71,7 @@ class EDAS(backend.Backend):
 
         id = uuid.uuid4()
 
-        socket.send('{}!getCapabilities!WPS'.format(id))
+        socket.send('{}!getCapabilities'.format(id))
 
         # Poll so we can timeout eventually
         if (socket.poll(10 * 1000) == 0):
@@ -92,6 +100,8 @@ class EDAS(backend.Backend):
 
         request = '{}!describeprocess!{}'.format(id, identifier)
 
+        logger.info('Sending %r', request)
+
         socket.send(request)
 
         # Poll so we can timeout eventually
@@ -114,11 +124,10 @@ class EDAS(backend.Backend):
         metadata = {'inputs': '*', 'datasets': '*'}
 
         for x, y in response.iteritems():
-            identifier = '{}.{}'.format(y['module'], x)
+            identifier = 'EDASK.{}-{}'.format(y['module'], x)
 
-            #desc = self.describe_process(identifier)
-
-            self.add_process(identifier, y['title'], metadata, abstract='')
+            self.add_process(identifier, y['title'], metadata,
+                             abstract=y['title'])
 
     def execute(self, identifier, variable, domain, operation, **kwargs):
         logger.debug('%r', kwargs)
