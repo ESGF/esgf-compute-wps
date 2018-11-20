@@ -39,10 +39,6 @@ describe('Configure Component', () => {
     }
   };
 
-  class MockActivatedRoute {
-    queryParams = Observable.of({dataset_id: 'mockDatasetID', index_node: 'mockIndexNode'});
-  }
-
   beforeEach(async(() => {
     TestBed.configureTestingModule({
       imports: [FormsModule],
@@ -53,7 +49,6 @@ describe('Configure Component', () => {
       providers: [
         {provide: Http, useValue: jasmine.createSpy('http')},
         {provide: Router, useValue: jasmine.createSpy('router')},
-        {provide: ActivatedRoute, useClass: MockActivatedRoute},
         AuthService,
         NotificationService,
       ],

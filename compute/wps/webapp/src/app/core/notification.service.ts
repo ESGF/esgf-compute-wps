@@ -3,6 +3,8 @@ import { Subscription } from 'rxjs/Subscription';
 import { Observable } from 'rxjs/Observable';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { Subject } from 'rxjs/Subject';
+import { switchMap } from 'rxjs/operators';
+import { NEVER } from 'rxjs';
 
 export enum NotificationType {
   Message,
@@ -26,7 +28,7 @@ export class NotificationService {
     let toggle = new Subject<boolean>();
 
     let stream = toggle
-      .switchMap((value: boolean) => value ? this.notification$ : Observable.never());
+      .pipe(switchMap((value: boolean) => value ? this.notification$ : NEVER));
 
     let streamSub = stream.subscribe(fn);
 
