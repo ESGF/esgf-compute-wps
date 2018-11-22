@@ -88,6 +88,30 @@ def edas_send(socket, message):
 
     return edas_wait(socket)
 
+def set_output(job, var_name, filename):
+    glob_pattern = '{}/results/*/*/*{}'.format(settings.WPS_EDAS_OUTPUT_PATH,
+                                         filename)
+
+    try:
+        file_path = glob.glob(glob_pattern)[0]
+    except IndexError:
+        raise WPSError('Could not find output file')
+
+    new_filename = '{}.nc'.format(uuid.uuid4())
+
+    output_path = os.path.join(settings.WPS_PUBLIC_PATH, new_filename)
+
+    try:
+        shutil.move(file_path, output_path)
+    except OSError:
+        raise WPSError('Failed to copy EDASK output')
+
+    output_url = settings.WPS_DAP_URL.format(filename=new_filename)
+
+    output = cwt.Variable(output_url, var_name)
+
+    job.succeeded(json.dumps(output.parameterize()))
+
 @base.cwt_shared_task()
 def edas_submit(self, variable, domain, operation, user_id, job_id):
     job = self.load_job(job_id)
@@ -115,16 +139,4 @@ def edas_submit(self, variable, domain, operation, user_id, job_id):
 
     parts = header.split('|')
 
-    glob_pattern = '{}/*/*{}.nc'.format(settings.WPS_EDAS_OUTPUT_PATH,
-                                         parts[-1])
-
-    matches = glob.glob(glob_pattern)
-
-    try:
-        output = cwt.Variable(matches[0], 'ccb')
-    except IndexError:
-        raise WPSError('Could not find output file')
-    else:
-        job.succeeded(json.dumps(output.parameterize()))
-
-    return None
+    set_output(job, parts[-2], parts[-1])

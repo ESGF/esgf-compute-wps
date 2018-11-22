@@ -165,6 +165,7 @@ WPS_EDAS_HOST = config.get_value('edas', 'wps.edas.host', 'aims2.llnl.gov')
 WPS_EDAS_REQ_PORT = config.get_value('edas', 'wps.edas.req.port', 5670, int)
 WPS_EDAS_RES_PORT = config.get_value('edas', 'wps.edas.res.port', 5671, int)
 WPS_EDAS_TIMEOUT = config.get_value('edas', 'wps.edas.timeout', 30, int)
+WPS_EDAS_OUTPUT_PATH = config.get_value('edas', 'output.path', '/data/edask')
 
 WPS_OPHIDIA_ENABLED = config.get_value('ophidia', 'wps.oph.enabled', False, bool)
 WPS_OPHIDIA_USER = config.get_value('ophidia', 'wps.oph.user', 'oph-test')
