@@ -25,6 +25,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-edask
         image: {{ .Values.edask.image }}:{{ .Values.edask.imageTag }}
+        imagePullPolicy: IfNotPresent
         resources:
           {{- if not .Values.development }}
           limits:

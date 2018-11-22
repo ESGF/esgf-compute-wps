@@ -24,6 +24,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
+        imagePullPolicy: IfNotPresent
         resources:
           limits:
             cpu: {{ .Values.nginx.resources.cpuLimit | quote }}

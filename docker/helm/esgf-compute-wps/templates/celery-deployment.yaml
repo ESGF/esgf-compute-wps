@@ -29,6 +29,7 @@ spec:
       containers:
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
+        imagePullPolicy: IfNotPresent
         {{- if not $.Values.development }}
         args: 
           - "-l"
@@ -129,6 +130,9 @@ spec:
         - mountPath: /data/ingress
           name: ingress-volume
           subPath: ingress
+        - mountPath: /data/edask
+          name: edask-volume
+          subPath: edask
       volumes:
       - name: config-volume
         configMap:
@@ -147,5 +151,8 @@ spec:
       - name: ingress-volume
         persistentVolumeClaim:
           claimName: ingress-pvc
+      - name: edask-volume
+        persistentVolumeClaim:
+          claimName: edask-pvc
 ---
 {{- end }}

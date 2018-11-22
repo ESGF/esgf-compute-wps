@@ -25,6 +25,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-cog
         image: {{ .Values.cog.image }}:{{ .Values.cog.imageTag }}
+        imagePullPolicy: IfNotPresent
         resources:
           requests:
             cpu: {{ .Values.cog.resources.cpuRequest | quote }}

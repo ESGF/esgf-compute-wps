@@ -24,6 +24,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-thredds
         image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}
+        imagePullPolicy: IfNotPresent
         resources:
           {{- if not .Values.development }}
           limits:
