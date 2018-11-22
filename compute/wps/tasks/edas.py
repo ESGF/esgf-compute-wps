@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import glob
 import json
 import os
 import shutil
@@ -66,15 +67,26 @@ def prepare_data_inputs(variable, domain, operation):
 
     return data_inputs
 
-def check_error(data):
-    logger.info('response: %r', data)
+def edas_wait(socket):
+    if socket.poll(settings.WPS_EDAS_TIMEOUT*1000, zmq.POLLIN) == 0:
+        raise WPSError('Timed out waiting for response')
 
-    id, status, message = data.split('!')
+    data = socket.recv()
 
-    logger.info('id: %r status: %r message: %r', id, status, message)
+    parts = data.split('!')
 
-    if status == 'error':
-        raise WPSError('EDASK error: "{}"', message)
+    check_error(parts)
+
+    return parts
+
+def check_error(message):
+    if len(message) > 2 and message[1] == 'error':
+        raise WPSError('EDASK failed %r', message[2])
+
+def edas_send(socket, message):
+    socket.send(message)
+
+    return edas_wait(socket)
 
 @base.cwt_shared_task()
 def edas_submit(self, variable, domain, operation, user_id, job_id):
@@ -89,25 +101,30 @@ def edas_submit(self, variable, domain, operation, user_id, job_id):
 
         with connect_socket(context, zmq.REQ, settings.WPS_EDAS_HOST,
                             settings.WPS_EDAS_REQ_PORT) as req_sock:
-            self.update(job, 'Connected to EDASK backend') 
-
+            # Hand empty extras, they're getting ignored
             extras = json.dumps({})
 
-            req_sock.send('{}!execute!{}!{}!{}'.format(self.request.id, operation.identifier,
-                                                       data_inputs, extras))
+            message = '{}!execute!{}!{}!{}'.format(self.request.id,
+                                                   operation.identifier, data_inputs, extras)
 
-            if (req_sock.poll(settings.WPS_EDAS_TIMEOUT*1000, zmq.POLLIN) == 0):
-                raise WPSError('')
+            response = edas_send(req_sock, message)
 
-            self.update(job, 'Sent EDASK request')
+        response = edas_wait(pull_sock)
 
-            data = req_sock.recv()
+    _, _, header = response[:3]
 
-        if (pull_sock.poll(settings.WPS_EDAS_TIMEOUT*1000, zmq.POLLIN) == 0):
-            raise WPSError('')
+    parts = header.split('|')
 
-        data = pull_sock.recv()
+    glob_pattern = '{}/*/*{}.nc'.format(settings.WPS_EDAS_OUTPUT_PATH,
+                                         parts[-1])
 
-        check_error(data)
+    matches = glob.glob(glob_pattern)
+
+    try:
+        output = cwt.Variable(matches[0], 'ccb')
+    except IndexError:
+        raise WPSError('Could not find output file')
+    else:
+        job.succeeded(json.dumps(output.parameterize()))
 
     return None
