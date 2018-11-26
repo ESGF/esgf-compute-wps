@@ -40,10 +40,6 @@ def prepare_data_inputs(variable, domain, operation):
 
     data_inputs = '[';
 
-    parts = operation.identifier.split('.')
-
-    operation = cwt.Process(parts[1].replace('-', '.'))
-
     operation.inputs = [x.name for x in variable]
 
     variable = [x.parameterize() for x in variable]
@@ -116,6 +112,10 @@ def set_output(job, var_name, filename):
 def edas_submit(self, variable, domain, operation, user_id, job_id):
     job = self.load_job(job_id)
 
+    parts = operation.identifier.split('.')
+
+    operation = cwt.Process(parts[1].replace('-', '.'))
+
     data_inputs = prepare_data_inputs(variable, domain, operation)
 
     context = zmq.Context.instance()
@@ -126,10 +126,16 @@ def edas_submit(self, variable, domain, operation, user_id, job_id):
         with connect_socket(context, zmq.REQ, settings.WPS_EDAS_HOST,
                             settings.WPS_EDAS_REQ_PORT) as req_sock:
             # Hand empty extras, they're getting ignored
-            extras = json.dumps({})
+            extras = json.dumps({
+                'storeExecuteResponse': 'false',
+                'status': 'true',
+                'responseform': 'file',
+            })
 
             message = '{}!execute!{}!{}!{}'.format(self.request.id,
                                                    operation.identifier, data_inputs, extras)
+
+            logger.info('Sending message: %r', message)
 
             response = edas_send(req_sock, message)
 
