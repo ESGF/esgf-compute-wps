@@ -1,4 +1,4 @@
-host: 0.0.0.0
+host: https://0.0.0.0
 development: false
 
 persistence:
@@ -95,18 +95,12 @@ wps:
   replicas: 1
   image: jasonb87/cwt_wps
   imageTag: 2.1.0
-  activeUserThreshold: 5
-  ingressEnabled: true
-  certDownloadEnabled: true
   allowedCIDR: 172.17.0.0/16
 
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/path: /wps/metrics
     prometheus.io/port: "8000"
-  
-  process:
-    blacklist: "[]"
 
   resources:
     cpuRequest: 100m

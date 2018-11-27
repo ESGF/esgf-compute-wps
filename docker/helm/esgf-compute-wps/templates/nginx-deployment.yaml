@@ -25,13 +25,15 @@ spec:
       - name: {{ .Release.Name }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
         imagePullPolicy: IfNotPresent
+        {{- if not $.Values.development }}
         resources:
           limits:
-            cpu: {{ .Values.nginx.resources.cpuLimit | quote }}
-            memory: {{ .Values.nginx.resources.memoryLimit | quote }}
+            cpu: {{ $.Values.nginx.resources.cpuLimit | quote }}
+            memory: {{ $.Values.nginx.resources.memoryLimit | quote }}
           requests:
-            cpu: {{ .Values.nginx.resources.cpuRequest | quote }}
-            memory: {{ .Values.nginx.resources.memoryRequest | quote }}
+            cpu: {{ $.Values.nginx.resources.cpuRequest | quote }}
+            memory: {{ $.Values.nginx.resources.memoryRequest | quote }}
+        {{- end }}
         volumeMounts:
         - mountPath: /usr/share/nginx/html/static
           name: static-volume

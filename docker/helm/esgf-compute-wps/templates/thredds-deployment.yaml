@@ -25,15 +25,15 @@ spec:
       - name: {{ .Release.Name }}-thredds
         image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}
         imagePullPolicy: IfNotPresent
+        {{- if not $.Values.development }}
         resources:
-          {{- if not .Values.development }}
           limits:
-            cpu: {{ .Values.thredds.resources.cpuLimit }}
-            memory: {{ .Values.thredds.resources.memoryLimit }}
-          {{- end }}
+            cpu: {{ $.Values.thredds.resources.cpuLimit | quote }}
+            memory: {{ $.Values.thredds.resources.memoryLimit | quote }}
           requests:
-            cpu: {{ .Values.thredds.resources.cpuRequest }}
-            memory: {{ .Values.thredds.resources.memoryRequest }}
+            cpu: {{ $.Values.thredds.resources.cpuRequest | quote }}
+            memory: {{ $.Values.thredds.resources.memoryRequest | quote }}
+        {{- end }}
         ports:
         - containerPort: 8080
         volumeMounts:

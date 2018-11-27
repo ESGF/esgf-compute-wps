@@ -66,15 +66,15 @@ spec:
           initialDelaySeconds: 3
           periodSeconds: 60
         {{- end }}
+        {{- if not $.Values.development }}
         resources:
-          {{- if not $.Values.development }}
           limits:
             cpu: {{ $.Values.celery.resources.cpuLimit | quote }}
             memory: {{ $.Values.celery.resources.memoryLimit | quote }}
-          {{- end }}
           requests:
             cpu: {{ $.Values.celery.resources.cpuRequest | quote }}
             memory: {{ $.Values.celery.resources.memoryRequest | quote }}
+        {{- end }}
         {{- if .ports }}
         ports:
         {{- range .ports }}
