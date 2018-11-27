@@ -64,30 +64,45 @@ def prepare_data_inputs(variable, domain, operation):
 
     return data_inputs
 
+def edas_peek(data):
+    n = min(len(data), 400)
+
+    return data[:n]
+
 def edas_wait(socket):
     if socket.poll(settings.WPS_EDAS_TIMEOUT*1000, zmq.POLLIN) == 0:
         raise WPSError('Timed out waiting for response')
 
     data = socket.recv()
 
-    parts = data.split('!')
+    logger.info('Received data, length %r, peek %r', len(data), edas_peek(data))
 
-    logger.info('Received response: length %r parts %r', len(data), len(parts))
+    return data
 
-    check_error(parts)
+def edas_send(req_socket, pull_socket, message):
+    req_socket.send(message)
 
-    return parts
+    logger.info('Send message: %r', message)
 
-def check_error(message):
-    if len(message) > 2 and message[1] == 'error':
-        raise WPSError('EDASK failed %r', message[2])
+    return edas_wait(pull_socket)
 
-def edas_send(socket, message):
-    logger.info('Message: %r', message)
+def edas_result(job, pull_socket):
+    data = edas_wait(pull_socket)
 
-    socket.send(message)
+    try:
+        id, type, msg = data.split('!')
+    except ValueError:
+        raise WPSError('Failed to parse EDASK response, expected 3 tokens')
 
-    return edas_wait(socket)
+    parts = msg.split('|')
+
+    try:
+        set_output(job, parts[-2], parts[-1])
+    except IndexError:
+        raise WPSError('Failed to set the output of the EDASK operation')
+
+    # Dump actual data
+    data = edas_wait(pull_socket)
 
 def set_output(job, var_name, filename):
     glob_pattern = '{}/results/*/*/*{}'.format(settings.WPS_EDAS_OUTPUT_PATH,
@@ -130,24 +145,16 @@ def edas_submit(self, variable, domain, operation, user_id, job_id):
 
         with connect_socket(context, zmq.REQ, settings.WPS_EDAS_HOST,
                             settings.WPS_EDAS_REQ_PORT) as req_sock:
-            # Hand empty extras, they're getting ignored
+
             extras = json.dumps({
                 'storeExecuteResponse': 'false',
                 'status': 'true',
                 'responseform': 'file',
             })
 
-            message = '{}!execute!{}!{}!{}'.format(self.request.id,
+            message = '{}!execute!{}!{}!{}'.format(job_id,
                                                    operation.identifier, data_inputs, extras)
 
-            response = edas_send(req_sock, message)
+            edas_send(req_sock, req_sock, message)
 
-        time.sleep(2)
-
-        response = edas_wait(pull_sock)
-
-    _, _, message = response
-
-    parts = message.split('|')
-
-    set_output(job, parts[-2], parts[-1])
+        edas_result(job, pull_sock)
