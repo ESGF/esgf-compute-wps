@@ -48,6 +48,12 @@ persistence:
     path: /opt/cwt
 
 prometheus:
+  alertmanager:
+    enabled: false
+
+  pushgateway:
+    enabled: false
+
   server:
     prefixURL: /prometheus
     baseURL: /prometheus
@@ -185,24 +191,11 @@ celery:
       - port: 8080
         name: metrics
 
-  - name: priority-low
+  - name: edask
     replicas: 1
     argsExtra:
       "-c": 1
-      "-Q": priority.low
-    annotations:
-      prometheus.io/scrape: "true"
-      prometheus.io/path: /metrics
-      prometheus.io/port: "8080"
-    ports:
-      - port: 8080
-        name: metrics
-
-  - name: priority-high
-    replicas: 1
-    argsExtra:
-      "-c": 1
-      "-Q": priority.high
+      "-Q": edask
     annotations:
       prometheus.io/scrape: "true"
       prometheus.io/path: /metrics
