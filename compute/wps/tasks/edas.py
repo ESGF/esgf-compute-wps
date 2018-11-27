@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import shutil
+import time
 import uuid
 from xml.etree import ElementTree as ET
 
@@ -71,6 +72,8 @@ def edas_wait(socket):
 
     parts = data.split('!')
 
+    logger.info('Received response: length %r parts %r', len(data), len(parts))
+
     check_error(parts)
 
     return parts
@@ -80,6 +83,8 @@ def check_error(message):
         raise WPSError('EDASK failed %r', message[2])
 
 def edas_send(socket, message):
+    logger.info('Message: %r', message)
+
     socket.send(message)
 
     return edas_wait(socket)
@@ -135,14 +140,14 @@ def edas_submit(self, variable, domain, operation, user_id, job_id):
             message = '{}!execute!{}!{}!{}'.format(self.request.id,
                                                    operation.identifier, data_inputs, extras)
 
-            logger.info('Sending message: %r', message)
-
             response = edas_send(req_sock, message)
+
+        time.sleep(2)
 
         response = edas_wait(pull_sock)
 
-    _, _, header = response[:3]
+    _, _, message = response
 
-    parts = header.split('|')
+    parts = message.split('|')
 
     set_output(job, parts[-2], parts[-1])
