@@ -130,8 +130,6 @@ class EDAS(backend.Backend):
                              abstract=y['title'])
 
     def execute(self, identifier, variable, domain, operation, **kwargs):
-        logger.debug('%r', kwargs)
-
         logger.info('Executing process "{}"'.format(identifier))
 
         params = {
@@ -142,6 +140,8 @@ class EDAS(backend.Backend):
         variable, domain, operation = self.load_data_inputs(variable, domain, operation)
 
         operation = operation.values()[0]
+
+        logger.info('Operation %r', operation)
 
         start = tasks.job_started.s(job_id=params['job_id']).set(**helpers.DEFAULT_QUEUE)
 

@@ -92,6 +92,9 @@ def edas_result(pull_socket):
     except ValueError:
         raise WPSError('Failed to parse EDASK response, expected 3 tokens')
 
+    if type == 'error':
+        raise WPSError(msg)
+
     parts = msg.split('|')
 
     try:
@@ -121,9 +124,13 @@ def set_output(var_name, file_path):
 def edas_submit(self, variable, domain, operation, user_id, job_id):
     job = self.load_job(job_id)
 
+    params = operation.parameters
+
     parts = operation.identifier.split('.')
 
     operation = cwt.Process(parts[1].replace('-', '.'))
+
+    operation.parameters = params
 
     data_inputs = prepare_data_inputs(variable, domain, operation)
 
