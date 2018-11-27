@@ -17,3 +17,4 @@ data:
     response.port=4557
     cache.size.max=500M
     edask.cache.dir=/data/edask
+    dask.scheduler={{ .Release.Name }}-edask-scheduler:8786

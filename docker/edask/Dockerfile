@@ -20,4 +20,8 @@ COPY server.py server.py
 
 COPY entrypoint.sh entrypoint.sh
 
+EXPOSE 8786
+
+EXPOSE 8787
+
 ENTRYPOINT ["./entrypoint.sh"]

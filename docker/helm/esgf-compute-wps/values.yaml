@@ -268,8 +268,27 @@ edask:
   resources:
     cpuRequest: 100m
     memoryRequest: 128Mi
-    cpuLimit: 2000m
-    memoryLimit: 2Gi
+    cpuLimit: 500m
+    memoryLimit: 512Gi
+
+  dask:
+    scheduler:
+      replicas: 1
+
+      resources:
+        cpuRequest: 100m
+        memoryRequest: 128Mi
+        cpuLimit: 500m
+        memoryLimit: 512Gi
+
+    worker:
+      replicas: 1
+
+      resources:
+        cpuRequest: 100m
+        memoryRequest: 128Mi
+        cpuLimit: 500m
+        memoryLimit: 512Gi
 
 cog:
   enabled: false
