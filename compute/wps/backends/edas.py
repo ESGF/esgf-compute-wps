@@ -145,7 +145,8 @@ class EDAS(backend.Backend):
 
         start = tasks.job_started.s(job_id=params['job_id']).set(**helpers.DEFAULT_QUEUE)
 
-        submit = tasks.edas_submit.si(variable.values(), operation.domain, operation, **params).set(**helpers.DEFAULT_QUEUE)
+        submit = tasks.edas_submit.si(variable.values(), operation.domain,
+                                      operation, **params).set(**helpers.EDASK_QUEUE)
 
         canvas = start | submit
 
