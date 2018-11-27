@@ -27,8 +27,6 @@ def connect_socket(context, socket_type, host, port):
     except zmq.ZMQError:
         raise WPSError('Failed to connect to EDAS {} on port {}', host, port)
 
-    logger.info('Connected to EDASK %r on port %r with type %r', host, port, socket_type)
-
     return sock
 
 def prepare_data_inputs(variable, domain, operation):
@@ -86,7 +84,7 @@ def edas_send(req_socket, pull_socket, message):
 
     return edas_wait(pull_socket)
 
-def edas_result(job, pull_socket):
+def edas_result(pull_socket):
     data = edas_wait(pull_socket)
 
     try:
@@ -97,22 +95,13 @@ def edas_result(job, pull_socket):
     parts = msg.split('|')
 
     try:
-        set_output(job, parts[-2], parts[-1])
+        output = set_output(parts[-3], parts[-1])
     except IndexError:
         raise WPSError('Failed to set the output of the EDASK operation')
 
-    # Dump actual data
-    data = edas_wait(pull_socket)
+    return output
 
-def set_output(job, var_name, filename):
-    glob_pattern = '{}/results/*/*/*{}'.format(settings.WPS_EDAS_OUTPUT_PATH,
-                                         filename)
-
-    try:
-        file_path = glob.glob(glob_pattern)[0]
-    except IndexError:
-        raise WPSError('Could not find output file')
-
+def set_output(var_name, file_path):
     new_filename = '{}.nc'.format(uuid.uuid4())
 
     output_path = os.path.join(settings.WPS_PUBLIC_PATH, new_filename)
@@ -126,7 +115,7 @@ def set_output(job, var_name, filename):
 
     output = cwt.Variable(output_url, var_name)
 
-    job.succeeded(json.dumps(output.parameterize()))
+    return output
 
 @base.cwt_shared_task()
 def edas_submit(self, variable, domain, operation, user_id, job_id):
@@ -143,13 +132,18 @@ def edas_submit(self, variable, domain, operation, user_id, job_id):
     with connect_socket(context, zmq.PULL, settings.WPS_EDAS_HOST,
                         settings.WPS_EDAS_RES_PORT) as pull_sock:
 
+        self.update(job, 'Connected to EDASK pull socket')
+
         with connect_socket(context, zmq.REQ, settings.WPS_EDAS_HOST,
                             settings.WPS_EDAS_REQ_PORT) as req_sock:
+
+            self.update(job, 'Connected to EDASK request socket')
 
             extras = json.dumps({
                 'storeExecuteResponse': 'false',
                 'status': 'true',
                 'responseform': 'file',
+                'sendData': 'false',
             })
 
             message = '{}!execute!{}!{}!{}'.format(job_id,
@@ -157,4 +151,10 @@ def edas_submit(self, variable, domain, operation, user_id, job_id):
 
             edas_send(req_sock, req_sock, message)
 
-        edas_result(job, pull_sock)
+            self.update(job, 'Sent {!r} byte request to EDASK', len(message))
+
+        output = edas_result(pull_sock)
+
+        self.update(job, 'Completed with output {!r}', output)
+
+        job.succeeded(json.dumps(output.parameterize()))
