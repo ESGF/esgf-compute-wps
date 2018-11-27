@@ -31,6 +31,10 @@ spec:
           value: /opt/conda/envs/edask/bin:$PATH
         command:
           - dask-worker
+          - --nthreads
+          - "1"
+          - --nprocs
+          - "1"
           - {{ .Release.Name }}-edask-scheduler:8786
         resources:
           {{- if not .Values.development }}
