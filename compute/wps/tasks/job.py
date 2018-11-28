@@ -16,10 +16,6 @@ from wps.tasks import base
 logger = get_task_logger('wps.tasks.job')
 
 @base.cwt_shared_task()
-def job_error(**kwargs):
-    logger.info('Error %r', kwargs)
-
-@base.cwt_shared_task()
 def job_started(self, job_id):
     job = self.load_job(job_id)
 

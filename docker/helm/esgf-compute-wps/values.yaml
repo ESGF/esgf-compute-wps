@@ -2,6 +2,11 @@ host: 0.0.0.0
 development: false
 
 persistence:
+  edask:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
   shared:
     storageClassName: slow
     capacity: 10Gi
@@ -43,6 +48,12 @@ persistence:
     path: /opt/cwt
 
 prometheus:
+  alertmanager:
+    enabled: false
+
+  pushgateway:
+    enabled: false
+
   server:
     prefixURL: /prometheus
     baseURL: /prometheus
@@ -148,24 +159,11 @@ celery:
       - port: 8080
         name: metrics
 
-  - name: priority-low
+  - name: edask
     replicas: 1
     argsExtra:
       "-c": 1
-      "-Q": priority.low
-    annotations:
-      prometheus.io/scrape: "true"
-      prometheus.io/path: /metrics
-      prometheus.io/port: "8080"
-    ports:
-      - port: 8080
-        name: metrics
-
-  - name: priority-high
-    replicas: 1
-    argsExtra:
-      "-c": 1
-      "-Q": priority.high
+      "-Q": edask
     annotations:
       prometheus.io/scrape: "true"
       prometheus.io/path: /metrics
@@ -220,17 +218,38 @@ redis:
     securityContext:
       enabled: false
 
-edas:
+edask:
   enabled: false
   replicas: 1
-  image: jasonb87/cwt_edas
+  image: jasonb87/cwt_edask
   imageTag: latest
+
+  timeout: 30
 
   resources:
     cpuRequest: 100m
     memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 512Mi
+    cpuLimit: 500m
+    memoryLimit: 512Gi
+
+  dask:
+    scheduler:
+      replicas: 1
+
+      resources:
+        cpuRequest: 100m
+        memoryRequest: 128Mi
+        cpuLimit: 500m
+        memoryLimit: 512Gi
+
+    worker:
+      replicas: 1
+
+      resources:
+        cpuRequest: 100m
+        memoryRequest: 128Mi
+        cpuLimit: 500m
+        memoryLimit: 512Gi
 
 cog:
   enabled: false

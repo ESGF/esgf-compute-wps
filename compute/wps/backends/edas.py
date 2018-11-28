@@ -1,4 +1,5 @@
 import logging
+import uuid
 import xml.etree.ElementTree as ET
 
 import cwt
@@ -11,6 +12,7 @@ from wps import models
 from wps import tasks
 from wps import WPSError
 from wps.backends import backend
+from wps.tasks import helpers
 
 __ALL__ = ['EDAS']
 
@@ -26,6 +28,40 @@ class EDAS(backend.Backend):
     def initialize(self):
         pass
 
+    def parse_get_capabilities(self, data):
+        index = data.index('!')
+
+        header = data[:index]
+
+        body = data[index+1:]
+
+        capabilities = {}
+
+        root = ET.fromstring(body)
+
+        for module in root:
+            module_name = module.attrib['name']
+
+            logger.info('Processing module %r', module_name)
+
+            for kernel in module:
+                name = kernel.attrib['name']
+
+                logger.info('\tProcessing kernel %r', name)
+
+                id = '{}:{}'.format(module_name, name)
+
+                #describe = self.describe_process(id)
+
+                title = kernel.attrib['title']
+
+                capabilities[name] = {
+                    'module': module_name,
+                    'title': title,
+                }
+
+        return capabilities
+
     def get_capabilities(self):
         context = zmq.Context.instance()
 
@@ -33,7 +69,9 @@ class EDAS(backend.Backend):
 
         socket.connect('tcp://{}:{}'.format(settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT))
 
-        socket.send(str('0!getCapabilities!WPS'))
+        id = uuid.uuid4()
+
+        socket.send('{}!getCapabilities'.format(id))
 
         # Poll so we can timeout eventually
         if (socket.poll(10 * 1000) == 0):
@@ -47,9 +85,32 @@ class EDAS(backend.Backend):
 
         socket.close()
 
-        header, response = data.split('!')
+        response = self.parse_get_capabilities(data)
 
         return response
+
+    def describe_process(self, identifier):
+        context = zmq.Context.instance()
+
+        socket = context.socket(zmq.REQ)
+
+        socket.connect('tcp://{}:{}'.format(settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT))
+
+        id = uuid.uuid4()
+
+        request = '{}!describeprocess!{}'.format(id, identifier)
+
+        logger.info('Sending %r', request)
+
+        socket.send(request)
+
+        # Poll so we can timeout eventually
+        if (socket.poll(10 * 1000) == 0):
+            logger.info('Failed to retrieve EDAS response')
+
+            socket.close()
+
+            raise EDASCommunicationError(settings.WPS_EDAS_HOST, settings.WPS_EDAS_REQ_PORT)
 
     def populate_processes(self):
         server = models.Server.objects.get(host='default')
@@ -58,55 +119,33 @@ class EDAS(backend.Backend):
 
         response = self.get_capabilities()
 
-        root = ET.fromstring(str(response))
+        metadata = {'inputs': '*', 'datasets': '*'}
 
-        tags = root.findall('./processes/*')
+        for x, y in response.iteritems():
+            identifier = 'EDASK.{}-{}'.format(y['module'], x)
 
-        for tag in tags:
-            desc_tag = tag.find('description')
+            self.add_process(identifier, y['title'], metadata,
+                             abstract=y['title'])
 
-            identifier = desc_tag.attrib.get('id')
-
-            title = desc_tag.attrib.get('title')
-
-            abstract = desc_tag.text
-
-            self.add_process(identifier, title, abstract=abstract)
-
-    def execute(self, identifier, variables, domains, operations, user, job, **kwargs):
-        if len(operations) == 0:
-            raise Exception('Must provide atleast one operation')
-
+    def execute(self, identifier, variable, domain, operation, **kwargs):
         logger.info('Executing process "{}"'.format(identifier))
 
         params = {
-            'user_id': user.id,
-            'job_id': job.id,
+            'user_id': kwargs.get('user').id,
+            'job_id': kwargs.get('job').id
         }
 
-        operation = operations.values()[0]
+        variable, domain, operation = self.load_data_inputs(variable, domain, operation)
 
-        domain = operation.domain
+        operation = operation.values()[0]
 
-        variable_dict = dict((x, variables[x].parameterize()) for x in operation.inputs)
+        logger.info('Operation %r', operation)
 
-        if domain is not None:
-            domain_dict = { domain.name: domain.parameterize() }
-        else:
-            domain_dict = {}
+        start = tasks.job_started.s(job_id=params['job_id']).set(**helpers.DEFAULT_QUEUE)
 
-        cache_op = operation.parameterize()
+        submit = tasks.edas_submit.si(variable.values(), operation.domain,
+                                      operation, **params).set(**helpers.EDASK_QUEUE)
 
-        logger.info('Variables {}'.format(variable_dict))
+        canvas = start | submit
 
-        logger.info('Domains {}'.format(domain_dict))
-
-        logger.info('Operation {}'.format(operation))
-
-        cache_task = tasks.cache_variable.si({}, variable_dict, domain_dict, cache_op, **params)
-
-        operation.inputs = [cwt.Variable('', '', name=operation.name)]
-
-        edas_task = tasks.edas_submit.s({}, domain_dict, operation.parameterize(), **params)
-
-        return (cache_task | edas_task)
+        canvas.delay()

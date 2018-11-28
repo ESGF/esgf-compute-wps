@@ -11,16 +11,16 @@ from wps import WPSError
 
 logger = logging.getLogger('wps.helpers')
 
-INGRESS_QUEUE = {
-    'queue': 'ingress',
-    'exchange': 'ingress',
-    'routing_key': 'ingress',
+EDASK_QUEUE = {
+    'queue': 'edask',
+    'exchange': 'edask',
+    'routing_key': 'edask',
 }
 
 DEFAULT_QUEUE = {
-    'queue': 'priority.high',
-    'exchange': 'priority',
-    'routing_key': 'high',
+    'queue': 'ingress',
+    'exchange': 'ingress',
+    'routing_key': 'ingress',
 }
 
 def int_or_float(value):

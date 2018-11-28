@@ -32,6 +32,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
+        imagePullPolicy: IfNotPresent
         {{- if .Values.development }}
         command:
           - sleep

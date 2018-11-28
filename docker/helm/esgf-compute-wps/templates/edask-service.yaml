@@ -1,16 +1,16 @@
-{{- if .Values.edas.enabled }}
+{{- if .Values.edask.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-edas
+  name: {{ .Release.Name }}-edask
   labels:
-    app: {{ .Release.Name }}-edas
+    app: {{ .Release.Name }}-edask
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
   selector:
-    app: {{ .Release.Name }}-edas
+    app: {{ .Release.Name }}-edask
     release: {{ .Release.Name }}
   ports:
   - name: listen

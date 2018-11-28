@@ -1,0 +1,68 @@
+{{- if .Values.edask.enabled }}
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-edask-worker
+  labels:
+    app: {{ .Release.Name }}-edask-worker
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.edask.dask.worker.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-edask-worker
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-edask-worker
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-edask-worker
+        image: {{ .Values.edask.image }}:{{ .Values.edask.imageTag }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PATH
+          value: /opt/conda/envs/edask/bin:$PATH
+        command:
+          - dask-worker
+          - --nthreads
+          - "1"
+          - --nprocs
+          - "1"
+          - {{ .Release.Name }}-edask-scheduler:8786
+        resources:
+          {{- if not .Values.development }}
+          limits:
+            cpu: {{ .Values.edask.resources.cpuLimit | quote }}
+            memory: {{ .Values.edask.resources.memoryLimit | quote }}
+          {{- end }}
+          requests:
+            cpu: {{ .Values.edask.resources.cpuRequest | quote }}
+            memory: {{ .Values.edask.resources.memoryRequest | quote }}
+        ports:
+        - containerPort: 8786
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-edask-worker
+  labels:
+    app: {{ .Release.Name }}-edask-worker
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-edask-worker
+    release: {{ .Release.Name }}
+  ports:
+  - protocol: TCP
+    port: 5670
+{{- end }}
