@@ -39,9 +39,9 @@ def register_process(identifier, **kwargs):
 
         func.ABSTRACT = kwargs.get('abstract', '')
 
-        func.INPUT = kwargs.get('data_inputs')
+        func.DATA_INPUTS = kwargs.get('data_inputs')
 
-        func.OUTPUT = kwargs.get('process_outputs')
+        func.PROCESS_OUTPUTS = kwargs.get('process_outputs')
 
         func.PROCESS = kwargs.get('process')
 

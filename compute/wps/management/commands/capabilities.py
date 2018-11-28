@@ -51,7 +51,7 @@ class Command(BaseCommand):
 
                     proc_func = backend.get_process(process.identifier)
 
-                    if proc_func.HIDDEN:
+                    if proc_func['hidden']:
                         continue
 
                     proc = cwt.wps.process(process.identifier, process.identifier, '1.0.0')
