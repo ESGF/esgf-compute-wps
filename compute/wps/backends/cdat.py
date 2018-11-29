@@ -253,7 +253,7 @@ class CDAT(backend.Backend):
         logger.info('Total chunks %r, chunks per task %r', chunk_length,
                     chunks_per_task)
 
-        chunk_groups = [chunk_list[x:x+items_per_task] for x in xrange(0,
+        chunk_groups = [chunk_list[x:x+chunks_per_task] for x in xrange(0,
                                                                  chunk_length,
                                                                  chunks_per_task)]
 
@@ -478,18 +478,21 @@ class CDAT(backend.Backend):
 
         cached = state['cache_files'].values()[0]
 
-        chunk_list = cached['chunk_list']
-
-        chunk_list_length = len(chunk_list)
-
         chunk_axis = cached['chunk_axis']
 
-        items_per_worker = int(chunk_list_length/settings.WORKER_PER_USER)
+        chunk_list = cached['chunk_list']
 
-        logger.info('Items per worker %r', items_per_worker)
+        chunk_length = len(chunk_list)
 
-        chunk_groups = [chunk_list[x:x+items_per_worker] for x in
-                        xrange(0, chunk_list_length, items_per_worker)]
+
+        chunks_per_task = int(max(round(chunk_length/settings.WORKER_PER_USER),
+                                 1.0))
+
+        logger.info('Total chunks %r, chunks per task %r', chunk_length,
+                    chunks_per_task)
+
+        chunk_groups = [chunk_list[x:x+chunks_per_task] for x in
+                        xrange(0, chunk_length, chunks_per_task)]
 
         index = 0
         axes_sig = '-'.join(axes.values)
