@@ -17,7 +17,8 @@ EDASK_QUEUE = {
     'routing_key': 'edask',
 }
 
-DEFAULT_QUEUE = {
+# Set INGRESS_QUEUE to prevent breaking old code
+INGRESS_QUEUE = DEFAULT_QUEUE = {
     'queue': 'ingress',
     'exchange': 'ingress',
     'routing_key': 'ingress',
