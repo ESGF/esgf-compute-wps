@@ -274,10 +274,10 @@ def base_process(self, attrs, keys, operation, var_name, base_units,
 
                 data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
-            # Grab the indexes of the axes
-            axes_index = [data.getAxisIndex(str(x)) for x in axes]
-
             if operation.identifier == 'CDAT.average':
+                # Grab the indexes of the axes
+                axes_index = [data.getAxisIndex(str(x)) for x in axes]
+
                 axes_sig = ''.join([str(x) for x in axes_index])
 
                 if weightoptions is not None:
@@ -291,7 +291,9 @@ def base_process(self, attrs, keys, operation, var_name, base_units,
                     raise WPSError(''.join(e))
             else:
                 # Process over all axes except the chunking axis
-                for axis in axes_index:
+                for x in axes:
+                    axis = data.getAxisIndex(str(x))
+
                     logger.info('Processing %r over axis %r', self.PROCESS, axis)
 
                     data = self.PROCESS(data, axis=axis)
