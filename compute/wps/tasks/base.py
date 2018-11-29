@@ -175,9 +175,9 @@ class CWTBaseTask(celery.Task):
     def subset_grid(self, grid, selector):
         target = cdms2.MV2.ones(grid.shape)
 
-        target.setAxisList(grid.getAxisList())
-
         target = target(**selector)
+
+        target.setAxisList(grid.getAxisList())
 
         return target.getGrid()
 
