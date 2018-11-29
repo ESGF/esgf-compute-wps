@@ -26,8 +26,8 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
         ConfigParser.ConfigParser.__init__(self)
 
     @classmethod
-    def from_file(cls, file_path, defaults):
-        config = cls(defaults)
+    def from_file(cls, file_path, defaults=None):
+        config = cls(defaults or {})
 
         config.read([file_path])
 
@@ -84,11 +84,9 @@ TEST = 'WPS_TEST' in os.environ
 
 DJANGO_CONFIG_PATH = os.environ.get('DJANGO_CONFIG_PATH', '/etc/config/django.properties')
 
-WPS_HOST = os.environ.get('WPS_HOST', '127.0.0.1')
+config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH)
 
-config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH, {
-    '{host}': WPS_HOST,
-})
+host = config.get_value('default', 'host', '127.0.0.1')
 
 # Celery Settings
 broker_url = config.get_value('default', 'celery.broker',
@@ -102,14 +100,14 @@ cidr = config.get_value('default', 'allowed.cidr', None, list)
 if cidr is not None:
     ALLOWED_HOSTS = ['*']
 
-    if netaddr.valid_ipv4(WPS_HOST):
-	    cidr.append(WPS_HOST)
+    if netaddr.valid_ipv4(host):
+	    cidr.append(host)
 
     cidr = [x for x in cidr if x != '']
 
     ALLOWED_CIDR_NETS = cidr
 else:
-    ALLOWED_HOSTS = [WPS_HOST]
+    ALLOWED_HOSTS = [host]
 
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
@@ -135,7 +133,6 @@ EMAIL_HOST_USER = config.get_value('email', 'user', '')
 
 METRICS_HOST = config.get_value('metrics', 'host',
                                 'http://172.17.0.8:9090/prometheus/api/v1/query')
-METRICS_ARCHIVE_HOST = config.get_value('metrics', 'archive.host', '')
 
 WPS_VERSION = '1.0.0'
 WPS_LANG = 'en-US'
@@ -155,7 +152,7 @@ WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to', 'https://
 WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.success', 'https://{host}/wps/home/auth/login/callback')
 WPS_PASSWORD_RESET_URL = config.get_value('wps', 'wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
 WPS_CA_PATH = config.get_value('wps', 'wps.ca.path', '/tmp/certs')
-#WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path', '/data/public')
+WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path', '/data/public')
 WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.user.temp.path', '/tmp/cwt/users')
 WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email', 'admin@aims2.llnl.gov')
 

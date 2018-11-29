@@ -13,10 +13,11 @@ data:
     {{- if .Values.wps.allowedCIDR }}
     allowed.cidr={{ .Values.wps.allowedCIDR }}
     {{- end }}
-    active.user.threshold=5
-    ingress.enabled=true
-    process.blacklist=[]
-    cert.download.enabled=true
+    host={{ .Values.wps.host }}
+    worker.cpu_count={{ .Values.wps.worker.cpuCount }}
+    worker.cpu_units={{ .Values.wps.worker.cpuUnits }}
+    worker.memory={{ .Values.wps.worker.memory }}
+    worker.user_percent={{ .Values.wps.worker.userPercent }}
 
     [email]
     host={{ .Values.wps.email.host | default "localhost" }}
@@ -25,47 +26,20 @@ data:
     password={{ .Values.wps.email.password | default "" }}
 
     [metrics]
-    host=http://{{ template "prometheus-server.fullname" . }}/prometheus/api/v1/query
-    host.archive=http://{{ template "prometheus-server.fullname" . }}/prometheus/api/v1/query
+    host=http://{{ template "prometheus-server.fullname" . }}.default.svc/prometheus/api/v1/query
 
     [wps]
-    wps.dap=true
-    wps.endpoint={{ .Values.host }}/wps/
-    wps.status_location={{ .Values.host }}/wps/status/{job_id}/
-    wps.dap_url={{ .Values.host }}/threddsCWT/dodsC/public/{filename}
-    wps.login_url={{ .Values.host }}/wps/home/auth/login/openid
-    wps.profile_url={{ .Values.host }}/wps/home/user/profile
-    wps.oauth2.callback=https://{{ .Values.host }}/auth/callback
-    wps.openid.trust.root={{ .Values.host }}/
-    wps.openid.return.to={{ .Values.host }}/auth/callback/openid/
-    wps.openid.callback.success={{ .Values.host }}/wps/home/auth/login/callback
-    wps.ca.path=/tmp/certs
-    wps.local.output.path=/data/public
-    wps.ingress.path=/data/ingress
-    wps.user.temp.path=/tmp
-    wps.admin.email=admin@aims2.llnl.gov
-    wps.cache.path=/tmp/django/cache
-
-    [cache]
-    wps.cache.path=/data/cache
-    wps.partition.size=10
-    wps.cache.check=1
-    wps.gb.max.size=2.097152e8
-    wps.cache.max.age=30
-    wps.cache.freed.percent=0.25
+    wps.endpoint={{ .Values.wps.externalHost }}/wps/
+    wps.status_location={{ .Values.wps.externalHost }}/wps/status/{job_id}/
+    wps.dap_url={{ .Values.wps.externalHost }}/threddsCWT/dodsC/public/{filename}
+    wps.login_url={{ .Values.wps.externalHost }}/wps/home/auth/login/openid
+    wps.profile_url={{ .Values.wps.externalHost }}/wps/home/user/profile
+    wps.oauth2.callback={{ .Values.wps.externalHost }}/auth/callback
+    wps.openid.trust.root={{ .Values.wps.externalHost }}/
+    wps.openid.return.to={{ .Values.wps.externalHost }}/auth/callback/openid/
+    wps.openid.callback.success={{ .Values.wps.externalHost }}/wps/home/auth/login/callback
 
     [edas]
     wps.edas.enabled={{ .Values.edask.enabled }}
     wps.edas.host={{ .Release.Name }}-edask
     wps.edas.timeout={{ .Values.edask.timeout }}
-    wps.edas.req.port=5670
-    wps.edas.res.port=5671
-
-    [ophidia]
-    wps.oph.user=oph-test
-    wps.oph.password=abcd
-    wps.oph.host=aims2.llnl.gov
-    wps.oph.port=11732
-    wps.oph.output.path=/wps
-    wps.oph.output.url=https://{{ .Values.host }}/thredds/dodsC{output_path}/{output_name}.nc
-    wps.oph.default.cores=8
