@@ -247,13 +247,15 @@ class CDAT(backend.Backend):
 
         chunk_length = len(chunk_list)
 
-        items_per_task = int(chunk_length/settings.WORKER_PER_USER)
+        chunks_per_task = int(max(round(chunk_length/settings.WORKER_PER_USER),
+                                 1.0))
 
-        logger.info('Items per task %r', items_per_task)
+        logger.info('Total chunks %r, chunks per task %r', chunk_length,
+                    chunks_per_task)
 
         chunk_groups = [chunk_list[x:x+items_per_task] for x in xrange(0,
                                                                  chunk_length,
-                                                                 items_per_task)]
+                                                                 chunks_per_task)]
 
         ingresses = []
 
