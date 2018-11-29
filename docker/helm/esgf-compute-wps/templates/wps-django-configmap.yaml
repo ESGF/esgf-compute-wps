@@ -30,6 +30,7 @@ data:
 
     [wps]
     wps.endpoint={{ .Values.wps.externalHost }}/wps/
+    wps.execute_url={{ .Values.wps.externalHost }}/wps/execute/
     wps.status_location={{ .Values.wps.externalHost }}/wps/status/{job_id}/
     wps.dap_url={{ .Values.wps.externalHost }}/threddsCWT/dodsC/public/{filename}
     wps.login_url={{ .Values.wps.externalHost }}/wps/home/auth/login/openid
