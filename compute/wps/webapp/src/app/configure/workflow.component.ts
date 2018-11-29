@@ -243,6 +243,9 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     });
 
     this.wpsService.execute('/wps/', api_key, processes)
+      .then((data: any) => {
+        this.notificationService.message(`Successfully submitted operation for execution`);
+      })
       .catch((e: string) => {
         this.notificationService.error(`Execute failed: ${e}`); 
       });
