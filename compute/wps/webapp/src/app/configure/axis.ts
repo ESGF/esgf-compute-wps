@@ -3,8 +3,8 @@ import { CRS } from './crs.enum';
 
 export interface AxisJSON {
   units: string;
-  start: number;
-  stop: number;
+  start: any;
+  stop: any;
   length: number;
   id: string;
 }
@@ -18,12 +18,15 @@ export class Axis extends UID {
   public id: string;
   public step: number;
 
+  public start_timestamp: string;
+  public stop_timestamp: string;
+
   public custom = false;
   public crs = CRS.Values;
 
   constructor(
-    public start?: number,
-    public stop?: number,
+    public start?: any,
+    public stop?: any,
     public length?: number,
   ) { 
     super();
@@ -71,6 +74,11 @@ export class Axis extends UID {
         this.start = 0;
 
         this.stop = this._length;
+        break;
+    case CRS.Timestamps:
+        this.start = this.start_timestamp;
+
+        this.stop = this.stop_timestamp;
         break;
     }
   }

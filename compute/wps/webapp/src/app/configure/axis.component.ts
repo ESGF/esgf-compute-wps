@@ -32,11 +32,20 @@ import { CRS } from './crs.enum';
         </div>
         <div class="col-md-2">
           <input 
+            *ngIf="axis.crs != crs.Timestamps; else timestampStart"
             formControlName="start"
             [(ngModel)]="axis.start"
             class="form-control" 
             id="start" 
             type="number">
+          <ng-template #timestampStart>
+            <input
+              formControlName="start"
+              [(ngModel)]="axis.start"
+              class="form-control"
+              id="start"
+              type="text">
+          </ng-template>
         </div>
         <div class="col-md-1">
           <label for="crs" class="form-control-static">CRS</label>
@@ -70,11 +79,20 @@ import { CRS } from './crs.enum';
         </div>
         <div class="col-md-2">
           <input
+            *ngIf="axis.crs != crs.Timestamps; else timestampStop"
             formControlName="stop"
             [(ngModel)]="axis.stop"
             class="form-control" 
             id="stop" 
             type="number">
+          <ng-template #timestampStop>
+            <input
+              formControlName="stop"
+              [(ngModel)]="axis.stop"
+              class="form-control"
+              id="stop"
+              type="text">
+          </ng-template>
         </div>
         <div class="col-md-1">
           <label for="step" class="form-control-static">Step</label>

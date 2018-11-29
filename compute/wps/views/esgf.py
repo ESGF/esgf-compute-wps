@@ -30,13 +30,22 @@ def describe_axis(axis):
     Returns:
         A dict describing the axis.
     """
-    return {
+    data = {
         'id': axis.id,
         'start': float(axis[0]),
         'stop': float(axis[-1]),
         'units': axis.units or None,
         'length': len(axis),
     }
+
+    if axis.isTime():
+        component = axis.asComponentTime()
+
+        data['start_timestamp'] = str(component[0])
+
+        data['stop_timestamp'] = str(component[-1])
+
+    return data
 
 def process_axes(header):
     """ Processes the axes of a file.
@@ -322,12 +331,16 @@ def combine(request):
 
         base_units = axes[0]['units']
 
+        start = cdtime.reltime(axes[0]['start'], axes[0]['units'])
+
         stop = cdtime.reltime(axes[-1]['stop'], axes[-1]['units'])
 
         data = {
             'units': base_units,
-            'start': axes[0]['start'],
+            'start': start.torel(base_units).value,
             'stop': stop.torel(base_units).value,
+            'start_timestamp': str(start.tocomponent()),
+            'stop_timestamp': str(stop.tocomponent()),
         }
     except WPSError as e:
         logger.exception('Error combining temporal axes')
