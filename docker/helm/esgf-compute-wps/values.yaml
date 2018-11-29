@@ -95,7 +95,7 @@ wps:
   image: jasonb87/cwt_wps
   imageTag: 2.1.0
   host: 192.168.39.34
-  externalHost: 192.168.39.34
+  externalHost: https://192.168.39.34
   allowedCIDR: 172.17.0.0/16
 
   annotations:
@@ -109,12 +109,21 @@ wps:
     cpuLimit: 200m
     memoryLimit: 512Mi
 
+  worker:
+    cpuCount: 3
+    cpuUnits: 100
+    memory: "200000000"
+    userPercent: 0.10
+
   oauth:
     client: ""
     secret: ""
 
   email:
     host: "localhost"
+    port: 25
+    user: "wps"
+    password: ""
 
   ports:
     - name: django
@@ -132,9 +141,6 @@ celery:
   imageTag: 2.1.0
 
   resources:
-    # Must quote the memory field otherwise large numbers are rendered in
-    # scientific notation which celery does not like. This value is in KiB.
-    memory: "200000000"
     cpuRequest: 100m
     memoryRequest: 64Mi
     cpuLimit: 1000m
