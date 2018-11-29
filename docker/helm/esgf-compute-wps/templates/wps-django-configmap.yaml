@@ -20,10 +20,10 @@ data:
     worker.user_percent={{ .Values.wps.worker.userPercent }}
 
     [email]
-    host={{ .Values.wps.email.host | default "localhost" }}
-    port={{ .Values.wps.email.port | default 25 }}
-    user={{ .Values.wps.email.user | default "" }}
-    password={{ .Values.wps.email.password | default "" }}
+    host={{ .Values.wps.email.host }}
+    port={{ .Values.wps.email.port }}
+    user={{ .Values.wps.email.user }}
+    password={{ .Values.wps.email.password }}
 
     [metrics]
     host=http://{{ template "prometheus-server.fullname" . }}.default.svc/prometheus/api/v1/query
