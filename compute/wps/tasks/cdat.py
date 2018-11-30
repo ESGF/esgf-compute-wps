@@ -29,7 +29,7 @@ OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/jso
 
 PATTERN_AXES_REQ = 'CDAT\.(min|max|average|sum)'
 
-def retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped=None):
+def retrieve_data(self, job, infile, outfile, var_name, grid, gridder, base_units, mapped=None):
     """ Retrieves data and writes to output.
 
     Reads a subset of the input data where mapped is a dict selector. Will
@@ -52,22 +52,35 @@ def retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped=N
     if mapped is None:
         mapped = {}
 
-    logger.info('Retrieving data selector %r, grid %r, base_units %r', mapped,
-                grid, base_units)
+    start = self.get_now()
 
     data = infile(var_name, **mapped)
 
+    elapsed = self.get_now() - start
+
+    self.update(job, 'Read {!r} bytes {!r} in {!r}', data.nbytes,
+                data.shape, elapsed)
+
     if grid is not None:
+        shape = data.shape
+
         data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
 
+        logger.info('REGRID %r -> %r', shape, data.shape)
+
     if base_units is not None:
+        first = data.getTime()[0]
+
         data.getTime().toRelativeTime(str(base_units))
+
+        logger.info('Converted time axis from %r -> %r', first,
+                    data.getTime()[0])
 
     outfile.write(data, id=var_name)
 
-    return data
+    return data, elapsed
 
-def retrieve_data_cached(self, infile, outfile, var_name, grid, gridder, base_units, mapped, chunk_axis, chunk_list, **kwargs):
+def retrieve_data_cached(self, job, infile, outfile, var_name, grid, gridder, base_units, mapped, chunk_axis, chunk_list, **kwargs):
     """ Retrieves cached data.
 
     Really just a convenience method. Splits out mapped, chunk_axis and 
@@ -77,17 +90,12 @@ def retrieve_data_cached(self, infile, outfile, var_name, grid, gridder, base_un
     file.
 
     """
-    if grid is not None:
-        grid = self.subset_grid(grid, mapped)
-
     for chunk in chunk_list:
         mapped.update({chunk_axis: chunk})
 
-        start = self.get_now()
+        logger.info('Reading chunk from cache %r', mapped)
 
-        data = retrieve_data(infile, outfile, var_name, grid, gridder, base_units, mapped)
-
-        elapsed = self.get_now() - start
+        data, elapsed = retrieve_data(self, job, infile, outfile, var_name, grid, gridder, base_units, mapped)
 
         metrics.CACHE_BYTES.inc(data.nbytes)
 
@@ -150,6 +158,8 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
         for key in sorted(keys):
             current = attrs[key]
 
+            mapped = current['mapped']
+
             with self.open(current['path']) as infile:
                 # Generate the grid once
                 if grid is None and gridder is not None:
@@ -157,10 +167,10 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
 
                     self.update(job, 'Generated grid {!r}', grid)
 
-                if 'cached' in current:
-                    retrieve_data_cached(self, infile, outfile, var_name, grid, gridder, base_units, **current)
+                    grid = self.subset_grid(grid, mapped)
 
-                    self.update(job, 'Building file from cache')
+                if 'cached' in current:
+                    retrieve_data_cached(self, job, infile, outfile, var_name, grid, gridder, base_units, **current)
                 else:
                     # Subset the grid to the target shape
                     if selector is None and grid is not None:
@@ -173,13 +183,7 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
 
                         self.update(job, 'Subsetting grid {!r}', grid)
 
-                    retrieve_data(infile, outfile, var_name, grid, gridder, base_units)
-
-                    self.update(job, 'Building file from ingressed data {}',
-                                current['path'].split('/')[-1])
-
-    self.update(job, 'Finished building file {}',
-                output_path.split('/')[-1])
+                    retrieve_data(self, job, infile, outfile, var_name, grid, gridder, base_units)
 
     elapsed = self.get_now() - start
 

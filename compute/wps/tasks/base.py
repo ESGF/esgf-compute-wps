@@ -127,7 +127,7 @@ class CWTBaseTask(celery.Task):
 
         job.update(tagged_message)
 
-        logger.info('%s %r', tagged_message, job.steps_progress)
+        logger.info('%s %r', message, job.steps_progress)
 
     def parse_uniform_arg(self, value, default_start, default_n):
         result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
