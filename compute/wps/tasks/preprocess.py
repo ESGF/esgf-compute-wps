@@ -139,7 +139,7 @@ def generate_chunks(self, attrs, operation, uri, process_axes, job_id):
 
     chunks = []
 
-    if chunked_axis is not None:
+    if chunked_axis is not None and partition_size > 0:
         chunk_axis = mapped[chunked_axis]
 
         for begin in xrange(chunk_axis.start, chunk_axis.stop, partition_size):
