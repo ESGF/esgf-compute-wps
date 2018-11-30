@@ -1,86 +1,47 @@
-import os
-import signal
-import time
-import unittest
+import argparse
 
-import cdms2
 import cwt
-from django import test
+import cdms2
 
-from wps.tasks import base
+parser = argparse.ArgumentParser()
 
-class Timeout(object):
-    def __init__(self, seconds):
-        self.seconds = seconds
+parser.add_argument('url', action='store', type=str)
+parser.add_argument('api_key', action='store', type=str)
 
-    def handle_timeout(self, signum, frame):
-        raise Exception('Timed out after %r seconds', self.seconds)
+args = parser.parse_args()
 
-    def __enter__(self):
-        signal.signal(signal.SIGALRM, self.handle_timeout)
-        signal.alarm(self.seconds)
-    
-    def __exit__(self, exc_type, exc_value, traceback):
-        signal.alarm(0)
+var_name = 'tas'
 
-class E2EUnitTest(test.TestCase):
-    def setUp(self):
-        try:
-            self.api = os.environ['CWT_API_KEY']
-        except KeyError:
-            raise Exception('Missing required CWT api key')
+files = [
+    'http://esgf.nccs.nasa.gov/thredds/dodsC/CMIP5/NOAA/output/NOAA-NCEP/CFSv2-2011/decadal1980/3hr/atmos/tas/r1i1p1/tas_3hr_CFSv2-2011_decadal1980_r1i1p1_198011010300-198101010000.nc',
+    'http://esgf.nccs.nasa.gov/thredds/dodsC/CMIP5/NOAA/output/NOAA-NCEP/CFSv2-2011/decadal1980/3hr/atmos/tas/r1i1p1/tas_3hr_CFSv2-2011_decadal1980_r1i1p1_198101010300-198201010000.nc',
+]
 
-        try:
-            host = os.environ['WPS_HOST']
-        except KeyError:
-            raise Exception('Missing host of WPS server')
+variables = [cwt.Variable(x, var_name) for x in files]
 
-        self.host = 'https://{}/wps/'.format(host)
+client = cwt.WPSClient(args.url, api_key=args.api_key, verify=False)
 
-        self.variables = [
-            cwt.Variable('http://esgf.nccs.nasa.gov/thredds/dodsC/CMIP5/NASA/GMAO/output/NASA-GMAO/GEOS-5/decadal1960/mon/atmos/cct/r1i1p1/cct_Amon_GEOS-5_decadal1960_r1i1p1_196101-197012.nc',
-                         'cct')
-        ]
+for x in client.processes():
+    print x.identifier
 
-        self.expected_ops = [
-            'CDAT.aggregate',
-            'CDAT.subset',
-            'CDAT.regrid',
-            'CDAT.metrics',
-            'CDAT.min',
-            'CDAT.max',
-            'CDAT.average',
-            'CDAT.sum',
-        ]
+def test_operation(client, name, inputs, domain=None, gridder=None, **kwargs):
+    proc = client.processes(name)[0]
 
-        self.client = cwt.WPSClient(self.host, verify=False, api_key=self.api)
+    params = kwargs
 
-    def test_execute(self):
-        op = self.client.processes('CDAT.aggregate')[0]
+    if domain is not None:
+        params['domain'] = domain
 
-        domain = cwt.Domain(lat=(0, 90), lon=(90, 270))
+    if gridder is not None:
+        params['gridder'] = gridder
 
-        with Timeout(128):
-            self.client.execute(op, inputs=self.variables, domain=domain)
+    client.execute(proc, inputs=inputs, **params)
 
-            while op.processing:
-                time.sleep(2)
+    proc.wait()
 
-            self.assertTrue(op.succeeded)
+    with cdms2.open(proc.output.uri) as infile:
+        v = infile[proc.output.var_name]
 
-        with cdms2.open(op.output.uri) as infile:
-            print infile[op.output.var_name].shape
+        print v.shape
 
-    def test_describe_process(self):
-        op = self.client.processes('CDAT.aggregate')
-
-        describe = self.client.describe_process(op)
-
-        self.assertEqual(describe[0].identifier, 'CDAT.aggregate')
-
-    def test_get_capabilities(self):
-        cap = self.client.get_capabilities()
-
-        for p in cap.processes:
-            if p.identifier not in self.expected_ops:
-                raise Exception('Missing operation %r', p.identifier)
+test_operation(client, 'CDAT.aggregate', variables)
