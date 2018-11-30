@@ -26,6 +26,25 @@ spec:
       - name: {{ .Release.Name }}-edask-worker
         image: {{ .Values.edask.image }}:{{ .Values.edask.imageTag }}
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          tcpSocket:
+            port: 9999
+          initialDelaySeconds: 4
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 9999
+          initialDelaySeconds: 16
+          periodSeconds: 20
+        {{- if not .Values.development }}
+        resources:
+          limits:
+            cpu: {{ .Values.edask.resources.cpuLimit | quote }}
+            memory: {{ .Values.edask.resources.memoryLimit | quote }}
+          requests:
+            cpu: {{ .Values.edask.resources.cpuRequest | quote }}
+            memory: {{ .Values.edask.resources.memoryRequest | quote }}
+        {{- end }}
         env:
         - name: PATH
           value: /opt/conda/envs/edask/bin:$PATH
@@ -35,16 +54,9 @@ spec:
           - "1"
           - --nprocs
           - "1"
+          - --nanny-port
+          - "9999"
           - {{ .Release.Name }}-edask-scheduler:8786
-        resources:
-          {{- if not .Values.development }}
-          limits:
-            cpu: {{ .Values.edask.resources.cpuLimit | quote }}
-            memory: {{ .Values.edask.resources.memoryLimit | quote }}
-          {{- end }}
-          requests:
-            cpu: {{ .Values.edask.resources.cpuRequest | quote }}
-            memory: {{ .Values.edask.resources.memoryRequest | quote }}
         ports:
         - containerPort: 8786
           protocol: TCP

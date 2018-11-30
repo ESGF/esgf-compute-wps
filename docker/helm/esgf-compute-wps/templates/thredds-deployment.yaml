@@ -25,6 +25,18 @@ spec:
       - name: {{ .Release.Name }}-thredds
         image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /threddsCWT
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /threddsCWT
+            port: 8080
+          initialDelaySeconds: 40
+          periodSeconds: 20
         {{- if not $.Values.development }}
         resources:
           limits:

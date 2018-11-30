@@ -26,15 +26,25 @@ spec:
       - name: {{ .Release.Name }}-edask
         image: {{ .Values.edask.image }}:{{ .Values.edask.imageTag }}
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          tcpSocket:
+            port: 5670
+          initialDelaySeconds: 4
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 5670
+          initialDelaySeconds: 16
+          periodSeconds: 20
+        {{- if not .Values.development }}
         resources:
-          {{- if not .Values.development }}
           limits:
             cpu: {{ .Values.edask.resources.cpuLimit | quote }}
             memory: {{ .Values.edask.resources.memoryLimit | quote }}
-          {{- end }}
           requests:
             cpu: {{ .Values.edask.resources.cpuRequest | quote }}
             memory: {{ .Values.edask.resources.memoryRequest | quote }}
+        {{- end }}
         ports:
         - containerPort: 5670
           protocol: TCP
