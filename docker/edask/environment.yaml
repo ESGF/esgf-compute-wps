@@ -1,4 +1,4 @@
-name: base
+name: edask
 channels:
   - conda-forge
   - defaults
@@ -29,6 +29,7 @@ dependencies:
   - click=7.0=py_0
   - cloudpickle=0.6.1=py_0
   - conda=4.5.11=py36_1000
+  - conda-env=2.6.0=1
   - cryptography=2.3.1=py36hdffb7b8_0
   - cryptography-vectors=2.3.1=py36_1000
   - curl=7.62.0=h74213dd_0
@@ -36,6 +37,7 @@ dependencies:
   - cytoolz=0.9.0.1=py36h470a237_1
   - dask=0.20.2=py_0
   - dask-core=0.20.2=py_0
+  - dateparser=0.7.0=py_0
   - dbus=1.13.0=h3a4f0e9_0
   - defusedxml=0.5.0=py_1
   - distarray=2.12.2=py_1
@@ -153,6 +155,7 @@ dependencies:
   - pyyaml=3.13=py36h470a237_1
   - pyzmq=17.1.2=py36hae99301_1
   - qt=5.6.2=hf70d934_9
+  - regex=2018.11.22=py36h470a237_0
   - requests=2.20.1=py36_1000
   - ruamel_yaml=0.15.71=py36h470a237_0
   - scikit-learn=0.20.0=py36_blas_openblash00c3548_201
@@ -172,6 +175,7 @@ dependencies:
   - toolchain_cxx_linux-64=2.3.0=0
   - toolz=0.9.0=py_1
   - tornado=5.1.1=py36h470a237_0
+  - tzlocal=1.5.1=py_0
   - udunits2=2.2.27.6=h3a4f0e9_1
   - urllib3=1.23=py36_1001
   - werkzeug=0.14.1=py_0
@@ -192,7 +196,6 @@ dependencies:
   - xorg-xproto=7.0.31=h470a237_7
   - zeromq=4.2.5=hfc679d8_6
   - zict=0.1.3=py_0
-  - conda-env=2.6.0=1
   - intel-openmp=2019.0=118
   - libedit=3.1.20170329=h6b74fdf_2
   - libffi=3.2.1=hd88cf55_4
@@ -218,4 +221,4 @@ dependencies:
     - regrid2==3.0.0
     - sklearn-xarray==0.3.0
     - webob==1.8.4
-prefix: /opt/conda
+prefix: /opt/conda/envs/edask
