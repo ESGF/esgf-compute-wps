@@ -19,11 +19,6 @@ files = [
 
 variables = [cwt.Variable(x, var_name) for x in files]
 
-client = cwt.WPSClient(args.url, api_key=args.api_key, verify=False)
-
-for x in client.processes():
-    print x.identifier
-
 def test_operation(client, name, inputs, domain=None, gridder=None, **kwargs):
     proc = client.processes(name)[0]
 
@@ -39,9 +34,37 @@ def test_operation(client, name, inputs, domain=None, gridder=None, **kwargs):
 
     proc.wait()
 
-    with cdms2.open(proc.output.uri) as infile:
-        v = infile[proc.output.var_name]
+    return proc.output
 
-        print v.shape
+def validate_output(variable, shape):
+    with cdms2.open(variable.uri) as infile:
+        v = infile[variable.var_name]
 
-test_operation(client, 'CDAT.aggregate', variables)
+        if v.shape == shape:
+            print 'VERIFIED {!r} matches {!r}'.format(v.shape, shape)
+        else:
+            print 'FAILED {!r} does not match {!r}'.format(v.shape, shape)
+
+client = cwt.WPSClient(args.url, api_key=args.api_key, verify=False)
+
+for x in client.processes():
+    print x.identifier
+
+domain = cwt.Domain(time=(50, 150), lat=(0, 90))
+
+gridder = cwt.Gridder(grid='gaussian~32')
+
+validate_output(test_operation(client, 'CDAT.aggregate', variables, domain),
+                (801, 95, 384))
+
+validate_output(test_operation(client, 'CDAT.subset', variables[:1], domain),
+                (89, 95, 384))
+
+validate_output(test_operation(client, 'CDAT.regrid', variables[:1],
+                               gridder=gridder), (488, 32, 64))
+
+validate_output(test_operation(client, 'CDAT.max', variables[:1],
+                               axes='time'), (190, 384))
+
+validate_output(test_operation(client, 'EDASK.xarray-max', variables[:1],
+                               axes='t'), (190, 384))
