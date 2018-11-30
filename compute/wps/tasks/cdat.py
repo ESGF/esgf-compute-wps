@@ -188,6 +188,11 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
 
                     retrieve_data(self, job, infile, outfile, var_name, grid, gridder, base_units)
 
+            self.update(job, 'Current shape {!r}', outfile[var_name].shape)
+
+        self.update(job, 'Finished retrieving data {!r}',
+                    outfile[var_name].shape)
+
     elapsed = self.get_now() - start
 
     stat = os.stat(output_path)

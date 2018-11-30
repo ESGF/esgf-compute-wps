@@ -97,8 +97,12 @@ def edas_result(pull_socket):
 
     parts = msg.split('|')
 
+    var_name = parts[-3].replace('[', '%5b')
+
+    var_name = var_name.replace(']', '%5d')
+
     try:
-        output = set_output(parts[-3], parts[-1])
+        output = set_output(var_name, parts[-1])
     except IndexError:
         raise WPSError('Failed to set the output of the EDASK operation')
 

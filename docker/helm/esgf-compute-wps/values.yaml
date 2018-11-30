@@ -225,7 +225,7 @@ edask:
   image: jasonb87/cwt_edask
   imageTag: latest
 
-  timeout: 30
+  timeout: 120
 
   resources:
     cpuRequest: 100m
