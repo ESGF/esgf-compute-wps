@@ -37,7 +37,13 @@ spec:
           - "-c"
           - "1"
           - "--max-memory-per-child"
-          - {{ $.Values.celery.resources.memory | quote }}
+{{- if contains "G" $.Values.celery.resources.limits.memory }}
+  {{- (printf "- %s" ($.Values.celery.resources.limits.memory | regexFind "([0-9]+)" | mul 1000000000 | quote ) | nindent 10) }}
+{{- else if contains "M" $.Values.celery.resources.limits.memory }}
+  {{- (printf "- %s" ($.Values.celery.resources.limits.memory | regexFind "([0-9]+)" | mul 1000000 | quote ) | nindent 10) }}
+{{- else }}
+  {{- printf "- \"100000000\"" | nindent 10 }}
+{{- end }}
           - "-n"
           - {{ .name | quote }}
         {{- range $key, $value := .argsExtra }}
