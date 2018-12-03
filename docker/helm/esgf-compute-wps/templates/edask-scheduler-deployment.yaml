@@ -9,7 +9,7 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
-  replicas: {{ .Values.edask.dask.scheduler.replicas }}
+  replicas: {{ .Values.edask.scheduler.replicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-edask-scheduler
@@ -36,14 +36,8 @@ spec:
             port: 8786
           initialDelaySeconds: 16
           periodSeconds: 20
-        {{- if not .Values.development }}
-        resources:
-          limits:
-            cpu: {{ .Values.edask.resources.cpuLimit | quote }}
-            memory: {{ .Values.edask.resources.memoryLimit | quote }}
-          requests:
-            cpu: {{ .Values.edask.resources.cpuRequest | quote }}
-            memory: {{ .Values.edask.resources.memoryRequest | quote }}
+        {{- if and $.Values.edask.scheduler.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.edask.scheduler.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         env:
         - name: PATH

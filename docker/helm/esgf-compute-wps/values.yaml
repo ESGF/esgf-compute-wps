@@ -78,10 +78,9 @@ nginx:
   imageTag: 1.13.8
 
   resources:
-    cpuRequest: 100m
-    memoryRequest: 128Mi
-    cpuLimit: 200m
-    memoryLimit: 512Mi
+    limits:
+      cpu: 100m
+      memory: 512M
 
   ingress:
     annotations:
@@ -104,10 +103,9 @@ wps:
     prometheus.io/port: "8000"
 
   resources:
-    cpuRequest: 100m
-    memoryRequest: 128Mi
-    cpuLimit: 200m
-    memoryLimit: 512Mi
+    limits:
+      cpu: 250m
+      memory: 256M
 
   worker:
     cpuCount: 3
@@ -141,10 +139,9 @@ celery:
   imageTag: 2.1.0
 
   resources:
-    cpuRequest: 100m
-    memoryRequest: 64Mi
-    cpuLimit: 1000m
-    memoryLimit: 256Mi
+    limits:
+      cpu: 250m
+      memory: 256M
 
   queues:
   - name: ingress
@@ -179,10 +176,9 @@ thredds:
   imageTag: 4.6.10
 
   resources:
-    cpuRequest: 100m
-    memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 512Mi
+    limits:
+      cpu: 250m
+      memory: 2G
 
   ingress:
     path: /threddsCWT
@@ -228,29 +224,25 @@ edask:
   timeout: 120
 
   resources:
-    cpuRequest: 100m
-    memoryRequest: 128Mi
-    cpuLimit: 500m
-    memoryLimit: 512Gi
+    limits:
+      cpu: 200m
+      memory: 512M
 
-  dask:
-    scheduler:
-      replicas: 1
+  scheduler:
+    replicas: 1
 
-      resources:
-        cpuRequest: 100m
-        memoryRequest: 128Mi
-        cpuLimit: 500m
-        memoryLimit: 512Gi
+    resources:
+      limits:
+        cpu: 100m
+        memory: 256M
 
-    worker:
-      replicas: 1
+  worker:
+    replicas: 1
 
-      resources:
-        cpuRequest: 100m
-        memoryRequest: 128Mi
-        cpuLimit: 500m
-        memoryLimit: 512Gi
+    resources:
+      limits:
+        cpu: 200m
+        memory: 512M
 
 cog:
   enabled: false
@@ -259,10 +251,9 @@ cog:
   imageTag: latest
 
   resources:
-    cpuRequest: 100m
-    memoryRequest: 128Mi
-    cpuLimit: 1000m
-    memoryLimit: 256Mi
+    limits:
+      cpu: 100m
+      memory: 512M
 
   ingress:
     annotations:

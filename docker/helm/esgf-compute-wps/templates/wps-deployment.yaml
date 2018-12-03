@@ -50,14 +50,8 @@ spec:
           periodSeconds: 60
           timeoutSeconds: 240
         {{- end }}
-        {{- if not $.Values.development }}
-        resources:
-          limits:
-            cpu: {{ $.Values.wps.resources.cpuLimit | quote }}
-            memory: {{ $.Values.wps.resources.memoryLimit | quote }}
-          requests:
-            cpu: {{ $.Values.wps.resources.cpuRequest | quote }}
-            memory: {{ $.Values.wps.resources.memoryRequest | quote }}
+        {{- if and $.Values.wps.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.wps.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         env:
         {{- if $.Values.development }}

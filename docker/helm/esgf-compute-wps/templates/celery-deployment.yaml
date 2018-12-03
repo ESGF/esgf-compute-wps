@@ -72,14 +72,8 @@ spec:
           initialDelaySeconds: 3
           periodSeconds: 60
         {{- end }}
-        {{- if not $.Values.development }}
-        resources:
-          limits:
-            cpu: {{ $.Values.celery.resources.cpuLimit | quote }}
-            memory: {{ $.Values.celery.resources.memoryLimit | quote }}
-          requests:
-            cpu: {{ $.Values.celery.resources.cpuRequest | quote }}
-            memory: {{ $.Values.celery.resources.memoryRequest | quote }}
+        {{- if and $.Values.celery.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.celery.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         {{- if .ports }}
         ports:

@@ -9,7 +9,7 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
-  replicas: {{ .Values.edask.dask.worker.replicas }}
+  replicas: {{ .Values.edask.worker.replicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-edask-worker
@@ -36,14 +36,8 @@ spec:
             port: 9999
           initialDelaySeconds: 16
           periodSeconds: 20
-        {{- if not .Values.development }}
-        resources:
-          limits:
-            cpu: {{ .Values.edask.resources.cpuLimit | quote }}
-            memory: {{ .Values.edask.resources.memoryLimit | quote }}
-          requests:
-            cpu: {{ .Values.edask.resources.cpuRequest | quote }}
-            memory: {{ .Values.edask.resources.memoryRequest | quote }}
+        {{- if and $.Values.edask.worker.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.edask.worker.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         env:
         - name: PATH

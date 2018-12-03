@@ -25,14 +25,8 @@ spec:
       - name: {{ .Release.Name }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
         imagePullPolicy: IfNotPresent
-        {{- if not $.Values.development }}
-        resources:
-          limits:
-            cpu: {{ $.Values.nginx.resources.cpuLimit | quote }}
-            memory: {{ $.Values.nginx.resources.memoryLimit | quote }}
-          requests:
-            cpu: {{ $.Values.nginx.resources.cpuRequest | quote }}
-            memory: {{ $.Values.nginx.resources.memoryRequest | quote }}
+        {{- if and $.Values.nginx.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.nginx.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         volumeMounts:
         - mountPath: /usr/share/nginx/html/static

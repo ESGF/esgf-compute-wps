@@ -26,14 +26,8 @@ spec:
       - name: {{ .Release.Name }}-cog
         image: {{ .Values.cog.image }}:{{ .Values.cog.imageTag }}
         imagePullPolicy: IfNotPresent
-        {{- if not $.Values.development }}
-        resources:
-          limits:
-            cpu: {{ $.Values.cog.resources.cpuLimit | quote }}
-            memory: {{ $.Values.cog.resources.memoryLimit | quote }}
-          requests:
-            cpu: {{ $.Values.cog.resources.cpuRequest | quote }}
-            memory: {{ $.Values.cog.resources.memoryRequest | quote }}
+        {{- if and $.Values.cog.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.cog.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         args:
         {{- if .Values.cog.host }}
