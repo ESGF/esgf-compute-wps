@@ -158,10 +158,9 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
         for key in sorted(keys):
             current = attrs[key]
 
-            if 'mapped' not in current:
-                continue
+            logger.info('Current %r', current)
 
-            mapped = current['mapped']
+            mapped = current.get('mapped', {})
 
             with self.open(current['path']) as infile:
                 # Generate the grid once
