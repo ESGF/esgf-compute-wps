@@ -58,7 +58,7 @@ def retrieve_data(self, job, infile, outfile, var_name, grid, gridder, base_unit
 
     elapsed = self.get_now() - start
 
-    self.update(job, 'Read {!r} bytes {!r} in {!r}', data.nbytes,
+    self.update(job, 'Read {!r} bytes {!r} in {}', data.nbytes,
                 data.shape, elapsed)
 
     if grid is not None:
@@ -178,8 +178,7 @@ def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_pat
                     if selector is None and grid is not None:
                         selector = self.generate_selector(infile[var_name])
 
-                        self.update(job, 'Generated subset selector {!r}',
-                                    selector)
+                        self.update(job, 'Generated subset selector {!r}', selector)
 
                         grid = self.subset_grid(grid, selector)
 
