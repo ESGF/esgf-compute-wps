@@ -85,7 +85,7 @@ def exception_report(message, code):
 
 class WPSExceptionError(WPSError):
     def __init__(self, message, code):
-        self.report = wps.exception_report(message, code)
+        self.report = exception_report(message, code)
 
         super(WPSExceptionError, self).__init__('WPS Exception')
 
@@ -261,7 +261,7 @@ def handle_get_capabilities(host=None):
 def handle_describe_process(identifiers):
     processes = models.Process.objects.filter(identifier__in=identifiers)
 
-    return wps.process_descriptions_from_processes(processes)
+    return process_descriptions_from_processes(processes)
 
 def handle_execute(api_key, identifier, data_inputs):
     try:
@@ -445,13 +445,13 @@ def wps_entrypoint(request):
     except WPSError as e:
         logger.exception('WPSError')
 
-        response = wps.exception_report(str(e), cwt.ows.NoApplicableCode)
+        response = exception_report(str(e), cwt.ows.NoApplicableCode)
     except Exception as e:
         logger.exception('Some generic exception')
 
         error = 'Please copy the error and report on Github: {}'.format(str(e))
 
-        response = wps.exception_report(error, cwt.ows.NoApplicableCode)
+        response = exception_report(error, cwt.ows.NoApplicableCode)
 
     return http.HttpResponse(response, content_type='text/xml')
 
@@ -473,7 +473,7 @@ def regen_capabilities(request):
 
         process_offerings = cwt.wps.process_offerings(processes)
 
-        server.capabilities = wps.generate_capabilities(process_offerings)
+        server.capabilities = generate_capabilities(process_offerings)
 
         server.save()
     except WPSError as e:
