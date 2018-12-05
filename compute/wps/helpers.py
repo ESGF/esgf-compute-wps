@@ -62,65 +62,87 @@ def determine_queue(process, estimate_size):
             'routing_key': 'low',
         }
 
-encoder = lambda x: json.dumps(x, default=json_dumps_default)
-decoder = lambda x: json.loads(x, object_hook=json_loads_object_hook)
-
-def json_dumps_default(x):
-    if isinstance(x, slice):
+def default(obj):
+    if isinstance(obj, slice):
         data = {
             '__type': 'slice',
-            'start': x.start,
-            'stop': x.stop,
-            'step': x.step,
+            'start': obj.start,
+            'stop': obj.stop,
+            'step': obj.step,
         }
-    elif isinstance(x, cwt.Variable):
+    elif isinstance(obj, cwt.Variable):
         data = {
+            'data': obj.parameterize(),
             '__type': 'variable',
-            'data': x.parameterize(),
         }
-    elif isinstance(x, cwt.Domain):
+    elif isinstance(obj, cwt.Domain):
         data = {
+            'data': obj.parameterize(),
             '__type': 'domain',
-            'data': x.parameterize(),
         }
-    elif isinstance(x, cwt.Process):
+    elif isinstance(obj, cwt.Process):
         data = {
+            'data': obj.parameterize(),
             '__type': 'process',
-            'data': x.parameterize(),
         }
-    elif isinstance(x, datetime.timedelta):
+    elif isinstance(obj, datetime.timedelta):
         data = {
             'data': {
-                'days': x.days,
-                'seconds': x.seconds,
-                'microseconds': x.microseconds,
+                'days': obj.days,
+                'seconds': obj.seconds,
+                'microseconds': obj.microseconds,
             },
             '__type': 'timedelta',
         }
+    elif isinstance(obj, types.FunctionType):
+        data = {
+            'data': {
+                'module': obj.__module__,
+                'name': obj.__name__,
+            },
+            '__type': 'function',
+        }
     else:
-        raise TypeError(type(x))
+        raise TypeError(type(obj))
 
     return data
 
-def json_loads_object_hook(x):
-    if '__type' not in x:
-        return x
+def object_hook(obj):
+    if '__type' not in obj:
+        return byteify(obj)
 
-    if x['__type'] == 'slice':
-        data = slice(x['start'], x['stop'], x['step'])
-    elif x['__type'] == 'variable':
-        data = cwt.Variable.from_dict(x['data'])
-    elif x['__type'] == 'domain':
-        data = cwt.Domain.from_dict(x['data'])
-    elif x['__type'] == 'process':
-        data = cwt.Process.from_dict(x['data'])
-    elif x['__type'] == 'timedelta':
+    if obj['__type'] == 'slice':
+        data = slice(obj['start'], obj['stop'], obj['step'])
+    elif obj['__type'] == 'variable':
+        data = cwt.Variable.from_dict(byteify(obj['data']))
+    elif obj['__type'] == 'domain':
+        data = cwt.Domain.from_dict(byteify(obj['data']))
+    elif obj['__type'] == 'process':
+        data = cwt.Process.from_dict(byteify(obj['data']))
+    elif obj['__type'] == 'timedelta':
         kwargs = {
-            'days': x['data']['days'],
-            'seconds': x['data']['seconds'],
-            'microseconds': x['data']['microseconds'],
+            'days': obj['data']['days'],
+            'seconds': obj['data']['seconds'],
+            'microseconds': obj['data']['microseconds'],
         }
 
         data = datetime.timedelta(**kwargs)
+    elif obj['__type'] == 'function':
+        data = importlib.import_module(obj['data']['module'])
+
+        data = getattr(data, obj['data']['name'])
 
     return data
+
+def byteify(data):
+    if isinstance(data, dict):
+        return dict((byteify(x), byteify(y)) for x, y in data.iteritems())
+    elif isinstance(data, list):
+        return list(byteify(x) for x in data)
+    elif isinstance(data, unicode):
+        return data.encode('utf-8')
+    else:
+        return data
+
+encoder = lambda x: json.dumps(x, default=default)
+decoder = lambda x: json.loads(x, object_hook=object_hook)
