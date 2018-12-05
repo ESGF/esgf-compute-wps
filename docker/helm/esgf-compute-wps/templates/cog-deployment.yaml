@@ -30,11 +30,7 @@ spec:
         resources: {{ $.Values.cog.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         args:
-        {{- if .Values.cog.host }}
-          - "{{ .Values.host }},{{ .Values.cog.host }}"
-        {{- else }}
-          - {{ .Values.host | quote }}
-        {{- end }}
+          - {{ .Values.cog.host | quote }}
           - "false"
           - "true"
           - "https://{{ .Values.host }}/wps/home/configure"
