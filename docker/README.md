@@ -2,26 +2,19 @@
 
 ### Docker Compose
 
-1. Install [docker](https://docs.docker.com/install/) and [docker compose](https://docs.docker.com/compose/install/).
-2. Execute `./deploy_compose.sh` in a terminal.
- * `./deploy_compose.sh --help` to display help.
-
-Production | Development
------------|------------
-`./deploy_compose.sh start --host $(hostname -i)` | `./deploy_compose.sh start --host $(hostname -i) --dev`
-
-**Note**: If you run compose in development mode you will need to execute the following in two separate shells, `docker-compose exec wps bash entrypoint.sh` and `docker-compose exec celery bash entrypoint.sh -l info`. This is done to handle cases where Django stops serving files and needs to be restarted. Normally you'd have to relaunch the container and lose current work.
+Not Supported
 
 ### Helm
 
-* Install [kubernetes](https://kubernetes.io/docs/setup/).
+* Install [kubernetes](#kubernetes).
 * Install [helm](https://github.com/kubernetes/helm/docs/install.md).
   * Install [tiller](https://github.com/kubernetes/helm/docs/install.md#installing-tiller)
 * Deploy the helm chart with the following:
   * Check values.yaml for configuration options.
   * ```bash
     cd docker/helm/esgf-compute-wps
-    helm install .
+    helm dependency update
+    helm install . -f valyes.yaml
     ```
 > *note*: When deploying at LLNL must edit the trafik-configmap and add the minimum tls version, allowed cipher suites and a redirect rule for the https enpoint from / to /wps/home.
     
@@ -29,8 +22,16 @@ Production | Development
 
 * Install [kubernetes](https://kubernetes.io/docs/setup/).
   * The preferred way to launch a single node cluster is using [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/), for production look into [kubeadm](https://kubernetes.io/docs/setup/independent/install-kubeadm/).
-* Execute `./deploy_kubernetes.sh start --host $(hostname -i)` in a terminal.
-  * `./deploy_kubernetes.sh --help` to display help.
+
+##### Generating Kubernetes object files
+
+1. Install Helm
+   1. https://docs.helm.sh/using_helm/#installing-helm
+2. `cd esgf-compute-wps/docker/helm/esgf-compute-wps`
+3. Edit [values.yaml](docker/helm/esgf-compute-wps/values.yaml)
+4. `mkdir kubernetes`
+5. `helm template --name compute --namespace default --output-dir kubernetes -f values.yaml .`
+6. `kubectl apply -f kubernetes/*/*.yaml`
 
 > *note*: When deploying at LLNL must edit the trafik-configmap and add the minimum tls version, allowed cipher suites and a redirect rule for the https enpoint from / to /wps/home.
 
