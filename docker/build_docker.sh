@@ -10,6 +10,7 @@ function usage {
 THREDDS=""
 PUSH=1
 DOCKER_TAG=$1 && shift
+DOCKER_ARGS=""
 
 while [[ $# -gt 0 ]]
 do
@@ -24,6 +25,9 @@ do
     --thredds)
       THREDDS=$1 && shift
       ;;
+    --docker-args)
+      DOCKER_ARGS=$1 && shift
+      ;;
     --help|-h)
       usage && exit 1
       ;;
@@ -32,11 +36,11 @@ do
   esac
 done
 
-docker build -t jasonb87/cwt_common:$DOCKER_TAG -f docker/common/Dockerfile .
+docker build ${DOCKER_ARGS} -t jasonb87/cwt_common:$DOCKER_TAG -f docker/common/Dockerfile .
 
-docker build -t jasonb87/cwt_wps:$DOCKER_TAG -f docker/wps/Dockerfile .
+docker build ${DOCKER_ARGS} -t jasonb87/cwt_wps:$DOCKER_TAG -f docker/wps/Dockerfile .
 
-docker build -t jasonb87/cwt_celery:$DOCKER_TAG -f docker/celery/Dockerfile .
+docker build ${DOCKER_ARGS} -t jasonb87/cwt_celery:$DOCKER_TAG -f docker/celery/Dockerfile .
 
 if [[ $PUSH -eq 0 ]]
 then
