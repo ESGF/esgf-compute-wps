@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import IntegrityError
 
@@ -5,7 +6,7 @@ import cwt
 
 from wps import models
 from wps import backends
-from wps.views import wps_service
+from wps.util import wps as wps_util
 
 class Command(BaseCommand):
     help = 'Register processes'
@@ -60,7 +61,7 @@ class Command(BaseCommand):
 
                 process_offerings = cwt.wps.process_offerings(processes)
 
-                server.capabilities = wps_service.generate_capabilities(process_offerings)
+                server.capabilities = wps_util.generate_capabilities(settings, process_offerings)
 
                 server.save()
 

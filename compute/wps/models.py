@@ -25,7 +25,6 @@ from openid import association
 from openid.store import interface
 from openid.store import nonce
 
-import wps
 from wps import helpers
 from wps import metrics
 
@@ -565,17 +564,14 @@ class Job(models.Model):
 
         metrics.JOBS_COMPLETED.labels(self.process.identifier).inc()
 
-    def failed(self, exception=None):
+    def failed(self, exception):
         if self.is_started:
             self.update('Job Failed')
-
-        if exception is None:
-            exception = 'Unknown reason'
 
         with transaction.atomic():
             status = self.status_set.create(status=ProcessFailed)
 
-            status.exception = wps.exception_report(exception, cwt.ows.NoApplicableCode)
+            status.exception = exception
 
             status.save()
 

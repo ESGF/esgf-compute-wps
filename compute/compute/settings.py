@@ -122,7 +122,7 @@ WORKER_CPU_UNITS = config.get_value('default', 'worker.cpu_units', 200, int)
 WORKER_MEMORY = config.get_value('default', 'worker.memory', 8e6, int)
 WORKER_USER_PERCENT = config.get_value('default', 'worker.user_percent', 0.10,
                                        float)
-WORKER_PER_USER = ((WORKER_CPU_COUNT*1000)/WORKER_CPU_UNITS)*WORKER_USER_PERCENT
+WORKER_PER_USER = int(((WORKER_CPU_COUNT*1000)/WORKER_CPU_UNITS)*WORKER_USER_PERCENT)
 
 
 # Application definition

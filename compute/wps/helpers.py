@@ -63,6 +63,8 @@ def determine_queue(process, estimate_size):
         }
 
 def default(obj):
+    from wps.context import ProcessingContext
+
     if isinstance(obj, slice):
         data = {
             '__type': 'slice',
@@ -102,12 +104,19 @@ def default(obj):
             },
             '__type': 'function',
         }
+    elif isinstance(obj, ProcessingContext):
+        data = {
+            'data': obj.to_dict(),
+            '__type': 'processing_context',
+        }
     else:
         raise TypeError(type(obj))
 
     return data
 
 def object_hook(obj):
+    from wps.context import ProcessingContext
+
     if '__type' not in obj:
         return byteify(obj)
 
@@ -131,6 +140,8 @@ def object_hook(obj):
         data = importlib.import_module(obj['data']['module'])
 
         data = getattr(data, obj['data']['name'])
+    elif obj['__type'] == 'processing_context':
+        data = ProcessingContext.from_dict(obj['data'])
 
     return data
 

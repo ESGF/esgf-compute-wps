@@ -20,6 +20,7 @@ from wps import models
 from wps import AccessError
 from wps import WPSError
 from wps.tasks import credentials
+from wps.util import wps as wps_util
 
 logger = get_task_logger('wps.tasks.base')
 
@@ -279,7 +280,7 @@ class CWTBaseTask(celery.Task):
         logger.info('Task %r failed args %r kwargs %r', task_id, args, kwargs)
 
         if job is not None:
-            job.failed(str(exc))
+            job.failed(wps_util.exception_error(str(exc), cwt.ows.NoApplicableCode))
 
     def on_success(self, retval, task_id, args, kwargs):
         job = self.__get_job(**kwargs)
