@@ -677,6 +677,15 @@ class CDAT(backend.Backend):
 
                 preprocess.append(celery.chain(base, map, cache, chunks))
 
-            canvas = start | celery.group(preprocess)
+            merge = tasks.merge_preprocess.s().set(**helpers.DEFAULT_QUEUE)
+
+            process = []
+
+            for index in range(settings.WORKER_PER_USER):
+                test = tasks.test.s(index).set(**helpers.DEFAULT_QUEUE)
+
+                process.append(celery.chain(test))
+
+            canvas = start | celery.group(preprocess) | merge | celery.group(process)
 
             canvas.delay()

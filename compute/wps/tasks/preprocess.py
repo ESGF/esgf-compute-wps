@@ -17,9 +17,16 @@ from django.conf import settings
 from wps import helpers
 from wps import models
 from wps import WPSError
+from wps.context import OperationContext
 from wps.tasks import base
 
 logger = get_task_logger('wps.tasks.preprocess')
+
+@base.cwt_shared_task()
+def merge_preprocess(self, contexts):
+    context = OperationContext.merge(contexts)
+
+    return context
 
 def axis_size(data):
     if isinstance(data, slice):
@@ -69,8 +76,6 @@ def generate_chunks(self, context, index):
                 input.chunks.append(slice(start, min(start + chunk_per_worker,
                                                      chunk_axis_slice.stop),
                                           chunk_axis_slice.step))
-
-        logger.info('%r', input.chunks)
 
     return context
 
@@ -170,7 +175,7 @@ def map_domain(self, context, index):
     indices = generate_indices(index, len(context.inputs))
 
     for input in context.input_set(indices):
-        with input.open() as variable:
+        with input.open(context) as variable:
             input.mapped = {}
 
             input.mapped_order = [x.id for x in variable.getAxisList()]
@@ -206,7 +211,7 @@ def base_units(self, context, index):
     indices = generate_indices(index, len(context.inputs))
 
     for input in context.input_set(indices):
-        input.get_units()
+        input.get_units(context)
 
     return context
 

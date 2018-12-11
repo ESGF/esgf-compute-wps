@@ -1,5 +1,6 @@
 import contextlib
 import collections
+from datetime import datetime
 
 import cdms2
 import requests
@@ -8,6 +9,7 @@ from celery.utils.log import get_task_logger
 
 from wps import models
 from wps import WPSError
+from wps.tasks import credentials
 
 logger = get_task_logger('wps.context')
 
@@ -18,6 +20,25 @@ class OperationContext(object):
         self.operation = operation
         self.job = None
         self.user = None
+
+    @classmethod
+    def merge(cls, context):
+        first = context[0]
+
+        inputs = []
+
+        for c in context:
+            for i in c.inputs:
+                if i.mapped is not None:
+                    inputs.append(i)
+
+        instance = cls(inputs, first.domain, first.operation)
+
+        instance.job = first.job
+
+        instance.user = first.user
+
+        return instance
 
     @classmethod
     def from_dict(cls, data):
@@ -118,6 +139,7 @@ class VariableContext(object):
             'cache_uri': self.cache_uri,
             'units': self.units,
             'first': self.first,
+            'chunks': self.chunks,
         }
 
         return data
@@ -135,15 +157,18 @@ class VariableContext(object):
         return response.status_code == 200
     
     @contextlib.contextmanager
-    def open(self):
+    def open(self, context):
         if not self.check_access():
-            raise WPSError('Cannot access file')
+            cert_path = credentials.load_certificate(context.user)
+
+            if not self.check_access(cert_path):
+                raise WPSError('Cannot access file')
 
         with cdms2.open(self.variable.uri) as infile:
             yield infile[self.variable.var_name]
 
-    def get_units(self):
-        with self.open() as infile:
+    def get_units(self, context):
+        with self.open(context) as infile:
             time = infile.getTime()
 
             self.units = time.units
