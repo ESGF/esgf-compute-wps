@@ -167,3 +167,5 @@ def load_certificate(user):
             outfile.write('HTTP.SSL.VERIFY=0\n')
 
         logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
+
+    return cert_path

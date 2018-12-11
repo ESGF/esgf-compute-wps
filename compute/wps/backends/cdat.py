@@ -14,6 +14,7 @@ from wps import models
 from wps import tasks
 from wps import WPSError
 from wps.backends import backend
+from wps.context import OperationContext
 from wps.tasks import base
 
 __ALL__ = ['CDAT']
@@ -649,27 +650,33 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def execute(self, **kwargs):
-        PROCESSING_OP = 'CDAT\.(subset|aggregate|regrid)'
-
-        identifier = kwargs['identifier']
-
-        is_workflow = identifier == 'CDAT.workflow'
-
-        if 'preprocess' in kwargs or is_workflow:
-            if is_workflow:
-                self.execute_workflow(**kwargs)
-            else:
-                if re.match(PROCESSING_OP, identifier) is not None:
-                    self.execute_processing(**kwargs)
-                else:
-                    self.execute_computation(**kwargs)
+    def execute(self, identifier, variable, domain, operation, process, job,
+                user):
+        if identifier == 'CDAT.workflow':
+            pass
         else:
-            process = base.get_process(identifier)
+            context = OperationContext.from_data_inputs(identifier, variable,
+                                                        domain, operation)
 
-            metadata = process.METADATA
+            context.job = job
 
-            if 'inputs' in metadata and metadata['inputs'] == 0:
-                self.execute_simple(**kwargs)
-            else:
-                self.configure_preprocess(**kwargs)
+            context.user = user
+
+            start = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
+
+            preprocess = []
+
+            for index in range(settings.WORKER_PER_USER):
+                base = tasks.base_units.s(index).set(**helpers.DEFAULT_QUEUE)
+
+                map = tasks.map_domain.s(index).set(**helpers.DEFAULT_QUEUE)
+
+                cache = tasks.check_cache.s(index).set(**helpers.DEFAULT_QUEUE)
+
+                chunks = tasks.generate_chunks.s(index).set(**helpers.DEFAULT_QUEUE)
+
+                preprocess.append(celery.chain(base, map, cache, chunks))
+
+            canvas = start | celery.group(preprocess)
+
+            canvas.delay()

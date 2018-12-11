@@ -12,9 +12,11 @@ import celery
 import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 
+from wps import context
 from wps import metrics
 from wps import models
 from wps import AccessError
@@ -254,37 +256,16 @@ class CWTBaseTask(celery.Task):
 
         return grid
 
-    def __get_job(self, **kwargs):
-        try:
-            job = models.Job.objects.get(pk=kwargs['job_id'])
-        except KeyError:
-            logger.exception('Job ID was not passed to the process %r', kwargs)
-
-            return None
-        except models.Job.DoesNotExist:
-            logger.exception('Job "{id}" does not exist'.format(job_id=kwargs.get('job_id')))
-
-            return None
-        else:
-            return job
-
     def on_retry(self, exc, task_id, args, kwargs, einfo):
-        job = self.__get_job(**kwargs)
-
-        if job is not None:
-            job.retry(exc)
+        if len(args) > 0 and isinstance(args[0], context.OperationContext):
+            args[0].job.retry(exc)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        job = self.__get_job(**kwargs)
-
-        logger.info('Task %r failed args %r kwargs %r', task_id, args, kwargs)
-
-        if job is not None:
-            job.failed(wps_util.exception_error(str(exc), cwt.ows.NoApplicableCode))
+        if len(args) > 0 and isinstance(args[0], context.OperationContext):
+            args[0].job.failed(wps_util.exception_report(settings, str(exc), cwt.ows.NoApplicableCode))
 
     def on_success(self, retval, task_id, args, kwargs):
-        job = self.__get_job(**kwargs)
-
-        job.steps_inc()
+        if len(args) > 0 and isinstance(args[0], context.OperationContext):
+            args[0].job.steps_inc()
 
 cwt_shared_task = partial(shared_task, bind=True, base=CWTBaseTask)

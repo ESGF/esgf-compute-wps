@@ -1,8 +1,9 @@
 #! /usr/bin/env python
 
+import datetime
 import json
 import logging
-import datetime
+import types
 
 import cwt
 import numpy as np
@@ -63,7 +64,7 @@ def determine_queue(process, estimate_size):
         }
 
 def default(obj):
-    from wps.context import ProcessingContext
+    from wps.context import OperationContext
 
     if isinstance(obj, slice):
         data = {
@@ -104,10 +105,10 @@ def default(obj):
             },
             '__type': 'function',
         }
-    elif isinstance(obj, ProcessingContext):
+    elif isinstance(obj, OperationContext):
         data = {
             'data': obj.to_dict(),
-            '__type': 'processing_context',
+            '__type': 'operation_context',
         }
     else:
         raise TypeError(type(obj))
@@ -115,7 +116,7 @@ def default(obj):
     return data
 
 def object_hook(obj):
-    from wps.context import ProcessingContext
+    from wps.context import OperationContext
 
     if '__type' not in obj:
         return byteify(obj)
@@ -140,8 +141,8 @@ def object_hook(obj):
         data = importlib.import_module(obj['data']['module'])
 
         data = getattr(data, obj['data']['name'])
-    elif obj['__type'] == 'processing_context':
-        data = ProcessingContext.from_dict(obj['data'])
+    elif obj['__type'] == 'operation_context':
+        data = OperationContext.from_dict(obj['data'])
 
     return data
 

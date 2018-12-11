@@ -16,10 +16,10 @@ from wps.tasks import base
 logger = get_task_logger('wps.tasks.job')
 
 @base.cwt_shared_task()
-def job_started(self, job_id):
-    job = self.load_job(job_id)
+def job_started(self, context):
+    context.job.started()
 
-    job.started()
+    return context
 
 @base.cwt_shared_task()
 def job_succeeded_workflow(self, attrs, variables, process_id, user_id, job_id):

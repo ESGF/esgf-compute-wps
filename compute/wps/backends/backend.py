@@ -77,11 +77,6 @@ class Backend(object):
                     process_outputs=None, abstract=None, hidden=None):
         """ Adds a process/operation to a backend.
     
-        Metadata should be formed as follows:
-            {
-                'inputs': 2,
-            }
-
         Args:
             identifier: A str identifer for the process.
             name: A str name for the process.
@@ -112,15 +107,15 @@ class Backend(object):
 
         cwt.bds.reset()
 
-        process = {
+        kwargs.update({
             'identifier': identifier,
             'backend': self.NAME,
             'abstract': abstract or '',
             'description': descriptions.toxml(bds=cwt.bds),
             'hidden': hidden or False,
-        }
+        })
 
-        self.processes.append(process)
+        self.processes.append(kwargs)
 
     def load_data_inputs(self, variable_raw, domain_raw, operation_raw):
         variable = {}
