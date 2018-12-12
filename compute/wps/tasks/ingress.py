@@ -146,79 +146,35 @@ def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_unit
     return attrs
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, group_maps, user_id, job_id):
+def ingress_uri(self, context, index):
     """ Ingress a portion of data.
-
-    Args:
-        key: A str containing a unique identifier for this request.
-        uri: A str uri of the source file.
-        var_name: A str variable name.
-        group_maps: A dict mapping file paths to chunk slices.
-        user_id: An int referencing the owner of the request.
-        job_id: An int referencing the job this request belongs to.
-
-    Return:
-        A dict with the following format:
-
-        key: Unique identifier.
-        path: A string path to the output file.
-        elapsed: A datetime.timedelta containing the elapsed time.
-        size: A float denoting the size in MegaBytes.
-
-        {
-            "output_path": {
-                "ingress": True,
-                "uri": "https://aims3.llnl.gov/path/filename.nc",
-                "path": "output_path",
-                "elapsed": datetime.timedelta(0, 0, 3),
-                "size": 3.28
-            }
-        }
     """
-    self.load_credentials(user_id)
+    base = 0
 
-    job = self.load_job(job_id)
+    for input in context.inputs:
+        indices = self.generate_indices(index, len(input.chunks))
 
-    parsed = urlparse(uri)
+        mapped = input.mapped.copy()
 
-    host = 'local' if parsed.netloc == '' else parsed.netloc
+        input.ingress = []
 
-    attrs = {}
-    total_size = 0
-    total_elapsed = datetime.timedelta()
+        for index, chunk in input.chunk_set(indices):
+            local_index = base + index
 
-    for output_path, domain in group_maps.iteritems():
-        start = get_now()
+            local_filename = 'data_{}_{:08}.nc'.format(context.job.id, local_index)
 
-        with self.open(uri) as infile:
-            data = infile(var_name, **domain)
+            local_path = os.path.join(settings.WPS_INGRESS_PATH, local_filename)
 
-        shape = data.shape
+            with input.open(context) as infile:
+                mapped.update({ 'time': chunk })
 
-        with self.open(output_path, 'w') as outfile:
-            outfile.write(data, id=var_name)
+                data = infile(**mapped)
 
-        elapsed = get_now() - start
+            with self.open(local_path, 'w') as outfile:
+                outfile.write(data, id=input.variable.var_name)
 
-        total_elapsed += elapsed
+            input.ingress.append(local_path)
 
-        stat = os.stat(output_path)
+        base = len(input.chunks)
 
-        total_size += stat.st_size
-
-        logger.info('Ingressed %r size %r in %r to %r', shape, stat.st_size,
-                    elapsed.total_seconds(), output_path)
-
-        attrs[output_path] = {
-            'ingress': True,
-            'uri': uri,
-            'path': output_path,
-        }
-
-    metrics.INGRESS_BYTES.labels(host.lower()).inc(total_size)
-
-    metrics.INGRESS_SECONDS.labels(host.lower()).inc(total_elapsed.total_seconds())
-
-    size = total_size / 1000000.0
-
-    return attrs
+    return context

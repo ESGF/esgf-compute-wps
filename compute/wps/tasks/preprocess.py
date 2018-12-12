@@ -36,7 +36,7 @@ def axis_size(data):
 
 @base.cwt_shared_task()
 def generate_chunks(self, context, index):
-    indices = generate_indices(index, len(context.inputs))
+    indices = self.generate_indices(index, len(context.inputs))
 
     process_axis = set([context.operation.get_parameter('axes')])
 
@@ -109,7 +109,7 @@ def check_cache_entries(input, context):
 
 @base.cwt_shared_task()
 def check_cache(self, context, index):
-    indices = generate_indices(index, len(context.inputs))
+    indices = self.generate_indices(index, len(context.inputs))
     
     for input in context.input_set(indices):
         if input.mapped is None:
@@ -172,7 +172,7 @@ def map_axis(axis, dimension):
 
 @base.cwt_shared_task()
 def map_domain(self, context, index):
-    indices = generate_indices(index, len(context.inputs))
+    indices = self.generate_indices(index, len(context.inputs))
 
     for input in context.input_set(indices):
         with input.open(context) as variable:
@@ -208,12 +208,9 @@ def map_domain(self, context, index):
 
 @base.cwt_shared_task()
 def base_units(self, context, index):
-    indices = generate_indices(index, len(context.inputs))
+    indices = self.generate_indices(index, len(context.inputs))
 
     for input in context.input_set(indices):
         input.get_units(context)
 
     return context
-
-def generate_indices(start, stop):
-    return [x for x in range(start, stop, settings.WORKER_PER_USER)]

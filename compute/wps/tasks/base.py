@@ -73,6 +73,9 @@ class Timeout(object):
 
 class CWTBaseTask(celery.Task):
 
+    def generate_indices(self, start, stop):
+        return [x for x in range(start, stop, settings.WORKER_PER_USER)]
+
     def get_axis_list(self, variable):
         return variable.getAxisList()
 

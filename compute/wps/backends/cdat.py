@@ -682,9 +682,9 @@ class CDAT(backend.Backend):
             process = []
 
             for index in range(settings.WORKER_PER_USER):
-                test = tasks.test.s(index).set(**helpers.DEFAULT_QUEUE)
+                ingress = tasks.ingress_uri.s(index).set(**helpers.DEFAULT_QUEUE)
 
-                process.append(celery.chain(test))
+                process.append(celery.chain(ingress))
 
             canvas = start | celery.group(preprocess) | merge | celery.group(process)
 

@@ -110,6 +110,7 @@ class VariableContext(object):
         self.units = None
         self.first = None
         self.chunks = None
+        self.ingress = None
 
     @staticmethod
     def load_value(obj, name, data):
@@ -128,6 +129,7 @@ class VariableContext(object):
         cls.load_value(obj, 'units', data)
         cls.load_value(obj, 'first', data)
         cls.load_value(obj, 'chunks', data)
+        cls.load_value(obj, 'ingress', data)
 
         return obj
 
@@ -140,6 +142,7 @@ class VariableContext(object):
             'units': self.units,
             'first': self.first,
             'chunks': self.chunks,
+            'ingress': self.ingress,
         }
 
         return data
@@ -166,6 +169,9 @@ class VariableContext(object):
 
         with cdms2.open(self.variable.uri) as infile:
             yield infile[self.variable.var_name]
+
+    def chunk_set(self, indices):
+        return [(x, self.chunks[x]) for x in indices]
 
     def get_units(self, context):
         with self.open(context) as infile:
