@@ -251,8 +251,11 @@ class VariableContext(object):
         with cdms2.open(file_path) as infile:
             yield infile[self.variable.var_name]
 
-    def chunks_remote(self, context, indices, **kwargs):
+    def chunks_remote(self, context, indices):
         logger.info('Generating chunks from remote source')
+
+        if indices is None:
+            indices = range(self.chunk)
 
         mapped = self.mapped.copy()
 
@@ -262,37 +265,59 @@ class VariableContext(object):
 
                 yield index, variable(**mapped)
 
-    def chunks_cache(self, context):
+    def chunks_cache(self, context, indices):
         logger.info('Generating chunks from cache source')
+
+        if indices is None:
+            indices = range(self.chunk)
 
         mapped = self.cache_mapped.copy()
 
         with self.open_local(self.cache_uri) as variable:
             logger.info('Opening %r %r', self.cache_uri, variable.shape)
 
-            for index, chunk in enumerate(self.chunk):
-                mapped.update({ self.chunk_axis: chunk })
+            for index in indices:
+                mapped.update({ self.chunk_axis: self.chunk[index] })
 
                 logger.info('Read chunk %r', mapped)
 
                 yield index, variable(**mapped)
 
-    def chunks_ingress(self):
+    def chunks_ingress(self, indices):
         logger.info('Generating chunks from ingressed source')
 
-        for index, file_path in enumerate(sorted(self.ingress)):
-            with self.open_local(file_path) as variable:
-                logger.info('Opening %r %r', file_path, variable.shape)
+        if indices is None:
+            indices = range(len(self.ingress))
+
+        ingress = sorted(self.ingress)
+
+        for index in indices:
+            with self.open_local(ingress[index]) as variable:
+                logger.info('Opening %r %r', variable.id, variable.shape)
+
+                yield index, variable()
+
+    def chunks_process(self, indices):
+        logger.info('Generating chunks from process output')
+
+        if indices is None:
+            indices = range(len(self.process))
+
+        process = sorted(self.process)
+
+        for index in indices:
+            with self.open_local(process[index]) as variable:
+                logger.info('Opening %r %r', variable.id, variable.shape)
 
                 yield index, variable()
 
     def chunks(self, context=None, indices=None):
         if len(self.process) > 0:
-            pass    
+            gen = self.chunks_process(indices)
         elif self.cache_uri is not None:
-            gen = self.chunks_cache(context)
+            gen = self.chunks_cache(context, indices)
         elif len(self.ingress) > 0:
-            gen = self.chunks_ingress()
+            gen = self.chunks_ingress(indices)
         else:
             gen = self.chunks_remote(context, indices)
 

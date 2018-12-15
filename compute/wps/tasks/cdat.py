@@ -11,7 +11,7 @@ from datetime import datetime
 import cdms2
 import cwt
 import cdutil
-from cdms2 import MV2 as MV
+from cdms2 import MV2
 from celery.task.control import inspect
 from celery.utils.log import get_task_logger
 from django.conf import settings
@@ -198,6 +198,35 @@ whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """
 
+def process_data(self, context, index, process):
+    base = 0
+    
+    axes = context.operation.get_parameter('axes', True)
+
+    for input in context.sorted_inputs():
+        indices = self.generate_indices(index, len(input.chunk))
+
+        for index, chunk in input.chunks(context, indices):
+            local_index = base + index
+
+            local_filename = 'data_{}_{:08}_{}.nc'.format(str(context.job.id),
+                                                          local_index,
+                                                          '_'.join(axes.values))
+
+            local_path = context.gen_ingress_path(local_filename)
+
+            if process is not None:
+                chunk = process(chunk, axes.values)
+
+            with context.new_output(local_path) as outfile:
+                outfile.write(chunk, id=input.variable.var_name)
+
+            input.process.append(local_path)
+
+        base = len(input.chunk)
+
+    return context
+
 @base.cwt_shared_task()
 def concat(self, contexts):
     context = OperationContext.merge_ingress(contexts)
@@ -210,8 +239,6 @@ def concat(self, contexts):
 
     with context.new_output(context.output_path) as outfile:
         for input in context.sorted_inputs():
-            logger.info('%r', input.variable.uri)
-
             for _, chunk in input.chunks(context):
                 if grid is None and gridder is not None:
                     grid = self.generate_grid(gridder)
@@ -226,7 +253,7 @@ def concat(self, contexts):
 
                     logger.info('Regrid %r -> %r', shape, chunk.shape)
 
-                if context.units is not None:
+                if context.units is not None and chunk.getTime() is not None:
                     chunk.getTime().toRelativeTime(str(context.units))
 
                 logger.info('Chunk shape %r', chunk.shape)
@@ -258,51 +285,70 @@ def aggregate(self, context):
 
 @base.register_process('CDAT.average', abstract=AVERAGE_ABSTRACT, process=cdutil.averager, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def average(self, context):
-    return context
+def average(self, context, index):
+    def average_func(data, axes):
+        axis_indices = []
 
-@base.register_process('CDAT.sum', abstract=SUM_ABSTRACT, process=MV.sum, metadata=SNG_DATASET_SNG_INPUT)
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
+
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            axis_indices.append(str(axis_index))
+
+        axis_sig = ''.join(axis_indices)
+
+        data = cdutil.averager(data, axis=axis_sig)
+
+        return data
+
+    return process_data(self, context, index, average_func)
+
+@base.register_process('CDAT.sum', abstract=SUM_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def summation(self, context):
-    return context
+def sum(self, context, index):
+    def sum_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
 
-@base.register_process('CDAT.max', abstract=MAX_ABSTRACT, process=MV.max, metadata=SNG_DATASET_SNG_INPUT)
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            data = MV2.sum(data, axis=axis_index)
+
+        return data
+
+    return process_data(self, context, index, sum_func)
+
+@base.register_process('CDAT.max', abstract=MAX_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def maximum(self, context, index):
-    base = 0
-    
-    axes = context.operation.get_parameter('axes', True)
+def max(self, context, index):
+    def max_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
 
-    for input in context.sorted_inputs():
-        indices = self.generate_indices(index, len(input.chunk))
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
 
-        for index, chunk in input.chunks(context, indices):
-            local_index = base + index
+            data = MV2.max(data, axis=axis_index)
 
-            local_filename = 'data_{}_{:08}_{}.nc'.format(str(context.job.id),
-                                                          local_index,
-                                                          '_'.join(axes.values))
+        return data
 
-            local_path = context.gen_ingress_path(local_filename)
+    return process_data(self, context, index, max_func)
 
-            for axis in axes.values:
-                axis_index = chunk.getAxisIndex(axis)
-
-                if axis_index == -1:
-                    raise WPSError('Unknown axis {!s}', axis)
-
-                chunk = MV.max(chunk, axis=axis_index)
-
-            with context.new_output(local_path) as outfile:
-                outfile.write(chunk, id=input.variable.var_name)
-
-            input.process.append(local_path)
-
-        base = len(input.chunk)
-
-    return context
-
-@base.register_process('CDAT.min', abstract=MIN_ABSTRACT, process=MV.min, metadata=SNG_DATASET_SNG_INPUT)
+@base.register_process('CDAT.min', abstract=MIN_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def minimum(self, context):
-    return context
+def min(self, context, index):
+    def min_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
+
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            data = MV2.min(data, axis=axis_index)
+
+        return data
+
+    return process_data(self, context, index, min_func)
