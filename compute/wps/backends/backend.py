@@ -172,15 +172,3 @@ class Backend(object):
             o.inputs = inputs
 
         return variable, domain, operation
-
-    def initialize(self):
-        pass
-
-    def populate_processes(self):
-        raise NotImplementedError('Must implement populate_processes')
-
-    def execute(self, identifier, variables, domains, operations, **kwargs):
-        raise NotImplementedError('Must implement execute')
-
-    def workflow(self, root_op, variables, domains, operations, **kwargs):
-        raise NotImplementedError('Workflow not implemented')

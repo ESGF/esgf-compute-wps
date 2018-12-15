@@ -1,11 +1,14 @@
 import contextlib
 import collections
+import os
+import uuid
 from datetime import datetime
 
 import cdms2
-import requests
 import cwt
+import requests
 from celery.utils.log import get_task_logger
+from django.conf import settings
 
 from wps import models
 from wps import WPSError
@@ -20,31 +23,64 @@ class OperationContext(object):
         self.operation = operation
         self.job = None
         self.user = None
+        self.process = None
+        self.units = None
+        self.output_path = None
 
     @classmethod
-    def merge(cls, context):
-        first = context[0]
+    def merge_inputs(cls, contexts):
+        first = contexts[0]
 
         inputs = []
 
-        for c in context:
-            for i in c.inputs:
-                if i.mapped is not None:
-                    inputs.append(i)
+        for context in contexts:
+            inputs.extend(context.inputs)
 
         instance = cls(inputs, first.domain, first.operation)
+
+        instance.units = first.units
+
+        instance.output_path = first.output_path
 
         instance.job = first.job
 
         instance.user = first.user
 
+        instance.process = first.process
+
         return instance
+
+    @classmethod
+    def merge_ingress(cls, contexts):
+        first = contexts.pop()
+
+        for index, input in enumerate(first.inputs):
+            for context in contexts:
+                input.ingress.extend(context.inputs[index].ingress)
+
+                input.process.extend(context.inputs[index].process)
+
+        return first
+
+    @staticmethod
+    def load_model(obj, name, model_class):
+        assert hasattr(obj, name)
+
+        pk = getattr(obj, name, None)
+
+        if pk is not None:
+            try:
+                value = model_class.objects.get(pk=pk)
+            except model_class.DoesNotExist:
+                raise WPSError('{!s} {!r} does not exist', model_class.__name__, pk)
+
+            setattr(obj, name, value) 
 
     @classmethod
     def from_dict(cls, data):
         inputs = [VariableContext.from_dict(x) for x in data['inputs']]
 
-        if 'domain' in data:
+        if 'domain' in data and data['domain'] is not None:
             domain = cwt.Domain.from_dict(data['domain'])
         else:
             domain = None
@@ -53,17 +89,20 @@ class OperationContext(object):
 
         obj = cls(inputs, domain, operation)
 
-        if 'job_id' in data:
-            try:
-                obj.job = models.Job.objects.get(pk=data['job_id'])
-            except models.Job.DoesNotExist:
-                raise WPSError('Job {!r} does not exist', data['job_id'])
+        ignore = ['inputs', 'domain', 'operation']
 
-        if 'user_id' in data:
-            try:
-                obj.user = models.User.objects.get(pk=data['user_id'])
-            except models.User.DoesNotExist:
-                raise WPSError('User {!r} does not exist', data['user_id'])
+        for name, value in data.iteritems():
+            if name in ignore:
+                continue
+
+            if hasattr(obj, name):
+                setattr(obj, name, data[name])
+
+        cls.load_model(obj, 'job', models.Job)
+
+        cls.load_model(obj, 'user', models.User)
+
+        cls.load_model(obj, 'process', models.Process)
 
         return obj
 
@@ -82,40 +121,74 @@ class OperationContext(object):
         return cls(target_inputs, target_domain, target_op)
 
     def to_dict(self):
-        data = {
-            'inputs': [x.to_dict() for x in self.inputs],
-            'operation': self.operation.parameterize(),
-        }
+        data = self.__dict__.copy()
 
-        if self.domain is not None:
-            data['domain'] = self.domain.parameterize()
+        data['inputs'] = [x.to_dict() for x in data['inputs']]
 
-        if self.job is not None:
-            data['job_id'] = self.job.id
+        data['operation'] = data['operation'].parameterize()
 
-        if self.user is not None:
-            data['user_id'] = self.user.id
+        if data['domain'] is not None:
+            data['domain'] = data['domain'].parameterize()
+                     
+        if data['job'] is not None:
+            data['job'] = data['job'].id
+
+        if data['user'] is not None:
+            data['user'] = data['user'].id
+
+        if data['process'] is not None:
+            data['process'] = data['process'].id
 
         return data
 
-    def input_set(self, indices):
-        return [self.inputs[x] for x in indices]
+    def sorted_inputs(self):
+        units = set(x.units for x in self.inputs)
+
+        if len(units) == 1:
+            return sorted(self.inputs, key=lambda x: x.units)
+
+        return sorted(self.inputs, key=lambda x: x.first)
+
+    def gen_public_path(self):
+        filename = '{}.nc'.format(uuid.uuid4())
+
+        return os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
+                            str(self.job.id), filename)
+
+    def gen_ingress_path(self, filename):
+        return os.path.join(settings.WPS_INGRESS_PATH, filename)
+
+    @contextlib.contextmanager
+    def new_output(self, path):
+        base_path = os.path.dirname(path)
+
+        try:
+            os.makedirs(base_path)
+        except OSError:
+            pass
+
+        with cdms2.open(path, 'w') as outfile:
+            yield outfile
 
 class VariableContext(object):
     def __init__(self, variable):
         self.variable = variable
-        self.mapped = None
-        self.mapped_order = None
-        self.cache_uri = None
-        self.units = None
         self.first = None
-        self.chunks = None
-        self.ingress = None
+        self.units = None
+        self.mapped = {}
+        self.mapped_order = []
+        self.cache_uri = None
+        self.cache_mapped = {}
+        self.chunk = []
+        self.chunk_axis = None
+        self.ingress = []
+        self.process = []
 
     @staticmethod
-    def load_value(obj, name, data):
-        if name in data:
-            setattr(obj, name, data[name])
+    def load_value(obj, name, value):
+        assert hasattr(obj, name)
+
+        setattr(obj, name, value)
 
     @classmethod
     def from_dict(cls, data):
@@ -123,29 +196,30 @@ class VariableContext(object):
 
         obj = cls(variable)
 
-        cls.load_value(obj, 'mapped', data)
-        cls.load_value(obj, 'mapped_order', data)
-        cls.load_value(obj, 'cache_uri', data)
-        cls.load_value(obj, 'units', data)
-        cls.load_value(obj, 'first', data)
-        cls.load_value(obj, 'chunks', data)
-        cls.load_value(obj, 'ingress', data)
+        ignore = ['variable']
+
+        for name, value in data.iteritems():
+            if name in ignore:
+                continue
+
+            cls.load_value(obj, name, value)
 
         return obj
 
     def to_dict(self):
-        data = {
-            'variable': self.variable.parameterize(),
-            'mapped': self.mapped,
-            'mapped_order': self.mapped_order,
-            'cache_uri': self.cache_uri,
-            'units': self.units,
-            'first': self.first,
-            'chunks': self.chunks,
-            'ingress': self.ingress,
-        }
+        data = self.__dict__.copy()
+
+        data['variable'] = self.variable.parameterize()
 
         return data
+
+    @property
+    def is_cached(self):
+        return self.cache_uri is not None
+
+    @property
+    def is_ingressed(self):
+        return len(self.ingress) > 0
 
     def check_access(self, cert=None):
         url = '{}.dds'.format(self.variable.uri)
@@ -161,22 +235,65 @@ class VariableContext(object):
     
     @contextlib.contextmanager
     def open(self, context):
-        if not self.check_access():
+        if context is not None and not self.check_access():
             cert_path = credentials.load_certificate(context.user)
 
             if not self.check_access(cert_path):
                 raise WPSError('Cannot access file')
 
         with cdms2.open(self.variable.uri) as infile:
+            logger.info('Opened %r', infile.id)
+
             yield infile[self.variable.var_name]
 
-    def chunk_set(self, indices):
-        return [(x, self.chunks[x]) for x in indices]
+    @contextlib.contextmanager
+    def open_local(self, file_path):
+        with cdms2.open(file_path) as infile:
+            yield infile[self.variable.var_name]
 
-    def get_units(self, context):
-        with self.open(context) as infile:
-            time = infile.getTime()
+    def chunks_remote(self, context, indices, **kwargs):
+        logger.info('Generating chunks from remote source')
 
-            self.units = time.units
+        mapped = self.mapped.copy()
 
-            self.first = time[0]
+        with self.open(context) as variable:
+            for index in indices:
+                mapped.update({ self.chunk_axis: self.chunk[index] })
+
+                yield index, variable(**mapped)
+
+    def chunks_cache(self, context):
+        logger.info('Generating chunks from cache source')
+
+        mapped = self.cache_mapped.copy()
+
+        with self.open_local(self.cache_uri) as variable:
+            logger.info('Opening %r %r', self.cache_uri, variable.shape)
+
+            for index, chunk in enumerate(self.chunk):
+                mapped.update({ self.chunk_axis: chunk })
+
+                logger.info('Read chunk %r', mapped)
+
+                yield index, variable(**mapped)
+
+    def chunks_ingress(self):
+        logger.info('Generating chunks from ingressed source')
+
+        for index, file_path in enumerate(sorted(self.ingress)):
+            with self.open_local(file_path) as variable:
+                logger.info('Opening %r %r', file_path, variable.shape)
+
+                yield index, variable()
+
+    def chunks(self, context=None, indices=None):
+        if len(self.process) > 0:
+            pass    
+        elif self.cache_uri is not None:
+            gen = self.chunks_cache(context)
+        elif len(self.ingress) > 0:
+            gen = self.chunks_ingress()
+        else:
+            gen = self.chunks_remote(context, indices)
+
+        return gen

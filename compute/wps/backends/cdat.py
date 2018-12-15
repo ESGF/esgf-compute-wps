@@ -17,8 +17,6 @@ from wps.backends import backend
 from wps.context import OperationContext
 from wps.tasks import base
 
-__ALL__ = ['CDAT']
-
 logger = logging.getLogger('wps.backends')
 
 # These operations require only a single input
@@ -662,30 +660,51 @@ class CDAT(backend.Backend):
 
             context.user = user
 
+            context.process = process
+
+            preprocess_chains = []
+
+            for index in range(settings.WORKER_PER_USER):
+                filter = tasks.filter_inputs.s(index).set(**helpers.DEFAULT_QUEUE)
+
+                map = tasks.map_domain.s().set(**helpers.DEFAULT_QUEUE)
+
+                cache = tasks.check_cache.s().set(**helpers.DEFAULT_QUEUE)
+
+                chunks = tasks.generate_chunks.s().set(**helpers.DEFAULT_QUEUE)
+
+                preprocess_chains.append(celery.chain(filter, map, cache,
+                                                      chunks))
+
             start = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
 
-            preprocess = []
+            units = tasks.base_units.s().set(**helpers.DEFAULT_QUEUE)
+
+            merge = tasks.merge.s().set(**helpers.DEFAULT_QUEUE)
+
+            preprocess = start | units | celery.group(preprocess_chains) | merge
+
+            process_func = base.get_process(identifier)
+
+            process_chains = []
 
             for index in range(settings.WORKER_PER_USER):
-                base = tasks.base_units.s(index).set(**helpers.DEFAULT_QUEUE)
+                ingress = tasks.ingress_chunk.s(index).set(**helpers.DEFAULT_QUEUE)
 
-                map = tasks.map_domain.s(index).set(**helpers.DEFAULT_QUEUE)
+                process = process_func.s(index).set(**helpers.DEFAULT_QUEUE)
 
-                cache = tasks.check_cache.s(index).set(**helpers.DEFAULT_QUEUE)
+                process_chains.append(celery.chain(ingress, process))
 
-                chunks = tasks.generate_chunks.s(index).set(**helpers.DEFAULT_QUEUE)
+            concat = tasks.concat.s().set(**helpers.DEFAULT_QUEUE)
 
-                preprocess.append(celery.chain(base, map, cache, chunks))
+            success = tasks.job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
 
-            merge = tasks.merge_preprocess.s().set(**helpers.DEFAULT_QUEUE)
+            cache = tasks.ingress_cache.s().set(**helpers.DEFAULT_QUEUE)
 
-            process = []
+            cleanup = tasks.ingress_cleanup.s().set(**helpers.DEFAULT_QUEUE)
 
-            for index in range(settings.WORKER_PER_USER):
-                ingress = tasks.ingress_uri.s(index).set(**helpers.DEFAULT_QUEUE)
+            finalize = concat | success | cache | cleanup
 
-                process.append(celery.chain(ingress))
-
-            canvas = start | celery.group(preprocess) | merge | celery.group(process)
+            canvas = preprocess | celery.group(process_chains) | finalize
 
             canvas.delay()

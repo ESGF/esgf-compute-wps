@@ -285,7 +285,7 @@ class Cache(models.Model):
 
     def is_superset(self, domain):
         try:
-            cached = json.loads(self.dimensions, object_hook=helpers.json_loads_object_hook)
+            cached = helpers.decoder(self.dimensions)
         except ValueError:
             return False
 

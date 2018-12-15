@@ -23,8 +23,8 @@ from wps.tasks import base
 logger = get_task_logger('wps.tasks.preprocess')
 
 @base.cwt_shared_task()
-def merge_preprocess(self, contexts):
-    context = OperationContext.merge(contexts)
+def merge(self, contexts):
+    context = OperationContext.merge_inputs(contexts)
 
     return context
 
@@ -35,12 +35,10 @@ def axis_size(data):
     return data
 
 @base.cwt_shared_task()
-def generate_chunks(self, context, index):
-    indices = self.generate_indices(index, len(context.inputs))
-
+def generate_chunks(self, context):
     process_axis = set([context.operation.get_parameter('axes')])
 
-    for input in context.input_set(indices):
+    for input in context.inputs:
         order = input.mapped_order
 
         # Find axes that we can chunk over
@@ -48,15 +46,19 @@ def generate_chunks(self, context, index):
 
         # Select the lowest order axis that's available
         try:
-            chunk_axis = reduce(lambda x, y: x if order.index(x) < order.index(y)
-                                else y, file_axes)
+            chunk_axis = reduce(lambda x, y: x if order.index(x) <
+                                        order.index(y) else y, file_axes)
         except TypeError:
             # Default to time axis?
             chunk_axis = None
 
+        if input.is_cached:
+            mapped = input.cache_mapped
+        else:
+            mapped = input.mapped
+
         if chunk_axis is not None:
-            non_chunk_axes = [input.mapped[x] for x in (file_axes -
-                                                        set([chunk_axis]))]
+            non_chunk_axes = [mapped[x] for x in (file_axes - set([chunk_axis]))]
 
             chunk_size = reduce(lambda x, y: axis_size(x) * axis_size(y),
                                 non_chunk_axes)
@@ -67,15 +69,18 @@ def generate_chunks(self, context, index):
                 raise WPSError('A single chunk cannot fit it memory, consider'
                                ' subsetting the data further.')
 
-            chunk_axis_slice = input.mapped[chunk_axis]
-
-            input.chunks = []
+            chunk_axis_slice = mapped[chunk_axis]
 
             for start in range(chunk_axis_slice.start, chunk_axis_slice.stop,
                                chunk_per_worker):
-                input.chunks.append(slice(start, min(start + chunk_per_worker,
+                input.chunk.append(slice(start, min(start + chunk_per_worker,
                                                      chunk_axis_slice.stop),
                                           chunk_axis_slice.step))
+
+        input.chunk_axis = chunk_axis
+
+        logger.info('Generated %r chunks over %r axis', len(input.chunk),
+                    input.chunk_axis)
 
     return context
 
@@ -108,17 +113,19 @@ def check_cache_entries(input, context):
     return None
 
 @base.cwt_shared_task()
-def check_cache(self, context, index):
-    indices = self.generate_indices(index, len(context.inputs))
-    
-    for input in context.input_set(indices):
+def check_cache(self, context):
+    for input in context.inputs:
         if input.mapped is None:
+            logger.info('Skipping input %r', input.variable.uri)
+
             continue
 
         entry = check_cache_entries(input, context)
 
         if entry is not None:
             cache_mapped = helpers.decoder(entry.dimensions)
+
+            cache_mapped.pop('var_name')
 
             # cached  time:slice(20, 80)  lat:slice(15, 65) 
             # mapped  time:slice(30, 70)  lat:slice(20, 60)
@@ -130,9 +137,12 @@ def check_cache(self, context, index):
 
                 stop = start + (mapped.stop - mapped.start)
 
-                input.mapped[key] = slice(start, stop, value.step)
+                input.cache_mapped[key] = slice(start, stop, value.step)
 
             input.cache_uri = entry.local_path
+
+            logger.info('Cached %r mapped %r', input.cache_uri,
+                        input.cache_mapped)
     
     return context
 
@@ -144,7 +154,12 @@ def map_axis_interval(axis, start, stop):
 
     return map
 
-def map_axis(axis, dimension):
+def map_axis(axis, dimension, units):
+    if axis.isTime() and units is not None:
+        axis = axis.clone()
+
+        axis.toRelativeTime(str(units))
+
     if dimension is None or dimension.crs == cwt.INDICES:
         step = 1 if dimension is None else helpers.int_or_float(dimension.step)
 
@@ -171,46 +186,67 @@ def map_axis(axis, dimension):
     return selector
 
 @base.cwt_shared_task()
-def map_domain(self, context, index):
-    indices = self.generate_indices(index, len(context.inputs))
+def map_domain(self, context):
+    for input in context.inputs:
+        with input.open(context) as var:
+            axes = var.getAxisList()
 
-    for input in context.input_set(indices):
-        with input.open(context) as variable:
-            input.mapped = {}
-
-            input.mapped_order = [x.id for x in variable.getAxisList()]
+            input.mapped_order = [x.id for x in axes]
 
             if context.domain is None:
-                input.mapped = dict((x.id, map_axis(x, None)) for x in
-                                     variable.getAxisList())
+                input.mapped = dict((x.id, map_axis(x, None, context.units)) 
+                                    for x in axes)
             else:
                 user_dim = set([x.name for x in context.domain.dimensions])
 
-                file_dim = set([x.id for x in variable.getAxisList()])
+                file_dim = set(input.mapped_order)
 
                 if not user_dim <= file_dim:
                     raise WPSError('User defined domain is invalid, {!r} are'
                                    ' missing from the file',
                                    ', '.join(user_dim-file_dim))
 
-                file_dim = file_dim - user_dim
+                file_dim -= user_dim
 
-                for dim_name in (user_dim|file_dim):
-                    dim = context.domain.get_dimension(dim_name) if dim_name in user_dim else None
+                for name in (user_dim | file_dim):
+                    dim = context.domain.get_dimension(name) if name in user_dim else None
 
-                    axis_index = variable.getAxisIndex(dim_name)
-            
-                    axis = variable.getAxis(axis_index)
+                    axis_index = var.getAxisIndex(name)
 
-                    input.mapped[dim_name] = map_axis(axis, dim)
+                    axis = var.getAxis(axis_index).clone()
+
+                    input.mapped[name] = map_axis(axis, dim, context.units)
+
+        logger.info('Mapped domain to %r', input.mapped)
 
     return context
 
 @base.cwt_shared_task()
-def base_units(self, context, index):
+def base_units(self, context):
+    units = []
+
+    for input in context.inputs:
+        with input.open(context) as var:
+            time = var.getTime()
+
+            if time is not None:
+                input.first = time[0]
+
+                input.units = time.units
+
+                units.append(input.units)
+
+    try:
+        context.units = sorted(units)[0]
+    except IndexError:
+        pass
+
+    return context
+
+@base.cwt_shared_task()
+def filter_inputs(self, context, index):
     indices = self.generate_indices(index, len(context.inputs))
 
-    for input in context.input_set(indices):
-        input.get_units(context)
+    context.inputs = [context.inputs[x] for x in indices]
 
     return context

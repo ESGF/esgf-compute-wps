@@ -63,6 +63,8 @@ def determine_queue(process, estimate_size):
             'routing_key': 'low',
         }
 
+DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
+
 def default(obj):
     from wps.context import OperationContext
 
@@ -96,6 +98,11 @@ def default(obj):
                 'microseconds': obj.microseconds,
             },
             '__type': 'timedelta',
+        }
+    elif isinstance(obj, datetime.datetime):
+        data = {
+            'data': obj.strftime(DATETIME_FMT),
+            '__type': 'datetime',
         }
     elif isinstance(obj, types.FunctionType):
         data = {
@@ -137,6 +144,8 @@ def object_hook(obj):
         }
 
         data = datetime.timedelta(**kwargs)
+    elif obj['__type'] == 'datetime':
+        data = datetime.datetime.strptime(obj['data'], DATETIME_FMT)
     elif obj['__type'] == 'function':
         data = importlib.import_module(obj['data']['module'])
 

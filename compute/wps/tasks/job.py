@@ -43,37 +43,20 @@ def job_succeeded_workflow(self, attrs, variables, process_id, user_id, job_id):
     return attrs
 
 @base.cwt_shared_task()
-def job_succeeded(self, attrs, variables, output_path, move_path, var_name,
-                  process_id, user_id, job_id):
-    job = self.load_job(job_id)
-
-    user = self.load_user(user_id)
-
-    process = self.load_process(process_id)
-
-    if move_path is not None:
-        try:
-            os.makedirs(os.path.dirname(move_path))
-        except OSError:
-            raise WPSError('Failed to create output directory {!r}', move_path)
-
-        shutil.move(output_path, move_path)
-        
-        output_path = move_path
-
-    relpath = os.path.relpath(output_path, settings.WPS_PUBLIC_PATH)
+def job_succeeded(self, context):
+    relpath = os.path.relpath(context.output_path, settings.WPS_PUBLIC_PATH)
 
     url = settings.WPS_DAP_URL.format(filename=relpath)
 
-    output = cwt.Variable(url, var_name)
+    output = cwt.Variable(url, context.inputs[0].variable.var_name)
 
-    job.succeeded(json.dumps(output.parameterize()))
+    context.job.succeeded(json.dumps(output.parameterize()))
 
-    process.track(user)
+    context.process.track(context.user)
 
-    for var in variables:
-        models.File.track(user, var)
+    for input in context.inputs:
+        models.File.track(context.user, input.variable)
 
-        metrics.track_file(var)
+        metrics.track_file(input.variable)
 
-    return attrs
+    return context
