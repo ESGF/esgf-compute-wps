@@ -203,8 +203,19 @@ def process_data(self, context, index, process):
     
     axes = context.operation.get_parameter('axes', True)
 
+    grid = None
+    
+    gridder = context.operation.get_parameter('gridder')
+
     for input in context.sorted_inputs():
-        for index, chunk in input.chunks(context, index):
+        count = 0
+
+        for index, count, chunk in input.chunks(context, index):
+            if grid is None and gridder is not None:
+                grid = self.generate_grid(gridder)
+
+                grid = self.subset_grid(grid, input.mapped)
+
             local_index = base + index
 
             local_filename = 'data_{}_{:08}_{}.nc'.format(str(context.job.id),
@@ -212,6 +223,17 @@ def process_data(self, context, index, process):
                                                           '_'.join(axes.values))
 
             local_path = context.gen_ingress_path(local_filename)
+
+            if grid is not None:
+                shape = chunk.shape
+
+                chunk = chunk.regrid(grid, regridTool=gridder.tool,
+                                     regridMethod=gridder.method)
+
+                logger.info('Regrid %r -> %r', shape, chunk.shape)
+
+            if context.units is not None and chunk.getTime() is not None:
+                chunk.getTime().toRelativeTime(str(context.units))
 
             if process is not None:
                 chunk = process(chunk, axes.values)
@@ -221,7 +243,50 @@ def process_data(self, context, index, process):
 
             input.process.append(local_path)
 
-        base = len(input.chunk)
+        base += count
+
+    return context
+
+def regrid_data(self, context, index):
+    base = 0
+
+    grid = None
+    
+    gridder = context.operation.get_parameter('gridder')
+
+    for input in context.sorted_inputs():
+        count = 0
+
+        for index, count, chunk in input.chunks(context, index):
+            if grid is None and gridder is not None:
+                grid = self.generate_grid(gridder)
+
+                grid = self.subset_grid(grid, input.mapped)
+
+            local_index = base + index
+
+            local_filename = 'data_{}_{:08}_regrid.nc'.format(str(context.job.id), 
+                                                              local_index)
+
+            local_path = context.gen_ingress_path(local_file_name)
+
+            if grid is not None:
+                shape = chunk.shape
+
+                chunk = chunk.regrid(grid, regridTool=gridder.tool,
+                                     regridMethod=gridder.method)
+
+                logger.info('Regrid %r -> %r', shape, chunk.shape)
+
+            if context.units is not None and chunk.getTime() is not None:
+                chunk.getTime().toRelativeTime(str(context.units))
+
+            with context.new_output(local_output) as outfile:
+                outfile.write(chunk, id=input.variable.var_name)
+
+            input.process.append(local_path)
+
+        base += count
 
     return context
 
@@ -229,31 +294,11 @@ def process_data(self, context, index, process):
 def concat(self, contexts):
     context = OperationContext.merge_ingress(contexts)
 
-    grid = None
-    
-    gridder = context.operation.get_parameter('gridder')
-
     context.output_path = context.gen_public_path()
 
     with context.new_output(context.output_path) as outfile:
         for input in context.sorted_inputs():
-            for _, chunk in input.chunks(context):
-                if grid is None and gridder is not None:
-                    grid = self.generate_grid(gridder)
-
-                    grid = self.subset_grid(grid, input.mapped)
-
-                if grid is not None:
-                    shape = chunk.shape
-
-                    chunk = chunk.regrid(grid, regridTool=gridder.tool,
-                                         regridMethod=gridder.method)
-
-                    logger.info('Regrid %r -> %r', shape, chunk.shape)
-
-                if context.units is not None and chunk.getTime() is not None:
-                    chunk.getTime().toRelativeTime(str(context.units))
-
+            for _, _, chunk in input.chunks(context):
                 logger.info('Chunk shape %r', chunk.shape)
 
                 outfile.write(chunk, id=input.variable.var_name)
@@ -262,24 +307,24 @@ def concat(self, contexts):
 
 @base.register_process('CDAT.regrid', abstract=REGRID_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def regrid(self, context):
+def regrid(self, context, index):
     """ Regrids a chunk of data.
     """
-    return context
+    return regrid_data(context, index)
 
 @base.register_process('CDAT.subset', abstract=SUBSET_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def subset(self, context):
+def subset(self, context, index):
     """ Subsetting data.
     """
-    return context
+    return regrid_data(context, index)
 
 @base.register_process('CDAT.aggregate', abstract=AGGREGATE_ABSTRACT, metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
-def aggregate(self, context):
+def aggregate(self, context, index):
     """ Aggregating data.
     """
-    return context
+    return regrid_data(context, index)
 
 @base.register_process('CDAT.average', abstract=AVERAGE_ABSTRACT, process=cdutil.averager, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()

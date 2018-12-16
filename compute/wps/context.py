@@ -258,9 +258,9 @@ class VariableContext(object):
         return [x for x in range(index, count, settings.WORKER_PER_USER)]
 
     def chunks_remote(self, index, context):
-        logger.info('Generating chunks from remote source')
-
         indices = self.generate_indices(index, len(self.chunk))
+
+        logger.info('Handling chunk indices %r', indices)
 
         mapped = self.mapped.copy()
 
@@ -268,56 +268,50 @@ class VariableContext(object):
             for index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[index] })
 
-                yield index, variable(**mapped)
+                logger.info('Reading chunk %r', mapped)
 
-    def chunks_cache(self, index, context):
-        logger.info('Generating chunks from cache source')
+                yield index, len(self.chunk), variable(**mapped)
 
+    def chunks_cache(self, index):
         indices = self.generate_indices(index, len(self.chunk))
+
+        logger.info('Handling chunk indices %r', indices)
 
         mapped = self.cache_mapped.copy()
 
         with self.open_local(self.cache_uri) as variable:
-            logger.info('Opening %r %r', self.cache_uri, variable.shape)
-
             for index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[index] })
 
-                logger.info('Read chunk %r', mapped)
+                logger.info('Reading chunk %r', mapped)
 
-                yield index, variable(**mapped)
+                yield index, len(self.chunk), variable(**mapped)
 
     def chunks_ingress(self, index):
-        logger.info('Generating chunks from ingressed source')
-
-        indices = self.generate_indices(index, len(self.ingress))
-
         ingress = sorted(self.ingress)
 
-        for index in indices:
+        for index in range(len(ingress)):
             with self.open_local(ingress[index]) as variable:
-                logger.info('Opening %r %r', variable.id, variable.shape)
+                logger.info('Reading chunk from %r', ingress[index])
 
-                yield index, variable()
+                yield index, len(ingress), variable()
 
     def chunks_process(self, index):
-        logger.info('Generating chunks from process output')
-
-        indices = self.generate_indices(index, len(self.process))
+        logger.info('Handling chunk indices %r', indices)
 
         process = sorted(self.process)
 
-        for index in indices:
+        for index in range(len(process)):
             with self.open_local(process[index]) as variable:
-                logger.info('Opening %r %r', variable.id, variable.shape)
+                logger.info('Reading chunk from %r', process[index])
 
-                yield index, variable()
+                yield index, len(self.process), variable()
 
     def chunks(self, context=None, index=None):
         if len(self.process) > 0:
             gen = self.chunks_process(index)
         elif self.cache_uri is not None:
-            gen = self.chunks_cache(index, context)
+            gen = self.chunks_cache(index)
         elif len(self.ingress) > 0:
             gen = self.chunks_ingress(index)
         else:

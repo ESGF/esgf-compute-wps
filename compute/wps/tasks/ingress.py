@@ -39,7 +39,7 @@ def ingress_cleanup(self, context):
 
 def write_cache_file(entry, input, context):
     with context.new_output(entry.local_path) as outfile:
-        for _, chunk in input.chunks():
+        for _, chunk in input.chunks_cache(None):
             outfile.write(chunk, id=input.variable.var_name)
 
     entry.set_size()
@@ -76,20 +76,26 @@ def ingress_chunk(self, context, index):
 
     for input in context.sorted_inputs():
         if input.cache_uri is not None:
+            logger.info('Skipping %r found in cache', input.variable.uri)
+
             continue
 
-        for index, chunk in input.chunks(context, index):
+        count = 0
+
+        for index, count, chunk in input.chunks(context, index):
             local_index = base + index
 
             local_filename = 'data_{}_{:08}.nc'.format(str(context.job.id), local_index)
 
             local_path = context.gen_ingress_path(local_filename)
 
+            logger.info('Writing chunk %r to %r', chunk.shape, local_path)
+
             with context.new_output(local_path) as outfile:
                 outfile.write(chunk, id=input.variable.var_name)
 
             input.ingress.append(local_path)
 
-        base = len(input.chunk)
+        base += count
 
     return context
