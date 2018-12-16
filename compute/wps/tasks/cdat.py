@@ -204,9 +204,7 @@ def process_data(self, context, index, process):
     axes = context.operation.get_parameter('axes', True)
 
     for input in context.sorted_inputs():
-        indices = self.generate_indices(index, len(input.chunk))
-
-        for index, chunk in input.chunks(context, indices):
+        for index, chunk in input.chunks(context, index):
             local_index = base + index
 
             local_filename = 'data_{}_{:08}_{}.nc'.format(str(context.job.id),

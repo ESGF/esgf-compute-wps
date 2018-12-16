@@ -78,9 +78,7 @@ def ingress_chunk(self, context, index):
         if input.cache_uri is not None:
             continue
 
-        indices = self.generate_indices(index, len(input.chunk))
-
-        for index, chunk in input.chunks(context, indices):
+        for index, chunk in input.chunks(context, index):
             local_index = base + index
 
             local_filename = 'data_{}_{:08}.nc'.format(str(context.job.id), local_index)

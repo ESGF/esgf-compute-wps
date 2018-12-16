@@ -227,9 +227,9 @@ class VariableContext(object):
         try:
             response = requests.get(url, timeout=(2, 2), cert=cert)
         except requests.ConnectTimeout:
-            raise WPSError('Connection timeout')
+            raise WPSError('Timeout connecting to {!r}', url)
         except requests.ReadTimeout:
-            raise WPSError('Read timeout')
+            raise WPSError('Timeout reading {!r}', url)
 
         return response.status_code == 200
     
@@ -251,11 +251,16 @@ class VariableContext(object):
         with cdms2.open(file_path) as infile:
             yield infile[self.variable.var_name]
 
-    def chunks_remote(self, context, indices):
+    def generate_indices(self, index, count):
+        if index is None:
+            return [x for x in range(count)]
+
+        return [x for x in range(index, count, settings.WORKER_PER_USER)]
+
+    def chunks_remote(self, index, context):
         logger.info('Generating chunks from remote source')
 
-        if indices is None:
-            indices = range(self.chunk)
+        indices = self.generate_indices(index, len(self.chunk))
 
         mapped = self.mapped.copy()
 
@@ -265,11 +270,10 @@ class VariableContext(object):
 
                 yield index, variable(**mapped)
 
-    def chunks_cache(self, context, indices):
+    def chunks_cache(self, index, context):
         logger.info('Generating chunks from cache source')
 
-        if indices is None:
-            indices = range(self.chunk)
+        indices = self.generate_indices(index, len(self.chunk))
 
         mapped = self.cache_mapped.copy()
 
@@ -283,11 +287,10 @@ class VariableContext(object):
 
                 yield index, variable(**mapped)
 
-    def chunks_ingress(self, indices):
+    def chunks_ingress(self, index):
         logger.info('Generating chunks from ingressed source')
 
-        if indices is None:
-            indices = range(len(self.ingress))
+        indices = self.generate_indices(index, len(self.ingress))
 
         ingress = sorted(self.ingress)
 
@@ -297,11 +300,10 @@ class VariableContext(object):
 
                 yield index, variable()
 
-    def chunks_process(self, indices):
+    def chunks_process(self, index):
         logger.info('Generating chunks from process output')
 
-        if indices is None:
-            indices = range(len(self.process))
+        indices = self.generate_indices(index, len(self.process))
 
         process = sorted(self.process)
 
@@ -311,14 +313,14 @@ class VariableContext(object):
 
                 yield index, variable()
 
-    def chunks(self, context=None, indices=None):
+    def chunks(self, context=None, index=None):
         if len(self.process) > 0:
-            gen = self.chunks_process(indices)
+            gen = self.chunks_process(index)
         elif self.cache_uri is not None:
-            gen = self.chunks_cache(context, indices)
+            gen = self.chunks_cache(index, context)
         elif len(self.ingress) > 0:
-            gen = self.chunks_ingress(indices)
+            gen = self.chunks_ingress(index)
         else:
-            gen = self.chunks_remote(context, indices)
+            gen = self.chunks_remote(index, context)
 
         return gen
