@@ -67,6 +67,7 @@ DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
 def default(obj):
     from wps.context import OperationContext
+    from wps.context import WorkflowOperationContext
 
     if isinstance(obj, slice):
         data = {
@@ -117,6 +118,11 @@ def default(obj):
             'data': obj.to_dict(),
             '__type': 'operation_context',
         }
+    elif isinstance(obj, WorkflowOperationContext):
+        data = {
+            'data': obj.to_dict(),
+            '__type': 'workflow_operation_context',
+        }
     else:
         raise TypeError(type(obj))
 
@@ -124,6 +130,7 @@ def default(obj):
 
 def object_hook(obj):
     from wps.context import OperationContext
+    from wps.context import WorkflowOperationContext
 
     if '__type' not in obj:
         return byteify(obj)
@@ -152,6 +159,8 @@ def object_hook(obj):
         data = getattr(data, obj['data']['name'])
     elif obj['__type'] == 'operation_context':
         data = OperationContext.from_dict(obj['data'])
+    elif obj['__type'] == 'workflow_operation_context':
+        data = WorkflowOperationContext.from_dict(obj['data'])
 
     return data
 

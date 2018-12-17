@@ -22,25 +22,17 @@ def job_started(self, context):
     return context
 
 @base.cwt_shared_task()
-def job_succeeded_workflow(self, attrs, variables, process_id, user_id, job_id):
-    job = self.load_job(job_id)
-
-    user = self.load_user(user_id)
-
-    process = self.load_process(process_id)
-
-    job.succeeded(json.dumps({
-        'outputs': [x.parameterize() for x in attrs['output']],
+def job_succeeded_workflow(self, context):
+    context.job.succeeded(json.dumps({
+        'outputs': [x.parameterize() for x in context.output],
     }))
 
-    metrics.JOBS_RUNNING.set(metrics.jobs_running())
+    context.process.track(context.user)
 
-    process.track(user)
+    for variable in context.variable.values():
+        models.File.track(context.user, variable)
 
-    for var in variables:
-        models.File.track(user, var)
-
-    return attrs
+    return context
 
 @base.cwt_shared_task()
 def job_succeeded(self, context):

@@ -15,6 +15,7 @@ from wps import tasks
 from wps import WPSError
 from wps.backends import backend
 from wps.context import OperationContext
+from wps.context import WorkflowOperationContext
 from wps.tasks import base
 
 logger = logging.getLogger('wps.backends')
@@ -29,24 +30,14 @@ class CDAT(backend.Backend):
                              process_outputs=proc.PROCESS_OUTPUTS,
                              abstract=proc.ABSTRACT, hidden=proc.HIDDEN)
 
-    def execute_workflow(self, identifier, variable, domain, operation, user,
-                         job, process, **kwargs):
+    def execute_workflow(self, identifier, context):
         process_task = base.get_process(identifier)
 
-        variable, domain, operation = self.load_data_inputs(variable, domain,
-                                                            operation)
+        start = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
 
-        start = tasks.job_started.s(job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+        workflow = process_task.s().set(**helpers.DEFAULT_QUEUE)
 
-        workflow = process_task.si(variable, domain, operation, user_id=user.id,
-                                job_id=job.id,
-                                 **kwargs).set(**helpers.DEFAULT_QUEUE)
-
-        var_name = set(x.var_name for x in variable.values()).pop()
-
-        succeeded = tasks.job_succeeded_workflow.s(variable.values(),
-                                                   process.id, user.id,
-                                                   job_id=job.id).set(**helpers.DEFAULT_QUEUE)
+        succeeded = tasks.job_succeeded_workflow.s().set(**helpers.DEFAULT_QUEUE)
 
         canvas = start | workflow | succeeded;
 
@@ -55,7 +46,17 @@ class CDAT(backend.Backend):
     def execute(self, identifier, variable, domain, operation, process, job,
                 user):
         if identifier == 'CDAT.workflow':
-            pass
+            context = WorkflowOperationContext.from_data_inputs(variable,
+                                                                domain,
+                                                                operation)
+
+            context.job = job
+
+            context.user = user
+
+            context.process = process
+
+            self.execute_workflow(identifier, context)
         else:
             context = OperationContext.from_data_inputs(identifier, variable,
                                                         domain, operation)

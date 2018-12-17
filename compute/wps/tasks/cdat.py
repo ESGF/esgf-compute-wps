@@ -26,125 +26,29 @@ from wps.context import OperationContext
 
 logger = get_task_logger('wps.tasks.cdat')
 
-def build_execute_graph(self, operation, job):
-    self.update(job, 'Building execution graph')
-
-    start = datetime.now()
-
-    adjacency = dict((x, dict((y, True if x in operation[y].inputs else False)
-                              for y in operation.keys())) for x in operation.keys())
-
-
-    sources = [x for x in operation.keys() if not any(adjacency[y][x] for y
-                                                        in operation.keys())]
-
-    sorted = []
-
-    while len(sources) > 0:
-        item = sources.pop()
-
-        sorted.append(operation[item])
-
-        for x in adjacency[item].keys():
-            if adjacency[item][x]:
-                sources.append(x)
-
-    elapsed = datetime.now() - start
-
-    self.update(job, 'Finished building execution graph {}', elapsed)
-
-    return deque(sorted)
-
-def prepare_operation(variable, domain, op):
-    op.inputs = [variable[x] for x in op.inputs]
-
-    op.domain = domain.get(op.domain, None)
-
-    if 'domain' in op.parameters:
-        del op.parameters['domain']
-
-    return op
-
-def wait_for_inputs(self, op, variable, job, executing, output, **kwargs):
-    for x in op.inputs:
-        if x in executing:
-            wait_op = executing[x]
-
-            result = wait_op.wait()
-
-            if not result:
-                raise WPSError('Operation "{}" failed due to missing input from'
-                               '"{}"', op.identifier, wait_op.identifier)
-
-            self.update(job, '{!r} finished with output {!r}', wait_op.identifier,
-                        wait_op.output)
-
-            del executing[x]
-
-            name = '{}-{}'.format(wait_op.identifier, wait_op.name)
-
-            new_variable = cwt.Variable(wait_op.output.uri,
-                                        wait_op.output.var_name, name=name)
-
-            output.append(new_variable)
-
-            variable[wait_op.name] = new_variable
-
 @base.register_process('CDAT.workflow', metadata={}, hidden=True)
 @base.cwt_shared_task()
-def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
-    user = self.load_user(user_id)
-
-    job = self.load_job(job_id)
-
-    sorted = build_execute_graph(self, operation, job)
-
-    client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=user.auth.api_key,
+def workflow(self, context):
+    client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=context.user.auth.api_key,
                            verify=False)
 
-    state = {
-        'executing': {},
-        'output': [],
-    }
+    queue = context.build_execute_graph()
 
-    while len(sorted) > 0:
-        op = sorted.popleft()
+    while len(queue) > 0:
+        next = queue.popleft()
 
-        if not all(x in variable for x in op.inputs):
-            wait_for_inputs(self, op, variable, job, **state)
+        context.wait_for_inputs(next)
 
-        op = prepare_operation(variable, domain, op)
+        context.prepare(next)
 
-        client.execute(op, **op.parameters)
+        # Here we can make the choice on which client to execute
+        client.execute(next)
 
-        self.update(job, 'Executing "{}"', op.identifier)
+        context.add_executing(next)
 
-        state['executing'][op.name] = op
+    context.wait_remaining()
 
-    for x in state['executing'].values():
-        result = x.wait()
-
-        if not result:
-            raise WPSError('Operation "{}" failed due to missing input from'
-                           '"{}"', op.identifier, x.identifier)
-
-        self.update(job, '{!r} finished with output {!r}', x.identifier,
-                    x.output)
-
-        name = '{}-{}'.format(x.identifier, x.name)
-
-        new_variable = cwt.Variable(x.output.uri,
-                                    x.output.var_name, name=name)
-
-        state['output'].append(new_variable)
-
-    self.update(job, 'Finished executing workflow')
-
-    attrs = {
-        'output': state['output'],
-    }
-
-    return attrs
+    return context
 
 SNG_DATASET_SNG_INPUT = {
     'datasets': 1,

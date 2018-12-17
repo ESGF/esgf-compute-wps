@@ -3,6 +3,7 @@ import collections
 import os
 import re
 import uuid
+from collections import deque
 from datetime import datetime
 
 import cdms2
@@ -16,6 +17,148 @@ from wps import WPSError
 from wps.tasks import credentials
 
 logger = get_task_logger('wps.context')
+
+class WorkflowOperationContext(object):
+    def __init__(self, variable, domain, operation):
+        self.variable = variable
+        self.domain = domain
+        self.operation = operation
+        self.job = None
+        self.user = None
+        self.process = None
+        self.output = []
+        self.state = {}
+
+    @staticmethod
+    def load_model(obj, name, model_class):
+        assert hasattr(obj, name)
+
+        pk = getattr(obj, name, None)
+
+        if pk is not None:
+            try:
+                value = model_class.objects.get(pk=pk)
+            except model_class.DoesNotExist:
+                raise WPSError('{!s} {!r} does not exist', model_class.__name__, pk)
+
+            setattr(obj, name, value) 
+
+    @classmethod
+    def from_data_inputs(cls, variable, domain, operation):
+        instance = cls(variable, domain, operation)
+
+        return instance
+
+    @classmethod
+    def from_dict(cls, data):
+        variable = data['variable']
+
+        domain = data['domain']
+
+        operation = data['operation']
+
+        instance = cls(variable, domain, operation)
+
+        ignore = ['variable', 'domain', 'operation', 'state']
+
+        for name, value in data.iteritems():
+            if name in ignore:
+                continue
+
+            assert hasattr(instance, name)
+
+            setattr(instance, name, value)
+
+        cls.load_model(instance, 'job', models.Job)
+
+        cls.load_model(instance, 'user', models.User)
+
+        cls.load_model(instance, 'process', models.Process)
+
+        return instance
+
+    def to_dict(self):
+        data = self.__dict__.copy()
+
+        data['job'] = data['job'].id
+
+        data['user'] = data['user'].id
+
+        data['process'] = data['process'].id
+
+        return data
+
+    def build_execute_graph(self):
+        op_keys = self.operation.keys()
+
+        adjacency = dict((x, dict((y, True if x in self.operation[y].inputs else
+                             False) for y in op_keys)) for x in op_keys)
+
+        sources = [x for x in op_keys if not any(adjacency[y][x] for y in op_keys)]
+
+        sorted = []
+
+        while len(sources) > 0:
+            item = sources.pop()
+
+            sorted.append(self.operation[item])
+
+            for x in adjacency[item].keys():
+                if adjacency[item][x]:
+                    sources.append(x)
+
+        return deque(sorted)
+
+    def add_output(self, operation):
+        # Create a new variable, change the name to add some description
+        name = '{!s}-{!s}'.format(operation.identifier, operation.name)
+
+        output = operation.output
+
+        variable = cwt.Variable(output.uri, output.var_name, name=name)
+
+        # Add new variable to global dict
+        self.variable[operation.name] = variable
+
+        # Add to output list
+        self.output.append(variable)
+
+    def wait_operation(self, operation):
+        result = operation.wait()
+
+        if not result:
+            raise WPSError('Operation {!r} failed', operation.identifier)
+
+    def wait_for_inputs(self, operation):
+        for input in operation.inputs:
+            if input in self.state:
+                executing_operation = self.state[input]
+
+                self.wait_operation(executing_operation)
+
+                self.add_output(executing_operation)
+
+                # Remove completed operation from state
+                del self.state[input]
+
+    def wait_remaining(self):
+        for operation in self.state.values():
+            self.wait_operation(operation)
+
+            self.add_output(operation)
+
+            del self.state[operation.name]
+
+    def add_executing(self, operation):
+        self.state[operation.name] = operation
+
+    def prepare(self, operation):
+        operation.inputs = [self.variable[x] for x in operation.inputs]
+
+        operation.domain = self.domain.get(operation.domain, None)
+
+        if 'domain' in operation.parameters:
+            del operation.parameters['domain']
 
 class OperationContext(object):
     def __init__(self, inputs, domain, operation):
@@ -222,7 +365,8 @@ class VariableContext(object):
         url = '{}.dds'.format(self.variable.uri)
 
         try:
-            response = requests.get(url, timeout=(2, 2), cert=cert)
+            response = requests.get(url, timeout=(2, 2), cert=cert,
+                                    verify=False)
         except requests.ConnectTimeout:
             raise WPSError('Timeout connecting to {!r}', url)
         except requests.ReadTimeout:
