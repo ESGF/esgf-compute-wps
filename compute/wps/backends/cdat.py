@@ -19,13 +19,7 @@ from wps.tasks import base
 
 logger = logging.getLogger('wps.backends')
 
-class FileNotIncludedError(WPSError):
-    pass
-
 class CDAT(backend.Backend):
-    def initialize(self):
-        pass
-
     def populate_processes(self):
         logger.info('Registering processes for backend "local"')
 
