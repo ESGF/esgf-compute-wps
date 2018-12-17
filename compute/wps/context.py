@@ -27,7 +27,6 @@ class OperationContext(object):
         self.process = None
         self.units = None
         self.output_path = None
-        self.ingress = []
 
     @classmethod
     def merge_inputs(cls, contexts):
@@ -172,19 +171,6 @@ class OperationContext(object):
         with cdms2.open(path, 'w') as outfile:
             yield outfile
 
-    def generate_indices(self, index, count):
-        return [x for x in range(index, count, settings.WORKER_PER_USER)]
-
-    def chunks_ingress(self, index):
-        base = 0
-
-        for input in self.sorted_inputs():
-            if not input.is_cached:
-                for local_index, chunk in input.chunks(index):
-                    yield base+local_index, chunk, input.variable.var_name
-
-            base += len(input.chunk)
-
 class VariableContext(object):
     def __init__(self, variable):
         self.variable = variable
@@ -196,6 +182,8 @@ class VariableContext(object):
         self.cache_mapped = {}
         self.chunk = []
         self.chunk_axis = None
+        self.ingress = []
+        self.process = []
 
     @staticmethod
     def load_value(obj, name, value):
@@ -260,42 +248,62 @@ class VariableContext(object):
         with cdms2.open(file_path) as infile:
             yield infile[self.variable.var_name]
 
-    def chunks_cached(self, index):
-        mapped = self.cache_mapped.copy()
-
-        logger.info('%r %r %r', index, len(self.chunk),
-                    settings.WORKER_PER_USER)
-
-        indices = [x for x in range(index, len(self.chunk),
-                                    settings.WORKER_PER_USER)]
-
-        logger.info('HELP CACHED %r %r', indices, self.chunk)
-
-        with self.open_local(self.cache_uri) as variable:
-            for index in indices:
-                mapped.update({ self.chunk_axis: self.chunk[index] })
-
-                yield index, variable(**mapped)
-
-    def chunks_ingress(self, index, context):
+    def chunks_remote(self, index, context):
         mapped = self.mapped.copy()
 
-        logger.info('%r %r %r', index, len(self.chunk),
-                    settings.WORKER_PER_USER)
-
         indices = [x for x in range(index, len(self.chunk),
                                     settings.WORKER_PER_USER)]
 
-        logger.info('HELP %r %r', indices, self.chunk)
+        logger.info('Generating remote chunks')
 
         with self.open(context) as variable:
             for index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[index] })
 
-                yield index, variable(**mapped)
+                yield self.variable.uri, index, variable(**mapped)
 
-    def chunks(self, index, context=None):
-        if self.is_cached:
-            return self.chunks_cached(index)
+    def chunks_cache(self, index):
+        mapped = self.cache_mapped.copy()
+
+        indices = [x for x in range(index, len(self.chunk),
+                                    settings.WORKER_PER_USER)]
+
+        logger.info('HELP %r', self.chunk)
+
+        logger.info('Generating cached chunks')
+
+        with self.open_local(self.cache_uri) as variable:
+            for index in indices:
+                mapped.update({ self.chunk_axis: self.chunk[index] })
+
+                yield self.cache_uri, index, variable(**mapped)
+
+    def chunks_ingress(self, index):
+        ingress = sorted(self.ingress)
+
+        logger.info('Generating ingressed chunks')
+
+        for index, ingress_path in enumerate(ingress):
+            with self.open_local(ingress_path) as variable:
+                yield ingress_path, index, variable()
+
+    def chunks_process(self):
+        process = sorted(self.process)
+
+        logger.info('Generating procesed chunks')
+
+        for index, process_path in enumerate(process):
+            with self.open_local(process_path) as variable:
+                yield process_path, index, variable()
+
+    def chunks(self, index=None, context=None):
+        if len(self.process) > 0:
+            gen = self.chunks_process()
+        elif len(self.ingress) > 0:
+            gen = self.chunks_ingress(index)
+        elif self.cache_uri is not None:
+            gen = self.chunks_cache(index)
         else:
-            return self.chunks_ingress(index, context)
+            gen = self.chunks_remote(index, context)
+
+        return gen

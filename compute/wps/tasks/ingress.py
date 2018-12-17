@@ -92,14 +92,21 @@ def ingress_cache(self, context):
 
 @base.cwt_shared_task()
 def ingress_chunk(self, context, index):
-    for index, chunk, var_name in context.chunks_ingress(index):
-        filename = 'data_{}_{:08}.nc'.format(str(context.job.id), index)
+    for input_index, input in enumerate(context.sorted_inputs()):
+        if input.is_cached:
+            logger.info('Skipping %r already cached', input.variable.uri)
 
-        ingress_path = context.gen_ingress_path(filename)
+            continue
 
-        context.ingress.append(ingress_path)
+        for _, chunk_index, chunk in input.chunks(index, context):
+            ingress_filename = '{}_{:08}_{:08}.nc'.format(str(context.job.id),
+                                                          input_index, chunk_index)
 
-        with context.new_output(ingress_path) as outfile:
-            outfile.write(chunk, id=var_name)
+            ingress_path = context.gen_ingress_path(ingress_filename)
+
+            with context.new_output(ingress_path) as outfile:
+                outfile.write(chunk, id=input.variable.var_name)
+
+            input.ingress.append(ingress_path)
 
     return context

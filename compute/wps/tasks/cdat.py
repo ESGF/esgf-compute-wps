@@ -199,30 +199,23 @@ string e.g. 'lat|lon'.
 """
 
 def process_data(self, context, index, process):
-    base = 0
-    
     axes = context.operation.get_parameter('axes', True)
 
     grid = None
     
     gridder = context.operation.get_parameter('gridder')
 
-    for input in context.sorted_inputs():
-        count = 0
-
-        for index, count, chunk in input.chunks(context, index):
+    for input_index, input in enumerate(context.sorted_inputs()):
+        for _, chunk_index, chunk in input.chunks(index, context):
             if grid is None and gridder is not None:
                 grid = self.generate_grid(gridder)
 
                 grid = self.subset_grid(grid, input.mapped)
 
-            local_index = base + index
+            process_filename = '{}_{:08}_{:08}_{}.nc'.format(
+                str(context.job.id), input_index, chunk_index, '_'.join(axes.values))
 
-            local_filename = 'data_{}_{:08}_{}.nc'.format(str(context.job.id),
-                                                          local_index,
-                                                          '_'.join(axes.values))
-
-            local_path = context.gen_ingress_path(local_filename)
+            process_path = context.gen_ingress_path(process_filename)
 
             if grid is not None:
                 shape = chunk.shape
@@ -232,63 +225,61 @@ def process_data(self, context, index, process):
 
                 logger.info('Regrid %r -> %r', shape, chunk.shape)
 
-            if context.units is not None and chunk.getTime() is not None:
-                chunk.getTime().toRelativeTime(str(context.units))
-
             if process is not None:
                 chunk = process(chunk, axes.values)
 
-            with context.new_output(local_path) as outfile:
+            with context.new_output(process_path) as outfile:
                 outfile.write(chunk, id=input.variable.var_name)
 
-            input.process.append(local_path)
-
-        base += count
+            input.process.append(process_path)
 
     return context
 
 def regrid_data(self, context, index):
-    base = 0
-
     grid = None
     
     gridder = context.operation.get_parameter('gridder')
 
     for input in context.sorted_inputs():
-        count = 0
+        if gridder is None:
+            input.process = input.ingress
+        else:
+            for source_path, _, chunk in input.chunks(context, index):
+                if grid is None and gridder is not None:
+                    grid = self.generate_grid(gridder)
 
-        for index, count, chunk in input.chunks(context, index):
-            if grid is None and gridder is not None:
-                grid = self.generate_grid(gridder)
+                    grid = self.subset_grid(grid, input.mapped)
 
-                grid = self.subset_grid(grid, input.mapped)
+                process_filename = parse_filename(source_path)
 
-            local_index = base + index
+                process_filename = '{}_regrid.nc'.format(process_filename)
 
-            local_filename = 'data_{}_{:08}_regrid.nc'.format(str(context.job.id), 
-                                                              local_index)
+                process_path = context.gen_ingress_path(process_filename)
 
-            local_path = context.gen_ingress_path(local_filename)
+                if grid is not None:
+                    shape = chunk.shape
 
-            if grid is not None:
-                shape = chunk.shape
+                    chunk = chunk.regrid(grid, regridTool=gridder.tool,
+                                         regridMethod=gridder.method)
 
-                chunk = chunk.regrid(grid, regridTool=gridder.tool,
-                                     regridMethod=gridder.method)
+                    logger.info('Regrid %r -> %r', shape, chunk.shape)
 
-                logger.info('Regrid %r -> %r', shape, chunk.shape)
+                if context.units is not None and chunk.getTime() is not None:
+                    chunk.getTime().toRelativeTime(str(context.units))
 
-            if context.units is not None and chunk.getTime() is not None:
-                chunk.getTime().toRelativeTime(str(context.units))
+                with context.new_output(process_path) as outfile:
+                    outfile.write(chunk, id=input.variable.var_name)
 
-            with context.new_output(local_path) as outfile:
-                outfile.write(chunk, id=input.variable.var_name)
-
-            input.process.append(local_path)
-
-        base += count
+                input.process.append(process_path)
 
     return context
+
+def parse_filename(path):
+    base = os.path.basename(path)
+
+    filename, _ = os.path.splitext(base)
+
+    return filename
 
 @base.cwt_shared_task()
 def concat(self, contexts):
@@ -302,8 +293,8 @@ def concat(self, contexts):
             chunk_axis = None
             chunk_axis_index = None
 
-            for _, _, chunk in input.chunks(context):
-                logger.info('Chunk shape %r', chunk.shape)
+            for file_path, _, chunk in input.chunks(context):
+                logger.info('Chunk shape %r %r', file_path, chunk.shape)
 
                 if chunk_axis is None:
                     chunk_axis_index = chunk.getAxisIndex(input.chunk_axis)
@@ -311,8 +302,12 @@ def concat(self, contexts):
                     chunk_axis = chunk.getAxis(chunk_axis_index)
 
                 if chunk_axis.isTime():
+                    logger.info('Writing temporal chunk')
+
                     outfile.write(chunk, id=input.variable.var_name)
                 else:
+                    logger.info('Gathering spatial chunk')
+
                     data.append(chunk)
 
             if not chunk_axis.isTime():
