@@ -78,14 +78,13 @@ def query_multiple_value(key, type=int, **kwargs):
 
     return results
 
+METRICS_ABSTRACT = """
+Returns the current metrics of the server.
+"""
 
-@base.register_process('CDAT.metrics', abstract="""
-                       Returns the current metrics of the server.
-                       """, data_inputs=[], metadata={'inputs': 0})
+@base.register_process('CDAT.metrics', abstract=METRICS_ABSTRACT, data_inputs=[], metadata={'inputs': 0})
 @base.cwt_shared_task()
-def metrics_task(self, user_id, job_id, **kwargs):
-    job = self.load_job(job_id)
-
+def metrics_task(self, context):
     user_jobs_queued = models.Job.objects.filter(status__status=models.ProcessAccepted).exclude(status__status=models.ProcessStarted).exclude(
         status__status=models.ProcessFailed).exclude(status__status=models.ProcessSucceeded).count()
 
@@ -165,6 +164,6 @@ def metrics_task(self, user_id, job_id, **kwargs):
         'time': timezone.now().ctime(),
     }
 
-    job.succeeded(json.dumps(data))
+    context.job.succeeded(json.dumps(data))
 
     return data
