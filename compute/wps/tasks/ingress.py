@@ -26,9 +26,7 @@ logger = log.get_task_logger('wps.tasks.ingress')
 @base.cwt_shared_task()
 def ingress_cleanup(self, context):
     for input in context.inputs:
-        ingress = [x[1] for x in input.ingress]
-
-        for file_path in (ingress + input.process):
+        for file_path in (input.ingress + input.process):
             try:
                 os.remove(file_path)
             except:
@@ -51,8 +49,6 @@ def write_cache_file(entry, input, context):
                 chunk_axis = chunk.getAxis(chunk_axis_index)
 
             if chunk_axis.isTime():
-                logger.info('Writing chunk %r', chunk.shape)
-
                 outfile.write(chunk, id=input.variable.var_name)
             else:
                 data.append(chunk)

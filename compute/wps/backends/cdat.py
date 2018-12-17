@@ -703,8 +703,7 @@ class CDAT(backend.Backend):
 
             cleanup = tasks.ingress_cleanup.s().set(**helpers.DEFAULT_QUEUE)
 
-            finalize = concat | success
-            #finalize = concat | success | cache | cleanup
+            finalize = concat | success | cache | cleanup
 
             canvas = preprocess | celery.group(process_chains) | finalize
 
