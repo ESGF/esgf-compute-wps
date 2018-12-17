@@ -36,7 +36,14 @@ def axis_size(data):
 
 @base.cwt_shared_task()
 def generate_chunks(self, context):
-    process_axis = set([context.operation.get_parameter('axes')])
+    axes = context.operation.get_parameter('axes')
+
+    if axes is None:
+        process_axis = set()
+    else:
+        process_axis = set(axes.values)
+
+    logger.info('Process axes %r', process_axis)
 
     for input in context.inputs:
         order = input.mapped_order
@@ -52,18 +59,30 @@ def generate_chunks(self, context):
             # Default to time axis?
             chunk_axis = None
 
+        logger.info('Selected %r axis for chunking', chunk_axis)
+
         if input.is_cached:
             mapped = input.cache_mapped
         else:
             mapped = input.mapped
 
         if chunk_axis is not None:
-            non_chunk_axes = [mapped[x] for x in (file_axes - set([chunk_axis]))]
+            non_chunk_axes = [mapped[x] for x in (set(order) - set([chunk_axis]))]
 
-            chunk_size = reduce(lambda x, y: axis_size(x) * axis_size(y),
-                                non_chunk_axes)
+            logger.info('Non chunk axes %r', non_chunk_axes)
 
-            chunk_per_worker = settings.WORKER_MEMORY / 2 / chunk_size
+            # Reduce won't convert if array length is 1
+            if len(non_chunk_axes) > 1:
+                chunk_size = reduce(lambda x, y: axis_size(x) * axis_size(y),
+                                    non_chunk_axes)
+            else:
+                chunk_size = axis_size(non_chunk_axes[0])
+
+            logger.info('Chunk size %r', chunk_size)
+
+            chunk_per_worker = int(settings.WORKER_MEMORY / 2 / chunk_size)
+
+            logger.info('Chunk per worker %r', chunk_per_worker)
 
             if chunk_per_worker == 0:
                 raise WPSError('A single chunk cannot fit it memory, consider'

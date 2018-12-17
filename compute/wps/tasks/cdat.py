@@ -268,7 +268,7 @@ def regrid_data(self, context, index):
             local_filename = 'data_{}_{:08}_regrid.nc'.format(str(context.job.id), 
                                                               local_index)
 
-            local_path = context.gen_ingress_path(local_file_name)
+            local_path = context.gen_ingress_path(local_filename)
 
             if grid is not None:
                 shape = chunk.shape
@@ -281,7 +281,7 @@ def regrid_data(self, context, index):
             if context.units is not None and chunk.getTime() is not None:
                 chunk.getTime().toRelativeTime(str(context.units))
 
-            with context.new_output(local_output) as outfile:
+            with context.new_output(local_path) as outfile:
                 outfile.write(chunk, id=input.variable.var_name)
 
             input.process.append(local_path)
@@ -298,10 +298,27 @@ def concat(self, contexts):
 
     with context.new_output(context.output_path) as outfile:
         for input in context.sorted_inputs():
+            data = []
+            chunk_axis = None
+            chunk_axis_index = None
+
             for _, _, chunk in input.chunks(context):
                 logger.info('Chunk shape %r', chunk.shape)
 
-                outfile.write(chunk, id=input.variable.var_name)
+                if chunk_axis is None:
+                    chunk_axis_index = chunk.getAxisIndex(input.chunk_axis)
+
+                    chunk_axis = chunk.getAxis(chunk_axis_index)
+
+                if chunk_axis.isTime():
+                    outfile.write(chunk, id=input.variable.var_name)
+                else:
+                    data.append(chunk)
+
+            if not chunk_axis.isTime():
+                data = MV2.concatenate(data, axis=chunk_axis_index)
+
+                outfile.write(data, id=input.variable.var_name)
 
     return context
 
@@ -310,21 +327,21 @@ def concat(self, contexts):
 def regrid(self, context, index):
     """ Regrids a chunk of data.
     """
-    return regrid_data(context, index)
+    return regrid_data(self, context, index)
 
 @base.register_process('CDAT.subset', abstract=SUBSET_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
 def subset(self, context, index):
     """ Subsetting data.
     """
-    return regrid_data(context, index)
+    return regrid_data(self, context, index)
 
 @base.register_process('CDAT.aggregate', abstract=AGGREGATE_ABSTRACT, metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
 def aggregate(self, context, index):
     """ Aggregating data.
     """
-    return regrid_data(context, index)
+    return regrid_data(self, context, index)
 
 @base.register_process('CDAT.average', abstract=AVERAGE_ABSTRACT, process=cdutil.averager, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()

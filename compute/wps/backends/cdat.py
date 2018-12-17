@@ -691,9 +691,10 @@ class CDAT(backend.Backend):
             for index in range(settings.WORKER_PER_USER):
                 ingress = tasks.ingress_chunk.s(index).set(**helpers.DEFAULT_QUEUE)
 
-                process = process_func.s(index).set(**helpers.DEFAULT_QUEUE)
+                #process = process_func.s(index).set(**helpers.DEFAULT_QUEUE)
 
-                process_chains.append(celery.chain(ingress, process))
+                process_chains.append(celery.chain(ingress))
+                #process_chains.append(celery.chain(ingress, process))
 
             concat = tasks.concat.s().set(**helpers.DEFAULT_QUEUE)
 
@@ -705,6 +706,7 @@ class CDAT(backend.Backend):
 
             finalize = concat | success | cache | cleanup
 
-            canvas = preprocess | celery.group(process_chains) | finalize
+            canvas = preprocess | celery.group(process_chains)
+            #canvas = preprocess | celery.group(process_chains) | finalize
 
             canvas.delay()
