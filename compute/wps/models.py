@@ -494,6 +494,18 @@ class Job(models.Model):
         return latest is not None and latest.status == ProcessStarted
 
     @property
+    def is_failed(self):
+        latest = self.status_set.latest('created_date')
+
+        return latest is not None and latest.stauts == ProcessFailed
+
+    @property
+    def is_succeeded(self):
+        latest = self.status_set.latest('created_date')
+
+        return latest is not None and latest.stauts == ProcessSucceeded
+
+    @property
     def steps_progress(self):
         try:
             return (self.steps_completed + 1) * 100.0 / self.steps_total
@@ -536,48 +548,41 @@ class Job(models.Model):
     def accepted(self):
         self.status_set.create(status=ProcessAccepted)
 
-        metrics.JOBS_IN_QUEUE.inc()
-
-        metrics.JOBS_QUEUED.labels(self.process.identifier).inc()
+        metrics.WPS_JOBS_ACCEPTED.inc()
 
     def started(self):
+        # Guard against duplicates
         if not self.is_started:
             status = self.status_set.create(status=ProcessStarted)
 
             status.set_message('Job Started', self.steps_progress)
 
-            metrics.JOBS_IN_QUEUE.dec()
-
-            metrics.JOBS_RUNNING.inc()
+            metrics.WPS_JOBS_STARTED.inc()
 
     def succeeded(self, output=None):
-        if output is None:
-            output = ''
+        # Guard against duplicates
+        if not self.is_succeeded:
+            if output is None:
+                output = ''
 
-        status = self.status_set.create(status=ProcessSucceeded)
+            status = self.status_set.create(status=ProcessSucceeded)
 
-        status.output = output
+            status.output = output
 
-        status.save()
+            status.save()
 
-        metrics.JOBS_RUNNING.dec()
-
-        metrics.JOBS_COMPLETED.labels(self.process.identifier).inc()
+            metrics.WPS_JOBS_SUCCEEDED.inc()
 
     def failed(self, exception):
-        if self.is_started:
-            self.update('Job Failed')
-
-        with transaction.atomic():
+        # Guard against duplicates
+        if not self.is_failed:
             status = self.status_set.create(status=ProcessFailed)
 
             status.exception = exception
 
             status.save()
 
-            metrics.JOBS_RUNNING.dec()
-
-            metrics.JOBS_FAILED.labels(self.process.identifier).inc()
+            metrics.WPS_JOBS_FAILED.inc()
 
     def retry(self, exception):
         self.update('Retrying... {}', exception)

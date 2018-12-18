@@ -15,6 +15,7 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 
 from wps import helpers
+from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.context import OperationContext
@@ -183,6 +184,8 @@ def map_axis(axis, dimension, units):
         step = 1 if dimension is None else helpers.int_or_float(dimension.step)
 
         selector = slice(0, len(axis), step)
+
+        metrics.WPS_DOMAIN_CRS.labels(cwt.INDICES).inc()
     elif dimension.crs == cwt.VALUES:
         start = helpers.int_or_float(dimension.start)
 
@@ -193,12 +196,16 @@ def map_axis(axis, dimension, units):
         map = map_axis_interval(axis, start, stop)
 
         selector = slice(map[0], map[1], step)
+
+        metrics.WPS_DOMAIN_CRS.labels(cwt.VALUES).inc()
     elif dimension.crs == cwt.TIMESTAMPS:
         step = helpers.int_or_float(dimension.step)
         
         map = map_axis_interval(axis, dimension.start, dimension.end)
 
         selector = slice(map[0], map[1], step)
+
+        metrics.WPS_DOMAIN_CRS.labels(cwt.TIMESTAMPS).inc()
     else:
         raise WPSError('Unknown CRS {!r}', dimension.crs)
 

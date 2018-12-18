@@ -439,14 +439,3 @@ def status(request, job_id):
         raise WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
 
     return http.HttpResponse(job.report, content_type='text/xml')
-
-@require_http_methods(['POST'])
-@csrf_exempt
-def execute(request):
-    data = helpers.decoder(request.body)
-
-    backend = backends.Backend.get_backend('CDAT')
-
-    backend.execute(**data)
-
-    return http.HttpResponse()

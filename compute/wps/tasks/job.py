@@ -32,6 +32,8 @@ def job_succeeded_workflow(self, context):
     for variable in context.variable.values():
         models.File.track(context.user, variable)
 
+        metrics.track_file(variable)
+
     return context
 
 @base.cwt_shared_task()

@@ -16,9 +16,10 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
-from wps import WPSError
-from wps import tasks
 from wps import helpers
+from wps import metrics
+from wps import tasks
+from wps import WPSError
 
 logger = common.logger
 
@@ -228,7 +229,9 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
     Returns:
         A dict containing the parsed solr documents.
     """
-    data = cache.get(dataset_id)
+    cache_id = hashlib.md5(dataset_id).hexdigest()    
+
+    data = cache.get(cache_id)
 
     if data is None:
         params = search_params(dataset_id, query, shard)
@@ -237,12 +240,19 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
 
         logger.info('Searching %r', url)
 
-        try:
-            response = requests.get(url, params)
-        except requests.ConnectionError:
-            raise Exception('Connection timed out')
-        except requests.RequestException as e:
-            raise Exception('Request failed: "{}"'.format(e))
+        with metrics.WPS_ESGF_SEARCH.time():
+            try:
+                response = requests.get(url, params)
+
+                metrics.WPS_ESGF_SEARCH_SUCCESS.inc()
+            except requests.ConnectionError:
+                metrics.WPS_ESGF_SEARCH_FAILED.inc()
+
+                raise Exception('Connection timed out')
+            except requests.RequestException as e:
+                metrics.WPS_ESGF_SEARCH_FAILED.inc()
+
+                raise Exception('Request failed: "{}"'.format(e))
 
         try:
             response_json = json.loads(response.content)

@@ -58,6 +58,10 @@ def write_cache_file(entry, input, context):
 
             outfile.write(data, id=input.variable.var_name)
 
+    stat = os.stat(entry.local_path)
+
+    metrics.WPS_DATA_CACHE_WRITE.inc(stat.st_size)
+
     entry.set_size()
 
 @base.cwt_shared_task()

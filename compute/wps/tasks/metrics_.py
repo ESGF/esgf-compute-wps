@@ -131,10 +131,6 @@ def metrics_task(self, context):
 
     data = {
         'health': {
-            'jobs_running': query_single_value(type=int,
-                                               query='sum(wps_jobs_running)'),
-            'jobs_queued': query_single_value(type=int,
-                                              query='sum(wps_jobs_in_queue)'),
             'user_jobs_running': user_jobs_running,
             'user_jobs_queued': user_jobs_queued,
             'cpu_avg': query_single_value(type=float,
@@ -154,12 +150,6 @@ def metrics_task(self, context):
         'usage': {
             'files': file,
             'operators': operator,
-            'output': query_single_value(type=float,
-                                           query='sum(wps_process_bytes/wps_process_seconds >= 0)'),
-            'local': query_single_value(type=float,
-                                        query='sum(wps_cache_bytes/wps_cache_seconds >= 0)'),
-            'download': query_single_value(type=float,
-                                         query='sum(wps_ingress_bytes/wps_ingress_seconds >= 0)'),
         },
         'time': timezone.now().ctime(),
     }

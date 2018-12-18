@@ -3,6 +3,7 @@ import collections
 import os
 import re
 import uuid
+import urlparse
 from collections import deque
 from datetime import datetime
 
@@ -12,6 +13,7 @@ import requests
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
+from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.tasks import credentials
@@ -314,6 +316,10 @@ class OperationContext(object):
         with cdms2.open(path, 'w') as outfile:
             yield outfile
 
+        stat = os.stat(path)
+
+        metrics.WPS_DATA_OUTPUT.inc(stat.st_size)
+
 class VariableContext(object):
     def __init__(self, variable):
         self.variable = variable
@@ -364,15 +370,26 @@ class VariableContext(object):
     def check_access(self, cert=None):
         url = '{}.dds'.format(self.variable.uri)
 
+        parts = urlparse.urlparse(url)
+
         try:
             response = requests.get(url, timeout=(2, 2), cert=cert,
                                     verify=False)
         except requests.ConnectTimeout:
+            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
             raise WPSError('Timeout connecting to {!r}', url)
         except requests.ReadTimeout:
+            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
             raise WPSError('Timeout reading {!r}', url)
 
-        return response.status_code == 200
+        if response.status_code == 200:
+            return True
+
+        metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
+        return False
     
     @contextlib.contextmanager
     def open(self, context):
@@ -382,10 +399,17 @@ class VariableContext(object):
             if not self.check_access(cert_path):
                 raise WPSError('Cannot access file')
 
-        with cdms2.open(self.variable.uri) as infile:
-            logger.info('Opened %r', infile.id)
+        try:
+            with cdms2.open(self.variable.uri) as infile:
+                logger.info('Opened %r', infile.id)
 
-            yield infile[self.variable.var_name]
+                yield infile[self.variable.var_name]
+        except Exception:
+            parts = urlparse.urlparse(self.variable.uri)
+
+            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
+            raise WPSError('Failed to access file {!r}', self.variable.uri)
 
     @contextlib.contextmanager
     def open_local(self, file_path):
@@ -400,11 +424,19 @@ class VariableContext(object):
 
         logger.info('Generating remote chunks')
 
+        parts = urlparse.urlparse(self.variable.uri)
+
         with self.open(context) as variable:
             for index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[index] })
 
-                yield self.variable.uri, index, variable(**mapped)
+                with metrics.WPS_DATA_DOWNLOAD.labels(parts.hostname).time():
+                    data = variable(**mapped)
+
+                metrics.WPS_DATA_DOWNLOAD_BYTES.labels(parts.hostname,
+                                                       self.variable.var_name).inc(data.nbytes)
+
+                yield self.variable.uri, index, data
 
     def chunks_cache(self, index):
         mapped = self.cache_mapped.copy()
@@ -412,15 +444,17 @@ class VariableContext(object):
         indices = [x for x in range(index, len(self.chunk),
                                     settings.WORKER_PER_USER)]
 
-        logger.info('HELP %r', self.chunk)
-
         logger.info('Generating cached chunks')
 
         with self.open_local(self.cache_uri) as variable:
             for index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[index] })
 
-                yield self.cache_uri, index, variable(**mapped)
+                data = variable(**mapped)
+
+                metrics.WPS_DATA_CACHE_READ.inc(data.nbytes)
+
+                yield self.cache_uri, index, data
 
     def chunks_ingress(self, index):
         ingress = sorted(self.ingress)

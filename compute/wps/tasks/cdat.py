@@ -112,6 +112,9 @@ def process_data(self, context, index, process):
     for input_index, input in enumerate(context.sorted_inputs()):
         for _, chunk_index, chunk in input.chunks(index, context):
             if grid is None and gridder is not None:
+                metrics.WPS_REGRID.labels(gridder.tool, gridder.method,
+                                          gridder.grid).inc()
+
                 grid = self.generate_grid(gridder)
 
                 grid = self.subset_grid(grid, input.mapped)
@@ -130,7 +133,8 @@ def process_data(self, context, index, process):
                 logger.info('Regrid %r -> %r', shape, chunk.shape)
 
             if process is not None:
-                chunk = process(chunk, axes.values)
+                with metrics.WPS_PROCESS.label(context.operation.identifier).time():
+                    chunk = process(chunk, axes.values)
 
             with context.new_output(process_path) as outfile:
                 outfile.write(chunk, id=input.variable.var_name)
@@ -150,6 +154,9 @@ def regrid_data(self, context, index):
         else:
             for source_path, _, chunk in input.chunks(context, index):
                 if grid is None and gridder is not None:
+                    metrics.WPS_REGRID.labels(gridder.tool, gridder.method,
+                                              gridder.grid).inc()
+                    
                     grid = self.generate_grid(gridder)
 
                     grid = self.subset_grid(grid, input.mapped)

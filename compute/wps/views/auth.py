@@ -100,6 +100,8 @@ def user_cert(request):
         if not settings.CERT_DOWNLOAD_ENABLED:
             return http.HttpResponseBadRequest()
 
+        metrics.WPS_CERT_DOWNLOAD.inc()
+
         common.authentication_required(request)
 
         user = request.user
@@ -133,6 +135,10 @@ def user_login_openid(request):
         return common.failed(str(e))
     else:
         return common.success({'redirect': url})
+    finally:
+        if 'openid_url' in request.POST:
+            metrics.track_login(metrics.WPS_OPENID_LOGIN,
+                                request.POST['openid_url'])
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -155,6 +161,9 @@ def user_login_openid_callback(request):
 
         return common.failed(str(e))
     else:
+        metrics.track_login(metrics.WPS_OPENID_LOGIN_SUCCESS,
+                            user.auth.openid_url)
+
         return redirect('{}?expires={}'.format(settings.WPS_OPENID_CALLBACK_SUCCESS, request.session.get_expiry_date()))
 
 @require_http_methods(['GET'])
@@ -197,6 +206,9 @@ def login_oauth2(request):
         return common.failed(str(e))
     else:
         return common.success({'redirect': redirect_url})
+    finally:
+        metrics.track_login(metrics.WPS_OAUTH_LOGIN,
+                            request.user.auth.openid_url)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -248,6 +260,8 @@ def oauth2_callback(request):
     
     logger.info('Finished handling OAuth2 callback, redirect to profile')
 
+    metrics.track_login(metrics.WPS_OAUTH_LOGIN_SUCCESS, user.auth.openid_url)
+
     return redirect(settings.WPS_PROFILE_URL)
 
 @require_http_methods(['POST'])
@@ -290,7 +304,13 @@ def login_mpc(request):
 
         return common.failed(str(e))
     else:
+        metrics.track_login(metrics.WPS_MPC_LOGIN_SUCCESS,
+                            request.user.auth.openid_url)
+
         return common.success({
             'type': request.user.auth.type,
             'api_key': request.user.auth.api_key
         })
+    finally:
+        metrics.track_login(metrics.WPS_MPC_LOGIN,
+                            request.user.auth.openid_url)
