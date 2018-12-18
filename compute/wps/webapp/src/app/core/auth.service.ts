@@ -74,58 +74,6 @@ export class AuthService extends WPSService {
       });
   }
 
-  resetPassword(data: any): Promise<WPSResponse> {
-    let params = new URLSearchParams();
-
-    params.set('username', data.username);
-    params.set('token', data.token);
-    params.set('password', data.password);
-
-    return this.getCSRF(this.configService.authResetPath, params);
-  }
-
-  forgotPassword(username: string): Promise<WPSResponse> {
-    let params = new URLSearchParams();
-
-    params.set('username', username);
-
-    return this.getCSRF(this.configService.authForgotPasswordPath, params);
-  }
-
-  forgotUsername(email: string): Promise<WPSResponse> {
-    let params = new URLSearchParams();
-
-    params.set('email', email);
-
-    return this.getCSRF(this.configService.authForgotUsernamePath, params);
-  }
-
-  create(user: User): Promise<WPSResponse> {
-    return this.postCSRF(this.configService.authCreatePath, user.toUrlEncoded());
-  }
-
-  login(username: string, password: string): Promise<WPSResponse> {
-    let data = `username=${username}&password=${password}`;
-
-    return this.postCSRF(this.configService.authLoginPath, data)
-      .then(response => {
-        this.setUser(response.data as User);
-
-        this.setExpires(this.user.expires);
-
-        this.setLoggedIn(true);
-
-        return response;
-      })
-      .catch(error => {
-        this.setLoggedIn(false);
-
-        localStorage.removeItem('expires');
-
-        throw error;
-      });
-  }
-
   loginOpenID(openidURL: string): Promise<WPSResponse> {
     return this.postCSRF(this.configService.authLoginOpenIDPath, `openid_url=${openidURL}`);
   }

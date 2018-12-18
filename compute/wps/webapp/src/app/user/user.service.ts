@@ -15,12 +15,11 @@ export class User {
     public admin?: boolean,
     public local_init?: boolean,
     public expires?: number,
-    public password?: string
   ) { }
 
   toUrlEncoded(): string {
     let params = '';
-    let fields = ['username', 'openID', 'email', 'password'];
+    let fields = ['email'];
 
     for (let k of fields) {
       if (this[k] != undefined) {
