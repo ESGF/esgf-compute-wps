@@ -31,11 +31,6 @@ persistence:
     capacity: 10Gi
     path: /opt/nfs/cwt
 
-  prometheus:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/cwt
-
   postgresql:
     storageClassName: slow
     capacity: 10Gi
@@ -45,32 +40,6 @@ persistence:
     storageClassName: slow
     capacity: 10Gi
     path: /opt/cwt
-
-prometheus:
-  alertmanager:
-    enabled: false
-
-  pushgateway:
-    enabled: false
-
-  server:
-    prefixURL: /prometheus
-    baseURL: /prometheus
-
-    ingress:
-      enabled: true
-      hosts:
-      - /prometheus
-
-      annotations:
-        ingress.kubernetes.io/ssl-redirect: "true"
-        ingress.kubernetes.io/hsts-max-age: "31536000"
-        ingress.kubernetes.io/hsts-include-subdomains: "true"
-        ingress.kubernetes.io/force-hsts: "true"
-
-    persistentVolume:
-      enabled: true
-      existingClaim: prometheus-pvc
 
 nginx:
   replicas: 1
