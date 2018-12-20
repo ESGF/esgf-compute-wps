@@ -12,7 +12,6 @@ export class User {
     public email: string = '',
     public api_key: string = '',
     public type: string = '',
-    public admin?: boolean,
     public local_init?: boolean,
     public expires?: number,
   ) { }
