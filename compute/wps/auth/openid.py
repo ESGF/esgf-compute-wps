@@ -69,7 +69,7 @@ def services(openid_url, service_urns):
 
     return requested.values()
 
-def begin(request, openid_url):
+def begin(request, openid_url, next):
     disc = manager.Discovery(request.session, openid_url)
 
     # Clean up any residual data from pevious attempts
@@ -102,7 +102,12 @@ def begin(request, openid_url):
 
     auth_request.addExtension(fetch_request)
 
-    url = auth_request.redirectURL(settings.WPS_OPENID_TRUST_ROOT, settings.WPS_OPENID_RETURN_TO)
+    return_to = settings.WPS_OPENID_RETURN_TO
+
+    if next is not None:
+        return_to = '{!s}?next={!s}'.format(return_to, next)
+
+    url = auth_request.redirectURL(settings.WPS_OPENID_TRUST_ROOT, return_to)
 
     return url
 

@@ -74,8 +74,8 @@ export class AuthService extends WPSService {
       });
   }
 
-  loginOpenID(openidURL: string): Promise<WPSResponse> {
-    return this.postCSRF(this.configService.authLoginOpenIDPath, `openid_url=${openidURL}`);
+  loginOpenID(openidURL: string, next: string): Promise<WPSResponse> {
+    return this.postCSRF(this.configService.authLoginOpenIDPath, `openid_url=${openidURL};next=${next}`);
   }
 
   logout() {

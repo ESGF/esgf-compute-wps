@@ -69,29 +69,32 @@ Thank you for creating an account for the ESGF compute server. Please login into
 If you have any questions or concerns please email the <a href="mailto:{admin_email}">server admin</a>.
 """
 
-class ResetPasswordInvalidStateError(WPSError):
-    def __init__(self):
-        msg = 'Invalid state while recovering password, please try again'
-
-        super(ResetPasswordInvalidStateError, self).__init__(msg)
-
-class ResetPasswordTokenExpiredError(WPSError):
-    def __init__(self):
-        msg = 'Token to reset password has expired'
-
-        super(ResetPasswordTokenExpiredError, self).__init__(msg)
-
-class ResetPasswordTokenMismatchError(WPSError):
-    def __init__(self):
-        msg = 'Token to reset password does not match expected value'
-
-        super(ResetPasswordTokenMismatchError, self).__init__(msg)
-
 class MPCEndpointParseError(WPSError):
     def __init__(self):
         msg = 'Parsing host/port from OpenID services failed'
 
         super(MPCEndpointParseError, self).__init__(msg)
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def authorization(request):
+    try:
+        proto = request.META['HTTP_X_FORWARDED_PROTO']
+
+        host = request.META['HTTP_X_FORWARDED_HOST']
+
+        uri = request.META['HTTP_X_FORWARDED_URI']
+    except KeyError as e:
+        raise WPSError('Could not reconstruct forwarded url, missing {!s}', e)
+
+    forward = '{!s}://{!s}{!s}'.format(proto, host, uri)
+
+    if not request.user.is_authenticated:
+        redirect_url = '{!s}?next={!s}'.format(settings.WPS_LOGIN_URL, forward)
+
+        return http.HttpResponseRedirect(redirect_url)
+
+    return http.HttpResponse()
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -126,9 +129,9 @@ def user_login_openid(request):
     try:
         form = forms.OpenIDForm(request.POST)
 
-        data = common.validate_form(form, ('openid_url',))
+        data = common.validate_form(form, ('openid_url', 'next'))
 
-        url = openid.begin(request, data['openid_url'])
+        url = openid.begin(request, **data)
     except WPSError as e:
         logger.exception('Error logging user in with OpenID')
 
@@ -156,6 +159,8 @@ def user_login_openid_callback(request):
             models.Auth.objects.create(openid_url=openid_url, user=user)
 
         login(request, user)
+
+        next = request.GET.get('next', None)
     except WPSError as e:
         logger.exception('Error handling OpenID callback')
 
@@ -164,7 +169,13 @@ def user_login_openid_callback(request):
         metrics.track_login(metrics.WPS_OPENID_LOGIN_SUCCESS,
                             user.auth.openid_url)
 
-        return redirect('{}?expires={}'.format(settings.WPS_OPENID_CALLBACK_SUCCESS, request.session.get_expiry_date()))
+        redirect_url = '{!s}?expires={!s}'.format(settings.WPS_OPENID_CALLBACK_SUCCESS,
+                                              request.session.get_expiry_date())
+
+        if next is not None:
+            redirect_url = '{!s}&next={!s}'.format(redirect_url, next)
+
+        return redirect(redirect_url)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie

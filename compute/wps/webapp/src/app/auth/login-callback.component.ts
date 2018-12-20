@@ -18,16 +18,18 @@ export class LoginCallbackComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    setTimeout(() => {
-      this.activated.queryParams.subscribe((v: any) => {
-        if ('expires' in v) {
-          this.authService.setExpires(v['expires']);
+    this.activated.queryParams.subscribe((v: any) => {
+      if ('expires' in v) {
+        this.authService.setExpires(v['expires']);
 
+        if ('next' in v) {
+          window.location.href = v['next'];
+        } else {
           this.router.navigate([this.configService.profilePath]);
 
           this.notificationService.message('Successfully authenticated to ESGF OpenID');
         }
-      });
+      }
     });
   }
 }
