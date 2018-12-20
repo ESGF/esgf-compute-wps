@@ -204,6 +204,9 @@ class UserFile(models.Model):
 
         return data
 
+    def __str__(self):
+        return '{0.file.name} {0.requested} {0.requested_date}'.format(self)
+
 class Cache(models.Model):
     uid = models.CharField(max_length=256)
     url = models.CharField(max_length=513)
@@ -375,6 +378,9 @@ class Process(models.Model):
             'enabled': self.enabled
         }
 
+    def __str__(self):
+        return '{0.identifier}'.format(self)
+
 class UserProcess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     process = models.ForeignKey(Process, on_delete=models.CASCADE)
@@ -497,7 +503,7 @@ class Job(models.Model):
     def is_failed(self):
         latest = self.status_set.latest('created_date')
 
-        return latest is not None and latest.stauts == ProcessFailed
+        return latest is not None and latest.status == ProcessFailed
 
     @property
     def is_succeeded(self):
