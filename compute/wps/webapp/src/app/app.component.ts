@@ -29,7 +29,10 @@ export class AppComponent implements OnInit {
     private wpsService: WPSService,
   ) { 
     this.authService
-      .userDetails(); 
+      .userDetails()
+      .then(() => {
+        console.log(this.authService);
+      });
   }
 
   ngOnInit() {

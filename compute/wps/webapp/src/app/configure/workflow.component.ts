@@ -223,6 +223,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
   }
 
   execute() {
+    console.log(this.authService);
     if (this.authService.user === null) {
       this.notificationService.error('Must be logged in to execute a workflow');
 

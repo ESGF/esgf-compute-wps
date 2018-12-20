@@ -24,7 +24,6 @@ import { WPSService } from './wps.service';
     NotificationComponent,
   ],
   providers: [
-    AuthService,
     ConfigService,
     WPSService
   ]
