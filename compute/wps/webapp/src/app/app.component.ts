@@ -27,7 +27,10 @@ export class AppComponent implements OnInit {
     private authService: AuthService,
     private configService: ConfigService,
     private wpsService: WPSService,
-  ) { }
+  ) { 
+    this.authService
+      .userDetails(); 
+  }
 
   ngOnInit() {
     this.notificationComponent.subscribe();

@@ -21,15 +21,18 @@ export class LoginCallbackComponent implements OnInit {
     this.activated.queryParams.subscribe((v: any) => {
       if ('expires' in v) {
         this.authService.setExpires(v['expires']);
-
-        if ('next' in v && v['next'] != 'null') {
-          window.location.href = v['next'];
-        } else {
-          this.router.navigate([this.configService.profilePath]);
-
-          this.notificationService.message('Successfully authenticated to ESGF OpenID');
-        }
       }
+
+      this.authService.userDetails()
+        .then(() => {
+          if ('next' in v && v['next'] != 'null') {
+            window.location.href = v['next'];
+          } else {
+            this.router.navigate([this.configService.profilePath]);
+
+            this.notificationService.message('Successfully authenticated to ESGF OpenID');
+          }
+        });
     });
   }
 }

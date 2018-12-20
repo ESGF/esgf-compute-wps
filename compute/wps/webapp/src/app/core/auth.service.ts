@@ -26,12 +26,6 @@ export class AuthService extends WPSService {
     if (this.authenticated) {
       this.setLoggedIn(true);
     }
-
-    this.userDetails()
-      .then(response => {
-        this.setLoggedIn(true);
-      })
-      .catch(error => { });
   }
 
   get authenticated() {
@@ -66,12 +60,10 @@ export class AuthService extends WPSService {
     return this.getCSRF(this.configService.authUserPath)
       .then(response => {
         this.setUser(response.data as User);
-      })
-      .catch(error => {
-        //this.setUser(null);
 
-        return Promise.reject(error);
-      });
+        this.setLoggedIn(true);
+      })
+      .catch(error => { });
   }
 
   loginOpenID(openidURL: string, next: string): Promise<WPSResponse> {

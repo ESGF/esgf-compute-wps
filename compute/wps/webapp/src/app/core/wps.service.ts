@@ -257,10 +257,10 @@ export class WPSService {
         let response = result.json() as WPSResponse;
 
         if (response.status === 'failed') {
-          throw response.error;
+          return Promise.reject(response.error);
         }
      
-        return response;
+        return Promise.resolve(response);
       });
   }
 
