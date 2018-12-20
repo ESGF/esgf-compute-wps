@@ -11,7 +11,6 @@ const routes: Routes = [
       { path: '', component: HomeComponent },
       { path: 'auth', loadChildren: './auth/auth.module#AuthModule' },
       { path: 'user', canActivateChild: [AuthGuard], loadChildren: './user/user.module#UserModule' },
-      { path: 'admin', canActivateChild: [AuthGuard], loadChildren: './admin/admin.module#AdminModule' },
       { path: 'configure', canActivateChild: [AuthGuard], loadChildren: './configure/configure.module#ConfigureModule' },
     ]
   },

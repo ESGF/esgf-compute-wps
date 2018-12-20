@@ -6,7 +6,6 @@ import { JoyrideModule } from 'ngx-joyride';
 import { AppComponent } from './app.component';
 import { HomeComponent } from './home.component';
 
-import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CoreModule } from './core/core.module';
 import { UserModule } from './user/user.module';
@@ -21,7 +20,6 @@ import { AppRoutingModule } from './app-routing.module';
     BrowserModule,
     CoreModule.forRoot(),
     SharedModule,
-    AdminModule,
     AuthModule,
     ConfigureModule,
     UserModule,

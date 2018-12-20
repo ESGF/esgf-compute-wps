@@ -54,30 +54,4 @@ export class StatsService extends WPSService {
         return [];
       });
   }
-
-  files(): Promise<FileStat[]> {
-    let params = new URLSearchParams();
-
-    params.set('type', 'files');
-
-    return this.get(this.configService.adminStatsPath, params)
-      .then((response: WPSResponse) => {
-        if (response.status === 'success') {
-          return response.data.files as FileStat[];
-        }
-
-        return [];
-      });
-  }
-
-  processes(): Promise<ProcessStat[]> {
-    return this.get(this.configService.adminStatsPath)
-      .then((response: WPSResponse) => {
-        if (response.status === 'success') {
-          return response.data.processes as ProcessStat[];
-        }
-
-        return [];
-      });
-  }
 }
