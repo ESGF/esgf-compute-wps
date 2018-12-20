@@ -22,7 +22,7 @@ export class LoginCallbackComponent implements OnInit {
       if ('expires' in v) {
         this.authService.setExpires(v['expires']);
 
-        if ('next' in v) {
+        if ('next' in v && v['next'] != 'null') {
           window.location.href = v['next'];
         } else {
           this.router.navigate([this.configService.profilePath]);
