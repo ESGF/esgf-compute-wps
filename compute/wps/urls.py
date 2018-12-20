@@ -1,9 +1,13 @@
 from django.conf import settings
 from django.conf.urls import url
+from django.conf.urls import include
+from django.contrib import admin
 
 import views
 
 urlpatterns = [
+    url(r'^armstrong/', include('grappelli.urls')),
+    url(r'^neil/', admin.site.urls),
     url(r'^$', views.wps_entrypoint),
     url(r'^search/$', views.search_dataset),
     url(r'^search/variable/$', views.search_variable),

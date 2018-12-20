@@ -127,7 +127,12 @@ def user_login_openid_callback(request):
         except models.User.DoesNotExist:
             username = openid_url.split('/')[-1]
 
-            user = models.User.objects.create_user(username, attrs['email'])
+            first = attrs.get('first', None)
+
+            last = attrs.get('last', None)
+
+            user = models.User.objects.create_user(username, attrs['email'],
+                                                   first_name=first, last_name=last)
 
             models.Auth.objects.create(openid_url=openid_url, user=user)
 
@@ -145,7 +150,7 @@ def user_login_openid_callback(request):
         redirect_url = '{!s}?expires={!s}'.format(settings.WPS_OPENID_CALLBACK_SUCCESS,
                                               request.session.get_expiry_date())
 
-        if next is not None:
+        if next is not None and next != 'null':
             redirect_url = '{!s}&next={!s}'.format(redirect_url, next)
 
         return redirect(redirect_url)

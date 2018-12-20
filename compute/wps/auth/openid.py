@@ -128,15 +128,26 @@ def complete(request):
     return openid_url, attrs
 
 def handle_attribute_exchange(response):
-    attrs = {'email': None}
+    attributes = {
+        'email': 'http://axschema.org/contact/email',
+        'first': 'http://axschema.org/namePerson/first',
+        'last': 'http://axschema.org/namePerson/last',
+    }
 
     ax_response = ax.FetchResponse.fromSuccessResponse(response)
 
+    attrs = {}
+
     if ax_response is not None:
-        try:
-            attrs['email'] = ax_response.get('http://axschema.org/contact/email')[0]
-        except (KeyError, IndexError):
-            raise MissingAttributeError('email')
+        for key, value in attributes.iteritems():
+            try:
+                attrs[key] = ax_response.get(value)[0]
+            except (KeyError, IndexError):
+                raise MissingAttributeError(key)
+
+    # Need a minimum of email to create a new account
+    if 'email' not in attrs:
+        raise MissingAttributeError('email')
 
     return attrs
 
