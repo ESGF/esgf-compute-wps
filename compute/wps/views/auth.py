@@ -42,33 +42,6 @@ discover.OpenIDServiceEndpoint.openid_type_uris.extend([
     URN_MPC
 ])
 
-FORGOT_USERNAME_SUBJECT = 'CWT WPS Username Recovery'
-FORGOT_USERNAME_MESSAGE = """
-Hello {username},
-
-You've requested the recovery of your username: {username}.
-
-Thank you,
-ESGF CWT Team
-"""
-
-FORGOT_PASSWORD_SUBJECT = 'CWT WPS Password Reset'
-FORGOT_PASSWORD_MESSAGE = """
-Hello {username},
-<br><br>
-You've request the reset of you password. Please follow this <a href="{reset_url}">link</a> to reset you password.
-<br><br>
-Thank you,
-ESGF CWT Team
-"""
-
-CREATE_SUBJECT = 'Welcome to ESGF compute server'
-CREATE_MESSAGE = """
-Thank you for creating an account for the ESGF compute server. Please login into your account <a href="{login_url}">here</a>.
-
-If you have any questions or concerns please email the <a href="mailto:{admin_email}">server admin</a>.
-"""
-
 class MPCEndpointParseError(WPSError):
     def __init__(self):
         msg = 'Parsing host/port from OpenID services failed'
