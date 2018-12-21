@@ -133,6 +133,9 @@ class OpenIDNonce(models.Model):
     class Meta:
         unique_together = ('server_url', 'timestamp', 'salt')
 
+    def __str__(self):
+        return '{0.server_url}'.format(self)
+
 class OpenIDAssociation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     server_url = models.CharField(max_length=2048)
@@ -144,6 +147,9 @@ class OpenIDAssociation(models.Model):
 
     class Meta:
         unique_together = ('server_url', 'handle')
+
+    def __str__(self):
+        return ('{0.server_url} {0.handle}'.format(self))
 
 class File(models.Model):
     name = models.CharField(max_length=256)
@@ -189,6 +195,9 @@ class File(models.Model):
             'requested': self.requested
         }
 
+    def __str__(self):
+        return '{0.name}'.format(self)
+
 class UserFile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     file = models.ForeignKey(File, on_delete=models.CASCADE)
@@ -205,7 +214,7 @@ class UserFile(models.Model):
         return data
 
     def __str__(self):
-        return '{0.file.name} {0.requested} {0.requested_date}'.format(self)
+        return '{0.file.name}'.format(self)
 
 class Cache(models.Model):
     uid = models.CharField(max_length=256)
@@ -331,6 +340,9 @@ class Cache(models.Model):
 
         return size
 
+    def __str__(self):
+        return '{0.url} {0.added_date} {0.accessed_date}'.format(self)
+
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
@@ -356,6 +368,9 @@ class Auth(models.Model):
         self.extra = json.dumps(extra)
 
         self.save()
+
+    def __str__(self):
+        return '{0.openid_url} {0.type}'.format(self)
 
 class Process(models.Model):
     identifier = models.CharField(max_length=128, unique=True)
@@ -396,6 +411,9 @@ class UserProcess(models.Model):
 
         return data
 
+    def __str__(self):
+        return '{0.process.identifier}'.format(self)
+
 class Server(models.Model):
     host = models.CharField(max_length=128, unique=True)
     added_date = models.DateTimeField(auto_now_add=True)
@@ -403,6 +421,9 @@ class Server(models.Model):
     capabilities = models.TextField()
 
     processes = models.ManyToManyField(Process)
+
+    def __str__(self):
+        return '{0.host}'.format(self)
 
 class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
@@ -509,7 +530,7 @@ class Job(models.Model):
     def is_succeeded(self):
         latest = self.status_set.latest('created_date')
 
-        return latest is not None and latest.stauts == ProcessSucceeded
+        return latest is not None and latest.status == ProcessSucceeded
 
     @property
     def steps_progress(self):
@@ -628,6 +649,9 @@ class Status(models.Model):
 
         self.save()
 
+    def __str__(self):
+        return '{0.status}'.format(self)
+
 class Message(models.Model):
     status = models.ForeignKey(Status, on_delete=models.CASCADE)
 
@@ -642,3 +666,6 @@ class Message(models.Model):
             'percent': self.percent or 0,
             'message': self.message
         }
+
+    def __str__(self):
+        return '{0.message}'.format(self)
