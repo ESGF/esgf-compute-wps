@@ -204,7 +204,7 @@ def concat(self, contexts):
             chunk_axis = None
             chunk_axis_index = None
 
-            for file_path, _, chunk in input.chunks(context):
+            for file_path, _, chunk in input.chunks(context=context):
                 logger.info('Chunk shape %r %r', file_path, chunk.shape)
 
                 if chunk_axis is None:
