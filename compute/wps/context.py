@@ -372,6 +372,8 @@ class VariableContext(object):
 
         parts = urlparse.urlparse(url)
 
+
+
         try:
             response = requests.get(url, timeout=(2, 2), cert=cert,
                                     verify=False)
@@ -416,11 +418,17 @@ class VariableContext(object):
         with cdms2.open(file_path) as infile:
             yield infile[self.variable.var_name]
 
+    def generate_chunks(self, index):
+        if index is None:
+            return [x for x in range(len(self.chunk))]
+
+        return [x for x in range(index, len(self.chunk),
+                                 settings.WORKER_PER_USER)]
+
     def chunks_remote(self, index, context):
         mapped = self.mapped.copy()
 
-        indices = [x for x in range(index, len(self.chunk),
-                                    settings.WORKER_PER_USER)]
+        indices = self.generate_chunks(index)
 
         logger.info('Generating remote chunks')
 
@@ -441,8 +449,7 @@ class VariableContext(object):
     def chunks_cache(self, index):
         mapped = self.cache_mapped.copy()
 
-        indices = [x for x in range(index, len(self.chunk),
-                                    settings.WORKER_PER_USER)]
+        indices = self.generate_chunks(index)
 
         logger.info('Generating cached chunks')
 
