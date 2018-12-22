@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import base64
+import contextlib
 import datetime
 import hashlib
 import json
@@ -217,91 +218,82 @@ class UserFile(models.Model):
         return '{0.file.name}'.format(self)
 
 class Cache(models.Model):
-    uid = models.CharField(max_length=256)
-    url = models.CharField(max_length=513)
+    url = models.CharField(max_length=512)
+    variable = models.CharField(max_length=64)
     dimensions = models.TextField()
     added_date = models.DateTimeField(auto_now_add=True)
-    accessed_date = models.DateTimeField(null=True)
-    size = models.DecimalField(null=True, max_digits=16, decimal_places=8)
+    accessed_date = models.DateTimeField(auto_now=True)
+    size = models.BigIntegerField(blank=True)
+    local_path = models.CharField(blank=True, max_length=512)
 
-    @property
-    def local_path(self):
-        dimension_hash = hashlib.sha256(self.uid+self.dimensions).hexdigest()
+    class Meta:
+        unique_together = (('url', 'variable'),)
 
-        file_name = '{}.nc'.format(dimension_hash)
-
-        return os.path.join(settings.WPS_CACHE_PATH, file_name)
-
-    @property
-    def valid(self):
-        logger.info('Validating cached file %r', self.local_path)
-
-        if not os.path.exists(self.local_path):
-            logger.info('Invalid cached file %r is missing', self.local_path)
-
-            return False
-
+    @contextlib.contextmanager
+    def open_variable(self):
         try:
-            data = helpers.decoder(self.dimensions)
-        except ValueError:
-            logger.info('Invalid failed to load dimensions of cached file %r', self.dimensions)
-
-            return False
-
-        try:
-            var_name = data['var_name']
-        except KeyError:
-            logger.info('Invalid missing var_name from cached metadata')
-
-            return False
-       
-        del data['var_name']
-
-        infile = None
-
-        try:
-            infile = cdms2.open(self.local_path)
+            with cdms2.open(self.local_path) as infile:
+                yield infile[self.variable]
         except cdms2.CDMSError:
-            logger.info('Invalid failed to open cached file %r', self.local_path)
+            raise Exception('Unabled to access cache file')
 
-            return False
-        else:
-            if var_name not in infile.variables:
-                logger.info('Invalid variable %r not in cached file', var_name)
+    def hash(self):
+        identifier = '{!s}:{!s}'.format(self.url, self.variable)
 
-                return False
+        return hashlib.md5(identifier).hexdigest()
 
-            variable = infile[var_name]
+    def new_output_path(self):
+        filename = '{!s}.nc'.format(self.hash())
 
-            for name, value in data.iteritems():
-                axis_index = variable.getAxisIndex(name)
+        return os.path.join(settings.WPS_CACHE_PATH, filename)
 
-                if axis_index == -1:
-                    logger.info('Invalid axis %r is missing from cached file', name)
+    def localize_mapped(self, mapped):
+        cache_mapped = helpers.decode(self.dimensions)
 
-                    return False
+        new_mapped = {}
 
-                axis = variable.getAxis(axis_index)
+        for key, value in cache_mapped.iteritems():
+            orig = mapped[key]
 
-                expected = value.stop - value.start
+            start = orig.start - value.start
 
-                if expected != axis.shape[0]:
-                    logger.info('Invalid axis %r expected %r found %r', axis.id, expected, axis.shape[0])
+            stop = start + (orig.stop - orig.start)
 
-                    return False
-        finally:
-            if infile:
-                infile.close()
+            new_mapped[key] = slice(start, stop, value.step)
 
-        return True
+        return new_mapped
+
+    def check_axis(self, var, name, value):
+        axis_index = var.getAxisIndex(name)
+
+        if axis_index == -1:
+            raise Exception('Axis {!r} missing from cached file'.format(name))
+
+        axis = var.getAxis(axis_index)
+
+        expected = value.stop - value.start
+
+        if expected != axis.shape[0]:
+            raise Exception('Axis {!r} mismatched shapes {!r}'
+                            ' ({!r})'.format(name, axis.shape[0], expected))
+
+    def validate(self):
+        logger.info('Validating cache file %r', self.local_path)
+
+        try:
+            mapped = helpers.decoder(self.dimensions)
+        except ValueError:
+            raise Exception('Unabled to load dimensions')
+
+        with self.open_variable() as var:
+            for name, value in mapped.iteritems():
+                self.check_axis(var, name, value)
 
     def is_superset(self, domain):
         try:
             cached = helpers.decoder(self.dimensions)
         except ValueError:
             return False
-
-        del cached['var_name']
 
         for name, value in domain.iteritems():
             try:
@@ -323,12 +315,16 @@ class Cache(models.Model):
 
         self.save()
 
+        logger.info('Updated accessed to %r', self.accessed)
+
     def set_size(self):
         stat = os.stat(self.local_path)
 
-        self.size = stat.st_size / 1e9
+        self.size = stat.st_size
 
         self.save()
+
+        return self.size
 
     def estimate_size(self):
         with cdms2.open(self.url) as infile:
@@ -341,12 +337,11 @@ class Cache(models.Model):
         return size
 
     def __str__(self):
-        return '{0.url} {0.added_date} {0.accessed_date}'.format(self)
+        return '{0.local_path}'.format(self)
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
-    openid = models.TextField()
     openid_url = models.CharField(max_length=256)
     type = models.CharField(max_length=64)
     cert = models.TextField()

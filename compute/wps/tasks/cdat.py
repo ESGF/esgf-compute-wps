@@ -149,9 +149,7 @@ def regrid_data(self, context, index):
     gridder = context.operation.get_parameter('gridder')
 
     for input in context.sorted_inputs():
-        if gridder is None:
-            input.process = input.ingress
-        else:
+        if gridder is not None:
             for source_path, _, chunk in input.chunks(context, index):
                 if grid is None and gridder is not None:
                     metrics.WPS_REGRID.labels(gridder.tool, gridder.method,

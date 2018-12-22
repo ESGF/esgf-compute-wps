@@ -13,6 +13,7 @@ import requests
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
+from wps import helpers
 from wps import metrics
 from wps import models
 from wps import WPSError
@@ -327,8 +328,7 @@ class VariableContext(object):
         self.units = None
         self.mapped = {}
         self.mapped_order = []
-        self.cache_uri = None
-        self.cache_mapped = {}
+        self.cache = None
         self.chunk = []
         self.chunk_axis = None
         self.ingress = []
@@ -340,13 +340,27 @@ class VariableContext(object):
 
         setattr(obj, name, value)
 
+    @staticmethod
+    def load_model(obj, name, model_class):
+        assert hasattr(obj, name)
+
+        pk = getattr(obj, name, None)
+
+        if pk is not None:
+            try:
+                value = model_class.objects.get(pk=pk)
+            except model_class.DoesNotExist:
+                raise WPSError('{!s} {!r} does not exist', model_class.__name__, pk)
+
+            setattr(obj, name, value) 
+
     @classmethod
     def from_dict(cls, data):
         variable = cwt.Variable.from_dict(data['variable'])
 
         obj = cls(variable)
 
-        ignore = ['variable']
+        ignore = ['variable',]
 
         for name, value in data.iteritems():
             if name in ignore:
@@ -354,25 +368,31 @@ class VariableContext(object):
 
             cls.load_value(obj, name, value)
 
+        cls.load_model(obj, 'cache', models.Cache)
+
         return obj
 
     @property
     def is_cached(self):
-        return self.cache_uri is not None
+        return self.cache is not None
 
     def to_dict(self):
         data = self.__dict__.copy()
 
         data['variable'] = self.variable.parameterize()
 
+        if data['cache'] is not None:
+            data['cache'] = data['cache'].id
+
         return data
+
+    def cache_mapped(self):
+        return helpers.decoder(self.cache.dimensions)
 
     def check_access(self, cert=None):
         url = '{}.dds'.format(self.variable.uri)
 
         parts = urlparse.urlparse(url)
-
-
 
         try:
             response = requests.get(url, timeout=(2, 2), cert=cert,
@@ -447,13 +467,13 @@ class VariableContext(object):
                 yield self.variable.uri, index, data
 
     def chunks_cache(self, index):
-        mapped = self.cache_mapped.copy()
+        mapped = helpers.decoder(self.cache.dimensions)
 
         indices = self.generate_chunks(index)
 
         logger.info('Generating cached chunks')
 
-        with self.open_local(self.cache_uri) as variable:
+        with self.open_local(self.cache.local_path) as variable:
             for index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[index] })
 
@@ -461,7 +481,9 @@ class VariableContext(object):
 
                 metrics.WPS_DATA_CACHE_READ.inc(data.nbytes)
 
-                yield self.cache_uri, index, data
+                yield self.cache.local_path, index, data
+
+        self.cache.accessed()
 
     def chunks_ingress(self, index):
         ingress = sorted(self.ingress)
@@ -486,7 +508,7 @@ class VariableContext(object):
             gen = self.chunks_process()
         elif len(self.ingress) > 0:
             gen = self.chunks_ingress(index)
-        elif self.cache_uri is not None:
+        elif self.cache is not None:
             gen = self.chunks_cache(index)
         else:
             gen = self.chunks_remote(index, context)

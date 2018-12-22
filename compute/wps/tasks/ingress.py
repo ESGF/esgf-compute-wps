@@ -41,6 +41,8 @@ def write_cache_file(entry, input, context):
     chunk_axis = None
     chunk_axis_index = None
 
+    entry.local_path = entry.new_output_path()
+
     with context.new_output(entry.local_path) as outfile:
         for _, _, chunk in input.chunks_ingress(context):
             if chunk_axis is None:
@@ -58,11 +60,9 @@ def write_cache_file(entry, input, context):
 
             outfile.write(data, id=input.variable.var_name)
 
-    stat = os.stat(entry.local_path)
+    size = entry.set_size()
 
-    metrics.WPS_DATA_CACHE_WRITE.inc(stat.st_size)
-
-    entry.set_size()
+    metrics.WPS_DATA_CACHE_WRITE.inc(size)
 
 @base.cwt_shared_task()
 def ingress_cache(self, context):
@@ -72,16 +72,10 @@ def ingress_cache(self, context):
         if entry is not None:
             continue
 
-        mapped = input.mapped.copy()
-
-        mapped.update({ 'var_name': input.variable.var_name })
-
-        uid = '{}:{}'.format(input.variable.uri, input.variable.var_name)
-
         kwargs = {
-            'uid': hashlib.sha256(uid).hexdigest(),
             'url': input.variable.uri,
-            'dimensions': helpers.encoder(mapped),
+            'variable': input.variable.var_name,
+            'dimensions': helpers.encoder(input.mapped),
         }
 
         entry = models.Cache(**kwargs)

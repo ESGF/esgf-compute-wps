@@ -63,7 +63,7 @@ def generate_chunks(self, context):
         logger.info('Selected %r axis for chunking', chunk_axis)
 
         if input.is_cached:
-            mapped = input.cache_mapped
+            mapped = input.cache_mapped()
         else:
             mapped = input.mapped
 
@@ -105,30 +105,29 @@ def generate_chunks(self, context):
     return context
 
 def check_cache_entries(input, context):
-    uri = input.variable.uri
+    cache_entries = models.Cache.objects.filter(
+        url=input.variable.uri,
+        variable=input.variable.var_name
+    )
 
-    var_name = input.variable.var_name
+    for entry in cache_entries:
+        logger.info('Evaluating cached file %r', entry.local_path)
 
-    uid = '{}:{}'.format(uri, var_name)
+        try:
+            entry.validate()
+        except Exception as e:
+            logger.info('Removing invalid cache file: %r', e)
 
-    uid_hash = hashlib.sha256(uid).hexdigest()
-
-    cache_entries = models.Cache.objects.filter(uid=uid_hash)
-
-    for x in xrange(cache_entries.count()):
-        entry = cache_entries[x]
-
-        if not entry.valid:
-            logger.info('Cache entry invalid')
+            entry.delete()
 
             continue
 
         if entry.is_superset(input.mapped):
-            logger.info('Found a valid cache entry for %r', uri)
+            logger.info('Found valid entry in %r', entry.local_path)
 
             return entry
 
-    logger.info('Found no valid cache entries for %r', uri)
+    logger.info('Found no valid cache entries for %r', input.variable.uri)
 
     return None
 
@@ -140,30 +139,8 @@ def check_cache(self, context):
 
             continue
 
-        entry = check_cache_entries(input, context)
+        input.cache = check_cache_entries(input, context)
 
-        if entry is not None:
-            cache_mapped = helpers.decoder(entry.dimensions)
-
-            cache_mapped.pop('var_name')
-
-            # cached  time:slice(20, 80)  lat:slice(15, 65) 
-            # mapped  time:slice(30, 70)  lat:slice(20, 60)
-            # new     time:slice(10, 50)  lat:slice(5, 45)
-            for key, value in cache_mapped.iteritems():
-                mapped = input.mapped[key]
-
-                start = mapped.start - value.start
-
-                stop = start + (mapped.stop - mapped.start)
-
-                input.cache_mapped[key] = slice(start, stop, value.step)
-
-            input.cache_uri = entry.local_path
-
-            logger.info('Cached %r mapped %r', input.cache_uri,
-                        input.cache_mapped)
-    
     return context
 
 def map_axis_interval(axis, start, stop):
