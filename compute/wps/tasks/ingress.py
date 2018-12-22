@@ -55,7 +55,7 @@ def write_cache_file(entry, input, context):
             else:
                 data.append(chunk)
 
-        if not chunk_axis.isTime():
+        if chunk_axis is not None and not chunk_axis.isTime():
             data = MV2.concatenate(data, axis=chunk_axis_index)
 
             outfile.write(data, id=input.variable.var_name)

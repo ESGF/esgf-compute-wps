@@ -390,6 +390,10 @@ class VariableContext(object):
         return helpers.decoder(self.cache.dimensions)
 
     def check_access(self, cert=None):
+        logger.info('Checking access to %r', self.variable.uri)
+
+        logger.info('Certificate %r', cert)
+
         url = '{}.dds'.format(self.variable.uri)
 
         parts = urlparse.urlparse(url)
@@ -398,16 +402,23 @@ class VariableContext(object):
             response = requests.get(url, timeout=(2, 2), cert=cert,
                                     verify=False)
         except requests.ConnectTimeout:
+            logger.exception('Timeout connecting to %r', parts.hostname)
+
             metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
-            raise WPSError('Timeout connecting to {!r}', url)
+            raise WPSError('Timeout connecting to {!r}', parts.hostname)
         except requests.ReadTimeout:
+            logger.exception('Timeout reading from %r', parts.hostname)
+
             metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
-            raise WPSError('Timeout reading {!r}', url)
+            raise WPSError('Timeout reading from {!r}', parts.hostname)
 
         if response.status_code == 200:
             return True
+
+        logger.info('Checking url failed with status code %r',
+                    response.status_code)
 
         metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
@@ -427,6 +438,8 @@ class VariableContext(object):
 
                 yield infile[self.variable.var_name]
         except Exception:
+            logger.exception('Failed to access file %r', self.variable.uri)
+
             parts = urlparse.urlparse(self.variable.uri)
 
             metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()

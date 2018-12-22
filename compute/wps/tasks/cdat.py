@@ -219,7 +219,7 @@ def concat(self, contexts):
 
                     data.append(chunk)
 
-            if not chunk_axis.isTime():
+            if chunk_axis is not None and not chunk_axis.isTime():
                 data = MV2.concatenate(data, axis=chunk_axis_index)
 
                 outfile.write(data, id=input.variable.var_name)
@@ -233,7 +233,8 @@ def regrid(self, context, index):
     """
     return regrid_data(self, context, index)
 
-@base.register_process('CDAT.subset', abstract=SUBSET_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
+@base.register_process('CDAT.subset', abstract=SUBSET_ABSTRACT,
+                       metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
 def subset(self, context, index):
     """ Subsetting data.

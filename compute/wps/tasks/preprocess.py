@@ -67,7 +67,7 @@ def generate_chunks(self, context):
         else:
             mapped = input.mapped
 
-        if chunk_axis is not None:
+        if chunk_axis is not None and len(mapped) > 0:
             non_chunk_axes = [mapped[x] for x in (set(order) - set([chunk_axis]))]
 
             logger.info('Non chunk axes %r', non_chunk_axes)
@@ -197,8 +197,11 @@ def map_domain(self, context):
             input.mapped_order = [x.id for x in axes]
 
             if context.domain is None:
-                input.mapped = dict((x.id, map_axis(x, None, context.units)) 
-                                    for x in axes)
+                try:
+                    input.mapped = dict((x.id, map_axis(x, None, context.units)) 
+                                        for x in axes)
+                except Exception:
+                    input.mapped = {}
             else:
                 user_dim = set([x.name for x in context.domain.dimensions])
 
@@ -218,7 +221,10 @@ def map_domain(self, context):
 
                     axis = var.getAxis(axis_index).clone()
 
-                    input.mapped[name] = map_axis(axis, dim, context.units)
+                    try:
+                        input.mapped[name] = map_axis(axis, dim, context.units)
+                    except Exception:
+                        input.mapped = {}
 
         logger.info('Mapped domain to %r', input.mapped)
 
