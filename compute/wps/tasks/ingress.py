@@ -67,6 +67,9 @@ def write_cache_file(entry, input, context):
 @base.cwt_shared_task()
 def ingress_cache(self, context):
     for input in context.inputs:
+        if len(input.mapped) <= 0:
+            continue
+
         entry = preprocess.check_cache_entries(input, context)
 
         if entry is not None:
