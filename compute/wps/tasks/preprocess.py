@@ -191,7 +191,7 @@ def map_axis(axis, dimension, units):
 @base.cwt_shared_task()
 def map_domain(self, context):
     for input in context.inputs:
-        with input.open(context) as var:
+        with input.open(context.user) as var:
             axes = var.getAxisList()
 
             input.mapped_order = [x.id for x in axes]
@@ -235,7 +235,7 @@ def base_units(self, context):
     units = []
 
     for input in context.inputs:
-        with input.open(context) as var:
+        with input.open(context.user) as var:
             time = var.getTime()
 
             if time is not None:

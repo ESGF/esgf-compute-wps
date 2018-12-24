@@ -425,9 +425,9 @@ class VariableContext(object):
         return False
     
     @contextlib.contextmanager
-    def open(self, context):
-        if context is not None and not self.check_access():
-            cert_path = credentials.load_certificate(context.user)
+    def open(self, user):
+        if user is not None and not self.check_access():
+            cert_path = credentials.load_certificate(user)
 
             if not self.check_access(cert_path):
                 raise WPSError('Cannot access file')
@@ -467,7 +467,7 @@ class VariableContext(object):
 
         parts = urlparse.urlparse(self.variable.uri)
 
-        with self.open(context) as variable:
+        with self.open(context.user) as variable:
             for index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[index] })
 

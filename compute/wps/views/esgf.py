@@ -8,6 +8,7 @@ import re
 
 import cdms2
 import cdtime
+import cwt
 import requests
 from django.conf import settings
 from django.core.cache import cache
@@ -20,6 +21,7 @@ from wps import helpers
 from wps import metrics
 from wps import tasks
 from wps import WPSError
+from wps.context import VariableContext
 
 logger = common.logger
 
@@ -81,7 +83,7 @@ def process_axes(header):
 
     return data
 
-def process_url(prefix_id, url, variable):
+def process_url(user, prefix_id, context):
     """ Processes a url.
     Args:
         prefix_id: A str prefix to build the cache id.
@@ -91,19 +93,19 @@ def process_url(prefix_id, url, variable):
     Returns:
         A list of dicts describing each files axes.
     """
-    cache_id = '{}|{}'.format(prefix_id, url)
+    cache_id = '{}|{}'.format(prefix_id, context.variable.uri)
 
     cache_id = hashlib.md5(cache_id).hexdigest()
 
     data = cache.get(cache_id)
 
-    logger.info('Processing %r in %r', variable, url)
+    logger.info('Processing %r', context.variable)
 
     if data is None:
-        data = { 'url': url }
+        data = { 'url': context.variable.uri }
 
-        with cdms2.open(url) as infile:
-            axes = process_axes(infile[variable])
+        with context.open(user) as variable:
+            axes = process_axes(variable)
 
         data.update(axes)
 
@@ -126,10 +128,12 @@ def retrieve_axes(user, dataset_id, variable, urls):
 
     axes = []
 
-    tasks.load_certificate(user)
-
     for url in sorted(urls):
-        data = process_url(prefix_id, url, variable)
+        var = cwt.Variable(url, variable)
+
+        context = VariableContext(var)
+
+        data = process_url(user, prefix_id, context)
 
         axes.append(data)
 
