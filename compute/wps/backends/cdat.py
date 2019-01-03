@@ -43,8 +43,15 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
-    def execute(self, identifier, variable, domain, operation, process, job,
-                user):
+    def execute(self, identifier, variable, domain, operation, process, job, user):
+        logger.info('Identifier %r', identifier)
+
+        logger.info('Variable %r', variable)
+
+        logger.info('Domain %r', domain)
+
+        logger.info('Operation %r', operation)
+
         if identifier == 'CDAT.workflow':
             context = WorkflowOperationContext.from_data_inputs(variable,
                                                                 domain,

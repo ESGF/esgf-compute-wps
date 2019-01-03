@@ -133,7 +133,7 @@ def process_data(self, context, index, process):
                 logger.info('Regrid %r -> %r', shape, chunk.shape)
 
             if process is not None:
-                with metrics.WPS_PROCESS.label(context.operation.identifier).time():
+                with metrics.WPS_PROCESS_TIME.labels(context.operation.identifier).time():
                     chunk = process(chunk, axes.values)
 
             with context.new_output(process_path) as outfile:
