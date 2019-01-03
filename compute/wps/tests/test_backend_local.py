@@ -26,7 +26,3 @@ class LocalBackendTestCase(test.TestCase):
         self.backend.populate_processes()
 
         self.assertEqual(len(self.backend.processes), count)
-
-    def test_initialize(self):
-        with self.assertNumQueries(0):
-            self.backend.initialize()

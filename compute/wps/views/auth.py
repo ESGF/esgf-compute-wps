@@ -235,8 +235,10 @@ def login_oauth2(request):
     else:
         return common.success({'redirect': redirect_url})
     finally:
-        metrics.track_login(metrics.WPS_OAUTH_LOGIN,
-                            request.user.auth.openid_url)
+        # Not tracking anonymous
+        if not request.user.is_anonymous:
+            metrics.track_login(metrics.WPS_OAUTH_LOGIN,
+                                request.user.auth.openid_url)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -273,7 +275,8 @@ def oauth2_callback(request):
     except KeyError as e:
         logger.exception('Missing %r key from session data', e)
 
-        pass
+        return common.failed('Invalid OAuth state, report to server'
+                             ' administrator')
     except (WPSError, oauth2.OAuth2Error) as e:
         logger.exception('OAuth2 callback failed')
 
@@ -340,5 +343,6 @@ def login_mpc(request):
             'api_key': request.user.auth.api_key
         })
     finally:
-        metrics.track_login(metrics.WPS_MPC_LOGIN,
-                            request.user.auth.openid_url)
+        if not request.user.is_anonymous:
+            metrics.track_login(metrics.WPS_MPC_LOGIN,
+                                request.user.auth.openid_url)

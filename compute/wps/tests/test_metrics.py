@@ -1,14 +1,17 @@
-from django import test
+import os
 
 import mock
-from wps import metrics
-
 import cwt
+from django import test
+
+from wps import metrics
 
 class MetricsTestCase(test.TestCase):
     @mock.patch('wsgiref.simple_server.make_server')
     @mock.patch('prometheus_client.make_wsgi_app')
     def test_serve_metrics(self, mock_app, mock_make):
+        os.environ['prometheus_multiproc_dir'] = '/'
+
         metrics.serve_metrics()
 
         mock_make.assert_called_with('0.0.0.0', 8080, mock_app.return_value)
@@ -46,16 +49,3 @@ class MetricsTestCase(test.TestCase):
         result = metrics.jobs_queued()
 
         self.assertEqual(result, 2)
-
-    @mock.patch('wps.metrics.FILE_ACCESSED')
-    def test_track_file(self, mock_metric):
-        var = cwt.Variable('http://somesite.com/doesntexist.nc', 'tas')
-
-        metrics.track_file(var)
-
-        mock_metric.labels.assert_called_with('somesite.com',
-                                              '/doesntexist.nc',
-                                              'http://somesite.com/doesntexist.nc',
-                                              'tas')
-
-        mock_metric.labels.return_value.inc.assert_called_once()

@@ -97,9 +97,17 @@ class Backend(object):
 
         kwargs = {
             'metadata': metadata or {},
-            'data_inputs': data_inputs or DATA_INPUTS,
+        #    'data_inputs': data_inputs or DATA_INPUTS,
             'abstract': abstract or '',
         }
+
+        if data_inputs is None:
+            kwargs['data_inputs'] = DATA_INPUTS
+        else:
+            if len(data_inputs) == 0:
+                kwargs['data_inputs'] = None
+            else:
+                kwargs['data_inputs'] = data_inputs
 
         description = cwt.wps.process_description(*args, **kwargs)
 

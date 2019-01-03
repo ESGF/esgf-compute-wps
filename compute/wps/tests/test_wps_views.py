@@ -54,9 +54,9 @@ class WPSViewsTestCase(test.TestCase):
     def test_wps_execute_post(self, mock_get_backend):
         metrics.jobs_queued = mock.MagicMock(return_value=2)
 
-        variable = cwt.wps.data_input('variable', 'variable', '')
-        operation = cwt.wps.data_input('operation', 'operation', '')
-        domain = cwt.wps.data_input('domain', 'domain', '')
+        variable = cwt.wps.data_input('variable', 'variable', '{}')
+        operation = cwt.wps.data_input('operation', 'operation', '{}')
+        domain = cwt.wps.data_input('domain', 'domain', '{}')
 
         cwt.bds.reset()
 

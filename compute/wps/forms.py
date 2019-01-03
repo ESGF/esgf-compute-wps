@@ -7,7 +7,7 @@ class UpdateForm(forms.Form):
 
 class OpenIDForm(forms.Form):
     openid_url = forms.URLField(label='OpenID URL', max_length=128)
-    next = forms.CharField(label='Next')
+    next = forms.CharField(label='Next', required=False)
 
 class MPCForm(forms.Form):
     username = forms.CharField(label='Username', max_length=128)

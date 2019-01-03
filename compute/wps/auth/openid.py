@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import collections
 import logging
 
+import requests
 from django.conf import settings
 from openid.consumer import consumer
 from openid.consumer import discover
@@ -52,6 +53,18 @@ def find_service_by_type(services, uri):
     return None
 
 def services(openid_url, service_urns):
+    try:
+        requests.get(openid_url, timeout=(2, 20))
+    except requests.ConnectTimeout:
+        raise DiscoverError(openid_url, 'Timed out connecting to'
+                             ' {!r}'.format(openid_url))
+    except requests.ReadTimeout:
+        raise DiscoverError(openid_url, 'Timed out reading from'
+                             ' {!r}'.format(openid_url))
+    except Exception as e:
+        raise DiscoverError(openid_url, 'Error contacting OpenID service:'
+                             ' {!r}'.format(e))
+
     requested = collections.OrderedDict()
 
     try:
@@ -145,9 +158,9 @@ def handle_attribute_exchange(response):
             except (KeyError, IndexError):
                 raise MissingAttributeError(key)
 
-    # Need a minimum of email to create a new account
-    if 'email' not in attrs:
-        raise MissingAttributeError('email')
+        # Need a minimum of email to create a new account
+        if 'email' not in attrs:
+            raise MissingAttributeError('email')
 
     return attrs
 

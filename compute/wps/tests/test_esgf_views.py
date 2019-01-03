@@ -10,6 +10,7 @@ from django.core.cache import cache
 from wps import models
 from wps import WPSError
 from wps.views import esgf
+from wps.context import VariableContext
 
 class ESGFViewsTestCase(test.TestCase):
     fixtures = ['users.json']
@@ -28,6 +29,14 @@ class ESGFViewsTestCase(test.TestCase):
         self.time.clone.return_value.__getitem__.side_effect = [1000, 2000]
         type(self.time.clone.return_value).units = mock.PropertyMock(return_value='days since 1990')
         self.time.clone.return_value.__len__.return_value = 200
+        self.time.asComponentTime.return_value.__getitem__.side_effect = [
+            '2018-12-05',
+            '2020-12-05',
+        ]
+        self.time.clone.return_value.asComponentTime.return_value.__getitem__.side_effect = [
+            '2018-12-05',
+            '2020-12-05',
+        ]
 
         self.lat = mock.MagicMock()
         type(self.lat).id = mock.PropertyMock(return_value='lat')
@@ -38,16 +47,18 @@ class ESGFViewsTestCase(test.TestCase):
 
         self.time_desc = {
             'id': 'time',
-            'start': 1000,
-            'stop': 2000,
+            'start': 1000.0,
+            'stop': 2000.0,
             'units': 'days since 1990',
+            'start_timestamp': '2018-12-05',
+            'stop_timestamp': '2020-12-05',
             'length': 200,
         }
 
         self.lat_desc = {
             'id': 'lat',
-            'start': 100,
-            'stop': 200,
+            'start': 100.0,
+            'stop': 200.0,
             'units': 'degress north',
             'length': 100,
         }
@@ -126,18 +137,14 @@ class ESGFViewsTestCase(test.TestCase):
 
         self.assertEqual(data, expected)
 
-    @mock.patch('wps.tasks.load_certificate')
     @mock.patch('wps.views.esgf.process_url')
-    def test_retrieve_axes(self, mock_process, mock_cert):
+    def test_retrieve_axes(self, mock_process):
         mock_process.return_value = self.process_url_output
 
         data = esgf.retrieve_axes(self.user, 'dataset_id', 'tas',
                                   ['file:///test1.nc'])
 
-        mock_cert.assert_called_with(self.user)
-
-        mock_process.assert_called_with('dataset_id|tas', 'file:///test1.nc',
-                                        'tas')
+        self.assertEqual(mock_process.call_args[0][1:2], ('dataset_id|tas',))
 
         self.assertEqual(data, [self.process_url_output])
         
@@ -151,7 +158,11 @@ class ESGFViewsTestCase(test.TestCase):
             self.process_url_output
         ]
 
-        data = esgf.process_url('prefix', 'file:///test1.nc', 'tas')
+        user = mock.MagicMock()
+
+        context = mock.MagicMock()
+
+        data = esgf.process_url(user, 'prefix', context)
 
         self.assertEqual(data, {})
 
@@ -170,7 +181,14 @@ class ESGFViewsTestCase(test.TestCase):
             self.process_url_output
         ]
 
-        data = esgf.process_url('prefix', 'file:///test1.nc', 'tas')
+        user = mock.MagicMock()
+
+        context = mock.MagicMock()
+
+        type(context).variable = mock.MagicMock(**{'uri':
+                                                   'file:///test1.nc'})
+
+        data = esgf.process_url(user, 'prefix', context)
 
         self.assertEqual(data, self.process_url_output)
 
@@ -182,6 +200,7 @@ class ESGFViewsTestCase(test.TestCase):
         mock_md5.assert_called_with('prefix|file:///test1.nc')
 
     def test_process_axes(self):
+        self.maxDiff = None
         header = mock.MagicMock()
 
         header.getAxisList.return_value = [self.time, self.lat]
