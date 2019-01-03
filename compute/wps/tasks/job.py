@@ -68,7 +68,7 @@ def send_failed_email(context, error):
 
     email.content_subtype = 'html'
 
-    email.send()
+    email.send(fail_silently=True)
 
 def send_success_email(context, variable):
     if context.user.first_name is None:
@@ -89,7 +89,7 @@ def send_success_email(context, variable):
 
     email.content_subtype = 'html'
 
-    email.send()
+    email.send(fail_silently=True)
 
 @base.cwt_shared_task()
 def job_started(self, context):

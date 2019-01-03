@@ -83,7 +83,7 @@ def send_welcome_mail(user):
 
     email.content_subtype = 'html'
 
-    email.send()
+    email.send(fail_silently=True)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
