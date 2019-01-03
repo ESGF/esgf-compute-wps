@@ -13,7 +13,7 @@ ENV WPS_HOST=0.0.0.0
 COPY docker/common/environment.yml environment.yml
 
 RUN apt-get update && \
-	apt-get install -y --no-install-recommends build-essential libev-dev && \
+	apt-get install -y --no-install-recommends build-essential libev-dev postgresql && \
 	conda env create -n wps -f environment.yml && \
 	conda clean -y --all && \
 	rm -rf /opt/conda/pkgs/* && \
