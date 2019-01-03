@@ -254,7 +254,8 @@ def base_units(self, context):
 
 @base.cwt_shared_task()
 def filter_inputs(self, context, index):
-    indices = self.generate_indices(index, len(context.inputs))
+    indices = [x for x in range(index, len(context.inputs),
+                                settings.WORKER_PER_USER)]
 
     context.inputs = [context.inputs[x] for x in indices]
 

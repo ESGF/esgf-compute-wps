@@ -72,15 +72,6 @@ class Timeout(object):
 
 class CWTBaseTask(celery.Task):
 
-    def generate_indices(self, start, stop):
-        return [x for x in range(start, stop, settings.WORKER_PER_USER)]
-
-    def get_axis_list(self, variable):
-        return variable.getAxisList()
-
-    def get_variable(self, infile, var_name):
-        return infile[var_name]
-
     @contextmanager
     def open(self, uri, mode='r', timeout=30):
         #with Timeout(timeout, uri):
@@ -90,40 +81,6 @@ class CWTBaseTask(celery.Task):
             yield fd
         finally:
             fd.close()
-
-    def get_now(self):
-        return datetime.now()
-
-    def load_credentials(self, user_id):
-        user = self.load_user(user_id)
-
-        credentials.load_certificate(user)
-
-        return user
-
-    def load_user(self, user_id):
-        try:
-            user = models.User.objects.get(pk=user_id)
-        except models.User.DoesNotExist:
-            raise WPSError('User "{id}" does not exist', id=user_id)
-
-        return user
-
-    def load_job(self, job_id):
-        try:
-            job = models.Job.objects.get(pk=job_id)
-        except models.Job.DoesNotExist:
-            raise WPSError('Job "{id}" does not exist', id=job_id)
-
-        return job
-
-    def load_process(self, process_id):
-        try:
-            process = models.Process.objects.get(pk=process_id)
-        except models.Process.DoesNotExist:
-            raise WPSError('Process "{id}" does not exist', id=process_id)
-
-        return process
 
     def update(self, job, fmt, *args, **kwargs):
         message = fmt.format(*args)
