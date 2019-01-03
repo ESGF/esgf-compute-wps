@@ -136,10 +136,9 @@ METRICS_HOST = config.get_value('metrics', 'host',
 
 WPS_VERSION = '1.0.0'
 WPS_LANG = 'en-US'
-WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
+WPS_URL = WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
 WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/status/{job_id}/')
-WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url',
-                                   'https://{host}/wps/execute/')
+WPS_JOB_URL = 'https://{!s}/wps/home/user/jobs'.format(host)
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
 WPS_PUBLIC_PATH = config.get_value('wps', 'wps.public_path', '/data/public')
 WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)

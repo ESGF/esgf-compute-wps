@@ -9,7 +9,7 @@ import string
 from django import http
 from django import db
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from django.contrib.auth import logout
@@ -30,6 +30,28 @@ from wps.views import common
 
 logger = logging.getLogger('wps.views.auth')
 
+NEW_USER_SUBJ = 'Welcome to LLNL\'s Compute Service'
+NEW_USER_MSG = """
+Welcome {name},
+
+<pre>
+You've successfully register for the ESGF Compute service. You now have access
+to ESGF compute resources. To begin start by visiting the <a href="{settings.WPS_URL}">WPS Service</a> homepage. 
+You can find some additional resources below.
+</pre>
+
+<pre>
+<a href="https://github.com/ESGF/esgf-compute-api">ESGF-Compute-API</a>
+<a href="https://github.com/ESGF/esgf-compute-api/blob/master/examples/getting_started.ipynb">Getting Started</a>
+<a href="https://github.com/ESGF/esgf-compute-api/tree/master/examples">Jupyter Notebooks</a>
+</pre>
+
+<pre>
+Thank you,
+ESGF Compute Team
+</pre>
+"""
+
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_ACCESS = 'urn:esg:security:oauth:endpoint:access'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
@@ -47,6 +69,21 @@ class MPCEndpointParseError(WPSError):
         msg = 'Parsing host/port from OpenID services failed'
 
         super(MPCEndpointParseError, self).__init__(msg)
+
+def send_welcome_mail(user):
+    if user.first_name is None:
+        name = user.username
+    else:
+        name = user.get_full_name()
+
+    msg = NEW_USER_MSG.format(user=user, name=name, settings=settings)
+
+    email = EmailMessage(NEW_USER_SUBJ, msg, settings.WPS_ADMIN_EMAIL,
+                         to=[user.email, ], bcc=[settings.WPS_ADMIN_EMAIL,])
+
+    email.content_subtype = 'html'
+
+    email.send()
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -135,6 +172,8 @@ def user_login_openid_callback(request):
                                                    first_name=first, last_name=last)
 
             models.Auth.objects.create(openid_url=openid_url, user=user)
+
+            send_welcome_mail(user)
 
         login(request, user)
 
