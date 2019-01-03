@@ -43,6 +43,73 @@ class CDAT(backend.Backend):
 
         canvas.delay()
 
+    def execute_simple(self, context, process_func):
+        start = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
+
+        process = process_func.s().set(**helpers.DEFAULT_QUEUE)
+
+        success = tasks.job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
+
+        canvas = start | process 
+
+        canvas.delay()
+
+    def generate_preprocess_chains(self, context):
+        preprocess_chains = []
+
+        for index in range(settings.WORKER_PER_USER):
+            filter = tasks.filter_inputs.s(index).set(**helpers.DEFAULT_QUEUE)
+
+            map = tasks.map_domain.s().set(**helpers.DEFAULT_QUEUE)
+
+            cache = tasks.check_cache.s().set(**helpers.DEFAULT_QUEUE)
+
+            chunks = tasks.generate_chunks.s().set(**helpers.DEFAULT_QUEUE)
+
+            preprocess_chains.append(celery.chain(filter, map, cache,
+                                                  chunks))
+
+        return preprocess_chains
+
+    def generate_process_chains(self, context, process_func):
+        process_chains = []
+
+        for index in range(settings.WORKER_PER_USER):
+            ingress = tasks.ingress_chunk.s(index).set(**helpers.DEFAULT_QUEUE)
+
+            process = process_func.s(index).set(**helpers.DEFAULT_QUEUE)
+
+            process_chains.append(celery.chain(ingress, process))
+
+        return process_chains
+
+    def execute_process(self, context, process_func):
+        start = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
+
+        units = tasks.base_units.s().set(**helpers.DEFAULT_QUEUE)
+
+        merge = tasks.merge.s().set(**helpers.DEFAULT_QUEUE)
+
+        preprocess_chains = self.generate_preprocess_chains(context)
+
+        preprocess = start | units | celery.group(preprocess_chains) | merge
+
+        concat = tasks.concat.s().set(**helpers.DEFAULT_QUEUE)
+
+        success = tasks.job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
+
+        cache = tasks.ingress_cache.s().set(**helpers.DEFAULT_QUEUE)
+
+        cleanup = tasks.ingress_cleanup.s().set(**helpers.DEFAULT_QUEUE)
+
+        finalize = concat | success | cache | cleanup
+
+        process_chains = self.generate_process_chains(context, process_func)
+
+        canvas = preprocess | celery.group(process_chains) | finalize
+
+        canvas.delay()
+
     def execute(self, identifier, variable, domain, operation, process, job, user):
         logger.info('Identifier %r', identifier)
 
@@ -77,57 +144,6 @@ class CDAT(backend.Backend):
             process_func = base.get_process(identifier)
 
             if process_func.METADATA.get('inputs', 0) == 0:
-                start = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
-
-                process = process_func.s().set(**helpers.DEFAULT_QUEUE)
-
-                success = tasks.job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
-
-                canvas = start | process 
-
-                canvas.delay()
+                self.execute_simple(context, process_func)
             else:
-                preprocess_chains = []
-
-                for index in range(settings.WORKER_PER_USER):
-                    filter = tasks.filter_inputs.s(index).set(**helpers.DEFAULT_QUEUE)
-
-                    map = tasks.map_domain.s().set(**helpers.DEFAULT_QUEUE)
-
-                    cache = tasks.check_cache.s().set(**helpers.DEFAULT_QUEUE)
-
-                    chunks = tasks.generate_chunks.s().set(**helpers.DEFAULT_QUEUE)
-
-                    preprocess_chains.append(celery.chain(filter, map, cache,
-                                                          chunks))
-
-                start = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
-
-                units = tasks.base_units.s().set(**helpers.DEFAULT_QUEUE)
-
-                merge = tasks.merge.s().set(**helpers.DEFAULT_QUEUE)
-
-                preprocess = start | units | celery.group(preprocess_chains) | merge
-
-                process_chains = []
-
-                for index in range(settings.WORKER_PER_USER):
-                    ingress = tasks.ingress_chunk.s(index).set(**helpers.DEFAULT_QUEUE)
-
-                    process = process_func.s(index).set(**helpers.DEFAULT_QUEUE)
-
-                    process_chains.append(celery.chain(ingress, process))
-
-                concat = tasks.concat.s().set(**helpers.DEFAULT_QUEUE)
-
-                success = tasks.job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
-
-                cache = tasks.ingress_cache.s().set(**helpers.DEFAULT_QUEUE)
-
-                cleanup = tasks.ingress_cleanup.s().set(**helpers.DEFAULT_QUEUE)
-
-                finalize = concat | success | cache | cleanup
-
-                canvas = preprocess | celery.group(process_chains) | finalize
-
-                canvas.delay()
+                self.execute_process(context, process_func)
