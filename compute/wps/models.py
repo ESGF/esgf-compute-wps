@@ -248,7 +248,7 @@ class Cache(models.Model):
         return os.path.join(settings.WPS_CACHE_PATH, filename)
 
     def localize_mapped(self, mapped):
-        cache_mapped = helpers.decode(self.dimensions)
+        cache_mapped = helpers.decoder(self.dimensions)
 
         new_mapped = {}
 

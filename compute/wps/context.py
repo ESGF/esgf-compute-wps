@@ -387,7 +387,7 @@ class VariableContext(object):
         return data
 
     def cache_mapped(self):
-        return helpers.decoder(self.cache.dimensions)
+        return self.cache.localize_mapped(self.mapped)
 
     def check_access(self, cert=None):
         logger.info('Checking access to %r', self.variable.uri)

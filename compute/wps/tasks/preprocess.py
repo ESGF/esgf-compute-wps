@@ -67,6 +67,8 @@ def generate_chunks(self, context):
         else:
             mapped = input.mapped
 
+        logger.info('HELP %r', mapped)
+
         if chunk_axis is not None and len(mapped) > 0:
             non_chunk_axes = [mapped[x] for x in (set(order) - set([chunk_axis]))]
 
