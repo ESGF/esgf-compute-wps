@@ -66,24 +66,25 @@ def write_cache_file(entry, input, context):
 
 @base.cwt_shared_task()
 def ingress_cache(self, context):
-    for input in context.inputs:
-        if len(input.mapped) <= 0:
-            continue
+    if context.operation.get_parameter('intermediate') is None:
+        for input in context.inputs:
+            if len(input.mapped) <= 0:
+                continue
 
-        entry = preprocess.check_cache_entries(input, context)
+            entry = preprocess.check_cache_entries(input, context)
 
-        if entry is not None:
-            continue
+            if entry is not None:
+                continue
 
-        kwargs = {
-            'url': input.variable.uri,
-            'variable': input.variable.var_name,
-            'dimensions': helpers.encoder(input.mapped),
-        }
+            kwargs = {
+                'url': input.variable.uri,
+                'variable': input.variable.var_name,
+                'dimensions': helpers.encoder(input.mapped),
+            }
 
-        entry = models.Cache(**kwargs)
+            entry = models.Cache(**kwargs)
 
-        write_cache_file(entry, input, context)
+            write_cache_file(entry, input, context)
 
     return context
 

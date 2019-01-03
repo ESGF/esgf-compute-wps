@@ -30,6 +30,8 @@ class WorkflowOperationContext(object):
         self.user = None
         self.process = None
         self.output = []
+        self.intermediate = {}
+        self.output_id = []
         self.state = {}
 
     @staticmethod
@@ -99,6 +101,10 @@ class WorkflowOperationContext(object):
 
         sources = [x for x in op_keys if not any(adjacency[y][x] for y in op_keys)]
 
+        others = [x for x in op_keys if x not in sources]
+
+        self.output_id = [x for x in op_keys if not any(adjacency[x].values())]
+
         sorted = []
 
         while len(sources) > 0:
@@ -106,9 +112,15 @@ class WorkflowOperationContext(object):
 
             sorted.append(self.operation[item])
 
-            for x in adjacency[item].keys():
-                if adjacency[item][x]:
-                    sources.append(x)
+            for name, connected in adjacency[item].iteritems():
+                if connected:
+                    sorted.append(self.operation[name])
+
+                    index = others.index(name)
+
+                    others.pop(index)
+
+                    self.operation[name].add_parameters(intermediate='true')
 
         return deque(sorted)
 
@@ -121,10 +133,13 @@ class WorkflowOperationContext(object):
         variable = cwt.Variable(output.uri, output.var_name, name=name)
 
         # Add new variable to global dict
-        self.variable[operation.name] = variable
+        #self.variable[operation.name] = variable
 
-        # Add to output list
-        self.output.append(variable)
+        if operation.name in self.output_id:
+            # Add to output list
+            self.output.append(variable)
+        else:
+            self.intermediate[operation.name] = variable
 
     def wait_operation(self, operation):
         result = operation.wait()
@@ -155,8 +170,16 @@ class WorkflowOperationContext(object):
     def add_executing(self, operation):
         self.state[operation.name] = operation
 
+    def get_input(self, name):
+        if name in self.variable:
+            return self.variable[name]
+        elif name in self.intermediate:
+            return self.intermediate[name]
+        
+        raise WPSError('Unable to locate input {!r}', name)
+
     def prepare(self, operation):
-        operation.inputs = [self.variable[x] for x in operation.inputs]
+        operation.inputs = [self.get_input(x) for x in operation.inputs]
 
         operation.domain = self.domain.get(operation.domain, None)
 

@@ -100,7 +100,8 @@ def job_started(self, context):
 @base.cwt_shared_task()
 def job_succeeded_workflow(self, context):
     context.job.succeeded(json.dumps({
-        'outputs': [x.parameterize() for x in context.output],
+        'outputs': [x.parameterize() for x in
+                    context.output+context.intermediate.values()],
     }))
 
     send_success_email(context, context.output)
@@ -128,9 +129,10 @@ def job_succeeded(self, context):
 
     context.process.track(context.user)
 
-    for input in context.inputs:
-        models.File.track(context.user, input.variable)
+    if context.operation.get_parameter('intermediate') is None:
+        for input in context.inputs:
+            models.File.track(context.user, input.variable)
 
-        metrics.track_file(input.variable)
+            metrics.track_file(input.variable)
 
     return context
