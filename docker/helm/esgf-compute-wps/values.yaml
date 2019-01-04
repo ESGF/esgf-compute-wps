@@ -36,6 +36,11 @@ persistence:
     capacity: 10Gi
     path: /opt/cwt
 
+  postgresql-backup:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
   redis:
     storageClassName: slow
     capacity: 10Gi
@@ -158,11 +163,19 @@ thredds:
       ingress.kubernetes.io/force-hsts: "true"
 
 postgresql:
+  postgresUsername: postgres
   postgresPassword: abcd1234
+  port: 5432
 
   persistence:
     enabled: true
     existingClaim: postgresql-pvc
+
+  backup:
+    enabled: true
+    image: bitnami/postgresql
+    tag: 10.6.0
+
 
 redis:
   image:
