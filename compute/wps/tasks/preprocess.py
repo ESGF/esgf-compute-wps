@@ -73,8 +73,14 @@ def generate_chunks(self, context):
         # Determine which mapping to use.
         if input.is_cached:
             mapped = input.cache_mapped()
+
+            logger.info('Cached mapping')
         else:
             mapped = input.mapped
+
+            logger.info('Normal mapping')
+
+        logger.info('Using mapping %r', mapped)
 
         if chunk_axis is not None and len(mapped) > 0:
             # Collect non chunk axis slices
@@ -335,7 +341,7 @@ def map_domain(self, context):
         An updated operation context.
     """
     for input in context.inputs:
-        logger.info('Mapping %r', input.filename())
+        logger.info('Mapping %r', input.filename)
 
         with input.open(context.user) as var:
             axes = var.getAxisList()
@@ -401,10 +407,10 @@ def base_units(self, context):
 
                 units.append(input.units)
 
-                logger.info('%r units: %r first: %r', input.uri, input.units,
+                logger.info('%r units: %r first: %r', input.filename, input.units,
                             input.first)
             else:
-                logger.info('Skipping %r', input.uri)
+                logger.info('Skipping %r', input.filename)
 
     try:
         context.units = sorted(units)[0]

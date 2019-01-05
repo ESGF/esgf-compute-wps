@@ -512,7 +512,7 @@ class VariableContext(object):
                 yield self.variable.uri, index, data
 
     def chunks_cache(self, index):
-        mapped = helpers.decoder(self.cache.dimensions)
+        mapped = self.cache_mapped()
 
         indices = self.generate_chunks(index)
 
@@ -521,6 +521,8 @@ class VariableContext(object):
         with self.open_local(self.cache.local_path) as variable:
             for index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[index] })
+
+                logger.info('Reading %r %r', mapped, self.chunk[index])
 
                 data = variable(**mapped)
 

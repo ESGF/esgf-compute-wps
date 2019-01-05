@@ -277,6 +277,9 @@ class Cache(models.Model):
             raise Exception('Axis {!r} mismatched shapes {!r}'
                             ' ({!r})'.format(name, axis.shape[0], expected))
 
+        logger.info('Cached %r matched expected %r', value.stop-value.start,
+                    expected)
+
     def validate(self):
         logger.info('Validating cache file %r', self.local_path)
 
@@ -284,6 +287,8 @@ class Cache(models.Model):
             mapped = helpers.decoder(self.dimensions)
         except ValueError:
             raise Exception('Unabled to load dimensions')
+
+        logger.info('Loaded dimensions %r', mapped)
 
         with self.open_variable() as var:
             for name, value in mapped.iteritems():
