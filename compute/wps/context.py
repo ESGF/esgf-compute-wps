@@ -396,6 +396,15 @@ class VariableContext(object):
         return obj
 
     @property
+    def filename(self):
+        if self.variable is None:
+            raise WPSError('No variable set')
+
+        parts = urlparse.urlparse(self.variable.uri)
+
+        return parts.path.split('/')[-1]
+
+    @property
     def is_cached(self):
         return self.cache is not None
 
