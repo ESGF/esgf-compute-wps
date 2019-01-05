@@ -63,10 +63,7 @@ validate_output(test_operation(client, 'CDAT.subset', variables[:1], domain),
 domain2 = cwt.Domain(time=(45, 50))
 
 validate_output(test_operation(client, 'CDAT.regrid', variables[:1], domain2,
-                               gridder=gridder), (89, 32, 64))
+                               gridder=gridder), (41, 32, 64))
 
 validate_output(test_operation(client, 'CDAT.max', variables[:1],
                                axes='time'), (190, 384))
-
-validate_output(test_operation(client, 'EDASK.xarray-max', variables[:1],
-                               axes='t'), (190, 384))
