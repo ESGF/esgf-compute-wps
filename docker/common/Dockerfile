@@ -23,13 +23,15 @@ RUN apt-get update && \
 	rm -rf /usr/share/locale && \
 	rm -rf /var/lib/apt/lists/*
 
-COPY . /var/www/webapp
+COPY compute/ /var/www/webapp/compute
 
 WORKDIR /var/www/webapp
 
 ENV CWT_BASE=/var/www/webapp/compute
 
 RUN mkdir -p /var/log/cwt && \
-	mkdir -p /etc/config && \
-  cp /var/www/webapp/docker/common/app.properties /etc/config && \
-  cp /var/www/webapp/docker/common/django.properties /etc/config
+	mkdir -p /etc/config
+
+COPY docker/common/app.properties /etc/config
+
+COPY docker/common/django.properties /etc/config
