@@ -7,6 +7,8 @@ WORKDIR /
 
 COPY docker/celery/entrypoint.sh .
 
+COPY docker/celery/healthcheck.sh .
+
 EXPOSE 4356 4357 8000
 
 ENTRYPOINT ["./entrypoint.sh"]

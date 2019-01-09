@@ -111,6 +111,7 @@ wps:
 celery:
   image: jasonb87/cwt_celery
   imageTag: 2.1.0
+  metrics: /metrics
 
   resources:
     limits:
