@@ -219,7 +219,11 @@ def handle_execute(api_key, identifier, data_inputs):
 
     description = process_descriptions.ProcessDescription[0]
 
-    kwargs = {}
+    kwargs = {
+        'variable': None,
+        'domain': None,
+        'operation': None,
+    }
 
     # load up the required data inputs for the process
     if description.DataInputs is not None:

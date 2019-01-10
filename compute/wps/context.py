@@ -187,7 +187,7 @@ class WorkflowOperationContext(object):
             del operation.parameters['domain']
 
 class OperationContext(object):
-    def __init__(self, inputs, domain, operation):
+    def __init__(self, inputs=None, domain=None, operation=None):
         self.inputs = inputs
         self.domain = domain
         self.operation = operation
@@ -248,16 +248,19 @@ class OperationContext(object):
 
     @classmethod
     def from_dict(cls, data):
-        inputs = [VariableContext.from_dict(x) for x in data['inputs']]
+        try:
+            inputs = [VariableContext.from_dict(x) for x in data['inputs']]
 
-        if 'domain' in data and data['domain'] is not None:
-            domain = cwt.Domain.from_dict(data['domain'])
+            if 'domain' in data and data['domain'] is not None:
+                domain = cwt.Domain.from_dict(data['domain'])
+            else:
+                domain = None
+
+            operation = cwt.Process.from_dict(data['operation'])
+        except:
+            obj = cls()
         else:
-            domain = None
-
-        operation = cwt.Process.from_dict(data['operation'])
-
-        obj = cls(inputs, domain, operation)
+            obj = cls(inputs, domain, operation)
 
         ignore = ['inputs', 'domain', 'operation']
 
@@ -293,9 +296,11 @@ class OperationContext(object):
     def to_dict(self):
         data = self.__dict__.copy()
 
-        data['inputs'] = [x.to_dict() for x in data['inputs']]
+        if data['inputs'] is not None:
+            data['inputs'] = [x.to_dict() for x in data['inputs']]
 
-        data['operation'] = data['operation'].parameterize()
+        if data['operation'] is not None:
+            data['operation'] = data['operation'].parameterize()
 
         if data['domain'] is not None:
             data['domain'] = data['domain'].parameterize()

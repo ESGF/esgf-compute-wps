@@ -132,18 +132,26 @@ class CDAT(backend.Backend):
 
             self.execute_workflow(identifier, context)
         else:
-            context = OperationContext.from_data_inputs(identifier, variable,
-                                                        domain, operation)
-
-            context.job = job
-
-            context.user = user
-
-            context.process = process
-
             process_func = base.get_process(identifier)
 
             if process_func.METADATA.get('inputs', 0) == 0:
+                context = OperationContext()
+
+                context.job = job
+
+                context.user = user
+
+                context.process = process
+
                 self.execute_simple(context, process_func)
             else:
+                context = OperationContext.from_data_inputs(identifier, variable,
+                                                            domain, operation)
+
+                context.job = job
+
+                context.user = user
+
+                context.process = process
+
                 self.execute_process(context, process_func)
