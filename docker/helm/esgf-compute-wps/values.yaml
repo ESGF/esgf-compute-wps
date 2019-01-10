@@ -71,6 +71,9 @@ wps:
   externalHost: https://192.168.39.34
   allowedCIDR: 172.17.0.0/16
 
+  prometheus:
+    host: odd-sheep-prometheus-server.default.svc
+
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/path: /wps/metrics
