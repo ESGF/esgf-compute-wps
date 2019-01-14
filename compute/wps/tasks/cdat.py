@@ -211,9 +211,9 @@ def concat(self, contexts):
                     chunk_axis = chunk.getAxis(chunk_axis_index)
 
                 if chunk_axis.isTime():
-                    logger.info('Writing temporal chunk')
+                    logger.info('Writing temporal chunk %r', chunk.shape)
 
-                    outfile.write(chunk, id=input.variable.var_name)
+                    outfile.write(chunk, id=str(input.variable.var_name))
                 else:
                     logger.info('Gathering spatial chunk')
 
@@ -222,7 +222,7 @@ def concat(self, contexts):
             if chunk_axis is not None and not chunk_axis.isTime():
                 data = MV2.concatenate(data, axis=chunk_axis_index)
 
-                outfile.write(data, id=input.variable.var_name)
+                outfile.write(data, id=str(input.variable.var_name))
 
     return context
 
