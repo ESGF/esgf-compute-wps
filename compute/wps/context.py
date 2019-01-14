@@ -320,9 +320,9 @@ class OperationContext(object):
         units = set(x.units for x in self.inputs)
 
         if len(units) == 1:
-            return sorted(self.inputs, key=lambda x: x.units)
+            return sorted(self.inputs, key=lambda x: x.first)
 
-        return sorted(self.inputs, key=lambda x: x.first)
+        return sorted(self.inputs, key=lambda x: x.units)
 
     def gen_public_path(self):
         filename = '{}.nc'.format(uuid.uuid4())
@@ -436,7 +436,7 @@ class VariableContext(object):
         parts = urlparse.urlparse(url)
 
         try:
-            response = requests.get(url, timeout=(2, 2), cert=cert,
+            response = requests.get(url, timeout=(2, 30), cert=cert,
                                     verify=False)
         except requests.ConnectTimeout:
             logger.exception('Timeout connecting to %r', parts.hostname)
@@ -467,7 +467,7 @@ class VariableContext(object):
             cert_path = credentials.load_certificate(user)
 
             if not self.check_access(cert_path):
-                raise WPSError('Cannot access file')
+                pass
 
         try:
             with cdms2.open(self.variable.uri) as infile:
