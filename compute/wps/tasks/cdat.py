@@ -213,6 +213,9 @@ def concat(self, contexts):
                 if chunk_axis.isTime():
                     logger.info('Writing temporal chunk %r', chunk.shape)
 
+                    if context.units is not None:
+                        chunk.getTime().toRelativeTime(str(context.units))
+
                     outfile.write(chunk, id=str(input.variable.var_name))
                 else:
                     logger.info('Gathering spatial chunk')
