@@ -10,6 +10,7 @@ from urlparse import urlparse
 
 import cdms2
 from cdms2 import MV2
+from django import db
 from django.conf import settings
 from celery.utils import log
 
@@ -60,9 +61,13 @@ def write_cache_file(entry, input, context):
 
             outfile.write(data, id=input.variable.var_name)
 
-    size = entry.set_size()
-
-    metrics.WPS_DATA_CACHE_WRITE.inc(size)
+    try:
+        size = entry.set_size()
+    except db.IntegrityError:
+        # Handle case where cache files are written at same time
+        pass
+    else:
+        metrics.WPS_DATA_CACHE_WRITE.inc(size)
 
 @base.cwt_shared_task()
 def ingress_cache(self, context):

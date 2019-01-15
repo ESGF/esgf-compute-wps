@@ -295,19 +295,21 @@ class Cache(models.Model):
                 self.check_axis(var, name, value)
 
     def is_superset(self, domain):
-        try:
-            cached = helpers.decoder(self.dimensions)
-        except ValueError:
-            return False
+        cached = helpers.decoder(self.dimensions)
 
         for name, value in domain.iteritems():
             try:
                 cached_value = cached[name] 
             except KeyError:
+                logger.info('Missing axis %r', name)
+
                 return False
 
             if (value.start < cached_value.start or
                     value.stop > cached_value.stop):
+                logger.info('Axis %r not a superset, source (%r, %r), cached (%r, %r)', 
+                            name, value.start, value.stop, cached_value.start, cached_value.stop)
+
                 return False
 
         return True
