@@ -474,6 +474,8 @@ class VariableContext(object):
                 logger.info('Opened %r', infile.id)
 
                 yield infile[self.variable.var_name]
+        except WPSError:
+            raise
         except Exception:
             logger.exception('Failed to access file %r', self.variable.uri)
 
