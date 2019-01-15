@@ -337,6 +337,13 @@ class OperationContext(object):
 
             self.grid = self.generate_grid(self.gridder, selector)
 
+            if isinstance(self.gridder.grid, cwt.Variable):
+                grid = self.gridder.grid.uri
+            else:
+                grid = self.gridder.grid
+
+            metrics.WPS_REGRID.labels(self.gridder.tool, self.gridder.method, grid).inc()
+
         return self.grid, self.gridder.tool, self.gridder.method
 
     def sorted_inputs(self):
