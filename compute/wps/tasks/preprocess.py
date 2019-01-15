@@ -82,7 +82,7 @@ def generate_chunks(self, context):
 
         logger.info('Using mapping %r', mapped)
 
-        if chunk_axis is not None and len(mapped) > 0:
+        if chunk_axis is not None and mapped is not None:
             # Collect non chunk axis slices
             non_chunk_axes = [mapped[x] for x in (set(order) - set([chunk_axis]))]
 
@@ -370,8 +370,8 @@ def map_domain(self, context):
 
                 try:
                     input.mapped[name] = map_axis(axis, dim, context.units)
-                except WPSError:
-                    raise
+                #except WPSError:
+                #    raise
                 except Exception:
                     input.mapped = None
 

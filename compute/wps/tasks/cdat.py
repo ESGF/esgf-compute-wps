@@ -202,6 +202,10 @@ def concat(self, contexts):
             chunk_axis = None
             chunk_axis_index = None
 
+            # Skip file if not mapped
+            if input.mapped is None:
+                continue
+
             for file_path, _, chunk in input.chunks(context=context):
                 logger.info('Chunk shape %r %r', file_path, chunk.shape)
 

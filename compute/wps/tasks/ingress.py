@@ -73,7 +73,7 @@ def write_cache_file(entry, input, context):
 def ingress_cache(self, context):
     if context.operation.get_parameter('intermediate') is None:
         for input in context.inputs:
-            if len(input.mapped) <= 0:
+            if input.mapped is None:
                 continue
 
             entry = preprocess.check_cache_entries(input, context)
@@ -96,8 +96,8 @@ def ingress_cache(self, context):
 @base.cwt_shared_task()
 def ingress_chunk(self, context, index):
     for input_index, input in enumerate(context.sorted_inputs()):
-        if input.is_cached:
-            logger.info('Skipping %r already cached', input.variable.uri)
+        if input.is_cached or input.mapped is None:
+            logger.info('Skipping %r either cached or not included', input.variable.uri)
 
             continue
 
