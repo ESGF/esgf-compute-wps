@@ -71,15 +71,20 @@ class CDAT(backend.Backend):
 
         return preprocess_chains
 
-    def generate_process_chains(self, context, process_func):
+    def generate_process_chains(self, context, process_func=None):
         process_chains = []
 
         for index in range(settings.WORKER_PER_USER):
             ingress = tasks.ingress_chunk.s(index).set(**helpers.DEFAULT_QUEUE)
 
-            process = process_func.s(index).set(**helpers.DEFAULT_QUEUE)
+            chain = [ingress,]
 
-            process_chains.append(celery.chain(ingress, process))
+            if process_func is not None:
+                process = process_func.s(index).set(**helpers.DEFAULT_QUEUE)
+
+                chain.append(process)
+
+            process_chains.append(celery.chain(*chain))
 
         return process_chains
 
@@ -104,7 +109,10 @@ class CDAT(backend.Backend):
 
         finalize = concat | success | cache | cleanup
 
-        process_chains = self.generate_process_chains(context, process_func)
+        if context.is_compute:
+            process_chains = self.generate_process_chains(context, process_func)
+        else:
+            process_chains = self.generate_process_chains(context)
 
         canvas = preprocess | celery.group(process_chains) | finalize
 

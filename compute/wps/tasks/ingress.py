@@ -73,7 +73,7 @@ def write_cache_file(entry, input, context):
 def ingress_cache(self, context):
     if context.operation.get_parameter('intermediate') is None:
         for input in context.inputs:
-            if input.mapped is None:
+            if input.mapped is None or input.cache is not None:
                 continue
 
             entry = preprocess.check_cache_entries(input, context)

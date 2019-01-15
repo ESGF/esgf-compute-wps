@@ -196,6 +196,9 @@ class OperationContext(object):
         self.process = None
         self.units = None
         self.output_path = None
+        self.grid = None
+        self.gridder = None
+        self.ignore = ('grid', 'gridder')
 
     @classmethod
     def merge_inputs(cls, contexts):
@@ -296,6 +299,10 @@ class OperationContext(object):
     def to_dict(self):
         data = self.__dict__.copy()
 
+        for x in self.ignore:
+            if x in data:
+                del data[x]
+
         if data['inputs'] is not None:
             data['inputs'] = [x.to_dict() for x in data['inputs']]
 
@@ -315,6 +322,22 @@ class OperationContext(object):
             data['process'] = data['process'].id
 
         return data
+
+    @property
+    def is_compute(self):
+        return self.operation.identifier not in ('CDAT.subset', 'CDAT.aggregate', 'CDAT.regrid')
+
+    @property
+    def is_regrid(self):
+        return 'gridder' in self.operation.parameters
+
+    def regrid_context(self, selector):
+        if self.gridder is None:
+            self.gridder = self.operation.get_parameter('gridder')
+
+            self.grid = self.generate_grid(self.gridder, selector)
+
+        return self.grid, self.gridder.tool, self.gridder.method
 
     def sorted_inputs(self):
         units = set(x.units for x in self.inputs)
@@ -348,6 +371,133 @@ class OperationContext(object):
         stat = os.stat(path)
 
         metrics.WPS_DATA_OUTPUT.inc(stat.st_size)
+
+    def parse_uniform_arg(self, value, default_start, default_n):
+        result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
+
+        if result is None:
+            raise WPSError('Failed to parse uniform argument {value}', value=value)
+
+        groups = result.groups()
+
+        if groups[1] is None:
+            delta = int(groups[0])
+
+            default_n = default_n / delta
+        else:
+            default_start = int(groups[1])
+
+            default_n = int(groups[2])
+
+            delta = int(groups[3])
+
+        start = default_start + (delta / 2.0)
+
+        return start, default_n, delta
+
+    def generate_selector(self, variable):
+        """ Generates a selector for a variable.
+        
+        Iterates over the axis list and creates a dict selector for the 
+        variabel.
+
+        Args:
+            variable: A cdms2.fvariable.FileVariable or cdms2.tvariable.TransientVariable.
+
+        Returns:
+            A dict keyed with the axis names and values of the axis endpoints as
+            a tuple.
+        """
+        selector = {}
+
+        for axis in variable.getAxisList():
+            selector[axis.id] = (axis[0], axis[-1])
+
+        return selector
+
+    def subset_grid(self, grid, selector):
+        target = cdms2.MV2.ones(grid.shape)
+
+        target = target(**selector)
+
+        target.setAxisList(grid.getAxisList())
+
+        return target.getGrid()
+
+    def generate_grid(self, gridder, selector):
+        try:
+            if isinstance(gridder.grid, cwt.Variable):
+                grid = self.read_grid_from_file(gridder)
+            else:
+                grid = self.generate_user_defined_grid(gridder)
+        except AttributeError:
+            # Handle when gridder is None
+            return None
+
+        grid = self.subset_grid(grid, selector)
+
+        return grid
+
+    def read_grid_from_file(gridder):
+        url_validator = URLValidator(['https', 'http'])
+
+        try:
+            url_validator(gridder.grid.uri)
+        except ValidationError:
+            raise WPSError('Path to grid file is not an OpenDAP url: {}', gridder.grid.uri)
+
+        try:
+            with cdms2.open(gridder.grid) as infile:
+                data = infile(gridder.grid.var_name)
+        except cdms2.CDMSError:
+            raise WPSError('Failed to read the grid from {} in {}', gridder.grid.var_name, gridder.grid.uri)
+
+        return data.getGrid()
+
+    def generate_user_defined_grid(self, gridder):
+        try:
+            grid_type, grid_param = gridder.grid.split('~')
+        except AttributeError:
+            return None
+        except ValueError:
+            raise WPSError('Error generating grid "{name}"', name=gridder.grid)
+
+        logger.info('Generating grid %r %r', grid_type, grid_param)
+
+        if grid_type.lower() == 'uniform':
+            result = re.match('^(.*)x(.*)$', grid_param)
+
+            if result is None:
+                raise WPSError('Failed to parse uniform configuration from {value}', value=grid_param)
+
+            try:
+                start_lat, nlat, delta_lat = self.parse_uniform_arg(result.group(1), -90.0, 180.0)
+            except WPSError:
+                raise
+
+            try:
+                start_lon, nlon, delta_lon = self.parse_uniform_arg(result.group(2), 0.0, 360.0)
+            except WPSError:
+                raise
+
+            grid = cdms2.createUniformGrid(start_lat, nlat, delta_lat, start_lon, nlon, delta_lon)
+
+            logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
+                grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
+        elif grid_type.lower() == 'gaussian':
+            try:
+                nlats = int(grid_param)
+            except ValueError:
+                raise WPSError('Error converting gaussian parameter to an int')
+
+            grid = cdms2.createGaussianGrid(nlats)
+
+            logger.info('Created target gaussian grid {}'.format(grid.shape))
+        else:
+            raise WPSError('Unknown grid type for regridding: {}', grid_type)
+
+        return grid
+
 
 class VariableContext(object):
     def __init__(self, variable):
