@@ -154,6 +154,6 @@ def metrics_task(self, context):
         'time': timezone.now().ctime(),
     }
 
-    context.job.succeeded(json.dumps(data))
+    context.output_data = json.dumps(data)
 
-    return data
+    return context

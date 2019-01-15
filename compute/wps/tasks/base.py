@@ -82,14 +82,16 @@ class CWTBaseTask(celery.Task):
         finally:
             fd.close()
 
-    def update(self, job, fmt, *args, **kwargs):
-        message = fmt.format(*args)
+    def status(self, fmt, *args, **kwargs):
+        context = self.request.args[0]
 
-        tagged_message = '[{}] {}'.format(self.request.id, message)
+        message = fmt.format(*args, **kwargs)
 
-        job.update(tagged_message)
+        logger.info('%s %r', message, context.job.progress)
 
-        logger.info('%s %r', message, job.steps_progress)
+        task_message = '[{}] {}'.format(self.request.id, message)
+
+        context.job.update(task_message)
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
         if len(args) > 0 and isinstance(args[0], context.OperationContext):
@@ -105,6 +107,6 @@ class CWTBaseTask(celery.Task):
 
     def on_success(self, retval, task_id, args, kwargs):
         if len(args) > 0 and isinstance(args[0], context.OperationContext):
-            args[0].job.steps_inc()
+            args[0].job.step_complete()
 
 cwt_shared_task = partial(shared_task, bind=True, base=CWTBaseTask)

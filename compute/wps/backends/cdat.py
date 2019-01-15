@@ -39,6 +39,8 @@ class CDAT(backend.Backend):
 
         succeeded = tasks.job_succeeded_workflow.s().set(**helpers.DEFAULT_QUEUE)
 
+        context.job.step_inc(2 + len(context.operation))
+
         canvas = start | workflow | succeeded;
 
         canvas.delay()
@@ -50,12 +52,15 @@ class CDAT(backend.Backend):
 
         success = tasks.job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
 
-        canvas = start | process 
+        context.job.step_inc(3)
+
+        canvas = start | process | success
 
         canvas.delay()
 
     def generate_preprocess_chains(self, context):
         preprocess_chains = []
+        tasks_total = 0
 
         for index in range(settings.WORKER_PER_USER):
             filter = tasks.filter_inputs.s(index).set(**helpers.DEFAULT_QUEUE)
@@ -69,10 +74,15 @@ class CDAT(backend.Backend):
             preprocess_chains.append(celery.chain(filter, map, cache,
                                                   chunks))
 
+            tasks_total += 3
+
+        context.job.step_inc(tasks_total)
+
         return preprocess_chains
 
     def generate_process_chains(self, context, process_func=None):
         process_chains = []
+        tasks_total = 0
 
         for index in range(settings.WORKER_PER_USER):
             ingress = tasks.ingress_chunk.s(index).set(**helpers.DEFAULT_QUEUE)
@@ -85,6 +95,10 @@ class CDAT(backend.Backend):
                 chain.append(process)
 
             process_chains.append(celery.chain(*chain))
+
+            tasks_total += len(chain)
+
+        context.job.step_inc(tasks_total)
 
         return process_chains
 
@@ -99,6 +113,8 @@ class CDAT(backend.Backend):
 
         preprocess = start | units | celery.group(preprocess_chains) | merge
 
+        context.job.step_inc(3)
+
         concat = tasks.concat.s().set(**helpers.DEFAULT_QUEUE)
 
         success = tasks.job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
@@ -108,6 +124,8 @@ class CDAT(backend.Backend):
         cleanup = tasks.ingress_cleanup.s().set(**helpers.DEFAULT_QUEUE)
 
         finalize = concat | success | cache | cleanup
+
+        context.job.step_inc(4)
 
         if context.is_compute:
             process_chains = self.generate_process_chains(context, process_func)

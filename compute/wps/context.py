@@ -142,10 +142,13 @@ class WorkflowOperationContext(object):
             self.intermediate[operation.name] = variable
 
     def wait_operation(self, operation):
-        result = operation.wait()
+        # TODO something other than a constant timeout
+        result = operation.wait(10*60)
 
         if not result:
             raise WPSError('Operation {!r} failed', operation.identifier)
+
+        self.job.step_complete()
 
     def wait_for_inputs(self, operation):
         for input in operation.inputs:
@@ -195,6 +198,7 @@ class OperationContext(object):
         self.user = None
         self.process = None
         self.units = None
+        self.output_data = None
         self.output_path = None
         self.grid = None
         self.gridder = None

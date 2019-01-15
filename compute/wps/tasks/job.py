@@ -91,6 +91,21 @@ def send_success_email(context, variable):
 
     email.send(fail_silently=True)
 
+def send_success_email_data(context, outputs):
+    if context.user.first_name is None:
+        name = context.user.username
+    else:
+        name = context.user.get_full_name()
+
+    msg = JOB_SUCCESS_MSG.format(name=name, job=context.job, settings=settings,
+                                outputs=outputs)
+
+    email = EmailMessage('Job Success', msg, to=[context.user.email,])
+
+    email.content_subtype = 'html'
+
+    email.send(fail_silently=True)
+
 @base.cwt_shared_task()
 def job_started(self, context):
     context.job.started()
@@ -117,15 +132,20 @@ def job_succeeded_workflow(self, context):
 
 @base.cwt_shared_task()
 def job_succeeded(self, context):
-    relpath = os.path.relpath(context.output_path, settings.WPS_PUBLIC_PATH)
+    if context.output_data is not None:
+        context.job.succeeded(context.output_data)
 
-    url = settings.WPS_DAP_URL.format(filename=relpath)
+        send_success_email_data(context, context.output_data)
+    else:
+        relpath = os.path.relpath(context.output_path, settings.WPS_PUBLIC_PATH)
 
-    output = cwt.Variable(url, context.inputs[0].variable.var_name)
+        url = settings.WPS_DAP_URL.format(filename=relpath)
 
-    context.job.succeeded(json.dumps(output.parameterize()))
+        output = cwt.Variable(url, context.inputs[0].variable.var_name)
 
-    send_success_email(context, [output,])
+        context.job.succeeded(json.dumps(output.parameterize()))
+
+        send_success_email(context, [output,])
 
     context.process.track(context.user)
 

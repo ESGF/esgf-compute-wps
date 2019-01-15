@@ -535,23 +535,13 @@ class Job(models.Model):
         return latest is not None and latest.status == ProcessSucceeded
 
     @property
-    def steps_progress(self):
+    def progress(self):
         try:
             return (self.steps_completed + 1) * 100.0 / self.steps_total
         except ZeroDivisionError:
             return 0.0
 
-    @property
-    def steps(self):
-        return self.steps_total
-
-    @steps.setter
-    def steps(self, x):
-        self.steps_total = x
-
-        self.save()
-
-    def steps_inc_total(self, steps=None):
+    def step_inc(self, steps=None):
         if steps is None:
             steps = 1
 
@@ -559,18 +549,8 @@ class Job(models.Model):
 
         self.save()
 
-    def steps_reset(self):
-        self.steps_total = 0
-
-        self.steps_completed = 0
-
-        self.save()
-
-    def steps_inc(self, steps=None):
-        if steps is None:
-            steps = 1
-
-        self.steps_completed = F('steps_completed') + steps
+    def step_complete(self):
+        self.steps_completed = F('steps_completed') + 1
 
         self.save()
 
@@ -584,7 +564,7 @@ class Job(models.Model):
         if not self.is_started:
             status = self.status_set.create(status=ProcessStarted)
 
-            status.set_message('Job Started', self.steps_progress)
+            status.set_message('Job Started', self.progress)
 
             metrics.WPS_JOBS_STARTED.inc()
 
@@ -621,7 +601,7 @@ class Job(models.Model):
 
         started = self.status_set.filter(status=ProcessStarted).latest('created_date')
 
-        started.set_message(message, self.steps_progress)
+        started.set_message(message, self.progress)
 
     def statusSince(self, date):
         return [

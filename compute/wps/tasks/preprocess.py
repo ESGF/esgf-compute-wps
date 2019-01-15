@@ -417,7 +417,7 @@ def base_units(self, context):
     except IndexError:
         pass
 
-    logger.info('Set units to %r', context.units)
+    self.status('Setting units to {!r}', context.units)
 
     return context
 
