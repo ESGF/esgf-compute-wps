@@ -116,8 +116,7 @@ def generate_chunks(self, context):
 
         input.chunk_axis = chunk_axis
 
-        logger.info('Generated %r chunks over %r axis', len(input.chunk),
-                    input.chunk_axis)
+        self.status('Generated {!r} chunks over {!r} axis for {!r}', len(input.chunk), input.chunk_axis, input.filename)
 
     return context
 
@@ -341,7 +340,7 @@ def map_domain(self, context):
         An updated operation context.
     """
     for input in context.inputs:
-        logger.info('Mapping %r', input.filename)
+        self.status('Mapping {!r}', input.filename)
 
         with input.open(context.user) as var:
             axes = var.getAxisList()

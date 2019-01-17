@@ -549,10 +549,14 @@ class Job(models.Model):
 
         self.save()
 
+        self.refresh_from_db()
+
     def step_complete(self):
         self.steps_completed = F('steps_completed') + 1
 
         self.save()
+
+        self.refresh_from_db()
 
     def accepted(self):
         self.status_set.create(status=ProcessAccepted)

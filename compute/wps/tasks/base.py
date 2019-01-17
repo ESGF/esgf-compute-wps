@@ -83,7 +83,10 @@ class CWTBaseTask(celery.Task):
             fd.close()
 
     def status(self, fmt, *args, **kwargs):
-        context = self.request.args[0]
+        if isinstance(self.request.args[0], (list, tuple)):
+            context = self.request.args[0][0]
+        else:
+            context = self.request.args[0]
 
         message = fmt.format(*args, **kwargs)
 
@@ -98,7 +101,7 @@ class CWTBaseTask(celery.Task):
             args[0].job.retry(exc)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        if len(args) > 0 and isinstance(args[0], context.OperationContext):
+        if len(args) > 0 and isinstance(args[0], (context.OperationContext, context.WorkflowOperationContext)):
             args[0].job.failed(wps_util.exception_report(settings, str(exc), cwt.ows.NoApplicableCode))
 
             from wps.tasks import job

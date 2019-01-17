@@ -143,7 +143,10 @@ class WorkflowOperationContext(object):
 
     def wait_operation(self, operation):
         # TODO something other than a constant timeout
-        result = operation.wait(10*60)
+        try:
+            result = operation.wait(timeout=10*60)
+        except cwt.CWTError as e:
+            raise WPSError('Process {!r} failed with {!r}', operation.identifier, str(e))
 
         if not result:
             raise WPSError('Operation {!r} failed', operation.identifier)
@@ -151,24 +154,33 @@ class WorkflowOperationContext(object):
         self.job.step_complete()
 
     def wait_for_inputs(self, operation):
+        completed = []
+
         for input in operation.inputs:
             if input in self.state:
-                executing_operation = self.state[input]
+                executing_operation = self.state.pop(input)
 
                 self.wait_operation(executing_operation)
 
                 self.add_output(executing_operation)
 
-                # Remove completed operation from state
-                del self.state[input]
+                completed.append(executing_operation)
+
+        return completed
 
     def wait_remaining(self):
+        completed = []
+
         for operation in self.state.values():
             self.wait_operation(operation)
 
             self.add_output(operation)
 
             del self.state[operation.name]
+
+            completed.append(operation)
+
+        return completed
 
     def add_executing(self, operation):
         self.state[operation.name] = operation
@@ -296,7 +308,10 @@ class OperationContext(object):
 
         target_domain = domain.get(target_op.domain, None)
 
-        target_inputs = [VariableContext(variable[x]) for x in target_op.inputs]
+        try:
+            target_inputs = [VariableContext(variable[x]) for x in target_op.inputs]
+        except KeyError as e:
+            raise WPSError('Missing variable with name {!r}', str(e))
 
         return cls(target_inputs, target_domain, target_op)
 
@@ -508,7 +523,6 @@ class OperationContext(object):
             raise WPSError('Unknown grid type for regridding: {}', grid_type)
 
         return grid
-
 
 class VariableContext(object):
     def __init__(self, variable):

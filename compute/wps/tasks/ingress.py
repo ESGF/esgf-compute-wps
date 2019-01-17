@@ -102,6 +102,8 @@ def ingress_chunk(self, context, index):
             continue
 
         for _, chunk_index, chunk in input.chunks(index, context):
+            start = datetime.datetime.now()
+
             ingress_filename = '{}_{:08}_{:08}.nc'.format(str(context.job.id),
                                                           input_index, chunk_index)
 
@@ -111,5 +113,9 @@ def ingress_chunk(self, context, index):
                 outfile.write(chunk, id=input.variable.var_name)
 
             input.ingress.append(ingress_path)
+
+            elapsed = datetime.datetime.now() - start
+
+            self.status('Ingressed {!r} bytes in {!r} seconds', chunk.nbytes, elapsed.total_seconds())
 
     return context

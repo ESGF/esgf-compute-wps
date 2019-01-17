@@ -6,7 +6,6 @@ import os
 import re
 import uuid
 from collections import deque
-from datetime import datetime
 
 import cdms2
 import cwt
@@ -26,7 +25,7 @@ from wps.context import OperationContext
 
 logger = get_task_logger('wps.tasks.cdat')
 
-@base.register_process('CDAT.workflow', metadata={}, hidden=True)
+@base.register_process('CDAT.workflow', metadata={})
 @base.cwt_shared_task()
 def workflow(self, context):
     client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=context.user.auth.api_key,
@@ -37,7 +36,12 @@ def workflow(self, context):
     while len(queue) > 0:
         next = queue.popleft()
 
-        context.wait_for_inputs(next)
+        completed = context.wait_for_inputs(next)
+
+        if len(completed) > 0:
+            completed_ids = ', '.join('-'.join([x.identifier, x.name]) for x in completed)
+
+            self.status('Processes {!s} have completed', completed_ids)
 
         context.prepare(next)
 
@@ -46,7 +50,14 @@ def workflow(self, context):
 
         context.add_executing(next)
 
-    context.wait_remaining()
+        self.status('Executing process {!s}-{!s}', next.identifier, next.name)
+
+    completed = context.wait_remaining()
+
+    if len(completed) > 0:
+        completed_ids = ', '.join('-'.join([x.identifier, x.name]) for x in completed)
+
+        self.status('Processes {!s} have completed', completed_ids)
 
     return context
 
@@ -105,32 +116,16 @@ string e.g. 'lat|lon'.
 def process_data(self, context, index, process):
     axes = context.operation.get_parameter('axes', True)
 
-    grid = None
-    
-    gridder = context.operation.get_parameter('gridder')
+    nbytes = 0
 
     for input_index, input in enumerate(context.sorted_inputs()):
         for _, chunk_index, chunk in input.chunks(index, context):
-            if grid is None and gridder is not None:
-                metrics.WPS_REGRID.labels(gridder.tool, gridder.method,
-                                          gridder.grid).inc()
-
-                grid = self.generate_grid(gridder)
-
-                grid = self.subset_grid(grid, input.mapped)
+            nbytes += chunk.nbytes
 
             process_filename = '{}_{:08}_{:08}_{}.nc'.format(
                 str(context.job.id), input_index, chunk_index, '_'.join(axes.values))
 
             process_path = context.gen_ingress_path(process_filename)
-
-            if grid is not None:
-                shape = chunk.shape
-
-                chunk = chunk.regrid(grid, regridTool=gridder.tool,
-                                     regridMethod=gridder.method)
-
-                logger.info('Regrid %r -> %r', shape, chunk.shape)
 
             if process is not None:
                 with metrics.WPS_PROCESS_TIME.labels(context.operation.identifier).time():
@@ -140,6 +135,8 @@ def process_data(self, context, index, process):
                 outfile.write(chunk, id=input.variable.var_name)
 
             input.process.append(process_path)
+
+    self.status('Processed {!r} bytes', nbytes)
 
     return context
 
@@ -166,6 +163,9 @@ def concat(self, contexts):
     context = OperationContext.merge_ingress(contexts)
 
     context.output_path = context.gen_public_path()
+
+    nbytes = 0
+    start = datetime.datetime.now()
 
     with context.new_output(context.output_path) as outfile:
         for input in context.sorted_inputs():
@@ -200,6 +200,8 @@ def concat(self, contexts):
 
                     data.append(chunk)
 
+                nbytes += chunk.nbytes
+
             if chunk_axis is not None and not chunk_axis.isTime():
                 data = MV2.concatenate(data, axis=chunk_axis_index)
 
@@ -207,6 +209,12 @@ def concat(self, contexts):
                     chunk = regrid_chunk(context, chunk, input.mapped)
 
                 outfile.write(data, id=str(input.variable.var_name))
+
+                nbytes += chunk.nbytes
+
+    elapsed = datetime.datetime.now() - start
+
+    self.status('Processed {!r} bytes in {!r} seconds', nbytes, elapsed.total_seconds())
 
     return context
 
