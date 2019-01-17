@@ -149,7 +149,8 @@ def job_succeeded(self, context):
 
     context.process.track(context.user)
 
-    if context.operation.get_parameter('intermediate') is None:
+    if (context.operation is not None 
+        and context.operation.get_parameter('intermediate') is None):
         for input in context.inputs:
             models.File.track(context.user, input.variable)
 
