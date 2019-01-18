@@ -113,6 +113,16 @@ spec:
             secretKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
               key: postgres_password
+        - name: OAUTH_CLIENT
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: oauth_client
+        - name: OAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: oauth_secret
         volumeMounts:
         - mountPath: /etc/config
           name: config-volume
