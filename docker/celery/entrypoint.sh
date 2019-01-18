@@ -1,9 +1,37 @@
 #! /bin/bash
 
+function cleanup() {
+  kill -15 ${celery_pid} &>/dev/null
+
+  echo "Killed celery"
+
+  wait ${celery_pid}
+
+  kill -15 ${metrics_pid} &>/dev/null
+
+  echo "Killed metrics"
+
+  wait ${metrics_pid}
+
+  rm -rf ${CWT_METRICS}
+}
+
+trap cleanup SIGINT SIGTERM
+
 source activate wps
 
-root_path="/var/www/compute/compute"
+pushd /var/www/webapp/compute
 
-cd $root_path
+celery worker -A compute ${@} &
 
-exec celery worker -A compute -b $CELERY_BROKER $@
+celery_pid=$!
+
+if [[ -n "${CWT_METRICS}" ]]; then
+  [[ ! -e "${CWT_METRICS}" ]] && mkdir "${CWT_METRICS}"
+
+  python wps/metrics.py &
+
+  metrics_pid=$!
+fi
+
+wait

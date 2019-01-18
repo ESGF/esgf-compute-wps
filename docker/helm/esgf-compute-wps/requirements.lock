@@ -1,0 +1,12 @@
+dependencies:
+- name: postgresql
+  repository: https://kubernetes-charts.storage.googleapis.com/
+  version: 0.11.0
+- name: redis
+  repository: https://kubernetes-charts.storage.googleapis.com/
+  version: 3.2.0
+- name: prometheus
+  repository: https://kubernetes-charts.storage.googleapis.com/
+  version: 7.0.2
+digest: sha256:fdd30abcd009261c16bc1bf19a14c3d64f4183f980e370364d414af5b2ce5a4d
+generated: 2018-10-01T20:11:42.850032109-07:00

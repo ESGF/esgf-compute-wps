@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
@@ -62,13 +63,20 @@ export class LoginOpenIDComponent {
     idp: this.PROVIDERS[0]
   };
 
+  next: string;
+
   constructor(
     private authService: AuthService,
     private notificationService: NotificationService,
-  ) { }
+    private route: ActivatedRoute,
+  ) { 
+    this.route.queryParams.subscribe((item: any) => {
+      this.next = item['next'] || null;
+    });
+  }
 
   onSubmit() {
-    this.authService.loginOpenID(this.model.idp.url)
+    this.authService.loginOpenID(this.model.idp.url, this.next)
       .then(response => {
         this.redirect(response.data.redirect);
       })

@@ -1,87 +1,23 @@
-import { Component, Input, OnInit, ViewEncapsulation, ViewChild } from '@angular/core';
+import { Component, Input, OnInit, AfterViewInit, ViewEncapsulation, ViewChild } from '@angular/core';
 
-import { Parameter } from './parameter.component';
-import { MapComponent } from './map.component';
-import { Axis } from './axis.component';
-import { 
-  ConfigureService, 
-  Configuration,
-  Process, 
-  Variable, 
-  Dataset, 
-  DatasetCollection 
-} from './configure.service';
+import { JoyrideService } from 'ngx-joyride';
+
+import { Parameter } from './parameter';
+import { ConfigureService } from './configure.service';
+import { Process } from './process';
 import { NotificationService } from '../core/notification.service';
+import { ConfigService } from '../core/config.service';
+import { WPSService } from '../core/wps.service';
+import { ProcessWrapper } from './process-wrapper';
+import { Link } from './link';
+import { EditorState } from './editor-state.enum';
+import { Variable } from './variable';
+import { RegridModel } from './regrid';
+import { AuthService } from '../core/auth.service';
 
 import * as d3 from 'd3';
 
-declare var jQuery: any;
 declare var $: any;
-
-class WorkflowModel { 
-  domain: string;
-  axes: Axis[];
-
-  process: Process;
-  selectedVariable: Variable;
-
-  selectedDataset: DatasetWrapper;
-  availableDatasets: DatasetWrapper[] = [];
-}
-
-interface Displayable { 
-  display(): string;
-  uid(): string;
-}
-
-class DatasetWrapper implements Displayable {
-  constructor(
-    public dataset: Dataset,
-  ) { }
-
-  display() {
-    return this.dataset.id;
-  }
-
-  uid() {
-    return this.display();
-  }
-}
-
-class ProcessWrapper implements Displayable {
-  constructor(
-    public process: Process,
-    public x: number,
-    public y: number
-  ) { }
-
-  display() {
-    return this.process.identifier;
-  }
-
-  uid() {
-    return this.process.uid;
-  }
-
-  inputDatasets() {
-    return this.process.inputs.filter((value: any) => {
-      return !(value instanceof Process);
-    });
-  }
-}
-
-class Link {
-  constructor(
-    public src: ProcessWrapper,
-    public dst?: ProcessWrapper
-  ) { }
-}
-
-enum EditorState {
-  None,
-  Dropped,
-  Connecting,
-}
 
 @Component({
   selector: 'workflow',
@@ -89,6 +25,10 @@ enum EditorState {
   styles: [`
   svg {
     border: 1px solid #ddd;
+  }
+
+  .error {
+    stroke: #ff0000!important;
   }
 
   .pane {
@@ -141,31 +81,24 @@ enum EditorState {
   .select-spacer {
     margin-bottom: 10px;
   }
-
-  .loading {
-    cursor: wait;
-  }
   `],
   templateUrl: './workflow.component.html'
 })
-export class WorkflowComponent implements OnInit {
-  @Input() processes: any[];
-  @Input() datasets: string[];
-  @Input() config: Configuration;
+export class WorkflowComponent implements OnInit, AfterViewInit {
+  @Input() datasetID: string[];
+  @Input() params: any;
 
-  @ViewChild(MapComponent) map: MapComponent;
-
-  model: WorkflowModel = new WorkflowModel();
+  processes: Process[];
 
   nodes: ProcessWrapper[];
   links: Link[];
-  rootNode: ProcessWrapper;
   selectedNode: ProcessWrapper;
-
-  loading: boolean = false;
+  selectedAbstract: Process;
 
   state: EditorState;
   stateData: any;
+
+  base = new Process('dummy');
 
   svg: any;
   svgLinks: any;
@@ -173,77 +106,28 @@ export class WorkflowComponent implements OnInit {
   svgDrag: any;
 
   constructor(
-    private configService: ConfigureService,
-    private notificationService: NotificationService
+    private configureService: ConfigureService,
+    private configService: ConfigService,
+    private notificationService: NotificationService,
+    private wpsService: WPSService,
+    private authService: AuthService,
+    private joyrideService: JoyrideService,
   ) { 
-    this.model.domain = 'World';
-
-    this.model.process = new Process();
-
-    this.model.process.domain.push({
-      id: 'lat',
-      start: 90,
-      stop: -90,
-      step: 1,
-      units: 'degress north'
-    } as Axis);
-
-    this.model.process.domain.push({
-      id: 'lon',
-      start: -180,
-      stop: 180,
-      step: 1,
-      units: 'degress west'
-    } as Axis);
-
-    this.model.process.domain.push({
-      id: 'time',
-      start: 0,
-      stop: 0,
-      step: 1,
-      units: 'Custom'
-    } as Axis);
-
     this.nodes = [];
 
     this.links = [];
 
     this.state = EditorState.None;
+
+    this.wpsService.getCapabilities('/wps/')
+      .then((processes: string[]) => {
+        this.processes = processes.map((identifier: string) => {
+          return new Process(identifier);
+        });
+      });
   }
 
   ngOnInit() {
-    this.model.availableDatasets = [];
-
-    let datasets = this.datasets.map((value: string) => { 
-      let dataset = new Dataset(value);
-
-      return new DatasetWrapper(dataset); 
-    });
-    
-    this.model.availableDatasets = this.model.availableDatasets.concat(datasets);
-
-    if (this.model.availableDatasets.length > 0) {
-      this.model.selectedDataset = this.model.availableDatasets[0];
-
-      this.config.datasetID = this.model.selectedDataset.dataset.id;
-
-      this.configService.searchESGF(this.config)
-        .then(data => {
-          data.forEach((value: Variable) => {
-            value.dataset = this.config.datasetID;
-          });
-
-          this.model.selectedDataset.dataset.variables = data;
-
-          if (data.length > 0) {
-            this.model.selectedVariable = data[0];
-          }
-        });
-    } else {
-      // needs to be undefined to selected the default option
-      this.model.selectedDataset = undefined;
-    }
-
     d3.select(window)
       .on('keydown', () => this.removeElements())
 
@@ -288,263 +172,140 @@ export class WorkflowComponent implements OnInit {
       .classed('nodes', true);
   }
 
-  loadDomain() {
-    this.model.process.domain = this.model.selectedVariable.axes.map((axis: Axis) => {
-      return {... axis};
-    });
-
-    $('#datasetExplorer').modal('hide');
-  }
-
-  loadDataset() {
-    this.loading = true;
-
-    this.config.datasetID = this.model.selectedDataset.dataset.id;
-
-    this.configService.searchESGF(this.config)
-      .then(variables => {
-        this.model.selectedDataset.dataset.variables = variables;
-
-        this.model.selectedVariable = variables[0];
-
-        if (this.model.selectedVariable.axes == null) {
-          this.loadVariable();
-        } else {
-          this.loading = false;
-        }
-      })
-      .catch(error => {
-        this.loading = false;
-
-        this.notificationService.error(error);
-      });
-  }
-
-  loadVariable() {
-    this.loading = true;
-
-    this.config.variable = this.model.selectedVariable;
-
-    this.configService.searchVariable(this.config)
-      .then(axes => {
-        this.model.selectedVariable.axes = axes.map((axis: Axis) => {
-          return {step: 1, ...axis}; 
-        });
-
-        this.loading = false;
-      })
-      .catch(error => { 
-        this.loading = false; 
-
-        this.notificationService.error(error);
-      });
-  }
-
-  showExplorer() {
-    this.loadVariable();
-
-    $('#datasetExplorer').modal('show');    
-  }
-
-  showHelp() {
-    jQuery('#help').modal('show');
-  }
-
-  showDomain() {
-    this.map.domain = this.model.domain;
-
-    this.map.domainChange();
-
-    jQuery('#map').modal('show');
-
-    // need to invalidate the map after it's presented to the user
-    jQuery('#map').on('shown.bs.modal', () => {
-      this.map.map.invalidateSize();
-    });
-  }
-
-  showAbstract(process: any) {
-    // Really ugly way to parse XML
-    // TODO replace with better parsing
-    let parser = new DOMParser();
-
-    let xmlDoc = parser.parseFromString(process.description, 'text/xml');
-
-    let description = xmlDoc.children[0].children[0];
-
-    let abstractText = '';
-    let titleText = '';
-
-    Array.from(description.children).forEach((item: any) => {
-      if (item.localName === 'Identifier') {
-        titleText = item.innerHTML;
-      } else if (item.localName === 'Abstract') {
-        abstractText = item.innerHTML;
+  ngAfterViewInit() {
+    $('#workflow').ready(() => {
+      if (localStorage.getItem('tourCompleted') == null) {
+        this.startTour();
       }
     });
 
-    let modal = $('#abstractModal');
-
-    modal.find('.modal-title').html(`"${titleText}" Abstract`);
-
-    if (abstractText === '') { abstractText = 'No abstract available'; }
-
-    modal.find('#abstract').html(abstractText);
+    $('#processConfigureModal')
+      .on('hidden.bs.modal', () => this.update());
   }
 
-  onScript() {
-    this.notificationService.error('Workflow script is unsupported at the moment');
+  startTour() {
+    $('#processPanel').collapse('show');
+    $('#globalRegridPanel').collapse('show');
+    $('#globalParameterPanel').collapse('show');
+
+    let tour = this.joyrideService.startTour({
+      steps: [
+        'editor',
+        'globalRegrid',
+        'globalParameter',
+        'processes',
+        'process',
+      ], 
+      themeColor: '#808080',
+    }).subscribe((step: any) => {
+      if (step.number === 4) {
+        this.selectedNode = this.addProcess('CDAT.subset', [200, 200], true);
+      }
+    }, (error) => {
+      tour.unsubscribe();
+    }, () => {
+      $('#processPanel').collapse('hide');
+      $('#globalRegridPanel').collapse('hide');
+      $('#globalParameterPanel').collapse('hide');
+
+      this.removeProcess(this.selectedNode.process);
+
+      this.selectedNode = null;
+
+      localStorage.setItem('tourCompleted', 'true');
+
+      tour.unsubscribe();
+    });
   }
 
-  onExecute() {
-    // Cover a few workflow specific checks before executing
-    if (this.nodes.length === 0) {
-      this.notificationService.error('Workflow must contain atleast 1 process');
+  execute() {
+    if (this.authService.user === null) {
+      this.notificationService.error('Must be logged in to execute a workflow');
 
       return;
     }
 
-    if (this.rootNode == null) {
-      this.notificationService.error('Workflow must converge to a single process');
+    let processes = this.nodes.map((item: ProcessWrapper) => item.process);
+    let api_key = this.authService.user.api_key;
 
-      return;
-    }
+    processes.forEach((item: Process) => {
+      if (this.base.parameters.length > 0 && item.parameters.length == 0) {
+        Object.assign(item.parameters, this.base.parameters);
+      }
 
-    // Assign values from our model
-    // These values are not stored in rootNode since this changes with the state
-    // of the graph
-    this.rootNode.process.domain = this.model.process.domain;
+      if (this.base.regrid.regridType != 'None' && item.regrid.regridType == 'None') {
+        Object.assign(item.regrid, this.base.regrid);
+      }
+    });
 
-    this.rootNode.process.regrid = this.model.process.regrid;
-
-    this.rootNode.process.parameters = this.model.process.parameters;
-
-    this.configService.execute(this.rootNode.process)
+    this.wpsService.execute('/wps/', api_key, processes)
       .then((data: any) => {
-        let parser = new DOMParser();
-        let xml = parser.parseFromString(data, 'text/xml');
-        let el = xml.getElementsByTagName('wps:ExecuteResponse');
-        let link = '';
-
-        if (el.length > 0) {
-          let statusLocation = el[0].attributes.getNamedItem('statusLocation').value;
-
-          let jobID = statusLocation.substring(statusLocation.lastIndexOf('/')+1);
-
-          link = `/wps/home/user/jobs`;
-        }
-        
-        this.notificationService.message('Succesfully submitted job', link);
+        this.notificationService.message(`Successfully submitted operation for execution`);
       })
-      .catch(error => {
-        this.notificationService.error(error); 
+      .catch((e: string) => {
+        this.notificationService.error(`Execute failed: ${e}`); 
       });
-  }
-
-  domainChange() {
-    this.map.domain = this.model.domain;
-
-    this.map.domainChange();
-
-    if (this.model.domain === 'Custom') {
-      jQuery('#map').modal('show');
-
-      // need to invalidate the map after it's presented to the user
-      jQuery('#map').on('shown.bs.modal', () => {
-        this.map.map.invalidateSize();
-      });
-    }
-  }
-
-  determineRootNode() {
-    if (this.nodes.length === 1) {
-      this.rootNode = this.nodes[0];
-    } else {
-      let notSrc = this.nodes.filter((value: ProcessWrapper) => {
-        let check = this.links.some((link: Link) => {
-          return link.src === value;
-        });
-
-        return !check;
-      });
-
-      if (notSrc.length === 1) {
-        this.rootNode = notSrc[0];
-      } else {
-        this.rootNode = null;
-      }
-    }
   }
 
   removeElements() {
     switch (d3.event.keyCode) {
       case 8:
       case 46: {
-        d3.select('.link-select')
-          .each((link: Link) => {
-            this.links = this.links.filter((item: Link) => {
-              if (link !== item) {
-                return true;
-              }
+        let selectedLinks = this.svgLinks.selectAll('.link-select');
 
-              let src = item.src.process;
-              let dst = item.dst.process;
+        selectedLinks.each((d: any, i: number, g: any) => {
+          this.links = this.links.filter((item: Link) => item != d);
+        });
 
-              dst.inputs = dst.inputs.filter((proc: Process) => {
-                return src.uid !== proc.uid;
-              });
+        selectedLinks = selectedLinks.data(this.links, (item: Link) => item.uid);
 
-              return false;
-            });
-          });
-
-        this.determineRootNode();
-
-        this.update();
+        selectedLinks.exit().remove();
       }
       break;
     }
   }
 
-  addParameterWorkflow() {
-    this.model.process.parameters.push(new Parameter());
-  }
+  removeProcess(item: Process) {
+    this.links = this.links.filter((x: Link) => {
+      if (x.src.process == item || x.dst.process == item) {
+        return false;
+      }
 
-  removeParameterWorkflow(param: Parameter) {
-    let newParams = this.model.process.parameters.filter((value: Parameter) => {
-      return param.uid != value.uid;
+      return true;
     });
 
-    this.model.process.parameters = newParams;
-  }
+    this.nodes = this.nodes.filter((x: ProcessWrapper) => {
+      if (item.uid === x.process.uid) {
+        return false;
+      }
 
-  addParameter() {
-    this.selectedNode.process.parameters.push({key: '', value: ''} as Parameter); 
-  }
-
-  removeParameter(param: Parameter) {
-    let newParams = this.selectedNode.process.parameters.filter((value: Parameter) => {
-      return param.key !== value.key || param.value !== value.value;
+      return true;
     });
 
-    this.selectedNode.process.parameters = newParams;
+    this.update();
   }
 
-  addInput(value: Variable) {
-    this.selectedNode.process.inputs.push(value);
-  }
+  removeInput(item: Variable|Process) {
+    if (item instanceof Process) {
+      this.links = this.links.filter((x: Link) => {
+        if (x.src.process == item || x.dst.process == item) {
+          return false;
+        }
 
-  removeInput(value: Variable) {
-    this.selectedNode.process.inputs = this.selectedNode.process.inputs.filter((data: Variable) => {
-      return value.id !== data.id;
-    });
+        return true;
+      });
+    } else {
+      throw new Error('Removing something other than a process');
+    }
+
+    this.update();
   }
 
   removeNode(node: ProcessWrapper) {
-    jQuery('#configure').modal('hide');
+    $('#configure').modal('hide');
 
     this.links = this.links.filter((value: Link) => {
-      return value.src !== node && value.dst !== node;
+      return value.src.uid() !== node.uid() && value.dst.uid() !== node.uid();
     });
 
     this.nodes = this.nodes.filter((value: ProcessWrapper) => { 
@@ -552,8 +313,6 @@ export class WorkflowComponent implements OnInit {
     });
 
     this.selectedNode = node = null;
-
-    this.determineRootNode();
 
     this.update();
   }
@@ -564,45 +323,75 @@ export class WorkflowComponent implements OnInit {
     this.stateData = event.dragData;
   }
 
+  showAbstract(process: Process) {
+    this.selectedAbstract = process;
+
+    if (process.description == null) {
+      this.wpsService.describeProcess('/wps/', process.identifier)
+        .then((description: any) => {
+          process.description = description;
+        });
+    }
+
+    $('#processAbstractModal').modal('show');
+  }
+
+  addProcess(identifier: string, origin: [number,number], skipDescription=false) {
+    let process = new Process(identifier);
+
+    if (!skipDescription) {
+      if (this.stateData.description != null) {
+        process.description = {...this.stateData.description};
+      } else {
+        this.wpsService.describeProcess('/wps/', process.identifier)
+          .then((description: any) => {
+            process.description = description;
+          });
+      }
+    }
+
+    let processWrapper = new ProcessWrapper(process, origin[0], origin[1]);
+
+    this.nodes.push(processWrapper);
+
+    this.update();
+
+    return processWrapper;
+  }
+
   svgMouseOver() {
     if (this.state === EditorState.Dropped) {
       this.state = EditorState.None;
 
       let origin = d3.mouse(d3.event.target);
 
-      let process = new Process(this.stateData);
-
-      this.nodes.push(new ProcessWrapper(process, origin[0], origin[1]));
-
-      this.determineRootNode();
-
-      this.update();
+      this.addProcess(this.stateData.identifier, origin);
     }
   }
 
   nodeClick() {
     this.selectedNode = <ProcessWrapper>d3.select(d3.event.target).datum();
 
-    jQuery('#configure').modal('show');
+    $('#processConfigureModal').modal('show');
   }
 
   nodeMouseEnter() {
     if (this.state === EditorState.Connecting) {
       this.stateData.dst = d3.select(d3.event.target).datum();
-
-      d3.select(d3.event.target)
-        .select('circle')
-        .classed('node-connect', true);
     }
+
+    d3.select(d3.event.target)
+      .select('circle')
+      .classed('node-connect', true);
   }
 
   nodeMouseLeave() {
     if (this.state === EditorState.Connecting) {
       this.stateData.dst = null;
-
-      d3.select('.node-connect')
-        .classed('node-connect', false);
     }
+
+    d3.select('.node-connect')
+      .classed('node-connect', false);
   }
 
   drag() {
@@ -642,22 +431,32 @@ export class WorkflowComponent implements OnInit {
 
       this.svgDrag.classed('hidden', true);
 
-      if (this.stateData !== null && this.stateData.dst !== null) {
-        let exists = this.links.findIndex((link: Link) => {
-          return link.src === this.stateData.src && link.dst === this.stateData.dst;
-        });
+      if (this.stateData !== null && this.stateData.dst !== null) {   
+        let dstProcess = this.stateData.dst.process;
 
-        if (exists === -1) {
-          let src = this.stateData.src,
-            dst = this.stateData.dst;
+        if (dstProcess.inputs.length + 1 > dstProcess.description.metadata.inputs) {
+          this.notificationService.error('Cannot complete connection, destination has exceeded maximum number of inputs');
+        } else {
+          let checkPath = this.pathExists(this.stateData.dst.process, this.stateData.src.process);
 
-          dst.process.inputs.push(src.process);
+          if (!checkPath) {
+            let exists = this.links.findIndex((link: Link) => {
+              return link.src === this.stateData.src && link.dst === this.stateData.dst;
+            });
 
-          this.links.push(this.stateData);
+            if (exists === -1) {
+              let src = this.stateData.src,
+                dst = this.stateData.dst;
 
-          this.determineRootNode();
+              dst.process.inputs.push(src.process);
 
-          this.update();
+              this.links.push(this.stateData);
+
+              this.update();
+            }
+          } else {
+            this.notificationService.error('Cannot complete connection, creating a loop');
+          }
         }
       }
 
@@ -666,6 +465,35 @@ export class WorkflowComponent implements OnInit {
       this.stateData = null;
     }
   }
+
+  pathExists(src: Process, dst: Process) {
+    let stack = [src];
+    let nodes = this.nodes.map((item: ProcessWrapper) => { return item.process; });
+
+    while (stack.length > 0) {
+      let node = stack.pop();
+
+      if (node.uid == dst.uid) {
+        return true;
+      }
+
+      let inputs = nodes.filter((item: Process) => { 
+        return item.inputs.findIndex((x: Variable|Process) => {
+          if (x instanceof Process && x.uid === node.uid) {
+            return true; 
+          }
+
+          return false;
+        }) != -1;
+      });
+
+      for (let x of inputs) {
+        stack.push(x);
+      }
+    }
+
+    return false;
+  }
   
   update() {
     let links = this.svgLinks
@@ -673,7 +501,7 @@ export class WorkflowComponent implements OnInit {
       .attr('d', (d: any) => {
         return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
       })
-      .data(this.links);
+      .data(this.links, (item: Link) => { return item.uid; });
 
     links.exit().remove();
 
@@ -684,14 +512,26 @@ export class WorkflowComponent implements OnInit {
         return 'M' + d.src.x + ',' + d.src.y + 'L' + d.dst.x + ',' + d.dst.y;
       })
       .on('click', (data: any, index: any, group: any) => {
-        d3.select(group[index])
-          .classed('link-select', true);
+        let link = d3.select(group[index]);
+
+        if (link.classed('link-select')) {
+          link.classed('link-select', false);
+        } else {
+          link.classed('link-select', true);
+        }
       });;
 
     let nodes = this.svgNodes
       .selectAll('g')
       .attr('transform', (d: any) => { return `translate(${d.x}, ${d.y})`; })
       .data(this.nodes, (item: ProcessWrapper) => { return item.uid(); });
+
+    // Update the error class on circles
+    this.svgNodes
+      .selectAll('circle')
+      .classed('error', (d: ProcessWrapper) => {
+        return d.errors;
+      });
 
     nodes.exit().remove();
 
@@ -709,6 +549,9 @@ export class WorkflowComponent implements OnInit {
 
     newNodes.append('circle')
       .attr('r', '60')
+      .classed('error', (d: ProcessWrapper) => {
+        return d.errors;
+      })
       .classed('node', true);
 
     newNodes.append('text')

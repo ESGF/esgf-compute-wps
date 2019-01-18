@@ -1,0 +1,123 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-wps
+  labels:
+    app: {{ .Release.Name }}-wps
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.wps.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-wps
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-wps
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    {{- if .Values.wps.annotations }}
+      annotations:
+      {{- .Values.wps.annotations | toYaml | trimSuffix "\n" | nindent 8 }}
+    {{- end }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-wps
+        image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
+        imagePullPolicy: IfNotPresent
+        {{- if .Values.development }}
+        command:
+          - sleep
+          - infinity
+        {{- end }}
+        {{- if not $.Values.development }}
+        livenessProbe:
+          httpGet:
+            path: /wps/
+            port: 8000
+          initialDelaySeconds: 3
+          periodSeconds: 60
+          timeoutSeconds: 240
+        readinessProbe:
+          httpGet:
+            path: /wps/
+            port: 8000
+          initialDelaySeconds: 3
+          periodSeconds: 60
+          timeoutSeconds: 240
+        {{- end }}
+        {{- if and $.Values.wps.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.wps.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        env:
+        {{- if $.Values.development }}
+        - name: WPS_DEBUG
+          value: "1"
+        {{- end }}
+        - name: AIRFLOW_HOME
+          value: /etc/config
+        - name: WPS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: WPS_HOST
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-config
+              key: CELERY_RESULT_BACKEND
+        - name: POSTGRES_HOST
+          value: {{ template "postgresql.fullname" . }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: postgres_password
+        - name: OAUTH_CLIENT
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: oauth_client
+        - name: OAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+              key: oauth_secret
+        ports:
+        {{- range .Values.wps.ports }}
+        - containerPort: {{ .port }}
+          protocol: TCP
+          name: {{ .name }}
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.development }}
+        - mountPath: /var/www
+          name: shared-volume
+          subPath: shared
+        {{- end }}
+        - name: config-volume
+          mountPath: /etc/config
+        - name: static-volume
+          mountPath: /var/www/static
+          subPath: static
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+      {{- if .Values.development }}
+      - name: shared-volume
+        persistentVolumeClaim:
+          claimName: shared-pvc
+      {{- end }}
+      - name: static-volume
+        persistentVolumeClaim:
+          claimName: static-pvc

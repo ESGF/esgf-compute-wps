@@ -9,6 +9,7 @@ import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
 import { LogoutComponent } from './logout.component';
+import { ConfigService } from '../core/config.service';
 
 describe('Forgot Password Component', () => {
   let fixture: ComponentFixture<LogoutComponent>;
@@ -17,6 +18,7 @@ describe('Forgot Password Component', () => {
   let router: any;
   let auth: AuthService;
   let notification: NotificationService;
+  let config: ConfigService;
 
   let username: DebugElement;
   let password: DebugElement;
@@ -30,6 +32,7 @@ describe('Forgot Password Component', () => {
         {provide: Router, useValue: jasmine.createSpyObj('router', ['navigate'])},
         AuthService,
         NotificationService,
+        ConfigService,
       ],
     });
 
@@ -43,6 +46,8 @@ describe('Forgot Password Component', () => {
 
     notification = fixture.debugElement.injector.get(NotificationService);
 
+    config = fixture.debugElement.injector.get(ConfigService);
+
     spyOn(notification, 'error');
 
     spyOn(notification, 'message');
@@ -54,6 +59,6 @@ describe('Forgot Password Component', () => {
     comp.ngOnInit();
 
     expect(auth.logout).toHaveBeenCalled();
-    expect(router.navigate).toHaveBeenCalledWith(['/wps/home']);
+    expect(router.navigate).toHaveBeenCalledWith([config.basePath]);
   }));
 });

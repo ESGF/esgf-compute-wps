@@ -1,0 +1,249 @@
+development: false
+
+persistence:
+  edask:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+  shared:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+  static:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+  public:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
+  cache:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
+  ingress:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
+  postgresql:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+  postgresql-backup:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
+  redis:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/cwt
+
+nginx:
+  replicas: 1
+  image: nginx
+  imageTag: 1.13.8
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 512M
+
+  ingress:
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
+  
+wps:
+  replicas: 1
+  image: jasonb87/cwt_wps
+  imageTag: 2.1.0
+  host: 192.168.39.34
+  externalHost: https://192.168.39.34
+  allowedCIDR: 172.17.0.0/16
+
+  prometheus:
+    host: odd-sheep-prometheus-server.default.svc
+
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /wps/metrics
+    prometheus.io/port: "8000"
+
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256M
+
+  worker:
+    cpuCount: 3
+    cpuUnits: 100
+    memory: "200000000"
+    userPercent: 0.10
+
+  oauth:
+    client: ""
+    secret: ""
+
+  email:
+    host: "localhost"
+    port: 25
+    user: "wps"
+    password: ""
+
+  ports:
+    - name: django
+      port: 8000
+
+  ingress:
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
+
+celery:
+  image: jasonb87/cwt_celery
+  imageTag: 2.1.0
+  metrics: /metrics
+
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256M
+
+  queues:
+  - name: ingress
+    replicas: 1
+    argsExtra:
+      "-c": 1
+      "-Q": ingress
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    ports:
+      - port: 8080
+        name: metrics
+
+  - name: edask
+    replicas: 1
+    argsExtra:
+      "-c": 1
+      "-Q": edask
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    ports:
+      - port: 8080
+        name: metrics
+
+thredds:
+  replicas: 1
+  image: jasonb87/cwt_thredds
+  imageTag: 4.6.10
+
+  resources:
+    limits:
+      cpu: 250m
+      memory: 2G
+
+  ingress:
+    path: /threddsCWT
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
+
+postgresql:
+  postgresUsername: postgres
+  postgresPassword: abcd1234
+  port: 5432
+
+  persistence:
+    enabled: true
+    existingClaim: postgresql-pvc
+
+  backup:
+    enabled: true
+    image: bitnami/postgresql
+    tag: 10.6.0
+
+
+redis:
+  image:
+    repository: redis
+    tag: 4.0.10
+
+  cluster:
+    enabled: false
+
+  usePassword: false
+
+  persistence:
+    existingClaim: redis-pvc
+
+  master:
+    service:
+      type: ClusterIP
+
+    securityContext:
+      enabled: false
+
+edask:
+  enabled: false
+  replicas: 1
+  image: jasonb87/cwt_edask
+  imageTag: latest
+
+  timeout: 120
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 512M
+
+  scheduler:
+    replicas: 1
+
+    resources:
+      limits:
+        cpu: 100m
+        memory: 256M
+
+  worker:
+    replicas: 1
+
+    resources:
+      limits:
+        cpu: 200m
+        memory: 512M
+
+cog:
+  enabled: false
+  replicas: 1
+  image: jasonb87/cwt_cog
+  imageTag: latest
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 512M
+
+  ingress:
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"

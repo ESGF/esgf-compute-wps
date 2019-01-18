@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { Http, URLSearchParams } from '@angular/http';
 
 import { WPSService, WPSResponse } from '../core/wps.service';
+import { ConfigService } from '../core/config.service';
 
 export interface FileStat {
   name: string;
@@ -22,13 +23,14 @@ export interface ProcessStat {
 @Injectable()
 export class StatsService extends WPSService {
   constructor(
-    http: Http
+    http: Http,
+    private configService: ConfigService,
   ) {
     super(http);
   }
 
   userFiles(): Promise<FileStat[]> {
-    return this.get('auth/user/stats')
+    return this.get(this.configService.authUserStatsPath)
       .then((response: WPSResponse) => {
         if (response.status === 'success') {
           return response.data.files as FileStat[];
@@ -43,33 +45,7 @@ export class StatsService extends WPSService {
 
     params.set('stat', 'process');
 
-    return this.get('auth/user/stats', params)
-      .then((response: WPSResponse) => {
-        if (response.status === 'success') {
-          return response.data.processes as ProcessStat[];
-        }
-
-        return [];
-      });
-  }
-
-  files(): Promise<FileStat[]> {
-    let params = new URLSearchParams();
-
-    params.set('type', 'files');
-
-    return this.get('wps/admin/stats', params)
-      .then((response: WPSResponse) => {
-        if (response.status === 'success') {
-          return response.data.files as FileStat[];
-        }
-
-        return [];
-      });
-  }
-
-  processes(): Promise<ProcessStat[]> {
-    return this.get('wps/admin/stats')
+    return this.get(this.configService.authUserStatsPath, params)
       .then((response: WPSResponse) => {
         if (response.status === 'success') {
           return response.data.processes as ProcessStat[];

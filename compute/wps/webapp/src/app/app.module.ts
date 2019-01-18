@@ -1,10 +1,12 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
+import { JoyrideModule } from 'ngx-joyride';
+
 import { AppComponent } from './app.component';
 import { HomeComponent } from './home.component';
 
-import { AdminModule } from './admin/admin.module';
+import { AuthService } from './core/auth.service';
 import { AuthModule } from './auth/auth.module';
 import { CoreModule } from './core/core.module';
 import { UserModule } from './user/user.module';
@@ -15,17 +17,18 @@ import { AppRoutingModule } from './app-routing.module';
 
 @NgModule({
   imports: [
+    JoyrideModule.forRoot(),
     BrowserModule,
-    CoreModule,
+    CoreModule.forRoot(),
     SharedModule,
-    AdminModule,
     AuthModule,
     ConfigureModule,
     UserModule,
     AppRoutingModule
   ],
   declarations: [ AppComponent, HomeComponent ],
-  bootstrap: [ AppComponent ]
+  bootstrap: [ AppComponent ],
+  providers: [ AuthService ],
 })
 
 export class AppModule { }

@@ -40,11 +40,10 @@
   "pk": 65,
   "fields": {
     "user": 76,
-    "openid": "",
     "openid_url": "http://testbad.com/openid/fake_JnyeGoV7vc",
-    "type": "",
-    "cert": "",
-    "api_key": "",
+    "type": "oauth2",
+    "cert": "sdlkjaskldjalksjd",
+    "api_key": "abcd1234",
     "extra": ""
   }
 },
@@ -53,10 +52,9 @@
   "pk": 66,
   "fields": {
     "user": 77,
-    "openid": "",
     "openid_url": "http://testbad.com/openid/fake_DNKncmeWtJ",
-    "type": "",
-    "cert": "",
+    "type": "myproxyclient",
+    "cert": "aajdalkkk",
     "api_key": "",
     "extra": ""
   }

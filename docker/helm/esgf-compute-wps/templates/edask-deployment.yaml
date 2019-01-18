@@ -1,0 +1,60 @@
+{{- if .Values.edask.enabled }}
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-edask
+  labels:
+    app: {{ .Release.Name }}-edask
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.edask.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-edask
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-edask
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-edask
+        image: {{ .Values.edask.image }}:{{ .Values.edask.imageTag }}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          tcpSocket:
+            port: 5670
+          initialDelaySeconds: 4
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 5670
+          initialDelaySeconds: 16
+          periodSeconds: 20
+        {{- if and $.Values.edask.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.edask.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: 5670
+          protocol: TCP
+        - containerPort: 5671
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /data/edask
+          name: edask-volume
+          subPath: edask
+        - mountPath: /root/.edask/conf
+          name: edask-configmap-volume
+      volumes:
+      - name: edask-configmap-volume
+        configMap:
+          name: {{ template "esgf-compute-wps.fullname" $ }}-edask-configmap
+      - name: edask-volume
+        persistentVolumeClaim:
+          claimName: edask-pvc
+{{- end }}

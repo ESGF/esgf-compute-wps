@@ -1,92 +1,50 @@
-import { 
-  Component, 
-  Input, 
-  Output, 
-  EventEmitter, 
-  ContentChildren, 
-  QueryList, 
-  AfterContentInit 
-} from '@angular/core';
-
-declare var $: any;
+import { Component, Input } from '@angular/core';
 
 @Component({
   selector: 'panel',
   styles: [`
-  .panel {
-    margin-top: 5px;
-  }
-
   .scrollable {
     max-height: 50vh;
     overflow-y: scroll;
   }
+
+  .panel {
+    margin-top: 5px;
+  }
   `],
   template: `
   <div class="panel panel-default">
-    <div class="panel-heading" role="tab" id="{{heading}}">
+    <div class="panel-heading" role="tab">
       <h4 class="panel-title">
-        <a (click)="onToggle.emit(this)" role="button" data-toggle="collapse">
+        <a *ngIf="collapse==true; else noCollapse" class="collapsed" role="button" data-toggle="collapse" href="#{{uid}}">
           {{title}}
         </a>
+        <ng-template #noCollapse>
+          {{title}}
+        </ng-template>
       </h4>
     </div>
-    <div id="{{collapse}}" [class]="style" role="tabpanel">
-      <div [class.panel-body]="!ignoreBody" [class.list-group]="ignoreBody" [class.scrollable]="scrollable">
-        <ng-content></ng-content>
-      </div>
+    <div *ngIf="collapse==true; else innerWrap" class="panel-collapse collapse" id="{{uid}}">
+      <ng-container *ngTemplateOutlet="innerWrap"></ng-container>
     </div>
+    <ng-template #innerWrap> 
+      <ul *ngIf="listGroup==true" class="list-group" [class.scrollable]="scrollable">
+        <ng-container *ngTemplateOutlet="content"></ng-container>
+      </ul>
+      <div *ngIf="listGroup==false" class="panel-body" [class.scrollable]="scrollable">
+        <ng-container *ngTemplateOutlet="content"></ng-container>
+      </div>
+      <ng-template #content>
+        <ng-content></ng-content>
+      </ng-template>
+    </ng-template>
   </div>
   `
 })
 export class PanelComponent {
   @Input() title: string;
-  @Input() ignoreBody: boolean = false;
-  @Input() scrollable: boolean = false;
-  @Output() onToggle = new EventEmitter<PanelComponent>();
-
-  uid: string;
-  style = 'panel-collapse collapse';
-  
-  constructor() {
-    this.uid = Math.random().toString(16).slice(2);
-  }
-
-  get collapse() {
-    return `collapse${this.uid}`;
-  }
-
-  get heading() {
-    return `heading${this.uid}`;
-  }
-}
-
-@Component({
-  selector: 'panel-group',
-  template: `
-  <div class="panel-group" role="tablist">
-    <ng-content></ng-content>
-  </div>
-  `
-})
-export class PanelGroupComponent implements AfterContentInit {
-  @ContentChildren(PanelComponent) panels: QueryList<PanelComponent>;
-
-  ngAfterContentInit() {
-    this.panels.first.style += ' in';
-
-    this.panels.forEach((panel: PanelComponent) => {
-      panel.onToggle.subscribe((panel: PanelComponent) => { this.onToggle(panel); });
-    });
-  }
-
-  onToggle(panel: PanelComponent) {
-    $(`#${panel.collapse}`).collapse('toggle');
-
-    this.panels.forEach((item: PanelComponent) => {
-      if (panel !== item) {
-        $(`#${item.collapse}`).collapse('hide');
-      }
-    });
-  }
+  @Input() listGroup = false;
+  @Input() scrollable = false;
+  @Input() collapse = true;
+  @Input() uid: string;
 }

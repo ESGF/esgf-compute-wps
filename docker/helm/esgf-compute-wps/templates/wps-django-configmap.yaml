@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "esgf-compute-wps.fullname" . }}-django-config
+  labels:
+    app: {{ template "esgf-compute-wps.name" . }}
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  django.properties: |
+    [default]
+    {{- if .Values.wps.allowedCIDR }}
+    allowed.cidr={{ .Values.wps.allowedCIDR }}
+    {{- end }}
+    host={{ .Values.wps.host }}
+    worker.cpu_count={{ .Values.wps.worker.cpuCount }}
+    worker.cpu_units={{ .Values.wps.worker.cpuUnits }}
+    worker.memory={{ .Values.wps.worker.memory }}
+    worker.user_percent={{ .Values.wps.worker.userPercent }}
+
+    [email]
+    host={{ .Values.wps.email.host }}
+    port={{ .Values.wps.email.port }}
+    user={{ .Values.wps.email.user }}
+    password={{ .Values.wps.email.password }}
+
+    [metrics]
+    host=http://{{ .Values.wps.prometheus.host }}/prometheus/api/v1/query
+
+    [wps]
+    wps.endpoint={{ .Values.wps.externalHost }}/wps/
+    wps.execute_url={{ .Values.wps.externalHost }}/wps/execute/
+    wps.status_location={{ .Values.wps.externalHost }}/wps/status/{job_id}/
+    wps.dap_url={{ .Values.wps.externalHost }}/threddsCWT/dodsC/public/{filename}
+    wps.login_url={{ .Values.wps.externalHost }}/wps/home/auth/login/openid
+    wps.profile_url={{ .Values.wps.externalHost }}/wps/home/user/profile
+    wps.oauth2.callback={{ .Values.wps.externalHost }}/auth/callback
+    wps.openid.trust.root={{ .Values.wps.externalHost }}/
+    wps.openid.return.to={{ .Values.wps.externalHost }}/auth/callback/openid/
+    wps.openid.callback.success={{ .Values.wps.externalHost }}/wps/home/auth/login/callback
+
+    [edas]
+    wps.edas.enabled={{ .Values.edask.enabled }}
+    wps.edas.host={{ .Release.Name }}-edask
+    wps.edas.timeout={{ .Values.edask.timeout }}

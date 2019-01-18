@@ -1,22 +1,16 @@
-FROM jasonb87/cwt_common:2.0.2
+FROM jasonb87/cwt_common:devel
 
-ENV C_FORCE_ROOT 'true'
-
-RUN wget https://github.com/ESGF/esgf-dist/raw/master/installer/certs/esg_trusted_certificates.tar && \
-	mkdir /tmp/certs && \
-	tar -xvf esg_trusted_certificates.tar -C /tmp/certs --strip 1 && \
-	rm esg_trusted_certificates.tar 
+RUN mkdir -p /tmp/certs && \
+	curl -sL https://github.com/ESGF/esgf-dist/raw/master/installer/certs/esg_trusted_certificates.tar | tar xvf - -C /tmp/certs --strip 1
 
 WORKDIR /
 
-COPY entrypoint.sh entrypoint.sh
+COPY docker/celery/entrypoint.sh .
 
-COPY healthcheck.sh healthcheck.sh
+COPY docker/celery/healthcheck.sh .
 
-EXPOSE 4356 4357
-
-HEALTHCHECK CMD ./healthcheck.sh
+EXPOSE 4356 4357 8000
 
 ENTRYPOINT ["./entrypoint.sh"]
 
-CMD ["-l", "info"]
+CMD ["-l", "INFO"]

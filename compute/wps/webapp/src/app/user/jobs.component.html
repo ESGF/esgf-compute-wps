@@ -18,14 +18,42 @@
                 <div class="col-md-1">{{message.percent}} %</div>
                 <div class="col-md-8">{{message.message}}</div>
               </div>
-              <div *ngIf="current.output !== null" class="row">
-                <div class="col-md-1"></div>
-                <div class="col-md-11"><a href="{{current.output|thredds}}" target="_blank">{{current.output}}</a></div>
-              </div>
-              <div *ngIf="current.exception !== null" class="row">
-                <div class="col-md-1"></div>
-                <div class="col-md-11"><pre>{{current.exception}}</pre></div>
-              </div>
+              <ng-container *ngIf="current.output !== null; else exception">
+                <ng-container *ngIf="current.output.outputs != undefined; else singleOutput">
+                  <div class="row">
+                    <div class="col-md-1"></div>
+                    <div class="col-md-11">
+                      <div *ngFor="let x of current.output.outputs">
+                        <a href="{{x.uri}}.html" target="_blank">{{x.id}}</a>
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+                <ng-template #singleOutput>
+                  <ng-container *ngIf="current.output.uri != undefined; else rawOutput">
+                    <div class="row">
+                      <div class="col-md-1"></div>
+                      <div class="col-md-11"><a href="{{current.output.uri}}.html" target="_blank">{{current.output.id}}</a></div>
+                    </div>
+                  </ng-container>
+                </ng-template>
+                <ng-template #rawOutput>
+                  <ng-container>
+                    <div class="row">
+                      <div class="col-md-1"></div>
+                      <div class="col-md-11"><pre>{{current.output | json}}</pre></div>
+                    </div>
+                  </ng-container>
+                </ng-template>
+              </ng-container>
+              <ng-template #exception>
+                <ng-container *ngIf="current.exception != null">
+                  <div class="row">
+                    <div class="col-md-1"></div>
+                    <div class="col-md-11"><pre>{{current.exception}}</pre></div>
+                  </div>
+                </ng-container>
+              </ng-template>
             </td>
           </tr>
         </tbody>

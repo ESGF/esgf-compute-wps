@@ -7,12 +7,14 @@ import {
 
 import { AuthGuard } from '../auth/auth-guard.service';
 import { AuthService } from '../core/auth.service';
+import { ConfigService } from '../core/config.service';
 
 describe('AuthGuard', () => {
   let router: any;
   let state: any;
   let guard: any;
   let auth: any;
+  let config: any;
 
   beforeEach(() => {
     router = jasmine.createSpyObj('router', ['navigate']);
@@ -35,6 +37,8 @@ describe('AuthGuard', () => {
     guard = TestBed.get(AuthGuard);
 
     auth = TestBed.get(AuthService);
+
+    config = TestBed.get(ConfigService);
   });
 
   describe('canActivateChild', () => {
@@ -52,7 +56,7 @@ describe('AuthGuard', () => {
 
       expect(guard.canActivateChild(new ActivatedRouteSnapshot(), <RouterStateSnapshot>state)).toBe(false);
 
-      expect(router.navigate).toHaveBeenCalledWith(['/wps/home/auth/login']);
+      expect(router.navigate).toHaveBeenCalledWith([config.loginPath]);
 
       expect(auth.redirectUrl).toBe(redirectUrl);
     });
@@ -73,7 +77,7 @@ describe('AuthGuard', () => {
 
       expect(guard.canActivate(new ActivatedRouteSnapshot(), <RouterStateSnapshot>state)).toBe(false);
 
-      expect(router.navigate).toHaveBeenCalledWith(['/wps/home/auth/login']);
+      expect(router.navigate).toHaveBeenCalledWith([config.loginPath]);
 
       expect(auth.redirectUrl).toBe(redirectUrl);
     });

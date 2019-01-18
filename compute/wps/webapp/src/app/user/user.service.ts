@@ -3,6 +3,7 @@ import { Http, URLSearchParams } from '@angular/http';
 
 import { WPSService, WPSResponse } from '../core/wps.service';
 import { Job, Status, Message } from './job';
+import { ConfigService } from '../core/config.service';
 
 export class User {
   constructor(
@@ -11,15 +12,13 @@ export class User {
     public email: string = '',
     public api_key: string = '',
     public type: string = '',
-    public admin?: boolean,
     public local_init?: boolean,
     public expires?: number,
-    public password?: string
   ) { }
 
   toUrlEncoded(): string {
     let params = '';
-    let fields = ['username', 'openID', 'email', 'password'];
+    let fields = ['email'];
 
     for (let k of fields) {
       if (this[k] != undefined) {
@@ -35,6 +34,7 @@ export class User {
 export class UserService extends WPSService {
   constructor(
     http: Http,
+    private configService: ConfigService,
   ) { 
     super(http); 
   }
@@ -43,15 +43,16 @@ export class UserService extends WPSService {
     let p = new DOMParser();
 
     if (value.output !== null) {
-      let xmlDoc = p.parseFromString(value.output, 'text/xml');
+      value.output = JSON.parse(value.output);
+      //let xmlDoc = p.parseFromString(value.output, 'text/xml');
 
-      let elements = xmlDoc.getElementsByTagName('ows:ComplexData');
+      //let elements = xmlDoc.getElementsByTagName('ows:ComplexData');
 
-      if (elements.length > 0) {
-        let variable = JSON.parse(elements[0].innerHTML);
+      //if (elements.length > 0) {
+      //  let variable = JSON.parse(elements[0].innerHTML);
 
-        value.output = variable.uri;
-      }
+      //  value.output = variable.uri;
+      //}
     } else if (value.exception != null) {
       let xmlDoc = p.parseFromString(value.exception, 'text/xml');
 
@@ -68,7 +69,7 @@ export class UserService extends WPSService {
 
     params.append('update', update.toString());
 
-    return this.get(`wps/jobs/${id}`, params)
+    return this.get(`${this.configService.jobsPath}${id}/`, params)
       .then((response: WPSResponse) => {
         let status = response.data as Status[];
 
@@ -83,17 +84,17 @@ export class UserService extends WPSService {
   }
 
   jobs(): Promise<Job[]> {
-    return this.get('wps/jobs')
+    return this.get(this.configService.jobsPath)
       .then((response: WPSResponse) => {
         return response.data.map((data: any) => new Job(data));
       });
   }
 
   update(user: User): Promise<WPSResponse> {
-    return this.postCSRF('auth/update', user.toUrlEncoded());
+    return this.postCSRF(this.configService.authUpdatePath, user.toUrlEncoded());
   }
 
   regenerateKey(): Promise<WPSResponse> {
-    return this.getCSRF('auth/user/regenerate');
+    return this.getCSRF(this.configService.authUserRegenPath);
   }
 }

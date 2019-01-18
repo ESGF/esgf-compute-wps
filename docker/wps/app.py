@@ -6,7 +6,7 @@ import sys
 import bjoern
 from django.core.wsgi import get_wsgi_application
 
-sys.path.append('/var/www/compute/compute')
+sys.path.append(os.environ['CWT_BASE'])
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "compute.settings")
 

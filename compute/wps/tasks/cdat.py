@@ -1,264 +1,310 @@
 #! /usr/bin/env python
 
+import datetime
+import json
 import os
 import re
 import uuid
+from collections import deque
 
 import cdms2
 import cwt
-import dask.array as da
-from cdms2 import MV2 as MV
+import cdutil
+from cdms2 import MV2
+from celery.task.control import inspect
 from celery.utils.log import get_task_logger
+from django.conf import settings
+from django.utils import timezone
 
-from wps import settings
+from wps import helpers
+from wps import metrics
+from wps import models
 from wps import WPSError
 from wps.tasks import base
-from wps.tasks import process
-from wps.tasks import file_manager
-
-__ALL__ = [
-    'subset',
-    'aggregate',
-    'cache_variable'
-]
+from wps.context import OperationContext
 
 logger = get_task_logger('wps.tasks.cdat')
 
-@base.register_process('CDAT.regrid', abstract="""
+@base.register_process('CDAT.workflow', metadata={})
+@base.cwt_shared_task()
+def workflow(self, context):
+    client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=context.user.auth.api_key,
+                           verify=False)
+
+    queue = context.build_execute_graph()
+
+    while len(queue) > 0:
+        next = queue.popleft()
+
+        completed = context.wait_for_inputs(next)
+
+        if len(completed) > 0:
+            completed_ids = ', '.join('-'.join([x.identifier, x.name]) for x in completed)
+
+            self.status('Processes {!s} have completed', completed_ids)
+
+        context.prepare(next)
+
+        # Here we can make the choice on which client to execute
+        client.execute(next)
+
+        context.add_executing(next)
+
+        self.status('Executing process {!s}-{!s}', next.identifier, next.name)
+
+    completed = context.wait_remaining()
+
+    if len(completed) > 0:
+        completed_ids = ', '.join('-'.join([x.identifier, x.name]) for x in completed)
+
+        self.status('Processes {!s} have completed', completed_ids)
+
+    return context
+
+SNG_DATASET_SNG_INPUT = {
+    'datasets': 1,
+    'inputs': 1,
+}
+
+SNG_DATASET_MULTI_INPUT = {
+    'datasets': 1,
+    'inputs': '*',
+}
+
+REGRID_ABSTRACT = """
 Regrids a variable to designated grid. Required parameter named "gridder".
-""")
+"""
+
+SUBSET_ABSTRACT = """
+Subset a variable by provided domain. Supports regridding.
+"""
+
+AGGREGATE_ABSTRACT = """
+Aggregate a variable over multiple files. Supports subsetting and regridding.
+"""
+
+AVERAGE_ABSTRACT = """
+Computes the average over axes. 
+
+Required parameters:
+ axes: A list of axes to operate on. Should be separated by "|".
+
+Optional parameters:
+ weightoptions: A string whos value is "generate",
+   "equal", "weighted", "unweighted". See documentation
+   at https://cdat.llnl.gov/documentation/utilities/utilities-1.html
+"""
+
+SUM_ABSTRACT = """
+Computes the sum over an axis. Requires singular parameter named "chunked_axis, axes" 
+whose value will be used to process over. The value should be a "|" delimited
+string e.g. 'lat|lon'.
+"""
+
+MAX_ABSTRACT = """
+Computes the maximum over an axis. Requires singular parameter named "chunked_axis, axes" 
+whose value will be used to process over. The value should be a "|" delimited
+string e.g. 'lat|lon'.
+"""
+
+MIN_ABSTRACT = """
+Computes the minimum over an axis. Requires singular parameter named "chunked_axis, axes" 
+whose value will be used to process over. The value should be a "|" delimited
+string e.g. 'lat|lon'.
+"""
+
+def process_data(self, context, index, process):
+    axes = context.operation.get_parameter('axes', True)
+
+    nbytes = 0
+
+    for input_index, input in enumerate(context.sorted_inputs()):
+        for _, chunk_index, chunk in input.chunks(index, context):
+            nbytes += chunk.nbytes
+
+            process_filename = '{}_{:08}_{:08}_{}.nc'.format(
+                str(context.job.id), input_index, chunk_index, '_'.join(axes.values))
+
+            process_path = context.gen_ingress_path(process_filename)
+
+            if process is not None:
+                with metrics.WPS_PROCESS_TIME.labels(context.operation.identifier).time():
+                    chunk = process(chunk, axes.values)
+
+            with context.new_output(process_path) as outfile:
+                outfile.write(chunk, id=input.variable.var_name)
+
+            input.process.append(process_path)
+
+    self.status('Processed {!r} bytes', nbytes)
+
+    return context
+
+def parse_filename(path):
+    base = os.path.basename(path)
+
+    filename, _ = os.path.splitext(base)
+
+    return filename
+
+def regrid_chunk(context, chunk, selector):
+    grid, tool, method = context.regrid_context(selector)
+
+    shape = chunk.shape
+
+    chunk = chunk.regrid(grid, regridTool=tool, regridMethod=method)
+
+    logger.info('Regrid %r -> %r', shape, chunk.shape)
+
+    return chunk
+
 @base.cwt_shared_task()
-def regrid(self, parent_variables, variables, domains, operation, user_id, job_id):
-    _, _, o = self.load(parent_variables, variables, domains, operation)
+def concat(self, contexts):
+    context = OperationContext.merge_ingress(contexts)
 
-    def validate(op):
-        op.get_parameter('gridder', True)
+    context.output_path = context.gen_public_path()
 
-    return retrieve_base(self, o, None, user_id, job_id, validate) 
+    nbytes = 0
+    start = datetime.datetime.now()
 
-@base.register_process('CDAT.subset', abstract='Subset a variable by provided domain. Supports regridding.')
+    with context.new_output(context.output_path) as outfile:
+        for input in context.sorted_inputs():
+            data = []
+            chunk_axis = None
+            chunk_axis_index = None
+
+            # Skip file if not mapped
+            if input.mapped is None:
+                continue
+
+            for file_path, _, chunk in input.chunks(context=context):
+                logger.info('Chunk shape %r %r', file_path, chunk.shape)
+
+                if chunk_axis is None:
+                    chunk_axis_index = chunk.getAxisIndex(input.chunk_axis)
+
+                    chunk_axis = chunk.getAxis(chunk_axis_index)
+
+                if chunk_axis.isTime():
+                    logger.info('Writing temporal chunk %r', chunk.shape)
+
+                    if context.units is not None:
+                        chunk.getTime().toRelativeTime(str(context.units))
+
+                    if context.is_regrid:
+                        chunk = regrid_chunk(context, chunk, input.mapped)
+
+                    outfile.write(chunk, id=str(input.variable.var_name))
+                else:
+                    logger.info('Gathering spatial chunk')
+
+                    data.append(chunk)
+
+                nbytes += chunk.nbytes
+
+            if chunk_axis is not None and not chunk_axis.isTime():
+                data = MV2.concatenate(data, axis=chunk_axis_index)
+
+                if context.is_regrid:
+                    chunk = regrid_chunk(context, chunk, input.mapped)
+
+                outfile.write(data, id=str(input.variable.var_name))
+
+                nbytes += chunk.nbytes
+
+    elapsed = datetime.datetime.now() - start
+
+    self.status('Processed {!r} bytes in {!r} seconds', nbytes, elapsed.total_seconds())
+
+    return context
+
+@base.register_process('CDAT.regrid', abstract=REGRID_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def subset(self, parent_variables, variables, domains, operation, user_id, job_id):
-    _, _, o = self.load(parent_variables, variables, domains, operation)
-
-    def validate(op):
-        if op.domain is None:
-            raise WPSError('Missing required domain')
-
-    return retrieve_base(self, o, None, user_id, job_id, validate) 
-
-@base.register_process('CDAT.aggregate', abstract='Aggregate a variable over multiple files. Supports subsetting and regridding.')
-@base.cwt_shared_task()
-def aggregate(self, parent_variables, variables, domains, operation, user_id, job_id):
-    _, _, o = self.load(parent_variables, variables, domains, operation)
-
-    return retrieve_base(self, o, None, user_id, job_id) 
-
-def retrieve_base(self, operation, num_inputs, user_id, job_id, validate=None):
-    """ Configures and executes a retrieval process.
-
-    Sets up a retrieval process by initializing the process with the user and
-    job id. It then marks the job as started.
-
-    The process is execute and a path to the results is returned using a 
-    cwt.Variable instance.
-
-    The validate function should match the following signature where operation
-    is a cwt.Process instance and the function returns True or False.
-
-    def validate(operation):
-        return True
-
-    Args:
-        operation: A cwt.Process instance complete with inputs and domain set to
-            instances.
-        num_inputs: An integer value of the number of inputs to process.
-        user_id: A user integer id.
-        job_id: A job integer id.
-        validate: A function to be called that validates if all required details
-            are available.
-
-    Returns:
-         A dict mapping operations name to a cwt.Variable instance.
-
-         {'sub_out': cwt.Variable('http://test.com/some/data', 'tas')}
-
-    Raises:
-        AccessError: An error occurred accessing a NetCDF file.
-        WPSError: An error occurred during processing.
+def regrid(self, context, index):
+    """ Regrids a chunk of data.
     """
-    self.PUBLISH = base.ALL
+    return context
 
-    proc = process.Process(self.request.id)
-
-    proc.initialize(user_id, job_id)
-
-    proc.job.started()
-
-    if validate is not None:
-        validate(operation)
-
-    output_name = '{}.nc'.format(str(uuid.uuid4()))
-
-    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
-
-    try:
-        with cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.retrieve(operation, num_inputs, output_file)
-    except cdms2.CDMSError as e:
-        raise base.AccessError(output_path, e.message)
-    except WPSError:
-        raise
-
-    if settings.DAP:
-        output_url = settings.DAP_URL.format(filename=output_name)
-    else:
-        output_url = settings.OUTPUT_URL.format(filename=output_name)
-
-    output_variable = cwt.Variable(output_url, output_var_name).parameterize()
-
-    return {operation.name: output_variable}
-
-#@base.register_process('CDAT.max', abstract=""" 
-#Computes the maximum over an axis. Requires singular parameter named "axes" 
-#whose value will be used to process over. The value should be a "|" delimited
-#string e.g. 'lat|lon'.
-#""")
-#@base.cwt_shared_task()
-#def maximum(self, parent_variables, variables, domains, operation, user_id, job_id):
-#    return process_base(self, MV.max, 1, parent_variables, variables, domains, operation, user_id, job_id)
-
-@base.register_process('CDAT.average', abstract=""" 
-Computes the average over an axis. Requires singular parameter named "axes" 
-whose value will be used to process over. The value should be a "|" delimited
-string e.g. 'lat|lon'.
-""")
+@base.register_process('CDAT.subset', abstract=SUBSET_ABSTRACT, metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
-def average(self, parent_variables, variables, domains, operation, user_id, job_id):
-    _, _, o = self.load(parent_variables, variables, domains, operation)
-
-    return process_base(self, MV.average, 1, o, user_id, job_id)
-
-@base.register_process('CDAT.sum', abstract=""" 
-Computes the sum over an axis. Requires singular parameter named "axes" 
-whose value will be used to process over. The value should be a "|" delimited
-string e.g. 'lat|lon'.
-""")
-@base.cwt_shared_task()
-def sum(self, parent_variables, variables, domains, operation, user_id, job_id):
-    _, _, o = self.load(parent_variables, variables, domains, operation)
-
-    return process_base(self, MV.sum, 1, o, user_id, job_id)
-
-@base.register_process('CDAT.max', abstract=""" 
-Computes the maximum over an axis. Requires singular parameter named "axes" 
-whose value will be used to process over. The value should be a "|" delimited
-string e.g. 'lat|lon'.
-""")
-@base.cwt_shared_task()
-def maximum(self, parent_variables, variables, domains, operation, user_id, job_id):
-    _, _, o = self.load(parent_variables, variables, domains, operation)
-
-    return process_base(self, MV.max, 1, o, user_id, job_id)
-
-@base.register_process('CDAT.min', abstract="""
-Computes the minimum over an axis. Requires singular parameter named "axes" 
-whose value will be used to process over. The value should be a "|" delimited
-string e.g. 'lat|lon'.
-                       """)
-@base.cwt_shared_task()
-def minimum(self, parent_variables, variables, domains, operation, user_id, job_id):
-    _, _, o = self.load(parent_variables, variables, domains, operation)
-
-    return process_base(self, MV.min, 1, o, user_id, job_id)
-
-def process_base(self, process_func, num_inputs, operation, user_id, job_id):
-    """ Configures and executes a process.
-
-    Sets up the process by initializing it with the user_id and job_id, marks
-    the job as started. The processes is then executed and a path to the output
-    is returned in a cwt.Variable instance.
-
-    The process_func is a method that will take in an list of data chunks, 
-    process them and return a single data chunk. This output data chunk will be
-    written to the output file.
-
-    Args:
-        process_func: A function that will be passed the data to be processed.
-        num_inputs: An integer value of the number of inputs to process.
-        operation: A cwt.Process instance, complete with inputs and domain.
-        user_id: An integer user id.
-        job_id: An integer job id.
-
-    Returns:
-        A dict mapping operation name to a cwt.Variable instance.
-
-        {'max': cwt.Variable('http://test.com/some/data', 'tas')}
-
-    Raises:
-        AccessError: An error occurred acessing a NetCDF file.
-        WPSError: An error occurred processing the data.
+def subset(self, context, index):
+    """ Subsetting data.
     """
-    self.PUBLISH = base.ALL
+    return context
 
-    proc = process.Process(self.request.id)
-
-    proc.initialize(user_id, job_id)
-
-    proc.job.started()
-
-    output_name = '{}.nc'.format(str(uuid.uuid4()))
-
-    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
-
-    try:
-        with cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.process(operation, num_inputs, output_file, process_func)
-    except cdms2.CDMSError as e:
-        logger.exception('CDMS ERROR')
-        raise base.AccessError(output_path, e)
-    except WPSError:
-        logger.exception('WPS ERROR')
-        raise
-
-    if settings.DAP:
-        output_url = settings.DAP_URL.format(filename=output_name)
-    else:
-        output_url = settings.OUTPUT_URL.format(filename=output_name)
-
-    output_variable = cwt.Variable(output_url, output_var_name).parameterize()
-
-    return {operation.name: output_variable}
-
+@base.register_process('CDAT.aggregate', abstract=AGGREGATE_ABSTRACT, metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
-def cache_variable(self, parent_variables, variables, domains, operation, user_id, job_id):
-    self.PUBLISH = base.RETRY | base.FAILURE
+def aggregate(self, context, index):
+    """ Aggregating data.
+    """
+    return context
 
-    _, _, o = self.load(parent_variables, variables, domains, operation)
+@base.register_process('CDAT.average', abstract=AVERAGE_ABSTRACT, process=cdutil.averager, metadata=SNG_DATASET_SNG_INPUT)
+@base.cwt_shared_task()
+def average(self, context, index):
+    def average_func(data, axes):
+        axis_indices = []
 
-    proc = process.Process(self.request.id)
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
 
-    proc.initialize(user_id, job_id)
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
 
-    proc.job.started()
+            axis_indices.append(str(axis_index))
 
-    output_name = '{}.nc'.format(str(uuid.uuid4()))
+        axis_sig = ''.join(axis_indices)
 
-    output_path = os.path.join(settings.LOCAL_OUTPUT_PATH, output_name)
+        data = cdutil.averager(data, axis=axis_sig)
 
-    try:
-        with cdms2.open(output_path, 'w') as output_file:
-            output_var_name = proc.retrieve(o, None, output_file)
-    except cdms2.CDMSError as e:
-        raise base.AccessError(output_path, e.message)
-    except WPSError:
-        raise
+        return data
 
-    if settings.DAP:
-        output_url = settings.DAP_URL.format(filename=output_name)
-    else:
-        output_url = settings.OUTPUT_URL.format(filename=output_name)
+    return process_data(self, context, index, average_func)
 
-    output_variable = cwt.Variable(output_url, output_var_name).parameterize()
+@base.register_process('CDAT.sum', abstract=SUM_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
+@base.cwt_shared_task()
+def sum(self, context, index):
+    def sum_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
 
-    return {o.name: output_variable}
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            data = MV2.sum(data, axis=axis_index)
+
+        return data
+
+    return process_data(self, context, index, sum_func)
+
+@base.register_process('CDAT.max', abstract=MAX_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
+@base.cwt_shared_task()
+def max(self, context, index):
+    def max_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
+
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            data = MV2.max(data, axis=axis_index)
+
+        return data
+
+    return process_data(self, context, index, max_func)
+
+@base.register_process('CDAT.min', abstract=MIN_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
+@base.cwt_shared_task()
+def min(self, context, index):
+    def min_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
+
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            data = MV2.min(data, axis=axis_index)
+
+        return data
+
+    return process_data(self, context, index, min_func)

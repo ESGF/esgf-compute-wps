@@ -3,13 +3,14 @@ from __future__ import absolute_import
 import collections
 import logging
 
+import requests
+from django.conf import settings
 from openid.consumer import consumer
 from openid.consumer import discover
 from openid.extensions import ax
 from openid.yadis import manager
 
 from wps import models
-from wps import settings
 from wps import WPSError
 
 logger = logging.getLogger('wps.auth.openid')
@@ -52,6 +53,18 @@ def find_service_by_type(services, uri):
     return None
 
 def services(openid_url, service_urns):
+    try:
+        requests.get(openid_url, timeout=(2, 20))
+    except requests.ConnectTimeout:
+        raise DiscoverError(openid_url, 'Timed out connecting to'
+                             ' {!r}'.format(openid_url))
+    except requests.ReadTimeout:
+        raise DiscoverError(openid_url, 'Timed out reading from'
+                             ' {!r}'.format(openid_url))
+    except Exception as e:
+        raise DiscoverError(openid_url, 'Error contacting OpenID service:'
+                             ' {!r}'.format(e))
+
     requested = collections.OrderedDict()
 
     try:
@@ -69,7 +82,7 @@ def services(openid_url, service_urns):
 
     return requested.values()
 
-def begin(request, openid_url):
+def begin(request, openid_url, next):
     disc = manager.Discovery(request.session, openid_url)
 
     # Clean up any residual data from pevious attempts
@@ -102,14 +115,19 @@ def begin(request, openid_url):
 
     auth_request.addExtension(fetch_request)
 
-    url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT, settings.OPENID_RETURN_TO)
+    return_to = settings.WPS_OPENID_RETURN_TO
+
+    if next is not None:
+        return_to = '{!s}?next={!s}'.format(return_to, next)
+
+    url = auth_request.redirectURL(settings.WPS_OPENID_TRUST_ROOT, return_to)
 
     return url
 
 def complete(request):
     c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
 
-    response = c.complete(request.GET, settings.OPENID_RETURN_TO)
+    response = c.complete(request.GET, settings.WPS_OPENID_RETURN_TO)
 
     if response.status == consumer.CANCEL:
         raise AuthenticationCancelError(response)
@@ -123,14 +141,25 @@ def complete(request):
     return openid_url, attrs
 
 def handle_attribute_exchange(response):
-    attrs = {'email': None}
+    attributes = {
+        'email': 'http://axschema.org/contact/email',
+        'first': 'http://axschema.org/namePerson/first',
+        'last': 'http://axschema.org/namePerson/last',
+    }
 
     ax_response = ax.FetchResponse.fromSuccessResponse(response)
 
+    attrs = {}
+
     if ax_response is not None:
-        try:
-            attrs['email'] = ax_response.get('http://axschema.org/contact/email')[0]
-        except (KeyError, IndexError):
+        for key, value in attributes.iteritems():
+            try:
+                attrs[key] = ax_response.get(value)[0]
+            except (KeyError, IndexError):
+                raise MissingAttributeError(key)
+
+        # Need a minimum of email to create a new account
+        if 'email' not in attrs:
             raise MissingAttributeError('email')
 
     return attrs

@@ -1,0 +1,3 @@
+elasticsearch:
+  host: intent-hedgehog-elasticsearch-client.default.svc
+  port: 9200

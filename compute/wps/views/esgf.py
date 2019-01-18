@@ -2,170 +2,272 @@
 
 import collections
 import datetime
+import hashlib
 import json
 import re
 
 import cdms2
 import cdtime
+import cwt
 import requests
+from django.conf import settings
 from django.core.cache import cache
+from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
-from wps import WPSError
+from wps import helpers
+from wps import metrics
 from wps import tasks
+from wps import WPSError
+from wps.context import VariableContext
 
 logger = common.logger
 
-TIME_AXIS_IDS = ('time', 't')
+def describe_axis(axis):
+    """ Describe an axis.
+    Args:
+        axis: A cdms2.axis.TransientAxis or cdms2.axis.FileAxis.
 
-def retrieve_axes(user, dataset_id, query_variable, query_files):
-    cache_id = '{}|{}'.format(dataset_id, query_variable)
+    Returns:
+        A dict describing the axis.
+    """
+    data = {
+        'id': axis.id,
+        'start': float(axis[0]),
+        'stop': float(axis[-1]),
+        'units': axis.units or None,
+        'length': len(axis),
+    }
 
-    axes = cache.get(cache_id)
+    if axis.isTime():
+        component = axis.asComponentTime()
 
-    if axes is None:
-        logger.info('Dataset variable "{}" not in cache'.format(cache_id))
+        data['start_timestamp'] = str(component[0])
 
-        query_files = sorted(query_files)
+        data['stop_timestamp'] = str(component[-1])
 
-        try:
-            query_files_reduced = [query_files[0], query_files[-1]]
-        except IndexError:
-            raise WPSError('No files associated with "{variable}" of dataset "{dataset}"', variable=query_variable, dataset=dataset_id)
+    return data
 
-        start = datetime.datetime.now()
+def process_axes(header):
+    """ Processes the axes of a file.
+    Args:
+        header: A cdms2.fvariable.FileVariable.
 
-        axes = {}
+    Returns:
+        A dict containing the url, temporal and spatial axes.
+    """
+    data = {}
+    base_units = None
 
-        tasks.load_certificate(user)
+    for axis in header.getAxisList():
+        logger.info('Processing axis %r', axis.id)
 
-        logger.info('Retrieving axis range for dataset "{}"'.format(dataset_id))
+        if axis.isTime():
+            if base_units is None:
+                base_units = axis.units
 
-        base_units = None
+            axis_clone = axis.clone()
 
-        for i, url in enumerate(query_files_reduced):
-            try:
-                logger.debug('Opening file "{}"'.format(url))
+            axis_clone.toRelativeTime(base_units)
 
-                with cdms2.open(url) as infile:
-                    header = infile[query_variable]
+            data['temporal'] = describe_axis(axis_clone)
+        else:
+            desc = describe_axis(axis)
 
-                    if i == 0:
-                        for x in header.getAxisList():
-                            axis_data = {
-                                'id': x.id,
-                                # Need to convert start/stop to str otherwise Django JsonResponse throws up
-                                'start': str(x[0]),
-                                'stop': str(x[-1]),
-                                'id_alt': (x.attributes.get('axis', None) or x.id).lower(),
-                                'units': x.attributes.get('units', None)
-                            }
+            if 'spatial' not in data:
+                data['spatial'] = [desc]
+            else:
+                data['spatial'].append(desc)
 
-                            axes[x.id] = axis_data
+    return data
 
-                            if x.isTime():
-                                base_units = axis_data['units']
-                    else:
-                        time = header.getAxisList(axes=('time'))
+def process_url(user, prefix_id, context):
+    """ Processes a url.
+    Args:
+        prefix_id: A str prefix to build the cache id.
+        url: A str url path.
+        variable: A str variable name.
 
-                        if len(time) == 0:
-                            logger.debug('No time axis to set stop value')
+    Returns:
+        A list of dicts describing each files axes.
+    """
+    cache_id = '{}|{}'.format(prefix_id, context.variable.uri)
 
-                            continue
+    cache_id = hashlib.md5(cache_id).hexdigest()
 
-                        # Convert last time value to be relative to the first files units
-                        remapped_time = cdtime.reltime(time[0][-1], time[0].attributes.get('units', None))
+    data = cache.get(cache_id)
 
-                        remapped_time = remapped_time.torel(base_units, time[0].getCalendar())
+    logger.info('Processing %r', context.variable)
 
-                        old_stop = axes[time[0].id]['stop']
+    if data is None:
+        data = { 'url': context.variable.uri }
 
-                        axes[time[0].id]['stop'] = remapped_time.value
+        with context.open(user) as variable:
+            axes = process_axes(variable)
 
-                        logger.info('Extending time from "{}" to "{}"'.format(old_stop, remapped_time))
-            except cdms2.CDMSError as e:
-                raise WPSError('Error opening file "{url}": {error}', url=url, error=e.message)
+        data.update(axes)
 
-        cache.set(cache_id, axes, 24*60*60)
+        cache.set(cache_id, data, 24*60*60)
 
-        logger.debug('retrieve_axes elapsed time {}'.format(datetime.datetime.now()-start))
-    else:
-        logger.info('Axes for "{}" retrieved from cache'.format(cache_id))
+    return data
+
+def retrieve_axes(user, dataset_id, variable, urls):
+    """ Retrieves the axes for a set of urls.
+    Args:
+        user: A wps.models.User object.
+        dataset_id: A str dataset id.
+        variable: A str variable name.
+        urls: A list of str url paths.
+        
+    Returns:
+        A list of dicts containing the axes of each file.
+    """
+    prefix_id = '{}|{}'.format(dataset_id, variable)
+
+    axes = []
+
+    for url in sorted(urls):
+        var = cwt.Variable(url, variable)
+
+        context = VariableContext(var)
+
+        data = process_url(user, prefix_id, context)
+
+        axes.append(data)
 
     return axes
 
+def search_params(dataset_id, query, shard):
+    """ Prepares search params for ESGF.
+    Args:
+        dataset_id: A str dataset id.
+        query: A str search query.
+        shard: A str shard to search.
+
+    Returns:
+        A dict containing the search params.
+    """
+    params = {
+        'type': 'File',
+        'dataset_id': dataset_id.strip(),
+        'format': 'application/solr+json',
+        'offset': 0,
+        'limit': 10000,
+    }
+
+    if query is not None and len(query.strip()) > 0:
+        params['query'] = query.strip()
+
+    if shard is not None and len(shard.strip()) > 0:
+        params['shards'] = '{}/solr'.format(shard.strip())
+
+    # enabled distrib search by default
+    params['distrib'] = 'true'
+
+    logger.info('ESGF search params %r', params)
+
+    return params
+
+def parse_solr_docs(response):
+    """ Parses the solr response docs.
+    Args:
+        response: A str response from a solr search in json format.
+
+    Returns:
+        A dict containing the parsed variables and files.
+
+        {
+            "variables": {
+                "tas": [0,2,3,4]
+            },
+            "files": [
+                'file1.nc',
+                'file2.nc',
+                ...
+                'file20.nc',
+            ]
+        }
+    """
+    variables = {}
+    files = []
+
+    for doc in response['response']['docs']:
+        variable = doc['variable']
+
+        try:
+            open_dap = [x for x in doc['url'] if 'opendap' in x.lower()][0]
+        except IndexError:
+            logger.warning('Skipping %r, missing OpenDAP url', doc['master_id'])
+
+            continue
+
+        url, _, _ = open_dap.split('|')
+
+        url = url.replace('.html', '')
+
+        if url not in files:
+            files.append(url)
+
+        for x, var in enumerate(variable):
+            if var not in variables:
+                variables[var] = []
+
+            index = files.index(url)
+
+            # Collect the indexes of the files containing this variable
+            variables[var].append(index)
+
+    return { 'variables': variables, 'files': files }
+
+
 def search_solr(dataset_id, index_node, shard=None, query=None):
-    data = cache.get(dataset_id)
+    """ Search ESGF solr.
+    Args:
+        dataset_id: A str dataset id.
+        index_node: A str of the host to run the search on.
+        shard: A str shard name to pass.
+        query: A str query to pass.
+
+    Returns:
+        A dict containing the parsed solr documents.
+    """
+    cache_id = hashlib.md5(dataset_id).hexdigest()    
+
+    data = cache.get(cache_id)
 
     if data is None:
-        logger.info('Dataset "{}" not in cache'.format(dataset_id))
-
-        start = datetime.datetime.now()
-
-        params = {
-            'type': 'File',
-            'dataset_id': dataset_id,
-            'format': 'application/solr+json',
-            'offset': 0,
-            'limit': 8000
-        }
-
-        if query is not None and len(query.strip()) > 0:
-            params['query'] = query.strip()
-
-        if shard is not None and len(shard.strip()) > 0:
-            params['shards'] = '{}/solr'.format(shard.strip())
-        else:
-            params['distrib'] = 'false'
+        params = search_params(dataset_id, query, shard)
 
         url = 'http://{}/esg-search/search'.format(index_node)
 
-        logger.info('Requesting "{}"'.format(url))
+        logger.info('Searching %r', url)
+
+        with metrics.WPS_ESGF_SEARCH.time():
+            try:
+                response = requests.get(url, params)
+
+                metrics.WPS_ESGF_SEARCH_SUCCESS.inc()
+            except requests.ConnectionError:
+                metrics.WPS_ESGF_SEARCH_FAILED.inc()
+
+                raise Exception('Connection timed out')
+            except requests.RequestException as e:
+                metrics.WPS_ESGF_SEARCH_FAILED.inc()
+
+                raise Exception('Request failed: "{}"'.format(e))
 
         try:
-            response = requests.get(url, params)
-        except requests.ConnectionError:
-            raise Exception('Connection timed out')
-        except requests.RequestWPSError as e:
-            raise Exception('Request failed: "{}"'.format(e))
-
-        #with open('./data/solr_full.json', 'w') as outfile:
-        #    outfile.write(response.content)
-
-        try:
-            data = json.loads(response.content)
+            response_json = json.loads(response.content)
         except:
             raise Exception('Failed to load JSON response')
 
-        # Cache for 1 day
+        data = parse_solr_docs(response_json)
+
         cache.set(dataset_id, data, 24*60*60)
 
-        logger.debug('search_solr elapsed time {}'.format(datetime.datetime.now()-start))
-    else:
-        logger.info('Dataset "{}" retrieved from cache'.format(dataset_id))
-
-    return data['response']['docs']
-
-def parse_solr_docs(docs):
-    variables = collections.OrderedDict()
-
-    for doc in docs:
-        var = doc['variable'][0]
-
-        for item in doc['url']:
-            url, mime, urlType = item.split('|')
-
-            if urlType.lower() == 'opendap':
-                url = url.replace('.html', '')
-
-                if var in variables:
-                    variables[var]['files'].append(url)
-                else:
-                    variables[var] = {'id': var, 'files': [url], 'axes': None}
-
-    return variables
+    return data
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -176,29 +278,34 @@ def search_variable(request):
         try:
             dataset_id = request.GET['dataset_id']
 
-            index_node = request.GET['index_node']
+            variable = request.GET['variable']
 
-            query_variable = request.GET['variable']
+            files = request.GET['files']
         except KeyError as e:
             raise common.MissingParameterError(name=e.message)
+
+        files = json.loads(files)
+        
+        if not isinstance(files, list):
+            files = [files]
+
+        index_node = request.GET.get('index_node', settings.ESGF_SEARCH)
 
         shard = request.GET.get('shard', None)
 
         query = request.GET.get('query', None)
 
-        docs = search_solr(dataset_id, index_node, shard, query)
+        dataset_variables = search_solr(dataset_id, index_node, shard, query)
 
-        dataset_variables = parse_solr_docs(docs)
+        urls = [dataset_variables['files'][int(x)] for x in files]
 
-        query_files = dataset_variables[query_variable]['files']
-
-        axes = retrieve_axes(request.user, dataset_id, query_variable, query_files)
+        axes = retrieve_axes(request.user, dataset_id, variable, urls)
     except WPSError as e:
         logger.exception('Error retrieving ESGF search results')
 
         return common.failed(e.message)
     else:
-        return common.success(axes.values())
+        return common.success(axes)
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -208,26 +315,50 @@ def search_dataset(request):
 
         try:
             dataset_id = request.GET['dataset_id']
-
-            index_node = request.GET['index_node']
         except KeyError as e:
             raise common.MissingParameterError(name=e.message)
+
+        index_node = request.GET.get('index_node', settings.ESGF_SEARCH)
 
         shard = request.GET.get('shard', None)
 
         query = request.GET.get('query', None)
 
-        docs = search_solr(dataset_id, index_node, shard, query)
-
-        dataset_variables = parse_solr_docs(docs)
-
-        try:
-            query_variable = dataset_variables.keys()[0]
-        except IndexError as e:
-            raise WPSError('Dataset "{dataset_id}" returned no variables', dataset_id=dataset_id)
+        dataset_variables = search_solr(dataset_id, index_node, shard, query)
     except WPSError as e:
         logger.exception('Error retrieving ESGF search results')
 
         return common.failed(e.message)
     else:
         return common.success(dataset_variables)
+
+@require_http_methods(['POST'])
+@ensure_csrf_cookie
+def combine(request):
+    try:
+        try:
+            axes = json.loads(request.body)['axes']
+        except KeyError as e:
+            raise common.MissingParameterError(name=e)
+
+        axes = sorted(axes, key=lambda x: x['units'])
+
+        base_units = axes[0]['units']
+
+        start = cdtime.reltime(axes[0]['start'], axes[0]['units'])
+
+        stop = cdtime.reltime(axes[-1]['stop'], axes[-1]['units'])
+
+        data = {
+            'units': base_units,
+            'start': start.torel(base_units).value,
+            'stop': stop.torel(base_units).value,
+            'start_timestamp': str(start.tocomponent()),
+            'stop_timestamp': str(stop.tocomponent()),
+        }
+    except WPSError as e:
+        logger.exception('Error combining temporal axes')
+
+        return common.failed(e.message)
+    else:
+        return common.success(data)

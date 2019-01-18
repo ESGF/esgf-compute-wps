@@ -4,10 +4,9 @@ import logging
 import os
 from base64 import b64encode
 
+from django.conf import settings
 from OpenSSL import crypto
 from requests_oauthlib import OAuth2Session
-
-from wps import settings
 
 logger = logging.getLogger('wps.auth.oauth2')
 
@@ -20,13 +19,14 @@ def get_env(key):
     except KeyError:
         raise OAuth2Error('Environment variable "{}" has not been set'.format(key))
 
-def get_certificate(token, refresh_url, cert_url):
+def get_certificate(token, state, refresh_url, cert_url):
     client_id = get_env('OAUTH_CLIENT')
 
     secret = get_env('OAUTH_SECRET')
 
     slcs = OAuth2Session(client_id,
                          token=token,
+                         state=state,
                          auto_refresh_url=refresh_url,
                          auto_refresh_kwargs = {
                                                 'client_id': client_id,
@@ -47,6 +47,12 @@ def get_certificate(token, refresh_url, cert_url):
     if cert_url[-1] != '/':
         cert_url = '{}/'.format(cert_url)
 
+    # Grab a CSRF token
+    try:
+        slcs.get(cert_url, verify=False)
+    except Exception:
+        pass
+
     try:
         response = slcs.post(cert_url,
                              data={ 'certificate_request': b64encode(cert_request) },
@@ -65,7 +71,7 @@ def get_token(token_uri, request_url, oauth_state):
     secret = get_env('OAUTH_SECRET')
 
     slcs = OAuth2Session(client_id,
-            redirect_uri=settings.OAUTH2_CALLBACK,
+            redirect_uri=settings.WPS_OAUTH2_CALLBACK,
             state=oauth_state)
 
     try:
@@ -85,7 +91,7 @@ def get_authorization_url(auth_uri, cert_uri):
         cert_uri = '{}/'.format(cert_uri)
 
     slcs = OAuth2Session(client_id,
-            redirect_uri=settings.OAUTH2_CALLBACK,
+            redirect_uri=settings.WPS_OAUTH2_CALLBACK,
             scope=[cert_uri])
 
     try:

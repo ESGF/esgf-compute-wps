@@ -1,0 +1,52 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-thredds
+  labels:
+    app: {{ .Release.Name }}-thredds
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.thredds.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-thredds
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-thredds
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-thredds
+        image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /threddsCWT
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /threddsCWT
+            port: 8080
+          initialDelaySeconds: 40
+          periodSeconds: 20
+        {{- if and $.Values.thredds.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.thredds.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: public-volume
+          mountPath: /data/public
+          subPath: public
+      volumes:
+      - name: public-volume
+        persistentVolumeClaim:
+          claimName: public-pvc

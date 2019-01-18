@@ -39,10 +39,6 @@ describe('Configure Component', () => {
     }
   };
 
-  class MockActivatedRoute {
-    queryParams = Observable.of({dataset_id: 'mockDatasetID', index_node: 'mockIndexNode'});
-  }
-
   beforeEach(async(() => {
     TestBed.configureTestingModule({
       imports: [FormsModule],
@@ -53,7 +49,6 @@ describe('Configure Component', () => {
       providers: [
         {provide: Http, useValue: jasmine.createSpy('http')},
         {provide: Router, useValue: jasmine.createSpy('router')},
-        {provide: ActivatedRoute, useClass: MockActivatedRoute},
         AuthService,
         NotificationService,
       ],
@@ -79,8 +74,6 @@ describe('Configure Component', () => {
 
   it('should initialize', () => {
     spyOn(config, 'searchESGF').and.returnValue(Promise.resolve(mockResult));
-
-    spyOn(config, 'processes').and.returnValue(Promise.resolve(['test1', 'test2']));
 
     comp.ngOnInit();
 

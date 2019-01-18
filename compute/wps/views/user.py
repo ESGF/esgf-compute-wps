@@ -62,26 +62,10 @@ def update(request):
 
         email = form.cleaned_data['email']
 
-        openid = form.cleaned_data['openid']
-
-        password = form.cleaned_data['password']
-
         if email != u'':
             request.user.email = email
 
             request.user.save()
-
-        if openid != u'':
-            request.user.auth.openid_url = openid
-
-            request.user.auth.save()
-
-        if password != u'':
-            request.user.set_password(password)
-
-            request.user.save()
-
-            update_session_auth_hash(request, request.user)
     except WPSError as e:
         return common.failed(str(e))
     else:
