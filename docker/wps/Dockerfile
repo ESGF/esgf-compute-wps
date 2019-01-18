@@ -1,4 +1,4 @@
-FROM jasonb87/cwt_common:2.1.0
+FROM jasonb87/cwt_common:devel
 
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 	curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
