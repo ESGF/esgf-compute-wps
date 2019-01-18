@@ -47,6 +47,12 @@ def get_certificate(token, state, refresh_url, cert_url):
     if cert_url[-1] != '/':
         cert_url = '{}/'.format(cert_url)
 
+    # Grab a CSRF token
+    try:
+        slcs.get(cert_url, verify=False)
+    except Exception:
+        pass
+
     try:
         response = slcs.post(cert_url,
                              data={ 'certificate_request': b64encode(cert_request) },

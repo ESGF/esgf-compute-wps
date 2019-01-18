@@ -13,7 +13,6 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from lxml import etree
 
-import wps
 from . import common
 from wps import backends
 from wps import helpers
@@ -21,12 +20,12 @@ from wps import metrics
 from wps import models
 from wps import tasks
 from wps import WPSError
+from wps.util import wps as wps_util
 
 logger = common.logger
-
 class WPSExceptionError(WPSError):
     def __init__(self, message, code):
-        self.report = wps.exception_report(message, code)
+        self.report = wps_util.exception_report(settings, message, code)
 
         super(WPSExceptionError, self).__init__('WPS Exception')
 
@@ -202,7 +201,7 @@ def handle_get_capabilities(host=None):
 def handle_describe_process(identifiers):
     processes = models.Process.objects.filter(identifier__in=identifiers)
 
-    return wps.process_descriptions_from_processes(processes)
+    return wps_util.process_descriptions_from_processes(settings, processes)
 
 def handle_execute(api_key, identifier, data_inputs):
     try:
@@ -220,7 +219,11 @@ def handle_execute(api_key, identifier, data_inputs):
 
     description = process_descriptions.ProcessDescription[0]
 
-    kwargs = {}
+    kwargs = {
+        'variable': None,
+        'domain': None,
+        'operation': None,
+    }
 
     # load up the required data inputs for the process
     if description.DataInputs is not None:
@@ -228,9 +231,20 @@ def handle_execute(api_key, identifier, data_inputs):
             input_id = x.Identifier.value().lower()
 
             try:
-                kwargs[input_id] = data_inputs[input_id]
+                data = json.loads(data_inputs[input_id])
             except KeyError:
                 raise WPSError('Missing required input "{input_id}" for process {name}', input_id=input_id, name=identifier)
+
+            if input_id == 'variable':
+                data = [cwt.Variable.from_dict(x) for x in data]
+            elif input_id == 'domain':
+                data = [cwt.Domain.from_dict(x) for x in data]
+            elif input_id == 'operation':
+                data = [cwt.Process.from_dict(x) for x in data]
+            else:
+                raise WPSError('Unknown input %r', input_id)
+
+            kwargs[input_id] = dict((x.name, x) for x in data)
 
     server = models.Server.objects.get(host='default')
 
@@ -256,15 +270,14 @@ def handle_execute(api_key, identifier, data_inputs):
 
         backend.execute(**kwargs)
     except Exception as e:
+        logger.exception('Error executing backend %r', process.backend)
+
         if not job.is_started:
             job.started()
 
-        job.failed(str(e))
+        job.failed(wps_util.exception_report(settings, str(e), cwt.ows.NoApplicableCode))
 
         raise
-
-    # at this point we've accepted the job
-    job.accepted()
 
     return job.report
 
@@ -386,13 +399,13 @@ def wps_entrypoint(request):
     except WPSError as e:
         logger.exception('WPSError')
 
-        response = wps.exception_report(str(e), cwt.ows.NoApplicableCode)
+        response = wps_util.exception_report(settings, str(e), cwt.ows.NoApplicableCode)
     except Exception as e:
         logger.exception('Some generic exception')
 
         error = 'Please copy the error and report on Github: {}'.format(str(e))
 
-        response = wps.exception_report(error, cwt.ows.NoApplicableCode)
+        response = wps_util.exception_report(settings, error, cwt.ows.NoApplicableCode)
 
     return http.HttpResponse(response, content_type='text/xml')
 
@@ -414,7 +427,7 @@ def regen_capabilities(request):
 
         process_offerings = cwt.wps.process_offerings(processes)
 
-        server.capabilities = wps.generate_capabilities(process_offerings)
+        server.capabilities = wps_util.generate_capabilities(settings, process_offerings)
 
         server.save()
     except WPSError as e:
@@ -430,14 +443,3 @@ def status(request, job_id):
         raise WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
 
     return http.HttpResponse(job.report, content_type='text/xml')
-
-@require_http_methods(['POST'])
-@csrf_exempt
-def execute(request):
-    data = helpers.decoder(request.body)
-
-    backend = backends.Backend.get_backend('CDAT')
-
-    backend.execute(**data)
-
-    return http.HttpResponse()

@@ -19,7 +19,7 @@ class OpenIDTestCase(test.TestCase):
 
         attrs = openid.handle_attribute_exchange(mock.Mock())
 
-        self.assertEqual(attrs, {'email': None})
+        self.assertEqual(attrs, {})
 
     @mock.patch('wps.views.openid.ax.FetchResponse.fromSuccessResponse')
     def test_handle_attribute_exchange_exception(self, mock_fetch):
@@ -28,7 +28,8 @@ class OpenIDTestCase(test.TestCase):
         with self.assertRaises(openid.MissingAttributeError) as e:
             attrs = openid.handle_attribute_exchange(mock.Mock())
 
-        self.assertEqual(str(e.exception), str(openid.MissingAttributeError('email')))
+        self.assertEqual(str(e.exception),
+                         str(openid.MissingAttributeError('last')))
 
     @mock.patch('wps.views.openid.ax.FetchResponse.fromSuccessResponse')
     def test_handle_attribute_exchange(self, mock_fetch):
@@ -76,21 +77,28 @@ class OpenIDTestCase(test.TestCase):
         mock_consumer.return_value.beginWithoutDiscovery.side_effect = consumer.DiscoveryFailure('error', 404)
 
         with self.assertRaises(openid.DiscoverError) as e:
-            openid.begin(mock.Mock(session={}), 'http://testbad.com/openid')
+            openid.begin(mock.Mock(session={}), 'http://testbad.com/openid',
+                         'http://test.com/next')
 
     @mock.patch('wps.views.openid.consumer.Consumer')
     def test_begin(self, mock_consumer):
-        mock_begin = mock.Mock(**{'redirectURL.return_value': 'http://test.com/openid/begin'})
+        return_url = 'https://test.com/openid/begin?next=http://test.com/next'
+
+        mock_begin = mock.Mock(**{'redirectURL.return_value': return_url})
         mock_consumer.return_value = mock.Mock(**{'beginWithoutDiscovery.return_value': mock_begin})
 
-        url = openid.begin(mock.Mock(session={}), 'http://test.com/openid')
+        url = openid.begin(mock.Mock(session={}), 'http://test.com/openid',
+                           'http://test.com/next')
 
-        self.assertEqual(url, 'http://test.com/openid/begin')
+        self.assertEqual(url, return_url)
 
         mock_consumer.assert_called_with({}, mock_consumer.call_args[0][1])
         mock_consumer.return_value.beginWithoutDiscovery.assert_called()
 
-        mock_begin.redirectURL.assert_called_with(settings.WPS_OPENID_TRUST_ROOT, settings.WPS_OPENID_RETURN_TO)
+        return_to = '{!s}?next=http://test.com/next'.format(settings.WPS_OPENID_RETURN_TO)
+
+        mock_begin.redirectURL.assert_called_with(settings.WPS_OPENID_TRUST_ROOT,
+                                                 return_to)
 
     def test_services_discovery_error(self):
         with self.assertRaises(openid.DiscoverError) as e:

@@ -9,21 +9,6 @@ from wps.tasks import base
 class CWTBaseTaskTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
 
-    @mock.patch('wps.tasks.base.models.Job.objects.get')
-    def test_cwt_base_task_missing_job(self, mock_get):
-        job = models.Job.objects.first()
-
-        mock_get.side_effect = models.Job.DoesNotExist()
-
-        task = base.CWTBaseTask()
-
-        task.on_success(None, 0, None, {})
-
-    def test_cwt_base_task_missing_job_id(self):
-        task = base.CWTBaseTask()
-
-        task.on_success(None, 0, None, {})
-
     def test_get_process_missing(self):
         with self.assertRaises(WPSError):
             proc = base.get_process('i do not exist')

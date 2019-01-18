@@ -10,8 +10,7 @@ class TaskMetricsTestCase(test.TestCase):
 
     @mock.patch.object(requests, 'get')
     @mock.patch('wps.models.Job.objects.filter')
-    @mock.patch('wps.tasks.base.CWTBaseTask.load_job')
-    def test_health(self, mock_job, mock_filter, mock_get):
+    def test_health(self, mock_filter, mock_get):
         mock_get.return_value.json.return_value = {
             'status': 'ok', 
             'data': {
@@ -28,11 +27,11 @@ class TaskMetricsTestCase(test.TestCase):
 
         mock_filter.return_value.exclude.return_value.exclude.return_value.exclude.return_value.count.return_value = 2
 
-        tasks.metrics_task(0, 1)
+        context = mock.MagicMock()
 
-        mock_job.assert_called_with(1)
+        tasks.metrics_task(context)
 
-        self.assertEqual(mock_get.call_count, 15)
+        self.assertEqual(mock_get.call_count, 10)
 
     @mock.patch.object(requests, 'get')
     def test_query_multiple_value_custom_type(self, mock_get):
@@ -177,4 +176,5 @@ class TaskMetricsTestCase(test.TestCase):
         self.assertEqual(result, {'data': 3.2})
 
         mock_get.assert_called_with(settings.METRICS_HOST, params={'query':
-                                                                   'sum(wps_requests)'})
+                                                                   'sum(wps_requests)'},
+                                   timeout=(1, 30))

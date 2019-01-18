@@ -32,123 +32,6 @@ class AuthViewsTestCase(test.TestCase):
     def check_redirect(self, response, redirect_count):
         self.assertEqual(response.status_code, 302)
 
-    def test_reset_password_missing_parameter(self):
-        response = self.client.get('/auth/reset/', {})
-
-        self.check_failed(response)
-
-    def test_reset_password_user_does_not_exist(self):
-        response = self.client.get('/auth/reset/', {'token':'unique_token', 'username': 'some_username', 'password': 'new_password'})
-
-        self.check_failed(response)
-
-    def test_reset_password_invalid_state(self):
-        user = models.User.objects.all()[0]
-
-        response = self.client.get('/auth/reset/', {'token':'unique_token', 'username': user.username, 'password': 'new_password'})
-
-        print 'FIND ME', self.check_failed(response)
-
-    def test_reset_password_expired_token(self):
-        user = models.User.objects.all()[0]
-
-        expire = datetime.datetime.now() - datetime.timedelta(10)
-
-        user.auth.extra = {'reset_token': 'reset_token', 'reset_expire': expire.strftime('%x %X')}
-
-        user.auth.save()
-
-        response = self.client.get('/auth/reset/', {'token':'unique_token', 'username': user.username, 'password': 'new_password'})
-
-        self.check_failed(response)
-
-    def test_reset_password_mismatch_token(self):
-        user = models.User.objects.all()[0]
-
-        expire = datetime.datetime.now() + datetime.timedelta(10)
-
-        user.auth.extra = json.dumps({'reset_token': 'bad_token', 'reset_expire': expire.strftime('%x %X')})
-
-        user.auth.save()
-
-        response = self.client.get('/auth/reset/', {'token':'not_the_right_token', 'username': user.username, 'password': 'new_password'})
-
-        self.check_failed(response)
-
-    def test_reset_password(self):
-        user = models.User.objects.all()[0]
-
-        expire = datetime.datetime.now() + datetime.timedelta(10)
-
-        user.auth.extra = json.dumps({'reset_token': 'unique_token', 'reset_expire': expire.strftime('%x %X')})
-
-        user.auth.save()
-
-        response = self.client.get('/auth/reset/', {'token': 'unique_token', 'username': user.username, 'password': 'new_password'})
-
-        data = self.check_success(response)['data']
-
-        self.assertIn('redirect', data)
-        self.assertEqual(data['redirect'], settings.WPS_LOGIN_URL)
-
-        user.auth.refresh_from_db()
-
-        extra = json.loads(user.auth.extra)
-
-        self.assertNotIn('reset_token', extra)
-        self.assertNotIn('reset_expire', extra)
-
-    def test_forgot_password_missing_parameter(self):
-        response = self.client.get('/auth/forgot/password/', {})
-
-        self.check_failed(response)
-
-    def test_forgot_password_user_does_not_exist(self):
-        response = self.client.get('/auth/forgot/password/', {'username': 'test1234'})
-
-        self.check_failed(response)
-
-    @mock.patch('wps.views.auth.send_mail')
-    def test_forgot_password(self, mock_send_mail):
-        user = models.User.objects.all()[0]
-
-        response = self.client.get('/auth/forgot/password/', {'username': user.username})
-
-        data = self.check_success(response)['data']
-
-        self.assertIn('redirect', data)
-
-        user.refresh_from_db()
-
-        extra = json.loads(user.auth.extra)
-        
-        self.assertIn('reset_token', extra)
-        self.assertIn('reset_expire', extra)
-
-        mock_send_mail.assert_called()
-
-    def test_forgot_username_missing_parameter(self):
-        response = self.client.get('/auth/forgot/username/', {})
-
-        self.check_failed(response)
-
-    def test_forgot_username_user_does_not_exist(self):
-        response = self.client.get('/auth/forgot/username/', {'email': 'new_user@testbad.com'})
-
-        self.check_failed(response)
-
-    @mock.patch('wps.views.auth.send_mail')
-    def test_forgot_username(self, mock_send_mail):
-        user = models.User.objects.all()[0]
-
-        response = self.client.get('/auth/forgot/username/', {'email': user.email})
-
-        data = self.check_success(response)['data']
-
-        mock_send_mail.assert_called()
-
-        self.assertEqual(data['redirect'], settings.WPS_LOGIN_URL)
-
     def test_login_mpc_not_logged_in(self):
         response = self.client.post('/auth/login/mpc/', {})
 
@@ -226,7 +109,7 @@ class AuthViewsTestCase(test.TestCase):
     def test_oauth2_callback_invalid_state(self):
         response = self.client.get('/auth/callback', {})
 
-        self.check_redirect(response, 1)
+        self.check_failed(response)
 
     @mock.patch('wps.auth.oauth2.get_certificate')
     @mock.patch('wps.auth.oauth2.get_token')
@@ -298,38 +181,11 @@ class AuthViewsTestCase(test.TestCase):
         self.assertNotIn('_auth_user_id', self.client.session)
         self.check_success(response)
 
-    def test_user_login_doesnt_exist(self):
-        response = self.client.post('/auth/login/', {'username': 'test1234', 'password': '1234'})
-
-        self.check_failed(response)
-
-    def test_user_login_invalid(self):
-        response = self.client.post('/auth/login/', {})
-
-        self.check_failed(response)
-
-    def test_user_login(self):
-        user = models.User.objects.all()[0]
-
-        response = self.client.post('/auth/login/', {'username': user.username, 'password': user.username})
-
-        self.assertIn('_auth_user_id', self.client.session)
-
-        data = self.check_success(response)['data']
-
-        self.assertEqual(data['username'], user.username)
-        self.assertEqual(data['openid'], user.auth.openid_url)
-        self.assertFalse(data['admin'])
-        self.assertTrue(data['local_init'])
-        self.assertEqual(data['api_key'], 'abcd1234')
-        self.assertEqual(data['type'], 'oauth2')
-        self.assertEqual(data['email'], user.email)
-
     @mock.patch('wps.views.auth.openid.complete')
     def test_user_login_openid_callback_already_exists(self, mock_openid):
         user = models.User.objects.all()[0]
 
-        mock_openid.return_value = ('http://testbad.com/openid', {'email': user.email})
+        mock_openid.return_value = ('http://testbad.com/openid/fake_JnyeGoV7vc', {'email': user.email})
 
         response = self.client.get('/auth/callback/openid/', {})
 
@@ -338,7 +194,14 @@ class AuthViewsTestCase(test.TestCase):
 
     @mock.patch('wps.views.auth.openid.complete')
     def test_user_login_openid_callback(self, mock_openid):
-        mock_openid.return_value = ('http://testbad.com/openid', {'email': 'http://testbad.com/openid/new_user'})
+        mock_openid.return_value = (
+            'http://testbad.com/openid/new_user', 
+            {
+                'email': 'new_user@ankle.com',
+                'first': 'hello',
+                'last': 'world',
+            }
+        )
 
         response = self.client.get('/auth/callback/openid/', {})
 
@@ -354,74 +217,9 @@ class AuthViewsTestCase(test.TestCase):
     def test_user_login_openid(self, mock_openid):
         mock_openid.return_value = 'http://testbad.com/openid'
 
-        response = self.client.post('/auth/login/openid/', {'openid_url': 'http://testbad.com/openid'})
+        response = self.client.post('/auth/login/openid/', {'openid_url': 'http://testbad.com/openid/fake_JnyeGoV7vc'})
 
         data = self.check_success(response)
 
         self.assertIn('redirect', data['data'])
         self.assertEqual(data['data']['redirect'], 'http://testbad.com/openid')
-
-    def test_create_already_exists(self):
-        user = models.User.objects.all()[0]
-
-        user_data = {
-            'username': user.username,
-            'email': user.email,
-            'openid': user.auth.openid,
-            'password': 'abcd'
-        }
-
-        response = self.client.post('/auth/create/', user_data)
-
-        self.check_failed(response)
-
-    def test_create_invalid(self):
-        response = self.client.post('/auth/create/', {})
-
-        self.check_failed(response)
-
-    def test_create_user_already_exists(self):
-        user = models.User.objects.all()[0]
-
-        user_data = {
-            'username': user.username,
-            'email': user.email,
-            'openid': user.auth.openid_url,
-            'password': 'new_password'
-        }
-
-        response = self.client.post('/auth/create/', user_data)
-
-        self.check_failed(response)
-
-    @mock.patch('wps.views.auth.send_mail')
-    def test_create_send_mail_failed(self, mock_send):
-        mock_send.side_effect = Exception
-
-        user = {
-            'username': 'test_user',
-            'email': 'test_user@testbad.com',
-            'openid': 'http://testbad.com/openid/test_user',
-            'password': 'abcd'
-        }
-
-        response = self.client.post('/auth/create/', user)
-
-        self.check_success(response)
-
-        mock_send.assert_called()
-
-    @mock.patch('wps.views.auth.send_mail')
-    def test_create(self, mock_send):
-        user = {
-            'username': 'test_user',
-            'email': 'test_user@testbad.com',
-            'openid': 'http://testbad.com/openid/test_user',
-            'password': 'abcd'
-        }
-
-        response = self.client.post('/auth/create/', user)
-
-        self.check_success(response)
-
-        mock_send.assert_called()

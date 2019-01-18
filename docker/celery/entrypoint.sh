@@ -20,7 +20,7 @@ trap cleanup SIGINT SIGTERM
 
 source activate wps
 
-pushd $CWT_BASE
+pushd /var/www/webapp/compute
 
 celery worker -A compute ${@} &
 

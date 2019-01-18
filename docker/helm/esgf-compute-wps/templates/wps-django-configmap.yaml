@@ -26,7 +26,7 @@ data:
     password={{ .Values.wps.email.password }}
 
     [metrics]
-    host=http://{{ template "prometheus-server.fullname" . }}.default.svc/prometheus/api/v1/query
+    host=http://{{ .Values.wps.prometheus.host }}/prometheus/api/v1/query
 
     [wps]
     wps.endpoint={{ .Values.wps.externalHost }}/wps/

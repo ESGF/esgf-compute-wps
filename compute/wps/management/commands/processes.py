@@ -52,10 +52,13 @@ class Command(BaseCommand):
 
                                 self.stdout.write(self.style.SUCCESS('  Removed blacklist process "{}"'.format(process.identifier)))
                         else:
-                            del process['hidden']
-
                             try:
-                                process = models.Process.objects.create(**process)
+                                process = models.Process.objects.create(
+                                    identifier=process['identifier'],
+                                    backend=process['backend'],
+                                    abstract=process['abstract'],
+                                    description=process['description'],
+                                )
                             except db.IntegrityError:
                                 self.stdout.write(self.style.ERROR('  {} already exists'.format(process['identifier'])))
                             else:

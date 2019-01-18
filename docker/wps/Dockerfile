@@ -11,7 +11,11 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
 	rm -rf /usr/share/locale && \
 	rm -rf /var/lib/apt/lists/*
 
-WORKDIR /var/www/webapp/docker/wps 
+WORKDIR /
+
+COPY docker/wps/entrypoint.sh .
+
+COPY docker/wps/app.py .
 
 RUN cd /var/www/webapp/compute/wps/webapp && \
   yarn install && \

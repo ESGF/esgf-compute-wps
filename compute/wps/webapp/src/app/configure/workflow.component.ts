@@ -81,10 +81,6 @@ declare var $: any;
   .select-spacer {
     margin-bottom: 10px;
   }
-
-  .loading {
-    cursor: wait;
-  }
   `],
   templateUrl: './workflow.component.html'
 })

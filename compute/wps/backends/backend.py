@@ -77,11 +77,6 @@ class Backend(object):
                     process_outputs=None, abstract=None, hidden=None):
         """ Adds a process/operation to a backend.
     
-        Metadata should be formed as follows:
-            {
-                'inputs': 2,
-            }
-
         Args:
             identifier: A str identifer for the process.
             name: A str name for the process.
@@ -102,9 +97,17 @@ class Backend(object):
 
         kwargs = {
             'metadata': metadata or {},
-            'data_inputs': data_inputs or DATA_INPUTS,
+        #    'data_inputs': data_inputs or DATA_INPUTS,
             'abstract': abstract or '',
         }
+
+        if data_inputs is None:
+            kwargs['data_inputs'] = DATA_INPUTS
+        else:
+            if len(data_inputs) == 0:
+                kwargs['data_inputs'] = None
+            else:
+                kwargs['data_inputs'] = data_inputs
 
         description = cwt.wps.process_description(*args, **kwargs)
 
@@ -112,15 +115,15 @@ class Backend(object):
 
         cwt.bds.reset()
 
-        process = {
+        kwargs.update({
             'identifier': identifier,
             'backend': self.NAME,
             'abstract': abstract or '',
             'description': descriptions.toxml(bds=cwt.bds),
             'hidden': hidden or False,
-        }
+        })
 
-        self.processes.append(process)
+        self.processes.append(kwargs)
 
     def load_data_inputs(self, variable_raw, domain_raw, operation_raw):
         variable = {}
@@ -177,15 +180,3 @@ class Backend(object):
             o.inputs = inputs
 
         return variable, domain, operation
-
-    def initialize(self):
-        pass
-
-    def populate_processes(self):
-        raise NotImplementedError('Must implement populate_processes')
-
-    def execute(self, identifier, variables, domains, operations, **kwargs):
-        raise NotImplementedError('Must implement execute')
-
-    def workflow(self, root_op, variables, domains, operations, **kwargs):
-        raise NotImplementedError('Workflow not implemented')

@@ -6,12 +6,11 @@ import os
 import re
 import uuid
 from collections import deque
-from datetime import datetime
 
 import cdms2
 import cwt
 import cdutil
-from cdms2 import MV2 as MV
+from cdms2 import MV2
 from celery.task.control import inspect
 from celery.utils.log import get_task_logger
 from django.conf import settings
@@ -22,370 +21,45 @@ from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.tasks import base
+from wps.context import OperationContext
 
 logger = get_task_logger('wps.tasks.cdat')
 
-OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/json')
-
-PATTERN_AXES_REQ = 'CDAT\.(min|max|average|sum)'
-
-def retrieve_data(self, job, infile, outfile, var_name, grid, gridder, base_units, mapped=None):
-    """ Retrieves data and writes to output.
-
-    Reads a subset of the input data where mapped is a dict selector. Will
-    regrid the data and rebase the time access. Finally write data to output
-    file.
-
-    Args:
-        infile: A cdms2.dataset.CdmsFile object.
-        outfile: A cdms2.dataset.CdmsFile object.
-        var_name: A str variable name.
-        grid: A cdms2.grid.* object.
-        gridder: A cwt.Gridder object.
-        base_units: A str units to rebase the time axis.
-        mapped: A dict selector to subset data.
-
-    Returns:
-        None
-
-    """
-    if mapped is None:
-        mapped = {}
-
-    start = self.get_now()
-
-    data = infile(var_name, **mapped)
-
-    elapsed = self.get_now() - start
-
-    self.update(job, 'Read {!r} bytes {!r} in {}', data.nbytes,
-                data.shape, elapsed)
-
-    if grid is not None:
-        shape = data.shape
-
-        data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
-
-        logger.info('REGRID %r -> %r', shape, data.shape)
-
-    if base_units is not None:
-        first = data.getTime()[0]
-
-        data.getTime().toRelativeTime(str(base_units))
-
-        logger.info('Converted time axis from %r -> %r', first,
-                    data.getTime()[0])
-
-    outfile.write(data, id=var_name)
-
-    return data, elapsed
-
-def retrieve_data_cached(self, job, infile, outfile, var_name, grid, gridder, base_units, mapped, chunk_axis, chunk_list, **kwargs):
-    """ Retrieves cached data.
-
-    Really just a convenience method. Splits out mapped, chunk_axis and 
-    chunk_list from a dict. 
-
-    Will subset a grid if supplied and then retrieves each chunk from the cached
-    file.
-
-    """
-    for chunk in chunk_list:
-        mapped.update({chunk_axis: chunk})
-
-        logger.info('Reading chunk from cache %r', mapped)
-
-        data, elapsed = retrieve_data(self, job, infile, outfile, var_name, grid, gridder, base_units, mapped)
-
-        metrics.CACHE_BYTES.inc(data.nbytes)
-
-        metrics.CACHE_SECONDS.inc(elapsed.total_seconds())
-
-def base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
-    """ Retrieve file(s).
-
-    This is the base for aggregate, subset and regrid.
-
-    Expected format for "attrs" argument.
-
-    {
-        "key": {
-            "path": "https://aims3.llnl.gov/path/filename.nc",
-            "chunked_axis": "time",
-            "chunks": {
-                "time": [slice(0, 10), slice(10, 12)],
-            },
-            "mapped": {
-                "time": slice(0, 10),
-                "lat": slice(0, 100),
-                "lon": slice(0, 200),
-            },
-        }
-    }
-
-    Args:
-        attrs: A list of dict or dict from previous tasks.
-        cached: A list of dict of cached portions.
-        operation: A cwt.Process object.
-        var_name: A str variable name.
-        base_units: A str base_units to be used.
-        job_id: An int of the current job id.
-
-    Returns:
-        The input attrs.
-    """
-    job = self.load_job(job_id)
-
-    gridder = operation.get_parameter('gridder')
-
-    if not isinstance(attrs, list):
-        attrs = [attrs]
-
-    attrs = dict(y for x in attrs for y in x.items())
-
-    grid = None
-    selector = None
-
-    start = self.get_now()
-
-    try:
-        os.makedirs(os.path.dirname(output_path))
-    except OSError:
-        raise WPSError('Failed to create output directory')
-
-    with self.open(output_path, 'w') as outfile:
-        # Expect the keys to be given in a sortable format
-        for key in sorted(keys):
-            current = attrs[key]
-
-            logger.info('Current %r', current)
-
-            mapped = current.get('mapped', {})
-
-            with self.open(current['path']) as infile:
-                # Generate the grid once
-                if grid is None and gridder is not None:
-                    grid = self.generate_grid(gridder)
-
-                    self.update(job, 'Generated grid {!r}', grid)
-
-                    grid = self.subset_grid(grid, mapped)
-
-                if 'cached' in current:
-                    retrieve_data_cached(self, job, infile, outfile, var_name, grid, gridder, base_units, **current)
-                else:
-                    # Subset the grid to the target shape
-                    if selector is None and grid is not None:
-                        selector = self.generate_selector(infile[var_name])
-
-                        self.update(job, 'Generated subset selector {!r}', selector)
-
-                        grid = self.subset_grid(grid, selector)
-
-                        self.update(job, 'Subsetting grid {!r}', grid)
-
-                    retrieve_data(self, job, infile, outfile, var_name, grid, gridder, base_units)
-
-            self.update(job, 'Current shape {!r}', outfile[var_name].shape)
-
-        self.update(job, 'Finished retrieving data {!r}',
-                    outfile[var_name].shape)
-
-    elapsed = self.get_now() - start
-
-    stat = os.stat(output_path)
-
-    metrics.PROCESS_BYTES.labels(operation.identifier).inc(stat.st_size)
-
-    metrics.PROCESS_SECONDS.labels(operation.identifier).inc(elapsed.total_seconds())
-
-    return attrs
-
-def base_process(self, attrs, keys, operation, var_name, base_units,
-                 chunked_axis, axes, output_path, job_id):
-    """ Process file.
-
-    Expected format for attrs argument.
-
-    {
-        "key": {
-            "path": "file:///path/filename.nc",
-            "mapped": {
-                "time": slice(0, 200, 1),
-                ...
-            }
-        }
-    }
-
-    Args:
-        attrs: A dict describing the file to be processed.
-        keys: A list of keys to identify the data in attrs.
-        operation: A cwt.Process object.
-        var_name: A str variable name.
-        base_units: A str units used to base the time axis.
-        chunked_axis: A str name of the chunk axis.
-        axes: A list of str names of axes to operate over.
-        output_path: A str containing the output path.
-        job_id: An int of the current job id. 
-
-    Returns:
-        The input attrs dict.
-    """
-    job = self.load_job(job_id)
-
-    self.update(job, 'Processing chunk of "{}" with {} over {}', var_name,
-                operation.identifier, axes)
-
-    gridder = operation.get_parameter('gridder')
-
-    weightoptions = operation.get_parameter('weightoptions')
-
-    grid = None
-
-    logger.info('Writing output file %r', output_path)
-
-    with self.open(output_path, 'w') as outfile:
-        data_chunks = []
-
-        for key in sorted(keys):
-            logger.info('Processing %r', key)
-
-            current = attrs[key]
-
-            mapped = current.get('mapped', {})
-
-            start = self.get_now()
-
-            # Read input data
-            with self.open(current['path']) as infile:
-                start = self.get_now()
-
-                data = infile(var_name, **mapped)
-
-                elapsed = self.get_now() - start
-
-                metrics.CACHE_BYTES.inc(data.nbytes)
-
-                metrics.CACHE_SECONDS.inc(elapsed.total_seconds())
-
-            # Generate grid if needed
-            if gridder is not None:
-                if grid is None:
-                    # If we're processing an ingressed file we need to generate a selector
-                    # to subset the target grid.
-                    if len(mapped) == 0:
-                        mapped = self.generate_selector(data)
-
-                    grid = self.generate_grid(gridder)
-
-                    grid = self.subset_grid(grid, mapped)
-
-                self.update(job, 'Regridding to {}', grid.shape)
-
-                data = data.regrid(grid, regridTool=gridder.tool, regridMethod=gridder.method)
-
-            if operation.identifier == 'CDAT.average':
-                # Grab the indexes of the axes
-                axes_index = [data.getAxisIndex(str(x)) for x in axes]
-
-                axes_sig = ''.join([str(x) for x in axes_index])
-
-                if weightoptions is not None:
-                    weightoptions = weightoptions.values[0]
-
-                logger.info('Averaging over axes %r %r', axes_sig, weightoptions)
-
-                try:
-                    data = self.PROCESS(data, axis=axes_sig, weights=weightoptions)
-                except cdutil.AveragerError as e:
-                    raise WPSError(''.join(e))
-            else:
-                # Process over all axes except the chunking axis
-                for x in axes:
-                    axis = data.getAxisIndex(str(x))
-
-                    logger.info('Processing %r over axis %r', self.PROCESS, axis)
-
-                    data = self.PROCESS(data, axis=axis)
-
-            if chunked_axis == 'time':
-                outfile.write(data, id=var_name)
-            else:
-                data_chunks.append(data)
-
-        if len(data_chunks) > 0:
-            axis_index = data_chunks[0].getAxisIndex(chunked_axis)
-
-            data = MV.concatenate(data_chunks, axis=axis_index)
-
-            outfile.write(data, id=var_name)
-
-    elapsed = self.get_now() - start
-
-    self.update(job, 'Finished processing chunk')
-
-    attrs[output_path] = {
-        'elapsed': elapsed.total_seconds()
-    }
-
-    return attrs
-
+@base.register_process('CDAT.workflow', metadata={})
 @base.cwt_shared_task()
-def concat_process_output(self, attrs, input_paths, operation, var_name, chunked_axis, output_path, job_id):
-    """ Concatenates inputs over chunked_axis.
+def workflow(self, context):
+    client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=context.user.auth.api_key,
+                           verify=False)
 
-    Args:
-        attrs: A dict or list of dicts from previous tasks.
-        input_paths: A list of inputs to be concatenated.
-        var_name: A str variable name.
-        chunked_axis: A str name of the chunked axis.
-        output_path: A str path to write the output to.
-        job_id: An int referencing the associated job.
+    queue = context.build_execute_graph()
 
-    Returns:
-        The input attrs value.
-    """
-    job = self.load_job(job_id)
+    while len(queue) > 0:
+        next = queue.popleft()
 
-    self.update(job, 'Concatenating {} chunks over {}', len(input_paths),
-                chunked_axis)
+        completed = context.wait_for_inputs(next)
 
-    data_list = []
+        if len(completed) > 0:
+            completed_ids = ', '.join('-'.join([x.identifier, x.name]) for x in completed)
 
-    start = self.get_now()
+            self.status('Processes {!s} have completed', completed_ids)
 
-    for input_path in sorted(input_paths):
-        with self.open(input_path) as infile:
-            data_list.append(infile(var_name))
+        context.prepare(next)
 
-    axis_index = data_list[0].getAxisIndex(chunked_axis)
+        # Here we can make the choice on which client to execute
+        client.execute(next)
 
-    data = MV.concatenate(data_list, axis=axis_index)
+        context.add_executing(next)
 
-    with self.open(output_path, 'w') as outfile:
-        outfile.write(data, id=var_name)
+        self.status('Executing process {!s}-{!s}', next.identifier, next.name)
 
-    elapsed = self.get_now() - start
+    completed = context.wait_remaining()
 
-    new_attrs = {}
+    if len(completed) > 0:
+        completed_ids = ', '.join('-'.join([x.identifier, x.name]) for x in completed)
 
-    for item in attrs:
-        new_attrs.update(item)
+        self.status('Processes {!s} have completed', completed_ids)
 
-    self.update(job, 'Finished concatentating chunks, final shape {}',
-                data.shape)
-
-    stat = os.stat(output_path)
-
-    metrics.PROCESS_BYTES.labels(operation.identifier).inc(stat.st_size)
-
-    total_seconds = sum(new_attrs[x]['elapsed'] for x in input_paths)
-
-    total_seconds += elapsed.total_seconds()
-
-    metrics.PROCESS_SECONDS.labels(operation.identifier).inc(total_seconds)
-
-    return new_attrs
+    return context
 
 SNG_DATASET_SNG_INPUT = {
     'datasets': 1,
@@ -397,185 +71,240 @@ SNG_DATASET_MULTI_INPUT = {
     'inputs': '*',
 }
 
-def build_execute_graph(self, operation, job):
-    self.update(job, 'Building execution graph')
+REGRID_ABSTRACT = """
+Regrids a variable to designated grid. Required parameter named "gridder".
+"""
 
-    start = datetime.now()
+SUBSET_ABSTRACT = """
+Subset a variable by provided domain. Supports regridding.
+"""
 
-    adjacency = dict((x, dict((y, True if x in operation[y].inputs else False)
-                              for y in operation.keys())) for x in operation.keys())
+AGGREGATE_ABSTRACT = """
+Aggregate a variable over multiple files. Supports subsetting and regridding.
+"""
 
+AVERAGE_ABSTRACT = """
+Computes the average over axes. 
 
-    sources = [x for x in operation.keys() if not any(adjacency[y][x] for y
-                                                        in operation.keys())]
+Required parameters:
+ axes: A list of axes to operate on. Should be separated by "|".
 
-    sorted = []
+Optional parameters:
+ weightoptions: A string whos value is "generate",
+   "equal", "weighted", "unweighted". See documentation
+   at https://cdat.llnl.gov/documentation/utilities/utilities-1.html
+"""
 
-    while len(sources) > 0:
-        item = sources.pop()
+SUM_ABSTRACT = """
+Computes the sum over an axis. Requires singular parameter named "chunked_axis, axes" 
+whose value will be used to process over. The value should be a "|" delimited
+string e.g. 'lat|lon'.
+"""
 
-        sorted.append(operation[item])
+MAX_ABSTRACT = """
+Computes the maximum over an axis. Requires singular parameter named "chunked_axis, axes" 
+whose value will be used to process over. The value should be a "|" delimited
+string e.g. 'lat|lon'.
+"""
 
-        for x in adjacency[item].keys():
-            if adjacency[item][x]:
-                sources.append(x)
+MIN_ABSTRACT = """
+Computes the minimum over an axis. Requires singular parameter named "chunked_axis, axes" 
+whose value will be used to process over. The value should be a "|" delimited
+string e.g. 'lat|lon'.
+"""
 
-    elapsed = datetime.now() - start
+def process_data(self, context, index, process):
+    axes = context.operation.get_parameter('axes', True)
 
-    self.update(job, 'Finished building execution graph {}', elapsed)
+    nbytes = 0
 
-    return deque(sorted)
+    for input_index, input in enumerate(context.sorted_inputs()):
+        for _, chunk_index, chunk in input.chunks(index, context):
+            nbytes += chunk.nbytes
 
-def prepare_operation(variable, domain, op):
-    op.inputs = [variable[x] for x in op.inputs]
+            process_filename = '{}_{:08}_{:08}_{}.nc'.format(
+                str(context.job.id), input_index, chunk_index, '_'.join(axes.values))
 
-    op.domain = domain.get(op.domain, None)
+            process_path = context.gen_ingress_path(process_filename)
 
-    if 'domain' in op.parameters:
-        del op.parameters['domain']
+            if process is not None:
+                with metrics.WPS_PROCESS_TIME.labels(context.operation.identifier).time():
+                    chunk = process(chunk, axes.values)
 
-    return op
+            with context.new_output(process_path) as outfile:
+                outfile.write(chunk, id=input.variable.var_name)
 
-def wait_for_inputs(self, op, variable, job, executing, output, **kwargs):
-    for x in op.inputs:
-        if x in executing:
-            wait_op = executing[x]
+            input.process.append(process_path)
 
-            result = wait_op.wait()
+    self.status('Processed {!r} bytes', nbytes)
 
-            if not result:
-                raise WPSError('Operation "{}" failed due to missing input from'
-                               '"{}"', op.identifier, wait_op.identifier)
+    return context
 
-            self.update(job, '{!r} finished with output {!r}', wait_op.identifier,
-                        wait_op.output)
+def parse_filename(path):
+    base = os.path.basename(path)
 
-            del executing[x]
+    filename, _ = os.path.splitext(base)
 
-            name = '{}-{}'.format(wait_op.identifier, wait_op.name)
+    return filename
 
-            new_variable = cwt.Variable(wait_op.output.uri,
-                                        wait_op.output.var_name, name=name)
+def regrid_chunk(context, chunk, selector):
+    grid, tool, method = context.regrid_context(selector)
 
-            output.append(new_variable)
+    shape = chunk.shape
 
-            variable[wait_op.name] = new_variable
+    chunk = chunk.regrid(grid, regridTool=tool, regridMethod=method)
 
-@base.register_process('CDAT.workflow', metadata={}, hidden=True)
+    logger.info('Regrid %r -> %r', shape, chunk.shape)
+
+    return chunk
+
 @base.cwt_shared_task()
-def workflow(self, variable, domain, operation, user_id, job_id, **kwargs):
-    user = self.load_user(user_id)
+def concat(self, contexts):
+    context = OperationContext.merge_ingress(contexts)
 
-    job = self.load_job(job_id)
+    context.output_path = context.gen_public_path()
 
-    sorted = build_execute_graph(self, operation, job)
+    nbytes = 0
+    start = datetime.datetime.now()
 
-    client = cwt.WPSClient(settings.WPS_ENDPOINT, api_key=user.auth.api_key,
-                           verify=False)
+    with context.new_output(context.output_path) as outfile:
+        for input in context.sorted_inputs():
+            data = []
+            chunk_axis = None
+            chunk_axis_index = None
 
-    state = {
-        'executing': {},
-        'output': [],
-    }
+            # Skip file if not mapped
+            if input.mapped is None:
+                continue
 
-    while len(sorted) > 0:
-        op = sorted.popleft()
+            for file_path, _, chunk in input.chunks(context=context):
+                logger.info('Chunk shape %r %r', file_path, chunk.shape)
 
-        if not all(x in variable for x in op.inputs):
-            wait_for_inputs(self, op, variable, job, **state)
+                if chunk_axis is None:
+                    chunk_axis_index = chunk.getAxisIndex(input.chunk_axis)
 
-        op = prepare_operation(variable, domain, op)
+                    chunk_axis = chunk.getAxis(chunk_axis_index)
 
-        client.execute(op, **op.parameters)
+                if chunk_axis.isTime():
+                    logger.info('Writing temporal chunk %r', chunk.shape)
 
-        self.update(job, 'Executing "{}"', op.identifier)
+                    if context.units is not None:
+                        chunk.getTime().toRelativeTime(str(context.units))
 
-        state['executing'][op.name] = op
+                    if context.is_regrid:
+                        chunk = regrid_chunk(context, chunk, input.mapped)
 
-    for x in state['executing'].values():
-        result = x.wait()
+                    outfile.write(chunk, id=str(input.variable.var_name))
+                else:
+                    logger.info('Gathering spatial chunk')
 
-        if not result:
-            raise WPSError('Operation "{}" failed due to missing input from'
-                           '"{}"', op.identifier, x.identifier)
+                    data.append(chunk)
 
-        self.update(job, '{!r} finished with output {!r}', x.identifier,
-                    x.output)
+                nbytes += chunk.nbytes
 
-        name = '{}-{}'.format(x.identifier, x.name)
+            if chunk_axis is not None and not chunk_axis.isTime():
+                data = MV2.concatenate(data, axis=chunk_axis_index)
 
-        new_variable = cwt.Variable(x.output.uri,
-                                    x.output.var_name, name=name)
+                if context.is_regrid:
+                    chunk = regrid_chunk(context, chunk, input.mapped)
 
-        state['output'].append(new_variable)
+                outfile.write(data, id=str(input.variable.var_name))
 
-    self.update(job, 'Finished executing workflow')
+                nbytes += chunk.nbytes
 
-    attrs = {
-        'output': state['output'],
-    }
+    elapsed = datetime.datetime.now() - start
 
-    return attrs
+    self.status('Processed {!r} bytes in {!r} seconds', nbytes, elapsed.total_seconds())
 
-@base.register_process('CDAT.regrid', abstract="""
-                       Regrids a variable to designated grid. Required parameter named "gridder".
-                       """, metadata=SNG_DATASET_SNG_INPUT)
+    return context
+
+@base.register_process('CDAT.regrid', abstract=REGRID_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def regrid(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
-    return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
+def regrid(self, context, index):
+    """ Regrids a chunk of data.
+    """
+    return context
 
-@base.register_process('CDAT.subset', abstract="""
-                       Subset a variable by provided domain. Supports regridding.
-                       """, metadata=SNG_DATASET_SNG_INPUT)
+@base.register_process('CDAT.subset', abstract=SUBSET_ABSTRACT, metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
-def subset(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
-    return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
+def subset(self, context, index):
+    """ Subsetting data.
+    """
+    return context
 
-@base.register_process('CDAT.aggregate', abstract="""
-                       Aggregate a variable over multiple files. Supports subsetting and regridding.
-                       """, metadata=SNG_DATASET_MULTI_INPUT)
+@base.register_process('CDAT.aggregate', abstract=AGGREGATE_ABSTRACT, metadata=SNG_DATASET_MULTI_INPUT)
 @base.cwt_shared_task()
-def aggregate(self, attrs, keys, operation, var_name, base_units, output_path, job_id):
-    return base_retrieve(self, attrs, keys, operation, var_name, base_units, output_path, job_id)
+def aggregate(self, context, index):
+    """ Aggregating data.
+    """
+    return context
 
-@base.register_process('CDAT.average', abstract=""" 
-                       Computes the average over axes. 
-
-                       Required parameters:
-                         axes: A list of axes to operate on. Should be separated by "|".
-
-                       Optional parameters:
-                         weightoptions: A string whos value is "generate",
-                           "equal", "weighted", "unweighted". See documentation
-                           at https://cdat.llnl.gov/documentation/utilities/utilities-1.html
-                       """, process=cdutil.averager, metadata=SNG_DATASET_SNG_INPUT)
+@base.register_process('CDAT.average', abstract=AVERAGE_ABSTRACT, process=cdutil.averager, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def average(self, attrs, key, operation, var_name, base_units, chunked_axis, axes, output_path, job_id):
-    return base_process(self, attrs, key, operation, var_name, base_units, chunked_axis, axes, output_path, job_id)
+def average(self, context, index):
+    def average_func(data, axes):
+        axis_indices = []
 
-@base.register_process('CDAT.sum', abstract=""" 
-                       Computes the sum over an axis. Requires singular parameter named "chunked_axis, axes" 
-                       whose value will be used to process over. The value should be a "|" delimited
-                       string e.g. 'lat|lon'.
-                       """, process=MV.sum, metadata=SNG_DATASET_SNG_INPUT)
-@base.cwt_shared_task()
-def summation(self, attrs, key, operation, var_name, base_units, chunked_axis, axes, output_path, job_id):
-    return base_process(self, attrs, key, operation, var_name, base_units, chunked_axis, axes, output_path, job_id)
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
 
-@base.register_process('CDAT.max', abstract=""" 
-                       Computes the maximum over an axis. Requires singular parameter named "chunked_axis, axes" 
-                       whose value will be used to process over. The value should be a "|" delimited
-                       string e.g. 'lat|lon'.
-                       """, process=MV.max, metadata=SNG_DATASET_SNG_INPUT)
-@base.cwt_shared_task()
-def maximum(self, attrs, key, operation, var_name, base_units, chunked_axis, axes, output_path, job_id):
-    return base_process(self, attrs, key, operation, var_name, base_units, chunked_axis, axes, output_path, job_id)
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
 
-@base.register_process('CDAT.min', abstract="""
-                       Computes the minimum over an axis. Requires singular parameter named "chunked_axis, axes" 
-                       whose value will be used to process over. The value should be a "|" delimited
-                       string e.g. 'lat|lon'.
-                       """, process=MV.min, metadata=SNG_DATASET_SNG_INPUT)
+            axis_indices.append(str(axis_index))
+
+        axis_sig = ''.join(axis_indices)
+
+        data = cdutil.averager(data, axis=axis_sig)
+
+        return data
+
+    return process_data(self, context, index, average_func)
+
+@base.register_process('CDAT.sum', abstract=SUM_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
 @base.cwt_shared_task()
-def minimum(self, attrs, key, operation, var_name, base_units, chunked_axis, axes, output_path, job_id):
-    return base_process(self, attrs, key, operation, var_name, base_units, chunked_axis, axes, output_path, job_id)
+def sum(self, context, index):
+    def sum_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
+
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            data = MV2.sum(data, axis=axis_index)
+
+        return data
+
+    return process_data(self, context, index, sum_func)
+
+@base.register_process('CDAT.max', abstract=MAX_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
+@base.cwt_shared_task()
+def max(self, context, index):
+    def max_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
+
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            data = MV2.max(data, axis=axis_index)
+
+        return data
+
+    return process_data(self, context, index, max_func)
+
+@base.register_process('CDAT.min', abstract=MIN_ABSTRACT, metadata=SNG_DATASET_SNG_INPUT)
+@base.cwt_shared_task()
+def min(self, context, index):
+    def min_func(data, axes):
+        for axis in axes:
+            axis_index = data.getAxisIndex(axis)
+
+            if axis_index == -1:
+                raise WPSError('Unknown axis {!s}', axis)
+
+            data = MV2.min(data, axis=axis_index)
+
+        return data
+
+    return process_data(self, context, index, min_func)

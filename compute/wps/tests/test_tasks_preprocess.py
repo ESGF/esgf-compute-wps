@@ -1,868 +1,564 @@
 #! /usr/bin/env python
 
-import copy
-import mock
-
 import cwt
+import mock
 from django import test
 from django.conf import settings
 
 from wps import WPSError
-from wps import helpers
-from wps import tasks
-
-class FakeCache(object):
-    def __init__(self, items):
-        self.items = items
-
-    def count(self):
-        return len(self.items)
-
-    def __len__(self):
-        return len(self.items)
-
-    def __getitem__(self, index):
-        return self.items[index]
+from wps.tasks import preprocess
 
 class PreprocessTestCase(test.TestCase):
 
-    def setUp(self):
-        self.op = cwt.Process('CDAT.subset')
-        self.op2 = cwt.Process('CDAT.average')
+    def test_generate_chunks_process(self):
+        input = mock.MagicMock()
+        input.chunk = []
+        input.is_cached = False
+        input.mapped_order = ['time', 'lat', 'lon']
+        input.mapped = {
+            'time': slice(0, 365, 1),
+            'lat': slice(0, 180, 1),
+            'lon': slice(0, 360, 1),
+        }
+
+        op = mock.MagicMock()
+        op.get_parameter.return_value.values = ['time',]
+
+        context = mock.MagicMock()
+        context.inputs = [input,]
+        type(context).operation = mock.PropertyMock(return_value=op)
+
+        with self.settings(WORKER_MEMORY=200000000):
+            new_context = preprocess.generate_chunks(context)
+
+        self.assertEqual(input.chunk_axis, 'lat')
+        self.assertEqual(input.chunk, [slice(x, min(x+47, 180), 1) for x in
+                                       range(0, 180, 47)])
+
+    def test_generate_chunks_no_axes(self):
+        input = mock.MagicMock()
+        input.chunk = []
+        input.is_cached = False
+        input.mapped_order = ['time', 'lat', 'lon']
+        input.mapped = {
+            'time': slice(0, 365, 1),
+            'lat': slice(0, 180, 1),
+            'lon': slice(0, 360, 1),
+        }
+
+        op = mock.MagicMock()
+        op.get_parameter.return_value = None
+
+        context = mock.MagicMock()
+        context.inputs = [input,]
+        type(context).operation = mock.PropertyMock(return_value=op)
+
+        with self.settings(WORKER_MEMORY=200000000):
+            new_context = preprocess.generate_chunks(context)
+
+        self.assertEqual(input.chunk_axis, 'time')
+        self.assertEqual(input.chunk, [slice(x, min(x+96, 365), 1) for x in range(0, 365, 96)])
+
+    @mock.patch('wps.models.Cache.objects.filter')
+    def test_check_cache_entries_invalid(self, filter):
+        entry = mock.MagicMock()
+        entry.is_superset.return_value = True
+
+        filter.return_value = [
+            entry,
+        ]
+
+        input = mock.MagicMock()
+
+        context = mock.MagicMock()
+
+        result = preprocess.check_cache_entries(input, context)
+
+        self.assertEqual(result, entry)
+
+    @mock.patch('wps.models.Cache.objects.filter')
+    def test_check_cache_entries_invalid(self, filter):
+        entry = mock.MagicMock()
+        entry.validate.side_effect = Exception()
+
+        filter.return_value = [
+            entry,
+        ]
+
+        input = mock.MagicMock()
+
+        context = mock.MagicMock()
+
+        result = preprocess.check_cache_entries(input, context)
+
+        self.assertIsNone(result)
+
+        entry.delete.assert_called()
+
+    @mock.patch('wps.models.Cache.objects.filter')
+    def test_check_cache_entries(self, filter):
+        filter.return_value = []
+
+        input = mock.MagicMock()
+
+        context = mock.MagicMock()
+
+        result = preprocess.check_cache_entries(input, context)
+
+        self.assertIsNone(result)
+
+    @mock.patch('wps.tasks.preprocess.check_cache_entries')
+    def test_check_cache_not_mapped(self, check_cache_entries):
+        input = mock.MagicMock()
+        input.mapped = None
+        input.cache = None
+
+        context = mock.MagicMock()
+        context.inputs = [input,]
+
+        new_context = preprocess.check_cache(context)
+
+        self.assertIsNone(new_context.inputs[0].cache)
+
+        check_cache_entries.assert_not_called()
+
+    @mock.patch('wps.tasks.preprocess.check_cache_entries')
+    def test_check_cache(self, check_cache_entries):
+        input = mock.MagicMock()
+        input.cache = None
+
+        context = mock.MagicMock()
+        context.inputs = [input,]
+
+        new_context = preprocess.check_cache(context)
+
+        self.assertEquals(new_context.inputs[0].cache,
+                          check_cache_entries.return_value)
+
+        check_cache_entries.assert_called_with(input, context)
+
+    def test_map_axis_interval_exception(self):
+        axis = mock.MagicMock()
+        axis.mapInterval.side_effect = Exception()
+
+        with self.assertRaises(WPSError):
+            preprocess.map_axis_interval(axis, 20, 300)
+
+    def test_map_axis_interval(self):
+        axis = mock.MagicMock()
+        axis.mapInterval.return_value = (20, 200)
+
+        mapped = preprocess.map_axis_interval(axis, 20, 300)
+
+        self.assertEqual(mapped, (20, 200)) 
+
+        axis.mapInterval.assert_called_with((20, 300))
+
+    def test_map_axis_indices_dimension_larger(self):
+        axis = mock.MagicMock()
+        axis.isTime.return_vale = False
+        axis.__len__.return_value = 365
+
+        dimension = cwt.Dimension('time', 20, 700, cwt.INDICES)
+
+        selector = preprocess.map_axis_indices(axis, dimension)
+
+        self.assertEqual(selector, slice(20, 365, 1))
+
+        self.assertEqual(dimension.start, 0)
+        self.assertEqual(dimension.end, 335)
+
+    def test_map_axis_indices_dimension(self):
+        axis = mock.MagicMock()
+        axis.isTime.return_vale = False
+        axis.__len__.return_value = 365
+
+        dimension = cwt.Dimension('time', 20, 300, cwt.INDICES)
+
+        selector = preprocess.map_axis_indices(axis, dimension)
+
+        self.assertEqual(selector, slice(20, 300, 1))
+
+        self.assertEqual(dimension.start, 0)
+        self.assertEqual(dimension.end, 0)
+
+    def test_map_axis_indices(self):
+        axis = mock.MagicMock()
+        axis.isTime.return_vale = False
+        axis.__len__.return_value = 365
+
+        selector = preprocess.map_axis_indices(axis, None)
+
+        self.assertEqual(selector, slice(0, 365, 1))
+    
+    @mock.patch('wps.tasks.preprocess.map_axis_interval')
+    def test_map_axis_values(self, map_axis_interval):
+        map_axis_interval.return_value = (0, 365)
+
+        axis = mock.MagicMock()
+
+        dimension = cwt.Dimension('time', 0, 365)
+
+        selector = preprocess.map_axis_values(axis, dimension)
+
+        self.assertEqual(select, slice(0, 365, 1))
+
+        map_axis_timestamps.assert_called_with(axis, 0, 365)
+
+    @mock.patch('wps.tasks.preprocess.map_axis_interval')
+    def test_map_axis_timestamps(self, map_axis_interval):
+        map_axis_interval.return_value = (0, 365)
+
+        axis = mock.MagicMock()
+
+        dimension = cwt.Dimension('time', 'days since 2020', 'days since 2040')
+
+        selector = preprocess.map_axis_timestamps(axis, dimension)
+
+        self.assertEqual(select, slice(0, 365, 1))
+
+        map_axis_timestamps.assert_called_with(axis, 'days since 2020', 
+                                               'days since 2040')
+
+    def test_map_axis_time_axis_no_units(self):
+        axis = mock.MagicMock()
+        axis.isTime.return_value = True
+
+        dimension = cwt.Dimension('time', 0, 365, cwt.TIMESTAMPS)
+
+        preprocess.map_axis(axis, dimension, None)
+
+        axis.clone.assert_not_called()
+
+    def test_map_axis_time_axis(self):
+        axis = mock.MagicMock()
+        axis.isTime.return_value = True
+
+        dimension = cwt.Dimension('time', 0, 365, cwt.TIMESTAMPS)
+
+        preprocess.map_axis(axis, dimension, 'days since 2020')
+
+        axis.clone.assert_called()
+
+        axis.clone.return_value.toRelativeTime.assert_called_with(
+            'days since 2020')
+
+    @mock.patch('wps.tasks.preprocess.map_axis_timestamps')
+    def test_map_axis_timestamps(self, target):
+        axis = mock.MagicMock()
+        axis.isTime.return_value = False
+
+        dimension = cwt.Dimension('time', 0, 365, cwt.TIMESTAMPS)
+
+        preprocess.map_axis(axis, dimension, 'days since 2020')
+
+        target.assert_called()
+
+    @mock.patch('wps.tasks.preprocess.map_axis_values')
+    def test_map_axis_values(self, target):
+        axis = mock.MagicMock()
+        axis.isTime.return_value = False
+
+        dimension = cwt.Dimension('time', 0, 365, cwt.VALUES)
+
+        preprocess.map_axis(axis, dimension, 'days since 2020')
+
+        target.assert_called()
+
+    @mock.patch('wps.tasks.preprocess.map_axis_indices')
+    def test_map_axis_no_dimension(self, target):
+        axis = mock.MagicMock()
+        axis.isTime.return_value = False
+
+        preprocess.map_axis(axis, None, 'days since 2020')
+
+        target.assert_called()
+
+    @mock.patch('wps.tasks.preprocess.map_axis_indices')
+    def test_map_axis_indices(self, target):
+        axis = mock.MagicMock()
+        axis.isTime.return_value = False
+
+        dimension = cwt.Dimension('time', 0, 365, cwt.INDICES)
+
+        preprocess.map_axis(axis, dimension, 'days since 2020')
+
+        target.assert_called()
+
+    @mock.patch('wps.tasks.preprocess.map_axis_indices')
+    def test_map_axis_unknown_crs(self, target):
+        axis = mock.MagicMock()
+        axis.isTime.return_value = False
+
+        dimension = cwt.Dimension('time', 0, 365, cwt.CRS('test'))
+
+        with self.assertRaises(WPSError):
+            preprocess.map_axis(axis, dimension, 'days since 2020')
+
+    def test_merge_dimensions_no_domain(self):
+        context = mock.MagicMock()
+        context.domain = None
+
+        dimensions = ['time', 'lat', 'lon']
+
+        uniq_dim = preprocess.merge_dimensions(context, dimensions)
+
+        self.assertEqual(uniq_dim, set(dimensions))
+
+    def test_merge_dimensions_not_in_file(self):
+        time = mock.MagicMock()
+        type(time).name = mock.PropertyMock(return_value='time')
 
         lat = mock.MagicMock()
-        lat.isTime.return_value = False
-        lat.id = 'lat'
-        lat.mapInterval.return_value = [100, 200]
-        lat.__len__.return_value = 200
-        lat.__getitem__.return_value = -90
-
-        self.lat = lat
+        type(lat).name = mock.PropertyMock(return_value='lat')
 
         lon = mock.MagicMock()
-        lon.isTime.return_value = False
-        lon.id = 'lon'
-        lon.mapInterval.return_value = [50, 100]
-        lon.__len__.return_value = 400
-        lon.__getitem__.return_value = 0
-
-        self.lon = lon
-
-        time = mock.MagicMock()
-        time.id = 'time'
-        time.isTime.return_value = True
-        time.clone.return_value.mapInterval.return_value = [200, 1000]
-        time.__len__.return_value = 2000
-        time.__getitem__.return_value = 30
-
-        self.time = time
-
-        time2 = mock.MagicMock()
-        time2.id = 'time'
-        time2.isTime.return_value = True
-        time2.clone.return_value.mapInterval.return_value = [200, 1000]
-        time2.__len__.return_value = 2000
-        time2.__getitem__.return_value = 30
-
-        self.time2 = time2
-
-        time3 = mock.MagicMock()
-        time3.id = 'time'
-        time3.isTime.return_value = True
-        time3.clone.return_value.mapIntervalue.return_value = [200, 1000]
-        time3.__len__.return_value = 2000
-        time3.__getitem__.return_value = 3600
-
-        self.time3 = time3
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('requests.post')
-    def test_wps_execute(self, mock_get, mock_job):
-        attrs = [
-            {
-                'sort': 'units',
-                'base_units': 'days since 1990-01-01',
-                'file1.nc': {
-                    'units': 'days since 2001-01-01',
-                    'first': 30,
-                    'cached': None,
-                    'mapped': {
-                        'lat': slice(100, 200, 1),
-                        'lon': slice(50, 100, 1),
-                        'time': slice(1000, 2000),
-                    },
-                    'chunks': {
-                        'time': [slice(x, x+20) for x in xrange(1000, 2000, 20)],
-                    }
-                }
-            },
-            {
-                'sort': 'units',
-                'base_units': 'days since 1990-01-01',
-                'file2.nc': {
-                    'units': 'days since 1990-01-01',
-                    'first': 30,
-                    'cached': None,
-                    'mapped': {
-                        'lat': slice(100, 200, 1),
-                        'lon': slice(50, 100, 1),
-                        'time': slice(0, 1500),
-                    },
-                    'chunks': {
-                        'time': [slice(x, x+20) for x in xrange(0, 1500, 20)],
-                    }
-                }
-            }
-        ]
-
-        var1 = cwt.Variable('file1.nc', 'tas')
-        var2 = cwt.Variable('file2.nc', 'tas')
-
-        variable = { var1.name: var1, var2.name: var2 }
-
-        d1 = cwt.Domain(lat=(-45, 45), lon=(90, 270), time=(1000, 3500))
-
-        domain = { d1.name: d1 }
-
-        op1 = cwt.Process('CDAT.subset')
-        op1.inputs = [var1, var2]
-        op1.domain = d1
-
-        operation = { op1.name: op1 }
-
-        tasks.wps_execute(attrs, variable, domain, operation, 0, 1)
-
-        expected = {}
-
-        for item in attrs:
-            expected.update(item)
-
-        expected['user_id'] = 0
-        expected['job_id'] = 1
-        expected['preprocess'] = True
-        expected['root'] = op1.name
-        expected['workflow'] = False
-        expected['variable'] = variable
-        expected['domain'] = domain
-        expected['operation'] = operation
-
-        expected = helpers.encoder(expected)
-
-        mock_get.assert_called_with(settings.WPS_EXECUTE_URL, data=expected, verify=False)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_memory_check_average_multiple(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        # Should fail, max memory is 16000000 and axis dependency causes size
-        # to be 100*50*1500*4=30000000, which is too large
-        with self.settings(WORKER_MEMORY=1600000), self.assertRaises(WPSError):
-            result = tasks.generate_chunks(attrs, self.op2, 'file1.nc', ['lat',
-                                                                        'lon'], 0)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_memory_check_average(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        with self.settings(WORKER_MEMORY=1600000):
-            result = tasks.generate_chunks(attrs, self.op2, 'file1.nc', ['lat'], 0)
-
-        expected = copy.deepcopy(attrs)
-
-        expected['file1.nc']['chunks'] = {
-            'time': [slice(x, min(x+40, 1500), 1) for x in xrange(0, 1500, 40)],
-        }
-
-        self.assertEqual(result, expected)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_memory_check_error(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        with self.settings(WORKER_MEMORY=2048), self.assertRaises(WPSError):
-            tasks.generate_chunks(attrs, self.op, 'file1.nc', None, 0)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_cached(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': {
-                    'path': './file1.nc',
-                    'mapped': {
-                        'lat': slice(20, 200, 1),
-                        'lon': slice(10, 100, 1),
-                        'time': slice(200, 1100, 1),
-                    }
-                },
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', None, 0)
-
-        expected = copy.deepcopy(attrs)
-
-        expected['file1.nc']['chunks'] = {
-            'time': [slice(200, 1100, 1)],
-        }
-
-        self.assertEqual(result, expected)
-        
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_temporal(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', ['time'], 0)
-
-        expected = copy.deepcopy(attrs)
-
-        expected['file1.nc']['chunks'] = {
-            'lat': [slice(100, 200, 1)],
-        }
-
-        self.assertEqual(result, expected)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_spatial(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', ['lat'], 0)
-
-        expected = copy.deepcopy(attrs)
-
-        expected['file1.nc']['chunks'] = {
-            'time': [slice(0, 1500, 1)],
-        }
-
-        self.assertEqual(result, expected)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_temporal_spatial(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', ['time', 'lat'], 0)
-
-        expected = copy.deepcopy(attrs)
-
-        expected['file1.nc']['chunks'] = {
-            'lon': [slice(50, 100, 1)],
-        }
-
-        self.assertEqual(result, expected)
-        
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_spatial_temporal(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', ['lat', 'time'], 0)
-
-        expected = copy.deepcopy(attrs)
-
-        expected['file1.nc']['chunks'] = {
-            'lon': [slice(50, 100, 1)],
-        }
-
-        self.assertEqual(result, expected)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks_multiple(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        with self.settings(WORKER_MEMORY=160000):
-            result = tasks.generate_chunks(attrs, self.op, 'file1.nc', None, 0)
-
-        print result
-
-        expected = copy.deepcopy(attrs)
-
-        expected['file1.nc']['chunks'] = {
-            'time': [slice(x, x+4, 1) for x in xrange(0, 1500, 4)]
-        }
-
-        self.assertEqual(result, expected)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_generate_chunks(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': None,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        result = tasks.generate_chunks(attrs, self.op, 'file1.nc', None, 0)
-
-        expected = copy.deepcopy(attrs)
-
-        expected['file1.nc']['chunks'] = {'time': [slice(0, 1500, 1)]}
-
-        self.assertEqual(result, expected)
-
-    @mock.patch('wps.models.Cache.objects.filter')
-    def test_check_cache_entries_superset(self, mock_filter):
-        mock_valid = mock.PropertyMock(return_value=True)
-
-        mock_cache = mock.MagicMock()
-        type(mock_cache).valid = mock_valid
-        mock_cache.is_superset.return_value = True
-
-        mock_filter.return_value = FakeCache([mock_cache])
-
-        domain = cwt.Domain(lat=(-45, 45), lon=(90, 270), time=(200, 400))
-
-        result = tasks.check_cache_entries('file1.nc', 'tas', domain, 0)
-
-        self.assertEqual(result, mock_cache)
-
-        mock_cache.is_superset.assert_called_with(domain)
-
-        mock_cache.delete.assert_not_called()
-
-        mock_valid.assert_called()
-
-    @mock.patch('wps.models.Cache.objects.filter')
-    def test_check_cache_entries_not_superset(self, mock_filter):
-        mock_valid = mock.PropertyMock(return_value=True)
-
-        mock_cache = mock.MagicMock()
-        type(mock_cache).valid = mock_valid
-        mock_cache.is_superset.return_value = False
-
-        mock_filter.return_value = FakeCache([mock_cache])
-
-        domain = cwt.Domain(lat=(-45, 45), lon=(90, 270), time=(200, 400))
-
-        result = tasks.check_cache_entries('file1.nc', 'tas', domain, 0)
-
-        self.assertEqual(result, None)
-
-        mock_cache.delete.assert_not_called()
-
-        mock_valid.assert_called()
-
-    @mock.patch('wps.models.Cache.objects.filter')
-    def test_check_cache_entries_not_valid(self, mock_filter):
-        mock_valid = mock.PropertyMock(return_value=False)
-
-        mock_cache = mock.MagicMock()
-        type(mock_cache).valid = mock_valid
-
-        mock_filter.return_value = FakeCache([mock_cache])
-
-        domain = cwt.Domain(lat=(-45, 45), lon=(90, 270), time=(200, 400))
-
-        result = tasks.check_cache_entries('file1.nc', 'tas', domain, 0)
-
-        self.assertEqual(result, None)
-
-        mock_cache.delete.assert_called()
-
-        mock_valid.assert_called()
-
-    def test_check_cache_entries(self):
-        domain = cwt.Domain(lat=(-45, 45), lon=(90, 270), time=(200, 400))
-
-        result = tasks.check_cache_entries('file1.nc', 'tas', domain, 0)
-
-        self.assertEqual(result, None)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('wps.tasks.preprocess.check_cache_entries')
-    def test_check_cache_matched(self, mock_entries, mock_job):
-        data = {
-            'lat': slice(20, 200),
-            'lon': slice(40, 400),
-            'time': slice(0, 2000),
-        }
-
-        self.maxDiff = None
-
-        type(mock_entries.return_value).dimensions = mock.PropertyMock(return_value=helpers.encoder(data))
-        type(mock_entries.return_value).local_path = mock.PropertyMock(return_value='./file1.nc')
-
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            },
-        }
-
-        result = tasks.check_cache(attrs, 'file1.nc', 'tas', 0)
-
-        expected = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'cached': {
-                    'path': './file1.nc',
-                    'mapped': {
-                        'lat': slice(80, 180),
-                        'lon': slice(10, 60),
-                        'time': slice(0, 1500),
-                    }
-                },
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        self.assertEqual(result, expected)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    def test_check_cache(self, mock_job):
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            },
-        }
-
-        result = tasks.check_cache(attrs, 'file1.nc', 'tas', 0)
-
-        expected = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'cached': None,
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            }
-        }
-
-        self.assertEqual(result, expected)
-
-    def test_map_domain_axis_map_error(self):
-        self.lat.mapInterval.side_effect = TypeError()
-
-        dimen = cwt.Dimension('lat', 100, 200, cwt.VALUES)
-
-        result = tasks.map_domain_axis(self.lat, dimen, 'days since 1990-01-01')
-
-        self.assertEqual(result, None)
-
-    def test_map_domain_axis_indices(self):
-        dimen = cwt.Dimension('lat', 100, 200, cwt.INDICES)
-
-        result = tasks.map_domain_axis(self.lat, dimen, 'days since 1990-01-01')
-
-        self.assertEqual(result, slice(100, 200, 1))
-
-    def test_map_domain_axis_time(self):
-        dimen = cwt.Dimension('time', 100, 200, cwt.VALUES)
-
-        result = tasks.map_domain_axis(self.time, dimen, 'days since 1990-01-01')
-
-        self.assertEqual(result, slice(200, 1000, 1))
-
-    def test_map_domain_axis_unknown_crs(self):
-        dimen = cwt.Dimension('lat', 100, 200, cwt.CRS('hello'))
-
-        with self.assertRaises(WPSError):
-            tasks.map_domain_axis(self.lat, dimen, 'days since 1990-01-01')
-
-    def test_map_domain_axis(self):
-        dimen = cwt.Dimension('lat', 100, 200, cwt.VALUES)
-
-        result = tasks.map_domain_axis(self.lat, dimen, 'days since 1990-01-01')
-
-        self.assertEqual(result, slice(100, 200, 1))
-
-    def test_map_domain_axis_no_dimension(self):
-        result = tasks.map_domain_axis(self.lat, None, 'days since 1990-01-01')
-
-        self.assertEqual(result, slice(0, 200, 1))
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('wps.tasks.CWTBaseTask.load_credentials')
-    @mock.patch('wps.tasks.CWTBaseTask.open')
-    @mock.patch('wps.tasks.CWTBaseTask.get_variable')
-    def test_map_domain_time_indices(self, mock_var, mock_open, mock_credentials, mock_job):
-        self.maxDiff = None
-        mock_var.return_value.getAxisListIndex.return_value = [0, 1, 2, 0, 1, 2]
-        mock_var.return_value.getAxisIndex.side_effect = [0, 1, 2, 0, 1, 2]
-        mock_var.return_value.getAxis.side_effect = [
-            self.lat, self.lon, self.time,
-            self.lat, self.lon, self.time2,
-        ]
-
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'files': {
-                'file1.nc': {
-                    'units': 'days since 2001-01-01',
-                    'first': 30,
-                }, 
-                'file2.nc': {
-                    'units': 'days since 1990-01-01',
-                    'first': 30,
-                }
-            }
-        }
-
-        domain = cwt.Domain(lat=(-45, 45), lon=(90, 270), time=slice(1000, 3500))
-
-        result = tasks.map_domain_time_indices(attrs, 'tas', domain, 0, 1)
-
-        expected = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(0, 1500, 1),
-                }
-            },
-            'file2.nc': {
-                'units': 'days since 1990-01-01',
-                'first': 30,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(1000, 2000, 1),
-                }
-            }
-        }
-
-        self.assertEqual(result, expected)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('wps.tasks.CWTBaseTask.load_credentials')
-    @mock.patch('wps.tasks.CWTBaseTask.open')
-    @mock.patch('wps.tasks.CWTBaseTask.get_variable')
-    def test_map_domain_none(self, mock_var, mock_open, mock_credentials, mock_job):
-        mock_var.return_value.getAxisList.return_value = [self.lat, self.lon, self.time]
-
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'files': {
-                'file1.nc': {
-                    'units': 'days since 2001-01-01',
-                    'first': 30,
-                }, 
-            }
-        }
-
-        result = tasks.map_domain(attrs, 'file1.nc', 'tas', None, 0, 1)
-
-        expected = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'mapped': {
-                    'lat': slice(0, 200, 1),
-                    'lon': slice(0, 400, 1),
-                    'time': slice(0, 2000, 1),
-                }
-            }
-        }
-
-        self.assertEqual(result, expected)
-
-        mock_open.assert_called_with('file1.nc')
-        
-        # Can't verify first called arg because of how mock handles __enter__
-        self.assertEqual(mock_var.call_args[0][1], 'tas')
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('wps.tasks.CWTBaseTask.load_credentials')
-    @mock.patch('wps.tasks.CWTBaseTask.open')
-    @mock.patch('wps.tasks.CWTBaseTask.get_variable')
-    def test_map_domain_missing_dimension(self, mock_var, mock_open, mock_credentials, mock_job):
-        mock_var.return_value.getAxisIndex.side_effect = [0, -1, 2]
-        mock_var.return_value.getAxis.side_effect = [self.lat, self.lon, self.time]
-
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'files': {
-                'file1.nc': {
-                    'units': 'days since 2001-01-01',
-                    'first': 30,
-                }, 
-            }
-        }
-
-        domain = cwt.Domain(lat=(-45, 45), lon=(90, 270), time=(400, 800), name='d0')
-
-        with self.assertRaises(WPSError):
-            tasks.map_domain(attrs, 'file1.nc', 'tas', domain, 0, 1)
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('wps.tasks.CWTBaseTask.load_credentials')
-    @mock.patch('wps.tasks.CWTBaseTask.open')
-    @mock.patch('wps.tasks.CWTBaseTask.get_variable')
-    def test_map_domain_partial(self, mock_var, mock_open, mock_credentials, mock_job):
-        mock_var.return_value.getAxisListIndex.return_value = [0, 1, 2]
-        mock_var.return_value.getAxisIndex.side_effect = [1, 2]
-        mock_var.return_value.getAxis.side_effect = [self.lon, self.time, self.lat]
-
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'files': {
-                'file1.nc': {
-                    'units': 'days since 2001-01-01',
-                    'first': 30,
-                }, 
-            }
-        }
-
-        domain = cwt.Domain(lon=(90, 270), time=(400, 800), name='d0')
-
-        result = tasks.map_domain(attrs, 'file1.nc', 'tas', domain, 0, 1)
-
-        expected = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'mapped': {
-                    'lat': slice(0, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(200, 1000, 1),
-                }
-            }
-        }
-
-        self.assertEqual(result, expected)
-
-        mock_open.assert_called_with('file1.nc')
-        
-        # Can't verify first called arg because of how mock handles __enter__
-        self.assertEqual(mock_var.call_args[0][1], 'tas')
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('wps.tasks.CWTBaseTask.load_credentials')
-    @mock.patch('wps.tasks.CWTBaseTask.open')
-    @mock.patch('wps.tasks.CWTBaseTask.get_variable')
-    def test_map_domain(self, mock_var, mock_open, mock_credentials, mock_job):
-        mock_var.return_value.getAxisListIndex.return_value = [0, 1, 2]
-        mock_var.return_value.getAxisIndex.side_effect = [0, 1, 2]
-        mock_var.return_value.getAxis.side_effect = [self.lat, self.lon, self.time]
-
-        attrs = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'files': {
-                'file1.nc': {
-                    'units': 'days since 2001-01-01',
-                    'first': 30,
-                }, 
-            }
-        }
-
-        domain = cwt.Domain(lat=(-45, 45), lon=(90, 270), time=(400, 800), name='d0')
-
-        result = tasks.map_domain(attrs, 'file1.nc', 'tas', domain, 0, 1)
-
-        expected = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'file1.nc': {
-                'units': 'days since 2001-01-01',
-                'first': 30,
-                'mapped': {
-                    'lat': slice(100, 200, 1),
-                    'lon': slice(50, 100, 1),
-                    'time': slice(200, 1000, 1),
-                }
-            }
-        }
-
-        self.assertEqual(result, expected)
-
-        mock_open.assert_called_with('file1.nc')
-        
-        # Can't verify first called arg because of how mock handles __enter__
-        self.assertEqual(mock_var.call_args[0][1], 'tas')
-
-    @mock.patch('wps.tasks.CWTBaseTask.load_job')
-    @mock.patch('wps.tasks.CWTBaseTask.load_credentials')
-    @mock.patch('wps.tasks.CWTBaseTask.open')
-    @mock.patch('wps.tasks.CWTBaseTask.get_variable')
-    def test_determine_base_units(self, mock_var, mock_open, mock_credentials, mock_job):
-        type(mock_var.return_value.getTime.return_value).units = mock.PropertyMock(side_effect=[
-            'days since 2001-01-01',
-            'days since 1990-01-01',
+        type(lon).name = mock.PropertyMock(return_value='lon')
+
+        domain = mock.MagicMock()
+        type(domain).dimensions = mock.PropertyMock(return_value = [
+            time, lat, lon
         ])
 
-        mock_var.return_value.getTime.return_value.__getitem__.side_effect = [
-            30, 30
+        context = mock.MagicMock()
+        context.domain = domain
+
+        dimensions = ['time', 'lat']
+
+        with self.assertRaises(WPSError):
+            preprocess.merge_dimensions(context, dimensions)
+
+    def test_merge_dimensions_not_in_user(self):
+        time = mock.MagicMock()
+        type(time).name = mock.PropertyMock(return_value='time')
+
+        lat = mock.MagicMock()
+        type(lat).name = mock.PropertyMock(return_value='lat')
+
+        domain = mock.MagicMock()
+        type(domain).dimensions = mock.PropertyMock(return_value = [
+            time, lat
+        ])
+
+        context = mock.MagicMock()
+        context.domain = domain
+
+        dimensions = ['time', 'lat', 'lon']
+
+        uniq_dim = preprocess.merge_dimensions(context, dimensions)
+
+        self.assertEqual(uniq_dim, set(dimensions))
+
+    def test_merge_dimensions(self):
+        time = mock.MagicMock()
+        type(time).name = mock.PropertyMock(return_value='time')
+
+        lat = mock.MagicMock()
+        type(lat).name = mock.PropertyMock(return_value='lat')
+
+        lon = mock.MagicMock()
+        type(lon).name = mock.PropertyMock(return_value='lon')
+
+        domain = mock.MagicMock()
+        type(domain).dimensions = mock.PropertyMock(return_value = [
+            time, lat, lon
+        ])
+
+        context = mock.MagicMock()
+        context.domain = domain
+
+        dimensions = ['time', 'lat', 'lon']
+
+        uniq_dim = preprocess.merge_dimensions(context, dimensions)
+
+        self.assertEqual(uniq_dim, set(dimensions))
+
+    @mock.patch('wps.tasks.preprocess.map_axis')
+    @mock.patch('wps.tasks.preprocess.merge_dimensions')
+    def test_map_domain_map_axis_exception(self, merge_dimensions, map_axis):
+        merge_dimensions.return_value =[
+            'time',
+            'lat',
+            'lon',
         ]
 
-        urls = ['file1.nc', 'file2.nc']
+        map_axis.side_effect = Exception()
 
-        result = tasks.determine_base_units(urls, 'tas', 0, 1)
+        input1 = mock.MagicMock()
+        input1.mapped = {}
 
-        mock_job.assert_called_with(1)
+        context = mock.MagicMock()
+        context.inputs = [input1,]
+        context.domain = None
 
-        mock_credentials.assert_called_with(0)
+        new_context = preprocess.map_domain(context)
 
-        expected = {
-            'sort': 'units',
-            'base_units': 'days since 1990-01-01',
-            'files': {
-                'file1.nc': {
-                    'units': 'days since 2001-01-01',
-                    'first': 30,
-                }, 
-                'file2.nc': {
-                    'units': 'days since 1990-01-01',
-                    'first': 30,
-                }
-            }
+        self.assertIsNone(new_context.inputs[0].mapped)
+
+    @mock.patch('wps.tasks.preprocess.map_axis')
+    @mock.patch('wps.tasks.preprocess.merge_dimensions')
+    def test_map_domain_map_axis_wpserror(self, merge_dimensions, map_axis):
+        merge_dimensions.return_value =[
+            'time',
+            'lat',
+            'lon',
+        ]
+
+        map_axis.side_effect = WPSError('')
+
+        input1 = mock.MagicMock()
+        input1.mapped = {}
+
+        context = mock.MagicMock()
+        context.inputs = [input1,]
+        context.domain = None
+
+        with self.assertRaises(WPSError):
+            new_context = preprocess.map_domain(context)
+
+    @mock.patch('wps.tasks.preprocess.map_axis')
+    @mock.patch('wps.tasks.preprocess.merge_dimensions')
+    def test_map_domain_missing_axis(self, merge_dimensions, map_axis):
+        merge_dimensions.return_value =[
+            'time',
+            'lat',
+            'lon',
+        ]
+
+        var = mock.MagicMock()
+        var.getAxisIndex.return_value = -1
+
+        input1 = mock.MagicMock()
+        input1.open.return_value.__enter__.return_value = var
+        input1.mapped = {}
+
+        context = mock.MagicMock()
+        context.inputs = [input1,]
+        context.domain = None
+
+        with self.assertRaises(WPSError):
+            new_context = preprocess.map_domain(context)
+
+    @mock.patch('wps.tasks.preprocess.map_axis')
+    @mock.patch('wps.tasks.preprocess.merge_dimensions')
+    def test_map_domain_without_domain(self, merge_dimensions, map_axis):
+        merge_dimensions.return_value =[
+            'time',
+            'lat',
+            'lon',
+        ]
+
+        map_axis.side_effect = [
+            slice(0, 365),
+            slice(0, 180),
+            slice(0, 360),
+        ]
+
+        input1 = mock.MagicMock()
+        input1.mapped = {}
+
+        context = mock.MagicMock()
+        context.inputs = [input1,]
+        context.domain = None
+
+        new_context = preprocess.map_domain(context)
+
+        expected1 = {
+            'time': slice(0, 365),
+            'lat': slice(0, 180),
+            'lon': slice(0, 360),
         }
 
-        self.assertEqual(result, expected)
+        self.assertEqual(new_context.inputs[0].mapped, expected1)
+
+    @mock.patch('wps.tasks.preprocess.map_axis')
+    @mock.patch('wps.tasks.preprocess.merge_dimensions')
+    def test_map_domain(self, merge_dimensions, map_axis):
+        merge_dimensions.return_value =[
+            'time',
+            'lat',
+            'lon',
+        ]
+
+        map_axis.side_effect = [
+            slice(0, 365),
+            slice(0, 180),
+            slice(0, 360),
+        ]
+
+        input1 = mock.MagicMock()
+        input1.mapped = {}
+
+        domain = mock.MagicMock()
+
+        context = mock.MagicMock()
+        context.inputs = [input1,]
+        context.domain = domain
+
+        new_context = preprocess.map_domain(context)
+
+        expected1 = {
+            'time': slice(0, 365),
+            'lat': slice(0, 180),
+            'lon': slice(0, 360),
+        }
+
+        domain.get_dimension.assert_any_call('time')
+        domain.get_dimension.assert_any_call('lat')
+        domain.get_dimension.assert_any_call('lon')
+
+        self.assertEqual(new_context.inputs[0].mapped, expected1)
+
+    def test_base_units_no_time(self):
+        var = mock.MagicMock()
+        var.getTime.return_value = None
+
+        input = mock.MagicMock()
+        input.open.return_value.__enter__.return_value = var
+        input.units = None
+        input.first = None
+
+        context = mock.MagicMock()
+        context.inputs = [input,]
+        context.units = None
+
+        new_context = preprocess.base_units(context)
+
+        self.assertEqual(new_context.units, None)
+
+        self.assertEqual(new_context.inputs[0].units, None)
+        self.assertEqual(new_context.inputs[0].first, None)
+
+    def test_base_units(self):
+        time = mock.MagicMock()
+        type(time).units = mock.PropertyMock(return_value='days since 2000')
+        time.__getitem__.return_value = 100
+
+        var = mock.MagicMock()
+        var.getTime.return_value = time
+
+        input = mock.MagicMock()
+        input.open.return_value.__enter__.return_value = var
+
+        context = mock.MagicMock()
+        context.inputs = [input,]
+
+        new_context = preprocess.base_units(context)
+
+        self.assertEqual(new_context.units, 'days since 2000')
+
+        self.assertEqual(new_context.inputs[0].units, 'days since 2000')
+        self.assertEqual(new_context.inputs[0].first, 100)
+
+    def test_filter_inputs(self):
+        expected = [4, 3, 3]
+
+        with self.settings(WORKER_PER_USER=3):
+            for index, x in enumerate(range(3)):
+                context = mock.MagicMock()        
+               
+                context.inputs.__len__.return_value = 10
+
+                new_context = preprocess.filter_inputs(context, index)
+
+                self.assertEqual(len(new_context.inputs), expected[index])

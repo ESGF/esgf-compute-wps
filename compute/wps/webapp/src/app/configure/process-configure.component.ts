@@ -22,9 +22,43 @@ declare var $: any;
     max-height: 50vh;
     overflow-y: scroll;
   }
+
+  .loader-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    opacity: 0.5;
+    border-radius: 6px;
+    background-color: #000;
+  }
+
+  .loader {
+    border: 12px solid #dddddd;
+    border-top: 12px solid #3498db;
+    border-radius: 50%;
+    width: 120px;
+    height: 120px;
+    animation: spin 1s linear infinite;
+    z-index: 10000;
+    position: fixed;
+    top: -100%;
+    bottom: -100%;
+    left: -100%;
+    right: -100%;
+    margin: auto;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
   `],
   template: `
   <div id="processConfigureModal" class="modal fade" tabindex="-1" role="dialog">
+    <div [class.loader]="loading"></div>
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
         <div class="modal-header">
@@ -161,6 +195,7 @@ declare var $: any;
           <button type="button" class="btn btn-danger pull-left" (click)="removeProcess()">Remove</button>
           <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
         </div>
+        <div [class.loader-background]="loading"></div>
       </div>
     </div>
   </div>
@@ -181,6 +216,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
   private notificationComponent: NotificationComponent;
 
   private newDataset = false;
+
+  private loading = false;
 
   constructor(
     private configureService: ConfigureService,
@@ -226,9 +263,19 @@ export class ProcessConfigureComponent implements AfterViewInit {
   selectDataset(dataset: string) {
     this.processWrapper.selectedDataset = dataset;
 
+    this.loading = true;
+
     this.configureService.searchESGF(dataset, this.params)
-      .then((data: Dataset) => this.processWrapper.dataset = data)
-      .catch((error: string) => this.notificationService.error(error));
+      .then((data: Dataset) => {
+        this.processWrapper.dataset = data
+
+        this.loading = false;
+      })
+      .catch((error: string) => {
+        this.notificationService.error(error)
+
+        this.loading = false;
+      });
   }
 
   getIndex(variable: Variable) {
@@ -250,6 +297,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
       return;
     }
 
+    this.loading = true;
+
     return new Promise((resolve, reject) => {
       this.configureService.searchVariable(
         this.processWrapper.selectedVariable, 
@@ -263,12 +312,16 @@ export class ProcessConfigureComponent implements AfterViewInit {
             this.processWrapper.domain = data[0].clone();
           }
 
+          this.loading = false;
+
           resolve();
         })
         .catch((error: string) => {
           this.process.removeInput(variable);
 
           this.notificationService.error(`Removed ${variable.display()}, failed to retrieve metadata: ${error}`);
+
+          this.loading = false;
 
           reject();
         });

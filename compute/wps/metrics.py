@@ -18,10 +18,13 @@ from celery.task.control import inspect
 def track_file(variable):
     parts = urlparse.urlparse(variable.uri)
 
-    filename = parts.path.split()[-1]
+    WPS_FILE_ACCESSED.labels(parts.hostname, parts.path,
+                             variable.var_name).inc()
 
-    FILE_ACCESSED.labels(parts.hostname, filename, variable.uri,
-                         variable.var_name).inc()
+def track_login(counter, url):
+    parts = urlparse.urlparse(url)
+
+    counter.labels(parts.hostname).inc()
 
 def jobs_queued():
     i = inspect()
@@ -69,48 +72,63 @@ if 'CWT_METRICS' in os.environ:
 else:
     WPS = REGISTRY
 
-JOBS_IN_QUEUE = Gauge('wps_jobs_in_queue', 'Number of jobs waiting in queue',
-                      multiprocess_mode='livesum')
+WPS_REGRID = Counter('wps_regrid_total', 'Number of times specific regridding'
+                     ' is requested', ['tool', 'method', 'grid'])
 
-JOBS_RUNNING = Gauge('wps_jobs_running', 'Number of jobs currently running',
-                     multiprocess_mode='livesum')
+WPS_DOMAIN_CRS = Counter('wps_domain_crs_total', 'Number of times a specific'
+                         ' CRS is used', ['crs'])
 
-JOBS_QUEUED = Counter('wps_jobs_queued_total', 'Number of total jobs queued',
-                      ['identifier'])
+WPS_DATA_DOWNLOAD = Summary('wps_data_download_seconds', 'Number of seconds'
+                            ' spent downloading remote data', ['host'])
+WPS_DATA_DOWNLOAD_BYTES = Counter('wps_data_download_bytes', 'Number of bytes'
+                                  ' read remotely', ['host', 'variable'])
 
-JOBS_COMPLETED = Counter('wps_jobs_completed_total', 'Number of total jobs'
-                         'completed', ['identifier'])
+WPS_DATA_ACCESS_FAILED = Counter('wps_data_access_failed_total', 'Number'
+                                   ' of times remote sites are inaccesible',
+                                   ['host'])
 
-JOBS_FAILED = Counter('wps_jobs_failed_total', 'Number of total jobs failed',
-                      ['identifier'])
+WPS_DATA_CACHE_READ = Counter('wps_data_cache_read_bytes', 'Number of bytes'
+                              ' read from cache')
 
-PROCESS_BYTES = Counter('wps_process_bytes', 'Number of bytes processed',
-                        ['identifier'])
+WPS_DATA_CACHE_WRITE = Counter('wps_data_cache_write_bytes', 'Number of bytes'
+                                ' written to cache')
 
-PROCESS_SECONDS = Counter('wps_process_seconds', 'NUmber of seconds spent'
-                          'processing data', ['identifier'])
+WPS_DATA_OUTPUT = Counter('wps_data_output_bytes', 'Number of bytes written')
 
-INGRESS_BYTES = Counter('wps_ingress_bytes',
-                        'Number of ingressed bytes', ['host'])
+WPS_PROCESS_TIME = Summary('wps_process', 'Processing duration (seconds)',
+                           ['identifier'])
 
-INGRESS_SECONDS = Counter('wps_ingress_seconds', 'Number of seconds spent'
-                          'ingressing data', ['host'])
+WPS_CERT_DOWNLOAD = Counter('wps_cert_download', 'Number of times certificates'
+                            ' have been downloaded')
 
-CACHE_BYTES = Counter('wps_cache_bytes', 'Number of cached bytes')
+WPS_FILE_ACCESSED = Counter('wps_file_accessed', 'Files accessed by WPS'
+                            ' service', ['host', 'path', 'variable'])
 
-CACHE_SECONDS = Counter('wps_cache_seconds',
-                        'Number of seconds spent reading cache')
+WPS_JOBS_ACCEPTED = Counter('wps_jobs_accepted', 'WPS jobs accepted')
+WPS_JOBS_STARTED = Counter('wps_jobs_started', 'WPS jobs started')
+WPS_JOBS_SUCCEEDED = Counter('wps_jobs_succeeded', 'WPS jobs succeeded')
+WPS_JOBS_FAILED = Counter('wps_jobs_failed', 'WPS jobs failed')
 
-CACHE_FILES = Gauge('wps_cache_files', 'Number of cached files',
-                    multiprocess_mode='livesum')
+WPS_OPENID_LOGIN = Counter('wps_openid_login', 'ESGF OpenID login attempts', ['idp'])
+WPS_OPENID_LOGIN_SUCCESS = Counter('wps_openid_login_success', 'ESGF OpenID'
+                                   ' logins', ['idp'])
+WPS_OAUTH_LOGIN = Counter('wps_oauth_login', 'ESGF OAuth login attempts', ['idp'])
+WPS_OAUTH_LOGIN_SUCCESS = Counter('wps_oauth_login_success', 'ESGF OAuth'
+                                  ' logins', ['idp'])
+WPS_MPC_LOGIN = Counter('wps_mpc_login', 'ESGF MyProxyClient logins attempts', ['idp'])
+WPS_MPC_LOGIN_SUCCESS = Counter('wps_mpc_login_success', 'ESGF MyProxyClient'
+                                ' logins', ['idp'])
+
+WPS_ESGF_SEARCH = Summary('wps_esgf_search', 'ESGF search duration (seconds)')
+WPS_ESGF_SEARCH_SUCCESS = Counter('wps_esgf_search_success', 'Successful ESGF'
+                                  ' searches')
+WPS_ESGF_SEARCH_FAILED = Counter('wps_esgf_search_failed', 'Failed ESGF'
+                                 ' searches')
 
 WPS_REQUESTS = Histogram('wps_request_seconds', 'WPS request duration (seconds)',
                          ['request', 'method'])
 
-WPS_ERRORS = Counter('wps_errors', 'WPS Errors')
-
-FILE_ACCESSED = Counter('wps_file_accessed', 'Number of times files were accessed',
-                        ['host', 'filename', 'url', 'variable'])
+WPS_ERRORS = Counter('wps_errors', 'WPS errors')
 
 if __name__ == '__main__':
     from multiprocessing import Process

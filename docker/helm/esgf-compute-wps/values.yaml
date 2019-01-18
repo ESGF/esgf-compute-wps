@@ -36,6 +36,11 @@ persistence:
     capacity: 10Gi
     path: /opt/cwt
 
+  postgresql-backup:
+    storageClassName: slow
+    capacity: 10Gi
+    path: /opt/nfs/cwt
+
   redis:
     storageClassName: slow
     capacity: 10Gi
@@ -65,6 +70,9 @@ wps:
   host: 192.168.39.34
   externalHost: https://192.168.39.34
   allowedCIDR: 172.17.0.0/16
+
+  prometheus:
+    host: odd-sheep-prometheus-server.default.svc
 
   annotations:
     prometheus.io/scrape: "true"
@@ -106,6 +114,7 @@ wps:
 celery:
   image: jasonb87/cwt_celery
   imageTag: 2.1.0
+  metrics: /metrics
 
   resources:
     limits:
@@ -158,11 +167,19 @@ thredds:
       ingress.kubernetes.io/force-hsts: "true"
 
 postgresql:
+  postgresUsername: postgres
   postgresPassword: abcd1234
+  port: 5432
 
   persistence:
     enabled: true
     existingClaim: postgresql-pvc
+
+  backup:
+    enabled: true
+    image: bitnami/postgresql
+    tag: 10.6.0
+
 
 redis:
   image:

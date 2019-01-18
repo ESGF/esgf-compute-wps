@@ -8,11 +8,11 @@ from celery.task.control import inspect
 from celery.task.control import revoke
 from django.conf import settings
 
+from wps import helpers
 from wps import models
 from wps import tasks
 from wps import WPSError
 from wps.backends import backend
-from wps.tasks import helpers
 
 __ALL__ = ['EDAS']
 

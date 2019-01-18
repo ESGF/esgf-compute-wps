@@ -5,10 +5,12 @@ import datetime
 import hashlib
 import os
 import psutil
+import uuid
 from urlparse import urlparse
 
 import cdms2
-from cdms2 import MV2 as MV
+from cdms2 import MV2
+from django import db
 from django.conf import settings
 from celery.utils import log
 
@@ -16,209 +18,104 @@ from wps import helpers
 from wps import metrics
 from wps import models
 from wps import WPSError
+from wps.context import OperationContext
 from wps.tasks import base
 from wps.tasks import preprocess
 
 logger = log.get_task_logger('wps.tasks.ingress')
 
-def get_now():
-    return datetime.datetime.now()
-
-def read_data(infile, var_name, domain):
-    time = None
-
-    if 'time' in domain:
-        time = domain.pop('time')
-
-    if time is None:
-        data = infile(var_name, **domain)
-    else:
-        data = infile(var_name, time=time, **domain)
-
-    return data
-
 @base.cwt_shared_task()
-def ingress_cleanup(self, attrs, file_paths, job_id):
-    for path in file_paths:
-        try:
-            os.remove(path)
-        except:
-            logger.warning('Failed to remove %r', path)
+def ingress_cleanup(self, context):
+    for input in context.inputs:
+        for file_path in (input.ingress + input.process):
+            try:
+                os.remove(file_path)
+            except:
+                pass
 
-    return attrs
+            logger.info('Removed %r', file_path)
 
-@base.cwt_shared_task()
-def ingress_cache(self, attrs, uri, var_name, domain, chunk_axis_name, base_units, job_id):
-    """ Cached ingress items.
+    return context
 
-    Args:
-        attrs: A list of dicts from previous tasks.
-        uri: A str uri for the source being cached.
-        var_name: A str variable name.
-        domain: A dict referencing the portion of the source file compose by the
-            group of ingressed files.
-        base_units: A str with the base units.
-        job_id: An int referencing the job.
-
-    Returns: 
-        A dict composed of the dicts from attrs.
-    """
-    entry = preprocess.check_cache_entries(uri, var_name, domain, job_id)
-
-    # Really should never hit this, if we're calling this task the file should
-    # have been ingressed.
-    if entry is not None:
-        logger.info('%r of %r has been cached', var_name, uri)
-
-        return attrs
-
-    filter_ingress = [x for x in attrs.values() if isinstance(x, dict) and 'ingress' in x]
-
-    filter_uri = [x for x in filter_ingress if x['uri'] == uri]
-
-    filter_uri_sorted = sorted(filter_uri, key=lambda x: x['path'])
-
-    uid = '{}:{}'.format(uri, var_name)
-
-    dimensions = {
-        'var_name': var_name,
-    }
-
-    dimensions.update(domain)
-    
-    kwargs = {
-        'uid': hashlib.sha256(uid).hexdigest(),
-        'url': uri,
-        'dimensions': helpers.encoder(dimensions),
-    }
-
-    entry = models.Cache(**kwargs)
-
-    logger.info('Created cached entry for %r of %r with dimensions %r', var_name, uri, kwargs['dimensions'])
-
+def write_cache_file(entry, input, context):
+    data = []
     chunk_axis = None
-    chunk_list = []
+    chunk_axis_index = None
+
+    entry.local_path = entry.new_output_path()
+
+    with context.new_output(entry.local_path) as outfile:
+        for _, _, chunk in input.chunks_ingress(context):
+            if chunk_axis is None:
+                chunk_axis_index = chunk.getAxisIndex(input.chunk_axis)
+
+                chunk_axis = chunk.getAxis(chunk_axis_index)
+
+            if chunk_axis.isTime():
+                outfile.write(chunk, id=input.variable.var_name)
+            else:
+                data.append(chunk)
+
+        if chunk_axis is not None and not chunk_axis.isTime():
+            data = MV2.concatenate(data, axis=chunk_axis_index)
+
+            outfile.write(data, id=input.variable.var_name)
 
     try:
-        with self.open(entry.local_path, 'w') as outfile:
-            for item in filter_uri_sorted:
-                try:
-                    with self.open(item['path']) as infile:
-                        data = infile(var_name)
-
-                        logger.info('Read chunk with shape %r', data.shape)
-
-                        if chunk_axis is None:
-                            chunk_axis_index = data.getAxisIndex(chunk_axis_name)
-
-                            if chunk_axis_index == -1:
-                                raise WPSError('Failed to find axis {}', chunk_axis_name)
-
-                            chunk_axis = data.getAxis(chunk_axis_index)
-
-                        if chunk_axis.isTime():
-                            if base_units is not None:
-                                data.getTime().toRelativeTime(str(base_units))
-
-                            outfile.write(data, id=var_name)
-                        else:
-                            chunk_list.append(data)
-                except cdms2.CDMSError as e:
-                    raise base.AccessError(item['path'], e)
-            
-            if not chunk_axis.isTime():
-                data = MV.concatenate(chunk_list, axis=chunk_axis_index)
-
-                outfile.write(data, id=var_name)
-
-            logger.info('Wrote cache file with shape %r', outfile[var_name].shape)
-    except cdms2.CDMSError as e:
-        logger.exception('Failed to write local file %r', entry.local_path)
-
-        local_path = entry.local_path
-
-        entry.delete()
-
-        raise base.AccessError(local_path, e)
-
-    entry.set_size()
-
-    return attrs
+        size = entry.set_size()
+    except db.IntegrityError:
+        # Handle case where cache files are written at same time
+        pass
+    else:
+        metrics.WPS_DATA_CACHE_WRITE.inc(size)
 
 @base.cwt_shared_task()
-def ingress_uri(self, uri, var_name, group_maps, user_id, job_id):
-    """ Ingress a portion of data.
+def ingress_cache(self, context):
+    if context.operation.get_parameter('intermediate') is None:
+        for input in context.inputs:
+            if input.mapped is None or input.cache is not None:
+                continue
 
-    Args:
-        key: A str containing a unique identifier for this request.
-        uri: A str uri of the source file.
-        var_name: A str variable name.
-        group_maps: A dict mapping file paths to chunk slices.
-        user_id: An int referencing the owner of the request.
-        job_id: An int referencing the job this request belongs to.
+            entry = preprocess.check_cache_entries(input, context)
 
-    Return:
-        A dict with the following format:
+            if entry is not None:
+                continue
 
-        key: Unique identifier.
-        path: A string path to the output file.
-        elapsed: A datetime.timedelta containing the elapsed time.
-        size: A float denoting the size in MegaBytes.
-
-        {
-            "output_path": {
-                "ingress": True,
-                "uri": "https://aims3.llnl.gov/path/filename.nc",
-                "path": "output_path",
-                "elapsed": datetime.timedelta(0, 0, 3),
-                "size": 3.28
+            kwargs = {
+                'url': input.variable.uri,
+                'variable': input.variable.var_name,
+                'dimensions': helpers.encoder(input.mapped),
             }
-        }
-    """
-    self.load_credentials(user_id)
 
-    job = self.load_job(job_id)
+            entry = models.Cache(**kwargs)
 
-    parsed = urlparse(uri)
+            write_cache_file(entry, input, context)
 
-    host = 'local' if parsed.netloc == '' else parsed.netloc
+    return context
 
-    attrs = {}
-    total_size = 0
-    total_elapsed = datetime.timedelta()
+@base.cwt_shared_task()
+def ingress_chunk(self, context, index):
+    for input_index, input in enumerate(context.sorted_inputs()):
+        if input.is_cached or input.mapped is None:
+            logger.info('Skipping %r either cached or not included', input.variable.uri)
 
-    for output_path, domain in group_maps.iteritems():
-        start = get_now()
+            continue
 
-        with self.open(uri) as infile:
-            data = infile(var_name, **domain)
+        for _, chunk_index, chunk in input.chunks(index, context):
+            start = datetime.datetime.now()
 
-        shape = data.shape
+            ingress_filename = '{}_{:08}_{:08}.nc'.format(str(context.job.id),
+                                                          input_index, chunk_index)
 
-        with self.open(output_path, 'w') as outfile:
-            outfile.write(data, id=var_name)
+            ingress_path = context.gen_ingress_path(ingress_filename)
 
-        elapsed = get_now() - start
+            with context.new_output(ingress_path) as outfile:
+                outfile.write(chunk, id=input.variable.var_name)
 
-        total_elapsed += elapsed
+            input.ingress.append(ingress_path)
 
-        stat = os.stat(output_path)
+            elapsed = datetime.datetime.now() - start
 
-        total_size += stat.st_size
+            self.status('Ingressed {!r} bytes in {!r} seconds', chunk.nbytes, elapsed.total_seconds())
 
-        logger.info('Ingressed %r size %r in %r to %r', shape, stat.st_size,
-                    elapsed.total_seconds(), output_path)
-
-        attrs[output_path] = {
-            'ingress': True,
-            'uri': uri,
-            'path': output_path,
-        }
-
-    metrics.INGRESS_BYTES.labels(host.lower()).inc(total_size)
-
-    metrics.INGRESS_SECONDS.labels(host.lower()).inc(total_elapsed.total_seconds())
-
-    size = total_size / 1000000.0
-
-    return attrs
+    return context

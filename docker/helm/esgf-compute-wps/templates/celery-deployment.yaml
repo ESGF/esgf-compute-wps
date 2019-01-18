@@ -61,14 +61,14 @@ spec:
           exec:
             command:
             - bash
-            - /var/www/webapp/docker/celery/healthcheck.sh
+            - /healthcheck.sh
           initialDelaySeconds: 3
           periodSeconds: 60
         readinessProbe:
           exec:
             command:
             - bash
-            - /var/www/webapp/docker/celery/healthcheck.sh
+            - /healthcheck.sh
           initialDelaySeconds: 3
           periodSeconds: 60
         {{- end }}

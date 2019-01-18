@@ -20,12 +20,8 @@ logger = get_task_logger('wps.signals')
 def cache_save(sender, instance, **kwargs):
     logger.info('Increasing cache by %r', instance.size)
 
-    metrics.CACHE_FILES.inc()
-
 @receiver(post_delete, sender=models.Cache)
 def cache_delete(sender, instance, **kwargs):
-    metrics.CACHE_FILES.dec()
-
     if os.path.exists(instance.local_path):
         os.remove(instance.local_path)
 

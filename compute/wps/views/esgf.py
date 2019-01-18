@@ -8,6 +8,7 @@ import re
 
 import cdms2
 import cdtime
+import cwt
 import requests
 from django.conf import settings
 from django.core.cache import cache
@@ -16,9 +17,11 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
-from wps import WPSError
-from wps import tasks
 from wps import helpers
+from wps import metrics
+from wps import tasks
+from wps import WPSError
+from wps.context import VariableContext
 
 logger = common.logger
 
@@ -80,7 +83,7 @@ def process_axes(header):
 
     return data
 
-def process_url(prefix_id, url, variable):
+def process_url(user, prefix_id, context):
     """ Processes a url.
     Args:
         prefix_id: A str prefix to build the cache id.
@@ -90,19 +93,19 @@ def process_url(prefix_id, url, variable):
     Returns:
         A list of dicts describing each files axes.
     """
-    cache_id = '{}|{}'.format(prefix_id, url)
+    cache_id = '{}|{}'.format(prefix_id, context.variable.uri)
 
     cache_id = hashlib.md5(cache_id).hexdigest()
 
     data = cache.get(cache_id)
 
-    logger.info('Processing %r in %r', variable, url)
+    logger.info('Processing %r', context.variable)
 
     if data is None:
-        data = { 'url': url }
+        data = { 'url': context.variable.uri }
 
-        with cdms2.open(url) as infile:
-            axes = process_axes(infile[variable])
+        with context.open(user) as variable:
+            axes = process_axes(variable)
 
         data.update(axes)
 
@@ -125,10 +128,12 @@ def retrieve_axes(user, dataset_id, variable, urls):
 
     axes = []
 
-    tasks.load_certificate(user)
-
     for url in sorted(urls):
-        data = process_url(prefix_id, url, variable)
+        var = cwt.Variable(url, variable)
+
+        context = VariableContext(var)
+
+        data = process_url(user, prefix_id, context)
 
         axes.append(data)
 
@@ -228,7 +233,9 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
     Returns:
         A dict containing the parsed solr documents.
     """
-    data = cache.get(dataset_id)
+    cache_id = hashlib.md5(dataset_id).hexdigest()    
+
+    data = cache.get(cache_id)
 
     if data is None:
         params = search_params(dataset_id, query, shard)
@@ -237,12 +244,19 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
 
         logger.info('Searching %r', url)
 
-        try:
-            response = requests.get(url, params)
-        except requests.ConnectionError:
-            raise Exception('Connection timed out')
-        except requests.RequestException as e:
-            raise Exception('Request failed: "{}"'.format(e))
+        with metrics.WPS_ESGF_SEARCH.time():
+            try:
+                response = requests.get(url, params)
+
+                metrics.WPS_ESGF_SEARCH_SUCCESS.inc()
+            except requests.ConnectionError:
+                metrics.WPS_ESGF_SEARCH_FAILED.inc()
+
+                raise Exception('Connection timed out')
+            except requests.RequestException as e:
+                metrics.WPS_ESGF_SEARCH_FAILED.inc()
+
+                raise Exception('Request failed: "{}"'.format(e))
 
         try:
             response_json = json.loads(response.content)

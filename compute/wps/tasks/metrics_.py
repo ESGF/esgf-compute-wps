@@ -78,14 +78,13 @@ def query_multiple_value(key, type=int, **kwargs):
 
     return results
 
+METRICS_ABSTRACT = """
+Returns the current metrics of the server.
+"""
 
-@base.register_process('CDAT.metrics', abstract="""
-                       Returns the current metrics of the server.
-                       """, data_inputs=[], metadata={'inputs': 0})
+@base.register_process('CDAT.metrics', abstract=METRICS_ABSTRACT, data_inputs=[], metadata={'inputs': 0})
 @base.cwt_shared_task()
-def metrics_task(self, user_id, job_id, **kwargs):
-    job = self.load_job(job_id)
-
+def metrics_task(self, context):
     user_jobs_queued = models.Job.objects.filter(status__status=models.ProcessAccepted).exclude(status__status=models.ProcessStarted).exclude(
         status__status=models.ProcessFailed).exclude(status__status=models.ProcessSucceeded).count()
 
@@ -132,10 +131,6 @@ def metrics_task(self, user_id, job_id, **kwargs):
 
     data = {
         'health': {
-            'jobs_running': query_single_value(type=int,
-                                               query='sum(wps_jobs_running)'),
-            'jobs_queued': query_single_value(type=int,
-                                              query='sum(wps_jobs_in_queue)'),
             'user_jobs_running': user_jobs_running,
             'user_jobs_queued': user_jobs_queued,
             'cpu_avg': query_single_value(type=float,
@@ -155,16 +150,10 @@ def metrics_task(self, user_id, job_id, **kwargs):
         'usage': {
             'files': file,
             'operators': operator,
-            'output': query_single_value(type=float,
-                                           query='sum(wps_process_bytes/wps_process_seconds >= 0)'),
-            'local': query_single_value(type=float,
-                                        query='sum(wps_cache_bytes/wps_cache_seconds >= 0)'),
-            'download': query_single_value(type=float,
-                                         query='sum(wps_ingress_bytes/wps_ingress_seconds >= 0)'),
         },
         'time': timezone.now().ctime(),
     }
 
-    job.succeeded(json.dumps(data))
+    context.output_data = json.dumps(data)
 
-    return data
+    return context

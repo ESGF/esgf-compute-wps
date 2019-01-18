@@ -1,0 +1,48 @@
+{{- if .Values.postgresql.backup.enabled }}
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-postgresql-backup
+  labels:
+    app: {{ .Release.Name }}-postgresql
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  schedule: "@daily"
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          containers:
+          - name: {{ .Release.Name }}-postgresql-backup
+            image: {{ .Values.postgresql.backup.image }}:{{ .Values.postgresql.backup.tag }}
+            env:
+              - name: PGDATABASE
+                value: "postgres"
+              - name: PGHOST
+                value: {{ .Release.Name }}-postgresql
+              - name: PGPORT
+                value: "5432"
+              - name: PGUSER
+                value: "postgres"
+              - name: PGPASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+                    key: postgres_password
+            args:
+            - /bin/bash
+            - -c
+            - "pg_dump postgres > /backup/db_$(date +%m_%d_%Y-%H_%M).sql"
+            volumeMounts:
+            - name: postgresql-backup
+              mountPath: /backup
+              subPath: postgresql-backup
+          restartPolicy: OnFailure
+          volumes:
+          - name: postgresql-backup
+            persistentVolumeClaim:
+              claimName: postgresql-backup-pvc
+{{- end }}

@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 
+import collections
 import contextlib
+import copy
 import hashlib
 import json
 import math
@@ -13,403 +15,430 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 
 from wps import helpers
+from wps import metrics
 from wps import models
 from wps import WPSError
+from wps.context import OperationContext
 from wps.tasks import base
 
 logger = get_task_logger('wps.tasks.preprocess')
 
 @base.cwt_shared_task()
-def wps_execute(self, attrs, variable, domain, operation, user_id, job_id):
-    job = self.load_job(job_id)
+def merge(self, contexts):
+    context = OperationContext.merge_inputs(contexts)
 
-    if not isinstance(attrs, list):
-        attrs = [attrs]
+    return context
 
-    new_attrs = {}
+def axis_size(data):
+    if isinstance(data, slice):
+        return ((data.stop - data.start) / data.step) * 4
 
-    for item in attrs:
-        new_attrs.update(item)
-
-    new_attrs['user_id'] = user_id
-
-    new_attrs['job_id'] = job_id
-
-    new_attrs['preprocess'] = True
-
-    # Collect inputs which are processes themselves
-    inputs = [y.name for x in operation.values() for y in x.inputs 
-              if isinstance(y, cwt.Process)]
-
-    # Find the processes which do not belong as an input
-    candidates = [x for x in operation.values() if x.name not in inputs]
-
-    if len(candidates) > 1:
-        raise WPSError('Invalid workflow there should only be a single root process')
-
-    new_attrs['identifier'] = candidates[0].identifier
-    
-    new_attrs['root'] = candidates[0].name
-
-    # Workflow if inputs includes any processes
-    new_attrs['workflow'] = True if len(inputs) > 0 else False
-
-    new_attrs['operation'] = operation
-
-    new_attrs['domain'] = domain
-
-    new_attrs['variable'] = variable
-
-    data = helpers.encoder(new_attrs)
-
-    try:
-        response = requests.post(settings.WPS_EXECUTE_URL, data=data, verify=False)
-    except requests.ConnectionError:
-        raise WPSError('Error connecting to {}', settings.WPS_EXECUTE_URL)
-    except requests.HTTPError as e:
-        raise WPSError('HTTP Error {}', e)
-
-    if not response.ok:
-        raise WPSError('Failed to request execute: {} {}', response.reason, response.status_code)
-
-    self.update(job, 'Preprocessing finished, submitting for execution for execution')
+    return data
 
 @base.cwt_shared_task()
-def generate_chunks(self, attrs, operation, uri, process_axes, job_id):
-    job = self.load_job(job_id)
+def generate_chunks(self, context):
+    """ Generate chunks.
 
-    self.update(job, 'Generating chunks for {!r}', uri)
+    Args:
+        context (OperationContext): Current context.
+
+    Returns:
+        Updated context.
+    """
+    axes = context.operation.get_parameter('axes')
 
     try:
-        mapped = attrs[uri]['cached']['mapped']
-    except (TypeError, KeyError):
-        mapped = attrs[uri]['mapped']
+        process_axis = set(axes.values)
+    except AttributeError:
+        process_axis = set()
 
-    if mapped is None:
-        attrs[uri]['chunks'] = None
+    logger.info('Process axes %r', process_axis)
 
-        return attrs
+    for input in context.inputs:
+        order = input.mapped_order
 
-    if process_axes is None or ('time' in mapped and 'time' not in process_axes):
-        chunked_axis = 'time'
-    else:
-        process_axes = set(process_axes)
+        # Find axes that we can chunk over
+        file_axes = set(order) - process_axis
 
-        mapped_axes = set(mapped.keys())
+        # Select the lowest order axis that's available
+        try:
+            chunk_axis = reduce(lambda x, y: x if order.index(x) <
+                                        order.index(y) else y, file_axes)
+        except TypeError:
+            # Default to time axis?
+            chunk_axis = None
 
-        candidates = mapped_axes - process_axes
+        logger.info('Selected %r axis for chunking', chunk_axis)
 
-        chunked_axis = list(candidates)[0]
+        # Determine which mapping to use.
+        if input.is_cached:
+            mapped = input.cache_mapped()
 
-    logger.info('Chunking axis %r', chunked_axis)
+            logger.info('Cached mapping')
+        else:
+            mapped = input.mapped
 
-    axis_size = dict((x, (y.stop-y.start)/y.step) for x, y in mapped.iteritems())
+            logger.info('Normal mapping')
 
-    logger.info('Axis size %r', axis_size)
+        logger.info('Using mapping %r', mapped)
 
-    chunk_size = reduce(lambda x, y: x * y, [z[1] for z in axis_size.items()
-                                              if chunked_axis is None or z[0] !=
-                                              chunked_axis])*4
+        if chunk_axis is not None and mapped is not None:
+            # Collect non chunk axis slices
+            non_chunk_axes = [mapped[x] for x in (set(order) - set([chunk_axis]))]
 
-    logger.info('Chunk size %r', chunk_size)
+            logger.info('Non chunk axes %r', non_chunk_axes)
 
-    total_size = reduce(lambda x, y: x * y, axis_size.values())*4
+            # Reduce won't convert if array length is 1
+            if len(non_chunk_axes) > 1:
+                chunk_size = reduce(lambda x, y: axis_size(x) * axis_size(y),
+                                    non_chunk_axes)
+            else:
+                chunk_size = axis_size(non_chunk_axes[0])
 
-    logger.info('Total size %r', total_size)
+            logger.info('Chunk size %r', chunk_size)
 
-    # Covers special case where average cannot be parallelized and data might
-    # not fit in memory.
-    if (operation.identifier == 'CDAT.average' and
-        'time' not in process_axes and
-        total_size >= settings.WORKER_MEMORY):
-        raise WPSError('Data is too large for workers memory try reducing the'
-                       'size by subsetting')
+            chunk_per_worker = int(settings.WORKER_MEMORY / 2 / chunk_size)
 
-    chunks_per_worker = int(round(settings.WORKER_MEMORY / chunk_size))
+            logger.info('Chunk per worker %r', chunk_per_worker)
 
-    if chunks_per_worker == 0:
-        raise WPSError('Chunk size of %r bytes is too large for workers memory'
-                       'try reducing the size by subsetting', est_chunk_size)
+            if chunk_per_worker == 0:
+                raise WPSError('A single chunk cannot fit it memory, consider'
+                               ' subsetting the data further.')
 
-    logger.info('Chunks per worker %r', chunks_per_worker)
+            chunk_axis_slice = mapped[chunk_axis]
 
-    partition_size = min(axis_size[chunked_axis], chunks_per_worker)
+            # Generate actual chunks
+            for start in range(chunk_axis_slice.start, chunk_axis_slice.stop,
+                               chunk_per_worker):
+                input.chunk.append(slice(start, min(start + chunk_per_worker,
+                                                     chunk_axis_slice.stop),
+                                          chunk_axis_slice.step))
 
-    logger.info('Using partition size %r', partition_size)
+        input.chunk_axis = chunk_axis
 
-    chunks = []
+        self.status('Generated {!r} chunks over {!r} axis for {!r}', len(input.chunk), input.chunk_axis, input.filename)
 
-    if chunked_axis is not None and partition_size > 0:
-        chunk_axis = mapped[chunked_axis]
+    return context
 
-        for begin in xrange(chunk_axis.start, chunk_axis.stop, partition_size):
-            end = min(begin+partition_size, chunk_axis.stop)
+def check_cache_entries(input, context):
+    """ Checks for cached version of the input.
 
-            chunks.append(slice(begin, end, chunk_axis.step))
+    Args:
+        input (cwt.Variable): Variable thats being searched for.
+        context (OperationContext): Current context:
 
-    attrs[uri]['chunks'] = {
-        chunked_axis: chunks,
-    }
+    Returns:
+        A cache entry if found otherwise None.
+    """
+    cache_entries = models.Cache.objects.filter(
+        url=input.variable.uri,
+        variable=input.variable.var_name
+    )
 
-    self.update(job, 'Generated {} chunks for {}', len(chunks), uri)
+    for entry in cache_entries:
+        logger.info('Evaluating cached file %r', entry.local_path)
 
-    return attrs
-
-def check_cache_entries(uri, var_name, domain, job_id):
-    uid = '{}:{}'.format(uri, var_name)
-
-    uid_hash = hashlib.sha256(uid).hexdigest()
-
-    cache_entries = models.Cache.objects.filter(uid=uid_hash)
-
-    logger.info('Found %r cache entries for %r', len(cache_entries), uid_hash)
-
-    for x in xrange(cache_entries.count()):
-        entry = cache_entries[x]
-
-        if not entry.valid:
-            logger.info('Entry for %r is invalid, removing', entry.uid)
+        try:
+            entry.validate()
+        except Exception as e:
+            logger.info('Removing invalid cache file: %r', e)
 
             entry.delete()
-            
+
             continue
 
-        if entry.is_superset(domain):
-            logger.info('Found a valid cache entry for %r', uri)
+        if entry.is_superset(input.mapped):
+            logger.info('Found valid entry in %r', entry.local_path)
 
             return entry
 
-    logger.info('Found no valid cache entries for %r', uri)
+    logger.info('Found no valid cache entries for %r', input.variable.uri)
 
     return None
 
 @base.cwt_shared_task()
-def check_cache(self, attrs, uri, var_name, job_id):
-    job = self.load_job(job_id)
+def check_cache(self, context):
+    for input in context.inputs:
+        if input.mapped is None:
+            logger.info('Skipping input %r', input.variable.uri)
 
-    mapped = attrs[uri]['mapped']
+            continue
 
-    if mapped is None:
-        attrs[uri]['cached'] = None
+        input.cache = check_cache_entries(input, context)
 
-        return attrs
+    return context
 
-    entry = check_cache_entries(uri, var_name, mapped, job_id)
+def map_axis_interval(axis, start, stop):
+    """ Map start/stop to axis.
 
-    if entry is None:
-        attrs[uri]['cached'] = None
+    Args:
+        axis (cdms2.Axis): Axis to be mapped.
+        start (int): Start value.
+        stop (int): Stop value.
 
-        self.update(job, '{} from {} has not been cached', var_name, uri)
-    else:
-        dimensions = helpers.decoder(entry.dimensions)
+    Returns:
+        A tuple with the mapping.
+    """
+    try:
+        map = axis.mapInterval((start, stop))
+    except Exception:
+        raise WPSError('Unabled to map interval {!r} to {!r}', start, stop)
 
-        new_mapped = {}
+    return map
 
-        for key in mapped.keys():
-            mapped_axis = mapped[key]
+def map_axis_indices(axis, dimension):
+    """ Maps axis to indices.
 
-            orig_axis = dimensions[key]
+    Args:
+        axis (cdms2.Axis): Axis to be mapped.
+        dimension (cwt.Dimension): The dimension to map.
 
-            start = mapped_axis.start - orig_axis.start
+    Returns:
+        A selector for cdms2.
+    """
+    try:
+        start = helpers.int_or_float(dimension.start)
+    except AttributeError:
+        start = 0
 
-            stop = mapped_axis.stop - orig_axis.start
+    try:
+        stop = helpers.int_or_float(dimension.end)
+    except AttributeError:
+        stop = len(axis)
+    finally:
+        stop = min(stop, len(axis))
 
-            new_mapped[key] = slice(start, stop, mapped_axis.step)
+    try:
+        step = helpers.int_or_float(dimension.step)
+    except AttributeError:
+        step = 1
 
-        attrs[uri]['cached'] = {
-            'path': entry.local_path,
-            'mapped': new_mapped,
-        }
+    selector = slice(start, stop, step)
 
-        self.update(job, 'Found {} from {} in cache', var_name, uri)    
+    if axis.isTime() and dimension is not None:
+        dimension.start = 0
 
-    return attrs
+        dimension.end -= selector.stop
 
-def map_domain_axis(axis, dimen, base_units):
-    if dimen is None:
-        selector = slice(0, len(axis), 1)
-
-        logger.info('Selecting entire axis %r', selector)
-    else:
-        start = helpers.int_or_float(dimen.start)
-
-        end = helpers.int_or_float(dimen.end)
-
-        step = helpers.int_or_float(dimen.step)
-
-        if dimen.crs == cwt.VALUES:
-            if axis.isTime() and base_units is not None:
-                axis = axis.clone()
-
-                axis.toRelativeTime(base_units)
-
-                logger.info('Rebased units to %r', base_units)
-
-            try:
-                mapped = axis.mapInterval((start, end))
-            except TypeError:
-                selector = None
-            else:
-                selector = slice(mapped[0], mapped[1], step)
-        elif dimen.crs == cwt.INDICES:
-            selector = slice(start, min(len(axis), end), step)
-        else:
-            raise WPSError('Unknown CRS value {}', dimen.crs)
-
-        logger.info('Mapped %r:%r:%r to %r', start, end, step, selector)
+    metrics.WPS_DOMAIN_CRS.labels(cwt.INDICES).inc()
 
     return selector
 
-@base.cwt_shared_task()
-def map_domain_time_indices(self, attrs, var_name, domain, user_id, job_id):
-    """ Maps domain.
+def map_axis_values(axis, dimension):
+    """ Map axis to values.
+    
+    Args:
+        axis (cdms2.Axis): Axis to be mapped.
+        dimension (cwt.Dimension): The dimension to map.
 
-    Handles a special case when aggregte multiple files and the user defined
-    time dimension is passed as indices. We cannot map this in parallel due
-    to a dependency on the previously mapped file.
+    Returns:
+        A selector for cdms2.
     """
-    job = self.load_job(job_id)
+    start = helpers.int_or_float(dimension.start)
 
-    self.update(job, 'Mapping domain "{}" for aggregation', domain.name)
+    stop = helpers.int_or_float(dimension.end)
 
-    self.load_credentials(user_id)
+    step = helpers.int_or_float(dimension.step)
 
-    sort = attrs['sort']
+    map = map_axis_interval(axis, start, stop)
 
-    base_units = attrs['base_units']
+    selector = slice(map[0], map[1], step)
 
-    urls = sorted(attrs['files'].items(), key=lambda x: x[1][sort])
+    metrics.WPS_DOMAIN_CRS.labels(cwt.VALUES).inc()
 
+    return selector
+
+def map_axis_timestamps(axis, dimension):
+    """ Map axis to timestamps.
+
+    Args:
+        axis (cdms2.Axis): Axis to be mapped.
+        dimension (cwt.Dimension): The dimension to map.
+
+    Returns:
+        A selector for cdms2.
+    """
+    step = helpers.int_or_float(dimension.step)
+    
+    map = map_axis_interval(axis, dimension.start, dimension.end)
+
+    selector = slice(map[0], map[1], step)
+
+    metrics.WPS_DOMAIN_CRS.labels(cwt.TIMESTAMPS).inc()
+
+    return selector
+
+def map_axis(axis, dimension, units):
+    """ Maps an axis to a dimension.
+
+    Args:
+        axis (cdms2.axis): Axis to be mapped.
+        dimension (cwt.Dimension): Dimension being mapped to.
+        units (str): Units to be used if a time axis is being mapped.
+
+    Returns:
+        A slice that will be used as a cdms2 selector.
+    """
+    if axis.isTime() and units is not None:
+        axis = axis.clone()
+
+        axis.toRelativeTime(str(units))
+
+    if dimension is None or dimension.crs == cwt.INDICES:
+        selector = map_axis_indices(axis, dimension)
+    elif dimension.crs == cwt.VALUES:
+        selector = map_axis_values(axis, dimension)
+    elif dimension.crs == cwt.TIMESTAMPS:
+        selector = map_axis_timestamps(axis, dimension)
+    else:
+        raise WPSError('Unknown CRS {!r}', dimension.crs)
+
+    return selector
+
+def merge_dimensions(context, file_dimensions):
+    """ Merge user and file dimensions.
+
+    Args:
+        context (OperationContext): Current context.
+        file_dimensions (list,tuple): Dimension names in file.
+
+    Returns:
+        Complete list of dimension names.
+    """
     try:
-        time = [x for x in domain.dimensions if x.name.lower() == 'time'][0]
-    except IndexError:
-        raise WPSError('Failed to find time dimension')
+        user_dim = [x.name for x in context.domain.dimensions]
+    except AttributeError:
+        user_dim = []
 
-    mapped = {}
+    user_dim = set(user_dim)
 
-    for item in urls:
-        url = item[0]
+    logger.info('User dimensions %r', user_dim)
 
-        mapped_domain = map_domain(attrs, url, var_name, domain, user_id, job_id)
+    file_dim = set(file_dimensions)
 
-        try:
-            mapped_time = [x for x in mapped_domain[url]['mapped'].items() if x[0].lower() == 'time'][0]
-        except IndexError:
-            raise WPSError('Failed to find mapped time axis')
+    logger.info('File dimensions %r', file_dim)
 
-        diff = mapped_time[1].stop - mapped_time[1].start
+    # Check that user dimensions are a subset of the file dimensions
+    if not user_dim <= file_dim:
+        raise WPSError('User defined axes {!r} were not found in the file', 
+                       ', '.join(user_dim-file_dim))
 
-        # Adjust the dimension by removing what we've consumed
-        time.end -= diff + time.start
+    # Isolate dimensions not defined by the user
+    file_dim -= user_dim
 
-        time.start -= diff
-
-        # Prevent the start from dipping into the negatives
-        time.start = max(0, time.start)
-
-        mapped.update(mapped_domain)
-
-    self.update(job, 'Finished mapping domain')
-
-    return mapped
+    # Return union of user and file dimensions
+    return user_dim | file_dim
 
 @base.cwt_shared_task()
-def map_domain(self, attrs, uri, var_name, domain, user_id, job_id):
-    job = self.load_job(job_id)
+def map_domain(self, context):
+    """ Maps a domain.
 
-    self.update(job, 'Mapping domain {}', domain)
+    Args:
+        context (OperationContext): Current operation context.
 
-    self.load_credentials(user_id)
+    Returns:
+        An updated operation context.
+    """
+    for input in context.inputs:
+        self.status('Mapping {!r}', input.filename)
 
-    sort = attrs['sort']
+        with input.open(context.user) as var:
+            axes = var.getAxisList()
 
-    base_units = attrs['base_units']
+            input.mapped_order = [x.id for x in axes]
 
-    new_attrs = { 'sort': sort, 'base_units': base_units }
+            logger.info('Axis mapped order %r', input.mapped_order)
 
-    file_attrs = attrs['files'][uri]
+            dimensions = merge_dimensions(context, input.mapped_order)
 
-    with self.open(uri) as infile:
-        variable = self.get_variable(infile, var_name)
+            logger.info('Merge dimensions %r', dimensions)
 
-        if domain is None:
-            mapped = dict((x.id, map_domain_axis(x, None, base_units)) for x in variable.getAxisList())
-        else:
-            axes_indexes = dict((x, None) for x in variable.getAxisListIndex())
+            for name in dimensions:
+                try:
+                    dim = context.domain.get_dimension(name)
+                except AttributeError:
+                    dim = None
 
-            mapped_dimen = [(x, variable.getAxisIndex(x.name)) for x in domain.dimensions]
+                axis_index = var.getAxisIndex(name)
 
-            if any(True if x[1] == -1 else False for x in mapped_dimen):
-                raise WPSError('Axes {} are missing from {}', ', '.join(x[0].name for x in mapped_dimen if x[1] == -1), uri)
+                if axis_index == -1:
+                    raise WPSError('Axis {!r} was not found in remote file',
+                                   name)
 
-            mapped = {}
+                axis = var.getAxis(axis_index).clone()
 
-            for item in mapped_dimen:
-                axes_indexes.pop(item[1])
-
-                axis = variable.getAxis(item[1])
-
-                mapped[axis.id] = map_domain_axis(axis, item[0], base_units)
-
-                if mapped[axis.id] == None:
-                    mapped = None
+                try:
+                    input.mapped[name] = map_axis(axis, dim, context.units)
+                #except WPSError:
+                #    raise
+                except Exception:
+                    input.mapped = None
 
                     break
 
-            if mapped is not None:
-                for index in axes_indexes.keys():
-                    axis = variable.getAxis(index)
+                logger.info('Mapped %r to %r', name, input.mapped[name])
 
-                    mapped[axis.id] = map_domain_axis(axis, None, base_units)
-
-    self.update(job, 'Finished mapping domain')
-
-    file_attrs['mapped'] = mapped
-
-    new_attrs[uri] = file_attrs
-
-    return new_attrs
+    return context
 
 @base.cwt_shared_task()
-def determine_base_units(self, uris, var_name, user_id, job_id):
-    job = self.load_job(job_id)
+def base_units(self, context):
+    """ Gets base units for OperationContext.
+    
+    Args:
+        context (OperationContext): Current operation context.
 
-    self.load_credentials(user_id)
+    Returns:
+        An OperationContext whose inputs have their time units
+        filled out.
+    """
+    units = []
 
-    files = {}
+    logger.info('Determining base units')
 
-    for uri in uris:
-        with self.open(uri) as infile:
-            time = self.get_variable(infile, var_name).getTime()
+    for input in context.inputs:
+        with input.open(context.user) as var:
+            time = var.getTime()
 
-            if time:
-                files[uri] = {
-                    'units': time.units,
-                    'first': time[0],
-                }
+            if time is not None:
+                input.first = time[0]
+
+                input.units = time.units
+
+                units.append(input.units)
+
+                logger.info('%r units: %r first: %r', input.filename, input.units,
+                            input.first)
             else:
-                files[uri] = {
-                    'units': None,
-                    'first': 0,
-                }
+                logger.info('Skipping %r', input.filename)
 
-    sort = None
-    base_units = None
+    try:
+        context.units = sorted(units)[0]
+    except IndexError:
+        pass
 
-    check_units = reduce(lambda x, y: x if (x is not None and x['units'] ==
-                                            y['units']) else None, files.values())
+    self.status('Setting units to {!r}', context.units)
 
-    if check_units is None:
-        sort = 'units'
+    return context
 
-        units = [x['units'] for x in files.values()]
+@base.cwt_shared_task()
+def filter_inputs(self, context, index):
+    """ Filters context inputs.
 
-        base_units = reduce(lambda x, y: x if x <= y else y, units)
+    Args:
+        context (OperationContext): Current operation context.
+        index (int): The index to filter on.
 
-        self.update(job, 'Sorting inputs by time units, base at {}', base_units)    
-    else:
-        sort = 'first'
+    Returns:
+        An OperationContext whose inputs have been filtered.
+    """
+    logger.debug('Index %r Length %r Workers %r', index, len(context.inputs),
+                 settings.WORKER_PER_USER)
 
-        self.update(job, 'Sorting inputs by time first values')
+    indices = [x for x in range(index, len(context.inputs),
+                                settings.WORKER_PER_USER)]
 
-    return { 'files': files, 'sort': sort, 'base_units': base_units }
+    logger.info('Filtering indices %r', indices)
+
+    context.inputs = [context.inputs[x] for x in indices]
+
+    return context

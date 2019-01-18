@@ -122,7 +122,7 @@ WORKER_CPU_UNITS = config.get_value('default', 'worker.cpu_units', 200, int)
 WORKER_MEMORY = config.get_value('default', 'worker.memory', 8e6, int)
 WORKER_USER_PERCENT = config.get_value('default', 'worker.user_percent', 0.10,
                                        float)
-WORKER_PER_USER = ((WORKER_CPU_COUNT*1000)/WORKER_CPU_UNITS)*WORKER_USER_PERCENT
+WORKER_PER_USER = int(((WORKER_CPU_COUNT*1000)/WORKER_CPU_UNITS)*WORKER_USER_PERCENT)
 
 
 # Application definition
@@ -136,10 +136,9 @@ METRICS_HOST = config.get_value('metrics', 'host',
 
 WPS_VERSION = '1.0.0'
 WPS_LANG = 'en-US'
-WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
+WPS_URL = WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
 WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/status/{job_id}/')
-WPS_EXECUTE_URL = config.get_value('wps', 'wps.execute_url',
-                                   'https://{host}/wps/execute/')
+WPS_JOB_URL = 'https://{!s}/wps/home/user/jobs'.format(host)
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
 WPS_PUBLIC_PATH = config.get_value('wps', 'wps.public_path', '/data/public')
 WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)
@@ -152,7 +151,7 @@ WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to', 'https://
 WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.success', 'https://{host}/wps/home/auth/login/callback')
 WPS_PASSWORD_RESET_URL = config.get_value('wps', 'wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
 WPS_CA_PATH = config.get_value('wps', 'wps.ca.path', '/tmp/certs')
-WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path', '/data/public')
+WPS_PUBLIC_PATH = WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path', '/data/public')
 WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.user.temp.path', '/tmp/cwt/users')
 WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email', 'admin@aims2.llnl.gov')
 
@@ -195,12 +194,16 @@ CACHES = {
 INSTALLED_APPS = [
     'wps',
     'webpack_loader',
+    'grappelli',
+    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
 ]
+
+GRAPPELLI_ADMIN_TITLE = 'ESGF CWT Administration'
 
 try:
     import django_nose
@@ -230,22 +233,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'compute.urls'
 
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
-
 WSGI_APPLICATION = 'compute.wsgi.application'
 
 # Database
@@ -272,7 +259,16 @@ TEMPLATES = [
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
             os.path.join(BASE_DIR, 'wps', 'webapp', 'src'),
-        ]
+        ],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
     }
 ]
 

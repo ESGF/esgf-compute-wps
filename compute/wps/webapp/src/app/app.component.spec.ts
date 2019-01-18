@@ -103,22 +103,6 @@ describe('App Component', () => {
     expect(error.classes.hidden).toBe(true);
   });
 
-  it('should show admin link', () => {
-    let user = new User();
-
-    user.admin = true;
-
-    this.auth.setUser(user);
-
-    this.auth.setLoggedIn(true);
-
-    this.fixture.detectChanges();
-
-    let de = this.fixture.debugElement.query(By.css('.admin'));
-
-    expect(de).not.toBe(null);
-  });
-
   it('should show profile, jobs and logout links', () => {
     this.auth.setLoggedIn(true);
 

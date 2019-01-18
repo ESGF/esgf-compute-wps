@@ -12,15 +12,13 @@ export class User {
     public email: string = '',
     public api_key: string = '',
     public type: string = '',
-    public admin?: boolean,
     public local_init?: boolean,
     public expires?: number,
-    public password?: string
   ) { }
 
   toUrlEncoded(): string {
     let params = '';
-    let fields = ['username', 'openID', 'email', 'password'];
+    let fields = ['email'];
 
     for (let k of fields) {
       if (this[k] != undefined) {

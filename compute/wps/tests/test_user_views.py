@@ -88,8 +88,6 @@ class UserViewsTestCase(test.TestCase):
 
         params = {
             'email': 'imdifferent@hello.com',
-            'openid': 'http://test',
-            'password': 'test2'
         }
 
         response = self.client.post('/auth/update/', params)

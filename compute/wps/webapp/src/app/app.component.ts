@@ -19,7 +19,6 @@ export class AppComponent implements OnInit {
   @ViewChild(NotificationComponent)
   private notificationComponent: NotificationComponent;
 
-  admin: boolean = false;
   logged: boolean = false;
 
   loggedSub: Subscription;
@@ -28,16 +27,16 @@ export class AppComponent implements OnInit {
     private authService: AuthService,
     private configService: ConfigService,
     private wpsService: WPSService,
-  ) { }
+  ) { 
+    this.authService
+      .userDetails()
+      .then(() => {
+        console.log(this.authService);
+      });
+  }
 
   ngOnInit() {
     this.notificationComponent.subscribe();
-
-    this.authService.user$.subscribe((user: User) => {
-      if (user != null) {
-        this.admin = user.admin;
-      }
-    });
 
     this.loggedSub = this.authService.isLoggedIn$.subscribe((value: boolean) => {
       this.logged = value;
