@@ -63,7 +63,7 @@ docker build -t jasonb87/cwt_wps:${VERSION} -f docker/wps/Dockerfile .
 
 [[ ${PUSH} -eq 1 ]] && docker push jasonb87/cwt_wps:${VERSION}
 
-sed -i "s|\(FROM jasonb87/cwt_celery:\).*|\1${VERSION}|" docker/celery/Dockerfile
+sed -i "s|\(FROM jasonb87/cwt_common:\).*|\1${VERSION}|" docker/celery/Dockerfile
 
 docker build -t jasonb87/cwt_celery:${VERSION} -f docker/celery/Dockerfile .
 
