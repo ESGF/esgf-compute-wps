@@ -79,7 +79,7 @@ docker build ${DOCKER_ARGS} -t jasonb87/cwt_celery:${VERSION} -f docker/celery/D
 [[ ${PUSH} -eq 1 ]] && docker push jasonb87/cwt_celery:${VERSION}
 
 if [[ ${BUILD_EDASK} -eq 1 ]]; then
-  docker build ${DOCKER_ARGS} -t jasonb87/cwt_edask:latest -f docker/edas/Dockerfile .
+  docker build ${DOCKER_ARGS} -t jasonb87/cwt_edask:latest -f docker/edask/Dockerfile .
 
   [[ ${PUSH} -eq 1 ]] && docker push jasonb87/cwt_edask:latest
 fi
