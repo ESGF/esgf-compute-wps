@@ -47,10 +47,10 @@ def prepare_data_inputs(variable, domain, operation):
         data_inputs = '{}variable = {}'.format(data_inputs,
                                                json.dumps(variable))
 
-    if domain is None:
-        domain = cwt.Domain()
-
-    operation.domain = domain.name
+    try:
+        operation.domain = domain.name
+    except AttributeError:
+        raise WPSError('EDASK requires that a domain be supplied')
 
     data_inputs = '{};domain = {}'.format(data_inputs,
                                           json.dumps([domain.parameterize()]))
@@ -67,8 +67,8 @@ def edas_peek(data):
 
     return data[:n]
 
-def edas_wait(socket):
-    if socket.poll(settings.WPS_EDAS_TIMEOUT*1000, zmq.POLLIN) == 0:
+def edas_wait(socket, timeout):
+    if socket.poll(timeout*1000, zmq.POLLIN) == 0:
         raise WPSError('Timed out waiting for response')
 
     data = socket.recv()
@@ -82,10 +82,10 @@ def edas_send(req_socket, pull_socket, message):
 
     logger.info('Send message: %r', message)
 
-    return edas_wait(pull_socket)
+    return edas_wait(pull_socket, settings.WPS_EDAS_QUEUE_TIMEOUT)
 
 def edas_result(pull_socket):
-    data = edas_wait(pull_socket)
+    data = edas_wait(pull_socket, settings.WPS_EDAS_EXECUTE_TIMEOUT)
 
     try:
         id, type, msg = data.split('!')
@@ -125,47 +125,48 @@ def set_output(var_name, file_path):
     return output
 
 @base.cwt_shared_task()
-def edas_submit(self, variable, domain, operation, user_id, job_id):
-    job = self.load_job(job_id)
+def edas_submit(self, context):
+    params = context.operation.parameters
 
-    params = operation.parameters
-
-    parts = operation.identifier.split('.')
+    parts = context.operation.identifier.split('.')
 
     operation = cwt.Process(parts[1].replace('-', '.'))
 
     operation.parameters = params
 
-    data_inputs = prepare_data_inputs(variable, domain, operation)
+    variables = [x.variable for x in context.inputs]
 
-    context = zmq.Context.instance()
+    data_inputs = prepare_data_inputs(variables, context.domain, operation)
 
-    with connect_socket(context, zmq.PULL, settings.WPS_EDAS_HOST,
+    zmq_context = zmq.Context.instance()
+
+    with connect_socket(zmq_context, zmq.PULL, settings.WPS_EDAS_HOST,
                         settings.WPS_EDAS_RES_PORT) as pull_sock:
 
-        self.update(job, 'Connected to EDASK pull socket')
+        self.status('Connected to EDASK pull socket')
 
-        with connect_socket(context, zmq.REQ, settings.WPS_EDAS_HOST,
+        with connect_socket(zmq_context, zmq.REQ, settings.WPS_EDAS_HOST,
                             settings.WPS_EDAS_REQ_PORT) as req_sock:
 
-            self.update(job, 'Connected to EDASK request socket')
+            self.status('Connected to EDASK request socket')
 
             extras = json.dumps({
-                'storeExecuteResponse': 'false',
+                'storeExecuteResponse': 'true',
                 'status': 'true',
-                'responseform': 'file',
+                'responseform': 'xml',
                 'sendData': 'false',
             })
 
-            message = '{}!execute!{}!{}!{}'.format(job_id,
-                                                   operation.identifier, data_inputs, extras)
+            message = '{}!execute!{}!{}!{}'.format(context.job.id, operation.identifier, data_inputs, extras)
 
             edas_send(req_sock, req_sock, message)
 
-            self.update(job, 'Sent {!r} byte request to EDASK', len(message))
+            self.status('Sent {!r} byte request to EDASK', len(message))
 
         output = edas_result(pull_sock)
 
-        self.update(job, 'Completed with output {!r}', output)
+        self.status('Completed with output {!r}', output)
 
-        job.succeeded(json.dumps(output.parameterize()))
+        context.output_data = json.dumps(output.parameterize())
+
+    return context

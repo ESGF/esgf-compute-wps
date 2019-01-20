@@ -12,6 +12,7 @@ from wps import helpers
 from wps import models
 from wps import tasks
 from wps import WPSError
+from wps.context import OperationContext
 from wps.backends import backend
 
 __ALL__ = ['EDAS']
@@ -130,22 +131,20 @@ class EDAS(backend.Backend):
     def execute(self, identifier, variable, domain, operation, **kwargs):
         logger.info('Executing process "{}"'.format(identifier))
 
-        params = {
-            'user_id': kwargs.get('user').id,
-            'job_id': kwargs.get('job').id
-        }
+        context = OperationContext.from_data_inputs(identifier, variable, domain, operation)
 
-        variable, domain, operation = self.load_data_inputs(variable, domain, operation)
+        context.job = kwargs.get('job')
 
-        operation = operation.values()[0]
+        context.user = kwargs.get('user')
 
-        logger.info('Operation %r', operation)
+        context.process = kwargs.get('process')
 
-        start = tasks.job_started.s(job_id=params['job_id']).set(**helpers.DEFAULT_QUEUE)
+        start = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
 
-        submit = tasks.edas_submit.si(variable.values(), operation.domain,
-                                      operation, **params).set(**helpers.EDASK_QUEUE)
+        process = tasks.edas_submit.s().set(**helpers.EDASK_QUEUE)
 
-        canvas = start | submit
+        succeeded = tasks.job_succeeded.s().set(**helpers.EDASK_QUEUE)
+
+        canvas = start | process | succeeded
 
         canvas.delay()

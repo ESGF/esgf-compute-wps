@@ -44,3 +44,5 @@ data:
     wps.edas.enabled={{ .Values.edask.enabled }}
     wps.edas.host={{ .Release.Name }}-edask
     wps.edas.timeout={{ .Values.edask.timeout }}
+    timeout.queue={{ .Values.edask.timeout.queue }}
+    timeout.execute={{ .Values.edask.timeout.execute }}
