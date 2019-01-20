@@ -217,6 +217,8 @@ edask:
       memory: 512M
 
   scheduler:
+    address: handy-abalone-edask-scheduler.default.svc:8786
+
     replicas: 1
 
     resources:

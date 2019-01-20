@@ -2,4 +2,4 @@
 
 source activate edask
 
-exec python server.py
+python server.py
