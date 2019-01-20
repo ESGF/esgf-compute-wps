@@ -58,6 +58,8 @@ read -p "Build images for branch \"${BRANCH}\" [ENTER]: "
 
 CONDA_PACKAGE=$(conda search -c cdat esgf-compute-api=${VERSION} | tail -n1 | tr -s " " | cut -d " " -f 1-3 | tr -s " " "=")
 
+[[ ${PUSH} -eq 1 ]] && docker login
+
 sed -i "s|\(.*\)esgf-compute-api.*|\1${CONDA_PACKAGE}|" docker/common/environment.yml
 
 docker build ${DOCKER_ARGS} -t jasonb87/cwt_common:${VERSION} -f docker/common/Dockerfile .
