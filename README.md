@@ -1,7 +1,7 @@
 # ESGF Compute WPS
 
 ESGF Compute is a Django application capable of providing compute resources to
-the ESGF data stack. It leverages the 1.0.0 version of the [Web Processing Service](http://www.opengeospatial.org/standards/wps>) (WPS)
+the ESGF data stack. It leverages the 1.0.0 version of the [Web Processing Service](http://www.opengeospatial.org/standards/wps) (WPS)
 standard to process compute requests.
 
 # Contribute
