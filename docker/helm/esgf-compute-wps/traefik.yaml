@@ -1,37 +1,57 @@
 serviceType: NodePort
 
-# Entrypoint SSL
-#ssl:
-#  enabled: true
-#  enforced: true
-#  defaultCert:
-#  defaultKey: 
-
 cpuLimit: 200m
 memoryLimit: 256Mi
 
 rbac:
   enabled: true
 
+ssl:
+  enabled: true
+  enforced: true
+  tlsMinVersion: VersionTLS12
+  cipherSuites:
+  - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+  - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+  - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+  - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+  - TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+  - TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
+  - TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+  - TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+  - TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+  - TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+  - TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
+
+acme:
+  enabled: true
+  email: admin.aims2@llnl.gov
+  domains:
+    enabled: true
+    domainsList:
+    - main: aims2.llnl.gov
+  persistence:
+    existingClaim: traefik-pvc
+
+dashboard:
+  enabled: true
+  domain: ""
+  ingress:
+    annotations:
+      traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
+
+metrics:
+  prometheus:
+    enabled: true
+
 deployment:
   hostPort:
     httpEnabled: true
     httpsEnabled: true
 
-dashboard:
-  enabled: true
-  domain: ""
-
-  # Dashboard Authentication
-  # See for accepted passwords: https://docs.traefik.io/configuration/entrypoints/#basic-authentication
-  # Should be K/V pair e.g. user01: password
-  #auth:
-  #  basic:
-
-  ingress:
-    annotations:
-      traefik.frontend.rule.type: PathPrefixStrip
-      ingress.kubernetes.io/ssl-redirect: "true"
-      ingress.kubernetes.io/hsts-max-age: "31536000"
-      ingress.kubernetes.io/hsts-include-subdomains: "true"
-      ingress.kubernetes.io/force-hsts: "true"

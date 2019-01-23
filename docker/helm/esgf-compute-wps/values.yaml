@@ -207,7 +207,9 @@ edask:
   image: jasonb87/cwt_edask
   imageTag: latest
 
-  timeout: 120
+  timeout:
+    queue: 30
+    execute: 300
 
   resources:
     limits:
@@ -215,6 +217,8 @@ edask:
       memory: 512M
 
   scheduler:
+    address: handy-abalone-edask-scheduler.default.svc:8786
+
     replicas: 1
 
     resources:

@@ -306,12 +306,18 @@ class OperationContext(object):
         except IndexError:
             raise WPSError('Unable to find operation {!r}', identifier)
 
+        logger.info('Target operation %r', target_op)
+
         target_domain = domain.get(target_op.domain, None)
+
+        logger.info('Target domain %r', target_domain)
 
         try:
             target_inputs = [VariableContext(variable[x]) for x in target_op.inputs]
         except KeyError as e:
             raise WPSError('Missing variable with name {!r}', str(e))
+
+        logger.info('Target inputs %r', target_inputs)
 
         return cls(target_inputs, target_domain, target_op)
 
