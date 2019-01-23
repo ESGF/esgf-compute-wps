@@ -60,10 +60,13 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=False):
 
         token.update(new_token)
 
+    logger.info('Attempting to get CSRF token from server')
+
     # Grab a CSRF token
     try:
         slcs.get(cert_url, verify=False, headers=headers)
     except Exception:
+        logger.exception('CSRF Token grab')
         pass
 
     try:
