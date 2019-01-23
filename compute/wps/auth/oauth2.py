@@ -55,13 +55,6 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=False):
         'Referer': 'same-origin',
     }
 
-    if refresh:
-        new_token = slcs.refresh_token(refresh_url, headers=headers, verify=False)
-
-        token.update(new_token)
-
-    logger.info('Attempting to get CSRF token from server')
-
     # Grab a CSRF token
     try:
         response = slcs.get(cert_url, verify=False, headers=headers)
@@ -73,6 +66,13 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=False):
         csrftoken = slcs.cookies['csrftoken']
 
     headers['X-CSRFToken'] = csrftoken
+
+    if refresh:
+        new_token = slcs.refresh_token(refresh_url, headers=headers, verify=False)
+
+        token.update(new_token)
+
+    logger.info('Attempting to get CSRF token from server')
 
     try:
         response = slcs.post(cert_url,
