@@ -64,10 +64,15 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=False):
 
     # Grab a CSRF token
     try:
-        slcs.get(cert_url, verify=False, headers=headers)
+        response = slcs.get(cert_url, verify=False, headers=headers)
     except Exception:
         logger.exception('CSRF Token grab')
-        pass
+
+        csrftoken = None
+    else:
+        csrftoken = slcs.cookies['csrftoken']
+
+    headers['X-CSRFToken'] = csrftoken
 
     try:
         response = slcs.post(cert_url,
