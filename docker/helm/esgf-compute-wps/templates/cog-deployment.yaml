@@ -30,10 +30,10 @@ spec:
         resources: {{ $.Values.cog.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         args:
-          - {{ .Values.cog.host | quote }}
+          - {{ .Values.wps.host | quote }}
           - "false"
           - "true"
-          - "https://{{ .Values.host }}/wps/home/configure"
+          - "https://{{ .Values.wps.host }}/wps/home/configure"
           - "true"
         ports:
         - containerPort: 8000
