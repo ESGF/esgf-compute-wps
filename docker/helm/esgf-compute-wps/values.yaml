@@ -113,13 +113,13 @@ wps:
 
 celery:
   image: jasonb87/cwt_celery
-  imageTag: 2.1.0
+  imageTag: devel
   metrics: /metrics
 
   resources:
     limits:
-      cpu: 250m
-      memory: 256M
+      cpu: 512m
+      memory: 512M
 
   queues:
   - name: ingress
@@ -155,7 +155,7 @@ thredds:
 
   resources:
     limits:
-      cpu: 250m
+      cpu: 1
       memory: 2G
 
   ingress:
@@ -235,14 +235,14 @@ edask:
         memory: 512M
 
 cog:
-  enabled: false
+  enabled: true
   replicas: 1
   image: jasonb87/cwt_cog
   imageTag: latest
 
   resources:
     limits:
-      cpu: 100m
+      cpu: 1
       memory: 512M
 
   ingress:
