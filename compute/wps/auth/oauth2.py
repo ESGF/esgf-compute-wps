@@ -47,16 +47,21 @@ def get_certificate(token, state, refresh_url, cert_url):
     if cert_url[-1] != '/':
         cert_url = '{}/'.format(cert_url)
 
+    headers = {
+        'Referer': 'same-origin',
+    }
+
     # Grab a CSRF token
     try:
-        slcs.get(cert_url, verify=False)
+        slcs.get(cert_url, verify=False, headers=headers)
     except Exception:
         pass
 
     try:
         response = slcs.post(cert_url,
                              data={ 'certificate_request': b64encode(cert_request) },
-                             verify=False)
+                             verify=False,
+                             headers=headers)
     except Exception:
         raise OAuth2Error('Failed to contact authentication server.')
 

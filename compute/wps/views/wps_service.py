@@ -393,15 +393,15 @@ def wps_entrypoint(request):
     try:
         response = handle_request(request)
     except WPSExceptionError as e:
-        logger.exception('WSPExceptionError')
+        logger.exception('WSPExceptionError %r %r', request.method, request.path)
 
         response = e.report
     except WPSError as e:
-        logger.exception('WPSError')
+        logger.exception('WPSError %r %r', request.method, request.path)
 
         response = wps_util.exception_report(settings, str(e), cwt.ows.NoApplicableCode)
     except Exception as e:
-        logger.exception('Some generic exception')
+        logger.exception('Some generic exception %r %r', request.method, request.path)
 
         error = 'Please copy the error and report on Github: {}'.format(str(e))
 
