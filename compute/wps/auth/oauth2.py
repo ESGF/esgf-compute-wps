@@ -4,8 +4,10 @@ import logging
 import os
 from base64 import b64encode
 
-from django.conf import settings
+import requests
 from OpenSSL import crypto
+from django.conf import settings
+from oauthlib.oauth2 import MissingTokenError
 from requests_oauthlib import OAuth2Session
 
 logger = logging.getLogger('wps.auth.oauth2')
@@ -19,24 +21,18 @@ def get_env(key):
     except KeyError:
         raise OAuth2Error('Environment variable "{}" has not been set'.format(key))
 
-def get_certificate(token, state, refresh_url, cert_url, refresh=False):
+def get_certificate(token, state, refresh_url, cert_url, refresh=None):
     client_id = get_env('OAUTH_CLIENT')
 
     secret = get_env('OAUTH_SECRET')
 
     slcs = OAuth2Session(client_id,
                          token=token,
-                         state=state)
-
-    #slcs = OAuth2Session(client_id,
-    #                     token=token,
-    #                     state=state,
-    #                     auto_refresh_url=refresh_url,
-    #                     auto_refresh_kwargs = {
-    #                                            'client_id': client_id,
-    #                                            'client_secret': secret,
-    #                                           },
-    #                     token_updater = lambda t: token.update(t))
+                         state=state,
+                         auto_refresh_kwargs={
+                             'client_id': client_id,
+                             'client_secret': secret,
+                         })
 
     key_pair = crypto.PKey()
     key_pair.generate_key(crypto.TYPE_RSA, 2048)
@@ -52,23 +48,39 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=False):
         cert_url = '{}/'.format(cert_url)
 
     headers = {
-        'Referer': 'same-origin',
+        'Referer': refresh_url,
     }
+
+    logger.info('Grabbing CSRF Token')
 
     # Grab a CSRF token
     try:
-        response = slcs.get(cert_url, verify=False, headers=headers)
+        response = slcs.get(refresh_url, verify=False, headers=headers, withhold_token=True)
     except Exception:
         logger.exception('CSRF Token grab')
 
-        csrftoken = None
+        pass
     else:
         csrftoken = slcs.cookies['csrftoken']
 
-    headers['X-CSRFToken'] = csrftoken
+        headers['X-CSRFToken'] = csrftoken
 
-    if refresh:
-        new_token = slcs.refresh_token(refresh_url, headers=headers, verify=False)
+    if refresh is not None:
+        logger.info('Refreshing token')
+
+        refresh_headers = headers.copy()
+
+        refresh_headers['Accept'] = 'application/json'
+        
+        refresh_headers['Content-Type'] = ('application/x-www-form-urlencoded;charset=UTF-8')
+
+        try:
+            new_token = slcs.refresh_token(refresh_url,
+                                           headers=refresh_headers,
+                                           verify=False)
+        except MissingTokenError:
+            # TODO determine why refreshing tokens doesn't always work
+            raise OAuth2Error('Refreshing token failed, try re-authenticating')
 
         token.update(new_token)
 
