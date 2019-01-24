@@ -1,7 +1,3 @@
-image:
-  repository: docker.elastic.co/elasticsearch/elasticsearch-oss
-  tag: 6.5.1
-
 cluster:
   env:
     MINIMUM_MASTER_NODES: "1"
@@ -12,5 +8,11 @@ client:
 master:
   replicas: 2
 
+  persistence:
+    storageClass: local-storage
+
 data:
   replicas: 1
+
+  persistence:
+    storageClass: local-storage
