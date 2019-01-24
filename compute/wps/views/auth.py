@@ -88,18 +88,31 @@ def send_welcome_mail(user):
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def authorization(request):
-    try:
-        proto = request.META['HTTP_X_FORWARDED_PROTO']
-
-        host = request.META['HTTP_X_FORWARDED_HOST']
-
-        uri = request.META['HTTP_X_FORWARDED_URI']
-    except KeyError as e:
-        raise WPSError('Could not reconstruct forwarded url, missing {!s}', e)
-
-    forward = '{!s}://{!s}{!s}'.format(proto, host, uri)
-
     if not request.user.is_authenticated:
+        try:
+            proto = request.META['HTTP_X_FORWARDED_PROTO']
+
+            host = request.META['HTTP_X_FORWARDED_HOST']
+
+            uri = request.META['HTTP_X_FORWARDED_URI'].strip('/')
+        except KeyError as e:
+            raise WPSError('Could not reconstruct forwarded url, missing {!s}', e)
+
+        prefix = request.META.get('HTTP_X_FORWARDED_PREFIX', '').strip('/')
+
+        logger.info('PROTO %r', proto)
+        logger.info('HOST %r', host)
+        logger.info('URI %r', uri)
+        logger.info('PREFIX %r', prefix)
+
+        forward = '{!s}://{!s}'.format(proto, host)
+
+        if uri != '':
+            forward = '{!s}/{!s}'.format(forward, uri)
+
+        if prefix != '':
+            forward = '{!s}/{!s}'.format(forward, prefix)
+
         redirect_url = '{!s}?next={!s}'.format(settings.WPS_LOGIN_URL, forward)
 
         return http.HttpResponseRedirect(redirect_url)
