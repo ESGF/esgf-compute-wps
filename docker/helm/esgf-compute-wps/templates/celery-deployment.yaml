@@ -45,7 +45,7 @@ spec:
   {{- printf "- \"100000000\"" | nindent 10 }}
 {{- end }}
           - "-n"
-          - {{ .name | quote }}
+          - "$(HOSTNAME)"
         {{- range $key, $value := .argsExtra }}
           - {{ $key | quote }}
           - {{ $value | quote }}
@@ -91,6 +91,10 @@ spec:
         - name: CWT_METRICS
           value: {{ $.Values.celery.metrics | quote }}
         {{- end }}
+        - name: HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: WPS_HOST
           valueFrom:
             configMapKeyRef:
