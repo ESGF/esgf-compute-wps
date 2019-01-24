@@ -13,9 +13,14 @@ ingress:
 
   path: /grafana
 
+persistence:
+  enabled: true
+  existingClaim: grafana
+  subPath: grafana
+
 grafana.ini:
   server:
-    root_url: https://192.168.39.34/grafana/
+    root_url: https://aims2.llnl.gov/grafana/
   paths:
     data: /var/lib/grafana/data
     logs: /var/log/grafana
