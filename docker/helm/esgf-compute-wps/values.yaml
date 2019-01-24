@@ -66,13 +66,13 @@ nginx:
 wps:
   replicas: 1
   image: jasonb87/cwt_wps
-  imageTag: 2.1.0
-  host: 192.168.39.34
-  externalHost: https://192.168.39.34
+  imageTag: devel
+  host: aims2.llnl.gov
+  externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
 
   prometheus:
-    host: odd-sheep-prometheus-server.default.svc
+    host: mottled-mouse-prometheus-server.default.svc
 
   annotations:
     prometheus.io/scrape: "true"
@@ -81,8 +81,8 @@ wps:
 
   resources:
     limits:
-      cpu: 250m
-      memory: 256M
+      cpu: 500m
+      memory: 512M
 
   worker:
     cpuCount: 3
@@ -118,7 +118,7 @@ celery:
 
   resources:
     limits:
-      cpu: 512m
+      cpu: 500m
       memory: 512M
 
   queues:
@@ -213,11 +213,11 @@ edask:
 
   resources:
     limits:
-      cpu: 200m
-      memory: 512M
+      cpu: 1
+      memory: 1G
 
   scheduler:
-    address: handy-abalone-edask-scheduler.default.svc:8786
+    address: innocent-deer-edask-scheduler.default.svc:8786
 
     replicas: 1
 
