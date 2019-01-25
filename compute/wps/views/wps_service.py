@@ -8,6 +8,7 @@ import cwt
 import django
 from django import http
 from django.conf import settings
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
@@ -443,3 +444,7 @@ def status(request, job_id):
         raise WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
 
     return http.HttpResponse(job.report, content_type='text/xml')
+
+@require_http_methods(['GET'])
+def ping(request):
+    return http.HttpResponse('pong')

@@ -6,6 +6,7 @@ from django.contrib import admin
 import views
 
 urlpatterns = [
+    url(r'^ping/?', views.ping),
     url(r'^armstrong/', include('grappelli.urls')),
     url(r'^neil/', admin.site.urls),
     url(r'^$', views.wps_entrypoint),
