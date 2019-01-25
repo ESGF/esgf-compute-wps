@@ -1,3 +1,19 @@
-elasticsearch:
-  host: intent-hedgehog-elasticsearch-client.default.svc
-  port: 9200
+backend:
+  type: es
+
+  es:
+    host: operatic-whale-elasticsearch-client.default.svc
+
+extraVolumeMounts:
+- name: opt-docker
+  mountPath: /opt/docker/data/containers
+  readOnly: true
+
+extraVolumes:
+- name: opt-docker
+  hostPath: 
+    path: /opt/docker/data/containers
+    type: Directory
+
+metrics:
+  enabled: true

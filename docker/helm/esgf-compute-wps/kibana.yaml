@@ -1,12 +1,8 @@
-image:
-  repository: docker.elastic.co/kibana/kibana-oss
-  tag: 6.5.1
-
 files:
   kibana.yml:
     server.name: kibana
     server.host: 0.0.0.0
-    elasticsearch.url: http://intent-hedgehog-elasticsearch-client.default.svc:9200
+    elasticsearch.url: http://operatic-whale-elasticsearch-client.default.svc:9200
     server.basePath: /kibana
 
 service:
