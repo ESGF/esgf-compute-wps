@@ -13,7 +13,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/cwt
+    path: /opt/docker/persistence
     type: DirectoryOrCreate
 ---
 kind: PersistentVolumeClaim
