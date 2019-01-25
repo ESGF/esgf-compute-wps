@@ -29,5 +29,5 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/cwt/prometheus
+    path: /opt/docker/persistence
     type: DirectoryOrCreate

@@ -22,3 +22,4 @@ server:
   persistentVolume:
     enabled: true
     existingClaim: prometheus-pvc
+    subPath: prometheus
