@@ -37,18 +37,18 @@ spec:
         {{- if not $.Values.development }}
         livenessProbe:
           httpGet:
-            path: /wps/
+            path: /wps/ping
             port: 8000
-          initialDelaySeconds: 3
-          periodSeconds: 60
-          timeoutSeconds: 240
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
         readinessProbe:
           httpGet:
-            path: /wps/
+            path: /wps/ping
             port: 8000
-          initialDelaySeconds: 3
-          periodSeconds: 60
-          timeoutSeconds: 240
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
         {{- end }}
         {{- if and $.Values.wps.resources (not $.Values.development) (not $.Values.ignoreResources) }}
         resources: {{ $.Values.wps.resources | toYaml | trimSuffix "\n" | nindent 10 }}

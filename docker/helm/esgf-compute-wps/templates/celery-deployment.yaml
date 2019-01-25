@@ -62,15 +62,17 @@ spec:
             command:
             - bash
             - /healthcheck.sh
-          initialDelaySeconds: 3
-          periodSeconds: 60
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
         readinessProbe:
           exec:
             command:
             - bash
             - /healthcheck.sh
-          initialDelaySeconds: 3
-          periodSeconds: 60
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
         {{- end }}
         {{- if and $.Values.celery.resources (not $.Values.development) (not $.Values.ignoreResources) }}
         resources: {{ $.Values.celery.resources | toYaml | trimSuffix "\n" | nindent 10 }}
