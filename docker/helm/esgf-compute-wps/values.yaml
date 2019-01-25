@@ -118,8 +118,8 @@ celery:
 
   resources:
     limits:
-      cpu: 500m
-      memory: 512M
+      cpu: 1
+      memory: 1G
 
   queues:
   - name: ingress
