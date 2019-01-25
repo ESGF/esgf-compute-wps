@@ -29,5 +29,5 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/cwt/traefik
+    path: /opt/docker/persistence/traefik
     type: DirectoryOrCreate
