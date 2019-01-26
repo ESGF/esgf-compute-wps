@@ -112,7 +112,7 @@ else:
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 
 ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, int, lambda x: datetime.timedelta(days=x))
-INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', True, bool)
+INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
 PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
 ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')

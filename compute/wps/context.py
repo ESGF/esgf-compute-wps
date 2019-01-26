@@ -218,6 +218,8 @@ class OperationContext(object):
 
     @classmethod
     def merge_inputs(cls, contexts):
+        logger.info('Merging %r contexts', len(contexts))
+
         first = contexts[0]
 
         inputs = []
@@ -241,13 +243,17 @@ class OperationContext(object):
 
     @classmethod
     def merge_ingress(cls, contexts):
-        first = contexts.pop()
+        try:
+            first = contexts.pop()
 
-        for index, input in enumerate(first.inputs):
-            for context in contexts:
-                input.ingress.extend(context.inputs[index].ingress)
+            for index, input in enumerate(first.inputs):
+                for context in contexts:
+                    input.ingress.extend(context.inputs[index].ingress)
 
-                input.process.extend(context.inputs[index].process)
+                    input.process.extend(context.inputs[index].process)
+        except AttributeError:
+            # Raised when contexts isn't a list
+            first = contexts
 
         return first
 
@@ -678,6 +684,16 @@ class VariableContext(object):
         return [x for x in range(index, len(self.chunk),
                                  settings.WORKER_PER_USER)]
 
+    def write_cache_segment(self, index, chunk_index, context, data):
+        ingress_filename = '{}_{:08}_{:08}.nc'.format(str(context.job.id), index, chunk_index)
+
+        ingress_path = context.gen_ingress_path(ingress_filename)
+
+        with cdms2.open(ingress_path, 'w') as outfile:
+            outfile.write(data, id=self.variable.var_name)
+
+        self.ingress.append(ingress_path)
+
     def chunks_remote(self, index, context):
         mapped = self.mapped.copy()
 
@@ -688,8 +704,8 @@ class VariableContext(object):
         parts = urlparse.urlparse(self.variable.uri)
 
         with self.open(context.user) as variable:
-            for index in indices:
-                mapped.update({ self.chunk_axis: self.chunk[index] })
+            for chunk_index in indices:
+                mapped.update({ self.chunk_axis: self.chunk[chunk_index] })
 
                 with metrics.WPS_DATA_DOWNLOAD.labels(parts.hostname).time():
                     data = variable(**mapped)
@@ -697,7 +713,10 @@ class VariableContext(object):
                 metrics.WPS_DATA_DOWNLOAD_BYTES.labels(parts.hostname,
                                                        self.variable.var_name).inc(data.nbytes)
 
-                yield self.variable.uri, index, data
+                if not settings.INGRESS_ENABLED:
+                    self.write_cache_segment(index, chunk_index, context, data)
+
+                yield self.variable.uri, chunk_index, data
 
     def chunks_cache(self, index):
         mapped = self.cache_mapped()

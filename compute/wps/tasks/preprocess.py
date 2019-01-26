@@ -27,6 +27,8 @@ logger = get_task_logger('wps.tasks.preprocess')
 def merge(self, contexts):
     context = OperationContext.merge_inputs(contexts)
 
+    logger.info('Merged contexts to %r', context)
+
     return context
 
 def axis_size(data):

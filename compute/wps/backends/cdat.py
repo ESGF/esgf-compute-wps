@@ -85,18 +85,22 @@ class CDAT(backend.Backend):
         tasks_total = 0
 
         for index in range(settings.WORKER_PER_USER):
-            ingress = tasks.ingress_chunk.s(index).set(**helpers.DEFAULT_QUEUE)
+            chain = []
 
-            chain = [ingress,]
+            if settings.INGRESS_ENABLED:
+                ingress = tasks.ingress_chunk.s(index).set(**helpers.DEFAULT_QUEUE)
+
+                chain.append(ingress)
 
             if process_func is not None:
                 process = process_func.s(index).set(**helpers.DEFAULT_QUEUE)
 
                 chain.append(process)
 
-            process_chains.append(celery.chain(*chain))
+            if len(chain) > 0:
+                process_chains.append(celery.chain(*chain))
 
-            tasks_total += len(chain)
+                tasks_total += len(chain)
 
         context.job.step_inc(tasks_total)
 
@@ -132,7 +136,10 @@ class CDAT(backend.Backend):
         else:
             process_chains = self.generate_process_chains(context)
 
-        canvas = preprocess | celery.group(process_chains) | finalize
+        if len(process_chains) > 0:
+            canvas = preprocess | celery.group(process_chains) | finalize
+        else:
+            canvas = preprocess | finalize
 
         canvas.delay()
 
