@@ -413,8 +413,9 @@ class PreprocessTestCase(test.TestCase):
         context.inputs = [input1,]
         context.domain = None
 
-        with self.assertRaises(WPSError):
-            new_context = preprocess.map_domain(context)
+        new_context = preprocess.map_domain(context)
+
+        self.assertEqual(input1.mapped, None)
 
     @mock.patch('wps.tasks.preprocess.map_axis')
     @mock.patch('wps.tasks.preprocess.merge_dimensions')
