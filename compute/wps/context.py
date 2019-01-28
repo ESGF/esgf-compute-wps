@@ -684,8 +684,14 @@ class VariableContext(object):
         return [x for x in range(index, len(self.chunk),
                                  settings.WORKER_PER_USER)]
 
-    def write_cache_segment(self, index, chunk_index, context, data):
-        ingress_filename = '{}_{:08}_{:08}.nc'.format(str(context.job.id), index, chunk_index)
+    def write_cache_segment(self, input_index, index, context, data):
+        if input_index is None:
+            input_index = 0
+
+        if index is None:
+            index = 0
+
+        ingress_filename = '{}_{:08}_{:08}.nc'.format(str(context.job.id), input_index, index)
 
         ingress_path = context.gen_ingress_path(ingress_filename)
 
@@ -694,18 +700,22 @@ class VariableContext(object):
 
         self.ingress.append(ingress_path)
 
-    def chunks_remote(self, index, context):
+    def chunks_remote(self, input_index, index, context):
         mapped = self.mapped.copy()
 
         indices = self.generate_chunks(index)
 
-        logger.info('Generating remote chunks')
+        logger.info('Generating remote chunks for %r', index)
+
+        logger.info('Indices %r chunks %r', indices, self.chunk)
 
         parts = urlparse.urlparse(self.variable.uri)
 
         with self.open(context.user) as variable:
             for chunk_index in indices:
                 mapped.update({ self.chunk_axis: self.chunk[chunk_index] })
+
+                logger.info('Reading %r %r', mapped, self.chunk[chunk_index])
 
                 with metrics.WPS_DATA_DOWNLOAD.labels(parts.hostname).time():
                     data = variable(**mapped)
@@ -714,7 +724,7 @@ class VariableContext(object):
                                                        self.variable.var_name).inc(data.nbytes)
 
                 if not settings.INGRESS_ENABLED:
-                    self.write_cache_segment(index, chunk_index, context, data)
+                    self.write_cache_segment(input_index, index, context, data)
 
                 yield self.variable.uri, chunk_index, data
 
@@ -723,19 +733,21 @@ class VariableContext(object):
 
         indices = self.generate_chunks(index)
 
-        logger.info('Generating cached chunks')
+        logger.info('Generating cached chunks for %r', index)
+
+        logger.info('Indices %r chunks %r', indices, self.chunk)
 
         with self.open_local(self.cache.local_path) as variable:
-            for index in indices:
-                mapped.update({ self.chunk_axis: self.chunk[index] })
+            for chunk_index in indices:
+                mapped.update({ self.chunk_axis: self.chunk[chunk_index] })
 
-                logger.info('Reading %r %r', mapped, self.chunk[index])
+                logger.info('Reading %r %r', mapped, self.chunk[chunk_index])
 
                 data = variable(**mapped)
 
                 metrics.WPS_DATA_CACHE_READ.inc(data.nbytes)
 
-                yield self.cache.local_path, index, data
+                yield self.cache.local_path, chunk_index, data
 
         self.cache.accessed()
 
@@ -744,9 +756,9 @@ class VariableContext(object):
 
         logger.info('Generating ingressed chunks')
 
-        for index, ingress_path in enumerate(ingress):
+        for chunk_index, ingress_path in enumerate(ingress):
             with self.open_local(ingress_path) as variable:
-                yield ingress_path, index, variable()
+                yield ingress_path, chunk_index, variable()
 
     def chunks_process(self):
         process = sorted(self.process)
@@ -757,7 +769,7 @@ class VariableContext(object):
             with self.open_local(process_path) as variable:
                 yield process_path, index, variable()
 
-    def chunks(self, index=None, context=None):
+    def chunks(self, input_index=None, index=None, context=None):
         if len(self.process) > 0:
             gen = self.chunks_process()
         elif len(self.ingress) > 0:
@@ -765,6 +777,6 @@ class VariableContext(object):
         elif self.cache is not None:
             gen = self.chunks_cache(index)
         else:
-            gen = self.chunks_remote(index, context)
+            gen = self.chunks_remote(input_index, index, context)
 
         return gen

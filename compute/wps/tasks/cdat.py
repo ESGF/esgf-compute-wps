@@ -229,9 +229,11 @@ def concat(self, contexts):
 
             # Skip file if not mapped
             if input.mapped is None:
+                logger.info('Skipping %r', input.filename)
+
                 continue
 
-            for file_path, _, chunk in input.chunks(index=index, context=context):
+            for file_path, _, chunk in input.chunks(input_index=index, context=context):
                 logger.info('Chunk shape %r %r', file_path, chunk.shape)
 
                 if chunk_axis is None:
