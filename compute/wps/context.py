@@ -724,7 +724,7 @@ class VariableContext(object):
                                                        self.variable.var_name).inc(data.nbytes)
 
                 if not settings.INGRESS_ENABLED:
-                    self.write_cache_segment(input_index, index, context, data)
+                    self.write_cache_segment(input_index, chunk_index, context, data)
 
                 yield self.variable.uri, chunk_index, data
 
