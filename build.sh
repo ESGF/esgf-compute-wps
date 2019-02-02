@@ -3,7 +3,7 @@
 set -e
 
 function usage {
-  echo "${0} --push --build-edask --build-thredds --build-cog --docker-args=<args>"
+  echo "${0} --push --build-edask --build-thredds --build-cog --docker-args <args> --version <version>"
   echo ""
   echo "Builds docker images for cwt_common, cwt_wps, cwt_celery, cwt_edask,"
   echo "cwt_thredds and cwt_cog."
@@ -14,6 +14,7 @@ function usage {
   echo "      --build-thredds     Build Thredds docker image"
   echo "      --build-cog         Build COG docker image"
   echo "      --docker-args       Arguments to pass to docker build command"
+  echo "      --version           Override version which is normall derived from the branch name"
   echo "  -h, --help              Print usage"
 }
 
@@ -42,6 +43,9 @@ while [[ ${#} -gt 0 ]]; do
     --docker-args)
       DOCKER_ARGS=${1} && shift
       ;;
+    --version)
+      VERSION=${1} && shift
+      ;;
     -h|--help|*)
       usage
 
@@ -52,9 +56,9 @@ done
 
 BRANCH=$(git branch | grep \* | cut -d " " -f 2)
 
-VERSION=${BRANCH##*/}
+[[ -z "${VERSION}" ]]  && VERSION=${BRANCH##*/}
 
-read -p "Build images for branch \"${BRANCH}\" [ENTER]: "
+read -p "Build images based on branch \"${BRANCH}\" tagged as version \"${VERSION}\" [ENTER]: "
 
 CONDA_PACKAGE=$(conda search -c cdat esgf-compute-api=${VERSION} | tail -n1 | tr -s " " | cut -d " " -f 1-3 | tr -s " " "=")
 
