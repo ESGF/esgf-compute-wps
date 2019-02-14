@@ -21,3 +21,7 @@ spec:
         backend:
           serviceName: {{ .Release.Name }}-wps
           servicePort: 8000
+      - path: /
+        backend:
+          serviceName: {{ .Release.Name }}-wps
+          servicePort: 8000

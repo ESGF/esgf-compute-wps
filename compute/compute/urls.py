@@ -17,10 +17,12 @@ from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls import include
 from django.conf.urls.static import static
+from django.views.generic.base import RedirectView
 
 urlpatterns = [
     url(r'^auth/', include('wps.urls_auth')),
     url(r'^wps/?', include('wps.urls')),
+    url(r'^$', RedirectView.as_view(url='/wps/home', permanent=False)),
 ]
 
 #if settings.DEBUG:
