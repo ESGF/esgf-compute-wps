@@ -1,64 +1,115 @@
-pipeline {
-  agent any;
-  
-  stages {
-    stage('Build frontend') {
-      steps {
-        checkout scm
-
-        dir('compute/wps/webapp') {
-          sh 'yarn install'
-
-          sh './node_modules/.bin/webpack --config config/webpack.prod.js'
-        }
-      }
-    }
-
-    stage('Install dependencies') {
-      steps {
-        sh '''#! /bin/bash
-          export
-        
-          conda env create -n wps-${NODE_NAME} --file docker/common/environment.yml
-
-          source activate wps-${NODE_NAME}
-
-          conda install -c conda-forge gunicorn=19.3.0
-          
-          pip install django-webpack-loader bjoern
-
-          pip install -r compute/wps/tests/requirements.txt
-        '''
-          
-        sh '''#! /bin/bash
-          export WPS_TEST=1
-          export DJANGO_CONFIG_PATH=${PWD}/docker/common/django.properties
-
-          source activate wps-${NODE_NAME}
-
-          cd compute
-
-          python manage.py test --with-xunit --xunit-file ../xunit.xml --with-coverage --cover-xml --cover-xml-file ../coverage.xml --cover-package=wps
-
-          sed 's/skip=/skipped=/' -i.bak ../xunit.xml
-        '''
-      }
-    }
+node('build-pod') {
+  stage('Checkout') {
+    checkout scm
   }
 
-  post {
-    always {
-      sh 'conda env remove -y -n wps-${NODE_NAME}'
-        
-      archiveArtifacts 'xunit.xml'
+  stage('Test Django app') {
+    container('conda') {
+      sh "conda env create -p ${HOME}/wps -f docker/common/environment.yml"
 
-      archiveArtifacts 'coverage.xml'
+      sh ''' #!/bin/bash
+      . /opt/conda/etc/profile.d/conda.sh
+
+      conda activate ${HOME}/wps
+
+      conda install -y -c conda-forge flake8
+
+      pip install -r compute/wps/tests/requirements.txt
+
+      mkdir -p /var/log/cwt
+      '''
+
+      sh ''' #!/bin/bash
+      . /opt/conda/etc/profile.d/conda.sh
+
+      conda activate ${HOME}/wps
+
+      WPS_TEST=1 DJANGO_CONFIG_PATH=${WORKSPACE}/docker/common/django.properties \
+      python ${WORKSPACE}/compute/manage.py test ${WORKSPACE}/compute/wps/tests \
+      --with-xunit --xunit-file nosetests.xml \
+      --with-coverage --cover-tests --cover-package wps --cover-xml --cover-xml-file cover.xml
+
+      flake8 --format=pylint --output-file=flake8.xml --exit-zero
+
+      sed -i 's/ skip="[^"]*"//g' nosetests.xml
+      '''
+
+      archiveArtifacts 'nosetests.xml'
+
+      archiveArtifacts 'cover.xml'
+
+      archiveArtifacts 'flake8.xml'
+
+      xunit([JUnit(deleteOutputFiles: true, failIfNotNew: true, pattern: 'nosetests.xml', skipNoTestFiles: true, stopProcessingIfError: true)])
+
+      cobertura(coberturaReportFile: 'cover.xml')
+
+      def flake8 = scanForIssues filters: [
+        excludeFile('.*manage.py'), 
+        excludeFile('.*compute/scripts.*'),
+        excludeFile('.*compute/wps/migrations.*')
+      ], tool: flake8(pattern: 'flake8.xml')
+
+      publishIssues issues: [flake8], filters: [includePackage('wps')]
+    }   
+  }
+
+  stage('Build docker images') {
+    def parts = env.BRANCH_NAME.split('/')
+
+    env.TAG = parts[parts.length-1]
+
+    container(name: 'kaniko', shell: '/busybox/sh') {
+      sh '''#!/busybox/sh
+        /kaniko/executor --cache --cache-dir=/cache --context=`pwd` \
+        --destination=${LOCAL_REGISTRY}/common:${TAG} \
+        --dockerfile `pwd`/docker/common/Dockerfile --insecure-registry \
+        ${LOCAL_REGISTRY}
+      '''
     }
 
-    success {
-      xunit testTimeMargin: '3000', thresholdMode: 1, thresholds: [], tools: [JUnit(deleteOutputFiles: true, failIfNotNew: true, pattern: 'xunit.xml', skipNoTestFiles: true, stopProcessingIfError: true)]
+    container('dind') {
+      sh ''' #!/bin/bash
+      docker pull ${LOCAL_REGISTRY}/common:${TAG}
 
-      cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '70, 0, 0', failUnhealthy: false, failUnstable: false, lineCoverageTargets: '80, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '80, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
-    }    
+      docker tag ${LOCAL_REGISTRY}/common:${TAG} jasonb87/cwt_common:${TAG}
+
+      docker push jasonb87/cwt_common:${TAG}
+      '''
+    }
+
+    container(name: 'kaniko', shell: '/busybox/sh') {
+      sh '''#!/busybox/sh
+        /kaniko/executor --cache --cache-dir=/cache --context=`pwd` \
+        --destination=${LOCAL_REGISTRY}/wps:${TAG} \
+        --dockerfile `pwd`/docker/wps/Dockerfile --insecure-registry \
+        ${LOCAL_REGISTRY}
+      '''
+
+        sh '''#!/busybox/sh
+        /kaniko/executor --cache --cache-dir=/cache --context=`pwd` \
+        --destination=${LOCAL_REGISTRY}/celery:${TAG} \
+        --dockerfile `pwd`/docker/celery/Dockerfile --insecure-registry \
+        ${LOCAL_REGISTRY}
+      '''
+    }
+
+    container('dind') {
+      sh ''' #!/bin/bash
+      docker pull ${LOCAL_REGISTRY}/wps:${TAG}
+
+      docker tag ${LOCAL_REGISTRY}/wps:${TAG} jasonb87/cwt_wps:${TAG}
+
+      docker push jasonb87/cwt_wps:${TAG}
+      '''
+
+      sh ''' #!/bin/bash
+      docker pull ${LOCAL_REGISTRY}/celery:${TAG}
+
+      docker tag ${LOCAL_REGISTRY}/celery:${TAG} jasonb87/cwt_celery:${TAG}
+
+      docker push jasonb87/cwt_celery:${TAG}
+      '''
+    }
   }
 }
