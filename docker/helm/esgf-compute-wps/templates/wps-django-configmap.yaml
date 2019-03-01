@@ -22,18 +22,18 @@ data:
     [wps]
     title={{ .Values.wps.title }}
     abstract={{ .Values.wps.abstract }}
-    keywords={{ .Values.wps.keywords | join ',' }}
+    keywords={{ .Values.wps.keywords | join "," }}
     provider.name={{ .Values.wps.provider.name }}
     provider.site={{ .Values.wps.provider.site }}
-    contact.name={{ .Values.wps.contact.name | default 'Unknown' }}
-    contact.position={{ .Values.wps.contact.position | default 'Unknown' }}
-    contact.phone={{ .Values.wps.contact.phone | default 'Unknown' }}
-    address.delivery={{ .Values.wps.address.delivery | default 'Unknwon' }}
-    address.city={{ .Values.wps.address.city | default 'Unknwon' }}
-    address.area={{ .Values.wps.address.area | default 'Unknwon' }}
-    address.postal={{ .Values.wps.address.postal | default 'Unknwon' }}
-    address.country={{ .Values.wps.address.country | default 'Unknwon' }}
-    address.email={{ .Values.wps.address.email | default 'Unknwon' }}
+    contact.name={{ .Values.wps.contact.name | default "Unknown" }}
+    contact.position={{ .Values.wps.contact.position | default "Unknown" }}
+    contact.phone={{ .Values.wps.contact.phone | default "Unknown" }}
+    address.delivery={{ .Values.wps.address.delivery | default "Unknwon" }}
+    address.city={{ .Values.wps.address.city | default "Unknwon" }}
+    address.area={{ .Values.wps.address.area | default "Unknwon" }}
+    address.postal={{ .Values.wps.address.postal | default "Unknwon" }}
+    address.country={{ .Values.wps.address.country | default "Unknwon" }}
+    address.email={{ .Values.wps.address.email | default "Unknwon" }}
 
     [email]
     host={{ .Values.wps.email.host }}
