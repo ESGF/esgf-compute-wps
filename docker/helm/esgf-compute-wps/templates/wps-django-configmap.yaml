@@ -18,6 +18,17 @@ data:
     worker.cpu_units={{ .Values.wps.worker.cpuUnits }}
     worker.memory={{ .Values.wps.worker.memory }}
     worker.user_percent={{ .Values.wps.worker.userPercent }}
+    celery.broker={{ template "redis.fullname" . }}-master:6379/0
+    celery.backend={{ template "redis.fullname" . }}-master:6379/0
+
+    [email]
+    host={{ .Values.wps.email.host }}
+    port={{ .Values.wps.email.port }}
+    user={{ .Values.wps.email.user }}
+    password={{ .Values.wps.email.password }}
+
+    [metrics]
+    host=http://{{ .Values.wps.prometheus.host }}/prometheus/api/v1/query
 
     [wps]
     title={{ .Values.wps.title }}
@@ -35,16 +46,12 @@ data:
     address.country={{ .Values.wps.address.country | default "Unknwon" }}
     address.email={{ .Values.wps.address.email | default "Unknwon" }}
 
-    [email]
-    host={{ .Values.wps.email.host }}
-    port={{ .Values.wps.email.port }}
-    user={{ .Values.wps.email.user }}
-    password={{ .Values.wps.email.password }}
+    wps.ingress_path={{ .Values.wps.ingressPath }}
+    wps.public_path={{ .Values.wps.publicPath }}
+    wps.ca.path={{ .Values.wps.caPath }}
+    wps.user.temp.path={{ .Values.userTempPath }}
 
-    [metrics]
-    host=http://{{ .Values.wps.prometheus.host }}/prometheus/api/v1/query
-
-    [wps]
+    wps.admin.email={{ .Values.wps.adminEmail | default "Unknown" }}
     wps.endpoint={{ .Values.wps.externalHost }}/wps/
     wps.execute_url={{ .Values.wps.externalHost }}/wps/execute/
     wps.status_location={{ .Values.wps.externalHost }}/wps/status/{job_id}/

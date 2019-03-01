@@ -71,6 +71,13 @@ wps:
   externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
 
+  ingress_path: /data/ingress
+  public_path: /data/public
+  caPath: /tmp/certs/ca
+  userTempPath: /data/ingress 
+
+  adminEmail:
+
   title: "LLNL WPS Server"
   abstract: "LLNL WPS Compute Service"
   keywords:

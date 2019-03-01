@@ -169,9 +169,8 @@ WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email')
 
 # Data paths
 WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path')
-WPS_PUBLIC_PATH = config.get_value('wps', 'wps.public_path')
+WPS_PUBLIC_PATH = WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.public_path')
 WPS_CA_PATH = config.get_value('wps', 'wps.ca.path')
-WPS_PUBLIC_PATH = WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path')
 WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.user.temp.path')
 
 WPS_CACHE_PATH = config.get_value('cache', 'wps.cache.path', '/data/cache')
