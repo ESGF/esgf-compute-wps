@@ -387,7 +387,10 @@ class Process(models.Model):
         unique_together = (('identifier', 'version'),)
 
     def decode_metadata(self):
-        return json.loads(self.metadata)
+        try:
+            return json.loads(self.metadata)
+        except ValueError:
+            return {}
 
     def track(self, user):
         user_process_obj, _ = UserProcess.objects.get_or_create(user=user, process=self)

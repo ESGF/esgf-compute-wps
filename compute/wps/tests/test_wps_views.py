@@ -89,7 +89,7 @@ class WPSViewsTestCase(test.TestCase):
 
         response = self.client.get('/wps/', data)
 
-        expected = '<?xml version="1.0" ?><ows:ExceptionReport version="1.0.0" xmlns:ows="http://www.opengis.net/ows/1.1"><ows:Exception exceptionCode="MissingParameterValue"><ows:ExceptionText>api_key</ows:ExceptionText></ows:Exception></ows:ExceptionReport>'
+        expected = 'ows:ExceptionReport'
 
         self.assertContains(response, expected)
 
@@ -121,7 +121,6 @@ class WPSViewsTestCase(test.TestCase):
         data = {
             'service': 'WPS',
             'request': 'GetCapabilities',
-            'identifier': 'CDAT.subset',
         }
 
         response = self.client.get('/wps/', data)
@@ -179,33 +178,6 @@ class WPSViewsTestCase(test.TestCase):
 
         self.assertIn('text', data) 
         self.assertIn('filename', data)
-
-    def test_regen_capabilities_missing_authentication(self):
-        response = self.client.get('/wps/regen_capabilities/')
-
-        helpers.check_failed(self, response)
-
-    def test_regen_capabilities_missing_authorization(self):
-        user = models.User.objects.first()
-
-        self.client.login(username=user.username, password=user.username)
-
-        response = self.client.get('/wps/regen_capabilities/')
-
-        helpers.check_failed(self, response)
-
-    def test_regen_capabilities(self):
-        user = models.User.objects.first()
-
-        user.is_superuser = True
-
-        user.save()
-
-        self.client.login(username=user.username, password=user.username)
-
-        response = self.client.get('/wps/regen_capabilities/')
-
-        helpers.check_success(self, response)
 
     def test_status_job_does_not_exist(self):
         with self.assertRaises(wps_service.WPSError) as e:

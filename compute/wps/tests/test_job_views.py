@@ -42,7 +42,7 @@ class JobViewsTestCase(test.TestCase):
     def test_job_no_status(self):
         server = models.Server.objects.get(host='default')
 
-        process = models.Process.objects.create(identifier='CDAT.test', backend='Local')
+        process = models.Process.objects.create(identifier='CDAT.test', backend='Local', version='devel')
 
         job = models.Job.objects.create(server=server, user=self.user, process=process)
 
