@@ -21,7 +21,7 @@ from wps import metrics
 from wps import models
 from wps import AccessError
 from wps import WPSError
-from wps.util import wps as wps_util
+from wps.util import wps_response
 
 logger = get_task_logger('wps.tasks.base')
 
@@ -96,7 +96,7 @@ class CWTBaseTask(celery.Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         if len(args) > 0 and isinstance(args[0], (context.OperationContext, context.WorkflowOperationContext)):
-            args[0].job.failed(wps_util.exception_report(wps_util.NoApplicableCode, str(exc)))
+            args[0].job.failed(wps_response.exception_report(wps_response.NoApplicableCode, str(exc)))
 
             from wps.tasks import job
 

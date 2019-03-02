@@ -1,6 +1,6 @@
 import os
 
-from wps.util import wps as wps_util
+from wps.util import wps_response
 
 os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
 
@@ -11,7 +11,7 @@ class WPSError(Exception):
         self.code = kwargs.get('code', None)
 
         if self.code is None:
-            self.code = wps_util.NoApplicableCode
+            self.code = wps_response.NoApplicableCode
 
         super(WPSError, self).__init__(text.format(*args, **kwargs))
 

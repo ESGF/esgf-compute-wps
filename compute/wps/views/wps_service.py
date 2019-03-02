@@ -22,7 +22,7 @@ from wps import metrics
 from wps import models
 from wps import tasks
 from wps import WPSError
-from wps.util import wps as wps_util
+from wps.util import wps_response
 
 logger = common.logger
 
@@ -178,7 +178,7 @@ def get_parameter(params, name, required=True):
     if name.lower() not in temp:
         logger.info('Missing required parameter %s', name)
 
-        raise WPSError(name.lower(), code=wps_util.MissingParameterValue)
+        raise WPSError(name.lower(), code=wps_response.MissingParameterValue)
 
     param = temp.get(name.lower())
 
@@ -191,7 +191,7 @@ def handle_get_capabilities():
     try:
         server = models.Server.objects.get(host='default')
 
-        data = wps_util.get_capabilities(server.processes.all())
+        data = wps_response.get_capabilities(server.processes.all())
     except Exception as e:
         raise WPSError('{}', e)
 
@@ -203,7 +203,7 @@ def handle_describe_process(identifiers):
 
         processes = server.processes.filter(identifier__in=identifiers)
 
-        data = wps_util.describe_process(processes)
+        data = wps_response.describe_process(processes)
     except Exception as e:
         raise WPSError('{}', e)
 
@@ -228,9 +228,9 @@ def handle_execute(api_key, identifier, data_inputs):
         try:
             data = json.loads(data_inputs[id])
         except KeyError as e:
-            raise WPSError('{}', id, code=wps_util.MissingParameterValue)
+            raise WPSError('{}', id, code=wps_response.MissingParameterValue)
         except ValueError:
-            raise WPSError('{}', id, code=wps_util.InvalidParameterValue)
+            raise WPSError('{}', id, code=wps_response.InvalidParameterValue)
 
         if id == 'variable':
             data = [cwt.Variable.from_dict(x) for x in data]
@@ -386,13 +386,13 @@ def wps_entrypoint(request):
     except WPSError as e:
         logger.exception('WPSError %r %r', request.method, request.path)
 
-        response = wps_util.exception_report(e.code, e.message)
+        response = wps_response.exception_report(e.code, e.message)
     except Exception as e:
         logger.exception('Some generic exception %r %r', request.method, request.path)
 
         error = 'Please copy the error and report on Github: {}'.format(str(e))
 
-        response = wps_util.exception_report(wps_util.NoApplicableCode, error)
+        response = wps_response.exception_report(wps_response.NoApplicableCode, error)
 
     return http.HttpResponse(response, content_type='text/xml')
 

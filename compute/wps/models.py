@@ -29,7 +29,7 @@ from openid.store import nonce
 
 from wps import helpers
 from wps import metrics
-from wps.util import wps as wps_util
+from wps.util import wps_response
 
 logger = logging.getLogger('wps.models')
 
@@ -499,7 +499,7 @@ class Job(models.Model):
 
         kwargs.update(data_inputs)
 
-        return wps_util.execute(**kwargs)
+        return wps_response.execute(**kwargs)
 
         #location = settings.WPS_STATUS_LOCATION.format(job_id=self.id)
 
