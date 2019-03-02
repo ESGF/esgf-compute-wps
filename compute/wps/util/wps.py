@@ -1,64 +1,49 @@
-import cwt
+from django.conf import settings
+from jinja2 import Environment, PackageLoader
 
-SERVICE_IDENTIFICATION = cwt.ows.service_identification('LLNL Compute WPS', 'Providing compute resources for ESGF') 
-CONTACT = cwt.ows.service_contact()
+# Common
+MissingParameterValue = 'MissingParameterValue'
+InvalidParameterValue = 'InvalidParameterValue'
+NoApplicableCode = 'NoApplicableCode'
 
-SERVICE_PROVIDER = cwt.ows.service_provider('LLNL', CONTACT)
+# GetCapabilities
+InvalidUpdateSequence = 'InvalidUpdateSequence'
 
-GET_CAPABILITIES = lambda x: cwt.ows.operation('GetCapabilities',
-                                               x.WPS_ENDPOINT, x.WPS_ENDPOINT)
+# GetCapabilities and Execute
+VersionNegotiationFailed = 'VersionNegotiationFailed'
 
-DESCRIBE_PROCESS = lambda x: cwt.ows.operation('DescribeProcess',
-                                               x.WPS_ENDPOINT, x.WPS_ENDPOINT)
+# Execute
+NotEnoughStorage = 'NotEnoughStorage'
+ServerBusy = 'ServerBusy'
+FileSizeExceeded = 'FileSizeExceeded'
+StorageNotSupported = 'StorageNotSupported'
 
-EXECUTE = lambda x: cwt.ows.operation('Execute', x.WPS_ENDPOINT, x.WPS_ENDPOINT)
+def exception_report(code, text):
+    env = Environment(loader=PackageLoader('wps', 'templates'))
 
-OPERATIONS_METADATA = lambda x: cwt.ows.operations_metadata([GET_CAPABILITIES(x),
-                                                             DESCRIBE_PROCESS(x),
-                                                             EXECUTE(x)])
+    template = env.get_template('ExceptionReport_response.xml')
 
-def process_descriptions_from_processes(settings, processes):
-    descriptions = []
+    return template.render(exception_code=code, exception_text=text)
 
-    for process in processes:
-        description = cwt.wps.CreateFromDocument(process.description)
-        
-        descriptions.append(description.ProcessDescription[0])
+def get_capabilities(processes):
+    env = Environment(loader=PackageLoader('wps', 'templates'))
 
-    args = [
-        settings.WPS_LANG,
-        settings.WPS_VERSION,
-        descriptions
-    ]
+    template = env.get_template('GetCapabilities_response.xml')
 
-    process_descriptions = cwt.wps.process_descriptions(*args)
+    return template.render(processes=processes, 
+                           **settings.__dict__['_wrapped'].__dict__)
 
-    cwt.bds.reset()
+def describe_process(processes):
+    env = Environment(loader=PackageLoader('wps', 'templates'))
 
-    return process_descriptions.toxml(bds=cwt.bds)
+    template = env.get_template('DescribeProcess_response.xml')
 
-def generate_capabilities(settings, process_offerings):
-    args = [
-        SERVICE_IDENTIFICATION,
-        SERVICE_PROVIDER,
-        OPERATIONS_METADATA(settings),
-        process_offerings,
-        settings.WPS_LANG,
-        settings.WPS_VERSION
-    ]
+    return template.render(processes=processes,
+                           **settings.__dict__['_wrapped'].__dict__)
 
-    capabilities = cwt.wps.capabilities(*args)
-    
-    cwt.bds.reset()
+def execute(**kwargs):
+    env = Environment(loader=PackageLoader('wps', 'templates'))
 
-    return capabilities.toxml(bds=cwt.bds)
+    template = env.get_template('Execute_response.xml')
 
-def exception_report(settings, message, code):
-    ex = cwt.ows.exception(message, code)
-
-    report = cwt.ows.exception_report(settings.WPS_VERSION, [ex])
-
-    cwt.bds.reset()
-
-    return report.toxml(bds=cwt.bds)
-
+    return template.render(**kwargs)

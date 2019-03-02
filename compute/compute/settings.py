@@ -117,7 +117,6 @@ SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_se
 
 ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, int, lambda x: datetime.timedelta(days=x))
 INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
-PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
 ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')
 
@@ -127,7 +126,6 @@ WORKER_MEMORY = config.get_value('default', 'worker.memory', 8e6, int)
 WORKER_USER_PERCENT = config.get_value('default', 'worker.user_percent', 0.10,
                                        float)
 WORKER_PER_USER = int(((WORKER_CPU_COUNT*1000)/WORKER_CPU_UNITS)*WORKER_USER_PERCENT)
-
 
 # Application definition
 EMAIL_HOST = config.get_value('email', 'host')

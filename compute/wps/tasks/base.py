@@ -41,15 +41,9 @@ def register_process(identifier, **kwargs):
 
         func.ABSTRACT = kwargs.get('abstract', '')
 
-        func.DATA_INPUTS = kwargs.get('data_inputs')
-
-        func.PROCESS_OUTPUTS = kwargs.get('process_outputs')
-
         func.PROCESS = kwargs.get('process')
 
         func.METADATA = kwargs.get('metadata', {})
-
-        func.HIDDEN = kwargs.get('hidden', False)
 
         return func
 
@@ -102,7 +96,7 @@ class CWTBaseTask(celery.Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         if len(args) > 0 and isinstance(args[0], (context.OperationContext, context.WorkflowOperationContext)):
-            args[0].job.failed(wps_util.exception_report(settings, str(exc), cwt.ows.NoApplicableCode))
+            args[0].job.failed(wps_util.exception_report(wps_util.NoApplicableCode, str(exc)))
 
             from wps.tasks import job
 

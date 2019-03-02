@@ -1,42 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<wps:ExecuteResponse xmlns:wps="http://www.opengis.net/wps/1.0.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wps/1.0.0 ../wpsExecute_response.xsd" service="WPS" version="1.0.0" xml:lang="en-CA" serviceInstance="http://foo.bar/foo" statusLocation="http://foo.bar/execute_response_url.xml">
-	<wps:Process wps:processVersion="1">
-		<ows:Identifier>Buffer</ows:Identifier>
-		<ows:Title>Create a buffer around a polygon.</ows:Title>
-		<ows:Abstract>String</ows:Abstract>
-		<wps:Profile>OGC:WPS:Buffer</wps:Profile>
-		<wps:WSDL xlink:href="http://foo.bar/foo"/>
+<wps:ExecuteResponse xmlns:wps="http://www.opengis.net/wps/1.0.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wps/1.0.0/wpsExecute_response.xsd" service="WPS" version="1.0.0" xml:lang="en-CA" serviceInstance="{{ instance }}" statusLocation="{{ status_location }}">
+  <wps:Process wps:processVersion="{{ process.version }}">
+    <ows:Identifier>{{ process.identifier }}</ows:Identifier>
+    <ows:Title>{{ process.identifier }}</ows:Title>
+    <ows:Abstract>{{ process.abstract }}</ows:Abstract>
 	</wps:Process>
-	<wps:Status creationTime="2007-04-18T12:13:14Z">
-		<wps:ProcessSucceeded/>
+  {% if latest.status == 'ProcessCompleted' or latest.status == 'ProcessFailed' %}
+  <wps:Status creationTime="{{ latest.updated_date|string }}">
+  {% else %}
+  <wps:Status creationTime="{{ earliest.created_date|string }}">
+  {% endif %}
+    {% if latest.status == 'ProcessAccepted' %}
+    <wps:ProcessAccepted>{{ latest.latest_message }}</wps:ProcessAccepted>
+    {% elif latest.status == 'ProcessStarted' %}
+    <wps:ProcessStarted percentCompleted="{{ latest.latest_percent|float }}">{{ latest.latest_message }}</wps:ProcessStarted>
+    {% elif latest.status == 'ProcessPaused' %}
+    <wps:ProcessPaused percentCompleted="{{ latest.latest_percent|float }}">{{ latest.latest_message }}</wps:ProcessPaused> 
+    {% elif latest.status == 'ProcessSucceeded' %}
+    <wps:ProcessSucceeded>{{ latest.latest_message }}</wps:ProcessSucceeded>
+    {% elif latest.status == 'ProcessFailed' %}
+    <wps:ProcessFailed>{{ latest.exception_clean }}</wps:ProcessFailed>
+    {% endif %}
 	</wps:Status>
 	<wps:DataInputs>
 		<wps:Input>
-			<ows:Identifier>InputPolygon</ows:Identifier>
-			<ows:Title>Playground area</ows:Title>
-			<wps:Reference xlink:href="http://foo.bar/some_WFS_request.xml" method="GET" mimeType="text/xml" encoding="UTF-8" schema="http://foo.bar/gml_polygon_schema.xsd"/>
+      <ows:Identifier>variable</ows:Identifier>
+			<ows:Title>variable</ows:Title>
+      <wps:Data>
+        <wps:ComplexData mimeType="application/json">{{ variable }}</wps:ComplexData>
+      </wps:Data>
 		</wps:Input>
 		<wps:Input>
-			<ows:Identifier>BufferDistance</ows:Identifier>
-			<ows:Title>Distance which people will walk to get to a playground</ows:Title>
-			<wps:Data>
-				<wps:LiteralData uom="meters">400</wps:LiteralData>
-			</wps:Data>
+      <ows:Identifier>domain</ows:Identifier>
+			<ows:Title>domain</ows:Title>
+      <wps:Data>
+        <wps:ComplexData mimeType="application/json">{{ domain }}</wps:ComplexData>
+      </wps:Data>
+		</wps:Input>
+		<wps:Input>
+      <ows:Identifier>operation</ows:Identifier>
+			<ows:Title>operation</ows:Title>
+      <wps:Data>
+        <wps:ComplexData mimeType="application/json">{{ operation }}</wps:ComplexData>
+      </wps:Data>
 		</wps:Input>
 	</wps:DataInputs>
-	<wps:OutputDefinitions>
-		<wps:Output mimeType="text/xml" encoding="UTF-8" schema="http://foo.bar/gml_polygon_schema.xsd" asReference="true">
-			<ows:Identifier>BufferedPolygon</ows:Identifier>
-			<ows:Title>Area serviced by playground.</ows:Title>
-			<ows:Abstract>Area within which most users of this playground will live.</ows:Abstract>
+  <wps:OutputDefinitions>
+    <wps:Output mimeType="application/json">
+			<ows:Identifier>output</ows:Identifier>
+			<ows:Title>output</ows:Title>
 		</wps:Output>
 	</wps:OutputDefinitions>
+  {% if latest.status == 'ProcessSucceeded' %}
 	<wps:ProcessOutputs>
 		<wps:Output>
-			<ows:Identifier>BufferedPolygon</ows:Identifier>
-			<ows:Title>Area serviced by playground.</ows:Title>
-			<ows:Abstract>Area within which most users of this playground will live.</ows:Abstract>
-			<wps:Reference href="http://foo.bar/buffered_polygon.xml" mimeType="text/xml" encoding="UTF-8" schema="http://foo.bar/gml_polygon_schema.xsd"/>
+			<ows:Identifier>output</ows:Identifier>
+			<ows:Title>output</ows:Title>
+      <wps:Data>
+        <wps:ComplexData mimeType="application/json">
+          {{ latest.output }}
+        </wps:ComplexData>
+      </wps:Data>
 		</wps:Output>
 	</wps:ProcessOutputs>
+  {% endif %}
 </wps:ExecuteResponse>

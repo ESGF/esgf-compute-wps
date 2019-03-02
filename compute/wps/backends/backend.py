@@ -27,16 +27,6 @@ class BackendMeta(type):
     def get_backend(cls, name):
         return cls.registry.get(name, None)
 
-VARIABLE = cwt.wps.data_input_description('variable', 'variable', 'application/json', 1, 1)
-
-DOMAIN = cwt.wps.data_input_description('domain', 'domain', 'application/json', 1, 1)
-
-OPERATION = cwt.wps.data_input_description('operation', 'operation', 'application/json', 1, 1)
-
-DATA_INPUTS = [VARIABLE, DOMAIN, OPERATION]
-
-OUTPUT = cwt.wps.process_output_description('output', 'output', 'application/json')
-
 class Backend(object):
     __metaclass__ = BackendMeta
 
@@ -73,55 +63,24 @@ class Backend(object):
 
         raise WPSError('Missing process with identifier "{}"', identifier)
 
-    def add_process(self, identifier, name, metadata=None, data_inputs=None,
-                    process_outputs=None, abstract=None, hidden=None):
+    def add_process(self, identifier, metadata=None, abstract=None):
         """ Adds a process/operation to a backend.
     
         Args:
             identifier: A str identifer for the process.
             name: A str name for the process.
             metadata: A dict of metadata.
-            data_inputs: A list of cwt.wps.DataInputDescription.
-            process_outputs: A list of cwt.wps.ProcessOutputDescription.
             abstract: A str abstract for the process.
 
         Returns:
             None
         """
-        args = [
-            identifier,
-            identifier,
-            '1.0.0',
-            process_outputs or [OUTPUT],
-        ]
-
         kwargs = {
-            'metadata': metadata or {},
-        #    'data_inputs': data_inputs or DATA_INPUTS,
-            'abstract': abstract or '',
-        }
-
-        if data_inputs is None:
-            kwargs['data_inputs'] = DATA_INPUTS
-        else:
-            if len(data_inputs) == 0:
-                kwargs['data_inputs'] = None
-            else:
-                kwargs['data_inputs'] = data_inputs
-
-        description = cwt.wps.process_description(*args, **kwargs)
-
-        descriptions = cwt.wps.process_descriptions('en-US', '1.0.0', [description])
-
-        cwt.bds.reset()
-
-        kwargs.update({
             'identifier': identifier,
-            'backend': self.NAME,
             'abstract': abstract or '',
-            'description': descriptions.toxml(bds=cwt.bds),
-            'hidden': hidden or False,
-        })
+            'backend': self.NAME,
+            'metadata': metadata or {},
+        }
 
         self.processes.append(kwargs)
 
