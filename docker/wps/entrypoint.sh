@@ -27,8 +27,7 @@ done
 python $app_root/manage.py collectstatic --no-input
 python $app_root/manage.py migrate
 python $app_root/manage.py server --host default
-python $app_root/manage.py processes --register
-python $app_root/manage.py capabilities
+python $app_root/manage.py processes
 
 if [ -z "${WPS_DEBUG}" ]
 then

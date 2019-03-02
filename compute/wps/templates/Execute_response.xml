@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wps:ExecuteResponse xmlns:wps="http://www.opengis.net/wps/1.0.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wps/1.0.0/wpsExecute_response.xsd" service="WPS" version="1.0.0" xml:lang="en-CA" serviceInstance="{{ instance }}" statusLocation="{{ status_location }}">
+  <wps:Process wps:processVersion="{{ process.version }}">
+    <ows:Identifier>{{ process.identifier }}</ows:Identifier>
+    <ows:Title>{{ process.identifier }}</ows:Title>
+    <ows:Abstract>{{ process.abstract }}</ows:Abstract>
+	</wps:Process>
+  {% if latest.status == 'ProcessCompleted' or latest.status == 'ProcessFailed' %}
+  <wps:Status creationTime="{{ latest.updated_date|string }}">
+  {% else %}
+  <wps:Status creationTime="{{ earliest.created_date|string }}">
+  {% endif %}
+    {% if latest.status == 'ProcessAccepted' %}
+    <wps:ProcessAccepted>{{ latest.latest_message }}</wps:ProcessAccepted>
+    {% elif latest.status == 'ProcessStarted' %}
+    <wps:ProcessStarted percentCompleted="{{ latest.latest_percent|float }}">{{ latest.latest_message }}</wps:ProcessStarted>
+    {% elif latest.status == 'ProcessPaused' %}
+    <wps:ProcessPaused percentCompleted="{{ latest.latest_percent|float }}">{{ latest.latest_message }}</wps:ProcessPaused> 
+    {% elif latest.status == 'ProcessSucceeded' %}
+    <wps:ProcessSucceeded>{{ latest.latest_message }}</wps:ProcessSucceeded>
+    {% elif latest.status == 'ProcessFailed' %}
+    <wps:ProcessFailed>{{ latest.exception_clean }}</wps:ProcessFailed>
+    {% endif %}
+	</wps:Status>
+	<wps:DataInputs>
+		<wps:Input>
+      <ows:Identifier>variable</ows:Identifier>
+			<ows:Title>variable</ows:Title>
+      <wps:Data>
+        <wps:ComplexData mimeType="application/json">{{ variable }}</wps:ComplexData>
+      </wps:Data>
+		</wps:Input>
+		<wps:Input>
+      <ows:Identifier>domain</ows:Identifier>
+			<ows:Title>domain</ows:Title>
+      <wps:Data>
+        <wps:ComplexData mimeType="application/json">{{ domain }}</wps:ComplexData>
+      </wps:Data>
+		</wps:Input>
+		<wps:Input>
+      <ows:Identifier>operation</ows:Identifier>
+			<ows:Title>operation</ows:Title>
+      <wps:Data>
+        <wps:ComplexData mimeType="application/json">{{ operation }}</wps:ComplexData>
+      </wps:Data>
+		</wps:Input>
+	</wps:DataInputs>
+  <wps:OutputDefinitions>
+    <wps:Output mimeType="application/json">
+			<ows:Identifier>output</ows:Identifier>
+			<ows:Title>output</ows:Title>
+		</wps:Output>
+	</wps:OutputDefinitions>
+  {% if latest.status == 'ProcessSucceeded' %}
+	<wps:ProcessOutputs>
+		<wps:Output>
+			<ows:Identifier>output</ows:Identifier>
+			<ows:Title>output</ows:Title>
+      <wps:Data>
+        <wps:ComplexData mimeType="application/json">
+          {{ latest.output }}
+        </wps:ComplexData>
+      </wps:Data>
+		</wps:Output>
+	</wps:ProcessOutputs>
+  {% endif %}
+</wps:ExecuteResponse>

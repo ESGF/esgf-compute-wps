@@ -62,7 +62,7 @@ class ServerAdmin(admin.ModelAdmin):
         return False
 
 class ProcessAdmin(admin.ModelAdmin):
-    list_display = ('identifier', 'backend', 'enabled')
+    list_display = ('identifier', 'backend')
 
     def has_add_permission(self, request):
         return False

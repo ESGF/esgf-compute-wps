@@ -71,6 +71,35 @@ wps:
   externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
 
+  ingress_path: /data/ingress
+  public_path: /data/public
+  caPath: /tmp/certs/ca
+  userTempPath: /data/ingress 
+
+  adminEmail:
+
+  title: "LLNL WPS Server"
+  abstract: "LLNL WPS Compute Service"
+  keywords:
+    - "WPS"
+
+  provider:
+    name: "Jason B."
+    site: "https://aims2.llnl.gov"
+
+  contact:
+    name:
+    position:
+    phone:
+
+  address: 
+    delivery:
+    city:
+    area:
+    postal:
+    counter:
+    email:
+    
   prometheus:
     host: mottled-mouse-prometheus-server.default.svc
 
@@ -176,10 +205,9 @@ postgresql:
     existingClaim: postgresql-pvc
 
   backup:
-    enabled: true
+    enabled: false
     image: bitnami/postgresql
     tag: 10.6.0
-
 
 redis:
   image:

@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import random
+import re
 import string
 import time
 from urlparse import urlparse
@@ -28,6 +29,7 @@ from openid.store import nonce
 
 from wps import helpers
 from wps import metrics
+from wps.util import wps_response
 
 logger = logging.getLogger('wps.models')
 
@@ -375,11 +377,20 @@ class Auth(models.Model):
         return '{0.openid_url} {0.type}'.format(self)
 
 class Process(models.Model):
-    identifier = models.CharField(max_length=128, unique=True)
+    identifier = models.CharField(max_length=128, blank=False)
     backend = models.CharField(max_length=128)
     abstract = models.TextField()
-    description = models.TextField()
-    enabled = models.BooleanField(default=True)
+    metadata = models.TextField()
+    version = models.CharField(max_length=128, blank=False, default=None)
+
+    class Meta:
+        unique_together = (('identifier', 'version'),)
+
+    def decode_metadata(self):
+        try:
+            return json.loads(self.metadata)
+        except ValueError:
+            return {}
 
     def track(self, user):
         user_process_obj, _ = UserProcess.objects.get_or_create(user=user, process=self)
@@ -392,7 +403,6 @@ class Process(models.Model):
         return {
             'identifier': self.identifier,
             'backend': self.backend,
-            'enabled': self.enabled
         }
 
     def __str__(self):
@@ -473,48 +483,66 @@ class Job(models.Model):
 
     @property
     def report(self):
-        location = settings.WPS_STATUS_LOCATION.format(job_id=self.id)
+        latest = self.status_set.latest('updated_date')
 
-        latest = self.status_set.latest('created_date')
+        earliest = self.status_set.earliest('created_date')
 
-        if latest.exception is not None:
-            ex_report = cwt.wps.CreateFromDocument(latest.exception)
+        kwargs = {
+            'status_location': settings.WPS_STATUS_LOCATION.format(job_id=self.id),
+            'instance': settings.WPS_ENDPOINT,
+            'latest': latest,
+            'earliest': earliest,
+            'process': self.process,
+        }
 
-            status = cwt.wps.status_failed_from_report(ex_report)
-        elif latest.status == ProcessAccepted:
-            status = cwt.wps.status_accepted('Job accepted')
-        elif latest.status == ProcessStarted:
-            message = latest.message_set.latest('created_date')
+        data_inputs = json.loads(self.extra)
 
-            status = cwt.wps.status_started(message.message, message.percent)
-        elif latest.status == ProcessPaused:
-            message = latest.message_set.latest('created_date')
+        kwargs.update(data_inputs)
 
-            status = cwt.wps.status_paused(message.message, message.percent)
-        elif latest.status == ProcessSucceeded:
-            status = cwt.wps.status_succeeded('Job succeeded')
+        return wps_response.execute(**kwargs)
 
-        outputs = []
+        #location = settings.WPS_STATUS_LOCATION.format(job_id=self.id)
 
-        outputs.append(cwt.wps.output_data('output', 'output', latest.output))
+        #latest = self.status_set.latest('created_date')
 
-        process = cwt.wps.process(self.process.identifier, self.process.identifier, '1.0.0')
+        #if latest.exception is not None:
+        #    ex_report = cwt.wps.CreateFromDocument(latest.exception)
 
-        args = [
-            process,
-            status,
-            '1.0.0',
-            'en-US',
-            settings.WPS_ENDPOINT,
-            location,
-            outputs
-        ]
+        #    status = cwt.wps.status_failed_from_report(ex_report)
+        #elif latest.status == ProcessAccepted:
+        #    status = cwt.wps.status_accepted('Job accepted')
+        #elif latest.status == ProcessStarted:
+        #    message = latest.message_set.latest('created_date')
 
-        response = cwt.wps.execute_response(*args)
+        #    status = cwt.wps.status_started(message.message, message.percent)
+        #elif latest.status == ProcessPaused:
+        #    message = latest.message_set.latest('created_date')
 
-        cwt.bds.reset()
+        #    status = cwt.wps.status_paused(message.message, message.percent)
+        #elif latest.status == ProcessSucceeded:
+        #    status = cwt.wps.status_succeeded('Job succeeded')
 
-        return response.toxml(bds=cwt.bds)
+        #outputs = []
+
+        #outputs.append(cwt.wps.output_data('output', 'output', latest.output))
+
+        #process = cwt.wps.process(self.process.identifier, self.process.identifier, '1.0.0')
+
+        #args = [
+        #    process,
+        #    status,
+        #    '1.0.0',
+        #    'en-US',
+        #    settings.WPS_ENDPOINT,
+        #    location,
+        #    outputs
+        #]
+
+        #response = cwt.wps.execute_response(*args)
+
+        #cwt.bds.reset()
+
+        #return response.toxml(bds=cwt.bds)
 
     @property
     def is_started(self):
@@ -627,6 +655,36 @@ class Status(models.Model):
     status = models.CharField(max_length=128)
     exception = models.TextField(null=True)
     output = models.TextField(null=True)
+
+    @property
+    def latest_message(self):
+        try:
+            latest = self.message_set.latest('created_date')
+        except Message.DoesNotExist:
+            message = ''
+        else:
+            message = latest.message
+
+        return message
+
+    @property
+    def latest_percent(self):
+        try:
+            latest = self.message_set.latest('created_date')
+        except Message.DoesNotExist:
+            percent = ''
+        else:
+            percent = latest.percent
+
+        return percent
+
+    @property
+    def exception_clean(self):
+        removed_tag = re.sub('<\?xml.*>\\n', '', self.exception)
+
+        cleaned = re.sub('ExceptionReport.*>', 'ExceptionReport>', removed_tag)
+
+        return cleaned
 
     def set_message(self, message, percent=None):
         self.message_set.create(message=message, percent=percent)

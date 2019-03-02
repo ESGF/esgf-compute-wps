@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wps:Capabilities service="WPS" version="1.0.0" xml:lang="en-CA" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:wps="http://www.opengis.net/wps/1.0.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wps/1.0.0/wpsGetCapabilities_response.xsd" updateSequence="1">
+	<ows:ServiceIdentification>
+    <ows:Title>{{ WPS_TITLE }}</ows:Title>
+    <ows:Abstract>{{ WPS_ABSTRACT }}</ows:Abstract>
+		<ows:Keywords>
+      {% for item in WPS_KEYWORDS %}
+      <ows:Keyword>{{ item }}</ows:Keyword>
+      {% endfor %}
+		</ows:Keywords>
+		<ows:ServiceType>WPS</ows:ServiceType>
+		<ows:ServiceTypeVersion>1.0.0</ows:ServiceTypeVersion>
+		<ows:Fees>NONE</ows:Fees>
+		<ows:AccessConstraints>NONE</ows:AccessConstraints>
+	</ows:ServiceIdentification>
+	<ows:ServiceProvider>
+    <ows:ProviderName>{{ WPS_PROVIDER_NAME }}</ows:ProviderName>
+    <ows:ProviderSite xlink:href="{{ WPS_PROVIDER_SITE }}"/>
+		<ows:ServiceContact>
+      <ows:IndividualName>{{ WPS_CONTACT_NAME }}</ows:IndividualName>
+      <ows:PositionName>{{ WPS_CONTACT_POSITION }}</ows:PositionName>
+			<ows:ContactInfo>
+				<ows:Phone>
+          <ows:Voice>{{ WPS_CONTACT_PHONE }}</ows:Voice>
+					<ows:Facsimile>NONE</ows:Facsimile>
+				</ows:Phone>
+				<ows:Address>
+          <ows:DeliveryPoint>{{ WPS_ADDRESS_DELIVERY }}</ows:DeliveryPoint>
+          <ows:City>{{ WPS_ADDRESS_CITY }}</ows:City>
+          <ows:AdministrativeArea>{{ WPS_ADDRESS_AREA }}</ows:AdministrativeArea>
+          <ows:PostalCode>{{ WPS_ADDRESS_POSTAL }}</ows:PostalCode>
+          <ows:Country>{{ WPS_ADDRESS_COUNTRY }}</ows:Country>
+          <ows:ElectronicMailAddress>{{ WPS_ADDRESS_EMAIL }}</ows:ElectronicMailAddress>
+				</ows:Address>
+			</ows:ContactInfo>
+		</ows:ServiceContact>
+	</ows:ServiceProvider>
+	<ows:OperationsMetadata>
+		<ows:Operation name="GetCapabilities">
+			<ows:DCP>
+				<ows:HTTP>
+          <ows:Get xlink:href="{{ WPS_URL }}"/>
+          <ows:Post xlink:href="{{ WPS_URL }}"/>
+				</ows:HTTP>
+			</ows:DCP>
+		</ows:Operation>
+		<ows:Operation name="DescribeProcess">
+			<ows:DCP>
+				<ows:HTTP>
+          <ows:Get xlink:href="{{ WPS_URL }}"/>
+          <ows:Post xlink:href="{{ WPS_URL }}"/>
+				</ows:HTTP>
+			</ows:DCP>
+		</ows:Operation>
+		<ows:Operation name="Execute">
+			<ows:DCP>
+				<ows:HTTP>
+          <ows:Get xlink:href="{{ WPS_URL }}"/>
+          <ows:Post xlink:href="{{ WPS_URL }}"/>
+				</ows:HTTP>
+			</ows:DCP>
+		</ows:Operation>
+	</ows:OperationsMetadata>
+	<wps:ProcessOfferings>
+    {% for process in processes %}
+    <wps:Process wps:processVersion="{{ process.version }}">
+      <ows:Identifier>{{ process.identifier }}</ows:Identifier>
+      <ows:Title>{{ process.identifier }}</ows:Title>
+      <ows:Abstract>{{ process.abstract }}</ows:Abstract>
+      {% for key, value in process.decode_metadata().iteritems() %}
+      <ows:Metadata xlink:title="{{ key }}:{{ value }}" />
+      {% endfor %}
+		</wps:Process>
+    {% endfor %}
+	</wps:ProcessOfferings>
+	<wps:Languages>
+		<wps:Default>
+			<ows:Language>en-CA</ows:Language>
+		</wps:Default>
+		<wps:Supported>
+			<ows:Language>en-CA</ows:Language>
+		</wps:Supported>
+	</wps:Languages> 
+</wps:Capabilities>

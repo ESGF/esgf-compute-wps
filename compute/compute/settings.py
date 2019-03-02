@@ -33,7 +33,7 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
 
         return config
 
-    def get_value(self, section, key, default, value_type=str, conv=None):
+    def get_value(self, section, key, default=None, value_type=str, conv=None):
         try:
             if value_type == int:
                 value = self.getint(section, key)
@@ -51,10 +51,16 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
                         value = value.replace(*replacement)
         # Error with calling NoSectionError
         except TypeError:
+            if default is None:
+                raise
+
             value = default
 
             pass
         except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+            if default is None:
+                raise
+
             value = default
 
             if value_type == str:
@@ -86,13 +92,11 @@ DJANGO_CONFIG_PATH = os.environ.get('DJANGO_CONFIG_PATH', '/etc/config/django.pr
 
 config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH)
 
-host = config.get_value('default', 'host', '127.0.0.1')
+host = config.get_value('default', 'host')
 
 # Celery Settings
-broker_url = config.get_value('default', 'celery.broker',
-                              'redis://your-boxer-redis-master:6379/0')
-result_backend = config.get_value('default', 'celery.backend',
-                                  'redis://your-boxer-redis-master:6379/0')
+broker_url = config.get_value('default', 'celery.broker')
+result_backend = config.get_value('default', 'celery.backend')
 
 cidr = config.get_value('default', 'allowed.cidr', None, list)
 
@@ -113,7 +117,6 @@ SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_se
 
 ACTIVE_USER_THRESHOLD = config.get_value('default', 'active.user.threshold', 5, int, lambda x: datetime.timedelta(days=x))
 INGRESS_ENABLED = config.get_value('default', 'ingress.enabled', False, bool)
-PROCESS_BLACKLIST = config.get_value('default', 'process.blacklist', [], list)
 CERT_DOWNLOAD_ENABLED = config.get_value('default', 'cert.download.enabled', True, bool)
 ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')
 
@@ -124,36 +127,49 @@ WORKER_USER_PERCENT = config.get_value('default', 'worker.user_percent', 0.10,
                                        float)
 WORKER_PER_USER = int(((WORKER_CPU_COUNT*1000)/WORKER_CPU_UNITS)*WORKER_USER_PERCENT)
 
-
 # Application definition
-EMAIL_HOST = config.get_value('email', 'host', 'localhost')
-EMAIL_PORT = config.get_value('email', 'port', 25, int)
+EMAIL_HOST = config.get_value('email', 'host')
+EMAIL_PORT = config.get_value('email', 'port')
 EMAIL_HOST_PASSWORD = config.get_value('email', 'password', '')
 EMAIL_HOST_USER = config.get_value('email', 'user', '')
 
-METRICS_HOST = config.get_value('metrics', 'host',
-                                'http://172.17.0.8:9090/prometheus/api/v1/query')
+METRICS_HOST = config.get_value('metrics', 'host')
 
-WPS_VERSION = '1.0.0'
-WPS_LANG = 'en-US'
-WPS_URL = WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint', 'https://{host}/wps/')
-WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location', 'https://{host}/wps/status/{job_id}/')
+# WPS
+WPS_TITLE = config.get_value('wps', 'title')
+WPS_ABSTRACT = config.get_value('wps', 'abstract')
+WPS_KEYWORDS = config.get_value('wps', 'keywords')
+WPS_PROVIDER_NAME = config.get_value('wps', 'provider.name')
+WPS_PROVIDER_SITE = config.get_value('wps', 'provider.site')
+WPS_CONTACT_NAME = config.get_value('wps', 'contact.name')
+WPS_CONTACT_POSITION = config.get_value('wps', 'contact.position')
+WPS_CONTACT_PHONE = config.get_value('wps', 'contact.phone')
+WPS_ADDRESS_DELIVERY = config.get_value('wps', 'address.delivery')
+WPS_ADDRESS_CITY = config.get_value('wps', 'address.city')
+WPS_ADDRESS_AREA = config.get_value('wps', 'address.area')
+WPS_ADDRESS_POSTAL = config.get_value('wps', 'address.postal')
+WPS_ADDRESS_COUNTRY = config.get_value('wps', 'address.country')
+WPS_ADDRESS_EMAIL = config.get_value('wps', 'address.email')
+
+# Urls paths
+WPS_URL = WPS_ENDPOINT = config.get_value('wps', 'wps.endpoint')
+WPS_STATUS_LOCATION = config.get_value('wps', 'wps.status_location')
 WPS_JOB_URL = 'https://{!s}/wps/home/user/jobs'.format(host)
-WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path', '/data/ingress')
-WPS_PUBLIC_PATH = config.get_value('wps', 'wps.public_path', '/data/public')
-WPS_DAP = config.get_value('wps', 'wps.dap', True, bool)
-WPS_DAP_URL = config.get_value('wps', 'wps.dap_url', 'https://{host}/threddsCWT/dodsC/public/{file_name}')
-WPS_LOGIN_URL = config.get_value('wps', 'wps.login_url', 'https://{host}/wps/home/auth/login/openid')
-WPS_PROFILE_URL = config.get_value('wps', 'wps.profile_url', 'https://{host}/wps/home/user/profile')
-WPS_OAUTH2_CALLBACK = config.get_value('wps', 'wps.oauth2.callback', 'https://{host}/auth/callback')
-WPS_OPENID_TRUST_ROOT = config.get_value('wps', 'wps.openid.trust.root', 'https://{host}/')
-WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to', 'https://{host}auth/callback/openid/')
-WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.success', 'https://{host}/wps/home/auth/login/callback')
-WPS_PASSWORD_RESET_URL = config.get_value('wps', 'wps.password.reset.url', 'https://{host}/wps/home/auth/reset')
-WPS_CA_PATH = config.get_value('wps', 'wps.ca.path', '/tmp/certs')
-WPS_PUBLIC_PATH = WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.local.output.path', '/data/public')
-WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.user.temp.path', '/tmp/cwt/users')
-WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email', 'admin@aims2.llnl.gov')
+WPS_DAP = True
+WPS_DAP_URL = config.get_value('wps', 'wps.dap_url')
+WPS_LOGIN_URL = config.get_value('wps', 'wps.login_url')
+WPS_PROFILE_URL = config.get_value('wps', 'wps.profile_url')
+WPS_OAUTH2_CALLBACK = config.get_value('wps', 'wps.oauth2.callback')
+WPS_OPENID_TRUST_ROOT = config.get_value('wps', 'wps.openid.trust.root')
+WPS_OPENID_RETURN_TO = config.get_value('wps', 'wps.openid.return.to')
+WPS_OPENID_CALLBACK_SUCCESS = config.get_value('wps', 'wps.openid.callback.success')
+WPS_ADMIN_EMAIL = config.get_value('wps', 'wps.admin.email')
+
+# Data paths
+WPS_INGRESS_PATH = config.get_value('wps', 'wps.ingress_path')
+WPS_PUBLIC_PATH = WPS_LOCAL_OUTPUT_PATH = config.get_value('wps', 'wps.public_path')
+WPS_CA_PATH = config.get_value('wps', 'wps.ca.path')
+WPS_USER_TEMP_PATH = config.get_value('wps', 'wps.user.temp.path')
 
 WPS_CACHE_PATH = config.get_value('cache', 'wps.cache.path', '/data/cache')
 WPS_PARTITION_SIZE = config.get_value('cache', 'wps.partition.size', 10, int)
