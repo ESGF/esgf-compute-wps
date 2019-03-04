@@ -27,7 +27,7 @@ export class ConfigureService extends WPSService {
         'axes': item,
     });
       
-    return this.postCSRFUnmodified('/wps/combine', data)
+    return this.postCSRFUnmodified(this.configService.combinePath, data)
       .then(result => {
         let response = result.json() as WPSResponse;
 

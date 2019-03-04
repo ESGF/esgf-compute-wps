@@ -7,7 +7,7 @@ import { AuthGuard } from './auth/auth-guard.service';
 
 const routes: Routes = [
   { 
-    path: 'wps/home', children: [
+    path: '', children: [
       { path: '', component: HomeComponent },
       { path: 'auth', loadChildren: './auth/auth.module#AuthModule' },
       { path: 'user', canActivateChild: [AuthGuard], loadChildren: './user/user.module#UserModule' },
