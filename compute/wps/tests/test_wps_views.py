@@ -9,7 +9,7 @@ from django import test
 from . import helpers
 from wps import metrics
 from wps import models
-from wps.views import wps_service
+from wps.views import service
 
 class WPSViewsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
@@ -152,7 +152,7 @@ class WPSViewsTestCase(test.TestCase):
 
         operations = {'subset': op}
 
-        sg = wps_service.WPSScriptGenerator(variables, domains, operations, user)
+        sg = service.WPSScriptGenerator(variables, domains, operations, user)
 
         data = sg.generate()
 
@@ -180,7 +180,7 @@ class WPSViewsTestCase(test.TestCase):
         self.assertIn('filename', data)
 
     def test_status_job_does_not_exist(self):
-        with self.assertRaises(wps_service.WPSError) as e:
+        with self.assertRaises(service.WPSError) as e:
             self.client.get('/wps/status/1000000/')
 
     def test_status(self):

@@ -210,7 +210,7 @@ CACHES = {
 
 INSTALLED_APPS = [
     'wps',
-    'webpack_loader',
+#    'webpack_loader',
     'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -331,12 +331,12 @@ STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'assets'),
 )
 
-WEBPACK_LOADER = {
-    'DEFAULT': {
-        'BUNDLE_DIR_NAME': 'js/',
-        'STATS_FILE': os.path.join(BASE_DIR, 'wps', 'webapp', 'webpack-stats.json'),
-    }
-}
+#WEBPACK_LOADER = {
+#    'DEFAULT': {
+#        'BUNDLE_DIR_NAME': 'js/',
+#        'STATS_FILE': os.path.join(BASE_DIR, 'wps', 'webapp', 'webpack-stats.json'),
+#    }
+#}
 
 LOGGING_BASE_PATH = '/var/log/cwt'
 

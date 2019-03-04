@@ -16,7 +16,6 @@ urlpatterns = [
     url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^jobs/$', views.jobs),
     url(r'^jobs/(?P<job_id>[0-9]*)/$', views.job),
-    url(r'^home/?', views.home, name='home'),
     url(r'^metrics/?$', views.metrics_view),
     url(r'^combine/?$', views.combine),
 ]
