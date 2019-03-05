@@ -259,8 +259,6 @@ if DEBUG:
 
     CORS_ORIGIN_ALLOW_ALL = True
 
-    print MIDDLEWARE
-
 ROOT_URLCONF = 'compute.urls'
 
 WSGI_APPLICATION = 'compute.wsgi.application'
