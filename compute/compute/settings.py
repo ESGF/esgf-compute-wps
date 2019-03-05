@@ -220,6 +220,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
+if DEBUG:
+    INSTALLED_APPS.append('corsheaders')
+
 GRAPPELLI_ADMIN_TITLE = 'ESGF CWT Administration'
 
 try:
@@ -242,11 +245,21 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    #'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+if not DEBUG:
+    MIDDLEWARE.insert(5, 'django.middleware.csrf.CsrfViewMiddleware')
+
+if DEBUG:
+    MIDDLEWARE.insert(5, 'corsheaders.middleware.CorsMiddleware')
+
+    CORS_ORIGIN_ALLOW_ALL = True
+
+    print MIDDLEWARE
 
 ROOT_URLCONF = 'compute.urls'
 
