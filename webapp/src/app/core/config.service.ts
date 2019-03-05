@@ -18,15 +18,20 @@ export class ConfigService {
   userJobPath = `${this.basePath}/user/jobs`;
   configurePath = `${this.basePath}/configure`;
 
-  apiBasePath = 'https://10.5.5.5';
+  serverPath = 'https://10.5.5.5';
+
+  // WPS entrypoint
+  wpsPath = `${this.serverPath}/wps/`;
+
+  // API base path
+  apiBasePath = `${this.serverPath}/api`;
 
   // WPS API paths
-  wpsPath = `${this.apiBasePath}/wps/`;
-  jobsPath = `${this.apiBasePath}/wps/jobs/`;
-  generatePath = `${this.apiBasePath}/wps/generate/`;
-  searchPath = `${this.apiBasePath}/wps/search/`;
-  searchVariablePath = `${this.apiBasePath}/wps/search/variable/`;
-  combinePath = `${this.apiBasePath}/wps/combine`;
+  jobsPath = `${this.apiBasePath}/jobs/`;
+  generatePath = `${this.apiBasePath}/generate/`;
+  searchPath = `${this.apiBasePath}/search/`;
+  searchVariablePath = `${this.apiBasePath}/search/variable/`;
+  combinePath = `${this.apiBasePath}/combine`;
  
   // Auth API paths
   authLoginOpenIDPath = `${this.apiBasePath}/auth/login/openid/`;

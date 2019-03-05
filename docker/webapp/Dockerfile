@@ -11,6 +11,8 @@ FROM nginx:1.15
 
 WORKDIR /usr/share/nginx/html
 
+COPY docker/webapp/default.conf /etc/nginx/conf.d/default.conf
+
 COPY --from=builder /assets static/
 
 RUN mv static/js/index.html .

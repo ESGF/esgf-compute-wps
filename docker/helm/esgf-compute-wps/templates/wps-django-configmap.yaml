@@ -53,15 +53,14 @@ data:
 
     wps.admin.email={{ .Values.wps.adminEmail | default "Unknown" }}
     wps.endpoint={{ .Values.wps.externalHost }}/wps/
-    wps.execute_url={{ .Values.wps.externalHost }}/wps/execute/
     wps.status_location={{ .Values.wps.externalHost }}/wps/status/{job_id}/
     wps.dap_url={{ .Values.wps.externalHost }}/threddsCWT/dodsC/public/{filename}
-    wps.login_url={{ .Values.wps.externalHost }}/wps/home/auth/login/openid
-    wps.profile_url={{ .Values.wps.externalHost }}/wps/home/user/profile
-    wps.oauth2.callback={{ .Values.wps.externalHost }}/auth/callback
+    wps.login_url={{ .Values.wps.externalHost }}/auth/login/openid
+    wps.profile_url={{ .Values.wps.externalHost }}/user/profile
+    wps.oauth2.callback={{ .Values.wps.externalHost }}/api/auth/callback
     wps.openid.trust.root={{ .Values.wps.externalHost }}/
-    wps.openid.return.to={{ .Values.wps.externalHost }}/auth/callback/openid/
-    wps.openid.callback.success={{ .Values.wps.externalHost }}/wps/home/auth/login/callback
+    wps.openid.return.to={{ .Values.wps.externalHost }}/api/auth/callback/openid/
+    wps.openid.callback.success={{ .Values.wps.externalHost }}/auth/login/callback
 
     [edas]
     wps.edas.enabled={{ .Values.edask.enabled }}
