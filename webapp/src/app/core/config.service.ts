@@ -18,7 +18,7 @@ export class ConfigService {
   userJobPath = `${this.basePath}/user/jobs`;
   configurePath = `${this.basePath}/configure`;
 
-  serverPath = 'https://10.5.5.5';
+  serverPath = '';
 
   // WPS entrypoint
   wpsPath = `${this.serverPath}/wps/`;
