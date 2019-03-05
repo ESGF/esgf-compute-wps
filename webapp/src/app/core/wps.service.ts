@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Http, URLSearchParams, RequestOptionsArgs, Headers } from '@angular/http';
+import { Http, URLSearchParams, RequestOptions, Headers } from '@angular/http';
 import { Params } from '@angular/router';
 
 import { Process } from '../configure/process';
@@ -246,7 +246,8 @@ export class WPSService {
   getUnmodified(url: string, params: URLSearchParams|Params = null, headers: Headers = new Headers()) {
     return this.http.get(url, {
       params: params,
-      headers: headers
+      headers: headers,
+      withCredentials: true
     })
       .toPromise();
   }
@@ -283,7 +284,8 @@ export class WPSService {
 
     return this.http.post(url, data, {
       headers: headers,
-      params: params
+      params: params,
+      withCredentials: true
     })
       .toPromise();
   }
