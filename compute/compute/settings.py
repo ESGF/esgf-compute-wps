@@ -252,12 +252,16 @@ MIDDLEWARE = [
 ]
 
 if not DEBUG:
-    MIDDLEWARE.insert(5, 'django.middleware.csrf.CsrfViewMiddleware')
+    MIDDLEWARE.insert(4, 'django.middleware.csrf.CsrfViewMiddleware')
 
 if DEBUG:
-    MIDDLEWARE.insert(5, 'corsheaders.middleware.CorsMiddleware')
+    MIDDLEWARE.insert(4, 'corsheaders.middleware.CorsMiddleware')
 
     CORS_ORIGIN_ALLOW_ALL = True
+
+    CORS_ALLOW_CREDENTIALS = True
+
+    SESSION_COOKIE_DOMAIN = None
 
 ROOT_URLCONF = 'compute.urls'
 
