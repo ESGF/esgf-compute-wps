@@ -11,11 +11,6 @@ persistence:
     capacity: 10Gi
     path: /opt/cwt
 
-  static:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/cwt
-
   public:
     storageClassName: slow
     capacity: 10Gi
@@ -48,8 +43,8 @@ persistence:
 
 nginx:
   replicas: 1
-  image: nginx
-  imageTag: 1.13.8
+  image: jasonb87/cwt_webapp
+  imageTag: devel
 
   resources:
     limits:
@@ -263,7 +258,7 @@ edask:
         memory: 512M
 
 cog:
-  enabled: true
+  enabled: false
   replicas: 1
   image: jasonb87/cwt_cog
   imageTag: latest

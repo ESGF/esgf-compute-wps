@@ -13,15 +13,11 @@ spec:
   rules:
   - http:
       paths:
-      - path: /auth
+      - path: /api
         backend:
           serviceName: {{ .Release.Name }}-wps
           servicePort: 8000
       - path: /wps
-        backend:
-          serviceName: {{ .Release.Name }}-wps
-          servicePort: 8000
-      - path: /
         backend:
           serviceName: {{ .Release.Name }}-wps
           servicePort: 8000

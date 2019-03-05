@@ -28,11 +28,3 @@ spec:
         {{- if and $.Values.nginx.resources (not $.Values.development) (not $.Values.ignoreResources) }}
         resources: {{ $.Values.nginx.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
-        volumeMounts:
-        - mountPath: /usr/share/nginx/html/static
-          name: static-volume
-          subPath: static
-      volumes:
-      - name: static-volume
-        persistentVolumeClaim:
-          claimName: static-pvc
