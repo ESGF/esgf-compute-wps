@@ -9,7 +9,7 @@ from django import test
 from . import helpers
 from wps import metrics
 from wps import models
-from wps.views import wps_service
+from wps.views import service
 
 class WPSViewsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
@@ -152,7 +152,7 @@ class WPSViewsTestCase(test.TestCase):
 
         operations = {'subset': op}
 
-        sg = wps_service.WPSScriptGenerator(variables, domains, operations, user)
+        sg = service.WPSScriptGenerator(variables, domains, operations, user)
 
         data = sg.generate()
 
@@ -161,7 +161,7 @@ class WPSViewsTestCase(test.TestCase):
     def test_wps_generate_missing_authentication(self):
         datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.subset","input":["tas"]}]]'
 
-        response = self.client.post('/wps/generate/', {'datainputs': datainputs})
+        response = self.client.post('/api/generate/', {'datainputs': datainputs})
 
         helpers.check_failed(self, response)
 
@@ -172,7 +172,7 @@ class WPSViewsTestCase(test.TestCase):
 
         datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.subset","input":["tas"]}]]'
 
-        response = self.client.post('/wps/generate/', {'datainputs': datainputs})
+        response = self.client.post('/api/generate/', {'datainputs': datainputs})
 
         data = helpers.check_success(self, response)['data']
 
@@ -180,12 +180,12 @@ class WPSViewsTestCase(test.TestCase):
         self.assertIn('filename', data)
 
     def test_status_job_does_not_exist(self):
-        with self.assertRaises(wps_service.WPSError) as e:
-            self.client.get('/wps/status/1000000/')
+        with self.assertRaises(service.WPSError) as e:
+            self.client.get('/api/status/1000000/')
 
     def test_status(self):
         job = models.Job.objects.first()
 
-        response = self.client.get('/wps/status/{}/'.format(job.id))
+        response = self.client.get('/api/status/{}/'.format(job.id))
 
         self.assertEqual(response.status_code, 200)

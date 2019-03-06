@@ -106,9 +106,6 @@ spec:
         {{- end }}
         - name: config-volume
           mountPath: /etc/config
-        - name: static-volume
-          mountPath: /var/www/static
-          subPath: static
       volumes:
       - name: config-volume
         configMap:
@@ -118,6 +115,3 @@ spec:
         persistentVolumeClaim:
           claimName: shared-pvc
       {{- end }}
-      - name: static-volume
-        persistentVolumeClaim:
-          claimName: static-pvc

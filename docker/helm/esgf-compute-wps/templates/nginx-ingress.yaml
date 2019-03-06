@@ -15,7 +15,7 @@ spec:
   rules:
     - http:
         paths:
-          - path: /static
+          - path: /
             backend:
               serviceName: {{ .Release.Name }}-nginx
               servicePort: 80

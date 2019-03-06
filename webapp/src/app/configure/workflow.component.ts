@@ -119,7 +119,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
 
     this.state = EditorState.None;
 
-    this.wpsService.getCapabilities('/wps/')
+    this.wpsService.getCapabilities(this.configService.wpsPath)
       .then((processes: string[]) => {
         this.processes = processes.map((identifier: string) => {
           return new Process(identifier);
@@ -238,7 +238,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
       }
     });
 
-    this.wpsService.execute('/wps/', api_key, processes)
+    this.wpsService.execute(this.configService.wpsPath, api_key, processes)
       .then((data: any) => {
         this.notificationService.message(`Successfully submitted operation for execution`);
       })
@@ -327,7 +327,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     this.selectedAbstract = process;
 
     if (process.description == null) {
-      this.wpsService.describeProcess('/wps/', process.identifier)
+      this.wpsService.describeProcess(this.configService.wpsPath, process.identifier)
         .then((description: any) => {
           process.description = description;
         });
@@ -343,7 +343,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
       if (this.stateData.description != null) {
         process.description = {...this.stateData.description};
       } else {
-        this.wpsService.describeProcess('/wps/', process.identifier)
+        this.wpsService.describeProcess(this.configService.wpsPath, process.identifier)
           .then((description: any) => {
             process.description = description;
           });

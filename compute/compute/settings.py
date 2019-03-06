@@ -210,7 +210,7 @@ CACHES = {
 
 INSTALLED_APPS = [
     'wps',
-    'webpack_loader',
+#    'webpack_loader',
     'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -219,6 +219,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 ]
+
+if DEBUG:
+    INSTALLED_APPS.append('corsheaders')
 
 GRAPPELLI_ADMIN_TITLE = 'ESGF CWT Administration'
 
@@ -242,11 +245,23 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    #'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+if not DEBUG:
+    MIDDLEWARE.insert(4, 'django.middleware.csrf.CsrfViewMiddleware')
+
+if DEBUG:
+    MIDDLEWARE.insert(4, 'corsheaders.middleware.CorsMiddleware')
+
+    CORS_ORIGIN_ALLOW_ALL = True
+
+    CORS_ALLOW_CREDENTIALS = True
+
+    SESSION_COOKIE_DOMAIN = None
 
 ROOT_URLCONF = 'compute.urls'
 
@@ -331,12 +346,12 @@ STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'assets'),
 )
 
-WEBPACK_LOADER = {
-    'DEFAULT': {
-        'BUNDLE_DIR_NAME': 'js/',
-        'STATS_FILE': os.path.join(BASE_DIR, 'wps', 'webapp', 'webpack-stats.json'),
-    }
-}
+#WEBPACK_LOADER = {
+#    'DEFAULT': {
+#        'BUNDLE_DIR_NAME': 'js/',
+#        'STATS_FILE': os.path.join(BASE_DIR, 'wps', 'webapp', 'webpack-stats.json'),
+#    }
+#}
 
 LOGGING_BASE_PATH = '/var/log/cwt'
 
