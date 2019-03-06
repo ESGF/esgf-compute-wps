@@ -161,7 +161,7 @@ class WPSViewsTestCase(test.TestCase):
     def test_wps_generate_missing_authentication(self):
         datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.subset","input":["tas"]}]]'
 
-        response = self.client.post('/wps/generate/', {'datainputs': datainputs})
+        response = self.client.post('/api/generate/', {'datainputs': datainputs})
 
         helpers.check_failed(self, response)
 
@@ -172,7 +172,7 @@ class WPSViewsTestCase(test.TestCase):
 
         datainputs = '[variable=[{"id":"tas|tas","uri":"file:///test.nc"}];domain=[];operation=[{"name":"CDAT.subset","input":["tas"]}]]'
 
-        response = self.client.post('/wps/generate/', {'datainputs': datainputs})
+        response = self.client.post('/api/generate/', {'datainputs': datainputs})
 
         data = helpers.check_success(self, response)['data']
 
@@ -181,11 +181,11 @@ class WPSViewsTestCase(test.TestCase):
 
     def test_status_job_does_not_exist(self):
         with self.assertRaises(service.WPSError) as e:
-            self.client.get('/wps/status/1000000/')
+            self.client.get('/api/status/1000000/')
 
     def test_status(self):
         job = models.Job.objects.first()
 
-        response = self.client.get('/wps/status/{}/'.format(job.id))
+        response = self.client.get('/api/status/{}/'.format(job.id))
 
         self.assertEqual(response.status_code, 200)
