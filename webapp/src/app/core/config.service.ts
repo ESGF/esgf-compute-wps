@@ -12,7 +12,7 @@ export class ConfigService {
   //basePath = '/wps/home';
   
   // WebApp paths
-  loginPath = `${this.basePath}/auth/login/openid`;
+  loginPath = `${this.basePath}/auth/login`;
   logoutPath = `${this.basePath}/auth/logout`;
   profilePath = `${this.basePath}/user/profile`;
   userJobPath = `${this.basePath}/user/jobs`;
@@ -34,13 +34,13 @@ export class ConfigService {
   combinePath = `${this.apiBasePath}/combine`;
  
   // Auth API paths
-  authLoginOpenIDPath = `${this.apiBasePath}/auth/login/openid/`;
-  authLoginMPCPath = `${this.apiBasePath}/auth/login/mpc/`;
-  authLoginOAuth2Path = `${this.apiBasePath}/auth/login/oauth2/`;
-  authLogoutPath = `${this.apiBasePath}/auth/logout/`;
-  authUpdatePath = `${this.apiBasePath}/auth/update/`;
-  authUserPath = `${this.apiBasePath}/auth/user/`;
-  authUserCertPath = `${this.apiBasePath}/auth/user/cert/`;
-  authUserRegenPath = `${this.apiBasePath}/auth/user/regenerate/`;
-  authUserStatsPath = `${this.apiBasePath}/auth/user/stats/`;
+  authLoginOpenIDPath = `${this.apiBasePath}/openid/login/`;
+  authLoginMPCPath = `${this.apiBasePath}/mpc/`;
+  authLoginOAuth2Path = `${this.apiBasePath}/oauth2/`;
+  authLogoutPath = `${this.apiBasePath}/openid/logout/`;
+  authUpdatePath = `${this.apiBasePath}/user/update/`;
+  authUserPath = `${this.apiBasePath}/user/`;
+  authUserCertPath = `${this.apiBasePath}/user/cert/`;
+  authUserRegenPath = `${this.apiBasePath}/user/regenerate/`;
+  authUserStatsPath = `${this.apiBasePath}/user/stats/`;
 }

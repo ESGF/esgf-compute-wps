@@ -10,7 +10,7 @@ import { AuthGuard } from '../auth/auth-guard.service';
 
 const routes: Routes = [
   { path: 'login/callback', component: LoginCallbackComponent },
-  { path: 'login/openid', component: LoginOpenIDComponent },
+  { path: 'login', component: LoginOpenIDComponent },
   { path: 'logout', canActivate: [AuthGuard], component: LogoutComponent },
   //{ path: '', redirectTo: '/wps/home', pathMatch: 'full' },
 ];
