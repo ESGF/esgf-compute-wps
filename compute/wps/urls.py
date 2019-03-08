@@ -8,10 +8,11 @@ import views
 
 router = DefaultRouter()
 router.register(r'jobs', views.JobViewSet)
-router.register(r'status', views.StatusViewSet)
+router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.StatusViewSet)
 
 api_urlpatterns = [
     url(r'^', include(router.urls)),
+
     url(r'^ping/?', views.ping),
     url(r'^armstrong/', include('grappelli.urls')),
     url(r'^neil/', admin.site.urls),

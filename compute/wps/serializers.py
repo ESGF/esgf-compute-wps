@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.reverse import reverse
 
 from wps import models
 
@@ -12,7 +13,21 @@ class StatusSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Status
-        fields = ('id', 'status', 'created_date', 'messages')
+        fields = ('id', 'status', 'created_date', 'messages', 
+                  'output', 'exception')
+
+class StatusHyperlink(serializers.HyperlinkedRelatedField):
+    view_name = 'status-detail'
+    queryset = models.Status.objects.all()
+
+    def get_url(self, obj, view_name, request, format):
+        # Construct the url from the related job pk and the status pk
+        url_kwargs = {
+            'job_pk': obj.job.pk,
+            'pk': obj.pk
+        }
+
+        return reverse(view_name, kwargs=url_kwargs, request=request, format=format)
 
 class JobSerializer(serializers.ModelSerializer):
     server = serializers.SlugRelatedField(read_only=True,
@@ -27,11 +42,7 @@ class JobSerializer(serializers.ModelSerializer):
 
     accepted_on = serializers.ReadOnlyField()
 
-    status = serializers.HyperlinkedRelatedField(
-        many=True,
-        read_only=True,
-        view_name='status-detail'
-    )
+    status = StatusHyperlink(many=True)
 
     class Meta:
         model = models.Job
