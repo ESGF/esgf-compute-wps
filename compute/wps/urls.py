@@ -20,8 +20,6 @@ api_urlpatterns = [
     url(r'^search/variable/$', views.search_variable),
     url(r'^generate/$', views.generate),
     url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
-    url(r'^jobs/$', views.jobs),
-    url(r'^jobs/(?P<job_id>[0-9]*)/$', views.job),
     url(r'^metrics/?$', views.metrics_view),
     url(r'^combine/?$', views.combine),
 
