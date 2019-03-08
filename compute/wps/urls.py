@@ -2,10 +2,16 @@ from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls import include
 from django.contrib import admin
+from rest_framework.routers import DefaultRouter
 
 import views
 
+router = DefaultRouter()
+router.register(r'jobs', views.JobViewSet)
+router.register(r'status', views.StatusViewSet)
+
 api_urlpatterns = [
+    url(r'^', include(router.urls)),
     url(r'^ping/?', views.ping),
     url(r'^armstrong/', include('grappelli.urls')),
     url(r'^neil/', admin.site.urls),

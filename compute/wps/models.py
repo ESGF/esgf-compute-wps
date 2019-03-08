@@ -26,6 +26,7 @@ from django.utils import timezone
 from openid import association
 from openid.store import interface
 from openid.store import nonce
+from rest_framework.settings import api_settings
 
 from wps import helpers
 from wps import metrics
@@ -455,24 +456,39 @@ class Job(models.Model):
             #'status': self.status
         }
 
+    #@property
+    #def status(self):
+    #    return [
+    #        {
+    #            'created_date': x.created_date,
+    #            'updated_date': x.updated_date,
+    #            'status': x.status,
+    #            'exception': x.exception,
+    #            'output': x.output,
+    #            'messages': [y.details for y in x.messages.all().order_by('created_date')]
+    #        } for x in self.status.all().order_by('created_date')
+    #    ]
+
     @property
-    def status(self):
-        return [
-            {
-                'created_date': x.created_date,
-                'updated_date': x.updated_date,
-                'status': x.status,
-                'exception': x.exception,
-                'output': x.output,
-                'messages': [y.details for y in x.message_set.all().order_by('created_date')]
-            } for x in self.status_set.all().order_by('created_date')
-        ]
+    def latest_status(self):
+        latest = self.status.earliest('created_date')
+
+        return latest.status
+
+    @property
+    def accepted_on(self):
+        accepted = self.status.filter(status=ProcessAccepted)
+
+        if len(accepted) == 0:
+            return 'Unknown'
+
+        return accepted[0].created_date.isoformat()
 
     @property
     def elapsed(self):
-        started = self.status_set.filter(status='ProcessStarted')
+        started = self.status.filter(status='ProcessStarted')
 
-        ended = self.status_set.filter(Q(status='ProcessSucceeded') | Q(status='ProcessFailed'))
+        ended = self.status.filter(Q(status='ProcessSucceeded') | Q(status='ProcessFailed'))
 
         if len(started) == 0 or len(ended) == 0:
             return 'No elapsed'
@@ -483,9 +499,9 @@ class Job(models.Model):
 
     @property
     def report(self):
-        latest = self.status_set.latest('updated_date')
+        latest = self.status.latest('updated_date')
 
-        earliest = self.status_set.earliest('created_date')
+        earliest = self.status.earliest('created_date')
 
         kwargs = {
             'status_location': settings.WPS_STATUS_LOCATION.format(job_id=self.id),
@@ -501,64 +517,21 @@ class Job(models.Model):
 
         return wps_response.execute(**kwargs)
 
-        #location = settings.WPS_STATUS_LOCATION.format(job_id=self.id)
-
-        #latest = self.status_set.latest('created_date')
-
-        #if latest.exception is not None:
-        #    ex_report = cwt.wps.CreateFromDocument(latest.exception)
-
-        #    status = cwt.wps.status_failed_from_report(ex_report)
-        #elif latest.status == ProcessAccepted:
-        #    status = cwt.wps.status_accepted('Job accepted')
-        #elif latest.status == ProcessStarted:
-        #    message = latest.message_set.latest('created_date')
-
-        #    status = cwt.wps.status_started(message.message, message.percent)
-        #elif latest.status == ProcessPaused:
-        #    message = latest.message_set.latest('created_date')
-
-        #    status = cwt.wps.status_paused(message.message, message.percent)
-        #elif latest.status == ProcessSucceeded:
-        #    status = cwt.wps.status_succeeded('Job succeeded')
-
-        #outputs = []
-
-        #outputs.append(cwt.wps.output_data('output', 'output', latest.output))
-
-        #process = cwt.wps.process(self.process.identifier, self.process.identifier, '1.0.0')
-
-        #args = [
-        #    process,
-        #    status,
-        #    '1.0.0',
-        #    'en-US',
-        #    settings.WPS_ENDPOINT,
-        #    location,
-        #    outputs
-        #]
-
-        #response = cwt.wps.execute_response(*args)
-
-        #cwt.bds.reset()
-
-        #return response.toxml(bds=cwt.bds)
-
     @property
     def is_started(self):
-        latest = self.status_set.latest('created_date')
+        latest = self.status.latest('created_date')
 
         return latest is not None and latest.status == ProcessStarted
 
     @property
     def is_failed(self):
-        latest = self.status_set.latest('created_date')
+        latest = self.status.latest('created_date')
 
         return latest is not None and latest.status == ProcessFailed
 
     @property
     def is_succeeded(self):
-        latest = self.status_set.latest('created_date')
+        latest = self.status.latest('created_date')
 
         return latest is not None and latest.status == ProcessSucceeded
 
@@ -587,14 +560,14 @@ class Job(models.Model):
         self.refresh_from_db()
 
     def accepted(self):
-        self.status_set.create(status=ProcessAccepted)
+        self.status.create(status=ProcessAccepted)
 
         metrics.WPS_JOBS_ACCEPTED.inc()
 
     def started(self):
         # Guard against duplicates
         if not self.is_started:
-            status = self.status_set.create(status=ProcessStarted)
+            status = self.status.create(status=ProcessStarted)
 
             status.set_message('Job Started', self.progress)
 
@@ -606,7 +579,7 @@ class Job(models.Model):
             if output is None:
                 output = ''
 
-            status = self.status_set.create(status=ProcessSucceeded)
+            status = self.status.create(status=ProcessSucceeded)
 
             status.output = output
 
@@ -617,7 +590,7 @@ class Job(models.Model):
     def failed(self, exception):
         # Guard against duplicates
         if not self.is_failed:
-            status = self.status_set.create(status=ProcessFailed)
+            status = self.status.create(status=ProcessFailed)
 
             status.exception = exception
 
@@ -631,7 +604,7 @@ class Job(models.Model):
     def update(self, message, *args, **kwargs):
         message = message.format(*args, **kwargs)
 
-        started = self.status_set.filter(status=ProcessStarted).latest('created_date')
+        started = self.status.filter(status=ProcessStarted).latest('created_date')
 
         started.set_message(message, self.progress)
 
@@ -643,12 +616,12 @@ class Job(models.Model):
                 'status': x.status,
                 'exception': x.exception,
                 'output': x.output,
-                'messages': [y.details for y in x.message_set.all().order_by('created_date')]
-            } for x in self.status_set.filter(updated_date__gt=date)
+                'messages': [y.details for y in x.messages.all().order_by('created_date')]
+            } for x in self.status.filter(updated_date__gt=date)
         ]
 
 class Status(models.Model):
-    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    job = models.ForeignKey(Job, related_name='status', on_delete=models.CASCADE)
 
     created_date = models.DateTimeField(auto_now_add=True)
     updated_date = models.DateTimeField(auto_now_add=True)
@@ -659,7 +632,7 @@ class Status(models.Model):
     @property
     def latest_message(self):
         try:
-            latest = self.message_set.latest('created_date')
+            latest = self.messages.latest('created_date')
         except Message.DoesNotExist:
             message = ''
         else:
@@ -670,7 +643,7 @@ class Status(models.Model):
     @property
     def latest_percent(self):
         try:
-            latest = self.message_set.latest('created_date')
+            latest = self.messages.latest('created_date')
         except Message.DoesNotExist:
             percent = ''
         else:
@@ -687,7 +660,7 @@ class Status(models.Model):
         return cleaned
 
     def set_message(self, message, percent=None):
-        self.message_set.create(message=message, percent=percent)
+        self.messages.create(message=message, percent=percent)
 
         self.updated_date = timezone.now()
 
@@ -697,7 +670,7 @@ class Status(models.Model):
         return '{0.status}'.format(self)
 
 class Message(models.Model):
-    status = models.ForeignKey(Status, on_delete=models.CASCADE)
+    status = models.ForeignKey(Status, related_name='messages', on_delete=models.CASCADE)
 
     created_date = models.DateTimeField(auto_now_add=True)
     percent = models.PositiveIntegerField(null=True)

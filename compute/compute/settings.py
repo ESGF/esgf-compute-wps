@@ -210,6 +210,7 @@ CACHES = {
 
 INSTALLED_APPS = [
     'wps',
+    'rest_framework',
 #    'webpack_loader',
     'grappelli',
     'django.contrib.admin',

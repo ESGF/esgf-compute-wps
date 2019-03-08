@@ -164,7 +164,7 @@ class CDAT(backend.Backend):
         else:
             process_func = base.get_process(identifier)
 
-            if process_func.METADATA.get('inputs', 0) == 0:
+            if int(process_func.METADATA.get('inputs', 0)) == 0:
                 context = OperationContext()
 
                 context.job = job
