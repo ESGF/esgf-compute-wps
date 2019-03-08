@@ -471,7 +471,7 @@ class Job(models.Model):
 
     @property
     def latest_status(self):
-        latest = self.status.earliest('created_date')
+        latest = self.status.latest('created_date')
 
         return latest.status
 
