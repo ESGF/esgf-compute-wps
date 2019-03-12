@@ -1,0 +1,13 @@
+FROM node:6-stretch as builder
+
+COPY webapp webapp
+
+WORKDIR webapp
+
+RUN yarn && \
+      ./node_modules/.bin/webpack --config config/webpack.dev.js && \
+      yarn add -D http-server
+
+COPY docker/webapp/entrypoint-debug.sh .
+
+ENTRYPOINT ["./entrypoint-debug.sh"]
