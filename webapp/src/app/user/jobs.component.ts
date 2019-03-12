@@ -23,7 +23,9 @@ export class JobsComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.userService.jobs()
-      .then((item: Job[]) => this.setJobs(item))
+      .then((item: Job[]) => {
+        this.setJobs(item);
+      })
       .catch(error => {
         this.notificationService.error(error);
 
@@ -43,7 +45,9 @@ export class JobsComponent implements OnInit, OnDestroy {
 
   nextPage() {
     this.userService.nextJobs()
-      .then((item: Job[]) => this.setJobs(item))
+      .then((item: Job[]) => {
+        this.setJobs(item);
+      })
       .catch(error => {
         this.notificationService.error(error);
       });
@@ -51,7 +55,9 @@ export class JobsComponent implements OnInit, OnDestroy {
 
   previousPage() {
     this.userService.previousJobs()
-      .then((item: Job[]) => this.setJobs(item))
+      .then((item: Job[]) => {
+        this.setJobs(item);
+      })
       .catch(error => {
         this.notificationService.error(error);
       });
@@ -80,8 +86,27 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
 
   selectJob(value: Job) {
+    event.stopPropagation();
+
     this.selectedJob = value;
 
     this.userService.retrieveJobStatus(this.selectedJob);
+  }
+
+  deleteJob(value: Job) {
+    event.stopPropagation();
+
+    this.selectedJob = null; 
+
+    this.userService.deleteJob(value)
+      .then(() => {
+        this.jobs = this.jobs.filter((item: Job) => {
+          return value.id !== item.id;
+        });
+
+        if (this.jobs.length > 0) {
+          this.selectJob(this.jobs[0]);
+        }
+      });
   }
 }

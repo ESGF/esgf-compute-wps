@@ -237,6 +237,18 @@ export class WPSService {
     return cookieValue;
   }
 
+  delete(url: string) {
+    let headers = new Headers();
+
+    headers.append('X-CSRFToken', this.getCookie('csrftoken'));
+
+    return this.http.delete(url, {
+      headers: headers,
+      withCredentials: true
+    })
+      .toPromise();
+  }
+
   getCSRF(url: string, params: URLSearchParams = null, headers: Headers = new Headers()) {
     headers.append('X-CSRFToken', this.getCookie('csrftoken'));
 

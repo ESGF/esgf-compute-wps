@@ -98,6 +98,12 @@ export class UserService extends WPSService {
     return this.queryJobHistory(this.previous);
   }
 
+  deleteJob(target: Job): Promise<any> {
+    let url = `${this.configService.jobsPath}${target.id}/`;
+
+    return this.delete(url);
+  }
+
   update(user: User): Promise<WPSResponse> {
     return this.postCSRF(this.configService.authUpdatePath, user.toUrlEncoded());
   }

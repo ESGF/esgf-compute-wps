@@ -81,6 +81,8 @@
                 </ng-container>
               </a>
             </th>
+            <th>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -90,6 +92,11 @@
               <td>{{ item.accepted_on }}</td>
             </ng-template>
             <td>{{ item.elapsed }}</td>
+            <td>
+              <button type="button" class="close" aria-label="Close" (click)="deleteJob(item)">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
