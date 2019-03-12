@@ -32,62 +32,70 @@ export class User {
 
 @Injectable()
 export class UserService extends WPSService {
+  count: number;
+  next: string;
+  previous: string;
+
   constructor(
     http: Http,
-    private configService: ConfigService,
+    private configService: ConfigService
   ) { 
     super(http); 
   }
 
-  formatStatus(value: Status) {
-    let p = new DOMParser();
-
-    if (value.output !== null) {
-      value.output = JSON.parse(value.output);
-      //let xmlDoc = p.parseFromString(value.output, 'text/xml');
-
-      //let elements = xmlDoc.getElementsByTagName('ows:ComplexData');
-
-      //if (elements.length > 0) {
-      //  let variable = JSON.parse(elements[0].innerHTML);
-
-      //  value.output = variable.uri;
-      //}
-    } else if (value.exception != null) {
-      let xmlDoc = p.parseFromString(value.exception, 'text/xml');
-
-      let elements = xmlDoc.getElementsByTagName('ows:ExceptionText');
-
-      if (elements.length > 0) {
-        value.exception = elements[0].innerHTML;
-      }
+  fixHttpUrl(value: string) {
+    if (value.startsWith('http://')) {
+      return value.replace('http', 'https');
     }
+
+    return value;
   }
 
-  jobDetails(id: number, update: boolean = false): Promise<Status[]> {
-    let params = new URLSearchParams();
+  retrieveJobStatus(target: Job) {
+    let promises = target.statusUrls.map((url: string) => {
+      url = this.fixHttpUrl(url);
 
-    params.append('update', update.toString());
+      return this.get(url)
+        .then((data: any) => {
+          return new Status(data);
+        });
+    });
 
-    return this.get(`${this.configService.jobsPath}${id}/`, params)
-      .then((response: WPSResponse) => {
-        let status = response.data as Status[];
+    Promise.all(promises)
+      .then((values: any[]) => {
+        target.status = values.sort((a: any, b: any) => {
+          if (a.id > b.id) {
+            return 1;
+          } else if (a.id < b.id) {
+            return -1;
+          } else {
+            return 0;
+          }
+        });
+      });
+  }
 
-        try {
-          status.forEach((value: Status) => {
-            this.formatStatus(value);
-          });
-        } catch(err) { }
+  queryJobHistory(url: string): Promise<Job[]> {
+    return this.get(url)
+      .then((data: any) => {
+        this.count = data.count;
+        (data.next === null) ? this.next = null : this.next = this.fixHttpUrl(data.next);
+        (data.previous === null) ? this.previous = null : this.previous = this.fixHttpUrl(data.previous);
 
-        return status;
+        return data.results.map((item: any) => new Job(item));
       });
   }
 
   jobs(): Promise<Job[]> {
-    return this.get(this.configService.jobsPath)
-      .then((response: WPSResponse) => {
-        return response.data.map((data: any) => new Job(data));
-      });
+    return this.queryJobHistory(this.configService.jobsPath);
+  }
+
+  nextJobs(): Promise<Job[]> {
+    return this.queryJobHistory(this.next);
+  }
+
+  previousJobs(): Promise<Job[]> {
+    return this.queryJobHistory(this.previous);
   }
 
   update(user: User): Promise<WPSResponse> {
