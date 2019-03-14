@@ -20,8 +20,8 @@ api_urlpatterns = [
     url(r'^search/$', views.search_dataset),
     url(r'^search/variable/$', views.search_variable),
     url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
-    url(r'^metrics/?$', views.metrics_view),
-    url(r'^combine/?$', views.combine),
+    url(r'^metrics/$', views.metrics_view),
+    url(r'^combine/$', views.combine),
 
     # Authentication and authorization
     url(r'^user/$', views.user_details),
@@ -39,6 +39,6 @@ api_urlpatterns = [
 ]
 
 urlpatterns = [
-    url(r'^wps/?$', views.wps_entrypoint),
+    url(r'^wps/$', views.wps_entrypoint),
     url(r'^api/', include(api_urlpatterns)),
 ]
