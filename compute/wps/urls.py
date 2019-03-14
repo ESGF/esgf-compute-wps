@@ -13,12 +13,12 @@ router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.StatusViewSet)
 api_urlpatterns = [
     url(r'^', include(router.urls)),
 
-    url(r'^ping/?', views.ping),
     url(r'^armstrong/', include('grappelli.urls')),
     url(r'^neil/', admin.site.urls),
+
+    url(r'^ping/$', views.ping),
     url(r'^search/$', views.search_dataset),
     url(r'^search/variable/$', views.search_variable),
-    url(r'^generate/$', views.generate),
     url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^metrics/?$', views.metrics_view),
     url(r'^combine/?$', views.combine),
