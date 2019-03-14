@@ -91,10 +91,14 @@ class CWTBaseTask(celery.Task):
         context.job.update(task_message)
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
+        logger.info('Retry %r', args)
+        
         if len(args) > 0 and isinstance(args[0], context.OperationContext):
             args[0].job.retry(exc)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
+        logger.info('Failure %r', args)
+
         if len(args) > 0 and isinstance(args[0], (context.OperationContext, context.WorkflowOperationContext)):
             args[0].job.failed(wps_response.exception_report(wps_response.NoApplicableCode, str(exc)))
 
@@ -103,6 +107,8 @@ class CWTBaseTask(celery.Task):
             job.send_failed_email(args[0], str(exc))
 
     def on_success(self, retval, task_id, args, kwargs):
+        logger.info('Success %r', args)
+
         if len(args) > 0 and isinstance(args[0], context.OperationContext):
             args[0].job.step_complete()
 

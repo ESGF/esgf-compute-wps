@@ -220,6 +220,10 @@ def user_logout(request):
         logger.exception('Error logging user out')
 
         return common.failed(str(e))
+    except Exception as e:
+        logger.exception('Error logging user out')
+
+        return common.failed(str(e))
     else:
         return common.success('Logged out')
 

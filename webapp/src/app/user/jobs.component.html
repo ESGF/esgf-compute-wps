@@ -4,7 +4,7 @@
       Status
     </div>
     <div class="panel-body">
-      <table *ngIf="selectedJob !== undefined && selectedJob.status !== undefined" class="table">
+      <table *ngIf="selectedJob !== null" class="table">
         <tbody class="job-status">
           <tr *ngFor="let current of selectedJob.status">
             <td>
@@ -18,12 +18,12 @@
                 <div class="col-md-1">{{message.percent}} %</div>
                 <div class="col-md-8">{{message.message}}</div>
               </div>
-              <ng-container *ngIf="current.output !== null; else exception">
-                <ng-container *ngIf="current.output.outputs != undefined; else singleOutput">
+              <ng-container *ngIf="current?.output; else exception">
+                <ng-container *ngIf="current?.output.length > 1; else singleOutput">
                   <div class="row">
                     <div class="col-md-1"></div>
                     <div class="col-md-11">
-                      <div *ngFor="let x of current.output.outputs">
+                      <div *ngFor="let x of current.output">
                         <a href="{{x.uri}}.html" target="_blank">{{x.id}}</a>
                       </div>
                     </div>
@@ -50,7 +50,7 @@
                 <ng-container *ngIf="current.exception != null">
                   <div class="row">
                     <div class="col-md-1"></div>
-                    <div class="col-md-11"><pre>{{current.exception}}</pre></div>
+                    <div class="col-md-11"><pre>{{current.exceptionParsed()}}</pre></div>
                   </div>
                 </ng-container>
               </ng-template>
@@ -59,13 +59,53 @@
         </tbody>
       </table>
     </div>
-    <pagination-table [search]="false" [headers]="headers" [items]="jobs | async">
-      <ng-template let-item>
-        <tr [class.selected]="selectedJob === item" (click)="selectJob(item)" class="job">
-          <td>{{item.created_date|date:'medium'}}</td>
-          <td>{{item.elapsed}}</td>
-        </tr>
-      </ng-template>
-    </pagination-table>
+    <div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th (click)="sort('accepted_on')">
+              <a>
+                Accepted
+                <ng-container *ngIf="sortKey === 'accepted_on'">
+                <i *ngIf="sortDir === 1" class="fa fa-sort-asc" aria-hidden="true"></i>
+                <i *ngIf="sortDir === -1" class="fa fa-sort-desc" aria-hidden="true"></i>
+                </ng-container>
+              </a>
+            </th>
+            <th (click)="sort('elapsed')">
+              <a>
+                Elapsed
+                <ng-container *ngIf="sortKey === 'elapsed'">
+                <i *ngIf="sortDir === 1" class="fa fa-sort-asc" aria-hidden="true"></i>
+                <i *ngIf="sortDir === -1" class="fa fa-sort-desc" aria-hidden="true"></i>
+                </ng-container>
+              </a>
+            </th>
+            <th>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="job" [class.selected]="selectedJob === item" *ngFor="let item of jobs" (click)="selectJob(item)">
+            <td *ngIf="item.accepted_on !== 'Unknown'; else plainAcceptedOn">{{ item.accepted_on|date:'medium' }}</td>
+            <ng-template #plainAcceptedOn>
+              <td>{{ item.accepted_on }}</td>
+            </ng-template>
+            <td>{{ item.elapsed }}</td>
+            <td>
+              <button type="button" class="close" aria-label="Close" (click)="deleteJob(item)">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <nav aria-label="Page navigation">
+        <ul class="pager">
+          <li [class.disabled]="userService.previous === null" (click)="previousPage()"><a>Previous</a></li>
+          <li [class.disabled]="userService.next === null" (click)="nextPage()"><a>Next</a></li>
+        </ul>
+      </nav>
+    </div>
   </div>
 </div>

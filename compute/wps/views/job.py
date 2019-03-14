@@ -1,81 +1,32 @@
 #! /usr/bin/env python
 
-import datetime
-
-from django import http
-from django.db.models import Max
-from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_http_methods
-
-from . import common
+from rest_framework import mixins
+from rest_framework import permissions
+from rest_framework import viewsets
 
 from wps import models
+from wps import serializers
 
-logger = common.logger
+class StatusViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = models.Status.objects.all()
+    serializer_class = serializers.StatusSerializer
 
-SESSION_TIME_FMT = '%Y%m%d%H%M%S'
+    def get_queryset(self):
+        user = self.request.user
 
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
-def jobs(request):
-    try:
-        common.authentication_required(request)
+        job_pk = self.kwargs['job_pk']
 
-        jobs_qs = models.Job.objects.filter(user_id=request.user.id)
+        return models.Status.objects.filter(job__pk=job_pk, 
+                                            job__user=user.pk)
 
-        jobs_qs = jobs_qs.annotate(created_date=Max('status__created_date')).order_by('-created_date')
+class JobViewSet(mixins.ListModelMixin, 
+                 mixins.RetrieveModelMixin, 
+                 mixins.DestroyModelMixin, 
+                 viewsets.GenericViewSet):
+    queryset = models.Job.objects.all()
+    serializer_class = serializers.JobSerializer
 
-        jobs = []
+    def get_queryset(self):
+        user = self.request.user
 
-        for x in jobs_qs:
-            data = x.details
-
-            data.update({'created_date': x.created_date})
-
-            jobs.append(data)
-    except Exception as e:
-        logger.exception('Error retrieving jobs')
-
-        return common.failed(e.message)
-    else:
-        return common.success(jobs)
-
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
-def job(request, job_id):
-    try:
-        common.authentication_required(request)
-
-        update = request.GET.get('update', 'false')
-
-        if update.lower() == 'false':
-            update = False
-        else:
-            update = True
-
-        job = models.Job.objects.get(pk=job_id)
-
-        if update:
-            updated = request.session.get('updated', None)
-
-            if updated is None:
-                status = job.status
-            else:
-                status = job.statusSince(updated)
-
-            if len(status) > 0:
-                request.session['updated'] = status[-1]['updated_date']
-        else:
-            status = job.status
-
-            if len(status) > 0:
-                request.session['updated'] = status[-1]['updated_date']
-            else:
-                request.session['updated'] = None
-
-    except Exception as e:
-        logger.exception('Error retrieving job details')
-
-        return common.failed(e.message)
-    else:
-        return common.success(status)
+        return models.Job.objects.filter(user=user.pk)
