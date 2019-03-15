@@ -27,40 +27,6 @@ from wps.util import wps_response
 
 logger = common.logger
 
-def load_data_inputs(data_inputs, resolve_inputs=False):
-    o, d, v = cwt.WPSClient.parse_data_inputs(data_inputs)
-
-    v = dict((x.name, x) for x in v)
-
-    d = dict((x.name, x) for x in d)
-
-    o = dict((x.name, x) for x in o)
-
-    logger.info('Loaded variables %r', v)
-
-    logger.info('Loaded domains %r', d)
-
-    logger.info('Loaded operations %r', o)
-
-    if resolve_inputs:
-        collected_inputs = list(y for x in o.values() for y in x.inputs)
-
-        try:
-            root_op = [o[x] for x in o.keys() if x not in collected_inputs][0]
-        except IndexError as e:
-            raise WPSError('Error resolving root operation')
-
-        root_op.resolve_inputs(v, o)
-
-        try:
-            for x in o.values():
-                if x.domain is not None:
-                    x.domain = d[x.domain]
-        except KeyError as e:
-            raise WPSerror('Error resolving domain')
-
-    return o, d, v
-
 def get_parameter(params, name, required=True):
     """ Gets a parameter from a django QueryDict """
 
