@@ -71,21 +71,4 @@ export class ConfigureService extends WPSService {
         return response.data.map((item: any) => Domain.fromJSON(item));
       });
   }
-
-  downloadScript(processes: Process[]): Promise<any> {
-    let preparedData: string;
-    
-    try {
-      preparedData = this.prepareDataInputsString(processes);
-    } catch (e) {
-      return Promise.reject(e);
-    }
-
-    let data = `datainputs=${preparedData}`;
-
-    return this.postCSRF(this.configService.generatePath, data)
-      .then(response => {
-        return response.data;
-      });
-  }
 }
