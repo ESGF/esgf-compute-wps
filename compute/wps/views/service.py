@@ -196,21 +196,32 @@ def handle_post(data, meta):
     elif 'Execute' in doc.tag:
         wpsns = wps.getNamespace(doc)
 
-        identifier = doc.find(wps.nspath('Identifier'))
+        try:
+            identifier = doc.find(wps.nspath('Identifier')).text
+        except AttributeError:
+            raise WPSError('Invalid XML missing Identifier element')
 
         inputs = doc.findall(wps.nspath('DataInputs/Input', ns=wpsns))
 
         data_inputs = {}
 
         for item in inputs:
-            input_id = item.find(wps.nspath('Identifier'))
+            input_id_elem = item.find(wps.nspath('Identifier'))
 
             data = item.find(wps.nspath('Data/ComplexData', ns=wpsns))
 
-            data_inputs[input_id.text.lower()] = data.text
+            try:
+                input_id = input_id_elem.text.lower()
+            except AttributeError:
+                raise WPSError('Invalid XML missing Identifier element')
+
+            try:
+                data_inputs[input_id] = data.text
+            except AttributeError:
+                raise WPSError('Invalid XML missing ComplexData element')
 
         with metrics.WPS_REQUESTS.labels('Execute', 'POST').time():
-            response = handle_execute(meta, identifier.text, data_inputs)
+            response = handle_execute(meta, identifier, data_inputs)
     else:
         raise WPSError('Unknown root document tag {!r}', doc.tag)
 
