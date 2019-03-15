@@ -40,7 +40,7 @@ class WPSViewsTestCase(test.TestCase):
             'service': 'WPS',
             'request': 'Execute',
             'identifier': 'CDAT.subset',
-            'datainputs': '[variable=[];domain=[];operation=[]]',
+            'datainputs': 'variable=[];domain=[];operation=[]',
         }
 
         response = self.client.get('/wps/', data, HTTP_COMPUTE_TOKEN='abcd1234')
@@ -70,7 +70,7 @@ class WPSViewsTestCase(test.TestCase):
             'service': 'WPS',
             'request': 'Execute',
             'identifier': 'CDAT.subset',
-            'datainputs': '[variable=[];domain=[];operation=[]]',
+            'datainputs': 'variable=[];domain=[];operation=[]',
         }
 
         response = self.client.get('/wps/', data, HTTP_COMPUTE_TOKEN='sakdjlasjdlkasda')
@@ -82,7 +82,7 @@ class WPSViewsTestCase(test.TestCase):
             'service': 'WPS',
             'request': 'Execute',
             'identifier': 'CDAT.subset',
-            'datainputs': '[variable=[];domain=[];operation=[]]',
+            'datainputs': 'variable=[];domain=[];operation=[]',
         }
 
         response = self.client.get('/wps/', data)

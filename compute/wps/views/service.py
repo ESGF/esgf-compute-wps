@@ -158,14 +158,21 @@ def handle_get(params, meta):
         # correctly in the form of DataInputs=variable=[];domain=[];operation=[]
         query_string = urllib.unquote(meta['QUERY_STRING'])
 
-        match = re.match('.*datainputs=(.*)&?.*', query_string, re.I)
+        match = re.match('.*datainputs=([^&]*)&?.*', query_string, re.I)
 
         try:
             split = re.split(';', match.group(1))
         except AttributeError:
             raise WPSError('Failed to parse DataInputs param')
 
-        data_inputs = dict(x.split('=') for x in split)
+        logger.info('Split DataInputs to %r', split)
+
+        try:
+            data_inputs = dict(x.split('=') for x in split)
+        except ValueError as e:
+            logger.info('Failed to parse DataInputs %r', e)
+
+            raise WPSError('Failed to parse DataInputs param')
 
         with metrics.WPS_REQUESTS.labels('Execute', 'GET').time():
             response = handle_execute(meta, identifier, data_inputs)
