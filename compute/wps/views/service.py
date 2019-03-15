@@ -141,8 +141,6 @@ def handle_get(params, meta):
 
     service = get_parameter(params, 'service', True)
 
-    data_inputs = {}
-
     logger.info('GET request %r, service %r', request, service)
 
     if request == 'getcapabilities':
@@ -156,18 +154,18 @@ def handle_get(params, meta):
     elif request == 'execute':
         identifier = get_parameter(params, 'identifier', True)
 
+        # Cannot use request.GET, django does not parse the parameter
+        # correctly in the form of DataInputs=variable=[];domain=[];operation=[]
         query_string = urllib.unquote(meta['QUERY_STRING'])
 
-        if 'datainputs' in query_string:
-            match = re.match('.*datainputs=\[(.*)\].*', query_string)
+        match = re.match('.*datainputs=(.*)&?.*', query_string, re.I)
 
-            if match is not None:
-                # angular2 encodes ; breaking django query_string parsing so the 
-                # webapp replaces ; with | and the change is reverted before parsing
-                # the datainputs
-                data_inputs = re.sub('\|(operation|domain|variable)=', ';\\1=', match.group(1))
+        try:
+            split = re.split(';', match.group(1))
+        except AttributeError:
+            raise WPSError('Failed to parse DataInputs param')
 
-                data_inputs = dict(x.split('=') for x in data_inputs.split(';'))
+        data_inputs = dict(x.split('=') for x in split)
 
         with metrics.WPS_REQUESTS.labels('Execute', 'GET').time():
             response = handle_execute(meta, identifier, data_inputs)
