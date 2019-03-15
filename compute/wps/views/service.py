@@ -100,7 +100,12 @@ def handle_describe_process(identifiers):
 
     return data
 
-def handle_execute(api_key, identifier, data_inputs):
+def handle_execute(meta, identifier, data_inputs):
+    try:
+        api_key = meta['HTTP_COMPUTE_TOKEN']
+    except KeyError:
+        raise WPSError('Missing authorization token, should be passed in HTTP header COMPUTE_TOKEN')
+
     try:
         user = models.User.objects.filter(auth__api_key=api_key)[0]
     except IndexError:
@@ -163,7 +168,7 @@ def handle_execute(api_key, identifier, data_inputs):
 
     return job.report
 
-def handle_get(params, query_string):
+def handle_get(params, meta):
     """ Handle an HTTP GET request. """
     request = get_parameter(params, 'request', True).lower()
 
@@ -182,11 +187,9 @@ def handle_get(params, query_string):
         with metrics.WPS_REQUESTS.labels('DescribeProcess', 'GET').time():
             response = handle_describe_process(identifier)
     elif request == 'execute':
-        api_key = get_parameter(params, 'api_key', True)
-
         identifier = get_parameter(params, 'identifier', True)
 
-        query_string = urllib.unquote(query_string)
+        query_string = urllib.unquote(meta['QUERY_STRING'])
 
         if 'datainputs' in query_string:
             match = re.match('.*datainputs=\[(.*)\].*', query_string)
@@ -200,7 +203,7 @@ def handle_get(params, query_string):
                 data_inputs = dict(x.split('=') for x in data_inputs.split(';'))
 
         with metrics.WPS_REQUESTS.labels('Execute', 'GET').time():
-            response = handle_execute(api_key, identifier, data_inputs)
+            response = handle_execute(meta, identifier, data_inputs)
     else:
         raise WPSError('Operation "{name}" is not supported', name=request)
 
@@ -226,12 +229,10 @@ def handle_post(data, params):
     for x in request.DataInputs.Input:
         data_inputs[x.Identifier.value()] = x.Data.LiteralData.value()
 
-    api_key = params.get('api_key')
-
     logger.info('Handling POST request for API key %s', api_key)
 
     with metrics.WPS_REQUESTS.labels('Execute', 'POST').time():
-        response = handle_execute(api_key, request.Identifier.value(), data_inputs)
+        response = handle_execute(meta, request.Identifier.value(), data_inputs)
 
     return response
 
@@ -239,9 +240,9 @@ def handle_post(data, params):
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
     if request.method == 'GET':
-        return handle_get(request.GET, request.META['QUERY_STRING'])
+        return handle_get(request.GET, request.META)
     elif request.method == 'POST':
-        return handle_post(request.body, request.GET)
+        return handle_post(request.body, request.META)
 
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie

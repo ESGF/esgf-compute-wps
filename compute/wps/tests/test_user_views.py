@@ -9,7 +9,7 @@ class UserViewsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'files.json']
 
     def test_user_stats_process_missing_authentication(self):
-        response = self.client.get('/api/auth/user/stats/', {'type': 'process'})
+        response = self.client.get('/api/user/stats/', {'type': 'process'})
 
         helpers.check_failed(self, response)
         
@@ -18,7 +18,7 @@ class UserViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.get('/api/auth/user/stats/', {'stat': 'process'})
+        response = self.client.get('/api/user/stats/', {'stat': 'process'})
 
         data = helpers.check_success(self, response)
 
@@ -26,7 +26,7 @@ class UserViewsTestCase(test.TestCase):
         self.assertEqual(len(data['data']['processes']), 6)
 
     def test_user_stats_files_missing_authentication(self):
-        response = self.client.get('/api/auth/user/stats/')
+        response = self.client.get('/api/user/stats/')
 
         helpers.check_failed(self, response)
 
@@ -35,7 +35,7 @@ class UserViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.get('/api/auth/user/stats/')
+        response = self.client.get('/api/user/stats/')
 
         data = helpers.check_success(self, response)
 
@@ -43,7 +43,7 @@ class UserViewsTestCase(test.TestCase):
         self.assertEqual(len(data['data']['files']), 133)
 
     def test_user_details_missing_authentication(self):
-        response = self.client.get('/api/auth/user/')
+        response = self.client.get('/api/user/')
 
         helpers.check_failed(self, response)
 
@@ -52,7 +52,7 @@ class UserViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.get('/api/auth/user/')
+        response = self.client.get('/api/user/')
 
         data = helpers.check_success(self, response)['data']
 
@@ -62,7 +62,7 @@ class UserViewsTestCase(test.TestCase):
             self.assertIn(exp, data)
 
     def test_update_missing_authentication(self):
-        response = self.client.post('/api/auth/update/')
+        response = self.client.post('/api/user/update/')
 
         helpers.check_failed(self, response)
 
@@ -77,7 +77,7 @@ class UserViewsTestCase(test.TestCase):
             'password': 'test2'
         }
 
-        response = self.client.post('/api/auth/update/', params)
+        response = self.client.post('/api/user/update/', params)
 
         data = helpers.check_failed(self, response)
 
@@ -90,7 +90,7 @@ class UserViewsTestCase(test.TestCase):
             'email': 'imdifferent@hello.com',
         }
 
-        response = self.client.post('/api/auth/update/', params)
+        response = self.client.post('/api/user/update/', params)
 
         data = helpers.check_success(self, response)['data']
 
@@ -103,7 +103,7 @@ class UserViewsTestCase(test.TestCase):
                 self.assertEqual(params[exp], data[exp])
 
     def test_regenerate_missing_authentication(self):
-        response = self.client.get('/api/auth/user/regenerate/')
+        response = self.client.get('/api/user/regenerate/')
 
         helpers.check_failed(self, response)
 
@@ -116,6 +116,6 @@ class UserViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.get('/api/auth/user/regenerate/')
+        response = self.client.get('/api/user/regenerate/')
 
         helpers.check_success(self, response)

@@ -33,7 +33,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_login_mpc_not_logged_in(self):
-        response = self.client.post('/api/auth/login/mpc/', {})
+        response = self.client.post('/api/mpc/', {})
 
         self.check_failed(response)
 
@@ -42,7 +42,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.post('/api/auth/login/mpc/', {})
+        response = self.client.post('/api/mpc/', {})
 
         self.check_failed(response)
 
@@ -54,7 +54,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.post('/api/auth/login/mpc/', {'username': 'test1234', 'password': '1234'})
+        response = self.client.post('/api/mpc/', {'username': 'test1234', 'password': '1234'})
 
         self.check_failed(response)
 
@@ -66,7 +66,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.post('/api/auth/login/mpc/', {'username': 'test1234', 'password': '1234'})
+        response = self.client.post('/api/mpc/', {'username': 'test1234', 'password': '1234'})
 
         self.check_failed(response)
 
@@ -81,7 +81,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.post('/api/auth/login/mpc/', {'username': 'test1234', 'password': '1234'})
+        response = self.client.post('/api/mpc/', {'username': 'test1234', 'password': '1234'})
 
         self.check_failed(response)
 
@@ -96,7 +96,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.post('/api/auth/login/mpc/', {'username': 'test1234', 'password': '1234'})
+        response = self.client.post('/api/mpc/', {'username': 'test1234', 'password': '1234'})
 
         data = self.check_success(response)['data']
 
@@ -107,7 +107,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertEqual(data['type'], 'myproxyclient')
 
     def test_oauth2_callback_invalid_state(self):
-        response = self.client.get('/api/auth/callback', {})
+        response = self.client.get('/api/oauth2/callback/', {})
 
         self.check_failed(response)
 
@@ -135,14 +135,14 @@ class AuthViewsTestCase(test.TestCase):
 
         session.save()
 
-        response = self.client.get('/api/auth/callback', {})
+        response = self.client.get('/api/oauth2/callback/', {})
 
         self.check_redirect(response, 1)
 
         user.auth.refresh_from_db()
 
     def test_login_oauth2_not_logged_in(self):
-        response = self.client.post('/api/auth/login/oauth2/', {})
+        response = self.client.post('/api/oauth2/', {})
 
         self.check_failed(response)
 
@@ -157,7 +157,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.post('/api/auth/login/oauth2/', {})
+        response = self.client.post('/api/oauth2/', {})
 
         data = self.check_success(response)['data']
 
@@ -167,7 +167,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertEqual(self.client.session['oauth_state'], {'test':'test'})
 
     def test_user_logout_not_logged_in(self):
-        response = self.client.get('/api/auth/logout/', {})
+        response = self.client.get('/api/openid/logout/', {})
 
         self.check_failed(response)
 
@@ -176,7 +176,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.client.login(username=user.username, password=user.username)
 
-        response = self.client.get('/api/auth/logout/', {})
+        response = self.client.get('/api/openid/logout/', {})
 
         self.assertNotIn('_auth_user_id', self.client.session)
         self.check_success(response)
@@ -187,7 +187,7 @@ class AuthViewsTestCase(test.TestCase):
 
         mock_openid.return_value = ('http://testbad.com/openid/fake_JnyeGoV7vc', {'email': user.email})
 
-        response = self.client.get('/api/auth/callback/openid/', {})
+        response = self.client.get('/api/openid/callback/', {})
 
         self.assertIn('_auth_user_id', self.client.session)
         self.check_redirect(response, 1)
@@ -203,13 +203,13 @@ class AuthViewsTestCase(test.TestCase):
             }
         )
 
-        response = self.client.get('/api/auth/callback/openid/', {})
+        response = self.client.get('/api/openid/callback/', {})
 
         self.assertIn('_auth_user_id', self.client.session)
         self.check_redirect(response, 1)
 
     def test_user_login_openid_invalid(self):
-        response = self.client.post('/api/auth/login/openid/', {})
+        response = self.client.post('/api/openid/login/', {})
 
         self.check_failed(response)
 
@@ -217,7 +217,7 @@ class AuthViewsTestCase(test.TestCase):
     def test_user_login_openid(self, mock_openid):
         mock_openid.return_value = 'http://testbad.com/openid'
 
-        response = self.client.post('/api/auth/login/openid/', {'openid_url': 'http://testbad.com/openid/fake_JnyeGoV7vc'})
+        response = self.client.post('/api/openid/login/', {'openid_url': 'http://testbad.com/openid/fake_JnyeGoV7vc'})
 
         data = self.check_success(response)
 
