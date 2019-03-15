@@ -14,6 +14,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from jinja2 import Environment, PackageLoader
 from lxml import etree
+from owslib import wps
 
 from . import common
 from wps import backends
@@ -209,30 +210,43 @@ def handle_get(params, meta):
 
     return response
 
-def handle_post(data, params):
+def handle_post(data, meta):
     """ Handle an HTTP POST request. 
 
     NOTE: we only support execute requests as POST for the moment
     """
+    logger.info('%r', data)
     try:
-        request = cwt.wps.CreateFromDocument(data)
+        doc = wps.etree.fromstring(data)
     except Exception as e:
-        raise WPSError('Malformed WPS execute request')
+        logger.exception('Parse error %r', e)
 
-    if isinstance(request, cwt.wps.CTD_ANON_11):
-        raise WPSError('GetCapabilities POST not supported')
-    elif isinstance(request, cwt.wps.CTD_ANON_12):
-        raise WPSError('DescribeProcess POST not supported')
+        raise WPSError('Parse error {!r}', e)
 
-    data_inputs = {}
+    if 'GetCapabilities' in doc.tag:
+        raise WPSError('GetCapabilities POST request is not supported')
+    elif 'DescribeProcess' in doc.tag:
+        raise WPSError('DescribeProcess POST request is not supported')
+    elif 'Execute' in doc.tag:
+        wpsns = wps.getNamespace(doc)
 
-    for x in request.DataInputs.Input:
-        data_inputs[x.Identifier.value()] = x.Data.LiteralData.value()
+        identifier = doc.find(wps.nspath('Identifier'))
 
-    logger.info('Handling POST request for API key %s', api_key)
+        inputs = doc.findall(wps.nspath('DataInputs/Input', ns=wpsns))
 
-    with metrics.WPS_REQUESTS.labels('Execute', 'POST').time():
-        response = handle_execute(meta, request.Identifier.value(), data_inputs)
+        data_inputs = {}
+
+        for item in inputs:
+            input_id = item.find(wps.nspath('Identifier'))
+
+            data = item.find(wps.nspath('Data/ComplexData', ns=wpsns))
+
+            data_inputs[input_id.text.lower()] = data.text
+
+        with metrics.WPS_REQUESTS.labels('Execute', 'POST').time():
+            response = handle_execute(meta, identifier.text, data_inputs)
+    else:
+        raise WPSError('Unknown root document tag {!r}', doc.tag)
 
     return response
 
