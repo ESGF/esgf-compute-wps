@@ -12,6 +12,7 @@ export interface WPSResponse {
   data?: any;
 }
 
+const XML_NS = 'http://www.w3.org/2000/xmlns/';
 const WPS_NS = 'http://www.opengis.net/wps/1.0.0';
 const OWS_NS = 'http://www.opengis.net/ows/1.1';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
@@ -87,11 +88,7 @@ export class WPSService {
   execute(url: string, api_key: string, processes: Process[]): Promise<string> {
     let data = this.prepareDataInputsXML(processes);
 
-    let params = new URLSearchParams();
-
-    params.append('api_key', api_key);
-
-    return this.postCSRFUnmodified(url, data, params=params).then((response: any) => {
+    return this.postCSRFUnmodified(url, data, new Headers({COMPUTE_TOKEN: api_key})).then((response: any) => {
       let parser = new DOMParser();
 
       let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
@@ -120,34 +117,6 @@ export class WPSService {
 
       return Promise.resolve(`Process entered state "${state}" as of ${creationTime.value}`);
     });
-  }
-
-  createAttribute(doc: any, node: any, name: string, value: string) {
-    let attribute = doc.createAttribute(name);
-
-    attribute.value = value;
-
-    node.setAttributeNode(attribute);
-  }
-
-  createAttributeNS(doc: any, node: any, ns: string, name: string, value: string) {
-    let attribute = doc.createAttributeNS(ns, name);
-
-    attribute.value = value;
-
-    node.setAttributeNode(attribute);
-  }
-
-  createElementNS(doc: any, node: any, ns: string, name: string, value: string = null) {
-    let newNode = doc.createElementNS(ns, name);
-
-    if (value != null) {
-      newNode.innerHTML = value;
-    }
-
-    node.appendChild(newNode);
-
-    return newNode;
   }
 
   dataInputJSON(dataInput: any) {
@@ -189,34 +158,54 @@ export class WPSService {
   prepareDataInputsXML(processes: Process[]): string {
     let dataInputs = this.prepareDataInputs(processes);
 
-    let doc = document.implementation.createDocument(WPS_NS, 'wps:Execute', null);
+    let dom = document.implementation.createDocument('', '', null);
 
-    let root = doc.documentElement;
+    let root = dom.createElementNS(WPS_NS, 'wps:Execute');
+    dom.appendChild(root);
 
-    this.createAttribute(doc, root, 'service', 'WPS');
-    this.createAttribute(doc, root, 'version', '1.0.0');
+    root.setAttributeNS(XML_NS, 'xmlns:ows', OWS_NS);
+    root.setAttributeNS(XML_NS, 'xmlns:xlink', XLINK_NS);
+    root.setAttributeNS(XML_NS, 'xmlns:xsi', XSI_NS);
+    root.setAttributeNS(XSI_NS, 'xsi:schemaLocation', SCHEMA_LOCATION);
+
+    root.setAttribute('service', 'WPS');
+    root.setAttribute('version', '1.0.0');
+
+    let identifierElem = dom.createElementNS(OWS_NS, 'ows:Identifier');
 
     if (processes.length == 1) {
-      this.createElementNS(doc, root, OWS_NS, 'ows:Identifier', processes[0].identifier);
+      identifierElem.innerHTML = processes[0].identifier;
+
     } else {
-      this.createElementNS(doc, root, OWS_NS, 'ows:Identifier', 'CDAT.workflow');
+      identifierElem.innerHTML = 'CDAT.workflow';
     }
 
-    let dataInputsElement = this.createElementNS(doc, root, WPS_NS, 'wps:DataInputs');
+    root.appendChild(identifierElem);
+
+    let dataInputsElem = dom.createElementNS(WPS_NS, 'wps:DataInputs');
+    root.appendChild(dataInputsElem);
 
     for (let key in dataInputs) {
-      let inputElement = this.createElementNS(doc, dataInputsElement, WPS_NS, 'wps:Input');
+      let inputElem = dom.createElementNS(WPS_NS, 'wps:Input');
+      dataInputsElem.appendChild(inputElem);
 
-      this.createElementNS(doc, inputElement, OWS_NS, 'ows:Identifier', key);
-      
-      this.createElementNS(doc, inputElement, OWS_NS, 'ows:Title', key);
+      let inputIdElem = dom.createElementNS(OWS_NS, 'ows:Identifier');
+      inputIdElem.innerHTML = key;
+      inputElem.appendChild(inputIdElem);
 
-      let dataElement = this.createElementNS(doc, inputElement, WPS_NS, 'wps:Data');
+      let inputTitleElem = dom.createElementNS(OWS_NS, 'ows:Title');
+      inputTitleElem.innerHTML = key;
+      inputElem.appendChild(inputTitleElem);
 
-      this.createElementNS(doc, dataElement, WPS_NS, 'wps:LiteralData', dataInputs[key]);
+      let dataElem = dom.createElementNS(WPS_NS, 'wps:Data');
+      inputElem.appendChild(dataElem);
+
+      let complexDataElem = dom.createElementNS(WPS_NS, 'wps:ComplexData')
+      complexDataElem.innerHTML = dataInputs[key];
+      dataElem.appendChild(complexDataElem);
     }
 
-    return new XMLSerializer().serializeToString(doc.documentElement);
+    return new XMLSerializer().serializeToString(root);
   }
 
   getCookie(name: string): string {
@@ -283,9 +272,7 @@ export class WPSService {
     return this.post(url, data, headers);
   }
 
-  postCSRFUnmodified(url: string, data: string = '', params: URLSearchParams = new URLSearchParams()) {
-    let headers = new Headers();
-
+  postCSRFUnmodified(url: string, data: string = '', headers = new Headers(), params: URLSearchParams = new URLSearchParams()) {
     headers.append('X-CSRFToken', this.getCookie('csrftoken'));
 
     return this.postUnmodified(url, data, headers, params);
