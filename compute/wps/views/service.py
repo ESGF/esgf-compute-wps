@@ -186,7 +186,6 @@ def handle_post(data, meta):
 
     NOTE: we only support execute requests as POST for the moment
     """
-    logger.info('%r', data)
     try:
         doc = wps.etree.fromstring(data)
     except Exception as e:
