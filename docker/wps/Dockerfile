@@ -1,26 +1,25 @@
-FROM jasonb87/cwt_common:devel
+FROM continuumio/miniconda:4.5.12 as builder
 
-RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -a && \
-	curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
-	echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list && \
-	apt-get update && \
-	apt-get install -y --no-install-recommends yarn build-essential nodejs && \
-	apt-get autoremove -y build-essential && \
-	rm -rf /usr/share/doc/ && \
-	rm -rf /usr/share/man/ && \
-	rm -rf /usr/share/locale && \
-	rm -rf /var/lib/apt/lists/*
+WORKDIR /wps
 
-WORKDIR /
+COPY . .
 
-COPY docker/wps/entrypoint.sh .
+RUN conda install -c conda-forge -y conda-build && \
+      conda build -c conda-forge -c cdat compute/wps
 
-COPY docker/wps/app.py .
+FROM continuumio/miniconda:4.5.12
 
-RUN cd /var/www/webapp/compute/wps/webapp && \
-  yarn install && \
-  ./node_modules/.bin/webpack --config config/webpack.prod
+COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
-EXPOSE 8000
+COPY docker/wps/environment.yml environment.yml
 
-ENTRYPOINT ["./entrypoint.sh"]
+RUN conda env update -n base -f environment.yml && \
+      conda install -c conda-forge -c cdat --use-local esgf-compute-wps && \
+      django-admin startproject compute && \
+      rm environment.yml
+
+COPY docker/wps/django.properties /etc/config
+COPY docker/wps/celery.py /compute/compute
+COPY docker/wps/settings.py /compute/compute
+COPY docker/wps/urls.py /compute/compute
+COPY docker/wps/wsgi.py /compute/compute
