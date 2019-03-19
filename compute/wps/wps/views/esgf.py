@@ -119,8 +119,7 @@ def process_url(user, prefix_id, context):
 
     logger.info('Processing %r', context.variable)
 
-    if True:
-    #if data is None:
+    if data is None:
         data = { 'url': context.variable.uri }
 
         with context.open(user) as variable:
