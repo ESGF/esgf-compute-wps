@@ -18,8 +18,24 @@ RUN conda env update -n base -f environment.yml && \
       django-admin startproject compute && \
       rm environment.yml
 
-COPY docker/wps/django.properties /etc/config
-COPY docker/wps/celery.py /compute/compute
-COPY docker/wps/settings.py /compute/compute
-COPY docker/wps/urls.py /compute/compute
-COPY docker/wps/wsgi.py /compute/compute
+WORKDIR /etc/config
+
+COPY docker/wps/django.properties .
+
+WORKDIR /compute/compute
+
+COPY docker/wps/celery.py .
+COPY docker/wps/settings.py .
+COPY docker/wps/urls.py .
+COPY docker/wps/wsgi.py .
+
+WORKDIR /
+
+COPY docker/wps/app.py .
+COPY docker/wps/entrypoint.sh .
+
+ENV CWT_BASE=/compute
+
+EXPOSE 8000
+
+ENTRYPOINT ['./entrypoint.sh']

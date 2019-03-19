@@ -14,17 +14,17 @@ function check_postgres() {
   echo $?
 }
 
-source activate wps
-
 app_root=$CWT_BASE
 
-while [[ $(check_postgres) -ne 0 ]]; do
-  sleep 1 
+if [ -z "${WPS_DEBUG}" ]
+then
+  while [[ $(check_postgres) -ne 0 ]]; do
+    sleep 1 
 
-  echo "Waiting for postgres"
-done
+    echo "Waiting for postgres"
+  done
+fi
 
-python $app_root/manage.py collectstatic --no-input
 python $app_root/manage.py migrate
 python $app_root/manage.py server --host default
 python $app_root/manage.py processes
