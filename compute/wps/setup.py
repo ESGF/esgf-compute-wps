@@ -10,5 +10,8 @@ setuptools.setup(
     author_email='boutte3@llnl.gov',
     description='WPS Django Application',
     url='https://github.com/ESGF/esgf-compute-wps',
-    packages=setuptools.find_packages(include=['wps',]),
+    packages=setuptools.find_packages(),
+    package_data={
+        '': ['*.xml',],
+    },
 )

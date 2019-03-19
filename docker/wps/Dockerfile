@@ -1,11 +1,13 @@
 FROM continuumio/miniconda:4.5.12 as builder
 
-WORKDIR /wps
+WORKDIR /src
 
 COPY . .
 
+WORKDIR /src/compute/wps
+
 RUN conda install -c conda-forge -y conda-build && \
-      conda build -c conda-forge -c cdat compute/wps
+      conda build -c conda-forge -c cdat .
 
 FROM continuumio/miniconda:4.5.12
 

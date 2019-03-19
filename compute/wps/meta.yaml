@@ -3,11 +3,10 @@ package:
   version: {{ environ.get('APP_VERSION', 'devel') }}
 
 source:
-  git_url: ../../
+  path: ./
 
 build:
-  string: py{{ PY_VER }}_{{ GIT_DESCRIBE_HASH }}
-  script: python compute/wps/setup.py install --single-version-externally --record=record.txt
+  script: python setup.py install --single-version-externally --record=record.txt
   noarch: python
 
 requirements:
