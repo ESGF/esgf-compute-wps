@@ -18,9 +18,7 @@ function cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-source activate wps
-
-pushd /var/www/webapp/compute
+pushd /compute
 
 celery worker -A compute ${@} &
 

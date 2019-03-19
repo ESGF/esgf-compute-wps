@@ -18,7 +18,8 @@ COPY docker/wps/environment.yml environment.yml
 RUN conda env update -n base -f environment.yml && \
       conda install -c conda-forge -c cdat --use-local esgf-compute-wps && \
       django-admin startproject compute && \
-      rm environment.yml
+      rm environment.yml && \
+      mkdir -p /var/log/cwt
 
 WORKDIR /etc/config
 
