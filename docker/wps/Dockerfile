@@ -27,6 +27,7 @@ COPY docker/wps/django.properties .
 
 WORKDIR /compute/compute
 
+COPY docker/wps/__init__.py .
 COPY docker/wps/celery.py .
 COPY docker/wps/settings.py .
 COPY docker/wps/urls.py .
