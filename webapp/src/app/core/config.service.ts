@@ -31,7 +31,7 @@ export class ConfigService {
   generatePath = `${this.apiBasePath}/generate/`;
   searchPath = `${this.apiBasePath}/search/`;
   searchVariablePath = `${this.apiBasePath}/search/variable/`;
-  combinePath = `${this.apiBasePath}/combine`;
+  combinePath = `${this.apiBasePath}/combine/`;
  
   // Auth API paths
   authLoginOpenIDPath = `${this.apiBasePath}/openid/login/`;
