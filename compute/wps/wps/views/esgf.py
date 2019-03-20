@@ -25,6 +25,17 @@ from wps.context import VariableContext
 
 logger = common.logger
 
+class AxisConversionError(WPSError):
+    def __init__(self, axis, base_units=None):
+        msg = 'Error converting axis {axis.id}'
+
+        if base_units is not None:
+            msg += ' with base units {base_units}'
+
+        super(AxisConversionError, self).__init__(msg, 
+                                                  axis=axis, 
+                                                  base_units=base_units)
+
 def describe_axis(axis):
     """ Describe an axis.
     Args:
@@ -40,6 +51,8 @@ def describe_axis(axis):
         'units': axis.units or None,
         'length': len(axis),
     }
+
+    logger.info('Described axis %r', data)
 
     if axis.isTime():
         component = axis.asComponentTime()
@@ -68,9 +81,14 @@ def process_axes(header):
             if base_units is None:
                 base_units = axis.units
 
+            logger.info('Process %r with units %r', axis.id, base_units)
+
             axis_clone = axis.clone()
 
-            axis_clone.toRelativeTime(base_units)
+            try:
+                axis_clone.toRelativeTime(base_units)
+            except:
+                raise AxisConversionError(axis_clone, base_units)
 
             data['temporal'] = describe_axis(axis_clone)
         else:

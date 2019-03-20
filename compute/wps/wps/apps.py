@@ -4,17 +4,17 @@ import os
 
 from django.apps import AppConfig
 
-from wps import settings as wps_settings
+from cwt_settings import settings
 
 class WpsConfig(AppConfig):
     name = 'wps'
 
     def ready(self):
-        from django.conf import settings
+        from django.conf import settings as wps_settings
         from wps import metrics
         from wps import signals
         from wps import WPSError
 
         os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
 
-        wps_settings.patch_settings(settings)
+        settings.patch_settings(wps_settings)

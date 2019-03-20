@@ -1,0 +1,24 @@
+package:
+  name: esgf-compute-wps
+  version: {{ environ.get('APP_VERSION', 'devel') }}
+
+source:
+  path: ./
+
+build:
+  script: python setup.py install --single-version-externally --record=record.txt
+  noarch: python
+
+requirements:
+  build:
+    - git
+
+  host:
+    - python
+
+  run:
+    - python
+
+about:
+  home: https://github.com/ESGF/esgf-compute-wps
+  summary: LLNL WPS Django Application
