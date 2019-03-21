@@ -1,7 +1,11 @@
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+from past.utils import old_div
 import datetime
 import logging
 import os
-import ConfigParser
+import configparser
 
 import netaddr
 
@@ -56,7 +60,7 @@ def patch_settings(settings):
     setattr(settings, 'WORKER_CPU_UNITS', WORKER_CPU_UNITS)
     setattr(settings, 'WORKER_MEMORY', config.get_value('default', 'worker.memory', 8e6, int))
     setattr(settings, 'WORKER_USER_PERCENT', WORKER_USER_PERCENT)
-    setattr(settings, 'WORKER_PER_USER', int(((WORKER_CPU_COUNT*1000)/WORKER_CPU_UNITS)*WORKER_USER_PERCENT))
+    setattr(settings, 'WORKER_PER_USER', int((old_div((WORKER_CPU_COUNT*1000),WORKER_CPU_UNITS))*WORKER_USER_PERCENT))
 
     setattr(settings, 'EMAIL_HOST', config.get_value('email', 'host'))
     setattr(settings, 'EMAIL_PORT', config.get_value('email', 'port'))
@@ -126,11 +130,11 @@ def patch_settings(settings):
     setattr(settings, 'WPS_OPHIDIA_OUTPUT_URL', config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc'))
     setattr(settings, 'WPS_OPHIDIA_DEFAULT_CORES', config.get_value('ophidia', 'wps.oph.default.cores', 8, int))
 
-class DjangoConfigParser(ConfigParser.ConfigParser):
+class DjangoConfigParser(configparser.ConfigParser):
     def __init__(self, defaults):
         self.defaults = defaults
 
-        ConfigParser.ConfigParser.__init__(self)
+        configparser.ConfigParser.__init__(self)
 
     @classmethod
     def from_file(cls, file_path, defaults=None):
@@ -153,7 +157,7 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
             else:
                 value = self.get(section, key)
 
-                for replacement in self.defaults.iteritems():
+                for replacement in self.defaults.items():
                     if replacement[0] in value:
                         value = value.replace(*replacement)
         # Error with calling NoSectionError
@@ -164,14 +168,14 @@ class DjangoConfigParser(ConfigParser.ConfigParser):
             value = default
 
             pass
-        except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+        except (configparser.NoOptionError, configparser.NoSectionError) as e:
             if default is None:
                 raise
 
             value = default
 
             if value_type == str:
-                for replacement in self.defaults.iteritems():
+                for replacement in self.defaults.items():
                     if replacement[0] in value:
                         value = value.replace(*replacement)
 
