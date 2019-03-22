@@ -17,6 +17,7 @@ import os
 import random
 import re
 import string
+import sys
 import time
 from urllib.parse import urlparse
 
@@ -55,9 +56,14 @@ class DjangoOpenIDStore(interface.OpenIDStore):
             assoc = OpenIDAssociation.objects.get(server_url=server_url,
                                                  handle=association.handle)
         except OpenIDAssociation.DoesNotExist:
+            if sys.version_info > (3, 1):
+                secret = base64.decodebytes(association.secret)
+            else:
+                secret = base64.decodestring(association.secret)
+
             assoc = OpenIDAssociation(server_url=server_url,
                                       handle=association.handle,
-                                      secret=base64.encodestring(association.secret),
+                                      secret=secret,
                                       issued=association.issued,
                                       lifetime=association.lifetime,
                                       assoc_type=association.assoc_type)
@@ -80,13 +86,21 @@ class DjangoOpenIDStore(interface.OpenIDStore):
         expired = []
 
         for a in assocs:
+            if sys.version_info > (3, 1):
+                secret = base64.decodebytes(a.secret.encode('utf-8'))
+            else:
+                secret = base64.decodestring(a.secret.encode('utf-8'))
+
             assoc = association.Association(a.handle,
-                                            base64.decodestring(a.secret.encode('utf-8')),
+                                            secret,
                                             a.issued,
                                             a.lifetime,
                                             a.assoc_type)
 
-            expires_in = assoc.getExpiresIn()
+            try:
+                expires_in = assoc.getExpiresIn()
+            except AttributeError:
+                expires_in = assoc.expiresIn
 
             if expires_in == 0:
                 expired.append(a)
