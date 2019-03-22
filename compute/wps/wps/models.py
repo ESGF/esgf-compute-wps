@@ -52,23 +52,20 @@ class DjangoOpenIDStore(interface.OpenIDStore):
     # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py
 
     def storeAssociation(self, server_url, association):
+        logger.info('storeAssociation %r %r', server_url, association)
+
         try:
             assoc = OpenIDAssociation.objects.get(server_url=server_url,
                                                  handle=association.handle)
         except OpenIDAssociation.DoesNotExist:
-            if sys.version_info > (3, 1):
-                secret = base64.decodebytes(association.secret)
-            else:
-                secret = base64.decodestring(association.secret)
-
             assoc = OpenIDAssociation(server_url=server_url,
                                       handle=association.handle,
-                                      secret=secret,
+                                      secret=base64.encodestring(association.secret).decode(),
                                       issued=association.issued,
                                       lifetime=association.lifetime,
                                       assoc_type=association.assoc_type)
         else:
-            assoc.secret = base64.encodestring(association.secret)
+            assoc.secret = base64.encodestring(association.secret).decode()
             assoc.issued = association.issued
             assoc.lifetime = association.lifetime
             assoc.assoc_type = association.assoc_type
@@ -76,6 +73,8 @@ class DjangoOpenIDStore(interface.OpenIDStore):
         assoc.save()
 
     def getAssociation(self, server_url, handle=None):
+        logger.info('getAssociation %r %r', server_url, handle)
+
         if handle is not None:
             assocs = OpenIDAssociation.objects.filter(server_url=server_url,
                                                      handle=handle)
@@ -86,13 +85,8 @@ class DjangoOpenIDStore(interface.OpenIDStore):
         expired = []
 
         for a in assocs:
-            if sys.version_info > (3, 1):
-                secret = base64.decodebytes(a.secret.encode('utf-8'))
-            else:
-                secret = base64.decodestring(a.secret.encode('utf-8'))
-
             assoc = association.Association(a.handle,
-                                            secret,
+                                            base64.decodestring(a.secret.encode()),
                                             a.issued,
                                             a.lifetime,
                                             a.assoc_type)
@@ -141,13 +135,22 @@ class DjangoOpenIDStore(interface.OpenIDStore):
 
         return False
 
-    def cleanupNonces(self):
-        # Will implement later since it's not called
-        pass
+    def cleanupNonces(self, now=None):
+        if now is None:
+            now = int(time.time())
+        expired = OpenIDNonce.objects.filter(timestamp__lt=now-nonce.SKEW)
+        count = expired.count()
+        if count:
+            expired.delete()
+        return count
 
     def cleanupAssociations(self):
-        # Will implement later since it's not called
-        pass
+        now = int(time.time())
+        expired = OpenIDAssociation.objects.extra(where=['issued + lifetime < %d' % now])
+        count = expired.count()
+        if count:
+            expired.delete()
+        return count
 
 class OpenIDNonce(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
