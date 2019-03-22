@@ -677,14 +677,14 @@ class Status(models.Model):
 
     @property
     def exception_clean(self):
-        removed_tag = re.sub('<\?xml.*>\\n', '', self.exception)
+        removed_tag = re.sub('<\\?xml.*>\\n', '', self.exception)
 
         cleaned = re.sub('ExceptionReport.*>', 'ExceptionReport>', removed_tag)
 
         return cleaned
 
     def set_message(self, message, percent=None):
-        self.messages.create(message=message, percent=percent)
+        self.messages.ceeate(message=message, percent=percent)
 
         self.updated_date = timezone.now()
 

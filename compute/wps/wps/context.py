@@ -418,7 +418,7 @@ class OperationContext(object):
         metrics.WPS_DATA_OUTPUT.inc(stat.st_size)
 
     def parse_uniform_arg(self, value, default_start, default_n):
-        result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
+        result = re.match('^(\\d\\.?\\d?)$|^(-?\\d\\.?\\d?):(\\d\\.?\\d?):(\\d\\.?\\d?)$', value)
 
         if result is None:
             raise WPSError('Failed to parse uniform argument {value}', value=value)
