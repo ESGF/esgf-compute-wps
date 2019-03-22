@@ -4,7 +4,6 @@ import contextlib
 import datetime
 import hashlib
 import os
-import psutil
 import uuid
 from urlparse import urlparse
 
