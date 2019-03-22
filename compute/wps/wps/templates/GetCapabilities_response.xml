@@ -67,7 +67,7 @@
       <ows:Identifier>{{ process.identifier }}</ows:Identifier>
       <ows:Title>{{ process.identifier }}</ows:Title>
       <ows:Abstract>{{ process.abstract }}</ows:Abstract>
-      {% for key, value in process.decode_metadata().iteritems() %}
+      {% for key, value in process.decode_metadata().items() %}
       <ows:Metadata xlink:title="{{ key }}:{{ value }}" />
       {% endfor %}
 		</wps:Process>
