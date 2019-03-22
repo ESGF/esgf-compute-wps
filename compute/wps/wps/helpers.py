@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+from __future__ import division
+from past.utils import old_div
 import datetime
 import json
 import logging
@@ -41,7 +43,7 @@ def int_or_float(value):
 
 def determine_queue(process, estimate_size):
     try:
-        estimate_time = estimate_size / process.process_rate
+        estimate_time = old_div(estimate_size, process.process_rate)
     except ZeroDivisionError:
         estimate_time = 0.0
 
@@ -166,10 +168,10 @@ def object_hook(obj):
 
 def byteify(data):
     if isinstance(data, dict):
-        return dict((byteify(x), byteify(y)) for x, y in data.iteritems())
+        return dict((byteify(x), byteify(y)) for x, y in list(data.items()))
     elif isinstance(data, list):
         return list(byteify(x) for x in data)
-    elif isinstance(data, unicode):
+    elif isinstance(data, str):
         return data.encode('utf-8')
     else:
         return data

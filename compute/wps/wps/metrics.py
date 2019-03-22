@@ -1,6 +1,8 @@
+from future import standard_library
+standard_library.install_aliases()
 import os
 import sys
-import urlparse
+import urllib.parse
 
 if 'CWT_METRICS' in os.environ:
     os.environ['prometheus_multiproc_dir'] = os.environ['CWT_METRICS']
@@ -16,13 +18,13 @@ from celery.task.control import inspect
 
 
 def track_file(variable):
-    parts = urlparse.urlparse(variable.uri)
+    parts = urllib.parse.urlparse(variable.uri)
 
     WPS_FILE_ACCESSED.labels(parts.hostname, parts.path,
                              variable.var_name).inc()
 
 def track_login(counter, url):
-    parts = urlparse.urlparse(url)
+    parts = urllib.parse.urlparse(url)
 
     counter.labels(parts.hostname).inc()
 
@@ -30,12 +32,12 @@ def jobs_queued():
     i = inspect()
 
     try:
-        scheduled = sum(len(x) for x in i.scheduled().values())
+        scheduled = sum(len(x) for x in list(i.scheduled().values()))
     except AttributeError:
         scheduled = 0
 
     try:
-        reserved = sum(len(x) for x in i.reserved().values())
+        reserved = sum(len(x) for x in list(i.reserved().values()))
     except AttributeError:
         reserved = 0
 
@@ -46,7 +48,7 @@ def jobs_running():
     i = inspect()
 
     try:
-        active = sum(len(x) for x in i.active().values())
+        active = sum(len(x) for x in list(i.active().values()))
     except AttributeError:
         active = 0
 

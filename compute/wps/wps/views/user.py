@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import range
 import json
 import random
 import string
@@ -56,7 +58,7 @@ def update(request):
         form = forms.UpdateForm(request.POST)
 
         if not form.is_valid():
-            errors = dict((key, value) for key, value in form.errors.iteritems())
+            errors = dict((key, value) for key, value in list(form.errors.items()))
 
             raise WPSError('Invalid form, errors "{error}"', error=json.dumps(errors))
 
@@ -80,7 +82,7 @@ def regenerate(request):
         if request.user.auth.api_key == '':
             raise WPSError('Cannot regenerate API key, to generate an API key authenticate with MyProxyClient or OAuth2')
 
-        request.user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+        request.user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(64))
 
         request.user.auth.save()
 

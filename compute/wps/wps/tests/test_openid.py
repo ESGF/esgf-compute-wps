@@ -1,3 +1,4 @@
+from builtins import str
 import mock
 from django import test
 from django.conf import settings

@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+from builtins import object
 import glob
 import json
 import os

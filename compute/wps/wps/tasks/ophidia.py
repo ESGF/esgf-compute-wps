@@ -1,3 +1,4 @@
+from builtins import object
 import json
 import os
 import uuid
@@ -35,7 +36,7 @@ class OphidiaTask(object):
         self.dependencies = []
 
     def add_arguments(self, **kwargs):
-        self.arguments.extend(['{}={}'.format(key, value) for key, value in kwargs.iteritems()])
+        self.arguments.extend(['{}={}'.format(key, value) for key, value in list(kwargs.items())])
 
     def add_dependencies(self, *args):
         self.dependencies.extend(dict(task=x.name) for x in args)

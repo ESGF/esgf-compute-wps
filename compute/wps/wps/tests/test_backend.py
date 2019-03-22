@@ -44,4 +44,4 @@ class BackendsTestCase(test.TestCase):
     def test_registry(self):
         expected = ['CDAT', 'Ophidia', 'EDAS']
 
-        self.assertEqual(backends.Backend.registry.keys(), expected)
+        self.assertEqual(list(backends.Backend.registry.keys()), expected)

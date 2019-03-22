@@ -1,10 +1,11 @@
+from __future__ import absolute_import
 from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls import include
 from django.contrib import admin
 from rest_framework.routers import DefaultRouter
 
-import views
+from . import views
 
 router = DefaultRouter()
 router.register(r'jobs', views.JobViewSet)

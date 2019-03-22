@@ -1,11 +1,14 @@
 #! /usr/bin/env python
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import contextlib
 import datetime
 import hashlib
 import os
 import uuid
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 import cdms2
 from cdms2 import MV2

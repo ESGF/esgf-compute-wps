@@ -1,5 +1,12 @@
 from __future__ import unicode_literals
+from __future__ import division
 
+from future import standard_library
+from functools import reduce
+standard_library.install_aliases()
+from builtins import range
+from past.utils import old_div
+from builtins import object
 import base64
 import contextlib
 import datetime
@@ -11,7 +18,7 @@ import random
 import re
 import string
 import time
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 import cdms2
 import cwt
@@ -134,7 +141,7 @@ class OpenIDNonce(models.Model):
     timestamp = models.IntegerField()
     salt = models.CharField(max_length=40)
 
-    class Meta:
+    class Meta(object):
         unique_together = ('server_url', 'timestamp', 'salt')
 
     def __str__(self):
@@ -149,7 +156,7 @@ class OpenIDAssociation(models.Model):
     lifetime = models.IntegerField()
     assoc_type = models.TextField(max_length=64)
 
-    class Meta:
+    class Meta(object):
         unique_together = ('server_url', 'handle')
 
     def __str__(self):
@@ -162,7 +169,7 @@ class File(models.Model):
     url = models.TextField()
     requested = models.PositiveIntegerField(default=0)
 
-    class Meta:
+    class Meta(object):
         unique_together = ('name', 'host')
 
     @staticmethod
@@ -229,7 +236,7 @@ class Cache(models.Model):
     size = models.BigIntegerField(blank=True)
     local_path = models.CharField(blank=True, max_length=512)
 
-    class Meta:
+    class Meta(object):
         unique_together = (('url', 'variable'),)
 
     @contextlib.contextmanager
@@ -255,7 +262,7 @@ class Cache(models.Model):
 
         new_mapped = {}
 
-        for key, value in cache_mapped.iteritems():
+        for key, value in list(cache_mapped.items()):
             orig = mapped[key]
 
             start = orig.start - value.start
@@ -294,13 +301,13 @@ class Cache(models.Model):
         logger.info('Loaded dimensions %r', mapped)
 
         with self.open_variable() as var:
-            for name, value in mapped.iteritems():
+            for name, value in list(mapped.items()):
                 self.check_axis(var, name, value)
 
     def is_superset(self, domain):
         cached = helpers.decoder(self.dimensions)
 
-        for name, value in domain.iteritems():
+        for name, value in list(domain.items()):
             try:
                 cached_value = cached[name] 
             except KeyError:
@@ -360,7 +367,7 @@ class Auth(models.Model):
 
     def update(self, auth_type, certs, **kwargs):
         if self.api_key == '':
-            self.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+            self.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(64))
 
         self.type = auth_type
 
@@ -384,7 +391,7 @@ class Process(models.Model):
     metadata = models.TextField()
     version = models.CharField(max_length=128, blank=False, default=None)
 
-    class Meta:
+    class Meta(object):
         unique_together = (('identifier', 'version'),)
 
     def decode_metadata(self):
@@ -538,7 +545,7 @@ class Job(models.Model):
     @property
     def progress(self):
         try:
-            return (self.steps_completed + 1) * 100.0 / self.steps_total
+            return old_div((self.steps_completed + 1) * 100.0, self.steps_total)
         except ZeroDivisionError:
             return 0.0
 

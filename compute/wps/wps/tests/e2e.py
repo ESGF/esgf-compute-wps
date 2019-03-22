@@ -1,3 +1,4 @@
+from __future__ import print_function
 import argparse
 
 import cwt
@@ -41,14 +42,14 @@ def validate_output(variable, shape):
         v = infile[variable.var_name]
 
         if v.shape == shape:
-            print 'VERIFIED {!r} matches {!r}'.format(v.shape, shape)
+            print('VERIFIED {!r} matches {!r}'.format(v.shape, shape))
         else:
-            print 'FAILED {!r} does not match {!r}'.format(v.shape, shape)
+            print('FAILED {!r} does not match {!r}'.format(v.shape, shape))
 
 client = cwt.WPSClient(args.url, api_key=args.api_key, verify=False)
 
 for x in client.processes():
-    print x.identifier
+    print(x.identifier)
 
 domain = cwt.Domain(time=(50, 150), lat=(0, 90))
 

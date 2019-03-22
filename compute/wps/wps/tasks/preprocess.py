@@ -1,5 +1,9 @@
 #! /usr/bin/env python
 
+from __future__ import division
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import collections
 import contextlib
 import copy
@@ -20,6 +24,7 @@ from wps import models
 from wps import WPSError
 from wps.context import OperationContext
 from wps.tasks import base
+from functools import reduce
 
 logger = get_task_logger('wps.tasks.preprocess')
 
@@ -33,7 +38,7 @@ def merge(self, contexts):
 
 def axis_size(data):
     if isinstance(data, slice):
-        return ((data.stop - data.start) / data.step) * 4
+        return (old_div((data.stop - data.start), data.step)) * 4
 
     return data
 
@@ -99,7 +104,7 @@ def generate_chunks(self, context):
 
             logger.info('Chunk size %r', chunk_size)
 
-            chunk_per_worker = int(settings.WORKER_MEMORY / 2 / chunk_size)
+            chunk_per_worker = int(old_div(settings.WORKER_MEMORY, 2 / chunk_size))
 
             logger.info('Chunk per worker %r', chunk_per_worker)
 

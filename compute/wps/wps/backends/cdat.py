@@ -1,3 +1,4 @@
+from builtins import range
 import json
 import logging
 import os
@@ -24,7 +25,7 @@ class CDAT(backend.Backend):
     def populate_processes(self):
         logger.info('Registering processes for backend "local"')
 
-        for name, proc in base.REGISTRY.iteritems():
+        for name, proc in list(base.REGISTRY.items()):
             self.add_process(name, metadata=proc.METADATA, abstract=proc.ABSTRACT)
 
     def execute_workflow(self, identifier, context):

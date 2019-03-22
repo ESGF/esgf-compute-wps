@@ -1,7 +1,10 @@
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import json
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import re
-import StringIO
+import io
 
 import celery
 import cwt
@@ -31,7 +34,7 @@ def get_parameter(params, name, required=True):
     """ Gets a parameter from a django QueryDict """
 
     # Case insesitive
-    temp = dict((x.lower(), y) for x, y in params.iteritems())
+    temp = dict((x.lower(), y) for x, y in list(params.items()))
 
     if name.lower() not in temp:
         logger.info('Missing required parameter %s', name)
@@ -156,7 +159,7 @@ def handle_get(params, meta):
 
         # Cannot use request.GET, django does not parse the parameter
         # correctly in the form of DataInputs=variable=[];domain=[];operation=[]
-        query_string = urllib.unquote(meta['QUERY_STRING'])
+        query_string = urllib.parse.unquote(meta['QUERY_STRING'])
 
         match = re.match('.*datainputs=([^&]*)&?.*', query_string, re.I)
 

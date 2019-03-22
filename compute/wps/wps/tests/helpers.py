@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+from builtins import range
 import random
 import string
 
@@ -10,7 +11,7 @@ from OpenSSL import SSL
 from socket import gethostname
 
 def random_str(count):
-    return ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(count))
+    return ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(count))
 
 random.seed(1987)
 
@@ -20,21 +21,21 @@ latitude = cdms2.createUniformLatitudeAxis(-90.0, 180.0, 1.0)
 
 def write_file(file_path, axes, var_name):
     with cdms2.open(file_path, 'w') as outfile:
-        outfile.write(np.array([[[random.random() for _ in xrange(len(axes[2]))] for _ in xrange(len(axes[1]))] for _ in xrange(len(axes[0]))]),
+        outfile.write(np.array([[[random.random() for _ in range(len(axes[2]))] for _ in range(len(axes[1]))] for _ in range(len(axes[0]))]),
                       axes=axes,
                       id=var_name)
 
 def generate_variable(axes, var_name):
-    data = np.array([[[random.random() for _ in xrange(len(axes[2]))]
-                      for _ in xrange(len(axes[1]))]
-                     for _ in xrange(len(axes[0]))])
+    data = np.array([[[random.random() for _ in range(len(axes[2]))]
+                      for _ in range(len(axes[1]))]
+                     for _ in range(len(axes[0]))])
 
     variable = cdms2.createVariable(data, axes=axes, id=var_name)
 
     return variable
 
 def generate_time(units, n):
-    time = cdms2.createAxis(np.array([x for x in xrange(n)]))
+    time = cdms2.createAxis(np.array([x for x in range(n)]))
 
     time.id = 'time'
 

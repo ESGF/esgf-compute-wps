@@ -122,7 +122,7 @@ class EDAS(backend.Backend):
 
         metadata = {'inputs': '*', 'datasets': '*'}
 
-        for x, y in response.iteritems():
+        for x, y in list(response.items()):
             identifier = 'EDASK.{}-{}'.format(y['module'], x)
 
             self.add_process(identifier, y['title'], metadata,

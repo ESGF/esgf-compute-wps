@@ -116,14 +116,14 @@ def job_started(self, context):
 def job_succeeded_workflow(self, context):
     context.job.succeeded(json.dumps({
         'outputs': [x.parameterize() for x in
-                    context.output+context.intermediate.values()],
+                    context.output+list(context.intermediate.values())],
     }))
 
     send_success_email(context, context.output)
 
     context.process.track(context.user)
 
-    for variable in context.variable.values():
+    for variable in list(context.variable.values()):
         models.File.track(context.user, variable)
 
         metrics.track_file(variable)
