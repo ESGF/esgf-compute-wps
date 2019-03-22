@@ -388,7 +388,7 @@ class Auth(models.Model):
 
         self.type = auth_type
 
-        self.cert = ''.join(certs)
+        self.cert = ''.join(list(x.decode() for x in certs))
 
         extra = json.loads(self.extra or '{}')
 
