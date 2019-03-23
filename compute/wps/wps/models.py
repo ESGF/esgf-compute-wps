@@ -684,7 +684,7 @@ class Status(models.Model):
         return cleaned
 
     def set_message(self, message, percent=None):
-        self.messages.ceeate(message=message, percent=percent)
+        self.messages.create(message=message, percent=percent)
 
         self.updated_date = timezone.now()
 
