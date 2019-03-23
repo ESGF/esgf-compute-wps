@@ -267,7 +267,7 @@ class Cache(models.Model):
     def hash(self):
         identifier = '{!s}:{!s}'.format(self.url, self.variable)
 
-        return hashlib.md5(identifier).hexdigest()
+        return hashlib.md5(identifier.encode()).hexdigest()
 
     def new_output_path(self):
         filename = '{!s}.nc'.format(self.hash())
