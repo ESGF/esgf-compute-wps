@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 import types
+import sys
 
 import cwt
 import numpy as np
@@ -134,8 +135,10 @@ def object_hook(obj):
     from wps.context import OperationContext
     from wps.context import WorkflowOperationContext
 
+    obj = byteify(obj)
+
     if '__type' not in obj:
-        return byteify(obj)
+        return obj
 
     if obj['__type'] == 'slice':
         data = slice(obj['start'], obj['stop'], obj['step'])
@@ -171,8 +174,8 @@ def byteify(data):
         return dict((byteify(x), byteify(y)) for x, y in list(data.items()))
     elif isinstance(data, list):
         return list(byteify(x) for x in data)
-    elif isinstance(data, str):
-        return data.encode('utf-8')
+    elif isinstance(data, bytes):
+        return data.decode()
     else:
         return data
 
