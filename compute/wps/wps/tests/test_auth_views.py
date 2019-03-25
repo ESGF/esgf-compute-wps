@@ -90,7 +90,7 @@ class AuthViewsTestCase(test.TestCase):
     def test_login_mpc(self, mock_services, mock_mpc):
         mock_services.return_value = [mock.Mock(server_url='socket://testbad.com:8181')]
 
-        mock_mpc.return_value = mock.Mock(**{'logon.return_value': ('test1', 'test2')})
+        mock_mpc.return_value = mock.Mock(**{'logon.return_value': (b'test1', b'test2')})
 
         user = models.User.objects.all()[0]
 
@@ -119,7 +119,7 @@ class AuthViewsTestCase(test.TestCase):
 
         mock_token.return_value = 'new_token'
 
-        mock_certificate.return_value = ('cert', 'key', 'token')
+        mock_certificate.return_value = (b'cert', b'key', 'token')
 
         user = models.User.objects.all()[0]
 

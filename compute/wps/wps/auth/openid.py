@@ -95,7 +95,7 @@ def begin(request, openid_url, next):
     try:
         auth_request = c.beginWithoutDiscovery(service)
     except consumer.DiscoveryFailure as e:
-        raise DiscoverError(openid_url, e[0])
+        raise DiscoverError(openid_url, e)
 
     fetch_request = ax.FetchRequest()
 

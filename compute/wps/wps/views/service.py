@@ -252,7 +252,7 @@ def wps_entrypoint(request):
     except WPSError as e:
         logger.exception('WPSError %r %r', request.method, request.path)
 
-        response = wps_response.exception_report(e.code, e.message)
+        response = wps_response.exception_report(e.code, str(e))
     except Exception as e:
         logger.exception('Some generic exception %r %r', request.method, request.path)
 

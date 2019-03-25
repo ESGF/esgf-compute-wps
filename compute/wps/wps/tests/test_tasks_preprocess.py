@@ -29,12 +29,11 @@ class PreprocessTestCase(test.TestCase):
         context.inputs = [input,]
         type(context).operation = mock.PropertyMock(return_value=op)
 
-        with self.settings(WORKER_MEMORY=200000000):
+        with self.settings(WORKER_MEMORY=100000000):
             new_context = preprocess.generate_chunks(context)
 
         self.assertEqual(input.chunk_axis, 'lat')
-        self.assertEqual(input.chunk, [slice(x, min(x+47, 180), 1) for x in
-                                       range(0, 180, 47)])
+        self.assertEqual(input.chunk, [slice(0, 95, 1), slice(95, 180, 1)])
 
     def test_generate_chunks_no_axes(self):
         input = mock.MagicMock()
@@ -54,11 +53,11 @@ class PreprocessTestCase(test.TestCase):
         context.inputs = [input,]
         type(context).operation = mock.PropertyMock(return_value=op)
 
-        with self.settings(WORKER_MEMORY=200000000):
+        with self.settings(WORKER_MEMORY=100000000):
             new_context = preprocess.generate_chunks(context)
 
         self.assertEqual(input.chunk_axis, 'time')
-        self.assertEqual(input.chunk, [slice(x, min(x+96, 365), 1) for x in range(0, 365, 96)])
+        self.assertEqual(input.chunk, [slice(0, 192, 1), slice(192, 365, 1)])
 
     @mock.patch('wps.models.Cache.objects.filter')
     def test_check_cache_entries_invalid(self, filter):

@@ -197,7 +197,7 @@ class ESGFViewsTestCase(test.TestCase):
         mock_cache.set.assert_called_with('id', self.process_url_output,
                                           24*60*60)
 
-        mock_md5.assert_called_with('prefix|file:///test1.nc')
+        mock_md5.assert_called_with(b'prefix|file:///test1.nc')
 
     def test_process_axes(self):
         self.maxDiff = None
