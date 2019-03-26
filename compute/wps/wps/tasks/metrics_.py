@@ -99,7 +99,7 @@ def metrics_task(self, context):
     operator = {}
 
     try:
-        for item in set(operator_count.keys()+operator_avg_time.keys()):
+        for item in set(list(operator_count.keys())+list(operator_avg_time.keys())):
             operator[item] = {}
 
             if item in operator_count:
@@ -115,7 +115,7 @@ def metrics_task(self, context):
     file = {}
 
     try:
-        for item in file_count.keys():
+        for item in list(file_count.keys()):
             logger.info('%r', item)
 
             try:

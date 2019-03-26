@@ -80,7 +80,7 @@ def services(openid_url, service_urns):
 
         requested[urn] = service
 
-    return requested.values()
+    return list(requested.values())
 
 def begin(request, openid_url, next):
     disc = manager.Discovery(request.session, openid_url)
@@ -95,7 +95,7 @@ def begin(request, openid_url, next):
     try:
         auth_request = c.beginWithoutDiscovery(service)
     except consumer.DiscoveryFailure as e:
-        raise DiscoverError(openid_url, e[0])
+        raise DiscoverError(openid_url, e)
 
     fetch_request = ax.FetchRequest()
 
@@ -152,7 +152,7 @@ def handle_attribute_exchange(response):
     attrs = {}
 
     if ax_response is not None:
-        for key, value in attributes.iteritems():
+        for key, value in list(attributes.items()):
             try:
                 attrs[key] = ax_response.get(value)[0]
             except (KeyError, IndexError):

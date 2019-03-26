@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+from builtins import str
 import collections
 import datetime
 import hashlib
@@ -113,7 +114,7 @@ def process_url(user, prefix_id, context):
     """
     cache_id = '{}|{}'.format(prefix_id, context.variable.uri)
 
-    cache_id = hashlib.md5(cache_id).hexdigest()
+    cache_id = hashlib.md5(cache_id.encode()).hexdigest()
 
     data = cache.get(cache_id)
 
@@ -251,7 +252,7 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
     Returns:
         A dict containing the parsed solr documents.
     """
-    cache_id = hashlib.md5(dataset_id).hexdigest()    
+    cache_id = hashlib.md5(dataset_id.encode()).hexdigest()    
 
     data = cache.get(cache_id)
 

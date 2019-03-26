@@ -1,9 +1,16 @@
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from past.utils import old_div
+from builtins import object
 import contextlib
 import collections
 import os
 import re
 import uuid
-import urlparse
+import urllib.parse
 from collections import deque
 from datetime import datetime
 
@@ -66,7 +73,7 @@ class WorkflowOperationContext(object):
 
         ignore = ['variable', 'domain', 'operation', 'state']
 
-        for name, value in data.iteritems():
+        for name, value in list(data.items()):
             if name in ignore:
                 continue
 
@@ -94,7 +101,7 @@ class WorkflowOperationContext(object):
         return data
 
     def build_execute_graph(self):
-        op_keys = self.operation.keys()
+        op_keys = list(self.operation.keys())
 
         adjacency = dict((x, dict((y, True if x in self.operation[y].inputs else
                              False) for y in op_keys)) for x in op_keys)
@@ -112,7 +119,7 @@ class WorkflowOperationContext(object):
 
             sorted.append(self.operation[item])
 
-            for name, connected in adjacency[item].iteritems():
+            for name, connected in list(adjacency[item].items()):
                 if connected:
                     sorted.append(self.operation[name])
 
@@ -171,7 +178,7 @@ class WorkflowOperationContext(object):
     def wait_remaining(self):
         completed = []
 
-        for operation in self.state.values():
+        for operation in list(self.state.values()):
             self.wait_operation(operation)
 
             self.add_output(operation)
@@ -289,7 +296,7 @@ class OperationContext(object):
 
         ignore = ['inputs', 'domain', 'operation']
 
-        for name, value in data.iteritems():
+        for name, value in list(data.items()):
             if name in ignore:
                 continue
 
@@ -307,7 +314,7 @@ class OperationContext(object):
     @classmethod
     def from_data_inputs(cls, identifier, variable, domain, operation):
         try:
-            target_op = [x for x in operation.values() if x.identifier ==
+            target_op = [x for x in list(operation.values()) if x.identifier ==
                          identifier][0]
         except IndexError:
             raise WPSError('Unable to find operation {!r}', identifier)
@@ -411,7 +418,7 @@ class OperationContext(object):
         metrics.WPS_DATA_OUTPUT.inc(stat.st_size)
 
     def parse_uniform_arg(self, value, default_start, default_n):
-        result = re.match('^(\d\.?\d?)$|^(-?\d\.?\d?):(\d\.?\d?):(\d\.?\d?)$', value)
+        result = re.match('^(\\d\\.?\\d?)$|^(-?\\d\\.?\\d?):(\\d\\.?\\d?):(\\d\\.?\\d?)$', value)
 
         if result is None:
             raise WPSError('Failed to parse uniform argument {value}', value=value)
@@ -421,7 +428,7 @@ class OperationContext(object):
         if groups[1] is None:
             delta = int(groups[0])
 
-            default_n = default_n / delta
+            default_n = old_div(default_n, delta)
         else:
             default_start = int(groups[1])
 
@@ -577,7 +584,7 @@ class VariableContext(object):
 
         ignore = ['variable',]
 
-        for name, value in data.iteritems():
+        for name, value in list(data.items()):
             if name in ignore:
                 continue
 
@@ -592,7 +599,7 @@ class VariableContext(object):
         if self.variable is None:
             raise WPSError('No variable set')
 
-        parts = urlparse.urlparse(self.variable.uri)
+        parts = urllib.parse.urlparse(self.variable.uri)
 
         return parts.path.split('/')[-1]
 
@@ -620,7 +627,7 @@ class VariableContext(object):
 
         url = '{}.dds'.format(self.variable.uri)
 
-        parts = urlparse.urlparse(url)
+        parts = urllib.parse.urlparse(url)
 
         try:
             response = requests.get(url, timeout=(2, 30), cert=cert,
@@ -666,7 +673,7 @@ class VariableContext(object):
         except Exception:
             logger.exception('Failed to access file %r', self.variable.uri)
 
-            parts = urlparse.urlparse(self.variable.uri)
+            parts = urllib.parse.urlparse(self.variable.uri)
 
             metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
@@ -709,7 +716,7 @@ class VariableContext(object):
 
         logger.info('Indices %r chunks %r', indices, self.chunk)
 
-        parts = urlparse.urlparse(self.variable.uri)
+        parts = urllib.parse.urlparse(self.variable.uri)
 
         with self.open(context.user) as variable:
             for chunk_index in indices:

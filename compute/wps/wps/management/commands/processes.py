@@ -19,7 +19,7 @@ class Command(BaseCommand):
         except models.Server.DoesNotExist:
             raise CommandError('Default server does not exist')
 
-        for name, backend in backends.Backend.registry.iteritems():
+        for name, backend in list(backends.Backend.registry.items()):
             setting_name = 'WPS_{}_ENABLED'.format(name.upper())
 
             # Default to false just incase the setting does not exist

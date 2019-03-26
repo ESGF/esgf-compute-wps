@@ -11,7 +11,7 @@ class AuthenticationError(WPSError):
     def __init__(self, user):
         msg = 'Authentication for "{username}" failed'
 
-        if isinstance(user, (str, unicode)):
+        if isinstance(user, str):
             username = user
         else:
             username = user.username

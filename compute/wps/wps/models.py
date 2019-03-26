@@ -1,5 +1,12 @@
 from __future__ import unicode_literals
+from __future__ import division
 
+from future import standard_library
+from functools import reduce
+standard_library.install_aliases()
+from builtins import range
+from past.utils import old_div
+from builtins import object
 import base64
 import contextlib
 import datetime
@@ -10,8 +17,9 @@ import os
 import random
 import re
 import string
+import sys
 import time
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 import cdms2
 import cwt
@@ -44,18 +52,20 @@ class DjangoOpenIDStore(interface.OpenIDStore):
     # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py
 
     def storeAssociation(self, server_url, association):
+        logger.info('storeAssociation %r %r', server_url, association)
+
         try:
             assoc = OpenIDAssociation.objects.get(server_url=server_url,
                                                  handle=association.handle)
         except OpenIDAssociation.DoesNotExist:
             assoc = OpenIDAssociation(server_url=server_url,
                                       handle=association.handle,
-                                      secret=base64.encodestring(association.secret),
+                                      secret=base64.encodestring(association.secret).decode(),
                                       issued=association.issued,
                                       lifetime=association.lifetime,
                                       assoc_type=association.assoc_type)
         else:
-            assoc.secret = base64.encodestring(association.secret)
+            assoc.secret = base64.encodestring(association.secret).decode()
             assoc.issued = association.issued
             assoc.lifetime = association.lifetime
             assoc.assoc_type = association.assoc_type
@@ -63,6 +73,8 @@ class DjangoOpenIDStore(interface.OpenIDStore):
         assoc.save()
 
     def getAssociation(self, server_url, handle=None):
+        logger.info('getAssociation %r %r', server_url, handle)
+
         if handle is not None:
             assocs = OpenIDAssociation.objects.filter(server_url=server_url,
                                                      handle=handle)
@@ -74,12 +86,15 @@ class DjangoOpenIDStore(interface.OpenIDStore):
 
         for a in assocs:
             assoc = association.Association(a.handle,
-                                            base64.decodestring(a.secret.encode('utf-8')),
+                                            base64.decodestring(a.secret.encode()),
                                             a.issued,
                                             a.lifetime,
                                             a.assoc_type)
 
-            expires_in = assoc.getExpiresIn()
+            try:
+                expires_in = assoc.getExpiresIn()
+            except AttributeError:
+                expires_in = assoc.expiresIn
 
             if expires_in == 0:
                 expired.append(a)
@@ -120,13 +135,22 @@ class DjangoOpenIDStore(interface.OpenIDStore):
 
         return False
 
-    def cleanupNonces(self):
-        # Will implement later since it's not called
-        pass
+    def cleanupNonces(self, now=None):
+        if now is None:
+            now = int(time.time())
+        expired = OpenIDNonce.objects.filter(timestamp__lt=now-nonce.SKEW)
+        count = expired.count()
+        if count:
+            expired.delete()
+        return count
 
     def cleanupAssociations(self):
-        # Will implement later since it's not called
-        pass
+        now = int(time.time())
+        expired = OpenIDAssociation.objects.extra(where=['issued + lifetime < %d' % now])
+        count = expired.count()
+        if count:
+            expired.delete()
+        return count
 
 class OpenIDNonce(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
@@ -134,7 +158,7 @@ class OpenIDNonce(models.Model):
     timestamp = models.IntegerField()
     salt = models.CharField(max_length=40)
 
-    class Meta:
+    class Meta(object):
         unique_together = ('server_url', 'timestamp', 'salt')
 
     def __str__(self):
@@ -149,7 +173,7 @@ class OpenIDAssociation(models.Model):
     lifetime = models.IntegerField()
     assoc_type = models.TextField(max_length=64)
 
-    class Meta:
+    class Meta(object):
         unique_together = ('server_url', 'handle')
 
     def __str__(self):
@@ -162,7 +186,7 @@ class File(models.Model):
     url = models.TextField()
     requested = models.PositiveIntegerField(default=0)
 
-    class Meta:
+    class Meta(object):
         unique_together = ('name', 'host')
 
     @staticmethod
@@ -229,7 +253,7 @@ class Cache(models.Model):
     size = models.BigIntegerField(blank=True)
     local_path = models.CharField(blank=True, max_length=512)
 
-    class Meta:
+    class Meta(object):
         unique_together = (('url', 'variable'),)
 
     @contextlib.contextmanager
@@ -243,7 +267,7 @@ class Cache(models.Model):
     def hash(self):
         identifier = '{!s}:{!s}'.format(self.url, self.variable)
 
-        return hashlib.md5(identifier).hexdigest()
+        return hashlib.md5(identifier.encode()).hexdigest()
 
     def new_output_path(self):
         filename = '{!s}.nc'.format(self.hash())
@@ -255,7 +279,7 @@ class Cache(models.Model):
 
         new_mapped = {}
 
-        for key, value in cache_mapped.iteritems():
+        for key, value in list(cache_mapped.items()):
             orig = mapped[key]
 
             start = orig.start - value.start
@@ -294,13 +318,13 @@ class Cache(models.Model):
         logger.info('Loaded dimensions %r', mapped)
 
         with self.open_variable() as var:
-            for name, value in mapped.iteritems():
+            for name, value in list(mapped.items()):
                 self.check_axis(var, name, value)
 
     def is_superset(self, domain):
         cached = helpers.decoder(self.dimensions)
 
-        for name, value in domain.iteritems():
+        for name, value in list(domain.items()):
             try:
                 cached_value = cached[name] 
             except KeyError:
@@ -360,11 +384,11 @@ class Auth(models.Model):
 
     def update(self, auth_type, certs, **kwargs):
         if self.api_key == '':
-            self.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in xrange(64))
+            self.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(64))
 
         self.type = auth_type
 
-        self.cert = ''.join(certs)
+        self.cert = ''.join(list(x.decode() for x in certs))
 
         extra = json.loads(self.extra or '{}')
 
@@ -384,7 +408,7 @@ class Process(models.Model):
     metadata = models.TextField()
     version = models.CharField(max_length=128, blank=False, default=None)
 
-    class Meta:
+    class Meta(object):
         unique_together = (('identifier', 'version'),)
 
     def decode_metadata(self):
@@ -538,7 +562,7 @@ class Job(models.Model):
     @property
     def progress(self):
         try:
-            return (self.steps_completed + 1) * 100.0 / self.steps_total
+            return old_div((self.steps_completed + 1) * 100.0, self.steps_total)
         except ZeroDivisionError:
             return 0.0
 
@@ -653,7 +677,7 @@ class Status(models.Model):
 
     @property
     def exception_clean(self):
-        removed_tag = re.sub('<\?xml.*>\\n', '', self.exception)
+        removed_tag = re.sub('<\\?xml.*>\\n', '', self.exception)
 
         cleaned = re.sub('ExceptionReport.*>', 'ExceptionReport>', removed_tag)
 

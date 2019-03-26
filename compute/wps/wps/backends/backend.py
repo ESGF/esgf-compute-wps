@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import object
 import json
 import logging
 import os
@@ -8,6 +10,7 @@ from django.conf import settings
 
 from wps import models
 from wps import WPSError
+from future.utils import with_metaclass
 
 logger = logging.getLogger('wps.backends')
 
@@ -27,9 +30,7 @@ class BackendMeta(type):
     def get_backend(cls, name):
         return cls.registry.get(name, None)
 
-class Backend(object):
-    __metaclass__ = BackendMeta
-
+class Backend(with_metaclass(BackendMeta, object)):
     def __init__(self):
         self.processes = []
 
@@ -112,7 +113,7 @@ class Backend(object):
 
         logger.info('Loaded %r operations', len(operation))
 
-        for o in operation.values():
+        for o in list(operation.values()):
             if o.domain is not None:
                 logger.info('Resolving domain %r', o.domain)
 

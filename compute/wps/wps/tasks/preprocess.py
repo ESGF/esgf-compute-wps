@@ -1,5 +1,9 @@
 #! /usr/bin/env python
 
+from __future__ import division
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import collections
 import contextlib
 import copy
@@ -20,6 +24,7 @@ from wps import models
 from wps import WPSError
 from wps.context import OperationContext
 from wps.tasks import base
+from functools import reduce
 
 logger = get_task_logger('wps.tasks.preprocess')
 
@@ -33,7 +38,7 @@ def merge(self, contexts):
 
 def axis_size(data):
     if isinstance(data, slice):
-        return ((data.stop - data.start) / data.step) * 4
+        return (old_div((data.stop - data.start), data.step)) * 4
 
     return data
 
@@ -59,8 +64,12 @@ def generate_chunks(self, context):
     for input in context.inputs:
         order = input.mapped_order
 
+        logger.info('Using ordering %r', order)
+
         # Find axes that we can chunk over
         file_axes = set(order) - process_axis
+
+        logger.info('File axes %r', file_axes)
 
         # Select the lowest order axis that's available
         try:
@@ -99,7 +108,7 @@ def generate_chunks(self, context):
 
             logger.info('Chunk size %r', chunk_size)
 
-            chunk_per_worker = int(settings.WORKER_MEMORY / 2 / chunk_size)
+            chunk_per_worker = int(old_div(settings.WORKER_MEMORY, old_div(chunk_size, 2)))
 
             logger.info('Chunk per worker %r', chunk_per_worker)
 
@@ -109,12 +118,16 @@ def generate_chunks(self, context):
 
             chunk_axis_slice = mapped[chunk_axis]
 
+            logger.info('Chunk axis %r', chunk_axis_slice)
+
             # Generate actual chunks
             for start in range(chunk_axis_slice.start, chunk_axis_slice.stop,
                                chunk_per_worker):
                 input.chunk.append(slice(start, min(start + chunk_per_worker,
                                                      chunk_axis_slice.stop),
                                           chunk_axis_slice.step))
+
+                logger.info('Chunk %r', input.chunk[-1])
 
         input.chunk_axis = chunk_axis
 

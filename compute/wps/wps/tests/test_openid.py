@@ -1,3 +1,4 @@
+from builtins import str
 import mock
 from django import test
 from django.conf import settings
@@ -29,7 +30,7 @@ class OpenIDTestCase(test.TestCase):
             attrs = openid.handle_attribute_exchange(mock.Mock())
 
         self.assertEqual(str(e.exception),
-                         str(openid.MissingAttributeError('last')))
+                         str(openid.MissingAttributeError('email')))
 
     @mock.patch('wps.views.openid.ax.FetchResponse.fromSuccessResponse')
     def test_handle_attribute_exchange(self, mock_fetch):
@@ -114,7 +115,8 @@ class OpenIDTestCase(test.TestCase):
         self.assertEqual(str(e.exception), str(openid.ServiceError('http://test.com/openid', 'urn.test1')))
 
     @mock.patch('wps.views.openid.discover.discoverYadis')
-    def test_services(self, mock_discover):
+    @mock.patch('wps.auth.openid.requests.get')
+    def test_services(self, mock_get, mock_discover):
         mock_discover.return_value = ('http://test.com/openid', self.mock_services)
 
         services = openid.services('http://test.com/openid', ['test_uri_1', 'test_uri_3'])

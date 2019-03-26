@@ -1,17 +1,18 @@
+from builtins import object
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
 from wps import models
 
 class MessageSerializer(serializers.ModelSerializer):
-    class Meta:
+    class Meta(object):
         model = models.Message
         fields = ('id', 'created_date', 'message', 'percent')
 
 class StatusSerializer(serializers.ModelSerializer):
     messages = MessageSerializer(many=True)
 
-    class Meta:
+    class Meta(object):
         model = models.Status
         fields = ('id', 'status', 'created_date', 'messages', 
                   'output', 'exception')
@@ -44,7 +45,7 @@ class JobSerializer(serializers.ModelSerializer):
 
     status = StatusHyperlink(many=True)
 
-    class Meta:
+    class Meta(object):
         model = models.Job
         fields = ('id', 'server', 'process', 'extra', 'elapsed',
                   'latest_status', 'accepted_on', 'status')

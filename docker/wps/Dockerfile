@@ -1,4 +1,4 @@
-FROM continuumio/miniconda:4.5.12 as builder
+FROM continuumio/miniconda3:4.5.12 as builder
 
 WORKDIR /src
 
@@ -7,20 +7,16 @@ COPY . .
 WORKDIR /src/compute
 
 RUN conda install -c conda-forge -y conda-build && \
-      conda build -c conda-forge -c cdat wps/ && \
-      conda build -c conda-forge -c cdat cwt_settings/
+      conda build -c conda-forge -c cdat cwt_settings/ && \
+      conda build -c conda-forge -c cdat --use-local wps/
 
-FROM continuumio/miniconda:4.5.12
+FROM continuumio/miniconda3:4.5.12
 
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
-COPY docker/wps/environment.yml environment.yml
-
-RUN conda env update -n base -f environment.yml && \
-      conda install -c conda-forge -c cdat --use-local \
-      esgf-compute-wps cwt-settings && \
+RUN conda install -c conda-forge -c cdat --use-local \
+      esgf-compute-wps && \
       django-admin startproject compute && \
-      rm environment.yml && \
       mkdir -p /var/log/cwt
 
 WORKDIR /etc/config

@@ -19,7 +19,7 @@ class Ophidia(backend.Backend):
     def populate_processes(self):
         logger.info('Registering processes for backend "ophidia"')
 
-        for key in PROCESSES.keys():
+        for key in list(PROCESSES.keys()):
             self.add_process(key, key)
 
     def execute(self, identifier, variables, domains, operations, **kwargs):
@@ -33,11 +33,11 @@ class Ophidia(backend.Backend):
             'job_id': kwargs.get('job').id
         }
 
-        operation = operations.values()[0]
+        operation = list(operations.values())[0]
 
         domain = operation.domain
 
-        variable_dict = dict((x, y.parameterize()) for x, y in variables.iteritems())
+        variable_dict = dict((x, y.parameterize()) for x, y in list(variables.items()))
 
         domain_dict = { domain.name: domain.parameterize() }
 

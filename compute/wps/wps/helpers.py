@@ -1,9 +1,12 @@
 #! /usr/bin/env python
 
+from __future__ import division
+from past.utils import old_div
 import datetime
 import json
 import logging
 import types
+import sys
 
 import cwt
 import numpy as np
@@ -41,7 +44,7 @@ def int_or_float(value):
 
 def determine_queue(process, estimate_size):
     try:
-        estimate_time = estimate_size / process.process_rate
+        estimate_time = old_div(estimate_size, process.process_rate)
     except ZeroDivisionError:
         estimate_time = 0.0
 
@@ -132,8 +135,10 @@ def object_hook(obj):
     from wps.context import OperationContext
     from wps.context import WorkflowOperationContext
 
+    obj = byteify(obj)
+
     if '__type' not in obj:
-        return byteify(obj)
+        return obj
 
     if obj['__type'] == 'slice':
         data = slice(obj['start'], obj['stop'], obj['step'])
@@ -166,11 +171,11 @@ def object_hook(obj):
 
 def byteify(data):
     if isinstance(data, dict):
-        return dict((byteify(x), byteify(y)) for x, y in data.iteritems())
+        return dict((byteify(x), byteify(y)) for x, y in list(data.items()))
     elif isinstance(data, list):
         return list(byteify(x) for x in data)
-    elif isinstance(data, unicode):
-        return data.encode('utf-8')
+    elif isinstance(data, bytes):
+        return data.decode()
     else:
         return data
 
