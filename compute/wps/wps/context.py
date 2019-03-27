@@ -398,6 +398,9 @@ class OperationContext(object):
         return os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
                             str(self.job.id), filename)
 
+    def gen_cache_path(self, filename):
+        return os.path.join(settings.WPS_CACHE_PATH, filename)
+
     def gen_ingress_path(self, filename):
         return os.path.join(settings.WPS_INGRESS_PATH, filename)
 
@@ -698,14 +701,14 @@ class VariableContext(object):
         if index is None:
             index = 0
 
-        ingress_filename = '{}_{:08}_{:08}.nc'.format(str(context.job.id), input_index, index)
+        cache_filename = '{}_{:08}_{:08}.nc'.format(str(context.job.id), input_index, index)
 
-        ingress_path = context.gen_ingress_path(ingress_filename)
+        cache_path = context.gen_cache_path(cache_filename)
 
-        with cdms2.open(ingress_path, 'w') as outfile:
+        with cdms2.open(cache_path, 'w') as outfile:
             outfile.write(data, id=self.variable.var_name)
 
-        self.ingress.append(ingress_path)
+        self.ingress.append(cache_path)
 
     def chunks_remote(self, input_index, index, context):
         mapped = self.mapped.copy()

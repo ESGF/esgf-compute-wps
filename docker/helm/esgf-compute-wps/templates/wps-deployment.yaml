@@ -88,19 +88,9 @@ spec:
           name: {{ .name }}
         {{- end }}
         volumeMounts:
-        {{- if .Values.development }}
-        - mountPath: /var/www
-          name: shared-volume
-          subPath: shared
-        {{- end }}
         - name: config-volume
           mountPath: /etc/config
       volumes:
       - name: config-volume
         configMap:
           name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
-      {{- if .Values.development }}
-      - name: shared-volume
-        persistentVolumeClaim:
-          claimName: shared-pvc
-      {{- end }}

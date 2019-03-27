@@ -1,29 +1,14 @@
 development: false
 
 persistence:
-  edask:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/cwt
-
-  shared:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/cwt
-
-  public:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/nfs/cwt
-
   cache:
     storageClassName: slow
     capacity: 10Gi
     path: /opt/nfs/cwt
 
-  ingress:
+  public:
     storageClassName: slow
-    capacity: 10Gi
+    capacity: 100Gi
     path: /opt/nfs/cwt
 
   postgresql:
@@ -66,10 +51,8 @@ wps:
   externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
 
-  ingress_path: /data/ingress
-  public_path: /data/public
-  caPath: /tmp/certs/ca
-  userTempPath: /data/ingress 
+  ingressPath: /data/ingress
+  publicPath: /data/public
 
   adminEmail:
 
@@ -144,6 +127,9 @@ celery:
     limits:
       cpu: 1
       memory: 1G
+
+  flower:
+    enabled: false
 
   queues:
   - name: ingress

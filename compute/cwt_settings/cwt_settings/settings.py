@@ -101,8 +101,8 @@ def patch_settings(settings):
     setattr(settings, 'WPS_INGRESS_PATH', config.get_value('wps', 'wps.ingress_path'))
     setattr(settings, 'WPS_PUBLIC_PATH', config.get_value('wps', 'wps.public_path'))
     setattr(settings, 'WPS_LOCAL_OUTPUT_PATH', config.get_value('wps', 'wps.public_path'))
-    setattr(settings, 'WPS_CA_PATH', config.get_value('wps', 'wps.ca.path'))
-    setattr(settings, 'WPS_USER_TEMP_PATH', config.get_value('wps', 'wps.user.temp.path'))
+    setattr(settings, 'WPS_CA_PATH', '/tmp/certs/esgf')
+    setattr(settings, 'WPS_USER_TEMP_PATH', '/tmp/certs')
 
     setattr(settings, 'WPS_CACHE_PATH', config.get_value('cache', 'wps.cache.path', '/data/cache'))
     setattr(settings, 'WPS_PARTITION_SIZE', config.get_value('cache', 'wps.partition.size', 10, int))

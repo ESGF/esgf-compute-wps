@@ -141,17 +141,17 @@ def process_data(self, context, index, process):
             process_filename = '{}_{:08}_{:08}_{}.nc'.format(
                 str(context.job.id), input_index, chunk_index, '_'.join(axes.values))
 
-            process_path = context.gen_ingress_path(process_filename)
+            cache_path = context.gen_cache_path(process_filename)
 
             if process is not None:
                 # Track processing time
                 with metrics.WPS_PROCESS_TIME.labels(context.operation.identifier).time():
                     chunk = process(chunk, axes.values)
 
-            with context.new_output(process_path) as outfile:
+            with context.new_output(cache_path) as outfile:
                 outfile.write(chunk, id=input.variable.var_name)
 
-            input.process.append(process_path)
+            input.process.append(cache_path)
 
     self.status('Processed {!r} bytes', nbytes)
 

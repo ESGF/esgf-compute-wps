@@ -26,6 +26,7 @@ spec:
       {{- .annotations | toYaml | trimSuffix "\n" | nindent 8 }}
     {{- end }}
     spec:
+      serviceAccountName: wps-dask
       containers:
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
@@ -125,43 +126,21 @@ spec:
         volumeMounts:
         - mountPath: /etc/config
           name: config-volume
-        {{- if $.Values.development }}
-        - mountPath: /var/www
-          name: shared-volume
-          subPath: shared
-        {{- end }}
-        - mountPath: /data/public
-          name: public-volume
-          subPath: public
         - mountPath: /data/cache
           name: cache-volume
           subPath: cache
-        - mountPath: /data/ingress
-          name: ingress-volume
-          subPath: ingress
-        - mountPath: /data/edask
-          name: edask-volume
-          subPath: edask
+        - mountPath: /data/public
+          name: public-volume
+          subPath: public
       volumes:
       - name: config-volume
         configMap:
             name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
-      {{- if $.Values.development }}
-      - name: shared-volume
-        persistentVolumeClaim:
-          claimName: shared-pvc
-      {{- end }}
-      - name: public-volume
-        persistentVolumeClaim:
-          claimName: public-pvc
       - name: cache-volume
         persistentVolumeClaim:
           claimName: cache-pvc
-      - name: ingress-volume
+      - name: public-volume
         persistentVolumeClaim:
-          claimName: ingress-pvc
-      - name: edask-volume
-        persistentVolumeClaim:
-          claimName: edask-pvc
+          claimName: public-pvc
 ---
 {{- end }}

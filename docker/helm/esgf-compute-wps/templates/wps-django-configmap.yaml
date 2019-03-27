@@ -48,8 +48,6 @@ data:
 
     wps.ingress_path={{ .Values.wps.ingressPath }}
     wps.public_path={{ .Values.wps.publicPath }}
-    wps.ca.path={{ .Values.wps.caPath }}
-    wps.user.temp.path={{ .Values.userTempPath }}
 
     wps.admin.email={{ .Values.wps.adminEmail | default "Unknown" }}
     wps.endpoint={{ .Values.wps.externalHost }}/wps/
