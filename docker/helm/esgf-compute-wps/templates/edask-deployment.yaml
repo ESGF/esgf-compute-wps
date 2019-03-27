@@ -22,6 +22,10 @@ spec:
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
     spec:
+      {{- if .Values.edask.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.edask.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
       containers:
       - name: {{ .Release.Name }}-edask
         image: {{ .Values.edask.image }}:{{ .Values.edask.imageTag }}

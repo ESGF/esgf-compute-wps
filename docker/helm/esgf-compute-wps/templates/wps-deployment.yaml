@@ -25,6 +25,10 @@ spec:
       {{- .Values.wps.annotations | toYaml | trimSuffix "\n" | nindent 8 }}
     {{- end }}
     spec:
+      {{- if .Values.wps.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.wps.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
       containers:
       - name: {{ .Release.Name }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}

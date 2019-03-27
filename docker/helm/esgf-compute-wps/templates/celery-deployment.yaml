@@ -27,6 +27,10 @@ spec:
     {{- end }}
     spec:
       serviceAccountName: wps-dask
+      {{- if $.Values.celery.nodeSelector }}
+      nodeSelector: 
+        {{ $.Values.celery.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
       containers:
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}

@@ -21,6 +21,10 @@ spec:
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
     spec:
+      {{- if .Values.thredds.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.thredds.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
       containers:
       - name: {{ .Release.Name }}-thredds
         image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}

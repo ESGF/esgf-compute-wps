@@ -21,6 +21,10 @@ spec:
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
     spec:
+      {{- if .Values.nginx.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.nginx.nodeSelector | toYaml | trimSuffix "\n"}}
+      {{- end }}
       containers:
       - name: {{ .Release.Name }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}

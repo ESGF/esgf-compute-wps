@@ -24,6 +24,10 @@ spec:
         release: {{ $.Release.Name }}
         heritage: {{ $.Release.Service }}
     spec:
+      {{- if .Values.celery.flower.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.celery.flower.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
       containers:
       - name: celery-flower
         image: {{ .Values.celery.image }}:{{ .Values.celery.imageTag }}

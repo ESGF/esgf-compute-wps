@@ -31,10 +31,16 @@ nginx:
   image: jasonb87/cwt_webapp
   imageTag: devel
 
+  nodeSelector:
+    tier: backend
+
   resources:
     limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
       cpu: 100m
-      memory: 512M
+      memory: 256Mi
 
   ingress:
     annotations:
@@ -50,6 +56,9 @@ wps:
   host: aims2.llnl.gov
   externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
+
+  nodeSelector:
+    tier: backend
 
   ingressPath: /data/ingress
   publicPath: /data/public
@@ -89,7 +98,10 @@ wps:
   resources:
     limits:
       cpu: 500m
-      memory: 512M
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
 
   worker:
     cpuCount: 3
@@ -123,10 +135,16 @@ celery:
   imageTag: devel
   metrics: /metrics
 
+  nodeSelector:
+    tier: backend
+
   resources:
     limits:
       cpu: 1
-      memory: 1G
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
 
   flower:
     enabled: false
@@ -163,10 +181,16 @@ thredds:
   image: jasonb87/cwt_thredds
   imageTag: 4.6.10
 
+  nodeSelector:
+    tier: backend
+
   resources:
     limits:
       cpu: 1
-      memory: 2G
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
 
   ingress:
     path: /threddsCWT
@@ -181,6 +205,13 @@ postgresql:
   postgresPassword: abcd1234
   port: 5432
 
+  nodeSelector:
+    tier: database
+
+  master:
+    nodeSelector:
+      tier: database
+
   persistence:
     enabled: true
     existingClaim: postgresql-pvc
@@ -189,6 +220,14 @@ postgresql:
     enabled: false
     image: bitnami/postgresql
     tag: 10.6.0
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
 
 redis:
   image:
@@ -207,6 +246,17 @@ redis:
     service:
       type: ClusterIP
 
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+    nodeSelector:
+      tier: database
+
     securityContext:
       enabled: false
 
@@ -216,6 +266,9 @@ edask:
   image: jasonb87/cwt_edask
   imageTag: latest
 
+  nodeSelector:
+    tier: backend
+
   timeout:
     queue: 30
     execute: 300
@@ -223,22 +276,37 @@ edask:
   resources:
     limits:
       cpu: 1
-      memory: 1G
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Gi
 
   scheduler:
     address: innocent-deer-edask-scheduler.default.svc:8786
+
+    nodeSelector:
+      tier: backend
 
     replicas: 1
 
     resources:
       limits:
         cpu: 100m
-        memory: 256M
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
 
   worker:
     replicas: 1
 
+    nodeSelector:
+      tier: backend
+
     resources:
       limits:
         cpu: 200m
-        memory: 512M
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
