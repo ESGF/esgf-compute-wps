@@ -1,7 +1,13 @@
 serviceType: NodePort
 
-cpuLimit: 200m
-memoryLimit: 256Mi
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+  limit:
+    cpu: 500m
+    memory: 512Mi
 
 rbac:
   enabled: true
@@ -27,13 +33,6 @@ ssl:
 
 acme:
   enabled: true
-  email: admin.aims2@llnl.gov
-  domains:
-    enabled: true
-    domainsList:
-    - main: aims2.llnl.gov
-  persistence:
-    existingClaim: traefik-pvc
 
 dashboard:
   enabled: true
