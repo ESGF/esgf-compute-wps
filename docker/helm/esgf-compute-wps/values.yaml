@@ -230,10 +230,6 @@ postgresql:
       memory: 256Mi
 
 redis:
-  image:
-    repository: redis
-    tag: 4.0.10
-
   cluster:
     enabled: false
 
