@@ -242,21 +242,3 @@ edask:
       limits:
         cpu: 200m
         memory: 512M
-
-cog:
-  enabled: false
-  replicas: 1
-  image: jasonb87/cwt_cog
-  imageTag: latest
-
-  resources:
-    limits:
-      cpu: 1
-      memory: 512M
-
-  ingress:
-    annotations:
-      ingress.kubernetes.io/ssl-redirect: "true"
-      ingress.kubernetes.io/hsts-max-age: "31536000"
-      ingress.kubernetes.io/hsts-include-subdomains: "true"
-      ingress.kubernetes.io/force-hsts: "true"
