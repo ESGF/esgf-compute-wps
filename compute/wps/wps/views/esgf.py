@@ -301,7 +301,7 @@ def search_variable(request):
 
             files = request.GET['files']
         except KeyError as e:
-            raise common.MissingParameterError(name=e.message)
+            raise common.MissingParameterError(name=str(e))
 
         files = json.loads(files)
         
@@ -322,7 +322,7 @@ def search_variable(request):
     except WPSError as e:
         logger.exception('Error retrieving ESGF search results')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success(axes)
 
@@ -335,7 +335,7 @@ def search_dataset(request):
         try:
             dataset_id = request.GET['dataset_id']
         except KeyError as e:
-            raise common.MissingParameterError(name=e.message)
+            raise common.MissingParameterError(name=str(e))
 
         index_node = request.GET.get('index_node', settings.ESGF_SEARCH)
 
@@ -347,7 +347,7 @@ def search_dataset(request):
     except WPSError as e:
         logger.exception('Error retrieving ESGF search results')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success(dataset_variables)
 
@@ -378,6 +378,6 @@ def combine(request):
     except WPSError as e:
         logger.exception('Error combining temporal axes')
 
-        return common.failed(e.message)
+        return common.failed(str(e))
     else:
         return common.success(data)
