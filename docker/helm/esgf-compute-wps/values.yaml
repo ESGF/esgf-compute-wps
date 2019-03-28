@@ -201,8 +201,8 @@ thredds:
       ingress.kubernetes.io/force-hsts: "true"
 
 postgresql:
-  postgresUsername: postgres
-  postgresPassword: abcd1234
+  postgresqlUsername: postgres
+  postgresqlPassword: abcd1234
   port: 5432
 
   nodeSelector:
