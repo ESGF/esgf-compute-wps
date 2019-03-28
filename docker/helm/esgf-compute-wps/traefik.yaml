@@ -9,6 +9,9 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+nodeSelector:
+  tier: frontend
+
 rbac:
   enabled: true
 
@@ -33,6 +36,8 @@ ssl:
 
 acme:
   enabled: true
+  defaultCert: 
+  defaultKey: 
 
 dashboard:
   enabled: true
@@ -50,7 +55,11 @@ metrics:
     enabled: true
 
 deployment:
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+    
   hostPort:
     httpEnabled: true
     httpsEnabled: true
-
