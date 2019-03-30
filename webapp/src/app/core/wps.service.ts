@@ -88,7 +88,7 @@ export class WPSService {
   execute(url: string, api_key: string, processes: Process[]): Promise<string> {
     let data = this.prepareDataInputsXML(processes);
 
-    return this.postCSRFUnmodified(url, data, new Headers({COMPUTE_TOKEN: api_key})).then((response: any) => {
+    return this.postCSRFUnmodified(url, data, new Headers({'COMPUTE-TOKEN': api_key})).then((response: any) => {
       let parser = new DOMParser();
 
       let xmlDoc = parser.parseFromString(response.text(), 'text/xml');
