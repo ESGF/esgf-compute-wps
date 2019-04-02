@@ -1,0 +1,67 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-dask-scheduler
+  labels:
+    app: {{ .Release.Name }}-dask-scheduler
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-dask-scheduler
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-dask-scheduler
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      {{- if .Values.dask.scheduler.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.dask.scheduler.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
+      containers:
+      - name: {{ .Release.Name }}-dask-scheduler
+        image: {{ .Values.dask.image }}:{{ .Values.dask.imageTag }}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          tcpSocket:
+            port: 8786
+          initialDelaySeconds: 4
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8786
+          initialDelaySeconds: 16
+          periodSeconds: 20
+        {{- if and $.Values.dask.scheduler.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.dask.scheduler.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        command:
+          - dask-scheduler 
+          - --no-bokeh
+        ports:
+        - containerPort: 8786
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-dask-scheduler
+  labels:
+    app: {{ .Release.Name }}-dask-scheduler
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-dask-scheduler
+    release: {{ .Release.Name }}
+  ports:
+  - protocol: TCP
+    port: 8786
