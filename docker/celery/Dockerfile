@@ -8,7 +8,7 @@ RUN mkdir -p /tmp/certs && \
   libdrs=3.1.2.2019.02.09.01.20.g0c04b0c \
   libdrs_f=3.1.2.2019.02.09.01.20.g0c04b0c \
   cdtime=3.1.2.2019.02.09.12.03.gba9e0cb && \
-  conda install -c conda-forge dask distributed dask-kubernetes xarray netcdf4
+  conda install -c conda-forge dask distributed python-kubernetes xarray netcdf4
 
 WORKDIR /
 
