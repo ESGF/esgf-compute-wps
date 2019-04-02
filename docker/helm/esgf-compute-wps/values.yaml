@@ -26,6 +26,17 @@ persistence:
     capacity: 10Gi
     path: /opt/cwt
 
+dask:
+  scheduler:
+    nodeSelector:
+    resources:
+      limits:
+        cpu: 2
+        memory: 1Gi
+      requests:
+        cpu: 1
+        memory: 512Mi
+
 nginx:
   replicas: 1
   image: jasonb87/cwt_webapp
