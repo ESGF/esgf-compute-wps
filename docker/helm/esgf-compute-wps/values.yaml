@@ -27,8 +27,12 @@ persistence:
     path: /opt/cwt
 
 dask:
+  image: jasonb87/cwt_celery
+  imageTag: devel
+
   scheduler:
     nodeSelector:
+      tier: backend
     resources:
       limits:
         cpu: 2

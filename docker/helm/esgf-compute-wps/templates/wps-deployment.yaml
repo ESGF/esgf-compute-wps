@@ -94,7 +94,17 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/config
+        {{- if .Values.development }}
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
       volumes:
+      {{- if .Values.development }}
+      - name: devel-volume
+        hostPath: 
+          path: /opt/cwt/devel
+          type: DirectoryOrCreate
+      {{- end }}
       - name: config-volume
         configMap:
           name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
