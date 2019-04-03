@@ -13,7 +13,6 @@ class Command(BaseCommand):
     help = 'Register processes'
 
     def handle(self, *args, **options):
-        print(options)
         verbose = options['verbosity'] > 1
 
         # Get the default/local server
