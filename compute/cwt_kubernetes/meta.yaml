@@ -1,0 +1,28 @@
+package:
+  name: cwt-kubernetes
+  version: {{ environ.get('APP_VERSION', 'devel') }}
+
+source:
+  path: ./
+
+build:
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
+  noarch: python
+
+requirements:
+  host:
+    - python
+
+  run:
+    - python
+    - python-kubernetes
+    - distributed
+
+test:
+  imports:
+    - cwt_kubernetes
+    - cwt_kubernetes.cluster
+    - cwt_kubernetes.cluster_manager
+
+about:
+  home: https://github.com/ESGF/esgf-compute-wps
