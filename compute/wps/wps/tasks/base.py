@@ -1,27 +1,15 @@
 #! /usr/bin/env python
 
 from builtins import str
-from builtins import object
-import json
-import re
-import signal
 from contextlib import contextmanager
-from datetime import datetime
 from functools import partial
 
 import cdms2
 import celery
-import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from django.conf import settings
-from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
 
 from wps import context
-from wps import metrics
-from wps import models
-from wps import AccessError
 from wps import WPSError
 from wps.util import wps_response
 
@@ -29,21 +17,25 @@ logger = get_task_logger('wps.tasks.base')
 
 REGISTRY = {}
 
+
 def get_process(identifier):
     try:
         return REGISTRY[identifier]
     except KeyError as e:
-        raise WPSError('Missing process "{identifier}"', identifier=identifier)
+        raise WPSError('Unknown process {!r}', e)
 
-def register_process(identifier, **kwargs):
+
+def register_process(backend, process, **kwargs):
     def wrapper(func):
-        REGISTRY[identifier] = func
+        func.BACKEND = backend
 
-        func.IDENTIFIER = identifier
+        func.PROCESS = process
+
+        func.IDENTIFIER = '{!s}.{!s}'.format(backend, process)
+
+        REGISTRY[func.IDENTIFIER] = func
 
         func.ABSTRACT = kwargs.get('abstract', '')
-
-        func.PROCESS = kwargs.get('process')
 
         func.METADATA = kwargs.get('metadata', {})
 
@@ -51,26 +43,11 @@ def register_process(identifier, **kwargs):
 
     return wrapper
 
-class Timeout(object):
-    def __init__(self, seconds, url):
-        self.seconds = seconds
-        self.url = url
-
-    def handle_timeout(self, signum, frame):
-        raise AccessError(url, '')
-
-    def __enter__(self):
-        signal.signal(signal.SIGALRM, self.handle_timeout)
-        signal.alarm(self.seconds)
-    
-    def __exit__(self, exc_type, exc_value, traceback):
-        signal.alarm(0)
 
 class CWTBaseTask(celery.Task):
 
     @contextmanager
     def open(self, uri, mode='r', timeout=30):
-        #with Timeout(timeout, uri):
         fd = cdms2.open(str(uri), mode)
 
         try:
@@ -94,7 +71,7 @@ class CWTBaseTask(celery.Task):
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
         logger.info('Retry %r', args)
-        
+
         if len(args) > 0 and isinstance(args[0], context.OperationContext):
             args[0].job.retry(exc)
 
@@ -113,5 +90,6 @@ class CWTBaseTask(celery.Task):
 
         if len(args) > 0 and isinstance(args[0], context.OperationContext):
             args[0].job.step_complete()
+
 
 cwt_shared_task = partial(shared_task, bind=True, base=CWTBaseTask)

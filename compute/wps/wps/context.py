@@ -1,32 +1,32 @@
 from __future__ import division
 from future import standard_library
-standard_library.install_aliases()
+standard_library.install_aliases() # noqa
 from builtins import str
 from builtins import range
 from past.utils import old_div
 from builtins import object
 import contextlib
-import collections
 import os
 import re
 import uuid
 import urllib.parse
 from collections import deque
-from datetime import datetime
 
 import cdms2
 import cwt
 import requests
 from celery.utils.log import get_task_logger
 from django.conf import settings
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 
-from wps import helpers
 from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.tasks import credentials
 
 logger = get_task_logger('wps.context')
+
 
 class WorkflowOperationContext(object):
     def __init__(self, variable, domain, operation):
@@ -53,7 +53,7 @@ class WorkflowOperationContext(object):
             except model_class.DoesNotExist:
                 raise WPSError('{!s} {!r} does not exist', model_class.__name__, pk)
 
-            setattr(obj, name, value) 
+            setattr(obj, name, value)
 
     @classmethod
     def from_data_inputs(cls, variable, domain, operation):
@@ -104,7 +104,7 @@ class WorkflowOperationContext(object):
         op_keys = list(self.operation.keys())
 
         adjacency = dict((x, dict((y, True if x in self.operation[y].inputs else
-                             False) for y in op_keys)) for x in op_keys)
+                                   False) for y in op_keys)) for x in op_keys)
 
         sources = [x for x in op_keys if not any(adjacency[y][x] for y in op_keys)]
 
@@ -140,7 +140,7 @@ class WorkflowOperationContext(object):
         variable = cwt.Variable(output.uri, output.var_name, name=name)
 
         # Add new variable to global dict
-        #self.variable[operation.name] = variable
+        # self.variable[operation.name] = variable
 
         if operation.name in self.output_id:
             # Add to output list
@@ -197,7 +197,7 @@ class WorkflowOperationContext(object):
             return self.variable[name]
         elif name in self.intermediate:
             return self.intermediate[name]
-        
+
         raise WPSError('Unable to locate input {!r}', name)
 
     def prepare(self, operation):
@@ -207,6 +207,7 @@ class WorkflowOperationContext(object):
 
         if 'domain' in operation.parameters:
             del operation.parameters['domain']
+
 
 class OperationContext(object):
     def __init__(self, inputs=None, domain=None, operation=None):
@@ -276,7 +277,7 @@ class OperationContext(object):
             except model_class.DoesNotExist:
                 raise WPSError('{!s} {!r} does not exist', model_class.__name__, pk)
 
-            setattr(obj, name, value) 
+            setattr(obj, name, value)
 
     @classmethod
     def from_dict(cls, data):
@@ -289,7 +290,7 @@ class OperationContext(object):
                 domain = None
 
             operation = cwt.Process.from_dict(data['operation'])
-        except:
+        except Exception:
             obj = cls()
         else:
             obj = cls(inputs, domain, operation)
@@ -349,7 +350,7 @@ class OperationContext(object):
 
         if data['domain'] is not None:
             data['domain'] = data['domain'].parameterize()
-                     
+
         if data['job'] is not None:
             data['job'] = data['job'].id
 
@@ -445,9 +446,8 @@ class OperationContext(object):
 
     def generate_selector(self, variable):
         """ Generates a selector for a variable.
-        
-        Iterates over the axis list and creates a dict selector for the 
-        variabel.
+
+        Iterates over the axis list and creates a dict selector for the variable.
 
         Args:
             variable: A cdms2.fvariable.FileVariable or cdms2.tvariable.TransientVariable.
@@ -546,6 +546,7 @@ class OperationContext(object):
 
         return grid
 
+
 class VariableContext(object):
     def __init__(self, variable):
         self.variable = variable
@@ -577,7 +578,7 @@ class VariableContext(object):
             except model_class.DoesNotExist:
                 raise WPSError('{!s} {!r} does not exist', model_class.__name__, pk)
 
-            setattr(obj, name, value) 
+            setattr(obj, name, value)
 
     @classmethod
     def from_dict(cls, data):
@@ -585,7 +586,7 @@ class VariableContext(object):
 
         obj = cls(variable)
 
-        ignore = ['variable',]
+        ignore = ['variable', ]
 
         for name, value in list(data.items()):
             if name in ignore:
@@ -657,7 +658,7 @@ class VariableContext(object):
         metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
         return False
-    
+
     @contextlib.contextmanager
     def open(self, user):
         if user is not None and not self.check_access():
@@ -723,7 +724,7 @@ class VariableContext(object):
 
         with self.open(context.user) as variable:
             for chunk_index in indices:
-                mapped.update({ self.chunk_axis: self.chunk[chunk_index] })
+                mapped.update({self.chunk_axis: self.chunk[chunk_index]})
 
                 logger.info('Reading %r %r', mapped, self.chunk[chunk_index])
 
@@ -749,7 +750,7 @@ class VariableContext(object):
 
         with self.open_local(self.cache.local_path) as variable:
             for chunk_index in indices:
-                mapped.update({ self.chunk_axis: self.chunk[chunk_index] })
+                mapped.update({self.chunk_axis: self.chunk[chunk_index]})
 
                 logger.info('Reading %r %r', mapped, self.chunk[chunk_index])
 

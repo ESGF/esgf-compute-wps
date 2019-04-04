@@ -26,7 +26,9 @@ from wps.context import OperationContext
 
 logger = get_task_logger('wps.tasks.cdat')
 
-@base.register_process('CDAT.workflow', metadata={'inputs': '0'})
+BACKEND = 'CDAT'
+
+@base.register_process('CDAT', 'workflow', metadata={'inputs': '0'})
 @base.cwt_shared_task()
 def workflow(self, context):
     """ Executes a workflow.
@@ -269,28 +271,28 @@ def concat(self, contexts):
 
     return context
 
-@base.register_process('CDAT.regrid', abstract=REGRID_ABSTRACT, metadata={'inputs': '1'})
+@base.register_process('CDAT', 'regrid', abstract=REGRID_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def regrid(self, context, index):
     """ Regrids a chunk of data.
     """
     return context
 
-@base.register_process('CDAT.subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
+@base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def subset(self, context, index):
     """ Subsetting data.
     """
     return context
 
-@base.register_process('CDAT.aggregate', abstract=AGGREGATE_ABSTRACT, metadata={'inputs': '*'})
+@base.register_process('CDAT', 'aggregate', abstract=AGGREGATE_ABSTRACT, metadata={'inputs': '*'})
 @base.cwt_shared_task()
 def aggregate(self, context, index):
     """ Aggregating data.
     """
     return context
 
-@base.register_process('CDAT.average', abstract=AVERAGE_ABSTRACT, process=cdutil.averager, metadata={'inputs': '1'})
+@base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def average(self, context, index):
     def average_func(data, axes):
@@ -312,7 +314,7 @@ def average(self, context, index):
 
     return process_data(self, context, index, average_func)
 
-@base.register_process('CDAT.sum', abstract=SUM_ABSTRACT, metadata={'inputs': '1'})
+@base.register_process('CDAT', 'sum', abstract=SUM_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def sum(self, context, index):
     def sum_func(data, axes):
@@ -328,7 +330,7 @@ def sum(self, context, index):
 
     return process_data(self, context, index, sum_func)
 
-@base.register_process('CDAT.max', abstract=MAX_ABSTRACT, metadata={'inputs': '1'})
+@base.register_process('CDAT', 'max', abstract=MAX_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def max(self, context, index):
     def max_func(data, axes):
@@ -344,7 +346,7 @@ def max(self, context, index):
 
     return process_data(self, context, index, max_func)
 
-@base.register_process('CDAT.min', abstract=MIN_ABSTRACT, metadata={'inputs': '1'})
+@base.register_process('CDAT', 'min', abstract=MIN_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def min(self, context, index):
     def min_func(data, axes):

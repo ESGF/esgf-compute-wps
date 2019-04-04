@@ -1,34 +1,29 @@
 from future import standard_library
-standard_library.install_aliases()
+standard_library.install_aliases() # noqa
 from builtins import str
 import json
-import urllib.request, urllib.parse, urllib.error
+import urllib.request
+import urllib.parse
+import urllib.error
 import re
-import io
 
-import celery
 import cwt
-import django
 from django import http
-from django.conf import settings
-from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
-from jinja2 import Environment, PackageLoader
-from lxml import etree
 from owslib import wps
 
 from . import common
-from wps import backends
 from wps import helpers
 from wps import metrics
 from wps import models
 from wps import tasks
 from wps import WPSError
+from wps.context import OperationContext
 from wps.util import wps_response
 
 logger = common.logger
+
 
 def get_parameter(params, name, required=True):
     """ Gets a parameter from a django QueryDict """
@@ -48,6 +43,7 @@ def get_parameter(params, name, required=True):
 
     return param
 
+
 def handle_get_capabilities():
     try:
         server = models.Server.objects.get(host='default')
@@ -57,6 +53,7 @@ def handle_get_capabilities():
         raise WPSError('{}', e)
 
     return data
+
 
 def handle_describe_process(identifiers):
     try:
@@ -69,6 +66,44 @@ def handle_describe_process(identifiers):
         raise WPSError('{}', e)
 
     return data
+
+
+def build_context(identifier, data_inputs, user, job, process):
+    variable = None
+    domain = None
+    operation = None
+
+    for id in ('variable', 'domain', 'operation'):
+        try:
+            data = json.loads(data_inputs[id])
+        except KeyError:
+            raise WPSError('{}', id, code=wps_response.MissingParameterValue)
+        except ValueError:
+            raise WPSError('{}', id, code=wps_response.InvalidParameterValue)
+
+        if id == 'variable':
+            data = [cwt.Variable.from_dict(x) for x in data]
+
+            variable = dict((x.name, x) for x in data)
+        elif id == 'domain':
+            data = [cwt.Domain.from_dict(x) for x in data]
+
+            domain = dict((x.name, x) for x in data)
+        elif id == 'operation':
+            data = [cwt.Process.from_dict(x) for x in data]
+
+            operation = dict((x.name, x) for x in data)
+
+    context = OperationContext.from_data_inputs(identifier, variable, domain, operation)
+
+    context.user = user
+
+    context.job = job
+
+    context.process = process
+
+    return context
+
 
 def handle_execute(meta, identifier, data_inputs):
     try:
@@ -88,28 +123,9 @@ def handle_execute(meta, identifier, data_inputs):
     except models.Process.DoesNotExist:
         raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
-    kwargs = {}
-
-    for id in ('variable', 'domain', 'operation'):
-        try:
-            data = json.loads(data_inputs[id])
-        except KeyError as e:
-            raise WPSError('{}', id, code=wps_response.MissingParameterValue)
-        except ValueError:
-            raise WPSError('{}', id, code=wps_response.InvalidParameterValue)
-
-        if id == 'variable':
-            data = [cwt.Variable.from_dict(x) for x in data]
-        elif id == 'domain':
-            data = [cwt.Domain.from_dict(x) for x in data]
-        elif id == 'operation':
-            data = [cwt.Process.from_dict(x) for x in data]
-
-        kwargs[id] = dict((x.name, x) for x in data)
-
-    job = models.Job.objects.create(server=server, 
-                                    process=process, 
-                                    user=user, 
+    job = models.Job.objects.create(server=server,
+                                    process=process,
+                                    user=user,
                                     extra=json.dumps(data_inputs))
 
     # at this point we've accepted the job
@@ -117,26 +133,20 @@ def handle_execute(meta, identifier, data_inputs):
 
     logger.info('Acceped job %r', job.id)
 
-    kwargs.update({
-        'identifier': identifier,
-        'user': user,
-        'job': job,
-        'process': process,
-    })
+    context = build_context(identifier, data_inputs, user, job, process)
 
-    try:
-        backend = backends.Backend.get_backend(process.backend)
+    started = tasks.job_started.s(context).set(**helpers.DEFAULT_QUEUE)
 
-        if backend is None:
-            raise WPSError('Unknown backend "{name}"', name=process.backend)
+    process = tasks.get_process(identifier).s().set(**helpers.DEFAULT_QUEUE)
 
-        backend.execute(**kwargs)
-    except Exception as e:
-        logger.exception('Error executing backend %r', process.backend)
+    succeeded = tasks.job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
 
-        raise WPSError('{}', e)
+    workflow = started | process | succeeded
+
+    workflow.delay()
 
     return job.report
+
 
 def handle_get(params, meta):
     """ Handle an HTTP GET request. """
@@ -148,7 +158,7 @@ def handle_get(params, meta):
 
     if request == 'getcapabilities':
         with metrics.WPS_REQUESTS.labels('GetCapabilities', 'GET').time():
-            response = handle_get_capabilities() 
+            response = handle_get_capabilities()
     elif request == 'describeprocess':
         identifier = get_parameter(params, 'identifier', True).split(',')
 
@@ -184,8 +194,9 @@ def handle_get(params, meta):
 
     return response
 
+
 def handle_post(data, meta):
-    """ Handle an HTTP POST request. 
+    """ Handle an HTTP POST request.
 
     NOTE: we only support execute requests as POST for the moment
     """
@@ -234,6 +245,7 @@ def handle_post(data, meta):
 
     return response
 
+
 @metrics.WPS_ERRORS.count_exceptions()
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
@@ -241,6 +253,7 @@ def handle_request(request):
         return handle_get(request.GET, request.META)
     elif request.method == 'POST':
         return handle_post(request.body, request.META)
+
 
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie
@@ -262,6 +275,7 @@ def wps_entrypoint(request):
 
     return http.HttpResponse(response, content_type='text/xml')
 
+
 @require_http_methods(['GET'])
 def status(request, job_id):
     try:
@@ -270,6 +284,7 @@ def status(request, job_id):
         raise WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
 
     return http.HttpResponse(job.report, content_type='text/xml')
+
 
 @require_http_methods(['GET'])
 def ping(request):
