@@ -30,9 +30,28 @@ dask:
   image: jasonb87/cwt_celery
   imageTag: devel
 
+  monitor:
+    image: jasonb87/cwt-kube-monitor
+    imageTag: devel
+
+    nodeSelector:
+      tier: backend
+
+    namespace: default
+
+    resources:
+      limits:
+        cpu: 1
+        memory: 512Mi
+
+      requests:
+        cpu: 500m
+        memory: 256Mi
+
   scheduler:
     nodeSelector:
       tier: backend
+
     resources:
       limits:
         cpu: 2
