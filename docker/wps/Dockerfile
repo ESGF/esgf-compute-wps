@@ -8,6 +8,7 @@ WORKDIR /src/compute
 
 RUN conda install -c conda-forge -y conda-build && \
       conda build -c conda-forge -c cdat cwt_settings/ && \
+      conda build -c conda-forge -c cdat cwt_kubernetes/ && \
       conda build -c conda-forge -c cdat --use-local wps/
 
 FROM continuumio/miniconda3:4.5.12

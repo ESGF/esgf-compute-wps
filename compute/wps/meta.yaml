@@ -44,7 +44,8 @@ requirements:
     - requests-oauthlib
     - celery
     - prometheus_client
-    - cwt-settings
+    - cwt-settings={{ environ.get('APP_VERSION', 'devel') }}
+    - cwt-kubernetes={{ environ.get('APP_VERSION', 'devel') }}
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
