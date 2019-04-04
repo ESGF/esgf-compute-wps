@@ -7,7 +7,7 @@ METRIC_KEYS = ('executing', 'in_memory', 'ready', 'in_flight')
 
 
 class ClusterManager(object):
-    def __init__(self, scheduler, cluster):
+    def __init__(self, scheduler, cluster, **kwargs):
         self.scheduler = scheduler
 
         self.client = Client(scheduler)
@@ -15,6 +15,8 @@ class ClusterManager(object):
         self.cluster = cluster
 
         self.running = False
+
+        self.timeout = kwargs.get('timeout', 60)
 
     def find_stale_workers(self):
         candidates = []
@@ -30,6 +32,8 @@ class ClusterManager(object):
 
             raise
 
+        logging.info('Returned %r workers', len(workers))
+
         try:
             for address, state in list(workers.items()):
                 metric = sum(state['metrics'][x] for x in METRIC_KEYS)
@@ -40,6 +44,8 @@ class ClusterManager(object):
             logging.error('Malformmed scheduler info')
 
             raise
+
+        logging.info('Found %r candidates for removal', len(candidates))
 
         return candidates
 
@@ -52,9 +58,11 @@ class ClusterManager(object):
             except Exception as e:
                 logging.error('Failed to find stale workers: %r', e)
 
+            logging.info('Attempting to scale down by %r workers', len(stale_workers))
+
             try:
                 self.cluster.scale_down(stale_workers)
             except Exception as e:
                 logging.error('Failed to scale down dask workers: %r', e)
 
-            time.sleep(10)
+            time.sleep(self.timeout)

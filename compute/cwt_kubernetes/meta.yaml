@@ -17,6 +17,7 @@ requirements:
     - python
     - python-kubernetes
     - distributed
+    - pyaml
 
 test:
   imports:
