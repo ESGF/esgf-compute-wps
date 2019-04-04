@@ -51,11 +51,11 @@ class Cluster(object):
     def scale_down(self, workers):
         pods = self.core.list_namespaced_pod(self.namespace)
 
-        logging.info('Listed %r pods %r', len(pods.items), [x for x in pods.items])
+        logging.info('Listed %r pods', len(pods.items))
 
         to_delete = [x for x in pods.items if x.status.pod_ip in workers]
 
-        logging.info('Marked %r pods to be deleted %r', len(to_delete), [x for x in to_delete])
+        logging.info('Marked %r pods to be deleted', len(to_delete))
 
         if len(to_delete) == 0:
             return
