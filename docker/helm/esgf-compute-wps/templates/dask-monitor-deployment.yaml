@@ -36,4 +36,7 @@ spec:
         args:
           - --namespace
           - {{ .Values.dask.monitor.namespace }}
+          - --timeout
+          - "{{ .Values.dask.monitor.timeout }}"
           - {{ .Release.Name }}-dask-scheduler:8786
+
