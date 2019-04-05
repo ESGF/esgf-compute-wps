@@ -16,53 +16,27 @@ class ClusterManager(object):
 
         self.running = False
 
-        self.timeout = kwargs.get('timeout', 60)
+        self.timeout = kwargs.get('timeout', 30)
 
-    def find_stale_workers(self):
-        candidates = []
+    def get_pods_to_kill(self):
+        workers = self.client.retire_workers()
+
+        return [x['host'] for x in workers.values()]
+
+    def scale_down_workers(self):
+        pods = self.get_pods_to_kill()
+
+        logging.info('Attempting to scale down by %r workers', len(pods))
 
         try:
-            workers = self.client.scheduler_info()['workers']
-        except KeyError:
-            logging.error('Scheduler info was missing workers key')
-
-            raise
+            self.cluster.scale_down(pods)
         except Exception as e:
-            logging.error('Error retrieving scheduler info: %r', e)
-
-            raise
-
-        logging.info('Returned %r workers', len(workers))
-
-        try:
-            for address, state in list(workers.items()):
-                metric = sum(state['metrics'][x] for x in METRIC_KEYS)
-
-                if metric == 0:
-                    candidates.append(state['host'])
-        except KeyError:
-            logging.error('Malformmed scheduler info')
-
-            raise
-
-        logging.info('Found %r candidates for removal', len(candidates))
-
-        return candidates
+            logging.error('Failed to scale down dask workers: %r', e)
 
     def run(self):
         self.running = True
 
         while self.running:
-            try:
-                stale_workers = self.find_stale_workers()
-            except Exception as e:
-                logging.error('Failed to find stale workers: %r', e)
-
-            logging.info('Attempting to scale down by %r workers', len(stale_workers))
-
-            try:
-                self.cluster.scale_down(stale_workers)
-            except Exception as e:
-                logging.error('Failed to scale down dask workers: %r', e)
+            self.scale_down_workers()
 
             time.sleep(self.timeout)

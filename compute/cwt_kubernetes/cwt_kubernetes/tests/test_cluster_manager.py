@@ -6,67 +6,51 @@ from cwt_kubernetes.cluster_manager import ClusterManager
 
 class TestClusterManager(unittest.TestCase):
     @mock.patch('cwt_kubernetes.cluster_manager.Client')
-    def test_find_stale_workers_scheduler_exception(self, mock_client):
-        mock_client.return_value.scheduler_info.side_effect = Exception()
-
+    def test_scale_down_workers(self, mock_client):
         mock_cluster = mock.MagicMock()
 
-        manager = ClusterManager('192.168.55.55:8786', mock_cluster)
-
-        with self.assertRaises(Exception):
-            manager.find_stale_workers()
-
-    @mock.patch('cwt_kubernetes.cluster_manager.Client')
-    def test_find_stale_workers_missing_entry(self, mock_client):
-        mock_client.return_value.scheduler_info.return_value = {}
-
-        mock_cluster = mock.MagicMock()
-
-        manager = ClusterManager('192.168.55.55:8786', mock_cluster)
-
-        with self.assertRaises(KeyError):
-            manager.find_stale_workers()
-
-    @mock.patch('cwt_kubernetes.cluster_manager.Client')
-    def test_find_stale_workers(self, mock_client):
-        mock_client.return_value.scheduler_info.return_value = {
-            'workers': {
-                'tcp://192.168.0.1': {
-                    'host': '192.168.0.1',
-                    'metrics': {
-                        'executing': 0,
-                        'in_memory': 0,
-                        'ready': 0,
-                        'in_flight': 0,
-                    }
-                },
-                'tcp://192.168.0.2': {
-                    'host': '192.168.0.2',
-                    'metrics': {
-                        'executing': 0,
-                        'in_memory': 0,
-                        'ready': 0,
-                        'in_flight': 0,
-                    }
-                },
-                'tcp://192.168.0.3': {
-                    'host': '192.168.0.3',
-                    'metrics': {
-                        'executing': 0,
-                        'in_memory': 4,
-                        'ready': 0,
-                        'in_flight': 0,
-                    }
-                }
+        mock_client.return_value.retire_workers.return_value = {
+            'worker1': {
+                'host': '192.168.0.1',
+            },
+            'worker2': {
+                'host': '192.168.0.2',
             }
         }
 
+        manager = ClusterManager('192.168.111.111:8786', mock_cluster)
+
+        manager.scale_down_workers()
+
+        mock_cluster.scale_down.assert_called_with(['192.168.0.1', '192.168.0.2'])
+
+    @mock.patch('cwt_kubernetes.cluster_manager.Client')
+    def test_get_pods_to_kill(self, mock_client):
         mock_cluster = mock.MagicMock()
 
-        manager = ClusterManager('192.168.55.55:8786', mock_cluster)
+        mock_client.return_value.retire_workers.return_value = {
+            'worker1': {
+                'host': '192.168.0.1',
+            },
+            'worker2': {
+                'host': '192.168.0.2',
+            }
+        }
 
-        workers = manager.find_stale_workers()
+        manager = ClusterManager('192.168.111.111:8786', mock_cluster)
 
-        expected_workers = ['192.168.0.1', '192.168.0.2']
+        workers = manager.get_pods_to_kill()
 
-        self.assertEqual(workers, expected_workers)
+        self.assertEqual(len(workers), 2)
+
+        self.assertEqual(workers, ['192.168.0.1', '192.168.0.2'])
+
+    @mock.patch('cwt_kubernetes.cluster_manager.Client')
+    def test_get_pods_to_kill_empty(self, mock_client):
+        mock_cluster = mock.MagicMock()
+
+        manager = ClusterManager('192.168.111.111:8786', mock_cluster)
+
+        workers = manager.get_pods_to_kill()
+
+        self.assertEqual(len(workers), 0)

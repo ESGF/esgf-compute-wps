@@ -8,7 +8,7 @@ from kubernetes import config
 
 api_client = client.ApiClient()
 
-CLEANUP_PHASES = ('Completed', 'Failed')
+CLEANUP_PHASES = ('Succeeded', 'Failed')
 
 
 class FakeResponse(object):
