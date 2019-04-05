@@ -21,7 +21,10 @@ class ClusterManager(object):
     def get_pods_to_kill(self):
         workers = self.client.retire_workers()
 
-        return [x['host'] for x in workers.values()]
+        try:
+            return [x['host'] for x in workers.values()]
+        except AttributeError:
+            return []
 
     def scale_down_workers(self):
         pods = self.get_pods_to_kill()

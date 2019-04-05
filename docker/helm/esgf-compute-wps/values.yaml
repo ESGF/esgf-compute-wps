@@ -30,9 +30,19 @@ dask:
   image: jasonb87/cwt_celery
   imageTag: devel
 
-  monitor:
-    image: jasonb87/cwt-kube-monitor
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+    request:
+      cpu: 500m
+      memory: 512Gi
+
+  provisioner:
+    image: jasonb87/cwt_dask_provisioner
     imageTag: devel
+
+    timeout: 60
 
     nodeSelector:
       tier: backend

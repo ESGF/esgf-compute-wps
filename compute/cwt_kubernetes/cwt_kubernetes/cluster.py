@@ -22,9 +22,11 @@ class Cluster(object):
 
         self.pod_template = pod_template
 
-        self.pod_template.metadata.labels = {}
-        self.pod_template.metadata.labels['app'] = 'dask'
-        self.pod_template.metadata.labels['component'] = 'dask-worker'
+        if (self.pod_template is not None and
+            self.pod_template.metadata is not None):
+            self.pod_template.metadata.labels = {}
+            self.pod_template.metadata.labels['app'] = 'dask'
+            self.pod_template.metadata.labels['component'] = 'dask-worker'
 
         config.load_incluster_config()
 

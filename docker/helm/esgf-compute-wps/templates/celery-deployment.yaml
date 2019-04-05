@@ -127,9 +127,13 @@ spec:
             secretKeyRef:
               name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
               key: oauth_secret
+        - name: DASK_SCHEDULER
+          value: {{ $.Release.Name }}-dask-scheduler:8786
         volumeMounts:
         - mountPath: /etc/config
           name: config-volume
+        - mountPath: /etc/config/dask
+          name: dask-volume
         - mountPath: /data/cache
           name: cache-volume
           subPath: cache
@@ -149,7 +153,10 @@ spec:
       {{- end }}
       - name: config-volume
         configMap:
-            name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+          name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+      - name: dask-volume
+        configMap:
+          name: {{ $.Release.Name }}-dask-config 
       - name: cache-volume
         persistentVolumeClaim:
           claimName: cache-pvc
