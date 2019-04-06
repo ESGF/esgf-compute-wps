@@ -2,31 +2,31 @@
 
 from builtins import str
 import datetime
-import json
 import os
-import re
-import uuid
-from collections import deque
+import math
 
 import cdms2
 import cwt
 import cdutil
+import dask
+import dask.array as da
+import xarray as xr
 from cdms2 import MV2
-from celery.task.control import inspect
 from celery.utils.log import get_task_logger
 from django.conf import settings
-from django.utils import timezone
+from dask.distributed import Client
 
-from wps import helpers
 from wps import metrics
-from wps import models
 from wps import WPSError
 from wps.tasks import base
 from wps.context import OperationContext
+from cwt_kubernetes.cluster import Cluster
+from cwt_kubernetes.cluster_manager import ClusterManager
 
 logger = get_task_logger('wps.tasks.cdat')
 
 BACKEND = 'CDAT'
+
 
 @base.register_process('CDAT', 'workflow', metadata={'inputs': '0'})
 @base.cwt_shared_task()
@@ -76,6 +76,7 @@ def workflow(self, context):
 
     return context
 
+
 REGRID_ABSTRACT = """
 Regrids a variable to designated grid. Required parameter named "gridder".
 """
@@ -89,7 +90,7 @@ Aggregate a variable over multiple files. Supports subsetting and regridding.
 """
 
 AVERAGE_ABSTRACT = """
-Computes the average over axes. 
+Computes the average over axes.
 
 Required parameters:
  axes: A list of axes to operate on. Should be separated by "|".
@@ -101,27 +102,28 @@ Optional parameters:
 """
 
 SUM_ABSTRACT = """
-Computes the sum over an axis. Requires singular parameter named "chunked_axis, axes" 
+Computes the sum over an axis. Requires singular parameter named "chunked_axis, axes"
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """
 
 MAX_ABSTRACT = """
-Computes the maximum over an axis. Requires singular parameter named "chunked_axis, axes" 
+Computes the maximum over an axis. Requires singular parameter named "chunked_axis, axes"
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """
 
 MIN_ABSTRACT = """
-Computes the minimum over an axis. Requires singular parameter named "chunked_axis, axes" 
+Computes the minimum over an axis. Requires singular parameter named "chunked_axis, axes"
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """
 
+
 def process_data(self, context, index, process):
     """ Process a chunks of data.
 
-    Function passed as process should accept two arguments, the first being a 
+    Function passed as process should accept two arguments, the first being a
     cdms2.TransientVariable and the second a list of axis names.
 
     Args:
@@ -159,6 +161,7 @@ def process_data(self, context, index, process):
 
     return context
 
+
 def parse_filename(path):
     """ Parses filename from path.
 
@@ -175,6 +178,7 @@ def parse_filename(path):
     filename, _ = os.path.splitext(base)
 
     return filename
+
 
 def regrid_chunk(context, chunk, selector):
     """ Regrids a chunk of data.
@@ -196,6 +200,7 @@ def regrid_chunk(context, chunk, selector):
     logger.info('Regrid %r -> %r', shape, chunk.shape)
 
     return chunk
+
 
 @base.cwt_shared_task()
 def concat(self, contexts):
@@ -271,6 +276,7 @@ def concat(self, contexts):
 
     return context
 
+
 @base.register_process('CDAT', 'regrid', abstract=REGRID_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def regrid(self, context, index):
@@ -278,12 +284,137 @@ def regrid(self, context, index):
     """
     return context
 
+client = Client(os.environ['DASK_SCHEDULER']) # noqa
+
+cluster = Cluster.from_yaml('default', 'worker-spec.yml')
+
+
+def format_dimension(dim):
+    if dim.crs == cwt.VALUES:
+        data = (dim.start, dim.end, dim.step)
+    elif dim.crs == cwt.INDICES:
+        data = slice(dim.start, dim.end, dim.step)
+    elif dim.crs == cwt.TIMESTAMPS:
+        data = (dim.start, dim.end, dim.step)
+    else:
+        raise WPSError('Unknown dimension CRS %r', dim)
+
+    return data
+
+
+def domain_to_dict(domain):
+    if domain is None:
+        return {}
+
+    return dict((x, format_dimension(y)) for x, y in domain.dimensions.items())
+
+
+def map_domain(url, var_name, domain):
+    import cdms2 # noqa
+    axis_data = []
+    with cdms2.open(url) as infile:
+        for axis in infile[var_name].getAxisList():
+            if axis.id in domain:
+                if isinstance(domain[axis.id], slice):
+                    axis_data.append(domain[axis.id])
+                else:
+                    axis_clone = axis.clone()
+                    interval = axis_clone.mapInterval(domain[axis.id][:2])
+                    axis_data.append(slice(interval[0], interval[1], domain[axis.id][2]))
+            else:
+                axis_data.append(slice(None, None, None))
+
+    return url, tuple(axis_data)
+
+
+def calculate_chunking(domain, shape, index):
+    # TODO Replace 2 with the number of workers allocated for the user
+    # Take ceiling so we can fit into x workers
+    if domain[index].stop is None and domain[index].start is None:
+        size = shape[index] / 2
+    else:
+        size = math.ceil((domain[index].stop - domain[index].start) / 2)
+
+    shape.pop(index)
+
+    shape.insert(index, size)
+
+    return shape
+
+
+def output_with_attributes(f, subset_data, subset, var_name, axis_name=None):
+    var = {}
+    coords = {}
+
+    for v in f.getVariables():
+        has_axis = False
+
+        a_coords = {}
+
+        for a in v.getAxisList():
+            if axis_name is not None and a.id == axis_name:
+                has_axis = True
+
+            if a.id in coords:
+                a_coords[a.id] = coords[a.id]
+            else:
+                if has_axis:
+                    axis_subset = a[subset]
+                else:
+                    axis_subset = a[:]
+
+                coords[a.id] = a_coords[a.id] = xr.DataArray(axis_subset, name=a.id, dims=a.id, attrs=a.attributes)
+
+        if v.id == var_name:
+            var_da = subset_data
+        elif has_axis:
+            var_da = v[subset]
+        else:
+            var_da = v[:]
+
+        var[v.id] = xr.DataArray(var_da, name=v.id, dims=a_coords.keys(), coords=a_coords, attrs=a.attributes)
+
+        if v.id == var_name:
+            var[v.id].attrs['_FillValue'] = 1e20
+
+    return xr.Dataset(var, attrs=f.attributes)
+
+
 @base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
-def subset(self, context, index):
+def subset(self, context):
     """ Subsetting data.
     """
+    input = context.inputs[0].variable
+
+    domain = domain_to_dict(context.domain)
+
+    test = dask.delayed(map_domain)(input.uri, input.var_name, domain)
+
+    url, mapped_domain = test.compute()
+
+    infile = cdms2.open(input.uri)
+
+    var = infile[input.var_name]
+
+    axis_index = var.getAxisIndex('time')
+
+    chunks = calculate_chunking(mapped_domain, list(var.shape), axis_index)
+
+    data = da.from_array(var, chunks=chunks)
+
+    subset_data = data[mapped_domain]
+
+    dataset = output_with_attributes(infile, subset_data, list(mapped_domain).pop(axis_index), input.var_name, 'time')
+
+    output_path = context.gen_public_path()
+
+    dataset.to_netcdf(output_path)
+
+    infile.close()
+
     return context
+
 
 @base.register_process('CDAT', 'aggregate', abstract=AGGREGATE_ABSTRACT, metadata={'inputs': '*'})
 @base.cwt_shared_task()
@@ -291,6 +422,7 @@ def aggregate(self, context, index):
     """ Aggregating data.
     """
     return context
+
 
 @base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
@@ -314,6 +446,7 @@ def average(self, context, index):
 
     return process_data(self, context, index, average_func)
 
+
 @base.register_process('CDAT', 'sum', abstract=SUM_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def sum(self, context, index):
@@ -330,6 +463,7 @@ def sum(self, context, index):
 
     return process_data(self, context, index, sum_func)
 
+
 @base.register_process('CDAT', 'max', abstract=MAX_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def max(self, context, index):
@@ -345,6 +479,7 @@ def max(self, context, index):
         return data
 
     return process_data(self, context, index, max_func)
+
 
 @base.register_process('CDAT', 'min', abstract=MIN_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
