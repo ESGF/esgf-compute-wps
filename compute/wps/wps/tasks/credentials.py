@@ -52,9 +52,9 @@ def check_certificate(user):
     except Exception as e:
         raise CertificateError(user, 'Loading certificate')
 
-    before = datetime.strptime(cert.get_notBefore(), CERT_DATE_FMT)
+    before = datetime.strptime(cert.get_notBefore().decode('utf-8'), CERT_DATE_FMT)
 
-    after = datetime.strptime(cert.get_notAfter(), CERT_DATE_FMT)
+    after = datetime.strptime(cert.get_notAfter().decode('utf-8'), CERT_DATE_FMT)
 
     now = datetime.now()
 

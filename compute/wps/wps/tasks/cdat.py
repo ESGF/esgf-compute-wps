@@ -4,6 +4,7 @@ from builtins import str
 import datetime
 import os
 import math
+from collections import OrderedDict
 
 import cdms2
 import cwt
@@ -311,66 +312,75 @@ def domain_to_dict(domain):
 
 def map_domain(url, var_name, domain):
     import cdms2 # noqa
-    axis_data = []
+    axis_data = OrderedDict()
     with cdms2.open(url) as infile:
         for axis in infile[var_name].getAxisList():
             if axis.id in domain:
                 if isinstance(domain[axis.id], slice):
-                    axis_data.append(domain[axis.id])
+                    axis_data[axis.id] = domain[axis.id]
                 else:
                     axis_clone = axis.clone()
-                    interval = axis_clone.mapInterval(domain[axis.id][:2])
-                    axis_data.append(slice(interval[0], interval[1], domain[axis.id][2]))
+                    try:
+                        interval = axis_clone.mapInterval(domain[axis.id][:2])
+                    except TypeError:
+                        raise WPSError('Failed to map axis %r', axis.id)
+                    axis_data[axis.id] = slice(interval[0], interval[1], domain[axis.id][2])
             else:
-                axis_data.append(slice(None, None, None))
+                axis_data[axis.id] = slice(None, None, None)
 
-    return url, tuple(axis_data)
+    return url, axis_data
 
 
-def calculate_chunking(domain, shape, index):
+def calculate_chunking(domain, shape, axis):
     # TODO Replace 2 with the number of workers allocated for the user
     # Take ceiling so we can fit into x workers
-    if domain[index].stop is None and domain[index].start is None:
-        size = shape[index] / 2
+    if domain[axis].stop is None and domain[axis].start is None:
+        size = shape[axis] / 2
     else:
-        size = math.ceil((domain[index].stop - domain[index].start) / 2)
+        size = math.ceil((domain[axis].stop - domain[axis].start) / 2)
+
+    logger.info('Chunk size %r', size)
+
+    index = list(domain.keys()).index(axis)
+
+    old_shape = shape
 
     shape.pop(index)
 
     shape.insert(index, size)
 
+    logger.info('Chunk shape %r -> %r', old_shape, shape)
+
     return shape
 
 
-def output_with_attributes(f, subset_data, subset, var_name, axis_name=None):
+def output_with_attributes(f, subset_data, domain, var_name):
     var = {}
     coords = {}
 
     for v in f.getVariables():
-        has_axis = False
+        selector = {}
 
         a_coords = {}
 
         for a in v.getAxisList():
-            if axis_name is not None and a.id == axis_name:
-                has_axis = True
-
-            if a.id in coords:
-                a_coords[a.id] = coords[a.id]
-            else:
-                if has_axis:
-                    axis_subset = a[subset]
+            if a.id not in coords:
+                if a.id in domain:
+                    data = a[domain[a.id]]
                 else:
-                    axis_subset = a[:]
+                    data = a[:]
 
-                coords[a.id] = a_coords[a.id] = xr.DataArray(axis_subset, name=a.id, dims=a.id, attrs=a.attributes)
+                coords[a.id] = xr.DataArray(data, name=a.id, dims=a.id, attrs=a.attributes)
+
+            if a.id in domain:
+                selector[a.id] = domain[a.id]
+
+            a_coords[a.id] = coords[a.id]
 
         if v.id == var_name:
             var_da = subset_data
-        elif has_axis:
-            var_da = v[subset]
         else:
-            var_da = v[:]
+            var_da = v(**selector)
 
         var[v.id] = xr.DataArray(var_da, name=v.id, dims=a_coords.keys(), coords=a_coords, attrs=a.attributes)
 
@@ -389,23 +399,31 @@ def subset(self, context):
 
     domain = domain_to_dict(context.domain)
 
-    test = dask.delayed(map_domain)(input.uri, input.var_name, domain)
+    logger.info('Translated domain to %r', domain)
 
-    url, mapped_domain = test.compute()
+    mapped_delayed = dask.delayed(map_domain)(input.uri, input.var_name, domain)
+
+    url, map = mapped_delayed.compute()
+
+    logger.info('Mapped domain to %r', map)
 
     infile = cdms2.open(input.uri)
 
     var = infile[input.var_name]
 
-    axis_index = var.getAxisIndex('time')
+    chunks = calculate_chunking(map, list(var.shape), 'time')
 
-    chunks = calculate_chunking(mapped_domain, list(var.shape), axis_index)
+    logger.info('Setting chunk to %r', chunks)
 
     data = da.from_array(var, chunks=chunks)
 
-    subset_data = data[mapped_domain]
+    selector = tuple(map.values())
 
-    dataset = output_with_attributes(infile, subset_data, list(mapped_domain).pop(axis_index), input.var_name, 'time')
+    logger.info('Subsetting variable %r with selector %r', input.var_name, selector)
+
+    subset_data = data[selector]
+
+    dataset = output_with_attributes(infile, subset_data, map, input.var_name)
 
     output_path = context.gen_public_path()
 
