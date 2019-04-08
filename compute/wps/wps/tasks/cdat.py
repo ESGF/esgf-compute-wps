@@ -20,6 +20,7 @@ from dask.distributed import Client
 from wps import metrics
 from wps import WPSError
 from wps.tasks import base
+from wps.tasks import credentials
 from wps.context import OperationContext
 from cwt_kubernetes.cluster import Cluster
 from cwt_kubernetes.cluster_manager import ClusterManager
@@ -310,9 +311,25 @@ def domain_to_dict(domain):
     return dict((x, format_dimension(y)) for x, y in domain.dimensions.items())
 
 
-def map_domain(url, var_name, domain):
+def map_domain(url, var_name, domain, cert=None):
+    if cert is not None:
+        with open('cert.pem', 'w') as outfile:
+            outfile.write(cert)
+
+        import os
+
+        cert_path = os.path.join(os.getcwd(), 'cert.pem')
+
+        with open('.dodsrc', 'w') as outfile:
+            outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+            outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+            outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+            outfile.write('HTTP.SSL.VERIFY=0\n')
+
     import cdms2 # noqa
+
     axis_data = OrderedDict()
+
     with cdms2.open(url) as infile:
         for axis in infile[var_name].getAxisList():
             if axis.id in domain:
@@ -390,6 +407,57 @@ def output_with_attributes(f, subset_data, domain, var_name):
     return xr.Dataset(var, attrs=f.attributes)
 
 
+def retrieve_chunk(url, var_name, selector, cert):
+    with open('cert.pem', 'w') as outfile:
+        outfile.write(cert)
+
+    import os
+
+    cert_path = os.path.join(os.getcwd(), 'cert.pem')
+
+    with open('.dodsrc', 'w') as outfile:
+        outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+        outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+        outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+        outfile.write('HTTP.SSL.VERIFY=0\n')
+
+    import cdms2
+
+    with cdms2.open(url) as infile:
+        return infile(var_name, **selector)
+
+
+def update_shape(shape, chunk, index):
+    diff = chunk.stop - chunk.start
+
+    shape.pop(index)
+
+    shape.insert(index, diff)
+
+    return tuple(shape)
+
+
+def construct_ingress(var, cert, chunk_shape):
+    url = var.parent.id
+
+    size = var.getTime().shape[0]
+
+    index = var.getAxisIndex('time')
+
+    step = chunk_shape[index]
+
+    chunks = [{'time': slice(x, min(x+step, size), 1)} for x in range(0, size, step)]
+
+    da_chunks = [da.from_delayed(dask.delayed(retrieve_chunk)(url, var.id, x, cert),
+                                 update_shape(list(var.shape), x['time'], 0),
+                                 var.dtype)
+                 for x in chunks]
+
+    concat = da.concatenate(da_chunks, axis=0)
+
+    return concat
+
+
 @base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def subset(self, context):
@@ -397,11 +465,19 @@ def subset(self, context):
     """
     input = context.inputs[0].variable
 
+    cert = None
+
+    if not context.inputs[0].check_access():
+        cert_path = credentials.load_certificate(context.user)
+
+        if context.inputs[0].check_access(cert_path):
+            cert = context.user.auth.cert
+
     domain = domain_to_dict(context.domain)
 
     logger.info('Translated domain to %r', domain)
 
-    mapped_delayed = dask.delayed(map_domain)(input.uri, input.var_name, domain)
+    mapped_delayed = dask.delayed(map_domain)(input.uri, input.var_name, domain, cert)
 
     url, map = mapped_delayed.compute()
 
@@ -415,7 +491,10 @@ def subset(self, context):
 
     logger.info('Setting chunk to %r', chunks)
 
-    data = da.from_array(var, chunks=chunks)
+    if cert is None:
+        data = da.from_array(var, chunks=chunks)
+    else:
+        data = construct_ingress(var, cert, chunks)
 
     selector = tuple(map.values())
 
