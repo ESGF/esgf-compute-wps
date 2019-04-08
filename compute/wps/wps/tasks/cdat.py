@@ -458,6 +458,86 @@ def construct_ingress(var, cert, chunk_shape):
     return concat
 
 
+def regrid_data(url, var_name, data, grid, tool, method, cert):
+    if cert is not None:
+        with open('cert.pem', 'w') as outfile:
+            outfile.write(cert)
+
+        import os
+
+        cert_path = os.path.join(os.getcwd(), 'cert.pem')
+
+        with open('.dodsrc', 'w') as outfile:
+            outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+            outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+            outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+            outfile.write('HTTP.SSL.VERIFY=0\n')
+
+    import cdms2
+
+    with cdms2.open(url) as infile:
+        var = infile[var_name]
+
+        shape = data.shape
+
+        axes = []
+
+        for i, x in enumerate(var.getAxisList()):
+            axes.append(x.subAxis(0, shape[i], 1))
+
+        var = cdms2.createVariable(data, axes=axes)
+
+    data = var.regrid(grid, regridTool=tool, regridMethod=method)
+
+    logger.info('Regrid %r -> %r', shape, data.shape)
+
+    return data
+
+
+def axis_indices_to_values(var, name, value):
+    axis_index = var.getAxisIndex(name)
+
+    axis = var.getAxis(axis_index)
+
+    start = axis[0] if value.start is None else axis[value.start]
+
+    stop = axis[-1] if value.stop is None else axis[value.stop]
+
+    return (start, stop)
+
+
+def construct_regrid(var, context, data, selector):
+    if context.is_regrid:
+        grid, tool, method = context.regrid_context(selector)
+
+        new_selector = dict((x, axis_indices_to_values(var, x, y)) for x, y in list(selector.items()))
+
+        grid = context.subset_grid(grid, new_selector)
+
+        delayed = data.to_delayed().squeeze()
+
+        # This may not be a solid way to determine the new shape
+        new_shape = data.chunksize[:-2] + grid.shape
+
+        updated_selector = selector.copy()
+
+        if 'lat' in selector:
+            updated_selector['lat'] = slice(0, grid.getLatitude().shape[0], selector['lat'].step)
+
+        if 'lon' in selector:
+            updated_selector['lon'] = slice(0, grid.getLongitude().shape[0], selector['lon'].step)
+
+        regrid = [da.from_delayed(dask.delayed(regrid_data)(var.parent.id, var.id, x, grid, tool,
+                                                            method, context.user.auth.cert),
+                                  new_shape,
+                                  data.dtype)
+                  for x in delayed]
+
+        return da.concatenate(regrid), updated_selector
+
+    return data, selector
+
+
 @base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def subset(self, context):
@@ -502,9 +582,13 @@ def subset(self, context):
 
     subset_data = data[selector]
 
+    subset_data, map = construct_regrid(var, context, subset_data, map)
+
     dataset = output_with_attributes(infile, subset_data, map, input.var_name)
 
     output_path = context.gen_public_path()
+
+    logger.info('Writing output to %r', output_path)
 
     dataset.to_netcdf(output_path)
 
