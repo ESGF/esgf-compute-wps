@@ -16,6 +16,7 @@ from cdms2 import MV2
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from dask.distributed import Client
+from distributed.protocol.serialize import register_serialization
 
 from wps import metrics
 from wps import WPSError
@@ -303,10 +304,10 @@ domain = {
 }
 
 op1 = cwt.Process(name='op1')
-op1.domain = 'd0.1'
+op1.domain = 'd0'
 op1.inputs = ['v0', 'v0.1']
 op1._identifier = 'CDAT.aggregate'
-#op1.parameters['gridder'] = cwt.Gridder(grid='gaussian~32')
+op1.parameters['gridder'] = cwt.Gridder(grid='gaussian~32')
 
 operation = {
     'op1': op1,
@@ -410,11 +411,35 @@ def map_domain(input, domain, cert=None):
     return axis_data, ordering
 
 
-def output_with_attributes(urls, subset_data, domain, var_name):
-    vars = {}
-    vars_axes = {}
+def gather_axes(v, vars, axes, domain):
+    for a in v.getAxisList():
+        vars[v.id]['axes'].append(a.id)
+
+        if a.isTime():
+            if a.id in axes:
+                axes[a.id]['data'].append(a.clone())
+            else:
+                axes[a.id] = {
+                    'attrs': a.attributes.copy(),
+                    'data': [a.clone(), ],
+                }
+        elif a.id not in axes:
+            axes[a.id] = {
+                'attrs': a.attributes.copy(),
+            }
+            if a.id in domain:
+                selector = domain[a.id]
+                i = selector.start or 0
+                j = selector.stop or len(a)
+                k = selector.step or 1
+                axes[a.id]['data'] = a.subAxis(i, j, k)
+            else:
+                axes[a.id]['data'] = a.clone()
+
+
+def merge_variables(urls, subset_data, domain, var_name):
     axes = {}
-    attrs = {}
+    vars = {}
     gattrs = None
 
     for url in urls:
@@ -423,94 +448,74 @@ def output_with_attributes(urls, subset_data, domain, var_name):
                 gattrs = infile.attributes
 
             for v in infile.getVariables():
-                selector = {}
+                if v.id not in vars:
+                    vars[v.id] = {
+                        'attrs': v.attributes.copy(),
+                        'axes': [],
+                    }
 
-                if v.id not in attrs:
-                    attrs[v.id] = v.attributes
-
-                for a in v.getAxisList():
-                    if v.id in vars_axes:
-                        vars_axes[v.id].append(a.id)
-                    else:
-                        vars_axes[v.id] = [a.id, ]
-
-                    if a.id not in attrs:
-                        attrs[a.id] = a.attributes
-
-                    if a.isTime():
-                        if a.id in axes:
-                            axes[a.id].append(a.clone())
-                        else:
-                            axes[a.id] = [a.clone(), ]
-                    elif a.id not in axes:
-                        axes[a.id] = a.clone()
-
-                    if a.id in domain:
-                        selector[a.id] = domain[a.id]
+                gather_axes(v, vars, axes, domain)
 
                 if v.id == var_name:
-                    if v.id not in vars:
-                        vars[v.id] = subset_data
+                    vars[v.id]['data'] = subset_data
                 else:
-                    if v.getTime() is not None:
-                        if v.id in vars:
-                            vars[v.id].append(v())
+                    if v.getTime() is None:
+                        selector = {}
+                        for a in vars[v.id]['axes']:
+                            if a in domain:
+                                selector[a] = domain[a]
+
+                        vars[v.id]['data'] = v(**selector)
+                    else:
+                        if 'data' in vars[v.id]:
+                            vars[v.id]['data'].append(v())
                         else:
-                            vars[v.id] = [v(), ]
-                    elif v.id not in vars:
-                        vars[v.id] = v(**selector)
+                            vars[v.id]['data'] = [v(), ]
 
-    for x, y in list(axes.items()):
-        if isinstance(y, list):
-            selector = domain[x]
+    for name, y in list(axes.items()):
+        if isinstance(y['data'], list):
+            y['data'] = MV2.axisConcatenate(y['data'], id=name)
 
-            axes[x] = MV2.axisConcatenate(y, id=x)
+            selector = domain[name]
 
             if selector is not None:
                 i = selector.start or 0
-                j = selector.stop or len(axes[x])
+                j = selector.stop or len(y['data'])
                 k = selector.step or 1
 
-                axes[x] = axes[x].subAxis(i, j, k)
-        else:
-            if x in domain:
-                selector = domain[x]
+                y['data'] = y['data'].subAxis(i, j, k)
 
-                if selector is not None:
-                    i = selector.start or 0
-                    j = selector.stop or len(axes[x])
-                    k = selector.step or 1
+    for name, var in list(vars.items()):
+        if isinstance(var['data'], list):
+            var['data'] = MV2.concatenate(var['data'])
 
-                    axes[x] = axes[x].subAxis(i, j, k)
+            selector = [domain[x.id] for x in var['data'].getAxisList() if x.id in domain]
 
-    for x, y in list(vars.items()):
-        if isinstance(y, list):
-            vars[x] = MV2.concatenate(y)
+            var['data'] = var['data'].subRegion(*selector)
 
-            selector = []
+    return {'gattrs': gattrs, 'axes': axes, 'vars': vars}
 
-            for a in vars[x].getAxisList():
-                if a.id in domain:
-                    selector.append(domain[a.id])
 
-            vars[x] = vars[x].subRegion(*selector)
-
+def output_with_attributes(var_name, gattrs, axes, vars):
     xr_axes = {}
     xr_vars = {}
 
-    for x, y in list(axes.items()):
-        xr_axes[x] = xr.DataArray(y, name=x, dims=x, attrs=attrs[x])
+    logger.info('axes %r', axes)
+    logger.info('vars %r', vars)
 
-    for x, y in list(vars.items()):
+    for name, y in list(axes.items()):
+        xr_axes[name] = xr.DataArray(y['data'], name=name, dims=name, attrs=y['attrs'])
+
+    for name, var in list(vars.items()):
         coords = {}
 
-        for a in vars_axes[x]:
+        for a in var['axes']:
             coords[a] = xr_axes[a]
 
-        xr_vars[x] = xr.DataArray(y, name=x, dims=coords.keys(), coords=coords, attrs=attrs[x])
+        xr_vars[name] = xr.DataArray(var['data'], name=name, dims=coords.keys(), coords=coords, attrs=var['attrs'])
 
-        if x == var_name:
-            xr_vars[x].attrs['_FillValue'] = 1e20
+        if name == var_name:
+            xr_vars[name].attrs['_FillValue'] = 1e20
 
     return xr.Dataset(xr_vars, attrs=gattrs)
 
@@ -566,34 +571,12 @@ def construct_ingress(var, cert, chunk_shape):
     return concat
 
 
-def regrid_data(url, var_name, data, grid, tool, method, cert):
-    if cert is not None:
-        with open('cert.pem', 'w') as outfile:
-            outfile.write(cert)
-
-        import os
-
-        cert_path = os.path.join(os.getcwd(), 'cert.pem')
-
-        with open('.dodsrc', 'w') as outfile:
-            outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
-            outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.VERIFY=0\n')
-
+def regrid_data(data, axes, grid, tool, method):
     import cdms2
 
-    with cdms2.open(url) as infile:
-        var = infile[var_name]
+    var = cdms2.createVariable(data, axes=axes)
 
-        shape = data.shape
-
-        axes = []
-
-        for i, x in enumerate(var.getAxisList()):
-            axes.append(x.subAxis(0, shape[i], 1))
-
-        var = cdms2.createVariable(data, axes=axes)
+    shape = var.shape
 
     data = var.regrid(grid, regridTool=tool, regridMethod=method)
 
@@ -602,46 +585,24 @@ def regrid_data(url, var_name, data, grid, tool, method, cert):
     return data
 
 
-def axis_indices_to_values(var, name, value):
-    axis_index = var.getAxisIndex(name)
-
-    axis = var.getAxis(axis_index)
-
-    start = axis[0] if value.start is None else axis[value.start]
-
-    stop = axis[-1] if value.stop is None else axis[value.stop]
-
-    return (start, stop)
-
-
-def construct_regrid(var, context, data, selector):
+def construct_regrid(context, data, selector, axes, **kwargs):
     if context.is_regrid:
         grid, tool, method = context.regrid_context(selector)
 
-        new_selector = dict((x, axis_indices_to_values(var, x, y)) for x, y in list(selector.items()))
-
-        grid = context.subset_grid(grid, new_selector)
-
         delayed = data.to_delayed().squeeze()
 
-        # This may not be a solid way to determine the new shape
-        new_shape = data.chunksize[:-2] + grid.shape
+        logger.info('%r', axes)
 
-        updated_selector = selector.copy()
+        axis_data = [x['data'] for x in axes.values()]
 
-        if 'lat' in selector:
-            updated_selector['lat'] = slice(0, grid.getLatitude().shape[0], selector['lat'].step)
+        new_shape = tuple(len(x) for x in axis_data)
 
-        if 'lon' in selector:
-            updated_selector['lon'] = slice(0, grid.getLongitude().shape[0], selector['lon'].step)
-
-        regrid = [da.from_delayed(dask.delayed(regrid_data)(var.parent.id, var.id, x, grid, tool,
-                                                            method, context.user.auth.cert),
+        regrid = [da.from_delayed(dask.delayed(regrid_data)(x, axis_data, grid, tool, method),
                                   new_shape,
                                   data.dtype)
                   for x in delayed]
 
-        return da.concatenate(regrid), updated_selector
+        return da.concatenate(regrid), selector
 
     return data, selector
 
@@ -717,7 +678,9 @@ def subset_func(self, context):
 
     subset_data, map = construct_regrid(var, context, subset_data, map)
 
-    dataset = output_with_attributes([input.uri, ], subset_data, map, input.var_name)
+    merged = merge_variables([input.uri, ], subset_data, map, input.var_name)
+
+    dataset = output_with_attributes(input.var_name, **merged)
 
     context.output_path = context.gen_public_path()
 
@@ -741,6 +704,8 @@ def aggregate_func(self, context):
 
     cert = context.user.auth.cert if check_access(context, context.inputs[0]) else None
 
+    logger.info('Authorization required %r', cert is not None)
+
     maps = [(x.uri,) + map_domain(x, domain) for x in context.inputs]
 
     logger.info('Domain maps %r', maps)
@@ -757,7 +722,7 @@ def aggregate_func(self, context):
     else:
         raise WPSError('Unable to determine the order of inputs')
 
-    logger.info('Ordered inputs %r', ordered_inputs)
+    logger.info('Ordered maps %r', ordered_inputs)
 
     chunks = None
 
@@ -777,15 +742,27 @@ def aggregate_func(self, context):
 
     concat = da.concatenate(data, axis=0)
 
+    logger.info('Concat inputs %r', concat)
+
     combined = combine_maps([x[1] for x in maps], 0)
+
+    logger.info('Combined maps to %r', combined)
 
     selector = tuple(combined.values())
 
     subset_data = concat[selector]
 
-    # TODO Regrid data
+    logger.info('Subset concat to %r', subset_data)
 
-    dataset = output_with_attributes([x.uri for x in context.inputs], subset_data, combined, context.inputs[0].var_name)
+    urls = [x.uri for x in context.inputs]
+
+    var_name = context.inputs[0].var_name
+
+    merged = merge_variables(urls, subset_data, combined, var_name)
+
+    merged['vars'][var_name]['data'] = construct_regrid(context, subset_data, combined, **merged)
+
+    dataset = output_with_attributes(var_name, **merged)
 
     context.output_path = context.gen_public_path()
 
@@ -868,3 +845,41 @@ def min(self, context, index):
         return data
 
     return process_data(self, context, index, min_func)
+
+
+def serialize_transient_axis(axis):
+    axis_data = axis[:]
+    bounds = axis.getBounds()
+
+    header = {
+        'id': axis.id,
+        'axis': {
+            'shape': axis_data.shape,
+            'dtype': axis_data.dtype.name,
+        },
+        'bounds': {
+            'shape': bounds.shape,
+            'dtype': bounds.dtype.name,
+        },
+        'units': axis.units
+    }
+    data = [axis_data.tobytes(), bounds.tobytes()]
+    return header, data
+
+
+def deserialize_transient_axis(header, frames):
+    import cdms2
+    import numpy as np
+    axis_data = np.frombuffer(frames[0], dtype=header['axis']['dtype'])
+    axis_data = axis_data.reshape(header['axis']['shape'])
+
+    bounds = np.frombuffer(frames[1], dtype=header['bounds']['dtype'])
+    bounds = bounds.reshape(header['bounds']['shape'])
+
+    axis = cdms2.createAxis(axis_data, bounds=bounds, id=header['id'])
+    axis.units = header['units']
+
+    return axis
+
+
+register_serialization(cdms2.axis.TransientAxis, serialize_transient_axis, deserialize_transient_axis)
