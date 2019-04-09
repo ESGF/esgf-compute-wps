@@ -286,9 +286,51 @@ def regrid(self, context, index):
     """
     return context
 
-client = Client(os.environ['DASK_SCHEDULER']) # noqa
+variable = {
+    'v0': cwt.Variable('http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2/amip/r1i1p1f1/day/tas/gn/v20190218/tas_day_CESM2_amip_r1i1p1f1_gn_19500101-19591231.nc', 'tas', name='v0'),
+    'v0.1': cwt.Variable('http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2/amip/r1i1p1f1/day/tas/gn/v20190218/tas_day_CESM2_amip_r1i1p1f1_gn_19600101-19691231.nc', 'tas', name='v0.1'),
+    'v1': cwt.Variable('http://aims3.llnl.gov/thredds/dodsC/cmip5_css02_data/cmip5/output1/CMCC/CMCC-CM/historical/day/atmos/day/r1i1p1/clt/1/clt_day_CMCC-CM_historical_r1i1p1_19500101-19501231.nc', 'clt', name='v1'),
+}
 
-cluster = Cluster.from_yaml('default', 'worker-spec.yml')
+domain = {
+    'd0': cwt.Domain([cwt.Dimension('time', 714968.0, 715044.0),
+                      cwt.Dimension('lat', -90, 0)], name='d0'),
+    'd0.1': cwt.Domain([cwt.Dimension('time', 714968.0, 715034.0),
+                      cwt.Dimension('lat', -90, 0)], name='d0.1'),
+    'd1': cwt.Domain([cwt.Dimension('time', 50, 150),
+                      cwt.Dimension('lat', -90, 0),
+                      cwt.Dimension('lon', 0, 90)], name='d1'),
+}
+
+op1 = cwt.Process(name='op1')
+op1.domain = 'd0.1'
+op1.inputs = ['v0', 'v0.1']
+op1._identifier = 'CDAT.aggregate'
+#op1.parameters['gridder'] = cwt.Gridder(grid='gaussian~32')
+
+operation = {
+    'op1': op1,
+}
+
+c = OperationContext.from_data_inputs('CDAT.aggregate', variable, domain, operation)
+
+import mock
+from wps import models
+
+c.user = models.User.objects.get(pk=1)
+
+c.job = mock.MagicMock()
+c.job.id = 1
+
+from dask.distributed import LocalCluster
+
+cluster = LocalCluster(n_workers=2, threads_per_worker=2)
+
+client = Client(cluster)
+
+# client = Client(os.environ['DASK_SCHEDULER']) # noqa
+
+# cluster = Cluster.from_yaml('default', 'worker-spec.yml')
 
 
 def format_dimension(dim):
@@ -311,27 +353,46 @@ def domain_to_dict(domain):
     return dict((x, format_dimension(y)) for x, y in domain.dimensions.items())
 
 
-def map_domain(url, var_name, domain, cert=None):
+def check_access(context, input):
+    if not context.check_access(input):
+        cert_path = credentials.load_certificate(context.user)
+
+        if not context.check_access(input, cert_path):
+            raise WPSError('Failed to access input')
+
+    return True
+
+
+def write_certificate(cert):
+    with open('cert.pem', 'w') as outfile:
+        outfile.write(cert)
+
+    import os
+
+    cert_path = os.path.join(os.getcwd(), 'cert.pem')
+
+    with open('.dodsrc', 'w') as outfile:
+        outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+        outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+        outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+        outfile.write('HTTP.SSL.VERIFY=0\n')
+
+
+def map_domain(input, domain, cert=None):
     if cert is not None:
-        with open('cert.pem', 'w') as outfile:
-            outfile.write(cert)
-
-        import os
-
-        cert_path = os.path.join(os.getcwd(), 'cert.pem')
-
-        with open('.dodsrc', 'w') as outfile:
-            outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
-            outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.VERIFY=0\n')
+        write_certificate(cert)
 
     import cdms2 # noqa
 
     axis_data = OrderedDict()
 
-    with cdms2.open(url) as infile:
-        for axis in infile[var_name].getAxisList():
+    ordering = None
+
+    with cdms2.open(input.uri) as infile:
+        for axis in infile[input.var_name].getAxisList():
+            if axis.isTime():
+                ordering = (axis.units, axis[0])
+
             if axis.id in domain:
                 if isinstance(domain[axis.id], slice):
                     axis_data[axis.id] = domain[axis.id]
@@ -340,71 +401,118 @@ def map_domain(url, var_name, domain, cert=None):
                     try:
                         interval = axis_clone.mapInterval(domain[axis.id][:2])
                     except TypeError:
-                        raise WPSError('Failed to map axis %r', axis.id)
-                    axis_data[axis.id] = slice(interval[0], interval[1], domain[axis.id][2])
+                        axis_data[axis.id] = None
+                    else:
+                        axis_data[axis.id] = slice(interval[0], interval[1], domain[axis.id][2])
             else:
                 axis_data[axis.id] = slice(None, None, None)
 
-    return url, axis_data
+    return axis_data, ordering
 
 
-def calculate_chunking(domain, shape, axis):
-    # TODO Replace 2 with the number of workers allocated for the user
-    # Take ceiling so we can fit into x workers
-    if domain[axis].stop is None and domain[axis].start is None:
-        size = shape[axis] / 2
-    else:
-        size = math.ceil((domain[axis].stop - domain[axis].start) / 2)
+def output_with_attributes(urls, subset_data, domain, var_name):
+    vars = {}
+    vars_axes = {}
+    axes = {}
+    attrs = {}
+    gattrs = None
 
-    logger.info('Chunk size %r', size)
+    for url in urls:
+        with cdms2.open(url) as infile:
+            if gattrs is None:
+                gattrs = infile.attributes
 
-    index = list(domain.keys()).index(axis)
+            for v in infile.getVariables():
+                selector = {}
 
-    old_shape = shape
+                if v.id not in attrs:
+                    attrs[v.id] = v.attributes
 
-    shape.pop(index)
+                for a in v.getAxisList():
+                    if v.id in vars_axes:
+                        vars_axes[v.id].append(a.id)
+                    else:
+                        vars_axes[v.id] = [a.id, ]
 
-    shape.insert(index, size)
+                    if a.id not in attrs:
+                        attrs[a.id] = a.attributes
 
-    logger.info('Chunk shape %r -> %r', old_shape, shape)
+                    if a.isTime():
+                        if a.id in axes:
+                            axes[a.id].append(a.clone())
+                        else:
+                            axes[a.id] = [a.clone(), ]
+                    elif a.id not in axes:
+                        axes[a.id] = a.clone()
 
-    return shape
+                    if a.id in domain:
+                        selector[a.id] = domain[a.id]
 
-
-def output_with_attributes(f, subset_data, domain, var_name):
-    var = {}
-    coords = {}
-
-    for v in f.getVariables():
-        selector = {}
-
-        a_coords = {}
-
-        for a in v.getAxisList():
-            if a.id not in coords:
-                if a.id in domain:
-                    data = a[domain[a.id]]
+                if v.id == var_name:
+                    if v.id not in vars:
+                        vars[v.id] = subset_data
                 else:
-                    data = a[:]
+                    if v.getTime() is not None:
+                        if v.id in vars:
+                            vars[v.id].append(v())
+                        else:
+                            vars[v.id] = [v(), ]
+                    elif v.id not in vars:
+                        vars[v.id] = v(**selector)
 
-                coords[a.id] = xr.DataArray(data, name=a.id, dims=a.id, attrs=a.attributes)
+    for x, y in list(axes.items()):
+        if isinstance(y, list):
+            selector = domain[x]
 
-            if a.id in domain:
-                selector[a.id] = domain[a.id]
+            axes[x] = MV2.axisConcatenate(y, id=x)
 
-            a_coords[a.id] = coords[a.id]
+            if selector is not None:
+                i = selector.start or 0
+                j = selector.stop or len(axes[x])
+                k = selector.step or 1
 
-        if v.id == var_name:
-            var_da = subset_data
+                axes[x] = axes[x].subAxis(i, j, k)
         else:
-            var_da = v(**selector)
+            if x in domain:
+                selector = domain[x]
 
-        var[v.id] = xr.DataArray(var_da, name=v.id, dims=a_coords.keys(), coords=a_coords, attrs=a.attributes)
+                if selector is not None:
+                    i = selector.start or 0
+                    j = selector.stop or len(axes[x])
+                    k = selector.step or 1
 
-        if v.id == var_name:
-            var[v.id].attrs['_FillValue'] = 1e20
+                    axes[x] = axes[x].subAxis(i, j, k)
 
-    return xr.Dataset(var, attrs=f.attributes)
+    for x, y in list(vars.items()):
+        if isinstance(y, list):
+            vars[x] = MV2.concatenate(y)
+
+            selector = []
+
+            for a in vars[x].getAxisList():
+                if a.id in domain:
+                    selector.append(domain[a.id])
+
+            vars[x] = vars[x].subRegion(*selector)
+
+    xr_axes = {}
+    xr_vars = {}
+
+    for x, y in list(axes.items()):
+        xr_axes[x] = xr.DataArray(y, name=x, dims=x, attrs=attrs[x])
+
+    for x, y in list(vars.items()):
+        coords = {}
+
+        for a in vars_axes[x]:
+            coords[a] = xr_axes[a]
+
+        xr_vars[x] = xr.DataArray(y, name=x, dims=coords.keys(), coords=coords, attrs=attrs[x])
+
+        if x == var_name:
+            xr_vars[x].attrs['_FillValue'] = 1e20
+
+    return xr.Dataset(xr_vars, attrs=gattrs)
 
 
 def retrieve_chunk(url, var_name, selector, cert):
@@ -538,26 +646,53 @@ def construct_regrid(var, context, data, selector):
     return data, selector
 
 
+def combine_maps(maps, index):
+    """ Combine maps.
+    """
+    start = None
+    stop = None
+    step = None
+    template = None
+
+    for x in maps:
+        axis_slice = list(x.values())[index]
+
+        if axis_slice is None:
+            continue
+
+        if template is None:
+            template = x.copy()
+
+        if start is None:
+            start = axis_slice.start
+
+            stop = axis_slice.stop
+
+            step = axis_slice.step
+        else:
+            stop += axis_slice.stop - axis_slice.start
+
+    key = list(template.keys())[index]
+
+    template[key] = slice(start, stop, step)
+
+    return template
+
+
 @base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def subset_func(self, context):
     """ Subsetting data.
     """
-    input = context.inputs[0]
-
     domain = domain_to_dict(context.domain)
-
-    cert = None
-
-    if not context.check_access(input):
-        cert_path = credentials.load_certificate(context.user)
-
-        if not context.check_access(input, cert_path):
-            raise WPSError('Failed to access input')
 
     logger.info('Translated domain to %r', domain)
 
-    url, map = map_domain(input.uri, input.var_name, domain, cert)
+    input = context.inputs[0]
+
+    cert = context.user.auth.cert if check_access(context, input) else None
+
+    map, _ = map_domain(input, domain)
 
     logger.info('Mapped domain to %r', map)
 
@@ -565,7 +700,7 @@ def subset_func(self, context):
 
     var = infile[input.var_name]
 
-    chunks = calculate_chunking(map, list(var.shape), 'time')
+    chunks = (100,) + var.shape[1:]
 
     logger.info('Setting chunk to %r', chunks)
 
@@ -582,7 +717,7 @@ def subset_func(self, context):
 
     subset_data, map = construct_regrid(var, context, subset_data, map)
 
-    dataset = output_with_attributes(infile, subset_data, map, input.var_name)
+    dataset = output_with_attributes([input.uri, ], subset_data, map, input.var_name)
 
     context.output_path = context.gen_public_path()
 
@@ -597,9 +732,67 @@ def subset_func(self, context):
 
 @base.register_process('CDAT', 'aggregate', abstract=AGGREGATE_ABSTRACT, metadata={'inputs': '*'})
 @base.cwt_shared_task()
-def aggregate(self, context, index):
+def aggregate_func(self, context):
     """ Aggregating data.
     """
+    domain = domain_to_dict(context.domain)
+
+    logger.info('Translated domain to %r', domain)
+
+    cert = context.user.auth.cert if check_access(context, context.inputs[0]) else None
+
+    maps = [(x.uri,) + map_domain(x, domain) for x in context.inputs]
+
+    logger.info('Domain maps %r', maps)
+
+    order_by_units = len(set(x[-1][0] for x in maps)) == len(context.inputs)
+    order_by_first = len(set(x[-1][1] for x in maps)) == len(context.inputs)
+
+    logger.info('Ordering by units %r first %r', order_by_units, order_by_first)
+
+    if order_by_units:
+        ordered_inputs = sorted(maps, key=lambda x: x[-1][0])
+    elif order_by_first:
+        ordered_inputs = sorted(maps, key=lambda x: x[-1][1])
+    else:
+        raise WPSError('Unable to determine the order of inputs')
+
+    logger.info('Ordered inputs %r', ordered_inputs)
+
+    chunks = None
+
+    data = []
+
+    for input in context.inputs:
+        with cdms2.open(input.uri) as infile:
+            var = infile[input.var_name]
+
+            if chunks is None:
+                chunks = (100,) + var.shape[1:]
+
+            if cert is None:
+                data.append(da.from_array(var, chunks=chunks))
+            else:
+                data.append(construct_ingress(var, cert, chunks))
+
+    concat = da.concatenate(data, axis=0)
+
+    combined = combine_maps([x[1] for x in maps], 0)
+
+    selector = tuple(combined.values())
+
+    subset_data = concat[selector]
+
+    # TODO Regrid data
+
+    dataset = output_with_attributes([x.uri for x in context.inputs], subset_data, combined, context.inputs[0].var_name)
+
+    context.output_path = context.gen_public_path()
+
+    logger.info('Writing output to %r', context.output_path)
+
+    dataset.to_netcdf(context.output_path)
+
     return context
 
 
