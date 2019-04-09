@@ -540,26 +540,24 @@ def construct_regrid(var, context, data, selector):
 
 @base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
-def subset(self, context):
+def subset_func(self, context):
     """ Subsetting data.
     """
-    input = context.inputs[0].variable
-
-    cert = None
-
-    if not context.inputs[0].check_access():
-        cert_path = credentials.load_certificate(context.user)
-
-        if context.inputs[0].check_access(cert_path):
-            cert = context.user.auth.cert
+    input = context.inputs[0]
 
     domain = domain_to_dict(context.domain)
 
+    cert = None
+
+    if not context.check_access(input):
+        cert_path = credentials.load_certificate(context.user)
+
+        if not context.check_access(input, cert_path):
+            raise WPSError('Failed to access input')
+
     logger.info('Translated domain to %r', domain)
 
-    mapped_delayed = dask.delayed(map_domain)(input.uri, input.var_name, domain, cert)
-
-    url, map = mapped_delayed.compute()
+    url, map = map_domain(input.uri, input.var_name, domain, cert)
 
     logger.info('Mapped domain to %r', map)
 
@@ -586,11 +584,11 @@ def subset(self, context):
 
     dataset = output_with_attributes(infile, subset_data, map, input.var_name)
 
-    output_path = context.gen_public_path()
+    context.output_path = context.gen_public_path()
 
-    logger.info('Writing output to %r', output_path)
+    logger.info('Writing output to %r', context.output_path)
 
-    dataset.to_netcdf(output_path)
+    dataset.to_netcdf(context.output_path)
 
     infile.close()
 
