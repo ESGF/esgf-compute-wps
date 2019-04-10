@@ -361,7 +361,7 @@ def update_shape(shape, chunk, index):
     return tuple(shape)
 
 
-def construct_ingress(var, cert, chunk_shape):
+def build_ingress(var, cert, chunk_shape):
     url = var.parent.id
 
     size = var.getTime().shape[0]
@@ -399,7 +399,7 @@ def regrid_data(data, axes, grid, tool, method):
     return data
 
 
-def construct_regrid(context, axes, vars, selector):
+def build_regrid(context, axes, vars, selector):
     if context.is_regrid:
         new_selector = dict((x, (axes[x]['data'][0], axes[x]['data'][-1])) for x, y in list(selector.items()))
 
@@ -466,11 +466,7 @@ def combine_maps(maps, index):
     return template
 
 
-@base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
-@base.cwt_shared_task()
-def subset_func(self, context):
-    """ Subsetting data.
-    """
+def build_subset(context):
     domain = domain_to_dict(context.domain)
 
     logger.info('Translated domain to %r', domain)
@@ -493,7 +489,7 @@ def subset_func(self, context):
         if cert is None:
             data = da.from_array(var, chunks=chunks)
         else:
-            data = construct_ingress(var, cert, chunks)
+            data = build_ingress(var, cert, chunks)
 
     selector = tuple(map.values())
 
@@ -501,12 +497,19 @@ def subset_func(self, context):
 
     subset_data = data[selector]
 
-    # New code
+    return subset_data, map
+
+
+@base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
+@base.cwt_shared_task()
+def subset_func(self, context):
+    subset_data, map = build_subset(context)
+
     gattrs, axes, vars = merge_variables(context, subset_data, map)
 
-    construct_regrid(context, axes, vars, map)
+    build_regrid(context, axes, vars, map)
 
-    dataset = output_with_attributes(input.var_name, gattrs, axes, vars)
+    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
 
     context.output_path = context.gen_public_path()
 
@@ -520,8 +523,6 @@ def subset_func(self, context):
 @base.register_process('CDAT', 'aggregate', abstract=AGGREGATE_ABSTRACT, metadata={'inputs': '*'})
 @base.cwt_shared_task()
 def aggregate_func(self, context):
-    """ Aggregating data.
-    """
     domain = domain_to_dict(context.domain)
 
     logger.info('Translated domain to %r', domain)
@@ -562,7 +563,7 @@ def aggregate_func(self, context):
             if cert is None:
                 data.append(da.from_array(var, chunks=chunks))
             else:
-                data.append(construct_ingress(var, cert, chunks))
+                data.append(build_ingress(var, cert, chunks))
 
     concat = da.concatenate(data, axis=0)
 
@@ -580,7 +581,7 @@ def aggregate_func(self, context):
 
     gattrs, axes, vars = merge_variables(context, subset_data, combined)
 
-    construct_regrid(context, axes, vars, combined)
+    build_regrid(context, axes, vars, combined)
 
     dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
 
