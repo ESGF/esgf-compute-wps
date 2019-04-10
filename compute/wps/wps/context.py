@@ -471,9 +471,9 @@ class OperationContext(object):
     def subset_grid(self, grid, selector):
         target = cdms2.MV2.ones(grid.shape)
 
-        target = target(**selector)
-
         target.setAxisList(grid.getAxisList())
+
+        target = target(**selector)
 
         return target.getGrid()
 
