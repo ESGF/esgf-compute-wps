@@ -3,7 +3,6 @@
 from builtins import str
 import datetime
 import os
-import math
 from collections import OrderedDict
 
 import cdms2
@@ -411,111 +410,92 @@ def map_domain(input, domain, cert=None):
     return axis_data, ordering
 
 
-def gather_axes(v, vars, axes, domain):
-    for a in v.getAxisList():
-        vars[v.id]['axes'].append(a.id)
-
-        if a.isTime():
-            if a.id in axes:
-                axes[a.id]['data'].append(a.clone())
-            else:
-                axes[a.id] = {
-                    'attrs': a.attributes.copy(),
-                    'data': [a.clone(), ],
-                }
-        elif a.id not in axes:
-            axes[a.id] = {
-                'attrs': a.attributes.copy(),
-            }
-            if a.id in domain:
-                selector = domain[a.id]
-                i = selector.start or 0
-                j = selector.stop or len(a)
-                k = selector.step or 1
-                axes[a.id]['data'] = a.subAxis(i, j, k)
-            else:
-                axes[a.id]['data'] = a.clone()
+def slice_to_ijk(a, asel):
+    i = asel.start or 0
+    j = asel.stop or len(a)
+    k = asel.step or 1
+    return i, j, k
 
 
-def merge_variables(urls, subset_data, domain, var_name):
-    axes = {}
+def merge_variables(context, data, domain):
     vars = {}
+    axes = {}
     gattrs = None
 
-    for url in urls:
-        with cdms2.open(url) as infile:
+    for input in context.inputs:
+        with cdms2.open(input.uri) as infile:
             if gattrs is None:
                 gattrs = infile.attributes
 
             for v in infile.getVariables():
-                if v.id not in vars:
-                    vars[v.id] = {
-                        'attrs': v.attributes.copy(),
-                        'axes': [],
-                    }
+                for a in v.getAxisList():
+                    if a.isTime():
+                        if a.id in axes:
+                            axes[a.id]['data'].append(a.clone())
+                        else:
+                            axes[a.id] = {'data': [a.clone(), ], 'attrs': a.attributes}
+                    elif a.id not in axes:
+                        asel = domain.get(a.id, slice(None, None, None))
 
-                gather_axes(v, vars, axes, domain)
+                        i, j, k = slice_to_ijk(a, asel)
 
-                if v.id == var_name:
-                    vars[v.id]['data'] = subset_data
+                        axes[a.id] = {'data': a.subAxis(i, j, k), 'attrs': a.attributes}
+
+                if v.id == input.var_name:
+                    if v.id not in vars:
+                        vars[v.id] = {'data': data, 'attrs': v.attributes}
                 else:
-                    if v.getTime() is None:
-                        selector = {}
-                        for a in vars[v.id]['axes']:
-                            if a in domain:
-                                selector[a] = domain[a]
-
-                        vars[v.id]['data'] = v(**selector)
-                    else:
-                        if 'data' in vars[v.id]:
+                    if v.getTime() is not None:
+                        if v.id in vars:
                             vars[v.id]['data'].append(v())
                         else:
-                            vars[v.id]['data'] = [v(), ]
+                            vars[v.id] = {'data': [v(), ], 'attrs': v.attributes}
+                    elif v.id not in vars:
+                        vsel = dict((x.id, domain[x.id]) for x in v.getAxisList() if x.id in domain)
+                        vars[v.id] = {'data': v(**vsel), 'attrs': v.attributes}
 
-    for name, y in list(axes.items()):
+                if 'axes' not in vars[v.id]:
+                    vars[v.id]['axes'] = [x.id for x in v.getAxisList()]
+
+    # Concatenate time axis
+    for x, y in list(axes.items()):
         if isinstance(y['data'], list):
-            y['data'] = MV2.axisConcatenate(y['data'], id=name)
+            axis_concat = MV2.axisConcatenate(y['data'], id=x, attributes=y['attrs'])
 
-            selector = domain[name]
+            i, j, k = slice_to_ijk(axis_concat, domain.get(x, slice(None, None, None)))
 
-            if selector is not None:
-                i = selector.start or 0
-                j = selector.stop or len(y['data'])
-                k = selector.step or 1
+            y['data'] = axis_concat.subAxis(i, j, k)
 
-                y['data'] = y['data'].subAxis(i, j, k)
+    # Concatenate time_bnds variable
+    for x, y in list(vars.items()):
+        if isinstance(y['data'], list):
+            var_concat = MV2.concatenate(y['data'])
 
-    for name, var in list(vars.items()):
-        if isinstance(var['data'], list):
-            var['data'] = MV2.concatenate(var['data'])
+            vsel = [domain[x.id] for x in var_concat.getAxisList() if x.id in domain]
 
-            selector = [domain[x.id] for x in var['data'].getAxisList() if x.id in domain]
+            y['data'] = var_concat.subRegion(*vsel)
 
-            var['data'] = var['data'].subRegion(*selector)
-
-    return {'gattrs': gattrs, 'axes': axes, 'vars': vars}
+    return gattrs, axes, vars
 
 
 def output_with_attributes(var_name, gattrs, axes, vars):
     xr_axes = {}
     xr_vars = {}
 
-    logger.info('axes %r', axes)
-    logger.info('vars %r', vars)
-
     for name, y in list(axes.items()):
         xr_axes[name] = xr.DataArray(y['data'], name=name, dims=name, attrs=y['attrs'])
 
     for name, var in list(vars.items()):
-        coords = {}
-
-        for a in var['axes']:
-            coords[a] = xr_axes[a]
-
-        xr_vars[name] = xr.DataArray(var['data'], name=name, dims=coords.keys(), coords=coords, attrs=var['attrs'])
-
         if name == var_name:
-            xr_vars[name].attrs['_FillValue'] = 1e20
+            coords = {}
+
+            for a in var['axes']:
+                coords[a] = xr_axes[a]
+
+            xr_vars[name] = xr.DataArray(var['data'], name=name, dims=coords.keys(), coords=coords, attrs=var['attrs'])
+
+            if name == var_name:
+                xr_vars[name].attrs['_FillValue'] = 1e20
 
     return xr.Dataset(xr_vars, attrs=gattrs)
 
@@ -574,6 +554,9 @@ def construct_ingress(var, cert, chunk_shape):
 def regrid_data(data, axes, grid, tool, method):
     import cdms2
 
+    # Subset time to just fit, don't care if its the correct range
+    axes[0] = axes[0].subAxis(0, data.shape[0], 1)
+
     var = cdms2.createVariable(data, axes=axes)
 
     shape = var.shape
@@ -585,26 +568,38 @@ def regrid_data(data, axes, grid, tool, method):
     return data
 
 
-def construct_regrid(context, data, selector, axes, **kwargs):
+def construct_regrid(context, axes, vars, selector):
     if context.is_regrid:
-        grid, tool, method = context.regrid_context(selector)
+        new_selector = dict((x, (axes[x]['data'][0], axes[x]['data'][-1])) for x, y in list(selector.items()))
+
+        grid, tool, method = context.regrid_context(new_selector)
+
+        var_name = context.inputs[0].var_name
+
+        data = vars[var_name]['data']
 
         delayed = data.to_delayed().squeeze()
 
-        logger.info('%r', axes)
-
-        axis_data = [x['data'] for x in axes.values()]
-
-        new_shape = tuple(len(x) for x in axis_data)
+        axis_data = [x['data'] for x in axes.values() if x['data'].id in selector]
 
         regrid = [da.from_delayed(dask.delayed(regrid_data)(x, axis_data, grid, tool, method),
-                                  new_shape,
+                                  y.shape[:-2] + grid.shape,
                                   data.dtype)
-                  for x in delayed]
+                  for x, y in zip(delayed, data.blocks)]
 
-        return da.concatenate(regrid), selector
+        vars[var_name]['data'] = da.concatenate(regrid)
 
-    return data, selector
+        lat = grid.getLatitude()
+        old_lat = axes['lat']['data']
+        for x, y in old_lat.attributes.items():
+            setattr(lat, x, y)
+        axes['lat']['data'] = lat
+
+        lon = grid.getLongitude()
+        old_lon = axes['lon']['data']
+        for x, y in old_lon.attributes.items():
+            setattr(lon, x, y)
+        axes['lon']['data'] = lon
 
 
 def combine_maps(maps, index):
@@ -657,18 +652,17 @@ def subset_func(self, context):
 
     logger.info('Mapped domain to %r', map)
 
-    infile = cdms2.open(input.uri)
+    with cdms2.open(input.uri) as infile:
+        var = infile[input.var_name]
 
-    var = infile[input.var_name]
+        chunks = (100,) + var.shape[1:]
 
-    chunks = (100,) + var.shape[1:]
+        logger.info('Setting chunk to %r', chunks)
 
-    logger.info('Setting chunk to %r', chunks)
-
-    if cert is None:
-        data = da.from_array(var, chunks=chunks)
-    else:
-        data = construct_ingress(var, cert, chunks)
+        if cert is None:
+            data = da.from_array(var, chunks=chunks)
+        else:
+            data = construct_ingress(var, cert, chunks)
 
     selector = tuple(map.values())
 
@@ -676,19 +670,18 @@ def subset_func(self, context):
 
     subset_data = data[selector]
 
-    subset_data, map = construct_regrid(var, context, subset_data, map)
+    # New code
+    gattrs, axes, vars = merge_variables(context, subset_data, map)
 
-    merged = merge_variables([input.uri, ], subset_data, map, input.var_name)
+    construct_regrid(context, axes, vars, map)
 
-    dataset = output_with_attributes(input.var_name, **merged)
+    dataset = output_with_attributes(input.var_name, gattrs, axes, vars)
 
     context.output_path = context.gen_public_path()
 
     logger.info('Writing output to %r', context.output_path)
 
     dataset.to_netcdf(context.output_path)
-
-    infile.close()
 
     return context
 
@@ -754,15 +747,11 @@ def aggregate_func(self, context):
 
     logger.info('Subset concat to %r', subset_data)
 
-    urls = [x.uri for x in context.inputs]
+    gattrs, axes, vars = merge_variables(context, subset_data, combined)
 
-    var_name = context.inputs[0].var_name
+    construct_regrid(context, axes, vars, combined)
 
-    merged = merge_variables(urls, subset_data, combined, var_name)
-
-    merged['vars'][var_name]['data'] = construct_regrid(context, subset_data, combined, **merged)
-
-    dataset = output_with_attributes(var_name, **merged)
+    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
 
     context.output_path = context.gen_public_path()
 
