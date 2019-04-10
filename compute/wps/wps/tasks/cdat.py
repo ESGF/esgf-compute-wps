@@ -597,7 +597,10 @@ def aggregate_func(self, context):
 @base.register_process('CDAT', 'regrid', abstract=REGRID_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def regrid_func(self, context):
-    return context
+    # Ensure gridder is provided
+    context.operation.get_parameter('gridder', True)
+
+    return subset_func(context)
 
 
 @base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
