@@ -396,8 +396,13 @@ class OperationContext(object):
     def gen_public_path(self):
         filename = '{}.nc'.format(uuid.uuid4())
 
-        return os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
-                            str(self.job.id), filename)
+        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
+                                 str(self.job.id))
+
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
+        return os.path.join(base_path, filename)
 
     def gen_cache_path(self, filename):
         return os.path.join(settings.WPS_CACHE_PATH, filename)
