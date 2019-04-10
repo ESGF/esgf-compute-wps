@@ -18,11 +18,10 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
-from wps import helpers
 from wps import metrics
-from wps import tasks
 from wps import WPSError
-from wps.context import VariableContext
+from wps.tasks import credentials
+from wps.context import OperationContext
 
 logger = common.logger
 
@@ -102,7 +101,7 @@ def process_axes(header):
 
     return data
 
-def process_url(user, prefix_id, context):
+def process_url(user, prefix_id, var):
     """ Processes a url.
     Args:
         prefix_id: A str prefix to build the cache id.
@@ -112,18 +111,28 @@ def process_url(user, prefix_id, context):
     Returns:
         A list of dicts describing each files axes.
     """
-    cache_id = '{}|{}'.format(prefix_id, context.variable.uri)
+    cache_id = '{}|{}'.format(prefix_id, var.uri)
 
     cache_id = hashlib.md5(cache_id.encode()).hexdigest()
 
     data = cache.get(cache_id)
 
-    logger.info('Processing %r', context.variable)
+    logger.info('Processing %r', var)
 
     if data is None:
-        data = { 'url': context.variable.uri }
+        data = { 'url': var.uri }
 
-        with context.open(user) as variable:
+        context = OperationContext()
+
+        if not context.check_access(var):
+            cert_path = credentials.load_certificate(user)
+
+            if not context.check_access(var, cert_path):
+                raise WPSError('Unable to access file %r', var.uri)
+
+        with cdms2.open(user) as infile:
+            variable = infile[var.var_name]
+
             axes = process_axes(variable)
 
         data.update(axes)
@@ -150,9 +159,7 @@ def retrieve_axes(user, dataset_id, variable, urls):
     for url in sorted(urls):
         var = cwt.Variable(url, variable)
 
-        context = VariableContext(var)
-
-        data = process_url(user, prefix_id, context)
+        data = process_url(user, prefix_id, var)
 
         axes.append(data)
 

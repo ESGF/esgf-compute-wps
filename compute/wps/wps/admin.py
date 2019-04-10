@@ -73,13 +73,6 @@ class FileAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-class CacheAdmin(admin.ModelAdmin):
-    list_display = ('url', 'dimensions', 'added_date', 'accessed_date', 'size')
-
-    def has_add_permission(self, request):
-        return False
-
 admin.site.register(models.Server, ServerAdmin)
 admin.site.register(models.Process, ProcessAdmin)
 admin.site.register(models.File, FileAdmin)
-admin.site.register(models.Cache, CacheAdmin)

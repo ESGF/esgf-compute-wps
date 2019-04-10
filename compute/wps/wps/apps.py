@@ -12,7 +12,6 @@ class WpsConfig(AppConfig):
     def ready(self):
         from django.conf import settings as wps_settings
         from wps import metrics
-        from wps import signals
         from wps import WPSError
 
         os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
