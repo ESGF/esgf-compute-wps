@@ -149,7 +149,7 @@ wps:
 
   annotations:
     prometheus.io/scrape: "true"
-    prometheus.io/path: /wps/metrics
+    prometheus.io/path: /wps/metrics/
     prometheus.io/port: "8000"
 
   resources:
