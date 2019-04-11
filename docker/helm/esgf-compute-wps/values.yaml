@@ -252,11 +252,11 @@ postgresql:
   port: 5432
 
   nodeSelector:
-    tier: database
+    tier: backend
 
   master:
     nodeSelector:
-      tier: database
+      tier: backend
 
   persistence:
     enabled: true
@@ -297,7 +297,7 @@ redis:
         memory: 256Mi
 
     nodeSelector:
-      tier: database
+      tier: backend
 
     securityContext:
       enabled: false
