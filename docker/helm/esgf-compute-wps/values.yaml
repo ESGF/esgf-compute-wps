@@ -30,6 +30,8 @@ dask:
   image: jasonb87/cwt_celery
   imageTag: devel
 
+  workers: 10
+
   resources:
     limits:
       cpu: 1

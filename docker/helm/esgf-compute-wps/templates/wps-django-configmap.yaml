@@ -30,6 +30,11 @@ data:
     [metrics]
     host=http://{{ .Values.wps.prometheus.host }}/prometheus/api/v1/query
 
+    [dask]
+    scheduler={{ .Release.Name }}-dask-scheduler:8786
+    workers={{ .Values.dask.workers }}
+    kube.namesapce={{ .Values.dask.provisioner.namespace }}
+
     [wps]
     title={{ .Values.wps.title }}
     abstract={{ .Values.wps.abstract }}

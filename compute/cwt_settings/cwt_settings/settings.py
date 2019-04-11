@@ -104,6 +104,10 @@ def patch_settings(settings):
     setattr(settings, 'WPS_CA_PATH', '/tmp/certs/esgf')
     setattr(settings, 'WPS_USER_TEMP_PATH', '/tmp/certs')
 
+    setattr(settings, 'DASK_SCHEDULER', config.get_value('dask', 'scheduler'))
+    setattr(settings, 'DASK_WORKERS', config.get_value('dask', 'workers', 10, int))
+    setattr(settings, 'DASK_KUBE_NAMESPACE', config.get_value('dask', 'kube.namespace', 'default'))
+
     setattr(settings, 'WPS_CACHE_PATH', config.get_value('cache', 'wps.cache.path', '/data/cache'))
     setattr(settings, 'WPS_PARTITION_SIZE', config.get_value('cache', 'wps.partition.size', 10, int))
     setattr(settings, 'WPS_CACHE_CHECK', config.get_value('cache', 'wps.cache.check', 1, int, lambda x: datetime.timedelta(days=x)))

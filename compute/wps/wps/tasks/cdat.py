@@ -11,18 +11,32 @@ from cdms2 import MV2
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from dask.distributed import Client
+from dask.distributed import LocalCluster
 from distributed.protocol.serialize import register_serialization
 
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import credentials
-from wps.context import OperationContext
 from cwt_kubernetes.cluster import Cluster
-from cwt_kubernetes.cluster_manager import ClusterManager
 
 logger = get_task_logger('wps.tasks.cdat')
 
 BACKEND = 'CDAT'
+
+
+def init(workers):
+    if settings.DEBUG:
+        cluster = LocalCluster(n_workers=2, threads_per_worker=2)
+
+        client = Client(cluster)
+    else:
+        cluster = Cluster.from_yaml(settings.DASK_KUBE_NAMESPACE, '/etc/config/dask/worker-spec.yml')
+
+        cluster.scale_up(workers)
+
+        client = Client(settings.DASK_SCHEDULER)
+
+    return client, cluster
 
 
 @base.register_process('CDAT', 'workflow', metadata={'inputs': '0'})
@@ -115,54 +129,6 @@ Computes the minimum over an axis. Requires singular parameter named "chunked_ax
 whose value will be used to process over. The value should be a "|" delimited
 string e.g. 'lat|lon'.
 """
-
-
-variable = {
-    'v0': cwt.Variable('http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2/amip/r1i1p1f1/day/tas/gn/v20190218/tas_day_CESM2_amip_r1i1p1f1_gn_19500101-19591231.nc', 'tas', name='v0'),
-    'v0.1': cwt.Variable('http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2/amip/r1i1p1f1/day/tas/gn/v20190218/tas_day_CESM2_amip_r1i1p1f1_gn_19600101-19691231.nc', 'tas', name='v0.1'),
-    'v1': cwt.Variable('http://aims3.llnl.gov/thredds/dodsC/cmip5_css02_data/cmip5/output1/CMCC/CMCC-CM/historical/day/atmos/day/r1i1p1/clt/1/clt_day_CMCC-CM_historical_r1i1p1_19500101-19501231.nc', 'clt', name='v1'),
-}
-
-domain = {
-    'd0': cwt.Domain([cwt.Dimension('time', 714968.0, 715044.0),
-                      cwt.Dimension('lat', -90, 0)], name='d0'),
-    'd0.1': cwt.Domain([cwt.Dimension('time', 714968.0, 715034.0),
-                      cwt.Dimension('lat', -90, 0)], name='d0.1'),
-    'd1': cwt.Domain([cwt.Dimension('time', 50, 150),
-                      cwt.Dimension('lat', -90, 0),
-                      cwt.Dimension('lon', 0, 90)], name='d1'),
-}
-
-op1 = cwt.Process(name='op1')
-op1.domain = 'd0'
-op1.inputs = ['v0', 'v0.1']
-op1._identifier = 'CDAT.aggregate'
-op1.parameters['gridder'] = cwt.Gridder(grid='gaussian~32')
-op1.add_parameters(axes=['time', 'lat'])
-
-operation = {
-    'op1': op1,
-}
-
-c = OperationContext.from_data_inputs('CDAT.aggregate', variable, domain, operation)
-
-import mock
-from wps import models
-
-c.user = models.User.objects.get(pk=1)
-
-c.job = mock.MagicMock()
-c.job.id = 1
-
-from dask.distributed import LocalCluster
-
-cluster = LocalCluster(n_workers=2, threads_per_worker=2)
-
-client = Client(cluster)
-
-# client = Client(os.environ['DASK_SCHEDULER']) # noqa
-
-# cluster = Cluster.from_yaml('default', 'worker-spec.yml')
 
 
 def format_dimension(dim):
@@ -506,6 +472,8 @@ def build_subset(context, infile, cert):
 @base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def subset_func(self, context):
+    init(settings.DASK_WORKERS)
+
     input = context.inputs[0]
 
     cert = context.user.auth.cert if check_access(context, input) else None
@@ -531,6 +499,8 @@ def subset_func(self, context):
 @base.register_process('CDAT', 'aggregate', abstract=AGGREGATE_ABSTRACT, metadata={'inputs': '*'})
 @base.cwt_shared_task()
 def aggregate_func(self, context):
+    init(settings.DASK_WORKERS)
+
     domain = domain_to_dict(context.domain)
 
     logger.info('Translated domain to %r', domain)
@@ -614,12 +584,16 @@ def regrid_func(self, context):
 @base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def average_func(self, context):
+    init(settings.DASK_WORKERS)
+
     return context
 
 
 @base.register_process('CDAT', 'sum', abstract=SUM_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def sum_func(self, context):
+    init(settings.DASK_WORKERS)
+
     input = context.inputs[0]
 
     cert = context.user.auth.cert if check_access(context, input) else None
@@ -671,6 +645,8 @@ def sum_func(self, context):
 @base.register_process('CDAT', 'max', abstract=MAX_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def max_func(self, context):
+    init(settings.DASK_WORKERS)
+
     input = context.inputs[0]
 
     cert = context.user.auth.cert if check_access(context, input) else None
@@ -722,6 +698,8 @@ def max_func(self, context):
 @base.register_process('CDAT', 'min', abstract=MIN_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def min_func(self, context):
+    init(settings.DASK_WORKERS)
+
     input = context.inputs[0]
 
     cert = context.user.auth.cert if check_access(context, input) else None
