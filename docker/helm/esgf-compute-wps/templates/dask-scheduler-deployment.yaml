@@ -28,7 +28,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-dask-scheduler
         image: {{ .Values.dask.image }}:{{ .Values.dask.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.dask.imagePullPolicy }}
         livenessProbe:
           tcpSocket:
             port: 8786

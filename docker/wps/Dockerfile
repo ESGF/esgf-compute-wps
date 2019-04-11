@@ -16,7 +16,7 @@ FROM continuumio/miniconda3:4.5.12
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
 RUN conda install -c conda-forge -c cdat --use-local \
-      esgf-compute-wps && \
+      esgf-compute-wps xarray && \
       django-admin startproject compute && \
       mkdir -p /var/log/cwt
 
@@ -41,4 +41,4 @@ ENV CWT_BASE=/compute
 
 EXPOSE 8000
 
-ENTRYPOINT ['./entrypoint.sh']
+ENTRYPOINT ["./entrypoint.sh"]

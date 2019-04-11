@@ -34,27 +34,17 @@ spec:
       containers:
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
         {{- if not $.Values.development }}
         args: 
-          - "-l"
-          - "INFO"
           - "-c"
           - "1"
-          - "--max-memory-per-child"
-{{- if contains "G" $.Values.celery.resources.limits.memory }}
-  {{- (printf "- %s" ($.Values.celery.resources.limits.memory | regexFind "([0-9]+)" | mul 1000000000 | quote ) | nindent 10) }}
-{{- else if contains "M" $.Values.celery.resources.limits.memory }}
-  {{- (printf "- %s" ($.Values.celery.resources.limits.memory | regexFind "([0-9]+)" | mul 1000000 | quote ) | nindent 10) }}
-{{- else }}
-  {{- printf "- \"100000000\"" | nindent 10 }}
-{{- end }}
+          - "-Q"
+          - "{{ .name }}"
           - "-n"
           - "$(HOSTNAME)"
-        {{- range $key, $value := .argsExtra }}
-          - {{ $key | quote }}
-          - {{ $value | quote }}
-        {{- end }}
+          - "-l"
+          - "DEBUG"
         {{- end }}
         {{- if $.Values.development }}
         command:

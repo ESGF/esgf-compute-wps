@@ -30,7 +30,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-dask-provisioner
         image: {{ .Values.dask.provisioner.image }}:{{ .Values.dask.provisioner.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.dask.provisioner.imagePullPolicy }}
         {{- if and $.Values.dask.provisioner.resources (not $.Values.development) (not $.Values.ignoreResources) }}
         resources: {{ $.Values.dask.provisioner.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}

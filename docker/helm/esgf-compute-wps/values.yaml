@@ -30,19 +30,27 @@ dask:
   image: jasonb87/cwt_celery
   imageTag: devel
 
+  imagePullPolicy: IfNotPresent
+
   workers: 10
+
+  nthreads: 2
+  nprocs: 2
+  memoryLimit: 8GB
 
   resources:
     limits:
-      cpu: 1
-      memory: 1Gi
+      cpu: 4
+      memory: 8Gi
     request:
-      cpu: 500m
-      memory: 512Gi
+      cpu: 4
+      memory: 8Gi
 
   provisioner:
     image: jasonb87/cwt_dask_provisioner
     imageTag: devel
+
+    imagePullPolicy: IfNotPresent
 
     timeout: 60
 
@@ -99,6 +107,9 @@ wps:
   replicas: 1
   image: jasonb87/cwt_wps
   imageTag: devel
+
+  imagePullPolicy: IfNotPresent
+
   host: aims2.llnl.gov
   externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
@@ -184,6 +195,8 @@ celery:
   nodeSelector:
     tier: backend
 
+  imagePullPolicy: IfNotPresent
+
   resources:
     limits:
       cpu: 1
@@ -198,9 +211,6 @@ celery:
   queues:
   - name: ingress
     replicas: 1
-    argsExtra:
-      "-c": 1
-      "-Q": ingress
     annotations:
       prometheus.io/scrape: "true"
       prometheus.io/path: /metrics
@@ -211,9 +221,6 @@ celery:
 
   - name: edask
     replicas: 1
-    argsExtra:
-      "-c": 1
-      "-Q": edask
     annotations:
       prometheus.io/scrape: "true"
       prometheus.io/path: /metrics

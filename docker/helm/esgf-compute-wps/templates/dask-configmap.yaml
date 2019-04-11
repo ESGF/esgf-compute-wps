@@ -27,11 +27,13 @@ data:
           value: 'no'
         command: 
         - dask-worker
-        - --nthreads
-        - '2'
         - --no-bokeh
+        - --nthreads
+        - '{{ $.Values.dask.nthreads }}'
+        - --nprocs
+        - '{{ $.Values.dask.nprocs }}'
         - --memory-limit
-        - 6GB
+        - {{ $.Values.dask.memoryLimit }}
         - --death-timeout
         - '60'
         - {{ .Release.Name }}-dask-scheduler:8786
