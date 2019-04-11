@@ -138,6 +138,7 @@ op1.domain = 'd0'
 op1.inputs = ['v0', 'v0.1']
 op1._identifier = 'CDAT.aggregate'
 op1.parameters['gridder'] = cwt.Gridder(grid='gaussian~32')
+op1.add_parameters(axes=['time', 'lat'])
 
 operation = {
     'op1': op1,
@@ -286,7 +287,7 @@ def merge_variables(context, data, domain):
                         vars[v.id] = {'data': v(**vsel), 'attrs': v.attributes}
 
                 if 'axes' not in vars[v.id]:
-                    vars[v.id]['axes'] = [x.id for x in v.getAxisList()]
+                    vars[v.id]['axes'] = [x.id for x in v.getAxisList() if x.id in domain]
 
     # Concatenate time axis
     for x, y in list(axes.items()):
@@ -400,7 +401,7 @@ def regrid_data(data, axes, grid, tool, method):
 
 
 def build_regrid(context, axes, vars, selector):
-    if context.is_regrid:
+    if context.is_regrid and 'lat' in selector and 'lon' in selector:
         new_selector = dict((x, (axes[x]['data'][0], axes[x]['data'][-1])) for x, y in list(selector.items()))
 
         grid, tool, method = context.regrid_context(new_selector)
@@ -410,6 +411,11 @@ def build_regrid(context, axes, vars, selector):
         data = vars[var_name]['data']
 
         delayed = data.to_delayed().squeeze()
+
+        # if the dask array contains only a single chunk then
+        # to_delayed produces a flat array and zip fails since its not iterable
+        if delayed.size == 1:
+            delayed = delayed.reshape((1, ))
 
         axis_data = [x['data'] for x in axes.values() if x['data'].id in selector]
 
@@ -466,30 +472,27 @@ def combine_maps(maps, index):
     return template
 
 
-def build_subset(context):
+def build_subset(context, infile, cert):
     domain = domain_to_dict(context.domain)
 
     logger.info('Translated domain to %r', domain)
 
     input = context.inputs[0]
 
-    cert = context.user.auth.cert if check_access(context, input) else None
-
     map, _ = map_domain(input, domain)
 
     logger.info('Mapped domain to %r', map)
 
-    with cdms2.open(input.uri) as infile:
-        var = infile[input.var_name]
+    var = infile[input.var_name]
 
-        chunks = (100,) + var.shape[1:]
+    chunks = (100,) + var.shape[1:]
 
-        logger.info('Setting chunk to %r', chunks)
+    logger.info('Setting chunk to %r', chunks)
 
-        if cert is None:
-            data = da.from_array(var, chunks=chunks)
-        else:
-            data = build_ingress(var, cert, chunks)
+    if cert is None:
+        data = da.from_array(var, chunks=chunks)
+    else:
+        data = build_ingress(var, cert, chunks)
 
     selector = tuple(map.values())
 
@@ -503,7 +506,12 @@ def build_subset(context):
 @base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def subset_func(self, context):
-    subset_data, map = build_subset(context)
+    input = context.inputs[0]
+
+    cert = context.user.auth.cert if check_access(context, input) else None
+
+    with cdms2.open(input.uri) as infile:
+        subset_data, map = build_subset(context, infile, cert)
 
     gattrs, axes, vars = merge_variables(context, subset_data, map)
 
@@ -612,18 +620,153 @@ def average_func(self, context):
 @base.register_process('CDAT', 'sum', abstract=SUM_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def sum_func(self, context):
+    input = context.inputs[0]
+
+    cert = context.user.auth.cert if check_access(context, input) else None
+
+    with cdms2.open(input.uri) as infile:
+        var = infile[input.var_name]
+
+        subset_data, map = build_subset(context, infile, cert)
+
+        axes = context.operation.get_parameter('axes', True)
+
+        axes_index = [x.id for x in var.getAxisList()]
+
+        for x in axes.values:
+            try:
+                index = axes_index.index(x)
+            except ValueError:
+                raise WPSError('Did not find axis %r in file', x)
+
+            subset_data = subset_data.sum(axis=index)
+
+            logger.info('Sum over %r %r', x, subset_data)
+
+            try:
+                axes_index.remove(x)
+            except ValueError:
+                raise Exception('Should not hit this since we indexed the value')
+
+            try:
+                map.pop(x)
+            except KeyError:
+                raise Exception('Axis %r not present in mapped domain', x)
+
+    gattrs, axes, vars = merge_variables(context, subset_data, map)
+
+    build_regrid(context, axes, vars, map)
+
+    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
+
+    context.output_path = context.gen_public_path()
+
+    logger.info('Writing output to %r', context.output_path)
+
+    dataset.to_netcdf(context.output_path)
+
     return context
 
 
 @base.register_process('CDAT', 'max', abstract=MAX_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def max_func(self, context):
+    input = context.inputs[0]
+
+    cert = context.user.auth.cert if check_access(context, input) else None
+
+    with cdms2.open(input.uri) as infile:
+        var = infile[input.var_name]
+
+        subset_data, map = build_subset(context, infile, cert)
+
+        axes = context.operation.get_parameter('axes', True)
+
+        axes_index = [x.id for x in var.getAxisList()]
+
+        for x in axes.values:
+            try:
+                index = axes_index.index(x)
+            except ValueError:
+                raise WPSError('Did not find axis %r in file', x)
+
+            subset_data = subset_data.sum(axis=index)
+
+            logger.info('Sum over %r %r', x, subset_data)
+
+            try:
+                axes_index.remove(x)
+            except ValueError:
+                raise Exception('Should not hit this since we indexed the value')
+
+            try:
+                map.pop(x)
+            except KeyError:
+                raise Exception('Axis %r not present in mapped domain', x)
+
+    gattrs, axes, vars = merge_variables(context, subset_data, map)
+
+    build_regrid(context, axes, vars, map)
+
+    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
+
+    context.output_path = context.gen_public_path()
+
+    logger.info('Writing output to %r', context.output_path)
+
+    dataset.to_netcdf(context.output_path)
+
     return context
 
 
 @base.register_process('CDAT', 'min', abstract=MIN_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def min_func(self, context):
+    input = context.inputs[0]
+
+    cert = context.user.auth.cert if check_access(context, input) else None
+
+    with cdms2.open(input.uri) as infile:
+        var = infile[input.var_name]
+
+        subset_data, map = build_subset(context, infile, cert)
+
+        axes = context.operation.get_parameter('axes', True)
+
+        axes_index = [x.id for x in var.getAxisList()]
+
+        for x in axes.values:
+            try:
+                index = axes_index.index(x)
+            except ValueError:
+                raise WPSError('Did not find axis %r in file', x)
+
+            subset_data = subset_data.sum(axis=index)
+
+            logger.info('Sum over %r %r', x, subset_data)
+
+            try:
+                axes_index.remove(x)
+            except ValueError:
+                raise Exception('Should not hit this since we indexed the value')
+
+            try:
+                map.pop(x)
+            except KeyError:
+                raise Exception('Axis %r not present in mapped domain', x)
+
+    gattrs, axes, vars = merge_variables(context, subset_data, map)
+
+    build_regrid(context, axes, vars, map)
+
+    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
+
+    context.output_path = context.gen_public_path()
+
+    logger.info('Writing output to %r', context.output_path)
+
+    dataset.to_netcdf(context.output_path)
+
     return context
 
 
