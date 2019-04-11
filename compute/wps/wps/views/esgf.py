@@ -130,7 +130,7 @@ def process_url(user, prefix_id, var):
             if not context.check_access(var, cert_path):
                 raise WPSError('Unable to access file %r', var.uri)
 
-        with cdms2.open(user) as infile:
+        with cdms2.open(var.uri) as infile:
             variable = infile[var.var_name]
 
             axes = process_axes(variable)
