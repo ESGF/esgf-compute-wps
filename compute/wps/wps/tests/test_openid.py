@@ -6,6 +6,7 @@ from openid.consumer import consumer
 
 from wps.auth import openid
 
+
 class OpenIDTestCase(test.TestCase):
     fixtures = ['users.json']
     mock_services = [
@@ -27,10 +28,10 @@ class OpenIDTestCase(test.TestCase):
         mock_fetch.return_value = mock.Mock(**{'get.side_effect': KeyError})
 
         with self.assertRaises(openid.MissingAttributeError) as e:
-            attrs = openid.handle_attribute_exchange(mock.Mock())
+            openid.handle_attribute_exchange(mock.Mock())
 
-        self.assertEqual(str(e.exception),
-                         str(openid.MissingAttributeError('email')))
+            self.assertEqual(str(e.exception),
+                             str(openid.MissingAttributeError('email')))
 
     @mock.patch('wps.views.openid.ax.FetchResponse.fromSuccessResponse')
     def test_handle_attribute_exchange(self, mock_fetch):
@@ -77,7 +78,7 @@ class OpenIDTestCase(test.TestCase):
     def test_begin_exception(self, mock_consumer, mock_discovery):
         mock_consumer.return_value.beginWithoutDiscovery.side_effect = consumer.DiscoveryFailure('error', 404)
 
-        with self.assertRaises(openid.DiscoverError) as e:
+        with self.assertRaises(openid.DiscoverError):
             openid.begin(mock.Mock(session={}), 'http://testbad.com/openid',
                          'http://test.com/next')
 
@@ -98,15 +99,15 @@ class OpenIDTestCase(test.TestCase):
 
         return_to = '{!s}?next=http://test.com/next'.format(settings.WPS_OPENID_RETURN_TO)
 
-        mock_begin.redirectURL.assert_called_with(settings.WPS_OPENID_TRUST_ROOT,
-                                                 return_to)
+        mock_begin.redirectURL.assert_called_with(settings.WPS_OPENID_TRUST_ROOT, return_to)
 
     def test_services_discovery_error(self):
-        with self.assertRaises(openid.DiscoverError) as e:
+        with self.assertRaises(openid.DiscoverError):
             openid.services('http://testbad.com/openid', ['urn.test1', 'urn.test2'])
 
     @mock.patch('wps.views.openid.discover.discoverYadis')
-    def test_services_service_not_supported(self, mock_discover):
+    @mock.patch('wps.views.openid.requests')
+    def test_services_service_not_supported(self, mock_requests, mock_discover):
         mock_discover.return_value = ('http://test.com/openid', self.mock_services)
 
         with self.assertRaises(openid.ServiceError) as e:
@@ -132,4 +133,3 @@ class OpenIDTestCase(test.TestCase):
         service = openid.find_service_by_type(self.mock_services, 'test_uri_1')
 
         self.assertIsNotNone(service)
-

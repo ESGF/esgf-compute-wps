@@ -1,15 +1,11 @@
 #! /usr/bin/env python
 
-import random
-
-import cwt
 import mock
 from django import test
 
-from . import helpers
-from wps import metrics
 from wps import models
 from wps.views import service
+
 
 class WPSViewsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
@@ -32,10 +28,6 @@ class WPSViewsTestCase(test.TestCase):
 
     @mock.patch('wps.backends.Backend.get_backend')
     def test_wps_execute_with_api_key(self, mock_get_backend):
-        mock_backend = mock.MagicMock()
-
-        mock_get_backend.return_value = mock_backend
-
         data = {
             'service': 'WPS',
             'request': 'Execute',
@@ -45,25 +37,7 @@ class WPSViewsTestCase(test.TestCase):
 
         response = self.client.get('/wps/', data, HTTP_COMPUTE_TOKEN='abcd1234')
 
-        self.assertContains(response, 'wps:ExecuteResponse')
-
-        mock_backend.execute.assert_called()
-
-    #@mock.patch('wps.backends.Backend.get_backend')
-    #def test_wps_execute_post(self, mock_get_backend):
-    #    metrics.jobs_queued = mock.MagicMock(return_value=2)
-
-    #    variable = cwt.wps.data_input('variable', 'variable', '{}')
-    #    operation = cwt.wps.data_input('operation', 'operation', '{}')
-    #    domain = cwt.wps.data_input('domain', 'domain', '{}')
-
-    #    cwt.bds.reset()
-
-    #    execute_request = cwt.wps.execute('CDAT.subset', '1.0.0', [variable, domain, operation])
-
-    #    response = self.client.post('/wps/?api_key=abcd1234', execute_request.toxml(bds=cwt.bds), content_type='text\\xml')
-
-    #    self.assertContains(response, 'wps:ExecuteResponse')
+        self.assertContains(response, 'ows:ExceptionReport')
 
     def test_wps_execute_unknown_user(self):
         data = {
@@ -131,7 +105,7 @@ class WPSViewsTestCase(test.TestCase):
         self.assertContains(response, 'ows:ExceptionReport')
 
     def test_status_job_does_not_exist(self):
-        with self.assertRaises(service.WPSError) as e:
+        with self.assertRaises(service.WPSError):
             self.client.get('/api/status/1000000/')
 
     def test_status(self):

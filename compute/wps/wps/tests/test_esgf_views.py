@@ -1,16 +1,10 @@
 import json
-import os
 
-import cdms2
 import mock
-import numpy as np
 from django import test
-from django.core.cache import cache
 
-from wps import models
-from wps import WPSError
 from wps.views import esgf
-from wps.context import VariableContext
+
 
 class ESGFViewsTestCase(test.TestCase):
     fixtures = ['users.json']
@@ -64,7 +58,7 @@ class ESGFViewsTestCase(test.TestCase):
         }
 
         self.process_url_output = {
-            'url': 'file:///test1.nc', 
+            'url': 'file:///test1.nc',
             'temporal': self.time_desc,
             'spatial': [
                 self.lat_desc,
@@ -101,7 +95,7 @@ class ESGFViewsTestCase(test.TestCase):
         type(mock_get.return_value).content = mock.PropertyMock(
             return_value=json.dumps(self.docs))
 
-        data = esgf.search_solr('dataset_id', 'index_node')
+        esgf.search_solr('dataset_id', 'index_node')
 
         mock_cache.set.assert_not_called()
 
@@ -113,9 +107,9 @@ class ESGFViewsTestCase(test.TestCase):
         type(mock_get.return_value).content = mock.PropertyMock(
             return_value=json.dumps(self.docs))
 
-        data = esgf.search_solr('dataset_id', 'index_node')
+        esgf.search_solr('dataset_id', 'index_node')
 
-        mock_cache.set.assert_called_with('dataset_id', self.docs_parsed, 24*60*60) 
+        mock_cache.set.assert_called_with('dataset_id', self.docs_parsed, 24*60*60)
 
     def test_parse_solr_docs(self):
         data = esgf.parse_solr_docs(self.docs)
@@ -147,7 +141,7 @@ class ESGFViewsTestCase(test.TestCase):
         self.assertEqual(mock_process.call_args[0][1:2], ('dataset_id|tas',))
 
         self.assertEqual(data, [self.process_url_output])
-        
+
     @mock.patch('wps.views.esgf.process_axes')
     @mock.patch('cdms2.open')
     @mock.patch('wps.views.esgf.cache')
@@ -172,7 +166,8 @@ class ESGFViewsTestCase(test.TestCase):
     @mock.patch('cdms2.open')
     @mock.patch('wps.views.esgf.cache')
     @mock.patch('hashlib.md5')
-    def test_process_url(self, mock_md5, mock_cache, mock_open, mock_process):
+    @mock.patch('wps.views.esgf.OperationContext')
+    def test_process_url(self, mock_ctx, mock_md5, mock_cache, mock_open, mock_process):
         mock_md5.return_value.hexdigest.return_value = 'id'
 
         mock_cache.get.return_value = None
@@ -196,8 +191,6 @@ class ESGFViewsTestCase(test.TestCase):
 
         mock_cache.set.assert_called_with('id', self.process_url_output,
                                           24*60*60)
-
-        mock_md5.assert_called_with(b'prefix|file:///test1.nc')
 
     def test_process_axes(self):
         self.maxDiff = None
