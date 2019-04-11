@@ -46,6 +46,7 @@ requirements:
     - prometheus_client
     - cwt-settings={{ environ.get('APP_VERSION', 'devel') }}
     - cwt-kubernetes={{ environ.get('APP_VERSION', 'devel') }}
+    - xarray
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
