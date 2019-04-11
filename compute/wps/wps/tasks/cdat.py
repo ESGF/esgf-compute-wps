@@ -17,11 +17,43 @@ from distributed.protocol.serialize import register_serialization
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import credentials
+from wps.context import OperationContext
 from cwt_kubernetes.cluster import Cluster
 
 logger = get_task_logger('wps.tasks.cdat')
 
 BACKEND = 'CDAT'
+
+
+if settings.DEBUG:
+    variable = {
+        'v0': cwt.Variable('http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2/amip/r1i1p1f1/day/tas/gn/v20190218/tas_day_CESM2_amip_r1i1p1f1_gn_19500101-19591231.nc', 'tas', name='v0'), # noqa
+    }
+
+    domain = {
+        'd0': cwt.Domain([cwt.Dimension('time', 714999.0, 715034.0), cwt.Dimension('lat', -90, 0)], name='d0'),
+    }
+
+    op1 = cwt.Process(name='op1')
+    op1._identifier = 'CDAT.sum'
+    op1.inputs = ['v0', ]
+    op1.domain = 'd0'
+    op1.add_parameters(axes=['time', ])
+
+    operation = {
+        'op1': op1,
+    }
+
+    c = OperationContext.from_data_inputs('CDAT.sum', variable, domain, operation)
+
+    from wps import models
+
+    c.user = models.User.objects.get(pk=1)
+
+    import mock
+
+    c.job = mock.MagicMock()
+    c.job.id = 1
 
 
 def init(workers):
@@ -469,9 +501,7 @@ def build_subset(context, infile, cert):
     return subset_data, map
 
 
-@base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
-@base.cwt_shared_task()
-def subset_func(self, context):
+def process_single(context, process):
     init(settings.DASK_WORKERS)
 
     input = context.inputs[0]
@@ -479,9 +509,14 @@ def subset_func(self, context):
     cert = context.user.auth.cert if check_access(context, input) else None
 
     with cdms2.open(input.uri) as infile:
-        subset_data, map = build_subset(context, infile, cert)
+        var = infile[input.var_name]
 
-    gattrs, axes, vars = merge_variables(context, subset_data, map)
+        data, map = build_subset(context, infile, cert)
+
+        if process is not None:
+            data = process(context, data, var, map)
+
+    gattrs, axes, vars = merge_variables(context, data, map)
 
     build_regrid(context, axes, vars, map)
 
@@ -494,6 +529,12 @@ def subset_func(self, context):
     dataset.to_netcdf(context.output_path)
 
     return context
+
+
+@base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, metadata={'inputs': '1'})
+@base.cwt_shared_task()
+def subset_func(self, context):
+    return process_single(context, None)
 
 
 @base.register_process('CDAT', 'aggregate', abstract=AGGREGATE_ABSTRACT, metadata={'inputs': '*'})
@@ -581,8 +622,8 @@ def regrid_func(self, context):
     return subset_func(context)
 
 
-@base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
-@base.cwt_shared_task()
+# @base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
+# @base.cwt_shared_task()
 def average_func(self, context):
     init(settings.DASK_WORKERS)
 
@@ -592,17 +633,7 @@ def average_func(self, context):
 @base.register_process('CDAT', 'sum', abstract=SUM_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def sum_func(self, context):
-    init(settings.DASK_WORKERS)
-
-    input = context.inputs[0]
-
-    cert = context.user.auth.cert if check_access(context, input) else None
-
-    with cdms2.open(input.uri) as infile:
-        var = infile[input.var_name]
-
-        subset_data, map = build_subset(context, infile, cert)
-
+    def process(context, data, var, map):
         axes = context.operation.get_parameter('axes', True)
 
         axes_index = [x.id for x in var.getAxisList()]
@@ -613,9 +644,9 @@ def sum_func(self, context):
             except ValueError:
                 raise WPSError('Did not find axis %r in file', x)
 
-            subset_data = subset_data.sum(axis=index)
+            data = data.sum(axis=index)
 
-            logger.info('Sum over %r %r', x, subset_data)
+            logger.info('Sum over %r %r', x, data)
 
             try:
                 axes_index.remove(x)
@@ -627,35 +658,15 @@ def sum_func(self, context):
             except KeyError:
                 raise Exception('Axis %r not present in mapped domain', x)
 
-    gattrs, axes, vars = merge_variables(context, subset_data, map)
+        return data
 
-    build_regrid(context, axes, vars, map)
-
-    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
-
-    context.output_path = context.gen_public_path()
-
-    logger.info('Writing output to %r', context.output_path)
-
-    dataset.to_netcdf(context.output_path)
-
-    return context
+    return process_single(context, process)
 
 
 @base.register_process('CDAT', 'max', abstract=MAX_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def max_func(self, context):
-    init(settings.DASK_WORKERS)
-
-    input = context.inputs[0]
-
-    cert = context.user.auth.cert if check_access(context, input) else None
-
-    with cdms2.open(input.uri) as infile:
-        var = infile[input.var_name]
-
-        subset_data, map = build_subset(context, infile, cert)
-
+    def process(context, data, var, map):
         axes = context.operation.get_parameter('axes', True)
 
         axes_index = [x.id for x in var.getAxisList()]
@@ -666,9 +677,9 @@ def max_func(self, context):
             except ValueError:
                 raise WPSError('Did not find axis %r in file', x)
 
-            subset_data = subset_data.sum(axis=index)
+            data = data.max(axis=index)
 
-            logger.info('Sum over %r %r', x, subset_data)
+            logger.info('Sum over %r %r', x, data)
 
             try:
                 axes_index.remove(x)
@@ -680,35 +691,15 @@ def max_func(self, context):
             except KeyError:
                 raise Exception('Axis %r not present in mapped domain', x)
 
-    gattrs, axes, vars = merge_variables(context, subset_data, map)
+        return data
 
-    build_regrid(context, axes, vars, map)
-
-    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
-
-    context.output_path = context.gen_public_path()
-
-    logger.info('Writing output to %r', context.output_path)
-
-    dataset.to_netcdf(context.output_path)
-
-    return context
+    return process_single(context, process)
 
 
 @base.register_process('CDAT', 'min', abstract=MIN_ABSTRACT, metadata={'inputs': '1'})
 @base.cwt_shared_task()
 def min_func(self, context):
-    init(settings.DASK_WORKERS)
-
-    input = context.inputs[0]
-
-    cert = context.user.auth.cert if check_access(context, input) else None
-
-    with cdms2.open(input.uri) as infile:
-        var = infile[input.var_name]
-
-        subset_data, map = build_subset(context, infile, cert)
-
+    def process(context, data, var, map):
         axes = context.operation.get_parameter('axes', True)
 
         axes_index = [x.id for x in var.getAxisList()]
@@ -719,9 +710,9 @@ def min_func(self, context):
             except ValueError:
                 raise WPSError('Did not find axis %r in file', x)
 
-            subset_data = subset_data.sum(axis=index)
+            data = data.min(axis=index)
 
-            logger.info('Sum over %r %r', x, subset_data)
+            logger.info('Sum over %r %r', x, data)
 
             try:
                 axes_index.remove(x)
@@ -733,19 +724,9 @@ def min_func(self, context):
             except KeyError:
                 raise Exception('Axis %r not present in mapped domain', x)
 
-    gattrs, axes, vars = merge_variables(context, subset_data, map)
+        return data
 
-    build_regrid(context, axes, vars, map)
-
-    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
-
-    context.output_path = context.gen_public_path()
-
-    logger.info('Writing output to %r', context.output_path)
-
-    dataset.to_netcdf(context.output_path)
-
-    return context
+    return process_single(context, process)
 
 
 def serialize_transient_axis(axis):
