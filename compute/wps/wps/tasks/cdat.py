@@ -17,43 +17,11 @@ from distributed.protocol.serialize import register_serialization
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import credentials
-from wps.context import OperationContext
 from cwt_kubernetes.cluster import Cluster
 
 logger = get_task_logger('wps.tasks.cdat')
 
 BACKEND = 'CDAT'
-
-
-if settings.DEBUG:
-    variable = {
-        'v0': cwt.Variable('http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2/amip/r1i1p1f1/day/tas/gn/v20190218/tas_day_CESM2_amip_r1i1p1f1_gn_19500101-19591231.nc', 'tas', name='v0'), # noqa
-    }
-
-    domain = {
-        'd0': cwt.Domain([cwt.Dimension('time', 714999.0, 715034.0), cwt.Dimension('lat', -90, 0)], name='d0'),
-    }
-
-    op1 = cwt.Process(name='op1')
-    op1._identifier = 'CDAT.sum'
-    op1.inputs = ['v0', ]
-    op1.domain = 'd0'
-    op1.add_parameters(axes=['time', ])
-
-    operation = {
-        'op1': op1,
-    }
-
-    c = OperationContext.from_data_inputs('CDAT.sum', variable, domain, operation)
-
-    from wps import models
-
-    c.user = models.User.objects.get(pk=1)
-
-    import mock
-
-    c.job = mock.MagicMock()
-    c.job.id = 1
 
 
 def init(workers):
@@ -400,9 +368,13 @@ def regrid_data(data, axes, grid, tool, method):
 
 def build_regrid(context, axes, vars, selector):
     if context.is_regrid and 'lat' in selector and 'lon' in selector:
+        context.job.update('Building regrid graph')
+
         new_selector = dict((x, (axes[x]['data'][0], axes[x]['data'][-1])) for x, y in list(selector.items()))
 
         grid, tool, method = context.regrid_context(new_selector)
+
+        context.job.update('Setting target grid to {!r} using {!r} tool and {!r} method', grid.shape, tool, method)
 
         var_name = context.inputs[0].var_name
 
@@ -423,6 +395,8 @@ def build_regrid(context, axes, vars, selector):
                   for x, y in zip(delayed, data.blocks)]
 
         vars[var_name]['data'] = da.concatenate(regrid)
+
+        context.job.update('Finished building regrid graph')
 
         lat = grid.getLatitude()
         old_lat = axes['lat']['data']
@@ -471,6 +445,8 @@ def combine_maps(maps, index):
 
 
 def build_subset(context, infile, cert):
+    context.job.update('Building input graph')
+
     domain = domain_to_dict(context.domain)
 
     logger.info('Translated domain to %r', domain)
@@ -498,15 +474,21 @@ def build_subset(context, infile, cert):
 
     subset_data = data[selector]
 
+    context.job.update('Build input shape %r, chunksize %r', subset_data.shape, subset_data.chunksize)
+
     return subset_data, map
 
 
 def process_single(context, process):
     init(settings.DASK_WORKERS)
 
+    context.job.update('Initialized %r workers', settings.DASK_WORKERS)
+
     input = context.inputs[0]
 
     cert = context.user.auth.cert if check_access(context, input) else None
+
+    context.job.update('Building compute graph')
 
     with cdms2.open(input.uri) as infile:
         var = infile[input.var_name]
@@ -516,17 +498,27 @@ def process_single(context, process):
         if process is not None:
             data = process(context, data, var, map)
 
+    context.job.update('Finished building compute graph')
+
     gattrs, axes, vars = merge_variables(context, data, map)
 
     build_regrid(context, axes, vars, map)
 
+    context.job.update('Building output definition')
+
     dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
+
+    context.job.update('Finished building output definition')
 
     context.output_path = context.gen_public_path()
 
     logger.info('Writing output to %r', context.output_path)
 
+    context.job.update('Starting compute')
+
     dataset.to_netcdf(context.output_path)
+
+    context.job.update('Finished compute')
 
     return context
 
