@@ -2,10 +2,8 @@ from __future__ import division
 from future import standard_library
 standard_library.install_aliases() # noqa
 from builtins import str
-from builtins import range
 from past.utils import old_div
 from builtins import object
-import contextlib
 import os
 import re
 import uuid
@@ -23,7 +21,6 @@ from django.core.exceptions import ValidationError
 from wps import metrics
 from wps import models
 from wps import WPSError
-from wps.tasks import credentials
 
 logger = get_task_logger('wps.context')
 
@@ -217,53 +214,10 @@ class OperationContext(object):
         self.job = None
         self.user = None
         self.process = None
-        self.units = None
-        self.output_data = None
         self.output_path = None
         self.grid = None
         self.gridder = None
         self.ignore = ('grid', 'gridder')
-
-    @classmethod
-    def merge_inputs(cls, contexts):
-        logger.info('Merging %r contexts', len(contexts))
-
-        first = contexts[0]
-
-        inputs = []
-
-        for context in contexts:
-            inputs.extend(context.inputs)
-
-        instance = cls(inputs, first.domain, first.operation)
-
-        instance.units = first.units
-
-        instance.output_path = first.output_path
-
-        instance.job = first.job
-
-        instance.user = first.user
-
-        instance.process = first.process
-
-        return instance
-
-    @classmethod
-    def merge_ingress(cls, contexts):
-        try:
-            first = contexts.pop()
-
-            for index, input in enumerate(first.inputs):
-                for context in contexts:
-                    input.ingress.extend(context.inputs[index].ingress)
-
-                    input.process.extend(context.inputs[index].process)
-        except AttributeError:
-            # Raised when contexts isn't a list
-            first = contexts
-
-        return first
 
     @staticmethod
     def load_model(obj, name, model_class):
@@ -363,12 +317,19 @@ class OperationContext(object):
         return data
 
     @property
-    def is_compute(self):
-        return self.operation.identifier not in ('CDAT.subset', 'CDAT.aggregate', 'CDAT.regrid')
-
-    @property
     def is_regrid(self):
         return 'gridder' in self.operation.parameters
+
+    def gen_public_path(self):
+        filename = '{}.nc'.format(uuid.uuid4())
+
+        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
+                                 str(self.job.id))
+
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
+        return os.path.join(base_path, filename)
 
     def regrid_context(self, selector):
         if self.gridder is None:
@@ -384,47 +345,6 @@ class OperationContext(object):
             metrics.WPS_REGRID.labels(self.gridder.tool, self.gridder.method, grid).inc()
 
         return self.grid, self.gridder.tool, self.gridder.method
-
-    def sorted_inputs(self):
-        units = set(x.units for x in self.inputs)
-
-        if len(units) == 1:
-            return sorted(self.inputs, key=lambda x: x.first)
-
-        return sorted(self.inputs, key=lambda x: x.units)
-
-    def gen_public_path(self):
-        filename = '{}.nc'.format(uuid.uuid4())
-
-        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
-                                 str(self.job.id))
-
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-
-        return os.path.join(base_path, filename)
-
-    def gen_cache_path(self, filename):
-        return os.path.join(settings.WPS_CACHE_PATH, filename)
-
-    def gen_ingress_path(self, filename):
-        return os.path.join(settings.WPS_INGRESS_PATH, filename)
-
-    @contextlib.contextmanager
-    def new_output(self, path):
-        base_path = os.path.dirname(path)
-
-        try:
-            os.makedirs(base_path)
-        except OSError:
-            pass
-
-        with cdms2.open(path, 'w') as outfile:
-            yield outfile
-
-        stat = os.stat(path)
-
-        metrics.WPS_DATA_OUTPUT.inc(stat.st_size)
 
     def parse_uniform_arg(self, value, default_start, default_n):
         result = re.match('^(\\d\\.?\\d?)$|^(-?\\d\\.?\\d?):(\\d\\.?\\d?):(\\d\\.?\\d?)$', value)
