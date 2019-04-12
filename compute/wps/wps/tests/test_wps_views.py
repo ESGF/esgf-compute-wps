@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 
-import mock
 from django import test
 
 from wps import models
@@ -10,10 +9,7 @@ from wps.views import service
 class WPSViewsTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
 
-    @mock.patch('wps.backends.Backend.get_backend')
-    def test_wps_execute_unknown_backend(self, mock_get_backend):
-        mock_get_backend.return_value = None
-
+    def test_wps_execute_unknown_backend(self):
         data = {
             'service': 'WPS',
             'request': 'Execute',
@@ -26,8 +22,7 @@ class WPSViewsTestCase(test.TestCase):
 
         self.assertContains(response, 'ows:ExceptionReport')
 
-    @mock.patch('wps.backends.Backend.get_backend')
-    def test_wps_execute_with_api_key(self, mock_get_backend):
+    def test_wps_execute_with_api_key(self):
         data = {
             'service': 'WPS',
             'request': 'Execute',
