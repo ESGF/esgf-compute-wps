@@ -229,18 +229,19 @@ def merge_variables(context, data, domain):
                 gattrs = infile.attributes
 
             for v in infile.getVariables():
-                for a in v.getAxisList():
-                    if a.isTime():
-                        if a.id in axes:
-                            axes[a.id]['data'].append(a.clone())
-                        else:
-                            axes[a.id] = {'data': [a.clone(), ], 'attrs': a.attributes}
-                    elif a.id not in axes:
-                        asel = domain.get(a.id, slice(None, None, None))
+                if v.id == input.var_name:
+                    for a in v.getAxisList():
+                        if a.isTime():
+                            if a.id in axes:
+                                axes[a.id]['data'].append(a.clone())
+                            else:
+                                axes[a.id] = {'data': [a.clone(), ], 'attrs': a.attributes}
+                        elif a.id not in axes:
+                            asel = domain.get(a.id, slice(None, None, None))
 
-                        i, j, k = slice_to_ijk(a, asel)
+                            i, j, k = slice_to_ijk(a, asel)
 
-                        axes[a.id] = {'data': a.subAxis(i, j, k), 'attrs': a.attributes}
+                            axes[a.id] = {'data': a.subAxis(i, j, k), 'attrs': a.attributes}
 
                 if v.id == input.var_name:
                     if v.id not in vars:
@@ -261,6 +262,8 @@ def merge_variables(context, data, domain):
     # Concatenate time axis
     for x, y in list(axes.items()):
         if isinstance(y['data'], list):
+            logger.info('Concatenating axis %r over %r segments', x, len(y['data']))
+
             axis_concat = MV2.axisConcatenate(y['data'], id=x, attributes=y['attrs'])
 
             i, j, k = slice_to_ijk(axis_concat, domain.get(x, slice(None, None, None)))
@@ -270,6 +273,8 @@ def merge_variables(context, data, domain):
     # Concatenate time_bnds variable
     for x, y in list(vars.items()):
         if isinstance(y['data'], list):
+            logger.info('Concatenating variable %r over %r segments', x, len(y['data']))
+
             var_concat = MV2.concatenate(y['data'])
 
             vsel = [domain[x.id] for x in var_concat.getAxisList() if x.id in domain]
