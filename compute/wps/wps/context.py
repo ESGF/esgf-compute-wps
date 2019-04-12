@@ -215,6 +215,7 @@ class OperationContext(object):
         self.user = None
         self.process = None
         self.output_path = None
+        self.output_data = None
         self.grid = None
         self.gridder = None
         self.ignore = ('grid', 'gridder')
