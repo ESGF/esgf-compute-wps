@@ -456,7 +456,11 @@ def process_single(context, process):
 
     context.job.update('Building compute graph')
 
-    with cdms2.open(input.uri) as infile:
+    infile = None
+
+    try:
+        infile = cdms2.open(input.uri)
+
         var = infile[input.var_name]
 
         logger.info('Opened file %r variable %r', var.parent.id, var.id)
@@ -466,27 +470,32 @@ def process_single(context, process):
         if process is not None:
             data = process(context, data, var, map)
 
-    context.job.update('Finished building compute graph')
+        context.job.update('Finished building compute graph')
 
-    gattrs, axes, vars = merge_variables(context, data, map)
+        gattrs, axes, vars = merge_variables(context, data, map)
 
-    build_regrid(context, axes, vars, map)
+        build_regrid(context, axes, vars, map)
 
-    context.job.update('Building output definition')
+        context.job.update('Building output definition')
 
-    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
+        dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
 
-    context.job.update('Finished building output definition')
+        context.job.update('Finished building output definition')
 
-    context.output_path = context.gen_public_path()
+        context.output_path = context.gen_public_path()
 
-    logger.info('Writing output to %r', context.output_path)
+        logger.info('Writing output to %r', context.output_path)
 
-    context.job.update('Starting compute')
+        context.job.update('Starting compute')
 
-    dataset.to_netcdf(context.output_path)
+        dataset.to_netcdf(context.output_path)
 
-    context.job.update('Finished compute')
+        context.job.update('Finished compute')
+    except Exception:
+        raise
+    finally:
+        if infile is not None:
+            infile.close()
 
     return context
 
@@ -532,8 +541,14 @@ def aggregate_func(self, context):
 
     data = []
 
-    for input in context.inputs:
-        with cdms2.open(input.uri) as infile:
+    infiles = []
+
+    try:
+        for input in context.inputs:
+            infile = cdms2.open(input.uri)
+
+            infiles.append(infile)
+
             var = infile[input.var_name]
 
             if chunks is None:
@@ -544,31 +559,36 @@ def aggregate_func(self, context):
             else:
                 data.append(build_ingress(var, cert, chunks))
 
-    concat = da.concatenate(data, axis=0)
+        concat = da.concatenate(data, axis=0)
 
-    logger.info('Concat inputs %r', concat)
+        logger.info('Concat inputs %r', concat)
 
-    combined = combine_maps([x[1] for x in maps], 0)
+        combined = combine_maps([x[1] for x in maps], 0)
 
-    logger.info('Combined maps to %r', combined)
+        logger.info('Combined maps to %r', combined)
 
-    selector = tuple(combined.values())
+        selector = tuple(combined.values())
 
-    subset_data = concat[selector]
+        subset_data = concat[selector]
 
-    logger.info('Subset concat to %r', subset_data)
+        logger.info('Subset concat to %r', subset_data)
 
-    gattrs, axes, vars = merge_variables(context, subset_data, combined)
+        gattrs, axes, vars = merge_variables(context, subset_data, combined)
 
-    build_regrid(context, axes, vars, combined)
+        build_regrid(context, axes, vars, combined)
 
-    dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
+        dataset = output_with_attributes(context.inputs[0].var_name, gattrs, axes, vars)
 
-    context.output_path = context.gen_public_path()
+        context.output_path = context.gen_public_path()
 
-    logger.info('Writing output to %r', context.output_path)
+        logger.info('Writing output to %r', context.output_path)
 
-    dataset.to_netcdf(context.output_path)
+        dataset.to_netcdf(context.output_path)
+    except Exception:
+        raise
+    finally:
+        for infile in infiles:
+            infile.close()
 
     return context
 
