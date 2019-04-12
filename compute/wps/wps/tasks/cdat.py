@@ -410,20 +410,16 @@ def combine_maps(maps, index):
     return template
 
 
-def build_subset(context, infile, cert):
+def build_subset(context, input, var, cert):
     context.job.update('Building input graph')
 
     domain = domain_to_dict(context.domain)
 
     logger.info('Translated domain to %r', domain)
 
-    input = context.inputs[0]
-
     map, _ = map_domain(input, domain)
 
     logger.info('Mapped domain to %r', map)
-
-    var = infile[input.var_name]
 
     chunks = (100,) + var.shape[1:]
 
@@ -434,13 +430,17 @@ def build_subset(context, infile, cert):
     else:
         data = build_ingress(var, cert, chunks)
 
+    logger.info('Build data ingress %r', data)
+
     selector = tuple(map.values())
 
-    logger.info('Subsetting variable %r with selector %r', input.var_name, selector)
+    logger.info('Subsetting with selector %r', selector)
 
     subset_data = data[selector]
 
-    context.job.update('Build input shape %r, chunksize %r', subset_data.shape, subset_data.chunksize)
+    logger.info('Subset %r', subset_data)
+
+    context.job.update('Build input shape {!r}, chunksize {!r}', subset_data.shape, subset_data.chunksize)
 
     return subset_data, map
 
@@ -448,7 +448,7 @@ def build_subset(context, infile, cert):
 def process_single(context, process):
     init(settings.DASK_WORKERS)
 
-    context.job.update('Initialized %r workers', settings.DASK_WORKERS)
+    context.job.update('Initialized {!r} workers', settings.DASK_WORKERS)
 
     input = context.inputs[0]
 
@@ -459,7 +459,9 @@ def process_single(context, process):
     with cdms2.open(input.uri) as infile:
         var = infile[input.var_name]
 
-        data, map = build_subset(context, infile, cert)
+        logger.info('Opened file %r variable %r', var.parent.id, var.id)
+
+        data, map = build_subset(context, input, var, cert)
 
         if process is not None:
             data = process(context, data, var, map)
