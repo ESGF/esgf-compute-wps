@@ -16,6 +16,8 @@ from dask.distributed import LocalCluster
 from wps import WPSError
 from wps.tasks import base
 from wps.tasks import credentials
+from wps.tasks.dask_serialize import regrid_data
+from wps.tasks.dask_serialize import retrieve_chunk
 from cwt_kubernetes.cluster import Cluster
 
 logger = get_task_logger('wps.tasks.cdat')
@@ -156,8 +158,10 @@ def check_access(context, input):
 
         if not context.check_access(input, cert_path):
             raise WPSError('Failed to access input')
+        else:
+            return True
 
-    return True
+    return False
 
 
 def write_certificate(cert):
@@ -297,26 +301,6 @@ def output_with_attributes(var_name, gattrs, axes, vars):
     return xr.Dataset(xr_vars, attrs=gattrs)
 
 
-def retrieve_chunk(url, var_name, selector, cert):
-    with open('cert.pem', 'w') as outfile:
-        outfile.write(cert)
-
-    import os
-
-    cert_path = os.path.join(os.getcwd(), 'cert.pem')
-
-    with open('.dodsrc', 'w') as outfile:
-        outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
-        outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
-        outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
-        outfile.write('HTTP.SSL.VERIFY=0\n')
-
-    import cdms2
-
-    with cdms2.open(url) as infile:
-        return infile(var_name, **selector)
-
-
 def update_shape(shape, chunk, index):
     diff = chunk.stop - chunk.start
 
@@ -346,23 +330,6 @@ def build_ingress(var, cert, chunk_shape):
     concat = da.concatenate(da_chunks, axis=0)
 
     return concat
-
-
-def regrid_data(data, axes, grid, tool, method):
-    import cdms2
-
-    # Subset time to just fit, don't care if its the correct range
-    axes[0] = axes[0].subAxis(0, data.shape[0], 1)
-
-    var = cdms2.createVariable(data, axes=axes)
-
-    shape = var.shape
-
-    data = var.regrid(grid, regridTool=tool, regridMethod=method)
-
-    logger.info('Regrid %r -> %r', shape, data.shape)
-
-    return data
 
 
 def build_regrid(context, axes, vars, selector):
