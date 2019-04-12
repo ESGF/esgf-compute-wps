@@ -6,7 +6,8 @@ from django.core.management.base import CommandError
 from django.db import IntegrityError
 
 from wps import models
-from wps.tasks import REGISTRY
+from wps.tasks import cdat # noqa
+from wps.tasks.base import REGISTRY
 
 
 class Command(BaseCommand):

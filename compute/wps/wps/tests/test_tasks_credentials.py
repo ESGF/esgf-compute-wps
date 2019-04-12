@@ -6,7 +6,7 @@ import mock
 from django import test
 
 from wps import models
-from wps import tasks
+from wps.tasks import credentials
 
 
 class CredentailsTestCase(test.TestCase):
@@ -25,7 +25,7 @@ class CredentailsTestCase(test.TestCase):
 
         mock_check.return_value = False
 
-        tasks.load_certificate(self.user)
+        credentials.load_certificate(self.user)
 
         mock_refresh.assert_called_once()
 
@@ -44,8 +44,8 @@ class CredentailsTestCase(test.TestCase):
 
         self.user.auth.cert = 'some cert'
 
-        with self.assertRaises(tasks.CertificateError):
-            tasks.refresh_certificate(self.user)
+        with self.assertRaises(credentials.CertificateError):
+            credentials.refresh_certificate(self.user)
 
     @mock.patch('openid.consumer.discover.discoverYadis')
     def test_refresh_certificate_error_loading_extra(self, mock_discover):
@@ -57,8 +57,8 @@ class CredentailsTestCase(test.TestCase):
 
         self.user.auth.cert = 'some cert'
 
-        with self.assertRaises(tasks.WPSError):
-            tasks.refresh_certificate(self.user)
+        with self.assertRaises(credentials.WPSError):
+            credentials.refresh_certificate(self.user)
 
     @mock.patch('openid.consumer.discover.discoverYadis')
     def test_refresh_certificate_missing_token(self, mock_discover):
@@ -70,8 +70,8 @@ class CredentailsTestCase(test.TestCase):
 
         self.user.auth.cert = 'some cert'
 
-        with self.assertRaises(tasks.WPSError):
-            tasks.refresh_certificate(self.user)
+        with self.assertRaises(credentials.WPSError):
+            credentials.refresh_certificate(self.user)
 
     @mock.patch('wps.tasks.credentials.oauth2.get_certificate')
     @mock.patch('wps.tasks.credentials.openid.find_service_by_type')
@@ -89,7 +89,7 @@ class CredentailsTestCase(test.TestCase):
 
         self.user.auth.cert = 'some cert'
 
-        cert = tasks.refresh_certificate(self.user)
+        cert = credentials.refresh_certificate(self.user)
 
         expected_extra = '{"token": "new token value", "state": "state value"}'
 
@@ -98,8 +98,8 @@ class CredentailsTestCase(test.TestCase):
         self.assertEqual(self.user.auth.extra, expected_extra)
 
     def test_check_certificate_missing_certificate(self):
-        with self.assertRaises(tasks.CertificateError):
-            tasks.check_certificate(self.user)
+        with self.assertRaises(credentials.CertificateError):
+            credentials.check_certificate(self.user)
 
     @mock.patch('wps.tasks.credentials.crypto.load_certificate')
     def test_check_certificate_not_after(self, mock_load):
@@ -109,11 +109,11 @@ class CredentailsTestCase(test.TestCase):
 
         after = datetime.datetime.now() - datetime.timedelta(days=10)
 
-        mock_load.return_value.get_notBefore.return_value = before.strftime(tasks.CERT_DATE_FMT).encode()
+        mock_load.return_value.get_notBefore.return_value = before.strftime(credentials.CERT_DATE_FMT).encode()
 
-        mock_load.return_value.get_notAfter.return_value = after.strftime(tasks.CERT_DATE_FMT).encode()
+        mock_load.return_value.get_notAfter.return_value = after.strftime(credentials.CERT_DATE_FMT).encode()
 
-        self.assertFalse(tasks.check_certificate(self.user))
+        self.assertFalse(credentials.check_certificate(self.user))
 
     @mock.patch('wps.tasks.credentials.crypto.load_certificate')
     def test_check_certificate_not_before(self, mock_load):
@@ -123,11 +123,11 @@ class CredentailsTestCase(test.TestCase):
 
         after = datetime.datetime.now()
 
-        mock_load.return_value.get_notBefore.return_value = before.strftime(tasks.CERT_DATE_FMT).encode()
+        mock_load.return_value.get_notBefore.return_value = before.strftime(credentials.CERT_DATE_FMT).encode()
 
-        mock_load.return_value.get_notAfter.return_value = after.strftime(tasks.CERT_DATE_FMT).encode()
+        mock_load.return_value.get_notAfter.return_value = after.strftime(credentials.CERT_DATE_FMT).encode()
 
-        self.assertFalse(tasks.check_certificate(self.user))
+        self.assertFalse(credentials.check_certificate(self.user))
 
     @mock.patch('wps.tasks.credentials.crypto.load_certificate')
     def test_check_certificate_error_loading(self, mock_load):
@@ -139,12 +139,12 @@ class CredentailsTestCase(test.TestCase):
 
         after = datetime.datetime.now()
 
-        mock_load.return_value.get_notBefore.return_value = before.strftime(tasks.CERT_DATE_FMT).encode()
+        mock_load.return_value.get_notBefore.return_value = before.strftime(credentials.CERT_DATE_FMT).encode()
 
-        mock_load.return_value.get_notAfter.return_value = after.strftime(tasks.CERT_DATE_FMT).encode()
+        mock_load.return_value.get_notAfter.return_value = after.strftime(credentials.CERT_DATE_FMT).encode()
 
-        with self.assertRaises(tasks.CertificateError):
-            tasks.check_certificate(self.user)
+        with self.assertRaises(credentials.CertificateError):
+            credentials.check_certificate(self.user)
 
     @mock.patch('wps.tasks.credentials.crypto.load_certificate')
     def test_check_certificate(self, mock_load):
@@ -154,8 +154,8 @@ class CredentailsTestCase(test.TestCase):
 
         after = datetime.datetime.now() + datetime.timedelta(days=10)
 
-        mock_load.return_value.get_notBefore.return_value = before.strftime(tasks.CERT_DATE_FMT).encode()
+        mock_load.return_value.get_notBefore.return_value = before.strftime(credentials.CERT_DATE_FMT).encode()
 
-        mock_load.return_value.get_notAfter.return_value = after.strftime(tasks.CERT_DATE_FMT).encode()
+        mock_load.return_value.get_notAfter.return_value = after.strftime(credentials.CERT_DATE_FMT).encode()
 
-        self.assertTrue(tasks.check_certificate(self.user))
+        self.assertTrue(credentials.check_certificate(self.user))

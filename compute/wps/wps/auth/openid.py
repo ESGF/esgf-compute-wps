@@ -15,11 +15,13 @@ from wps import WPSError
 
 logger = logging.getLogger('wps.auth.openid')
 
+
 class DiscoverError(WPSError):
     def __init__(self, url, error):
         msg = 'Discovery of OpenID services from "{url}" has failed'
 
         super(DiscoverError, self).__init__(msg, url=url, error=error)
+
 
 class ServiceError(WPSError):
     def __init__(self, url, urn):
@@ -27,11 +29,13 @@ class ServiceError(WPSError):
 
         super(ServiceError, self).__init__(msg, url=url, urn=urn)
 
+
 class AuthenticationCancelError(WPSError):
     def __init__(self, response):
         msg = 'Authentication cancel for "{url}"'
 
         super(AuthenticationCancelError, self).__init__(msg, url=response.identity_url)
+
 
 class AuthenticationFailureError(WPSError):
     def __init__(self, response):
@@ -39,11 +43,13 @@ class AuthenticationFailureError(WPSError):
 
         super(AuthenticationFailureError, self).__init__(msg, url=response.identity_url, error=response.message)
 
+
 class MissingAttributeError(WPSError):
     def __init__(self, name):
         msg = 'Attribute "{name}" could not be retrieved from OpenID AX extension'
 
         super(MissingAttributeError, self).__init__(msg, name=name)
+
 
 def find_service_by_type(services, uri):
     for s in services:
@@ -52,18 +58,12 @@ def find_service_by_type(services, uri):
 
     return None
 
+
 def services(openid_url, service_urns):
     try:
         requests.get(openid_url, timeout=(2, 20))
-    except requests.ConnectTimeout:
-        raise DiscoverError(openid_url, 'Timed out connecting to'
-                             ' {!r}'.format(openid_url))
-    except requests.ReadTimeout:
-        raise DiscoverError(openid_url, 'Timed out reading from'
-                             ' {!r}'.format(openid_url))
     except Exception as e:
-        raise DiscoverError(openid_url, 'Error contacting OpenID service:'
-                             ' {!r}'.format(e))
+        raise DiscoverError(openid_url, 'Error contacting OpenID service: {!r}'.format(e))
 
     requested = collections.OrderedDict()
 
@@ -82,6 +82,7 @@ def services(openid_url, service_urns):
 
     return list(requested.values())
 
+
 def begin(request, openid_url, next):
     disc = manager.Discovery(request.session, openid_url)
 
@@ -90,7 +91,7 @@ def begin(request, openid_url, next):
 
     service = disc.getNextService(discover.discover)
 
-    c = consumer.Consumer(request.session, models.DjangoOpenIDStore()) 
+    c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
 
     try:
         auth_request = c.beginWithoutDiscovery(service)
@@ -124,6 +125,7 @@ def begin(request, openid_url, next):
 
     return url
 
+
 def complete(request):
     c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
 
@@ -139,6 +141,7 @@ def complete(request):
     attrs = handle_attribute_exchange(response)
 
     return openid_url, attrs
+
 
 def handle_attribute_exchange(response):
     attributes = {
@@ -163,4 +166,3 @@ def handle_attribute_exchange(response):
             raise MissingAttributeError('email')
 
     return attrs
-

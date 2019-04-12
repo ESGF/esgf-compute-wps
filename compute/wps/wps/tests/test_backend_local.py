@@ -6,7 +6,7 @@ from django import test
 
 from wps import backends
 from wps import models
-from wps import tasks
+from wps.tasks.base import REGISTRY
 
 class LocalBackendTestCase(test.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json']
@@ -21,7 +21,7 @@ class LocalBackendTestCase(test.TestCase):
         self.user = models.User.objects.all()[0]
 
     def test_populate_processes(self):
-        count = len(tasks.REGISTRY)
+        count = len(REGISTRY)
 
         self.backend.populate_processes()
 

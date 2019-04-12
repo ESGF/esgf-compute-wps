@@ -101,7 +101,10 @@ class OpenIDTestCase(test.TestCase):
 
         mock_begin.redirectURL.assert_called_with(settings.WPS_OPENID_TRUST_ROOT, return_to)
 
-    def test_services_discovery_error(self):
+    @mock.patch('wps.auth.openid.requests')
+    def test_services_discovery_error(self, mock_requests):
+        mock_requests.get.side_effect = Exception()
+
         with self.assertRaises(openid.DiscoverError):
             openid.services('http://testbad.com/openid', ['urn.test1', 'urn.test2'])
 

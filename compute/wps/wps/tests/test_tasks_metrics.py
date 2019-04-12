@@ -3,8 +3,9 @@ import requests
 from django import test
 from django.conf import settings
 
-from wps import tasks
+from wps.tasks import metrics_
 from wps import WPSError
+
 
 class TaskMetricsTestCase(test.TestCase):
 
@@ -12,7 +13,7 @@ class TaskMetricsTestCase(test.TestCase):
     @mock.patch('wps.models.Job.objects.filter')
     def test_health(self, mock_filter, mock_get):
         mock_get.return_value.json.return_value = {
-            'status': 'ok', 
+            'status': 'ok',
             'data': {
                 'result': [
                     {
@@ -29,7 +30,7 @@ class TaskMetricsTestCase(test.TestCase):
 
         context = mock.MagicMock()
 
-        tasks.metrics_task(context)
+        metrics_.metrics_task(context)
 
         self.assertEqual(mock_get.call_count, 10)
 
@@ -42,14 +43,14 @@ class TaskMetricsTestCase(test.TestCase):
             'data': {
                 'result': [
                     {'metric': {'request': 'GetCapabilities'}, 'value': [32.2,
-                                                                         '10.2'] },
+                                                                         '10.2']},
                     {'metric': {'request': 'DescribeProcess'}, 'value': [32.2,
-                                                                         '32.2'] },
+                                                                         '32.2']},
                 ]
             }
         }
 
-        result = tasks.query_multiple_value('request', type=float, query='sum(wps_requests)')
+        result = metrics_.query_multiple_value('request', type=float, query='sum(wps_requests)')
 
         self.assertIsInstance(result, dict)
         self.assertEqual(result, {'GetCapabilities': 10.2, 'DescribeProcess':
@@ -63,13 +64,13 @@ class TaskMetricsTestCase(test.TestCase):
             'status': 'ok',
             'data': {
                 'result': [
-                    {'metric': {'request': 'GetCapabilities'}, 'value': [32.2, 10] },
-                    {'metric': {'request': 'DescribeProcess'}, 'value': [32.2, 32] },
+                    {'metric': {'request': 'GetCapabilities'}, 'value': [32.2, 10]},
+                    {'metric': {'request': 'DescribeProcess'}, 'value': [32.2, 32]},
                 ]
             }
         }
 
-        result = tasks.query_multiple_value('request', query='sum(wps_requests)')
+        result = metrics_.query_multiple_value('request', query='sum(wps_requests)')
 
         self.assertIsInstance(result, dict)
         self.assertEqual(result, {'GetCapabilities': 10, 'DescribeProcess':
@@ -88,7 +89,7 @@ class TaskMetricsTestCase(test.TestCase):
             }
         }
 
-        result = tasks.query_single_value(type=float, query='sum(wps_requests)')
+        result = metrics_.query_single_value(type=float, query='sum(wps_requests)')
 
         self.assertIsInstance(result, float)
         self.assertEqual(result, 2.1)
@@ -104,7 +105,7 @@ class TaskMetricsTestCase(test.TestCase):
             }
         }
 
-        result = tasks.query_single_value(query='sum(wps_requests)')
+        result = metrics_.query_single_value(query='sum(wps_requests)')
 
         self.assertIsInstance(result, int)
         self.assertEqual(result, 0)
@@ -122,7 +123,7 @@ class TaskMetricsTestCase(test.TestCase):
             }
         }
 
-        result = tasks.query_single_value(query='sum(wps_requests)')
+        result = metrics_.query_single_value(query='sum(wps_requests)')
 
         self.assertIsInstance(result, int)
         self.assertEqual(result, 2)
@@ -140,7 +141,7 @@ class TaskMetricsTestCase(test.TestCase):
         }
 
         with self.assertRaises(WPSError):
-            tasks.query_prometheus(query='sum(wps_requests)')
+            metrics_.query_prometheus(query='sum(wps_requests)')
 
     @mock.patch.object(requests, 'get')
     def test_query_prometheus_not_ok(self, mock_get):
@@ -156,7 +157,7 @@ class TaskMetricsTestCase(test.TestCase):
         }
 
         with self.assertRaises(WPSError):
-            tasks.query_prometheus(query='sum(wps_requests)')
+            metrics_.query_prometheus(query='sum(wps_requests)')
 
     @mock.patch.object(requests, 'get')
     def test_query_prometheus(self, mock_get):
@@ -171,10 +172,9 @@ class TaskMetricsTestCase(test.TestCase):
             }
         }
 
-        result = tasks.query_prometheus(query='sum(wps_requests)')
+        result = metrics_.query_prometheus(query='sum(wps_requests)')
 
         self.assertEqual(result, {'data': 3.2})
 
         mock_get.assert_called_with(settings.METRICS_HOST, params={'query':
-                                                                   'sum(wps_requests)'},
-                                   timeout=(1, 30))
+                                                                   'sum(wps_requests)'}, timeout=(1, 30))
