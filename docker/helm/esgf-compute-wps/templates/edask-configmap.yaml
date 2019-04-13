@@ -17,4 +17,4 @@ data:
     dask.scheduler={{ .Values.edask.scheduler.address }}
 {{ end }}
     cache.size.max=500M
-    edask.cache.dir=/data/edask
+    edask.cache.dir=/data/cache
