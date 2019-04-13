@@ -1,25 +1,19 @@
 #! /usr/bin/env python
 
 from __future__ import division
-from past.utils import old_div
 import datetime
+import importlib
 import json
 import logging
 import types
-import sys
 
 import cwt
-import numpy as np
 
 from wps import WPSError
 
 logger = logging.getLogger('wps.helpers')
 
-EDASK_QUEUE = {
-    'queue': 'edask',
-    'exchange': 'edask',
-    'routing_key': 'edask',
-}
+DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
 # Set INGRESS_QUEUE to prevent breaking old code
 INGRESS_QUEUE = DEFAULT_QUEUE = {
@@ -27,6 +21,20 @@ INGRESS_QUEUE = DEFAULT_QUEUE = {
     'exchange': 'ingress',
     'routing_key': 'ingress',
 }
+
+QUEUE = {
+    'edas': {
+        'queue': 'edask',
+        'exchange': 'edask',
+        'routing_key': 'edask',
+    },
+    'default': {
+        'queue': 'default',
+        'exchange': 'default',
+        'routing_key': 'default',
+    },
+}
+
 
 def int_or_float(value):
     if isinstance(value, (int, float)):
@@ -42,31 +50,12 @@ def int_or_float(value):
     except ValueError:
         raise WPSError('Failed to parse "{value}" as a float or int', value=value)
 
-def determine_queue(process, estimate_size):
-    try:
-        estimate_time = old_div(estimate_size, process.process_rate)
-    except ZeroDivisionError:
-        estimate_time = 0.0
 
-    data = np.array([x.elapsed for x in process.timing_set.all()])
+def queue_from_identifier(identifier):
+    module, name = identifier.split('.')
 
-    if data.size == 0:
-        percentile = estimate_time
-    else:
-        percentile = np.percentile(data, 75)
+    return QUEUE.get(module.lower(), 'default')
 
-    logger.info('Estimated size %s MB at %s MB/sec will take %s seconds', estimate_size, process.process_rate, estimate_time)
-
-    if estimate_time <= percentile:
-        return DEFAULT_QUEUE
-    else:
-        return {
-            'queue': 'priority.low',
-            'exchange': 'priority',
-            'routing_key': 'low',
-        }
-
-DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
 def default(obj):
     from wps.context import OperationContext
@@ -131,6 +120,7 @@ def default(obj):
 
     return data
 
+
 def object_hook(obj):
     from wps.context import OperationContext
     from wps.context import WorkflowOperationContext
@@ -169,6 +159,7 @@ def object_hook(obj):
 
     return data
 
+
 def byteify(data):
     if isinstance(data, dict):
         return dict((byteify(x), byteify(y)) for x, y in list(data.items()))
@@ -179,5 +170,10 @@ def byteify(data):
     else:
         return data
 
-encoder = lambda x: json.dumps(x, default=default)
-decoder = lambda x: json.loads(x, object_hook=object_hook)
+
+def encoder(x):
+    return json.dumps(x, default=default)
+
+
+def decoder(x):
+    return json.loads(x, object_hook=object_hook)

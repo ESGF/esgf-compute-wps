@@ -1,10 +1,12 @@
 #! /usr/bin/env python
 
+import importlib
+import json
+import os
+import pkgutil
 from builtins import str
-from contextlib import contextmanager
 from functools import partial
 
-import cdms2
 import celery
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -16,28 +18,62 @@ from wps.util import wps_response
 logger = get_task_logger('wps.tasks.base')
 
 REGISTRY = {}
+BINDINGS = {}
+
+
+def discover_processes():
+    processes = []
+
+    for _, name, _ in pkgutil.iter_modules([os.path.dirname(__file__)]):
+        if name == 'base':
+            continue
+
+        mod = importlib.import_module('.{!s}'.format(name), package='wps.tasks')
+
+        if 'discover_processes' in dir(mod):
+            method = getattr(mod, 'discover_processes')
+
+            data = method()
+
+            processes.extend(data)
+
+    processes.extend(REGISTRY.values())
+
+    return processes
+
+
+def build_process_bindings():
+    for _, name, _ in pkgutil.iter_modules([os.path.dirname(__file__)]):
+        if name == 'base':
+            continue
+
+        mod = importlib.import_module('.{!s}'.format(name), package='wps.tasks')
+
+        if 'process_bindings' in dir(mod):
+            method = getattr(mod, 'process_bindings')
+
+            data = method()
+
+            BINDINGS.update(data)
 
 
 def get_process(identifier):
     try:
-        return REGISTRY[identifier]
+        return BINDINGS[identifier]
     except KeyError as e:
         raise WPSError('Unknown process {!r}', e)
 
 
 def register_process(backend, process, **kwargs):
     def wrapper(func):
-        func.BACKEND = backend
+        identifier = '{!s}.{!s}'.format(backend, process)
 
-        func.PROCESS = process
-
-        func.IDENTIFIER = '{!s}.{!s}'.format(backend, process)
-
-        REGISTRY[func.IDENTIFIER] = func
-
-        func.ABSTRACT = kwargs.get('abstract', '')
-
-        func.METADATA = kwargs.get('metadata', {})
+        REGISTRY[identifier] = {
+            'identifier': identifier,
+            'backend': backend,
+            'abstract': kwargs.get('abstract', ''),
+            'metadata': json.dumps(kwargs.get('metadata', {})),
+        }
 
         return func
 
@@ -45,16 +81,6 @@ def register_process(backend, process, **kwargs):
 
 
 class CWTBaseTask(celery.Task):
-
-    @contextmanager
-    def open(self, uri, mode='r', timeout=30):
-        fd = cdms2.open(str(uri), mode)
-
-        try:
-            yield fd
-        finally:
-            fd.close()
-
     def status(self, fmt, *args, **kwargs):
         if isinstance(self.request.args[0], (list, tuple)):
             context = self.request.args[0][0]

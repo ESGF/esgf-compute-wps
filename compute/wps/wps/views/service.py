@@ -19,7 +19,6 @@ from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.tasks import base
-from wps.tasks import cdat # noqa
 from wps.tasks.job import job_started
 from wps.tasks.job import job_succeeded
 from wps.context import OperationContext
@@ -140,7 +139,9 @@ def handle_execute(meta, identifier, data_inputs):
 
     started = job_started.s(context).set(**helpers.DEFAULT_QUEUE)
 
-    process = base.get_process(identifier).s().set(**helpers.DEFAULT_QUEUE)
+    queue = helpers.queue_from_identifier(identifier)
+
+    process = base.get_process(identifier).s().set(**queue)
 
     succeeded = job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
 

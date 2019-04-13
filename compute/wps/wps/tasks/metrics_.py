@@ -1,26 +1,20 @@
 import json
-import os
 
-import cdms2
-import cwt
 import requests
-from cdms2 import MV2 as MV
-from celery.task.control import inspect
 from celery.utils.log import get_task_logger
 from django.conf import settings
-from django.db.models import Q
 from django.utils import timezone
 
-from wps import helpers
-from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.tasks import base
 
 logger = get_task_logger('wps.tasks.metrics')
 
+
 class PrometheusError(WPSError):
     pass
+
 
 def query_prometheus(**kwargs):
     try:
@@ -39,13 +33,14 @@ def query_prometheus(**kwargs):
     data = response.json()
 
     try:
-        status = data['status']
+        data['status']
     except KeyError:
         raise WPSError('Excepted JSON from prometheus request')
 
     logger.info('%r', data)
 
     return data['data']['result']
+
 
 def query_single_value(type=int, **kwargs):
     try:
@@ -57,6 +52,7 @@ def query_single_value(type=int, **kwargs):
         return type(data['value'][1])
     except (KeyError, IndexError):
         return type()
+
 
 def query_multiple_value(key, type=int, **kwargs):
     results = {}
@@ -72,21 +68,24 @@ def query_multiple_value(key, type=int, **kwargs):
         try:
             value = item['value'][1]
         except (KeyError, IndexError):
-            result[name] = type()
+            results[name] = type()
         else:
             results[name] = type(value)
 
     return results
 
+
 METRICS_ABSTRACT = """
 Returns the current metrics of the server.
 """
 
+
 @base.register_process('CDAT', 'metrics', abstract=METRICS_ABSTRACT, metadata={'inputs': '0'})
 @base.cwt_shared_task()
 def metrics_task(self, context):
-    user_jobs_queued = models.Job.objects.filter(status__status=models.ProcessAccepted).exclude(status__status=models.ProcessStarted).exclude(
-        status__status=models.ProcessFailed).exclude(status__status=models.ProcessSucceeded).count()
+    user_jobs_queued = models.Job.objects.filter(status__status=models.ProcessAccepted).exclude(
+        status__status=models.ProcessStarted).exclude(status__status=models.ProcessFailed).exclude(
+            status__status=models.ProcessSucceeded).count()
 
     user_jobs_running = models.Job.objects.filter(status__status=models.ProcessStarted).exclude(
         status__status=models.ProcessFailed).exclude(status__status=models.ProcessSucceeded).count()
@@ -125,7 +124,7 @@ def metrics_task(self, context):
             else:
                 count = url_obj.userfile_set.all().distinct('user').count()
 
-            file[item] = {'count': file_count[item], 'unique_users': count }
+            file[item] = {'count': file_count[item], 'unique_users': count}
     except AttributeError:
         file['files'] = 'Unavailable'
 
