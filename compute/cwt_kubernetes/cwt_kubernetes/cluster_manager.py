@@ -26,6 +26,24 @@ class ClusterManager(object):
         except AttributeError:
             return []
 
+    def scale_up_workers(self, max_n, inc_n=None, labels=None):
+        if labels is None:
+            labels = {}
+
+        existing = self.cluster.get_pods(labels)
+
+        logging.info('Found %r existing workers with labels %r', len(existing.items), labels)
+
+        # For the time being always scale up to max_n eventually we can
+        # make this smarter and have it look at the saturation of the
+        # workers
+        if len(existing.items) < max_n:
+            to_create = max_n - len(existing.items)
+
+            logging.info('Need to allocated %r additional workers', to_create)
+
+            self.cluster.scale_up(to_create, labels)
+
     def scale_down_workers(self):
         pods = self.get_pods_to_kill()
 

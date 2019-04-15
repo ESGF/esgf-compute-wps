@@ -22,11 +22,10 @@ class Cluster(object):
 
         self.pod_template = pod_template
 
-        if (self.pod_template is not None and
-            self.pod_template.metadata is not None):
-            self.pod_template.metadata.labels = {}
-            self.pod_template.metadata.labels['app'] = 'dask'
-            self.pod_template.metadata.labels['component'] = 'dask-worker'
+        self.default_labels = {
+            'app': 'dask',
+            'component': 'dask-worker',
+        }
 
         config.load_incluster_config()
 
@@ -41,8 +40,13 @@ class Cluster(object):
 
         return cls(namespace, pod_template)
 
-    def get_pods(self):
-        selector = ','.join('{!s}={!s}'.format(x, y) for x, y in list(self.pod_template.metadata.labels.items()))
+    def get_pods(self, labels=None):
+        if labels is None:
+            labels = {}
+
+        labels.update(self.default_labels)
+
+        selector = ','.join('{!s}={!s}'.format(x, y) for x, y in labels.items())
 
         try:
             pods = self.core_api.list_namespaced_pod(self.namespace, label_selector=selector)
@@ -73,8 +77,13 @@ class Cluster(object):
 
         return [x for x in pods.items if x.status.phase not in CLEANUP_PHASES]
 
-    def scale_up(self, n):
-        pods = self.get_pods()
+    def scale_up(self, n, extra_labels=None):
+        if extra_labels is None:
+            extra_labels = {}
+
+        extra_labels.update(self.default_labels)
+
+        pods = self.get_pods(extra_labels)
 
         self.cleanup_pods(pods)
 
@@ -84,6 +93,8 @@ class Cluster(object):
             name = 'dask-worker-{!s}'.format(str(uuid.uuid4())[:13])
 
             self.pod_template.metadata.name = name
+
+            self.pod_template.metadata.labels = extra_labels
 
             try:
                 self.core_api.create_namespaced_pod(self.namespace, self.pod_template)
