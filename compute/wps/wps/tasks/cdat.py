@@ -10,7 +10,6 @@ import xarray as xr
 from cdms2 import MV2
 from celery.utils.log import get_task_logger
 from django.conf import settings
-from dask.distributed import Client
 from dask.distributed import LocalCluster
 
 from wps import WPSError
@@ -19,25 +18,41 @@ from wps.tasks import credentials
 from wps.tasks.dask_serialize import regrid_data
 from wps.tasks.dask_serialize import retrieve_chunk
 from cwt_kubernetes.cluster import Cluster
+from cwt_kubernetes.cluster_manager import ClusterManager
 
 logger = get_task_logger('wps.tasks.cdat')
 
 BACKEND = 'CDAT'
 
 
-def init(workers):
+def init(user_id, n_workers):
     if settings.DEBUG:
         cluster = LocalCluster(n_workers=2, threads_per_worker=2)
 
-        client = Client(cluster)
+        class LocalProvisioner(object):
+            def __init__(self, local):
+                self.local = local
+
+            def get_pods(self):
+                class Inner(object):
+                    def __init__(self, items):
+                        self.items = items
+
+                return Inner(self.local.workers)
+
+        manager = ClusterManager(cluster, LocalProvisioner(cluster))
     else:
         cluster = Cluster.from_yaml(settings.DASK_KUBE_NAMESPACE, '/etc/config/dask/worker-spec.yml')
 
-        cluster.scale_up(workers)
+        manager = ClusterManager(settings.DASK_SCHEDULER, cluster)
 
-        client = Client(settings.DASK_SCHEDULER)
+        labels = {
+            'user': str(user_id),
+        }
 
-    return client, cluster
+        manager.scale_up_workers(n_workers, labels)
+
+    return manager, cluster
 
 
 @base.register_process('CDAT', 'workflow', metadata={'inputs': '0'})
@@ -451,7 +466,7 @@ def build_subset(context, input, var, cert):
 
 
 def process_single(context, process):
-    init(settings.DASK_WORKERS)
+    init(context.user.id, settings.DASK_WORKERS)
 
     context.job.update('Initialized {!r} workers', settings.DASK_WORKERS)
 
@@ -514,7 +529,7 @@ def subset_func(self, context):
 @base.register_process('CDAT', 'aggregate', abstract=AGGREGATE_ABSTRACT, metadata={'inputs': '*'})
 @base.cwt_shared_task()
 def aggregate_func(self, context):
-    init(settings.DASK_WORKERS)
+    init(context.user.id, settings.DASK_WORKERS)
 
     domain = domain_to_dict(context.domain)
 
@@ -610,7 +625,7 @@ def regrid_func(self, context):
 # @base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
 # @base.cwt_shared_task()
 def average_func(self, context):
-    init(settings.DASK_WORKERS)
+    init(context.user.id, settings.DASK_WORKERS)
 
     return context
 
