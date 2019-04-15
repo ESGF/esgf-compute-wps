@@ -314,6 +314,7 @@ edask:
   replicas: 1
   image: jasonb87/cwt_edask
   imageTag: latest
+  imagePullPolicy: IfNotPresent
 
   nodeSelector:
     tier: backend
@@ -328,34 +329,4 @@ edask:
       memory: 1Gi
     requests:
       cpu: 500m
-      memory: 512Gi
-
-  scheduler:
-    address: innocent-deer-edask-scheduler.default.svc:8786
-
-    nodeSelector:
-      tier: backend
-
-    replicas: 1
-
-    resources:
-      limits:
-        cpu: 100m
-        memory: 256Mi
-      requests:
-        cpu: 50m
-        memory: 128Mi
-
-  worker:
-    replicas: 1
-
-    nodeSelector:
-      tier: backend
-
-    resources:
-      limits:
-        cpu: 200m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
+      memory: 512Mi
