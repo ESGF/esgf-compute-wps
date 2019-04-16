@@ -141,6 +141,8 @@ def handle_execute(meta, identifier, data_inputs):
 
     queue = helpers.queue_from_identifier(identifier)
 
+    logger.info('Enque task to %r', queue)
+
     process = base.get_process(identifier).s().set(**queue)
 
     succeeded = job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
