@@ -33,10 +33,7 @@ def discover_processes():
         if 'discover_processes' in dir(mod):
             method = getattr(mod, 'discover_processes')
 
-            try:
-                data = method()
-            except Exception:
-                pass
+            data = method()
 
             processes.extend(data)
 
@@ -55,7 +52,10 @@ def build_process_bindings():
         if 'process_bindings' in dir(mod):
             method = getattr(mod, 'process_bindings')
 
-            data = method()
+            try:
+                data = method()
+            except Exception:
+                continue
 
             BINDINGS.update(data)
 
