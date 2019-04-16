@@ -175,6 +175,7 @@ def discover_processes():
                 'backend': 'EDAS',
                 'abstract': '',
                 'metadata': json.dumps({}),
+                'version': 'devel',
             })
 
     return items

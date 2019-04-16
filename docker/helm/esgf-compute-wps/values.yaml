@@ -4,27 +4,27 @@ persistence:
   cache:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/nfs/cwt
+    path: /opt/wps/cache
 
   public:
     storageClassName: slow
     capacity: 100Gi
-    path: /opt/nfs/cwt
+    path: /opt/wps/public
 
   postgresql:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/cwt
+    path: /opt/wps/postgresql
 
   postgresql-backup:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/nfs/cwt
+    path: /opt/wps/postgresql_backup
 
   redis:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/cwt
+    path: /opt/wps/redis
 
 dask:
   image: jasonb87/cwt_celery
@@ -81,7 +81,7 @@ dask:
         memory: 512Mi
 
 nginx:
-  replicas: 1
+  replicas: 0
   image: jasonb87/cwt_webapp
   imageTag: devel
 
@@ -107,7 +107,6 @@ wps:
   replicas: 1
   image: jasonb87/cwt_wps
   imageTag: devel
-
   imagePullPolicy: IfNotPresent
 
   host: aims2.llnl.gov
@@ -149,7 +148,7 @@ wps:
 
   annotations:
     prometheus.io/scrape: "true"
-    prometheus.io/path: /wps/metrics/
+    prometheus.io/path: /api/metrics/
     prometheus.io/port: "8000"
 
   resources:
@@ -230,7 +229,7 @@ celery:
         name: metrics
 
 thredds:
-  replicas: 1
+  replicas: 0
   image: jasonb87/cwt_thredds
   imageTag: 4.6.10
 

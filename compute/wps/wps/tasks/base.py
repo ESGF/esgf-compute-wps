@@ -76,6 +76,7 @@ def register_process(backend, process, **kwargs):
             'backend': backend,
             'abstract': kwargs.get('abstract', ''),
             'metadata': json.dumps(kwargs.get('metadata', {})),
+            'version': kwargs.get('version', 'devel'),
         }
 
         return func
