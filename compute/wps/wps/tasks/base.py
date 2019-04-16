@@ -10,6 +10,7 @@ from functools import partial
 import celery
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.conf import settings
 
 from wps import context
 from wps import WPSError
@@ -31,6 +32,15 @@ def discover_processes():
         mod = importlib.import_module('.{!s}'.format(name), package='wps.tasks')
 
         if 'discover_processes' in dir(mod):
+            setting_name = 'WPS_{!s}_ENABLED'.format(name.upper())
+
+            enabled = getattr(settings, setting_name, False)
+
+            if not enabled:
+                logger.info('Skipping process discovery for module %r', name)
+
+                continue
+
             method = getattr(mod, 'discover_processes')
 
             data = method()
@@ -50,6 +60,15 @@ def build_process_bindings():
         mod = importlib.import_module('.{!s}'.format(name), package='wps.tasks')
 
         if 'process_bindings' in dir(mod):
+            setting_name = 'WPS_{!s}_ENABLED'.format(name.upper())
+
+            enabled = getattr(settings, setting_name, False)
+
+            if not enabled:
+                logger.info('Skipping process binding for module %r', name)
+
+                continue
+
             method = getattr(mod, 'process_bindings')
 
             try:
