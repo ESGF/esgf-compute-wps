@@ -4,27 +4,27 @@ persistence:
   cache:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/wps/cache
+    path: /p/cscratch/nimbus/wps/data/cache
 
   public:
     storageClassName: slow
     capacity: 100Gi
-    path: /opt/wps/public
+    path: /p/cscratch/nimbus/wps/data/public
 
   postgresql:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/wps/postgresql
+    path: /opt/nimbus/wps/postgresql
 
   postgresql-backup:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/wps/postgresql_backup
+    path: /opt/nimbus/wps/postgresql-backup
 
   redis:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/wps/redis
+    path: /opt/nimbus/wps/redis
 
 dask:
   image: jasonb87/cwt_celery
@@ -34,8 +34,8 @@ dask:
 
   workers: 10
 
-  nthreads: 2
-  nprocs: 2
+  nthreads: 4
+  nprocs: 1
   memoryLimit: 8GB
 
   resources:
@@ -52,7 +52,7 @@ dask:
 
     imagePullPolicy: IfNotPresent
 
-    timeout: 60
+    timeout: 120
 
     nodeSelector:
       tier: backend
@@ -81,7 +81,7 @@ dask:
         memory: 512Mi
 
 nginx:
-  replicas: 0
+  replicas: 1
   image: jasonb87/cwt_webapp
   imageTag: devel
 
@@ -229,7 +229,7 @@ celery:
         name: metrics
 
 thredds:
-  replicas: 0
+  replicas: 1
   image: jasonb87/cwt_thredds
   imageTag: 4.6.10
 
