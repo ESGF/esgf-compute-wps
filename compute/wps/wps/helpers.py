@@ -54,7 +54,7 @@ def int_or_float(value):
 def queue_from_identifier(identifier):
     module, name = identifier.split('.')
 
-    return QUEUE.get(module.lower(), 'default')
+    return QUEUE.get(module.lower(), DEFAULT_QUEUE)
 
 
 def default(obj):
