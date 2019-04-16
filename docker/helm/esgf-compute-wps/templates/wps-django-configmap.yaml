@@ -33,7 +33,7 @@ data:
     [dask]
     scheduler={{ .Release.Name }}-dask-scheduler:8786
     workers={{ .Values.dask.workers }}
-    kube.namesapce={{ .Values.dask.provisioner.namespace }}
+    kube.namespace={{ .Values.dask.provisioner.namespace }}
 
     [wps]
     title={{ .Values.wps.title }}

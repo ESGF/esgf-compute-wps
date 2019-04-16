@@ -79,6 +79,8 @@ def register_process(backend, process, **kwargs):
             'version': kwargs.get('version', 'devel'),
         }
 
+        BINDINGS[identifier] = func
+
         return func
 
     return wrapper

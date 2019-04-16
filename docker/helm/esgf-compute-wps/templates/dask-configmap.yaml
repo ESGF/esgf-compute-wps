@@ -21,7 +21,7 @@ data:
       {{- end }}
       containers:
       - image: {{ .Values.dask.image }}:{{ .Values.dask.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         env:
         - name: CDAT_ANONYMOUS_LOG
           value: 'no'
@@ -41,3 +41,11 @@ data:
         {{- if and $.Values.dask.resources (not $.Values.development) (not $.Values.ignoreResources) }}
         resources: {{ $.Values.dask.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
+        volumeMounts:
+        - mountPath: /data/public
+          name: public-volume
+          subPath: public
+      volumes:
+      - name: public-volume
+        persistentVolumeClaim:
+          claimName: public-pvc
