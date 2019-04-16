@@ -636,29 +636,22 @@ def sum_func(self, context):
     def process(context, data, var, map):
         axes = context.operation.get_parameter('axes', True)
 
-        axes_index = [x.id for x in var.getAxisList()]
+        axes_index = []
 
         for x in axes.values:
-            try:
-                index = axes_index.index(x)
-            except ValueError:
-                raise WPSError('Did not find axis %r in file', x)
+            index = var.getAxisIndex(x)
 
-            data = data.sum(axis=index)
+            if index == -1:
+                raise WPSError('Failed to find axis %r in source file', x)
 
-            logger.info('Sum over %r %r', x, data)
-
-            try:
-                axes_index.remove(x)
-            except ValueError:
-                raise Exception('Should not hit this since we indexed the value')
+            axes_index.append(index)
 
             try:
                 map.pop(x)
             except KeyError:
                 raise Exception('Axis %r not present in mapped domain', x)
 
-        return data
+        return data.sum(axis=tuple(axes_index))
 
     return process_single(context, process)
 
@@ -669,29 +662,22 @@ def max_func(self, context):
     def process(context, data, var, map):
         axes = context.operation.get_parameter('axes', True)
 
-        axes_index = [x.id for x in var.getAxisList()]
+        axes_index = []
 
         for x in axes.values:
-            try:
-                index = axes_index.index(x)
-            except ValueError:
-                raise WPSError('Did not find axis %r in file', x)
+            index = var.getAxisIndex(x)
 
-            data = data.max(axis=index)
+            if index == -1:
+                raise WPSError('Failed to find axis %r in source file', x)
 
-            logger.info('Sum over %r %r', x, data)
-
-            try:
-                axes_index.remove(x)
-            except ValueError:
-                raise Exception('Should not hit this since we indexed the value')
+            axes_index.append(index)
 
             try:
                 map.pop(x)
             except KeyError:
                 raise Exception('Axis %r not present in mapped domain', x)
 
-        return data
+        return data.max(axis=tuple(axes_index))
 
     return process_single(context, process)
 
@@ -702,28 +688,21 @@ def min_func(self, context):
     def process(context, data, var, map):
         axes = context.operation.get_parameter('axes', True)
 
-        axes_index = [x.id for x in var.getAxisList()]
+        axes_index = []
 
         for x in axes.values:
-            try:
-                index = axes_index.index(x)
-            except ValueError:
-                raise WPSError('Did not find axis %r in file', x)
+            index = var.getAxisIndex(x)
 
-            data = data.min(axis=index)
+            if index == -1:
+                raise WPSError('Failed to find axis %r in source file', x)
 
-            logger.info('Sum over %r %r', x, data)
-
-            try:
-                axes_index.remove(x)
-            except ValueError:
-                raise Exception('Should not hit this since we indexed the value')
+            axes_index.append(index)
 
             try:
                 map.pop(x)
             except KeyError:
                 raise Exception('Axis %r not present in mapped domain', x)
 
-        return data
+        return data.min(axis=tuple(axes_index))
 
     return process_single(context, process)
