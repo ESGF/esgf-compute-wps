@@ -33,7 +33,10 @@ def discover_processes():
         if 'discover_processes' in dir(mod):
             method = getattr(mod, 'discover_processes')
 
-            data = method()
+            try:
+                data = method()
+            except Exception:
+                pass
 
             processes.extend(data)
 
