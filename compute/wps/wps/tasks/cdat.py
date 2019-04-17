@@ -359,53 +359,43 @@ def merge_variables(context, data, domain):
     gattrs = None
 
     for input in context.inputs:
+        processed_time = False
+
         with cdms2.open(input.uri) as infile:
             # Grab global attributes from first file.
             if gattrs is None:
                 gattrs = infile.attributes
 
-            # Iterate all variables in file
+            # Iterate over variables in file
             for v in infile.getVariables():
-                # Variable is the variable being processed.
-                if v.id == input.var_name:
-                    for a in v.getAxisList():
-                        if a.isTime():
-                            # If time axis and not been seen yet, a dict is init otherwise
-                            # the sections are appended. A sub-axis is not taken until all
-                            # sections are concatenated.
-                            if a.id in axes:
-                                axes[a.id]['data'].append(a.clone())
-                            else:
-                                axes[a.id] = {'data': [a.clone(), ], 'attrs': a.attributes}
-                        elif a.id not in axes:
-                            # Grab the sub-axis of non-temporal axes
-                            asel = domain.get(a.id, slice(None, None, None))
-
-                            i, j, k = slice_to_ijk(a, asel)
-
-                            axes[a.id] = {'data': a.subAxis(i, j, k), 'attrs': a.attributes}
+                for a in v.getAxisList():
+                    if a.isTime() and not processed_time:
+                        if a.id in axes:
+                            axes[a.id]['data'].append(a.clone())
+                        else:
+                            axes[a.id] = {'data': [a.clone(), ], 'attrs': a.attributes.copy()}
+                        processed_time = True
+                    elif a.id not in axes:
+                        asel = domain.get(a.id, slice(None, None, None))
+                        i, j, k = slice_to_ijk(a, asel)
+                        axes[a.id] = {'data': a.subAxis(i, j, k), 'attrs': a.attributes.copy()}
 
                 if v.id == input.var_name:
-                    # Substite the variable being processed with the dask.Array thats been created
                     if v.id not in vars:
-                        vars[v.id] = {'data': data, 'attrs': v.attributes}
+                        vars[v.id] = {'data': data, 'attrs': v.attributes.copy()}
                 else:
-                    if v.getTime() is not None:
-                        # Variable includes time axis, usually time_bnds. Init the dict if not seen before
-                        # otherwise append next sections. We don't subset until we concatenate all sections.
+                    if v.getTime() is None:
+                        if v.id not in vars:
+                            vsel = dict((x.id, domain[x.id]) for x in v.getAxisList() if x.id in domain)
+                            vars[v.id] = {'data': v(**vsel), 'attrs': v.attributes.copy()}
+                    else:
                         if v.id in vars:
                             vars[v.id]['data'].append(v())
                         else:
-                            vars[v.id] = {'data': [v(), ], 'attrs': v.attributes}
-                    elif v.id not in vars:
-                        # Variable is not being processed and does not contain the time access, usually
-                        # lat_bnds or lon_bnds. Grab a subregion of the variable.
-                        vsel = dict((x.id, domain[x.id]) for x in v.getAxisList() if x.id in domain)
-                        vars[v.id] = {'data': v(**vsel), 'attrs': v.attributes}
+                            vars[v.id] = {'data': [v(), ], 'attrs': v.attributes.copy()}
 
                 if 'axes' not in vars[v.id]:
-                    # Collected the axis names for the variable.
-                    vars[v.id]['axes'] = [x.id for x in v.getAxisList() if x.id in domain]
+                    vars[v.id]['axes'] = [x.id for x in v.getAxisList()]
 
     # Concatenate time axis and grab subAxis.
     for x, y in list(axes.items()):
@@ -455,18 +445,17 @@ def output_with_attributes(var_name, gattrs, axes, vars):
 
     # Create xarray.DataArray for all variables
     for name, var in list(vars.items()):
+        coords = {}
+
+        # Grab the xarray.DataArrays containing the axes in the varibale
+        for a in var['axes']:
+            coords[a] = xr_axes[a]
+
+        xr_vars[name] = xr.DataArray(var['data'], name=name, dims=coords.keys(), coords=coords, attrs=var['attrs'])
+
+        # Set the _FillValue to 1e20 as a default
         if name == var_name:
-            coords = {}
-
-            # Grab the xarray.DataArrays containing the axes in the varibale
-            for a in var['axes']:
-                coords[a] = xr_axes[a]
-
-            xr_vars[name] = xr.DataArray(var['data'], name=name, dims=coords.keys(), coords=coords, attrs=var['attrs'])
-
-            # Set the _FillValue to 1e20 as a default
-            if name == var_name:
-                xr_vars[name].attrs['_FillValue'] = 1e20
+            xr_vars[name].attrs['_FillValue'] = 1e20
 
     return xr.Dataset(xr_vars, attrs=gattrs)
 
