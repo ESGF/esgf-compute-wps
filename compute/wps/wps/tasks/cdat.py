@@ -876,27 +876,19 @@ def build_aggregate(context, vars, cert):
     return subset_data, combined
 
 
-def build_process(context, var, data, process, map):
+def build_process(context, data, process, map):
     axes = context.operation.get_parameter('axes', True)
-
-    axes_index = []
 
     context.job.update('Creating process graph over axes {!r}', axes.values)
 
-    for x in axes.values:
-        index = var.getAxisIndex(x)
+    axis_keys = list(map.keys())
 
-        if index == -1:
-            raise WPSError('Failed to find axis %r in source file', x)
-
-        axes_index.append(index)
-
-        try:
-            map.pop(x)
-        except KeyError:
-            raise Exception('Axis %r not present in mapped domain', x)
+    axes_index = [axis_keys.index(x) for x in axes.values]
 
     data = process(data, axis=tuple(axes_index))
+
+    for x in axes_index:
+        map.pop(axis_keys[x])
 
     logger.info('Process %r created new map %r', data, map)
 
@@ -928,7 +920,7 @@ def process_single(context, process):
 
     # Apply process function is present.
     if process is not None:
-        data = build_process(context, var, data, process, map)
+        data = build_process(context, data, process, map)
 
     # Collect variable/axis data and attributes
     gattrs, axes, vars = merge_variables(context, [file, ], data, map)
