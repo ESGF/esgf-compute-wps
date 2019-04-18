@@ -13,6 +13,7 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 
 from wps import context
+from wps import AccessError
 from wps import WPSError
 from wps.util import wps_response
 
@@ -106,20 +107,6 @@ def register_process(backend, process, **kwargs):
 
 
 class CWTBaseTask(celery.Task):
-    def status(self, fmt, *args, **kwargs):
-        if isinstance(self.request.args[0], (list, tuple)):
-            context = self.request.args[0][0]
-        else:
-            context = self.request.args[0]
-
-        message = fmt.format(*args, **kwargs)
-
-        logger.info('%s %r', message, context.job.progress)
-
-        task_message = '[{}] {}'.format(self.request.id, message)
-
-        context.job.update(task_message)
-
     def on_retry(self, exc, task_id, args, kwargs, einfo):
         logger.info('Retry %r', args)
 
@@ -137,10 +124,12 @@ class CWTBaseTask(celery.Task):
             job.send_failed_email(args[0], str(exc))
 
     def on_success(self, retval, task_id, args, kwargs):
-        logger.info('Success %r', args)
-
-        if len(args) > 0 and isinstance(args[0], context.OperationContext):
-            args[0].job.step_complete()
+        pass
 
 
-cwt_shared_task = partial(shared_task, bind=True, base=CWTBaseTask)
+cwt_shared_task = partial(shared_task,
+                          bind=True,
+                          base=CWTBaseTask,
+                          autoretry_for=(AccessError, ),
+                          retry_kwargs={'max_retries': 4},
+                          retry_backoff=True)

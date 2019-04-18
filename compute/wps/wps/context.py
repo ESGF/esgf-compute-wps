@@ -128,6 +128,47 @@ class WorkflowOperationContext(object):
 
         return deque(sorted)
 
+    def to_operation_context(self, process, extra):
+        inputs = []
+        to_process = process.inputs
+
+        for x in process.inputs:
+            try:
+                inputs.append(self.variable[x])
+            except KeyError:
+                pass
+            else:
+                to_process.pop(to_process.index(x))
+
+        for x in extra.keys():
+            try:
+                inputs.append(extra[x])
+            except KeyError:
+                pass
+            else:
+                to_process.pop(to_process.index(x))
+
+        if len(to_process) > 0:
+            raise WPSError('Did not resolve all inputs for {!r}', process.identifier)
+
+        domain = self.domain.get(process.domain, None)
+
+        op = OperationContext(inputs, domain, process)
+
+        op.user = self.user
+
+        op.job = self.job
+
+        return op
+
+    def can_compute_local(self, process):
+        # TODO add some logic to determine if computing locally is optimal
+        return True
+
+    def where_to_compute(self, process):
+        # TODO add some logic to determine where to execute
+        return cwt.WPSClient(settings.WPS_ENDPOINT, api_key=self.user.auth.api_key)
+
     def add_output(self, operation):
         # Create a new variable, change the name to add some description
         name = '{!s}-{!s}'.format(operation.identifier, operation.name)
@@ -154,8 +195,6 @@ class WorkflowOperationContext(object):
 
         if not result:
             raise WPSError('Operation {!r} failed', operation.identifier)
-
-        self.job.step_complete()
 
     def wait_for_inputs(self, operation):
         completed = []
