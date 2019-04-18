@@ -56,7 +56,7 @@ data:
 
     wps.admin.email={{ .Values.wps.adminEmail | default "Unknown" }}
     wps.endpoint={{ .Values.wps.externalHost }}/wps/
-    wps.status_location={{ .Values.wps.externalHost }}/wps/status/{job_id}/
+    wps.status_location={{ .Values.wps.externalHost }}/api/status/{job_id}/
     wps.dap_url={{ .Values.wps.externalHost }}/threddsCWT/dodsC/public/{filename}
     wps.login_url={{ .Values.wps.externalHost }}/api/openid/login/
     wps.profile_url={{ .Values.wps.externalHost }}/user/profile
