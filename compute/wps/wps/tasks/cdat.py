@@ -103,7 +103,7 @@ def workflow_func(self, context):
     Returns:
         Updated context.
     """
-    raise WPSError('Workflows are disabled')
+    raise WPSError('Workflows have been disabled')
 
     return context
 

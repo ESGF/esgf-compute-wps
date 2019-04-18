@@ -130,7 +130,7 @@ class WorkflowOperationContext(object):
 
     def to_operation_context(self, process, extra):
         inputs = []
-        to_process = process.inputs
+        to_process = process.inputs.copy()
 
         for x in process.inputs:
             try:
@@ -140,7 +140,7 @@ class WorkflowOperationContext(object):
             else:
                 to_process.pop(to_process.index(x))
 
-        for x in extra.keys():
+        for x in process.inputs:
             try:
                 inputs.append(extra[x])
             except KeyError:
