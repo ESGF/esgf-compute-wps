@@ -496,12 +496,14 @@ class Job(models.Model):
     def retry(self, exception):
         self.update('Retrying... {}', exception)
 
-    def update(self, message, percent=None,  *args, **kwargs):
+    def update(self, message,  *args, **kwargs):
+        percent = kwargs.pop('percent', 0)
+
         message = message.format(*args, **kwargs)
 
         started = self.status.filter(status=ProcessStarted).latest('created_date')
 
-        started.set_message(message, percent or 0)
+        started.set_message(message, percent)
 
     def statusSince(self, date):
         return [
