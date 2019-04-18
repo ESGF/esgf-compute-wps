@@ -13,7 +13,7 @@
 				<ows:Identifier>variable</ows:Identifier>
 				<ows:Title>variable</ows:Title>
 				<ows:Abstract>List of input variables</ows:Abstract>
-				<ComplexOutput>
+				<ComplexData>
 					<Default>
 						<Format>
               <MimeType>application/json</MimeType>
@@ -24,13 +24,13 @@
               <MimeType>application/json</MimeType>
 						</Format>
 					</Supported>
-				</ComplexOutput>
+				</ComplexData>
 			</Input>
 			<Input minOccurs="1" maxOccurs="1">
 				<ows:Identifier>domain</ows:Identifier>
 				<ows:Title>domain</ows:Title>
 				<ows:Abstract>List of domains</ows:Abstract>
-				<ComplexOutput>
+				<ComplexData>
 					<Default>
 						<Format>
               <MimeType>application/json</MimeType>
@@ -41,13 +41,13 @@
               <MimeType>application/json</MimeType>
 						</Format>
 					</Supported>
-				</ComplexOutput>
+				</ComplexData>
 			</Input>
 			<Input minOccurs="1" maxOccurs="1">
 				<ows:Identifier>operation</ows:Identifier>
 				<ows:Title>operation</ows:Title>
 				<ows:Abstract>List of input operations</ows:Abstract>
-				<ComplexOutput>
+				<ComplexData>
 					<Default>
 						<Format>
               <MimeType>application/json</MimeType>
@@ -58,7 +58,7 @@
               <MimeType>application/json</MimeType>
 						</Format>
 					</Supported>
-				</ComplexOutput>
+				</ComplexData>
 			</Input>
 		</DataInputs>
 		<ProcessOutputs>
