@@ -1,20 +1,16 @@
-from future import standard_library
-standard_library.install_aliases()
 import os
-import sys
 import urllib.parse
 
 if 'CWT_METRICS' in os.environ:
     os.environ['prometheus_multiproc_dir'] = os.environ['CWT_METRICS']
 
-from prometheus_client import Counter
-from prometheus_client import Gauge
-from prometheus_client import Histogram
-from prometheus_client import Summary
-from prometheus_client import CollectorRegistry
-from prometheus_client import REGISTRY
+from prometheus_client import Counter # noqa
+from prometheus_client import Histogram # noqa
+from prometheus_client import Summary # noqa
+from prometheus_client import CollectorRegistry # noqa
+from prometheus_client import REGISTRY # noqa
 
-from celery.task.control import inspect
+from celery.task.control import inspect # noqa
 
 
 def track_file(variable):
@@ -23,10 +19,12 @@ def track_file(variable):
     WPS_FILE_ACCESSED.labels(parts.hostname, parts.path,
                              variable.var_name).inc()
 
+
 def track_login(counter, url):
     parts = urllib.parse.urlparse(url)
 
     counter.labels(parts.hostname).inc()
+
 
 def jobs_queued():
     i = inspect()
@@ -86,14 +84,7 @@ WPS_DATA_DOWNLOAD_BYTES = Counter('wps_data_download_bytes', 'Number of bytes'
                                   ' read remotely', ['host', 'variable'])
 
 WPS_DATA_ACCESS_FAILED = Counter('wps_data_access_failed_total', 'Number'
-                                   ' of times remote sites are inaccesible',
-                                   ['host'])
-
-WPS_DATA_CACHE_READ = Counter('wps_data_cache_read_bytes', 'Number of bytes'
-                              ' read from cache')
-
-WPS_DATA_CACHE_WRITE = Counter('wps_data_cache_write_bytes', 'Number of bytes'
-                                ' written to cache')
+                                 ' of times remote sites are inaccesible', ['host'])
 
 WPS_DATA_OUTPUT = Counter('wps_data_output_bytes', 'Number of bytes written')
 

@@ -79,10 +79,17 @@ METRICS_ABSTRACT = """
 Returns the current metrics of the server.
 """
 
+CPU_AVG_5m = 'sum(rate(container_cpu_usage_seconds_total{container_name=~".*(dask|celery).*"}[5m]))'
+CPU_AVG_1h = 'sum(rate(container_cpu_usage_seconds_total{container_name=~".*(dask|celery).*"}[1h]))'
+CPU_CNT = 'sum(machine_cpu_cores)'
+MEM_AVG_5m = 'sum(avg_over_time(container_memory_usage_bytes{container_name=~".*(dask|celery).*"}[5m]))'
+MEM_AVG_1h = 'sum(avg_over_time(container_memory_usage_bytes{container_name=~".*(dask|celery).*"}[1h]))'
+MEM_AVAIL = 'sum(container_memory_max_usage_bytes{container_name=~".*(dask|celery).*"})'
+WPS_REQ = 'sum(wps_request_seconds_count)'
+WPS_REQ_AVG_5m = 'sum(avg_over_time(wps_request_seconds_count[5m]))'
 
-@base.register_process('CDAT', 'metrics', abstract=METRICS_ABSTRACT, metadata={'inputs': '0'})
-@base.cwt_shared_task()
-def metrics_task(self, context):
+
+def query_health():
     user_jobs_queued = models.Job.objects.filter(status__status=models.ProcessAccepted).exclude(
         status__status=models.ProcessStarted).exclude(status__status=models.ProcessFailed).exclude(
             status__status=models.ProcessSucceeded).count()
@@ -90,10 +97,31 @@ def metrics_task(self, context):
     user_jobs_running = models.Job.objects.filter(status__status=models.ProcessStarted).exclude(
         status__status=models.ProcessFailed).exclude(status__status=models.ProcessSucceeded).count()
 
-    operator_count = query_multiple_value('request', type=float, query='sum(wps_request_seconds_count) by (request)')
+    data = {
+        'user_jobs_running': user_jobs_running,
+        'user_jobs_queued': user_jobs_queued,
+        'cpu_avg_5m': query_single_value(type=float, query=CPU_AVG_5m),
+        'cpu_avg_1h': query_single_value(type=float, query=CPU_AVG_1h),
+        'cpu_count': query_single_value(type=int, query=CPU_CNT),
+        'memory_usage_avg_bytes_5m': query_single_value(type=float, query=MEM_AVG_5m),
+        'memory_usage_avg_bytes_1h': query_single_value(type=float, query=MEM_AVG_1h),
+        'memory_available': query_single_value(type=int, query=MEM_AVAIL),
+        'wps_requests': query_single_value(type=int, query=WPS_REQ),
+        'wps_requests_avg_5m': query_single_value(type=float, query=WPS_REQ_AVG_5m),
+    }
 
-    operator_avg_time = query_multiple_value('request', type=float,
-                                             query='avg(wps_request_seconds_sum) by (request)')
+    return data
+
+
+WPS_REQ_SUM = 'sum(wps_request_seconds_count) by (request)'
+WPS_REQ_AVG = 'avg(wps_request_seconds_sum) by (request)'
+FILE_CNT = 'sum(wps_file_accessed{url!=""}) by (url)'
+
+
+def query_usage():
+    operator_count = query_multiple_value('request', type=float, query=WPS_REQ_SUM)
+
+    operator_avg_time = query_multiple_value('request', type=float, query=WPS_REQ_AVG)
 
     operator = {}
 
@@ -109,7 +137,7 @@ def metrics_task(self, context):
     except AttributeError:
         operator['operations'] = 'Unavailable'
 
-    file_count = query_multiple_value('url', query='sum(wps_file_accessed{url!=""}) by (url)')
+    file_count = query_multiple_value('url', query=FILE_CNT)
 
     file = {}
 
@@ -129,29 +157,23 @@ def metrics_task(self, context):
         file['files'] = 'Unavailable'
 
     data = {
-        'health': {
-            'user_jobs_running': user_jobs_running,
-            'user_jobs_queued': user_jobs_queued,
-            'cpu_avg': query_single_value(type=float,
-                                          query='sum(rate(container_cpu_usage_seconds_total{namespace="default",container_name=~".*(ingress|wps).*"}[5m]))'),
-            'cpu_count': query_single_value(type=int, query='sum(machine_cpu_cores)'),
-            'memory_usage_avg_5m': query_single_value(type=float,
-                                                      query='sum(avg_over_time(container_memory_usage_bytes{container_name=~".*(celery|wps).*"}[5m]))'),
-            'memory_usage': query_single_value(type=float,
-                                             query='sum(container_memory_usage_bytes{container_name=~".*(celery|wps).*"})'),
-            'memory_available': query_single_value(type=int,
-                                                   query='sum(container_memory_max_usage_bytes{container_name=~".*(celery|wps).*"})'),
-            'wps_requests': query_single_value(type=int,
-                                               query='sum(wps_request_seconds_count)'),
-            'wps_requests_avg_5m': query_single_value(type=float,
-                                                   query='sum(avg_over_time(wps_request_seconds_count[5m]))'),
-        },
-        'usage': {
-            'files': file,
-            'operators': operator,
-        },
+        'files': file,
+        'operators': operator,
+    }
+
+    return data
+
+
+@base.register_process('CDAT', 'metrics', abstract=METRICS_ABSTRACT, metadata={'inputs': '0'})
+@base.cwt_shared_task()
+def metrics_task(self, context):
+    data = {
         'time': timezone.now().ctime(),
     }
+
+    data.update(health=query_health())
+
+    data.update(usage=query_usage())
 
     context.output_data = json.dumps(data)
 
