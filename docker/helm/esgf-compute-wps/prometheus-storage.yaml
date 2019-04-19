@@ -1,6 +1,40 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
+  name: prometheus-alert-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: slow
+  selector:
+    matchLabels:
+      app: prometheus-alert
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: prometheus-alert-pv
+  labels:
+    app: prometheus-alert
+spec:
+  capacity:
+    storage: 20Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: slow
+  hostPath:
+    path: /opt/prom-alert-storage
+    type: DirectoryOrCreate
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
   name: prometheus-pvc
 spec:
   accessModes:
@@ -29,5 +63,5 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/docker/persistence
+    path: /opt/prom-storage
     type: DirectoryOrCreate

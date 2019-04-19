@@ -1,5 +1,23 @@
 alertmanager:
-  enabled: false
+  enabled: true
+  prefixURL: /prometheus-alert
+  baseURL: /prometheus-alert
+
+  ingress:
+    enabled: true
+    hosts:
+    - /prometheus-alert
+
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
+
+  persistentVolume:
+    enabled: true
+    existingClaim: prometheus-alert-pvc
+    subPath: prometheus
 
 pushgateway:
   enabled: false
