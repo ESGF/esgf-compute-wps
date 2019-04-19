@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-dask-bokeh
+  labels:
+    app: {{ .Release.Name }}-dask-bokeh
+    release: {{ .Release.Name }}
+{{- if .Values.dask.scheduler.bokeh.annotations }}
+  annotations:
+{{ toYaml .Values.dask.scheduler.bokeh.annotations | nindent 4 }}
+{{- end }}
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /daskboard
+        backend:
+          serviceName: {{ .Release.Name }}-dask-scheduler
+          servicePort: 8787

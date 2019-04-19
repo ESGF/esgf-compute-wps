@@ -16,10 +16,10 @@ persistence:
     capacity: 10Gi
     path: /opt/nimbus/wps/postgresql
 
-  postgresql-backup:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/nimbus/wps/postgresql-backup
+  # postgresql-backup:
+  #   storageClassName: slow
+  #   capacity: 10Gi
+  #   path: /opt/nimbus/wps/postgresql-backup
 
   redis:
     storageClassName: slow
@@ -71,6 +71,18 @@ dask:
   scheduler:
     nodeSelector:
       tier: backend
+
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /daskboard/metrics
+      prometheus.io/port: "8787"
+
+    bokeh:
+      annotations:
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
 
     resources:
       limits:
