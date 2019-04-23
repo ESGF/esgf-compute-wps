@@ -66,9 +66,15 @@ class InputManager(object):
     def subset_grid(self, grid, selector):
         target = cdms2.MV2.ones(grid.shape)
 
+        logger.debug('Target grid %r'. target.shape)
+
         target.setAxisList(grid.getAxisList())
 
+        logger.info('Subsetting grid with selector %r', selector)
+
         target = target(**selector)
+
+        logger.debug('Target grid new shape %r', target.shape)
 
         return target.getGrid()
 
@@ -92,6 +98,8 @@ class InputManager(object):
             delta = int(groups[3])
 
         start = default_start + (delta / 2.0)
+
+        logger.info('Parsed uniform args start %r default_n %r delta %r', start, default_n, delta)
 
         return start, default_n, delta
 
