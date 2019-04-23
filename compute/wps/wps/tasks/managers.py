@@ -63,6 +63,29 @@ class InputManager(object):
 
         return cls(fm, uris, var_names[0])
 
+    def copy(self):
+        new = InputManager(self.fm, self.uris, self.var_name)
+
+        new.domain = self.domain
+
+        new.map = self.map.copy()
+
+        new.data = self.data
+
+        new.attrs = self.attrs.copy()
+
+        for x, y in self.vars.items():
+            if x == self.var_name:
+                new.vars[x] = y
+            else:
+                new.vars[x] = y.clone()
+
+        new.vars_axes = self.vars_axes.copy()
+
+        new.axes = dict((x, y.clone()) for x, y in self.axes.items())
+
+        return new
+
     def subset_grid(self, grid, selector):
         target = cdms2.MV2.ones(grid.shape)
 
@@ -351,7 +374,7 @@ class InputManager(object):
 
         return xr.Dataset(vars, attrs=self.attrs['global'])
 
-    def subset(self):
+    def subset(self, domain):
         data = []
 
         logger.info('Subsetting the inputs')
@@ -374,6 +397,8 @@ class InputManager(object):
             logger.info('Concatenating data %r', data)
         else:
             data = data[0]
+
+        self.map_domain(domain)
 
         selector = tuple(self.map.values())
 

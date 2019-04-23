@@ -5,7 +5,6 @@ from builtins import str
 from builtins import object
 import os
 import uuid
-from collections import deque
 
 import cwt
 from celery.utils.log import get_task_logger
@@ -25,10 +24,7 @@ class WorkflowOperationContext(object):
         self.job = None
         self.user = None
         self.process = None
-        self.output = []
-        self.intermediate = {}
-        self.output_id = []
-        self.state = {}
+        self.output_paths = {}
 
     @staticmethod
     def load_model(obj, name, model_class):
@@ -89,152 +85,59 @@ class WorkflowOperationContext(object):
 
         return data
 
-    def build_execute_graph(self):
-        op_keys = list(self.operation.keys())
+    def output_ops(self):
+        out_deg = dict((x, self.node_out_deg(x)) for x in self.operation.keys())
 
-        adjacency = dict((x, dict((y, True if x in self.operation[y].inputs else
-                                   False) for y in op_keys)) for x in op_keys)
+        return [x for x, y in out_deg.items() if y == 0]
 
-        sources = [x for x in op_keys if not any(adjacency[y][x] for y in op_keys)]
+    def node_in_deg(self, node):
+        return len([x for x in node.inputs if x in self.operation])
 
-        others = [x for x in op_keys if x not in sources]
+    def node_out_deg(self, node):
+        return len([x for x, y in self.operation.items() if node in y.inputs])
 
-        self.output_id = [x for x in op_keys if not any(adjacency[x].values())]
+    def find_neighbors(self, node):
+        return [x for x, y in self.operation.items() if node in y.inputs]
 
-        sorted = []
+    def topo_sort(self):
+        in_deg = dict((x, self.node_in_deg(y)) for x, y in self.operation.items())
 
-        while len(sources) > 0:
-            item = sources.pop()
+        neigh = dict((x, self.find_neighbors(x)) for x in in_deg.keys())
 
-            sorted.append(self.operation[item])
+        queue = [x for x, y in in_deg.items() if y == 0]
 
-            for name, connected in list(adjacency[item].items()):
-                if connected:
-                    sorted.append(self.operation[name])
+        cnt = 0
 
-                    index = others.index(name)
+        topo_order = []
 
-                    others.pop(index)
+        while queue:
+            next = queue.pop(0)
 
-                    self.operation[name].add_parameters(intermediate='true')
+            topo_order.append(self.operation[next])
 
-        return deque(sorted)
+            for x in neigh[next]:
+                in_deg[x] -= 1
 
-    def to_operation_context(self, process, extra):
-        inputs = []
-        to_process = process.inputs.copy()
+                if in_deg[x] == 0:
+                    queue.append(x)
 
-        for x in process.inputs:
-            try:
-                inputs.append(self.variable[x])
-            except KeyError:
-                pass
-            else:
-                to_process.pop(to_process.index(x))
+            cnt += 1
 
-        for x in process.inputs:
-            try:
-                inputs.append(extra[x])
-            except KeyError:
-                pass
-            else:
-                to_process.pop(to_process.index(x))
+        if cnt != len(self.operation):
+            raise WPSError('Failed to compute the graph')
 
-        if len(to_process) > 0:
-            raise WPSError('Did not resolve all inputs for {!r}', process.identifier)
+        return topo_order
 
-        domain = self.domain.get(process.domain, None)
+    def gen_public_path(self):
+        filename = '{}.nc'.format(uuid.uuid4())
 
-        op = OperationContext(inputs, domain, process)
+        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
+                                 str(self.job.id))
 
-        op.user = self.user
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
 
-        op.job = self.job
-
-        return op
-
-    def can_compute_local(self, process):
-        # TODO add some logic to determine if computing locally is optimal
-        return True
-
-    def where_to_compute(self, process):
-        # TODO add some logic to determine where to execute
-        return cwt.WPSClient(settings.WPS_ENDPOINT, api_key=self.user.auth.api_key)
-
-    def add_output(self, operation):
-        # Create a new variable, change the name to add some description
-        name = '{!s}-{!s}'.format(operation.identifier, operation.name)
-
-        output = operation.output
-
-        variable = cwt.Variable(output.uri, output.var_name, name=name)
-
-        # Add new variable to global dict
-        # self.variable[operation.name] = variable
-
-        if operation.name in self.output_id:
-            # Add to output list
-            self.output.append(variable)
-        else:
-            self.intermediate[operation.name] = variable
-
-    def wait_operation(self, operation):
-        # TODO something other than a constant timeout
-        try:
-            result = operation.wait(timeout=10*60)
-        except cwt.CWTError as e:
-            raise WPSError('Process {!r} failed with {!r}', operation.identifier, str(e))
-
-        if not result:
-            raise WPSError('Operation {!r} failed', operation.identifier)
-
-    def wait_for_inputs(self, operation):
-        completed = []
-
-        for input in operation.inputs:
-            if input in self.state:
-                executing_operation = self.state.pop(input)
-
-                self.wait_operation(executing_operation)
-
-                self.add_output(executing_operation)
-
-                completed.append(executing_operation)
-
-        return completed
-
-    def wait_remaining(self):
-        completed = []
-
-        for operation in list(self.state.values()):
-            self.wait_operation(operation)
-
-            self.add_output(operation)
-
-            del self.state[operation.name]
-
-            completed.append(operation)
-
-        return completed
-
-    def add_executing(self, operation):
-        self.state[operation.name] = operation
-
-    def get_input(self, name):
-        if name in self.variable:
-            return self.variable[name]
-        elif name in self.intermediate:
-            return self.intermediate[name]
-
-        raise WPSError('Unable to locate input {!r}', name)
-
-    def prepare(self, operation):
-        operation.inputs = [self.get_input(x) for x in operation.inputs]
-
-        operation.domain = self.domain.get(operation.domain, None)
-
-        if 'domain' in operation.parameters:
-            del operation.parameters['domain']
+        return os.path.join(base_path, filename)
 
 
 class OperationContext(object):

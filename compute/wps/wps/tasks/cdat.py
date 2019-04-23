@@ -91,7 +91,56 @@ def workflow_func(self, context):
     Returns:
         Updated context.
     """
-    raise WPSError('Workflows have been disabled')
+    topo_order = context.topo_sort()
+
+    fm = managers.FileManager(context.user)
+
+    interm = {}
+
+    while topo_order:
+        next = topo_order.pop(0)
+
+        if all(x in context.variable for x in next.inputs):
+            variables = [context.variable[x] for x in next.inputs]
+
+            input = managers.InputManager.from_cwt_variables(fm, variables)
+
+            input.subset(context.domain.get(next.domain, None))
+
+            interm[next.name] = input
+        else:
+            data = [interm[x] for x in next.inputs]
+
+            if len(data) > 1:
+                raise WPSError('Multiple inputs not supported')
+            else:
+                data = data[0]
+
+            input = data.copy()
+
+            interm[next.name] = input
+
+    output = context.output_ops()
+
+    manager = init(context, settings.DASK_WORKERS)
+
+    try:
+        delayed = []
+
+        for name in output:
+            dataset = interm[name].to_xarray()
+
+            output_path = context.gen_public_path()
+
+            context.output_paths[name] = output_path
+
+            delayed.append(dataset.to_netcdf(output_path, compute=False))
+
+        fut = manager.client.compute(delayed)
+
+        DaskJobTracker(context, fut)
+    except Exception as e:
+        raise WPSError('Error executing process: {!r}', e)
 
     return context
 
@@ -157,9 +206,7 @@ def process_single(context, process):
 
     input = managers.InputManager.from_cwt_variable(fm, context.inputs[0])
 
-    input.map_domain(context.domain)
-
-    input.subset()
+    input.subset(context.domain)
 
     context.job.update('Subset data shape {!r}', input.data.shape)
 
@@ -214,9 +261,7 @@ def aggregate_func(self, context):
 
     input = managers.InputManager.from_cwt_variables(fm, context.inputs)
 
-    input.map_domain(context.domain)
-
-    input.subset()
+    input.subset(context.domain)
 
     context.job.update('Subset data shape {!r}', input.data.shape)
 

@@ -11,6 +11,8 @@ from django.core.mail import EmailMessage
 from wps import metrics
 from wps import models
 from wps.tasks import base
+from wps.context import OperationContext
+from wps.context import WorkflowOperationContext
 
 logger = get_task_logger('wps.tasks.job')
 
@@ -113,48 +115,40 @@ def job_started(self, context):
     return context
 
 
-@base.cwt_shared_task()
-def job_succeeded_workflow(self, context):
-    context.job.succeeded(json.dumps({
-        'outputs': [x.parameterize() for x in
-                    context.output+list(context.intermediate.values())],
-    }))
+def build_output_variable(local_path, var_name, name=None):
+    relpath = os.path.relpath(local_path, settings.WPS_PUBLIC_PATH)
 
-    send_success_email(context, context.output)
+    url = settings.WPS_DAP_URL.format(filename=relpath)
 
-    context.process.track(context.user)
-
-    for variable in list(context.variable.values()):
-        models.File.track(context.user, variable)
-
-        metrics.track_file(variable)
-
-    return context
+    return cwt.Variable(url, var_name, name=name)
 
 
 @base.cwt_shared_task()
 def job_succeeded(self, context):
-    if context.output_data is not None:
-        context.job.succeeded(context.output_data)
+    if isinstance(context, OperationContext):
+        if context.output_data is not None:
+            context.job.succeeded(context.output_data)
 
-        send_success_email_data(context, context.output_data)
-    else:
-        relpath = os.path.relpath(context.output_path, settings.WPS_PUBLIC_PATH)
+            send_success_email_data(context, context.output_data)
+        else:
+            output = build_output_variable(context.output_path, context.inputs[0].var_name)
 
-        url = settings.WPS_DAP_URL.format(filename=relpath)
+            context.job.succeeded(json.dumps(output.to_dict()))
 
-        output = cwt.Variable(url, context.inputs[0].var_name)
+            send_success_email(context, [output, ])
+    elif isinstance(context, WorkflowOperationContext):
+        outputs = []
 
-        context.job.succeeded(json.dumps(output.parameterize()))
+        for name, path in context.output_paths.items():
+            outputs.append(build_output_variable(path, context.var_name, name=name))
 
-        send_success_email(context, [output, ])
+        context.job.succeeded(json.dumps([x.to_dict() for x in outputs]))
 
     context.process.track(context.user)
 
-    if context.operation is not None and context.operation.get_parameter('intermediate') is None:
-        for input in context.inputs:
-            models.File.track(context.user, input)
+    for input in context.inputs:
+        models.File.track(context.user, input)
 
-            metrics.track_file(input)
+        metrics.track_file(input)
 
     return context
