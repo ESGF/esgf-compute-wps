@@ -1,29 +1,24 @@
 #! /usr/bin/env python
 
 from builtins import str
-import collections
-import datetime
 import hashlib
 import json
-import re
 
-import cdms2
 import cdtime
 import cwt
 import requests
 from django.conf import settings
 from django.core.cache import cache
-from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
 from wps import metrics
 from wps import WPSError
-from wps.tasks import credentials
-from wps.context import OperationContext
+from wps.tasks import managers
 
 logger = common.logger
+
 
 class AxisConversionError(WPSError):
     def __init__(self, axis, base_units=None):
@@ -32,9 +27,8 @@ class AxisConversionError(WPSError):
         if base_units is not None:
             msg += ' with base units {base_units}'
 
-        super(AxisConversionError, self).__init__(msg, 
-                                                  axis=axis, 
-                                                  base_units=base_units)
+        super(AxisConversionError, self).__init__(msg, axis=axis, base_units=base_units)
+
 
 def describe_axis(axis):
     """ Describe an axis.
@@ -63,6 +57,7 @@ def describe_axis(axis):
 
     return data
 
+
 def process_axes(header):
     """ Processes the axes of a file.
     Args:
@@ -87,7 +82,7 @@ def process_axes(header):
 
             try:
                 axis_clone.toRelativeTime(base_units)
-            except:
+            except Exception:
                 raise AxisConversionError(axis_clone, base_units)
 
             data['temporal'] = describe_axis(axis_clone)
@@ -100,6 +95,7 @@ def process_axes(header):
                 data['spatial'].append(desc)
 
     return data
+
 
 def process_url(user, prefix_id, var):
     """ Processes a url.
@@ -120,26 +116,23 @@ def process_url(user, prefix_id, var):
     logger.info('Processing %r', var)
 
     if data is None:
-        data = { 'url': var.uri }
+        data = {'url': var.uri}
 
-        context = OperationContext()
+        fm = managers.FileManager(user)
 
-        if not context.check_access(var):
-            cert_path = credentials.load_certificate(user)
-
-            if not context.check_access(var, cert_path):
-                raise WPSError('Unable to access file %r', var.uri)
-
-        with cdms2.open(var.uri) as infile:
-            variable = infile[var.var_name]
+        try:
+            variable = fm.get_variable(var.uri, var.var_name)
 
             axes = process_axes(variable)
+        except Exception as e:
+            raise WPSError('Failed to open {!r}: {!s}', var.uri, e)
 
         data.update(axes)
 
         cache.set(cache_id, data, 24*60*60)
 
     return data
+
 
 def retrieve_axes(user, dataset_id, variable, urls):
     """ Retrieves the axes for a set of urls.
@@ -148,7 +141,7 @@ def retrieve_axes(user, dataset_id, variable, urls):
         dataset_id: A str dataset id.
         variable: A str variable name.
         urls: A list of str url paths.
-        
+
     Returns:
         A list of dicts containing the axes of each file.
     """
@@ -164,6 +157,7 @@ def retrieve_axes(user, dataset_id, variable, urls):
         axes.append(data)
 
     return axes
+
 
 def search_params(dataset_id, query, shard):
     """ Prepares search params for ESGF.
@@ -195,6 +189,7 @@ def search_params(dataset_id, query, shard):
     logger.info('ESGF search params %r', params)
 
     return params
+
 
 def parse_solr_docs(response):
     """ Parses the solr response docs.
@@ -245,7 +240,7 @@ def parse_solr_docs(response):
             # Collect the indexes of the files containing this variable
             variables[var].append(index)
 
-    return { 'variables': variables, 'files': files }
+    return {'variables': variables, 'files': files}
 
 
 def search_solr(dataset_id, index_node, shard=None, query=None):
@@ -259,7 +254,7 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
     Returns:
         A dict containing the parsed solr documents.
     """
-    cache_id = hashlib.md5(dataset_id.encode()).hexdigest()    
+    cache_id = hashlib.md5(dataset_id.encode()).hexdigest()
 
     data = cache.get(cache_id)
 
@@ -286,7 +281,7 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
 
         try:
             response_json = json.loads(response.content)
-        except:
+        except Exception:
             raise Exception('Failed to load JSON response')
 
         data = parse_solr_docs(response_json)
@@ -294,6 +289,7 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
         cache.set(dataset_id, data, 24*60*60)
 
     return data
+
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -311,7 +307,7 @@ def search_variable(request):
             raise common.MissingParameterError(name=str(e))
 
         files = json.loads(files)
-        
+
         if not isinstance(files, list):
             files = [files]
 
@@ -332,6 +328,7 @@ def search_variable(request):
         return common.failed(str(e))
     else:
         return common.success(axes)
+
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -357,6 +354,7 @@ def search_dataset(request):
         return common.failed(str(e))
     else:
         return common.success(dataset_variables)
+
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
