@@ -2,7 +2,7 @@ import cdms2
 from distributed.protocol.serialize import register_serialization
 
 
-def regrid_data(data, axes, grid, tool, method):
+def regrid_chunk(data, axes, grid, tool, method):
     import cdms2
 
     # Subset time to just fit, don't care if its the correct range
