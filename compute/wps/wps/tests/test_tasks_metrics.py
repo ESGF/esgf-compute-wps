@@ -32,7 +32,7 @@ class TaskMetricsTestCase(test.TestCase):
 
         metrics_.metrics_task(context)
 
-        self.assertEqual(mock_get.call_count, 10)
+        self.assertEqual(mock_get.call_count, 11)
 
     @mock.patch.object(requests, 'get')
     def test_query_multiple_value_custom_type(self, mock_get):

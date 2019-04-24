@@ -166,8 +166,8 @@ class ESGFViewsTestCase(test.TestCase):
     @mock.patch('cdms2.open')
     @mock.patch('wps.views.esgf.cache')
     @mock.patch('hashlib.md5')
-    @mock.patch('wps.views.esgf.OperationContext')
-    def test_process_url(self, mock_ctx, mock_md5, mock_cache, mock_open, mock_process):
+    @mock.patch('wps.views.esgf.managers.FileManager')
+    def test_process_url(self, mock_fm, mock_md5, mock_cache, mock_open, mock_process):
         mock_md5.return_value.hexdigest.return_value = 'id'
 
         mock_cache.get.return_value = None
