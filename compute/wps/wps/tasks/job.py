@@ -140,7 +140,7 @@ def job_succeeded(self, context):
         outputs = []
 
         for name, path in context.output_paths.items():
-            outputs.append(build_output_variable(path, context.var_name, name=name))
+            outputs.append(build_output_variable(path, context.inputs[0].var_name, name=name))
 
         context.job.succeeded(json.dumps([x.to_dict() for x in outputs]))
 

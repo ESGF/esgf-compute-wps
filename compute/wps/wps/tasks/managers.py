@@ -6,7 +6,6 @@ from past.utils import old_div
 
 import cdms2
 import cwt
-import dask
 import dask.array as da
 import requests
 import xarray as xr
@@ -16,7 +15,6 @@ from django.core.exceptions import ValidationError
 from wps import metrics
 from wps import WPSError
 from wps.tasks import credentials
-from wps.tasks.dask_serialize import regrid_chunk
 from wps.tasks.dask_serialize import retrieve_chunk
 
 logger = logging.getLogger('wps.tasks.manager')
@@ -78,7 +76,7 @@ class InputManager(object):
             if x == self.var_name:
                 new.vars[x] = y
             else:
-                new.vars[x] = y.clone()
+                new.vars[x] = y.copy()
 
         new.vars_axes = self.vars_axes.copy()
 
@@ -89,7 +87,7 @@ class InputManager(object):
     def subset_grid(self, grid, selector):
         target = cdms2.MV2.ones(grid.shape)
 
-        logger.debug('Target grid %r'. target.shape)
+        logger.debug('Target grid %r', target.shape)
 
         target.setAxisList(grid.getAxisList())
 
@@ -211,56 +209,6 @@ class InputManager(object):
         metrics.WPS_REGRID.labels(gridder.tool, gridder.method, grid_src).inc()
 
         return grid, gridder.tool, gridder.method
-
-    def regrid(self, gridder):
-        if 'lat' in self.map and 'lon' in self.map:
-            if len(self.vars) == 0:
-                self.load_variables_and_axes()
-
-            selector = dict((x, (self.axes[x][0], self.axes[x][-1])) for x in self.map.keys())
-
-            grid, tool, method = self.regrid_context(gridder, selector)
-
-            delayed = self.data.to_delayed().squeeze()
-
-            if delayed.size == 1:
-                delayed = delayed.reshape((1, ))
-
-            # Create list of axis data that is present in the selector.
-            axis_data = [self.axes[x] for x in selector.keys()]
-
-            regrid_delayed = [dask.delayed(regrid_chunk)(x, axis_data, grid, tool, method) for x in delayed]
-
-            regrid_arrays = [da.from_delayed(x, y.shape[:-2] + grid.shape, self.data.dtype)
-                             for x, y in zip(regrid_delayed, self.data.blocks)]
-
-            self.data = self.vars[self.var_name] = da.concatenate(regrid_arrays)
-
-            logger.info('Concatenated regridded arrays %r', self.data)
-
-            self.axes['lat'] = grid.getLatitude()
-
-            self.vars['lat_bnds'] = self.axes['lat'].getBounds()
-
-            self.axes['lon'] = grid.getLongitude()
-
-            self.vars['lon_bnds'] = self.axes['lon'].getBounds()
-
-    def process(self, axes, process):
-        map_keys = list(self.map.keys())
-
-        indices = tuple(map_keys.index(x) for x in axes)
-
-        logger.info('Mapped axes %r to indices %r', axes, indices)
-
-        self.data = process(self.data, axis=indices)
-
-        logger.info('Processed data %r', self.data)
-
-        for axis in axes:
-            logger.info('Removing axis %r', axis)
-
-            self.map.pop(axis)
 
     def new_shape(self, shape, time_slice):
         diff = time_slice.stop - time_slice.start

@@ -54,6 +54,24 @@ class WorkflowOperationContext(object):
 
         operation = data['operation']
 
+        for x in operation.values():
+            inputs = []
+
+            for y in x.inputs:
+                if y in variable:
+                    inputs.append(variable[y])
+                elif y in operation:
+                    inputs.append(operation[y])
+                else:
+                    raise WPSError('Failed to resolve input {!r}', y)
+
+            x.inputs = inputs
+
+            try:
+                x.domain = domain[x.domain]
+            except KeyError:
+                pass
+
         instance = cls(variable, domain, operation)
 
         ignore = ['variable', 'domain', 'operation', 'state']
@@ -91,13 +109,13 @@ class WorkflowOperationContext(object):
         return [x for x, y in out_deg.items() if y == 0]
 
     def node_in_deg(self, node):
-        return len([x for x in node.inputs if x in self.operation])
+        return len([x for x in node.inputs if x.name in self.operation])
 
     def node_out_deg(self, node):
         return len([x for x, y in self.operation.items() if node in y.inputs])
 
     def find_neighbors(self, node):
-        return [x for x, y in self.operation.items() if node in y.inputs]
+        return [x for x, y in self.operation.items() if node in [x.name for x in y.inputs]]
 
     def topo_sort(self):
         in_deg = dict((x, self.node_in_deg(y)) for x, y in self.operation.items())
