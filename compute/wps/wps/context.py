@@ -24,7 +24,7 @@ class WorkflowOperationContext(object):
         self.job = None
         self.user = None
         self.process = None
-        self.output_paths = {}
+        self.output = []
 
     @staticmethod
     def load_model(obj, name, model_class):
@@ -106,13 +106,13 @@ class WorkflowOperationContext(object):
     def output_ops(self):
         out_deg = dict((x, self.node_out_deg(x)) for x in self.operation.keys())
 
-        return [x for x, y in out_deg.items() if y == 0]
+        return [self.operation[x] for x, y in out_deg.items() if y == 0]
 
     def node_in_deg(self, node):
         return len([x for x in node.inputs if x.name in self.operation])
 
     def node_out_deg(self, node):
-        return len([x for x, y in self.operation.items() if node in y.inputs])
+        return len([x for x, y in self.operation.items() if any(node == z.name for z in y.inputs)])
 
     def find_neighbors(self, node):
         return [x for x, y in self.operation.items() if node in [x.name for x in y.inputs]]
@@ -146,7 +146,18 @@ class WorkflowOperationContext(object):
 
         return topo_order
 
-    def gen_public_path(self):
+    def build_output_variable(self, var_name, name=None):
+        local_path = self.generate_local_path()
+
+        relpath = os.path.relpath(local_path, settings.WPS_PUBLIC_PATH)
+
+        url = settings.WPS_DAP_URL.format(filename=relpath)
+
+        self.output.append(cwt.Variable(url, var_name, name=name).to_dict())
+
+        return local_path
+
+    def generate_local_path(self):
         filename = '{}.nc'.format(uuid.uuid4())
 
         base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
@@ -166,11 +177,7 @@ class OperationContext(object):
         self.job = None
         self.user = None
         self.process = None
-        self.output_path = None
-        self.output_data = None
-        self.grid = None
-        self.gridder = None
-        self.ignore = ('grid', 'gridder')
+        self.output = []
 
     @staticmethod
     def load_model(obj, name, model_class):
@@ -245,10 +252,6 @@ class OperationContext(object):
     def to_dict(self):
         data = self.__dict__.copy()
 
-        for x in self.ignore:
-            if x in data:
-                del data[x]
-
         if data['inputs'] is not None:
             data['inputs'] = [x.to_dict() for x in data['inputs']]
 
@@ -273,7 +276,18 @@ class OperationContext(object):
     def is_regrid(self):
         return 'gridder' in self.operation.parameters
 
-    def gen_public_path(self):
+    def build_output_variable(self, var_name, name=None):
+        local_path = self.generate_local_path()
+
+        relpath = os.path.relpath(local_path, settings.WPS_PUBLIC_PATH)
+
+        url = settings.WPS_DAP_URL.format(filename=relpath)
+
+        self.output.append(cwt.Variable(url, var_name, name=name).to_dict())
+
+        return local_path
+
+    def generate_local_path(self):
         filename = '{}.nc'.format(uuid.uuid4())
 
         base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),

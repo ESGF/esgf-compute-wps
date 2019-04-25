@@ -1,12 +1,10 @@
 #! /usr/bin/env python
 
 import json
-import os
 import shutil
 import xml.etree.ElementTree as ET
 from uuid import uuid4
 
-import cwt
 import zmq
 from celery.utils.log import get_task_logger
 from django.conf import settings
@@ -77,7 +75,7 @@ def edas_send(req_socket, pull_socket, message):
     return edas_wait(pull_socket, settings.WPS_EDAS_QUEUE_TIMEOUT)
 
 
-def edas_result(pull_socket):
+def edas_result(context, pull_socket):
     data = edas_wait(pull_socket, settings.WPS_EDAS_EXECUTE_TIMEOUT)
 
     try:
@@ -94,29 +92,16 @@ def edas_result(pull_socket):
 
     var_name = var_name.replace(']', '%5d')
 
+    local_path = context.build_output_variable(var_name)
+
     try:
-        output = set_output(var_name, parts[-1])
+        shutil.move(parts[-1], local_path)
+    except OSError:
+        raise WPSError('Failed to copy EDASK output')
     except IndexError:
         raise WPSError('Failed to set the output of the EDASK operation')
 
-    return output
-
-
-def set_output(var_name, file_path):
-    new_filename = '{}.nc'.format(uuid4())
-
-    output_path = os.path.join(settings.WPS_PUBLIC_PATH, new_filename)
-
-    try:
-        shutil.move(file_path, output_path)
-    except OSError:
-        raise WPSError('Failed to copy EDASK output')
-
-    output_url = settings.WPS_DAP_URL.format(filename=new_filename)
-
-    output = cwt.Variable(output_url, var_name)
-
-    return output
+    return local_path
 
 
 def get_capabilities(req_sock):
@@ -259,10 +244,8 @@ def edas_func(self, context):
 
             self.status('Sent {!r} byte request to EDASK', len(message))
 
-        output = edas_result(pull_sock)
+        local_path = edas_result(context, pull_sock)
 
-        self.status('Completed with output {!r}', output)
-
-        context.output_data = json.dumps(output.parameterize())
+        self.status('Completed with output {!r}', local_path)
 
     return context

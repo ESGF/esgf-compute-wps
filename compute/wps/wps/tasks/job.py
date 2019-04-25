@@ -1,9 +1,7 @@
 #! /usr/bin/env python
 
 import json
-import os
 
-import cwt
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -11,8 +9,6 @@ from django.core.mail import EmailMessage
 from wps import metrics
 from wps import models
 from wps.tasks import base
-from wps.context import OperationContext
-from wps.context import WorkflowOperationContext
 
 logger = get_task_logger('wps.tasks.job')
 
@@ -78,6 +74,9 @@ def send_success_email(context, variable):
     else:
         name = context.user.get_full_name()
 
+    if not isinstance(variable, (list, tuple)):
+        variable = [variable, ]
+
     outputs = '\n'.join('<a href="{!s}.html">{!s}|{!s}</a>'.format(
         x.uri,
         x.var_name,
@@ -115,34 +114,19 @@ def job_started(self, context):
     return context
 
 
-def build_output_variable(local_path, var_name, name=None):
-    relpath = os.path.relpath(local_path, settings.WPS_PUBLIC_PATH)
-
-    url = settings.WPS_DAP_URL.format(filename=relpath)
-
-    return cwt.Variable(url, var_name, name=name)
-
-
 @base.cwt_shared_task()
 def job_succeeded(self, context):
-    if isinstance(context, OperationContext):
-        if context.output_data is not None:
-            context.job.succeeded(context.output_data)
+    if isinstance(context.output, str):
+        context.job.succeeded(context.output)
 
-            send_success_email_data(context, context.output_data)
+        send_success_email_data(context, context.output)
+    else:
+        if len(context.output) == 1:
+            context.job.succeeded(json.dumps(context.output[0]))
         else:
-            output = build_output_variable(context.output_path, context.inputs[0].var_name)
+            context.job.succeeded(json.dumps(context.output))
 
-            context.job.succeeded(json.dumps(output.to_dict()))
-
-            send_success_email(context, [output, ])
-    elif isinstance(context, WorkflowOperationContext):
-        outputs = []
-
-        for name, path in context.output_paths.items():
-            outputs.append(build_output_variable(path, context.inputs[0].var_name, name=name))
-
-        context.job.succeeded(json.dumps([x.to_dict() for x in outputs]))
+        send_success_email(context, context.output)
 
     context.process.track(context.user)
 

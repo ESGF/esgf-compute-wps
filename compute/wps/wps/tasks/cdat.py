@@ -150,25 +150,22 @@ def workflow_func(self, context):
             # Add new input to intermediate store
             interm[next.name] = input
 
-    # Determine the output operations
-    output = context.output_ops()
-
     # Initialize the cluster resources
     manager = init(context, settings.DASK_WORKERS)
 
     try:
         delayed = []
 
-        for name in output:
+        for output in context.output_ops():
             # Create an output xarray Dataset
-            dataset = interm[name].to_xarray()
+            dataset = interm[output.name].to_xarray()
 
-            output_path = context.gen_public_path()
+            output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-            context.output_paths[name] = output_path
+            local_path = context.build_output_variable(interm[output.name].var_name, name=output_name)
 
             # Create an output file and store the future
-            delayed.append(dataset.to_netcdf(output_path, compute=False))
+            delayed.append(dataset.to_netcdf(local_path, compute=False))
 
         # Execute the futures
         fut = manager.client.compute(delayed)
@@ -229,7 +226,7 @@ def process_single(context, process=None, aggregate=False):
 
     Initialize the cluster workers, create the dask graph then execute.
 
-    The `process` function should have the following signature 
+    The `process` function should have the following signature
     (cwt.Operation, wps.tasks.managers.InputManager).
 
     Args:
@@ -261,14 +258,13 @@ def process_single(context, process=None, aggregate=False):
 
     dataset = input.to_xarray()
 
-    # Create the output directory
-    context.output_path = context.gen_public_path()
+    local_path = context.build_output_variable(input.var_name)
 
-    logger.info('Writing output to %r', context.output_path)
+    logger.info('Writing output to %r', local_path)
 
     try:
         # Execute the dask graph
-        delayed = dataset.to_netcdf(context.output_path, compute=False)
+        delayed = dataset.to_netcdf(local_path, compute=False)
 
         fut = manager.client.compute(delayed)
 
