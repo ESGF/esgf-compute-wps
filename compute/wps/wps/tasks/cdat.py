@@ -221,6 +221,43 @@ string e.g. 'lat|lon'.
 """
 
 
+def process_multiple(context, process):
+    manager = init(context, settings.DASK_WORKERS)
+
+    fm = managers.FileManager(context.user)
+
+    inputs = []
+
+    for x in context.inputs:
+        input = managers.InputManager.from_cwt_variable(fm, x)
+
+        input.subset(context.domain)
+
+        inputs.append(input)
+
+    output = process(context.operation, *inputs)
+
+    if context.is_regrid:
+        regrid(context.operation, output)
+
+    dataset = output.to_xarray()
+
+    local_path = context.build_output_variable(output.var_name)
+
+    logger.info('Writing output to %r', local_path)
+
+    try:
+        delayed = dataset.to_netcdf(local_path, compute=False)
+
+        fut = manager.client.compute(delayed)
+
+        DaskJobTracker(context, fut)
+    except Exception as e:
+        raise WPSError('Error executing process: {!r}', e)
+
+    return context
+
+
 def process_single(context, process=None, aggregate=False):
     """ Process a single variable.
 
@@ -334,6 +371,22 @@ def min_func(self, context):
     return process_single(context, PROCESS_FUNC_MAP['CDAT.min'])
 
 
+@base.register_process('CDAT', 'subtract', abstract="", metadata={'inputs': '2'})
+@base.cwt_shared_task()
+def subtract_func(self, context):
+    """ Subtract Celery task.
+    """
+    return process_multiple(context, PROCESS_FUNC_MAP['CDAT.subtract'])
+
+
+@base.register_process('CDAT', 'add', abstract="", metadata={'inputs': '2'})
+@base.cwt_shared_task()
+def add_func(self, context):
+    """ Subtract Celery task.
+    """
+    return process_multiple(context, PROCESS_FUNC_MAP['CDAT.add'])
+
+
 def regrid(operation, input):
     gridder = operation.get_parameter('gridder', True)
 
@@ -370,7 +423,7 @@ def regrid(operation, input):
     input.vars['lon_bnds'] = input.axes['lon'].getBounds()
 
 
-def process(operation, input, process_func):
+def process_single_input(operation, input, process_func):
     axes = operation.get_parameter('axes', True).values
 
     map_keys = list(input.map.keys())
@@ -389,9 +442,23 @@ def process(operation, input, process_func):
         input.map.pop(axis)
 
 
+def process_multiple_input(operation, input1, input2, process_func):
+    input1.load_variables_and_axes()
+
+    new_input = input1.copy()
+
+    new_input.data = process_func(input1.data, input2.data)
+
+    new_input.data.visualize()
+
+    return new_input
+
+
 PROCESS_FUNC_MAP = {
-    'CDAT.sum': partial(process, process_func=da.sum),
-    'CDAT.max': partial(process, process_func=da.max),
-    'CDAT.min': partial(process, process_func=da.min),
+    'CDAT.sum': partial(process_single_input, process_func=da.sum),
+    'CDAT.max': partial(process_single_input, process_func=da.max),
+    'CDAT.min': partial(process_single_input, process_func=da.min),
     'CDAT.regrid': regrid,
+    'CDAT.subtract': partial(process_multiple_input, process_func=da.subtract),
+    'CDAT.add': partial(process_multiple_input, process_func=da.add),
 }
