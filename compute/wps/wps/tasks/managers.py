@@ -32,7 +32,7 @@ class InputManager(object):
 
         self.map = OrderedDict()
 
-        self.data = None
+        self._data = None
 
         self.attrs = {}
 
@@ -60,6 +60,14 @@ class InputManager(object):
         logger.info('Creating manager with %r files', len(uris))
 
         return cls(fm, uris, var_names[0])
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self.vars[self.var_name] = self._data = value
 
     def copy(self):
         new = InputManager(self.fm, self.uris, self.var_name)
