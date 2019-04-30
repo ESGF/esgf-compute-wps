@@ -480,14 +480,12 @@ def process_single_input(axes, process_func, input):
     for axis in axes:
         logger.info('Removing axis %r', axis)
 
-        input.map.pop(axis)
+        input.remove_axis(axis)
 
     return input
 
 
 def process_multiple_input(process_func, input1, input2):
-    input1.load_variables_and_axes()
-
     new_input = input1.copy()
 
     if process_func.__name__ in REQUIRES_STACK:

@@ -42,6 +42,28 @@ class InputManager(object):
 
         self.axes = {}
 
+    def remove_axis(self, axis_name):
+        try:
+            del self.axes[axis_name]
+        except KeyError as e:
+            raise WPSError('Did not find axis {!r}', e)
+        else:
+            for name in list(self.vars_axes.keys()):
+                if name == self.var_name:
+                    try:
+                        index = self.vars_axes[name].index(axis_name)
+                    except ValueError:
+                        pass
+                    else:
+                        self.vars_axes[name].pop(index)
+                else:
+                    try:
+                        del self.vars_axes[name]
+
+                        del self.vars[name]
+                    except KeyError:
+                        pass
+
     def __repr__(self):
         return ('InputManager(uris={!r}, var_name={!r}, domain={!r}, map={!r}, data={!r}, attrs={!r}, '
                 'vars={!r}, vars_axes={!r}, axes={!r}').format(self.uris, self.var_name, self.domain,
@@ -253,76 +275,114 @@ class InputManager(object):
             if 'global' not in self.attrs:
                 self.attrs['global'] = file.attributes.copy()
 
+            retrieved_time = False
+
             for var in file.getVariables():
                 skip_var = False
 
+                logger.info('Processing variable %r', var.id)
+
                 for axis in var.getAxisList():
-                    if var.id != self.var_name and axis.id not in self.map and axis.id != 'nbnd':
+                    if var.id in self.vars_axes:
+                        if axis.id not in self.vars_axes[var.id]:
+                            self.vars_axes[var.id].append(axis.id)
+
+                            logger.info('Updated variable %r axis list %r', var.id, self.vars_axes[var.id])
+                    else:
+                        self.vars_axes[var.id] = [axis.id, ]
+
+                        logger.info('Setting varibale %r axis list %r', var.id, self.vars_axes[var.id])
+
+                    if var.id in self.vars and axis.id in self.axes and not axis.isTime():
                         skip_var = True
+
+                        logger.info('Skipping variable %r found axis %r already', var.id, axis.id)
 
                         break
 
-                    if axis.id not in self.map and axis.id != 'nbnd':
+                    if axis.id in self.axes and axis.id == 'nbnd':
                         continue
-
-                    if var.id in self.vars_axes:
-                        self.vars_axes[var.id].append(axis.id)
-                    else:
-                        self.vars_axes[var.id] = [axis.id, ]
 
                     if axis.id not in self.attrs:
                         self.attrs[axis.id] = axis.attributes.copy()
 
                     if axis.isTime():
-                        time_axis.append(axis.clone())
-                    else:
-                        i, j, k = self.slice_to_subaxis(axis)
+                        if not retrieved_time:
+                            time_axis.append(axis.clone())
 
-                        self.axes[axis.id] = axis.subAxis(i, j, k)
+                            logger.info('Appending time axis')
+
+                            retrieved_time = True
+                    elif axis.id not in self.axes:
+                        self.axes[axis.id] = axis.clone()
+
+                        logger.info('Storing %r axis', axis.id)
 
                 if skip_var:
                     continue
 
                 if var.getTime() is not None and var.id != self.var_name:
                     time_bnds.append(var())
+
+                    logger.info('Appending new time_bnds variable')
                 elif var.id not in self.vars:
                     if var.id == self.var_name:
                         self.vars[var.id] = self.data
-                    else:
-                        selector = dict((x.id, self.map[x.id]) for x in var.getAxisList()
-                                        if x in self.map or x == 'nbnd')
 
-                        self.vars[var.id] = var(**selector)
+                        logger.info('Setting target variable data %r', self.data)
+                    else:
+                        self.vars[var.id] = var()
+
+                        logger.info('Storing %r variable data', var.id)
 
                 if var.id not in self.attrs:
                     self.attrs[var.id] = var.attributes.copy()
 
-        if len(time_axis) > 0:
-            axis_concat = cdms2.MV.axisConcatenate(time_axis, id='time')
+        if len(time_axis) > 1:
+            logger.info('Concatenating %r segments of the time axis', len(time_axis))
 
-            i, j, k = self.slice_to_subaxis(axis_concat)
+            axis_concat = cdms2.MV.axisConcatenate(time_axis, id='time', attributes=self.attrs['time'])
 
-            self.axes['time'] = axis_concat.subAxis(i, j, k)
+            self.axes['time'] = axis_concat
+        else:
+            self.axes['time'] = time_axis[0]
 
-        if len(time_bnds) > 0:
+        if len(time_bnds) > 1:
+            logger.info('Concatenating %r segments of the time_bnds variable', len(time_bnds))
+
             var_concat = cdms2.MV.concatenate(time_bnds)
 
-            selector = dict((x.id, self.map[x.id]) for x in time_bnds[0].getAxisList() if x.id in self.map)
+            self.vars['time_bnds'] = var_concat
+        else:
+            self.vars['time_bnds'] = time_bnds[0]
 
-            self.vars['time_bnds'] = var_concat(**selector)
+    def subset_variables_and_axes(self):
+        for name in self.axes.keys():
+            if name == 'nbnd':
+                self.axes[name] = self.axes[name]
+            else:
+                i, j, k = self.slice_to_subaxis(self.axes[name])
+
+                self.axes[name] = self.axes[name].subAxis(i, j, k)
+
+        for name in self.vars.keys():
+            if name != self.var_name:
+                selector = dict((x, self.map[x]) for x in self.vars_axes[name] if x in self.map)
+
+                self.vars[name] = self.vars[name](**selector)
 
     def to_xarray(self):
         axes = {}
         vars = {}
 
-        if len(self.vars) == 0:
-            self.load_variables_and_axes()
-
         logger.info('Building xarray with axes %r', self.axes.keys())
         logger.info('Building xarray with variables %r', self.vars.keys())
 
         for x, y in self.axes.items():
-            axes[x] = xr.DataArray(y, name=x, dims=x, attrs=self.attrs[x])
+            if x in self.map or x == 'nbnd':
+                logger.info('Creating axis array %r shape %r', x, y.shape)
+
+                axes[x] = xr.DataArray(y, name=x, dims=x, attrs=self.attrs[x])
 
         for x, y in self.vars.items():
             coords = dict((z, axes[z]) for z in self.vars_axes[x])
@@ -330,6 +390,8 @@ class InputManager(object):
             # Always grab whatever the latest dask array
             if x == self.var_name:
                 y = self.data
+
+            logger.info('Creating variable %r shape %r dims %r', x, y.shape, coords.keys())
 
             vars[x] = xr.DataArray(y, name=x, dims=coords.keys(), coords=coords, attrs=self.attrs[x])
 
@@ -339,6 +401,11 @@ class InputManager(object):
         data = []
 
         logger.info('Subsetting the inputs')
+
+        if len(self.uris) > 1:
+            self.sort_uris()
+
+        self.load_variables_and_axes()
 
         for uri in self.uris:
             var = self.fm.get_variable(uri, self.var_name)
@@ -365,6 +432,8 @@ class InputManager(object):
 
         self.data = data[selector]
 
+        self.subset_variables_and_axes()
+
         logger.info('Subsetted data %r', self.data)
 
     def map_dimension(self, dim, axis):
@@ -383,7 +452,19 @@ class InputManager(object):
 
         return dim
 
-    def sort_uris(self, ordering):
+    def sort_uris(self):
+        ordering = []
+
+        for uri in self.uris:
+            var = self.fm.get_variable(uri, self.var_name)
+
+            time = var.getTime()
+
+            if time is None:
+                raise WPSError('Unable to sort inputs {!r} has no time axis', uri)
+
+            ordering.append((uri, time.units, time[0]))
+
         logger.info('Sorting uris with %r', ordering)
 
         by_units = set([x[1] for x in ordering]) != 1
@@ -401,7 +482,9 @@ class InputManager(object):
         else:
             raise WPSError('Unable to determine ordering of files')
 
-        return [x[0] for x in ordering]
+        self.uris = [x[0] for x in ordering]
+
+        logger.info('Sorted uris %r', self.uris)
 
     def adjust_time_axis(self, time_maps):
         start = None
@@ -438,9 +521,12 @@ class InputManager(object):
         self.domain = self.domain_to_dict(domain)
 
         time_maps = {}
-        ordering = []
 
         logger.info('Mapping domain')
+
+        time_dim = domain.get_dimension('time')
+
+        time_adjust = len(self.uris) > 1 and time_dim is not None and time_dim.crs == cwt.INDICES
 
         for uri in self.uris:
             logger.info('Processing input %r', uri)
@@ -448,11 +534,6 @@ class InputManager(object):
             var = self.fm.get_variable(uri, self.var_name)
 
             for axis in var.getAxisList():
-                if axis.isTime():
-                    ordering.append((axis.units, axis[0]))
-
-                    logger.info('Added ordering %r', ordering[-1])
-
                 if axis.id in self.map and not axis.isTime():
                     continue
 
@@ -461,20 +542,18 @@ class InputManager(object):
                 except KeyError:
                     self.map[axis.id] = slice(None, None, None)
                 else:
-                    self.map[axis.id] = self.map_dimension(dim, axis)
+                    try:
+                        self.map[axis.id] = self.map_dimension(dim, self.axes[axis.id])
+                    except KeyError:
+                        logger.info('Axes %r', self.axes)
 
-                    if axis.isTime():
+                        raise WPSError('Time axis is missing')
+
+                    if time_adjust and axis.isTime():
                         time_maps[uri] = self.map[axis.id]
 
-        if len(self.uris) > 1:
-            ordering = [(x, ) + y for x, y in zip(self.uris, ordering)]
-
-            self.uris = self.sort_uris(ordering)
-
-            dim_time = domain.get_dimension('time')
-
-            if 'time' in self.domain and dim_time.crs == cwt.INDICES:
-                self.map['time'] = self.adjust_time_axis(time_maps)
+        if time_adjust:
+            self.map['time'] = self.adjust_time_axis(time_maps)
 
         logger.info('Mapped domain to %r', self.map)
 
