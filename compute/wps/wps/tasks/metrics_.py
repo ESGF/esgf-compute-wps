@@ -164,7 +164,7 @@ def query_usage():
     return data
 
 
-@base.register_process('CDAT', 'metrics', abstract=METRICS_ABSTRACT, metadata={'inputs': '0'})
+@base.register_process('CDAT', 'metrics', abstract=METRICS_ABSTRACT)
 @base.cwt_shared_task()
 def metrics_task(self, context):
     data = {
