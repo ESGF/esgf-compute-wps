@@ -42,6 +42,21 @@ class WorkflowOperationContext(object):
 
     @classmethod
     def from_data_inputs(cls, variable, domain, operation):
+        for op in operation.values():
+            inputs = []
+
+            for x in op.inputs:
+                if x in variable:
+                    inputs.append(variable[x])
+                elif x in operation:
+                    inputs.append(operation[x])
+                else:
+                    raise WPSError('Unable to find input {!r}', x)
+
+            op.inputs = inputs
+
+            op.domain = domain.get(op.domain, None)
+
         instance = cls(variable, domain, operation)
 
         return instance
