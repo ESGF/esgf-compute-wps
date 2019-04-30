@@ -22,6 +22,7 @@ from wps.tasks import base
 from wps.tasks.job import job_started
 from wps.tasks.job import job_succeeded
 from wps.context import OperationContext
+from wps.context import WorkflowOperationContext
 from wps.util import wps_response
 
 logger = common.logger
@@ -96,7 +97,10 @@ def build_context(identifier, data_inputs, user, job, process):
 
             operation = dict((x.name, x) for x in data)
 
-    context = OperationContext.from_data_inputs(identifier, variable, domain, operation)
+    if identifier == 'CDAT.workflow' or len(operation) > 1:
+        context = WorkflowOperationContext.from_data_inputs(variable, domain, operation)
+    else:
+        context = OperationContext.from_data_inputs(identifier, variable, domain, operation)
 
     context.user = user
 
