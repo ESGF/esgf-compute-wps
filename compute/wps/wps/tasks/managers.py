@@ -32,7 +32,7 @@ class InputManager(object):
 
         self.map = OrderedDict()
 
-        self._data = None
+        self.data = None
 
         self.attrs = {}
 
@@ -41,6 +41,12 @@ class InputManager(object):
         self.vars_axes = {}
 
         self.axes = {}
+
+    def __repr__(self):
+        return ('InputManager(uris={!r}, var_name={!r}, domain={!r}, map={!r}, data={!r}, attrs={!r}, '
+                'vars={!r}, vars_axes={!r}, axes={!r}').format(self.uris, self.var_name, self.domain,
+                                                               self.map, self.data, self.attrs, self.vars,
+                                                               self.vars_axes, self.axes)
 
     @classmethod
     def from_cwt_variable(cls, fm, variable):
@@ -60,14 +66,6 @@ class InputManager(object):
         logger.info('Creating manager with %r files', len(uris))
 
         return cls(fm, uris, var_names[0])
-
-    @property
-    def data(self):
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        self.vars[self.var_name] = self._data = value
 
     def copy(self):
         new = InputManager(self.fm, self.uris, self.var_name)
@@ -320,11 +318,18 @@ class InputManager(object):
         if len(self.vars) == 0:
             self.load_variables_and_axes()
 
+        logger.info('Building xarray with axes %r', self.axes.keys())
+        logger.info('Building xarray with variables %r', self.vars.keys())
+
         for x, y in self.axes.items():
             axes[x] = xr.DataArray(y, name=x, dims=x, attrs=self.attrs[x])
 
         for x, y in self.vars.items():
             coords = dict((z, axes[z]) for z in self.vars_axes[x])
+
+            # Always grab whatever the latest dask array
+            if x == self.var_name:
+                y = self.data
 
             vars[x] = xr.DataArray(y, name=x, dims=coords.keys(), coords=coords, attrs=self.attrs[x])
 
@@ -470,6 +475,8 @@ class InputManager(object):
 
             if 'time' in self.domain and dim_time.crs == cwt.INDICES:
                 self.map['time'] = self.adjust_time_axis(time_maps)
+
+        logger.info('Mapped domain to %r', self.map)
 
     def domain_to_dict(self, domain):
         """ Converts a domain to a dict.
