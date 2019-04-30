@@ -405,7 +405,9 @@ class InputManager(object):
         if len(self.uris) > 1:
             self.sort_uris()
 
-        self.load_variables_and_axes()
+        # Only load once, everything can be reused
+        if len(self.vars) == 0:
+            self.load_variables_and_axes()
 
         for uri in self.uris:
             var = self.fm.get_variable(uri, self.var_name)
