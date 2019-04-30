@@ -524,9 +524,12 @@ class InputManager(object):
 
         logger.info('Mapping domain')
 
-        time_dim = domain.get_dimension('time')
-
-        time_adjust = len(self.uris) > 1 and time_dim is not None and time_dim.crs == cwt.INDICES
+        try:
+            time_dim = domain.get_dimension('time')
+        except AttributeError:
+            time_adjust = False
+        else:
+            time_adjust = len(self.uris) > 1 and time_dim is not None and time_dim.crs == cwt.INDICES
 
         for uri in self.uris:
             logger.info('Processing input %r', uri)
