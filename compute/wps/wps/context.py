@@ -224,7 +224,10 @@ class OperationContext(object):
         else:
             obj = cls(inputs, domain, operation)
 
-        ignore = ['inputs', 'domain', 'operation']
+        if 'output' in data:
+            obj.output = [cwt.Variable.from_dict(x) for x in data['output']]
+
+        ignore = ['inputs', 'domain', 'operation', 'output']
 
         for name, value in list(data.items()):
             if name in ignore:
@@ -284,6 +287,9 @@ class OperationContext(object):
 
         if data['process'] is not None:
             data['process'] = data['process'].id
+
+        if data['output'] is not None:
+            data['output'] = [x.to_dict() for x in data['output']]
 
         return data
 
