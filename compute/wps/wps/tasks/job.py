@@ -124,9 +124,9 @@ def job_succeeded(self, context):
         send_success_email_data(context, context.output)
     else:
         if len(context.output) == 1:
-            context.job.succeeded(json.dumps(context.output[0]))
+            context.job.succeeded(json.dumps(context.output[0].to_dict()))
         else:
-            context.job.succeeded(json.dumps(context.output))
+            context.job.succeeded(json.dumps([x.to_dict() for x in context.output]))
 
         send_success_email(context, context.output)
 
