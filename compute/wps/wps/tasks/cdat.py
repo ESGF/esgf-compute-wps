@@ -107,6 +107,8 @@ def workflow_func(self, context):
     while topo_order:
         next = topo_order.pop(0)
 
+        logger.info('Processing %r-%r', next.name, next.identifier)
+
         # if all inputs are variables then create a new InputManager
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
             input = managers.InputManager.from_cwt_variables(fm, next.inputs)
@@ -116,7 +118,7 @@ def workflow_func(self, context):
 
             # If the current process is in the function map then apply the process
             if next.identifier in PROCESS_FUNC_MAP:
-                output = PROCESS_FUNC_MAP[next.identifier](next, input)
+                output = PROCESS_FUNC_MAP[next.identifier](next, *[input, ])
             else:
                 output = input
 
@@ -126,6 +128,8 @@ def workflow_func(self, context):
 
             # Add to intermediate store
             interm[next.name] = output
+
+            logger.info('Added intermediate result %r', next.name)
         else:
             # Grab all the intermediate inputs
             try:
@@ -151,6 +155,8 @@ def workflow_func(self, context):
             # Add new input to intermediate store
             interm[next.name] = output
 
+            logger.info('Added intermediate result %r', next.name)
+
     # Initialize the cluster resources
     manager = init(context, settings.DASK_WORKERS)
 
@@ -165,11 +171,15 @@ def workflow_func(self, context):
 
             local_path = context.build_output_variable(interm[output.name].var_name, name=output_name)
 
+            logger.info('Creating output for %r at %r', output.name, local_path)
+
             # Create an output file and store the future
             delayed.append(dataset.to_netcdf(local_path, compute=False))
 
         # Execute the futures
         fut = manager.client.compute(delayed)
+
+        logger.info('Created future and executing')
 
         # Track the progress
         DaskJobTracker(context, fut)
@@ -426,7 +436,7 @@ def regrid(operation, *inputs):
     input.vars['lon_bnds'] = input.axes['lon'].getBounds()
 
 
-def process_input(operation, *inputs, process_func=None, **supported):
+def process_input(operation, *inputs, process_func=None, **supported): # noqa E999
     axes = operation.get_parameter('axes')
 
     constant = operation.get_parameter('constant')

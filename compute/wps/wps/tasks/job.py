@@ -69,6 +69,8 @@ def send_failed_email(context, error):
 
 
 def send_success_email(context, variable):
+    logger.info('Sending success email using variable %r', variable)
+
     if context.user.first_name is None:
         name = context.user.username
     else:

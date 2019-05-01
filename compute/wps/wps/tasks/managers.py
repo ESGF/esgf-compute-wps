@@ -57,12 +57,13 @@ class InputManager(object):
                     else:
                         self.vars_axes[name].pop(index)
                 else:
-                    try:
-                        del self.vars_axes[name]
+                    if axis_name in self.vars_axes[name]:
+                        try:
+                            del self.vars_axes[name]
 
-                        del self.vars[name]
-                    except KeyError:
-                        pass
+                            del self.vars[name]
+                        except KeyError:
+                            pass
 
     def __repr__(self):
         return ('InputManager(uris={!r}, var_name={!r}, domain={!r}, map={!r}, data={!r}, attrs={!r}, '

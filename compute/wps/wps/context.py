@@ -86,10 +86,11 @@ class WorkflowOperationContext(object):
                 x.domain = domain[x.domain]
             except KeyError:
                 pass
-
         instance = cls(variable, domain, operation)
 
-        ignore = ['variable', 'domain', 'operation', 'state']
+        instance.output = [cwt.Variable.from_dict(x) for x in data['output']]
+
+        ignore = ['variable', 'domain', 'operation', 'state', 'output']
 
         for name, value in list(data.items()):
             if name in ignore:
@@ -115,6 +116,8 @@ class WorkflowOperationContext(object):
         data['user'] = data['user'].id
 
         data['process'] = data['process'].id
+
+        data['output'] = [x.to_dict() for x in data['output']]
 
         return data
 
@@ -159,6 +162,8 @@ class WorkflowOperationContext(object):
         if cnt != len(self.operation):
             raise WPSError('Failed to compute the graph')
 
+        logger.info('Result of topo sort %r', topo_order)
+
         return topo_order
 
     def build_output_variable(self, var_name, name=None):
@@ -168,7 +173,7 @@ class WorkflowOperationContext(object):
 
         url = settings.WPS_DAP_URL.format(filename=relpath)
 
-        self.output.append(cwt.Variable(url, var_name, name=name).to_dict())
+        self.output.append(cwt.Variable(url, var_name, name=name))
 
         return local_path
 
@@ -304,7 +309,7 @@ class OperationContext(object):
 
         url = settings.WPS_DAP_URL.format(filename=relpath)
 
-        self.output.append(cwt.Variable(url, var_name, name=name).to_dict())
+        self.output.append(cwt.Variable(url, var_name, name=name))
 
         return local_path
 
