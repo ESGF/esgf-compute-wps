@@ -17,8 +17,8 @@ logger = get_task_logger('wps.context')
 
 
 class WorkflowOperationContext(object):
-    def __init__(self, variable, domain, operation):
-        self.variable = variable
+    def __init__(self, inputs, domain, operation):
+        self._inputs = inputs
         self.domain = domain
         self.operation = operation
         self.job = None
@@ -63,7 +63,7 @@ class WorkflowOperationContext(object):
 
     @classmethod
     def from_dict(cls, data):
-        variable = data['variable']
+        variable = data['inputs']
 
         domain = data['domain']
 
@@ -86,11 +86,12 @@ class WorkflowOperationContext(object):
                 x.domain = domain[x.domain]
             except KeyError:
                 pass
+
         instance = cls(variable, domain, operation)
 
         instance.output = [cwt.Variable.from_dict(x) for x in data['output']]
 
-        ignore = ['variable', 'domain', 'operation', 'state', 'output']
+        ignore = ['inputs', 'domain', 'operation', 'state', 'output']
 
         for name, value in list(data.items()):
             if name in ignore:
@@ -107,6 +108,10 @@ class WorkflowOperationContext(object):
         cls.load_model(instance, 'process', models.Process)
 
         return instance
+
+    @property
+    def inputs(self):
+        return self._inputs.values()
 
     def to_dict(self):
         data = self.__dict__.copy()
