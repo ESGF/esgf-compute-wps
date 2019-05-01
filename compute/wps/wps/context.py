@@ -63,7 +63,7 @@ class WorkflowOperationContext(object):
 
     @classmethod
     def from_dict(cls, data):
-        variable = data['inputs']
+        variable = data['_inputs']
 
         domain = data['domain']
 
@@ -91,7 +91,7 @@ class WorkflowOperationContext(object):
 
         instance.output = [cwt.Variable.from_dict(x) for x in data['output']]
 
-        ignore = ['inputs', 'domain', 'operation', 'state', 'output']
+        ignore = ['_inputs', 'domain', 'operation', 'state', 'output']
 
         for name, value in list(data.items()):
             if name in ignore:
