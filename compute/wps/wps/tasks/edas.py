@@ -159,7 +159,7 @@ def discover_processes():
                 'identifier': 'EDASK.{!s}-{!s}'.format(value['module'], name),
                 'backend': 'EDAS',
                 'abstract': '',
-                'metadata': json.dumps({}),
+                'metadata': json.dumps({'inputs': 1}),
                 'version': 'devel',
             })
 
