@@ -1,42 +1,28 @@
 from __future__ import unicode_literals
 from __future__ import division
 
-from future import standard_library
-from functools import reduce
-standard_library.install_aliases()
 from builtins import range
 from past.utils import old_div
 from builtins import object
 import base64
-import contextlib
-import datetime
-import hashlib
 import json
 import logging
-import os
 import random
 import re
 import string
-import sys
 import time
 from urllib.parse import urlparse
 
-import cdms2
-import cwt
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
-from django.db import transaction
 from django.db.models import F
-from django.db.models import signals
 from django.db.models.query_utils import Q
 from django.utils import timezone
 from openid import association
 from openid.store import interface
 from openid.store import nonce
-from rest_framework.settings import api_settings
 
-from wps import helpers
 from wps import metrics
 from wps.util import wps_response
 
@@ -48,15 +34,15 @@ ProcessPaused = 'ProcessPaused'
 ProcessSucceeded = 'ProcessSucceeded'
 ProcessFailed = 'ProcessFailed'
 
+
 class DjangoOpenIDStore(interface.OpenIDStore):
-    # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py
+    # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py # noqa
 
     def storeAssociation(self, server_url, association):
         logger.info('storeAssociation %r %r', server_url, association)
 
         try:
-            assoc = OpenIDAssociation.objects.get(server_url=server_url,
-                                                 handle=association.handle)
+            assoc = OpenIDAssociation.objects.get(server_url=server_url, handle=association.handle)
         except OpenIDAssociation.DoesNotExist:
             assoc = OpenIDAssociation(server_url=server_url,
                                       handle=association.handle,
@@ -76,8 +62,7 @@ class DjangoOpenIDStore(interface.OpenIDStore):
         logger.info('getAssociation %r %r', server_url, handle)
 
         if handle is not None:
-            assocs = OpenIDAssociation.objects.filter(server_url=server_url,
-                                                     handle=handle)
+            assocs = OpenIDAssociation.objects.filter(server_url=server_url, handle=handle)
         else:
             assocs = OpenIDAssociation.objects.filter(server_url=server_url)
 
@@ -112,7 +97,7 @@ class DjangoOpenIDStore(interface.OpenIDStore):
         return active[-1][1]
 
     def removeAssociation(self, server_url, handle):
-        assocs = OpenIDAssociations.objects.filter(server_url=server_url, handle=handle)
+        assocs = OpenIDAssociation.objects.filter(server_url=server_url, handle=handle)
 
         for a in assocs:
             a.delete()
@@ -124,13 +109,9 @@ class DjangoOpenIDStore(interface.OpenIDStore):
             return False
 
         try:
-            ononce = OpenIDNonce.objects.get(server_url__exact=server_url,
-                                             timestamp__exact=timestamp,
-                                             salt__exact=salt)
+            OpenIDNonce.objects.get(server_url__exact=server_url, timestamp__exact=timestamp, salt__exact=salt)
         except OpenIDNonce.DoesNotExist:
-            ononce = OpenIDNonce.objects.create(server_url=server_url,
-                                                timestamp=timestamp,
-                                                salt=salt)
+            OpenIDNonce.objects.create(server_url=server_url, timestamp=timestamp, salt=salt)
             return True
 
         return False
@@ -152,6 +133,7 @@ class DjangoOpenIDStore(interface.OpenIDStore):
             expired.delete()
         return count
 
+
 class OpenIDNonce(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     server_url = models.CharField(max_length=2048)
@@ -163,6 +145,7 @@ class OpenIDNonce(models.Model):
 
     def __str__(self):
         return '{0.server_url}'.format(self)
+
 
 class OpenIDAssociation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
@@ -178,6 +161,7 @@ class OpenIDAssociation(models.Model):
 
     def __str__(self):
         return ('{0.server_url} {0.handle}'.format(self))
+
 
 class File(models.Model):
     name = models.CharField(max_length=256)
@@ -226,6 +210,7 @@ class File(models.Model):
     def __str__(self):
         return '{0.name}'.format(self)
 
+
 class UserFile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     file = models.ForeignKey(File, on_delete=models.CASCADE)
@@ -243,6 +228,7 @@ class UserFile(models.Model):
 
     def __str__(self):
         return '{0.file.name}'.format(self)
+
 
 class Auth(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -271,6 +257,7 @@ class Auth(models.Model):
 
     def __str__(self):
         return '{0.openid_url} {0.type}'.format(self)
+
 
 class Process(models.Model):
     identifier = models.CharField(max_length=128, blank=False)
@@ -304,6 +291,7 @@ class Process(models.Model):
     def __str__(self):
         return '{0.identifier}'.format(self)
 
+
 class UserProcess(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     process = models.ForeignKey(Process, on_delete=models.CASCADE)
@@ -322,6 +310,7 @@ class UserProcess(models.Model):
     def __str__(self):
         return '{0.process.identifier}'.format(self)
 
+
 class Server(models.Model):
     host = models.CharField(max_length=128, unique=True)
     added_date = models.DateTimeField(auto_now_add=True)
@@ -332,6 +321,7 @@ class Server(models.Model):
 
     def __str__(self):
         return '{0.host}'.format(self)
+
 
 class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
@@ -348,21 +338,7 @@ class Job(models.Model):
             'server': self.server.host,
             'process': self.process.identifier,
             'elapsed': self.elapsed,
-            #'status': self.status
         }
-
-    #@property
-    #def status(self):
-    #    return [
-    #        {
-    #            'created_date': x.created_date,
-    #            'updated_date': x.updated_date,
-    #            'status': x.status,
-    #            'exception': x.exception,
-    #            'output': x.output,
-    #            'messages': [y.details for y in x.messages.all().order_by('created_date')]
-    #        } for x in self.status.all().order_by('created_date')
-    #    ]
 
     @property
     def latest_status(self):
@@ -517,6 +493,7 @@ class Job(models.Model):
             } for x in self.status.filter(updated_date__gt=date)
         ]
 
+
 class Status(models.Model):
     job = models.ForeignKey(Job, related_name='status', on_delete=models.CASCADE)
 
@@ -565,6 +542,7 @@ class Status(models.Model):
 
     def __str__(self):
         return '{0.status}'.format(self)
+
 
 class Message(models.Model):
     status = models.ForeignKey(Status, related_name='messages', on_delete=models.CASCADE)
