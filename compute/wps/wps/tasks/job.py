@@ -2,6 +2,7 @@
 
 import json
 
+import cwt
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -118,15 +119,17 @@ def job_started(self, context):
 
 @base.cwt_shared_task()
 def job_succeeded(self, context):
-    if isinstance(context.output, str):
-        context.job.succeeded(context.output)
-
-        send_success_email_data(context, context.output)
-    else:
-        if len(context.output) == 1:
+    if len(context.output) == 1:
+        if isinstance(context.output[0], cwt.Variable):
             context.job.succeeded(json.dumps(context.output[0].to_dict()))
-        else:
-            context.job.succeeded(json.dumps([x.to_dict() for x in context.output]))
+
+            send_success_email(context, context.output)
+        elif isinstance(context.output[0], str):
+            context.job.succeeded(context.output)
+
+            send_success_email_data(context, context.output)
+    else:
+        context.job.succeeded(json.dumps([x.to_dict() for x in context.output]))
 
         send_success_email(context, context.output)
 

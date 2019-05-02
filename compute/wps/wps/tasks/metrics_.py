@@ -175,6 +175,6 @@ def metrics_task(self, context):
 
     data.update(usage=query_usage())
 
-    context.output = json.dumps(data)
+    context.output.append(json.dumps(data))
 
     return context
