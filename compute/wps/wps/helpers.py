@@ -58,8 +58,8 @@ def queue_from_identifier(identifier):
 
 
 def default(obj):
-    from wps.context import OperationContext
-    from wps.context import WorkflowOperationContext
+    from wps.tasks.context import OperationContext
+    from wps.tasks.context import WorkflowOperationContext
 
     if isinstance(obj, slice):
         data = {
@@ -122,8 +122,8 @@ def default(obj):
 
 
 def object_hook(obj):
-    from wps.context import OperationContext
-    from wps.context import WorkflowOperationContext
+    from wps.tasks.context import OperationContext
+    from wps.tasks.context import WorkflowOperationContext
 
     obj = byteify(obj)
 

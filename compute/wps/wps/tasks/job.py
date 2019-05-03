@@ -9,7 +9,10 @@ from django.core.mail import EmailMessage
 
 from wps import metrics
 from wps import models
+from wps import WPSError
 from wps.tasks import base
+from wps.tasks.context import OperationContext
+from wps.tasks.context import WorkflowOperationContext
 
 logger = get_task_logger('wps.tasks.job')
 
@@ -110,8 +113,48 @@ def send_success_email_data(context, outputs):
     email.send(fail_silently=True)
 
 
+def build_context(identifier, data_inputs, user_id, job_id, process_id):
+    variable = None
+    domain = None
+    operation = None
+
+    for id in ('variable', 'domain', 'operation'):
+        try:
+            data = json.loads(data_inputs[id])
+        except ValueError:
+            raise WPSError('DataInput {!r} invalid format', id)
+
+        if id == 'variable':
+            data = [cwt.Variable.from_dict(x) for x in data]
+
+            variable = dict((x.name, x) for x in data)
+        elif id == 'domain':
+            data = [cwt.Domain.from_dict(x) for x in data]
+
+            domain = dict((x.name, x) for x in data)
+        elif id == 'operation':
+            data = [cwt.Process.from_dict(x) for x in data]
+
+            operation = dict((x.name, x) for x in data)
+
+    if identifier == 'CDAT.workflow' or len(operation) > 1:
+        context = WorkflowOperationContext.from_data_inputs(variable, domain, operation)
+    else:
+        context = OperationContext.from_data_inputs(identifier, variable, domain, operation)
+
+    context.user = models.User.objects.get(pk=user_id)
+
+    context.job = models.Job.objects.get(pk=job_id)
+
+    context.process = models.Process.objects.get(pk=process_id)
+
+    return context
+
+
 @base.cwt_shared_task()
-def job_started(self, context):
+def job_started(self, identifier, data_inputs, job_id, user_id, process_id):
+    context = build_context(identifier, data_inputs, job_id, user_id, process_id)
+
     context.job.started()
 
     return context

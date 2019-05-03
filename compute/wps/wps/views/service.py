@@ -7,7 +7,6 @@ import urllib.parse
 import urllib.error
 import re
 
-import cwt
 from django import http
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -21,8 +20,6 @@ from wps import WPSError
 from wps.tasks import base
 from wps.tasks.job import job_started
 from wps.tasks.job import job_succeeded
-from wps.context import OperationContext
-from wps.context import WorkflowOperationContext
 from wps.util import wps_response
 
 logger = common.logger
@@ -71,47 +68,18 @@ def handle_describe_process(identifiers):
     return data
 
 
-def build_context(identifier, data_inputs, user, job, process):
-    variable = None
-    domain = None
-    operation = None
-
-    for id in ('variable', 'domain', 'operation'):
-        try:
-            data = json.loads(data_inputs[id])
-        except KeyError:
-            raise WPSError('{}', id, code=wps_response.MissingParameterValue)
-        except ValueError:
-            raise WPSError('{}', id, code=wps_response.InvalidParameterValue)
-
-        if id == 'variable':
-            data = [cwt.Variable.from_dict(x) for x in data]
-
-            variable = dict((x.name, x) for x in data)
-        elif id == 'domain':
-            data = [cwt.Domain.from_dict(x) for x in data]
-
-            domain = dict((x.name, x) for x in data)
-        elif id == 'operation':
-            data = [cwt.Process.from_dict(x) for x in data]
-
-            operation = dict((x.name, x) for x in data)
-
-    if identifier == 'CDAT.workflow' or len(operation) > 1:
-        context = WorkflowOperationContext.from_data_inputs(variable, domain, operation)
-    else:
-        context = OperationContext.from_data_inputs(identifier, variable, domain, operation)
-
-    context.user = user
-
-    context.job = job
-
-    context.process = process
-
-    return context
+REQUIRED_DATA_INPUTS = set(['variable', 'domain', 'operation'])
 
 
 def handle_execute(meta, identifier, data_inputs):
+    data_inputs_keys = set([x.lower() for x in data_inputs.keys()])
+
+    logger.info('DataInputs keys %r', data_inputs_keys)
+
+    # Check that we have all required inputs
+    if len(data_inputs_keys ^ REQUIRED_DATA_INPUTS) > 0:
+        raise WPSError('{}', ', '.join(REQUIRED_DATA_INPUTS-data_inputs_keys), code=wps_response.MissingParameterValue)
+
     try:
         api_key = meta['HTTP_COMPUTE_TOKEN']
     except KeyError:
@@ -139,9 +107,7 @@ def handle_execute(meta, identifier, data_inputs):
 
     logger.info('Acceped job %r', job.id)
 
-    context = build_context(identifier, data_inputs, user, job, process)
-
-    started = job_started.s(context).set(**helpers.DEFAULT_QUEUE)
+    started = job_started.s(identifier, data_inputs, user.id, job.id, process.id).set(**helpers.DEFAULT_QUEUE)
 
     queue = helpers.queue_from_identifier(identifier)
 
