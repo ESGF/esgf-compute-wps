@@ -1,5 +1,4 @@
 from __future__ import absolute_import
-from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls import include
 from django.contrib import admin
@@ -10,6 +9,13 @@ from . import views
 router = DefaultRouter()
 router.register(r'jobs', views.JobViewSet)
 router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.StatusViewSet)
+
+internal_router = DefaultRouter()
+internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.InternalStatusViewSet)
+internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message', views.InternalMessageViewSet)
+internal_router.register(r'process', views.InternalProcessViewSet)
+internal_router.register(r'user/(?P<user_pk>[^/.]+)/file', views.InternalUserFileViewSet)
+internal_router.register(r'user/(?P<user_pk>[^/.]+)/process', views.InternalUserProcessViewSet)
 
 api_urlpatterns = [
     url(r'^', include(router.urls)),
@@ -42,4 +48,5 @@ api_urlpatterns = [
 urlpatterns = [
     url(r'^wps/$', views.wps_entrypoint),
     url(r'^api/', include(api_urlpatterns)),
+    url(r'^internal_api/', include(internal_router.urls)),
 ]
