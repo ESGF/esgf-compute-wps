@@ -503,6 +503,9 @@ class Status(models.Model):
     exception = models.TextField(null=True)
     output = models.TextField(null=True)
 
+    class Meta:
+        unique_together = (('job', 'status'), )
+
     @property
     def latest_message(self):
         try:

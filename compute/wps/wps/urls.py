@@ -2,20 +2,24 @@ from __future__ import absolute_import
 from django.conf.urls import url
 from django.conf.urls import include
 from django.contrib import admin
-from rest_framework.routers import DefaultRouter
+from rest_framework.authentication import BasicAuthentication
+from rest_framework.schemas import get_schema_view
+from rest_framework.routers import SimpleRouter
 
 from . import views
 
-router = DefaultRouter()
+router = SimpleRouter()
 router.register(r'jobs', views.JobViewSet)
 router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.StatusViewSet)
 
-internal_router = DefaultRouter()
-internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.InternalStatusViewSet)
-internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message', views.InternalMessageViewSet)
-internal_router.register(r'process', views.InternalProcessViewSet)
-internal_router.register(r'user/(?P<user_pk>[^/.]+)/file', views.InternalUserFileViewSet)
-internal_router.register(r'user/(?P<user_pk>[^/.]+)/process', views.InternalUserProcessViewSet)
+internal_router = SimpleRouter()
+internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.InternalStatusViewSet, basename='internal')
+internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message', views.InternalMessageViewSet,
+                         basename='internal')
+internal_router.register(r'process', views.InternalProcessViewSet, basename='internal')
+internal_router.register(r'user/(?P<user_pk>[^/.]+)/file', views.InternalUserFileViewSet, basename='internal')
+internal_router.register(r'user/(?P<user_pk>[^/.]+)/process/(?P<process_pk>[^/.]+)', views.InternalUserProcessViewSet,
+                         basename='internal')
 
 api_urlpatterns = [
     url(r'^', include(router.urls)),
@@ -45,8 +49,14 @@ api_urlpatterns = [
     url(r'^mpc/$', views.login_mpc),
 ]
 
+schema = get_schema_view(title='Internal API', patterns=internal_router.urls, url='https://10.5.5.5/internal_api',
+                         authentication_classes=[BasicAuthentication, ])
+
+internal_router_urls = internal_router.urls
+internal_router.urls.append(url('^schema$', schema))
+
 urlpatterns = [
     url(r'^wps/$', views.wps_entrypoint),
     url(r'^api/', include(api_urlpatterns)),
-    url(r'^internal_api/', include(internal_router.urls)),
+    url(r'^internal_api/', include(internal_router_urls)),
 ]
