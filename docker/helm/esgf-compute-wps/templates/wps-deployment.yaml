@@ -35,6 +35,8 @@ spec:
         imagePullPolicy: {{ .Values.wps.imagePullPolicy }}
         {{- if .Values.development }}
         command:
+          - tini
+          - --
           - sleep
           - infinity
         {{- end }}
@@ -70,21 +72,9 @@ spec:
           value: redis://{{ template "redis.fullname" . }}-master/0
         - name: POSTGRES_HOST
           value: {{ template "postgresql.fullname" . }}
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: postgres_password
-        - name: OAUTH_CLIENT
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: oauth_client
-        - name: OAUTH_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: oauth_secret
+        envFrom:
+        - secretRef:
+            name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
         ports:
         {{- range .Values.wps.ports }}
         - containerPort: {{ .port }}

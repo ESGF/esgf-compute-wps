@@ -28,6 +28,7 @@ fi
 python $app_root/manage.py migrate
 python $app_root/manage.py server --host default
 python $app_root/manage.py processes
+python $app_root/manage.py create_api_user ${API_USERNAME} ${API_PASSWORD}
 
 if [ -z "${WPS_DEBUG}" ]
 then
