@@ -9,9 +9,9 @@ import zmq
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
-from wps import models
 from wps import WPSError
 from wps.tasks import base
+from wps.tasks.context import StateMixin
 
 logger = get_task_logger('wps.tasks.edas')
 
@@ -194,8 +194,19 @@ def process_bindings():
 
     bindings = {}
 
-    for item in models.Process.objects.filter(backend='EDAS'):
-        name = item.identifier.split('.')[1]
+    try:
+        mixin = StateMixin()
+
+        mixin.init_api()
+
+        processes = [x for x in mixin.processes() if 'EDAS' == x['backend']]
+    except Exception:
+        raise WPSError('Failed to build process bindings')
+
+    for item in processes:
+        identifier = item['identifier']
+
+        name = identifier.split('.')[1]
 
         func_name = name.replace('-', '_')
 
@@ -206,7 +217,7 @@ def process_bindings():
         setattr(edas, func_name, new_method)
 
         # Add the method to the global bindings dict
-        bindings[item.identifier] = getattr(edas, func_name)
+        bindings[identifier] = getattr(edas, func_name)
 
     return bindings
 

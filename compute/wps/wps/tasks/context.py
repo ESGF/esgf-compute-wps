@@ -5,40 +5,128 @@ from builtins import str
 from builtins import object
 import os
 import uuid
+import coreapi
+import requests
 
 import cwt
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
-from wps import models
 from wps import WPSError
 
 logger = get_task_logger('wps.context')
 
 
-class WorkflowOperationContext(object):
+class StateMixin(object):
+    def __init__(self):
+        self.job = None
+        self.user = None
+        self.process = None
+        self.status = None
+        self.client = None
+        self.schema = None
+
+    def init_state(self, data):
+        self.job = data['job']
+
+        self.user = data['user']
+
+        self.process = data['process']
+
+        self.init_api()
+
+    def init_api(self):
+        session = requests.Session()
+
+        session.verify = not settings.DEBUG
+
+        auth = coreapi.auth.BasicAuthentication(os.environ['API_USERNAME'], os.environ['API_PASSWORD'])
+
+        transport = coreapi.transports.HTTPTransport(auth=auth, session=session)
+
+        self.client = coreapi.Client(transports=[transport, ])
+
+        schema_url = 'https://{!s}/internal_api/schema'.format(settings.INTERNAL_LB)
+
+        self.schema = self.client.get(schema_url)
+
+    def store_state(self):
+        return {
+            'job': self.job,
+            'user': self.user,
+            'process': self.process,
+        }
+
+    def action(self, keys, params=None):
+        try:
+            return self.client.action(self.schema, keys, params=params)
+        except Exception as e:
+            logger.exception(str(e))
+
+            raise WPSError('Internal API call failed')
+
+    def set_status(self, status, output=None, exception=None):
+        params = {
+            'job_pk': self.job,
+            'status': status,
+        }
+
+        if output is not None:
+            params['output'] = output
+
+        if exception is not None:
+            params['exception'] = exception
+
+        output = self.action(['jobs', 'status', 'create'], params)
+
+        self.status = output['id']
+
+    def message(self, text, percent=None):
+        if percent is None:
+            percent = 0.0
+
+        params = {
+            'job_pk': self.job,
+            'status_pk': self.status,
+            'message': text,
+            'percent': percent,
+        }
+
+        self.action(['jobs', 'status', 'message', 'create'], params)
+
+    def accepted(self):
+        self.set_status('ProcessAccepted')
+
+    def started(self):
+        self.set_status('ProcessStarted')
+
+    def failed(self, exception):
+        self.set_status('ProcessFailed', exception=exception)
+
+    def succeeded(self, output):
+        self.set_status('ProcessSucceeded', output=output)
+
+    def processes(self):
+        output = self.action(['process', 'list'])
+
+        return output['results']
+
+    def track_file(self, file):
+        params = {
+            'user_pk': self.user,
+            'url': file.uri,
+            'var_name': file.var_name,
+        }
+
+        self.action(['user', 'file', 'create'], params)
+
+
+class WorkflowOperationContext(StateMixin, object):
     def __init__(self, inputs, domain, operation):
         self._inputs = inputs
         self.domain = domain
         self.operation = operation
-        self.job = None
-        self.user = None
-        self.process = None
         self.output = []
-
-    @staticmethod
-    def load_model(obj, name, model_class):
-        assert hasattr(obj, name)
-
-        pk = getattr(obj, name, None)
-
-        if pk is not None:
-            try:
-                value = model_class.objects.get(pk=pk)
-            except model_class.DoesNotExist:
-                raise WPSError('{!s} {!r} does not exist', model_class.__name__, pk)
-
-            setattr(obj, name, value)
 
     @classmethod
     def from_data_inputs(cls, variable, domain, operation):
@@ -91,40 +179,25 @@ class WorkflowOperationContext(object):
 
         instance.output = [cwt.Variable.from_dict(x) for x in data['output']]
 
-        ignore = ['_inputs', 'domain', 'operation', 'state', 'output']
-
-        for name, value in list(data.items()):
-            if name in ignore:
-                continue
-
-            assert hasattr(instance, name)
-
-            setattr(instance, name, value)
-
-        cls.load_model(instance, 'job', models.Job)
-
-        cls.load_model(instance, 'user', models.User)
-
-        cls.load_model(instance, 'process', models.Process)
+        instance.init_state(data)
 
         return instance
+
+    def to_dict(self):
+        data = {
+            '_inputs': self._inputs,
+            'domain': self.domain,
+            'operation': self.operation,
+            'output': self.output,
+        }
+
+        data.update(self.store_state())
+
+        return data
 
     @property
     def inputs(self):
         return self._inputs.values()
-
-    def to_dict(self):
-        data = self.__dict__.copy()
-
-        data['job'] = data['job'].id
-
-        data['user'] = data['user'].id
-
-        data['process'] = data['process'].id
-
-        data['output'] = [x.to_dict() for x in data['output']]
-
-        return data
 
     def output_ops(self):
         out_deg = dict((x, self.node_out_deg(x)) for x in self.operation.keys())
@@ -194,65 +267,12 @@ class WorkflowOperationContext(object):
         return os.path.join(base_path, filename)
 
 
-class OperationContext(object):
+class OperationContext(StateMixin, object):
     def __init__(self, inputs=None, domain=None, operation=None):
         self.inputs = inputs
         self.domain = domain
         self.operation = operation
-        self.job = None
-        self.user = None
-        self.process = None
         self.output = []
-
-    @staticmethod
-    def load_model(obj, name, model_class):
-        assert hasattr(obj, name)
-
-        pk = getattr(obj, name, None)
-
-        if pk is not None:
-            try:
-                value = model_class.objects.get(pk=pk)
-            except model_class.DoesNotExist:
-                raise WPSError('{!s} {!r} does not exist', model_class.__name__, pk)
-
-            setattr(obj, name, value)
-
-    @classmethod
-    def from_dict(cls, data):
-        try:
-            inputs = [cwt.Variable.from_dict(x) for x in data['inputs']]
-
-            if 'domain' in data and data['domain'] is not None:
-                domain = cwt.Domain.from_dict(data['domain'])
-            else:
-                domain = None
-
-            operation = cwt.Process.from_dict(data['operation'])
-        except Exception:
-            obj = cls()
-        else:
-            obj = cls(inputs, domain, operation)
-
-        if 'output' in data:
-            obj.output = [cwt.Variable.from_dict(x) for x in data['output']]
-
-        ignore = ['inputs', 'domain', 'operation', 'output']
-
-        for name, value in list(data.items()):
-            if name in ignore:
-                continue
-
-            if hasattr(obj, name):
-                setattr(obj, name, data[name])
-
-        cls.load_model(obj, 'job', models.Job)
-
-        cls.load_model(obj, 'user', models.User)
-
-        cls.load_model(obj, 'process', models.Process)
-
-        return obj
 
     @classmethod
     def from_data_inputs(cls, identifier, variable, domain, operation):
@@ -277,29 +297,37 @@ class OperationContext(object):
 
         return cls(target_inputs, target_domain, target_op)
 
+    @classmethod
+    def from_dict(cls, data):
+        try:
+            inputs = [cwt.Variable.from_dict(x) for x in data['inputs']]
+
+            if 'domain' in data and data['domain'] is not None:
+                domain = cwt.Domain.from_dict(data['domain'])
+            else:
+                domain = None
+
+            operation = cwt.Process.from_dict(data['operation'])
+        except Exception:
+            obj = cls()
+        else:
+            obj = cls(inputs, domain, operation)
+
+        obj.output = [cwt.Variable.from_dict(x) for x in data['output']]
+
+        obj.init_state(data)
+
+        return obj
+
     def to_dict(self):
-        data = self.__dict__.copy()
+        data = {
+            'inputs': self.inputs,
+            'domain': self.domain,
+            'operation': self.operation,
+            'output': self.output,
+        }
 
-        if data['inputs'] is not None:
-            data['inputs'] = [x.to_dict() for x in data['inputs']]
-
-        if data['operation'] is not None:
-            data['operation'] = data['operation'].parameterize()
-
-        if data['domain'] is not None:
-            data['domain'] = data['domain'].parameterize()
-
-        if data['job'] is not None:
-            data['job'] = data['job'].id
-
-        if data['user'] is not None:
-            data['user'] = data['user'].id
-
-        if data['process'] is not None:
-            data['process'] = data['process'].id
-
-        if data['output'] is not None:
-            data['output'] = [x.to_dict() for x in data['output']]
+        data.update(self.store_state())
 
         return data
 

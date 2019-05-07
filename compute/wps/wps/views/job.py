@@ -31,11 +31,20 @@ class InternalUserFileViewSet(mixins.CreateModelMixin,
 
         path_parts = parts.path.split('/')
 
-        file, _ = models.File.objects.get_or_create(name=path_parts[-1], host=parts.netloc)
+        file, created = models.File.objects.get_or_create(name=path_parts[-1], host=parts.netloc)
+
+        fields = ['requested', ]
+
+        if created:
+            file.url = request.data['url']
+
+            file.variable = request.data['var_name']
+
+            fields.extend(['url', 'variable'])
 
         file.requested = F('requested') + 1
 
-        file.save(update_fields=['requested'])
+        file.save(update_fields=fields)
 
         user_file, _ = models.UserFile.objects.get_or_create(user=user, file=file)
 
@@ -77,6 +86,7 @@ class InternalUserProcessViewSet(mixins.CreateModelMixin,
 
 
 class InternalProcessViewSet(mixins.CreateModelMixin,
+                             mixins.ListModelMixin,
                              viewsets.GenericViewSet):
     queryset = models.Process.objects.all()
     serializer_class = serializers.ProcessSerializer
@@ -107,7 +117,6 @@ class InternalMessageViewSet(mixins.CreateModelMixin,
 
 
 class InternalStatusViewSet(mixins.CreateModelMixin,
-                            mixins.UpdateModelMixin,
                             viewsets.GenericViewSet):
     queryset = models.Status.objects.all()
     serializer_class = serializers.StatusSerializer
@@ -127,23 +136,9 @@ class InternalStatusViewSet(mixins.CreateModelMixin,
         try:
             status_serializer.save(job=job)
         except db.IntegrityError:
-            pass
+            return Response('Status already exists', status=400)
 
         return Response(status_serializer.data, status=201)
-
-    def update(self, request, *args, **kwargs):
-        try:
-            status = models.Status.objects.get(job__pk=kwargs['job_pk'], pk=kwargs['pk'])
-        except models.Status.DoesNotExist:
-            return Response('Status does not exist', status=400)
-
-        status_serializer = serializers.StatusSerializer(instance=status, data=request.data, partial=True)
-
-        status_serializer.is_valid(raise_exception=True)
-
-        status_serializer.save()
-
-        return Response(status_serializer.data, status=200)
 
 
 class StatusViewSet(viewsets.ReadOnlyModelViewSet):

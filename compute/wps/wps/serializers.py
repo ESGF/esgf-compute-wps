@@ -1,5 +1,4 @@
 from builtins import object
-from rest_framework import exceptions
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
@@ -52,6 +51,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class StatusSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
     status = serializers.ChoiceField(choices=['ProcessAccepted', 'ProcessStarted', 'ProcessPaused',
                                               'ProcessSucceeded', 'ProcessFailed'], required=True)
@@ -59,23 +59,6 @@ class StatusSerializer(serializers.ModelSerializer):
     class Meta(object):
         model = models.Status
         fields = ('id', 'status', 'created_date', 'messages', 'output', 'exception')
-
-    def update(self, instance, validated_data):
-        try:
-            validated_data.pop('status')
-        except KeyError:
-            pass
-
-        instance.output = validated_data.get('output', instance.output)
-
-        instance.exception = validated_data.get('exception', instance.exception)
-
-        if instance.output is None and instance.exception is None:
-            raise exceptions.ValidationError('Either output or exception must be set')
-
-        instance.save()
-
-        return instance
 
 
 class StatusHyperlink(serializers.HyperlinkedRelatedField):

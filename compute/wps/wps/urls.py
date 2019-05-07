@@ -13,6 +13,7 @@ router.register(r'jobs', views.JobViewSet)
 router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.StatusViewSet)
 
 internal_router = SimpleRouter()
+internal_router.register(r'status/(?P<status>[^/.]+)', views.InternalStatusViewSet, basename='internal')
 internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.InternalStatusViewSet, basename='internal')
 internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message', views.InternalMessageViewSet,
                          basename='internal')

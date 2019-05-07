@@ -43,6 +43,8 @@ def patch_settings(settings):
     else:
         ALLOWED_HOSTS = [host]
 
+    setattr(settings, 'INTERNAL_LB', config.get_value('default', 'internal.lb'))
+
     setattr(settings, 'ALLOWED_HOSTS', ALLOWED_HOSTS)
 
     setattr(settings, 'SESSION_COOKIE_NAME', config.get_value('default', 'session.cookie.name', 'wps_sessionid'))
@@ -51,16 +53,6 @@ def patch_settings(settings):
     setattr(settings, 'INGRESS_ENABLED', config.get_value('default', 'ingress.enabled', False, bool))
     setattr(settings, 'CERT_DOWNLOAD_ENABLED', config.get_value('default', 'cert.download.enabled', True, bool))
     setattr(settings, 'ESGF_SEARCH', config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov'))
-
-    WORKER_CPU_COUNT = config.get_value('default', 'worker.cpu_count', 2, int)
-    WORKER_CPU_UNITS = config.get_value('default', 'worker.cpu_units', 200, int)
-    WORKER_USER_PERCENT = config.get_value('default', 'worker.user_percent', 0.10, float)
-
-    setattr(settings, 'WORKER_CPU_COUNT', WORKER_CPU_COUNT)
-    setattr(settings, 'WORKER_CPU_UNITS', WORKER_CPU_UNITS)
-    setattr(settings, 'WORKER_MEMORY', config.get_value('default', 'worker.memory', 8e6, int))
-    setattr(settings, 'WORKER_USER_PERCENT', WORKER_USER_PERCENT)
-    setattr(settings, 'WORKER_PER_USER', int((old_div((WORKER_CPU_COUNT*1000),WORKER_CPU_UNITS))*WORKER_USER_PERCENT))
 
     setattr(settings, 'EMAIL_HOST', config.get_value('email', 'host'))
     setattr(settings, 'EMAIL_PORT', config.get_value('email', 'port'))
