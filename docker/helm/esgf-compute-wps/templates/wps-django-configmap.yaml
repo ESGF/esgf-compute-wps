@@ -14,12 +14,9 @@ data:
     allowed.cidr={{ .Values.wps.allowedCIDR }}
     {{- end }}
     host={{ .Values.wps.host }}
-    worker.cpu_count={{ .Values.wps.worker.cpuCount }}
-    worker.cpu_units={{ .Values.wps.worker.cpuUnits }}
-    worker.memory={{ .Values.wps.worker.memory }}
-    worker.user_percent={{ .Values.wps.worker.userPercent }}
     celery.broker={{ template "redis.fullname" . }}-master:6379/0
     celery.backend={{ template "redis.fullname" . }}-master:6379/0
+    internal.lb={{ .Values.wps.internalLB }}
 
     [email]
     host={{ .Values.wps.email.host }}
