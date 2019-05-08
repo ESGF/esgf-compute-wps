@@ -5,7 +5,6 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.utils import timezone
 
-from wps import models
 from wps import WPSError
 from wps.tasks import base
 
@@ -89,17 +88,12 @@ WPS_REQ = 'sum(wps_request_seconds_count)'
 WPS_REQ_AVG_5m = 'sum(avg_over_time(wps_request_seconds_count[5m]))'
 
 
-def query_health():
-    user_jobs_queued = models.Job.objects.filter(status__status=models.ProcessAccepted).exclude(
-        status__status=models.ProcessStarted).exclude(status__status=models.ProcessFailed).exclude(
-            status__status=models.ProcessSucceeded).count()
-
-    user_jobs_running = models.Job.objects.filter(status__status=models.ProcessStarted).exclude(
-        status__status=models.ProcessFailed).exclude(status__status=models.ProcessSucceeded).count()
+def query_health(context):
+    status = context.unique_status()
 
     data = {
-        'user_jobs_running': user_jobs_running,
-        'user_jobs_queued': user_jobs_queued,
+        'user_jobs_running': status.get('ProcessAccepted', 0),
+        'user_jobs_queued': status.get('ProcessStarted', 0),
         'cpu_avg_5m': query_single_value(type=float, query=CPU_AVG_5m),
         'cpu_avg_1h': query_single_value(type=float, query=CPU_AVG_1h),
         'cpu_count': query_single_value(type=int, query=CPU_CNT),
@@ -118,7 +112,7 @@ WPS_REQ_AVG = 'avg(wps_request_seconds_sum) by (request)'
 FILE_CNT = 'sum(wps_file_accessed{url!=""}) by (url)'
 
 
-def query_usage():
+def query_usage(context):
     operator_count = query_multiple_value('request', type=float, query=WPS_REQ_SUM)
 
     operator_avg_time = query_multiple_value('request', type=float, query=WPS_REQ_AVG)
@@ -137,27 +131,8 @@ def query_usage():
     except AttributeError:
         operator['operations'] = 'Unavailable'
 
-    file_count = query_multiple_value('url', query=FILE_CNT)
-
-    file = {}
-
-    try:
-        for item in list(file_count.keys()):
-            logger.info('%r', item)
-
-            try:
-                url_obj = models.File.objects.filter(url=item)[0]
-            except IndexError:
-                count = 0
-            else:
-                count = url_obj.userfile_set.all().distinct('user').count()
-
-            file[item] = {'count': file_count[item], 'unique_users': count}
-    except AttributeError:
-        file['files'] = 'Unavailable'
-
     data = {
-        'files': file,
+        'files': context.files_unique_users(),
         'operators': operator,
     }
 
@@ -171,9 +146,9 @@ def metrics_task(self, context):
         'time': timezone.now().ctime(),
     }
 
-    data.update(health=query_health())
+    data.update(health=query_health(context))
 
-    data.update(usage=query_usage())
+    data.update(usage=query_usage(context))
 
     context.output.append(json.dumps(data))
 

@@ -120,6 +120,12 @@ class StateMixin(object):
 
         self.action(['user', 'file', 'create'], params)
 
+    def unique_status(self):
+        return self.action(['status', 'unique_count'])
+
+    def files_distinct_users(self):
+        return self.action(['files', 'distinct_users'])
+
 
 class WorkflowOperationContext(StateMixin, object):
     def __init__(self, inputs, domain, operation):

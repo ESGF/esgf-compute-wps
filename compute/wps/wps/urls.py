@@ -13,11 +13,12 @@ router.register(r'jobs', views.JobViewSet)
 router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.StatusViewSet)
 
 internal_router = SimpleRouter()
-internal_router.register(r'status/(?P<status>[^/.]+)', views.InternalStatusViewSet, basename='internal')
-internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.InternalStatusViewSet, basename='internal')
-internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message', views.InternalMessageViewSet,
-                         basename='internal')
+internal_router.register(r'files', views.InternalFileViewSet, basename='internal')
+internal_router.register(r'status', views.InternalStatusViewSet, basename='internal')
 internal_router.register(r'process', views.InternalProcessViewSet, basename='internal')
+internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.InternalJobStatusViewSet, basename='internal')
+internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message',
+                         views.InternalJobMessageViewSet, basename='internal')
 internal_router.register(r'user/(?P<user_pk>[^/.]+)/file', views.InternalUserFileViewSet, basename='internal')
 internal_router.register(r'user/(?P<user_pk>[^/.]+)/process/(?P<process_pk>[^/.]+)', views.InternalUserProcessViewSet,
                          basename='internal')

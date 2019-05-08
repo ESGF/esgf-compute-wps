@@ -3,15 +3,52 @@
 from urllib.parse import urlparse
 
 from django import db
+from django.db.models import Count
 from django.db.models import F
+from django.db.models import Max
 from rest_framework import mixins
 from rest_framework import viewsets
 from rest_framework.authentication import BasicAuthentication
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import DjangoModelPermissions
 
 from wps import models
 from wps import serializers
+
+
+class InternalFileViewSet(viewsets.GenericViewSet):
+    queryset = models.File.objects.all()
+    authentication_classes = (BasicAuthentication, )
+    permission_classes = (DjangoModelPermissions, )
+
+    @action(detail=False)
+    def distinct_users(self, request):
+        query = models.File.objects.all().annotate(Count('userfile', distinct=True)).values(
+            'url', 'userfile__count', 'requested')
+
+        data = dict((x['url'], {'count': x['requested'], 'unique_users': x['userfile__count']}) for x in query)
+
+        return Response(data, status=200)
+
+
+class InternalStatusViewSet(viewsets.GenericViewSet):
+    queryset = models.Status.objects.all()
+    serializer_class = serializers.StatusSerializer
+    authentication_classes = (BasicAuthentication, )
+    permission_classes = (DjangoModelPermissions, )
+
+    @action(detail=False)
+    def unique_count(self, request):
+        # Get the status for each job that was last updated
+        query = models.Status.objects.values('job').annotate(Max('updated_date')).values('status')
+
+        # Get the number of times each status is present
+        query = query.annotate(Count('status'))
+
+        data = dict((x['status'], x['status__count']) for x in query)
+
+        return Response(data, status=200)
 
 
 class InternalUserFileViewSet(mixins.CreateModelMixin,
@@ -94,8 +131,8 @@ class InternalProcessViewSet(mixins.CreateModelMixin,
     permission_classes = (DjangoModelPermissions, )
 
 
-class InternalMessageViewSet(mixins.CreateModelMixin,
-                             viewsets.GenericViewSet):
+class InternalJobMessageViewSet(mixins.CreateModelMixin,
+                                viewsets.GenericViewSet):
     queryset = models.Message.objects.all()
     serializer_class = serializers.MessageSerializer
     authentication_classes = (BasicAuthentication, )
@@ -116,8 +153,8 @@ class InternalMessageViewSet(mixins.CreateModelMixin,
         return Response(message_serializer.data, status=201)
 
 
-class InternalStatusViewSet(mixins.CreateModelMixin,
-                            viewsets.GenericViewSet):
+class InternalJobStatusViewSet(mixins.CreateModelMixin,
+                               viewsets.GenericViewSet):
     queryset = models.Status.objects.all()
     serializer_class = serializers.StatusSerializer
     authentication_classes = (BasicAuthentication, )
