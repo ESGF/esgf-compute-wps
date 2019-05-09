@@ -98,7 +98,7 @@ def workflow_func(self, context):
     Returns:
         Updated context.
     """
-    fm = managers.FileManager(context.user)
+    fm = managers.FileManager(context)
 
     # Topologically sort the operations
     topo_order = context.topo_sort()
@@ -211,7 +211,7 @@ def process(context, process=None, aggregate=False):
     """
     manager = init(context, settings.DASK_WORKERS)
 
-    fm = managers.FileManager(context.user)
+    fm = managers.FileManager(context)
 
     if aggregate:
         inputs = [managers.InputManager.from_cwt_variables(fm, context.inputs), ]

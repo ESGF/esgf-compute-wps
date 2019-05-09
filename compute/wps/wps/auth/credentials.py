@@ -14,24 +14,20 @@ from wps import WPSError
 from wps.auth import oauth2
 from wps.auth import openid
 
-__ALL__ = [
-    'check_certificate',
-    'refresh_certificate',
-    'load_certificate',
-]
-
-logger = logging.getLogger('wps.tasks.credentials')
+logger = logging.getLogger('wps.auth.credentials')
 
 CERT_DATE_FMT = '%Y%m%d%H%M%SZ'
 
 URN_AUTHORIZE = 'urn:esg:security:oauth:endpoint:authorize'
 URN_RESOURCE = 'urn:esg:security:oauth:endpoint:resource'
 
+
 class CertificateError(WPSError):
     def __init__(self, user, reason):
         msg = 'Certificate error for user "{username}": {reason}'
 
         super(CertificateError, self).__init__(msg, username=user.username, reason=reason)
+
 
 def check_certificate(user):
     """ Check user certificate.
@@ -49,7 +45,7 @@ def check_certificate(user):
 
     try:
         cert = crypto.load_certificate(crypto.FILETYPE_PEM, user.auth.cert)
-    except Exception as e:
+    except Exception:
         raise CertificateError(user, 'Loading certificate')
 
     before = datetime.strptime(cert.get_notBefore().decode('utf-8'), CERT_DATE_FMT)
@@ -69,6 +65,7 @@ def check_certificate(user):
         return False
 
     return True
+
 
 def refresh_certificate(user):
     """ Refresh user certificate
@@ -94,7 +91,7 @@ def refresh_certificate(user):
 
     try:
         extra = json.loads(user.auth.extra)
-    except ValueError as e:
+    except ValueError:
         raise WPSError('Missing OAuth2 state, try authenticating with OAuth2 again')
 
     if 'token' not in extra:
@@ -103,8 +100,8 @@ def refresh_certificate(user):
     try:
         cert, key, new_token = oauth2.get_certificate(extra['token'],
                                                       extra['state'],
-                                                      auth_service.server_url, cert_service.server_url, 
-                                                      refresh=True) 
+                                                      auth_service.server_url, cert_service.server_url,
+                                                      refresh=True)
     except KeyError as e:
         raise WPSError('Missing OAuth2 {!r}', e)
 
@@ -120,11 +117,12 @@ def refresh_certificate(user):
 
     return user.auth.cert
 
+
 def load_certificate(user):
     """ Loads a user certificate.
 
     First the users certificate is checked and refreshed if needed. It's
-    then written to disk and the processes current working directory is 
+    then written to disk and the processes current working directory is
     set, allowing calls to NetCDF library to use the certificate.
 
     Args:

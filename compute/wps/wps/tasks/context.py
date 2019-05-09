@@ -129,6 +129,13 @@ class StateMixin(object):
     def files_distinct_users(self):
         return self.action(['files', 'distinct_users'])
 
+    def user_cert(self):
+        params = {
+            'id': self.user,
+        }
+
+        return self.action(['user', 'certificate'], params)
+
 
 class WorkflowOperationContext(StateMixin, object):
     def __init__(self, inputs, domain, operation):

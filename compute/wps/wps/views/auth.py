@@ -1,30 +1,31 @@
 from builtins import str
-import datetime
-import collections
 import json
 import logging
 import re
-import random
-import string
 
 from django import http
-from django import db
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.cache import never_cache
 from openid.consumer import discover
 from myproxy.client import MyProxyClient
+from rest_framework import mixins
+from rest_framework import viewsets
+from rest_framework.authentication import BasicAuthentication
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import DjangoModelPermissions
+from rest_framework.exceptions import APIException
 
 from wps import forms
 from wps import metrics
 from wps import models
 from wps import WPSError
+from wps.auth import credentials
 from wps.auth import oauth2
 from wps.auth import openid
 from wps.views import common
@@ -37,7 +38,7 @@ Welcome {name},
 
 <pre>
 You've successfully register for the ESGF Compute service. You now have access
-to ESGF compute resources. To begin start by visiting the <a href="{settings.WPS_URL}">WPS Service</a> homepage. 
+to ESGF compute resources. To begin start by visiting the <a href="{settings.WPS_URL}">WPS Service</a> homepage.
 You can find some additional resources below.
 </pre>
 
@@ -65,11 +66,34 @@ discover.OpenIDServiceEndpoint.openid_type_uris.extend([
     URN_MPC
 ])
 
+
+class InternalUserCredentialViewSet(viewsets.GenericViewSet):
+    @action(detail=True)
+    def certificate(self, request, pk):
+        try:
+            user = models.User.objects.get(pk=pk)
+        except models.User.DoesNotExist:
+            raise APIException('User does not exist')
+
+        try:
+            if not credentials.check_certificate(user):
+                credentials.refresh_certificate(user)
+        except Exception as e:
+            raise APIException(str(e))
+
+        data = {
+            'certificate': user.auth.cert,
+        }
+
+        return Response(data, status=200)
+
+
 class MPCEndpointParseError(WPSError):
     def __init__(self):
         msg = 'Parsing host/port from OpenID services failed'
 
         super(MPCEndpointParseError, self).__init__(msg)
+
 
 def send_welcome_mail(user):
     if user.first_name is None:
@@ -80,11 +104,12 @@ def send_welcome_mail(user):
     msg = NEW_USER_MSG.format(user=user, name=name, settings=settings)
 
     email = EmailMessage(NEW_USER_SUBJ, msg, settings.WPS_ADMIN_EMAIL,
-                         to=[user.email, ], bcc=[settings.WPS_ADMIN_EMAIL,])
+                         to=[user.email, ], bcc=[settings.WPS_ADMIN_EMAIL, ])
 
     email.content_subtype = 'html'
 
     email.send(fail_silently=True)
+
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -120,6 +145,7 @@ def authorization(request):
 
     return http.HttpResponse()
 
+
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def user_cert(request):
@@ -135,17 +161,18 @@ def user_cert(request):
 
         cert = user.auth.cert
 
-        content_type = 'application/force-download' 
+        content_type = 'application/force-download'
 
         response = http.HttpResponse(cert, content_type=content_type)
 
         response['Content-Disposition'] = 'attachment; filename="cert.pem"'
 
         response['Content-Length'] = len(cert)
-    except WPSError as e:
+    except WPSError:
         return http.HttpResponseBadRequest()
     else:
         return response
+
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -166,6 +193,7 @@ def user_login_openid(request):
         if 'openid_url' in request.POST:
             metrics.track_login(metrics.WPS_OPENID_LOGIN,
                                 request.POST['openid_url'])
+
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -201,12 +229,13 @@ def user_login_openid_callback(request):
                             user.auth.openid_url)
 
         redirect_url = '{!s}?expires={!s}'.format(settings.WPS_OPENID_CALLBACK_SUCCESS,
-                                              request.session.get_expiry_date())
+                                                  request.session.get_expiry_date())
 
         if next is not None and next != 'null':
             redirect_url = '{!s}&next={!s}'.format(redirect_url, next)
 
         return redirect(redirect_url)
+
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -227,6 +256,7 @@ def user_logout(request):
         return common.failed(str(e))
     else:
         return common.success('Logged out')
+
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -258,6 +288,7 @@ def login_oauth2(request):
             metrics.track_login(metrics.WPS_OAUTH_LOGIN,
                                 request.user.auth.openid_url)
 
+
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def oauth2_callback(request):
@@ -271,7 +302,7 @@ def oauth2_callback(request):
         logger.info('Handling OAuth2 callback for %r current state %r',
                     openid_url, oauth_state)
 
-        user = models.User.objects.get(auth__openid_url = openid_url)
+        user = models.User.objects.get(auth__openid_url=openid_url)
 
         logger.info('Discovering token and certificate services')
 
@@ -285,7 +316,8 @@ def oauth2_callback(request):
 
         logger.info('Getting certificate from service')
 
-        cert, key, new_token = oauth2.get_certificate(token, oauth_state, token_service.server_url, cert_service.server_url)
+        cert, key, new_token = oauth2.get_certificate(token, oauth_state, token_service.server_url,
+                                                      cert_service.server_url)
 
         logger.info('Updating user with token, certificate and state')
 
@@ -306,12 +338,13 @@ def oauth2_callback(request):
             user.auth.extra = json.dumps(extra)
 
             user.auth.save()
-    
+
     logger.info('Finished handling OAuth2 callback, redirect to profile')
 
     metrics.track_login(metrics.WPS_OAUTH_LOGIN_SUCCESS, user.auth.openid_url)
 
     return redirect(settings.WPS_PROFILE_URL)
+
 
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
@@ -342,7 +375,7 @@ def login_mpc(request):
             m = MyProxyClient(hostname=host, caCertDir=settings.WPS_CA_PATH)
 
             c = m.logon(data['username'], data['password'], bootstrap=True)
-        except Exception as e:
+        except Exception:
             raise common.AuthenticationError(user=data['username'])
 
         logger.info('Authenticated with MyProxyClient backend for user {}'.format(data['username']))

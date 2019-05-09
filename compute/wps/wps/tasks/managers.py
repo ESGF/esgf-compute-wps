@@ -1,6 +1,8 @@
+import os
 import re
 import logging
 import urllib
+import tempfile
 from collections import OrderedDict
 from past.utils import old_div
 
@@ -9,12 +11,12 @@ import cwt
 import dask.array as da
 import requests
 import xarray as xr
+from django.conf import settings
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 
 from wps import metrics
 from wps import WPSError
-from wps.tasks import credentials
 from wps.tasks.dask_serialize import retrieve_chunk
 
 logger = logging.getLogger('wps.tasks.manager')
@@ -609,12 +611,16 @@ class InputManager(object):
 
 
 class FileManager(object):
-    def __init__(self, user):
-        self.user = user
+    def __init__(self, context):
+        self.context = context
 
         self.handles = {}
 
         self.auth = {}
+
+        self.temp_dir = None
+
+        self.cert_path = None
 
     def requires_cert(self, uri):
         return uri in self.auth
@@ -626,10 +632,10 @@ class FileManager(object):
             logger.info('File has not been open before')
 
             if not self.check_access(uri):
-                if not self.check_access(uri, self.user.auth.cert):
-                    raise WPSError('File {!r} is not accessible, check the OpenDAP service', uri)
+                cert_path = self.load_certificate()
 
-                credentials.load_certificate(self.user)
+                if not self.check_access(uri, cert_path):
+                    raise WPSError('File {!r} is not accessible, check the OpenDAP service', uri)
 
                 logger.info('File %r requires certificate', uri)
 
@@ -641,6 +647,49 @@ class FileManager(object):
                 raise WPSError('CDMS failed to open {!r}', uri)
 
         return self.handles[uri]
+
+    def load_certificate(self):
+        """ Loads a user certificate.
+
+        First the users certificate is checked and refreshed if needed. It's
+        then written to disk and the processes current working directory is
+        set, allowing calls to NetCDF library to use the certificate.
+
+        Args:
+            user: User object.
+        """
+        if self.cert_path is not None:
+            return self.cert_path
+
+        cert = self.context.user_cert()
+
+        self.temp_dir = tempfile.TemporaryDirectory()
+
+        logger.info('Using temporary directory %r', self.temp_dir.name)
+
+        os.chdir(self.temp_dir.name)
+
+        logger.info('Changed working directory to %r', self.temp_dir.name)
+
+        self.cert_path = os.path.join(self.temp_dir.name, 'cert.pem')
+
+        with open(self.cert_path, 'w') as outfile:
+            outfile.write(cert)
+
+        logger.info('Wrote user certificate')
+
+        dodsrc_path = os.path.join(self.temp_dir.name, '.dodsrc')
+
+        with open(dodsrc_path, 'w') as outfile:
+            outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+            outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(self.cert_path))
+            outfile.write('HTTP.SSL.KEY={}\n'.format(self.cert_path))
+            outfile.write('HTTP.SSL.CAPATH={}\n'.format(settings.WPS_CA_PATH))
+            outfile.write('HTTP.SSL.VERIFY=0\n')
+
+        logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
+
+        return self.cert_path
 
     def get_variable(self, uri, var_name):
         file = self.open_file(uri)
