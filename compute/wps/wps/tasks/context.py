@@ -134,7 +134,7 @@ class StateMixin(object):
             'id': self.user,
         }
 
-        return self.action(['user', 'certificate'], params)
+        return self.action(['user', 'certificate'], params)['certificate']
 
 
 class WorkflowOperationContext(StateMixin, object):
