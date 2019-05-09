@@ -3,6 +3,7 @@ from rest_framework import serializers
 from rest_framework.reverse import reverse
 
 from wps import models
+from wps.util import wps_response
 
 
 class UserFileSerializer(serializers.ModelSerializer):
@@ -59,6 +60,13 @@ class StatusSerializer(serializers.ModelSerializer):
     class Meta(object):
         model = models.Status
         fields = ('id', 'status', 'created_date', 'messages', 'output', 'exception')
+
+    def create(self, validated_data):
+        if 'exception' in validated_data:
+            validated_data['exception'] = wps_response.exception_report(wps_response.NoApplicableCode,
+                                                                        validated_data['exception'])
+
+        return models.Status.objects.create(**validated_data)
 
 
 class StatusHyperlink(serializers.HyperlinkedRelatedField):

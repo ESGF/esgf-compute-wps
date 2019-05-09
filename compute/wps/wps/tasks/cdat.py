@@ -31,6 +31,8 @@ class DaskJobTracker(ProgressBar):
         if not isinstance(futures, (list, set)):
             futures = [futures, ]
 
+        context.message('Tracking {!r} futures', len(futures))
+
         super(DaskJobTracker, self).__init__(futures, scheduler, interval, complete)
 
         self.context = context
@@ -49,7 +51,7 @@ class DaskJobTracker(ProgressBar):
         logger.debug('Percent processed %r', percent)
 
         if self.last is None or self.last != percent:
-            self.context.job.update('Processing', percent=percent)
+            self.context.message('Processing', percent=percent)
 
             self.last = percent
 
@@ -75,7 +77,7 @@ def init(context, n_workers):
             'user': str(context.user.id),
         }
 
-        context.job.update('Initialize {!r} dask workers', n_workers)
+        context.message('Initializing {!r} workers', n_workers)
 
         manager.scale_up_workers(n_workers, labels)
 
@@ -107,7 +109,7 @@ def workflow_func(self, context):
     while topo_order:
         next = topo_order.pop(0)
 
-        logger.info('Processing %r-%r', next.name, next.identifier)
+        context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
 
         # if all inputs are variables then create a new InputManager
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
@@ -128,8 +130,6 @@ def workflow_func(self, context):
 
             # Add to intermediate store
             interm[next.name] = output
-
-            logger.info('Added intermediate result %r', next.name)
         else:
             # Grab all the intermediate inputs
             try:
@@ -155,7 +155,9 @@ def workflow_func(self, context):
             # Add new input to intermediate store
             interm[next.name] = output
 
-            logger.info('Added intermediate result %r', next.name)
+        context.message('Storing intermediate {!r}', next.name)
+
+    context.message('Preparing to execute workflow')
 
     # Initialize the cluster resources
     manager = init(context, settings.DASK_WORKERS)
@@ -171,15 +173,17 @@ def workflow_func(self, context):
 
             local_path = context.build_output_variable(interm[output.name].var_name, name=output_name)
 
-            logger.info('Creating output for %r at %r', output.name, local_path)
+            context.message('Building output for {!r} - {!r}', output.name, output.identifier)
+
+            logger.debug('Writing local output to %r', local_path)
 
             # Create an output file and store the future
             delayed.append(dataset.to_netcdf(local_path, compute=False))
 
+        context.message('Executing workflow')
+
         # Execute the futures
         fut = manager.client.compute(delayed)
-
-        logger.info('Created future and executing')
 
         # Track the progress
         DaskJobTracker(context, fut)
@@ -211,31 +215,43 @@ def process(context, process=None, aggregate=False):
 
     if aggregate:
         inputs = [managers.InputManager.from_cwt_variables(fm, context.inputs), ]
+
+        context.message('Building aggregation with {!r} inputs', len(context.inputs))
     else:
         inputs = [managers.InputManager.from_cwt_variable(fm, x) for x in context.inputs]
+
+        context.message('Building {!r} inputs', len(inputs))
 
     for input in inputs:
         input.subset(context.domain)
 
-        context.job.update('Subset data shape {!r}', input.data.shape)
+        context.message('Data subset shape {!r}', input.data.shape)
 
     if process is not None:
         output = process(context.operation, *inputs)
+
+        context.message('Applied process {!r} shape {!r}', context.operation.identifier, output.data.shape)
     else:
         output = inputs[0]
 
     if context.is_regrid:
         regrid(context.operation, output)
 
+        context.message('Applied regridding shape {!r}', output.data.shape)
+
+    context.message('Preparing to execute')
+
     dataset = output.to_xarray()
 
     local_path = context.build_output_variable(output.var_name)
 
-    logger.info('Writing output to %r', local_path)
+    logger.debug('Writing output to %r', local_path)
 
     try:
         # Execute the dask graph
         delayed = dataset.to_netcdf(local_path, compute=False)
+
+        context.message('Executing')
 
         fut = manager.client.compute(delayed)
 
@@ -415,17 +431,23 @@ def regrid(operation, *inputs):
     if delayed.size == 1:
         delayed = delayed.reshape((1, ))
 
+    logger.debug('Converted dask graph to %r delayed', delayed.shape)
+
     # Create list of axis data that is present in the selector.
     axis_data = [input.axes[x] for x in selector.keys()]
 
+    logger.info('Creating regrid_chunk delayed functions')
+
     regrid_delayed = [dask.delayed(regrid_chunk)(x, axis_data, grid, tool, method) for x in delayed]
+
+    logger.info('Converting delayed functions to dask arrays')
 
     regrid_arrays = [da.from_delayed(x, y.shape[:-2] + grid.shape, input.data.dtype)
                      for x, y in zip(regrid_delayed, input.data.blocks)]
 
     input.data = input.vars[input.var_name] = da.concatenate(regrid_arrays)
 
-    logger.info('Concatenated regridded arrays %r', input.data)
+    logger.info('Concatenated %r arrays to output %r', len(regrid_arrays), input.data)
 
     input.axes['lat'] = grid.getLatitude()
 
@@ -440,6 +462,8 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
     axes = operation.get_parameter('axes')
 
     constant = operation.get_parameter('constant')
+
+    logger.info('Axes %r constant %r', axes, constant)
 
     if axes is not None:
         if not supported.get('single_input_axes', True):
@@ -459,6 +483,8 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
         output = inputs[0]
 
         output.data = process_func(output.data, constant)
+
+        logger.info('Process output %r', output.data)
     elif len(inputs) > 1:
         if not supported.get('multiple_input', True):
             raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
@@ -485,7 +511,7 @@ def process_single_input(axes, process_func, input):
 
     input.data = process_func(input.data, axis=indices)
 
-    logger.info('Processed data %r', input.data)
+    logger.info('Process output %r', input.data)
 
     for axis in axes:
         logger.info('Removing axis %r', axis)
@@ -501,9 +527,14 @@ def process_multiple_input(process_func, input1, input2):
     if process_func.__name__ in REQUIRES_STACK:
         stacked = da.stack([input1.data, input2.data])
 
+        logger.info('Stacking inputs %r', stacked)
+
         new_input.data = process_func(stacked, axis=0)
+
     else:
         new_input.data = process_func(input1.data, input2.data)
+
+    logger.info('Process output %r', new_input.data)
 
     return new_input
 

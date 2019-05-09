@@ -81,14 +81,17 @@ class StateMixin(object):
 
         self.status = output['id']
 
-    def message(self, text, percent=None):
-        if percent is None:
-            percent = 0.0
+    def message(self, fmt, *args, **kwargs):
+        percent = kwargs.get('percent', 0.0)
+
+        msg = fmt.format(*args, **kwargs)
+
+        logger.info('%s', msg)
 
         params = {
             'job_pk': self.job,
             'status_pk': self.status,
-            'message': text,
+            'message': msg,
             'percent': percent,
         }
 
@@ -264,8 +267,8 @@ class WorkflowOperationContext(StateMixin, object):
     def generate_local_path(self):
         filename = '{}.nc'.format(uuid.uuid4())
 
-        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
-                                 str(self.job.id))
+        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user),
+                                 str(self.job))
 
         if not os.path.exists(base_path):
             os.makedirs(base_path)
@@ -355,8 +358,8 @@ class OperationContext(StateMixin, object):
     def generate_local_path(self):
         filename = '{}.nc'.format(uuid.uuid4())
 
-        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user.id),
-                                 str(self.job.id))
+        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user),
+                                 str(self.job))
 
         if not os.path.exists(base_path):
             os.makedirs(base_path)

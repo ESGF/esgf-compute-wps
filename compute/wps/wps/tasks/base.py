@@ -14,8 +14,6 @@ from django.conf import settings
 
 from wps import AccessError
 from wps import WPSError
-from wps.tasks import context
-from wps.util import wps_response
 
 logger = get_task_logger('wps.tasks.base')
 
@@ -112,15 +110,16 @@ class CWTBaseTask(celery.Task):
     def on_retry(self, exc, task_id, args, kwargs, einfo):
         logger.info('Retry %r', args)
 
-        if len(args) > 0 and isinstance(args[0], context.OperationContext):
-            args[0].job.retry(exc)
-
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logger.info('Failure %r', args)
 
-        if len(args) > 0 and isinstance(args[0], (context.OperationContext, context.WorkflowOperationContext)):
-            args[0].job.failed(wps_response.exception_report(wps_response.NoApplicableCode, str(exc)))
+        try:
+            args[0].failed(str(exc))
+        except AttributeError:
+            logger.exception('First argument should be OperationContext or WorkflowOperationContext')
 
+            pass
+        else:
             from wps.tasks import job
 
             job.send_failed_email(args[0], str(exc))

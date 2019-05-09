@@ -156,7 +156,7 @@ def job_started(self, identifier, data_inputs, job_id, user_id, process_id):
 
     context.init_state(data)
 
-    context.job.started()
+    context.started()
 
     return context
 
@@ -165,11 +165,11 @@ def job_started(self, identifier, data_inputs, job_id, user_id, process_id):
 def job_succeeded(self, context):
     if len(context.output) == 1:
         if isinstance(context.output[0], cwt.Variable):
-            context.job.succeeded(json.dumps(context.output[0].to_dict()))
+            context.succeeded(json.dumps(context.output[0].to_dict()))
 
             send_success_email(context, context.output)
         elif isinstance(context.output[0], str):
-            context.job.succeeded(context.output)
+            context.succeeded(context.output)
 
             send_success_email_data(context, context.output)
     else:
