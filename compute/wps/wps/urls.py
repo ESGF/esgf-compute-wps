@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls import include
 from django.contrib import admin
@@ -52,7 +53,8 @@ api_urlpatterns = [
     url(r'^mpc/$', views.login_mpc),
 ]
 
-schema = get_schema_view(title='Internal API', patterns=internal_router.urls, url='https://10.5.5.5/internal_api',
+schema = get_schema_view(title='Internal API', patterns=internal_router.urls,
+                         url='https://{!s}/internal_api'.format(settings.INTERNAL_LB),
                          authentication_classes=[BasicAuthentication, ])
 
 internal_router_urls = internal_router.urls
