@@ -8,6 +8,7 @@ from past.utils import old_div
 
 import cdms2
 import cwt
+import dask
 import dask.array as da
 import requests
 import xarray as xr
@@ -256,7 +257,7 @@ class InputManager(object):
 
         chunks = [slice(x, min(size, x+step), 1) for x in range(0, size)]
 
-        delayed = [da.delayed(retrieve_chunk)(uri, var.id, {'time': x}, self.fm.user.auth.cert) for x in chunks]
+        delayed = [dask.delayed(retrieve_chunk)(uri, var.id, {'time': x}, self.fm.cert_data) for x in chunks]
 
         arrays = [da.from_delayed(x, self.new_shape(var.shape, y), var.dtype) for x, y in zip(delayed, chunks)]
 
@@ -637,6 +638,8 @@ class FileManager(object):
 
         self.cert_path = None
 
+        self.cert_data = None
+
     def requires_cert(self, uri):
         return uri in self.auth
 
@@ -676,7 +679,7 @@ class FileManager(object):
         if self.cert_path is not None:
             return self.cert_path
 
-        cert = self.context.user_cert()
+        self.cert_data = self.context.user_cert()
 
         self.temp_dir = tempfile.TemporaryDirectory()
 
@@ -689,7 +692,7 @@ class FileManager(object):
         self.cert_path = os.path.join(self.temp_dir.name, 'cert.pem')
 
         with open(self.cert_path, 'w') as outfile:
-            outfile.write(cert)
+            outfile.write(self.cert_data)
 
         logger.info('Wrote user certificate')
 
@@ -726,7 +729,7 @@ class FileManager(object):
         parts = urllib.parse.urlparse(url)
 
         try:
-            response = requests.get(url, timeout=(2, 30), cert=cert, verify=False)
+            response = requests.get(url, timeout=(10, 30), cert=cert, verify=False)
         except requests.ConnectionError:
             logger.exception('Connection error %r', parts.hostname)
 
