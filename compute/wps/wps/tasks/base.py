@@ -111,14 +111,14 @@ class CWTBaseTask(celery.Task):
         logger.info('Retry %r', args)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        logger.info('Failure %r', args)
+        logger.info('Failure %r %r', args, exc)
 
         try:
             args[0].failed(str(exc))
         except AttributeError:
             logger.exception('First argument should be OperationContext or WorkflowOperationContext')
-
-            pass
+        except WPSError:
+            raise
         else:
             from wps.tasks import job
 

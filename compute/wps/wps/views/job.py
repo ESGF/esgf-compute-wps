@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import logging
 from urllib.parse import urlparse
 
 from django import db
@@ -12,9 +13,12 @@ from rest_framework.authentication import BasicAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import DjangoModelPermissions
+from rest_framework.exceptions import APIException
 
 from wps import models
 from wps import serializers
+
+logger = logging.getLogger('wps.views.job')
 
 
 class InternalFileViewSet(viewsets.GenericViewSet):
@@ -107,9 +111,14 @@ class InternalUserProcessViewSet(mixins.CreateModelMixin,
         try:
             user = models.User.objects.get(pk=kwargs['user_pk'])
         except models.User.DoesNotExist:
-            return Response('User does not exist', status=400)
+            raise APIException('User does not exist')
 
-        user_process, _ = models.UserProcess.objects.get_or_create(user=user, process=kwargs['process_pk'])
+        try:
+            process = models.Process.objects.get(pk=kwargs['process_pk'])
+        except models.Process.DoesNotExist:
+            raise APIException('Process does not exist')
+
+        user_process, _ = models.UserProcess.objects.get_or_create(user=user, process=process)
 
         user_process.requested = F('requested') + 1
 
@@ -164,7 +173,7 @@ class InternalJobStatusViewSet(mixins.CreateModelMixin,
         try:
             job = models.Job.objects.get(pk=kwargs['job_pk'])
         except models.Job.DoesNotExist:
-            return Response('Job does not exist', status=400)
+            raise APIException('Job does not exist')
 
         status_serializer = serializers.StatusSerializer(data=request.data)
 
@@ -173,7 +182,7 @@ class InternalJobStatusViewSet(mixins.CreateModelMixin,
         try:
             status_serializer.save(job=job)
         except db.IntegrityError:
-            return Response('Status already exists', status=400)
+            raise APIException('Status {!r} already exists for job {!r}'.format(request.data['status'], job.id))
 
         return Response(status_serializer.data, status=201)
 

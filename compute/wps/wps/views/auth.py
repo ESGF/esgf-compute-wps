@@ -13,12 +13,9 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from openid.consumer import discover
 from myproxy.client import MyProxyClient
-from rest_framework import mixins
 from rest_framework import viewsets
-from rest_framework.authentication import BasicAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import DjangoModelPermissions
 from rest_framework.exceptions import APIException
 
 from wps import forms
@@ -67,7 +64,21 @@ discover.OpenIDServiceEndpoint.openid_type_uris.extend([
 ])
 
 
-class InternalUserCredentialViewSet(viewsets.GenericViewSet):
+class InternalUserViewSet(viewsets.GenericViewSet):
+    @action(detail=True)
+    def details(self, request, pk):
+        try:
+            user = models.User.objects.get(pk=pk)
+        except models.User.DoesNotExist:
+            raise APIException('User does not exist')
+
+        data = {
+            'first_name': user.first_name,
+            'email': user.email,
+        }
+
+        return Response(data, status=200)
+
     @action(detail=True)
     def certificate(self, request, pk):
         try:

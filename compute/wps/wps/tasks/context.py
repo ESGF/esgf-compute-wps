@@ -33,6 +33,10 @@ class StateMixin(object):
 
         self.process = data['process']
 
+        self.status = data.get('status')
+
+        logger.info('Initial with %r', data)
+
         self.init_api()
 
     def init_api(self):
@@ -55,13 +59,14 @@ class StateMixin(object):
             'job': self.job,
             'user': self.user,
             'process': self.process,
+            'status': self.status,
         }
 
     def action(self, keys, params=None):
         try:
             return self.client.action(self.schema, keys, params=params)
-        except Exception as e:
-            logger.exception(str(e))
+        except Exception:
+            logger.debug('API call failed %r %r', keys, params)
 
             raise WPSError('Internal API call failed')
 
@@ -77,9 +82,12 @@ class StateMixin(object):
         if exception is not None:
             params['exception'] = exception
 
-        output = self.action(['jobs', 'status', 'create'], params)
-
-        self.status = output['id']
+        try:
+            output = self.action(['jobs', 'status', 'create'], params)
+        except WPSError:
+            pass
+        else:
+            self.status = output['id']
 
     def message(self, fmt, *args, **kwargs):
         percent = kwargs.get('percent', 0.0)
@@ -123,6 +131,14 @@ class StateMixin(object):
 
         self.action(['user', 'file', 'create'], params)
 
+    def track_process(self):
+        params = {
+            'user_pk': self.user,
+            'process_pk': self.process,
+        }
+
+        self.action(['user', 'process', 'create'], params)
+
     def unique_status(self):
         return self.action(['status', 'unique_count'])
 
@@ -135,6 +151,13 @@ class StateMixin(object):
         }
 
         return self.action(['user', 'certificate'], params)['certificate']
+
+    def user_details(self):
+        params = {
+            'id': self.user,
+        }
+
+        return self.action(['user', 'details'], params)
 
 
 class WorkflowOperationContext(StateMixin, object):
@@ -316,20 +339,17 @@ class OperationContext(StateMixin, object):
     @classmethod
     def from_dict(cls, data):
         try:
-            inputs = [cwt.Variable.from_dict(x) for x in data['inputs']]
+            inputs = data.pop('inputs')
 
-            if 'domain' in data and data['domain'] is not None:
-                domain = cwt.Domain.from_dict(data['domain'])
-            else:
-                domain = None
+            domain = data.pop('domain')
 
-            operation = cwt.Process.from_dict(data['operation'])
-        except Exception:
-            obj = cls()
+            operation = data.pop('operation')
+        except KeyError:
+            raise WPSError('Unabled to load operation context')
         else:
             obj = cls(inputs, domain, operation)
 
-        obj.output = [cwt.Variable.from_dict(x) for x in data['output']]
+        obj.output = data.pop('output')
 
         obj.init_state(data)
 

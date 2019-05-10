@@ -19,7 +19,7 @@ internal_router.register(r'process', views.InternalProcessViewSet, basename='int
 internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.InternalJobStatusViewSet, basename='internal')
 internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message',
                          views.InternalJobMessageViewSet, basename='internal')
-internal_router.register(r'user', views.InternalUserCredentialViewSet, basename='internal')
+internal_router.register(r'user', views.InternalUserViewSet, basename='internal')
 internal_router.register(r'user/(?P<user_pk>[^/.]+)/file', views.InternalUserFileViewSet, basename='internal')
 internal_router.register(r'user/(?P<user_pk>[^/.]+)/process/(?P<process_pk>[^/.]+)', views.InternalUserProcessViewSet,
                          basename='internal')

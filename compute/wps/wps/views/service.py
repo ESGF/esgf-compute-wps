@@ -107,7 +107,7 @@ def handle_execute(meta, identifier, data_inputs):
 
     logger.info('Acceped job %r', job.id)
 
-    started = job_started.s(identifier, data_inputs, user.id, job.id, process.id).set(**helpers.DEFAULT_QUEUE)
+    started = job_started.s(identifier, data_inputs, job.id, user.id, process.id).set(**helpers.DEFAULT_QUEUE)
 
     queue = helpers.queue_from_identifier(identifier)
 

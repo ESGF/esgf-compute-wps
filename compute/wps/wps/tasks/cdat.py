@@ -61,7 +61,7 @@ class DaskJobTracker(ProgressBar):
 
 def init(context, n_workers):
     if settings.DEBUG:
-        cluster = LocalCluster(n_workers=2, threads_per_worker=2)
+        cluster = LocalCluster(n_workers=2, threads_per_worker=2, processes=False)
 
         client = Client(cluster) # noqa
 

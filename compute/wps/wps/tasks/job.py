@@ -19,7 +19,7 @@ JOB_SUCCESS_MSG = """
 Hello {name},
 
 <pre>
-Job {job.pk} has finished successfully.
+Job {job} has finished successfully.
 </pre>
 
 <pre>
@@ -40,7 +40,7 @@ JOB_FAILED_MSG = """
 Hello {name},
 
 <pre>
-Job {job.pk} has failed.
+Job {job} has failed.
 </pre>
 
 <pre>
@@ -57,14 +57,11 @@ ESGF Compute Team
 
 
 def send_failed_email(context, error):
-    if context.user.first_name is None:
-        name = context.user.username
-    else:
-        name = context.user.get_full_name()
+    user = context.user_details()
 
-    msg = JOB_FAILED_MSG.format(name=name, job=context.job, error=error)
+    msg = JOB_FAILED_MSG.format(name=user['first_name'], job=context.job, error=error)
 
-    email = EmailMessage('Job Failed', msg, to=[context.user.email, ])
+    email = EmailMessage('Job Failed', msg, to=[user['email'], ])
 
     email.content_subtype = 'html'
 
@@ -74,10 +71,7 @@ def send_failed_email(context, error):
 def send_success_email(context, variable):
     logger.info('Sending success email using variable %r', variable)
 
-    if context.user.first_name is None:
-        name = context.user.username
-    else:
-        name = context.user.get_full_name()
+    user = context.user_details()
 
     if not isinstance(variable, (list, tuple)):
         variable = [variable, ]
@@ -88,9 +82,9 @@ def send_success_email(context, variable):
         x.name)
         for x in variable)
 
-    msg = JOB_SUCCESS_MSG.format(name=name, job=context.job, settings=settings, outputs=outputs)
+    msg = JOB_SUCCESS_MSG.format(name=user['first_name'], job=context.job, settings=settings, outputs=outputs)
 
-    email = EmailMessage('Job Success', msg, to=[context.user.email, ])
+    email = EmailMessage('Job Success', msg, to=[user['email'], ])
 
     email.content_subtype = 'html'
 
@@ -98,14 +92,11 @@ def send_success_email(context, variable):
 
 
 def send_success_email_data(context, outputs):
-    if context.user.first_name is None:
-        name = context.user.username
-    else:
-        name = context.user.get_full_name()
+    user = context.user_details()
 
-    msg = JOB_SUCCESS_MSG.format(name=name, job=context.job, settings=settings, outputs=outputs)
+    msg = JOB_SUCCESS_MSG.format(name=user['first_name'], job=context.job, settings=settings, outputs=outputs)
 
-    email = EmailMessage('Job Success', msg, to=[context.user.email, ])
+    email = EmailMessage('Job Success', msg, to=[user['email'], ])
 
     email.content_subtype = 'html'
 
@@ -177,7 +168,7 @@ def job_succeeded(self, context):
 
         send_success_email(context, context.output)
 
-    context.process.track(context.user)
+    context.track_process()
 
     for input in context.inputs:
         context.track_file(input)

@@ -712,6 +712,12 @@ class FileManager(object):
 
         try:
             response = requests.get(url, timeout=(2, 30), cert=cert, verify=False)
+        except requests.ConnectionError:
+            logger.exception('Connection error %r', parts.hostname)
+
+            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
+            raise WPSError('Connection error to {!r}', parts.hostname)
         except requests.ConnectTimeout:
             logger.exception('Timeout connecting to %r', parts.hostname)
 
