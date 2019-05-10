@@ -7,6 +7,8 @@ from django import db
 from django.db.models import Count
 from django.db.models import F
 from django.db.models import Max
+from django.db.models import Min
+from rest_framework import filters
 from rest_framework import mixins
 from rest_framework import viewsets
 from rest_framework.authentication import BasicAuthentication
@@ -206,8 +208,10 @@ class JobViewSet(mixins.ListModelMixin,
                  viewsets.GenericViewSet):
     queryset = models.Job.objects.all()
     serializer_class = serializers.JobSerializer
+    filter_backends = (filters.OrderingFilter, )
+    ordering_fields = ('accepted', )
 
     def get_queryset(self):
         user = self.request.user
 
-        return models.Job.objects.filter(user=user.pk)
+        return models.Job.objects.filter(user=user.pk).annotate(accepted=Min('status__created_date'))
