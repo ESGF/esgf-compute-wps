@@ -25,7 +25,7 @@ data:
     password={{ .Values.wps.email.password }}
 
     [metrics]
-    host=http://{{ .Values.wps.prometheus.host }}/prometheus/api/v1/query
+    host=http://{{ required "Set wps.prometheus.host" .Values.wps.prometheus.host }}/prometheus/api/v1/query
 
     [dask]
     scheduler={{ .Release.Name }}-dask-scheduler:8786

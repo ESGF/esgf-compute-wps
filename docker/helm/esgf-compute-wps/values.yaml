@@ -185,11 +185,11 @@ wps:
   externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
 
-  internalRange: 10.0.0.0/24
-  internalLB: unrealized-waterbuffalo-traefik.default.svc
+  apiUsername:
+  apiPassword:
 
-  apiUsername: wps_api_user
-  apiPassword: changeit
+  prometheus:
+    host:
 
   nodeSelector:
     tier: backend
@@ -220,9 +220,6 @@ wps:
     postal:
     counter:
     email:
-    
-  prometheus:
-    host: mottled-mouse-prometheus-server.default.svc
 
   annotations:
     prometheus.io/scrape: "true"
@@ -237,15 +234,9 @@ wps:
       cpu: 200m
       memory: 256Mi
 
-  worker:
-    cpuCount: 3
-    cpuUnits: 100
-    memory: "200000000"
-    userPercent: 0.10
-
   oauth:
-    client: ""
-    secret: ""
+    client:
+    secret:
 
   email:
     host: "localhost"
@@ -335,10 +326,12 @@ thredds:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    labels:
+      traffic-type: external
 
 postgresql:
   postgresqlUsername: postgres
-  postgresqlPassword: abcd1234
+  postgresqlPassword:
   port: 5432
 
   nodeSelector:
@@ -371,6 +364,8 @@ redis:
 
   usePassword: false
 
+  # Cannot use permission init container when using existing claim 
+  # chown -R 1001:1001
   persistence:
     existingClaim: redis-pvc
 
@@ -388,9 +383,6 @@ redis:
 
     nodeSelector:
       tier: backend
-
-    securityContext:
-      enabled: false
 
 edask:
   enabled: false
