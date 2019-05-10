@@ -1,10 +1,6 @@
 from builtins import str
-from builtins import range
 import json
-import random
-import string
 
-from django.contrib.auth import update_session_auth_hash
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
@@ -13,6 +9,7 @@ from wps import forms
 from wps import WPSError
 
 logger = common.logger
+
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -23,6 +20,7 @@ def user_details(request):
         return common.failed(str(e))
     else:
         return common.success(common.user_to_json(request.user))
+
 
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
@@ -49,6 +47,7 @@ def user_stats(request):
     else:
         return common.success(data)
 
+
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def update(request):
@@ -73,6 +72,7 @@ def update(request):
     else:
         return common.success(common.user_to_json(request.user))
 
+
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def regenerate(request):
@@ -80,11 +80,10 @@ def regenerate(request):
         common.authentication_required(request)
 
         if request.user.auth.api_key == '':
-            raise WPSError('Cannot regenerate API key, to generate an API key authenticate with MyProxyClient or OAuth2')
+            raise WPSError('Cannot regenerate API key, to generate an API key authenticate '
+                           'with MyProxyClient or OAuth2')
 
-        request.user.auth.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(64))
-
-        request.user.auth.save()
+        request.user.auth.generate_api_key()
 
         logger.info('Regenerated API key for "{}"'.format(request.user.username))
     except WPSError as e:

@@ -239,10 +239,12 @@ class Auth(models.Model):
     api_key = models.CharField(max_length=128)
     extra = models.TextField()
 
-    def update(self, auth_type, certs, **kwargs):
-        if self.api_key == '':
-            self.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(64))
+    def generate_api_key(self):
+        self.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(64))
 
+        self.save(update_fields=['api_key'])
+
+    def update(self, auth_type, certs, **kwargs):
         self.type = auth_type
 
         self.cert = ''.join(list(x.decode() for x in certs))

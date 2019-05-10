@@ -226,6 +226,8 @@ def user_login_openid_callback(request):
 
             models.Auth.objects.create(openid_url=openid_url, user=user)
 
+            user.auth.generate_api_key()
+
             send_welcome_mail(user)
 
         login(request, user)
