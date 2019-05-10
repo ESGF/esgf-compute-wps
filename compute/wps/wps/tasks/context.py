@@ -190,11 +190,11 @@ class WorkflowOperationContext(StateMixin, object):
 
     @classmethod
     def from_dict(cls, data):
-        variable = data['_inputs']
+        variable = data.pop('_inputs')
 
-        domain = data['domain']
+        domain = data.pop('domain')
 
-        operation = data['operation']
+        operation = data.pop('operation')
 
         for x in operation.values():
             inputs = []
@@ -216,7 +216,7 @@ class WorkflowOperationContext(StateMixin, object):
 
         instance = cls(variable, domain, operation)
 
-        instance.output = [cwt.Variable.from_dict(x) for x in data['output']]
+        instance.output = data.pop('output')
 
         instance.init_state(data)
 
