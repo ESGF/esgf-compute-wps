@@ -22,6 +22,9 @@ from wps.tasks.dask_serialize import retrieve_chunk
 logger = logging.getLogger('wps.tasks.manager')
 
 
+BOUND_NAMES = ('nbnd', 'bnds')
+
+
 class InputManager(object):
     def __init__(self, fm, uris, var_name):
         self.fm = fm
@@ -303,7 +306,7 @@ class InputManager(object):
 
                         break
 
-                    if axis.id in self.axes and axis.id == 'nbnd':
+                    if axis.id in self.axes and axis.id in BOUND_NAMES:
                         continue
 
                     if axis.id not in self.attrs:
@@ -361,18 +364,30 @@ class InputManager(object):
 
     def subset_variables_and_axes(self):
         for name in self.axes.keys():
-            if name == 'nbnd':
+            logger.info('axis %r', name)
+
+            if name in BOUND_NAMES:
                 self.axes[name] = self.axes[name]
             else:
                 i, j, k = self.slice_to_subaxis(self.axes[name])
 
+                shape = self.axes[name].shape
+
                 self.axes[name] = self.axes[name].subAxis(i, j, k)
+
+                logger.info('Subsetting axis %r -> %r', shape, self.axes[name].shape)
 
         for name in self.vars.keys():
             if name != self.var_name:
+                logger.info('variable %r', name)
+
                 selector = dict((x, self.map[x]) for x in self.vars_axes[name] if x in self.map)
 
+                shape = self.vars[name].shape
+
                 self.vars[name] = self.vars[name](**selector)
+
+                logger.info('Subsetting variable %r -> %r', shape, self.vars[name].shape)
 
     def to_xarray(self):
         axes = {}
@@ -382,7 +397,7 @@ class InputManager(object):
         logger.info('Building xarray with variables %r', self.vars.keys())
 
         for x, y in self.axes.items():
-            if x in self.map or x == 'nbnd':
+            if x in self.map or x in BOUND_NAMES:
                 logger.info('Creating axis array %r shape %r', x, y.shape)
 
                 axes[x] = xr.DataArray(y, name=x, dims=x, attrs=self.attrs[x])
