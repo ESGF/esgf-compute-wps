@@ -16,7 +16,7 @@ data:
     host={{ .Values.wps.host }}
     celery.broker={{ template "redis.fullname" . }}-master:6379/0
     celery.backend={{ template "redis.fullname" . }}-master:6379/0
-    internal.lb={{ .Values.wps.internalLB }}
+    internal.lb={{ template "traefik.fullname" . }}.{{ .Release.Namespace }}.svc
 
     [email]
     host={{ .Values.wps.email.host }}
