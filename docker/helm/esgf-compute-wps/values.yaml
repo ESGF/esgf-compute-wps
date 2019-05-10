@@ -1,5 +1,61 @@
 development: false
 
+traefik:
+  serviceType: NodePort
+
+  rbac:
+    enabled: true
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  ssl:
+    enabled: true
+    enforced: true
+    tlsMinVersion: VersionTLS12
+    cipherSuites:
+    - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+    - TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+    - TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
+    generateTLS: true
+    
+  dashboard:
+    enabled: true
+    domain: ""
+    ingress:
+      annotations:
+        traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+      labels:
+        traffic-type: external
+
+  kubernetes:
+    labelSelector: traffic-type=internal
+
+  metrics:
+    prometheus:
+      enabled: true
+      restrictAccess: true
+
 persistence:
   cache:
     storageClassName: slow
@@ -77,12 +133,14 @@ dask:
       prometheus.io/path: /daskboard/metrics
       prometheus.io/port: "8787"
 
-    bokeh:
+    ingress:
       annotations:
         ingress.kubernetes.io/ssl-redirect: "true"
         ingress.kubernetes.io/hsts-max-age: "31536000"
         ingress.kubernetes.io/hsts-include-subdomains: "true"
         ingress.kubernetes.io/force-hsts: "true"
+      labels:
+        traffic-type: external
 
     resources:
       limits:
@@ -114,6 +172,8 @@ nginx:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    labels:
+      traffic-type: external
   
 wps:
   replicas: 1
@@ -203,6 +263,12 @@ wps:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    external:
+      labels:
+        traffic-type: external
+    internal:
+      labels:
+        traffic-type: internal
 
 celery:
   image: jasonb87/cwt_celery

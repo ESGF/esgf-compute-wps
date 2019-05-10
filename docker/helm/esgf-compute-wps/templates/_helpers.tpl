@@ -20,6 +20,9 @@ If release name contains chart name it will be used as a full name.
 {{- define "redis.fullname" -}}
 {{- printf "%s-%s" .Release.Name "redis" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+{{- define "traefik.fullname" -}}
+{{- printf "%s-%s" .Release.Name "traefik" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 {{- define "prometheus-server.fullname" -}}
 {{- printf "%s-%s-server" .Release.Name "prometheus" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

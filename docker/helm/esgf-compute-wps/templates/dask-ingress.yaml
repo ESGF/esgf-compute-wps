@@ -5,9 +5,12 @@ metadata:
   labels:
     app: {{ .Release.Name }}-dask-bokeh
     release: {{ .Release.Name }}
-{{- if .Values.dask.scheduler.bokeh.annotations }}
+{{- if .Values.dask.scheduler.ingress.labels }}
+{{ toYaml .Values.dask.scheduler.ingress.labels | nindent 4 }}
+{{- end }}
+{{- if .Values.dask.scheduler.ingress.annotations }}
   annotations:
-{{ toYaml .Values.dask.scheduler.bokeh.annotations | nindent 4 }}
+{{ toYaml .Values.dask.scheduler.ingress.annotations | nindent 4 }}
 {{- end }}
 spec:
   rules:
