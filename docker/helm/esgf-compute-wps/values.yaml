@@ -311,13 +311,16 @@ thredds:
   nodeSelector:
     tier: backend
 
+  heapMax: 2g
+  heapInit: 512m
+
   resources:
     limits:
       cpu: 1
       memory: 2Gi
     requests:
       cpu: 500m
-      memory: 1Gi
+      memory: 512Mi
 
   ingress:
     path: /threddsCWT
