@@ -1,5 +1,61 @@
 development: false
 
+traefik:
+  serviceType: NodePort
+
+  rbac:
+    enabled: true
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  ssl:
+    enabled: true
+    enforced: true
+    tlsMinVersion: VersionTLS12
+    cipherSuites:
+    - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+    - TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+    - TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
+    generateTLS: true
+    
+  dashboard:
+    enabled: true
+    domain: ""
+    ingress:
+      annotations:
+        traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+      labels:
+        traffic-type: external
+
+  kubernetes:
+    labelSelector: traffic-type=internal
+
+  metrics:
+    prometheus:
+      enabled: true
+      restrictAccess: true
+
 persistence:
   cache:
     storageClassName: slow
@@ -77,12 +133,14 @@ dask:
       prometheus.io/path: /daskboard/metrics
       prometheus.io/port: "8787"
 
-    bokeh:
+    ingress:
       annotations:
         ingress.kubernetes.io/ssl-redirect: "true"
         ingress.kubernetes.io/hsts-max-age: "31536000"
         ingress.kubernetes.io/hsts-include-subdomains: "true"
         ingress.kubernetes.io/force-hsts: "true"
+      labels:
+        traffic-type: external
 
     resources:
       limits:
@@ -114,6 +172,8 @@ nginx:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    labels:
+      traffic-type: external
   
 wps:
   replicas: 1
@@ -125,11 +185,11 @@ wps:
   externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
 
-  internalRange: 10.0.0.0/24
-  internalLB: unrealized-waterbuffalo-traefik.default.svc
+  apiUsername:
+  apiPassword:
 
-  apiUsername: wps_api_user
-  apiPassword: changeit
+  prometheus:
+    host:
 
   nodeSelector:
     tier: backend
@@ -160,9 +220,6 @@ wps:
     postal:
     counter:
     email:
-    
-  prometheus:
-    host: mottled-mouse-prometheus-server.default.svc
 
   annotations:
     prometheus.io/scrape: "true"
@@ -177,15 +234,9 @@ wps:
       cpu: 200m
       memory: 256Mi
 
-  worker:
-    cpuCount: 3
-    cpuUnits: 100
-    memory: "200000000"
-    userPercent: 0.10
-
   oauth:
-    client: ""
-    secret: ""
+    client:
+    secret:
 
   email:
     host: "localhost"
@@ -203,6 +254,12 @@ wps:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    external:
+      labels:
+        traffic-type: external
+    internal:
+      labels:
+        traffic-type: internal
 
 celery:
   image: jasonb87/cwt_celery
@@ -254,13 +311,16 @@ thredds:
   nodeSelector:
     tier: backend
 
+  heapMax: 2g
+  heapInit: 512m
+
   resources:
     limits:
       cpu: 1
       memory: 2Gi
     requests:
       cpu: 500m
-      memory: 1Gi
+      memory: 512Mi
 
   ingress:
     path: /threddsCWT
@@ -269,10 +329,12 @@ thredds:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    labels:
+      traffic-type: external
 
 postgresql:
   postgresqlUsername: postgres
-  postgresqlPassword: abcd1234
+  postgresqlPassword:
   port: 5432
 
   nodeSelector:
@@ -305,6 +367,8 @@ redis:
 
   usePassword: false
 
+  # Cannot use permission init container when using existing claim 
+  # chown -R 1001:1001
   persistence:
     existingClaim: redis-pvc
 
@@ -322,9 +386,6 @@ redis:
 
     nodeSelector:
       tier: backend
-
-    securityContext:
-      enabled: false
 
 edask:
   enabled: false

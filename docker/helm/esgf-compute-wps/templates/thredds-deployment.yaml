@@ -29,6 +29,11 @@ spec:
       - name: {{ .Release.Name }}-thredds
         image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}
         imagePullPolicy: IfNotPresent
+        env:
+        - name: JAVA_HEAP_INIT
+          value: {{ .Values.thredds.heapInit }}
+        - name: JAVA_HEAP_MAX
+          value: {{ .Values.thredds.heapMax }}
         livenessProbe:
           httpGet:
             path: /threddsCWT

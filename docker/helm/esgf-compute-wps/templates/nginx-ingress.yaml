@@ -7,6 +7,9 @@ metadata:
     chart: {{ template "esgf-compute-wps.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+{{- if .Values.nginx.ingress.labels }}
+{{ toYaml .Values.nginx.ingress.labels | nindent 4 }}
+{{- end }}
 {{- if .Values.nginx.ingress.annotations }}
   annotations:
 {{ toYaml .Values.nginx.ingress.annotations | nindent 4 }}
