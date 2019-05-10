@@ -1,7 +1,10 @@
 dependencies:
   - name: postgresql
-    version: 3.14.3
+    version: 4.0.1
     repository: https://kubernetes-charts.storage.googleapis.com/
   - name: redis
-    version: 6.4.3
+    version: 7.1.0
+    repository: https://kubernetes-charts.storage.googleapis.com/
+  - name: traefik
+    version: 1.65.0
     repository: https://kubernetes-charts.storage.googleapis.com/
