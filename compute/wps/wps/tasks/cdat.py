@@ -497,7 +497,8 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
 
         logger.debug('Inputs %r', inputs)
 
-        raise WPSError('Could not handle processing input')
+        raise WPSError('Error configuring operation {!r} might be missing axes or constant parameters',
+                       operation.identifier)
 
     return output
 

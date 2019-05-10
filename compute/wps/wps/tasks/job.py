@@ -128,6 +128,14 @@ def build_context(identifier, data_inputs):
             operation = dict((x.name, x) for x in data)
 
     if identifier == 'CDAT.workflow' or len(operation) > 1:
+        try:
+            workflow_op = [x for x in operation.values() if x.identifier == 'CDAT.workflow'][0]
+        except IndexError:
+            raise WPSError('Some odd occurred expected CDAT.workflow operation but did not find it')
+
+        # Remove the workflow operation as it's just a placeholder for global values
+        operation.pop(workflow_op.name)
+
         context = WorkflowOperationContext.from_data_inputs(variable, domain, operation)
     else:
         context = OperationContext.from_data_inputs(identifier, variable, domain, operation)
