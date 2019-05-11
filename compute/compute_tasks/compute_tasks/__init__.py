@@ -25,8 +25,8 @@ class AccessError(WPSError):
 
 
 def default(obj):
-    from wps.tasks.context import OperationContext
-    from wps.tasks.context import WorkflowOperationContext
+    from compute_tasks.context import OperationContext
+    from compute_tasks.context import WorkflowOperationContext
 
     if isinstance(obj, slice):
         data = {
@@ -89,8 +89,8 @@ def default(obj):
 
 
 def object_hook(obj):
-    from wps.tasks.context import OperationContext
-    from wps.tasks.context import WorkflowOperationContext
+    from compute_tasks.context import OperationContext
+    from compute_tasks.context import WorkflowOperationContext
 
     obj = byteify(obj)
 

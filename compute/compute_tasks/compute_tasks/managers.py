@@ -16,12 +16,12 @@ from django.conf import settings
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 
-from wps.tasks import metrics_ as metrics
-from wps.tasks import AccessError
-from wps.tasks import WPSError
-from wps.tasks.dask_serialize import retrieve_chunk
+from compute_tasks import metrics_ as metrics
+from compute_tasks import AccessError
+from compute_tasks import WPSError
+from compute_tasks.dask_serialize import retrieve_chunk
 
-logger = logging.getLogger('wps.tasks.manager')
+logger = logging.getLogger('compute_tasks.manager')
 
 
 BOUND_NAMES = ('nbnd', 'bnds')

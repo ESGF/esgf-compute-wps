@@ -9,10 +9,10 @@ from prometheus_client import Counter # noqa
 from prometheus_client import Histogram # noqa
 from prometheus_client import Summary # noqa
 
-from wps.tasks import base
-from wps.tasks import WPSError
+from compute_tasks import base
+from compute_tasks import WPSError
 
-logger = get_task_logger('wps.tasks.metrics')
+logger = get_task_logger('compute_tasks.metrics')
 
 
 class PrometheusError(WPSError):

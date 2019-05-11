@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods
 from . import common
 from wps import metrics
 from wps import WPSError
-from wps.tasks import managers
+from compute_tasks import managers
 
 logger = common.logger
 

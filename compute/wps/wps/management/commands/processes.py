@@ -3,8 +3,8 @@ from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
 from django.db import IntegrityError
 
+from compute_tasks.base import discover_processes
 from wps import models
-from wps.tasks.base import discover_processes
 
 
 class Command(BaseCommand):

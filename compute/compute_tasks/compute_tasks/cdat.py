@@ -16,12 +16,12 @@ from tornado.ioloop import IOLoop
 
 from cwt_kubernetes.cluster import Cluster
 from cwt_kubernetes.cluster_manager import ClusterManager
-from wps.tasks import base
-from wps.tasks import managers
-from wps.tasks import WPSError
-from wps.tasks.dask_serialize import regrid_chunk
+from compute_tasks import base
+from compute_tasks import managers
+from compute_tasks import WPSError
+from compute_tasks.dask_serialize import regrid_chunk
 
-logger = get_task_logger('wps.tasks.cdat')
+logger = get_task_logger('compute_tasks.cdat')
 
 
 class DaskJobTracker(ProgressBar):
@@ -199,7 +199,7 @@ def process(context, process=None, aggregate=False):
     Initialize the cluster workers, create the dask graph then execute.
 
     The `process` function should have the following signature
-    (cwt.Operation, wps.tasks.managers.InputManager).
+    (cwt.Operation, compute_tasks.managers.InputManager).
 
     Args:
         context: A cwt.context.OperationContext.

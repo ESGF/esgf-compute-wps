@@ -14,10 +14,8 @@ requirements:
     - python
 
   run:
-    - python
-    - future
-    - netaddr
-    - configparser # [py27]
+    - python=3.6.7
+    - netaddr=0.7.19
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps

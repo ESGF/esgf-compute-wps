@@ -9,14 +9,14 @@ from django.conf import settings
 from PyOphidia import client
 
 from wps import WPSError
-from wps.tasks import base
+from compute_tasks import base
 
 __ALL__ = [
     'PROCESSES',
     'oph_submit',
 ]
 
-logger = get_task_logger('wps.tasks.ophidia')
+logger = get_task_logger('compute_tasks.ophidia')
 
 PROCESSES = {
     'Oph.max': 'max',

@@ -10,10 +10,10 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 
 from wps import WPSError
-from wps.tasks import base
-from wps.tasks.context import StateMixin
+from compute_tasks import base
+from compute_tasks.context import StateMixin
 
-logger = get_task_logger('wps.tasks.edas')
+logger = get_task_logger('compute_tasks.edas')
 
 MODULE_WHITELIST = ('xarray', )
 
@@ -190,7 +190,7 @@ def process_bindings():
 
         return inner_wrapper
 
-    from wps.tasks import edas
+    from compute_tasks import edas
 
     bindings = {}
 

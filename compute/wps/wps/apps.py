@@ -14,7 +14,7 @@ class WpsConfig(AppConfig):
         from django.conf import settings as wps_settings
         from wps import metrics # noqa
         from wps import WPSError # noqa
-        from wps.tasks.base import build_process_bindings
+        from compute_tasks.base import build_process_bindings
 
         os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
 

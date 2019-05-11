@@ -7,13 +7,13 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.core.mail import EmailMessage
 
-from wps.tasks import base
-from wps.tasks import metrics_ as metrics
-from wps.tasks import WPSError
-from wps.tasks.context import OperationContext
-from wps.tasks.context import WorkflowOperationContext
+from compute_tasks import base
+from compute_tasks import metrics_ as metrics
+from compute_tasks import WPSError
+from compute_tasks.context import OperationContext
+from compute_tasks.context import WorkflowOperationContext
 
-logger = get_task_logger('wps.tasks.job')
+logger = get_task_logger('compute_tasks.job')
 
 JOB_SUCCESS_MSG = """
 Hello {name},

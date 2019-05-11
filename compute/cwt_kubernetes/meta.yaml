@@ -14,10 +14,10 @@ requirements:
     - python
 
   run:
-    - python
-    - python-kubernetes
-    - distributed
-    - pyaml
+    - python=3.6.7
+    - python-kubernetes=9.0.0
+    - distributed=1.28.0
+    - pyaml=19.4.1
 
 test:
   imports:

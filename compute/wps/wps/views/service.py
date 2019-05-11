@@ -13,14 +13,15 @@ from django.views.decorators.http import require_http_methods
 from owslib import wps
 
 from . import common
+from compute_tasks import base
+from compute_tasks.job import job_started
+from compute_tasks.job import job_succeeded
 from wps import helpers
 from wps import metrics
 from wps import models
 from wps import WPSError
-from wps.tasks import base
-from wps.tasks.job import job_started
-from wps.tasks.job import job_succeeded
 from wps.util import wps_response
+
 
 logger = common.logger
 

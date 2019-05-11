@@ -12,8 +12,8 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
-from wps.tasks import AccessError
-from wps.tasks import WPSError
+from compute_tasks import AccessError
+from compute_tasks import WPSError
 
 logger = get_task_logger('wps.tasks.base')
 
@@ -28,7 +28,7 @@ def discover_processes():
         if name == 'base':
             continue
 
-        mod = importlib.import_module('.{!s}'.format(name), package='wps.tasks')
+        mod = importlib.import_module('.{!s}'.format(name), package='compute_tasks')
 
         if 'discover_processes' in dir(mod):
             setting_name = 'WPS_{!s}_ENABLED'.format(name.upper())
@@ -56,7 +56,7 @@ def build_process_bindings():
         if name == 'base':
             continue
 
-        mod = importlib.import_module('.{!s}'.format(name), package='wps.tasks')
+        mod = importlib.import_module('.{!s}'.format(name), package='compute_tasks')
 
         if 'process_bindings' in dir(mod):
             setting_name = 'WPS_{!s}_ENABLED'.format(name.upper())
@@ -120,7 +120,7 @@ class CWTBaseTask(celery.Task):
         except WPSError:
             raise
         else:
-            from wps.tasks import job
+            from compute_tasks import job
 
             job.send_failed_email(args[0], str(exc))
 
