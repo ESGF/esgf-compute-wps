@@ -211,6 +211,14 @@ class JobViewSet(mixins.ListModelMixin,
     filter_backends = (filters.OrderingFilter, )
     ordering_fields = ('accepted', )
 
+    @action(detail=False, methods=['delete'])
+    def remove_all(self, request):
+        user = request.user
+
+        models.Job.objects.filter(user=user.pk).delete()
+
+        return Response(status=204)
+
     def get_queryset(self):
         user = self.request.user
 
