@@ -1,5 +1,4 @@
 import json
-import urllib
 
 import requests
 from celery.utils.log import get_task_logger
@@ -19,35 +18,23 @@ class PrometheusError(WPSError):
     pass
 
 
-def track_file(variable):
-    parts = urllib.parse.urlparse(variable.uri)
+WPS_REGRID = Counter('wps_regrid_total', 'Number of times specific regridding is requested', ['tool', 'method', 'grid'])
 
-    WPS_FILE_ACCESSED.labels(parts.hostname, parts.path,
-                             variable.var_name).inc()
+WPS_DOMAIN_CRS = Counter('wps_domain_crs_total', 'Number of times a specific CRS is used for a dimension',
+                         ['dimension', 'crs'])
 
+WPS_DATA_SRC_BYTES = Counter('wps_data_src_bytes', 'Number of bytes in the source')
 
-WPS_REGRID = Counter('wps_regrid_total', 'Number of times specific regridding'
-                     ' is requested', ['tool', 'method', 'grid'])
+WPS_DATA_IN_BYTES = Counter('wps_data_in_bytes', 'Number of bytes read from source')
 
-WPS_DOMAIN_CRS = Counter('wps_domain_crs_total', 'Number of times a specific'
-                         ' CRS is used', ['crs'])
+WPS_DATA_OUT_BYTES = Counter('wps_data_out_bytes', 'Number of bytes written')
 
-WPS_DATA_DOWNLOAD = Summary('wps_data_download_seconds', 'Number of seconds'
-                            ' spent downloading remote data', ['host'])
+WPS_DATA_ACCESS_FAILED = Counter('wps_data_access_failed_total',
+                                 'Number of times remote sites are inaccesible', ['host'])
 
-WPS_DATA_DOWNLOAD_BYTES = Counter('wps_data_download_bytes', 'Number of bytes'
-                                  ' read remotely', ['host', 'variable'])
+WPS_PROCESS_TIME = Summary('wps_process', 'Processing duration (seconds)', ['identifier', 'state'])
 
-WPS_DATA_ACCESS_FAILED = Counter('wps_data_access_failed_total', 'Number'
-                                 ' of times remote sites are inaccesible', ['host'])
-
-WPS_DATA_OUTPUT = Counter('wps_data_output_bytes', 'Number of bytes written')
-
-WPS_PROCESS_TIME = Summary('wps_process', 'Processing duration (seconds)',
-                           ['identifier'])
-
-WPS_FILE_ACCESSED = Counter('wps_file_accessed', 'Files accessed by WPS'
-                            ' service', ['host', 'path', 'variable'])
+WPS_FILE_ACCESSED = Counter('wps_file_accessed', 'Files accessed by WPS service', ['host', 'variable'])
 
 
 def query_prometheus(**kwargs):

@@ -5,16 +5,34 @@ from builtins import str
 from builtins import object
 import os
 import uuid
+import urllib
 import coreapi
 import requests
+from datetime import datetime
 
 import cwt
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
+from compute_tasks import metrics_ as metrics
 from compute_tasks import WPSError
 
 logger = get_task_logger('wps.context')
+
+
+SUCCESS = 'success'
+FAILURE = 'failure'
+
+
+class ProcessTimer(object):
+    def __init__(self, context):
+        self.context = context
+
+    def __enter__(self):
+        self.context.metrics['process_start'] = datetime.now()
+
+    def __exit__(self, *args):
+        self.context.metrics['process_stop'] = datetime.now()
 
 
 class StateMixin(object):
@@ -25,6 +43,58 @@ class StateMixin(object):
         self.status = None
         self.client = None
         self.schema = None
+        self.metrics = {}
+
+    def track_src_bytes(self, nbytes):
+        self._track_bytes('bytes_src', nbytes)
+
+    def track_in_bytes(self, nbytes):
+        self._track_bytes('bytes_in', nbytes)
+
+    def track_out_bytes(self, nbytes):
+        self._track_bytes('bytes_out', nbytes)
+
+    def _track_bytes(self, key, nbytes):
+        if key not in self.metrics:
+            self.metrics[key] = 0
+
+        self.metrics[key] += nbytes
+
+    def update_metrics(self, state):
+        domain = self.domain
+
+        if not isinstance(domain, dict):
+            domain = {domain.name: domain}
+
+        for item in domain.values():
+            for name, value in item.dimensions.items():
+                metrics.WPS_DOMAIN_CRS.labels(name, str(value.crs)).inc()
+
+        self.track_process()
+
+        if 'process_start' in self.metrics and 'process_stop' in self.metrics:
+            elapsed = (self.metrics['process_stop'] - self.metrics['process_start']).total_seconds()
+
+            if isinstance(self, OperationContext):
+                identifier = self.operation.identifier
+            else:
+                identifier = 'CDAT.workflow'
+
+            metrics.WPS_PROCESS_TIME.labels(identifier, state).observe(elapsed)
+
+        if set(['bytes_src', 'bytes_in', 'bytes_out']) <= set(self.metrics.keys()):
+            metrics.WPS_DATA_SRC_BYTES.inc(self.metrics['bytes_src'])
+
+            metrics.WPS_DATA_IN_BYTES.inc(self.metrics['bytes_in'])
+
+            metrics.WPS_DATA_OUT_BYTES.inc(self.metrics['bytes_out'])
+
+        for input in self.inputs:
+            self.track_file(input)
+
+            parts = urllib.parse.urlparse(input.uri)
+
+            metrics.WPS_FILE_ACCESSED.labels(parts.hostname, input.var_name).inc()
 
     def init_state(self, data):
         self.job = data['job']
@@ -34,6 +104,8 @@ class StateMixin(object):
         self.process = data['process']
 
         self.status = data.get('status')
+
+        self.metrics = data.get('metrics', {})
 
         logger.info('Initial with %r', data)
 
@@ -60,6 +132,7 @@ class StateMixin(object):
             'user': self.user,
             'process': self.process,
             'status': self.status,
+            'metrics': self.metrics,
         }
 
     def action(self, keys, params=None, **kwargs):

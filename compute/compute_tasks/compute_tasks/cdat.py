@@ -17,6 +17,7 @@ from tornado.ioloop import IOLoop
 from cwt_kubernetes.cluster import Cluster
 from cwt_kubernetes.cluster_manager import ClusterManager
 from compute_tasks import base
+from compute_tasks import context as ctx
 from compute_tasks import managers
 from compute_tasks import WPSError
 from compute_tasks.dask_serialize import regrid_chunk
@@ -116,7 +117,11 @@ def workflow_func(self, context):
             input = managers.InputManager.from_cwt_variables(fm, next.inputs)
 
             # Subset the inputs
-            input.subset(next.domain)
+            src, subset = input.subset(next.domain)
+
+            context.track_src_bytes(src.nbytes)
+
+            context.track_in_bytes(subset.nbytes)
 
             # If the current process is in the function map then apply the process
             if next.identifier in PROCESS_FUNC_MAP:
@@ -166,6 +171,8 @@ def workflow_func(self, context):
         delayed = []
 
         for output in context.output_ops():
+            context.track_out_bytes(interm[output.name].nbytes)
+
             # Create an output xarray Dataset
             dataset = interm[output.name].to_xarray()
 
@@ -182,11 +189,12 @@ def workflow_func(self, context):
 
         context.message('Executing workflow')
 
-        # Execute the futures
-        fut = manager.client.compute(delayed)
+        with ctx.ProcessTimer(context):
+            # Execute the futures
+            fut = manager.client.compute(delayed)
 
-        # Track the progress
-        DaskJobTracker(context, fut)
+            # Track the progress
+            DaskJobTracker(context, fut)
     except Exception as e:
         raise WPSError('Error executing process: {!r}', e)
 
@@ -223,7 +231,11 @@ def process(context, process=None, aggregate=False):
         context.message('Building {!r} inputs', len(inputs))
 
     for input in inputs:
-        input.subset(context.domain)
+        src, subset = input.subset(context.domain)
+
+        context.track_src_bytes(src.nbytes)
+
+        context.track_in_bytes(subset.nbytes)
 
         context.message('Data subset shape {!r}', input.data.shape)
 
@@ -241,6 +253,8 @@ def process(context, process=None, aggregate=False):
 
     context.message('Preparing to execute')
 
+    context.track_out_bytes(output.data.nbytes)
+
     dataset = output.to_xarray()
 
     local_path = context.build_output_variable(output.var_name)
@@ -253,9 +267,10 @@ def process(context, process=None, aggregate=False):
 
         context.message('Executing')
 
-        fut = manager.client.compute(delayed)
+        with ctx.ProcessTimer(context):
+            fut = manager.client.compute(delayed)
 
-        DaskJobTracker(context, fut)
+            DaskJobTracker(context, fut)
     except Exception as e:
         raise WPSError('Error executing process: {!r}', e)
 

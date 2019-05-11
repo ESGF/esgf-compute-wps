@@ -52,6 +52,8 @@ class InputManager(object):
     def remove_axis(self, axis_name):
         try:
             del self.axes[axis_name]
+
+            del self.map[axis_name]
         except KeyError as e:
             raise WPSError('Did not find axis {!r}', e)
         else:
@@ -457,6 +459,8 @@ class InputManager(object):
         self.subset_variables_and_axes()
 
         logger.info('Subsetted data %r', self.data)
+
+        return data, self.data
 
     def map_dimension(self, dim, axis):
         if not isinstance(dim, slice):

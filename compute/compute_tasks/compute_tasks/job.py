@@ -8,7 +8,6 @@ from django.conf import settings
 from django.core.mail import EmailMessage
 
 from compute_tasks import base
-from compute_tasks import metrics_ as metrics
 from compute_tasks import WPSError
 from compute_tasks.context import OperationContext
 from compute_tasks.context import WorkflowOperationContext
@@ -176,11 +175,8 @@ def job_succeeded(self, context):
 
         send_success_email(context, context.output)
 
-    context.track_process()
+    from compute_tasks import context as ctx
 
-    for input in context.inputs:
-        context.track_file(input)
-
-        metrics.track_file(input)
+    context.update_metrics(ctx.SUCCESS)
 
     return context

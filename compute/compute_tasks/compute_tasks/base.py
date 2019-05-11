@@ -113,8 +113,12 @@ class CWTBaseTask(celery.Task):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logger.info('Failure %r %r', args, exc)
 
+        from compute_tasks import context
+
         try:
             args[0].failed(str(exc))
+
+            args[0].update_metrics(context.FAILURE)
         except AttributeError:
             logger.exception('First argument should be OperationContext or WorkflowOperationContext')
         except WPSError:
