@@ -1,10 +1,10 @@
-from django import test
+import unittest
 
-from wps import WPSError
-from wps.tasks import base
+from compute_tasks import base
+from compute_tasks import WPSError
 
 
-class CWTBaseTaskTestCase(test.TestCase):
+class CWTBaseTaskTestCase(unittest.TestCase):
     fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
 
     def test_get_process_missing(self):

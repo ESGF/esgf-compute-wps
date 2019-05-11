@@ -1,6 +1,5 @@
-#! /usr/bin/env python
+import unittest
 
-from django import test
 
-class CDATTaskTestCase(test.TestCase):
+class CDATTaskTestCase(unittest.TestCase):
     pass

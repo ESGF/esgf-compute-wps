@@ -1,17 +1,16 @@
 import mock
 import requests
-from django import test
+import unittest
 from django.conf import settings
 
-from wps.tasks import metrics_
-from wps import WPSError
+from compute_tasks import metrics_
+from compute_tasks import WPSError
 
 
-class TaskMetricsTestCase(test.TestCase):
+class TaskMetricsTestCase(unittest.TestCase):
 
     @mock.patch.object(requests, 'get')
-    @mock.patch('wps.models.Job.objects.filter')
-    def test_health(self, mock_filter, mock_get):
+    def test_health(self, mock_get):
         mock_get.return_value.json.return_value = {
             'status': 'ok',
             'data': {
@@ -23,10 +22,6 @@ class TaskMetricsTestCase(test.TestCase):
                 ]
             }
         }
-
-        mock_filter.return_value.exclude.return_value.exclude.return_value.count.return_value = 2
-
-        mock_filter.return_value.exclude.return_value.exclude.return_value.exclude.return_value.count.return_value = 2
 
         context = mock.MagicMock()
 
