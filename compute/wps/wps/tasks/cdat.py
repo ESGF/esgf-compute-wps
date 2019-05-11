@@ -16,9 +16,9 @@ from tornado.ioloop import IOLoop
 
 from cwt_kubernetes.cluster import Cluster
 from cwt_kubernetes.cluster_manager import ClusterManager
-from wps import WPSError
 from wps.tasks import base
 from wps.tasks import managers
+from wps.tasks import WPSError
 from wps.tasks.dask_serialize import regrid_chunk
 
 logger = get_task_logger('wps.tasks.cdat')

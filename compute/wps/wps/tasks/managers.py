@@ -16,8 +16,9 @@ from django.conf import settings
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 
-from wps import metrics
-from wps import WPSError
+from wps.tasks import metrics_ as metrics
+from wps.tasks import AccessError
+from wps.tasks import WPSError
 from wps.tasks.dask_serialize import retrieve_chunk
 
 logger = logging.getLogger('wps.tasks.manager')
@@ -661,8 +662,8 @@ class FileManager(object):
 
             try:
                 self.handles[uri] = cdms2.open(uri)
-            except cdms2.CDMSError:
-                raise WPSError('CDMS failed to open {!r}', uri)
+            except cdms2.CDMSError as e:
+                raise AccessError(uri, e)
 
         return self.handles[uri]
 
@@ -735,19 +736,19 @@ class FileManager(object):
 
             metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
-            raise WPSError('Connection error to {!r}', parts.hostname)
+            raise AccessError(url, 'Connection error to {!r}'.format(parts.hostname))
         except requests.ConnectTimeout:
             logger.exception('Timeout connecting to %r', parts.hostname)
 
             metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
-            raise WPSError('Timeout connecting to {!r}', parts.hostname)
+            raise AccessError(url, 'Timeout connecting to {!r}'.format(parts.hostname))
         except requests.ReadTimeout:
             logger.exception('Timeout reading from %r', parts.hostname)
 
             metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
-            raise WPSError('Timeout reading from {!r}', parts.hostname)
+            raise AccessError(url, 'Timeout reading from {!r}'.format(parts.hostname))
 
         if response.status_code == 200:
             return True

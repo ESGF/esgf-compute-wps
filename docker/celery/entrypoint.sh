@@ -27,7 +27,7 @@ celery_pid=$!
 if [[ -n "${CWT_METRICS}" ]]; then
   [[ ! -e "${CWT_METRICS}" ]] && mkdir "${CWT_METRICS}"
 
-  python -m wps.metrics &
+  python -m wps.tasks.metrics_ &
 
   metrics_pid=$!
 fi

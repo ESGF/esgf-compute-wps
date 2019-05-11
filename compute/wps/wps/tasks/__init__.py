@@ -1,0 +1,11 @@
+class WPSError(Exception):
+    def __init__(self, fmt, *args, **kwargs):
+        self.msg = fmt.format(*args, **kwargs)
+
+    def __str__(self):
+        return self.msg
+
+
+class AccessError(WPSError):
+    def __init__(self, url, error):
+        super(AccessError, self).__init__('Access error {!r}: {!s}', url, error)

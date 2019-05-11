@@ -7,9 +7,9 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.core.mail import EmailMessage
 
-from wps import metrics
-from wps import WPSError
 from wps.tasks import base
+from wps.tasks import metrics_ as metrics
+from wps.tasks import WPSError
 from wps.tasks.context import OperationContext
 from wps.tasks.context import WorkflowOperationContext
 

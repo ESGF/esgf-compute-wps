@@ -12,8 +12,8 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
-from wps import AccessError
-from wps import WPSError
+from wps.tasks import AccessError
+from wps.tasks import WPSError
 
 logger = get_task_logger('wps.tasks.base')
 

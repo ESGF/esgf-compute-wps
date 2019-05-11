@@ -12,7 +12,7 @@ import cwt
 from celery.utils.log import get_task_logger
 from django.conf import settings
 
-from wps import WPSError
+from wps.tasks import WPSError
 
 logger = get_task_logger('wps.context')
 

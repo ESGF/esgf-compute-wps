@@ -1,18 +1,53 @@
 import json
+import urllib
 
 import requests
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.utils import timezone
+from prometheus_client import Counter # noqa
+from prometheus_client import Histogram # noqa
+from prometheus_client import Summary # noqa
 
-from wps import WPSError
 from wps.tasks import base
+from wps.tasks import WPSError
 
 logger = get_task_logger('wps.tasks.metrics')
 
 
 class PrometheusError(WPSError):
     pass
+
+
+def track_file(variable):
+    parts = urllib.parse.urlparse(variable.uri)
+
+    WPS_FILE_ACCESSED.labels(parts.hostname, parts.path,
+                             variable.var_name).inc()
+
+
+WPS_REGRID = Counter('wps_regrid_total', 'Number of times specific regridding'
+                     ' is requested', ['tool', 'method', 'grid'])
+
+WPS_DOMAIN_CRS = Counter('wps_domain_crs_total', 'Number of times a specific'
+                         ' CRS is used', ['crs'])
+
+WPS_DATA_DOWNLOAD = Summary('wps_data_download_seconds', 'Number of seconds'
+                            ' spent downloading remote data', ['host'])
+
+WPS_DATA_DOWNLOAD_BYTES = Counter('wps_data_download_bytes', 'Number of bytes'
+                                  ' read remotely', ['host', 'variable'])
+
+WPS_DATA_ACCESS_FAILED = Counter('wps_data_access_failed_total', 'Number'
+                                 ' of times remote sites are inaccesible', ['host'])
+
+WPS_DATA_OUTPUT = Counter('wps_data_output_bytes', 'Number of bytes written')
+
+WPS_PROCESS_TIME = Summary('wps_process', 'Processing duration (seconds)',
+                           ['identifier'])
+
+WPS_FILE_ACCESSED = Counter('wps_file_accessed', 'Files accessed by WPS'
+                            ' service', ['host', 'path', 'variable'])
 
 
 def query_prometheus(**kwargs):
@@ -153,3 +188,30 @@ def metrics_task(self, context):
     context.output.append(json.dumps(data))
 
     return context
+
+
+def serve_metrics():
+    from prometheus_client import CollectorRegistry
+    from prometheus_client import make_wsgi_app
+    from prometheus_client import multiprocess
+    from wsgiref.simple_server import make_server
+
+    WPS = CollectorRegistry()
+
+    multiprocess.MultiProcessCollector(WPS)
+
+    app = make_wsgi_app(WPS)
+
+    httpd = make_server('0.0.0.0', 8080, app)
+
+    httpd.serve_forever()
+
+
+if __name__ == '__main__':
+    from multiprocessing import Process
+
+    server = Process(target=serve_metrics)
+
+    server.start()
+
+    server.join()
