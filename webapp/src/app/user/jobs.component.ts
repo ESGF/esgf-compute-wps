@@ -11,8 +11,10 @@ import { Job, Status, Message } from './job';
 export class JobsComponent implements OnInit, OnDestroy { 
   selectedJob: Job;
   jobs: Job[];
-  sortKey = 'accepted_on';
-  sortDir = 1;
+  sortDir = -1;
+  itemsPP = 10;
+  itemsPPChoices = [10, 25, 50, 100];
+  defaultSort = 'accepted';
 
   constructor(
     private userService: UserService,
@@ -22,14 +24,12 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.userService.jobs()
+    this.userService.jobs(this.defaultSort, this.itemsPP)
       .then((item: Job[]) => {
         this.setJobs(item);
       })
       .catch(error => {
         this.notificationService.error(error);
-
-        this.jobs = [];
       });
   }
 
@@ -43,46 +43,66 @@ export class JobsComponent implements OnInit, OnDestroy {
     this.jobs = jobs;
   }
 
-  nextPage() {
-    this.userService.nextJobs()
+  removeAll() {
+    this.userService.removeAll()
+      .then(() => {
+        this.selectedJob = null;
+
+        this.setJobs([]);
+      });
+  }
+
+  updateLimit(limit: number) {
+    this.userService.jobs(this.defaultSort, limit)
       .then((item: Job[]) => {
         this.setJobs(item);
+
+        this.itemsPP = limit;
       })
       .catch(error => {
         this.notificationService.error(error);
       });
+  }
+
+  nextPage() {
+    if (this.userService.canNextJobs()) {
+      this.userService.nextJobs()
+        .then((item: Job[]) => {
+          this.setJobs(item);
+        })
+        .catch(error => {
+          this.notificationService.error(error);
+        });
+    }
   }
 
   previousPage() {
-    this.userService.previousJobs()
+    if (this.userService.canPreviousJobs()) {
+      this.userService.previousJobs()
+        .then((item: Job[]) => {
+          this.setJobs(item);
+        })
+        .catch(error => {
+          this.notificationService.error(error);
+        });
+    }
+  }
+
+  sort(key: string) {
+    if (this.sortDir == -1) {
+      key = `-${key}`;
+    }
+
+    this.userService.jobs(key, this.itemsPP)
       .then((item: Job[]) => {
         this.setJobs(item);
+
+        // only swap direction on success
+        this.sortDir *= -1;
       })
       .catch(error => {
         this.notificationService.error(error);
       });
-  }
-
-  sort(key: string) {
-    this.sortKey = key;
-
-    this.jobs = this.jobs.sort((a: any, b: any) => {
-      if (a[key] > b[key]) {
-        return 1;
-      } else if (a[key] < b[key]) {
-        return -1;
-      } else {
-        return 0;
-      }
-    });
-
-    if (this.sortDir == 1) {
-      this.sortDir = -1;
-    } else {
-      this.sortDir = 1;
-
-      this.jobs.reverse();
-    }
   }
 
   selectJob(value: Job) {

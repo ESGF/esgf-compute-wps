@@ -75,8 +75,8 @@ export class UserService extends WPSService {
       });
   }
 
-  queryJobHistory(url: string): Promise<Job[]> {
-    return this.get(url)
+  queryJobHistory(url: string, params: any = {}): Promise<Job[]> {
+    return this.get(url, params)
       .then((data: any) => {
         this.count = data.count;
         (data.next === null) ? this.next = null : this.next = this.fixHttpUrl(data.next);
@@ -86,8 +86,21 @@ export class UserService extends WPSService {
       });
   }
 
-  jobs(): Promise<Job[]> {
-    return this.queryJobHistory(this.configService.jobsPath);
+  jobs(sortKey: string, limit: number): Promise<Job[]> {
+    let params = {
+      'ordering': sortKey,
+      'limit': limit,
+    };
+
+    return this.queryJobHistory(this.configService.jobsPath, params);
+  }
+
+  canNextJobs(): boolean {
+    return this.next == null ? false : true;
+  }
+
+  canPreviousJobs(): boolean {
+    return this.previous == null ? false : true;
   }
 
   nextJobs(): Promise<Job[]> {
@@ -96,6 +109,12 @@ export class UserService extends WPSService {
 
   previousJobs(): Promise<Job[]> {
     return this.queryJobHistory(this.previous);
+  }
+
+  removeAll() {
+    let url = `${this.configService.jobsPath}remove_all/`;
+
+    return this.delete(url);
   }
 
   deleteJob(target: Job): Promise<any> {
