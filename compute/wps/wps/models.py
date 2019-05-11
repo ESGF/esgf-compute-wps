@@ -2,7 +2,6 @@ from __future__ import unicode_literals
 from __future__ import division
 
 from builtins import range
-from past.utils import old_div
 from builtins import object
 import base64
 import json
@@ -329,18 +328,7 @@ class Job(models.Model):
     server = models.ForeignKey(Server, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     process = models.ForeignKey(Process, on_delete=models.CASCADE, null=True)
-    steps_completed = models.IntegerField(default=0)
-    steps_total = models.IntegerField(default=0)
     extra = models.TextField(null=True)
-
-    @property
-    def details(self):
-        return {
-            'id': self.id,
-            'server': self.server.host,
-            'process': self.process.identifier,
-            'elapsed': self.elapsed,
-        }
 
     @property
     def latest_status(self):
@@ -408,30 +396,6 @@ class Job(models.Model):
 
         return latest is not None and latest.status == ProcessSucceeded
 
-    @property
-    def progress(self):
-        try:
-            return old_div((self.steps_completed + 1) * 100.0, self.steps_total)
-        except ZeroDivisionError:
-            return 0.0
-
-    def step_inc(self, steps=None):
-        if steps is None:
-            steps = 1
-
-        self.steps_total = F('steps_total') + steps
-
-        self.save()
-
-        self.refresh_from_db()
-
-    def step_complete(self):
-        self.steps_completed = F('steps_completed') + 1
-
-        self.save()
-
-        self.refresh_from_db()
-
     def accepted(self):
         self.status.create(status=ProcessAccepted)
 
@@ -474,26 +438,11 @@ class Job(models.Model):
     def retry(self, exception):
         self.update('Retrying... {}', exception)
 
-    def update(self, message,  *args, **kwargs):
-        percent = kwargs.pop('percent', 0)
 
-        message = message.format(*args, **kwargs)
+class Output(models.Model):
+    job = models.ForeignKey(Job, related_name='output', on_delete=models.CASCADE)
 
-        started = self.status.filter(status=ProcessStarted).latest('created_date')
-
-        started.set_message(message, percent)
-
-    def statusSince(self, date):
-        return [
-            {
-                'created_date': x.created_date,
-                'updated_date': x.updated_date,
-                'status': x.status,
-                'exception': x.exception,
-                'output': x.output,
-                'messages': [y.details for y in x.messages.all().order_by('created_date')]
-            } for x in self.status.filter(updated_date__gt=date)
-        ]
+    path = models.URLField()
 
 
 class Status(models.Model):
@@ -555,14 +504,6 @@ class Message(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)
     percent = models.PositiveIntegerField(null=True)
     message = models.TextField(null=True)
-
-    @property
-    def details(self):
-        return {
-            'created_date': self.created_date,
-            'percent': self.percent or 0,
-            'message': self.message
-        }
 
     def __str__(self):
         return '{0.message}'.format(self)

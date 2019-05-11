@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import DjangoModelPermissions
 from rest_framework.exceptions import APIException
 
+from wps import metrics
 from wps import models
 from wps import serializers
 
@@ -164,6 +165,24 @@ class InternalJobMessageViewSet(mixins.CreateModelMixin,
         return Response(message_serializer.data, status=201)
 
 
+class InternalJobViewSet(viewsets.GenericViewSet):
+    queryset = models.Job.objects.all()
+    serializer_class = serializers.JobSerializer
+    authentication_classes = (BasicAuthentication, )
+    permission_classes = (DjangoModelPermissions, )
+
+    @action(detail=True)
+    def set_output(self, request, pk):
+        try:
+            job = models.Job.objects.get(pk=pk)
+        except models.Job.DoesNotExist:
+            raise APIException('Job does not exist')
+
+        job.output.create(path=request.query_params['path'])
+
+        return Response(status=201)
+
+
 class InternalJobStatusViewSet(mixins.CreateModelMixin,
                                viewsets.GenericViewSet):
     queryset = models.Status.objects.all()
@@ -185,6 +204,13 @@ class InternalJobStatusViewSet(mixins.CreateModelMixin,
             status_serializer.save(job=job)
         except db.IntegrityError:
             raise APIException('Status {!r} already exists for job {!r}'.format(request.data['status'], job.id))
+
+        if request.data['status'] == 'ProcessStarted':
+            metrics.WPS_JOBS_STARTED.inc()
+        elif request.data['status'] == 'ProcessSucceeded':
+            metrics.WPS_JOBS_SUCCEEDED.inc()
+        elif request.data['status'] == 'ProcessFailed':
+            metrics.WPS_JOBS_FAILED.inc()
 
         return Response(status_serializer.data, status=201)
 

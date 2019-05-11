@@ -62,9 +62,9 @@ class StateMixin(object):
             'status': self.status,
         }
 
-    def action(self, keys, params=None):
+    def action(self, keys, params=None, **kwargs):
         try:
-            return self.client.action(self.schema, keys, params=params)
+            return self.client.action(self.schema, keys, params=params, **kwargs)
         except Exception:
             logger.debug('API call failed %r %r', keys, params)
 
@@ -158,6 +158,14 @@ class StateMixin(object):
         }
 
         return self.action(['user', 'details'], params)
+
+    def track_output(self, path):
+        params = {
+            'id': self.job,
+            'path': path,
+        }
+
+        return self.action(['jobs', 'set_output'], params, validate=False)
 
 
 class WorkflowOperationContext(StateMixin, object):
@@ -286,6 +294,8 @@ class WorkflowOperationContext(StateMixin, object):
     def build_output_variable(self, var_name, name=None):
         local_path = self.generate_local_path()
 
+        self.track_output(local_path)
+
         relpath = os.path.relpath(local_path, settings.WPS_PUBLIC_PATH)
 
         url = settings.WPS_DAP_URL.format(filename=relpath)
@@ -373,6 +383,8 @@ class OperationContext(StateMixin, object):
 
     def build_output_variable(self, var_name, name=None):
         local_path = self.generate_local_path()
+
+        self.track_output(local_path)
 
         relpath = os.path.relpath(local_path, settings.WPS_PUBLIC_PATH)
 

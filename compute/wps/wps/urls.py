@@ -17,6 +17,7 @@ internal_router = SimpleRouter()
 internal_router.register(r'files', views.InternalFileViewSet, basename='internal')
 internal_router.register(r'status', views.InternalStatusViewSet, basename='internal')
 internal_router.register(r'process', views.InternalProcessViewSet, basename='internal')
+internal_router.register(r'jobs', views.InternalJobViewSet, basename='internal')
 internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', views.InternalJobStatusViewSet, basename='internal')
 internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message',
                          views.InternalJobMessageViewSet, basename='internal')
