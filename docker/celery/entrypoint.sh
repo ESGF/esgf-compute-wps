@@ -20,7 +20,7 @@ trap cleanup SIGINT SIGTERM
 
 pushd /compute
 
-celery worker -A compute ${@} &
+celery worker -A wps.tasks ${@} &
 
 celery_pid=$!
 
