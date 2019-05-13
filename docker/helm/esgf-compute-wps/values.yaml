@@ -297,15 +297,15 @@ celery:
       - port: 8080
         name: metrics
 
-  - name: edask
-    replicas: 1
-    annotations:
-      prometheus.io/scrape: "true"
-      prometheus.io/path: /metrics
-      prometheus.io/port: "8080"
-    ports:
-      - port: 8080
-        name: metrics
+#   - name: edask
+#     replicas: 1
+#     annotations:
+#       prometheus.io/scrape: "true"
+#       prometheus.io/path: /metrics
+#       prometheus.io/port: "8080"
+#     ports:
+#       - port: 8080
+#         name: metrics
 
 thredds:
   replicas: 1
