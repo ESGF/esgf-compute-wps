@@ -243,9 +243,9 @@ wps:
     secret:
 
   email:
-    host: "localhost"
+    host: 
     port: 25
-    user: "wps"
+    user: ""
     password: ""
 
   ports:

@@ -19,7 +19,7 @@ data:
     internal.lb={{ template "traefik.fullname" . }}.{{ .Release.Namespace }}.svc
 
     [email]
-    host={{ .Values.wps.email.host }}
+    host={{ required "Set wps.email.host" .Values.wps.email.host }}
     port={{ .Values.wps.email.port }}
     user={{ .Values.wps.email.user }}
     password={{ .Values.wps.email.password }}
