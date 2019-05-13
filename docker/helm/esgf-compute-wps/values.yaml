@@ -115,7 +115,7 @@ dask:
     nodeSelector:
       tier: backend
 
-    namespace: default
+    namespace: production
 
     resources:
       limits:
