@@ -29,7 +29,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/prom-alert-storage
+    path: /opt/nimbus/prometheus/alert
     type: DirectoryOrCreate
 ---
 kind: PersistentVolumeClaim
@@ -63,5 +63,5 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: slow
   hostPath:
-    path: /opt/prom-storage
+    path: /opt/nimbus/prometheus/server
     type: DirectoryOrCreate

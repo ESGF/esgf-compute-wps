@@ -3,12 +3,18 @@ alertmanager:
   prefixURL: /prometheus-alert
   baseURL: /prometheus-alert
 
+  nodeSelector:
+    tier: backend
+    storage/prometheus: local
+
   ingress:
     enabled: true
     hosts:
     - /prometheus-alert
 
     annotations:
+      ingress.kubernetes.io/auth-type: basic
+      ingress.kubernetes.io/auth-secret: prometheus-secret
       ingress.kubernetes.io/ssl-redirect: "true"
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
@@ -19,12 +25,57 @@ alertmanager:
     existingClaim: prometheus-alert-pvc
     subPath: prometheus
 
-pushgateway:
-  enabled: false
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+configmapReload:
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+initChownData:
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+kubeStateMetrics:
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+nodeExporter:
+  resources: 
+    limits:
+      cpu: 200m
+      memory: 50Mi
+    requests:
+      cpu: 100m
+      memory: 30Mi
 
 server:
   prefixURL: /prometheus
   baseURL: /prometheus
+
+  nodeSelector:
+    tier: backend
+    storage/prometheus: local
 
   ingress:
     enabled: true
@@ -32,6 +83,8 @@ server:
     - /prometheus
 
     annotations:
+      ingress.kubernetes.io/auth-type: basic
+      ingress.kubernetes.io/auth-secret: prometheus-secret
       ingress.kubernetes.io/ssl-redirect: "true"
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
@@ -41,3 +94,15 @@ server:
     enabled: true
     existingClaim: prometheus-pvc
     subPath: prometheus
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+pushgateway:
+  enabled: false
+

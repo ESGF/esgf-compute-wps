@@ -40,6 +40,8 @@ traefik:
     domain: ""
     ingress:
       annotations:
+        ingress.kubernetes.io/auth-type: basic
+        ingress.kubernetes.io/auth-secret: traefik-auth
         traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
         ingress.kubernetes.io/ssl-redirect: "true"
         ingress.kubernetes.io/hsts-max-age: "31536000"
@@ -86,7 +88,7 @@ dask:
   image: jasonb87/cwt_celery
   imageTag: devel
 
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
 
   workers: 10
 
@@ -106,7 +108,7 @@ dask:
     image: jasonb87/cwt_dask_provisioner
     imageTag: devel
 
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
 
     timeout: 120
 
@@ -135,6 +137,8 @@ dask:
 
     ingress:
       annotations:
+        ingress.kubernetes.io/auth-type: basic
+        ingress.kubernetes.io/auth-secret: traefik-auth
         ingress.kubernetes.io/ssl-redirect: "true"
         ingress.kubernetes.io/hsts-max-age: "31536000"
         ingress.kubernetes.io/hsts-include-subdomains: "true"
@@ -179,7 +183,7 @@ wps:
   replicas: 1
   image: jasonb87/cwt_wps
   imageTag: devel
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
 
   host: aims2.llnl.gov
   externalHost: https://aims2.llnl.gov
@@ -269,7 +273,7 @@ celery:
   nodeSelector:
     tier: backend
 
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
 
   resources:
     limits:
@@ -343,6 +347,7 @@ postgresql:
   master:
     nodeSelector:
       tier: backend
+      storage/wps: local
 
   persistence:
     enabled: true
@@ -386,13 +391,14 @@ redis:
 
     nodeSelector:
       tier: backend
+      storage/wps: local
 
 edask:
   enabled: false
   replicas: 1
   image: jasonb87/cwt_edask
   imageTag: latest
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
 
   nodeSelector:
     tier: backend
