@@ -75,7 +75,7 @@ def init(context, n_workers):
         manager = ClusterManager(settings.DASK_SCHEDULER, cluster)
 
         labels = {
-            'user': str(context.user.id),
+            'user': str(context.user),
         }
 
         context.message('Initializing {!r} workers', n_workers)
