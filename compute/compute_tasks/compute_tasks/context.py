@@ -114,7 +114,7 @@ class StateMixin(object):
     def init_api(self):
         session = requests.Session()
 
-        session.verify = not settings.DEBUG
+        session.verify = False
 
         auth = coreapi.auth.BasicAuthentication(os.environ['API_USERNAME'], os.environ['API_PASSWORD'])
 
