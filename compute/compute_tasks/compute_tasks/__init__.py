@@ -8,6 +8,8 @@ import cwt
 from celery import Celery
 from kombu import serialization
 
+os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
+
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
 
