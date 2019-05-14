@@ -392,7 +392,11 @@ class InputManager(object):
 
                 shape = self.vars[name].shape
 
-                self.vars[name] = self.vars[name](**selector)
+                # Applying selector fails take the whole axis
+                try:
+                    self.vars[name] = self.vars[name](**selector)
+                except TypeError:
+                    self.vars[name] = self.vars[name]
 
                 logger.info('Subsetting variable %r -> %r', shape, self.vars[name].shape)
 
