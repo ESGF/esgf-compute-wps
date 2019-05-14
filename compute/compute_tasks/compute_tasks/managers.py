@@ -414,7 +414,10 @@ class InputManager(object):
                 axes[x] = xr.DataArray(y, name=x, dims=x, attrs=self.attrs[x])
 
         for x, y in self.vars.items():
-            coords = dict((z, axes[z]) for z in self.vars_axes[x])
+            if x in self.vars_axes:
+                coords = dict((z, axes[z]) for z in self.vars_axes[x])
+            else:
+                coords = {}
 
             # Always grab whatever the latest dask array
             if x == self.var_name:
