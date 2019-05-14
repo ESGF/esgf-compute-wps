@@ -385,7 +385,10 @@ class InputManager(object):
             if name != self.var_name:
                 logger.info('variable %r', name)
 
-                selector = dict((x, self.map[x]) for x in self.vars_axes[name] if x in self.map)
+                if name in self.vars_axes:
+                    selector = dict((x, self.map[x]) for x in self.vars_axes[name] if x in self.map)
+                else:
+                    selector = {}
 
                 shape = self.vars[name].shape
 
