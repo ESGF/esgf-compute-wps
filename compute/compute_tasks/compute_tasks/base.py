@@ -143,5 +143,7 @@ cwt_shared_task = partial(shared_task,
                           bind=True,
                           base=CWTBaseTask,
                           autoretry_for=(AccessError, ),
-                          retry_kwargs={'max_retries': 4},
-                          retry_backoff=True)
+                          retry_kwargs={
+                              'max_retries': 4,
+                          },
+                          retry_backoff=10)
