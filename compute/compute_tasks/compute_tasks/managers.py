@@ -676,7 +676,7 @@ class FileManager(object):
 
             try:
                 self.handles[uri] = cdms2.open(uri)
-            except cdms2.CDMSError as e:
+            except Exception as e:
                 raise AccessError(uri, e)
 
         return self.handles[uri]

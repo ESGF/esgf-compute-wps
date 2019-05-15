@@ -108,10 +108,17 @@ def register_process(backend, process, abstract=None, version=None, inputs=None,
 
 class CWTBaseTask(celery.Task):
     def on_retry(self, exc, task_id, args, kwargs, einfo):
-        logger.info('Retry %r', args)
+        logger.info('Retry %r %r %r %r', task_id, args, kwargs, exc)
+
+        try:
+            args[0].message('Retrying from error: {!s}', exc)
+        except AttributeError:
+            logger.exception('First argument should be OperationContext or WorkflowOperationContext')
+        except WPSError:
+            raise
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        logger.info('Failure %r %r', args, exc)
+        logger.info('Failure %r %r %r %r', task_id, args, kwargs, exc)
 
         from compute_tasks import context
 
