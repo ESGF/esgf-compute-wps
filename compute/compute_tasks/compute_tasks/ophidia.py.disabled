@@ -100,7 +100,7 @@ class OphidiaWorkflow(object):
 
         return json.dumps(self.workflow, default=default, indent=4)
 
-@base.cwt_shared_task()
+# @base.cwt_shared_task()
 def oph_submit(self, parent_variables, variables, domains, operation, user_id, job_id):
     self.PUBLISH = base.ALL
 
