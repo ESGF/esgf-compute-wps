@@ -1,9 +1,17 @@
+import os
+import json
+import logging
+
+import cwt
 from builtins import object
+from django.conf import settings
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
 from wps import models
 from wps.util import wps_response
+
+logger = logging.getLogger('wps.serializers')
 
 
 class UserFileSerializer(serializers.ModelSerializer):
@@ -61,10 +69,40 @@ class StatusSerializer(serializers.ModelSerializer):
         model = models.Status
         fields = ('id', 'status', 'created_date', 'messages', 'output', 'exception')
 
+    def convert_local_to_opendap(self, variable):
+        variable = cwt.Variable.from_dict(variable)
+
+        relpath = os.path.relpath(variable.uri, settings.WPS_PUBLIC_PATH)
+
+        url = settings.WPS_DAP_URL.format(filename=relpath)
+
+        logger.info('Converted %r -> %r', variable.uri, url)
+
+        return cwt.Variable(url, variable.var_name, name=variable.name).to_dict()
+
     def create(self, validated_data):
         if 'exception' in validated_data:
             validated_data['exception'] = wps_response.exception_report(wps_response.NoApplicableCode,
                                                                         validated_data['exception'])
+
+        if 'output' in validated_data:
+            # Need to convert local path variables to remote path
+            if 'uri' in validated_data['output']:
+                try:
+                    data = json.loads(validated_data['output'])
+                except json.JSONDecodeError:
+                    logger.info('Failed to decode output')
+
+                    raise serializers.ValidationError('Failed to load output')
+
+                if isinstance(data, (list, tuple)):
+                    validated_data['output'] = json.dumps([self.convert_local_to_opendap(x) for x in data])
+                elif isinstance(data, dict):
+                    validated_data['output'] = json.dumps(self.convert_local_to_opendap(data))
+                else:
+                    logger.info('Failed to handle output of type {!r}'.format(type(data)))
+
+                    raise serializers.ValidationError('Failed to handle output of type {!r}'.format(type(data)))
 
         return models.Status.objects.create(**validated_data)
 

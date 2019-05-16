@@ -130,10 +130,6 @@ class CWTBaseTask(celery.Task):
             logger.exception('First argument should be OperationContext or WorkflowOperationContext')
         except WPSError:
             raise
-        else:
-            from compute_tasks import job
-
-            job.send_failed_email(args[0], str(exc))
 
     def on_success(self, retval, task_id, args, kwargs):
         pass

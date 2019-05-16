@@ -369,11 +369,7 @@ class WorkflowOperationContext(StateMixin, object):
 
         self.track_output(local_path)
 
-        relpath = os.path.relpath(local_path, settings.WPS_PUBLIC_PATH)
-
-        url = settings.WPS_DAP_URL.format(filename=relpath)
-
-        self.output.append(cwt.Variable(url, var_name, name=name))
+        self.output.append(cwt.Variable(local_path, var_name, name=name))
 
         return local_path
 
@@ -459,11 +455,7 @@ class OperationContext(StateMixin, object):
 
         self.track_output(local_path)
 
-        relpath = os.path.relpath(local_path, settings.WPS_PUBLIC_PATH)
-
-        url = settings.WPS_DAP_URL.format(filename=relpath)
-
-        self.output.append(cwt.Variable(url, var_name, name=name))
+        self.output.append(cwt.Variable(local_path, var_name, name=name))
 
         return local_path
 
