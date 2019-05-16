@@ -83,27 +83,31 @@ spec:
         {{- end }}
         env:
         {{- if $.Values.development }}
+        - name: DEV
+          value: "1"
         - name: WPS_DEBUG
           value: "1"
         {{- end }}
-        {{- if $.Values.celery.metrics }}
-        - name: CWT_METRICS
-          value: {{ $.Values.celery.metrics | quote }}
-        {{- end }}
-        - name: HOSTNAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: WPS_HOST
-          value: {{ $.Values.wps.host }}
         - name: CELERY_BROKER_URL
           value: redis://{{ template "redis.fullname" $ }}-master/0
         - name: CELERY_RESULT_BACKEND
           value: redis://{{ template "redis.fullname" $ }}-master/0
-        - name: POSTGRES_HOST
-          value: {{ template "postgresql.fullname" $ }}
+        - name: PROMETHEUS_HOST
+          value: {{ $.Values.wps.prometheus.host }}
+        - name: DASK_KUBE_NAMESPACE
+          value: {{ $.Values.dask.provisioner.namespace }}
         - name: DASK_SCHEDULER
           value: {{ $.Release.Name }}-dask-scheduler:8786
+        - name: DASK_WORKERS
+          value: {{ $.Values.dask.workers }}
+        - name: INTERNAL_LB
+          value: {{ template "traefik.fullname" . }}.{{ .Release.Namespace }}.svc
+        - name: DATA_PATH
+          value: {{ $.Values.wps.publicPath }}
+        - name: API_USERNAME
+          value: {{ $.Values.wps.apiUsername }}
+        - name: API_PASSWORD
+          value: {{ $.Values.wps.apiPassword }}
         envFrom:
         - secretRef:
             name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret

@@ -48,7 +48,6 @@ data:
     address.country={{ .Values.wps.address.country | default "Unknwon" }}
     address.email={{ .Values.wps.address.email | default "Unknwon" }}
 
-    wps.ingress_path={{ .Values.wps.ingressPath }}
     wps.public_path={{ .Values.wps.publicPath }}
 
     wps.admin.email={{ .Values.wps.adminEmail | default "Unknown" }}
