@@ -1,7 +1,3 @@
-from __future__ import division
-from future import standard_library
-standard_library.install_aliases()
-from past.utils import old_div
 import datetime
 import logging
 import os
@@ -13,7 +9,10 @@ logger = logging.getLogger('wps.settings')
 
 DJANGO_CONFIG_PATH = os.environ.get('DJANGO_CONFIG_PATH', '/etc/config/django.properties')
 
+
 def patch_settings(settings):
+    setattr(settings, 'DEV', 'DEV' in os.environ)
+
     setattr(settings, 'DEBUG', 'WPS_DEBUG' in os.environ)
 
     setattr(settings, 'TEST', 'WPS_TEST' in os.environ)
@@ -22,9 +21,9 @@ def patch_settings(settings):
 
     host = config.get_value('default', 'host')
 
-    broker_url = config.get_value('default', 'celery.broker')
+    # broker_url = config.get_value('default', 'celery.broker')
 
-    result_backend = config.get_value('default', 'celery.backend')
+    # result_backend = config.get_value('default', 'celery.backend')
 
     cidr = config.get_value('default', 'allowed.cidr', None, list)
 
@@ -49,7 +48,8 @@ def patch_settings(settings):
 
     setattr(settings, 'SESSION_COOKIE_NAME', config.get_value('default', 'session.cookie.name', 'wps_sessionid'))
 
-    setattr(settings, 'ACTIVE_USER_THRESHOLD', config.get_value('default', 'active.user.threshold', 5, int, lambda x: datetime.timedelta(days=x)))
+    setattr(settings, 'ACTIVE_USER_THRESHOLD', config.get_value('default', 'active.user.threshold', 5, int,
+                                                                lambda x: datetime.timedelta(days=x)))
     setattr(settings, 'INGRESS_ENABLED', config.get_value('default', 'ingress.enabled', False, bool))
     setattr(settings, 'CERT_DOWNLOAD_ENABLED', config.get_value('default', 'cert.download.enabled', True, bool))
     setattr(settings, 'ESGF_SEARCH', config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov'))
@@ -90,7 +90,6 @@ def patch_settings(settings):
     setattr(settings, 'WPS_OPENID_CALLBACK_SUCCESS', config.get_value('wps', 'wps.openid.callback.success'))
     setattr(settings, 'WPS_ADMIN_EMAIL', config.get_value('wps', 'wps.admin.email'))
 
-    setattr(settings, 'WPS_INGRESS_PATH', config.get_value('wps', 'wps.ingress_path'))
     setattr(settings, 'WPS_PUBLIC_PATH', config.get_value('wps', 'wps.public_path'))
     setattr(settings, 'WPS_LOCAL_OUTPUT_PATH', config.get_value('wps', 'wps.public_path'))
     setattr(settings, 'WPS_CA_PATH', '/tmp/certs/esgf')
@@ -100,31 +99,26 @@ def patch_settings(settings):
     setattr(settings, 'DASK_WORKERS', config.get_value('dask', 'workers', 10, int))
     setattr(settings, 'DASK_KUBE_NAMESPACE', config.get_value('dask', 'kube.namespace', 'default'))
 
-    setattr(settings, 'WPS_CACHE_PATH', config.get_value('cache', 'wps.cache.path', '/data/cache'))
-    setattr(settings, 'WPS_PARTITION_SIZE', config.get_value('cache', 'wps.partition.size', 10, int))
-    setattr(settings, 'WPS_CACHE_CHECK', config.get_value('cache', 'wps.cache.check', 1, int, lambda x: datetime.timedelta(days=x)))
-    setattr(settings, 'WPS_CACHE_GB_MAX_SIZE', config.get_value('cache', 'wps.gb.max.size', 2.097152e8, float))
-    setattr(settings, 'WPS_CACHE_MAX_AGE', config.get_value('cache', 'wps.cache.max.age', 30, int, lambda x: datetime.timedelta(days=x)))
-    setattr(settings, 'WPS_CACHE_FREED_PERCENT', config.get_value('cache', 'wps.cache.freed.percent', 0.25, float))
+    # setattr(settings, 'WPS_CDAT_ENABLED', config.get_value('wps', 'wps.cdat.enabled', True, bool))
 
-    setattr(settings, 'WPS_CDAT_ENABLED', config.get_value('wps', 'wps.cdat.enabled', True, bool))
+    # setattr(settings, 'WPS_EDAS_ENABLED', config.get_value('edas', 'wps.edas.enabled', False, bool))
+    # setattr(settings, 'WPS_EDAS_HOST', config.get_value('edas', 'wps.edas.host', 'aims2.llnl.gov'))
+    # setattr(settings, 'WPS_EDAS_REQ_PORT', config.get_value('edas', 'wps.edas.req.port', 5670, int))
+    # setattr(settings, 'WPS_EDAS_RES_PORT', config.get_value('edas', 'wps.edas.res.port', 5671, int))
+    # setattr(settings, 'WPS_EDAS_EXECUTE_TIMEOUT', config.get_value('edas', 'timeout.execute', 300, int))
+    # setattr(settings, 'WPS_EDAS_QUEUE_TIMEOUT', config.get_value('edas', 'timeout.submit', 30, int))
+    # setattr(settings, 'WPS_EDAS_OUTPUT_PATH', config.get_value('edas', 'output.path', '/data/edask'))
 
-    setattr(settings, 'WPS_EDAS_ENABLED', config.get_value('edas', 'wps.edas.enabled', False, bool))
-    setattr(settings, 'WPS_EDAS_HOST', config.get_value('edas', 'wps.edas.host', 'aims2.llnl.gov'))
-    setattr(settings, 'WPS_EDAS_REQ_PORT', config.get_value('edas', 'wps.edas.req.port', 5670, int))
-    setattr(settings, 'WPS_EDAS_RES_PORT', config.get_value('edas', 'wps.edas.res.port', 5671, int))
-    setattr(settings, 'WPS_EDAS_EXECUTE_TIMEOUT', config.get_value('edas', 'timeout.execute', 300, int))
-    setattr(settings, 'WPS_EDAS_QUEUE_TIMEOUT', config.get_value('edas', 'timeout.submit', 30, int))
-    setattr(settings, 'WPS_EDAS_OUTPUT_PATH', config.get_value('edas', 'output.path', '/data/edask'))
+    # setattr(settings, 'WPS_OPHIDIA_ENABLED', config.get_value('ophidia', 'wps.oph.enabled', False, bool))
+    # setattr(settings, 'WPS_OPHIDIA_USER', config.get_value('ophidia', 'wps.oph.user', 'oph-test'))
+    # setattr(settings, 'WPS_OPHIDIA_PASSWORD', config.get_value('ophidia', 'wps.oph.password', 'abcd'))
+    # setattr(settings, 'WPS_OPHIDIA_HOST', config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov'))
+    # setattr(settings, 'WPS_OPHIDIA_PORT', config.get_value('ophidia', 'wps.oph.port', 11732, int))
+    # setattr(settings, 'WPS_OPHIDIA_OUTPUT_PATH', config.get_value('ophidia', 'wps.oph.output.path', '/wps'))
+    # setattr(settings, 'WPS_OPHIDIA_OUTPUT_URL', config.get_value('ophidia', 'wps.oph.output.url',
+    #         'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc'))
+    # setattr(settings, 'WPS_OPHIDIA_DEFAULT_CORES', config.get_value('ophidia', 'wps.oph.default.cores', 8, int))
 
-    setattr(settings, 'WPS_OPHIDIA_ENABLED', config.get_value('ophidia', 'wps.oph.enabled', False, bool))
-    setattr(settings, 'WPS_OPHIDIA_USER', config.get_value('ophidia', 'wps.oph.user', 'oph-test'))
-    setattr(settings, 'WPS_OPHIDIA_PASSWORD', config.get_value('ophidia', 'wps.oph.password', 'abcd'))
-    setattr(settings, 'WPS_OPHIDIA_HOST', config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov'))
-    setattr(settings, 'WPS_OPHIDIA_PORT', config.get_value('ophidia', 'wps.oph.port', 11732, int))
-    setattr(settings, 'WPS_OPHIDIA_OUTPUT_PATH', config.get_value('ophidia', 'wps.oph.output.path', '/wps'))
-    setattr(settings, 'WPS_OPHIDIA_OUTPUT_URL', config.get_value('ophidia', 'wps.oph.output.url', 'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc'))
-    setattr(settings, 'WPS_OPHIDIA_DEFAULT_CORES', config.get_value('ophidia', 'wps.oph.default.cores', 8, int))
 
 class DjangoConfigParser(configparser.ConfigParser):
     def __init__(self, defaults):
@@ -164,7 +158,7 @@ class DjangoConfigParser(configparser.ConfigParser):
             value = default
 
             pass
-        except (configparser.NoOptionError, configparser.NoSectionError) as e:
+        except (configparser.NoOptionError, configparser.NoSectionError):
             if default is None:
                 raise
 
@@ -181,5 +175,3 @@ class DjangoConfigParser(configparser.ConfigParser):
             value = conv(value)
 
         return value
-
-
