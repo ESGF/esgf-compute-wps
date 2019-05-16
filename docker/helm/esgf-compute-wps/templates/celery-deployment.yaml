@@ -99,7 +99,7 @@ spec:
         - name: DASK_SCHEDULER
           value: {{ $.Release.Name }}-dask-scheduler:8786
         - name: DASK_WORKERS
-          value: {{ $.Values.dask.workers }}
+          value: "{{ $.Values.dask.workers }}"
         - name: INTERNAL_LB
           value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
         - name: DATA_PATH
