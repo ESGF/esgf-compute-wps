@@ -1,27 +1,61 @@
-from __future__ import division
-from future import standard_library
-standard_library.install_aliases() # noqa
-from builtins import str
-from builtins import object
 import os
+import time
 import uuid
 import urllib
-import coreapi
-import requests
 from datetime import datetime
 
 import cwt
+import coreapi
+import requests
 from celery.utils.log import get_task_logger
-from django.conf import settings
 
 from compute_tasks import metrics_ as metrics
 from compute_tasks import WPSError
 
 logger = get_task_logger('wps.context')
 
-
 SUCCESS = 'success'
 FAILURE = 'failure'
+
+INTERNAL_LB = os.environ.get('INTERNAL_LB', '')
+API_USERNAME = os.environ.get('API_USERNAME', '')
+API_PASSWORD = os.environ.get('API_PASSWORD', '')
+DATA_PATH = os.environ.get('DATA_PATH', '')
+
+
+def retry(count, delay, ignore):
+    def wrapper(func):
+        def wrapped(*args, **kwargs):
+            last_exc = None
+            completed = False
+
+            for x in range(count):
+                try:
+                    data = func(*args, **kwargs)
+                except Exception as e:
+                    if isinstance(e, ignore):
+                        raise e
+
+                    last_exc = e
+                else:
+                    completed = True
+
+                    break
+
+                time.sleep(5)
+
+                logger.info('Retrying...')
+
+            if not completed:
+                raise last_exc
+
+            return data
+        return wrapped
+    return wrapper
+
+
+class ProcessExistsError(WPSError):
+    pass
 
 
 class ProcessTimer(object):
@@ -116,13 +150,13 @@ class StateMixin(object):
 
         session.verify = False
 
-        auth = coreapi.auth.BasicAuthentication(os.environ['API_USERNAME'], os.environ['API_PASSWORD'])
+        auth = coreapi.auth.BasicAuthentication(API_USERNAME, API_PASSWORD)
 
         transport = coreapi.transports.HTTPTransport(auth=auth, session=session)
 
         self.client = coreapi.Client(transports=[transport, ])
 
-        schema_url = 'https://{!s}/internal_api/schema'.format(settings.INTERNAL_LB)
+        schema_url = 'https://{!s}/internal_api/schema'.format(INTERNAL_LB)
 
         self.schema = self.client.get(schema_url)
 
@@ -136,12 +170,18 @@ class StateMixin(object):
         }
 
     def action(self, keys, params=None, **kwargs):
-        try:
-            return self.client.action(self.schema, keys, params=params, **kwargs)
-        except Exception:
-            logger.debug('API call failed %r %r', keys, params)
+        ignore_errors = kwargs.pop('ignore_errors', ())
 
-            raise WPSError('Internal API call failed')
+        r = retry(count=4, delay=4, ignore=ignore_errors)(self.client.action)
+
+        try:
+            return r(self.schema, keys, params=params, **kwargs)
+            # return self.client.action(self.schema, keys, params=params, **kwargs)
+        except Exception as e:
+            if isinstance(e, ignore_errors):
+                raise e
+
+            raise WPSError('Internal API call failed {!r}', e)
 
     def set_status(self, status, output=None, exception=None):
         params = {
@@ -194,6 +234,12 @@ class StateMixin(object):
         output = self.action(['process', 'list'])
 
         return output['results']
+
+    def register_process(self, **params):
+        try:
+            self.action(['process', 'create'], params, ignore_errors=(coreapi.exceptions.ErrorMessage, ))
+        except coreapi.exceptions.ErrorMessage:
+            raise ProcessExistsError()
 
     def track_file(self, file):
         params = {
@@ -376,8 +422,7 @@ class WorkflowOperationContext(StateMixin, object):
     def generate_local_path(self):
         filename = '{}.nc'.format(uuid.uuid4())
 
-        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user),
-                                 str(self.job))
+        base_path = os.path.join(DATA_PATH, str(self.user), str(self.job))
 
         if not os.path.exists(base_path):
             os.makedirs(base_path)
@@ -462,8 +507,7 @@ class OperationContext(StateMixin, object):
     def generate_local_path(self):
         filename = '{}.nc'.format(uuid.uuid4())
 
-        base_path = os.path.join(settings.WPS_PUBLIC_PATH, str(self.user),
-                                 str(self.job))
+        base_path = os.path.join(DATA_PATH, str(self.user), str(self.job))
 
         if not os.path.exists(base_path):
             os.makedirs(base_path)

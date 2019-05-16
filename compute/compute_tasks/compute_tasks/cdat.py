@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 
+import os
 from functools import partial
 
 import cwt
 import dask
 import dask.array as da
 from celery.utils.log import get_task_logger
-from django.conf import settings
 from dask.distributed import Client
 from dask.distributed import LocalCluster
 from distributed.diagnostics.progressbar import ProgressBar
@@ -23,6 +23,11 @@ from compute_tasks import WPSError
 from compute_tasks.dask_serialize import regrid_chunk
 
 logger = get_task_logger('compute_tasks.cdat')
+
+DEV = os.environ.get('DEV', False)
+DASK_KUBE_NAMESPACE = os.environ.get('DASK_KUBE_NAMESPACE', 'default')
+DASK_SCHEDULER = os.environ.get('DASK_SCHEDULER', '')
+DASK_WORKERS = os.environ.get('DASK_WORKERS', 10)
 
 
 class DaskJobTracker(ProgressBar):
@@ -61,7 +66,7 @@ class DaskJobTracker(ProgressBar):
 
 
 def init(context, n_workers):
-    if settings.DEBUG:
+    if DEV:
         cluster = LocalCluster(n_workers=2, threads_per_worker=2, processes=False)
 
         client = Client(cluster) # noqa
@@ -70,9 +75,9 @@ def init(context, n_workers):
 
         manager = ClusterManager(client.scheduler.address, None)
     else:
-        cluster = Cluster.from_yaml(settings.DASK_KUBE_NAMESPACE, '/etc/config/dask/worker-spec.yml')
+        cluster = Cluster.from_yaml(DASK_KUBE_NAMESPACE, '/etc/config/dask/worker-spec.yml')
 
-        manager = ClusterManager(settings.DASK_SCHEDULER, cluster)
+        manager = ClusterManager(DASK_SCHEDULER, cluster)
 
         labels = {
             'user': str(context.user),
@@ -165,7 +170,7 @@ def workflow_func(self, context):
     context.message('Preparing to execute workflow')
 
     # Initialize the cluster resources
-    manager = init(context, settings.DASK_WORKERS)
+    manager = init(context, DASK_WORKERS)
 
     try:
         delayed = []
@@ -217,7 +222,7 @@ def process(context, process=None, aggregate=False):
     Returns:
         An updated cwt.context.OperationContext.
     """
-    manager = init(context, settings.DASK_WORKERS)
+    manager = init(context, DASK_WORKERS)
 
     fm = managers.FileManager(context)
 
@@ -341,8 +346,6 @@ Optional parameters:
 # @base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
 # @base.cwt_shared_task()
 def average_func(self, context):
-    init(context, settings.DASK_WORKERS)
-
     return context
 
 

@@ -1,7 +1,6 @@
 import unittest
 
 import mock
-from django import test
 
 from wps import models
 from wps import WPSError

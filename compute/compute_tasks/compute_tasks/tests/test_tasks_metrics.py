@@ -1,7 +1,8 @@
+import os
+
 import mock
 import requests
 import unittest
-from django.conf import settings
 
 from compute_tasks import metrics_
 from compute_tasks import WPSError
@@ -171,5 +172,6 @@ class TaskMetricsTestCase(unittest.TestCase):
 
         self.assertEqual(result, {'data': 3.2})
 
-        mock_get.assert_called_with(settings.METRICS_HOST, params={'query':
-                                                                   'sum(wps_requests)'}, timeout=(1, 30))
+        params = {'query': 'sum(wps_requests)'}
+
+        mock_get.assert_called_with(os.environ['PROMETHEUS_HOST'], params=params, timeout=(1, 30))

@@ -1,9 +1,9 @@
+import os
 import json
+from datetime import datetime
 
 import requests
 from celery.utils.log import get_task_logger
-from django.conf import settings
-from django.utils import timezone
 from prometheus_client import Counter # noqa
 from prometheus_client import Histogram # noqa
 from prometheus_client import Summary # noqa
@@ -12,6 +12,8 @@ from compute_tasks import base
 from compute_tasks import WPSError
 
 logger = get_task_logger('compute_tasks.metrics')
+
+PROMETHEUS_HOST = os.environ.get('PROMETHEUS_HOST', '')
 
 
 class PrometheusError(WPSError):
@@ -38,18 +40,17 @@ WPS_FILE_ACCESSED = Counter('wps_file_accessed', 'Files accessed by WPS service'
 
 
 def query_prometheus(**kwargs):
+    url = '{!s}/prometheus/api/v1/query'.format(PROMETHEUS_HOST)
+
     try:
-        response = requests.get(settings.METRICS_HOST, params=kwargs,
-                                timeout=(1, 30))
+        response = requests.get(url, params=kwargs, timeout=(1, 30))
     except requests.ConnectionError:
-        logger.exception('Error connecting to prometheus server at %r',
-                         settings.METRICS_HOST)
+        logger.exception('Error connecting to prometheus server at %r', PROMETHEUS_HOST)
 
         raise PrometheusError('Error connecting to metrics server')
 
     if not response.ok:
-        raise WPSError('Failed querying "{}" {}: {}', settings.METRICS_HOST,
-                       response.reason, response.status_code)
+        raise WPSError('Failed querying "{}" {}: {}', PROMETHEUS_HOST, response.reason, response.status_code)
 
     data = response.json()
 
@@ -165,7 +166,7 @@ def query_usage(context):
 @base.cwt_shared_task()
 def metrics_task(self, context):
     data = {
-        'time': timezone.now().ctime(),
+        'time': datetime.now().ctime(),
     }
 
     data.update(health=query_health(context))

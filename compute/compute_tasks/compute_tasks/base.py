@@ -10,7 +10,6 @@ from functools import partial
 import celery
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from django.conf import settings
 
 from compute_tasks import AccessError
 from compute_tasks import WPSError
@@ -24,27 +23,30 @@ BINDINGS = {}
 def discover_processes():
     processes = []
 
+    logger.info('Discovering processes for module %r', os.path.dirname(__file__))
+
     for _, name, _ in pkgutil.iter_modules([os.path.dirname(__file__)]):
         if name == 'base':
+            logger.info('Skipping base module')
+
             continue
 
         mod = importlib.import_module('.{!s}'.format(name), package='compute_tasks')
 
+        logger.info('Processing module %r', name)
+
         if 'discover_processes' in dir(mod):
-            setting_name = 'WPS_{!s}_ENABLED'.format(name.upper())
-
-            enabled = getattr(settings, setting_name, False)
-
-            if not enabled:
-                logger.info('Skipping process discovery for module %r', name)
-
-                continue
+            logger.info('Found discover_processes method in module %r', name)
 
             method = getattr(mod, 'discover_processes')
 
             data = method()
 
+            logger.info('Extending processes by %r', len(data))
+
             processes.extend(data)
+
+    logger.info('Extending processes from local registry by %r', len(REGISTRY.values()))
 
     processes.extend(REGISTRY.values())
 
@@ -59,20 +61,13 @@ def build_process_bindings():
         mod = importlib.import_module('.{!s}'.format(name), package='compute_tasks')
 
         if 'process_bindings' in dir(mod):
-            setting_name = 'WPS_{!s}_ENABLED'.format(name.upper())
-
-            enabled = getattr(settings, setting_name, False)
-
-            if not enabled:
-                logger.info('Skipping process binding for module %r', name)
-
-                continue
-
             method = getattr(mod, 'process_bindings')
 
             try:
                 data = method()
             except Exception:
+                logger.exception('Failed to call build_process_bindings for %r', mod)
+
                 continue
 
             BINDINGS.update(data)
@@ -143,3 +138,24 @@ cwt_shared_task = partial(shared_task,
                               'max_retries': 4,
                           },
                           retry_backoff=10)
+
+if __name__ == '__main__':
+    import logging
+    import compute_tasks # noqa
+    from compute_tasks import base
+    from compute_tasks.context import StateMixin
+    from compute_tasks.context import ProcessExistsError
+
+    logging.basicConfig(level=logging.INFO)
+
+    state = StateMixin()
+
+    state.init_api()
+
+    for item in base.discover_processes():
+        try:
+            state.register_process(**item)
+        except ProcessExistsError:
+            logger.info('Process %r already exists', item['identifier'])
+
+    build_process_bindings()

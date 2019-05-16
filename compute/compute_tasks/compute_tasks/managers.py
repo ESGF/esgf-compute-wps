@@ -12,9 +12,6 @@ import dask
 import dask.array as da
 import requests
 import xarray as xr
-from django.conf import settings
-from django.core.validators import URLValidator
-from django.core.exceptions import ValidationError
 
 from compute_tasks import metrics_ as metrics
 from compute_tasks import AccessError
@@ -207,15 +204,8 @@ class InputManager(object):
         return grid
 
     def read_grid_from_file(gridder):
-        url_validator = URLValidator(['https', 'http'])
-
         try:
-            url_validator(gridder.grid.uri)
-        except ValidationError:
-            raise WPSError('Path to grid file is not an OpenDAP url: {}', gridder.grid.uri)
-
-        try:
-            with cdms2.open(gridder.grid) as infile:
+            with cdms2.open(gridder.grid.uri) as infile:
                 data = infile(gridder.grid.var_name)
         except cdms2.CDMSError:
             raise WPSError('Failed to read the grid from {} in {}', gridder.grid.var_name, gridder.grid.uri)
@@ -717,7 +707,6 @@ class FileManager(object):
             outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
             outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(self.cert_path))
             outfile.write('HTTP.SSL.KEY={}\n'.format(self.cert_path))
-            outfile.write('HTTP.SSL.CAPATH={}\n'.format(settings.WPS_CA_PATH))
             outfile.write('HTTP.SSL.VERIFY=0\n')
 
         logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))

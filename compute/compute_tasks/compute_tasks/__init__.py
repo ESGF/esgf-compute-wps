@@ -14,7 +14,10 @@ DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
 
 class WPSError(Exception):
-    def __init__(self, fmt, *args, **kwargs):
+    def __init__(self, fmt=None, *args, **kwargs):
+        if fmt is None:
+            fmt = ''
+
         self.msg = fmt.format(*args, **kwargs)
 
     def __str__(self):
@@ -150,17 +153,12 @@ def decoder(x):
 
 serialization.register('cwt_json', encoder, decoder, 'application/json')
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'compute.settings')
-
-app = Celery('compute')
-
-app.config_from_object('compute.settings')
+app = Celery('compute_tasks')
 
 app.conf.event_serializer = 'cwt_json'
 app.conf.result_serializer = 'cwt_json'
 app.conf.task_serializer = 'cwt_json'
 
-app.autodiscover_tasks(['wps.tasks.cdat',
-                        'wps.tasks.edas',
-                        'wps.tasks.metrics_',
-                        'wps.tasks.job'])
+app.autodiscover_tasks(['compute_tasks'], related_name='cdat', force=True)
+app.autodiscover_tasks(['compute_tasks'], related_name='job', force=True)
+app.autodiscover_tasks(['compute_tasks'], related_name='metrics_', force=True)
