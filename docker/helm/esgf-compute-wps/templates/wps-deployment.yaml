@@ -61,17 +61,19 @@ spec:
         {{- end }}
         env:
         {{- if $.Values.development }}
+        - name: DEV
+          value: "1"
         - name: WPS_DEBUG
           value: "1"
         {{- end }}
-        - name: WPS_HOST
-          value: {{ $.Values.wps.host }}
         - name: CELERY_BROKER_URL
           value: redis://{{ template "redis.fullname" . }}-master/0
         - name: CELERY_RESULT_BACKEND
           value: redis://{{ template "redis.fullname" . }}-master/0
         - name: POSTGRES_HOST
           value: {{ template "postgresql.fullname" . }}
+        - name: PROVISIONER_FRONTEND
+          value: {{ template "esgf-compute-wps.fullname" $ }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.frontendPort }}
         envFrom:
         - secretRef:
             name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret

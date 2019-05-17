@@ -88,6 +88,8 @@ spec:
         - name: WPS_DEBUG
           value: "1"
         {{- end }}
+        - name: PROVISIONER_BACKEND
+          value: {{ template "esgf-compute-wps.fullname" $ }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
         - name: CELERY_BROKER_URL
           value: redis://{{ template "redis.fullname" $ }}-master/0
         - name: CELERY_RESULT_BACKEND
@@ -112,8 +114,6 @@ spec:
         - secretRef:
             name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
         volumeMounts:
-        - mountPath: /etc/config
-          name: config-volume
         - mountPath: /etc/config/dask
           name: dask-volume
         - mountPath: /data/cache
@@ -133,9 +133,6 @@ spec:
           path: /opt/cwt/devel
           type: DirectoryOrCreate
       {{- end }}
-      - name: config-volume
-        configMap:
-          name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
       - name: dask-volume
         configMap:
           name: {{ $.Release.Name }}-dask-config 

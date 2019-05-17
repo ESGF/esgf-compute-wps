@@ -1,0 +1,52 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-provisioner
+  labels:
+    app: {{ .Release.Name }}-provisioner
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-provisioner
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-provisioner
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      {{- if .Values.provisioner.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.provisioner.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
+      containers:
+      - name: {{ .Release.Name }}-provisioner
+        image: {{ .Values.provisioner.image }}:{{ .Values.provisioner.imageTag }}
+        imagePullPolicy: {{ .Values.provisioner.imagePullPolicy }}
+        env:
+        - name: FRONTEND_PORT
+          value: {{ .Values.provisioner.frontendPort | quote }}
+        - name: BACKEND_PORT
+          value: {{ .Values.provisioner.backendPort | quote }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.provisioner.frontendPort }}
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.provisioner.frontendPort }}
+          initialDelaySeconds: 40
+          periodSeconds: 20
+        {{- if and $.Values.provisioner.resources (not $.Values.development) }}
+        resources: {{ $.Values.provisioner.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.provisioner.frontendPort }}
+        - containerPort: {{ .Values.provisioner.backendPort }}

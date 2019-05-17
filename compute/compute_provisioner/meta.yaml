@@ -1,0 +1,31 @@
+package:
+  name: compute-provisioner
+  version: {{ environ.get('APP_VERSION', 'devel') }}
+
+source:
+  path: ./
+
+build:
+  noarch: python
+  build: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
+
+requirements:
+  build:
+    - git
+
+  host:
+    - python
+
+  run:
+    - python=3.6.7
+    - pyzmq=18.0.1
+
+test:
+  imports:
+    - compute_provisioner
+    - compute_provisioner.load_balancer
+
+about:
+  home: https://github.com/ESGF/esgf-compute-wps
+  summary: A Kubernetes compute provisioner.
