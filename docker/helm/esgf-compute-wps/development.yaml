@@ -1,0 +1,39 @@
+development: true
+
+provisioner:
+  imagePullPolicy: IfNotPresent
+
+dask:
+  imagePullPolicy: IfNotPresent
+
+  provisioner:
+    imagePullPolicy: IfNotPresent
+
+nginx:
+  imagePullPolicy: IfNotPresent
+
+wps:
+  imagePullPolicy: IfNotPresent
+
+  host: 10.5.5.5
+  externalHost: https://10.5.5.5
+
+  prometheus:
+    host: sdasda
+
+  oauth:
+    client: client
+    secret: secret
+
+  apiUsername: wps_api_user
+  apiPassword: changeit
+
+  email:
+    host: dasda
+
+
+celery:
+  imagePullPolicy: IfNotPresent
+
+postgresql:
+  postgresqlPassword: abcd1234
