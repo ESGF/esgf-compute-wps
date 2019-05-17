@@ -9,6 +9,8 @@ build:
   noarch: python
   build: 0
   script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
+  entry_points:
+    - compute-tasks-metrics = compute_tasks.metrics_:main
 
 requirements:
   build:
@@ -20,9 +22,6 @@ requirements:
   run:
     - python=3.6.7
     - nomkl=3.0
-    - django=1.11
-    - django-cors-headers=2.5.0
-    - django-allow-cidr=0.3.1
     - cdms2=3.1.2.2019.05.08.23.56
     - libcdms=3.1.2.2019.02.09.03.57
     - libdrs=3.1.2.2019.02.09.01.20
@@ -30,13 +29,12 @@ requirements:
     - cdtime=3.1.2.2019.02.09.12.03
     - cdutil=8.1
     - esgf-compute-api={{ environ.get('APP_VERSION', 'devel') }}
+    - cwt-kubernetes={{ environ.get('APP_VERSION', 'devel') }}
     - pyzmq=18.0.1
     - redis-py=3.2.1
     - requests=2.21.0
     - celery=4.2.1
     - prometheus_client=0.6.0
-    - cwt-settings={{ environ.get('APP_VERSION', 'devel') }}
-    - cwt-kubernetes={{ environ.get('APP_VERSION', 'devel') }}
     - dask=1.2.2
     - distributed=1.28.0
     - xarray=0.12.1

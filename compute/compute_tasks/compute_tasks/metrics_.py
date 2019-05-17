@@ -195,7 +195,7 @@ def serve_metrics():
     httpd.serve_forever()
 
 
-if __name__ == '__main__':
+def main():
     from multiprocessing import Process
 
     server = Process(target=serve_metrics)
