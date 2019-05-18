@@ -138,24 +138,3 @@ cwt_shared_task = partial(shared_task,
                               'max_retries': 4,
                           },
                           retry_backoff=10)
-
-if __name__ == '__main__':
-    import logging
-    import compute_tasks # noqa
-    from compute_tasks import base
-    from compute_tasks.context import StateMixin
-    from compute_tasks.context import ProcessExistsError
-
-    logging.basicConfig(level=logging.INFO)
-
-    state = StateMixin()
-
-    state.init_api()
-
-    for item in base.discover_processes():
-        try:
-            state.register_process(**item)
-        except ProcessExistsError:
-            logger.info('Process %r already exists', item['identifier'])
-
-    build_process_bindings()

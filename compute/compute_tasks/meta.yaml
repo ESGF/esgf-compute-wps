@@ -11,6 +11,7 @@ build:
   script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
   entry_points:
     - compute-tasks-metrics = compute_tasks.metrics_:main
+    - compute-tasks-backend = compute_tasks.backend:main
 
 requirements:
   build:
