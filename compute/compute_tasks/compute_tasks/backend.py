@@ -52,9 +52,11 @@ def get_next_request(worker):
 
     msg = worker.recv_multipart()
 
+    msg = [x.decode() for x in msg[2:]]
+
     logger.info('Received request from provisioner %r', msg)
 
-    return [x.decode() for x in msg[2:]]
+    return msg
 
 
 def fail_job(state, job, e):
@@ -96,19 +98,31 @@ def main():
 
         data_inputs = compute_tasks.decoder(data_inputs)
 
+        logger.info('Building celery workflow')
+
         try:
             started = job_started.s(identifier, data_inputs, job, user, process).set(**DEFAULT_QUEUE)
 
+            logger.info('Created job started task %r', started)
+
             queue = queue_from_identifier(identifier)
+
+            logger.info('Using queue %r', queue)
 
             process = base.get_process(identifier).s().set(**queue)
 
+            logger.info('Found process %r for %r', process, identifier)
+
             succeeded = job_succeeded.s().set(**DEFAULT_QUEUE)
+
+            logger.info('Created job stopped task %r', succeeded)
 
             workflow = started | process | succeeded
 
             workflow.delay()
+
+            logger.info('Executed workflow')
         except Exception as e:
-            logger.exception('Error building celery workflow %r', e)
+            logger.exception('Error executing celery workflow %r', e)
 
             fail_job(state, job, e)
