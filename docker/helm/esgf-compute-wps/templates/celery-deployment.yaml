@@ -32,6 +32,27 @@ spec:
         {{ $.Values.celery.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
       containers:
+      - name: {{ $.Release.Name }}-celery-{{ .name }}-backend
+        image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
+        imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
+        command:
+          - tini
+          - --
+        args:
+          - /bin/bash
+          - -c
+          - "mkdir -p /metrics && compute-tasks-backend"
+        resources:
+          {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        env:
+          - name: PROVISIONER_BACKEND
+            value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
+          - name: INTERNAL_LB
+            value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
+          - name: API_USERNAME
+            value: {{ $.Values.wps.apiUsername }}
+          - name: API_PASSWORD
+            value: {{ $.Values.wps.apiPassword }}
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
