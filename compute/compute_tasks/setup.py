@@ -11,4 +11,10 @@ setuptools.setup(
     description='Celery and Dask compute tasks',
     url='https://github.com/ESGF/esgf-compute-wps',
     packages=['compute_tasks'],
+    entry_points={
+        'console_scripts': [
+            'compute-tasks-metrics=compute_tasks.metrics_:main',
+            'compute-tasks-backend=compute_tasks.backend:main',
+        ],
+    }
 )
