@@ -5,6 +5,7 @@ import zmq
 
 import compute_tasks # noqa
 from compute_tasks import base
+from compute_tasks import celery # noqa
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
 from compute_tasks.context import StateMixin
