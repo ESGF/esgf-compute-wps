@@ -112,17 +112,20 @@ class LoadBalancer(object):
                     self.workers[version] = [msg[0]]
 
                 # Worker is ready to accept work
-                if msg[2] != b'READY':
-                    logger.info('Sending frontend reply %r', msg[2:])
+                # if msg[2] != b'READY':
+                #     logger.info('Sending frontend reply %r', msg[2:])
 
-                    # frontend reply
-                    self.frontend.send_multipart(msg[2:])
+                #     # frontend reply
+                #     self.frontend.send_multipart(msg[2:])
 
             if socks.get(self.frontend) == zmq.POLLIN:
                 # frontend request
                 msg = self.frontend.recv_multipart()
 
                 logger.info('Received %r from frontend', msg)
+
+                # Immediately reply to release the client
+                self.frontend.send_multipart(msg)
 
                 version = msg[2]
 
