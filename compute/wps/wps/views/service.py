@@ -12,6 +12,7 @@ from django.views.decorators.http import require_http_methods
 from owslib import wps
 
 from . import common
+from wps import helpers
 from wps import metrics
 from wps import models
 from wps import WPSError
@@ -85,17 +86,12 @@ def handle_execute(meta, identifier, data_inputs):
     except IndexError:
         raise WPSError('Missing API key for WPS execute request')
 
-    server = models.Server.objects.get(host='default')
-
     try:
-        process = server.processes.get(identifier=identifier)
+        process = models.Process.objects.get(identifier=identifier)
     except models.Process.DoesNotExist:
         raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
-    job = models.Job.objects.create(server=server,
-                                    process=process,
-                                    user=user,
-                                    extra=json.dumps(data_inputs))
+    job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
 
     # at this point we've accepted the job
     job.accepted()
@@ -114,7 +110,13 @@ def handle_execute(meta, identifier, data_inputs):
 
     process_id = str(process.id).encode()
 
-    client.send_multipart([identifier.encode(), data_inputs.encode(), job_id, user_id, process_id])
+    data_inputs = helpers.encoder(data_inputs).encode()
+
+    client.send_multipart([b'devel', identifier.encode(), data_inputs, job_id, user_id, process_id])
+
+    msg = client.recv_multipart()
+
+    logger.info('Response from provisioner %r', msg)
 
     return job.report
 
