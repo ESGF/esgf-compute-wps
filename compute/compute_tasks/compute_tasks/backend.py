@@ -84,11 +84,11 @@ def main():
 
     context = zmq.Context(1)
 
-    worker = context.Socket(zmq.REQ)
+    worker = context.socket(zmq.REQ)
 
-    worker.setsockopt(zmq.IDENTITY, HOSTNAME)
+    worker.setsockopt(zmq.IDENTITY, HOSTNAME.encode())
 
-    worker.connect('tcp://{!s}'.format(PROVISIONER_BACKEND))
+    worker.connect('tcp://{!s}'.format(PROVISIONER_BACKEND).encode())
 
     while True:
         identifier, data_inputs, job, user, process = get_next_request(worker)
