@@ -15,11 +15,7 @@ class WpsConfig(AppConfig):
         from wps import metrics # noqa
         from wps import WPSError # noqa
         from wps import signals # noqa
-        import compute_tasks # noqa
-        from compute_tasks.base import build_process_bindings
 
         os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
 
         settings.patch_settings(wps_settings)
-
-        build_process_bindings()
