@@ -53,6 +53,10 @@ spec:
             value: {{ $.Values.wps.apiUsername }}
           - name: API_PASSWORD
             value: {{ $.Values.wps.apiPassword }}
+          - name: CELERY_BROKER_URL
+            value: redis://{{ template "redis.fullname" $ }}-master/0
+          - name: CELERY_RESULT_BACKEND
+            value: redis://{{ template "redis.fullname" $ }}-master/0
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
