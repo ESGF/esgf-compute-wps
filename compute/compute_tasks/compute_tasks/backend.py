@@ -92,7 +92,7 @@ def main():
     worker.connect('tcp://{!s}'.format(PROVISIONER_BACKEND).encode())
 
     while True:
-        identifier, data_inputs, job, user, process = get_next_request(worker)
+        version, identifier, data_inputs, job, user, process = get_next_request(worker)
 
         try:
             started = job_started.s(identifier, data_inputs, job, user, process).set(**DEFAULT_QUEUE)
