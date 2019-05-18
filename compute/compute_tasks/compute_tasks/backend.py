@@ -99,7 +99,7 @@ def main():
         try:
             started = job_started.s(identifier, data_inputs, job, user, process).set(**DEFAULT_QUEUE)
 
-            queue = queue_from_identifier(identifier)
+            queue = queue_from_identifier(identifier.decode())
 
             process = base.get_process(identifier).s().set(**queue)
 
