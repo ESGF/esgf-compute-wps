@@ -88,7 +88,7 @@ def main():
 
     worker.setsockopt(zmq.IDENTITY, HOSTNAME)
 
-    worker.connect(PROVISIONER_BACKEND)
+    worker.connect('tcp://{!s}'.format(PROVISIONER_BACKEND))
 
     while True:
         identifier, data_inputs, job, user, process = get_next_request(worker)
