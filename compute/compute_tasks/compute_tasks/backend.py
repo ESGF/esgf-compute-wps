@@ -94,6 +94,8 @@ def main():
     while True:
         version, identifier, data_inputs, job, user, process = get_next_request(worker)
 
+        data_inputs = compute_tasks.decoder(data_inputs)
+
         try:
             started = job_started.s(identifier, data_inputs, job, user, process).set(**DEFAULT_QUEUE)
 
@@ -107,4 +109,6 @@ def main():
 
             workflow.delay()
         except Exception as e:
+            logger.exception('Error building celery workflow %r', e)
+
             fail_job(state, job, e)
