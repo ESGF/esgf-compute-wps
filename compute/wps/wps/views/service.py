@@ -1,29 +1,25 @@
-from future import standard_library
-standard_library.install_aliases() # noqa
-from builtins import str
+import os
 import json
 import urllib.request
 import urllib.parse
 import urllib.error
 import re
 
+import zmq
 from django import http
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from owslib import wps
 
 from . import common
-from compute_tasks import base
-from compute_tasks.job import job_started
-from compute_tasks.job import job_succeeded
-from wps import helpers
 from wps import metrics
 from wps import models
 from wps import WPSError
 from wps.util import wps_response
 
-
 logger = common.logger
+
+PROVISIONER_FRONTEND = os.environ['PROVISIONER_FRONTEND']
 
 
 def get_parameter(params, name, required=True):
@@ -47,9 +43,7 @@ def get_parameter(params, name, required=True):
 
 def handle_get_capabilities():
     try:
-        server = models.Server.objects.get(host='default')
-
-        data = wps_response.get_capabilities(server.processes.all())
+        data = wps_response.get_capabilities(models.Process.objects.all())
     except Exception as e:
         raise WPSError('{}', e)
 
@@ -108,19 +102,19 @@ def handle_execute(meta, identifier, data_inputs):
 
     logger.info('Acceped job %r', job.id)
 
-    started = job_started.s(identifier, data_inputs, job.id, user.id, process.id).set(**helpers.DEFAULT_QUEUE)
+    context = zmq.Context(1)
 
-    queue = helpers.queue_from_identifier(identifier)
+    client = context.socket(zmq.REQ)
 
-    logger.info('Enque task to %r', queue)
+    client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
 
-    process = base.get_process(identifier).s().set(**queue)
+    job_id = str(job.id).encode()
 
-    succeeded = job_succeeded.s().set(**helpers.DEFAULT_QUEUE)
+    user_id = str(user.id).encode()
 
-    workflow = started | process | succeeded
+    process_id = str(process.id).encode()
 
-    workflow.delay()
+    client.send_multipart([identifier.encode(), data_inputs.encode(), job_id, user_id, process_id])
 
     return job.report
 
