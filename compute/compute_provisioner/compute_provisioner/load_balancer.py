@@ -77,10 +77,10 @@ class LoadBalancer(object):
         datainputs and the second value is the specific version. Next the
         message is forwarded to an available backend, the backend receives a
         message with the following values; first client identitier, second is
-        blank, third is the datainputs and fourth is the specific version.
-        The worker should return the exact message when the work is done, extra
-        data can be appended. Finally the message is forwareded back to the
-        client.
+        blank, third is the specific version, and the rest is the data passed
+        to the backend. The worker should return the exact message when the
+        work is done, extra data can be appended. Finally the message is
+        forwarded back to the client.
         """
         while True:
             if self.workers:
@@ -124,12 +124,14 @@ class LoadBalancer(object):
 
                 logger.info('Received %r from frontend', msg)
 
+                version = msg[2]
+
                 # TODO We can check if a worker for the appropriate version is
                 # available. If not, we can dynamically allocate the resource
                 # in the cluster and then foward the job. This might involve
                 # adding a queue for the jobs waiting for their resources to be
                 # allocated.
-                request = [self.workers[msg[3]].pop(0), b''] + msg
+                request = [self.workers[version].pop(0), b''] + msg
 
                 logger.info('Sending backend request %r', request)
 
