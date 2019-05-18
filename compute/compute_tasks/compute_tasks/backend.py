@@ -119,6 +119,8 @@ def main():
 
             workflow = started | process | succeeded
 
+            logger.info('Built workflow %r', workflow)
+
             workflow.delay()
 
             logger.info('Executed workflow')
