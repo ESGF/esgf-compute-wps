@@ -54,7 +54,7 @@ def get_next_request(worker):
 
     logger.info('Received request from provisioner %r', msg)
 
-    return msg[2:]
+    return [x.decode() for x in msg[2:]]
 
 
 def fail_job(state, job, e):
@@ -99,7 +99,7 @@ def main():
         try:
             started = job_started.s(identifier, data_inputs, job, user, process).set(**DEFAULT_QUEUE)
 
-            queue = queue_from_identifier(identifier.decode())
+            queue = queue_from_identifier(identifier)
 
             process = base.get_process(identifier).s().set(**queue)
 
