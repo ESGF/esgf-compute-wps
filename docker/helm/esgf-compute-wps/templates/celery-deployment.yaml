@@ -89,7 +89,7 @@ spec:
           value: "1"
         {{- end }}
         - name: PROVISIONER_BACKEND
-          value: {{ template "esgf-compute-wps.fullname" $ }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
+          value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
         - name: CELERY_BROKER_URL
           value: redis://{{ template "redis.fullname" $ }}-master/0
         - name: CELERY_RESULT_BACKEND

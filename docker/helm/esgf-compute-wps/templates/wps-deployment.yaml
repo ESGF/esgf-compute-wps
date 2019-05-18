@@ -73,7 +73,7 @@ spec:
         - name: POSTGRES_HOST
           value: {{ template "postgresql.fullname" . }}
         - name: PROVISIONER_FRONTEND
-          value: {{ template "esgf-compute-wps.fullname" $ }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.frontendPort }}
+          value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.frontendPort }}
         envFrom:
         - secretRef:
             name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
