@@ -32,6 +32,25 @@ spec:
         {{ $.Values.celery.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
       containers:
+      - name: {{ $.Release.Name }}-celery-{{ .name }}-metrics
+        image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
+        imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
+        command:
+          - tini
+          - --
+        args:
+          - /bin/bash
+          - -c
+          - "mkdir -p /metrics && compute-tasks-metrics"
+        resources:
+          {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        volumeMounts:
+        {{- if $.Values.development }}
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
+        - mountPath: /metrics
+          name: metrics-volume
       - name: {{ $.Release.Name }}-celery-{{ .name }}-backend
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
@@ -45,18 +64,25 @@ spec:
         resources:
           {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         env:
-          - name: PROVISIONER_BACKEND
-            value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
-          - name: INTERNAL_LB
-            value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
-          - name: API_USERNAME
-            value: {{ $.Values.wps.apiUsername }}
-          - name: API_PASSWORD
-            value: {{ $.Values.wps.apiPassword }}
-          - name: CELERY_BROKER_URL
-            value: redis://{{ template "redis.fullname" $ }}-master/0
-          - name: CELERY_RESULT_BACKEND
-            value: redis://{{ template "redis.fullname" $ }}-master/0
+        - name: PROVISIONER_BACKEND
+          value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
+        - name: INTERNAL_LB
+          value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
+        - name: API_USERNAME
+          value: {{ $.Values.wps.apiUsername }}
+        - name: API_PASSWORD
+          value: {{ $.Values.wps.apiPassword }}
+        - name: CELERY_BROKER_URL
+          value: redis://{{ template "redis.fullname" $ }}-master/0
+        - name: CELERY_RESULT_BACKEND
+          value: redis://{{ template "redis.fullname" $ }}-master/0
+        volumeMounts:
+        {{- if $.Values.development }}
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
+        - mountPath: /metrics
+          name: metrics-volume
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
@@ -139,6 +165,12 @@ spec:
         - secretRef:
             name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
         volumeMounts:
+        {{- if $.Values.development }}
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
+        - mountPath: /metrics
+          name: metrics-volume
         - mountPath: /etc/config/dask
           name: dask-volume
         - mountPath: /data/cache
@@ -147,10 +179,6 @@ spec:
         - mountPath: /data/public
           name: public-volume
           subPath: public
-        {{- if $.Values.development }}
-        - name: devel-volume
-          mountPath: /devel
-        {{- end }}
       volumes:
       {{- if $.Values.development }}
       - name: devel-volume
@@ -158,6 +186,8 @@ spec:
           path: /opt/cwt/devel
           type: DirectoryOrCreate
       {{- end }}
+      - name: metrics-volume
+        emptyDir: {}
       - name: dask-volume
         configMap:
           name: {{ $.Release.Name }}-dask-config 
