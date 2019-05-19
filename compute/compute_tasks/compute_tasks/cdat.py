@@ -14,8 +14,8 @@ from distributed.utils import LoopRunner
 from distributed.client import futures_of
 from tornado.ioloop import IOLoop
 
-from cwt_kubernetes.cluster import Cluster
-from cwt_kubernetes.cluster_manager import ClusterManager
+from compute_kubernetes.cluster import Cluster
+from compute_kubernetes.cluster_manager import ClusterManager
 from compute_tasks import base
 from compute_tasks import context as ctx
 from compute_tasks import managers

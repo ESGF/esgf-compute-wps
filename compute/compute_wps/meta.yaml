@@ -1,0 +1,55 @@
+package:
+  name: compute-wps
+  version: {{ environ.get('APP_VERSION', 'devel') }}
+
+source:
+  path: ./
+
+build:
+  noarch: python
+  build: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
+
+requirements:
+  build:
+    - git
+
+  host:
+    - python
+
+  run:
+    - python=3.6.7
+    - nomkl=3.0
+    - django=1.11
+    - django-cors-headers=2.5.0
+    - django-allow-cidr=0.3.1
+    - djangorestframework=3.9.4
+    - django-grappelli=2.12.3
+    - cdms2=3.1.2.2019.05.08.23.56
+    - libcdms=3.1.2.2019.02.09.03.57
+    - libdrs=3.1.2.2019.02.09.01.20
+    - libdrs_f=3.1.2.2019.02.09.01.20
+    - cdtime=3.1.2.2019.02.09.12.03
+    - cdutil=8.1
+    - bjoern=3.0.0
+    - pyophidia=1.8.1
+    - esgf-compute-api={{ environ.get('APP_VERSION', 'devel') }}
+    - jinja2=2.10.1
+    - myproxyclient=2.0.1
+    - gunicorn=19.9.0
+    - psycopg2=2.8.2
+    - python3-openid=3.1.0
+    - pyzmq=18.0.1
+    - redis-py=3.2.1
+    - requests=2.21.0
+    - requests-oauthlib=1.2.0
+    - celery=4.2.1
+    - prometheus_client=0.6.0
+    - compute-settings={{ environ.get('APP_VERSION', 'devel') }}
+    - compute-kubernetes={{ environ.get('APP_VERSION', 'devel') }}
+    - xarray=0.12.1
+    - python-coreapi=2.3.3
+
+about:
+  home: https://github.com/ESGF/esgf-compute-wps
+  summary: LLNL WPS Django Application

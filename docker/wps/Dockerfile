@@ -7,17 +7,15 @@ COPY . .
 WORKDIR /src/compute
 
 RUN conda install -c conda-forge -y conda-build && \
-      conda build -c conda-forge -c cdat cwt_settings/ && \
-      conda build -c conda-forge -c cdat cwt_kubernetes/ && \
-      conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local wps/ && \
-      conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_tasks/
+      conda build -c conda-forge -c cdat compute_settings/ && \
+      conda build -c conda-forge -c cdat compute_kubernetes/ && \
+      conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_wps/
 
 FROM continuumio/miniconda3:4.5.12
 
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
-RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local \
-      esgf-compute-wps compute-tasks && \
+RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-wps && \
       django-admin startproject compute && \
       mkdir -p /var/log/cwt
 
