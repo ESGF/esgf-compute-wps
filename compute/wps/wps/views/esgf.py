@@ -1,9 +1,12 @@
 #! /usr/bin/env python
 
-from builtins import str
+import os
 import hashlib
 import json
+import tempfile
+import urllib
 
+import cdms2
 import cdtime
 import cwt
 import requests
@@ -14,8 +17,8 @@ from django.views.decorators.http import require_http_methods
 
 from . import common
 from wps import metrics
+from wps import AccessError
 from wps import WPSError
-from compute_tasks import managers
 
 logger = common.logger
 
@@ -97,6 +100,101 @@ def process_axes(header):
     return data
 
 
+def load_certificate(user):
+    """ Loads a user certificate.
+
+    First the users certificate is checked and refreshed if needed. It's
+    then written to disk and the processes current working directory is
+    set, allowing calls to NetCDF library to use the certificate.
+
+    Args:
+        user: User object.
+    """
+    cert_data = user.auth.cert
+
+    temp_dir = tempfile.TemporaryDirectory()
+
+    logger.info('Using temporary directory %r', temp_dir.name)
+
+    os.chdir(temp_dir.name)
+
+    logger.info('Changed working directory to %r', temp_dir.name)
+
+    cert_path = os.path.join(temp_dir.name, 'cert.pem')
+
+    with open(cert_path, 'w') as outfile:
+        outfile.write(cert_data)
+
+    logger.info('Wrote user certificate')
+
+    dodsrc_path = os.path.join(temp_dir.name, '.dodsrc')
+
+    with open(dodsrc_path, 'w') as outfile:
+        outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+        outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+        outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+        outfile.write('HTTP.SSL.VERIFY=0\n')
+
+    logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
+
+    return cert_path
+
+
+def check_access(uri, cert=None):
+    url = '{!s}.dds'.format(uri)
+
+    logger.info('Checking access with %r', url)
+
+    parts = urllib.parse.urlparse(url)
+
+    try:
+        response = requests.get(url, timeout=(10, 30), cert=cert, verify=False)
+    except requests.ConnectionError:
+        logger.exception('Connection error %r', parts.hostname)
+
+        metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
+        raise AccessError(url, 'Connection error to {!r}'.format(parts.hostname))
+    except requests.ConnectTimeout:
+        logger.exception('Timeout connecting to %r', parts.hostname)
+
+        metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
+        raise AccessError(url, 'Timeout connecting to {!r}'.format(parts.hostname))
+    except requests.ReadTimeout:
+        logger.exception('Timeout reading from %r', parts.hostname)
+
+        metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
+        raise AccessError(url, 'Timeout reading from {!r}'.format(parts.hostname))
+
+    if response.status_code == 200:
+        return True
+
+    logger.info('Checking url failed with status code %r', response.status_code)
+
+    metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
+    return False
+
+
+def open_file(user, uri, var_name):
+    if not check_access(uri):
+        cert_path = load_certificate(user)
+
+        if not check_access(uri, cert_path):
+            raise WPSError('File {!r} is not accessible, check the OpenDAP service', uri)
+
+        logger.info('File %r requires certificate', uri)
+
+    try:
+        handle = cdms2.open(uri)
+    except Exception:
+        raise WPSError('Error open file %r', uri)
+
+    return handle
+
+
 def process_url(user, prefix_id, var):
     """ Processes a url.
     Args:
@@ -118,14 +216,17 @@ def process_url(user, prefix_id, var):
     if data is None:
         data = {'url': var.uri}
 
-        fm = managers.FileManager(user)
+        handle = None
 
         try:
-            variable = fm.get_variable(var.uri, var.var_name)
+            handle = open_file(var.uri)
 
-            axes = process_axes(variable)
+            axes = process_axes(handle[var.var_name])
         except Exception as e:
             raise WPSError('Failed to open {!r}: {!s}', var.uri, e)
+        finally:
+            if handle:
+                handle.close()
 
         data.update(axes)
 

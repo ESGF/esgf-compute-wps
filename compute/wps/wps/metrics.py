@@ -15,6 +15,9 @@ def track_login(counter, url):
 
 WPS = REGISTRY
 
+WPS_DATA_ACCESS_FAILED = Counter('wps_data_access_failed_total',
+                                 'Number of times remote sites are inaccesible', ['host'])
+
 WPS_CERT_DOWNLOAD = Counter('wps_cert_download', 'Number of times certificates'
                             ' have been downloaded')
 
