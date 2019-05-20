@@ -19,14 +19,14 @@ FileSizeExceeded = 'FileSizeExceeded'
 StorageNotSupported = 'StorageNotSupported'
 
 def exception_report(code, text):
-    env = Environment(loader=PackageLoader('wps', 'templates'))
+    env = Environment(loader=PackageLoader('compute_wps', 'templates'))
 
     template = env.get_template('ExceptionReport_response.xml')
 
     return template.render(exception_code=code, exception_text=text)
 
 def get_capabilities(processes):
-    env = Environment(loader=PackageLoader('wps', 'templates'))
+    env = Environment(loader=PackageLoader('compute_wps', 'templates'))
 
     template = env.get_template('GetCapabilities_response.xml')
 
@@ -34,7 +34,7 @@ def get_capabilities(processes):
                            **settings.__dict__['_wrapped'].__dict__)
 
 def describe_process(processes):
-    env = Environment(loader=PackageLoader('wps', 'templates'))
+    env = Environment(loader=PackageLoader('compute_wps', 'templates'))
 
     template = env.get_template('DescribeProcess_response.xml')
 
@@ -42,7 +42,7 @@ def describe_process(processes):
                            **settings.__dict__['_wrapped'].__dict__)
 
 def execute(**kwargs):
-    env = Environment(loader=PackageLoader('wps', 'templates'))
+    env = Environment(loader=PackageLoader('compute_wps', 'templates'))
 
     template = env.get_template('Execute_response.xml')
 
