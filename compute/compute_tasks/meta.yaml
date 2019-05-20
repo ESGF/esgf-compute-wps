@@ -29,8 +29,8 @@ requirements:
     - libdrs_f=3.1.2.2019.02.09.01.20
     - cdtime=3.1.2.2019.02.09.12.03
     - cdutil=8.1
-    - esgf-compute-api={{ environ.get('COMPUTE_API_VERSION', 0.1.0) }}
-    - cwt-kubernetes=0.1.0
+    - esgf-compute-api={{ environ.get('COMPUTE_API_VERSION', '0.1.0') }}
+    - compute-kubernetes=0.1.0
     - pyzmq=18.0.1
     - redis-py=3.2.1
     - requests=2.21.0

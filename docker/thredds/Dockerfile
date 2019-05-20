@@ -13,11 +13,11 @@ RUN wget http://artifacts.unidata.ucar.edu/content/repositories/unidata-releases
 RUN wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /tini && \
   chmod +x /tini
 
-COPY setenv.sh bin/
-COPY entrypoint.sh entrypoint.sh
-COPY catalog.xml catalog.xml
-COPY threddsConfig.xml threddsConfig.xml
-COPY server.xml conf/
+COPY docker/thredds/setenv.sh bin/
+COPY docker/thredds/entrypoint.sh entrypoint.sh
+COPY docker/thredds/catalog.xml catalog.xml
+COPY docker/thredds/threddsConfig.xml threddsConfig.xml
+COPY docker/thredds/server.xml conf/
 
 ENTRYPOINT ["/tini", "--"]
 

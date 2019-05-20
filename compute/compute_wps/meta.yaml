@@ -33,7 +33,7 @@ requirements:
     - cdutil=8.1
     - bjoern=3.0.0
     - pyophidia=1.8.1
-    - esgf-compute-api={{ environ.get('COMPUTE_API_VERSION', 0.1.0) }}
+    - esgf-compute-api={{ environ.get('COMPUTE_API_VERSION', '0.1.0') }}
     - jinja2=2.10.1
     - myproxyclient=2.0.1
     - gunicorn=19.9.0
