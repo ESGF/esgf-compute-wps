@@ -248,7 +248,11 @@ class InputManager(object):
 
         step = chunk_shape[0]
 
-        chunks = [slice(x, min(size, x+step), 1) for x in range(0, size)]
+        logger.info('Building input from delayed functions size %r step %r', size, step)
+
+        chunks = [slice(x, min(size, x+step), 1) for x in range(0, size, step)]
+
+        logger.info('Generated %r chunks', len(chunks))
 
         delayed = [dask.delayed(retrieve_chunk)(uri, var.id, {'time': x}, self.fm.cert_data) for x in chunks]
 
