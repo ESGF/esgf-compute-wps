@@ -74,19 +74,34 @@ persistence:
     capacity: 10Gi
     path: /opt/nimbus/wps/postgresql
 
-  # postgresql-backup:
-  #   storageClassName: slow
-  #   capacity: 10Gi
-  #   path: /opt/nimbus/wps/postgresql-backup
-
   redis:
     storageClassName: slow
     capacity: 10Gi
     path: /opt/nimbus/wps/redis
 
+provisioner:
+  nodeSelector:
+    tier: backend
+
+  image: jasonb87/compute-provisioner
+  imageTag: 0.1.0
+
+  imagePullPolicy: Always
+
+  frontendPort: 7777
+  backendPort: 7778
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    request:
+      cpu: 100m
+      memory: 32Mi
+
 dask:
-  image: jasonb87/cwt_celery
-  imageTag: devel
+  image: jasonb87/compute-celery
+  imageTag: 0.1.0
 
   imagePullPolicy: Always
 
@@ -105,8 +120,8 @@ dask:
       memory: 8Gi
 
   provisioner:
-    image: jasonb87/cwt_dask_provisioner
-    imageTag: devel
+    image: jasonb87/compute-dask-provisioner
+    imageTag: 0.1.0
 
     imagePullPolicy: Always
 
@@ -156,8 +171,8 @@ dask:
 
 nginx:
   replicas: 1
-  image: jasonb87/cwt_webapp
-  imageTag: devel
+  image: jasonb87/compute-webapp
+  imageTag: 0.1.0
 
   nodeSelector:
     tier: backend
@@ -181,8 +196,8 @@ nginx:
   
 wps:
   replicas: 1
-  image: jasonb87/cwt_wps
-  imageTag: devel
+  image: jasonb87/compute-wps
+  imageTag: 0.1.0
   imagePullPolicy: Always
 
   host: aims2.llnl.gov
@@ -198,7 +213,6 @@ wps:
   nodeSelector:
     tier: backend
 
-  ingressPath: /data/ingress
   publicPath: /data/public
 
   adminEmail:
@@ -266,8 +280,8 @@ wps:
         traffic-type: internal
 
 celery:
-  image: jasonb87/cwt_celery
-  imageTag: devel
+  image: jasonb87/compute-celery
+  imageTag: 0.1.0
   metrics: /metrics
 
   nodeSelector:
@@ -283,6 +297,15 @@ celery:
       cpu: 200m
       memory: 512Mi
 
+  backend:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 200m
+        memory: 64Mi
+
   flower:
     enabled: false
 
@@ -297,19 +320,9 @@ celery:
       - port: 8080
         name: metrics
 
-#   - name: edask
-#     replicas: 1
-#     annotations:
-#       prometheus.io/scrape: "true"
-#       prometheus.io/path: /metrics
-#       prometheus.io/port: "8080"
-#     ports:
-#       - port: 8080
-#         name: metrics
-
 thredds:
   replicas: 1
-  image: jasonb87/cwt_thredds
+  image: jasonb87/compute-thredds
   imageTag: 4.6.10
 
   nodeSelector:
@@ -396,7 +409,7 @@ redis:
 edask:
   enabled: false
   replicas: 1
-  image: jasonb87/cwt_edask
+  image: jasonb87/compute-edask
   imageTag: latest
   imagePullPolicy: Always
 

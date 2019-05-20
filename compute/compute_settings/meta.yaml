@@ -1,11 +1,12 @@
 package:
   name: compute-settings
-  version: {{ environ.get('APP_VERSION', 'devel') }}
+  version: 0.1.0
 
 source:
   path: ./
 
 build:
+  build: 0
   script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
   noarch: python
 

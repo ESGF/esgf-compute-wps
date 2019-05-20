@@ -1,14 +1,14 @@
 package:
   name: compute-tasks
-  version: {{ environ.get('APP_VERSION', 'devel') }}
+  version: 0.1.0
 
 source:
   path: ./
 
 build:
-  noarch: python
   build: 0
   script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
+  noarch: python
   entry_points:
     - compute-tasks-metrics = compute_tasks.metrics_:main
     - compute-tasks-backend = compute_tasks.backend:main
@@ -29,8 +29,8 @@ requirements:
     - libdrs_f=3.1.2.2019.02.09.01.20
     - cdtime=3.1.2.2019.02.09.12.03
     - cdutil=8.1
-    - esgf-compute-api={{ environ.get('APP_VERSION', 'devel') }}
-    - cwt-kubernetes={{ environ.get('APP_VERSION', 'devel') }}
+    - esgf-compute-api={{ environ.get('COMPUTE_API_VERSION', 0.1.0) }}
+    - cwt-kubernetes=0.1.0
     - pyzmq=18.0.1
     - redis-py=3.2.1
     - requests=2.21.0

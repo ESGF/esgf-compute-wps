@@ -1,6 +1,6 @@
 package:
   name: compute-provisioner
-  version: {{ environ.get('APP_VERSION', 'devel') }}
+  version: 0.1.0
 
 source:
   path: ./
