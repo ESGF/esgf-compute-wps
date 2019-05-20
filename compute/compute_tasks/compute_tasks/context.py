@@ -95,7 +95,8 @@ class StateMixin(object):
         self.metrics[key] += nbytes
 
     def update_metrics(self, state):
-        domain = self.domain
+        # Covers the case where domain is None
+        domain = self.domain or {}
 
         if not isinstance(domain, dict):
             domain = {domain.name: domain}
