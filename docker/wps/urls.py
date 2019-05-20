@@ -20,11 +20,5 @@ from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
 
 urlpatterns = [
-    url(r'^', include('wps.urls')),
-    #url(r'^auth/', include('wps.urls_auth')),
-    #url(r'^wps/?', include('wps.urls')),
-    #url(r'^$', RedirectView.as_view(url='/wps/home', permanent=False)),
+    url(r'^', include('compute_wps.urls')),
 ]
-
-#if settings.DEBUG:
-#    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

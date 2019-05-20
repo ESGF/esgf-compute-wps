@@ -8,7 +8,7 @@ from compute_settings import settings
 
 
 class WpsConfig(AppConfig):
-    name = 'wps'
+    name = 'compute_wps'
 
     def ready(self):
         from django.conf import settings as wps_settings

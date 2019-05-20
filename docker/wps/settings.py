@@ -42,7 +42,7 @@ CACHES = {
 }
 
 INSTALLED_APPS = [
-    'wps',
+    'compute_wps',
     'rest_framework',
     'grappelli',
     'django.contrib.admin',
