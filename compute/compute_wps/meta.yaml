@@ -31,6 +31,7 @@ requirements:
     - libdrs_f=3.1.2.2019.02.09.01.20
     - cdtime=3.1.2.2019.02.09.12.03
     - cdutil=8.1
+    - libnetcdf=4.6.2
     - bjoern=3.0.0
     - pyophidia=1.8.1
     - esgf-compute-api={{ environ.get('COMPUTE_API_VERSION', '0.1.0') }}
@@ -45,7 +46,6 @@ requirements:
     - requests-oauthlib=1.2.0
     - celery=4.2.1
     - prometheus_client=0.6.0
-    - xarray=0.12.1
     - python-coreapi=2.3.3
     - compute-settings=0.1.0
     - compute-kubernetes=0.1.0
