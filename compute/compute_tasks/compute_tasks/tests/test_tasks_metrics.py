@@ -11,26 +11,6 @@ from compute_tasks import WPSError
 class TaskMetricsTestCase(unittest.TestCase):
 
     @mock.patch.object(requests, 'get')
-    def test_health(self, mock_get):
-        mock_get.return_value.json.return_value = {
-            'status': 'ok',
-            'data': {
-                'result': [
-                    {
-                        'metric': 'test',
-                        'value': [],
-                    },
-                ]
-            }
-        }
-
-        context = mock.MagicMock()
-
-        metrics_.metrics_task(context)
-
-        self.assertEqual(mock_get.call_count, 11)
-
-    @mock.patch.object(requests, 'get')
     def test_query_multiple_value_custom_type(self, mock_get):
         type(mock_get.return_value).ok = mock.PropertyMock(return_value=True)
 
@@ -155,6 +135,7 @@ class TaskMetricsTestCase(unittest.TestCase):
         with self.assertRaises(WPSError):
             metrics_.query_prometheus(query='sum(wps_requests)')
 
+    @mock.patch.dict(os.environ, {'PROMETHEUS_HOST': 'hello'})
     @mock.patch.object(requests, 'get')
     def test_query_prometheus(self, mock_get):
         type(mock_get.return_value).ok = mock.PropertyMock(return_value=True)
@@ -174,4 +155,4 @@ class TaskMetricsTestCase(unittest.TestCase):
 
         params = {'query': 'sum(wps_requests)'}
 
-        mock_get.assert_called_with(os.environ['PROMETHEUS_HOST'], params=params, timeout=(1, 30))
+        mock_get.assert_called_with('/prometheus/api/v1/query', params=params, timeout=(1, 30))

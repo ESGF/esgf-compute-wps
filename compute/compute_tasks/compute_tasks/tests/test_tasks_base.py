@@ -5,14 +5,12 @@ from compute_tasks import WPSError
 
 
 class CWTBaseTaskTestCase(unittest.TestCase):
-    fixtures = ['users.json', 'processes.json', 'servers.json', 'jobs.json']
-
     def test_get_process_missing(self):
         with self.assertRaises(WPSError):
             base.get_process('i do not exist')
 
     def test_get_process(self):
-        @base.register_process('CDAT', 'test')
+        @base.register_process('CDAT', 'test', abstract='abstract')
         def test_task(self):
             pass
 
