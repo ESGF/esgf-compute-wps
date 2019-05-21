@@ -239,8 +239,13 @@ class StateMixin(object):
     def register_process(self, **params):
         try:
             self.action(['process', 'create'], params, ignore_errors=(coreapi.exceptions.ErrorMessage, ))
-        except coreapi.exceptions.ErrorMessage:
-            raise ProcessExistsError()
+        except coreapi.exceptions.ErrorMessage as e:
+            if 'unique set' in str(e):
+                raise ProcessExistsError()
+
+            logger.exception('Failed with %r', params)
+
+            raise e
 
     def track_file(self, file):
         params = {
