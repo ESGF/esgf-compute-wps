@@ -90,7 +90,13 @@ def init(context, n_workers):
     return manager
 
 
-@base.register_process('CDAT', 'workflow', metadata={'inputs': '0'})
+WORKFLOW_ABSTRACT = """
+This operation is used to store global values in workflows. Domain, regridders and parameters defined
+here will become the default values on child operations.
+"""
+
+
+@base.register_process('CDAT', 'workflow', abstract=WORKFLOW_ABSTRACT, metadata={'inputs': '0'})
 @base.cwt_shared_task()
 def workflow_func(self, context):
     """ Executes a workflow.

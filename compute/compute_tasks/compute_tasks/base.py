@@ -80,7 +80,7 @@ def get_process(identifier):
         raise WPSError('Unknown process {!r}', e)
 
 
-def register_process(backend, process, abstract=None, version=None, inputs=None, **metadata):
+def register_process(backend, process, abstract, version=None, inputs=None, **metadata):
     def wrapper(func):
         identifier = '{!s}.{!s}'.format(backend, process)
 
@@ -89,7 +89,7 @@ def register_process(backend, process, abstract=None, version=None, inputs=None,
         REGISTRY[identifier] = {
             'identifier': identifier,
             'backend': backend,
-            'abstract': abstract or '',
+            'abstract': abstract,
             'metadata': json.dumps(metadata),
             'version': version or 'devel',
         }
