@@ -345,6 +345,12 @@ class InputManager(object):
         if len(time_axis) > 1:
             logger.info('Concatenating %r segments of the time axis', len(time_axis))
 
+            # If all the units are different then the axes must be converted first and based on the
+            # first value for units, its assumed that the uris are correctly sorted.
+            if len(set([x.units for x in time_axis])) == len(time_axis):
+                for axis in time_axis:
+                    axis.toRelativeTime(time_axis[0].units)
+
             axis_concat = cdms2.MV.axisConcatenate(time_axis, id='time', attributes=self.attrs['time'])
 
             self.axes['time'] = axis_concat
