@@ -44,7 +44,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.views.auth.openid.services')
+    @mock.patch('compute_wps.views.auth.openid.services')
     def test_login_mpc_service_not_supported(self, mock_services):
         user = models.User.objects.all()[0]
 
@@ -56,7 +56,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.views.auth.openid.services')
+    @mock.patch('compute_wps.views.auth.openid.services')
     def test_login_mpc_parse_failed(self, mock_services):
         mock_services.return_value = [mock.Mock(server_url='http://testbad.com:8181/endpoint')]
 
@@ -68,8 +68,8 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.views.auth.MyProxyClient')
-    @mock.patch('wps.views.auth.openid.services')
+    @mock.patch('compute_wps.views.auth.MyProxyClient')
+    @mock.patch('compute_wps.views.auth.openid.services')
     def test_login_mpc_login_failed(self, mock_services, mock_mpc):
         mock_services.return_value = [mock.Mock(server_url='socket://testbad.com:8181')]
 
@@ -83,8 +83,8 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.views.auth.MyProxyClient')
-    @mock.patch('wps.views.auth.openid.services')
+    @mock.patch('compute_wps.views.auth.MyProxyClient')
+    @mock.patch('compute_wps.views.auth.openid.services')
     def test_login_mpc(self, mock_services, mock_mpc):
         mock_services.return_value = [mock.Mock(server_url='socket://testbad.com:8181')]
 
@@ -109,9 +109,9 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.auth.oauth2.get_certificate')
-    @mock.patch('wps.auth.oauth2.get_token')
-    @mock.patch('wps.views.auth.openid.services')
+    @mock.patch('compute_wps.auth.oauth2.get_certificate')
+    @mock.patch('compute_wps.auth.oauth2.get_token')
+    @mock.patch('compute_wps.views.auth.openid.services')
     def test_oauth2_callback(self, mock_services, mock_token, mock_certificate):
         mock_services.return_value = (mock.Mock(server_url='http://testbad.com/oauth2/token'), mock.Mock(server_url='http://testbad.com/oauth2/cert'))
 
@@ -144,8 +144,8 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.auth.oauth2.get_authorization_url')
-    @mock.patch('wps.views.auth.openid.services')
+    @mock.patch('compute_wps.auth.oauth2.get_authorization_url')
+    @mock.patch('compute_wps.views.auth.openid.services')
     def test_login_oauth2(self, mock_services, mock_authorization):
         mock_services.return_value = (mock.Mock(), mock.Mock())
 
@@ -179,7 +179,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertNotIn('_auth_user_id', self.client.session)
         self.check_success(response)
 
-    @mock.patch('wps.views.auth.openid.complete')
+    @mock.patch('compute_wps.views.auth.openid.complete')
     def test_user_login_openid_callback_already_exists(self, mock_openid):
         user = models.User.objects.all()[0]
 
@@ -190,7 +190,7 @@ class AuthViewsTestCase(test.TestCase):
         self.assertIn('_auth_user_id', self.client.session)
         self.check_redirect(response, 1)
 
-    @mock.patch('wps.views.auth.openid.complete')
+    @mock.patch('compute_wps.views.auth.openid.complete')
     def test_user_login_openid_callback(self, mock_openid):
         mock_openid.return_value = (
             'http://testbad.com/openid/new_user',
@@ -211,7 +211,7 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('wps.views.auth.openid.begin')
+    @mock.patch('compute_wps.views.auth.openid.begin')
     def test_user_login_openid(self, mock_openid):
         mock_openid.return_value = 'http://testbad.com/openid'
 

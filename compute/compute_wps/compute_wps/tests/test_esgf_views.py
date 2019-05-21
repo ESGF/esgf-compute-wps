@@ -88,7 +88,7 @@ class ESGFViewsTestCase(test.TestCase):
         }
 
     @mock.patch('requests.get')
-    @mock.patch('wps.views.esgf.cache')
+    @mock.patch('compute_wps.views.esgf.cache')
     def test_search_solr_cached(self, mock_cache, mock_get):
         mock_cache.get.return_value = self.docs_parsed
 
@@ -100,7 +100,7 @@ class ESGFViewsTestCase(test.TestCase):
         mock_cache.set.assert_not_called()
 
     @mock.patch('requests.get')
-    @mock.patch('wps.views.esgf.cache')
+    @mock.patch('compute_wps.views.esgf.cache')
     def test_search_solr(self, mock_cache, mock_get):
         mock_cache.get.return_value = None
 
@@ -131,7 +131,7 @@ class ESGFViewsTestCase(test.TestCase):
 
         self.assertEqual(data, expected)
 
-    @mock.patch('wps.views.esgf.process_url')
+    @mock.patch('compute_wps.views.esgf.process_url')
     def test_retrieve_axes(self, mock_process):
         mock_process.return_value = self.process_url_output
 
@@ -142,9 +142,9 @@ class ESGFViewsTestCase(test.TestCase):
 
         self.assertEqual(data, [self.process_url_output])
 
-    @mock.patch('wps.views.esgf.process_axes')
+    @mock.patch('compute_wps.views.esgf.process_axes')
     @mock.patch('cdms2.open')
-    @mock.patch('wps.views.esgf.cache')
+    @mock.patch('compute_wps.views.esgf.cache')
     def test_process_url_cached(self, mock_cache, mock_open, mock_process):
         mock_cache.get.return_value = {}
 
@@ -161,36 +161,6 @@ class ESGFViewsTestCase(test.TestCase):
         self.assertEqual(data, {})
 
         mock_process.assert_not_called()
-
-    @mock.patch('wps.views.esgf.process_axes')
-    @mock.patch('cdms2.open')
-    @mock.patch('wps.views.esgf.cache')
-    @mock.patch('hashlib.md5')
-    @mock.patch('wps.views.esgf.managers.FileManager')
-    def test_process_url(self, mock_fm, mock_md5, mock_cache, mock_open, mock_process):
-        mock_md5.return_value.hexdigest.return_value = 'id'
-
-        mock_cache.get.return_value = None
-
-        mock_process.side_effect = [
-            self.process_url_output
-        ]
-
-        user = mock.MagicMock()
-
-        context = mock.MagicMock()
-
-        type(context).variable = mock.MagicMock(**{'uri':
-                                                   'file:///test1.nc'})
-
-        data = esgf.process_url(user, 'prefix', context)
-
-        self.assertEqual(data, self.process_url_output)
-
-        mock_process.assert_called()
-
-        mock_cache.set.assert_called_with('id', self.process_url_output,
-                                          24*60*60)
 
     def test_process_axes(self):
         self.maxDiff = None

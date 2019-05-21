@@ -36,7 +36,7 @@
   }
 },
 {
-  "model": "wps.auth",
+  "model": "compute_wps.auth",
   "pk": 65,
   "fields": {
     "user": 76,
@@ -48,7 +48,7 @@
   }
 },
 {
-  "model": "wps.auth",
+  "model": "compute_wps.auth",
   "pk": 66,
   "fields": {
     "user": 77,

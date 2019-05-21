@@ -6,7 +6,7 @@ import mock
 from django import test
 
 from compute_wps import models
-from compute_wps.tasks import credentials
+from compute_wps.auth import credentials
 
 
 class CredentailsTestCase(test.TestCase):
@@ -16,10 +16,10 @@ class CredentailsTestCase(test.TestCase):
     def setUp(self):
         self.user = models.User.objects.first()
 
-    @mock.patch('wps.tasks.credentials.open')
-    @mock.patch('wps.tasks.credentials.os')
-    @mock.patch('wps.tasks.credentials.refresh_certificate')
-    @mock.patch('wps.tasks.credentials.check_certificate')
+    @mock.patch('compute_wps.auth.credentials.open')
+    @mock.patch('compute_wps.auth.credentials.os')
+    @mock.patch('compute_wps.auth.credentials.refresh_certificate')
+    @mock.patch('compute_wps.auth.credentials.check_certificate')
     def test_load_certificate(self, mock_check, mock_refresh, mock_os, mock_open):
         mock_os.path.exists.return_value = False
 
@@ -73,8 +73,8 @@ class CredentailsTestCase(test.TestCase):
         with self.assertRaises(credentials.WPSError):
             credentials.refresh_certificate(self.user)
 
-    @mock.patch('wps.tasks.credentials.oauth2.get_certificate')
-    @mock.patch('wps.tasks.credentials.openid.find_service_by_type')
+    @mock.patch('compute_wps.auth.credentials.oauth2.get_certificate')
+    @mock.patch('compute_wps.auth.credentials.openid.find_service_by_type')
     @mock.patch('openid.consumer.discover.discoverYadis')
     def test_refresh_certificate(self, mock_discover, mock_find, mock_get):
         mock_get.return_value = ('cert value', 'key value', 'new token value')
@@ -101,7 +101,7 @@ class CredentailsTestCase(test.TestCase):
         with self.assertRaises(credentials.CertificateError):
             credentials.check_certificate(self.user)
 
-    @mock.patch('wps.tasks.credentials.crypto.load_certificate')
+    @mock.patch('compute_wps.auth.credentials.crypto.load_certificate')
     def test_check_certificate_not_after(self, mock_load):
         self.user.auth.cert = 'some cert'
 
@@ -115,7 +115,7 @@ class CredentailsTestCase(test.TestCase):
 
         self.assertFalse(credentials.check_certificate(self.user))
 
-    @mock.patch('wps.tasks.credentials.crypto.load_certificate')
+    @mock.patch('compute_wps.auth.credentials.crypto.load_certificate')
     def test_check_certificate_not_before(self, mock_load):
         self.user.auth.cert = 'some cert'
 
@@ -129,7 +129,7 @@ class CredentailsTestCase(test.TestCase):
 
         self.assertFalse(credentials.check_certificate(self.user))
 
-    @mock.patch('wps.tasks.credentials.crypto.load_certificate')
+    @mock.patch('compute_wps.auth.credentials.crypto.load_certificate')
     def test_check_certificate_error_loading(self, mock_load):
         mock_load.side_effect = Exception('some error')
 
@@ -146,7 +146,7 @@ class CredentailsTestCase(test.TestCase):
         with self.assertRaises(credentials.CertificateError):
             credentials.check_certificate(self.user)
 
-    @mock.patch('wps.tasks.credentials.crypto.load_certificate')
+    @mock.patch('compute_wps.auth.credentials.crypto.load_certificate')
     def test_check_certificate(self, mock_load):
         self.user.auth.cert = 'some cert'
 

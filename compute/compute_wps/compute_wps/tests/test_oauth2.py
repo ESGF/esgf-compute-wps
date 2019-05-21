@@ -13,7 +13,7 @@ class TestOAuth2(test.TestCase):
         os.environ['OAUTH_CLIENT'] = ''
         os.environ['OAUTH_SECRET'] = ''
 
-    @mock.patch('wps.auth.oauth2.OAuth2Session')
+    @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_authorization_url_exception(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
 
@@ -22,7 +22,7 @@ class TestOAuth2(test.TestCase):
         with self.assertRaises(oauth2.OAuth2Error):
             oauth2.get_authorization_url('http://test.com/authorization', 'http://test.com/certification')
 
-    @mock.patch('wps.auth.oauth2.OAuth2Session')
+    @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_authorization_url(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
 
@@ -32,7 +32,7 @@ class TestOAuth2(test.TestCase):
 
         self.assertEqual(result, 'http://test.com/authorization')
 
-    @mock.patch('wps.auth.oauth2.OAuth2Session')
+    @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_token_exception(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
 
@@ -41,7 +41,7 @@ class TestOAuth2(test.TestCase):
         with self.assertRaises(oauth2.OAuth2Error):
             oauth2.get_token('http://test.com/token', 'http://test.com/request', {})
 
-    @mock.patch('wps.auth.oauth2.OAuth2Session')
+    @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_token(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
 
@@ -51,7 +51,7 @@ class TestOAuth2(test.TestCase):
 
         self.assertEqual(result, 'NewToken')
 
-    @mock.patch('wps.auth.oauth2.OAuth2Session')
+    @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_certificate_status_code(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
 
@@ -60,7 +60,7 @@ class TestOAuth2(test.TestCase):
         with self.assertRaises(oauth2.OAuth2Error):
             oauth2.get_certificate('token', 'state', 'http://test.com/refresh', 'http://test.com/certificate')
 
-    @mock.patch('wps.auth.oauth2.OAuth2Session')
+    @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_certificate_exception(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
 
@@ -69,7 +69,7 @@ class TestOAuth2(test.TestCase):
         with self.assertRaises(oauth2.OAuth2Error):
             oauth2.get_certificate('token', 'state', 'http://test.com/refresh', 'http://test.com/certificate')
 
-    @mock.patch('wps.auth.oauth2.OAuth2Session')
+    @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_certificate(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
 

@@ -1,6 +1,6 @@
 [
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1063,
   "fields": {
     "version": "devel",
@@ -9,7 +9,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1064,
   "fields": {
     "version": "devel",
@@ -18,7 +18,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1065,
   "fields": {
     "version": "devel",
@@ -27,7 +27,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1066,
   "fields": {
     "version": "devel",
@@ -36,7 +36,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1067,
   "fields": {
     "version": "devel",
@@ -45,7 +45,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1068,
   "fields": {
     "version": "devel",
@@ -54,7 +54,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1069,
   "fields": {
     "version": "devel",
@@ -63,7 +63,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1070,
   "fields": {
     "version": "devel",
@@ -72,7 +72,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1071,
   "fields": {
     "version": "devel",
@@ -81,7 +81,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1072,
   "fields": {
     "version": "devel",
@@ -90,7 +90,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1073,
   "fields": {
     "version": "devel",
@@ -99,7 +99,7 @@
   }
 },
 {
-  "model": "wps.process",
+  "model": "compute_wps.process",
   "pk": 1074,
   "fields": {
     "version": "devel",
@@ -108,7 +108,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 1,
   "fields": {
     "user": 76,
@@ -118,7 +118,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 2,
   "fields": {
     "user": 76,
@@ -128,7 +128,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 3,
   "fields": {
     "user": 76,
@@ -138,7 +138,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 4,
   "fields": {
     "user": 76,
@@ -148,7 +148,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 5,
   "fields": {
     "user": 76,
@@ -158,7 +158,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 6,
   "fields": {
     "user": 76,
@@ -168,7 +168,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 7,
   "fields": {
     "user": 77,
@@ -178,7 +178,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 8,
   "fields": {
     "user": 77,
@@ -188,7 +188,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 9,
   "fields": {
     "user": 77,
@@ -198,7 +198,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 10,
   "fields": {
     "user": 77,
@@ -208,7 +208,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 11,
   "fields": {
     "user": 77,
@@ -218,7 +218,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 12,
   "fields": {
     "user": 77,
@@ -228,7 +228,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 13,
   "fields": {
     "user": 77,
@@ -238,7 +238,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 14,
   "fields": {
     "user": 77,
@@ -248,7 +248,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 15,
   "fields": {
     "user": 77,
@@ -258,7 +258,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 16,
   "fields": {
     "user": 77,
@@ -268,7 +268,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 17,
   "fields": {
     "user": 77,
@@ -278,7 +278,7 @@
   }
 },
 {
-  "model": "wps.userprocess",
+  "model": "compute_wps.userprocess",
   "pk": 18,
   "fields": {
     "user": 77,

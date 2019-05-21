@@ -32,7 +32,7 @@ class WPSViewsTestCase(test.TestCase):
 
         response = self.client.get('/wps/', data, HTTP_COMPUTE_TOKEN='abcd1234')
 
-        self.assertContains(response, 'ows:ExceptionReport')
+        self.assertContains(response, 'wps:ExecuteResponse')
 
     def test_wps_execute_unknown_user(self):
         data = {
