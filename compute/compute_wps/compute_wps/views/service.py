@@ -53,9 +53,7 @@ def handle_get_capabilities():
 
 def handle_describe_process(identifiers):
     try:
-        server = models.Server.objects.get(host='default')
-
-        processes = server.processes.filter(identifier__in=identifiers)
+        processes = models.Process.objects.filter(identifier__in=identifiers)
 
         data = wps_response.describe_process(processes)
     except Exception as e:
