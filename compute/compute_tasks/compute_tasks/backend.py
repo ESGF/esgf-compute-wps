@@ -83,6 +83,8 @@ def main():
         except ProcessExistsError:
             logger.info('Process %r already exists', item['identifier'])
 
+            pass
+
     base.build_process_bindings()
 
     context = zmq.Context(1)
