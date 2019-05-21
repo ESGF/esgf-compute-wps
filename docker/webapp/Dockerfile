@@ -1,13 +1,25 @@
-FROM node:6-stretch as builder
+FROM node:6-stretch as base
 
-COPY webapp webapp
+COPY . /esgf-compute-wps
 
-WORKDIR webapp
+WORKDIR /esgf-compute-wps/webapp
+
+FROM base as builder
 
 RUN yarn && \
       ./node_modules/.bin/webpack --config config/webpack.prod.js
 
-FROM nginx:1.15
+FROM base as dev
+
+RUN yarn && \
+      ./node_modules/.bin/webpack --config config/webpack.dev.js && \
+      yarn add -D http-server
+
+COPY docker/webapp/entrypoint.sh .
+
+ENTRYPOINT ["./entrypoint.sh"]
+
+FROM nginx:1.15 as prod
 
 WORKDIR /usr/share/nginx/html
 
