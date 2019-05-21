@@ -357,14 +357,14 @@ class InputManager(object):
         else:
             self.axes['time'] = time_axis[0]
 
-        if len(time_bnds) > 1:
-            logger.info('Concatenating %r segments of the time_bnds variable', len(time_bnds))
+        # if len(time_bnds) > 1:
+        #     logger.info('Concatenating %r segments of the time_bnds variable', len(time_bnds))
 
-            var_concat = cdms2.MV.concatenate(time_bnds)
+        #     var_concat = cdms2.MV.concatenate(time_bnds)
 
-            self.vars['time_bnds'] = var_concat
-        else:
-            self.vars['time_bnds'] = time_bnds[0]
+        #     self.vars['time_bnds'] = var_concat
+        # else:
+        #     self.vars['time_bnds'] = time_bnds[0]
 
     def subset_variables_and_axes(self):
         for name in self.axes.keys():
@@ -381,14 +381,18 @@ class InputManager(object):
 
                 logger.info('Subsetting axis %r -> %r', shape, self.axes[name].shape)
 
+                # Grab the subset bounds
+                if name == 'time':
+                    self.vars['time_bnds'] = self.axes[name].getBounds()
+
         for name in self.vars.keys():
             if name != self.var_name:
-                logger.info('variable %r', name)
-
                 if name in self.vars_axes:
                     selector = dict((x, self.map[x]) for x in self.vars_axes[name] if x in self.map)
                 else:
                     selector = {}
+
+                logger.info('variable %r selector %r', name, selector)
 
                 shape = self.vars[name].shape
 
@@ -477,16 +481,20 @@ class InputManager(object):
             try:
                 interval = axis.mapInterval(dim[:2])
             except TypeError:
-                dim = None
+                new_dim = None
             else:
                 if len(dim) > 2:
                     step = dim[2]
                 else:
                     step = 1
 
-                dim = slice(interval[0], interval[1], step)
+                new_dim = slice(interval[0], interval[1], step)
+        else:
+            new_dim = dim
 
-        return dim
+        logger.info('Mapped dimension to %r -> %r', dim, new_dim)
+
+        return new_dim
 
     def sort_uris(self):
         ordering = []
@@ -558,7 +566,7 @@ class InputManager(object):
 
         time_maps = {}
 
-        logger.info('Mapping domain')
+        logger.info('Mapping domain %r', self.domain)
 
         try:
             time_dim = domain.get_dimension('time')
@@ -567,29 +575,36 @@ class InputManager(object):
         else:
             time_adjust = len(self.uris) > 1 and time_dim is not None and time_dim.crs == cwt.INDICES
 
-        for uri in self.uris:
-            logger.info('Processing input %r', uri)
+        logger.info('Time adjustment required %r', time_adjust)
 
-            var = self.fm.get_variable(uri, self.var_name)
+        # Aggregate only requires a single file since all the axes and variables should be in memory,
+        # except the variable of interest
+        var = self.fm.get_variable(self.uris[0], self.var_name)
 
-            for axis in var.getAxisList():
-                if axis.id in self.map and not axis.isTime():
-                    continue
+        for axis in var.getAxisList():
+            if axis.id in self.map and not axis.isTime():
+                logger.info('Skipping axis %r', axis.id)
 
+                continue
+
+            logger.info('Processing axis %r', axis.id)
+
+            try:
+                dim = self.domain[axis.id]
+            except KeyError:
+                self.map[axis.id] = slice(None, None, None)
+
+                logger.info('Axis %r not in map setting to %r', axis.id, self.map[axis.id])
+            else:
                 try:
-                    dim = self.domain[axis.id]
+                    self.map[axis.id] = self.map_dimension(dim, self.axes[axis.id])
                 except KeyError:
-                    self.map[axis.id] = slice(None, None, None)
-                else:
-                    try:
-                        self.map[axis.id] = self.map_dimension(dim, self.axes[axis.id])
-                    except KeyError:
-                        logger.info('Axes %r', self.axes)
+                    logger.info('Axes %r', self.axes)
 
-                        raise WPSError('Time axis is missing')
+                    raise WPSError('Time axis is missing')
 
-                    if time_adjust and axis.isTime():
-                        time_maps[uri] = self.map[axis.id]
+                if time_adjust and axis.isTime():
+                    time_maps[uri] = self.map[axis.id]
 
         if time_adjust:
             self.map['time'] = self.adjust_time_axis(time_maps)
