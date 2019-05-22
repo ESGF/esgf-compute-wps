@@ -178,7 +178,7 @@ def check_access(uri, cert=None):
     return False
 
 
-def open_file(user, uri, var_name):
+def open_file(user, uri):
     if not check_access(uri):
         cert_path = load_certificate(user)
 
@@ -219,7 +219,7 @@ def process_url(user, prefix_id, var):
         handle = None
 
         try:
-            handle = open_file(var.uri)
+            handle = open_file(user, var.uri)
 
             axes = process_axes(handle[var.var_name])
         except Exception as e:
