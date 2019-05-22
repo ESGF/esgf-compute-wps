@@ -6,7 +6,7 @@ COPY . .
 
 WORKDIR /src/compute
 
-RUN conda install -c conda-forge -y conda-build && \
+RUN conda install -c conda-forge -y conda-build=3.17.8 && \
       conda build -c conda-forge -c cdat compute_kubernetes/
 
 FROM continuumio/miniconda3:4.5.12

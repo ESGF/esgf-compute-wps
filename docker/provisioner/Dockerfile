@@ -6,8 +6,8 @@ COPY . .
 
 WORKDIR /src/compute
 
-RUN conda install -c conda-forge -y conda-build && \
-      conda build -c conda-forge compute_provisioner
+RUN conda install -c conda-forge -y conda-build=3.17.8 && \
+      conda build -c conda-forge compute_provisioner/
 
 FROM continuumio/miniconda3:4.5.12
 
