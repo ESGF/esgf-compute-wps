@@ -182,7 +182,7 @@ def workflow_func(self, context):
         delayed = []
 
         for output in context.output_ops():
-            context.track_out_bytes(interm[output.name].nbytes)
+            context.track_out_bytes(interm[output.name].data.nbytes)
 
             # Create an output xarray Dataset
             dataset = interm[output.name].to_xarray()
