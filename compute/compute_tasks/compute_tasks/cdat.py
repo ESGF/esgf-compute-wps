@@ -96,7 +96,7 @@ here will become the default values on child operations.
 """
 
 
-@base.register_process('CDAT', 'workflow', abstract=WORKFLOW_ABSTRACT, metadata={'inputs': '*'})
+@base.register_process('CDAT', 'workflow', abstract=WORKFLOW_ABSTRACT, metadata={'inputs': '0'})
 @base.cwt_shared_task()
 def workflow_func(self, context):
     """ Executes a workflow.
