@@ -27,7 +27,7 @@ logger = get_task_logger('compute_tasks.cdat')
 DEV = os.environ.get('DEV', False)
 DASK_KUBE_NAMESPACE = os.environ.get('DASK_KUBE_NAMESPACE', 'default')
 DASK_SCHEDULER = os.environ.get('DASK_SCHEDULER', '')
-DASK_WORKERS = os.environ.get('DASK_WORKERS', 10)
+DASK_WORKERS = int(os.environ.get('DASK_WORKERS', 10))
 
 
 class DaskJobTracker(ProgressBar):
