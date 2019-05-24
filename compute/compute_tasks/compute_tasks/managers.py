@@ -564,8 +564,6 @@ class InputManager(object):
     def map_domain(self, domain):
         self.domain = self.domain_to_dict(domain)
 
-        time_maps = {}
-
         logger.info('Mapping domain %r', self.domain)
 
         try:
@@ -603,10 +601,14 @@ class InputManager(object):
 
                     raise WPSError('Time axis is missing')
 
-                if time_adjust and axis.isTime():
-                    time_maps[uri] = self.map[axis.id]
-
         if time_adjust:
+            time_maps = {}
+
+            for uri in self.uris:
+                var = self.fm.get_variable(uri, self.var_name)
+
+                time_maps[uri] = var.getTime()
+
             self.map['time'] = self.adjust_time_axis(time_maps)
 
         logger.info('Mapped domain to %r', self.map)
