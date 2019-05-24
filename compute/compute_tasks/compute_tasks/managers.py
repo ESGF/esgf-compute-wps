@@ -260,24 +260,27 @@ class InputManager(object):
 
         return da.concatenate(arrays, axis=0)
 
-    def slice_to_subaxis(self, axis):
-        axis_slice = self.map.get(axis.id, slice(None, None, None))
-
+    def slice_to_subaxis(self, axis_slice, axis):
         i = axis_slice.start or 0
         j = axis_slice.stop or len(axis)
         k = axis_slice.step or 1
 
         return i, j, k
 
-    def load_variables_and_axes(self):
+    def load_variables_and_axes(self, target_variable):
+        attrs = {}
+        axes = {}
+        vars = {}
+        vars_axes = {}
+
         time_axis = []
         time_bnds = []
 
         for uri in self.uris:
             file = self.fm.open_file(uri)
 
-            if 'global' not in self.attrs:
-                self.attrs['global'] = file.attributes.copy()
+            if 'global' not in attrs:
+                attrs['global'] = file.attributes.copy()
 
             retrieved_time = False
 
@@ -287,28 +290,28 @@ class InputManager(object):
                 logger.info('Processing variable %r', var.id)
 
                 for axis in var.getAxisList():
-                    if var.id in self.vars_axes:
-                        if axis.id not in self.vars_axes[var.id]:
-                            self.vars_axes[var.id].append(axis.id)
+                    if var.id in vars_axes:
+                        if axis.id not in vars_axes[var.id]:
+                            vars_axes[var.id].append(axis.id)
 
-                            logger.info('Updated variable %r axis list %r', var.id, self.vars_axes[var.id])
+                            logger.info('Updated variable %r axis list %r', var.id, vars_axes[var.id])
                     else:
-                        self.vars_axes[var.id] = [axis.id, ]
+                        vars_axes[var.id] = [axis.id, ]
 
-                        logger.info('Setting varibale %r axis list %r', var.id, self.vars_axes[var.id])
+                        logger.info('Setting varibale %r axis list %r', var.id, vars_axes[var.id])
 
-                    if var.id in self.vars and axis.id in self.axes and not axis.isTime():
+                    if var.id in vars and axis.id in axes and not axis.isTime():
                         skip_var = True
 
                         logger.info('Skipping variable %r found axis %r already', var.id, axis.id)
 
                         break
 
-                    if axis.id in self.axes and axis.id in BOUND_NAMES:
+                    if axis.id in axes and axis.id in BOUND_NAMES:
                         continue
 
-                    if axis.id not in self.attrs:
-                        self.attrs[axis.id] = axis.attributes.copy()
+                    if axis.id not in attrs:
+                        attrs[axis.id] = axis.attributes.copy()
 
                     if axis.isTime():
                         if not retrieved_time:
@@ -317,30 +320,30 @@ class InputManager(object):
                             logger.info('Appending time axis')
 
                             retrieved_time = True
-                    elif axis.id not in self.axes:
-                        self.axes[axis.id] = axis.clone()
+                    elif axis.id not in axes:
+                        axes[axis.id] = axis.clone()
 
                         logger.info('Storing %r axis', axis.id)
 
                 if skip_var:
                     continue
 
-                if var.getTime() is not None and var.id != self.var_name:
+                if var.getTime() is not None:
                     time_bnds.append(var())
 
                     logger.info('Appending new time_bnds variable')
-                elif var.id not in self.vars:
+                elif var.id not in vars:
                     if var.id == self.var_name:
-                        self.vars[var.id] = self.data
+                        vars[var.id] = target_variable
 
-                        logger.info('Setting target variable data %r', self.data)
+                        logger.info('Setting target variable data %r', target_variable)
                     else:
-                        self.vars[var.id] = var()
+                        vars[var.id] = var()
 
                         logger.info('Storing %r variable data', var.id)
 
-                if var.id not in self.attrs:
-                    self.attrs[var.id] = var.attributes.copy()
+                if var.id not in attrs:
+                    attrs[var.id] = var.attributes.copy()
 
         if len(time_axis) > 1:
             logger.info('Concatenating %r segments of the time axis', len(time_axis))
@@ -351,58 +354,56 @@ class InputManager(object):
                 for axis in time_axis:
                     axis.toRelativeTime(time_axis[0].units)
 
-            axis_concat = cdms2.MV.axisConcatenate(time_axis, id='time', attributes=self.attrs['time'])
+            axis_concat = cdms2.MV.axisConcatenate(time_axis, id='time', attributes=attrs['time'])
 
-            self.axes['time'] = axis_concat
+            axes['time'] = axis_concat
+
+            vars['time_bnds'] = axis_concat.getBounds()
         else:
-            self.axes['time'] = time_axis[0]
+            axes['time'] = time_axis[0]
 
-        # if len(time_bnds) > 1:
-        #     logger.info('Concatenating %r segments of the time_bnds variable', len(time_bnds))
+        return attrs, vars, axes, vars_axes
 
-        #     var_concat = cdms2.MV.concatenate(time_bnds)
+    def subset_variables_and_axes(self, domain, vars, axes, vars_axes):
+        self.map = self.map_domain(domain, axes)
 
-        #     self.vars['time_bnds'] = var_concat
-        # else:
-        #     self.vars['time_bnds'] = time_bnds[0]
-
-    def subset_variables_and_axes(self):
         for name in self.axes.keys():
             logger.info('axis %r', name)
 
             if name in BOUND_NAMES:
-                self.axes[name] = self.axes[name]
-            else:
-                i, j, k = self.slice_to_subaxis(self.axes[name])
+                continue
 
-                shape = self.axes[name].shape
+            axis_slice = self.map.get(name, slice(None, None, None))
 
-                self.axes[name] = self.axes[name].subAxis(i, j, k)
+            i, j, k = self.slice_to_subaxis(axis_slice, self.axes[name])
 
-                logger.info('Subsetting axis %r -> %r', shape, self.axes[name].shape)
+            shape = self.axes[name].shape
 
-                # Grab the subset bounds
-                if name == 'time':
-                    self.vars['time_bnds'] = self.axes[name].getBounds()
+            self.axes[name] = self.axes[name].subAxis(i, j, k)
+
+            logger.info('Subsetting axis %r -> %r', shape, self.axes[name].shape)
+
+            # Grab the subset bounds
+            if name == 'time':
+                self.vars['time_bnds'] = self.axes[name].getBounds()
 
         for name in self.vars.keys():
-            if name != self.var_name:
-                if name in self.vars_axes:
-                    selector = dict((x, self.map[x]) for x in self.vars_axes[name] if x in self.map)
-                else:
-                    selector = {}
+            if name in self.vars_axes:
+                selector = dict((x, self.map[x]) for x in self.vars_axes[name] if x in self.map)
+            else:
+                selector = {}
 
-                logger.info('variable %r selector %r', name, selector)
+            logger.info('variable %r selector %r', name, selector)
 
-                shape = self.vars[name].shape
+            shape = self.vars[name].shape
 
-                # Applying selector fails take the whole axis
-                try:
-                    self.vars[name] = self.vars[name](**selector)
-                except TypeError:
-                    self.vars[name] = self.vars[name]
+            # Applying selector fails take the whole axis
+            try:
+                self.vars[name] = self.vars[name](**selector)
+            except TypeError:
+                self.vars[name] = self.vars[name]
 
-                logger.info('Subsetting variable %r -> %r', shape, self.vars[name].shape)
+            logger.info('Subsetting variable %r -> %r', shape, self.vars[name].shape)
 
     def to_xarray(self):
         axes = {}
@@ -441,10 +442,6 @@ class InputManager(object):
         if len(self.uris) > 1:
             self.sort_uris()
 
-        # Only load once, everything can be reused
-        if len(self.vars) == 0:
-            self.load_variables_and_axes()
-
         for uri in self.uris:
             var = self.fm.get_variable(uri, self.var_name)
 
@@ -464,15 +461,17 @@ class InputManager(object):
         else:
             data = data[0]
 
-        self.map_domain(domain)
+        attrs, vars, axes, vars_axes = self.load_variables_and_axes(data)
 
-        selector = tuple(self.map.values())
+        self.attrs = attrs
 
-        self.data = data[selector]
+        self.vars_axes = vars_axes
 
-        self.subset_variables_and_axes()
+        vars, axes = self.subset_variables_and_axes(domain, vars, axes, vars_axes)
 
-        logger.info('Subsetted data %r', self.data)
+        self.vars = vars
+
+        self.axes = axes
 
         return data, self.data
 
@@ -530,87 +529,22 @@ class InputManager(object):
 
         logger.info('Sorted uris %r', self.uris)
 
-    def adjust_time_axis(self, time_maps):
-        start = None
-        stop = None
-        step = None
-
-        logger.info('Adjusting time axis')
-
-        for uri in self.uris:
-            time_slice = time_maps[uri]
-
-            if start is None:
-                start = time_slice.start
-
-                stop = time_slice.stop
-
-                step = time_slice.step
-
-                logger.info('Setting initial values start %r stop %r step %r', start, stop, step)
-            elif time_slice is None:
-                logger.info('Skipping file %r', uri)
-
-                break
-            else:
-                before = stop
-
-                stop += (time_slice.stop - time_slice.start)
-
-                logger.info('Extending time axis %r -> %r', before, stop)
-
-        return slice(start, stop, step)
-
-    def map_domain(self, domain):
+    def map_domain(self, domain, axes):
         self.domain = self.domain_to_dict(domain)
 
         logger.info('Mapping domain %r', self.domain)
 
-        try:
-            time_dim = domain.get_dimension('time')
-        except AttributeError:
-            time_adjust = False
-        else:
-            time_adjust = len(self.uris) > 1 and time_dim is not None and time_dim.crs == cwt.INDICES
+        map = {}
 
-        logger.info('Time adjustment required %r', time_adjust)
+        for name, value in axes.items():
+            try:
+                dim = self.domain[name]
+            except IndexError:
+                map[name] = slice(None, None, None)
+            else:
+                map[name] = self.map_dimension(dim, value)
 
-        time_maps = {}
-
-        for uri in self.uris:
-            # Aggregate only requires a single file since all the axes and variables should be in memory,
-            # except the variable of interest
-            var = self.fm.get_variable(uri, self.var_name)
-
-            for axis in var.getAxisList():
-                if axis.id in self.map and not axis.isTime():
-                    logger.info('Skipping axis %r', axis.id)
-
-                    continue
-
-                logger.info('Processing axis %r', axis.id)
-
-                try:
-                    dim = self.domain[axis.id]
-                except KeyError:
-                    self.map[axis.id] = slice(None, None, None)
-
-                    logger.info('Axis %r not in map setting to %r', axis.id, self.map[axis.id])
-                else:
-                    try:
-                        self.map[axis.id] = self.map_dimension(dim, self.axes[axis.id])
-                    except KeyError:
-                        logger.info('Axes %r', self.axes)
-
-                        raise WPSError('Time axis is missing')
-
-                if time_adjust and axis.isTime():
-                    time_maps[uri] = self.map[axis.id]
-
-        if time_adjust:
-            self.map['time'] = self.adjust_time_axis(time_maps)
-
-        logger.info('Mapped domain to %r', self.map)
+        return map
 
     def domain_to_dict(self, domain):
         """ Converts a domain to a dict.
