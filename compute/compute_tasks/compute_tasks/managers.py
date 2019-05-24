@@ -575,40 +575,39 @@ class InputManager(object):
 
         logger.info('Time adjustment required %r', time_adjust)
 
-        # Aggregate only requires a single file since all the axes and variables should be in memory,
-        # except the variable of interest
-        var = self.fm.get_variable(self.uris[0], self.var_name)
+        time_maps = {}
 
-        for axis in var.getAxisList():
-            if axis.id in self.map and not axis.isTime():
-                logger.info('Skipping axis %r', axis.id)
+        for uri in self.uris:
+            # Aggregate only requires a single file since all the axes and variables should be in memory,
+            # except the variable of interest
+            var = self.fm.get_variable(uri, self.var_name)
 
-                continue
+            for axis in var.getAxisList():
+                if axis.id in self.map and not axis.isTime():
+                    logger.info('Skipping axis %r', axis.id)
 
-            logger.info('Processing axis %r', axis.id)
+                    continue
 
-            try:
-                dim = self.domain[axis.id]
-            except KeyError:
-                self.map[axis.id] = slice(None, None, None)
+                logger.info('Processing axis %r', axis.id)
 
-                logger.info('Axis %r not in map setting to %r', axis.id, self.map[axis.id])
-            else:
                 try:
-                    self.map[axis.id] = self.map_dimension(dim, self.axes[axis.id])
+                    dim = self.domain[axis.id]
                 except KeyError:
-                    logger.info('Axes %r', self.axes)
+                    self.map[axis.id] = slice(None, None, None)
 
-                    raise WPSError('Time axis is missing')
+                    logger.info('Axis %r not in map setting to %r', axis.id, self.map[axis.id])
+                else:
+                    try:
+                        self.map[axis.id] = self.map_dimension(dim, self.axes[axis.id])
+                    except KeyError:
+                        logger.info('Axes %r', self.axes)
+
+                        raise WPSError('Time axis is missing')
+
+                if time_adjust and axis.isTime():
+                    time_maps[uri] = self.map[axis.id]
 
         if time_adjust:
-            time_maps = {}
-
-            for uri in self.uris:
-                var = self.fm.get_variable(uri, self.var_name)
-
-                time_maps[uri] = var.getTime()
-
             self.map['time'] = self.adjust_time_axis(time_maps)
 
         logger.info('Mapped domain to %r', self.map)
