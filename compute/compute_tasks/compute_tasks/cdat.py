@@ -212,17 +212,17 @@ def workflow_func(self, context):
     return context
 
 
-def process(context, process=None, aggregate=False):
+def process(context, process_func=None, aggregate=False):
     """ Process a single variable.
 
     Initialize the cluster workers, create the dask graph then execute.
 
-    The `process` function should have the following signature
-    (cwt.Operation, compute_tasks.managers.InputManager).
+    The `process_func` function should take a cwt.Process and a list of
+    compute_tasks.managers.FileManager. See process_input as an example.
 
     Args:
         context: A cwt.context.OperationContext.
-        process: A custom processing function to be applied.
+        process_func: A custom processing function to be applied.
         aggregate: A bool value to treat the inputs as an aggregation.
 
     Returns:
@@ -232,6 +232,7 @@ def process(context, process=None, aggregate=False):
 
     fm = managers.FileManager(context)
 
+    # Create the initial list of inputs
     if aggregate:
         inputs = [managers.InputManager.from_cwt_variables(fm, context.inputs), ]
 
@@ -241,6 +242,7 @@ def process(context, process=None, aggregate=False):
 
         context.message('Building {!r} inputs', len(inputs))
 
+    # Subset each input and track the bytes
     for input in inputs:
         src, subset = input.subset(context.domain)
 
@@ -250,13 +252,15 @@ def process(context, process=None, aggregate=False):
 
         context.message('Data subset shape {!r}', input.data.shape)
 
-    if process is not None:
-        output = process(context.operation, *inputs)
+    # Apply processing if needed
+    if process_func is not None:
+        output = process_func(context.operation, *inputs)
 
         context.message('Applied process {!r} shape {!r}', context.operation.identifier, output.data.shape)
     else:
         output = inputs[0]
 
+    # Apply regridding if needed
     if context.is_regrid:
         regrid(context.operation, output)
 
@@ -439,6 +443,17 @@ def add_func(self, context):
 
 
 def regrid(operation, *inputs):
+    """ Build regridding from dask delayed.
+
+    Converts the current dask array into an array of delayed functions. Next for each delayed function.
+    another delayed function is linked. This function will regrid the chunk of data. Next the new delayed
+    functions are converted back to dask arrays which are then concatenated back together. Lastly the
+    spatial axes and bounds are updated.
+
+    Args:
+        operation: A cwt.Process instance.
+        inputs: A list of compute_tasks.managers.FileManager instances.
+    """
     gridder = operation.get_parameter('gridder', True)
 
     input = inputs[0]
@@ -446,12 +461,16 @@ def regrid(operation, *inputs):
     if len(input.vars) == 0:
         input.load_variables_and_axes()
 
+    # Build a selector which is a dict mapping axis name to the desired range
     selector = dict((x, (input.axes[x][0], input.axes[x][-1])) for x in input.map.keys())
 
+    # Generate the target grid
     grid, tool, method = input.regrid_context(gridder, selector)
 
+    # Convert to delayed functions
     delayed = input.data.to_delayed().squeeze()
 
+    # Flatten the array
     if delayed.size == 1:
         delayed = delayed.reshape((1, ))
 
@@ -462,13 +481,16 @@ def regrid(operation, *inputs):
 
     logger.info('Creating regrid_chunk delayed functions')
 
+    # Build list of delayed functions that will process the chunks
     regrid_delayed = [dask.delayed(regrid_chunk)(x, axis_data, grid, tool, method) for x in delayed]
 
     logger.info('Converting delayed functions to dask arrays')
 
+    # Build a list of dask arrays created by the delayed functions
     regrid_arrays = [da.from_delayed(x, y.shape[:-2] + grid.shape, input.data.dtype)
                      for x, y in zip(regrid_delayed, input.data.blocks)]
 
+    # Concatenated the arrays together
     input.data = input.vars[input.var_name] = da.concatenate(regrid_arrays)
 
     logger.info('Concatenated %r arrays to output %r', len(regrid_arrays), input.data)
@@ -483,6 +505,19 @@ def regrid(operation, *inputs):
 
 
 def process_input(operation, *inputs, process_func=None, **supported): # noqa E999
+    """ Process inputs.
+
+    Possible values for `supported`:
+        single_input_axes: Process a single input array over some axes.
+        single_input_constant: Process a single input array with a constant value.
+        multiple_input: Process multiple inputs.
+
+    Args:
+        operation: A cwt.Process instance.
+        inputs: A list of compute_tasks.managers.FileManager instances.
+        process_func: An optional dask ufunc.
+        supported: An optional dict defining the support processing types. See above for explanation.
+    """
     axes = operation.get_parameter('axes')
 
     constant = operation.get_parameter('constant')
@@ -493,6 +528,7 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
         if not supported.get('single_input_axes', True):
             raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
 
+        # Apply process to first input over axes
         output = process_single_input(axes.values, process_func, inputs[0])
     elif constant is not None:
         if not supported.get('single_input_constant', True):
@@ -506,6 +542,7 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
 
         output = inputs[0]
 
+        # Apply the process to the existing dast array
         output.data = process_func(output.data, constant)
 
         logger.info('Process output %r', output.data)
@@ -513,6 +550,7 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
         if not supported.get('multiple_input', True):
             raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
 
+        # Apply the process to all inputs
         output = process_multiple_input(process_func, *inputs)
     else:
         logger.debug('Axes %r Constant %r Supported %r', axes, constant, supported)
@@ -528,16 +566,30 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
 
 
 def process_single_input(axes, process_func, input):
+    """ Process single input.
+
+    Args:
+        axes: List of str axis names.
+        process_func: A function with the same signature as process_input.
+        input: A compute_tasks.managers.FileManager instance.
+
+    Returns:
+        A new instance of compute_tasks.managers.FileManager containing the results.
+    """
+    # Get present in the current data
     map_keys = list(input.map.keys())
 
+    # Reduce them from names to indices
     indices = tuple(map_keys.index(x) for x in axes)
 
     logger.info('Mapped axes %r to indices %r', axes, indices)
 
+    # Apply the dask ufunc
     input.data = process_func(input.data, axis=indices)
 
     logger.info('Process output %r', input.data)
 
+    # Remove the axes that have been squashed
     for axis in axes:
         logger.info('Removing axis %r', axis)
 
@@ -547,8 +599,23 @@ def process_single_input(axes, process_func, input):
 
 
 def process_multiple_input(process_func, input1, input2):
+    """ Process multiple inputs.
+
+    Note that some ufuncs will only process a single array over some dimensions,
+    in this the function will need to be registed in the REQUIRES_STACK variable.
+
+    Args:
+        process_func: A function with the same signature as process_input.
+        input1: A compute_tasks.managers.FileManager instance.
+        input2: A compute_tasks.managers.FileManager instance.
+
+    Returns:
+        A new instance of compute_tasks.managers.FileManager containing the results.
+    """
+    # Create a copy to retain any metadata
     new_input = input1.copy()
 
+    # Check if we need to stack the arrays.
     if process_func.__name__ in REQUIRES_STACK:
         stacked = da.stack([input1.data, input2.data])
 
@@ -569,7 +636,6 @@ REQUIRES_STACK = [
     da.max.__name__,
     da.min.__name__,
 ]
-
 
 PROCESS_FUNC_MAP = {
     'CDAT.sum': partial(process_input, process_func=da.sum),
