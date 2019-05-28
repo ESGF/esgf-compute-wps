@@ -182,7 +182,7 @@ def workflow_func(self, context):
         delayed = []
 
         for output in context.output_ops():
-            context.track_out_bytes(interm[output.name].data.nbytes)
+            context.track_out_bytes(interm[output.name].nbytes)
 
             # Create an output xarray Dataset
             dataset = interm[output.name].to_xarray()
@@ -250,13 +250,13 @@ def process(context, process_func=None, aggregate=False):
 
         context.track_in_bytes(subset.nbytes)
 
-        context.message('Data subset shape {!r}', input.data.shape)
+        context.message('Data subset shape {!r}', input.shape)
 
     # Apply processing if needed
     if process_func is not None:
         output = process_func(context.operation, *inputs)
 
-        context.message('Applied process {!r} shape {!r}', context.operation.identifier, output.data.shape)
+        context.message('Applied process {!r} shape {!r}', context.operation.identifier, output.shape)
     else:
         output = inputs[0]
 
@@ -264,11 +264,11 @@ def process(context, process_func=None, aggregate=False):
     if context.is_regrid:
         regrid(context.operation, output)
 
-        context.message('Applied regridding shape {!r}', output.data.shape)
+        context.message('Applied regridding shape {!r}', output.shape)
 
     context.message('Preparing to execute')
 
-    context.track_out_bytes(output.data.nbytes)
+    context.track_out_bytes(output.nbytes)
 
     dataset = output.to_xarray()
 
@@ -462,7 +462,7 @@ def regrid(operation, *inputs):
         input.load_variables_and_axes()
 
     # Build a selector which is a dict mapping axis name to the desired range
-    selector = dict((x, (input.axes[x][0], input.axes[x][-1])) for x in input.map.keys())
+    selector = dict((x, (input.axes[x][0], input.axes[x][-1])) for x in input.axes)
 
     # Generate the target grid
     grid, tool, method = input.regrid_context(gridder, selector)
