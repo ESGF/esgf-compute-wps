@@ -90,11 +90,31 @@ class InputManager(object):
 
     @property
     def shape(self):
-        return self.vars[self.var_name].shape
+        return self.variable.shape
 
     @property
     def nbytes(self):
-        return self.vars[self.var_name].nbytes
+        return self.variable.nbytes
+
+    @property
+    def dtype(self):
+        return self.variable.dtype
+
+    @property
+    def blocks(self):
+        return self.variable.blocks
+
+    @property
+    def variable(self):
+        return self.vars[self.var_name]
+
+    @variable.setter
+    def variable(self, value):
+        self.vars[self.var_name] = value
+
+    @property
+    def variable_axes(self):
+        return self.vars_axes[self.var_name]
 
     def copy(self):
         new = InputManager(self.fm, self.uris, self.var_name)

@@ -6,6 +6,7 @@ from functools import partial
 import cwt
 import dask
 import dask.array as da
+import cdms2
 from celery.utils.log import get_task_logger
 from dask.distributed import Client
 from dask.distributed import LocalCluster
@@ -458,17 +459,14 @@ def regrid(operation, *inputs):
 
     input = inputs[0]
 
-    if len(input.vars) == 0:
-        input.load_variables_and_axes()
-
     # Build a selector which is a dict mapping axis name to the desired range
-    selector = dict((x, (input.axes[x][0], input.axes[x][-1])) for x in input.axes)
+    selector = dict((x, (input.axes[x][0], input.axes[x][-1])) for x in input.variable_axes)
 
     # Generate the target grid
     grid, tool, method = input.regrid_context(gridder, selector)
 
     # Convert to delayed functions
-    delayed = input.data.to_delayed().squeeze()
+    delayed = input.variable.to_delayed().squeeze()
 
     # Flatten the array
     if delayed.size == 1:
@@ -487,21 +485,29 @@ def regrid(operation, *inputs):
     logger.info('Converting delayed functions to dask arrays')
 
     # Build a list of dask arrays created by the delayed functions
-    regrid_arrays = [da.from_delayed(x, y.shape[:-2] + grid.shape, input.data.dtype)
-                     for x, y in zip(regrid_delayed, input.data.blocks)]
+    regrid_arrays = [da.from_delayed(x, y.shape[:-2] + grid.shape, input.dtype)
+                     for x, y in zip(regrid_delayed, input.blocks)]
 
     # Concatenated the arrays together
-    input.data = input.vars[input.var_name] = da.concatenate(regrid_arrays)
+    input.variable = da.concatenate(regrid_arrays)
 
-    logger.info('Concatenated %r arrays to output %r', len(regrid_arrays), input.data)
+    logger.info('Concatenated %r arrays to output %r', len(regrid_arrays), input.variable)
 
     input.axes['lat'] = grid.getLatitude()
 
-    input.vars['lat_bnds'] = input.axes['lat'].getBounds()
+    input.vars['lat_bnds'] = cdms2.createVariable(
+        input.axes['lat'].getBounds(),
+        id='lat',
+        axes=[input.axes[x] for x in input.vars_axes['lat_bnds']]
+    )
 
     input.axes['lon'] = grid.getLongitude()
 
-    input.vars['lon_bnds'] = input.axes['lon'].getBounds()
+    input.vars['lon_bnds'] = cdms2.createVariable(
+        input.axes['lon'].getBounds(),
+        id='lon',
+        axes=[input.axes[x] for x in input.vars_axes['lon_bnds']]
+    )
 
 
 def process_input(operation, *inputs, process_func=None, **supported): # noqa E999
@@ -577,7 +583,7 @@ def process_single_input(axes, process_func, input):
         A new instance of compute_tasks.managers.FileManager containing the results.
     """
     # Get present in the current data
-    map_keys = list(input.map.keys())
+    map_keys = list(input.variable_axes)
 
     # Reduce them from names to indices
     indices = tuple(map_keys.index(x) for x in axes)
@@ -585,9 +591,9 @@ def process_single_input(axes, process_func, input):
     logger.info('Mapped axes %r to indices %r', axes, indices)
 
     # Apply the dask ufunc
-    input.data = process_func(input.data, axis=indices)
+    input.variable = process_func(input.variable, axis=indices)
 
-    logger.info('Process output %r', input.data)
+    logger.info('Process output %r', input.variable)
 
     # Remove the axes that have been squashed
     for axis in axes:
@@ -617,16 +623,16 @@ def process_multiple_input(process_func, input1, input2):
 
     # Check if we need to stack the arrays.
     if process_func.__name__ in REQUIRES_STACK:
-        stacked = da.stack([input1.data, input2.data])
+        stacked = da.stack([input1.variable, input2.variable])
 
         logger.info('Stacking inputs %r', stacked)
 
-        new_input.data = process_func(stacked, axis=0)
+        new_input.variable = process_func(stacked, axis=0)
 
     else:
-        new_input.data = process_func(input1.data, input2.data)
+        new_input.variable = process_func(input1.variable, input2.variable)
 
-    logger.info('Process output %r', new_input.data)
+    logger.info('Process output %r', new_input.variable)
 
     return new_input
 
