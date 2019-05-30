@@ -1,5 +1,7 @@
 FROM node:6-stretch as base
 
+ARG COMPUTE_WEBAPP_VER
+
 COPY . /esgf-compute-wps
 
 WORKDIR /esgf-compute-wps/webapp
@@ -20,6 +22,8 @@ COPY docker/webapp/entrypoint.sh .
 ENTRYPOINT ["./entrypoint.sh"]
 
 FROM nginx:1.15 as prod
+
+ENV COMPUTE_WEBAPP_VER ${COMPUTE_WEBAPP_VER}
 
 WORKDIR /usr/share/nginx/html
 

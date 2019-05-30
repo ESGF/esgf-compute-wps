@@ -1,13 +1,15 @@
 FROM tomcat:8.5
 
-ENV THREDDS_VERSION 4.6.10
+ARG COMPUTE_THREDDS_VER
+
+ENV COMPUTE_THREDDS_VER ${COMPUTE_THREDDS_VER}
 
 ENV TINI_VERSION v0.18.0
 
 ENV JAVA_HEAP_INIT 512m
 ENV JAVA_HEAP_MAX 1g
 
-RUN wget http://artifacts.unidata.ucar.edu/content/repositories/unidata-releases/edu/ucar/tds/${THREDDS_VERSION}/tds-${THREDDS_VERSION}.war \
+RUN wget http://artifacts.unidata.ucar.edu/content/repositories/unidata-releases/edu/ucar/tds/${COMPUTE_THREDDS_VER}/tds-${COMPUTE_THREDDS_VER}.war \
 	-O webapps/threddsCWT.war
 
 RUN wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -O /tini && \

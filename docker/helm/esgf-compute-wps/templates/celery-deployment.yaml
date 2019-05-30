@@ -148,7 +148,7 @@ spec:
         - name: PROMETHEUS_HOST
           value: {{ $.Values.wps.prometheus.host }}
         - name: DASK_KUBE_NAMESPACE
-          value: {{ $.Values.dask.provisioner.namespace }}
+          value: {{ $.Values.kubeMonitor.namespace }}
         - name: DASK_SCHEDULER
           value: {{ $.Release.Name }}-dask-scheduler:8786
         - name: DASK_WORKERS

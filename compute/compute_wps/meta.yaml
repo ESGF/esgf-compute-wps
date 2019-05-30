@@ -1,6 +1,8 @@
+{% set data = load_setup_py_data() %}
+
 package:
   name: compute-wps
-  version: 0.1.0
+  version: {{ data.get('version') }}
 
 source:
   path: ./
@@ -34,7 +36,7 @@ requirements:
     - libnetcdf=4.6.2
     - bjoern=3.0.0
     - pyophidia=1.8.1
-    - esgf-compute-api={{ environ.get('COMPUTE_API_VERSION', '0.1.0') }}
+    - esgf-compute-api={{ environ.get('COMPUTE_API_VER') }}
     - jinja2=2.10.1
     - myproxyclient=2.0.1
     - gunicorn=19.9.0
@@ -47,8 +49,7 @@ requirements:
     - celery=4.2.1
     - prometheus_client=0.6.0
     - python-coreapi=2.3.3
-    - compute-settings=0.1.0
-    - compute-kubernetes=0.1.0
+    - compute-settings
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps

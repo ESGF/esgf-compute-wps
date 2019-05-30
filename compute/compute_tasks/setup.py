@@ -1,11 +1,13 @@
 import os
 import setuptools
 
+from compute_task._version import __version__
+
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setuptools.setup(
     name='compute-tasks',
-    version='devel',
+    version=__version__,
     author='Jason Boutte',
     author_email='boutte3@llnl.gov',
     description='Celery and Dask compute tasks',

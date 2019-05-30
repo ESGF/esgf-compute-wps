@@ -99,6 +99,28 @@ provisioner:
       cpu: 100m
       memory: 32Mi
 
+kubeMonitor:
+  image: jasonb87/compute-kube-monitor
+  imageTag: 0.1.0
+
+  imagePullPolicy: Always
+
+  timeout: 120
+
+  nodeSelector:
+    tier: backend
+
+  namespace:
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 512Mi
+
+    requests:
+      cpu: 500m
+      memory: 256Mi
+
 dask:
   image: jasonb87/compute-celery
   imageTag: 0.1.0
@@ -118,28 +140,6 @@ dask:
     request:
       cpu: 4
       memory: 8Gi
-
-  provisioner:
-    image: jasonb87/compute-dask-provisioner
-    imageTag: 0.1.0
-
-    imagePullPolicy: Always
-
-    timeout: 120
-
-    nodeSelector:
-      tier: backend
-
-    namespace: production
-
-    resources:
-      limits:
-        cpu: 1
-        memory: 512Mi
-
-      requests:
-        cpu: 500m
-        memory: 256Mi
 
   scheduler:
     nodeSelector:

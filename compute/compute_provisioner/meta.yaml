@@ -1,6 +1,8 @@
+{% set data = load_setup_py_data() %}
+
 package:
   name: compute-provisioner
-  version: 0.1.0
+  version: {{ data.get('version') }}
 
 source:
   path: ./

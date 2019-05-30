@@ -27,11 +27,6 @@ data:
     [metrics]
     host=http://{{ required "Set wps.prometheus.host" .Values.wps.prometheus.host }}/prometheus/api/v1/query
 
-    [dask]
-    scheduler={{ .Release.Name }}-dask-scheduler:8786
-    workers={{ .Values.dask.workers }}
-    kube.namespace={{ .Values.dask.provisioner.namespace }}
-
     [wps]
     title={{ .Values.wps.title }}
     abstract={{ .Values.wps.abstract }}
@@ -60,9 +55,3 @@ data:
     wps.openid.trust.root={{ .Values.wps.externalHost }}/
     wps.openid.return.to={{ .Values.wps.externalHost }}/api/openid/callback/
     wps.openid.callback.success={{ .Values.wps.externalHost }}/auth/login/callback
-
-    [edas]
-    wps.edas.enabled={{ .Values.edask.enabled }}
-    wps.edas.host={{ .Release.Name }}-edask
-    timeout.queue={{ .Values.edask.timeout.queue }}
-    timeout.execute={{ .Values.edask.timeout.execute }}

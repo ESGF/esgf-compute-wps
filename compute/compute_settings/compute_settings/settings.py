@@ -95,30 +95,6 @@ def patch_settings(settings):
     setattr(settings, 'WPS_CA_PATH', '/tmp/certs/esgf')
     setattr(settings, 'WPS_USER_TEMP_PATH', '/tmp/certs')
 
-    setattr(settings, 'DASK_SCHEDULER', config.get_value('dask', 'scheduler'))
-    setattr(settings, 'DASK_WORKERS', config.get_value('dask', 'workers', 10, int))
-    setattr(settings, 'DASK_KUBE_NAMESPACE', config.get_value('dask', 'kube.namespace', 'default'))
-
-    # setattr(settings, 'WPS_CDAT_ENABLED', config.get_value('wps', 'wps.cdat.enabled', True, bool))
-
-    # setattr(settings, 'WPS_EDAS_ENABLED', config.get_value('edas', 'wps.edas.enabled', False, bool))
-    # setattr(settings, 'WPS_EDAS_HOST', config.get_value('edas', 'wps.edas.host', 'aims2.llnl.gov'))
-    # setattr(settings, 'WPS_EDAS_REQ_PORT', config.get_value('edas', 'wps.edas.req.port', 5670, int))
-    # setattr(settings, 'WPS_EDAS_RES_PORT', config.get_value('edas', 'wps.edas.res.port', 5671, int))
-    # setattr(settings, 'WPS_EDAS_EXECUTE_TIMEOUT', config.get_value('edas', 'timeout.execute', 300, int))
-    # setattr(settings, 'WPS_EDAS_QUEUE_TIMEOUT', config.get_value('edas', 'timeout.submit', 30, int))
-    # setattr(settings, 'WPS_EDAS_OUTPUT_PATH', config.get_value('edas', 'output.path', '/data/edask'))
-
-    # setattr(settings, 'WPS_OPHIDIA_ENABLED', config.get_value('ophidia', 'wps.oph.enabled', False, bool))
-    # setattr(settings, 'WPS_OPHIDIA_USER', config.get_value('ophidia', 'wps.oph.user', 'oph-test'))
-    # setattr(settings, 'WPS_OPHIDIA_PASSWORD', config.get_value('ophidia', 'wps.oph.password', 'abcd'))
-    # setattr(settings, 'WPS_OPHIDIA_HOST', config.get_value('ophidia', 'wps.oph.host', 'aims2.llnl.gov'))
-    # setattr(settings, 'WPS_OPHIDIA_PORT', config.get_value('ophidia', 'wps.oph.port', 11732, int))
-    # setattr(settings, 'WPS_OPHIDIA_OUTPUT_PATH', config.get_value('ophidia', 'wps.oph.output.path', '/wps'))
-    # setattr(settings, 'WPS_OPHIDIA_OUTPUT_URL', config.get_value('ophidia', 'wps.oph.output.url',
-    #         'https://aims2.llnl.gov/thredds/dodsC{output_path}/{output_name}.nc'))
-    # setattr(settings, 'WPS_OPHIDIA_DEFAULT_CORES', config.get_value('ophidia', 'wps.oph.default.cores', 8, int))
-
 
 class DjangoConfigParser(configparser.ConfigParser):
     def __init__(self, defaults):
