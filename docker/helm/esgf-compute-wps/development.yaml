@@ -1,5 +1,10 @@
 development: true
 
+kubeMonitor:
+  namespace: default
+
+  imagePullPolicy: IfNotPresent
+
 provisioner:
   imagePullPolicy: IfNotPresent
 
@@ -30,7 +35,6 @@ wps:
 
   email:
     host: dasda
-
 
 celery:
   imagePullPolicy: IfNotPresent
