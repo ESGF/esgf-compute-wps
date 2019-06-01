@@ -1,12 +1,98 @@
-import os
+import json
 import logging
+import time
+from collections import OrderedDict
 
+import redis
 import zmq
 
-FRONTEND_PORT = os.environ.get('FRONTEND_PORT', 7777)
-BACKEND_PORT = os.environ.get('BACKEND_PORT', 7778)
+from compute_provisioner import constants
 
 logger = logging.getLogger('compute_provisioner.provisioner')
+
+
+def json_encoder(x):
+    def default(y):
+        return {'data': y.decode(constants.ENCODING)}
+
+    return json.dumps(x, default=default)
+
+
+def json_decoder(x):
+    def object_hook(y):
+        if 'data' in y:
+            return y['data'].encode(constants.ENCODING)
+
+        return y
+
+    return json.loads(x, object_hook=object_hook)
+
+
+class WaitingAck(object):
+    def __init__(self, version, frames):
+        self.version = version
+        self.frames = frames
+        self.expiry = time.time() + constants.ACK_TIMEOUT
+
+
+class Worker(object):
+    def __init__(self, address, version):
+        self.address = address
+        self.version = version
+        self.expiry = time.time() + constants.HEARTBEAT_INTERVAL * constants.HEARTBEAT_LIVENESS
+
+
+class WorkerQueue(object):
+    def __init__(self):
+        self.queue = OrderedDict()
+
+        self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
+
+    def ready(self, worker):
+        self.queue.pop(worker.address, None)
+
+        self.queue[worker.address] = worker
+
+        logger.info('Setting worker %r to expire at %r', worker.address, worker.expiry)
+
+    def purge(self):
+        t = time.time()
+
+        expired = []
+
+        for address, worker in self.queue.items():
+            if t > worker.expiry:
+                expired.append(address)
+
+        for address in expired:
+            self.queue.pop(address, None)
+
+            logger.info('Idle worker expired: %r', address)
+
+    @property
+    def heartbeat_time(self):
+        return time.time() >= self.heartbeat_at
+
+    def heartbeat(self, socket):
+        for address in self.queue:
+            msg = [address, constants.HEARTBEAT]
+
+            socket.send_multipart(msg)
+
+            logger.info('Sent heartbeat to %r', address)
+
+        self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
+
+    def next(self, version):
+        candidates = [x.address for x in self.queue.values() if x.version == version]
+
+        logger.info('Candidates %r', candidates)
+
+        address = candidates.pop(0)
+
+        self.queue.pop(address, None)
+
+        return address
 
 
 class LoadBalancer(object):
@@ -17,11 +103,13 @@ class LoadBalancer(object):
 
         self.backend = None
 
-        self.poll_workers = None
-
         self.poll_both = None
 
-        self.workers = {}
+        self.workers = WorkerQueue()
+
+        self.redis = None
+
+        self.waiting_ack = {}
 
     def initialize(self, frontend_port, backend_port):
         """ Initializes the load balancer.
@@ -37,25 +125,21 @@ class LoadBalancer(object):
         """
         self.context = zmq.Context(1)
 
-        logger.info('Created zmq context')
-
         self.frontend = self.context.socket(zmq.ROUTER)
 
-        self.frontend.bind('tcp://*:{!s}'.format(frontend_port))
+        frontend_addr = 'tcp://*:{!s}'.format(frontend_port)
 
-        logger.info('Created and bound frontend socket')
+        self.frontend.bind(frontend_addr)
+
+        logger.info('Binding frontend to %r', frontend_addr)
 
         self.backend = self.context.socket(zmq.ROUTER)
 
-        self.backend.bind('tcp://*:{!s}'.format(backend_port))
+        backend_addr = 'tcp://*:{!s}'.format(backend_port)
 
-        logger.info('Created and bound backend socket')
+        self.backend.bind(backend_addr)
 
-        self.poll_workers = zmq.Poller()
-
-        self.poll_workers.register(self.backend, zmq.POLLIN)
-
-        logger.info('Registered worker poller')
+        logger.info('Binding backend to %r', backend_addr)
 
         self.poll_both = zmq.Poller()
 
@@ -63,92 +147,121 @@ class LoadBalancer(object):
 
         self.poll_both.register(self.backend, zmq.POLLIN)
 
-        logger.info('Registered client and worker poller')
+        self.redis = redis.Redis(host=constants.REDIS_HOST, db=1)
+
+        logger.info('Connected to redis db %r', self.redis)
+
+    def handle_backend_frames(self, frames):
+        logger.info('Handling frames from backend %r', frames)
+
+        address = frames[0]
+
+        version = frames[2]
+
+        if address in self.waiting_ack:
+            logger.info('Received ack from backend %r', address)
+
+            self.waiting_ack.pop(address, None)
+        else:
+            self.workers.ready(Worker(address, version))
+
+            if frames[1] not in (constants.READY, constants.HEARTBEAT):
+                logger.error('Unknown message %r', frames)
+
+    def handle_frontend_frames(self, frames):
+        self.frontend.send_multipart(frames)
+
+        logger.info('Handling frames from frontend %r', frames)
+
+        version = frames[2]
+
+        with self.redis.lock('job_queue'):
+            self.redis.rpush(version, json_encoder(frames))
+
+        logger.info('Added frames to %r queue', version)
+
+    def handle_unacknowledge_requests(self):
+        logger.debug('Handling unacknowledged requests')
+
+        for address, waiting in list(self.waiting_ack.items()):
+            if time.time() >= waiting.expiry:
+                logger.info('Backend %r never acknowledged request', address)
+
+                self.waiting_ack.pop(address, None)
+
+                # Reinsert the request frames infront of the queue
+                with self.redis.lock('job_queue'):
+                    self.redis.lpush(waiting.version, json_encoder(waiting.frames))
+
+    def dispatch_workers(self):
+        logger.debug('Dispatching requests to workers')
+
+        try:
+            with self.redis.lock('job_queue', blocking_timeout=4):
+                for address, worker in list(self.workers.queue.items()):
+                    try:
+                        frames = json_decoder(self.redis.lpop(worker.version))
+                    except Exception as e:
+                        logger.error('Failed to pop job from queue: %r', e)
+
+                        continue
+
+                    frames.insert(0, address)
+
+                    self.backend.send_multipart(frames)
+
+                    self.waiting_ack[address] = WaitingAck(worker.version, frames[1:])
+
+                    logger.info('Waiting for ack from backend %r', address)
+
+                    # Remove the worker
+                    self.workers.queue.pop(address, None)
+        except redis.lock.LockError:
+            pass
 
     def run(self):
         """ Main loop for the load balancer.
-
-        The workflow is described as follows. The worker should initializ a REQ
-        connection to the load balancer, it should send a multipart message;
-        the first value is READY and the second is the version. This registers
-        that a worker is ready to receive work for a specific version. Next the
-        client should initialize a REQ connection to the frontend of the load
-        balancer and send a multipart message; the first value is the
-        datainputs and the second value is the specific version. Next the
-        message is forwarded to an available backend, the backend receives a
-        message with the following values; first client identitier, second is
-        blank, third is the specific version, and the rest is the data passed
-        to the backend. The worker should return the exact message when the
-        work is done, extra data can be appended. Finally the message is
-        forwarded back to the client.
         """
         while True:
-            if self.workers:
-                logger.info('Polling both')
-
-                socks = dict(self.poll_both.poll())
-            else:
-                logger.info('Polling workers')
-
-                socks = dict(self.poll_workers.poll())
+            socks = dict(self.poll_both.poll(constants.HEARTBEAT_INTERVAL * 1000))
 
             if socks.get(self.backend) == zmq.POLLIN:
-                # backend response
-                msg = self.backend.recv_multipart()
+                frames = self.backend.recv_multipart()
 
-                logger.info('Received %r from backend', msg)
-
-                if not msg:
-                    logger.info('Did not receive a message')
-
+                if not frames:
                     break
 
-                # Should be a version string
-                version = msg[3]
-
-                if version in self.workers:
-                    self.workers[version].append(msg[0])
-                else:
-                    self.workers[version] = [msg[0]]
-
-                # Worker is ready to accept work
-                # if msg[2] != b'READY':
-                #     logger.info('Sending frontend reply %r', msg[2:])
-
-                #     # frontend reply
-                #     self.frontend.send_multipart(msg[2:])
+                self.handle_backend_frames(frames)
 
             if socks.get(self.frontend) == zmq.POLLIN:
-                # frontend request
-                msg = self.frontend.recv_multipart()
+                frames = self.frontend.recv_multipart()
 
-                logger.info('Received %r from frontend', msg)
+                if not frames:
+                    break
 
-                # Immediately reply to release the client
-                self.frontend.send_multipart(msg)
+                self.handle_frontend_frames(frames)
 
-                version = msg[2]
+            if self.workers.heartbeat_time:
+                self.workers.heartbeat(self.backend)
 
-                # TODO We can check if a worker for the appropriate version is
-                # available. If not, we can dynamically allocate the resource
-                # in the cluster and then foward the job. This might involve
-                # adding a queue for the jobs waiting for their resources to be
-                # allocated.
-                request = [self.workers[version].pop(0), b''] + msg
+            self.workers.purge()
 
-                logger.info('Sending backend request %r', request)
+            self.dispatch_workers()
 
-                # backend reply
-                self.backend.send_multipart(request)
+            self.handle_unacknowledge_requests()
 
 
-if __name__ == '__main__':
+def main():
     import logging
 
     logging.basicConfig(level=logging.INFO)
 
     load_balancer = LoadBalancer()
 
-    load_balancer.initialize(FRONTEND_PORT, BACKEND_PORT)
+    load_balancer.initialize(constants.FRONTEND_PORT, constants.BACKEND_PORT)
 
     load_balancer.run()
+
+
+if __name__ == '__main__':
+    main()

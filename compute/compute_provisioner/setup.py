@@ -13,4 +13,9 @@ setuptools.setup(
     description='Compute Provisioner',
     url='https://github.com/ESGF/esgf-compute-wps',
     packages=['compute_provisioner'],
+    entry_points={
+        'console_scripts': [
+            'compute-provisioner = compute_provisioner.load_balancer:main',
+        ]
+    },
 )
