@@ -6,6 +6,8 @@ kubeMonitor:
   imagePullPolicy: IfNotPresent
 
 provisioner:
+  development: true
+
   imagePullPolicy: IfNotPresent
 
 dask:
