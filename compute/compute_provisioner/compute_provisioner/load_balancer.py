@@ -7,6 +7,7 @@ import redis
 import zmq
 
 from compute_provisioner import constants
+from compute_provisioner import metrics
 
 logger = logging.getLogger('compute_provisioner.provisioner')
 
@@ -53,7 +54,7 @@ class WorkerQueue(object):
 
         self.queue[worker.address] = worker
 
-        logger.info('Setting worker %r to expire at %r', worker.address, worker.expiry)
+        logger.debug('Setting worker %r to expire at %r', worker.address, worker.expiry)
 
     def purge(self):
         t = time.time()
@@ -67,7 +68,7 @@ class WorkerQueue(object):
         for address in expired:
             self.queue.pop(address, None)
 
-            logger.info('Idle worker expired: %r', address)
+            logger.info('Idle worker %r expired', address)
 
     @property
     def heartbeat_time(self):
@@ -75,18 +76,18 @@ class WorkerQueue(object):
 
     def heartbeat(self, socket):
         for address in self.queue:
-            msg = [address, constants.HEARTBEAT]
+            socket.send_multipart([address, constants.HEARTBEAT])
 
-            socket.send_multipart(msg)
-
-            logger.info('Sent heartbeat to %r', address)
+            logger.debug('Sent heartbeat to %r', address)
 
         self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
+
+        logger.debug('Setting next heartbeat at %r', self.heartbeat_at)
 
     def next(self, version):
         candidates = [x.address for x in self.queue.values() if x.version == version]
 
-        logger.info('Candidates %r', candidates)
+        logger.debug('Candidates for next worker handling version %r: %r', version, candidates)
 
         address = candidates.pop(0)
 
@@ -111,7 +112,9 @@ class LoadBalancer(object):
 
         self.waiting_ack = {}
 
-    def initialize(self, frontend_port, backend_port):
+        self.metrics = metrics.Metrics()
+
+    def initialize(self, frontend_port, backend_port, redis_host):
         """ Initializes the load balancer.
 
         We initialize the zmq context, create the frontend/backend sockets and
@@ -147,44 +150,54 @@ class LoadBalancer(object):
 
         self.poll_both.register(self.backend, zmq.POLLIN)
 
-        self.redis = redis.Redis(host=constants.REDIS_HOST, db=1)
+        self.redis = redis.Redis(host=redis_host, db=1)
 
         logger.info('Connected to redis db %r', self.redis)
 
     def handle_backend_frames(self, frames):
-        logger.info('Handling frames from backend %r', frames)
-
         address = frames[0]
 
-        version = frames[2]
+        self.metrics.inc('recv_backend')
 
         if address in self.waiting_ack:
             logger.info('Received ack from backend %r', address)
 
             self.waiting_ack.pop(address, None)
+
+            self.metrics.inc('recv_ack')
         else:
+            logger.debug('Received message from backend %r', address)
+
+            version = frames[2]
+
             self.workers.ready(Worker(address, version))
 
-            if frames[1] not in (constants.READY, constants.HEARTBEAT):
+            if frames[1] == constants.READY:
+                self.metrics.inc('recv_ready')
+            elif frames[1] == constants.HEARTBEAT:
+                self.metrics.inc('recv_heartbeat')
+            else:
+                self.metrics.inc('recv_unknown')
+
                 logger.error('Unknown message %r', frames)
 
     def handle_frontend_frames(self, frames):
         self.frontend.send_multipart(frames)
-
-        logger.info('Handling frames from frontend %r', frames)
 
         version = frames[2]
 
         with self.redis.lock('job_queue'):
             self.redis.rpush(version, json_encoder(frames))
 
-        logger.info('Added frames to %r queue', version)
+        logger.info('Added frames to %r queue %r', version, frames)
+
+        self.metrics.inc('recv_frontend')
 
     def handle_unacknowledge_requests(self):
-        logger.debug('Handling unacknowledged requests')
-
         for address, waiting in list(self.waiting_ack.items()):
             if time.time() >= waiting.expiry:
+                self.metrics.inc('unack')
+
                 logger.info('Backend %r never acknowledged request', address)
 
                 self.waiting_ack.pop(address, None)
@@ -194,15 +207,15 @@ class LoadBalancer(object):
                     self.redis.lpush(waiting.version, json_encoder(waiting.frames))
 
     def dispatch_workers(self):
-        logger.debug('Dispatching requests to workers')
-
         try:
             with self.redis.lock('job_queue', blocking_timeout=4):
                 for address, worker in list(self.workers.queue.items()):
+                    logger.debug('Processing waiting worker %r', address)
+
                     try:
                         frames = json_decoder(self.redis.lpop(worker.version))
-                    except Exception as e:
-                        logger.error('Failed to pop job from queue: %r', e)
+                    except Exception:
+                        logger.debug('No work found for version %r', worker.version)
 
                         continue
 
@@ -212,16 +225,20 @@ class LoadBalancer(object):
 
                     self.waiting_ack[address] = WaitingAck(worker.version, frames[1:])
 
-                    logger.info('Waiting for ack from backend %r', address)
-
                     # Remove the worker
                     self.workers.queue.pop(address, None)
+
+                    logger.info('Dispatch work to %r', address)
+
+                    self.metrics.inc('dispatched')
         except redis.lock.LockError:
             pass
 
-    def run(self):
+    def run(self, frontend_port, backend_port, redis_host):
         """ Main loop for the load balancer.
         """
+        self.initialize(frontend_port, backend_port, redis_host)
+
         while True:
             socks = dict(self.poll_both.poll(constants.HEARTBEAT_INTERVAL * 1000))
 
@@ -229,6 +246,8 @@ class LoadBalancer(object):
                 frames = self.backend.recv_multipart()
 
                 if not frames:
+                    self.metrics.inc('recv_backend_empty')
+
                     break
 
                 self.handle_backend_frames(frames)
@@ -237,12 +256,16 @@ class LoadBalancer(object):
                 frames = self.frontend.recv_multipart()
 
                 if not frames:
+                    self.metrics.inc('recv_frontend_empty')
+
                     break
 
                 self.handle_frontend_frames(frames)
 
             if self.workers.heartbeat_time:
                 self.workers.heartbeat(self.backend)
+
+                self.metrics.inc('sent_heartbeat')
 
             self.workers.purge()
 
@@ -252,15 +275,31 @@ class LoadBalancer(object):
 
 
 def main():
-    import logging
+    import argparse
 
-    logging.basicConfig(level=logging.INFO)
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    parser.add_argument('--redis-host', help='Redis host')
+
+    parser.add_argument('--frontend-port', help='Frontend port')
+
+    parser.add_argument('--backend-port', help='Backend port')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=args.log_level)
 
     load_balancer = LoadBalancer()
 
-    load_balancer.initialize(constants.FRONTEND_PORT, constants.BACKEND_PORT)
+    frontend_port = args.frontend_port or constants.FRONTEND_PORT
 
-    load_balancer.run()
+    backend_port = args.backend_port or constants.BACKEND_PORT
+
+    redis_host = args.redis_host or constants.REDIS_HOST
+
+    load_balancer.run(frontend_port, backend_port, redis_host)
 
 
 if __name__ == '__main__':
