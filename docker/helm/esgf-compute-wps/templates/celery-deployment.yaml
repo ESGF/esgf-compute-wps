@@ -54,6 +54,11 @@ spec:
       - name: {{ $.Release.Name }}-celery-{{ .name }}-backend
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
+        {{- if $.Values.development }}
+        command:
+          - /bin/sleep
+          - infinity
+        {{- else }}
         command:
           - tini
           - --
@@ -61,6 +66,7 @@ spec:
           - /bin/bash
           - -c
           - "mkdir -p /metrics && compute-tasks-backend"
+        {{- end }}
         resources:
           {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         env:
