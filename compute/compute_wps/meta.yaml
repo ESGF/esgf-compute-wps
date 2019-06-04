@@ -49,6 +49,7 @@ requirements:
     - celery=4.2.1
     - prometheus_client=0.6.0
     - python-coreapi=2.3.3
+    - pyyaml=5.1
     - compute-settings
 
 about:
