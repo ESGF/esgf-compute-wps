@@ -45,6 +45,7 @@ dashboard:
   domain: ""
   ingress:
     annotations:
+      ingress.kubernetes.io/whitelist-source-range: 
       traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
       ingress.kubernetes.io/ssl-redirect: "true"
       ingress.kubernetes.io/hsts-max-age: "31536000"
