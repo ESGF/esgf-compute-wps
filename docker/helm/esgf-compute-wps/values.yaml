@@ -40,8 +40,6 @@ traefik:
     domain: ""
     ingress:
       annotations:
-        ingress.kubernetes.io/auth-type: basic
-        ingress.kubernetes.io/auth-secret: traefik-auth
         traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
         ingress.kubernetes.io/ssl-redirect: "true"
         ingress.kubernetes.io/hsts-max-age: "31536000"
@@ -57,6 +55,15 @@ traefik:
     prometheus:
       enabled: true
       restrictAccess: true
+
+# Persistence
+# 
+# Setting path to "null" will prevent a persistent volume from being created.
+#
+# persistence:
+#   cache:
+#     path: null
+#   
 
 persistence:
   cache:
