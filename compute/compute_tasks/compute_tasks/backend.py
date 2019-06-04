@@ -2,7 +2,6 @@ import logging
 import os
 from functools import partial
 
-import compute_tasks # noqa
 from compute_tasks import base
 from compute_tasks import celery # noqa
 from compute_tasks.job import job_started
@@ -58,7 +57,7 @@ def fail_job(state, job, e):
 def request_handler(frames, state):
     version, identifier, data_inputs, job, user, process = [x.decode() for x in frames[2:]]
 
-    data_inputs = compute_tasks.decoder(data_inputs)
+    data_inputs = celery.decoder(data_inputs)
 
     logger.info('Building celery workflow')
 
