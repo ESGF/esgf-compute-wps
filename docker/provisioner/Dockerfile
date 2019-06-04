@@ -1,9 +1,7 @@
 FROM continuumio/miniconda3:4.5.12 as builder
 
-# Container version
 ARG COMPUTE_PROVISIONER_VER
 
-# Library versions
 ARG COMPUTE_PROV_VER
 
 WORKDIR /src
@@ -14,7 +12,7 @@ WORKDIR /src/compute
 
 RUN git rev-parse HEAD >> git-rev.txt && \
       conda install -c conda-forge -y conda-build=3.17.8 && \
-      echo "__version__ = '${COMPUTE_PROV_VER}'" > compute_provisioner/compute_provisioner/_version.py
+      echo "__version__ = '${COMPUTE_PROV_VER}'" > compute_provisioner/compute_provisioner/_version.py && \
       conda build -c conda-forge compute_provisioner/
 
 FROM continuumio/miniconda3:4.5.12

@@ -22,6 +22,8 @@ RUN git rev-parse HEAD >> git-rev.txt && \
 
 FROM continuumio/miniconda3:4.5.12
 
+ENV COMPUTE_API_VER ${COMPUTE_API_VER}
+
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
 COPY --from=builder /src/compute/git-rev.txt .

@@ -3,6 +3,7 @@ FROM continuumio/miniconda3:4.5.12 as builder
 ARG COMPUTE_CELERY_VER
 ARG COMPUTE_KUBERNETES_VER
 ARG COMPUTE_TASKS_VER
+ARG COMPUTE_PROVISIONER_VER
 ARG COMPUTE_API_VER
 
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
@@ -15,12 +16,16 @@ WORKDIR /src/compute
 
 RUN git rev-parse HEAD >> git-rev.txt && \
       conda install -c conda-forge -y conda-build=3.17.8 && \
-      echo "__version__ = '${COMPUTE_KUBERNETES_VERSION}'" > compute_kubernetes/compute_kubernetes/_version.py && \
-      echo "__version__ = '${COMPUTE_TASKS_VERSION}'" > compute_tasks/compute_tasks/_version.py && \
+      echo "__version__ = '${COMPUTE_KUBERNETES_VER}'" > compute_kubernetes/compute_kubernetes/_version.py && \
+      echo "__version__ = '${COMPUTE_PROVISIONER_VER}'" > compute_provisioner/compute_provisioner/_version.py && \
+      echo "__version__ = '${COMPUTE_TASKS_VER}'" > compute_tasks/compute_tasks/_version.py && \
       conda build -c conda-forge -c cdat compute_kubernetes/ && \
+      conda build -c conda-forge compute_provisioner/ && \
       conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_tasks/
 
 FROM continuumio/miniconda3:4.5.12
+
+ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 
 ENV COMPUTE_CELERY_VER ${COMPUTE_CELERY_VER}
 
