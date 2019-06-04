@@ -1,7 +1,7 @@
 import os
 import setuptools
 
-from compute_task._version import __version__
+from compute_tasks._version import __version__
 
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 

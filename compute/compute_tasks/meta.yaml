@@ -43,6 +43,7 @@ requirements:
     - netcdf4=1.5.1.2
     - python-coreapi=2.3.3
     - compute-kubernetes
+    - compute-provisioner
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
