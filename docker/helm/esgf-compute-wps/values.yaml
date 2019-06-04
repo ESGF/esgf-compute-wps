@@ -159,8 +159,6 @@ dask:
 
     ingress:
       annotations:
-        ingress.kubernetes.io/auth-type: basic
-        ingress.kubernetes.io/auth-secret: traefik-auth
         ingress.kubernetes.io/ssl-redirect: "true"
         ingress.kubernetes.io/hsts-max-age: "31536000"
         ingress.kubernetes.io/hsts-include-subdomains: "true"
