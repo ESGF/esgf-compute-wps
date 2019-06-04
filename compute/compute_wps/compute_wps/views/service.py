@@ -15,7 +15,7 @@ from . import common
 from compute_wps import helpers
 from compute_wps import metrics
 from compute_wps import models
-from compute_wps import WPSError
+from compute_wps.exceptions import WPSError
 from compute_wps.util import wps_response
 
 logger = common.logger

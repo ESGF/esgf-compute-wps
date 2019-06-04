@@ -6,7 +6,7 @@ import logging
 
 import cwt
 
-from compute_wps import WPSError
+from compute_wps.exceptions import WPSError
 
 logger = logging.getLogger('compute_wps.helpers')
 

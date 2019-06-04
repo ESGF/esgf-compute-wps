@@ -13,8 +13,8 @@ class WpsConfig(AppConfig):
     def ready(self):
         from django.conf import settings as wps_settings
         from compute_wps import metrics # noqa
-        from compute_wps import WPSError # noqa
         from compute_wps import signals # noqa
+        from compute_wps.exceptions import WPSError # noqa
 
         os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
 

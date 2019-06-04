@@ -11,7 +11,7 @@ from openid.extensions import ax
 from openid.yadis import manager
 
 from compute_wps import models
-from compute_wps import WPSError
+from compute_wps.exceptions import WPSError
 
 logger = logging.getLogger('compute_wps.auth.openid')
 

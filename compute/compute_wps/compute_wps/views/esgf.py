@@ -17,8 +17,8 @@ from django.views.decorators.http import require_http_methods
 
 from . import common
 from compute_wps import metrics
-from compute_wps import AccessError
-from compute_wps import WPSError
+from compute_wps.exceptions import AccessError
+from compute_wps.exceptions import WPSError
 
 logger = common.logger
 

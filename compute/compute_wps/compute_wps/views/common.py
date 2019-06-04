@@ -2,7 +2,7 @@ import logging
 
 from django import http
 
-from compute_wps import WPSError
+from compute_wps.exceptions import WPSError
 
 logger = logging.getLogger('compute_wps.views')
 

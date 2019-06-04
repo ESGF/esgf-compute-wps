@@ -21,10 +21,10 @@ from rest_framework.exceptions import APIException
 from compute_wps import forms
 from compute_wps import metrics
 from compute_wps import models
-from compute_wps import WPSError
 from compute_wps.auth import credentials
 from compute_wps.auth import oauth2
 from compute_wps.auth import openid
+from compute_wps.exceptions import WPSError
 from compute_wps.views import common
 
 logger = logging.getLogger('compute_wps.views.auth')

@@ -6,7 +6,7 @@ from django.views.decorators.http import require_http_methods
 
 from . import common
 from compute_wps import forms
-from compute_wps import WPSError
+from compute_wps.exceptions import WPSError
 
 logger = common.logger
 

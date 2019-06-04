@@ -10,9 +10,9 @@ from django.conf import settings
 from openid.consumer import discover
 from OpenSSL import crypto
 
-from compute_wps import WPSError
 from compute_wps.auth import oauth2
 from compute_wps.auth import openid
+from compute_wps.exceptions import WPSError
 
 logger = logging.getLogger('compute_wps.auth.credentials')
 
