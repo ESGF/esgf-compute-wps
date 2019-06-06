@@ -51,6 +51,6 @@ COPY docker/celery/healthcheck.sh .
 
 EXPOSE 8000
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["tini", "--"]
 
-CMD ["-c", "1", "-Q", "default", "-n", "default", "-l", "INFO"]
+CMD ["/bin/bash", "./entrypoint.sh", "-c", "1", "-Q", "default", "-n", "default", "-l", "INFO"]
