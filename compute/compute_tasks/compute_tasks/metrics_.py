@@ -155,7 +155,7 @@ def query_usage(context):
         operator['operations'] = 'Unavailable'
 
     data = {
-        'files': context.files_unique_users(),
+        'files': context.files_distinct_users(),
         'operators': operator,
     }
 
