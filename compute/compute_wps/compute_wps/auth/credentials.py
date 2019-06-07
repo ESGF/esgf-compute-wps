@@ -131,7 +131,7 @@ def load_certificate(user):
     if not check_certificate(user):
         refresh_certificate(user)
 
-    user_path = os.path.join(settings.WPS_USER_TEMP_PATH, str(user.id))
+    user_path = os.path.join(settings.USER_TEMP_PATH, str(user.id))
 
     if not os.path.exists(user_path):
         os.makedirs(user_path)
@@ -163,7 +163,7 @@ def load_certificate(user):
             outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
             outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
             outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.CAPATH={}\n'.format(settings.WPS_CA_PATH))
+            outfile.write('HTTP.SSL.CAPATH={}\n'.format(settings.CA_PATH))
             outfile.write('HTTP.SSL.VERIFY=0\n')
 
         logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))

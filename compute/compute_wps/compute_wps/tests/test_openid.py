@@ -97,9 +97,9 @@ class OpenIDTestCase(test.TestCase):
         mock_consumer.assert_called_with({}, mock_consumer.call_args[0][1])
         mock_consumer.return_value.beginWithoutDiscovery.assert_called()
 
-        return_to = '{!s}?next=http://test.com/next'.format(settings.WPS_OPENID_RETURN_TO)
+        return_to = '{!s}?next=http://test.com/next'.format(settings.OPENID_RETURN_TO_URL)
 
-        mock_begin.redirectURL.assert_called_with(settings.WPS_OPENID_TRUST_ROOT, return_to)
+        mock_begin.redirectURL.assert_called_with(settings.OPENID_TRUST_ROOT_URL, return_to)
 
     @mock.patch('compute_wps.auth.openid.requests')
     def test_services_discovery_error(self, mock_requests):

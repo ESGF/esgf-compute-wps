@@ -72,21 +72,32 @@ class StatusSerializer(serializers.ModelSerializer):
     def convert_local_to_opendap(self, variable):
         variable = cwt.Variable.from_dict(variable)
 
-        relpath = os.path.relpath(variable.uri, settings.WPS_PUBLIC_PATH)
+        relpath = os.path.relpath(variable.uri, settings.OUTPUT_LOCAL_PATH)
 
-        url = settings.WPS_DAP_URL.format(filename=relpath)
+        url = settings.WPS_THREDDS_URL.format(filename=relpath)
 
         logger.info('Converted %r -> %r', variable.uri, url)
 
         return cwt.Variable(url, variable.var_name, name=variable.name).to_dict()
 
+    def convert_local_to_fileserver(self, variable):
+        pass
+
+    def convert_local_to_remote(self, variable):
+        if variable.mime_type == 'application/netcdf':
+            return self.convert_local_to_opendap(variable)
+        else:
+            return self.convert_local_to_fileserver(variable)
+
     def create(self, validated_data):
+        logger.info('Validated data %r', validated_data)
+
         if 'exception' in validated_data:
             validated_data['exception'] = wps_response.exception_report(wps_response.NoApplicableCode,
                                                                         validated_data['exception'])
 
         if 'output' in validated_data:
-            # Need to convert local path variables to remote path
+            # Need to convert output path to thredds path
             if 'uri' in validated_data['output']:
                 try:
                     data = json.loads(validated_data['output'])

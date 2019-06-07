@@ -1,4 +1,3 @@
-import datetime
 import logging
 import os
 import configparser
@@ -21,10 +20,6 @@ def patch_settings(settings):
 
     host = config.get_value('default', 'host')
 
-    # broker_url = config.get_value('default', 'celery.broker')
-
-    # result_backend = config.get_value('default', 'celery.backend')
-
     cidr = config.get_value('default', 'allowed.cidr', None, list)
 
     # CWT WPS Settings
@@ -42,25 +37,20 @@ def patch_settings(settings):
     else:
         ALLOWED_HOSTS = [host]
 
-    setattr(settings, 'INTERNAL_LB', config.get_value('default', 'internal.lb'))
-
     setattr(settings, 'ALLOWED_HOSTS', ALLOWED_HOSTS)
 
+    # Default values
+    setattr(settings, 'INTERNAL_LB', config.get_value('default', 'internal.lb'))
     setattr(settings, 'SESSION_COOKIE_NAME', config.get_value('default', 'session.cookie.name', 'wps_sessionid'))
-
-    setattr(settings, 'ACTIVE_USER_THRESHOLD', config.get_value('default', 'active.user.threshold', 5, int,
-                                                                lambda x: datetime.timedelta(days=x)))
-    setattr(settings, 'INGRESS_ENABLED', config.get_value('default', 'ingress.enabled', False, bool))
-    setattr(settings, 'CERT_DOWNLOAD_ENABLED', config.get_value('default', 'cert.download.enabled', True, bool))
     setattr(settings, 'ESGF_SEARCH', config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov'))
 
+    # Email values
     setattr(settings, 'EMAIL_HOST', config.get_value('email', 'host'))
     setattr(settings, 'EMAIL_PORT', config.get_value('email', 'port'))
     setattr(settings, 'EMAIL_HOST_PASSWORD', config.get_value('email', 'password', ''))
     setattr(settings, 'EMAIL_HOST_USER', config.get_value('email', 'user', ''))
 
-    setattr(settings, 'METRICS_HOST', config.get_value('metrics', 'host'))
-
+    # WPS values
     setattr(settings, 'WPS_TITLE', config.get_value('wps', 'title'))
     setattr(settings, 'WPS_ABSTRACT', config.get_value('wps', 'abstract'))
     setattr(settings, 'WPS_KEYWORDS', config.get_value('wps', 'keywords'))
@@ -76,24 +66,27 @@ def patch_settings(settings):
     setattr(settings, 'WPS_ADDRESS_COUNTRY', config.get_value('wps', 'address.country'))
     setattr(settings, 'WPS_ADDRESS_EMAIL', config.get_value('wps', 'address.email'))
 
-    setattr(settings, 'WPS_URL', config.get_value('wps', 'wps.endpoint'))
-    setattr(settings, 'WPS_ENDPOINT', config.get_value('wps', 'wps.endpoint'))
-    setattr(settings, 'WPS_STATUS_LOCATION', config.get_value('wps', 'wps.status_location'))
-    setattr(settings, 'WPS_JOB_URL', 'https://{!s}/wps/home/user/jobs'.format(host))
-    setattr(settings, 'WPS_DAP', True)
-    setattr(settings, 'WPS_DAP_URL', config.get_value('wps', 'wps.dap_url'))
-    setattr(settings, 'WPS_LOGIN_URL', config.get_value('wps', 'wps.login_url'))
-    setattr(settings, 'WPS_PROFILE_URL', config.get_value('wps', 'wps.profile_url'))
-    setattr(settings, 'WPS_OAUTH2_CALLBACK', config.get_value('wps', 'wps.oauth2.callback'))
-    setattr(settings, 'WPS_OPENID_TRUST_ROOT', config.get_value('wps', 'wps.openid.trust.root'))
-    setattr(settings, 'WPS_OPENID_RETURN_TO', config.get_value('wps', 'wps.openid.return.to'))
-    setattr(settings, 'WPS_OPENID_CALLBACK_SUCCESS', config.get_value('wps', 'wps.openid.callback.success'))
-    setattr(settings, 'WPS_ADMIN_EMAIL', config.get_value('wps', 'wps.admin.email'))
+    # Output values
+    setattr(settings, 'OUTPUT_FILESERVER_URL', config.get_value('output', 'fileserver.url'))
+    setattr(settings, 'OUTPUT_DODSC_URL', config.get_value('output', 'dodsc.url'))
+    setattr(settings, 'OUTPUT_LOCAL_PATH', config.get_value('output', 'local.path'))
 
-    setattr(settings, 'WPS_PUBLIC_PATH', config.get_value('wps', 'wps.public_path'))
-    setattr(settings, 'WPS_LOCAL_OUTPUT_PATH', config.get_value('wps', 'wps.public_path'))
-    setattr(settings, 'WPS_CA_PATH', '/tmp/certs/esgf')
-    setattr(settings, 'WPS_USER_TEMP_PATH', '/tmp/certs')
+    # Server values
+    setattr(settings, 'EXTERNAL_URL', config.get_value('server', 'external.url'))
+    setattr(settings, 'EXTERNAL_WPS_URL', '{!s}/wps/'.format(settings.EXTERNAL_URL))
+    setattr(settings, 'STATUS_URL', '{!s}/api/status/{{job_id}}'.format(settings.EXTERNAL_URL))
+    setattr(settings, 'OAUTH2_CALLBACK_URL', '{!s}/api/oauth2/callback/'.format(settings.EXTERNAL_URL))
+    setattr(settings, 'OPENID_TRUST_ROOT_URL', '{!s}/'.format(settings.EXTERNAL_URL))
+    setattr(settings, 'OPENID_RETURN_TO_URL', '{!s}/api/openid/callback/'.format(settings.EXTERNAL_URL))
+    setattr(settings, 'ADMIN_EMAIL', config.get_value('server', 'admin.email'))
+    setattr(settings, 'CA_PATH', '/tmp/certs')
+    setattr(settings, 'USER_TEMP_PATH', '/tmp/users')
+
+    # External values
+    setattr(settings, 'JOBS_URL', config.get_value('external', 'jobs.url'))
+    setattr(settings, 'LOGIN_URL', config.get_value('external', 'login.url'))
+    setattr(settings, 'PROFILE_URL', config.get_value('external', 'profile.url'))
+    setattr(settings, 'OPENID_CALLBACK_SUCCESS_URL', config.get_value('external', 'openid.callback.success.url'))
 
 
 class DjangoConfigParser(configparser.ConfigParser):

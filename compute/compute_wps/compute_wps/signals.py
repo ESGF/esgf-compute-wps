@@ -72,7 +72,7 @@ def send_success_email(job):
     kwargs = {
         'first_name': job.user.first_name,
         'job_id': job.id,
-        'job_url': settings.WPS_JOB_URL,
+        'job_url': settings.JOBS_URL,
     }
 
     msg = JOB_SUCCESS_MSG.format(**kwargs)

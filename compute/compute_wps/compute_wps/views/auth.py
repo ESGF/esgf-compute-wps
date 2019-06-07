@@ -35,7 +35,7 @@ Welcome {name},
 
 <pre>
 You've successfully register for the ESGF Compute service. You now have access
-to ESGF compute resources. To begin start by visiting the <a href="{settings.WPS_URL}">WPS Service</a> homepage.
+to ESGF compute resources. To begin start by visiting the <a href="{settings.EXTERNAL_URL}">WPS Service</a> homepage.
 You can find some additional resources below.
 </pre>
 
@@ -114,8 +114,8 @@ def send_welcome_mail(user):
 
     msg = NEW_USER_MSG.format(user=user, name=name, settings=settings)
 
-    email = EmailMessage(NEW_USER_SUBJ, msg, settings.WPS_ADMIN_EMAIL,
-                         to=[user.email, ], bcc=[settings.WPS_ADMIN_EMAIL, ])
+    email = EmailMessage(NEW_USER_SUBJ, msg, settings.ADMIN_EMAIL,
+                         to=[user.email, ], bcc=[settings.ADMIN_EMAIL, ])
 
     email.content_subtype = 'html'
 
@@ -150,7 +150,7 @@ def authorization(request):
         if prefix != '':
             forward = '{!s}/{!s}'.format(forward, prefix)
 
-        redirect_url = '{!s}?next={!s}'.format(settings.WPS_LOGIN_URL, forward)
+        redirect_url = '{!s}?next={!s}'.format(settings.LOGIN_URL, forward)
 
         return http.HttpResponseRedirect(redirect_url)
 
@@ -241,7 +241,7 @@ def user_login_openid_callback(request):
         metrics.track_login(metrics.WPS_OPENID_LOGIN_SUCCESS,
                             user.auth.openid_url)
 
-        redirect_url = '{!s}?expires={!s}'.format(settings.WPS_OPENID_CALLBACK_SUCCESS,
+        redirect_url = '{!s}?expires={!s}'.format(settings.OPENID_CALLBACK_SUCCESS_URL,
                                                   request.session.get_expiry_date())
 
         if next is not None and next != 'null':
@@ -321,7 +321,7 @@ def oauth2_callback(request):
 
         token_service, cert_service = openid.services(openid_url, (URN_ACCESS, URN_RESOURCE))
 
-        request_url = '{}?{}'.format(settings.WPS_OAUTH2_CALLBACK, request.META['QUERY_STRING'])
+        request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK_URL, request.META['QUERY_STRING'])
 
         logger.info('Getting token from service')
 
@@ -356,7 +356,7 @@ def oauth2_callback(request):
 
     metrics.track_login(metrics.WPS_OAUTH_LOGIN_SUCCESS, user.auth.openid_url)
 
-    return redirect(settings.WPS_PROFILE_URL)
+    return redirect(settings.PROFILE_URL)
 
 
 @require_http_methods(['POST'])
@@ -385,7 +385,7 @@ def login_mpc(request):
         MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
 
         try:
-            m = MyProxyClient(hostname=host, caCertDir=settings.WPS_CA_PATH)
+            m = MyProxyClient(hostname=host, caCertDir=settings.CA_PATH)
 
             c = m.logon(data['username'], data['password'], bootstrap=True)
         except Exception:

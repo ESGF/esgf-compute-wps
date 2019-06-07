@@ -105,7 +105,7 @@ def get_token(token_uri, request_url, oauth_state):
     secret = get_env('OAUTH_SECRET')
 
     slcs = OAuth2Session(client_id,
-            redirect_uri=settings.WPS_OAUTH2_CALLBACK,
+            redirect_uri=settings.OAUTH2_CALLBACK_URL,
             state=oauth_state)
 
     try:
@@ -125,7 +125,7 @@ def get_authorization_url(auth_uri, cert_uri):
         cert_uri = '{}/'.format(cert_uri)
 
     slcs = OAuth2Session(client_id,
-            redirect_uri=settings.WPS_OAUTH2_CALLBACK,
+            redirect_uri=settings.OAUTH2_CALLBACK_URL,
             scope=[cert_uri])
 
     try:

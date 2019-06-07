@@ -14,8 +14,6 @@ data:
     allowed.cidr={{ .Values.wps.allowedCIDR }}
     {{- end }}
     host={{ .Values.wps.host }}
-    celery.broker={{ template "redis.fullname" . }}-master:6379/0
-    celery.backend={{ template "redis.fullname" . }}-master:6379/0
     internal.lb={{ template "traefik.fullname" . }}.{{ .Release.Namespace }}.svc
 
     [email]
@@ -23,9 +21,6 @@ data:
     port={{ .Values.wps.email.port }}
     user={{ .Values.wps.email.user }}
     password={{ .Values.wps.email.password }}
-
-    [metrics]
-    host=http://{{ required "Set wps.prometheus.host" .Values.wps.prometheus.host }}/prometheus/api/v1/query
 
     [wps]
     title={{ .Values.wps.title }}
@@ -42,6 +37,20 @@ data:
     address.postal={{ .Values.wps.address.postal | default "Unknwon" }}
     address.country={{ .Values.wps.address.country | default "Unknwon" }}
     address.email={{ .Values.wps.address.email | default "Unknwon" }}
+
+    [output]
+    fileserver.url={{ .Values.wps.externalHost }}/threddsCWT/fileServer/public/{filename}
+    dodsc.url={{ .Values.wps.externalHost }}/threddsCWT/dodsC/public/{filename}
+    local.path={{ .Values.wps.publicPath }}
+
+    [server]
+    external.url={{ .Values.wps.externalHost }}
+    external.wps.url={{ .Values.wps.externalHost }}/wps/
+
+    [external]
+    jobs.url={{ .Values.wps.externalHost }}/user/jobs
+    login.url={{ .Values.wps.externalHost }}/auth/login
+    profile.url={{ .Values.wps.externalHost }}/user/profile
 
     wps.public_path={{ .Values.wps.publicPath }}
 

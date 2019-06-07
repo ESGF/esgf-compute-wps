@@ -116,12 +116,12 @@ def begin(request, openid_url, next):
 
     auth_request.addExtension(fetch_request)
 
-    return_to = settings.WPS_OPENID_RETURN_TO
+    return_to = settings.OPENID_RETURN_TO_URL
 
     if next is not None:
         return_to = '{!s}?next={!s}'.format(return_to, next)
 
-    url = auth_request.redirectURL(settings.WPS_OPENID_TRUST_ROOT, return_to)
+    url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT_URL, return_to)
 
     return url
 
@@ -129,7 +129,7 @@ def begin(request, openid_url, next):
 def complete(request):
     c = consumer.Consumer(request.session, models.DjangoOpenIDStore())
 
-    response = c.complete(request.GET, settings.WPS_OPENID_RETURN_TO)
+    response = c.complete(request.GET, settings.OPENID_RETURN_TO_URL)
 
     if response.status == consumer.CANCEL:
         raise AuthenticationCancelError(response)

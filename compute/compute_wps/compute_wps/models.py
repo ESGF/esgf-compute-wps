@@ -364,8 +364,8 @@ class Job(models.Model):
         earliest = self.status.earliest('created_date')
 
         kwargs = {
-            'status_location': settings.WPS_STATUS_LOCATION.format(job_id=self.id),
-            'instance': settings.WPS_ENDPOINT,
+            'status_location': settings.STATUS_URL.format(job_id=self.id),
+            'instance': settings.EXTERNAL_WPS_URL,
             'latest': latest,
             'earliest': earliest,
             'process': self.process,
