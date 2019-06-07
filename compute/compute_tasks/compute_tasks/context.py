@@ -78,6 +78,7 @@ class StateMixin(object):
         self.client = None
         self.schema = None
         self.metrics = {}
+        self.output = []
 
     def track_src_bytes(self, nbytes):
         self._track_bytes('bytes_src', nbytes)
@@ -181,7 +182,7 @@ class StateMixin(object):
         except Exception as e:
             if isinstance(e, ignore_errors):
                 raise e
-        
+
             logger.debug('Params %r kwargs %r', params, kwargs)
 
             raise WPSError('Internal API call failed {!r}', e)
@@ -294,13 +295,37 @@ class StateMixin(object):
 
         return self.action(['jobs', 'set_output'], params, validate=False)
 
+    def build_output_variable(self, var_name, name=None):
+        return self.build_output('nc', 'application/netcdf', var_name=var_name, name=name)
+
+    def build_output(self, extension, mime_type, filename=None, var_name=None, name=None):
+        local_path = self.generate_local_path(extension)
+
+        self.track_output(local_path)
+
+        self.output.append(cwt.Variable(local_path, var_name, name, mime_type=mime_type))
+
+        return local_path
+
+    def generate_local_path(self, extension, filename=None):
+        if filename is None:
+            filename = str(uuid.uuid4())
+
+        filename_ext = '{!s}.{!s}'.format(filename, extension)
+
+        base_path = os.path.join(DATA_PATH, str(self.user), str(self.job))
+
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
+        return os.path.join(base_path, filename_ext)
+
 
 class WorkflowOperationContext(StateMixin, object):
     def __init__(self, inputs, domain, operation):
         self._inputs = inputs
         self.domain = domain
         self.operation = operation
-        self.output = []
 
     @classmethod
     def from_data_inputs(cls, variable, domain, operation):
@@ -418,32 +443,12 @@ class WorkflowOperationContext(StateMixin, object):
 
         return topo_order
 
-    def build_output_variable(self, var_name, name=None):
-        local_path = self.generate_local_path()
-
-        self.track_output(local_path)
-
-        self.output.append(cwt.Variable(local_path, var_name, name=name))
-
-        return local_path
-
-    def generate_local_path(self):
-        filename = '{}.nc'.format(uuid.uuid4())
-
-        base_path = os.path.join(DATA_PATH, str(self.user), str(self.job))
-
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-
-        return os.path.join(base_path, filename)
-
 
 class OperationContext(StateMixin, object):
     def __init__(self, inputs=None, domain=None, operation=None):
         self.inputs = inputs
         self.domain = domain
         self.operation = operation
-        self.output = []
 
     @classmethod
     def from_data_inputs(cls, identifier, variable, domain, operation):
@@ -502,22 +507,3 @@ class OperationContext(StateMixin, object):
     @property
     def is_regrid(self):
         return 'gridder' in self.operation.parameters
-
-    def build_output_variable(self, var_name, name=None):
-        local_path = self.generate_local_path()
-
-        self.track_output(local_path)
-
-        self.output.append(cwt.Variable(local_path, var_name, name=name))
-
-        return local_path
-
-    def generate_local_path(self):
-        filename = '{}.nc'.format(uuid.uuid4())
-
-        base_path = os.path.join(DATA_PATH, str(self.user), str(self.job))
-
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-
-        return os.path.join(base_path, filename)

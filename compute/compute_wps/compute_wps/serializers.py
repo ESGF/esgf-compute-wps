@@ -69,25 +69,29 @@ class StatusSerializer(serializers.ModelSerializer):
         model = models.Status
         fields = ('id', 'status', 'created_date', 'messages', 'output', 'exception')
 
-    def convert_local_to_opendap(self, variable):
-        variable = cwt.Variable.from_dict(variable)
-
-        relpath = os.path.relpath(variable.uri, settings.OUTPUT_LOCAL_PATH)
-
-        url = settings.WPS_THREDDS_URL.format(filename=relpath)
+    def convert_local_to_opendap(self, variable, relpath):
+        url = settings.OUTPUT_DODSC_URL.format(filename=relpath)
 
         logger.info('Converted %r -> %r', variable.uri, url)
 
         return cwt.Variable(url, variable.var_name, name=variable.name).to_dict()
 
-    def convert_local_to_fileserver(self, variable):
-        pass
+    def convert_local_to_fileserver(self, variable, relpath):
+        url = settings.OUTPUT_FILESERVER_URL.format(filename=relpath)
+
+        logger.info('Converted %r -> %r', variable.uri, url)
+
+        return cwt.Variable(url, variable.var_name, name=variable.name).to_dict()
 
     def convert_local_to_remote(self, variable):
+        variable = cwt.Variable.from_dict(variable)
+
+        relpath = os.path.relpath(variable.uri, settings.OUTPUT_LOCAL_PATH)
+
         if variable.mime_type == 'application/netcdf':
-            return self.convert_local_to_opendap(variable)
+            return self.convert_local_to_opendap(variable, relpath)
         else:
-            return self.convert_local_to_fileserver(variable)
+            return self.convert_local_to_fileserver(variable, relpath)
 
     def create(self, validated_data):
         logger.info('Validated data %r', validated_data)
@@ -107,9 +111,9 @@ class StatusSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError('Failed to load output')
 
                 if isinstance(data, (list, tuple)):
-                    validated_data['output'] = json.dumps([self.convert_local_to_opendap(x) for x in data])
+                    validated_data['output'] = json.dumps([self.convert_local_to_remote(x) for x in data])
                 elif isinstance(data, dict):
-                    validated_data['output'] = json.dumps(self.convert_local_to_opendap(data))
+                    validated_data['output'] = json.dumps(self.convert_local_to_remote(data))
                 else:
                     logger.info('Failed to handle output of type {!r}'.format(type(data)))
 
