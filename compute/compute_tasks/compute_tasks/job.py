@@ -76,7 +76,7 @@ def job_succeeded(self, context):
         if isinstance(context.output[0], cwt.Variable):
             context.succeeded(json.dumps(context.output[0].to_dict()))
         elif isinstance(context.output[0], str):
-            context.succeeded(context.output)
+            context.succeeded(context.output[0])
     else:
         context.succeeded(json.dumps([x.to_dict() for x in context.output]))
 

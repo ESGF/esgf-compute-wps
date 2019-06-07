@@ -181,6 +181,8 @@ class StateMixin(object):
         except Exception as e:
             if isinstance(e, ignore_errors):
                 raise e
+        
+            logger.debug('Params %r kwargs %r', params, kwargs)
 
             raise WPSError('Internal API call failed {!r}', e)
 
