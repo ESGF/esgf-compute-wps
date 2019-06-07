@@ -199,7 +199,7 @@ class StateMixin(object):
         try:
             output = self.action(['jobs', 'status', 'create'], params)
         except WPSError:
-            pass
+            raise
         else:
             self.status = output['id']
 
