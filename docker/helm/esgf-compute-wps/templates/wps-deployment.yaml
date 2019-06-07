@@ -32,9 +32,11 @@ spec:
       containers:
       - name: {{ .Release.Name }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.wps.imagePullPolicy }}
         {{- if .Values.development }}
         command:
+          - tini
+          - --
           - sleep
           - infinity
         {{- end }}
@@ -59,32 +61,22 @@ spec:
         {{- end }}
         env:
         {{- if $.Values.development }}
+        - name: DEV
+          value: "1"
         - name: WPS_DEBUG
           value: "1"
         {{- end }}
-        - name: WPS_HOST
-          value: {{ $.Values.wps.host }}
         - name: CELERY_BROKER_URL
           value: redis://{{ template "redis.fullname" . }}-master/0
         - name: CELERY_RESULT_BACKEND
           value: redis://{{ template "redis.fullname" . }}-master/0
         - name: POSTGRES_HOST
           value: {{ template "postgresql.fullname" . }}
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: postgres_password
-        - name: OAUTH_CLIENT
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: oauth_client
-        - name: OAUTH_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: oauth_secret
+        - name: PROVISIONER_FRONTEND
+          value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.frontendPort }}
+        envFrom:
+        - secretRef:
+            name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
         ports:
         {{- range .Values.wps.ports }}
         - containerPort: {{ .port }}
@@ -94,7 +86,23 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/config
+        - mountPath: /data/public
+          name: public-volume
+          subPath: public
+        {{- if .Values.development }}
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
       volumes:
+      {{- if .Values.development }}
+      - name: devel-volume
+        hostPath: 
+          path: /opt/cwt/devel
+          type: DirectoryOrCreate
+      {{- end }}
       - name: config-volume
         configMap:
           name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+      - name: public-volume
+        persistentVolumeClaim:
+          claimName: public-pvc

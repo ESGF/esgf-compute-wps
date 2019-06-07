@@ -1,0 +1,50 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-kube-monitor
+  labels:
+    app: {{ .Release.Name }}-kube-monitor
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-kube-monitor
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-kube-monitor
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      {{- if .Values.kubeMonitor.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.kubeMonitor.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
+      serviceAccount: wps-dask
+      restartPolicy: Always
+      containers:
+      - name: {{ .Release.Name }}-kube-monitor
+        image: {{ .Values.kubeMonitor.image }}:{{ .Values.kubeMonitor.imageTag }}
+        imagePullPolicy: {{ .Values.kubeMonitor.imagePullPolicy }}
+        {{- if and $.Values.kubeMonitor.resources (not $.Values.development)}}
+        resources: {{ $.Values.kubeMonitor.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        args:
+          - --namespace
+          - {{ required "Set namespace at kubeMonitor.namespace" .Values.kubeMonitor.namespace }}
+          - --timeout
+          - "{{ .Values.kubeMonitor.timeout }}"
+          - {{ .Release.Name }}-dask-scheduler:8786
+          - /etc/config/dask/worker-spec.yml
+        volumeMounts:
+        - mountPath: /etc/config/dask
+          name: dask-volume
+      volumes:
+      - name: dask-volume
+        configMap:
+          name: {{ $.Release.Name }}-dask-config 

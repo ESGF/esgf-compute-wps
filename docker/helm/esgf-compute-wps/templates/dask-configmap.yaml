@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-dask-config
+  labels:
+    app: {{ template "esgf-compute-wps.name" . }}
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  worker-spec.yml: |
+    kind: Pod
+    metadata:
+      labels:
+        dask: worker
+    spec:
+      restartPolicy: Never
+      {{- if .Values.wps.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.wps.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
+      containers:
+      - image: {{ .Values.dask.image }}:{{ .Values.dask.imageTag }}
+        imagePullPolicy: Always
+        env:
+        - name: CDAT_ANONYMOUS_LOG
+          value: 'no'
+        command: 
+        - dask-worker
+        - --no-bokeh
+        - --nthreads
+        - '{{ $.Values.dask.nthreads }}'
+        - --nprocs
+        - '{{ $.Values.dask.nprocs }}'
+        - --memory-limit
+        - {{ $.Values.dask.memoryLimit }}
+        - --death-timeout
+        - '60'
+        - {{ .Release.Name }}-dask-scheduler:8786
+        name: dask
+        {{- if and $.Values.dask.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        resources: {{ $.Values.dask.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /data/public
+          name: public-volume
+          subPath: public
+      volumes:
+      - name: public-volume
+        persistentVolumeClaim:
+          claimName: public-pvc

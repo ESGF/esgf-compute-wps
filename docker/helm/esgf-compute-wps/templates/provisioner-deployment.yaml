@@ -1,0 +1,76 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-provisioner
+  labels:
+    app: {{ .Release.Name }}-provisioner
+    chart: {{ template "esgf-compute-wps.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-provisioner
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-provisioner
+        chart: {{ template "esgf-compute-wps.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      {{- if .Values.provisioner.nodeSelector }}
+      nodeSelector: 
+        {{ .Values.provisioner.nodeSelector | toYaml | trimSuffix "\n" }}
+      {{- end }}
+      containers:
+      - name: {{ .Release.Name }}-provisioner
+        image: {{ .Values.provisioner.image }}:{{ .Values.provisioner.imageTag }}
+        imagePullPolicy: {{ .Values.provisioner.imagePullPolicy }}
+        {{- if .Values.provisioner.development }}
+        command:
+          - tini
+          - --
+        args:
+          - /bin/sleep
+          - infinity
+        {{- end }}
+        env:
+        - name: FRONTEND_PORT
+          value: {{ .Values.provisioner.frontendPort | quote }}
+        - name: BACKEND_PORT
+          value: {{ .Values.provisioner.backendPort | quote }}
+        - name: REDIS_HOST 
+          value: {{ template "redis.fullname" $ }}-master
+        {{- if not .Values.provisioner.development }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.provisioner.frontendPort }}
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.provisioner.frontendPort }}
+          initialDelaySeconds: 40
+          periodSeconds: 20
+        {{- end }}
+        {{- if and $.Values.provisioner.resources (not $.Values.development) }}
+        resources: {{ $.Values.provisioner.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.provisioner.frontendPort }}
+        - containerPort: {{ .Values.provisioner.backendPort }}
+        {{- if $.Values.provisioner.development }}
+        volumeMounts:
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
+      volumes:
+      {{- if $.Values.provisioner.development }}
+      - name: devel-volume
+        hostPath: 
+          path: /opt/cwt/devel
+          type: DirectoryOrCreate
+      {{- end }}

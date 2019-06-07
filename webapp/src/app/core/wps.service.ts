@@ -62,21 +62,25 @@ export class WPSService {
         return item.innerHTML.replace(/^\n+|\n+$/g, '');
       });
 
-      let metadata = Array.from(xmlDoc.getElementsByTagNameNS(OWS_NS, 'Metadata')).map((item: any) => {
-        let data = item.attributes.getNamedItemNS(XLINK_NS, 'title').value.split(':');
-        let result = {};
-        let name = data[0];
+      let metadata = {};
 
-        if (data[1] == '*') {
-          result[name] = Infinity;
-        } else {
-          result[name] = data[1];
-        }
+      try {
+        metadata = Array.from(xmlDoc.getElementsByTagNameNS(OWS_NS, 'Metadata')).map((item: any) => {
+          let data = item.attributes.getNamedItemNS(XLINK_NS, 'title').value.split(':');
+          let result = {};
+          let name = data[0];
 
-        return result;
-      }).reduce((a: any, b: any) => {
-        return Object.assign(a, b); 
-      });
+          if (data[1] == '*') {
+            result[name] = Infinity;
+          } else {
+            result[name] = data[1];
+          }
+
+          return result;
+        }).reduce((a: any, b: any) => {
+          return Object.assign(a, b); 
+        });
+      } catch (err) { }
 
       return {
         abstract: abstracts[0] || 'Not available',
@@ -149,12 +153,6 @@ export class WPSService {
     };
   }
 
-  prepareDataInputsString(processes: Process[]): string {
-    let data = this.prepareDataInputs(processes);
-
-    return `[variable=${data.variable}|domain=${data.domain}|operation=${data.operation}]`;
-  }
-
   prepareDataInputsXML(processes: Process[]): string {
     let dataInputs = this.prepareDataInputs(processes);
 
@@ -173,12 +171,7 @@ export class WPSService {
 
     let identifierElem = dom.createElementNS(OWS_NS, 'ows:Identifier');
 
-    if (processes.length == 1) {
-      identifierElem.innerHTML = processes[0].identifier;
-
-    } else {
-      identifierElem.innerHTML = 'CDAT.workflow';
-    }
+    identifierElem.innerHTML = processes[0].identifier;
 
     root.appendChild(identifierElem);
 

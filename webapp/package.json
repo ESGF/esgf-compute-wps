@@ -20,6 +20,7 @@
     "ngx-joyride": "^2.2.1",
     "rxjs": "6.2.0",
     "rxjs-compat": "^6.3.3",
+    "tar": "^4.4.2",
     "zone.js": "^0.8.16"
   },
   "devDependencies": {

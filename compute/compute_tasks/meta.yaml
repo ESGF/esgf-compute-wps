@@ -1,0 +1,50 @@
+{% set data = load_setup_py_data() %}
+
+package:
+  name: compute-tasks
+  version: {{ data.get('version') }}
+
+source:
+  path: ./
+
+build:
+  build: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
+  noarch: python
+  entry_points:
+    - compute-tasks-metrics = compute_tasks.metrics_:main
+    - compute-tasks-backend = compute_tasks.backend:main
+
+requirements:
+  build:
+    - git
+
+  host:
+    - python
+
+  run:
+    - python=3.6.7
+    - nomkl=3.0
+    - cdms2=3.1.2.2019.05.08.23.56
+    - libcdms=3.1.2.2019.02.09.03.57
+    - libdrs=3.1.2.2019.02.09.01.20
+    - libdrs_f=3.1.2.2019.02.09.01.20
+    - cdtime=3.1.2.2019.02.09.12.03
+    - cdutil=8.1
+    - esgf-compute-api={{ environ.get('COMPUTE_API_VER') }}
+    - pyzmq=18.0.1
+    - redis-py=3.2.1
+    - requests=2.21.0
+    - celery=4.2.1
+    - prometheus_client=0.6.0
+    - dask=1.2.2
+    - distributed=1.28.0
+    - xarray=0.12.1
+    - netcdf4=1.5.1.2
+    - python-coreapi=2.3.3
+    - compute-kubernetes
+    - compute-provisioner
+
+about:
+  home: https://github.com/ESGF/esgf-compute-wps
+  summary: LLNL WPS Django Application

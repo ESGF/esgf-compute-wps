@@ -32,32 +32,81 @@ spec:
         {{ $.Values.celery.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
       containers:
+      - name: {{ $.Release.Name }}-celery-{{ .name }}-metrics
+        image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
+        imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
+        command:
+          - tini
+          - --
+        args:
+          - /bin/bash
+          - -c
+          - "mkdir -p /metrics && compute-tasks-metrics"
+        resources:
+          {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        volumeMounts:
+        {{- if $.Values.development }}
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
+        - mountPath: /metrics
+          name: metrics-volume
+      - name: {{ $.Release.Name }}-celery-{{ .name }}-backend
+        image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
+        imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
+        {{- if $.Values.celery.backend.development }}
+        command:
+          - /bin/sleep
+          - infinity
+        {{- else }}
+        command:
+          - tini
+          - --
+        args:
+          - /bin/bash
+          - -c
+          - "mkdir -p /metrics && compute-tasks-backend"
+        {{- end }}
+        resources:
+          {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        env:
+        - name: PROVISIONER_BACKEND
+          value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
+        - name: INTERNAL_LB
+          value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
+        - name: API_USERNAME
+          value: {{ $.Values.wps.apiUsername }}
+        - name: API_PASSWORD
+          value: {{ $.Values.wps.apiPassword }}
+        - name: CELERY_BROKER_URL
+          value: redis://{{ template "redis.fullname" $ }}-master/0
+        - name: CELERY_RESULT_BACKEND
+          value: redis://{{ template "redis.fullname" $ }}-master/0
+        volumeMounts:
+        {{- if $.Values.development }}
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
+        - mountPath: /metrics
+          name: metrics-volume
       - name: {{ $.Release.Name }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
         {{- if not $.Values.development }}
         args: 
-          - "-l"
-          - "INFO"
           - "-c"
           - "1"
-          - "--max-memory-per-child"
-{{- if contains "G" $.Values.celery.resources.limits.memory }}
-  {{- (printf "- %s" ($.Values.celery.resources.limits.memory | regexFind "([0-9]+)" | mul 1000000000 | quote ) | nindent 10) }}
-{{- else if contains "M" $.Values.celery.resources.limits.memory }}
-  {{- (printf "- %s" ($.Values.celery.resources.limits.memory | regexFind "([0-9]+)" | mul 1000000 | quote ) | nindent 10) }}
-{{- else }}
-  {{- printf "- \"100000000\"" | nindent 10 }}
-{{- end }}
+          - "-Q"
+          - "{{ .name }}"
           - "-n"
           - "$(HOSTNAME)"
-        {{- range $key, $value := .argsExtra }}
-          - {{ $key | quote }}
-          - {{ $value | quote }}
-        {{- end }}
+          - "-l"
+          - "DEBUG"
         {{- end }}
         {{- if $.Values.development }}
         command:
+          - tini
+          - --
           - sleep
           - infinity
         {{- end }}
@@ -91,45 +140,45 @@ spec:
         {{- end }}
         env:
         {{- if $.Values.development }}
+        - name: DEV
+          value: "1"
         - name: WPS_DEBUG
           value: "1"
         {{- end }}
-        {{- if $.Values.celery.metrics }}
-        - name: CWT_METRICS
-          value: {{ $.Values.celery.metrics | quote }}
-        {{- end }}
-        - name: HOSTNAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: WPS_HOST
-          value: {{ $.Values.wps.host }}
+        - name: PROVISIONER_BACKEND
+          value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
         - name: CELERY_BROKER_URL
           value: redis://{{ template "redis.fullname" $ }}-master/0
         - name: CELERY_RESULT_BACKEND
           value: redis://{{ template "redis.fullname" $ }}-master/0
-        - name: POSTGRES_HOST
-          value: {{ template "postgresql.fullname" $ }}
-        - name: POSTGRES_HOST
-          value: {{ template "postgresql.fullname" $ }}
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: postgres_password
-        - name: OAUTH_CLIENT
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: oauth_client
-        - name: OAUTH_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
-              key: oauth_secret
+        - name: PROMETHEUS_HOST
+          value: {{ $.Values.wps.prometheus.host }}
+        - name: DASK_KUBE_NAMESPACE
+          value: {{ $.Values.kubeMonitor.namespace }}
+        - name: DASK_SCHEDULER
+          value: {{ $.Release.Name }}-dask-scheduler:8786
+        - name: DASK_WORKERS
+          value: "{{ $.Values.dask.workers }}"
+        - name: INTERNAL_LB
+          value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
+        - name: DATA_PATH
+          value: {{ $.Values.wps.publicPath }}
+        - name: API_USERNAME
+          value: {{ $.Values.wps.apiUsername }}
+        - name: API_PASSWORD
+          value: {{ $.Values.wps.apiPassword }}
+        envFrom:
+        - secretRef:
+            name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
         volumeMounts:
-        - mountPath: /etc/config
-          name: config-volume
+        {{- if $.Values.development }}
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
+        - mountPath: /metrics
+          name: metrics-volume
+        - mountPath: /etc/config/dask
+          name: dask-volume
         - mountPath: /data/cache
           name: cache-volume
           subPath: cache
@@ -137,9 +186,17 @@ spec:
           name: public-volume
           subPath: public
       volumes:
-      - name: config-volume
+      {{- if $.Values.development }}
+      - name: devel-volume
+        hostPath: 
+          path: /opt/cwt/devel
+          type: DirectoryOrCreate
+      {{- end }}
+      - name: metrics-volume
+        emptyDir: {}
+      - name: dask-volume
         configMap:
-            name: {{ template "esgf-compute-wps.fullname" $ }}-django-config
+          name: {{ $.Release.Name }}-dask-config 
       - name: cache-volume
         persistentVolumeClaim:
           claimName: cache-pvc

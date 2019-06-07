@@ -27,8 +27,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '+a#&@l4!^)i5cn=!*ye^!42xcmyqs3l&j368ow^-y=3fs-txq6'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
-TEST = False
+DEBUG = os.environ.get('WPS_DEBUG', False)
+TEST = os.environ.get('WPS_TEST', False)
 
 APPEND_SLASH = False
 
@@ -42,7 +42,7 @@ CACHES = {
 }
 
 INSTALLED_APPS = [
-    'wps',
+    'compute_wps',
     'rest_framework',
     'grappelli',
     'django.contrib.admin',
@@ -121,7 +121,7 @@ WSGI_APPLICATION = 'compute.wsgi.application'
 
 DATABASES = {}
 
-if TEST:
+if TEST or DEBUG:
     DATABASES['default'] = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),

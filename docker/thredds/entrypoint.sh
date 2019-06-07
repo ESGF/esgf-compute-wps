@@ -15,4 +15,6 @@ cp catalog.xml ./content/thredds/catalog.xml
 
 cp threddsConfig.xml ./content/thredds/threddsConfig.xml
 
+cp -rf ./webapps/threddsCWT/threddsIcon.gif ./webapps/ROOT
+
 tail -f logs/catalina.out

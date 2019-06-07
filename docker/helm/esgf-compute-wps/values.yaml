@@ -1,35 +1,183 @@
 development: false
 
+traefik:
+  serviceType: NodePort
+
+  rbac:
+    enabled: true
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  ssl:
+    enabled: true
+    enforced: true
+    tlsMinVersion: VersionTLS12
+    cipherSuites:
+    - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+    - TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+    - TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+    - TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
+    generateTLS: true
+    
+  dashboard:
+    enabled: true
+    domain: ""
+    ingress:
+      annotations:
+        traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+      labels:
+        traffic-type: external
+
+  kubernetes:
+    labelSelector: traffic-type=internal
+
+  metrics:
+    prometheus:
+      enabled: true
+      restrictAccess: true
+
+# Persistence
+# 
+# Setting path to "null" will prevent a persistent volume from being created.
+#
+# persistence:
+#   cache:
+#     path: null
+#   
+
 persistence:
   cache:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/nfs/cwt
+    path: /p/cscratch/nimbus/wps/data/cache
 
   public:
     storageClassName: slow
     capacity: 100Gi
-    path: /opt/nfs/cwt
+    path: /p/cscratch/nimbus/wps/data/public
 
   postgresql:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/cwt
-
-  postgresql-backup:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/nfs/cwt
+    path: /opt/nimbus/wps/postgresql
 
   redis:
     storageClassName: slow
     capacity: 10Gi
-    path: /opt/cwt
+    path: /opt/nimbus/wps/redis
+
+provisioner:
+  nodeSelector:
+    tier: backend
+
+  image: jasonb87/compute-provisioner
+  imageTag: 0.1.0
+
+  imagePullPolicy: Always
+
+  frontendPort: 7777
+  backendPort: 7778
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    request:
+      cpu: 100m
+      memory: 32Mi
+
+kubeMonitor:
+  image: jasonb87/compute-kube-monitor
+  imageTag: 0.1.0
+
+  imagePullPolicy: Always
+
+  timeout: 120
+
+  nodeSelector:
+    tier: backend
+
+  namespace:
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 512Mi
+
+    requests:
+      cpu: 500m
+      memory: 256Mi
+
+dask:
+  image: jasonb87/compute-celery
+  imageTag: 0.1.0
+
+  imagePullPolicy: Always
+
+  workers: 10
+
+  nthreads: 4
+  nprocs: 1
+  memoryLimit: 8GB
+
+  resources:
+    limits:
+      cpu: 4
+      memory: 8Gi
+    request:
+      cpu: 4
+      memory: 8Gi
+
+  scheduler:
+    nodeSelector:
+      tier: backend
+
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /daskboard/metrics
+      prometheus.io/port: "8787"
+
+    ingress:
+      annotations:
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+      labels:
+        traffic-type: external
+
+    resources:
+      limits:
+        cpu: 2
+        memory: 1Gi
+      requests:
+        cpu: 1
+        memory: 512Mi
 
 nginx:
   replicas: 1
-  image: jasonb87/cwt_webapp
-  imageTag: devel
+  image: jasonb87/compute-webapp
+  imageTag: 0.1.0
 
   nodeSelector:
     tier: backend
@@ -48,19 +196,28 @@ nginx:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    labels:
+      traffic-type: external
   
 wps:
   replicas: 1
-  image: jasonb87/cwt_wps
-  imageTag: devel
+  image: jasonb87/compute-wps
+  imageTag: 0.1.0
+  imagePullPolicy: Always
+
   host: aims2.llnl.gov
   externalHost: https://aims2.llnl.gov
   allowedCIDR: 172.17.0.0/16
 
+  apiUsername:
+  apiPassword:
+
+  prometheus:
+    host:
+
   nodeSelector:
     tier: backend
 
-  ingressPath: /data/ingress
   publicPath: /data/public
 
   adminEmail:
@@ -86,13 +243,10 @@ wps:
     postal:
     counter:
     email:
-    
-  prometheus:
-    host: mottled-mouse-prometheus-server.default.svc
 
   annotations:
     prometheus.io/scrape: "true"
-    prometheus.io/path: /wps/metrics
+    prometheus.io/path: /api/metrics/
     prometheus.io/port: "8000"
 
   resources:
@@ -103,20 +257,14 @@ wps:
       cpu: 200m
       memory: 256Mi
 
-  worker:
-    cpuCount: 3
-    cpuUnits: 100
-    memory: "200000000"
-    userPercent: 0.10
-
   oauth:
-    client: ""
-    secret: ""
+    client:
+    secret:
 
   email:
-    host: "localhost"
+    host: 
     port: 25
-    user: "wps"
+    user: ""
     password: ""
 
   ports:
@@ -129,14 +277,22 @@ wps:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    external:
+      labels:
+        traffic-type: external
+    internal:
+      labels:
+        traffic-type: internal
 
 celery:
-  image: jasonb87/cwt_celery
-  imageTag: devel
+  image: jasonb87/compute-celery
+  imageTag: 0.1.0
   metrics: /metrics
 
   nodeSelector:
     tier: backend
+
+  imagePullPolicy: Always
 
   resources:
     limits:
@@ -146,28 +302,23 @@ celery:
       cpu: 200m
       memory: 512Mi
 
+  backend:
+    development: false
+
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 200m
+        memory: 64Mi
+
   flower:
     enabled: false
 
   queues:
   - name: ingress
     replicas: 1
-    argsExtra:
-      "-c": 1
-      "-Q": ingress
-    annotations:
-      prometheus.io/scrape: "true"
-      prometheus.io/path: /metrics
-      prometheus.io/port: "8080"
-    ports:
-      - port: 8080
-        name: metrics
-
-  - name: edask
-    replicas: 1
-    argsExtra:
-      "-c": 1
-      "-Q": edask
     annotations:
       prometheus.io/scrape: "true"
       prometheus.io/path: /metrics
@@ -178,11 +329,14 @@ celery:
 
 thredds:
   replicas: 1
-  image: jasonb87/cwt_thredds
+  image: jasonb87/compute-thredds
   imageTag: 4.6.10
 
   nodeSelector:
     tier: backend
+
+  heapMax: 2g
+  heapInit: 512m
 
   resources:
     limits:
@@ -190,7 +344,7 @@ thredds:
       memory: 2Gi
     requests:
       cpu: 500m
-      memory: 1Gi
+      memory: 512Mi
 
   ingress:
     path: /threddsCWT
@@ -199,18 +353,21 @@ thredds:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+    labels:
+      traffic-type: external
 
 postgresql:
   postgresqlUsername: postgres
-  postgresqlPassword: abcd1234
+  postgresqlPassword:
   port: 5432
 
   nodeSelector:
-    tier: database
+    tier: backend
 
   master:
     nodeSelector:
-      tier: database
+      tier: backend
+      storage/wps: local
 
   persistence:
     enabled: true
@@ -235,6 +392,8 @@ redis:
 
   usePassword: false
 
+  # Cannot use permission init container when using existing claim 
+  # chown -R 1001:1001
   persistence:
     existingClaim: redis-pvc
 
@@ -251,16 +410,15 @@ redis:
         memory: 256Mi
 
     nodeSelector:
-      tier: database
-
-    securityContext:
-      enabled: false
+      tier: backend
+      storage/wps: local
 
 edask:
   enabled: false
   replicas: 1
-  image: jasonb87/cwt_edask
+  image: jasonb87/compute-edask
   imageTag: latest
+  imagePullPolicy: Always
 
   nodeSelector:
     tier: backend
@@ -275,34 +433,4 @@ edask:
       memory: 1Gi
     requests:
       cpu: 500m
-      memory: 512Gi
-
-  scheduler:
-    address: innocent-deer-edask-scheduler.default.svc:8786
-
-    nodeSelector:
-      tier: backend
-
-    replicas: 1
-
-    resources:
-      limits:
-        cpu: 100m
-        memory: 256Mi
-      requests:
-        cpu: 50m
-        memory: 128Mi
-
-  worker:
-    replicas: 1
-
-    nodeSelector:
-      tier: backend
-
-    resources:
-      limits:
-        cpu: 200m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
+      memory: 512Mi

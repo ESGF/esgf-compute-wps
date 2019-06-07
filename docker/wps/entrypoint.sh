@@ -1,13 +1,5 @@
 #! /bin/bash
 
-function cleanup() {
-  kill -15 $child_pid
-
-  wait "$child_pid"
-}
-
-trap cleanup SIGINT SIGTERM
-
 function check_postgres() {
   python -c "import psycopg2; psycopg2.connect(host='${POSTGRES_HOST}', password='${POSTGRES_PASSWORD}', user='postgres')" 2>/dev/null
 
@@ -27,7 +19,7 @@ fi
 
 python $app_root/manage.py migrate
 python $app_root/manage.py server --host default
-python $app_root/manage.py processes
+python $app_root/manage.py create_api_user ${API_USERNAME} ${API_PASSWORD}
 
 if [ -z "${WPS_DEBUG}" ]
 then

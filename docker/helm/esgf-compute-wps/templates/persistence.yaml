@@ -1,4 +1,5 @@
 {{- range $key, $val := .Values.persistence }}
+{{- if $val.path }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -17,6 +18,7 @@ spec:
     path: {{ $val.path }}
     type: DirectoryOrCreate
 ---
+{{- end }}
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:

@@ -9,12 +9,16 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   app.conf: |
-    wps.server.address={{ template "esgf-compute-wps.name" . }}.default.svc
-    request.port=4556
-    response.port=4557
+    wps.server.address=0.0.0.0
+    request.port=5670
+    response.port=5671
     sources.allowed=http
 {{ if .Values.edask.scheduler }}
     dask.scheduler={{ .Values.edask.scheduler.address }}
 {{ end }}
     cache.size.max=500M
-    edask.cache.dir=/data/edask
+    edask.cache.dir=/data/cache
+  hosts: |
+    localhost
+    localhost
+    localhost

@@ -5,6 +5,9 @@ metadata:
   labels:
     app: {{ .Release.Name }}-wps
     release: {{ .Release.Name }}
+{{- if .Values.wps.ingress.external.labels }}
+{{ toYaml .Values.wps.ingress.external.labels | nindent 4 }}
+{{- end }}
 {{- if .Values.wps.ingress.annotations }}
   annotations:
 {{ toYaml .Values.wps.ingress.annotations | nindent 4 }}
@@ -18,6 +21,29 @@ spec:
           serviceName: {{ .Release.Name }}-wps
           servicePort: 8000
       - path: /wps
+        backend:
+          serviceName: {{ .Release.Name }}-wps
+          servicePort: 8000
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-wps-internal
+  labels:
+    app: {{ .Release.Name }}-wps-internal
+    release: {{ .Release.Name }}
+{{- if .Values.wps.ingress.internal.labels }}
+{{ toYaml .Values.wps.ingress.internal.labels | nindent 4 }}
+{{- end }}
+{{- if .Values.wps.ingress.annotations }}
+  annotations:
+{{ toYaml .Values.wps.ingress.annotations | nindent 4 }}
+{{- end }}
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /internal_api
         backend:
           serviceName: {{ .Release.Name }}-wps
           servicePort: 8000

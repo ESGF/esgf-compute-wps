@@ -228,15 +228,35 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     let processes = this.nodes.map((item: ProcessWrapper) => item.process);
     let api_key = this.authService.user.api_key;
 
-    processes.forEach((item: Process) => {
-      if (this.base.parameters.length > 0 && item.parameters.length == 0) {
-        Object.assign(item.parameters, this.base.parameters);
-      }
+    if (processes.length > 1) {
+      let workflow = processes.find((item: Process) => {
+        return item.identifier == 'CDAT.workflow';
+      });
 
-      if (this.base.regrid.regridType != 'None' && item.regrid.regridType == 'None') {
-        Object.assign(item.regrid, this.base.regrid);
+      if (workflow == undefined) {
+        workflow = new Process('CDAT.workflow');
+
+        let inputCandidates = processes.map((item: Process) => {
+          return item.inputs.map((x: (Process | Variable)) => { return x.uid; })
+        }).reduce((p, c) => {
+          return p.concat(c);
+        });
+
+        workflow.inputs = processes.filter((item: Process) => {
+          return inputCandidates.indexOf(item.uid) != -1;
+        });
+
+        if (this.base.parameters.length > 0) {
+          Object.assign(workflow.parameters, this.base.parameters);
+        }
+
+        if (this.base.regrid.regridType != 'None') {
+          Object.assign(workflow.regrid, this.base.regrid);
+        }
+
+        processes.unshift(workflow);
       }
-    });
+    }
 
     this.wpsService.execute(this.configService.wpsPath, api_key, processes)
       .then((data: any) => {
@@ -434,7 +454,7 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
       if (this.stateData !== null && this.stateData.dst !== null) {   
         let dstProcess = this.stateData.dst.process;
 
-        if (dstProcess.inputs.length + 1 > dstProcess.description.metadata.inputs) {
+        if (dstProcess.inputs.length + 1 > dstProcess.description.metadata.inputs && this.stateData.src.process.identifier != 'CDAT.workflow') {
           this.notificationService.error('Cannot complete connection, destination has exceeded maximum number of inputs');
         } else {
           let checkPath = this.pathExists(this.stateData.dst.process, this.stateData.src.process);

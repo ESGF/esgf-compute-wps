@@ -29,7 +29,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-edask
         image: {{ .Values.edask.image }}:{{ .Values.edask.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.edask.imagePullPolicy }}
         livenessProbe:
           tcpSocket:
             port: 5670
@@ -52,7 +52,7 @@ spec:
         - mountPath: /data/edask
           name: cache-volume
           subPath: edask
-        - mountPath: /root/.edask/conf
+        - mountPath: /root/.edas/conf
           name: edask-configmap-volume
       volumes:
       - name: edask-configmap-volume
