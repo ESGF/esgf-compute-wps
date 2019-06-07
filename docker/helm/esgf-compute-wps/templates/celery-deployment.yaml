@@ -54,7 +54,7 @@ spec:
       - name: {{ $.Release.Name }}-celery-{{ .name }}-backend
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
-        {{- if $.Values.development }}
+        {{- if $.Values.celery.backend.development }}
         command:
           - /bin/sleep
           - infinity

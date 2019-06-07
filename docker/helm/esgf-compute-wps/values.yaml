@@ -303,6 +303,8 @@ celery:
       memory: 512Mi
 
   backend:
+    development: false
+
     resources:
       limits:
         cpu: 500m
