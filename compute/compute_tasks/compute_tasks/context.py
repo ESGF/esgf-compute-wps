@@ -169,6 +169,7 @@ class StateMixin(object):
             'process': self.process,
             'status': self.status,
             'metrics': self.metrics,
+            'output': self.output,
         }
 
     def action(self, keys, params=None, **kwargs):
@@ -303,7 +304,7 @@ class StateMixin(object):
 
         self.track_output(local_path)
 
-        self.output.append(cwt.Variable(local_path, var_name, name, mime_type=mime_type))
+        self.output.append(cwt.Variable(local_path, var_name, name=name, mime_type=mime_type))
 
         return local_path
 
@@ -323,6 +324,8 @@ class StateMixin(object):
 
 class WorkflowOperationContext(StateMixin, object):
     def __init__(self, inputs, domain, operation):
+        super(WorkflowOperationContext, self).__init__()
+
         self._inputs = inputs
         self.domain = domain
         self.operation = operation
@@ -387,7 +390,6 @@ class WorkflowOperationContext(StateMixin, object):
             '_inputs': self._inputs,
             'domain': self.domain,
             'operation': self.operation,
-            'output': self.output,
         }
 
         data.update(self.store_state())
@@ -446,6 +448,8 @@ class WorkflowOperationContext(StateMixin, object):
 
 class OperationContext(StateMixin, object):
     def __init__(self, inputs=None, domain=None, operation=None):
+        super(OperationContext, self).__init__()
+
         self.inputs = inputs
         self.domain = domain
         self.operation = operation
@@ -497,7 +501,6 @@ class OperationContext(StateMixin, object):
             'inputs': self.inputs,
             'domain': self.domain,
             'operation': self.operation,
-            'output': self.output,
         }
 
         data.update(self.store_state())

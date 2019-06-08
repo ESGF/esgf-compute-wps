@@ -74,7 +74,7 @@ def patch_settings(settings):
     # Server values
     setattr(settings, 'EXTERNAL_URL', config.get_value('server', 'external.url'))
     setattr(settings, 'EXTERNAL_WPS_URL', '{!s}/wps/'.format(settings.EXTERNAL_URL))
-    setattr(settings, 'STATUS_URL', '{!s}/api/status/{{job_id}}'.format(settings.EXTERNAL_URL))
+    setattr(settings, 'STATUS_URL', '{!s}/api/status/{{job_id}}/'.format(settings.EXTERNAL_URL))
     setattr(settings, 'OAUTH2_CALLBACK_URL', '{!s}/api/oauth2/callback/'.format(settings.EXTERNAL_URL))
     setattr(settings, 'OPENID_TRUST_ROOT_URL', '{!s}/'.format(settings.EXTERNAL_URL))
     setattr(settings, 'OPENID_RETURN_TO_URL', '{!s}/api/openid/callback/'.format(settings.EXTERNAL_URL))
