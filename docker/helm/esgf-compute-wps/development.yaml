@@ -33,6 +33,8 @@ wps:
   apiUsername: wps_api_user
   apiPassword: changeit
 
+  adminEmail: test@test.hello
+
   email:
     host: dasda
 
