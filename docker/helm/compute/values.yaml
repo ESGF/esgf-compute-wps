@@ -1,5 +1,12 @@
+# This chart provides default resource requests and limits for each container. If
+# this is not desired each "requests:" may be replaced with "requests: null".
+
+# Run the chart in development mode, this will start the celery and wps containers
+# with /bin/sleep infinity and each container will need to have their respective
+# application run manually. This allows for live code editing in the environment.
 development: false
 
+# Internal HTTP/TCP load balancer
 traefik:
   serviceType: NodePort
 
@@ -58,13 +65,20 @@ traefik:
 
 # Persistence
 # 
-# Setting path to "null" will prevent a persistent volume from being created.
+# For each entry below a PersistentVolume (PV) and PersistentVolumeClaim (PVC) is created.
+# The created PVs will use the path value to populate HostPath types. If dynamic provisioning
+# is required each path value will need to be deleted and the appropriate storageClassName
+# will need to be set. This will prevent the chart from creating PersistenVolume allowing
+# the PVCs to bind to the PVs created by the dynamic provisioner. e.g.
 #
 # persistence:
-#   cache:
+#   public:
+#     path: ...
+#
+# persistence:
+#   public:
+#     storageClassName: cephfs-default # Storage class that will be used for the PVs
 #     path: null
-#   
-
 persistence:
   public:
     storageClassName: slow
@@ -81,6 +95,7 @@ persistence:
     capacity: 10Gi
     path: /opt/nimbus/wps/redis
 
+# Provisioner
 provisioner:
   nodeSelector:
     tier: backend
@@ -101,17 +116,20 @@ provisioner:
       cpu: 100m
       memory: 32Mi
 
+# Kubernetes Monitor
 kubeMonitor:
   image: jasonb87/compute-kube-monitor
   imageTag: 0.1.0
 
   imagePullPolicy: Always
 
+  # Number of seconds between checking whether resources are ready to be cleaned up
   timeout: 600
 
   nodeSelector:
     tier: backend
 
+  # The namespace to monitor
   namespace:
 
   resources:
@@ -129,10 +147,14 @@ dask:
 
   imagePullPolicy: Always
 
+  # Number of workers per user
   workers: 10
 
+  # Number of threads per worker
   nthreads: 4
+  # Number of processes per worker
   nprocs: 1
+  # Memory limit for each worker
   memoryLimit: 8GB
 
   resources:
@@ -200,13 +222,14 @@ wps:
   imageTag: 0.1.0
   imagePullPolicy: Always
 
-  host: aims2.llnl.gov
-  externalHost: https://aims2.llnl.gov
+  # Set to external hostname of cluster
+  externalHost: 
   allowedCIDR: 172.17.0.0/16
 
   apiUsername:
   apiPassword:
 
+  # Set prometheus server to use for metrics collection
   prometheus:
     host:
 
@@ -217,6 +240,7 @@ wps:
 
   adminEmail:
 
+  # Configure the values that will be used in creating WPS responses
   title: "LLNL WPS Server"
   abstract: "LLNL WPS Compute Service"
   keywords:
@@ -252,6 +276,7 @@ wps:
       cpu: 200m
       memory: 256Mi
 
+  # OAuth configuration
   oauth:
     client:
     secret:
@@ -311,6 +336,7 @@ celery:
   flower:
     enabled: false
 
+  # Each entry will create a new celery queue
   queues:
   - name: ingress
     replicas: 1
@@ -330,6 +356,7 @@ thredds:
   nodeSelector:
     tier: backend
 
+  # Set java parameters for tomcat server
   heapMax: 2g
   heapInit: 512m
 

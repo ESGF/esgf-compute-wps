@@ -13,7 +13,7 @@ data:
     {{- if .Values.wps.allowedCIDR }}
     allowed.cidr={{ .Values.wps.allowedCIDR }}
     {{- end }}
-    host={{ required "Set wps.host" .Values.wps.host }}
+    host={{ required "Set wps.externalHost" .Values.wps.externalHost }}
     internal.lb={{ template "traefik.fullname" . }}.{{ .Release.Namespace }}.svc
 
     [email]
@@ -23,11 +23,11 @@ data:
     password={{ .Values.wps.email.password }}
 
     [wps]
-    title={{ .Values.wps.title }}
-    abstract={{ .Values.wps.abstract }}
-    keywords={{ .Values.wps.keywords | join "," }}
-    provider.name={{ .Values.wps.provider.name }}
-    provider.site={{ .Values.wps.provider.site }}
+    title={{ required "Set wps.title" .Values.wps.title }}
+    abstract={{ required "Set wps.abstract" .Values.wps.abstract }}
+    keywords={{ required "Set wps.keywords (list)" .Values.wps.keywords | join "," }}
+    provider.name={{ required "Set wps.provider.name" .Values.wps.provider.name }}
+    provider.site={{ required "Set wps.provider.site" .Values.wps.provider.site }}
     contact.name={{ .Values.wps.contact.name | default "Unknown" }}
     contact.position={{ .Values.wps.contact.position | default "Unknown" }}
     contact.phone={{ .Values.wps.contact.phone | default "Unknown" }}
@@ -39,17 +39,16 @@ data:
     address.email={{ .Values.wps.address.email | default "Unknwon" }}
 
     [output]
-    fileserver.url={{ required "Set wps.externalHost" .Values.wps.externalHost }}/threddsCWT/fileServer/public/{filename}
-    dodsc.url={{ .Values.wps.externalHost }}/threddsCWT/dodsC/public/{filename}
+    fileserver.url=https://{{ .Values.wps.externalHost }}/threddsCWT/fileServer/public/{filename}
+    dodsc.url=https://{{ .Values.wps.externalHost }}/threddsCWT/dodsC/public/{filename}
     local.path={{ required "Set wps.publicPath" .Values.wps.publicPath }}
 
     [server]
-    external.url={{ .Values.wps.externalHost }}
-    external.wps.url={{ .Values.wps.externalHost }}/wps/
+    external.url=https://{{ .Values.wps.externalHost }}
     admin.email={{ required "Set wps.adminEmail" .Values.wps.adminEmail }}
 
     [external]
-    jobs.url={{ .Values.wps.externalHost }}/user/jobs
-    login.url={{ .Values.wps.externalHost }}/auth/login
-    profile.url={{ .Values.wps.externalHost }}/user/profile
-    openid.callback.success.url={{ .Values.wps.externalHost }}/auth/login/callback
+    jobs.url=https://{{ .Values.wps.externalHost }}/user/jobs
+    login.url=https://{{ .Values.wps.externalHost }}/auth/login
+    profile.url=https://{{ .Values.wps.externalHost }}/user/profile
+    openid.callback.success.url=https://{{ .Values.wps.externalHost }}/auth/login/callback
