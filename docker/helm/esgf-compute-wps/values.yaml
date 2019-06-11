@@ -66,11 +66,6 @@ traefik:
 #   
 
 persistence:
-  cache:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /p/cscratch/nimbus/wps/data/cache
-
   public:
     storageClassName: slow
     capacity: 100Gi
@@ -412,25 +407,3 @@ redis:
     nodeSelector:
       tier: backend
       storage/wps: local
-
-edask:
-  enabled: false
-  replicas: 1
-  image: jasonb87/compute-edask
-  imageTag: latest
-  imagePullPolicy: Always
-
-  nodeSelector:
-    tier: backend
-
-  timeout:
-    queue: 30
-    execute: 300
-
-  resources:
-    limits:
-      cpu: 1
-      memory: 1Gi
-    requests:
-      cpu: 500m
-      memory: 512Mi

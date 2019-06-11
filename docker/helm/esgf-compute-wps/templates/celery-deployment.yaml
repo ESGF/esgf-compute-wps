@@ -2,25 +2,25 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: {{ $.Release.Name }}-celery-{{ .name }}
+  name: {{ template "esgf-compute-wps.fullname" $ }}-celery-{{ .name }}
   labels:
-    app: {{ $.Release.Name }}-celery-{{ .name }}
-    chart: {{ template "esgf-compute-wps.chart" $ }}
-    release: {{ $.Release.Name }}
-    heritage: {{ $.Release.Service }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/name: {{ template "esgf-compute-wps.name" $ }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
 spec:
   replicas: {{ .replicas }}
   selector:
     matchLabels:
-      app: {{ $.Release.Name }}-celery-{{ .name }}
-      release: {{ $.Release.Name }}
+      app.kubernetes.io/name: {{ template "esgf-compute-wps.name" $ }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: celery
   template:
     metadata:
       labels:
-        app: {{ $.Release.Name }}-celery-{{ .name }}
-        chart: {{ template "esgf-compute-wps.chart" $ }}
-        release: {{ $.Release.Name }}
-        heritage: {{ $.Release.Service }}
+        app.kubernetes.io/name: {{ template "esgf-compute-wps.name" $ }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        app.kubernetes.io/component: celery
     {{- if .annotations }}
       annotations:
       {{- .annotations | toYaml | trimSuffix "\n" | nindent 8 }}
@@ -32,7 +32,7 @@ spec:
         {{ $.Values.celery.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
       containers:
-      - name: {{ $.Release.Name }}-celery-{{ .name }}-metrics
+      - name: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}-metrics
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
         command:
@@ -51,7 +51,7 @@ spec:
         {{- end }}
         - mountPath: /metrics
           name: metrics-volume
-      - name: {{ $.Release.Name }}-celery-{{ .name }}-backend
+      - name: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}-backend
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
         {{- if $.Values.celery.backend.development }}
@@ -71,7 +71,7 @@ spec:
           {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         env:
         - name: PROVISIONER_BACKEND
-          value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
+          value: {{ template "esgf-compute-wps.fullname" $ }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
         - name: INTERNAL_LB
           value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
         - name: API_USERNAME
@@ -89,7 +89,7 @@ spec:
         {{- end }}
         - mountPath: /metrics
           name: metrics-volume
-      - name: {{ $.Release.Name }}-celery-{{ .name }}
+      - name: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
         {{- if not $.Values.development }}
@@ -146,7 +146,7 @@ spec:
           value: "1"
         {{- end }}
         - name: PROVISIONER_BACKEND
-          value: {{ $.Release.Name }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
+          value: {{ template "esgf-compute-wps.fullname" $ }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
         - name: CELERY_BROKER_URL
           value: redis://{{ template "redis.fullname" $ }}-master/0
         - name: CELERY_RESULT_BACKEND
@@ -156,7 +156,7 @@ spec:
         - name: DASK_KUBE_NAMESPACE
           value: {{ $.Values.kubeMonitor.namespace }}
         - name: DASK_SCHEDULER
-          value: {{ $.Release.Name }}-dask-scheduler:8786
+          value: {{ template "esgf-compute-wps.fullname" $ }}-dask-scheduler:8786
         - name: DASK_WORKERS
           value: "{{ $.Values.dask.workers }}"
         - name: INTERNAL_LB
@@ -169,7 +169,7 @@ spec:
           value: {{ $.Values.wps.apiPassword }}
         envFrom:
         - secretRef:
-            name: {{ template "esgf-compute-wps.fullname" $ }}-app-secret
+            name: {{ template "esgf-compute-wps.fullname" $ }}-wps
         volumeMounts:
         {{- if $.Values.development }}
         - name: devel-volume
@@ -196,7 +196,7 @@ spec:
         emptyDir: {}
       - name: dask-volume
         configMap:
-          name: {{ $.Release.Name }}-dask-config 
+          name: {{ template "esgf-compute-wps.fullname" $ }}-dask
       - name: cache-volume
         persistentVolumeClaim:
           claimName: cache-pvc

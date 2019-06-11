@@ -1,32 +1,32 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-nginx
+  name: {{ template "esgf-compute-wps.fullname" . }}-nginx
   labels:
-    app: {{ .Release.Name }}-nginx
-    chart: {{ template "esgf-compute-wps.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 spec:
   replicas: {{ .Values.nginx.replicas }}
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-nginx
-      release: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: nginx
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-nginx
-        chart: {{ template "esgf-compute-wps.chart" . }}
-        release: {{ .Release.Name }}
-        heritage: {{ .Release.Service }}
+        app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: nginx
     spec:
       {{- if .Values.nginx.nodeSelector }}
       nodeSelector: 
         {{ .Values.nginx.nodeSelector | toYaml | trimSuffix "\n"}}
       {{- end }}
       containers:
-      - name: {{ .Release.Name }}-nginx
+      - name: {{ template "esgf-compute-wps.name" . }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
         imagePullPolicy: IfNotPresent
         {{- if and $.Values.nginx.resources (not $.Values.development) (not $.Values.ignoreResources) }}

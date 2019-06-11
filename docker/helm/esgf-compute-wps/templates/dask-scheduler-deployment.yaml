@@ -1,25 +1,25 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-dask-scheduler
+  name: {{ template "esgf-compute-wps.fullname" . }}-dask-scheduler
   labels:
-    app: {{ .Release.Name }}-dask-scheduler
-    chart: {{ template "esgf-compute-wps.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-dask-scheduler
-      release: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: dask-scheduler
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-dask-scheduler
-        chart: {{ template "esgf-compute-wps.chart" . }}
-        release: {{ .Release.Name }}
-        heritage: {{ .Release.Service }}
+        app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: dask-scheduler
     {{- if .Values.dask.scheduler.annotations }}
       annotations:
       {{- .Values.dask.scheduler.annotations | toYaml | trimSuffix "\n" | nindent 8 }}
@@ -30,7 +30,7 @@ spec:
         {{ .Values.dask.scheduler.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
       containers:
-      - name: {{ .Release.Name }}-dask-scheduler
+      - name: {{ template "esgf-compute-wps.name" . }}-dask-scheduler
         image: {{ .Values.dask.image }}:{{ .Values.dask.imageTag }}
         imagePullPolicy: {{ .Values.dask.imagePullPolicy }}
         livenessProbe:
@@ -43,7 +43,7 @@ spec:
             port: 8786
           initialDelaySeconds: 16
           periodSeconds: 20
-        {{- if and $.Values.dask.scheduler.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        {{- if and $.Values.dask.scheduler.resources (not $.Values.development) }}
         resources: {{ $.Values.dask.scheduler.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         command:
@@ -55,24 +55,3 @@ spec:
           protocol: TCP
         - containerPort: 8787
           protocol: TCP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-dask-scheduler
-  labels:
-    app: {{ .Release.Name }}-dask-scheduler
-    chart: {{ template "esgf-compute-wps.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
-spec:
-  selector:
-    app: {{ .Release.Name }}-dask-scheduler
-    release: {{ .Release.Name }}
-  ports:
-  - protocol: TCP
-    port: 8786
-    name: scheduler
-  - protocol: TCP
-    port: 8787
-    name: bokeh

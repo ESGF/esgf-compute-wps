@@ -1,32 +1,32 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-provisioner
+  name: {{ template "esgf-compute-wps.fullname" . }}-provisioner
   labels:
-    app: {{ .Release.Name }}-provisioner
-    chart: {{ template "esgf-compute-wps.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-provisioner
-      release: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: provisioner
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-provisioner
-        chart: {{ template "esgf-compute-wps.chart" . }}
-        release: {{ .Release.Name }}
-        heritage: {{ .Release.Service }}
+        app.kubernetes.io/name: {{ template "esgf-compute-wps.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: provisioner
     spec:
       {{- if .Values.provisioner.nodeSelector }}
       nodeSelector: 
         {{ .Values.provisioner.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
       containers:
-      - name: {{ .Release.Name }}-provisioner
+      - name: {{ template "esgf-compute-wps.name" . }}-provisioner
         image: {{ .Values.provisioner.image }}:{{ .Values.provisioner.imageTag }}
         imagePullPolicy: {{ .Values.provisioner.imagePullPolicy }}
         {{- if .Values.provisioner.development }}

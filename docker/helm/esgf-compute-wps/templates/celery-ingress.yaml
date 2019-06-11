@@ -8,10 +8,12 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ $.Release.Name }}-celery-{{ $name }}
+  name: {{ template "esgf-compute-wps.fullname" $ }}-celery-{{ .name }}
   labels:
-    app: {{ $.Release.Name }}-celery-{{ $name }}
-    release: {{ $.Release.Name }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/name: {{ template "esgf-compute-wps.name" $ }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
 {{- if $annotations }}
   annotations:
 {{ toYaml $annotations | nindent 4 }}
@@ -21,7 +23,7 @@ spec:
   - http:
       paths:
       - backend:
-          serviceName: {{ $.Release.Name }}-celery-{{ $name }}
+          serviceName: {{ template "esgf-compute-wps.fullname" $ }}-celery-{{ $name }}
           servicePort: {{ $port }}
       {{- if $path }}
         path: {{ $path }}

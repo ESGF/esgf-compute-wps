@@ -1,10 +1,12 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ .Release.Name }}-wps
+  name: {{ template "esgf-compute-wps.fullname" . }}-wps
   labels:
-    app: {{ .Release.Name }}-wps
-    release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/name: {{ template "esgf-compute-wps.name" $ }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
 {{- if .Values.wps.ingress.external.labels }}
 {{ toYaml .Values.wps.ingress.external.labels | nindent 4 }}
 {{- end }}
@@ -18,20 +20,22 @@ spec:
       paths:
       - path: /api
         backend:
-          serviceName: {{ .Release.Name }}-wps
+          serviceName: {{ template "esgf-compute-wps.fullname" . }}-wps
           servicePort: 8000
       - path: /wps
         backend:
-          serviceName: {{ .Release.Name }}-wps
+          serviceName: {{ template "esgf-compute-wps.fullname" . }}-wps
           servicePort: 8000
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ .Release.Name }}-wps-internal
+  name: {{ template "esgf-compute-wps.fullname" . }}-wps-internal
   labels:
-    app: {{ .Release.Name }}-wps-internal
-    release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/name: {{ template "esgf-compute-wps.name" $ }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
 {{- if .Values.wps.ingress.internal.labels }}
 {{ toYaml .Values.wps.ingress.internal.labels | nindent 4 }}
 {{- end }}
@@ -45,5 +49,5 @@ spec:
       paths:
       - path: /internal_api
         backend:
-          serviceName: {{ .Release.Name }}-wps
+          serviceName: {{ template "esgf-compute-wps.fullname" . }}-wps
           servicePort: 8000

@@ -1,10 +1,12 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ .Release.Name }}-dask-bokeh
+  name: {{ template "esgf-compute-wps.fullname" . }}-dask
   labels:
-    app: {{ .Release.Name }}-dask-bokeh
-    release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/name: {{ template "esgf-compute-wps.name" $ }}
+    helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
 {{- if .Values.dask.scheduler.ingress.labels }}
 {{ toYaml .Values.dask.scheduler.ingress.labels | nindent 4 }}
 {{- end }}
@@ -18,5 +20,5 @@ spec:
       paths:
       - path: /daskboard
         backend:
-          serviceName: {{ .Release.Name }}-dask-scheduler
+          serviceName: {{ template "esgf-compute-wps.fullname" . }}-dask-scheduler
           servicePort: 8787
