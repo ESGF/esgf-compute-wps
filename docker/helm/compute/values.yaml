@@ -107,7 +107,7 @@ kubeMonitor:
 
   imagePullPolicy: Always
 
-  timeout: 120
+  timeout: 600
 
   nodeSelector:
     tier: backend
