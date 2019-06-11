@@ -93,7 +93,10 @@ spec:
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
         {{- if not $.Values.development }}
+        command: ["tini", "--"]
         args: 
+          - /bin/bash
+          - entrypoint.sh
           - "-c"
           - "1"
           - "-Q"
@@ -152,7 +155,7 @@ spec:
         - name: CELERY_RESULT_BACKEND
           value: redis://{{ template "redis.fullname" $ }}-master/0
         - name: PROMETHEUS_HOST
-          value: {{ $.Values.wps.prometheus.host }}
+          value: {{ required "Set celery.prometheusUrl" $.Values.celery.prometheusUrl }}
         - name: DASK_KUBE_NAMESPACE
           value: {{ $.Values.kubeMonitor.namespace }}
         - name: DASK_SCHEDULER

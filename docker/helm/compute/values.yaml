@@ -13,15 +13,6 @@ traefik:
   rbac:
     enabled: true
 
-  resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
   ssl:
     enabled: true
     enforced: true
@@ -48,10 +39,6 @@ traefik:
     ingress:
       annotations:
         traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
-        ingress.kubernetes.io/ssl-redirect: "true"
-        ingress.kubernetes.io/hsts-max-age: "31536000"
-        ingress.kubernetes.io/hsts-include-subdomains: "true"
-        ingress.kubernetes.io/force-hsts: "true"
       labels:
         traffic-type: external
 
@@ -97,8 +84,7 @@ persistence:
 
 # Provisioner
 provisioner:
-  nodeSelector:
-    tier: backend
+  nodeSelector: {}
 
   image: jasonb87/compute-provisioner
   imageTag: 0.1.0
@@ -108,16 +94,12 @@ provisioner:
   frontendPort: 7777
   backendPort: 7778
 
-  resources:
-    limits:
-      cpu: 500m
-      memory: 128Mi
-    request:
-      cpu: 100m
-      memory: 32Mi
+  resources: {}
 
 # Kubernetes Monitor
 kubeMonitor:
+  nodeSelector: {}
+
   image: jasonb87/compute-kube-monitor
   imageTag: 0.1.0
 
@@ -126,20 +108,10 @@ kubeMonitor:
   # Number of seconds between checking whether resources are ready to be cleaned up
   timeout: 600
 
-  nodeSelector:
-    tier: backend
-
   # The namespace to monitor
   namespace:
 
-  resources:
-    limits:
-      cpu: 1
-      memory: 512Mi
-
-    requests:
-      cpu: 500m
-      memory: 256Mi
+  resources: {}
 
 dask:
   image: jasonb87/compute-celery
@@ -157,17 +129,10 @@ dask:
   # Memory limit for each worker
   memoryLimit: 8GB
 
-  resources:
-    limits:
-      cpu: 4
-      memory: 8Gi
-    request:
-      cpu: 4
-      memory: 8Gi
+  resources: {}
 
   scheduler:
-    nodeSelector:
-      tier: backend
+    nodeSelector: {}
 
     annotations:
       prometheus.io/scrape: "true"
@@ -175,48 +140,31 @@ dask:
       prometheus.io/port: "8787"
 
     ingress:
-      annotations:
-        ingress.kubernetes.io/ssl-redirect: "true"
-        ingress.kubernetes.io/hsts-max-age: "31536000"
-        ingress.kubernetes.io/hsts-include-subdomains: "true"
-        ingress.kubernetes.io/force-hsts: "true"
+      annotations: {}
+
       labels:
         traffic-type: external
 
-    resources:
-      limits:
-        cpu: 2
-        memory: 1Gi
-      requests:
-        cpu: 1
-        memory: 512Mi
+    resources: {}
 
 nginx:
+  nodeSelector: {}
+
   replicas: 1
   image: jasonb87/compute-webapp
   imageTag: 0.1.0
 
-  nodeSelector:
-    tier: backend
-
-  resources:
-    limits:
-      cpu: 500m
-      memory: 1Gi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+  resources: {}
 
   ingress:
-    annotations:
-      ingress.kubernetes.io/ssl-redirect: "true"
-      ingress.kubernetes.io/hsts-max-age: "31536000"
-      ingress.kubernetes.io/hsts-include-subdomains: "true"
-      ingress.kubernetes.io/force-hsts: "true"
+    annotations: {}
+
     labels:
       traffic-type: external
   
 wps:
+  nodeSelector: {}
+
   replicas: 1
   image: jasonb87/compute-wps
   imageTag: 0.1.0
@@ -232,9 +180,6 @@ wps:
   # Set prometheus server to use for metrics collection
   prometheus:
     host:
-
-  nodeSelector:
-    tier: backend
 
   publicPath: /data/public
 
@@ -268,13 +213,7 @@ wps:
     prometheus.io/path: /api/metrics/
     prometheus.io/port: "8000"
 
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 200m
-      memory: 256Mi
+  resources: {}
 
   # OAuth configuration
   oauth:
@@ -305,12 +244,11 @@ wps:
         traffic-type: internal
 
 celery:
+  nodeSelector: {}
+
   image: jasonb87/compute-celery
   imageTag: 0.1.0
   metrics: /metrics
-
-  nodeSelector:
-    tier: backend
 
   imagePullPolicy: Always
 
@@ -322,19 +260,12 @@ celery:
       cpu: 200m
       memory: 512Mi
 
+  prometheusUrl:
+
   backend:
     development: false
 
-    resources:
-      limits:
-        cpu: 500m
-        memory: 256Mi
-      requests:
-        cpu: 200m
-        memory: 64Mi
-
-  flower:
-    enabled: false
+    resources: {}
 
   # Each entry will create a new celery queue
   queues:
@@ -349,32 +280,23 @@ celery:
         name: metrics
 
 thredds:
+  nodeSelector: {}
+
   replicas: 1
   image: jasonb87/compute-thredds
   imageTag: 4.6.10
-
-  nodeSelector:
-    tier: backend
 
   # Set java parameters for tomcat server
   heapMax: 2g
   heapInit: 512m
 
-  resources:
-    limits:
-      cpu: 1
-      memory: 2Gi
-    requests:
-      cpu: 500m
-      memory: 512Mi
+  resources: {}
 
   ingress:
     path: /threddsCWT
-    annotations:
-      ingress.kubernetes.io/ssl-redirect: "true"
-      ingress.kubernetes.io/hsts-max-age: "31536000"
-      ingress.kubernetes.io/hsts-include-subdomains: "true"
-      ingress.kubernetes.io/force-hsts: "true"
+
+    annotations: {}
+
     labels:
       traffic-type: external
 
@@ -383,13 +305,8 @@ postgresql:
   postgresqlPassword:
   port: 5432
 
-  nodeSelector:
-    tier: backend
-
   master:
-    nodeSelector:
-      tier: backend
-      storage/wps: local
+    nodeSelector: {}
 
   persistence:
     enabled: true
@@ -400,13 +317,7 @@ postgresql:
     image: bitnami/postgresql
     tag: 10.6.0
 
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
+  resources: {}
 
 redis:
   cluster:
@@ -423,14 +334,6 @@ redis:
     service:
       type: ClusterIP
 
-    resources:
-      limits:
-        cpu: 500m
-        memory: 512Mi
-      requests:
-        cpu: 250m
-        memory: 256Mi
+    resources: {}
 
-    nodeSelector:
-      tier: backend
-      storage/wps: local
+    nodeSelector: {}

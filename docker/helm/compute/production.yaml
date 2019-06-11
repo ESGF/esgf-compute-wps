@@ -1,0 +1,181 @@
+traefik:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  dashboard:
+    ingress:
+      annotations:
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+
+wps:
+  nodeSelector:
+    tier: backend
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+  oauth:
+    client:
+    secret:
+
+  apiUsername:
+  apiPassword:
+
+  externalHost:
+
+  email:
+    host:
+
+  adminEmail:
+
+celery:
+  nodeSelector:
+    tier: backend
+
+  prometheusUrl:
+
+  backend:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 200m
+        memory: 64Mi
+
+dask:
+  resources:
+    limits:
+      cpu: 4
+      memory: 8Gi
+    request:
+      cpu: 4
+      memory: 8Gi
+
+  scheduler:
+    nodeSelector:
+      tier: backend
+
+    ingress:
+      annotations:
+        ingress.kubernetes.io/ssl-redirect: "true"
+        ingress.kubernetes.io/hsts-max-age: "31536000"
+        ingress.kubernetes.io/hsts-include-subdomains: "true"
+        ingress.kubernetes.io/force-hsts: "true"
+
+    resources:
+      limits:
+        cpu: 2
+        memory: 1Gi
+      requests:
+        cpu: 1
+        memory: 512Mi
+
+provisioner:
+  nodeSelector:
+    tier: backend
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    request:
+      cpu: 100m
+      memory: 32Mi
+
+kubeMonitor:
+  nodeSelector:
+    tier: backend
+
+  namespace: production
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 512Mi
+
+    requests:
+      cpu: 500m
+      memory: 256Mi
+
+nginx:
+  nodeSelector:
+    tier: backend
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  ingress:
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
+
+thredds:
+  nodeSelector:
+    tier: backend
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  ingress:
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/hsts-max-age: "31536000"
+      ingress.kubernetes.io/hsts-include-subdomains: "true"
+      ingress.kubernetes.io/force-hsts: "true"
+
+postgresql:
+  postgresqlPassword:
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  master:
+    nodeSelector:
+      tier: backend
+      storage/wps: local
+
+redis:
+  master:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+    nodeSelector:
+      tier: backend
+      storage/wps: local
