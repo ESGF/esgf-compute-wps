@@ -39,7 +39,7 @@ spec:
           - {{ required "Set namespace at kubeMonitor.namespace" .Values.kubeMonitor.namespace }}
           - --timeout
           - "{{ .Values.kubeMonitor.timeout }}"
-          - {{ template "esgf-compute-wps.fullname" . }}-dask-scheduler:8786
+          - {{ template "esgf-compute-wps.fullname" . }}-dask-scheduler.{{ .Release.Namespace }}.svc:8786
           - /etc/config/dask/worker-spec.yml
         volumeMounts:
         - mountPath: /etc/config/dask

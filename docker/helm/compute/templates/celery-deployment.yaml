@@ -179,9 +179,6 @@ spec:
           name: metrics-volume
         - mountPath: /etc/config/dask
           name: dask-volume
-        - mountPath: /data/cache
-          name: cache-volume
-          subPath: cache
         - mountPath: /data/public
           name: public-volume
           subPath: public
@@ -197,9 +194,6 @@ spec:
       - name: dask-volume
         configMap:
           name: {{ template "esgf-compute-wps.fullname" $ }}-dask
-      - name: cache-volume
-        persistentVolumeClaim:
-          claimName: cache-pvc
       - name: public-volume
         persistentVolumeClaim:
           claimName: public-pvc
