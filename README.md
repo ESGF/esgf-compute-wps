@@ -69,3 +69,24 @@ The default command is `bash /entrypoint.sh`.
 ##### Celery
 
 The default command is `bash /entrypoint.sh -c 2 -Q ingress -n ingress -l DEBUG`.
+
+### Containers
+The Dockerfiles can be found in the [Docker](docker) folder. Below is a brief description of each containers responsibilities.
+
+#### celery
+Listens on a ZMQ socket for requests from the provisioner container. The requests are passed to a small Celery task graph that handles updating the job state and building out the compute resources. In the default implementation this builds out Dask graphs that are executed on the cluster.
+
+#### kube_monitor
+Monitors Kubernetes resources in a namespace and cleans up once the resources are release. Currently this is based on a timeout value.
+
+#### provisioner
+Listens on a ZMQ socket for requests from the WPS container and forwards them over a ZMQ socket to the Celery containers. This will eventually handle all dyanmic provision within the application.
+
+#### thredds
+Thredds service that uses a shared volume to serve output data.
+
+#### webapp
+Hosts an Angular web app for the WPS service.
+
+#### wps
+Hosts a 1.0.0 WPS server along with a custom API and Authentication/Authorization service.
