@@ -20,6 +20,9 @@ alertmanager:
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
 
+    extraLabels:
+      traffic-type: external
+
   persistentVolume:
     enabled: true
     existingClaim: prometheus-alert-pvc
@@ -61,10 +64,13 @@ kubeStateMetrics:
       memory: 128Mi
 
 nodeExporter:
+  image:
+    tag: v0.18.0
+
   resources: 
     limits:
-      cpu: 200m
-      memory: 50Mi
+      cpu: 500m
+      memory: 128Mi
     requests:
       cpu: 100m
       memory: 30Mi
@@ -89,6 +95,9 @@ server:
       ingress.kubernetes.io/hsts-max-age: "31536000"
       ingress.kubernetes.io/hsts-include-subdomains: "true"
       ingress.kubernetes.io/force-hsts: "true"
+
+    extraLabels:
+      traffic-type: external
 
   persistentVolume:
     enabled: true
