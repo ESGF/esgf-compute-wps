@@ -82,6 +82,12 @@ spec:
           value: redis://{{ template "redis.fullname" $ }}-master/0
         - name: CELERY_RESULT_BACKEND
           value: redis://{{ template "redis.fullname" $ }}-master/0
+        - name: WORKERS
+          value: {{ $.Values.provisioner.workers | quote }}
+        - name: DATA_PATH
+          value: {{ $.Values.wps.publicPath }}
+        - name: DATA_PVC
+          value: "public-pvc"
         volumeMounts:
         {{- if $.Values.development }}
         - name: devel-volume

@@ -45,16 +45,10 @@ spec:
           value: {{ .Values.provisioner.backendPort | quote }}
         - name: REDIS_HOST 
           value: {{ template "redis.fullname" $ }}-master
-        - name: WORKERS
-          value: {{ .Values.provisioner.workers | quote }}
         - name: LIFETIME
           value: {{ .Values.provisioner.lifetime | quote }}
         - name: NAMESPACE
           value: {{ .Release.Namespace }}
-        - name: DATA_PATH
-          value: {{ .Values.wps.publicPath }}
-        - name: DATA_PVC
-          value: "public-pvc"
         {{- if not .Values.provisioner.development }}
         livenessProbe:
           tcpSocket:
