@@ -2,21 +2,35 @@ apiVerison: apps/v1
 kind: Deployment
 metadata:
   name: dask-worker-{{ user }}
+  labels:
+    app.kubernetes.io/dask-component: worker
+    app.kubernetes.io/user: "{{ user }}"
 spec:
-  restartPolicy: Never
   replicas: {{ workers }}
   selector:
     matchLabels:
-      component: dask-worker-{{ user }}
+      app.kubernetes.io/dask-component: worker
+      app.kubernetes.io/user: "{{ user }}"
   template:
     metadata:
       labels:
-        component: dask-worker-{{ user }}
+        app.kubernetes.io/dask-component: worker
+        app.kubernetes.io/user: "{{ user }}"
     spec:
       containers:
       - name: dask-worker-{{ user }}
         image: jasonb87/compute-celery:0.1.0
         imagePullPolicy: Always
+        livenessProbe:
+          tcpSocket:
+            port: 8888
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8888
+          initialDelaySeconds: 5
+          periodSeconds: 10
         env:
         - name: CDAT_ANONYMOUS_LOG
           value: 'no'
@@ -31,6 +45,8 @@ spec:
         - 8GB
         - --death-timeout
         - '60'
+        - --listen-address
+        - tcp://0.0.0.0:8888
         - dask-scheduler-{{ user }}:8786
       {% if not dev %}
         resources:

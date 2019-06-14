@@ -2,9 +2,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dask-scheduler-{{ user }}
+  labels:
+    app.kubernetes.io/dask-component: scheduler
+    app.kubernetes.io/user: "{{ user }}"
 spec:
   selector:
-    component: dask-scheduler-{{ user }}
+    app.kubernetes.io/dask-component: scheduler
+    app.kubernetes.io/user: "{{ user }}"
   ports:
   - protocol: TCP
     port: 8786

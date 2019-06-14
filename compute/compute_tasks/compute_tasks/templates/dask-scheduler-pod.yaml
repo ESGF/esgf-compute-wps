@@ -3,7 +3,8 @@ kind: Pod
 metadata:
   name: dask-scheduler-{{ user }}
   labels:
-    component: dask-scheduler-{{ user }}
+    app.kubernetes.io/dask-component: scheduler
+    app.kubernetes.io/user: "{{ user }}"
 spec:
   containers:
   - name: dask-scheduler-{{ user }}
@@ -12,13 +13,13 @@ spec:
     livenessProbe:
       tcpSocket:
         port: 8786
-      initialDelaySeconds: 4
+      initialDelaySeconds: 10
       periodSeconds: 10
     readinessProbe:
       tcpSocket:
         port: 8786
-      initialDelaySeconds: 16
-      periodSeconds: 20
+      initialDelaySeconds: 5
+      periodSeconds: 10
   {% if not dev %}
     resources:
       limits:
