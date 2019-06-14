@@ -41,13 +41,14 @@ spec:
         args:
           - /bin/sleep
           - infinity
-        {{- else }}
-        args:
-          - --namespace
-          - {{ .Release.Namespace }}
-          - --timeout
-          - "{{ .Values.kubeMonitor.timeout }}"
         {{- end }}
+        env:
+        - name: REDIS_HOST 
+          value: {{ template "redis.fullname" $ }}-master
+        - name: NAMESPACE
+          value: {{ .Release.Namespace }}
+        - name: TIMEOUT
+          value: {{ .Values.kubeMonitor.timeout | quote }}
         {{- if .Values.kubeMonitor.development }}
         volumeMounts:
         - name: devel-volume
