@@ -19,6 +19,12 @@ PROVISIONER_BACKEND = os.environ['PROVISIONER_BACKEND']
 
 HOSTNAME = os.environ['HOSTNAME']
 
+WORKERS = os.environ['WORKERS']
+
+DATA_PATH = os.environ['DATA_PATH']
+
+DATA_PVC = os.environ['DATA_PVC']
+
 # Set INGRESS_QUEUE to prevent breaking old code
 DEFAULT_QUEUE = {
     'queue': 'ingress',
@@ -103,9 +109,9 @@ def resource_request(frames, env):
 
     data = {
         'user': user,
-        'workers': 1,
-        'data_path': '/data/public',
-        'data_pvc': 'public-pvc',
+        'workers': WORKERS,
+        'data_path': DATA_PATH,
+        'data_pvc': DATA_PVC,
     }
 
     dask_scheduler_pod = env.get_template('dask-scheduler-pod.yaml')
