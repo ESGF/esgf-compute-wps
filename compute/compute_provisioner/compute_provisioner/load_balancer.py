@@ -18,7 +18,7 @@ logger = logging.getLogger('compute_provisioner.provisioner')
 
 NAMESPACE = os.environ['NAMESPACE']
 
-EXPIRE_IN = os.environ.get('EXPIRE_IN', 3600)
+LIFETIME = os.environ.get('LIFETIME', 3600)
 
 config.load_incluster_config()
 
@@ -214,7 +214,7 @@ class LoadBalancer(object):
             logger.error('Resource already exists')
         else:
             # Store the resource identity in redis so kube-monitor can handle cleaning up resources
-            self.redis.set('resource-{!s}'.format(resource_uuid), json.dumps(labels), ex=EXPIRE_IN)
+            self.redis.set('resource-{!s}'.format(resource_uuid), json.dumps(labels), ex=LIFETIME)
 
     def handle_backend_frames(self, frames):
         address = frames[0]
