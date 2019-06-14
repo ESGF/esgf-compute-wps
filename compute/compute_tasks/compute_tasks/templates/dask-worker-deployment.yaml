@@ -32,6 +32,7 @@ spec:
         - --death-timeout
         - '60'
         - dask-scheduler-{{ user }}:8786
+      {% if not dev %}
         resources:
           limits:
             cpu: 4
@@ -39,6 +40,7 @@ spec:
           request:
             cpu: 4
             memory: 8Gi
+      {% endif %}
         volumeMounts:
         - mountPath: {{ data_path }}
           name: public-volume

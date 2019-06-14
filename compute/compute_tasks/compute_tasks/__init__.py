@@ -17,3 +17,8 @@ class WPSError(Exception):
 class AccessError(WPSError):
     def __init__(self, url, error):
         super(AccessError, self).__init__('Access error {!r}: {!s}', url, error)
+
+
+class DaskClusterAccessError(WPSError):
+    def __init__(self):
+        super(DaskClusterAccessError, self).__init__('Error connecting to dask scheduler')

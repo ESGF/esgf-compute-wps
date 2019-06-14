@@ -13,7 +13,7 @@ from compute_tasks.context import WorkflowOperationContext
 logger = get_task_logger('compute_tasks.job')
 
 
-def build_context(identifier, data_inputs, extra):
+def build_context(identifier, data_inputs):
     variable = None
     domain = None
     operation = None
@@ -46,18 +46,19 @@ def build_context(identifier, data_inputs, extra):
         # Remove the workflow operation as it's just a placeholder for global values
         operation.pop(workflow_op.name)
 
-        context = WorkflowOperationContext.from_data_inputs(variable, domain, operation, extra)
+        context = WorkflowOperationContext.from_data_inputs(variable, domain, operation)
     else:
-        context = OperationContext.from_data_inputs(identifier, variable, domain, operation, extra)
+        context = OperationContext.from_data_inputs(identifier, variable, domain, operation)
 
     return context
 
 
 @base.cwt_shared_task()
 def job_started(self, identifier, data_inputs, job_id, user_id, process_id, extra):
-    context = build_context(identifier, data_inputs, extra)
+    context = build_context(identifier, data_inputs)
 
     data = {
+        'extra': extra,
         'job': job_id,
         'user': user_id,
         'process': process_id,

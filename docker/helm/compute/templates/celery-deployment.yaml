@@ -70,6 +70,10 @@ spec:
         resources:
           {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         env:
+        {{- if $.Values.development }}
+        - name: DEV
+          value: "1"
+        {{- end }}
         - name: PROVISIONER_BACKEND
           value: {{ template "esgf-compute-wps.fullname" $ }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
         - name: INTERNAL_LB
@@ -170,6 +174,8 @@ spec:
           value: {{ $.Values.wps.apiUsername }}
         - name: API_PASSWORD
           value: {{ $.Values.wps.apiPassword }}
+        - name: NAMESPACE
+          value: {{ $.Release.Namespace }}
         envFrom:
         - secretRef:
             name: {{ template "esgf-compute-wps.fullname" $ }}-wps

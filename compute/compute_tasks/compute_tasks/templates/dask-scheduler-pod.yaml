@@ -19,6 +19,7 @@ spec:
         port: 8786
       initialDelaySeconds: 16
       periodSeconds: 20
+  {% if not dev %}
     resources:
       limits:
         cpu: 2
@@ -26,6 +27,7 @@ spec:
       requests:
         cpu: 1
         memory: 512Mi
+  {% endif %}
     command:
       - dask-scheduler 
       - --bokeh-prefix

@@ -18,11 +18,14 @@ from compute_tasks import base
 from compute_tasks import context as ctx
 from compute_tasks import managers
 from compute_tasks import WPSError
+from compute_tasks import DaskClusterAccessError
 from compute_tasks.dask_serialize import regrid_chunk
 
 logger = get_task_logger('compute_tasks.cdat')
 
 DEV = os.environ.get('DEV', False)
+
+NAMESPACE = os.environ.get('NAMESPACE', 'default')
 
 
 class DaskJobTracker(ProgressBar):
@@ -146,7 +149,10 @@ def workflow_func(self, context):
     context.message('Preparing to execute workflow')
 
     # Initialize the cluster resources
-    client = Client(context.extra['DASK_SCHEDULER'])
+    try:
+        client = Client('{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE))
+    except OSError:
+        raise DaskClusterAccessError()
 
     try:
         delayed = []
@@ -198,7 +204,10 @@ def process(context, process_func=None, aggregate=False):
     Returns:
         An updated cwt.context.OperationContext.
     """
-    client = Client(context.extra.get['DASK_SCHEDULER'])
+    try:
+        client = Client('{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE))
+    except OSError:
+        raise DaskClusterAccessError()
 
     fm = managers.FileManager(context)
 

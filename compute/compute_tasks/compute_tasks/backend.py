@@ -112,6 +112,7 @@ def resource_request(frames, env):
     resources = []
 
     data = {
+        'dev': os.environ.get('DEV', False),
         'user': user,
         'workers': WORKERS,
         'data_path': DATA_PATH,

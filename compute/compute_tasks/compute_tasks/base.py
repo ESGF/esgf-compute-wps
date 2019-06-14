@@ -12,6 +12,7 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 
 from compute_tasks import AccessError
+from compute_tasks import DaskClusterAccessError
 from compute_tasks import WPSError
 
 logger = get_task_logger('wps.tasks.base')
@@ -133,7 +134,7 @@ class CWTBaseTask(celery.Task):
 cwt_shared_task = partial(shared_task,
                           bind=True,
                           base=CWTBaseTask,
-                          autoretry_for=(AccessError, ),
+                          autoretry_for=(AccessError, DaskClusterAccessError),
                           retry_kwargs={
                               'max_retries': 4,
                           },
