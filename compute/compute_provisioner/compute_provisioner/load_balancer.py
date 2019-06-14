@@ -186,7 +186,7 @@ class LoadBalancer(object):
 
         # Create label with a uuid which can be queried for by the kube-monitor
         labels = {
-            'app.kubernetes.io/resource-uuid': resource_uuid,
+            'app.kubernetes.io/resource-group-uuid': resource_uuid,
         }
 
         # Try to create the resources in the cluster, dont check to see if they
@@ -199,9 +199,13 @@ class LoadBalancer(object):
                 try:
                     yaml_data['metadata']['labels'].update(labels)
                 except AttributeError:
+                    # Labels not a dict, is this really a possible case?
                     yaml_data['metadata']['labels'] = labels
                 except KeyError:
-                    pass
+                    # Labels does not exists
+                    yaml_data['metadata'] = {
+                        'labels': labels,
+                    }
 
                 kind = yaml_data['kind']
 
@@ -215,7 +219,9 @@ class LoadBalancer(object):
                     extensions.create_namespaced_ingress(body=yaml_data, namespace=NAMESPACE)
                 else:
                     logger.error('Cannot handle kind %r', kind)
-        except client.rest.ApiException:
+        except client.rest.ApiException as e:
+            logger.exception('%s', e)
+
             logger.error('Resource already exists')
         else:
             # Store the resource identity in redis so kube-monitor can handle cleaning up resources
