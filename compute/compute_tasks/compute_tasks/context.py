@@ -70,7 +70,8 @@ class ProcessTimer(object):
 
 
 class StateMixin(object):
-    def __init__(self):
+    def __init__(self, extra):
+        self.extra = extra
         self.job = None
         self.user = None
         self.process = None
@@ -164,6 +165,7 @@ class StateMixin(object):
 
     def store_state(self):
         return {
+            'extra': self.extra,
             'job': self.job,
             'user': self.user,
             'process': self.process,
@@ -323,15 +325,15 @@ class StateMixin(object):
 
 
 class WorkflowOperationContext(StateMixin, object):
-    def __init__(self, inputs, domain, operation):
-        super(WorkflowOperationContext, self).__init__()
+    def __init__(self, inputs, domain, operation, extra):
+        super(WorkflowOperationContext, self).__init__(extra)
 
         self._inputs = inputs
         self.domain = domain
         self.operation = operation
 
     @classmethod
-    def from_data_inputs(cls, variable, domain, operation):
+    def from_data_inputs(cls, variable, domain, operation, extra):
         for op in operation.values():
             inputs = []
 
@@ -347,7 +349,7 @@ class WorkflowOperationContext(StateMixin, object):
 
             op.domain = domain.get(op.domain, None)
 
-        instance = cls(variable, domain, operation)
+        instance = cls(variable, domain, operation, extra)
 
         return instance
 
@@ -447,15 +449,15 @@ class WorkflowOperationContext(StateMixin, object):
 
 
 class OperationContext(StateMixin, object):
-    def __init__(self, inputs=None, domain=None, operation=None):
-        super(OperationContext, self).__init__()
+    def __init__(self, inputs=None, domain=None, operation=None, extra=None):
+        super(OperationContext, self).__init__(extra)
 
         self.inputs = inputs
         self.domain = domain
         self.operation = operation
 
     @classmethod
-    def from_data_inputs(cls, identifier, variable, domain, operation):
+    def from_data_inputs(cls, identifier, variable, domain, operation, extra):
         try:
             target_op = [x for x in list(operation.values()) if x.identifier ==
                          identifier][0]
@@ -475,7 +477,7 @@ class OperationContext(StateMixin, object):
 
         logger.info('Target inputs %r', target_inputs)
 
-        return cls(target_inputs, target_domain, target_op)
+        return cls(target_inputs, target_domain, target_op, extra)
 
     @classmethod
     def from_dict(cls, data):

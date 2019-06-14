@@ -42,7 +42,6 @@ requirements:
     - xarray=0.12.1
     - netcdf4=1.5.1.2
     - python-coreapi=2.3.3
-    - compute-kubernetes
     - compute-provisioner
 
 about:

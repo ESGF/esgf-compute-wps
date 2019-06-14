@@ -72,8 +72,12 @@ def request_handler(frames, state):
 
     logger.info('Building celery workflow')
 
+    extra = {
+        'DASK_SCHEDULER': 'dask-scheduler-{!s}'.format(user),
+    }
+
     try:
-        started = job_started.s(identifier, data_inputs, job, user, process).set(**DEFAULT_QUEUE)
+        started = job_started.s(identifier, data_inputs, job, user, process, extra).set(**DEFAULT_QUEUE)
 
         logger.info('Created job started task %r', started)
 

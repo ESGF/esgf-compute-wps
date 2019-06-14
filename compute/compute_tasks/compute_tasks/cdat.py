@@ -9,14 +9,11 @@ import dask.array as da
 import cdms2
 from celery.utils.log import get_task_logger
 from dask.distributed import Client
-from dask.distributed import LocalCluster
 from distributed.diagnostics.progressbar import ProgressBar
 from distributed.utils import LoopRunner
 from distributed.client import futures_of
 from tornado.ioloop import IOLoop
 
-from compute_kubernetes.cluster import Cluster
-from compute_kubernetes.cluster_manager import ClusterManager
 from compute_tasks import base
 from compute_tasks import context as ctx
 from compute_tasks import managers
@@ -26,9 +23,6 @@ from compute_tasks.dask_serialize import regrid_chunk
 logger = get_task_logger('compute_tasks.cdat')
 
 DEV = os.environ.get('DEV', False)
-DASK_KUBE_NAMESPACE = os.environ.get('DASK_KUBE_NAMESPACE', 'default')
-DASK_SCHEDULER = os.environ.get('DASK_SCHEDULER', '')
-DASK_WORKERS = int(os.environ.get('DASK_WORKERS', 10))
 
 
 class DaskJobTracker(ProgressBar):
@@ -64,31 +58,6 @@ class DaskJobTracker(ProgressBar):
 
     def _draw_stop(self, **kwargs):
         pass
-
-
-def init(context, n_workers):
-    if DEV:
-        cluster = LocalCluster(n_workers=2, threads_per_worker=2, processes=False)
-
-        client = Client(cluster) # noqa
-
-        logger.info('Initialized cluster %r', cluster)
-
-        manager = ClusterManager(client.scheduler.address, None)
-    else:
-        cluster = Cluster.from_yaml(DASK_KUBE_NAMESPACE, '/etc/config/dask/worker-spec.yml')
-
-        manager = ClusterManager(DASK_SCHEDULER, cluster)
-
-        labels = {
-            'user': str(context.user),
-        }
-
-        context.message('Initializing {!r} workers', n_workers)
-
-        manager.scale_up_workers(n_workers, labels)
-
-    return manager
 
 
 WORKFLOW_ABSTRACT = """
@@ -177,7 +146,7 @@ def workflow_func(self, context):
     context.message('Preparing to execute workflow')
 
     # Initialize the cluster resources
-    manager = init(context, DASK_WORKERS)
+    client = Client(context.extra['DASK_SCHEDULER'])
 
     try:
         delayed = []
@@ -203,7 +172,7 @@ def workflow_func(self, context):
 
         with ctx.ProcessTimer(context):
             # Execute the futures
-            fut = manager.client.compute(delayed)
+            fut = client.compute(delayed)
 
             # Track the progress
             DaskJobTracker(context, fut)
@@ -229,7 +198,7 @@ def process(context, process_func=None, aggregate=False):
     Returns:
         An updated cwt.context.OperationContext.
     """
-    manager = init(context, DASK_WORKERS)
+    client = Client(context.extra.get['DASK_SCHEDULER'])
 
     fm = managers.FileManager(context)
 
@@ -284,7 +253,7 @@ def process(context, process_func=None, aggregate=False):
         context.message('Executing')
 
         with ctx.ProcessTimer(context):
-            fut = manager.client.compute(delayed)
+            fut = client.compute(delayed)
 
             DaskJobTracker(context, fut)
     except Exception as e:
