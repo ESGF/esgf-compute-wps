@@ -34,17 +34,17 @@ spec:
         {{- if and $.Values.kubeMonitor.resources (not $.Values.development)}}
         resources: {{ $.Values.kubeMonitor.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
+        {{- if .Values.kubeMonitor.development }}
+        command:
+          - tini
+          - --
+        args:
+          - /bin/sleep
+          - infinity
+        {{- else }}
         args:
           - --namespace
-          - {{ required "Set namespace at kubeMonitor.namespace" .Values.kubeMonitor.namespace }}
+          - {{ .Release.Namespace }}
           - --timeout
           - "{{ .Values.kubeMonitor.timeout }}"
-          - {{ template "esgf-compute-wps.fullname" . }}-dask-scheduler.{{ .Release.Namespace }}.svc:8786
-          - /etc/config/dask/worker-spec.yml
-        volumeMounts:
-        - mountPath: /etc/config/dask
-          name: dask-volume
-      volumes:
-      - name: dask-volume
-        configMap:
-          name: {{ template "esgf-compute-wps.fullname" . }}-dask
+        {{- end }}

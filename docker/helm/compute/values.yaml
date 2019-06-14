@@ -111,10 +111,7 @@ kubeMonitor:
   imagePullPolicy: Always
 
   # Number of seconds between checking whether resources are ready to be cleaned up
-  timeout: 600
-
-  # The namespace to monitor
-  namespace:
+  timeout: 4
 
   resources: {}
 
