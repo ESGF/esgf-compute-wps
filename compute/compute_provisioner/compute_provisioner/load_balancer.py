@@ -196,7 +196,12 @@ class LoadBalancer(object):
             for item in request:
                 yaml_data = yaml.load(item)
 
-                yaml_data['metadata']['labels'] = labels
+                try:
+                    yaml_data['metadata']['labels'].update(labels)
+                except AttributeError:
+                    yaml_data['metadata']['labels'] = labels
+                except KeyError:
+                    pass
 
                 kind = yaml_data['kind']
 
