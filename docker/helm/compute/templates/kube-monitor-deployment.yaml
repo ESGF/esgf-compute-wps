@@ -48,3 +48,15 @@ spec:
           - --timeout
           - "{{ .Values.kubeMonitor.timeout }}"
         {{- end }}
+        {{- if .Values.kubeMonitor.development }}
+        volumeMounts:
+        - name: devel-volume
+          mountPath: /devel
+        {{- end }}
+      volumes:
+      {{- if .Values.kubeMonitor.development }}
+      - name: devel-volume
+        hostPath: 
+          path: /opt/cwt/devel
+          type: DirectoryOrCreate
+      {{- end }}
