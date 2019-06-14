@@ -94,6 +94,11 @@ provisioner:
   frontendPort: 7777
   backendPort: 7778
 
+  workers: 20
+
+  # 1 hour ttl
+  lifetime: 3600
+
   resources: {}
 
 # Kubernetes Monitor
@@ -112,40 +117,6 @@ kubeMonitor:
   namespace:
 
   resources: {}
-
-dask:
-  image: jasonb87/compute-celery
-  imageTag: 0.1.0
-
-  imagePullPolicy: Always
-
-  # Number of workers per user
-  workers: 10
-
-  # Number of threads per worker
-  nthreads: 4
-  # Number of processes per worker
-  nprocs: 1
-  # Memory limit for each worker
-  memoryLimit: 8GB
-
-  resources: {}
-
-  scheduler:
-    nodeSelector: {}
-
-    annotations:
-      prometheus.io/scrape: "true"
-      prometheus.io/path: /daskboard/metrics
-      prometheus.io/port: "8787"
-
-    ingress:
-      annotations: {}
-
-      labels:
-        traffic-type: external
-
-    resources: {}
 
 nginx:
   nodeSelector: {}
@@ -176,10 +147,6 @@ wps:
 
   apiUsername:
   apiPassword:
-
-  # Set prometheus server to use for metrics collection
-  prometheus:
-    host:
 
   publicPath: /data/public
 

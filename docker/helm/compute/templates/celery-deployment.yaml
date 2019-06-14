@@ -156,12 +156,6 @@ spec:
           value: redis://{{ template "redis.fullname" $ }}-master/0
         - name: PROMETHEUS_HOST
           value: {{ required "Set celery.prometheusUrl" $.Values.celery.prometheusUrl }}
-        - name: DASK_KUBE_NAMESPACE
-          value: {{ $.Values.kubeMonitor.namespace }}
-        - name: DASK_SCHEDULER
-          value: {{ template "esgf-compute-wps.fullname" $ }}-dask-scheduler:8786
-        - name: DASK_WORKERS
-          value: "{{ $.Values.dask.workers }}"
         - name: INTERNAL_LB
           value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
         - name: DATA_PATH

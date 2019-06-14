@@ -8,6 +8,10 @@ kubeMonitor:
 provisioner:
   imagePullPolicy: IfNotPresent
 
+  workers: 2
+
+  lifetime: 240
+
 dask:
   imagePullPolicy: IfNotPresent
 
@@ -20,8 +24,7 @@ nginx:
 wps:
   imagePullPolicy: IfNotPresent
 
-  host: 10.5.5.5
-  externalHost: https://10.5.5.5
+  externalHost: 10.5.5.5
 
   prometheus:
     host: sdasda
@@ -40,6 +43,8 @@ wps:
 
 celery:
   imagePullPolicy: IfNotPresent
+
+  prometheusUrl: https://fakepromserver.org
 
 postgresql:
   postgresqlPassword: abcd1234
