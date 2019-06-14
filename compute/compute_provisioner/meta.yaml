@@ -23,6 +23,7 @@ requirements:
     - python=3.6.7
     - pyzmq=18.0.1
     - redis-py=3.2.1
+    - python-kubernetes=9.0.0
 
 test:
   imports:

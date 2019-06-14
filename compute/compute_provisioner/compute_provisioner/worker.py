@@ -42,7 +42,7 @@ class Worker(object):
 
         logger.info('Notifying queue, ready for work')
 
-    def run(self, worker_addr, request_handler):
+    def run(self, worker_addr, request_handler, request_resource):
         self.context = zmq.Context(1)
 
         self.poller = zmq.Poller()
@@ -50,6 +50,8 @@ class Worker(object):
         self.initialize(worker_addr)
 
         self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
+
+        pending_request = None
 
         while True:
             socks = dict(self.poller.poll(constants.HEARTBEAT_INTERVAL * 1000))
@@ -64,18 +66,44 @@ class Worker(object):
 
                     break
 
+                logger.debug('Handling frames from provisioner %r', frames[:3])
+
                 if len(frames) == 1 and frames[0] == constants.HEARTBEAT:
                     self.liveness = constants.HEARTBEAT_LIVENESS
 
                     logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
 
                     self.metrics.inc('recv_heartbeat')
-                else:
+                elif frames[0] == constants.REQUEST:
+                    logger.info('Received request from queue %r', frames)
+
+                    self.metrics.inc('recv_request')
+
+                    pending_request = frames[3:]
+
+                    resources = request_resource(frames[3:])
+
+                    logger.info('Resources %r', resources)
+
+                    self.worker.send_multipart([constants.RESOURCE, resources.encode()])
+
+                    self.metrics.inc('sent_resource')
+                elif frames[0] == constants.ACK:
+                    # Resource allocation ack, moving forward with execution
                     logger.info('Received data from queue %r', frames)
 
-                    request_handler(frames)
+                    self.metrics.inc('recv_ack')
 
-                    self.metrics.inc('recv_message')
+                    request_handler(pending_request)
+
+                    # Send provisioner ack
+                    self.worker.send_multipart([constants.ACK])
+
+                    self.metrics.inc('sent_ack')
+                else:
+                    logger.error('Received unknown message from queue %r', frames)
+
+                    self.metrics.inc('recv_unknown')
 
                 self.interval = constants.INTERVAL_INIT
             else:

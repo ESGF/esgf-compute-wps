@@ -1,0 +1,48 @@
+apiVerison: apps/v1
+kind: Deployment
+metadata:
+  name: dask-worker-{{ user }}
+spec:
+  restartPolicy: Never
+  replicas: {{ workers }}
+  selector:
+    matchLabels:
+      component: dask-worker-{{ user }}
+  template:
+    metadata:
+      labels:
+        component: dask-worker-{{ user }}
+    spec:
+      containers:
+      - name: dask-worker-{{ user }}
+        image: jasonb87/compute-celery:0.1.0
+        imagePullPolicy: Always
+        env:
+        - name: CDAT_ANONYMOUS_LOG
+          value: 'no'
+        command:
+        - dask-worker
+        - --no-bokeh
+        - --nthreads
+        - '4'
+        - --nprocs
+        - '1'
+        - --memory-limit
+        - 8GB
+        - --death-timeout
+        - '60'
+        - dask-scheduler-{{ user }}:8786
+        resources:
+          limits:
+            cpu: 4
+            memory: 8Gi
+          request:
+            cpu: 4
+            memory: 8Gi
+        volumeMounts:
+        - mountPath: {{ data_path }}
+          name: public-volume
+      volumes:
+      - name: public-volume
+        persistentVolumeClaim:
+          claimName: {{ data_pvc }}

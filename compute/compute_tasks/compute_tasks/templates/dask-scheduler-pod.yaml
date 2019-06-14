@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dask-scheduler-{{ user }}
+  labels:
+    component: dask-scheduler-{{ user }}
+spec:
+  containers:
+  - name: dask-scheduler-{{ user }}
+    image: jasonb87/compute-celery:0.1.0
+    imagePullPolicy: Always
+    livenessProbe:
+      tcpSocket:
+        port: 8786
+      initialDelaySeconds: 4
+      periodSeconds: 10
+    readinessProbe:
+      tcpSocket:
+        port: 8786
+      initialDelaySeconds: 16
+      periodSeconds: 20
+    resources:
+      limits:
+        cpu: 2
+        memory: 1Gi
+      requests:
+        cpu: 1
+        memory: 512Mi
+    command:
+      - dask-scheduler 
+      - --bokeh-prefix
+      - /daskboard
+    ports:
+    - containerPort: 8786
+      protocol: TCP
+    - containerPort: 8787
+      protocol: TCP

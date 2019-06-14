@@ -1,15 +1,32 @@
 import json
 import logging
+import os
 import time
 from collections import OrderedDict
+from uuid import uuid4
 
 import redis
+import yaml
 import zmq
+from kubernetes import client
+from kubernetes import config
 
 from compute_provisioner import constants
 from compute_provisioner import metrics
 
 logger = logging.getLogger('compute_provisioner.provisioner')
+
+NAMESPACE = os.environ['NAMESPACE']
+
+EXPIRE_IN = os.environ.get('EXPIRE_IN', 3600)
+
+config.load_incluster_config()
+
+core = client.CoreV1Api()
+
+apps = client.AppsV1Api()
+
+extensions = client.ExtensionsV1beta1Api()
 
 
 def json_encoder(x):
@@ -154,12 +171,66 @@ class LoadBalancer(object):
 
         logger.info('Connected to redis db %r', self.redis)
 
+    def allocate_resources(self, request):
+        """ Allocate resources.
+
+        Only support the following resources types: Pod, Deployment, Service, Ingress.
+
+        Args:
+            request: A list of YAML strs to create in the cluster.
+        """
+
+        logger.info('Allocating resources')
+
+        resource_uuid = str(uuid4())
+
+        # Create label with a uuid which can be queried for by the kube-monitor
+        labels = {
+            'app.kubernetes.io/resource-uuid': resource_uuid,
+        }
+
+        # Try to create the resources in the cluster, dont check to see if they
+        # succeed, this might need to change and block until everything is up and
+        # running
+        try:
+            for item in request:
+                yaml_data = yaml.load(item)
+
+                yaml_data['metadata']['labels'] = labels
+
+                kind = yaml_data['kind']
+
+                if kind == 'Pod':
+                    core.create_namespaced_pod(body=yaml_data, namespace=NAMESPACE)
+                elif kind == 'Deployment':
+                    apps.create_namespaced_deployment(body=yaml_data, namespace=NAMESPACE)
+                elif kind == 'Service':
+                    core.create_namespaced_service(body=yaml_data, namespace=NAMESPACE)
+                elif kind == 'Ingress':
+                    extensions.create_namespaced_ingress(body=yaml_data, namespace=NAMESPACE)
+                else:
+                    logger.error('Cannot handle kind %r', kind)
+        except client.rest.ApiException:
+            logger.error('Resource already exists')
+        else:
+            # Store the resource identity in redis so kube-monitor can handle cleaning up resources
+            self.redis.set('resource-{!s}'.format(resource_uuid), json.dumps(labels), ex=EXPIRE_IN)
+
     def handle_backend_frames(self, frames):
         address = frames[0]
 
+        logger.debug('Handling frames from backend %r', frames[:3])
+
         self.metrics.inc('recv_backend')
 
-        if address in self.waiting_ack:
+        if frames[1] == constants.RESOURCE:
+            self.allocate_resources(json.loads(frames[2]))
+
+            # Allocate resources
+            new_frames = [address, constants.ACK]
+
+            self.backend.send_multipart(new_frames)
+        elif frames[1] == constants.ACK:
             logger.info('Received ack from backend %r', address)
 
             self.waiting_ack.pop(address, None)
@@ -221,9 +292,13 @@ class LoadBalancer(object):
 
                     frames.insert(0, address)
 
+                    frames.insert(1, constants.REQUEST)
+
+                    logger.debug('Sending frames to worker %r', frames)
+
                     self.backend.send_multipart(frames)
 
-                    self.waiting_ack[address] = WaitingAck(worker.version, frames[1:])
+                    self.waiting_ack[address] = WaitingAck(worker.version, frames[2:])
 
                     # Remove the worker
                     self.workers.queue.pop(address, None)
