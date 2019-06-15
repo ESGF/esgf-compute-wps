@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -18,7 +19,7 @@ logger = logging.getLogger('compute_provisioner.provisioner')
 
 NAMESPACE = os.environ['NAMESPACE']
 
-LIFETIME = os.environ.get('LIFETIME', 3600)
+LIFETIME = int(os.environ.get('LIFETIME', 3600))
 
 config.load_incluster_config()
 
@@ -182,7 +183,7 @@ class LoadBalancer(object):
 
         logger.info('Allocating resources')
 
-        resource_uuid = str(uuid4())
+        resource_uuid = str(uuid4())[:8]
 
         # Create label with a uuid which can be queried for by the kube-monitor
         labels = {
@@ -193,6 +194,10 @@ class LoadBalancer(object):
         # succeed, this might need to change and block until everything is up and
         # running
         try:
+            created = {}
+
+            expired = (datetime.datetime.now() + datetime.timedelta(seconds=LIFETIME)).isoformat()
+
             for item in request:
                 yaml_data = yaml.load(item)
 
@@ -211,12 +216,28 @@ class LoadBalancer(object):
 
                 if kind == 'Pod':
                     core.create_namespaced_pod(body=yaml_data, namespace=NAMESPACE)
+
+                    key = '{!s}:{!s}:Pod'.format(resource_uuid, yaml_data['metadata']['name'])
+
+                    created[key] = expired
                 elif kind == 'Deployment':
                     apps.create_namespaced_deployment(body=yaml_data, namespace=NAMESPACE)
+
+                    key = '{!s}:{!s}:Deployment'.format(resource_uuid, yaml_data['metadata']['name'])
+
+                    created[key] = expired
                 elif kind == 'Service':
                     core.create_namespaced_service(body=yaml_data, namespace=NAMESPACE)
+
+                    key = '{!s}:{!s}:Service'.format(resource_uuid, yaml_data['metadata']['name'])
+
+                    created[key] = expired
                 elif kind == 'Ingress':
                     extensions.create_namespaced_ingress(body=yaml_data, namespace=NAMESPACE)
+
+                    key = '{!s}:{!s}:Ingress'.format(resource_uuid, yaml_data['metadata']['name'])
+
+                    created[key] = expired
                 else:
                     logger.error('Cannot handle kind %r', kind)
         except client.rest.ApiException as e:
@@ -224,8 +245,8 @@ class LoadBalancer(object):
 
             logger.error('Resource already exists')
         else:
-            # Store the resource identity in redis so kube-monitor can handle cleaning up resources
-            self.redis.set('resource-{!s}'.format(resource_uuid), json.dumps(labels), ex=LIFETIME)
+            for key, expire in created.items():
+                self.redis.hset('resource', key, expire)
 
     def handle_backend_frames(self, frames):
         address = frames[0]
