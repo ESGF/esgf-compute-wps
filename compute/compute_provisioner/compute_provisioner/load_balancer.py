@@ -196,7 +196,7 @@ class LoadBalancer(object):
         try:
             created = {}
 
-            expired = (datetime.datetime.now() + datetime.timedelta(seconds=LIFETIME)).isoformat()
+            expired = (datetime.datetime.now() + datetime.timedelta(seconds=LIFETIME)).timestamp()
 
             for item in request:
                 yaml_data = yaml.load(item)
