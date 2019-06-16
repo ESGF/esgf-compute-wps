@@ -11,7 +11,7 @@ setuptools.setup(
     packages=['compute_kubernetes', ],
     entry_points={
         'console_scripts': [
-            'compute-kube-monitor=compute_kubernetes:main',
+            'compute-kube-monitor=compute_kubernetes.cluster:main',
         ],
     }
 )

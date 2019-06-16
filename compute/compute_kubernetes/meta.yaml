@@ -13,6 +13,9 @@ build:
   noarch: python
 
 requirements:
+  build:
+    - git
+
   host:
     - python
 
@@ -20,13 +23,12 @@ requirements:
     - python=3.6.7
     - python-kubernetes=9.0.0
     - distributed=1.28.0
-    - pyaml=19.4.1
+    - redis-py=3.2.1
 
 test:
   imports:
     - compute_kubernetes
     - compute_kubernetes.cluster
-    - compute_kubernetes.cluster_manager
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
