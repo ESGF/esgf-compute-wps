@@ -12,6 +12,9 @@ from compute_tasks.job import job_succeeded
 from compute_tasks.context import StateMixin
 from compute_tasks.context import ProcessExistsError
 from compute_provisioner.worker import Worker
+from compute_provisioner.worker import REQUEST_TYPE
+from compute_provisioner.worker import RESOURCE_TYPE
+from compute_provisioner.worker import ERROR_TYPE
 
 logger = logging.getLogger('compute_tasks.backend')
 
@@ -134,6 +137,14 @@ def resource_request(frames, env):
     return json.dumps(resources)
 
 
+def error_handler(frames, state):
+    version, identifier, data_inputs, job, user, process = [x.decode() for x in frames[:-2]]
+
+    logger.error('Resource allocation failed %r', frames[-1])
+
+    fail_job(state, job, frames[-1].decode())
+
+
 def main():
     import argparse
 
@@ -176,4 +187,24 @@ def main():
 
     queue_host = args.queue_host or PROVISIONER_BACKEND
 
-    worker.run(queue_host, partial(request_handler, state=state), partial(resource_request, env=env))
+    request_handler_partial = partial(request_handler, state=state)
+
+    request_resource_partial = partial(resource_request, env=env)
+
+    error_handler_partial = partial(error_handler, state=state)
+
+    def callback_handler(type, frames):
+        if type == REQUEST_TYPE:
+            value = request_handler_partial(frames)
+        elif type == RESOURCE_TYPE:
+            value = request_resource_partial(frames)
+        elif type == ERROR_TYPE:
+            value = error_handler_partial(frames)
+        else:
+            logger.error('Could not handle unknown type %r', type)
+
+            raise Exception('Could not handle unknown type {!r}'.format(type))
+
+        return value
+
+    worker.run(queue_host, callback_handler)

@@ -8,6 +8,11 @@ from compute_provisioner import metrics
 
 logger = logging.getLogger('compute_provisioner.worker')
 
+# Handler types
+REQUEST_TYPE = 'execute'
+RESOURCE_TYPE = 'resource'
+ERROR_TYPE = 'error'
+
 
 class Worker(object):
     def __init__(self, version):
@@ -42,7 +47,7 @@ class Worker(object):
 
         logger.info('Notifying queue, ready for work')
 
-    def run(self, worker_addr, request_handler, request_resource):
+    def run(self, worker_addr, callback_handler):
         self.context = zmq.Context(1)
 
         self.poller = zmq.Poller()
@@ -81,7 +86,7 @@ class Worker(object):
 
                     pending_request = frames[3:]
 
-                    resources = request_resource(frames[3:])
+                    resources = callback_handler(RESOURCE_TYPE, frames[3:])
 
                     logger.info('Resources %r', resources)
 
@@ -94,12 +99,25 @@ class Worker(object):
 
                     self.metrics.inc('recv_ack')
 
-                    request_handler(pending_request)
+                    if pending_request is None:
+                        logger.error('Recieved ack from resource allocation but have no pending request')
+                    else:
+                        callback_handler(REQUEST_TYPE, pending_request)
 
-                    # Send provisioner ack
-                    self.worker.send_multipart([constants.ACK])
+                        # Send provisioner ack
+                        self.worker.send_multipart([constants.ACK])
 
-                    self.metrics.inc('sent_ack')
+                        self.metrics.inc('sent_ack')
+
+                        # Clear out pending request
+                        pending_request = None
+                elif frames[0] == constants.ERR:
+                    # Resource allocation error
+                    logger.info('Received error from queue %r', frames[1])
+
+                    callback_handler(ERROR_TYPE, pending_request + frames)
+
+                    self.metrics.inc('recv_err')
                 else:
                     logger.error('Received unknown message from queue %r', frames)
 

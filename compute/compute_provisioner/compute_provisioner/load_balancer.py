@@ -241,9 +241,16 @@ class LoadBalancer(object):
                 else:
                     logger.error('Cannot handle kind %r', kind)
         except client.rest.ApiException as e:
-            logger.exception('%s', e)
+            if e.status == 409:
+                logger.info('Resources already exists on the server')
 
-            logger.error('Resource already exists')
+                pass
+            else:
+                logger.exception('%s', e)
+
+                logger.error('Resource already exists')
+
+                raise e
         else:
             for key, expire in created.items():
                 self.redis.hset('resource', key, expire)
@@ -256,10 +263,14 @@ class LoadBalancer(object):
         self.metrics.inc('recv_backend')
 
         if frames[1] == constants.RESOURCE:
-            self.allocate_resources(json.loads(frames[2]))
-
-            # Allocate resources
-            new_frames = [address, constants.ACK]
+            try:
+                self.allocate_resources(json.loads(frames[2]))
+            except client.rest.ApiException as e:
+                # Notify error in allocating resources
+                new_frames = [address, constants.ERR, e.reason]
+            else:
+                # Allocate resources
+                new_frames = [address, constants.ACK]
 
             self.backend.send_multipart(new_frames)
         elif frames[1] == constants.ACK:
