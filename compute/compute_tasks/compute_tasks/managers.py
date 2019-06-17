@@ -614,9 +614,17 @@ class FileManager(object):
 
         self.temp_dir = None
 
+        self.old_cwd = None
+
         self.cert_path = None
 
         self.cert_data = None
+
+    def __del__(self):
+        # Revert to old cwd
+        os.chdir(self.old_cwd)
+
+        logger.info('Changed working directory %r to %r', self.temp_dir.name, self.old_cwd)
 
     def requires_cert(self, uri):
         return uri in self.auth
@@ -663,9 +671,11 @@ class FileManager(object):
 
         logger.info('Using temporary directory %r', self.temp_dir.name)
 
+        self.old_cwd = os.getcwd()
+
         os.chdir(self.temp_dir.name)
 
-        logger.info('Changed working directory to %r', self.temp_dir.name)
+        logger.info('Changed working directory %r to %r', self.old_cwd, self.temp_dir.name)
 
         self.cert_path = os.path.join(self.temp_dir.name, 'cert.pem')
 
