@@ -105,13 +105,18 @@ their dependent pods will not have automatically started. Next let's get the pod
 ### Prometheus
 The default [prometheus.yaml](docker/helm/compute/prometheus.yaml) will install a Prometheus server along with the default exporters e.g. Node Exporter, Kubernetes Export, etc. The services will be scheduled on Kubernetes nodes which have the label `tier=backend`.
 1. `cd docker/helm/compute`
-2. Edit [prometheus.yaml](docker/helm/compute/prometheus.yaml) to configure the chart. See the [chart repo](https://github.com/helm/charts/tree/master/stable/prometheus) for information on configuring.
-3. `helm install stable/prometheus -f prometheus.yaml`
+2. Edit [prometheus-storage.yaml](docker/helm/compute/prometheus-storage.yaml) to configure the storage for Prometheus. Two PersistentVolumes are required; one for the server and a second for the alert-manager.
+
+**Note** If dynamic provisioning of storage is required please refer to the Prometheus [chart documentation](https://github.com/helm/charts/tree/master/stable/prometheus)
+
+3. `kubectl apply -f prometheus-storage.yaml`
+3. Edit [prometheus.yaml](docker/helm/compute/prometheus.yaml) to configure the chart. See the [chart documentation](https://github.com/helm/charts/tree/master/stable/prometheus) for information on configuring the chart.
+4. `helm install stable/prometheus -f prometheus.yaml`
 
 or
 
-3. `helm template stable/prometheus -f prometheus.yaml --output-dir rendered-prometheus/`
-4. `kubectl apply -k rendered-prometheus/`
+4. `helm template stable/prometheus -f prometheus.yaml --output-dir rendered-prometheus/`
+5. `kubectl apply -k rendered-prometheus/`
 
 ### Traefik **(Optional)**
 The default [traefik.yaml](docker/helm/compute/traefik.yaml) will install a Traefik server that will be scheduled on a Kubernetes node which has a label `tier=frontend`, it will bind HostPort 80 and 443 on the node and will automatically create self-signed certificates. See step 2 for further customization of the reverse proxy/load balancer.
