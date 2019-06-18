@@ -409,6 +409,11 @@ class WorkflowOperationContext(StateMixin, object):
 
         return [self.operation[x] for x, y in out_deg.items() if y == 0]
 
+    def interm_ops(self):
+        out_deg = dict((x, self.node_out_deg(x)) for x in self.operation.keys())
+
+        return [self.operation[x] for x, y in out_deg.items() if y > 0]
+
     def node_in_deg(self, node):
         return len([x for x in node.inputs if x.name in self.operation])
 

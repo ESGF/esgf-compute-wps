@@ -158,14 +158,41 @@ def workflow_func(self, context):
         delayed = []
 
         for output in context.output_ops():
-            context.track_out_bytes(interm[output.name].nbytes)
+            try:
+                interm_value = interm.pop(output.name)
+            except KeyError as e:
+                raise WPSError('Did not find intermediate %s', e)
+
+            context.track_out_bytes(interm_value.nbytes)
 
             # Create an output xarray Dataset
-            dataset = interm[output.name].to_xarray()
+            dataset = interm_value.to_xarray()
 
             output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-            local_path = context.build_output_variable(interm[output.name].var_name, name=output_name)
+            local_path = context.build_output_variable(interm_value.var_name, name=output_name)
+
+            context.message('Building output for {!r} - {!r}', output.name, output.identifier)
+
+            logger.debug('Writing local output to %r', local_path)
+
+            # Create an output file and store the future
+            delayed.append(dataset.to_netcdf(local_path, compute=False))
+
+        # Should be refactored with the above
+        for output in context.interm_ops():
+            try:
+                interm_value = interm.pop(output.name)
+            except KeyError as e:
+                raise WPSError('Did not find intermediate %s', e)
+
+            # Create an output xarray Dataset
+            dataset = interm_value.to_xarray()
+
+            output_name = '{!s}-{!s}'.format(output.name, output.identifier)
+
+            local_path = context.build_output_variable(interm_value.var_name, name=output_name)
+            # local_path = context.build_output_variable(interm[output.name].var_name, name=output_name)
 
             context.message('Building output for {!r} - {!r}', output.name, output.identifier)
 

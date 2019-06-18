@@ -122,12 +122,9 @@ class InputManager(object):
         new.attrs = self.attrs.copy()
 
         for x, y in self.vars.items():
-            if x == self.var_name:
-                new.vars[x] = y
-            else:
-                new.vars[x] = y.copy()
+            new.vars[x] = y.copy()
 
-        new.vars_axes = self.vars_axes.copy()
+        new.vars_axes = dict((x, y.copy()) for x, y in self.vars_axes.items())
 
         new.axes = dict((x, y.clone()) for x, y in self.axes.items())
 
