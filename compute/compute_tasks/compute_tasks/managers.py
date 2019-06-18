@@ -376,7 +376,7 @@ class InputManager(object):
         map = self.map_domain(domain, axes)
 
         for name in list(axes.keys()):
-            if name in BOUND_NAMES:
+            if name in BOUND_NAMES or 'bounds' in name or 'bnds' in name:
                 continue
 
             axis_slice = map.get(name, slice(None, None, None))
@@ -388,9 +388,9 @@ class InputManager(object):
 
             shape = axes[name].shape
 
-            axes[name] = axes[name].subAxis(i, j, k)
-
             logger.info('Subsetting axis %r shape %r -> %r', name, shape, axes[name].shape)
+
+            axes[name] = axes[name].subAxis(i, j, k)
 
         for name in list(vars.keys()):
             if name in self.vars_axes:
