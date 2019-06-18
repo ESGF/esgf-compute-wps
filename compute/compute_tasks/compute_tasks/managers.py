@@ -622,9 +622,10 @@ class FileManager(object):
 
     def __del__(self):
         # Revert to old cwd
-        os.chdir(self.old_cwd)
+        if self.old_cwd is not None:
+            os.chdir(self.old_cwd)
 
-        logger.info('Changed working directory %r to %r', self.temp_dir.name, self.old_cwd)
+            logger.info('Changed working directory %r to %r', self.temp_dir.name, self.old_cwd)
 
     def requires_cert(self, uri):
         return uri in self.auth
