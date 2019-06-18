@@ -1,0 +1,25 @@
+apiVersion: v1
+entries:
+  compute:
+  - apiVersion: v1
+    appVersion: 2.2.0
+    created: 2019-06-18T00:47:52.617793661-07:00
+    description: A WPS based compute framework
+    digest: af25e84133f0312235eb3778500072cd3c6d593497c8541d4df04e64e2f510cd
+    engine: gotpl
+    home: https://github.com/ESGF/esgf-compute-wps/README.md
+    keywords:
+    - ESGF
+    - CWT
+    - WPS
+    - compute
+    maintainers:
+    - email: boutte3@llnl.gov
+      name: jboutte
+    name: compute
+    sources:
+    - https://github.com/ESGF/esgf-compute-wps
+    urls:
+    - https://esgf.github.io/esgf-compute-wps/compute-1.0.0.tgz
+    version: 1.0.0
+generated: 2019-06-18T00:47:52.61384592-07:00
