@@ -17,7 +17,7 @@ from compute_provisioner import metrics
 
 logger = logging.getLogger('compute_provisioner.provisioner')
 
-NAMESPACE = os.environ['NAMESPACE']
+NAMESPACE = os.environ.get('NAMESPACE', 'default')
 
 LIFETIME = int(os.environ.get('LIFETIME', 3600))
 
