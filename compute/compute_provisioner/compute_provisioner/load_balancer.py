@@ -21,14 +21,6 @@ NAMESPACE = os.environ.get('NAMESPACE', 'default')
 
 LIFETIME = int(os.environ.get('LIFETIME', 3600))
 
-config.load_incluster_config()
-
-core = client.CoreV1Api()
-
-apps = client.AppsV1Api()
-
-extensions = client.ExtensionsV1beta1Api()
-
 
 def json_encoder(x):
     def default(y):
@@ -180,6 +172,13 @@ class LoadBalancer(object):
         Args:
             request: A list of YAML strs to create in the cluster.
         """
+        config.load_incluster_config()
+
+        core = client.CoreV1Api()
+
+        apps = client.AppsV1Api()
+
+        extensions = client.ExtensionsV1beta1Api()
 
         logger.info('Allocating resources')
 
