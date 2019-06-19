@@ -1,11 +1,13 @@
 development: true
 
 kubeMonitor:
-  namespace: default
+  # development: true
 
   imagePullPolicy: IfNotPresent
 
 provisioner:
+  # development: true
+
   imagePullPolicy: IfNotPresent
 
   workers: 2
@@ -45,6 +47,9 @@ celery:
   imagePullPolicy: IfNotPresent
 
   prometheusUrl: https://fakepromserver.org
+
+  # backend:
+  #   development: true
 
 postgresql:
   postgresqlPassword: abcd1234
