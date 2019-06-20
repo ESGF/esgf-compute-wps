@@ -12,7 +12,10 @@ setuptools.setup(
     author_email='boutte3@llnl.gov',
     description='Celery and Dask compute tasks',
     url='https://github.com/ESGF/esgf-compute-wps',
-    packages=['compute_tasks'],
+    packages=[
+        'compute_tasks',
+        'compute_tasks.templates',
+    ],
     entry_points={
         'console_scripts': [
             'compute-tasks-metrics=compute_tasks.metrics_:main',
