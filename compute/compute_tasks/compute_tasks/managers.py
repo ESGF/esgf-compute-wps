@@ -3,6 +3,7 @@ import re
 import logging
 import urllib
 import tempfile
+import time
 from collections import OrderedDict
 from past.utils import old_div
 
@@ -611,18 +612,14 @@ class FileManager(object):
 
         self.temp_dir = None
 
-        self.old_cwd = None
-
         self.cert_path = None
 
         self.cert_data = None
 
     def __del__(self):
-        # Revert to old cwd
-        if self.old_cwd is not None:
-            os.chdir(self.old_cwd)
+        os.chdir('/')
 
-            logger.info('Changed working directory %r to %r', self.temp_dir.name, self.old_cwd)
+        logger.info('Reverted working directory to %r', os.getcwd())
 
     def requires_cert(self, uri):
         return uri in self.auth
@@ -642,6 +639,10 @@ class FileManager(object):
                 logger.info('File %r requires certificate', uri)
 
                 self.auth[uri] = True
+
+                time.sleep(4)
+
+            logger.info('Current directory %r', os.getcwd())
 
             try:
                 self.handles[uri] = cdms2.open(uri)
@@ -669,11 +670,9 @@ class FileManager(object):
 
         logger.info('Using temporary directory %r', self.temp_dir.name)
 
-        self.old_cwd = os.getcwd()
-
         os.chdir(self.temp_dir.name)
 
-        logger.info('Changed working directory %r to %r', self.old_cwd, self.temp_dir.name)
+        logger.info('Changed working directory to %r', self.temp_dir.name)
 
         self.cert_path = os.path.join(self.temp_dir.name, 'cert.pem')
 
