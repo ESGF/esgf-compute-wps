@@ -18,8 +18,8 @@ spec:
     readinessProbe:
       tcpSocket:
         port: 8786
-      initialDelaySeconds: 5
-      periodSeconds: 10
+      initialDelaySeconds: 2
+      periodSeconds: 5
   {% if not dev %}
     resources:
       limits:
