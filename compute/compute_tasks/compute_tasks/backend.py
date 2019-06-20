@@ -18,16 +18,6 @@ from compute_provisioner.worker import ERROR_TYPE
 
 logger = logging.getLogger('compute_tasks.backend')
 
-PROVISIONER_BACKEND = os.environ['PROVISIONER_BACKEND']
-
-HOSTNAME = os.environ['HOSTNAME']
-
-WORKERS = os.environ['WORKERS']
-
-DATA_PATH = os.environ['DATA_PATH']
-
-DATA_PVC = os.environ['DATA_PVC']
-
 # Set INGRESS_QUEUE to prevent breaking old code
 DEFAULT_QUEUE = {
     'queue': 'ingress',
@@ -117,9 +107,7 @@ def resource_request(frames, env):
     data = {
         'dev': os.environ.get('DEV', False),
         'user': user,
-        'workers': WORKERS,
-        'data_path': DATA_PATH,
-        'data_pvc': DATA_PVC,
+        'workers': os.environ['WORKERS'],
     }
 
     dask_scheduler_pod = env.get_template('dask-scheduler-pod.yaml')
@@ -185,7 +173,7 @@ def main():
     # environment variable or hard code?
     worker = Worker(b'devel')
 
-    queue_host = args.queue_host or PROVISIONER_BACKEND
+    queue_host = args.queue_host or os.environ['PROVISIONER_BACKEND']
 
     request_handler_partial = partial(request_handler, state=state)
 

@@ -89,9 +89,7 @@ spec:
         - name: WORKERS
           value: {{ $.Values.provisioner.workers | quote }}
         - name: DATA_PATH
-          value: {{ $.Values.wps.publicPath }}
-        - name: DATA_PVC
-          value: "public-pvc"
+          value: /data/public
         volumeMounts:
         {{- if $.Values.development }}
         - name: devel-volume
@@ -168,14 +166,14 @@ spec:
           value: {{ required "Set celery.prometheusUrl" $.Values.celery.prometheusUrl }}
         - name: INTERNAL_LB
           value: {{ template "traefik.fullname" $ }}.{{ $.Release.Namespace }}.svc
-        - name: DATA_PATH
-          value: {{ $.Values.wps.publicPath }}
         - name: API_USERNAME
           value: {{ $.Values.wps.apiUsername }}
         - name: API_PASSWORD
           value: {{ $.Values.wps.apiPassword }}
         - name: NAMESPACE
           value: {{ $.Release.Namespace }}
+        - name: DATA_PATH
+          value: /data/public
         envFrom:
         - secretRef:
             name: {{ template "esgf-compute-wps.fullname" $ }}-wps
@@ -186,8 +184,8 @@ spec:
         {{- end }}
         - mountPath: /metrics
           name: metrics-volume
-        - mountPath: /data/public
-          name: public-volume
+        - mountPath: /data
+          name: data-volume
           subPath: public
       volumes:
       {{- if $.Values.development }}
@@ -198,8 +196,8 @@ spec:
       {{- end }}
       - name: metrics-volume
         emptyDir: {}
-      - name: public-volume
+      - name: data-volume
         persistentVolumeClaim:
-          claimName: public-pvc
+          claimName: data-pvc
 ---
 {{- end }}

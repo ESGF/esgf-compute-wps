@@ -86,8 +86,8 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/config
-        - mountPath: /data/public
-          name: public-volume
+        - mountPath: /data
+          name: data-volume
           subPath: public
         {{- if .Values.development }}
         - name: devel-volume
@@ -103,6 +103,6 @@ spec:
       - name: config-volume
         configMap:
           name: {{ template "esgf-compute-wps.fullname" . }}-wps
-      - name: public-volume
+      - name: data-volume
         persistentVolumeClaim:
-          claimName: public-pvc
+          claimName: data-pvc

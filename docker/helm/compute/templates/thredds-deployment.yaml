@@ -52,10 +52,10 @@ spec:
         ports:
         - containerPort: 8080
         volumeMounts:
-        - name: public-volume
-          mountPath: /data/public
+        - name: data-volume
+          mountPath: /data
           subPath: public
       volumes:
-      - name: public-volume
+      - name: data-volume
         persistentVolumeClaim:
-          claimName: public-pvc
+          claimName: data-pvc

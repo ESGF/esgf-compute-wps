@@ -57,9 +57,10 @@ spec:
             memory: 8Gi
       {% endif %}
         volumeMounts:
-        - mountPath: {{ data_path }}
-          name: public-volume
+        - mountPath: /data
+          name: data-volume
+          subPath: public
       volumes:
-      - name: public-volume
+      - name: data-volume
         persistentVolumeClaim:
-          claimName: {{ data_pvc }}
+          claimName: data-pvc

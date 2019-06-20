@@ -67,10 +67,10 @@ traefik:
 #     storageClassName: cephfs-default # Storage class that will be used for the PVs
 #     path: null
 persistence:
-  public:
+  data:
     storageClassName: slow
     capacity: 100Gi
-    path: /p/cscratch/nimbus/wps/data/public
+    path: /p/cscratch/nimbus/wps/data
 
   postgresql:
     storageClassName: slow
@@ -144,8 +144,6 @@ wps:
 
   apiUsername:
   apiPassword:
-
-  publicPath: /data/public
 
   adminEmail:
 
