@@ -57,7 +57,7 @@ spec:
             memory: 8Gi
       {% endif %}
         volumeMounts:
-        - mountPath: /data
+        - mountPath: /data/public
           name: data-volume
           subPath: public
       volumes:
