@@ -184,7 +184,7 @@ spec:
         {{- end }}
         - mountPath: /metrics
           name: metrics-volume
-        - mountPath: /data
+        - mountPath: /data/public
           name: data-volume
           subPath: public
       volumes:

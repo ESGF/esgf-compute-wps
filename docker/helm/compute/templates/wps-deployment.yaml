@@ -86,7 +86,7 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/config
-        - mountPath: /data
+        - mountPath: /data/public
           name: data-volume
           subPath: public
         {{- if .Values.development }}
