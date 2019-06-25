@@ -109,10 +109,10 @@ spec:
           - "1"
           - "-Q"
           - "{{ .name }}"
-          - "-n"
-          - "$(HOSTNAME)"
           - "-l"
           - "DEBUG"
+          - "--max-tasks-per-child"
+          - "1"
         {{- end }}
         {{- if $.Values.development }}
         command:
@@ -139,7 +139,7 @@ spec:
           periodSeconds: 30
           timeoutSeconds: 5
         {{- end }}
-        {{- if and $.Values.celery.resources (not $.Values.development) (not $.Values.ignoreResources) }}
+        {{- if and $.Values.celery.resources (not $.Values.development) }}
         resources: {{ $.Values.celery.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         {{- end }}
         {{- if .ports }}
