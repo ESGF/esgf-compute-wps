@@ -1,3 +1,5 @@
+import contextlib
+
 import cdms2
 from distributed.protocol.serialize import register_serialization
 
@@ -15,24 +17,49 @@ def regrid_chunk(data, axes, grid, tool, method):
     return data
 
 
-def retrieve_chunk(url, var_name, selector, cert):
-    with open('cert.pem', 'w') as outfile:
-        outfile.write(cert)
-
+@contextlib.contextmanager
+def change_directory(*args, **kwargs):
     import os
+    import tempfile
 
-    cert_path = os.path.join(os.getcwd(), 'cert.pem')
+    try:
+        temp_dir = tempfile.TemporaryDirectory()
 
-    with open('.dodsrc', 'w') as outfile:
-        outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
-        outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
-        outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
-        outfile.write('HTTP.SSL.VERIFY=0\n')
+        old_cwd = os.getcwd()
 
+        try:
+            os.chdir(temp_dir.name)
+
+            yield temp_dir.name
+        finally:
+            os.chdir(old_cwd)
+    finally:
+        temp_dir.cleanup()
+
+
+def retrieve_chunk(url, var_name, selector, cert):
+    import os
+    import time
     import cdms2
 
-    with cdms2.open(url) as infile:
-        return infile(var_name, **selector)
+    with change_directory() as temp_path:
+        cert_path = os.path.join(temp_path, 'cert.pem')
+
+        with open(cert_path, 'w') as outfile:
+            outfile.write(cert)
+
+        dodsc_path = os.path.join(temp_path, '.dodsrc')
+
+        with open(dodsc_path, 'w') as outfile:
+            outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+            outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+            outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+            outfile.write('HTTP.SSL.VERIFY=0\n')
+
+        time.sleep(1)
+
+        with cdms2.open(url) as infile:
+            return infile(var_name, **selector)
 
 
 def serialize_transient_axis(axis):
