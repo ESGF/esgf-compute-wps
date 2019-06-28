@@ -57,34 +57,6 @@ celery:
         cpu: 500m
         memory: 1Gi
 
-dask:
-  resources:
-    limits:
-      cpu: 4
-      memory: 8Gi
-    request:
-      cpu: 4
-      memory: 8Gi
-
-  scheduler:
-    nodeSelector:
-      tier: backend
-
-    ingress:
-      annotations:
-        ingress.kubernetes.io/ssl-redirect: "true"
-        ingress.kubernetes.io/hsts-max-age: "31536000"
-        ingress.kubernetes.io/hsts-include-subdomains: "true"
-        ingress.kubernetes.io/force-hsts: "true"
-
-    resources:
-      limits:
-        cpu: 2
-        memory: 1Gi
-      requests:
-        cpu: 1
-        memory: 512Mi
-
 provisioner:
   nodeSelector:
     tier: backend

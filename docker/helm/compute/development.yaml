@@ -14,12 +14,6 @@ provisioner:
 
   lifetime: 240
 
-dask:
-  imagePullPolicy: IfNotPresent
-
-  provisioner:
-    imagePullPolicy: IfNotPresent
-
 nginx:
   imagePullPolicy: IfNotPresent
 
@@ -48,8 +42,8 @@ celery:
 
   prometheusUrl: https://fakepromserver.org
 
-  # backend:
-  #   development: true
+  backend:
+    development: true
 
 postgresql:
   postgresqlPassword: abcd1234
