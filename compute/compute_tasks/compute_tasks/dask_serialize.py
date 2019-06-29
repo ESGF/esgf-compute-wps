@@ -21,19 +21,26 @@ def regrid_chunk(data, axes, grid, tool, method):
 def change_directory(*args, **kwargs):
     import os
     import tempfile
+    import logging
 
     try:
         temp_dir = tempfile.TemporaryDirectory()
 
         old_cwd = os.getcwd()
 
+        logging.info('Changing directory %r -> %r', old_cwd, temp_dir.name)
+
         try:
             os.chdir(temp_dir.name)
 
             yield temp_dir.name
         finally:
+            logging.info('Changing directory %r', old_cwd)
+
             os.chdir(old_cwd)
     finally:
+        logging.info('Cleaning up temporary directory')
+
         temp_dir.cleanup()
 
 
@@ -41,24 +48,38 @@ def retrieve_chunk(url, var_name, selector, cert):
     import os
     import time
     import cdms2
+    import logging
 
     with change_directory() as temp_path:
-        cert_path = os.path.join(temp_path, 'cert.pem')
+        if cert is not None:
+            cert_path = os.path.join(temp_path, 'cert.pem')
 
-        with open(cert_path, 'w') as outfile:
-            outfile.write(cert)
+            logging.info('Writing cert to %r', cert_path)
 
-        dodsc_path = os.path.join(temp_path, '.dodsrc')
+            with open(cert_path, 'w') as outfile:
+                outfile.write(cert)
 
-        with open(dodsc_path, 'w') as outfile:
-            outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
-            outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.VERIFY=0\n')
+            logging.info('Wrote cert')
 
-        time.sleep(1)
+            dodsc_path = os.path.join(temp_path, '.dodsrc')
+
+            logging.info('Writing dodsc to %r', dodsc_path)
+
+            with open(dodsc_path, 'w') as outfile:
+                outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+                outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+                outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+                outfile.write('HTTP.SSL.VERIFY=0\n')
+
+            logging.info('Wrote dodsc')
+
+            time.sleep(1)
+
+        logging.info('Opening file %r', url)
 
         with cdms2.open(url) as infile:
+            logging.info('Reading variable %r selector %r', var_name, selector)
+
             return infile(var_name, **selector)
 
 
