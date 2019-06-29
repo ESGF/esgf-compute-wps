@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import contextlib
 import os
 import hashlib
 import json
@@ -178,21 +179,25 @@ def check_access(uri, cert=None):
     return False
 
 
+@contextlib.contextmanager
 def open_file(user, uri):
-    if not check_access(uri):
-        cert_path = load_certificate(user)
-
-        if not check_access(uri, cert_path):
-            raise WPSError('File {!r} is not accessible, check the OpenDAP service', uri)
-
-        logger.info('File %r requires certificate', uri)
-
     try:
-        handle = cdms2.open(uri)
-    except Exception:
-        raise WPSError('Error open file %r', uri)
+        temp_file = tempfile.TemporaryDirectory()
 
-    return handle
+        if not check_access(uri):
+            cert_path = load_certificate(user)
+
+            if not check_access(uri, cert_path):
+                raise WPSError('File {!r} is not accessible, check the OpenDAP service', uri)
+
+            logger.info('File %r requires certificate', uri)
+
+        try:
+            yield cdms2.open(uri)
+        except Exception:
+            raise WPSError('Error open file %r', uri)
+    finally:
+        temp_file.cleanup()
 
 
 def process_url(user, prefix_id, var):
@@ -216,17 +221,8 @@ def process_url(user, prefix_id, var):
     if data is None:
         data = {'url': var.uri}
 
-        handle = None
-
-        try:
-            handle = open_file(user, var.uri)
-
+        with open_file(user, var.uri) as handle:
             axes = process_axes(handle[var.var_name])
-        except Exception as e:
-            raise WPSError('Failed to open {!r}: {!s}', var.uri, e)
-        finally:
-            if handle:
-                handle.close()
 
         data.update(axes)
 
