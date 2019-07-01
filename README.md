@@ -11,7 +11,9 @@ We welcome contributions to the project, before moving ahead please review the f
 
 * [Contributing Guide](CONTRIBUTING.md)
 * [Developers Guide](DEVELOPER.md)
-* [FAQ](FAQ.md)
+
+# Question?
+Please review the [FAQ](FAQ.md), if you do not find an answer to your question open an issue on [GitHub](https://github.com/ESGF/esgf-compute-wps/issues/new).
 
 # Intallation
 We support deployment by [Helm](https://helm.sh/), the use of Tiller is optional. The compute service is designed to run behind [Traefik](https://docs.traefik.io/) though it is possible to run it behind other reverse proxy/load balancers. Instructions to deploy a default Traefik installation will be described below. The service also uses a [Prometheus](https://prometheus.io/) server to collect metrics for the compute service. This can be installed by Helm or a bare metal install, instructions for Helm will be provided otherwise see the Prometheus documentation for installation instructions. Refer to the configuration section below for instructions on configuring the compute service to use the Prometheus server.
