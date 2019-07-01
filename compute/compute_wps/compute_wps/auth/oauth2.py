@@ -4,7 +4,6 @@ import logging
 import os
 from base64 import b64encode
 
-import requests
 from OpenSSL import crypto
 from django.conf import settings
 from oauthlib.oauth2 import MissingTokenError
@@ -12,14 +11,17 @@ from requests_oauthlib import OAuth2Session
 
 logger = logging.getLogger('wps.auth.oauth2')
 
+
 class OAuth2Error(Exception):
     pass
+
 
 def get_env(key):
     try:
         return os.environ[key]
     except KeyError:
         raise OAuth2Error('Environment variable "{}" has not been set'.format(key))
+
 
 def get_certificate(token, state, refresh_url, cert_url, refresh=None):
     client_id = get_env('OAUTH_CLIENT')
@@ -61,9 +63,12 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=None):
 
         pass
     else:
-        csrftoken = slcs.cookies['csrftoken']
+        try:
+            csrftoken = slcs.cookies['csrftoken']
 
-        headers['X-CSRFToken'] = csrftoken
+            headers['X-CSRFToken'] = csrftoken
+        except KeyError:
+            logger.debug('crsftoken not found in cookies %r', slcs.cookies.keys())
 
     if refresh is not None:
         logger.info('Refreshing token')
@@ -71,7 +76,7 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=None):
         refresh_headers = headers.copy()
 
         refresh_headers['Accept'] = 'application/json'
-        
+
         refresh_headers['Content-Type'] = ('application/x-www-form-urlencoded;charset=UTF-8')
 
         try:
@@ -88,7 +93,7 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=None):
 
     try:
         response = slcs.post(cert_url,
-                             data={ 'certificate_request': b64encode(cert_request) },
+                             data={'certificate_request': b64encode(cert_request)},
                              verify=False,
                              headers=headers)
     except Exception:
@@ -99,14 +104,15 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=None):
 
     return response.text, private_key, token
 
+
 def get_token(token_uri, request_url, oauth_state):
     client_id = get_env('OAUTH_CLIENT')
 
     secret = get_env('OAUTH_SECRET')
 
     slcs = OAuth2Session(client_id,
-            redirect_uri=settings.OAUTH2_CALLBACK_URL,
-            state=oauth_state)
+                         redirect_uri=settings.OAUTH2_CALLBACK_URL,
+                         state=oauth_state)
 
     try:
         token = slcs.fetch_token(token_uri,
@@ -118,6 +124,7 @@ def get_token(token_uri, request_url, oauth_state):
 
     return token
 
+
 def get_authorization_url(auth_uri, cert_uri):
     client_id = get_env('OAUTH_CLIENT')
 
@@ -125,8 +132,8 @@ def get_authorization_url(auth_uri, cert_uri):
         cert_uri = '{}/'.format(cert_uri)
 
     slcs = OAuth2Session(client_id,
-            redirect_uri=settings.OAUTH2_CALLBACK_URL,
-            scope=[cert_uri])
+                         redirect_uri=settings.OAUTH2_CALLBACK_URL,
+                         scope=[cert_uri])
 
     try:
         return slcs.authorization_url(auth_uri)
