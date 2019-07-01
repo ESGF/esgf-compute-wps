@@ -246,7 +246,7 @@ class Auth(models.Model):
     def update(self, auth_type, certs, **kwargs):
         self.type = auth_type
 
-        self.cert = ''.join(list(x.decode() for x in certs))
+        self.cert = ''.join(list(x if isinstance(x, str) else x.decode() for x in certs))
 
         extra = json.loads(self.extra or '{}')
 
