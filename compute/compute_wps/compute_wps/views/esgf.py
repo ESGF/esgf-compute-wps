@@ -311,9 +311,9 @@ def parse_solr_docs(response):
         try:
             open_dap = [x for x in doc['url'] if 'opendap' in x.lower()][0]
         except IndexError:
-            logger.warning('Skipping %r, missing OpenDAP url', doc['master_id'])
+            logger.error('Skipping %r, missing OpenDAP url', doc['master_id'])
 
-            continue
+            raise WPSError('Dataset {!r} is not accessible through OpenDAP', doc['id'])
 
         url, _, _ = open_dap.split('|')
 
