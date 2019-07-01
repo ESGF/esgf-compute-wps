@@ -70,6 +70,8 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=None):
         except KeyError:
             logger.debug('crsftoken not found in cookies %r', slcs.cookies.keys())
 
+            pass
+
     if refresh is not None:
         logger.info('Refreshing token')
 
