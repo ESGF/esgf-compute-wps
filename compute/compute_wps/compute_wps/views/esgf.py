@@ -113,22 +113,16 @@ def load_certificate(user):
     """
     cert_data = user.auth.cert
 
-    temp_dir = tempfile.TemporaryDirectory()
+    cwd = os.getcwd()
 
-    logger.info('Using temporary directory %r', temp_dir.name)
-
-    os.chdir(temp_dir.name)
-
-    logger.info('Changed working directory to %r', temp_dir.name)
-
-    cert_path = os.path.join(temp_dir.name, 'cert.pem')
+    cert_path = os.path.join(cwd, 'cert.pem')
 
     with open(cert_path, 'w') as outfile:
         outfile.write(cert_data)
 
     logger.info('Wrote user certificate')
 
-    dodsrc_path = os.path.join(temp_dir.name, '.dodsrc')
+    dodsrc_path = os.path.join(cwd, '.dodsrc')
 
     with open(dodsrc_path, 'w') as outfile:
         outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')

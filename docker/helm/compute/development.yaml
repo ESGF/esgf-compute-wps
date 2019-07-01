@@ -42,8 +42,16 @@ celery:
 
   prometheusUrl: https://fakepromserver.org
 
-  backend:
-    development: true
+  # backend:
+  #   development: true
+
+redis:
+  master:
+    persistence:
+      enabled: false
 
 postgresql:
   postgresqlPassword: abcd1234
+
+  persistence:
+    enabled: false
