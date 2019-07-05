@@ -61,9 +61,7 @@ spec:
           initialDelaySeconds: 40
           periodSeconds: 20
         {{- end }}
-        {{- if and $.Values.provisioner.resources (not $.Values.development) }}
         resources: {{ $.Values.provisioner.resources | toYaml | trimSuffix "\n" | nindent 10 }}
-        {{- end }}
         ports:
         - containerPort: {{ .Values.provisioner.frontendPort }}
         - containerPort: {{ .Values.provisioner.backendPort }}

@@ -46,9 +46,7 @@ spec:
             port: 8080
           initialDelaySeconds: 40
           periodSeconds: 20
-        {{- if and $.Values.thredds.resources (not $.Values.development) (not $.Values.ignoreResources) }}
         resources: {{ $.Values.thredds.resources | toYaml | trimSuffix "\n" | nindent 10 }}
-        {{- end }}
         ports:
         - containerPort: 8080
         volumeMounts:

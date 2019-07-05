@@ -31,9 +31,7 @@ spec:
       - name: {{ template "esgf-compute-wps.name" . }}-kube-monitor
         image: {{ .Values.kubeMonitor.image }}:{{ .Values.kubeMonitor.imageTag }}
         imagePullPolicy: {{ .Values.kubeMonitor.imagePullPolicy }}
-        {{- if and $.Values.kubeMonitor.resources (not $.Values.development)}}
         resources: {{ $.Values.kubeMonitor.resources | toYaml | trimSuffix "\n" | nindent 10 }}
-        {{- end }}
         {{- if .Values.kubeMonitor.development }}
         command:
           - tini

@@ -1,9 +1,8 @@
-# This chart provides default resource requests and limits for each container. If
-# this is not desired each "requests:" may be replaced with "requests: null".
-
-# Run the chart in development mode, this will start the celery and wps containers
-# with /bin/sleep infinity and each container will need to have their respective
-# application run manually. This allows for live code editing in the environment.
+# Setting the development flag to true will disable any health or liveness checks.
+#
+# Setting the container specific development flag will cause the containers to run with
+# /bin/sleep infinity allowing the developer to open a shell into the container, install
+# libraries or edit code and launch the process manually.
 development: false
 
 # Internal HTTP/TCP load balancer

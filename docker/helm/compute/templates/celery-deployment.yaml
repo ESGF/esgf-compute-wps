@@ -44,13 +44,6 @@ spec:
           - "mkdir -p /metrics && compute-tasks-metrics"
         resources:
           {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
-        volumeMounts:
-        {{- if $.Values.development }}
-        - name: devel-volume
-          mountPath: /devel
-        {{- end }}
-        - mountPath: /metrics
-          name: metrics-volume
       - name: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}-backend
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
@@ -70,7 +63,7 @@ spec:
         resources:
           {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         env:
-        {{- if $.Values.development }}
+        {{- if $.Values.celery.backend.development }}
         - name: DEV
           value: "1"
         {{- end }}
@@ -91,7 +84,7 @@ spec:
         - name: DATA_PATH
           value: /data/public
         volumeMounts:
-        {{- if $.Values.development }}
+        {{- if $.Values.celery.backend.development }}
         - name: devel-volume
           mountPath: /devel
         {{- end }}
@@ -100,7 +93,7 @@ spec:
       - name: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}
-        {{- if not $.Values.development }}
+        {{- if not $.Values.celery.development }}
         command: ["tini", "--"]
         args: 
           - /bin/bash
@@ -114,7 +107,7 @@ spec:
           - "--max-tasks-per-child"
           - "1"
         {{- end }}
-        {{- if $.Values.development }}
+        {{- if $.Values.celery.development }}
         command:
           - tini
           - --
@@ -139,9 +132,7 @@ spec:
           periodSeconds: 30
           timeoutSeconds: 5
         {{- end }}
-        {{- if and $.Values.celery.resources (not $.Values.development) }}
         resources: {{ $.Values.celery.resources | toYaml | trimSuffix "\n" | nindent 10 }}
-        {{- end }}
         {{- if .ports }}
         ports:
         {{- range .ports }}
@@ -150,7 +141,7 @@ spec:
         {{- end }}
         {{- end }}
         env:
-        {{- if $.Values.development }}
+        {{- if $.Values.celery.development }}
         - name: DEV
           value: "1"
         - name: WPS_DEBUG
@@ -178,7 +169,7 @@ spec:
         - secretRef:
             name: {{ template "esgf-compute-wps.fullname" $ }}-wps
         volumeMounts:
-        {{- if $.Values.development }}
+        {{- if $.Values.celery.development }}
         - name: devel-volume
           mountPath: /devel
         {{- end }}
@@ -188,7 +179,7 @@ spec:
           name: data-volume
           subPath: public
       volumes:
-      {{- if $.Values.development }}
+      {{- if $.Values.celery.development }}
       - name: devel-volume
         hostPath: 
           path: /opt/cwt/devel

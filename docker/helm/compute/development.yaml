@@ -1,11 +1,17 @@
+# Setting development mode will cause the associated container to start with
+# /bin/sleep allowing the ability to enter into a shell in the container to
+# execute the command manually.
+
 development: true
 
 kubeMonitor:
+  # Sets kube-monitor container to development mode
   # development: true
 
   imagePullPolicy: IfNotPresent
 
 provisioner:
+  # Sets provisioner container to development mode
   # development: true
 
   imagePullPolicy: IfNotPresent
@@ -18,6 +24,9 @@ nginx:
   imagePullPolicy: IfNotPresent
 
 wps:
+  # Sets the wps container to development mode
+  # development: true
+
   imagePullPolicy: IfNotPresent
 
   externalHost: 10.5.5.5
@@ -38,11 +47,15 @@ wps:
     host: dasda
 
 celery:
+  # Sets the celery container to development mode
+  # development: true
+
   imagePullPolicy: IfNotPresent
 
   prometheusUrl: https://fakepromserver.org
 
   # backend:
+  #   Sets the celery backend container to development mode
   #   development: true
 
 redis:

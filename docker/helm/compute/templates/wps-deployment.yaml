@@ -33,7 +33,7 @@ spec:
       - name: {{ template "esgf-compute-wps.name" . }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
         imagePullPolicy: {{ .Values.wps.imagePullPolicy }}
-        {{- if .Values.development }}
+        {{- if .Values.wps.development }}
         command:
           - tini
           - --
@@ -56,11 +56,9 @@ spec:
           periodSeconds: 30
           timeoutSeconds: 5
         {{- end }}
-        {{- if and $.Values.wps.resources (not $.Values.development) (not $.Values.ignoreResources) }}
         resources: {{ $.Values.wps.resources | toYaml | trimSuffix "\n" | nindent 10 }}
-        {{- end }}
         env:
-        {{- if $.Values.development }}
+        {{- if $.Values.wps.development }}
         - name: DEV
           value: "1"
         - name: WPS_DEBUG
@@ -89,12 +87,12 @@ spec:
         - mountPath: /data/public
           name: data-volume
           subPath: public
-        {{- if .Values.development }}
+        {{- if .Values.wps.development }}
         - name: devel-volume
           mountPath: /devel
         {{- end }}
       volumes:
-      {{- if .Values.development }}
+      {{- if .Values.wps.development }}
       - name: devel-volume
         hostPath: 
           path: /opt/cwt/devel
