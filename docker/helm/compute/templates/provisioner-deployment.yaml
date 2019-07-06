@@ -26,6 +26,10 @@ spec:
       nodeSelector: 
         {{ .Values.provisioner.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
+      {{- if $.Values.provisioner.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ $.Values.provisioner.imagePullSecret }}
+      {{- end }}
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-provisioner
         image: {{ .Values.provisioner.image }}:{{ .Values.provisioner.imageTag }}

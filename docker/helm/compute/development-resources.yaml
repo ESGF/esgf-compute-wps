@@ -31,6 +31,7 @@ wps:
   # development: true
 
   imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
   nodeSelector:
     tier: backend
@@ -73,6 +74,7 @@ celery:
   # development: true
 
   imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
   nodeSelector:
     tier: backend
@@ -97,6 +99,7 @@ provisioner:
   # development: true
 
   imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
   nodeSelector:
     tier: backend
@@ -118,6 +121,7 @@ kubeMonitor:
   # development: true
 
   imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
   nodeSelector:
     tier: backend
@@ -135,6 +139,7 @@ kubeMonitor:
 
 nginx:
   imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
     
   nodeSelector:
     tier: backend
@@ -152,6 +157,9 @@ nginx:
       traffic-type: development
 
 thredds:
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
+
   nodeSelector:
     tier: backend
 

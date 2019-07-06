@@ -25,6 +25,10 @@ spec:
       nodeSelector: 
         {{ .Values.thredds.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
+      {{- if $.Values.thredds.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ $.Values.thredds.imagePullSecret }}
+      {{- end }}
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-thredds
         image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}

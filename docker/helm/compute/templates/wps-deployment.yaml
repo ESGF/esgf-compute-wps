@@ -29,6 +29,10 @@ spec:
       nodeSelector: 
         {{ .Values.wps.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
+      {{- if $.Values.wps.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ $.Values.wps.imagePullSecret }}
+      {{- end }}
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}

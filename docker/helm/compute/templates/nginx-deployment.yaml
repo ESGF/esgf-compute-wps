@@ -25,6 +25,10 @@ spec:
       nodeSelector: 
         {{ .Values.nginx.nodeSelector | toYaml | trimSuffix "\n"}}
       {{- end }}
+      {{- if $.Values.nginx.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ $.Values.nginx.imagePullSecret }}
+      {{- end }}
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}

@@ -27,6 +27,10 @@ spec:
       {{- end }}
       serviceAccount: wps-dask
       restartPolicy: Always
+      {{- if $.Values.kubeMonitor.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ $.Values.kubeMonitor.imagePullSecret }}
+      {{- end }}
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-kube-monitor
         image: {{ .Values.kubeMonitor.image }}:{{ .Values.kubeMonitor.imageTag }}

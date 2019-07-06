@@ -31,6 +31,10 @@ spec:
       nodeSelector: 
         {{ $.Values.celery.nodeSelector | toYaml | trimSuffix "\n" }}
       {{- end }}
+      {{- if $.Values.celery.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ $.Values.celery.imagePullSecret }}
+      {{- end }}
       containers:
       - name: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}-metrics
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
