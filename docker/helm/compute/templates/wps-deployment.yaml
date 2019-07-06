@@ -103,4 +103,4 @@ spec:
           name: {{ template "esgf-compute-wps.fullname" . }}-wps
       - name: data-volume
         persistentVolumeClaim:
-          claimName: data-pvc
+          claimName: {{ .Values.persistence.dataClaimName | default "data-pvc" }}

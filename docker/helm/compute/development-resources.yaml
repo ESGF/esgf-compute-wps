@@ -1,3 +1,5 @@
+development: true
+
 traefik:
   resources:
     requests:
@@ -9,31 +11,27 @@ traefik:
       memory: 512Mi
 
   dashboard:
-    ingress:
-      annotations:
-        ingress.kubernetes.io/ssl-redirect: "true"
-        ingress.kubernetes.io/hsts-max-age: "31536000"
-        ingress.kubernetes.io/hsts-include-subdomains: "true"
-        ingress.kubernetes.io/force-hsts: "true"
+      labels:
+        traffic-type: development
+
+  kubernetes:
+    labelSelector: traffic-type=development-internal
 
 persistence:
+  dataClaimName: data-dev-pvc
+
   volumes:
-    data:
+    data-dev:
       storageClassName: slow
       capacity: 100Gi
-      path: /p/cscratch/nimbus/wps/data
-
-    postgresql:
-      storageClassName: slow
-      capacity: 10Gi
-      path: /opt/nimbus/wps/postgresql
-
-    redis:
-      storageClassName: slow
-      capacity: 10Gi
-      path: /opt/nimbus/wps/redis
+      path: /p/cscratch/nimbus/wps-dev/data
 
 wps:
+  # Sets the wps container to development mode
+  # development: true
+
+  imagePullPolicy: Always
+
   nodeSelector:
     tier: backend
 
@@ -45,25 +43,39 @@ wps:
       cpu: 200m
       memory: 256Mi
 
+  ingress:
+    external:
+      labels:
+        traffic-type: development
+    internal:
+      labels:
+        traffic-type: development-internal
+
+  externalHost: 10.5.5.5
+
+  prometheus:
+    host: sdasda
+
   oauth:
-    client:
-    secret:
+    client: client
+    secret: secret
 
-  apiUsername:
-  apiPassword:
+  apiUsername: wps_api_user
+  apiPassword: changeit
 
-  externalHost:
+  adminEmail: test@test.hello
 
   email:
-    host:
-
-  adminEmail:
+    host: dasda
 
 celery:
+  # Sets the celery container to development mode
+  # development: true
+
+  imagePullPolicy: Always
+
   nodeSelector:
     tier: backend
-
-  prometheusUrl:
 
   backend:
     resources:
@@ -74,7 +86,18 @@ celery:
         cpu: 500m
         memory: 1Gi
 
+  prometheusUrl: https://fakepromserver.org
+
+  # backend:
+  #   Sets the celery backend container to development mode
+  #   development: true
+
 provisioner:
+  # Sets provisioner container to development mode
+  # development: true
+
+  imagePullPolicy: Always
+
   nodeSelector:
     tier: backend
 
@@ -86,11 +109,20 @@ provisioner:
       cpu: 100m
       memory: 32Mi
 
+  workers: 2
+
+  lifetime: 240
+
 kubeMonitor:
+  # Sets kube-monitor container to development mode
+  # development: true
+
+  imagePullPolicy: Always
+
   nodeSelector:
     tier: backend
 
-  namespace: production
+  namespace: development
 
   resources:
     limits:
@@ -102,6 +134,8 @@ kubeMonitor:
       memory: 256Mi
 
 nginx:
+  imagePullPolicy: Always
+    
   nodeSelector:
     tier: backend
 
@@ -114,11 +148,8 @@ nginx:
       memory: 256Mi
 
   ingress:
-    annotations:
-      ingress.kubernetes.io/ssl-redirect: "true"
-      ingress.kubernetes.io/hsts-max-age: "31536000"
-      ingress.kubernetes.io/hsts-include-subdomains: "true"
-      ingress.kubernetes.io/force-hsts: "true"
+    labels:
+      traffic-type: development
 
 thredds:
   nodeSelector:
@@ -133,14 +164,11 @@ thredds:
       memory: 512Mi
 
   ingress:
-    annotations:
-      ingress.kubernetes.io/ssl-redirect: "true"
-      ingress.kubernetes.io/hsts-max-age: "31536000"
-      ingress.kubernetes.io/hsts-include-subdomains: "true"
-      ingress.kubernetes.io/force-hsts: "true"
+    labels:
+      traffic-type: development
 
 postgresql:
-  postgresqlPassword:
+  postgresqlPassword: abcd1234
 
   resources:
     limits:
@@ -150,10 +178,12 @@ postgresql:
       cpu: 250m
       memory: 256Mi
 
+  persistence:
+    enabled: false
+
   master:
     nodeSelector:
       tier: backend
-      storage/wps: local
 
 redis:
   master:
@@ -165,6 +195,8 @@ redis:
         cpu: 2
         memory: 4Gi
 
+    persistence:
+      enabled: false
+
     nodeSelector:
       tier: backend
-      storage/wps: local

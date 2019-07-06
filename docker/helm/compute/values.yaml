@@ -66,20 +66,21 @@ traefik:
 #     storageClassName: cephfs-default # Storage class that will be used for the PVs
 #     path: null
 persistence:
-  data:
-    storageClassName: slow
-    capacity: 100Gi
-    path: /p/cscratch/nimbus/wps/data
-
-  postgresql:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/nimbus/wps/postgresql
-
-  redis:
-    storageClassName: slow
-    capacity: 10Gi
-    path: /opt/nimbus/wps/redis
+  volumes: {}
+#    data:
+#      storageClassName: slow
+#      capacity: 100Gi
+#      path: /p/cscratch/nimbus/wps/data
+#
+#    postgresql:
+#      storageClassName: slow
+#      capacity: 10Gi
+#      path: /opt/nimbus/wps/postgresql
+#
+#    redis:
+#      storageClassName: slow
+#      capacity: 10Gi
+#      path: /opt/nimbus/wps/redis
 
 # Provisioner
 provisioner:

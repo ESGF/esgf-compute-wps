@@ -189,6 +189,6 @@ spec:
         emptyDir: {}
       - name: data-volume
         persistentVolumeClaim:
-          claimName: data-pvc
+          claimName: {{ $.Values.persistence.dataClaimName | default "data-pvc" }}
 ---
 {{- end }}

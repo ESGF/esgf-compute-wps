@@ -1,5 +1,5 @@
-{{- range $key, $val := .Values.persistence }}
-{{- if $val.path }}
+{{- range $key, $val := .Values.persistence.volumes }}
+{{- if and $val $val.path }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
