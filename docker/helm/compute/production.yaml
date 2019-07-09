@@ -17,6 +17,8 @@ traefik:
         ingress.kubernetes.io/force-hsts: "true"
 
 persistence:
+  dataClaimName: data-pvc
+
   volumes:
     data:
       storageClassName: slow

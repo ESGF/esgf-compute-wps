@@ -7,10 +7,11 @@ development: true
 persistence:
   dataClaimName: data-dev-pvc
 
-  data-dev:
-    storageClassName: slow
-    capacity: 100Gi
-    path: /p/cscratch/nimbus/wps-dev/data
+  volumes: 
+    data-dev:
+      storageClassName: slow
+      capacity: 100Gi
+      path: /p/cscratch/nimbus/wps-dev/data
 
 kubeMonitor:
   # Sets kube-monitor container to development mode

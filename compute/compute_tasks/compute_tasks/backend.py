@@ -108,6 +108,7 @@ def resource_request(frames, env):
         'dev': os.environ.get('DEV', False),
         'user': user,
         'workers': os.environ['WORKERS'],
+        'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
     }
 
     dask_scheduler_pod = env.get_template('dask-scheduler-pod.yaml')

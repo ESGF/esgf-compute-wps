@@ -71,6 +71,8 @@ spec:
         - name: DEV
           value: "1"
         {{- end }}
+        - name: DATA_CLAIM_NAME
+          value: {{ $.Values.persistence.dataClaimName }}
         - name: PROVISIONER_BACKEND
           value: {{ template "esgf-compute-wps.fullname" $ }}-provisioner.{{ $.Release.Namespace }}.svc:{{ $.Values.provisioner.backendPort }}
         - name: INTERNAL_LB
