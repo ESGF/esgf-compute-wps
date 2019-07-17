@@ -5,6 +5,9 @@ webpack-stats.json
 compute/wps/assets/bundles/
 compute/compute/settings.py
 
+*.rdb
+*.swp
+
 *.pid
 *.tgz
 *.txt

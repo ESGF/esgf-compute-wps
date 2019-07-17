@@ -143,9 +143,17 @@ def main():
 
     parser.add_argument('--queue-host', help='Queue to communicate with')
 
-    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_true')
+    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_false')
+
+    parser.add_argument('--skip-init-api', help='Skip initializing API', action='store_false')
+
+    parser.add_argument('-d', help='Development mode', action='store_true')
 
     args = parser.parse_args()
+
+    register_tasks = not args.skip_register_tasks or not args.d
+
+    init_api = not args.skip_init_api or not args.d
 
     logging.basicConfig(level=args.log_level)
 
@@ -157,9 +165,10 @@ def main():
 
     state = StateMixin()
 
-    state.init_api()
+    if init_api:
+        state.init_api()
 
-    if not args.skip_register_tasks:
+    if register_tasks:
         for item in base.discover_processes():
             try:
                 state.register_process(**item)

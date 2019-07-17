@@ -390,6 +390,56 @@ class LoadBalancer(object):
 
             self.handle_unacknowledge_requests()
 
+    def single_heartbeat(self, frontend_port, backend_port, redis_host):
+        self.initialize(frontend_port, backend_port, redis_host)
+
+        while True:
+            socks = dict(self.poll_both.poll(constants.HEARTBEAT_INTERVAL * 1000))
+
+            logger.debug('poll %r', socks)
+
+            if socks.get(self.backend) == zmq.POLLIN:
+                frames = self.backend.recv_multipart()
+
+                if not frames:
+                    self.metrics.inc('recv_backend_empty')
+
+                self.handle_backend_frames(frames)
+
+            if self.workers.heartbeat_time:
+                self.workers.heartbeat(self.backend)
+
+                self.metrics.inc('sent_heartbeat')
+
+
+def debug():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    parser.add_argument('--redis-host', help='Redis host', default='127.0.0.1')
+
+    parser.add_argument('--backend-port', help='Backend port', type=int, default=7778)
+
+    action_choices = (
+        'heartbeat',
+    )
+
+    parser.add_argument('--action', help='Action to perform', choices=action_choices, default=action_choices[0])
+
+    args = parser.parse_args()
+
+    print(args)
+
+    logging.basicConfig(level=args.log_level)
+
+    load_balancer = LoadBalancer()
+
+    if args.action == action_choices[0]:
+        load_balancer.single_heartbeat(7777, args.backend_port, args.redis_host)
+
 
 def main():
     import argparse
