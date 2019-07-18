@@ -44,6 +44,8 @@ COPY docker/wps/wsgi.py .
 
 WORKDIR /src/compute/compute_wps
 
+COPY docker/wps/development.yaml .
+
 ENTRYPOINT ["tini", "--"]
 
 CMD ["/bin/bash"]
