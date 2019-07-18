@@ -6,8 +6,8 @@ from base64 import b64encode
 
 from OpenSSL import crypto
 from django.conf import settings
-from oauthlib.oauth2 import MissingTokenError
 from requests_oauthlib import OAuth2Session
+from requests_oauthlib import TokenUpdated
 
 logger = logging.getLogger('wps.auth.oauth2')
 
@@ -23,19 +23,7 @@ def get_env(key):
         raise OAuth2Error('Environment variable "{}" has not been set'.format(key))
 
 
-def get_certificate(token, state, refresh_url, cert_url, refresh=None):
-    client_id = get_env('OAUTH_CLIENT')
-
-    secret = get_env('OAUTH_SECRET')
-
-    slcs = OAuth2Session(client_id,
-                         token=token,
-                         state=state,
-                         auto_refresh_kwargs={
-                             'client_id': client_id,
-                             'client_secret': secret,
-                         })
-
+def get_certificate(token, state, refresh_url, cert_url):
     key_pair = crypto.PKey()
     key_pair.generate_key(crypto.TYPE_RSA, 2048)
 
@@ -49,57 +37,24 @@ def get_certificate(token, state, refresh_url, cert_url, refresh=None):
     if cert_url[-1] != '/':
         cert_url = '{}/'.format(cert_url)
 
-    headers = {
-        'Referer': refresh_url,
-    }
+    headers = {'Referer': refresh_url}
 
-    logger.info('Grabbing CSRF Token')
+    auto_refresh = {'client_id': get_env('OAUTH_CLIENT'), 'client_secret': get_env('OAUTH_SECRET')}
 
-    # Grab a CSRF token
-    try:
-        response = slcs.get(refresh_url, verify=False, headers=headers, withhold_token=True)
-    except Exception:
-        logger.exception('CSRF Token grab')
-
-        pass
-    else:
-        try:
-            csrftoken = slcs.cookies['csrftoken']
-
-            headers['X-CSRFToken'] = csrftoken
-        except KeyError:
-            logger.debug('crsftoken not found in cookies %r', slcs.cookies.keys())
-
-            pass
-
-    if refresh is not None:
-        logger.info('Refreshing token')
-
-        refresh_headers = headers.copy()
-
-        refresh_headers['Accept'] = 'application/json'
-
-        refresh_headers['Content-Type'] = ('application/x-www-form-urlencoded;charset=UTF-8')
-
-        try:
-            new_token = slcs.refresh_token(refresh_url,
-                                           headers=refresh_headers,
-                                           verify=False)
-        except MissingTokenError:
-            # TODO determine why refreshing tokens doesn't always work
-            raise OAuth2Error('Refreshing token failed, try re-authenticating')
-
-        token.update(new_token)
-
-    logger.info('Attempting to get CSRF token from server')
+    data = {'certificate_request': b64encode(cert_request)}
 
     try:
-        response = slcs.post(cert_url,
-                             data={'certificate_request': b64encode(cert_request)},
-                             verify=False,
-                             headers=headers)
-    except Exception:
-        raise OAuth2Error('Failed to contact authentication server.')
+        slcs = OAuth2Session(auto_refresh['client_id'], token=token, state=state,
+                             auto_refresh_kwargs=auto_refresh,
+                             auto_refresh_url=refresh_url)
+
+        response = slcs.post(cert_url, data=data, verify=False, headers=headers)
+    except TokenUpdated as e:
+        token = e.token
+
+        slcs = OAuth2Session(auto_refresh['client_id'], token=token, state=state)
+
+        response = slcs.post(cert_url, data=data, verify=False, headers=headers)
 
     if response.status_code != 200:
         raise OAuth2Error('Failed to retrieve certificate {}'.format(response.reason))

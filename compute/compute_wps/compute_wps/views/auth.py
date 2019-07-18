@@ -281,6 +281,9 @@ def login_oauth2(request):
 
         auth_service, cert_service = openid.services(request.user.auth.openid_url, (URN_AUTHORIZE, URN_RESOURCE))
 
+        if 'oauth_state' in request.session:
+            del request.session['oauth_state']
+
         redirect_url, state = oauth2.get_authorization_url(auth_service.server_url, cert_service.server_url)
 
         logger.info('Retrieved authorization url for OpenID {}'.format(request.user.auth.openid_url))
@@ -308,9 +311,9 @@ def oauth2_callback(request):
     user = None
 
     try:
-        openid_url = request.session.pop('openid')
+        openid_url = request.session['openid']
 
-        oauth_state = request.session.pop('oauth_state')
+        oauth_state = request.session['oauth_state']
 
         logger.info('Handling OAuth2 callback for %r current state %r',
                     openid_url, oauth_state)
@@ -338,8 +341,7 @@ def oauth2_callback(request):
     except KeyError as e:
         logger.exception('Missing %r key from session data', e)
 
-        return common.failed('Invalid OAuth state, report to server'
-                             ' administrator')
+        return common.failed('Invalid OAuth state, report to server administrator')
     except (WPSError, oauth2.OAuth2Error) as e:
         logger.exception('OAuth2 callback failed')
 
