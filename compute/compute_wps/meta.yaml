@@ -20,7 +20,7 @@ requirements:
     - python
 
   run:
-    - python=3.6.7
+    - python
     - nomkl=3.0
     - django=1.11
     - django-cors-headers=2.5.0

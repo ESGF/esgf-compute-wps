@@ -17,7 +17,7 @@ requirements:
     - python
 
   run:
-    - python=3.6.7
+    - python
     - netaddr=0.7.19
 
 about:
