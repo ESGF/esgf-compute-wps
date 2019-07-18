@@ -25,7 +25,24 @@ FROM builder as dev
 RUN apt-get update && \
       apt-get install -y --no-install-recommends vim && \
       rm -rf /var/lib/apt/lists/* && \
-      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-wps flake8 pytest
+      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-wps flake8 pytest && \
+      pip install -e compute_settings/ && \
+      pip install -e compute_wps/
+
+COPY docker/wps/django.properties /etc/config/
+
+WORKDIR /
+
+RUN django-admin startproject compute && \
+      mkdir -p /var/log/cwt  
+
+WORKDIR /compute/compute
+
+COPY docker/wps/settings.py .
+COPY docker/wps/urls.py .
+COPY docker/wps/wsgi.py .
+
+WORKDIR /src/compute/compute_wps
 
 ENTRYPOINT ["tini", "--"]
 
