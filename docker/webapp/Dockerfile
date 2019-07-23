@@ -1,29 +1,28 @@
-FROM node:6-stretch as base
+FROM node:12.6.0-stretch as base
 
-ARG COMPUTE_WEBAPP_VER
+COPY . /src
 
-COPY . /esgf-compute-wps
+WORKDIR /src/webapp
 
-WORKDIR /esgf-compute-wps/webapp
+FROM base as dev
+
+RUN apt-get update && \
+      apt-get install -y --no-install-recommends vim && \
+      rm -rf /var/lib/apt/lists/* && \
+      yarn && \
+      ./node_modules/.bin/webpack --config config/webpack.dev.js && \
+      yarn add light-server
+
+COPY docker/webapp/entrypoint.sh .
+
+ENTRYPOINT ["/bin/bash"]
 
 FROM base as builder
 
 RUN yarn && \
       ./node_modules/.bin/webpack --config config/webpack.prod.js
 
-FROM base as dev
-
-RUN yarn && \
-      ./node_modules/.bin/webpack --config config/webpack.dev.js && \
-      yarn add -D http-server
-
-COPY docker/webapp/entrypoint.sh .
-
-ENTRYPOINT ["./entrypoint.sh"]
-
-FROM nginx:1.15 as prod
-
-ENV COMPUTE_WEBAPP_VER ${COMPUTE_WEBAPP_VER}
+FROM nginx:1.15
 
 WORKDIR /usr/share/nginx/html
 

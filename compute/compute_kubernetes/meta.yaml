@@ -20,7 +20,7 @@ requirements:
     - python
 
   run:
-    - python=3.6.7
+    - python
     - python-kubernetes=9.0.0
     - distributed=1.28.0
     - redis-py=3.2.1
