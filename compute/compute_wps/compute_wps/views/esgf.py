@@ -20,6 +20,7 @@ from . import common
 from compute_wps import metrics
 from compute_wps.exceptions import AccessError
 from compute_wps.exceptions import WPSError
+from compute_wps.auth import oauth2
 
 logger = common.logger
 
@@ -32,6 +33,43 @@ class AxisConversionError(WPSError):
             msg += ' with base units {base_units}'
 
         super(AxisConversionError, self).__init__(msg, axis=axis, base_units=base_units)
+
+
+def load_certificate(user):
+    """ Loads a user certificate.
+
+    First the users certificate is checked and refreshed if needed. It's
+    then written to disk and the processes current working directory is
+    set, allowing calls to NetCDF library to use the certificate.
+
+    Args:
+        user: User object.
+    """
+    if not oauth2.check_certificate(user):
+        oauth2.refresh_certificate(user)
+
+    cert_data = user.auth.cert
+
+    cwd = os.getcwd()
+
+    cert_path = os.path.join(cwd, 'cert.pem')
+
+    with open(cert_path, 'w') as outfile:
+        outfile.write(cert_data)
+
+    logger.info('Wrote user certificate')
+
+    dodsrc_path = os.path.join(cwd, '.dodsrc')
+
+    with open(dodsrc_path, 'w') as outfile:
+        outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
+        outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
+        outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
+        outfile.write('HTTP.SSL.VERIFY=0\n')
+
+    logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
+
+    return cert_path
 
 
 def describe_axis(axis):
@@ -99,40 +137,6 @@ def process_axes(header):
                 data['spatial'].append(desc)
 
     return data
-
-
-def load_certificate(user):
-    """ Loads a user certificate.
-
-    First the users certificate is checked and refreshed if needed. It's
-    then written to disk and the processes current working directory is
-    set, allowing calls to NetCDF library to use the certificate.
-
-    Args:
-        user: User object.
-    """
-    cert_data = user.auth.cert
-
-    cwd = os.getcwd()
-
-    cert_path = os.path.join(cwd, 'cert.pem')
-
-    with open(cert_path, 'w') as outfile:
-        outfile.write(cert_data)
-
-    logger.info('Wrote user certificate')
-
-    dodsrc_path = os.path.join(cwd, '.dodsrc')
-
-    with open(dodsrc_path, 'w') as outfile:
-        outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
-        outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(cert_path))
-        outfile.write('HTTP.SSL.KEY={}\n'.format(cert_path))
-        outfile.write('HTTP.SSL.VERIFY=0\n')
-
-    logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
-
-    return cert_path
 
 
 def check_access(uri, cert=None):

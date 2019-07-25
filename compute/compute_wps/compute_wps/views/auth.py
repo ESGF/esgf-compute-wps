@@ -1,6 +1,5 @@
-from builtins import str
-import json
 import logging
+import os
 import re
 
 from django import http
@@ -21,7 +20,6 @@ from rest_framework.exceptions import APIException
 from compute_wps import forms
 from compute_wps import metrics
 from compute_wps import models
-from compute_wps.auth import credentials
 from compute_wps.auth import oauth2
 from compute_wps.auth import openid
 from compute_wps.exceptions import WPSError
@@ -64,6 +62,32 @@ discover.OpenIDServiceEndpoint.openid_type_uris.extend([
 ])
 
 
+def get_oauth2_urls(user):
+    logger.info('Retrieving OAuth2 URLs')
+
+    try:
+        authorize_url, token_url, certificate_url = user.auth.get('authorize_url', 'token_url', 'certificate_url')
+    except KeyError:
+        if settings.DEBUG:
+            authorize_url = os.environ['OAUTH2_AUTHORIZE_URL']
+
+            token_url = os.environ['OAUTH2_TOKEN_URL']
+
+            certificate_url = os.environ['OAUTH2_CERTIFICATE_URL']
+        else:
+            services = openid.services(user.auth.openid_url, (URN_AUTHORIZE, URN_ACCESS, URN_RESOURCE))
+
+            authorize_url = services[0].server_url
+
+            token_url = services[1].server_url
+
+            certificate_url = services[2].server_url
+
+        user.auth.update(authorize_url=authorize_url, token_url=token_url, certificate_url=certificate_url)
+
+    return authorize_url, token_url, certificate_url
+
+
 class InternalUserViewSet(viewsets.GenericViewSet):
     @action(detail=True)
     def details(self, request, pk):
@@ -87,13 +111,14 @@ class InternalUserViewSet(viewsets.GenericViewSet):
             raise APIException('User does not exist')
 
         try:
-            if not credentials.check_certificate(user):
-                credentials.refresh_certificate(user)
+            _, token_url, certificate_url = get_oauth2_urls(user)
+
+            certs = oauth2.get_certificate(user, token_url, certificate_url)
         except Exception as e:
             raise APIException(str(e))
 
         data = {
-            'certificate': user.auth.cert,
+            'certificate': certs
         }
 
         return Response(data, status=200)
@@ -157,34 +182,6 @@ def authorization(request):
     return http.HttpResponse()
 
 
-@require_http_methods(['GET'])
-@ensure_csrf_cookie
-def user_cert(request):
-    try:
-        if not settings.CERT_DOWNLOAD_ENABLED:
-            return http.HttpResponseBadRequest()
-
-        metrics.WPS_CERT_DOWNLOAD.inc()
-
-        common.authentication_required(request)
-
-        user = request.user
-
-        cert = user.auth.cert
-
-        content_type = 'application/force-download'
-
-        response = http.HttpResponse(cert, content_type=content_type)
-
-        response['Content-Disposition'] = 'attachment; filename="cert.pem"'
-
-        response['Content-Length'] = len(cert)
-    except WPSError:
-        return http.HttpResponseBadRequest()
-    else:
-        return response
-
-
 @require_http_methods(['POST'])
 @ensure_csrf_cookie
 def user_login_openid(request):
@@ -244,7 +241,7 @@ def user_login_openid_callback(request):
         redirect_url = '{!s}?expires={!s}'.format(settings.OPENID_CALLBACK_SUCCESS_URL,
                                                   request.session.get_expiry_date())
 
-        if next is not None and next != 'null':
+        if next is not None and next != 'null' and next != '':
             redirect_url = '{!s}&next={!s}'.format(redirect_url, next)
 
         return redirect(redirect_url)
@@ -277,16 +274,18 @@ def login_oauth2(request):
     try:
         common.authentication_required(request)
 
-        logger.info('Authenticating OAuth2 for {}'.format(request.user.auth.openid_url))
-
-        auth_service, cert_service = openid.services(request.user.auth.openid_url, (URN_AUTHORIZE, URN_RESOURCE))
+        logger.info('OAuth2 authorization for {!s}'.format(request.user.auth.openid_url))
 
         if 'oauth_state' in request.session:
             del request.session['oauth_state']
 
-        redirect_url, state = oauth2.get_authorization_url(auth_service.server_url, cert_service.server_url)
+            logger.info('Removing OAuth2 state')
 
-        logger.info('Retrieved authorization url for OpenID {}'.format(request.user.auth.openid_url))
+        authorize_url, _, certificate_url = get_oauth2_urls(request.user)
+
+        redirect_url, state = oauth2.get_authorization_url(authorize_url, certificate_url)
+
+        logger.info('Redirecting to %r setting state to %r', redirect_url, state)
 
         request.session.update({
             'oauth_state': state,
@@ -301,8 +300,7 @@ def login_oauth2(request):
     finally:
         # Not tracking anonymous
         if not request.user.is_anonymous:
-            metrics.track_login(metrics.WPS_OAUTH_LOGIN,
-                                request.user.auth.openid_url)
+            metrics.track_login(metrics.WPS_OAUTH_LOGIN, request.user.auth.openid_url)
 
 
 @require_http_methods(['GET'])
@@ -315,29 +313,21 @@ def oauth2_callback(request):
 
         oauth_state = request.session['oauth_state']
 
-        logger.info('Handling OAuth2 callback for %r current state %r',
-                    openid_url, oauth_state)
+        logger.info('Handling OAuth2 callback for %r current state %r', openid_url, oauth_state)
 
         user = models.User.objects.get(auth__openid_url=openid_url)
 
-        logger.info('Discovering token and certificate services')
+        _, token_url, certificate_url = get_oauth2_urls(user)
 
-        token_service, cert_service = openid.services(openid_url, (URN_ACCESS, URN_RESOURCE))
+        request_url = request.build_absolute_uri()
 
-        request_url = '{}?{}'.format(settings.OAUTH2_CALLBACK_URL, request.META['QUERY_STRING'])
+        token = oauth2.get_token(token_url, request_url, oauth_state)
 
-        logger.info('Getting token from service')
+        logger.info('Fetched token %r', token)
 
-        token = oauth2.get_token(token_service.server_url, request_url, oauth_state)
+        user.auth.update(type='oauth2', token=token, state=oauth_state)
 
-        logger.info('Getting certificate from service')
-
-        cert, key, new_token = oauth2.get_certificate(token, oauth_state, token_service.server_url,
-                                                      cert_service.server_url)
-
-        logger.info('Updating user with token, certificate and state')
-
-        user.auth.update('oauth2', [cert, key], token=new_token, state=oauth_state)
+        _ = oauth2.get_certificate(user, token_url, certificate_url)
     except KeyError as e:
         logger.exception('Missing %r key from session data', e)
 
@@ -346,19 +336,40 @@ def oauth2_callback(request):
         logger.exception('OAuth2 callback failed')
 
         if user is not None:
-            extra = json.loads(user.auth.extra)
-
-            extra['error'] = 'OAuth2 callback failed "{}"'.format(str(e))
-
-            user.auth.extra = json.dumps(extra)
-
-            user.auth.save()
+            user.auth.update(error='OAuth2 callback failed "{}"'.format(str(e)))
 
     logger.info('Finished handling OAuth2 callback, redirect to profile')
 
     metrics.track_login(metrics.WPS_OAUTH_LOGIN_SUCCESS, user.auth.openid_url)
 
     return redirect(settings.PROFILE_URL)
+
+
+@require_http_methods(['GET'])
+@ensure_csrf_cookie
+def user_cert(request):
+    try:
+        metrics.WPS_CERT_DOWNLOAD.inc()
+
+        common.authentication_required(request)
+
+        _, token_url, certificate_url = get_oauth2_urls(request.user)
+
+        certs = oauth2.get_certificate(request.user, token_url, certificate_url)
+
+        content_type = 'application/force-download'
+
+        response = http.HttpResponse(certs, content_type=content_type)
+
+        response['Content-Disposition'] = 'attachment; filename="cert.pem"'
+
+        response['Content-Length'] = len(certs)
+    except WPSError:
+        return http.HttpResponseBadRequest()
+    except Exception as e:
+        return http.HttpResponseBadRequest(str(e))
+    else:
+        return response
 
 
 @require_http_methods(['POST'])
@@ -395,14 +406,13 @@ def login_mpc(request):
 
         logger.info('Authenticated with MyProxyClient backend for user {}'.format(data['username']))
 
-        request.user.auth.update('myproxyclient', c)
+        request.user.auth.update(type='myproxyclient', certs=c)
     except WPSError as e:
         logger.exception('Error authenticating MyProxyClient')
 
         return common.failed(str(e))
     else:
-        metrics.track_login(metrics.WPS_MPC_LOGIN_SUCCESS,
-                            request.user.auth.openid_url)
+        metrics.track_login(metrics.WPS_MPC_LOGIN_SUCCESS, request.user.auth.openid_url)
 
         return common.success({
             'type': request.user.auth.type,
@@ -410,5 +420,4 @@ def login_mpc(request):
         })
     finally:
         if not request.user.is_anonymous:
-            metrics.track_login(metrics.WPS_MPC_LOGIN,
-                                request.user.auth.openid_url)
+            metrics.track_login(metrics.WPS_MPC_LOGIN, request.user.auth.openid_url)

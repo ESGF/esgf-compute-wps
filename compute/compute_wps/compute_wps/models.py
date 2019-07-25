@@ -243,18 +243,46 @@ class Auth(models.Model):
 
         self.save(update_fields=['api_key'])
 
-    def update(self, auth_type, certs, **kwargs):
-        self.type = auth_type
+    def update(self, type=None, certs=None, api_key=None, **kwargs):
+        update_fields = []
 
-        self.cert = ''.join(list(x if isinstance(x, str) else x.decode() for x in certs))
+        if type is not None:
+            self.type = type
 
-        extra = json.loads(self.extra or '{}')
+            update_fields.append('type')
 
-        extra.update(kwargs)
+        if certs is not None:
+            self.cert = ''.join([x if isinstance(x, str) else x.decode() for x in certs])
 
-        self.extra = json.dumps(extra)
+            update_fields.append('cert')
 
-        self.save()
+        if api_key is not None:
+            self.api_key = api_key
+
+            update_fields.append('api_key')
+
+        if len(kwargs) > 0:
+            extra = json.loads(self.extra or '{}')
+
+            extra.update(kwargs)
+
+            self.extra = json.dumps(extra)
+
+            update_fields.append('extra')
+
+        self.save(update_fields=update_fields)
+
+        self.refresh_from_db()
+
+    def get(self, *keys):
+        values = []
+
+        data = json.loads(self.extra or '{}')
+
+        for key in keys:
+            values.append(data[key])
+
+        return values
 
     def __str__(self):
         return '{0.openid_url} {0.type}'.format(self)
