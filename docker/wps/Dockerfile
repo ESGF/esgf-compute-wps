@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.5.12 as base
+FROM continuumio/miniconda3:4.6.14 as base
 
 ARG COMPUTE_API_VER
 
@@ -44,13 +44,13 @@ COPY docker/wps/wsgi.py .
 
 WORKDIR /src/compute/compute_wps
 
-COPY docker/wps/development.yaml .
+COPY docker/wps/development.sh .
 
 ENTRYPOINT ["tini", "--"]
 
 CMD ["/bin/bash"]
 
-FROM continuumio/miniconda3:4.5.12
+FROM continuumio/miniconda3:4.6.14
 
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 

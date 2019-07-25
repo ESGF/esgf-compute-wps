@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.5.12 as base
+FROM continuumio/miniconda3:4.6.14 as base
 
 ARG COMPUTE_API_VER
 
@@ -24,13 +24,13 @@ RUN conda build -c conda-forge compute_kubernetes/ && \
 
 FROM builder as dev
 
-RUN apt-get update && apt-get install -y --no-recommends vim && \
+RUN apt-get update && apt-get install -y --no-install-recommends vim && \
       conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-tasks flake8 pytest && \
       pip install -e compute_kubernetes/ && \
       pip install -e compute_provisioner/ && \
       pip install -e compute_tasks/
 
-FROM continuumio/miniconda3:4.5.12
+FROM continuumio/miniconda3:4.6.14
 
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 
