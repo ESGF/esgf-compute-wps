@@ -29,8 +29,44 @@ spec:
       imagePullSecrets:
       - name: {{ $.Values.nginx.imagePullSecret }}
       {{- end }}
+      initContainers:
+      - name: init-{{ template "esgf-compute-wps.name" . }}-wps
+        image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        command: ['tini', '--']
+        args: ['/bin/bash', '-c', 'mkdir -p /compute/assets && python /compute/manage.py collectstatic --no-input']
+        volumeMounts:
+        - mountPath: /var/www/static
+          name: static-volume
+      - name: init-{{ template "esgf-compute-wps.name" . }}-nginx
+        image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        args: ['/bin/bash', '-c', 'cp -rf /usr/share/nginx/html/static/* /compute/assets']
+        volumeMounts:
+        - mountPath: /compute/assets
+          name: static-volume
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
         imagePullPolicy: IfNotPresent
         resources: {{ $.Values.nginx.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html/static
+          name: static-volume
+      volumes:
+      - name: static-volume
+        emptyDir: {}
