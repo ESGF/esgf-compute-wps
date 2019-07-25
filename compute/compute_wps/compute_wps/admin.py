@@ -6,82 +6,68 @@ from django.contrib.sessions.models import Session
 from compute_wps import models
 
 
-class UserProcessInline(admin.TabularInline):
-    model = models.UserProcess
-    extra = 0
-
-
-class UserFileInline(admin.TabularInline):
-    model = models.UserFile
-    extra = 0
-
-
 class AuthInline(admin.TabularInline):
     model = models.Auth
 
 
 class UserAdmin(UserAdmin):
-    inlines = (
-        AuthInline,
-        UserFileInline,
-        UserProcessInline,
-    )
+    inlines = (AuthInline,)
 
 
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 
 
+@admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
     def _session_data(self, obj):
         return obj.get_decoded()
 
-    list_display = ('session_key', '_session_data', 'expire_date')
+    pass
 
 
-admin.site.register(Session, SessionAdmin)
-
-
+@admin.register(models.OpenIDNonce)
 class OpenIDNonceAdmin(admin.ModelAdmin):
-    list_display = ('server_url', 'timestamp', 'salt')
-
-    def has_add_permission(self, request):
-        return False
+    pass
 
 
+@admin.register(models.OpenIDAssociation)
 class OpenIDAssociationAdmin(admin.ModelAdmin):
-    list_display = ('server_url', 'handle', 'issued', 'lifetime',
-                    'assoc_type',)
-
-    def has_add_permission(self, request):
-        return False
+    pass
 
 
-admin.site.register(models.OpenIDNonce, OpenIDNonceAdmin)
-admin.site.register(models.OpenIDAssociation, OpenIDAssociationAdmin)
-
-
-class ServerAdmin(admin.ModelAdmin):
-    list_display = ('host', 'added_date', 'status')
-
-    def has_add_permission(self, request):
-        return False
-
-
-class ProcessAdmin(admin.ModelAdmin):
-    list_display = ('identifier', 'backend')
-
-    def has_add_permission(self, request):
-        return False
-
-
+@admin.register(models.File)
 class FileAdmin(admin.ModelAdmin):
-    list_display = ('name', 'host', 'variable', 'url', 'requested')
-
-    def has_add_permission(self, request):
-        return False
+    pass
 
 
-admin.site.register(models.Server, ServerAdmin)
-admin.site.register(models.Process, ProcessAdmin)
-admin.site.register(models.File, FileAdmin)
+@admin.register(models.Process)
+class ProcessAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(models.Server)
+class ServerAdmin(admin.ModelAdmin):
+    pass
+
+
+class OutputInline(admin.TabularInline):
+    model = models.Output
+
+
+class StatusInline(admin.TabularInline):
+    model = models.Status
+
+
+@admin.register(models.Job)
+class JobAdmin(admin.ModelAdmin):
+    inlines = (OutputInline, StatusInline)
+
+
+class MessageInline(admin.TabularInline):
+    model = models.Message
+
+
+@admin.register(models.Status)
+class StatusAdmin(admin.ModelAdmin):
+    inlines = (MessageInline,)
