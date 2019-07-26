@@ -159,14 +159,18 @@ def get_certificate(user, refresh_url, certificate_url):
             # Update the token so it gets stored in the database
             kwargs['token'] = e.token
 
+            logger.info('Refreshed token %r', kwargs['token'])
+
             slcs = OAuth2Session(OAUTH2_CLIENT_ID, token=kwargs['token'], state=state)
 
             response = slcs.post(certificate_url, data=data, verify=False, headers=headers)
         except (Exception or InvalidGrantError):
+            logger.exception('Error retrieving certificate')
+
             raise OAuth2Error('OAuth2 authorization required')
 
         if response.status_code != 200:
-            raise OAuth2Error('Error retrieving certificate {!s}'.format(response.reason))
+            raise OAuth2Error('Error retrieving certificate {!s} {!s}'.format(response.status_code, response.reason))
 
         user.auth.update(certs=[response.text, private_key], token=kwargs['token'])
 
