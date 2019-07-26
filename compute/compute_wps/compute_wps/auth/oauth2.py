@@ -140,7 +140,7 @@ def get_certificate(user, refresh_url, certificate_url):
 
         kwargs = {
             'token': token,
-            'state': state,
+            # 'state': state,
             'auto_refresh_url': refresh_url,
             'auto_refresh_kwargs': {
                 'client_id': OAUTH2_CLIENT_ID,
