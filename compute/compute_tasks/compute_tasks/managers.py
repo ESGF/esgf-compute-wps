@@ -22,24 +22,18 @@ from compute_tasks.dask_serialize import retrieve_chunk
 logger = logging.getLogger('compute_tasks.manager')
 
 
-BOUND_NAMES = ('nbnd', 'bnds')
-
-
 class InputManager(object):
     def __init__(self, fm, uris, var_name):
         self.fm = fm
-
         self.uris = uris
-
         self.var_name = var_name
-
         self.attrs = {}
-
         self.vars = {}
-
         self.vars_axes = {}
-
         self.axes = {}
+        self.target_var_axes = []
+        self.units = None
+        self.time_axis = []
 
     def remove_axis(self, axis_name):
         try:
@@ -279,126 +273,129 @@ class InputManager(object):
 
         return i, j, k
 
+    def load_axes(self, var, stored_time):
+        axis_ids = []
+
+        for axis in var.getAxisList():
+            if self.var_name == var.id:
+                self.target_var_axes.append(axis.id)
+
+            if axis.isTime():
+                if self.units is None:
+                    self.units = axis.units
+
+                    logger.info('Setting base units to %r', self.units)
+
+                if not stored_time:
+                    time_axis_clone = axis.clone()
+
+                    time_axis_clone.toRelativeTime(self.units)
+
+                    self.time_axis.append(time_axis_clone)
+
+                    stored_time = True
+
+                    self.attrs[axis.id] = axis.attributes.copy()
+
+                    logger.info('Storing temporal axis %r shape %r', axis.id, axis.shape)
+            elif axis.id not in self.axes:
+                self.axes[axis.id] = axis.clone()
+
+                self.attrs[axis.id] = axis.attributes.copy()
+
+                logger.info('Storing spatial axis %r shape %r', axis.id, axis.shape)
+            else:
+                logger.info('Axis %r is not time and already discovered', axis.id)
+
+            axis_ids.append(axis.id)
+
+        logger.info('Setting variable %r axes to %r', var.id, axis_ids)
+
+        self.vars_axes[var.id] = axis_ids
+
+        return stored_time
+
+    def load_variables(self, file, target_variable):
+        stored_time = False
+
+        for var in file.getVariables():
+            # Skip all variables already discovered and do not contain temporal axis
+            if var.id in self.vars and var.getTime() is None:
+                logger.info('Skipping variable %r, already discovered')
+
+                continue
+
+            stored_time = self.load_axes(var, stored_time)
+
+            self.attrs[var.id] = var.attributes.copy()
+
+            if var.id == self.var_name:
+                var_data = target_variable
+            else:
+                var_data = var()
+
+            self.vars[var.id] = var_data
+
+            logger.info('Storing variable %r shape %r', var.id, var.shape)
+
     def load_variables_and_axes(self, target_variable):
-        attrs = {}
-        axes = {}
-        vars = {}
-        vars_axes = {}
-
-        time_axis = []
-        units = None
-
         for uri in self.uris:
             file = self.fm.open_file(uri)
 
-            if 'global' not in attrs:
+            if 'global' not in self.attrs:
                 logger.info('Storing global attributes')
 
-                attrs['global'] = file.attributes.copy()
+                self.attrs['global'] = file.attributes.copy()
 
-            stored_time = False
+            self.load_variables(file, target_variable)
 
-            for var in file.getVariables():
-                # Skip all variables already discovered and do not contain temporal axis
-                if var.id in vars and var.getTime() is None:
-                    logger.info('Skipping variable %r, already discovered')
+        if len(self.time_axis) > 1:
+            self.axes['time'] = cdms2.MV2.axisConcatenate(self.time_axis, id='time', attributes=self.attrs['time'])
 
-                    continue
+            logger.info('Updating temporal axis shape %r', self.axes['time'].shape)
 
-                axis_ids = []
-
-                for axis in var.getAxisList():
-                    if axis.isTime():
-                        if units is None:
-                            units = axis.units
-
-                            logger.info('Setting base units to %r', units)
-
-                        if not stored_time:
-                            time_axis_clone = axis.clone()
-
-                            time_axis_clone.toRelativeTime(units)
-
-                            time_axis.append(time_axis_clone)
-
-                            stored_time = True
-
-                            attrs[axis.id] = axis.attributes.copy()
-
-                            logger.info('Storing temporal axis %r shape %r', axis.id, axis.shape)
-                    elif axis.id not in axes:
-                        axes[axis.id] = axis.clone()
-
-                        attrs[axis.id] = axis.attributes.copy()
-
-                        logger.info('Storing spatial axis %r shape %r', axis.id, axis.shape)
-                    else:
-                        logger.info('Axis %r is not time and already discovered', axis.id)
-
-                    axis_ids.append(axis.id)
-
-                vars_axes[var.id] = axis_ids
-
-                logger.info('Setting variable %r axes to %r', var.id, axis_ids)
-
-                attrs[var.id] = var.attributes.copy()
-
-                if var.id == self.var_name:
-                    var_data = target_variable
-                else:
-                    var_data = var()
-
-                vars[var.id] = var_data
-
-                logger.info('Storing variable %r shape %r', var.id, var.shape)
-
-        if len(time_axis) > 1:
-            axes['time'] = cdms2.MV2.axisConcatenate(time_axis, id='time', attributes=attrs['time'])
-
-            logger.info('Updating temporal axis shape %r', axes['time'].shape)
-
-            vars['time_bnds'] = cdms2.createVariable(
-                axes['time'].getBounds(),
-                axes=[axes[x] for x in vars_axes['time_bnds']],
+            self.vars['time_bnds'] = cdms2.createVariable(
+                self.axes['time'].getBounds(),
+                axes=[self.axes[x] for x in self.vars_axes['time_bnds']],
                 id='time_bnds',
-                attributes=attrs['time_bnds'],
+                attributes=self.attrs['time_bnds'],
             )
 
-            logger.info('Updating temporal bounds shape %r', vars['time_bnds'].shape)
+            logger.info('Updating temporal bounds shape %r', self.vars['time_bnds'].shape)
         else:
-            axes['time'] = time_axis[0]
+            self.axes['time'] = self.time_axis[0]
 
-        return attrs, vars, axes, vars_axes
+    def subset_variables_and_axes(self, domain, target_variable):
+        self.load_variables_and_axes(target_variable)
 
-    def subset_variables_and_axes(self, domain, vars, axes, vars_axes):
-        map = self.map_domain(domain, axes)
+        map = self.map_domain(domain, self.axes)
 
-        for name in list(axes.keys()):
-            if name in BOUND_NAMES or 'bounds' in name or 'bnds' in name:
+        for name in list(self.axes.keys()):
+            if name not in self.target_var_axes:
                 continue
 
             axis_slice = map.get(name, slice(None, None, None))
 
             try:
-                i, j, k = self.slice_to_subaxis(axis_slice, axes[name])
+                i, j, k = self.slice_to_subaxis(axis_slice, self.axes[name])
             except AttributeError:
                 raise WPSError('Failed to convert slice to subaxis for axis {!r}', name)
 
-            shape = axes[name].shape
+            shape = self.axes[name].shape
 
-            logger.info('Subsetting axis %r shape %r -> %r', name, shape, axes[name].shape)
+            self.axes[name] = self.axes[name].subAxis(i, j, k)
 
-            axes[name] = axes[name].subAxis(i, j, k)
+            logger.info('Subsetting axis %r shape %r -> %r', name, shape, self.axes[name].shape)
 
-        for name in list(vars.keys()):
+        for name in list(self.vars.keys()):
             if name in self.vars_axes:
-                selector = OrderedDict((x, map[x]) for x in vars_axes[name] if x in map)
+                selector = OrderedDict((x, map[x]) for x in self.vars_axes[name] if x in map)
             else:
                 selector = {}
 
             logger.info('Variable %r selector %r', name, selector)
 
-            shape = vars[name].shape
+            shape = self.vars[name].shape
 
             # Applying selector fails take the whole axis
             try:
@@ -407,15 +404,15 @@ class InputManager(object):
 
                     logger.info('Dask selector %r', dask_selector)
 
-                    vars[name] = vars[name][dask_selector]
+                    self.vars[name] = self.vars[name][dask_selector]
                 else:
-                    vars[name] = vars[name](**selector)
+                    self.vars[name] = self.vars[name](**selector)
             except TypeError:
-                vars[name] = vars[name]
+                self.vars[name] = self.vars[name]
 
-            logger.info('Subsetting variable %r shape %r -> %r', name, shape, vars[name].shape)
+            logger.info('Subsetting variable %r shape %r -> %r', name, shape, self.vars[name].shape)
 
-        return vars, axes
+        return self.vars[self.var_name]
 
     def to_xarray(self):
         axes = {}
@@ -471,19 +468,9 @@ class InputManager(object):
         else:
             data = data[0]
 
-        attrs, vars, axes, vars_axes = self.load_variables_and_axes(data)
+        subset_data = self.subset_variables_and_axes(domain, data)
 
-        self.attrs = attrs
-
-        self.vars_axes = vars_axes
-
-        vars, axes = self.subset_variables_and_axes(domain, vars, axes, vars_axes)
-
-        self.vars = vars
-
-        self.axes = axes
-
-        return data, self.vars[self.var_name]
+        return data, subset_data
 
     def sort_uris(self):
         ordering = []
