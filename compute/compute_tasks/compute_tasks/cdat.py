@@ -48,7 +48,7 @@ class DaskJobTracker(ProgressBar):
         loop_runner.run_sync(self.listen)
 
     def _draw_bar(self, **kwargs):
-        logger.log('_draw_bar %r', kwargs)
+        logger.info('_draw_bar %r', kwargs)
 
         remaining = kwargs.get('remaining', 0)
 
