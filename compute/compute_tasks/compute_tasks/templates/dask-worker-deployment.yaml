@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: dask-worker-{{ user }}
-        image: jasonb87/compute-celery:0.1.0
+        image: jasonb87/compute-celery:{{ image_tag }}
         imagePullPolicy: Always
         env:
         - name: CDAT_ANONYMOUS_LOG

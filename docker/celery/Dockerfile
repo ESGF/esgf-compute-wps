@@ -32,6 +32,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends vim && \
 
 FROM continuumio/miniconda3:4.6.14
 
+ARG CONTAINER_VER
+
+ARG COMPUTE_API_VER
+
+ENV CONTAINER_VER ${CONTAINER_VER}
+
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 
 ENV prometheus_multiproc_dir /metrics
