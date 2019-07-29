@@ -47,7 +47,13 @@ class DaskJobTracker(ProgressBar):
         loop_runner = LoopRunner(self.loop)
         loop_runner.run_sync(self.listen)
 
-    def _draw_bar(self, remaining, all, **kwargs):
+    def _draw_bar(self, **kwargs):
+        logger.log('_draw_bar %r', kwargs)j
+
+        remaining = kwargs.get('remaining', 0)
+
+        all = kwargs.get('all', None)
+
         frac = (1 - remaining / all) if all else 1.0
 
         percent = int(100 * frac)
