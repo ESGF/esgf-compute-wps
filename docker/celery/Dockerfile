@@ -36,6 +36,8 @@ ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 
 ENV prometheus_multiproc_dir /metrics
 
+COPY --from=builder /opt/conda/pkgs/* /opt/conda/pkgs/
+
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
 RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-tasks && \
