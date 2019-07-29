@@ -35,7 +35,7 @@ requirements:
     - pyzmq=18.0.1
     - redis-py=3.2.1
     - requests=2.21.0
-    - celery=4.2.1
+    - celery=4.4.0rc1
     - prometheus_client=0.6.0
     - dask=1.2.2=py_2 # Pin build 2, >=3 breaks
     - distributed=1.28.0
