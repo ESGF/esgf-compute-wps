@@ -12,7 +12,7 @@ spec:
   {% endif %}
   containers:
   - name: dask-scheduler-{{ user }}
-    image: jasonb87/compute-celery:{{ image_tag }}
+    image: {{ image }}
     imagePullPolicy: Always
     livenessProbe:
       tcpSocket:
