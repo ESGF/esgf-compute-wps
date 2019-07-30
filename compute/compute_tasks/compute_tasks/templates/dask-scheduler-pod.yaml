@@ -6,6 +6,10 @@ metadata:
     app.kubernetes.io/dask-component: scheduler
     app.kubernetes.io/user: "{{ user }}"
 spec:
+  {% if image_pull_secret %}
+  imagePullSecrets:
+  - name: {{ image_pull_secret }}
+  {% endif %}
   containers:
   - name: dask-scheduler-{{ user }}
     image: jasonb87/compute-celery:{{ image_tag }}

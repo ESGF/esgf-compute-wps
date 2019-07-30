@@ -17,6 +17,10 @@ spec:
         app.kubernetes.io/dask-component: worker
         app.kubernetes.io/user: "{{ user }}"
     spec:
+      {% if image_pull_secret %}
+      imagePullSecrets:
+      - name: {{ image_pull_secret }}
+      {% endif %}
       containers:
       - name: dask-worker-{{ user }}
         image: jasonb87/compute-celery:{{ image_tag }}

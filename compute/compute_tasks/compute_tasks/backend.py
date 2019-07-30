@@ -106,6 +106,7 @@ def resource_request(frames, env):
 
     data = {
         'image_tag': os.environ['CONTAINER_VER'],
+        'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
         'dev': os.environ.get('DEV', False),
         'user': user,
         'workers': os.environ['WORKERS'],
