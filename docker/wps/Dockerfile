@@ -16,7 +16,7 @@ RUN GIT_REV=$(git rev-parse --short HEAD) && \
 
 FROM base as builder
 
-RUN conda install -c conda-forge conda-build=3.17.8 && \
+RUN conda install -c conda-forge conda-build && \
       conda build -c conda-forge -c cdat compute_settings/ && \
       conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_wps/
 
