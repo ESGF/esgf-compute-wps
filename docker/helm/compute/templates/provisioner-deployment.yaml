@@ -43,7 +43,7 @@ spec:
           - infinity
         {{- end }}
         env:
-        - name: IMAGE_PULL_SECRETS:
+        - name: IMAGE_PULL_SECRETS
           value: {{ .Values.provisioner.imagePullSecret }}
         - name: FRONTEND_PORT
           value: {{ .Values.provisioner.frontendPort | quote }}
