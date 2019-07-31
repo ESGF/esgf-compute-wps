@@ -24,7 +24,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.userService.jobs(this.defaultSort, this.itemsPP)
+    this.userService.jobs(`-${this.defaultSort}`, this.itemsPP)
       .then((item: Job[]) => {
         this.setJobs(item);
       })
@@ -89,7 +89,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
 
   sort(key: string) {
-    if (this.sortDir == -1) {
+    if (this.sortDir === -1) {
       key = `-${key}`;
     }
 
