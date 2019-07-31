@@ -89,7 +89,7 @@ declare var $: any;
                   <ng-template #customDataset>
                     <div class="row">
                       <div class="col-md-8">
-                        <input type="text" #dataset class="form-control">
+                        <input type="text" #dataset class="form-control" placeholder="Dataset ID">
                       </div>
                       <div class="col-md-2">
                         <button (click)="addDataset(dataset.value)" type="button" class="btn btn-default">Add</button>
@@ -219,6 +219,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
   private loading = false;
 
+  private datasetIDRegex = /^.*\|.*$/g;
+
   constructor(
     private configureService: ConfigureService,
     private notificationService: NotificationService,
@@ -240,11 +242,21 @@ export class ProcessConfigureComponent implements AfterViewInit {
   }
 
   addDataset(value: string) {
-    this.newDataset = false;
+    if (value === '') {
+      this.notificationService.error('Please enter a Dataset ID e.g. CMIP6.CFMIP.NCAR.CESM2.amip-4xCO2.r1i1p1f1.Amon.tas.gn.v20190408|esgf-data.ucar.edu, this can be found through a CoG search.');
+    } else {
+      let matchDatasetID = this.datasetIDRegex.test(value);
 
-    this.datasetID.push(value)
+      if (matchDatasetID) {
+        this.newDataset = false;
 
-    this.selectDataset(value); 
+        this.datasetID.push(value);
+
+        this.selectDataset(value); 
+      } else {
+        this.notificationService.error(`"${value}" did not match the expected format: <Master ID>|<Data node>. You can find Dataset IDs by search CoG.`);
+      }
+    }
   }
 
   reset() {
@@ -272,7 +284,7 @@ export class ProcessConfigureComponent implements AfterViewInit {
         this.loading = false;
       })
       .catch((error: string) => {
-        this.notificationService.error(error)
+        this.notificationService.error(`Error please select the dataset again.`)
 
         this.loading = false;
       });
