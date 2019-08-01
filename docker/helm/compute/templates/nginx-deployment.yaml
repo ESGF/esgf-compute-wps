@@ -33,6 +33,7 @@ spec:
       - name: init-{{ template "esgf-compute-wps.name" . }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
         imagePullPolicy: IfNotPresent
+        {{- if not .Values.development }}
         resources:
           limits:
             cpu: 100m
@@ -40,11 +41,13 @@ spec:
           requests:
             cpu: 100m
             memory: 512Mi
+        {{- end }}
         command: ['tini', '--']
         args: ['/bin/bash', '-c', 'mkdir -p /compute/assets && python /compute/manage.py collectstatic --no-input']
         volumeMounts:
         - mountPath: /var/www/static
           name: static-volume
+      {{- if not .Values.development }}
       - name: init-{{ template "esgf-compute-wps.name" . }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
         imagePullPolicy: IfNotPresent
@@ -59,6 +62,7 @@ spec:
         volumeMounts:
         - mountPath: /compute/assets
           name: static-volume
+      {{- end }}
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
@@ -67,6 +71,9 @@ spec:
         volumeMounts:
         - mountPath: /usr/share/nginx/html/static
           name: static-volume
+        {{- if .Values.nginx.development }}
+        command: ['/bin/sleep', 'infinity']
+        {{- end }}
       volumes:
       - name: static-volume
         emptyDir: {}
