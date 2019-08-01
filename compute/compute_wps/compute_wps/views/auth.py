@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.mail import EmailMessage
 from django.contrib.auth import login
 from django.contrib.auth import logout
+from django.db import IntegrityError
 from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
@@ -203,6 +204,27 @@ def user_login_openid(request):
                                 request.POST['openid_url'])
 
 
+def add_new_user(openid_url, attrs):
+    username = openid_url.split('/')[-1]
+
+    first = attrs.get('first', None)
+
+    last = attrs.get('last', None)
+
+    try:
+        user = models.User.objects.create_user(username, attrs['email'], first_name=first, last_name=last)
+    except IntegrityError:
+        raise WPSError('Username {!r} already exists', username)
+
+    models.Auth.objects.create(openid_url=openid_url, user=user)
+
+    user.auth.generate_api_key()
+
+    send_welcome_mail(user)
+
+    return user
+
+
 @require_http_methods(['GET'])
 @ensure_csrf_cookie
 def user_login_openid_callback(request):
@@ -212,20 +234,7 @@ def user_login_openid_callback(request):
         try:
             user = models.User.objects.get(auth__openid_url=openid_url)
         except models.User.DoesNotExist:
-            username = openid_url.split('/')[-1]
-
-            first = attrs.get('first', None)
-
-            last = attrs.get('last', None)
-
-            user = models.User.objects.create_user(username, attrs['email'],
-                                                   first_name=first, last_name=last)
-
-            models.Auth.objects.create(openid_url=openid_url, user=user)
-
-            user.auth.generate_api_key()
-
-            send_welcome_mail(user)
+            user = add_new_user(openid_url, attrs)
 
         login(request, user)
 
