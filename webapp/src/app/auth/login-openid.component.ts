@@ -1,78 +1,53 @@
-import { Component } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { AuthService } from '../core/auth.service';
 import { NotificationService } from '../core/notification.service';
 
-class Provider {
-  constructor(
-    public name: string, 
-    public url: string
-  ) { }
+interface Provider {
+  name: string;
+  url: string;
 }
 
 @Component({
   templateUrl: './login-openid.component.html',
   styleUrls: ['../forms.css']
 })
-export class LoginOpenIDComponent {
-  PROVIDERS: Array<Provider> = [
-    new Provider( 
-      'DOE Lawrence Livermore National Laboratory (LLNL)',
-      'https://esgf-node.llnl.gov/esgf-idp/openid/'
-    ),
-    new Provider( 
-      'Centre for Environmental Data Analysis (CEDA)',
-      'https://ceda.ac.uk/openid/'
-    ),
-    new Provider( 
-      'NASA Jet Propulsion Laboratory (JPL)',
-      'https://esgf-node.jpl.nasa.gov/esgf-idp/openid/'
-    ),
-    new Provider( 
-      'Institut Pierre Simon Laplace (IPSL)',
-      'https://esgf-node.ipsl.upmc.fr/esgf-idp/openid/'
-    ),
-    new Provider( 
-      'National Supercomputer Center at Linkoping University (NSC-LIU)',
-      'https://esg-dn1.nsc.liu.se/esgf-idp/openid/'
-    ),
-    new Provider( 
-      'German Climate Computing Centre (DKRZ)',
-      'https://esgf-data.dkrz.de/esgf-idp/openid/'
-    ), 
-    new Provider( 
-      'NASA Center for Climate Simulation (NCCS)',
-      'https://esgf.nccs.nasa.gov/esgf-idp/openid/'
-    ),
-    new Provider( 
-      'National Computational Infrastructure (NCI)',
-      'https://esgf.nci.org.au/esgf-idp/openid/'
-    ),
-    new Provider( 
-      'NOAA Geophysical Fluid Dynamics Laboratory (GFDL)',
-      'https://esgdata.gfdl.noaa.gov/esgf-idp/openid/'
-    ),
-    new Provider( 
-      'NOAA Enviromental System Research Laboratory (ESRL)',
-      'https://esgf.esrl.noaa.gov/esgf-idp/openid/'
-    )
-  ];
+export class LoginOpenIDComponent implements OnInit {
+  providers: Provider[] = [];
 
-  model: any = {
-    idp: this.PROVIDERS[0]
-  };
+  model: any = {};
 
   next: string;
+  error: string;
 
   constructor(
     private authService: AuthService,
     private notificationService: NotificationService,
     private route: ActivatedRoute,
+    private router: Router,
   ) { 
+  }
+
+  ngOnInit() {
     this.route.queryParams.subscribe((item: any) => {
       this.next = item['next'] || null;
+
+      this.error = item['error'] || null;
+
+      this.router.navigate(['.'], { relativeTo: this.route });
     });
+
+    if (this.error !== null) {
+      this.notificationService.error(this.error);
+    }
+
+    this.authService.providers()
+      .then((result: {data: Provider[]}) => {
+        this.providers = result.data;
+
+        this.model.idp = this.providers[0];
+      });
   }
 
   onSubmit() {
@@ -81,7 +56,7 @@ export class LoginOpenIDComponent {
         this.redirect(response.data.redirect);
       })
       .catch(error => {
-        this.notificationService.error(`OpenID authentication failed: ${error}`);
+        this.notificationService.error(`Error connecting to OpenID server`);
       });
   }
 

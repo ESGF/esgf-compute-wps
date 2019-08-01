@@ -6,6 +6,7 @@ import { Subject } from 'rxjs/Subject';
 import { WPSService, WPSResponse } from './wps.service';
 import { User } from '../user/user.service';
 import { ConfigService } from './config.service';
+import { NotificationService } from '../core/notification.service';
 
 @Injectable()
 export class AuthService extends WPSService {
@@ -20,12 +21,23 @@ export class AuthService extends WPSService {
   constructor(
     http: Http,
     private configService: ConfigService,
+    private notificationService: NotificationService,
   ) { 
     super(http);
 
     if (this.authenticated) {
       this.setLoggedIn(true);
     }
+  }
+
+  providers() {
+    return this.getUnmodified(this.configService.providerPath)
+      .then((data: any) => {
+        return data.json();
+      })
+      .catch((data: any) => {
+        this.notificationService.error('Error retrieving identity providers');
+      });
   }
 
   get authenticated() {
