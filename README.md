@@ -112,9 +112,10 @@ Either choose an existing [environment](#configuration) or create a custom one.
 3. `helm dependency update`
 4. `helm template . -f production.yaml --output-dir rendered/` will render the templates and create files for Kubernetes.
 5. `kubectl apply -k rendered/` will apply all of the files to the current namespace.
-6. Verify install with `helm list` and `kubectl get pods`, see [sample](#sample).
+6. Verify install with `helm list` and `kubectl get pods`, see [sample](#sample-output).
 
-#### Sample output from "helm list" and "kubectl get pods"
+#### Sample output 
+The following is sample out from "helm list" and "kubectl get pods"
 ##### Helm list output
 ```
 NAME                    REVISION        UPDATED                         STATUS          CHART           NAMESPACE
