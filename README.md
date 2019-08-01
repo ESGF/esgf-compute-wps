@@ -55,28 +55,41 @@ celery:
 All of the base configuration values for the helm chart can be found in [values.yaml](docker/helm/compute/values.yaml).
 
 ##### Storage
-The Helm chart will automatically create all required [PersistentVolumes (PV)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes) and [PersistentVolumeClaims (PVC)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims). The PVs that are created use a HostPath storage type. If deploying on a multi-node Kubernetes cluster, the usage of [nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) will be required to ensure persistent storage for the databases.
+The Helm chart will automatically create all required [PersistentVolumes (PV)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes) and [PersistentVolumeClaims (PVC)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims). The PVs that are created using HostPath as the storage type. If deploying on a multi-node Kubernetes cluster, the usage of [nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) and labeling nodes will be required to ensure persistent storage. The following services use persistent storage in a production environment; Postgres and Redis.
+
+Example:
+```yaml
+postgresql:
+  master:
+    nodeSelector:
+      storage/postgresql: persist
+      
+redis:
+  master:
+    nodeSelector:
+      storage/redis: persist
+```
 
 To disable the creation of the PVs, the path value must be deleted by setting it to ```null```.
 
 Example:
 ```yaml
 persistence:
-  dataClaimName: data-dev-pvc
+  dataClaimName: data-pvc
 
   volumes:
-    data-dev:
+    data:
       storageClassName: slow
       capacity: 100Gi
-      path: /p/cscratch/nimbus/wps-dev/data
+      path: /p/cscratch/nimbus/wps/data
 ```
 to
 ```yaml
 persistence:
-  dataClaimName: data-dev-pvc
+  dataClaimName: data-pvc
 
   volumes:
-    data-dev:
+    data:
       storageClassName: slow
       capacity: 100Gi
       path: null
