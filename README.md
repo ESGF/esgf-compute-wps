@@ -102,7 +102,7 @@ Either choose an existing [environment](#configuration) or create a custom one.
 2. `cd docker/helm/compute`
 3. `helm dependency update`
 4. `helm install . -f <environement>.yaml` will install the chart in the current Kubernetes namespace.
-2. Verify install with `helm list` and `kubectl get pods`, see [sample](#sample).
+2. Verify install with `helm list` and `kubectl get pods`, see [sample](#sample-output).
 
 ##### Deployment without Tiller
 Either choose an existing [environment](#configuration) or create a custom one.
