@@ -294,7 +294,7 @@ export class ProcessConfigureComponent implements AfterViewInit {
         this.loading = false;
       })
       .catch((error: string) => {
-        this.notificationService.error('Please enter Dataset ID again')
+        this.notificationService.error(error)
 
         this.loading = false;
       });
