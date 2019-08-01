@@ -73,12 +73,12 @@ declare var $: any;
                 <div class="col-md-2">
                   <div class="dropdown">
                     <button class="btn btn-default dropdown-toggle" type="button" id="datasetDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-                      Dataset
+                      Dataset ID
                       <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" aria-labelledby="datasetDropdown">
                       <li *ngFor="let x of datasetID"><a (click)="selectDataset(x)">{{x}}</a></li>
-                      <li><a (click)="newDataset = true">Add new dataset</a></li>
+                      <li><a (click)="newDataset = true">Add Dataset ID</a></li>
                     </ul>
                   </div>
                 </div>
