@@ -138,17 +138,7 @@ precise-alligator-traefik-857576cd87-djfhb                  1/1     Running   0 
 ```
 
 #### Development
-In addition to disabling health/readiness checks and persistent storage, some containers can be set to a development mode where their default commands are replaced with `/bin/sleep infinity`. This allows for live development within the pods container. A directory /devel is created and shared between containers as well, so code may be shared between the containers.
-
-##### WPS Pod
-1. `kubectl get pods --selector app.kubernetes.io/component=wps` use the value in the "Name" column.
-2. `kubectl exec -it <NAME> /bin/bash`
-3. `bash /entrypoint.sh`
-
-##### Celery Pod
-1. `kubectl get pods --selector app.kubernetes.io/component=celery` use the value in the "Name" column.
-2. `kubectl exec -it <NAME> -c compute-celery-ingress /bin/bash`
-3. `bash /entrypoint.sh -c 2 -Q ingress -n ingress -l INFO` this will start the Celery working using the ingress queue.
+In addition to disabling health/readiness checks and persistent storage, some containers can be set to a development mode where their default commands are replaced with `/bin/sleep infinity`. This allows for live development within the pods container. A directory `/devel` is created and shared between containers as well. See [development.yaml](docker/helm/compute/development.yaml) for more information.
 
 ### Prometheus
 The default [prometheus.yaml](docker/helm/compute/prometheus.yaml) will install a Prometheus server along with the default exporters e.g. Node Exporter, Kubernetes Export, etc. The services will be scheduled on Kubernetes nodes which have the label `tier=backend`.
