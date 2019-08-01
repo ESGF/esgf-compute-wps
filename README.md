@@ -52,7 +52,7 @@ celery:
 * [development.yaml](docker/helm/compute/development.yaml) environment does not define any container resource requirements and disables pod health and readiness checks. This environment is prefered for single node or small clusters. Persistent storage is disabled. You can find further information about this environment [here](#development)
 * [development-resources.yaml](docker/helm/compute/development-resources.yaml) environment is the same as development.yaml but has defined the container resource requirements. **NOTE:** This may be renamed in the near future.
 
-All of the base configuration values for the helm chart can be found in [values.yaml](docker/helm/compute/values.yaml).
+[values.yaml](docker/helm/compute/values.yaml) contains all of the default values for the Helm chart with comments.
 
 ##### Storage
 The Helm chart will automatically create all required [PersistentVolumes (PV)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes) and [PersistentVolumeClaims (PVC)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims). The PVs that are created using HostPath as the storage type. If deploying on a multi-node Kubernetes cluster, the usage of [nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) and labeling nodes will be required to ensure persistent storage. The following services use persistent storage in a production environment; Postgres and Redis.
