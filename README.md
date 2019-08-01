@@ -1,7 +1,7 @@
 # ESGF Compute
 The ESGF Compute Service is a containerized application capable of providing compute resources through a web service, using the [Web Processing Service (WPS)](http://www.opengeospatial.org/standards/wps) standard as an interface between the user and the compute resources. Currently version 1.0.0 of the WPS standard is supported, with 2.0.0 in the near future.
 
-The end goal is to provide a federated service that brings the computation to the data.
+The end goal is to provide a federated service for ESGF that brings the computation to the data.
 
 Table of Contents
 =================
@@ -35,7 +35,7 @@ Kubernetes is required to run the ESGF Compute service, installation instruction
 
 [Helm](https://helm.sh/) is the method of deployment for Kubernetes, installation instructions can be found on their [website](https://helm.sh/docs/using_helm/#install-helm).
 
-* [Configuration] (#configuration)
+* [Configuration](#configuration)
 * [Deployment with Tiller](#deployment-with-tiller)
 * [Deployment without Tiller](#deployment-without-tiller)
 
