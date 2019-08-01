@@ -497,10 +497,10 @@ def providers(request):
     except Exception:
         raise Exception('Error retrieving ESGF known providers list')
 
+    known = []
+
     try:
         root = ET.fromstring(response.text)
-
-        data = {}
 
         for child in root.iter('OP'):
             name = child.find('NAME').text
@@ -510,8 +510,8 @@ def providers(request):
 
             url = child.find('URL').text
 
-            data[name] = url
+            known.append({'name': name, 'url': url}) 
     except Exception:
         raise Exception('Error parsing ESGF known provider list document')
 
-    return JsonResponse(data)
+    return JsonResponse({'data': known})
