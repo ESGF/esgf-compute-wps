@@ -38,6 +38,7 @@ api_urlpatterns = [
     url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^metrics/$', views.metrics_view),
     url(r'^combine/$', views.combine),
+    url(r'^providers/?$', views.providers),
 
     # Authentication and authorization
     url(r'^user/$', views.user_details),
@@ -62,7 +63,7 @@ internal_router_urls = internal_router.urls
 internal_router.urls.append(url('^schema$', schema))
 
 urlpatterns = [
-    url(r'^wps/$', views.wps_entrypoint),
+    url(r'^wps/?$', views.wps_entrypoint),
     url(r'^api/', include(api_urlpatterns)),
     url(r'^internal_api/', include(internal_router_urls)),
 ]
