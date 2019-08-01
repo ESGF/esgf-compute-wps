@@ -1,10 +1,14 @@
 # ESGF Compute
-ESGF Compute is a WPS application capable of providing remote compute resources. 
+The ESGF Compute Service is a containerized application capable of providing compute resources through a web service, using the [Web Processing Service (WPS)](http://www.opengeospatial.org/standards/wps) standard as an interface between the user and the compute resources. Currently version 1.0.0 of the WPS standard is supported, with 2.0.0 in the near future.
 
 The end goal is to provide a federated service that brings the computation to the data.
 
-### Services
-* [Compute WPS](compute/compute-wps) This is a Django based implmenetation of the [Web Processing Service](http://www.opengeospatial.org/standards/wps)(WPS) standard. It currently only supports 1.0.0.
+Table of Contents
+=================
+
+* [Contribute](#contribute)
+* [Question?](#question)
+* [Installation](#installation)
 
 # Contribute
 We welcome contributions to the project, before moving ahead please review the following documents:
@@ -15,67 +19,99 @@ We welcome contributions to the project, before moving ahead please review the f
 # Question?
 Please review the [FAQ](FAQ.md), if you do not find an answer to your question open an issue on [GitHub](https://github.com/ESGF/esgf-compute-wps/issues/new).
 
-# Intallation
-We support deployment by [Helm](https://helm.sh/), the use of Tiller is optional. The compute service is designed to run behind [Traefik](https://docs.traefik.io/) though it is possible to run it behind other reverse proxy/load balancers. Instructions to deploy a default Traefik installation will be described below. The service also uses a [Prometheus](https://prometheus.io/) server to collect metrics for the compute service. This can be installed by Helm or a bare metal install, instructions for Helm will be provided otherwise see the Prometheus documentation for installation instructions. Refer to the configuration section below for instructions on configuring the compute service to use the Prometheus server.
+# Installation
 
-### Requirements
-* [Kubernetes Cluster](https://kubernetes.io/docs/setup/pick-right-solution/)
-* [Helm Installation](https://helm.sh/docs/using_helm/#install-helm)
-* [Prometheus Installation](https://prometheus.io/docs/prometheus/latest/installation/)
-* [Tiller (optional)](https://helm.sh/docs/using_helm/#installing-tiller)
-* [Traefik (optional)](https://docs.traefik.io/)
+## Requirements
+* [Kubernetes](#kubernetes)
+* [Helm](#helm)
+* [Traefik](https://docs.traefik.io/)
+* [Prometheus](https://prometheus.io/docs/prometheus/latest/installation/)
 
-### Configuration
-Refer to comments in [values.yaml](docker/helm/compute/values.yaml) located in docker/helm/compute for chart defaults.
+### Kubernetes
 
-**NOTE** This helm chart will automatically create PersistentVolume (PV) and PersistentVolumeClaims (PVC) for shared storage. These PVs will use HostPath for the storage type. If dyanmic provisioning is preferred then the path for each volume will need to be removed and the correct StorageClass set. By removing the path variable the chart will not create the PVs and only create the PVCs allowing Kubernetes to create the volumes.
+Kubernetes is required to run the ESGF Compute service, installation instructions can be found on the [Kubernetes](https://kubernetes.io/docs/setup/pick-right-solution/).
 
-Change the following
+### Helm
+
+[Helm](https://helm.sh/) is the method of deployment for Kubernetes, installation instructions can be found on their [website](https://helm.sh/docs/using_helm/#install-helm).
+
+* [Configuration] (#configuration)
+* [Deployment with Tiller](#deployment-with-tiller)
+* [Deployment without Tiller](#deployment-without-tiller)
+
+#### Configuration
+There are some pre-configured environment files available. Review the [storage](#storage) section before deploying.
+
+**NOTE:** The following pre-configured environments may be missing some required values. If you experience an error similar to ```Error: render error in "compute/templates/celery-deployment.yaml": template: compute/templates/celery-deployment.yaml:167:20: executing "compute/templates/celery-deployment.yaml" at <required "Set celery...>: error calling required: Set celery.prometheusUrl``` then a required value is missing. The last portion of the error ```required: Set celery.prometheusUrl``` will have which value is missing. In this example the following value needs to be set.
+```yaml
+celery:
+  prometheusURL:
+```
+
+* [production.yaml](docker/helm/compute/production.yaml] environment has defined the container resource requirements. Using this on a single node or small cluster may have adverse effects as the resource requirements may be larger than available resources. Persistent storage is enabled.
+* [development.yaml](docker/helm/compute/development.yaml] environment does not define any container resource requirements and disables pod health and readiness checks. This environment is prefered for single node or small clusters. Persistent storage is disabled. You can find further information about this environment [here](#development)
+* [development-resources.yaml](docker/helm/compute/development-resources.yaml] environment is the same as development.yaml but has defined the container resource requirements. **NOTE** This may be renamed in the near future.
+
+All of the base configuration values for the helm chart can be found in [values.yaml](docker/helm/compute/values.yaml).
+
+##### Storage
+The Helm chart will automatically create all required [PersistentVolumes (PV)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes) and [PersistentVolumeClaims (PVC)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims). The PVs that are created use a HostPath storage type. If deploying on a multi-node Kubernetes cluster, the usage of [nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) will be required to ensure persistent storage for the databases.
+
+To disable the creation of the PVs, the path value must be deleted by setting it to ```null```.
+
+Example:
 ```yaml
 persistence:
-  public:
-    storageClassName: slow
-    capacity: 100Gi
-    path: /p/cscratch/nimbus/wps/data/public
+  dataClaimName: data-dev-pvc
+
+  volumes:
+    data-dev:
+      storageClassName: slow
+      capacity: 100Gi
+      path: /p/cscratch/nimbus/wps-dev/data
 ```
 to
 ```yaml
 persistence:
-  public:
-    storageClassName: cephfs-default # Whatever storage class you plan to use
-    capacity: 100Gi
-    path: null
+  dataClaimName: data-dev-pvc
+
+  volumes:
+    data-dev:
+      storageClassName: slow
+      capacity: 100Gi
+      path: null
 ```
 
-### Deployment
+#### Deployment with Tiller
+Either choose an existing [environment](#configuration) or create a custom one.
 
-#### Production
-1. Install the [Helm](https://helm.sh/docs/using_helm/#installing-helm) client for your chosen OS.
-2. *Optional* Install [Tiller](https://helm.sh/docs/using_helm/#installing-tiller) server.
-3. `git clone https://github.com/ESGF/esgf-compute-wps/`
-4. `cd docker/helm/compute`
-5. Create a production.yaml file, refer to values.yaml to customize the install.
+1. `git clone https://github.com/ESGF/esgf-compute-wps/`
+2. `cd docker/helm/compute`
+3. `helm dependency update`
+4. `helm install . -f <environement>.yaml` will install the chart in the current Kubernetes namespace.
+2. Verify install with `helm list` and `kubectl get pods`, see [sample](#sample).
 
-**Note** There are some required values that must be set. Helm will raise an error when installing the chart or templating the files.
+##### Deployment without Tiller
+Either choose an existing [environment](#configuration) or create a custom one.
 
-6. `helm dependency update` will pull all of the dependency charts.
+1. `git clone https://github.com/ESGF/esgf-compute-wps/`
+2. `cd docker/helm/compute`
+3. `helm dependency update`
+4. `helm template . -f production.yaml --output-dir rendered/` will render the templates and create files for Kubernetes.
+5. `kubectl apply -k rendered/` will apply all of the files to the current namespace.
+6. Verify install with `helm list` and `kubectl get pods`, see [sample](#sample).
 
-##### Tiller
-1. `helm install . -f production.yaml` will install the chart in the current namespace.
-2. `helm list` should contain an entry for the compute chart.
+#### Sample output from "helm list" and "kubectl get pods"
+##### Helm list output
 ```
 NAME                    REVISION        UPDATED                         STATUS          CHART           NAMESPACE
 laughing-condor         1               Thu May  9 21:49:10 2019        DEPLOYED        traefik-1.68.1  default
 precise-alligator       1               Tue Jun 18 00:10:49 2019        DEPLOYED        compute-1.0.0   default
 ```
 
-##### No Tiller
-1. `helm template . -f production.yaml --output-dir rendered/` will render the templates and create files for Kubernetes.
-2. `kubectl apply -k rendered/` will apply all of the files to the current namespace.
-3. `kubectl get pods` should contain entries similar to the following.
+##### Kubectl get pods
 ```
 NAME                                                        READY   STATUS    RESTARTS   AGE
-laughing-condor-traefik-b9447cc8f-lhrwr                     1/1     Running   12         39d
 precise-alligator-compute-celery-ingress-6f65c48f8c-fgxr9   3/3     Running   0          2m34s
 precise-alligator-compute-kube-monitor-8458dd94d5-hxrrw     1/1     Running   0          2m34s
 precise-alligator-compute-nginx-7967b9666d-jdnr9            1/1     Running   0          2m34s
@@ -88,12 +124,7 @@ precise-alligator-traefik-857576cd87-djfhb                  1/1     Running   0 
 ```
 
 #### Development
-See [development.yaml](docker/helm/compute/development.yaml) for an example Helm chart configuration file.
-This will launch the service in a development environment, essentially preventing services from running
-normally. The WPS and Celery containers will be run with `/bin/sleep infinity` and a shared volume will be
-mounted between the two pods. The shared volume can be used to clone the Github repo and install the python
-packages in development mode, allowing for live code editing. Some of the pods will fail to start because 
-their dependent pods will not have automatically started. Next let's get the pods running.
+In addition to disabling health/readiness checks and persistent storage, some containers can be set to a development mode where their default commands are replaced with `/bin/sleep infinity`. This allows for live development within the pods container. A directory /devel is created and shared between containers as well, so code may be shared between the containers.
 
 ##### WPS Pod
 1. `kubectl get pods --selector app.kubernetes.io/component=wps` use the value in the "Name" column.
