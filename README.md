@@ -42,7 +42,7 @@ Kubernetes is required to run the ESGF Compute service, installation instruction
 #### Configuration
 There are some pre-configured environment files available. Review the [storage](#storage) section before deploying.
 
-**NOTE:** The following pre-configured environments may be missing some required values. If you experience an error similar to ```Error: render error in "compute/templates/celery-deployment.yaml": template: compute/templates/celery-deployment.yaml:167:20: executing "compute/templates/celery-deployment.yaml" at <required "Set celery...>: error calling required: Set celery.prometheusUrl``` then a required value is missing. The last portion of the error ```required: Set celery.prometheusUrl``` will have which value is missing. In this example the following value needs to be set.
+**NOTE:** The following pre-configured environments may be missing some [required](#required-values) values. If you experience an error similar to ```Error: render error in "compute/templates/celery-deployment.yaml": template: compute/templates/celery-deployment.yaml:167:20: executing "compute/templates/celery-deployment.yaml" at <required "Set celery...>: error calling required: Set celery.prometheusUrl``` then a required value is missing. The last portion of the error ```required: Set celery.prometheusUrl``` will have which value is missing. In this example the following value needs to be set.
 ```yaml
 celery:
   prometheusUrl:
@@ -53,6 +53,22 @@ celery:
 * [development-resources.yaml](docker/helm/compute/development-resources.yaml) environment is the same as development.yaml but has defined the container resource requirements. **NOTE:** This may be renamed in the near future.
 
 [values.yaml](docker/helm/compute/values.yaml) contains all of the default values for the Helm chart with comments.
+
+##### Required values
+* wps.externalHost
+  * Set the external address of the cluster, can include port as seen in the [development.yaml](docker/helm/compute/development.yaml).
+* wps.email.host
+  * Set the host of an smtp server. It can be set to a random value, in which case no emails will be sent.
+* wps.admin.email
+  * Set an email address that will be cc'd for registration emails.
+* wps.oauth.client
+  * Set the Client ID for an ESGF SLCS OAuth2 provider. This can be set to a random value, but OAuth2 certificates will not work.
+* wps.oauth.secret
+  * Set the Client Secret for the above Client ID.
+* wps.apiPassword
+  * Set the password that will be used for the interal API user.
+* celery.prometheusUrl
+  * Set the base url for a Prometheus server e.g. https://internal.compute.com/prometheus.
 
 ##### Storage
 The Helm chart will automatically create all required [PersistentVolumes (PV)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes) and [PersistentVolumeClaims (PVC)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims). The PVs that are created using HostPath as the storage type. If deploying on a multi-node Kubernetes cluster, the usage of [nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) and labeling nodes will be required to ensure persistent storage. The following services use persistent storage in a production environment; Postgres and Redis.
