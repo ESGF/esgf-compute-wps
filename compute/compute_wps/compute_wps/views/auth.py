@@ -242,7 +242,9 @@ def user_login_openid_callback(request):
     except WPSError as e:
         logger.exception('Error handling OpenID callback')
 
-        return common.failed(str(e))
+        redirect_url = '{!s}/auth/login?error={!s}'.format(settings.EXTERNAL_URL, str(e))
+
+        return redirect(redirect_url) 
     else:
         metrics.track_login(metrics.WPS_OPENID_LOGIN_SUCCESS,
                             user.auth.openid_url)
