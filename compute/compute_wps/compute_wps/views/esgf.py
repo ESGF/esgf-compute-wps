@@ -368,11 +368,11 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
             except requests.ConnectionError:
                 metrics.WPS_ESGF_SEARCH_FAILED.inc()
 
-                raise Exception('Connection timed out')
-            except requests.RequestException as e:
+                raise Exception('Connection to ESGF search {!s} timed out'.format(index_node))
+            except requests.RequestException:
                 metrics.WPS_ESGF_SEARCH_FAILED.inc()
 
-                raise Exception('Request failed: "{}"'.format(e))
+                raise Exception('Request to ESGF search {!s} failed'.format(index_node))
 
         try:
             response_json = json.loads(response.content)
