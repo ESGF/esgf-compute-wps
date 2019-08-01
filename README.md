@@ -45,12 +45,12 @@ There are some pre-configured environment files available. Review the [storage](
 **NOTE:** The following pre-configured environments may be missing some required values. If you experience an error similar to ```Error: render error in "compute/templates/celery-deployment.yaml": template: compute/templates/celery-deployment.yaml:167:20: executing "compute/templates/celery-deployment.yaml" at <required "Set celery...>: error calling required: Set celery.prometheusUrl``` then a required value is missing. The last portion of the error ```required: Set celery.prometheusUrl``` will have which value is missing. In this example the following value needs to be set.
 ```yaml
 celery:
-  prometheusURL:
+  prometheusUrl:
 ```
 
 * [production.yaml](docker/helm/compute/production.yaml) environment has defined the container resource requirements. Using this on a single node or small cluster may have adverse effects as the resource requirements may be larger than available resources. Persistent storage is enabled.
 * [development.yaml](docker/helm/compute/development.yaml) environment does not define any container resource requirements and disables pod health and readiness checks. This environment is prefered for single node or small clusters. Persistent storage is disabled. You can find further information about this environment [here](#development)
-* [development-resources.yaml](docker/helm/compute/development-resources.yaml) environment is the same as development.yaml but has defined the container resource requirements. **NOTE** This may be renamed in the near future.
+* [development-resources.yaml](docker/helm/compute/development-resources.yaml) environment is the same as development.yaml but has defined the container resource requirements. **NOTE:** This may be renamed in the near future.
 
 All of the base configuration values for the helm chart can be found in [values.yaml](docker/helm/compute/values.yaml).
 
