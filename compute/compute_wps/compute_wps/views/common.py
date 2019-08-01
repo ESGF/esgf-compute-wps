@@ -7,6 +7,11 @@ from compute_wps.exceptions import WPSError
 logger = logging.getLogger('compute_wps.views')
 
 
+class NotLoggedInError(WPSError):
+    def __init__(self):
+        super(NotLoggedInError, self).__init__('Must be logged in')
+
+
 class AuthenticationError(WPSError):
     def __init__(self, user):
         msg = 'Authentication for "{username}" failed'
@@ -94,11 +99,17 @@ def user_to_json(user):
 
 
 def authentication_required(request):
+    if request.user.is_anonymous:
+        raise NotLoggedInError()
+
     if not request.user.is_authenticated:
         raise AuthenticationError(request.user)
 
 
 def authorization_required(request):
+    if request.user.is_anonymous:
+        raise NotLoggedInError()
+
     if not request.user.is_superuser:
         raise AuthorizationError(request.user)
 
