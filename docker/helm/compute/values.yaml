@@ -41,6 +41,7 @@ traefik:
       labels:
         traffic-type: external
 
+  # This traefik instance will only handle ingress objects with these labels
   kubernetes:
     labelSelector: traffic-type=internal
 
@@ -67,20 +68,6 @@ traefik:
 #     path: null
 persistence:
   volumes: {}
-#    data:
-#      storageClassName: slow
-#      capacity: 100Gi
-#      path: /p/cscratch/nimbus/wps/data
-#
-#    postgresql:
-#      storageClassName: slow
-#      capacity: 10Gi
-#      path: /opt/nimbus/wps/postgresql
-#
-#    redis:
-#      storageClassName: slow
-#      capacity: 10Gi
-#      path: /opt/nimbus/wps/redis
 
 # Provisioner
 provisioner:

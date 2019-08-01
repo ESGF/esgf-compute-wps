@@ -37,18 +37,11 @@ traefik:
     ingress:
       annotations:
         traefik.ingress.kubernetes.io/rule-type: PathPrefixStrip
-        ingress.kubernetes.io/ssl-redirect: "true"
-        ingress.kubernetes.io/hsts-max-age: "31536000"
-        ingress.kubernetes.io/hsts-include-subdomains: "true"
-        ingress.kubernetes.io/force-hsts: "true"
       labels:
         traffic-type: development
 
   kubernetes:
     labelSelector: traffic-type=development
-
-    namespaces:
-    - development
 
   metrics:
     prometheus:

@@ -62,7 +62,7 @@ wps:
 
   imagePullPolicy: IfNotPresent
 
-  externalHost: 10.5.5.5
+  externalHost: 10.5.5.5:8443
 
   prometheus:
     host: 
