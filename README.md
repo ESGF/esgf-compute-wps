@@ -24,8 +24,8 @@ Please review the [FAQ](FAQ.md), if you do not find an answer to your question o
 ## Requirements
 * [Kubernetes](#kubernetes)
 * [Helm](#helm)
-* [Traefik](https://docs.traefik.io/)
-* [Prometheus](https://prometheus.io/docs/prometheus/latest/installation/)
+* [Traefik](#traefik)
+* [Prometheus](#prometheus)
 
 ### Kubernetes
 
