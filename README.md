@@ -48,9 +48,9 @@ celery:
   prometheusURL:
 ```
 
-* [production.yaml](docker/helm/compute/production.yaml] environment has defined the container resource requirements. Using this on a single node or small cluster may have adverse effects as the resource requirements may be larger than available resources. Persistent storage is enabled.
-* [development.yaml](docker/helm/compute/development.yaml] environment does not define any container resource requirements and disables pod health and readiness checks. This environment is prefered for single node or small clusters. Persistent storage is disabled. You can find further information about this environment [here](#development)
-* [development-resources.yaml](docker/helm/compute/development-resources.yaml] environment is the same as development.yaml but has defined the container resource requirements. **NOTE** This may be renamed in the near future.
+* [production.yaml](docker/helm/compute/production.yaml) environment has defined the container resource requirements. Using this on a single node or small cluster may have adverse effects as the resource requirements may be larger than available resources. Persistent storage is enabled.
+* [development.yaml](docker/helm/compute/development.yaml) environment does not define any container resource requirements and disables pod health and readiness checks. This environment is prefered for single node or small clusters. Persistent storage is disabled. You can find further information about this environment [here](#development)
+* [development-resources.yaml](docker/helm/compute/development-resources.yaml) environment is the same as development.yaml but has defined the container resource requirements. **NOTE** This may be renamed in the near future.
 
 All of the base configuration values for the helm chart can be found in [values.yaml](docker/helm/compute/values.yaml).
 
