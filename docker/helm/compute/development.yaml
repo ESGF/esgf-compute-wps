@@ -47,6 +47,10 @@ nginx:
 
   imagePullPolicy: IfNotPresent
 
+  ingress:
+    labels:
+      traffic-type: development
+
 wps:
   # Sets the wps container to development mode
   #
@@ -75,6 +79,14 @@ wps:
   email:
     host: dasda
 
+  ingress:
+    external:
+      labels:
+        traffic-type: development
+    internal:
+      labels:
+        traffic-type: development
+
 celery:
   # Sets the celery container to development mode
   #
@@ -96,6 +108,11 @@ celery:
   # compute-tasks-backend
   #
   #   development: true
+
+thredds:
+  ingress:
+    labels:
+      traffic-type: development
 
 redis:
   master:
