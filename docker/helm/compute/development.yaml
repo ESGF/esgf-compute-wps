@@ -1,7 +1,4 @@
-# Setting development mode will cause the associated container to start with
-# /bin/sleep allowing the ability to enter into a shell in the container to
-# execute the command manually.
-
+# Disables health/readiness checks and persistent storage.
 development: true
 
 persistence:
@@ -15,12 +12,22 @@ persistence:
 
 kubeMonitor:
   # Sets kube-monitor container to development mode
+  # 
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=kube-monitor --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME /bin/bash
+  # compute-kube-monitor
+  #
   # development: true
 
   imagePullPolicy: IfNotPresent
 
 provisioner:
   # Sets provisioner container to development mode
+  # 
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=provisioner --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME /bin/bash
+  # compute-provisioner
+  #
   # development: true
 
   imagePullPolicy: IfNotPresent
@@ -30,10 +37,23 @@ provisioner:
   lifetime: 240
 
 nginx:
+  # Sets the nginx container to development mode
+  # 
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=nginx --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME /bin/bash
+  # bash entrypoint.sh
+  #
+  # development: true
+
   imagePullPolicy: IfNotPresent
 
 wps:
   # Sets the wps container to development mode
+  #
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=wps --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME /bin/bash
+  # bash entrypoint.sh
+  # 
   # development: true
 
   imagePullPolicy: IfNotPresent
@@ -41,7 +61,7 @@ wps:
   externalHost: 10.5.5.5
 
   prometheus:
-    host: sdasda
+    host: 
 
   oauth:
     client: client
@@ -57,14 +77,24 @@ wps:
 
 celery:
   # Sets the celery container to development mode
+  #
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=celery --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME -c compute-celery-ingress /bin/bash
+  # bash entrypoint.sh -c 1 -Q ingress -n ingress -l INFO
+  # 
   # development: true
 
   imagePullPolicy: IfNotPresent
 
-  prometheusUrl: https://fakepromserver.org
+  prometheusUrl: adsadas
 
-  # backend:
+  backend: {}
   #   Sets the celery backend container to development mode
+  #
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=celery --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME -c compute-celery-ingress-backend /bin/bash
+  # compute-tasks-backend
+  #
   #   development: true
 
 redis:
