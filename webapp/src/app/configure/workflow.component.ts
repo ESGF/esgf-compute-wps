@@ -356,8 +356,19 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
     $('#processAbstractModal').modal('show');
   }
 
+  addProcessNode(process: Process, x: number, y: number) {
+    let processWrapper = new ProcessWrapper(process, x, y);
+
+    this.nodes.push(processWrapper);
+
+    this.update();
+
+    return processWrapper;
+  }
+
   addProcess(identifier: string, origin: [number,number], skipDescription=false) {
     let process = new Process(identifier);
+    let processWrapper = null;
 
     if (!skipDescription) {
       if (this.stateData.description != null) {
@@ -366,15 +377,15 @@ export class WorkflowComponent implements OnInit, AfterViewInit {
         this.wpsService.describeProcess(this.configService.wpsPath, process.identifier)
           .then((description: any) => {
             process.description = description;
+
+            this.addProcessNode(process, origin[0], origin[1]);
+          }).catch((error: any) => {
+            this.notificationService.error(`Error describing process ${identifier}, try adding again`);
           });
       }
+    } else {
+      processWrapper = this.addProcessNode(process, origin[0], origin[1]);
     }
-
-    let processWrapper = new ProcessWrapper(process, origin[0], origin[1]);
-
-    this.nodes.push(processWrapper);
-
-    this.update();
 
     return processWrapper;
   }
