@@ -141,31 +141,23 @@ precise-alligator-traefik-857576cd87-djfhb                  1/1     Running   0 
 In addition to disabling health/readiness checks and persistent storage, some containers can be set to a development mode where their default commands are replaced with `/bin/sleep infinity`. This allows for live development within the pods container. A directory `/devel` is created and shared between containers as well. See [development.yaml](docker/helm/compute/development.yaml) for more information.
 
 ### Prometheus
-The default [prometheus.yaml](docker/helm/compute/prometheus.yaml) will install a Prometheus server along with the default exporters e.g. Node Exporter, Kubernetes Export, etc. The services will be scheduled on Kubernetes nodes which have the label `tier=backend`.
-1. `cd docker/helm/compute`
-2. Edit [prometheus-storage.yaml](docker/helm/compute/prometheus-storage.yaml) to configure the storage for Prometheus. Two PersistentVolumes are required; one for the server and a second for the alert-manager.
+* [External](#external)
+* [Prometheus Helm Chart](#prometheus-helm-chart)
 
-**Note** If dynamic provisioning of storage is required please refer to the Prometheus [chart documentation](https://github.com/helm/charts/tree/master/stable/prometheus)
+#### External
+In a production environment you may already have an existing Prometheus server. This server will need to be configured to scrap the service endpoints in the Kubernetes cluster.
 
-3. `kubectl apply -f prometheus-storage.yaml`
-3. Edit [prometheus.yaml](docker/helm/compute/prometheus.yaml) to configure the chart. See the [chart documentation](https://github.com/helm/charts/tree/master/stable/prometheus) for information on configuring the chart.
-4. `helm install stable/prometheus -f prometheus.yaml`
+If you wish to deploy a Prometheus server with Helm there are some included files to assist in this; [prometheus.yaml](docker/helm/compute/prometheus.yaml) and [prometheus-storage.yaml](docker/helm/compute/prometheus-storage.yaml).
 
-or
+`celery.prometheusUrl` will need to be set to the base address of the prometheus server e.g. `https://internal.prometheus.com/`.
+#### Prometheus Helm Chart
+If a development environment is being deployed, the Helm chart has an included Prometheus server. The following command can be used when deploying; `helm install . -f development.yaml -f prometheus-dev.yaml`. This will deploy the Prometheus chart without any persistent storage. This can be combined with the development Traefik configuration; `helm install . -f development.yaml -f traefik-dev.yaml -f prometheus-dev.yaml`.
 
-4. `helm template stable/prometheus -f prometheus.yaml --output-dir rendered-prometheus/`
-5. `kubectl apply -k rendered-prometheus/`
+### Traefik
+The ESGF Compute service utilizes two instances of Traefik; an external and internal instance. In a production environment [traefik.yaml](docker/helm/compute/traefik.yaml) can be used to deploy the external instance. The Helm chart will take care of deploying the internal instance.
 
-### Traefik **(Optional)**
-The default [traefik.yaml](docker/helm/compute/traefik.yaml) will install a Traefik server that will be scheduled on a Kubernetes node which has a label `tier=frontend`, it will bind HostPort 80 and 443 on the node and will automatically create self-signed certificates. See step 2 for further customization of the reverse proxy/load balancer.
-1. `cd docker/helm/compute`
-2. Edit [traefik.yaml](docker/helm/compute/traefik.yaml) to configure the chart. See the [chart repo](https://github.com/helm/charts/tree/master/stable/traefik) for information on configuring.
-3. `helm install stable/traefik -f traefik.yaml`
+In a development environment [traefik-dev.yaml](docker/helm/compute/traefik-dev.yaml) can be used to have the internal instance act as both the external and internal instances. When deploying the chart you can using the following command to deploy `helm install . -f development.yaml -f traefik-dev.yaml`, this will configure the Traefik instance to handle both external and internal Traefik. This can be combined with the development Prometheus server as well; `helm install . -f development.yaml -f traefik-dev.yaml -f prometheus-dev.yaml`.
 
-or
-
-3. `helm template stable/traefik -f traefik.yaml --output-dir rendered-traefik/`
-4. `kubectl apply -k rendered-traefik/`
 
 # Design documents
 Coming soon.
