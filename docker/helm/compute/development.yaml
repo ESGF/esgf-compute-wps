@@ -74,19 +74,19 @@ wps:
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
-  externalHost: 10.5.5.5:8443
+  externalHost:
 
   oauth:
-    client: dasda
-    secret: dadas
+    client:
+    secret:
 
   apiUsername: wps_api_user
-  apiPassword: changeit
+  apiPassword:
 
-  adminEmail: dasda
+  adminEmail:
 
   email:
-    host: dadagfa
+    host:
 
   ingress:
     external:
@@ -110,7 +110,7 @@ celery:
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
-  prometheusUrl: adsadas
+  prometheusUrl:
 
   backend: {}
   #   Sets the celery backend container to development mode

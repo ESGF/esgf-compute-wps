@@ -32,9 +32,9 @@ wps:
 
   oauth:
     client:
-    secret:
+      secret:
 
-  apiUsername:
+  apiUsername: wps_api_user
   apiPassword:
 
   externalHost:
