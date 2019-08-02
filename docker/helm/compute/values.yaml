@@ -67,7 +67,13 @@ traefik:
 #     storageClassName: cephfs-default # Storage class that will be used for the PVs
 #     path: null
 persistence:
-  volumes: {}
+  dataClaimName: data-dev-pvc
+
+  volumes: 
+    data-dev:
+      storageClassName: slow
+      capacity: 100Gi
+      path: /p/cscratch/nimbus/wps-dev/data
 
 # Provisioner
 provisioner:
@@ -126,13 +132,13 @@ wps:
   imagePullPolicy: Always
 
   # Set to external hostname of cluster
-  externalHost: 
+  externalHost: 0.0.0.0:8443
   allowedCIDR: 172.17.0.0/16
 
-  apiUsername:
-  apiPassword:
+  apiUsername: wps_api_user
+  apiPassword: wps_api_password
 
-  adminEmail:
+  adminEmail: admin@fake.service.com
 
   # Configure the values that will be used in creating WPS responses
   title: "LLNL WPS Server"
@@ -166,11 +172,11 @@ wps:
 
   # OAuth configuration
   oauth:
-    client:
-    secret:
+    client: fake_oauth2_client
+    secret: fake_oauth2_secret
 
   email:
-    host: 
+    host: fake.email.host.com
     port: 25
     user: ""
     password: ""
@@ -209,7 +215,10 @@ celery:
       cpu: 200m
       memory: 512Mi
 
-  prometheusUrl:
+  prometheusUrl: https://fake.prometheus.com/prometheus
+
+  metrics:
+    resources: {}
 
   backend:
     development: false
@@ -251,14 +260,14 @@ thredds:
 
 postgresql:
   postgresqlUsername: postgres
-  postgresqlPassword:
+  postgresqlPassword: abcd1234
   port: 5432
 
   master:
     nodeSelector: {}
 
   persistence:
-    enabled: true
+    enabled: false
     existingClaim: postgresql-pvc
 
   backup:
@@ -280,9 +289,15 @@ redis:
     existingClaim: redis-pvc
 
   master:
+    persistence:
+      enabled: false
+
     service:
       type: ClusterIP
 
     resources: {}
 
     nodeSelector: {}
+
+prometheus:
+  enabled: false

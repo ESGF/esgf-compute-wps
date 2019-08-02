@@ -74,20 +74,6 @@ wps:
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
-  externalHost:
-
-  oauth:
-    client:
-    secret:
-
-  apiUsername: wps_api_user
-  apiPassword:
-
-  adminEmail:
-
-  email:
-    host:
-
   ingress:
     external:
       labels:
@@ -110,15 +96,13 @@ celery:
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
-  prometheusUrl:
-
-  backend: {}
-  #   Sets the celery backend container to development mode
-  #
-  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=celery --template "{{range .items}}{{.metadata.name}}{{end}}")
-  # kubectl exec -it $POD_NAME -c compute-celery-ingress-backend /bin/bash
-  # compute-tasks-backend
-  #
+  # backend:
+  # #   Sets the celery backend container to development mode
+  # #
+  # # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=celery --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # # kubectl exec -it $POD_NAME -c compute-celery-ingress-backend /bin/bash
+  # # compute-tasks-backend
+  # #
   #   development: true
 
 thredds:
@@ -137,10 +121,5 @@ redis:
       enabled: false
 
 postgresql:
-  postgresqlPassword: abcd1234
-
   persistence:
     enabled: false
-
-prometheus:
-  enabled: false
