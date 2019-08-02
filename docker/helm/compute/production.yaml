@@ -1,13 +1,4 @@
 traefik:
-  resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
   dashboard:
     ingress:
       annotations:
@@ -39,14 +30,6 @@ wps:
   nodeSelector:
     tier: backend
 
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 200m
-      memory: 256Mi
-
   oauth:
     client:
     secret:
@@ -67,26 +50,9 @@ celery:
 
   prometheusUrl:
 
-  backend:
-    resources:
-      limits:
-        cpu: 1
-        memory: 2Gi
-      requests:
-        cpu: 500m
-        memory: 1Gi
-
 provisioner:
   nodeSelector:
     tier: backend
-
-  resources:
-    limits:
-      cpu: 500m
-      memory: 128Mi
-    request:
-      cpu: 100m
-      memory: 32Mi
 
 kubeMonitor:
   nodeSelector:
@@ -94,26 +60,9 @@ kubeMonitor:
 
   namespace: production
 
-  resources:
-    limits:
-      cpu: 1
-      memory: 512Mi
-
-    requests:
-      cpu: 500m
-      memory: 256Mi
-
 nginx:
   nodeSelector:
     tier: backend
-
-  resources:
-    limits:
-      cpu: 500m
-      memory: 1Gi
-    requests:
-      cpu: 100m
-      memory: 256Mi
 
   ingress:
     annotations:
@@ -126,14 +75,6 @@ thredds:
   nodeSelector:
     tier: backend
 
-  resources:
-    limits:
-      cpu: 1
-      memory: 2Gi
-    requests:
-      cpu: 500m
-      memory: 512Mi
-
   ingress:
     annotations:
       ingress.kubernetes.io/ssl-redirect: "true"
@@ -144,14 +85,6 @@ thredds:
 postgresql:
   postgresqlPassword:
 
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
-
   master:
     nodeSelector:
       tier: backend
@@ -159,14 +92,6 @@ postgresql:
 
 redis:
   master:
-    resources:
-      limits:
-        cpu: 2
-        memory: 4Gi
-      requests:
-        cpu: 2
-        memory: 4Gi
-
     nodeSelector:
       tier: backend
       storage/wps: local
