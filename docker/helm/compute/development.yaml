@@ -52,7 +52,7 @@ nginx:
   # development: true
 
   image: aims2.llnl.gov/compute-webapp
-  imageTag: 0.1.0
+  imageTag: bcc2e8bd
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
@@ -70,7 +70,7 @@ wps:
   # development: true
 
   image: aims2.llnl.gov/compute-wps
-  imageTag: 0.1.0
+  imageTag: bcc2e8bd
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
