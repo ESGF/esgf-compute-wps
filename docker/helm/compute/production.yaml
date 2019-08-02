@@ -95,3 +95,6 @@ redis:
     nodeSelector:
       tier: backend
       storage/wps: local
+
+prometheus:
+  enabled: false

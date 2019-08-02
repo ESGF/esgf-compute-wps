@@ -74,19 +74,19 @@ wps:
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
-  externalHost:
+  externalHost: 10.5.5.5:8443
 
   oauth:
-    client:
-    secret:
+    client: dasda
+    secret: dadas
 
   apiUsername: wps_api_user
   apiPassword: changeit
 
-  adminEmail:
+  adminEmail: dasda
 
   email:
-    host:
+    host: dadagfa
 
   ingress:
     external:
@@ -141,3 +141,6 @@ postgresql:
 
   persistence:
     enabled: false
+
+prometheus:
+  enabled: false
