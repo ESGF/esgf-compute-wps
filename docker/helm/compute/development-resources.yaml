@@ -19,6 +19,8 @@ kubeMonitor:
   #
   # development: true
 
+  image: aims2.llnl.gov/compute-kube-monitor
+  imageTag: 0.1.0
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
@@ -40,6 +42,8 @@ provisioner:
   #
   # development: true
 
+  image: aims2.llnl.gov/compute-provisioner
+  imageTag: 0.1.0
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
@@ -64,6 +68,8 @@ nginx:
   #
   # development: true
 
+  image: aims2.llnl.gov/compute-webapp
+  imageTag: 0.1.0
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
@@ -88,6 +94,8 @@ wps:
   # 
   # development: true
 
+  image: aims2.llnl.gov/compute-wps
+  imageTag: 0.1.0
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
@@ -102,16 +110,16 @@ wps:
   externalHost: nimbus16.llnl.gov:8443
 
   oauth:
-    client: QGcC7r3XZKxGDbtvSa0tDEVuqw0xmOB4DHmRGr3r
-    secret: vZ8LodhDg4pFh6f7Zqt7LjYqsLljUPGXd7wIth9wu5WzKqlbJBXlRngA0aW1VD51BHe9cOT7wnDDDg7VMuhMLTEZ0GNGLFeuTFz1QfuoKHxg9QUCRvVp6Bcx7uy2wmsO
+    client:
+    secret:
 
   apiUsername: wps_api_user
   apiPassword: changeit
 
-  adminEmail: boutte3@llnl.gov
+  adminEmail:
 
   email:
-    host: nospam.llnl.gov
+    host:
 
   ingress:
     external:
@@ -130,6 +138,8 @@ celery:
   # 
   # development: true
 
+  image: aims2.llnl.gov/compute-celery
+  imageTag: 0.1.0
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
@@ -152,6 +162,8 @@ celery:
         memory: 1Gi
 
 thredds:
+  image: aims2.llnl.gov/compute-thredds
+  imageTag: 0.1.0
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
