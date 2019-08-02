@@ -1,29 +1,4 @@
-# Disables health/readiness checks and persistent storage.
-development: true
-
-persistence:
-  dataClaimName: data-dev-pvc
-
-  volumes: 
-    data-dev:
-      storageClassName: slow
-      capacity: 100Gi
-      path: /p/cscratch/nimbus/wps-dev/data
-
 kubeMonitor:
-  # Sets kube-monitor container to development mode
-  # 
-  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=kube-monitor --template "{{range .items}}{{.metadata.name}}{{end}}")
-  # kubectl exec -it $POD_NAME /bin/bash
-  # compute-kube-monitor
-  #
-  # development: true
-
-  image: aims2.llnl.gov/compute-kube-monitor
-  imageTag: 0.1.0
-  imagePullPolicy: Always
-  imagePullSecret: docker-registry-config-aims2
-
   resources:
     limits:
       cpu: 500m
@@ -34,19 +9,6 @@ kubeMonitor:
       memory: 256Mi
 
 provisioner:
-  # Sets provisioner container to development mode
-  # 
-  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=provisioner --template "{{range .items}}{{.metadata.name}}{{end}}")
-  # kubectl exec -it $POD_NAME /bin/bash
-  # compute-provisioner
-  #
-  # development: true
-
-  image: aims2.llnl.gov/compute-provisioner
-  imageTag: 0.1.0
-  imagePullPolicy: Always
-  imagePullSecret: docker-registry-config-aims2
-
   resources:
     limits:
       cpu: 500m
@@ -55,24 +17,7 @@ provisioner:
       cpu: 100m
       memory: 32Mi
 
-  workers: 2
-
-  lifetime: 240
-
 nginx:
-  # Sets the nginx container to development mode
-  # 
-  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=nginx --template "{{range .items}}{{.metadata.name}}{{end}}")
-  # kubectl exec -it $POD_NAME /bin/bash
-  # bash entrypoint.sh
-  #
-  # development: true
-
-  image: aims2.llnl.gov/compute-webapp
-  imageTag: 0.1.0
-  imagePullPolicy: Always
-  imagePullSecret: docker-registry-config-aims2
-
   resources:
     limits:
       cpu: 500m
@@ -81,24 +26,7 @@ nginx:
       cpu: 100m
       memory: 256Mi
 
-  ingress:
-    labels:
-      traffic-type: development
-
 wps:
-  # Sets the wps container to development mode
-  #
-  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=wps --template "{{range .items}}{{.metadata.name}}{{end}}")
-  # kubectl exec -it $POD_NAME /bin/bash
-  # bash entrypoint.sh
-  # 
-  # development: true
-
-  image: aims2.llnl.gov/compute-wps
-  imageTag: 0.1.0
-  imagePullPolicy: Always
-  imagePullSecret: docker-registry-config-aims2
-
   resources:
     limits:
       cpu: 500m
@@ -107,52 +35,25 @@ wps:
       cpu: 200m
       memory: 256Mi
 
-  externalHost: nimbus16.llnl.gov:8443
-
-  oauth:
-    client:
-    secret:
-
-  apiUsername: wps_api_user
-  apiPassword: changeit
-
-  adminEmail:
-
-  email:
-    host:
-
-  ingress:
-    external:
-      labels:
-        traffic-type: development
-    internal:
-      labels:
-        traffic-type: development
-
 celery:
-  # Sets the celery container to development mode
-  #
-  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=celery --template "{{range .items}}{{.metadata.name}}{{end}}")
-  # kubectl exec -it $POD_NAME -c compute-celery-ingress /bin/bash
-  # bash entrypoint.sh -c 1 -Q ingress -n ingress -l INFO
-  # 
-  # development: true
-
-  image: aims2.llnl.gov/compute-celery
-  imageTag: 0.1.0
-  imagePullPolicy: Always
-  imagePullSecret: docker-registry-config-aims2
-
-  prometheusUrl: adsadas
+  resources:
+    limits:
+      cpu: 1
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
 
   backend:
-  #   Sets the celery backend container to development mode
-  #
-  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=celery --template "{{range .items}}{{.metadata.name}}{{end}}")
-  # kubectl exec -it $POD_NAME -c compute-celery-ingress-backend /bin/bash
-  # compute-tasks-backend
-  #
-  #   development: true
+    resources:
+      limits:
+        cpu: 1
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+  metrics:
     resources:
       limits:
         cpu: 1
@@ -162,11 +63,6 @@ celery:
         memory: 1Gi
 
 thredds:
-  image: aims2.llnl.gov/compute-thredds
-  imageTag: 0.1.0
-  imagePullPolicy: Always
-  imagePullSecret: docker-registry-config-aims2
-
   resources:
     limits:
       cpu: 1
@@ -175,15 +71,8 @@ thredds:
       cpu: 500m
       memory: 512Mi
 
-  ingress:
-    labels:
-      traffic-type: development
-
 redis:
   master:
-    persistence:
-      enabled: false
-
     resources:
       limits:
         cpu: 2
@@ -193,8 +82,6 @@ redis:
         memory: 4Gi
 
 postgresql:
-  postgresqlPassword: abcd1234
-
   resources:
     limits:
       cpu: 500m
@@ -202,6 +89,3 @@ postgresql:
     requests:
       cpu: 250m
       memory: 256Mi
-
-  persistence:
-    enabled: false

@@ -47,7 +47,7 @@ spec:
           - -c
           - "mkdir -p /metrics && compute-tasks-metrics"
         resources:
-          {{ $.Values.celery.backend.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+          {{ $.Values.celery.metrics.resources | toYaml | trimSuffix "\n" | nindent 10 }}
       - name: {{ template "esgf-compute-wps.name" $ }}-celery-{{ .name }}-backend
         image: {{ $.Values.celery.image }}:{{ $.Values.celery.imageTag }}
         imagePullPolicy: {{ $.Values.celery.imagePullPolicy }}

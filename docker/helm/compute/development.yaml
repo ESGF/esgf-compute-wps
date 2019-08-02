@@ -19,7 +19,10 @@ kubeMonitor:
   #
   # development: true
 
-  imagePullPolicy: IfNotPresent
+  image: aims2.llnl.gov/compute-kube-monitor
+  imageTag: 0.1.0
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
 provisioner:
   # Sets provisioner container to development mode
@@ -30,7 +33,10 @@ provisioner:
   #
   # development: true
 
-  imagePullPolicy: IfNotPresent
+  image: aims2.llnl.gov/compute-provisioner
+  imageTag: 0.1.0
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
   workers: 2
 
@@ -45,7 +51,10 @@ nginx:
   #
   # development: true
 
-  imagePullPolicy: IfNotPresent
+  image: aims2.llnl.gov/compute-webapp
+  imageTag: 0.1.0
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
   ingress:
     labels:
@@ -60,24 +69,24 @@ wps:
   # 
   # development: true
 
-  imagePullPolicy: IfNotPresent
+  image: aims2.llnl.gov/compute-wps
+  imageTag: 0.1.0
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
-  externalHost: 10.5.5.5:8443
-
-  prometheus:
-    host: 
+  externalHost:
 
   oauth:
-    client: client
-    secret: secret
+    client:
+    secret:
 
   apiUsername: wps_api_user
   apiPassword: changeit
 
-  adminEmail: test@test.hello
+  adminEmail:
 
   email:
-    host: dasda
+    host:
 
   ingress:
     external:
@@ -96,7 +105,10 @@ celery:
   # 
   # development: true
 
-  imagePullPolicy: IfNotPresent
+  image: aims2.llnl.gov/compute-celery
+  imageTag: 0.1.0
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
   prometheusUrl: adsadas
 
@@ -110,6 +122,11 @@ celery:
   #   development: true
 
 thredds:
+  image: aims2.llnl.gov/compute-thredds
+  imageTag: 0.1.0
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
+
   ingress:
     labels:
       traffic-type: development
