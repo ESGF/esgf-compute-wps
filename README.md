@@ -48,11 +48,18 @@ celery:
   prometheusUrl:
 ```
 
-* [production.yaml](docker/helm/compute/production.yaml) environment has defined the container resource requirements. Using this on a single node or small cluster may have adverse effects as the resource requirements may be larger than available resources. Persistent storage is enabled.
-* [development.yaml](docker/helm/compute/development.yaml) environment does not define any container resource requirements and disables pod health and readiness checks. This environment is prefered for single node or small clusters. Persistent storage is disabled. You can find further information about this environment [here](#development)
-* [development-resources.yaml](docker/helm/compute/development-resources.yaml) environment is the same as development.yaml but has defined the container resource requirements. **NOTE:** This may be renamed in the near future.
+* [production.yaml](docker/helm/compute/production.yaml) has the default values appropriate for a production environment
+* [production-resources.yaml](docker/helm/compute/production-resources.yaml) can be applied with `production.yaml` to apply appropriate resource requirements for a production environment. Using this on a single node or small cluster may have adverse effects as the resource requirements may be larger than available resources. Persistent storage is enabled.
+* [development.yaml](docker/helm/compute/development.yaml) disables pod health and readiness checks and persistent storage. This environment is prefered for single node or small clusters. You can find further information about this environment [here](#development)
+* [development-resources.yaml](docker/helm/compute/development-resources.yaml) can be applied with `development.yaml` to apply appropriate resource requirements. Using this on a single node or small cluster may have adverse effects as the resource requirements may be larger than available resources. Persistent storage is enabled.
 
 [values.yaml](docker/helm/compute/values.yaml) contains all of the default values for the Helm chart with comments.
+
+##### Example
+The following examples can be used for development environments, just replace the appropriate filenames.
+
+* `helm install . -f production.yaml`
+* `helm install . -f production.yaml -f production-resources.yaml`
 
 ##### Required values
 * wps.externalHost
