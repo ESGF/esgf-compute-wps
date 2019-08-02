@@ -1,108 +1,47 @@
+# Disables health/readiness checks and persistent storage.
 development: true
-
-traefik:
-  resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
-  dashboard:
-      labels:
-        traffic-type: development
-
-  kubernetes:
-    labelSelector: traffic-type=development-internal
 
 persistence:
   dataClaimName: data-dev-pvc
 
-  volumes:
+  volumes: 
     data-dev:
       storageClassName: slow
       capacity: 100Gi
       path: /p/cscratch/nimbus/wps-dev/data
 
-wps:
-  # Sets the wps container to development mode
+kubeMonitor:
+  # Sets kube-monitor container to development mode
+  # 
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=kube-monitor --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME /bin/bash
+  # compute-kube-monitor
+  #
   # development: true
 
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
-
-  nodeSelector:
-    tier: backend
 
   resources:
     limits:
       cpu: 500m
       memory: 512Mi
+
     requests:
       cpu: 200m
       memory: 256Mi
 
-  ingress:
-    external:
-      labels:
-        traffic-type: development
-    internal:
-      labels:
-        traffic-type: development-internal
-
-  externalHost: 10.5.5.5
-
-  prometheus:
-    host: sdasda
-
-  oauth:
-    client: client
-    secret: secret
-
-  apiUsername: wps_api_user
-  apiPassword: changeit
-
-  adminEmail: test@test.hello
-
-  email:
-    host: dasda
-
-celery:
-  # Sets the celery container to development mode
-  # development: true
-
-  imagePullPolicy: Always
-  imagePullSecret: docker-registry-config-aims2
-
-  nodeSelector:
-    tier: backend
-
-  backend:
-    resources:
-      limits:
-        cpu: 1
-        memory: 2Gi
-      requests:
-        cpu: 500m
-        memory: 1Gi
-
-  prometheusUrl: https://fakepromserver.org
-
-  # backend:
-  #   Sets the celery backend container to development mode
-  #   development: true
-
 provisioner:
   # Sets provisioner container to development mode
+  # 
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=provisioner --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME /bin/bash
+  # compute-provisioner
+  #
   # development: true
 
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
-
-  nodeSelector:
-    tier: backend
 
   resources:
     limits:
@@ -116,33 +55,17 @@ provisioner:
 
   lifetime: 240
 
-kubeMonitor:
-  # Sets kube-monitor container to development mode
+nginx:
+  # Sets the nginx container to development mode
+  # 
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=nginx --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME /bin/bash
+  # bash entrypoint.sh
+  #
   # development: true
 
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
-
-  nodeSelector:
-    tier: backend
-
-  namespace: development
-
-  resources:
-    limits:
-      cpu: 1
-      memory: 512Mi
-
-    requests:
-      cpu: 500m
-      memory: 256Mi
-
-nginx:
-  imagePullPolicy: Always
-  imagePullSecret: docker-registry-config-aims2
-    
-  nodeSelector:
-    tier: backend
 
   resources:
     limits:
@@ -156,12 +79,81 @@ nginx:
     labels:
       traffic-type: development
 
-thredds:
+wps:
+  # Sets the wps container to development mode
+  #
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=wps --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME /bin/bash
+  # bash entrypoint.sh
+  # 
+  # development: true
+
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
-  nodeSelector:
-    tier: backend
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+  externalHost: nimbus16.llnl.gov:8443
+
+  oauth:
+    client: QGcC7r3XZKxGDbtvSa0tDEVuqw0xmOB4DHmRGr3r
+    secret: vZ8LodhDg4pFh6f7Zqt7LjYqsLljUPGXd7wIth9wu5WzKqlbJBXlRngA0aW1VD51BHe9cOT7wnDDDg7VMuhMLTEZ0GNGLFeuTFz1QfuoKHxg9QUCRvVp6Bcx7uy2wmsO
+
+  apiUsername: wps_api_user
+  apiPassword: changeit
+
+  adminEmail: boutte3@llnl.gov
+
+  email:
+    host: nospam.llnl.gov
+
+  ingress:
+    external:
+      labels:
+        traffic-type: development
+    internal:
+      labels:
+        traffic-type: development
+
+celery:
+  # Sets the celery container to development mode
+  #
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=celery --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME -c compute-celery-ingress /bin/bash
+  # bash entrypoint.sh -c 1 -Q ingress -n ingress -l INFO
+  # 
+  # development: true
+
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
+
+  prometheusUrl: adsadas
+
+  backend:
+  #   Sets the celery backend container to development mode
+  #
+  # POD_NAME=$(kubectl get pods --selector  app.kubernetes.io/component=celery --template "{{range .items}}{{.metadata.name}}{{end}}")
+  # kubectl exec -it $POD_NAME -c compute-celery-ingress-backend /bin/bash
+  # compute-tasks-backend
+  #
+  #   development: true
+    resources:
+      limits:
+        cpu: 1
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+thredds:
+  imagePullPolicy: Always
+  imagePullSecret: docker-registry-config-aims2
 
   resources:
     limits:
@@ -174,6 +166,19 @@ thredds:
   ingress:
     labels:
       traffic-type: development
+
+redis:
+  master:
+    persistence:
+      enabled: false
+
+    resources:
+      limits:
+        cpu: 2
+        memory: 4Gi
+      requests:
+        cpu: 2
+        memory: 4Gi
 
 postgresql:
   postgresqlPassword: abcd1234
@@ -188,23 +193,3 @@ postgresql:
 
   persistence:
     enabled: false
-
-  master:
-    nodeSelector:
-      tier: backend
-
-redis:
-  master:
-    resources:
-      limits:
-        cpu: 2
-        memory: 4Gi
-      requests:
-        cpu: 2
-        memory: 4Gi
-
-    persistence:
-      enabled: false
-
-    nodeSelector:
-      tier: backend

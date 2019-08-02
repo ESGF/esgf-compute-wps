@@ -32,42 +32,29 @@ spec:
       initContainers:
       - name: init-{{ template "esgf-compute-wps.name" . }}-wps
         image: {{ .Values.wps.image }}:{{ .Values.wps.imageTag }}
-        imagePullPolicy: IfNotPresent
-        {{- if not .Values.development }}
+        imagePullPolicy: {{ .Values.nginx.imagePullPolicy }}
         resources:
-          limits:
-            cpu: 100m
-            memory: 512Mi
-          requests:
-            cpu: 100m
-            memory: 512Mi
-        {{- end }}
+          {{ $.Values.nginx.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         command: ['tini', '--']
         args: ['/bin/bash', '-c', 'mkdir -p /compute/assets && python /compute/manage.py collectstatic --no-input']
         volumeMounts:
         - mountPath: /var/www/static
           name: static-volume
-      {{- if not .Values.development }}
       - name: init-{{ template "esgf-compute-wps.name" . }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.nginx.imagePullPolicy }}
         resources:
-          limits:
-            cpu: 100m
-            memory: 512Mi
-          requests:
-            cpu: 100m
-            memory: 512Mi
+          {{ $.Values.nginx.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         args: ['/bin/bash', '-c', 'cp -rf /usr/share/nginx/html/static/* /compute/assets']
         volumeMounts:
         - mountPath: /compute/assets
           name: static-volume
-      {{- end }}
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-nginx
         image: {{ .Values.nginx.image }}:{{ .Values.nginx.imageTag }}
-        imagePullPolicy: IfNotPresent
-        resources: {{ $.Values.nginx.resources | toYaml | trimSuffix "\n" | nindent 10 }}
+        imagePullPolicy: {{ .Values.nginx.imagePullPolicy }}
+        resources: 
+          {{ $.Values.nginx.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         volumeMounts:
         - mountPath: /usr/share/nginx/html/static
           name: static-volume
