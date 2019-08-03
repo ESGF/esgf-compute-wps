@@ -32,12 +32,13 @@ spec:
       containers:
       - name: {{ template "esgf-compute-wps.name" . }}-thredds
         image: {{ .Values.thredds.image }}:{{ .Values.thredds.imageTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.thredds.imagePullPolicy }}
         env:
         - name: JAVA_HEAP_INIT
           value: {{ .Values.thredds.heapInit }}
         - name: JAVA_HEAP_MAX
           value: {{ .Values.thredds.heapMax }}
+        {{- if not .Values.development }}
         livenessProbe:
           httpGet:
             path: /threddsCWT
@@ -50,6 +51,7 @@ spec:
             port: 8080
           initialDelaySeconds: 40
           periodSeconds: 20
+        {{- end }}
         resources: {{ $.Values.thredds.resources | toYaml | trimSuffix "\n" | nindent 10 }}
         ports:
         - containerPort: 8080

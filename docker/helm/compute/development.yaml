@@ -20,7 +20,7 @@ kubeMonitor:
   # development: true
 
   image: aims2.llnl.gov/compute-kube-monitor
-  imageTag: 0.1.0
+  imageTag: ad06a0ce
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
@@ -92,7 +92,7 @@ celery:
   # development: true
 
   image: aims2.llnl.gov/compute-celery
-  imageTag: 0.1.0
+  imageTag: ad06a0ce
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
