@@ -4,7 +4,7 @@ development: true
 persistence:
   dataClaimName: data-dev-pvc
 
-  volumes: 
+  volumes:
     data-dev:
       storageClassName: slow
       capacity: 100Gi
@@ -107,7 +107,7 @@ celery:
 
 thredds:
   image: aims2.llnl.gov/compute-thredds
-  imageTag: 0.1.0
+  imageTag: f5a5ae82
   imagePullPolicy: Always
   imagePullSecret: docker-registry-config-aims2
 
