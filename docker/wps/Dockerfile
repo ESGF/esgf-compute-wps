@@ -11,6 +11,7 @@ COPY . .
 WORKDIR /src/compute
 
 RUN GIT_REV=$(git rev-parse --short HEAD) && \
+      conda update -n base -c defaults conda && \
       echo "__version__ = '${GIT_REV}'" > compute_settings/compute_settings/_version.py && \
       echo "__version__ = '${GIT_REV}'" > compute_wps/compute_wps/_version.py 
 
@@ -54,7 +55,8 @@ FROM continuumio/miniconda3:4.6.14
 
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
-RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-wps && \
+RUN conda update -n base -c defaults conda && \
+      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-wps && \
       django-admin startproject compute && \
       mkdir -p /var/log/cwt
 

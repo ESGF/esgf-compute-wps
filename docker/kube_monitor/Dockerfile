@@ -7,6 +7,7 @@ COPY . .
 WORKDIR /src/compute
 
 RUN GIT_REV=$(git rev-parse --short HEAD) && \
+      conda update -n base -c defaults conda && \
       echo "__version__ = '${GIT_REV}'" > compute_kubernetes/compute_kubernetes/_version.py
 
 FROM base as builder
@@ -26,7 +27,8 @@ FROM continuumio/miniconda3:4.5.12
 
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
-RUN conda install -c conda-forge -c cdat --use-local compute-kubernetes && \
+RUN conda update -n base -c defaults conda && \
+      conda install -c conda-forge -c cdat --use-local compute-kubernetes && \
       conda clean -a -y
 
 ENTRYPOINT ["compute-kube-monitor"]

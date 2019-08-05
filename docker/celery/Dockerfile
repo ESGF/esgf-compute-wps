@@ -11,7 +11,8 @@ COPY . .
 WORKDIR /src/compute
 
 RUN GIT_REV=$(git rev-parse --short HEAD) && \
-      conda install -c conda-forge -y conda-build=3.18.7 && \
+      conda update -n base -y -c defaults conda && \
+      conda install -y conda-build && \
       echo "__version__ = '${GIT_REV}'" > compute_kubernetes/compute_kubernetes/_version.py && \
       echo "__version__ = '${GIT_REV}'" > compute_provisioner/compute_provisioner/_version.py && \
       echo "__version__ = '${GIT_REV}'" > compute_tasks/compute_tasks/_version.py
@@ -46,7 +47,8 @@ COPY --from=builder /opt/conda/pkgs/* /opt/conda/pkgs/
 
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
-RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-tasks && \
+RUN conda update -n base -c defaults conda && \
+      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-tasks && \
       conda clean -a -y
 
 RUN mkdir -p /tmp/certs && \

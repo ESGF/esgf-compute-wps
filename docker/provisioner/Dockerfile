@@ -7,6 +7,7 @@ COPY . .
 WORKDIR /src/compute
 
 RUN GIT_REV=$(git rev-parse --short HEAD) && \
+      conda update -n base -c defaults conda && \
       echo "__version__ = '${GIT_REV}'" > compute_provisioner/compute_provisioner/_version.py
 
 FROM base as builder
@@ -30,7 +31,8 @@ ENV BACKEND_PORT 7778
 
 COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
 
-RUN conda install -c conda-forge --use-local compute-provisioner
+RUN conda update -n base -c defaults conda && \
+      conda install -c conda-forge --use-local compute-provisioner
 
 EXPOSE 7777 7778
 
