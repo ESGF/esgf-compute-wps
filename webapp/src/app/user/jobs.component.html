@@ -88,6 +88,9 @@
                   Elapsed
                 </th>
                 <th>
+                  Status
+                </th>
+                <th>
                 </th>
               </tr>
             </thead>
@@ -98,6 +101,7 @@
                   <td>{{ item.accepted_on }}</td>
                 </ng-template>
                 <td>{{ item.elapsed }}</td>
+                <td>{{ item.latest_status }}</td>
                 <td>
                   <button type="button" class="close" aria-label="Close" (click)="deleteJob(item)">
                     <span aria-hidden="true">&times;</span>
@@ -105,6 +109,7 @@
                 </td>
               </tr>
               <tr>
+                <td></td>
                 <td></td>
                 <td></td>
                 <td>

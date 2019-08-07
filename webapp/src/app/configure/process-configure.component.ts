@@ -73,12 +73,12 @@ declare var $: any;
                 <div class="col-md-2">
                   <div class="dropdown">
                     <button class="btn btn-default dropdown-toggle" type="button" id="datasetDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-                      Dataset
+                      Dataset ID
                       <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" aria-labelledby="datasetDropdown">
                       <li *ngFor="let x of datasetID"><a (click)="selectDataset(x)">{{x}}</a></li>
-                      <li><a (click)="newDataset = true">Add new dataset</a></li>
+                      <li><a (click)="newDataset = true">Add Dataset ID</a></li>
                     </ul>
                   </div>
                 </div>
@@ -89,7 +89,7 @@ declare var $: any;
                   <ng-template #customDataset>
                     <div class="row">
                       <div class="col-md-8">
-                        <input type="text" #dataset class="form-control">
+                        <input type="text" #dataset class="form-control" placeholder="Dataset ID">
                       </div>
                       <div class="col-md-2">
                         <button (click)="addDataset(dataset.value)" type="button" class="btn btn-default">Add</button>
@@ -219,6 +219,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
   private loading = false;
 
+  private datasetIDRegex = /^.*\|.*$/g;
+
   constructor(
     private configureService: ConfigureService,
     private notificationService: NotificationService,
@@ -240,11 +242,25 @@ export class ProcessConfigureComponent implements AfterViewInit {
   }
 
   addDataset(value: string) {
-    this.newDataset = false;
+    if (value === '') {
+      this.notificationService.error('Please enter a Dataset ID e.g. CMIP6.CFMIP.NCAR.CESM2.amip-4xCO2.r1i1p1f1.Amon.tas.gn.v20190408|esgf-data.ucar.edu, this can be found through a CoG search.');
+    } else {
+      let exists = this.datasetID.findIndex((item: string) => {
+        return item === value;
+      });
 
-    this.datasetID.push(value)
+      if (exists != -1) {
+        let matchDatasetID = this.datasetIDRegex.test(value);
 
-    this.selectDataset(value); 
+        if (matchDatasetID) {
+          this.selectDataset(value); 
+        } else {
+          this.notificationService.error(`"${value}" did not match the expected format: <Master ID>|<Data node>. You can find Dataset IDs by search CoG.`);
+        }
+      } else {
+        this.selectDataset(value);
+      }
+    }
   }
 
   reset() {
@@ -261,12 +277,18 @@ export class ProcessConfigureComponent implements AfterViewInit {
   }
 
   selectDataset(dataset: string) {
-    this.processWrapper.selectedDataset = dataset;
+    if (!this.loading) {
+      this.loading = true;
+    }
 
-    this.loading = true;
+    this.newDataset = false;
 
     this.configureService.searchESGF(dataset, this.params)
       .then((data: Dataset) => {
+        this.processWrapper.selectedDataset = dataset;
+
+        this.datasetID.push(dataset);
+
         this.processWrapper.dataset = data
 
         this.loading = false;
@@ -292,12 +314,14 @@ export class ProcessConfigureComponent implements AfterViewInit {
     return this.getIndex(variable) != -1;
   }
 
-  getFileDomain(variable: Variable) {
+  getFileDomain(variable: Variable, disableLoading=false) {
     if (variable.domain != null) {
       return;
     }
 
-    this.loading = true;
+    if (!this.loading && !disableLoading) {
+      this.loading = true;
+    }
 
     return new Promise((resolve, reject) => {
       this.configureService.searchVariable(
@@ -312,7 +336,9 @@ export class ProcessConfigureComponent implements AfterViewInit {
             this.processWrapper.domain = data[0].clone();
           }
 
-          this.loading = false;
+          if (!disableLoading) {
+            this.loading = false;
+          }
 
           resolve();
         })
@@ -321,7 +347,9 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
           this.notificationService.error(`Removed ${variable.display()}, failed to retrieve metadata: ${error}`);
 
-          this.loading = false;
+          if (!disableLoading) {
+            this.loading = false;
+          }
 
           reject();
         });
@@ -403,6 +431,38 @@ export class ProcessConfigureComponent implements AfterViewInit {
 
   }
 
+  addInputFiles(variables: Variable[]) {
+    if (!this.loading) {
+      this.loading = true;
+    }
+
+    let allowed = this.process.description.metadata.inputs;
+
+    if ((this.process.inputs.length + variables.length) > allowed) {
+      this.notificationService.error(`Cannot add input, exceeding maximum allowed (${allowed}).`);
+    }
+
+    let items = [];
+
+    for (let variable of variables) {
+      items.push(this.getFileDomain(variable, true));
+    }
+
+    Promise.all(items)
+      .then((res: any) => {
+        this.process.inputs = this.process.inputs.concat(variables);
+
+        this.updateDomain();
+
+        this.loading = false;
+      })
+      .catch((err: any) => {
+        console.info(err);
+
+        this.loading = false;
+      });
+  }
+
   addInputFile(variable: Variable) {
     let allowed = this.process.description.metadata.inputs;
 
@@ -435,6 +495,8 @@ export class ProcessConfigureComponent implements AfterViewInit {
   }
 
   addAllInputFiles() {
-    this.process.inputs.concat(this.processWrapper.dataset.getVariables(this.processWrapper.selectedVariable));
+    let variables = this.processWrapper.dataset.getVariables(this.processWrapper.selectedVariable);
+
+    this.addInputFiles(variables);
   }
 }
