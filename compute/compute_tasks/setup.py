@@ -20,6 +20,7 @@ setuptools.setup(
         'console_scripts': [
             'compute-tasks-metrics=compute_tasks.metrics_:main',
             'compute-tasks-backend=compute_tasks.backend:main',
+            'compute-tasks-reload=compute_tasks.backend:reload_processes',
         ],
     },
     package_data={

@@ -39,6 +39,8 @@ QUEUE = {
 }
 
 
+
+
 def queue_from_identifier(identifier):
     module, name = identifier.split('.')
 
@@ -136,7 +138,7 @@ def error_handler(frames, state):
     fail_job(state, job, frames[-1].decode())
 
 
-def main():
+def parse_args_backend():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -152,6 +154,43 @@ def main():
     parser.add_argument('-d', help='Development mode', action='store_true')
 
     args = parser.parse_args()
+
+    return args
+
+
+def load_processes(state, register_tasks=True):
+    if register_tasks:
+        for item in base.discover_processes():
+            try:
+                state.register_process(**item)
+            except ProcessExistsError:
+                logger.info('Process %r already exists', item['identifier'])
+
+                pass
+
+    base.build_process_bindings()
+
+
+def reload_processes():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=args.log_level)
+
+    state = StateMixin()
+
+    state.init_api()
+
+    load_processes(state)
+
+
+def main():
+    args = parse_args_backend()
 
     register_tasks = not args.skip_register_tasks or not args.d
 
@@ -170,16 +209,7 @@ def main():
     if init_api:
         state.init_api()
 
-    if register_tasks:
-        for item in base.discover_processes():
-            try:
-                state.register_process(**item)
-            except ProcessExistsError:
-                logger.info('Process %r already exists', item['identifier'])
-
-                pass
-
-    base.build_process_bindings()
+    load_processes(state, register_tasks)
 
     # Need to get the supported version from somewhere
     # environment variable or hard code?
