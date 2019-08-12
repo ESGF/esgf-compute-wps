@@ -75,7 +75,7 @@ here will become the default values on child operations.
 """
 
 
-@base.register_process('CDAT', 'workflow', abstract=WORKFLOW_ABSTRACT, metadata={'inputs': '0'})
+@base.register_process('CDAT', 'workflow', abstract=WORKFLOW_ABSTRACT, inputs='*')
 @base.cwt_shared_task()
 def workflow_func(self, context):
     """ Executes a workflow.
@@ -304,171 +304,6 @@ def process(context, process_func=None, aggregate=False):
     return context
 
 
-# SUBSET_ABSTRACT = """
-# Subset a variable by provided domain. Supports regridding.
-# """
-# 
-# 
-# @base.register_process('CDAT', 'subset', abstract=SUBSET_ABSTRACT, inputs=1)
-# @base.cwt_shared_task()
-# def subset_func(self, context):
-#     """ Subset Celery task.
-#     """
-#     return process(context)
-# 
-# 
-# AGGREGATE_ABSTRACT = """
-# Aggregate a variable over multiple files. Supports subsetting and regridding.
-# """
-# 
-# 
-# @base.register_process('CDAT', 'aggregate', abstract=AGGREGATE_ABSTRACT, inputs=50)
-# @base.cwt_shared_task()
-# def aggregate_func(self, context):
-#     """ Aggregate Celery task.
-#     """
-#     return process(context, aggregate=True)
-# 
-# 
-# REGRID_ABSTRACT = """
-# Regrids a variable to designated grid. Required parameter named "gridder".
-# """
-# 
-# 
-# @base.register_process('CDAT', 'regrid', abstract=REGRID_ABSTRACT, inputs=1)
-# @base.cwt_shared_task()
-# def regrid_func(self, context):
-#     """ Regrid Celery task.
-#     """
-#     # Ensure gridder is provided
-#     context.operation.get_parameter('gridder', True)
-# 
-#     return process(context)
-# 
-# 
-# AXES_PARAM = 'axes: A list of axes to operate on. Multiple values should be separated by "|" e.g. "lat|lon".'
-# 
-# 
-# CONST_PARAM = 'constant: An integer or float value that will be applied element-wise.'
-# 
-# 
-# AVERAGE_ABSTRACT = """
-# Computes the average over axes.
-# 
-# Required parameters:
-#  axes: A list of axes to operate on. Should be separated by "|".
-# 
-# Optional parameters:
-#  weightoptions: A string whos value is "generate",
-#    "equal", "weighted", "unweighted". See documentation
-#    at https://cdat.llnl.gov/documentation/utilities/utilities-1.html
-# """
-# 
-# 
-# # @base.register_process('CDAT', 'average', abstract=AVERAGE_ABSTRACT, metadata={'inputs': '1'})
-# # @base.cwt_shared_task()
-# def average_func(self, context):
-#     return context
-# 
-# 
-# SUM_ABSTRACT = """
-# Computes the sum over an axis, two inputs or a constant.
-# 
-# Optional parameters:
-#  {!s}
-#  {!s}
-# """.format(AXES_PARAM, CONST_PARAM)
-# 
-# 
-# @base.register_process('CDAT', 'sum', abstract=SUM_ABSTRACT, inputs=2)
-# @base.cwt_shared_task()
-# def sum_func(self, context):
-#     """ Sum Celery task.
-#     """
-#     return process(context, PROCESS_FUNC_MAP['CDAT.sum'])
-# 
-# 
-# MAX_ABSTRACT = """
-# Computes the max over an axis, two inputs or a constant.
-# 
-# Optional parameters:
-#  {!s}
-#  {!s}
-# """.format(AXES_PARAM, CONST_PARAM)
-# 
-# 
-# @base.register_process('CDAT', 'max', abstract=MAX_ABSTRACT, inputs=2)
-# @base.cwt_shared_task()
-# def max_func(self, context):
-#     """ Max Celery task.
-#     """
-#     return process(context, PROCESS_FUNC_MAP['CDAT.max'])
-# 
-# 
-# MIN_ABSTRACT = """
-# Computes the min over an axis, two inputs or a constant.
-# 
-# Optional parameters:
-#  {!s}
-#  {!s}
-# """.format(AXES_PARAM, CONST_PARAM)
-# 
-# 
-# @base.register_process('CDAT', 'min', abstract=MIN_ABSTRACT, inputs=2)
-# @base.cwt_shared_task()
-# def min_func(self, context):
-#     """ Min Celery task.
-#     """
-#     return process(context, PROCESS_FUNC_MAP['CDAT.min'])
-# 
-# 
-# SUBTRACT_ABSTRACT = """
-# Computes subtract between two inputs or a constant.
-# 
-# Optional parameters:
-#  {!s}
-# """.format(CONST_PARAM)
-# 
-# 
-# @base.register_process('CDAT', 'subtract', abstract=SUBTRACT_ABSTRACT, inputs=2)
-# @base.cwt_shared_task()
-# def subtract_func(self, context):
-#     """ Subtract Celery task.
-#     """
-#     return process(context, PROCESS_FUNC_MAP['CDAT.subtract'])
-# 
-# 
-# ADD_ABSTRACT = """
-# Computes add between two inputs or a constant.
-# 
-# Optional parameters:
-#  {!s}
-# """.format(CONST_PARAM)
-# 
-# 
-# @base.register_process('CDAT', 'add', abstract=ADD_ABSTRACT, inputs=2)
-# @base.cwt_shared_task()
-# def add_func(self, context):
-#     """ Subtract Celery task.
-#     """
-#     return process(context, PROCESS_FUNC_MAP['CDAT.add'])
-
-
-BASE_ABSTRACT = """
-{{ description }}
-{%- if (axes or constant) %}
-
-Optional parameters:
-    {%- if axes %}
-        {{ axes }}
-    {%- endif %}
-    {%- if constant %}
-        {{ constant }}
-    {%- endif %}
-{%- endif %}
-"""
-
-
 def regrid(operation, *inputs):
     """ Build regridding from dask delayed.
 
@@ -536,9 +371,9 @@ def regrid(operation, *inputs):
     )
 
 
-FEAT_AXES='axes'
-FEAT_CONST='const'
-FEAT_MULTI='multi'
+FEAT_AXES='FEAT_AXES'
+FEAT_CONST='FEAT_CONST'
+FEAT_MULTI='FEAT_MULTI'
 
 
 def process_input(operation, *inputs, process_func=None, **supported): # noqa E999
@@ -668,6 +503,22 @@ REQUIRES_STACK = [
     da.average.__name__,
 ]
 
+DESCRIPTION_MAP = {
+    'CDAT.abs': 'Computes the element-wise absolute value.',
+    'CDAT.add': 'Adds an element-wise constant or another input.',
+    'CDAT.average': 'Computes the average over a set of axes or inputs.',
+    'CDAT.divide': 'Divides element-wise by a constant or second input.',
+    'CDAT.exp': 'Computes element-wise exponential.',
+    'CDAT.log': 'Computes element-wise natural log',
+    'CDAT.max': 'Computes the maximum over a set of axes, between a constant or a second input.',
+    'CDAT.min': 'Computes the minimum over a set of axes, between a constant or a second input.',
+    'CDAT.multiply': 'Multiplies element-wise by a constant or a second input.',
+    'CDAT.power': 'Computes the element-wise power by a constant.',
+    'CDAT.regrid': 'Regrids input by target grid.',
+    'CDAT.subtract': 'Subtracts element-wise constant or a second input.',
+    'CDAT.sum': 'Computes the sum over a set of axes.',
+}
+
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_input, process_func=da.absolute),
     'CDAT.add': partial(process_input, process_func=da.add, FEAT_CONST=True, FEAT_MULTI=True),
@@ -677,7 +528,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.log': partial(process_input, process_func=da.log),
     'CDAT.max': partial(process_input, process_func=da.max, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.min': partial(process_input, process_func=da.min, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.multiply': partial(process_input, process_func=da.multiply, FEAT_CONST=True),
+    'CDAT.multiply': partial(process_input, process_func=da.multiply, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.power': partial(process_input, process_func=da.power, FEAT_CONST=True),
     'CDAT.regrid': regrid,
     'CDAT.subtract': partial(process_input, process_func=da.subtract, FEAT_CONST=True, FEAT_MULTI=True),
@@ -685,21 +536,52 @@ PROCESS_FUNC_MAP = {
 }
 
 
+def render_abstract(description, func, template):
+    axes = False
+    const = False
+    multi = False
+
+    try:
+        kwargs = func.keywords
+    except AttributeError:
+        pass
+    else:
+        axes = FEAT_AXES in kwargs and kwargs[FEAT_AXES]
+
+        const = FEAT_CONST in kwargs and kwargs[FEAT_CONST]
+
+        multi = FEAT_MULTI in kwargs and kwargs[FEAT_MULTI]
+
+    return template.render(description=description, axes=axes, const=const, multi=multi)
+
+BASE_ABSTRACT = """
+{{ description }}
+{%- if multi %}
+
+Supports multiple inputs.
+{%- endif %}
+{%- if (axes or constant) %}
+
+Optional parameters:
+{%- if axes %}
+    axes: A list of axes to operate on. Multiple values should be separated by "|" e.g. "lat|lon".
+{%- endif %}
+{%- if constant %}
+    constant: An integer or float value that will be applied element-wise.
+{%- endif %}
+{%- endif %}
+"""
+
+
 def register_processes():
     import inspect
     from jinja2 import Environment, BaseLoader
     from compute_tasks import cdat
 
+    template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
+
     for name, func in PROCESS_FUNC_MAP.items():
-        template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
-
-        print(template.render(description='hello', axes='Axes: '))
-
         module, operation = name.split('.')
-
-        signature = inspect.signature(func)
-
-        # print(signature.parameters.items())
 
         def new_process(self, context):
             return process(context, func)
@@ -708,7 +590,19 @@ def register_processes():
 
         shared = base.cwt_shared_task()(new_process)
 
-        register = base.register_process(module, operation, abstract='testy', inputs=1)(shared)
+        abstract = render_abstract(DESCRIPTION_MAP[name], func, template)
+
+        inputs = 1
+
+        try:
+            if FEAT_MULTI in func.keywords:
+                inputs = 2
+            elif name == 'CDAT.aggregate':
+                inputs = '*'
+        except AttributeError:
+            pass
+
+        register = base.register_process(module, operation, abstract=abstract, inputs=inputs)(shared)
 
         setattr(cdat, new_process.__name__, register)
 

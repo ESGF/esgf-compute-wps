@@ -85,7 +85,7 @@ def register_process(backend, process, abstract, version=None, inputs=None, **me
     def wrapper(func):
         identifier = '{!s}.{!s}'.format(backend, process)
 
-        metadata['inputs'] = inputs or 0
+        metadata['inputs'] = inputs or 1
 
         REGISTRY[identifier] = {
             'identifier': identifier,
