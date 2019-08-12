@@ -506,6 +506,7 @@ REQUIRES_STACK = [
 DESCRIPTION_MAP = {
     'CDAT.abs': 'Computes the element-wise absolute value.',
     'CDAT.add': 'Adds an element-wise constant or another input.',
+    'CDAT.aggregate': 'Aggregates multiple files over a temporal axis.',
     'CDAT.average': 'Computes the average over a set of axes or inputs.',
     'CDAT.divide': 'Divides element-wise by a constant or second input.',
     'CDAT.exp': 'Computes element-wise exponential.',
@@ -515,6 +516,7 @@ DESCRIPTION_MAP = {
     'CDAT.multiply': 'Multiplies element-wise by a constant or a second input.',
     'CDAT.power': 'Computes the element-wise power by a constant.',
     'CDAT.regrid': 'Regrids input by target grid.',
+    'CDAT.subset': 'Subsets an input to desired domain.',
     'CDAT.subtract': 'Subtracts element-wise constant or a second input.',
     'CDAT.sum': 'Computes the sum over a set of axes.',
 }
@@ -522,6 +524,7 @@ DESCRIPTION_MAP = {
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_input, process_func=da.absolute),
     'CDAT.add': partial(process_input, process_func=da.add, FEAT_CONST=True, FEAT_MULTI=True),
+    'CDAT.aggregate': None,
     'CDAT.average': partial(process_input, process_func=da.average, FEAT_MULTI=True),
     'CDAT.divide': partial(process_input, process_func=da.divide, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.exp': partial(process_input, process_func=da.exp),
@@ -531,6 +534,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.multiply': partial(process_input, process_func=da.multiply, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.power': partial(process_input, process_func=da.power, FEAT_CONST=True),
     'CDAT.regrid': regrid,
+    'CDAT.subset': None,
     'CDAT.subtract': partial(process_input, process_func=da.subtract, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.sum': partial(process_input, process_func=da.sum, FEAT_AXES=True),
 }
@@ -584,7 +588,10 @@ def register_processes():
         module, operation = name.split('.')
 
         def new_process(self, context):
-            return process(context, func)
+            if 'CDAT.aggregate' == name:
+                return process(context, aggregate=True)
+            else:
+                return process(context, func)
 
         new_process.__name__ = '{!s}_func'.format(operation)
 
