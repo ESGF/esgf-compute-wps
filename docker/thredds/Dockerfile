@@ -29,4 +29,4 @@ COPY docker/thredds/entrypoint.sh entrypoint.sh
 
 ENTRYPOINT ["tini", "--"]
 
-CMD ["/bin/bash", "./entrypoint.sh"]
+CMD ["/bin/bash", "-c", "./entrypoint.sh ${CATALINA_HOME}/bin/catalina.sh run"]
