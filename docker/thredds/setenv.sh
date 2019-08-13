@@ -2,7 +2,6 @@
 
 export CATALINA_HOME="/usr/local/tomcat"
 export CATALINA_BASE="/usr/local/tomcat"
-export JAVA_HOME="/usr"
 
 CONTENT_ROOT=-Dtds.content.root.path=/usr/local/tomcat/content
 

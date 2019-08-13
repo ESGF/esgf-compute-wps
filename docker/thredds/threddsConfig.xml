@@ -4,22 +4,22 @@
   <!-- all options are commented out in standard install - meaning use default values -->
   <!-- see http://www.unidata.ucar.edu/software/thredds/current/tds/reference/ThreddsConfigXMLFile.html -->
   <serverInformation>
-    <name>Compute </name>
-    <logoUrl>/thredds/threddsIcon.gif</logoUrl>
-    <logoAltText>Compute </logoAltText>
+    <name>Compute</name>
+    <logoUrl>/threddsCWT/threddsIcon.gif</logoUrl>
+    <logoAltText>Compute</logoAltText>
 
     <abstract>Scientific Data</abstract>
     <keywords>meteorology, atmosphere, climate, ocean, earth science</keywords>
     
     <contact>
       <name>Support</name>
-      <organization>My Group</organization>
+      <organization>LLNL ESGF</organization>
       <email>support@my.group</email>
       <!--phone></phone-->
     </contact>
     <hostInstitution>
-      <name>My Group</name>
-      <webSite>http://www.my.site/</webSite>
+      <name>LLNL ESGF</name>
+      <webSite>http://www.esgf.com</webSite>
       <logoUrl>myGroup.gif</logoUrl>
       <logoAltText>My Group</logoAltText>
     </hostInstitution>
