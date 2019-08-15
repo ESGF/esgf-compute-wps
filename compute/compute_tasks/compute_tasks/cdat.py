@@ -415,9 +415,9 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
         output = inputs[0]
 
         # Apply the process to the existing dask array
-        output.variable = process_func(output.data, constant)
+        output.variable = process_func(output.variable, constant)
 
-        logger.info('Process output %r', output.data)
+        logger.info('Process output %r', output.variable)
     elif len(inputs) > 1:
         if not supported.get(FEAT_MULTI, False):
             raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
@@ -428,7 +428,9 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
         output = inputs[0]
 
         # Apply the process
-        output.variable = process_func(output.data)
+        output.variable = process_func(output.variable)
+
+        logger.info('Process output %r', output.variable)
 
     return output
 
