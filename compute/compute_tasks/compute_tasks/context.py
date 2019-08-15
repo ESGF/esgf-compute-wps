@@ -505,6 +505,10 @@ class OperationContext(StateMixin, object):
 
         return obj
 
+    @property
+    def identifier(self):
+        return self.operation.identifier
+
     def to_dict(self):
         data = {
             'inputs': self.inputs,

@@ -3,6 +3,7 @@
 import os
 from functools import partial
 
+import cdms2
 import cwt
 import dask
 import dask.array as da
@@ -371,9 +372,9 @@ def regrid(operation, *inputs):
     )
 
 
-FEAT_AXES='FEAT_AXES'
-FEAT_CONST='FEAT_CONST'
-FEAT_MULTI='FEAT_MULTI'
+FEAT_AXES = 'FEAT_AXES'
+FEAT_CONST = 'FEAT_CONST'
+FEAT_MULTI = 'FEAT_MULTI'
 
 
 def process_input(operation, *inputs, process_func=None, **supported): # noqa E999
@@ -500,6 +501,7 @@ def process_multiple_input(process_func, input1, input2):
 
     return new_input
 
+
 REQUIRES_STACK = [
     da.sum.__name__,
     da.max.__name__,
@@ -562,6 +564,7 @@ def render_abstract(description, func, template):
 
     return template.render(description=description, axes=axes, const=const, multi=multi)
 
+
 BASE_ABSTRACT = """
 {{ description }}
 {%- if multi %}
@@ -582,7 +585,6 @@ Optional parameters:
 
 
 def register_processes():
-    import inspect
     from jinja2 import Environment, BaseLoader
     from compute_tasks import cdat
 
@@ -591,15 +593,17 @@ def register_processes():
     for name, func in PROCESS_FUNC_MAP.items():
         module, operation = name.split('.')
 
-        def new_process(self, context):
-            if 'CDAT.aggregate' == name:
+        def process_wrapper(self, context):
+            if context.identifier == 'CDAT.aggregate':
                 return process(context, aggregate=True)
             else:
-                return process(context, func)
+                func = PROCESS_FUNC_MAP[context.identifier]
 
-        new_process.__name__ = '{!s}_func'.format(operation)
+                return process(context, process_func=func)
 
-        shared = base.cwt_shared_task()(new_process)
+        process_wrapper.__name__ = '{!s}_func'.format(operation)
+
+        shared = base.cwt_shared_task()(process_wrapper)
 
         abstract = render_abstract(DESCRIPTION_MAP[name], func, template)
 
@@ -615,6 +619,7 @@ def register_processes():
 
         register = base.register_process(module, operation, abstract=abstract, inputs=inputs)(shared)
 
-        setattr(cdat, new_process.__name__, register)
+        setattr(cdat, process_wrapper.__name__, register)
+
 
 register_processes()
