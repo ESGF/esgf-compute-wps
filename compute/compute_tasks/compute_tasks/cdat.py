@@ -425,6 +425,8 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
         # Apply the process to all inputs
         output = process_multiple_input(process_func, *inputs)
     else:
+        output = inputs[0]
+
         # Apply the process
         output.data = process_func(output.data)
 
