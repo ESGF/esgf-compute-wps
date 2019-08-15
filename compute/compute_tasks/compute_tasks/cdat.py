@@ -415,7 +415,7 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
         output = inputs[0]
 
         # Apply the process to the existing dask array
-        output.data = process_func(output.data, constant)
+        output.variable = process_func(output.data, constant)
 
         logger.info('Process output %r', output.data)
     elif len(inputs) > 1:
@@ -428,7 +428,7 @@ def process_input(operation, *inputs, process_func=None, **supported): # noqa E9
         output = inputs[0]
 
         # Apply the process
-        output.data = process_func(output.data)
+        output.variable = process_func(output.data)
 
     return output
 
