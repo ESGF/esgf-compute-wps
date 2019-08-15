@@ -7,7 +7,6 @@ import cdms2
 import cwt
 import dask
 import dask.array as da
-import cdms2
 from celery.utils.log import get_task_logger
 from dask.distributed import Client
 from distributed.diagnostics.progressbar import ProgressBar
@@ -533,7 +532,8 @@ PROCESS_FUNC_MAP = {
     'CDAT.aggregate': None,
     'CDAT.average': partial(process_input, process_func=da.average, FEAT_MULTI=True),
     'CDAT.divide': partial(process_input, process_func=da.divide, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.exp': partial(process_input, process_func=da.exp),
+    # Disabled due to overflow issue, setting dtype=float64 works for dask portion but xarray is writing Inf.
+    # 'CDAT.exp': partial(process_input, process_func=da.exp),
     'CDAT.log': partial(process_input, process_func=da.log),
     'CDAT.max': partial(process_input, process_func=da.max, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.min': partial(process_input, process_func=da.min, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
