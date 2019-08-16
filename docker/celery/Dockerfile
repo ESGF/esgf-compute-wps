@@ -1,23 +1,22 @@
-FROM continuumio/miniconda3:4.6.14 as base
+FROM continuumio/miniconda3:4.6.14 as builder
 
 ARG COMPUTE_API_VER
+ARG GIT_SHORT_COMMIT
 
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
+ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
 
 WORKDIR /src
 
-COPY . .
+COPY compute/compute_kubernetes compute_kubernetes/
+COPY compute/compute_provisioner compute_provisioner/
+COPY compute/compute_tasks compute_tasks/
 
-WORKDIR /src/compute
+RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_kubernetes/compute_kubernetes/_version.py && \
+      echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_provisioner/compute_provisioner/_version.py && \
+      echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_tasks/compute_tasks/_version.py
 
-RUN GIT_REV=$(git rev-parse --short HEAD) && \
-      conda update -n base -y -c defaults conda && \
-      conda install -y conda-build && \
-      echo "__version__ = '${GIT_REV}'" > compute_kubernetes/compute_kubernetes/_version.py && \
-      echo "__version__ = '${GIT_REV}'" > compute_provisioner/compute_provisioner/_version.py && \
-      echo "__version__ = '${GIT_REV}'" > compute_tasks/compute_tasks/_version.py
-
-FROM base as builder
+RUN conda install -y conda-build
 
 RUN conda build -c conda-forge compute_kubernetes/ && \
       conda build -c conda-forge compute_provisioner/ && \
@@ -27,6 +26,7 @@ FROM builder as dev
 
 RUN apt-get update && apt-get install -y --no-install-recommends vim && \
       conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-tasks flake8 pytest && \
+      conda remove compute-tasks --force && \
       pip install -e compute_kubernetes/ && \
       pip install -e compute_provisioner/ && \
       pip install -e compute_tasks/
@@ -43,9 +43,9 @@ ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 
 ENV prometheus_multiproc_dir /metrics
 
-COPY --from=builder /opt/conda/pkgs/* /opt/conda/pkgs/
+COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 
-COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
+COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
 RUN conda update -n base -c defaults conda && \
       conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-tasks && \
