@@ -47,10 +47,10 @@ WORKDIR /
 COPY docker/celery/entrypoint.sh .
 COPY docker/celery/healthcheck.sh .
 
-ARG CONTAINER_VER
+ARG GIT_SHORT_COMMIT
 ARG COMPUTE_API_VER
 
-ENV CONTAINER_VER ${CONTAINER_VER}
+ENV CONTAINER_VER ${GIT_SHORT_COMMIT}
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 ENV prometheus_multiproc_dir /metrics
 
