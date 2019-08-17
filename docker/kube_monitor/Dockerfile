@@ -1,18 +1,16 @@
-FROM continuumio/miniconda3:4.5.12 as base
+FROM continuumio/miniconda3:4.6.14 as builder
+
+ARG GIT_SHORT_COMMIT
+
+ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
 
 WORKDIR /src
 
-COPY . .
+COPY compute/compute_kubernetes/ compute_kubernetes/
 
-WORKDIR /src/compute
+RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_kubernetes/compute_kubernetes/_version.py
 
-RUN GIT_REV=$(git rev-parse --short HEAD) && \
-      conda update -n base -c defaults conda && \
-      echo "__version__ = '${GIT_REV}'" > compute_kubernetes/compute_kubernetes/_version.py
-
-FROM base as builder
-
-RUN conda install -c conda-forge conda-build=3.17.8 && \
+RUN conda install -y conda-build && \
       conda build -c conda-forge -c cdat compute_kubernetes/
 
 FROM builder as dev
@@ -23,12 +21,14 @@ RUN apt-get update && \
       conda install -c conda-forge -c cdat --use-local --only-deps compute-kubernetes flake8 pytest && \
       pip install -e compute_kubernetes/
 
-FROM continuumio/miniconda3:4.5.12
+FROM continuumio/miniconda3:4.6.14
 
-COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
+COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
+COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
-RUN conda update -n base -c defaults conda && \
-      conda install -c conda-forge -c cdat --use-local compute-kubernetes && \
+RUN conda install -c conda-forge -c cdat --use-local compute-kubernetes && \
       conda clean -a -y
 
-ENTRYPOINT ["compute-kube-monitor"]
+ENTRYPOINT ["tini", "--"]
+
+CMD ["compute-kube-monitor"]

@@ -6,20 +6,18 @@ function check_postgres() {
   echo $?
 }
 
-app_root=$CWT_BASE
-
 if [ -z "${WPS_DEBUG}" ]
 then
   while [[ $(check_postgres) -ne 0 ]]; do
-    sleep 1 
+    sleep 4
 
     echo "Waiting for postgres"
   done
 fi
 
-python $app_root/manage.py migrate
-python $app_root/manage.py server --host default
-python $app_root/manage.py create_api_user ${API_USERNAME} ${API_PASSWORD}
+python manage.py migrate
+python manage.py server --host default
+python manage.py create_api_user ${API_USERNAME} ${API_PASSWORD}
 
 if [ -z "${WPS_DEBUG}" ]
 then
@@ -29,7 +27,7 @@ then
 
   wait "$child_pid"
 else
-  gunicorn -b 0.0.0.0:8000 --reload --chdir $app_root/ compute.wsgi $@ &
+  gunicorn -b 0.0.0.0:8000 --reload compute.wsgi $@ &
 
   child_pid=$!
 

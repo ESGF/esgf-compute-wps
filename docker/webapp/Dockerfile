@@ -1,8 +1,8 @@
 FROM node:12.6.0-stretch as base
 
-COPY . /src
+WORKDIR /src
 
-WORKDIR /src/webapp
+COPY webapp .
 
 FROM base as dev
 
@@ -14,8 +14,6 @@ RUN apt-get update && \
       yarn add light-server
 
 COPY docker/webapp/entrypoint.sh .
-
-ENTRYPOINT ["/bin/bash"]
 
 FROM base as builder
 

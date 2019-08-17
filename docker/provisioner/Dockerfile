@@ -1,18 +1,16 @@
-FROM continuumio/miniconda3:4.5.12 as base
+FROM continuumio/miniconda3:4.6.14 as builder
+
+ARG GIT_SHORT_COMMIT
+
+ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
 
 WORKDIR /src
 
-COPY . .
+COPY compute/compute_provisioner/ compute_provisioner/
 
-WORKDIR /src/compute
+RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_provisioner/compute_provisioner/_version.py
 
-RUN GIT_REV=$(git rev-parse --short HEAD) && \
-      conda update -n base -c defaults conda && \
-      echo "__version__ = '${GIT_REV}'" > compute_provisioner/compute_provisioner/_version.py
-
-FROM base as builder
-
-RUN conda install -c conda-forge conda-build=3.17.8 && \
+RUN conda install conda-build && \
       conda build -c conda-forge compute_provisioner/
 
 FROM builder as dev
@@ -23,18 +21,17 @@ RUN apt-get update && \
       conda install -c conda-forge --use-local --only-deps compute-provisioner flake8 pytest && \
       pip install -e compute_provisioner/
 
-FROM continuumio/miniconda3:4.5.12
+FROM continuumio/miniconda3:4.6.14
 
-ENV FRONTEND_PORT 7777
+COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
+COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
-ENV BACKEND_PORT 7778
-
-COPY --from=builder /opt/conda/conda-bld/noarch/* /opt/conda/conda-bld/noarch/
-
-RUN conda update -n base -c defaults conda && \
-      conda install -c conda-forge --use-local compute-provisioner
+RUN conda install -c conda-forge --use-local compute-provisioner
 
 EXPOSE 7777 7778
+
+ENV FRONTEND_PORT 7777
+ENV BACKEND_PORT 7778
 
 ENTRYPOINT ["tini", "--"]
 
