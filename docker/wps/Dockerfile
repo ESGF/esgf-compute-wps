@@ -60,9 +60,9 @@ COPY docker/wps/django.properties /etc/config/
 
 WORKDIR /compute
 
-COPY docker/wps/settings.py .
-COPY docker/wps/urls.py .
-COPY docker/wps/wsgi.py .
+COPY docker/wps/settings.py compute/
+COPY docker/wps/urls.py compute/
+COPY docker/wps/wsgi.py compute/
 COPY docker/wps/app.py .
 COPY docker/wps/entrypoint.sh .
 
