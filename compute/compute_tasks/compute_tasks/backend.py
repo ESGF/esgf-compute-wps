@@ -26,10 +26,10 @@ DEFAULT_QUEUE = {
 }
 
 QUEUE = {
-    'edas': {
-        'queue': 'edask',
-        'exchange': 'edask',
-        'routing_key': 'edask',
+    'cdat': {
+        'queue': 'ingress',
+        'exchange': 'ingress',
+        'routing_key': 'ingress',
     },
     'default': {
         'queue': 'default',
@@ -38,7 +38,7 @@ QUEUE = {
     },
 }
 
-
+QUEUE.update({'ingress': DEFAULT_QUEUE})
 
 
 def queue_from_identifier(identifier):
@@ -58,7 +58,7 @@ def fail_job(state, job, e):
         state.job = None
 
 
-def request_handler(frames, state):
+def format_frames(frames):
     logger.debug('Handling frames %r', frames)
 
     version, identifier, data_inputs, job, user, process = [x.decode() for x in frames]
@@ -71,24 +71,32 @@ def request_handler(frames, state):
         'DASK_SCHEDULER': 'dask-scheduler-{!s}'.format(user),
     }
 
+    return identifier, data_inputs, job, user, process, extra
+
+def build_workflow(frames):
+    started = job_started.s(*frames).set(**DEFAULT_QUEUE)
+
+    logger.info('Created job started task %r', started)
+
+    queue = queue_from_identifier(frames[0])
+
+    logger.info('Using queue %r', queue)
+
+    process = base.get_process(frames[0]).s().set(**queue)
+
+    logger.info('Found process %r for %r', frames[4], frames[0])
+
+    succeeded = job_succeeded.s().set(**DEFAULT_QUEUE)
+
+    logger.info('Created job stopped task %r', succeeded)
+
+    return started | process | succeeded
+
+def request_handler(frames, state):
     try:
-        started = job_started.s(identifier, data_inputs, job, user, process, extra).set(**DEFAULT_QUEUE)
+        frames = format_frames(frames)
 
-        logger.info('Created job started task %r', started)
-
-        queue = queue_from_identifier(identifier)
-
-        logger.info('Using queue %r', queue)
-
-        process = base.get_process(identifier).s().set(**queue)
-
-        logger.info('Found process %r for %r', process, identifier)
-
-        succeeded = job_succeeded.s().set(**DEFAULT_QUEUE)
-
-        logger.info('Created job stopped task %r', succeeded)
-
-        workflow = started | process | succeeded
+        workflow = build_workflow(frames)
 
         logger.info('Built workflow %r', workflow)
 
@@ -98,7 +106,7 @@ def request_handler(frames, state):
     except Exception as e:
         logger.exception('Error executing celery workflow %r', e)
 
-        fail_job(state, job, e)
+        fail_job(state, frames[2], e)
 
 
 def resource_request(frames, env):
