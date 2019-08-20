@@ -30,7 +30,7 @@ RUN apt-get update && \
       pip install -e compute_settings/ && \
       pip install -e compute_wps/
 
-RUN django-admin startproject compute
+RUN django-admin startproject /compute
 
 WORKDIR /compute/compute
 
