@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os
@@ -73,6 +74,7 @@ def format_frames(frames):
 
     return identifier, data_inputs, job, user, process, extra
 
+
 def build_workflow(frames):
     started = job_started.s(*frames).set(**DEFAULT_QUEUE)
 
@@ -91,6 +93,7 @@ def build_workflow(frames):
     logger.info('Created job stopped task %r', succeeded)
 
     return started | process | succeeded
+
 
 def request_handler(frames, state):
     try:
@@ -146,32 +149,12 @@ def error_handler(frames, state):
     fail_job(state, job, frames[-1].decode())
 
 
-def parse_args_backend():
-    import argparse
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
-
-    parser.add_argument('--queue-host', help='Queue to communicate with')
-
-    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_false')
-
-    parser.add_argument('--skip-init-api', help='Skip initializing API', action='store_false')
-
-    parser.add_argument('-d', help='Development mode', action='store_true')
-
-    args = parser.parse_args()
-
-    return args
-
-
 def load_processes(state, register_tasks=True):
     if register_tasks:
         for item in base.discover_processes():
             try:
                 state.register_process(**item)
-            except ProcessExistsError:
+            except ProcessExistsError:  # pragma: no cover
                 logger.info('Process %r already exists', item['identifier'])
 
                 pass
@@ -179,12 +162,16 @@ def load_processes(state, register_tasks=True):
     base.build_process_bindings()
 
 
-def reload_processes():
-    import argparse
-
+def reload_argparse():  # pragma: no cover
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    return parser
+
+
+def reload_processes():
+    parser = reload_argparse()
 
     args = parser.parse_args()
 
@@ -197,8 +184,26 @@ def reload_processes():
     load_processes(state)
 
 
+def backend_argparse():  # pragma: no cover
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    parser.add_argument('--queue-host', help='Queue to communicate with')
+
+    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_false')
+
+    parser.add_argument('--skip-init-api', help='Skip initializing API', action='store_false')
+
+    parser.add_argument('-d', help='Development mode', action='store_true')
+
+    return parser
+
+
 def main():
-    args = parse_args_backend()
+    parser = backend_argparse()
+
+    args = parser.parse_args()
 
     register_tasks = not args.skip_register_tasks or not args.d
 
@@ -231,7 +236,7 @@ def main():
 
     error_handler_partial = partial(error_handler, state=state)
 
-    def callback_handler(type, frames):
+    def callback_handler(type, frames):  # pragma: no cover
         if type == REQUEST_TYPE:
             value = request_handler_partial(frames)
         elif type == RESOURCE_TYPE:

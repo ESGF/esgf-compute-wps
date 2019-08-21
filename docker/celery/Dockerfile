@@ -26,7 +26,8 @@ FROM builder as dev
 
 RUN apt-get update && apt-get install -y --no-install-recommends vim && \
       # Use conda to install package for dependencies
-      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-tasks flake8 pytest && \
+      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-tasks &&\
+      conda install -c conda-forge flake8 pytest pytest-mock pytest-cov && \
       pip install -e compute_kubernetes/ && \
       pip install -e compute_provisioner/ && \
       pip install -e compute_tasks/
