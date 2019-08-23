@@ -12,6 +12,7 @@ from dask.distributed import Client
 from distributed.diagnostics.progressbar import ProgressBar
 from distributed.utils import LoopRunner
 from distributed.client import futures_of
+from jinja2 import Environment, BaseLoader
 from tornado.ioloop import IOLoop
 
 from compute_tasks import base
@@ -31,9 +32,6 @@ NAMESPACE = os.environ.get('NAMESPACE', 'default')
 class DaskJobTracker(ProgressBar):
     def __init__(self, context, futures, scheduler=None, interval='100ms', complete=True):
         futures = futures_of(futures)
-
-        if not isinstance(futures, (list, set)):
-            futures = [futures, ]
 
         context.message('Tracking {!r} futures', len(futures))
 
@@ -69,6 +67,78 @@ class DaskJobTracker(ProgressBar):
         pass
 
 
+def gather_workflow_outputs(context, interm, operations):
+    delayed = []
+
+    for output in operations:
+        try:
+            interm_value = interm.pop(output.name)
+        except KeyError as e:
+            raise WPSError('Failed to find intermediate {!s}', e)
+
+        context.track_out_bytes(interm_value.nbytes)
+
+        dataset = interm_value.to_xarray()
+
+        output_name = '{!s}-{!s}'.format(output.name, output.identifier)
+
+        local_path = context.build_output_variable(interm_value.var_name, name=output_name)
+
+        context.message('Building output for {!r} - {!r}', output.name, output.identifier)
+
+        logger.debug('Writing local output to %r', local_path)
+
+        # Create an output file and store the future
+        delayed.append(dataset.to_netcdf(local_path, compute=False))
+
+    return delayed
+
+
+def gather_inputs(identifier, fm, inputs):
+    if identifier == 'CDAT.aggregate':
+        gathered = [managers.InputManager.from_cwt_variables(fm, inputs)]
+    else:
+        gathered = [managers.InputManager.from_cwt_variable(fm, x) for x in inputs]
+
+    return gathered
+
+
+def build_workflow(fm, context):
+    # Topologically sort the operations
+    topo_order = context.topo_sort()
+
+    # Hold the intermediate inputs
+    interm = {}
+
+    while topo_order:
+        next = topo_order.pop(0)
+
+        context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
+
+        if all(isinstance(x, cwt.Variable) for x in next.inputs):
+            inputs = gather_inputs(next.identifier, fm, next.inputs)
+        else:
+            try:
+                inputs = [interm[x.name] for x in next.inputs]
+            except KeyError as e:
+                raise WPSError('Missing intermediate data {!s}', e)
+
+            # Create copy of single input, multiple inputs automatically create a new output
+            if len(inputs) == 1:
+                inputs = [inputs[0].copy(), ]
+
+        if next.identifier in PROCESS_FUNC_MAP:
+            process_func = PROCESS_FUNC_MAP[next.identifier]
+
+            interm[next.name] = process(inputs, context, process_func=process_func)
+        else:
+            interm[next.name] = process(inputs, context)
+
+        context.message('Storing intermediate {!r}', next.name)
+
+    return interm
+
+
 WORKFLOW_ABSTRACT = """
 This operation is used to store global values in workflows. Domain, regridders and parameters defined
 here will become the default values on child operations.
@@ -91,68 +161,12 @@ def workflow_func(self, context):
     """
     fm = managers.FileManager(context)
 
-    # Topologically sort the operations
-    topo_order = context.topo_sort()
-
-    # Hold the intermediate inputs
-    interm = {}
-
-    while topo_order:
-        next = topo_order.pop(0)
-
-        context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
-
-        # if all inputs are variables then create a new InputManager
-        if all(isinstance(x, cwt.Variable) for x in next.inputs):
-            input = managers.InputManager.from_cwt_variables(fm, next.inputs)
-
-            # Subset the inputs
-            src, subset = input.subset(next.domain)
-
-            context.track_src_bytes(src.nbytes)
-
-            context.track_in_bytes(subset.nbytes)
-
-            # If the current process is in the function map then apply the process
-            if next.identifier in PROCESS_FUNC_MAP:
-                output = PROCESS_FUNC_MAP[next.identifier](next, *[input, ])
-            else:
-                output = input
-
-            # Regrid to the target grid
-            if next.gridder is not None:
-                regrid(next, output)
-
-            # Add to intermediate store
-            interm[next.name] = output
-        else:
-            # Grab all the intermediate inputs
-            try:
-                inputs = [interm[x.name] for x in next.inputs]
-            except KeyError as e:
-                raise WPSError('Unable to find intermidiate {!s}', e)
-
-            # Create copy of single input, multiple inputs automatically create a new output
-            if len(inputs) == 1:
-                inputs = [inputs[0].copy(), ]
-
-            try:
-                output = PROCESS_FUNC_MAP[next.identifier](next, *inputs)
-            except KeyError as e:
-                raise WPSError('Operation {!s} is not supported in a workflow', e)
-            except Exception:
-                raise
-
-            # Regrid to target grid
-            if next.gridder is not None:
-                regrid(next, output)
-
-            # Add new input to intermediate store
-            interm[next.name] = output
-
-        context.message('Storing intermediate {!r}', next.name)
+    interm = build_workflow(fm, context)
 
     context.message('Preparing to execute workflow')
+
+    # TODO create custom retry wrapper, build_workflow is expensive and theres no real
+    # way to cache the interm dict, so localizing retries could be a solid solution.
 
     # Initialize the cluster resources
     try:
@@ -163,51 +177,11 @@ def workflow_func(self, context):
     try:
         delayed = []
 
-        for output in context.output_ops():
-            try:
-                interm_value = interm.pop(output.name)
-            except KeyError as e:
-                raise WPSError('Did not find intermediate %s', e)
+        delayed.extend(gather_workflow_outputs(context, interm, context.output_ops()))
 
-            context.track_out_bytes(interm_value.nbytes)
+        delayed.extend(gather_workflow_outputs(context, interm, context.interm_ops()))
 
-            # Create an output xarray Dataset
-            dataset = interm_value.to_xarray()
-
-            output_name = '{!s}-{!s}'.format(output.name, output.identifier)
-
-            local_path = context.build_output_variable(interm_value.var_name, name=output_name)
-
-            context.message('Building output for {!r} - {!r}', output.name, output.identifier)
-
-            logger.debug('Writing local output to %r', local_path)
-
-            # Create an output file and store the future
-            delayed.append(dataset.to_netcdf(local_path, compute=False))
-
-        # Should be refactored with the above
-        for output in context.interm_ops():
-            try:
-                interm_value = interm.pop(output.name)
-            except KeyError as e:
-                raise WPSError('Did not find intermediate %s', e)
-
-            # Create an output xarray Dataset
-            dataset = interm_value.to_xarray()
-
-            output_name = '{!s}-{!s}'.format(output.name, output.identifier)
-
-            local_path = context.build_output_variable(interm_value.var_name, name=output_name)
-            # local_path = context.build_output_variable(interm[output.name].var_name, name=output_name)
-
-            context.message('Building output for {!r} - {!r}', output.name, output.identifier)
-
-            logger.debug('Writing local output to %r', local_path)
-
-            # Create an output file and store the future
-            delayed.append(dataset.to_netcdf(local_path, compute=False))
-
-        context.message('Executing workflow')
+        context.message('Gathered {!s} outputs', len(delayed))
 
         with ctx.ProcessTimer(context):
             # Execute the futures
@@ -221,7 +195,7 @@ def workflow_func(self, context):
     return context
 
 
-def process(context, process_func=None, aggregate=False):
+def process(inputs, context, process_func=None):
     """ Process a single variable.
 
     Initialize the cluster workers, create the dask graph then execute.
@@ -237,23 +211,6 @@ def process(context, process_func=None, aggregate=False):
     Returns:
         An updated cwt.context.OperationContext.
     """
-    try:
-        client = Client('{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE))
-    except OSError:
-        raise DaskClusterAccessError()
-
-    fm = managers.FileManager(context)
-
-    # Create the initial list of inputs
-    if aggregate:
-        inputs = [managers.InputManager.from_cwt_variables(fm, context.inputs), ]
-
-        context.message('Building aggregation with {!r} inputs', len(context.inputs))
-    else:
-        inputs = [managers.InputManager.from_cwt_variable(fm, x) for x in context.inputs]
-
-        context.message('Building {!r} inputs', len(inputs))
-
     # Subset each input and track the bytes
     for input in inputs:
         src, subset = input.subset(context.domain)
@@ -278,30 +235,7 @@ def process(context, process_func=None, aggregate=False):
 
         context.message('Applied regridding shape {!r}', output.shape)
 
-    context.message('Preparing to execute')
-
-    context.track_out_bytes(output.nbytes)
-
-    dataset = output.to_xarray()
-
-    local_path = context.build_output_variable(output.var_name)
-
-    logger.debug('Writing output to %r', local_path)
-
-    try:
-        # Execute the dask graph
-        delayed = dataset.to_netcdf(local_path, compute=False)
-
-        context.message('Executing')
-
-        with ctx.ProcessTimer(context):
-            fut = client.compute(delayed)
-
-            DaskJobTracker(context, fut)
-    except Exception as e:
-        raise WPSError('Error executing process: {!r}', e)
-
-    return context
+    return output
 
 
 def regrid(operation, *inputs):
@@ -345,6 +279,8 @@ def regrid(operation, *inputs):
 
     logger.info('Converting delayed functions to dask arrays')
 
+    logger.info('BLOCKS %r', [x for x in input.blocks])
+
     # Build a list of dask arrays created by the delayed functions
     regrid_arrays = [da.from_delayed(x, y.shape[:-2] + grid.shape, input.dtype)
                      for x, y in zip(regrid_delayed, input.blocks)]
@@ -376,7 +312,7 @@ FEAT_CONST = 'FEAT_CONST'
 FEAT_MULTI = 'FEAT_MULTI'
 
 
-def process_input(operation, *inputs, process_func=None, **supported): # noqa E999
+def process_input(operation, *inputs, process_func, **supported):
     """ Process inputs.
 
     Possible values for `supported`:
@@ -502,10 +438,10 @@ def process_multiple_input(process_func, input1, input2):
 
 
 REQUIRES_STACK = [
-    da.sum.__name__,
-    da.max.__name__,
-    da.min.__name__,
-    da.average.__name__,
+    'sum_func',
+    'max_func',
+    'min_func',
+    'average_func',
 ]
 
 DESCRIPTION_MAP = {
@@ -584,22 +520,56 @@ Optional parameters:
 """
 
 
+def process_wrapper(self, context):
+    try:
+        client = Client('{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE))
+    except OSError:
+        raise DaskClusterAccessError()
+
+    fm = managers.FileManager(context)
+
+    inputs = gather_inputs(context.identifier, fm, context.inputs)
+
+    if context.identifier in PROCESS_FUNC_MAP:
+        func = PROCESS_FUNC_MAP[context.identifier]
+
+        output = process(inputs, context, process_func=func)
+    else:
+        output = process(inputs, context)
+
+    context.track_out_bytes(output.nbytes)
+
+    dataset = output.to_xarray()
+
+    local_path = context.build_output_variable(output.var_name)
+
+    logger.debug('Writing output to %r', local_path)
+
+    context.message('Preparing to execute')
+
+    try:
+        # Execute the dask graph
+        delayed = dataset.to_netcdf(local_path, compute=False)
+
+        context.message('Executing')
+
+        with ctx.ProcessTimer(context):
+            fut = client.compute(delayed)
+
+            DaskJobTracker(context, fut)
+    except Exception as e:
+        raise WPSError('Error executing process: {!r}', e)
+
+    return context
+
+
 def register_processes():
-    from jinja2 import Environment, BaseLoader
     from compute_tasks import cdat
 
     template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
 
     for name, func in PROCESS_FUNC_MAP.items():
         module, operation = name.split('.')
-
-        def process_wrapper(self, context):
-            if context.identifier == 'CDAT.aggregate':
-                return process(context, aggregate=True)
-            else:
-                func = PROCESS_FUNC_MAP[context.identifier]
-
-                return process(context, process_func=func)
 
         process_wrapper.__name__ = '{!s}_func'.format(operation)
 
@@ -615,6 +585,7 @@ def register_processes():
             elif name == 'CDAT.aggregate':
                 inputs = '*'
         except AttributeError:
+            # Handle where no func is supplied
             pass
 
         register = base.register_process(module, operation, abstract=abstract, inputs=inputs)(shared)

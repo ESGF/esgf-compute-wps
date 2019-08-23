@@ -611,13 +611,13 @@ class FileManager(object):
     def requires_cert(self, uri):
         return uri in self.auth
 
-    def open_file(self, uri):
+    def open_file(self, uri, skip_access_check=False):
         logger.info('Opening file %r', uri)
 
         if uri not in self.handles:
             logger.info('File has not been open before')
 
-            if not self.check_access(uri):
+            if not skip_access_check and not self.check_access(uri):
                 cert_path = self.load_certificate()
 
                 if not self.check_access(uri, cert_path):
