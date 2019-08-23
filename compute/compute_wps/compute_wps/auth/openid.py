@@ -7,6 +7,8 @@ import requests
 from django.conf import settings
 from openid.consumer import consumer
 from openid.consumer import discover
+from openid.consumer.discover import DiscoveryFailure
+
 from openid.extensions import ax
 from openid.yadis import manager
 
@@ -69,7 +71,7 @@ def services(openid_url, service_urns):
 
     try:
         url, services = discover.discoverYadis(openid_url)
-    except discover.DiscoveryFailure as e:
+    except DiscoveryFailure as e:
         raise DiscoverError(openid_url, e)
 
     for urn in service_urns:
@@ -161,8 +163,7 @@ def handle_attribute_exchange(response):
             except (KeyError, IndexError):
                 raise MissingAttributeError(key)
 
-        # Need a minimum of email to create a new account
-        if 'email' not in attrs:
+        if attrs.get('email') is None:
             raise MissingAttributeError('email')
 
     return attrs

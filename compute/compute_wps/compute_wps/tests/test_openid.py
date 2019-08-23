@@ -3,7 +3,8 @@ import mock
 from django import test
 from django.conf import settings
 from openid.consumer import consumer
-
+# from openid.yadis.discover import DiscoveryFailure
+from openid.consumer import discover
 from compute_wps.auth import openid
 
 
@@ -26,11 +27,20 @@ class OpenIDTestCase(test.TestCase):
     @mock.patch('compute_wps.views.openid.ax.FetchResponse.fromSuccessResponse')
     def test_handle_attribute_exchange_exception(self, mock_fetch):
         mock_fetch.return_value = mock.Mock(**{'get.side_effect': KeyError})
-
         with self.assertRaises(openid.MissingAttributeError) as e:
             openid.handle_attribute_exchange(mock.Mock())
 
-            self.assertEqual(str(e.exception),
+        self.assertEqual(str(e.exception),
+                         str(openid.MissingAttributeError('email')))
+
+    @mock.patch('compute_wps.views.openid.ax.FetchResponse.fromSuccessResponse')
+    def test_handle_attribute_exchange_missing_email_exception(self, mock_fetch):
+        mock_fetch.return_value = mock.Mock(**{'get.return_value': [ None ]})
+        # mock_fetch.return_value = {'http://axschema.org/contact/email': ['dummyemail']}
+        try:
+            openid.handle_attribute_exchange(mock.Mock())
+        except openid.MissingAttributeError as e:
+            self.assertEqual(str(e),
                              str(openid.MissingAttributeError('email')))
 
     @mock.patch('compute_wps.views.openid.ax.FetchResponse.fromSuccessResponse')
@@ -82,14 +92,17 @@ class OpenIDTestCase(test.TestCase):
             openid.begin(mock.Mock(session={}), 'http://testbad.com/openid',
                          'http://test.com/next')
 
+    @mock.patch('compute_wps.views.openid.manager.Discovery.getNextService')
     @mock.patch('compute_wps.views.openid.consumer.Consumer')
-    def test_begin(self, mock_consumer):
+    def test_begin(self, mock_consumer, mock_get_next_service):
         return_url = 'https://test.com/openid/begin?next=http://test.com/next'
 
         mock_begin = mock.Mock(**{'redirectURL.return_value': return_url})
         mock_consumer.return_value = mock.Mock(**{'beginWithoutDiscovery.return_value': mock_begin})
 
-        url = openid.begin(mock.Mock(session={}), 'http://test.com/openid',
+        mock_get_next_service.return_value = 'test_uri_1'
+
+        url = openid.begin(mock.Mock(session={}), 'http://test.com/openid', 
                            'http://test.com/next')
 
         self.assertEqual(url, return_url)
@@ -107,6 +120,12 @@ class OpenIDTestCase(test.TestCase):
 
         with self.assertRaises(openid.DiscoverError):
             openid.services('http://testbad.com/openid', ['urn.test1', 'urn.test2'])
+
+    @mock.patch('compute_wps.auth.openid.discover')
+    def test_services_discovery_failure(self, mock_discover):
+        mock_discover.discoverYadis = mock.Mock(side_effect=discover.DiscoveryFailure('error', 404))
+        with self.assertRaises(openid.DiscoverError):
+            openid.services('http://test.com/openid', ['urn.test1', 'urn.test2'])
 
     @mock.patch('compute_wps.views.openid.discover.discoverYadis')
     @mock.patch('compute_wps.views.openid.requests')
@@ -136,3 +155,5 @@ class OpenIDTestCase(test.TestCase):
         service = openid.find_service_by_type(self.mock_services, 'test_uri_1')
 
         self.assertIsNotNone(service)
+
+        
