@@ -69,7 +69,8 @@ def generate_certificate(not_before=DEFAULT_NOT_BEFORE, not_after=DEFAULT_NOT_AF
     cert_text = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
     key_text = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
 
-    return ''.join([cert_text, key_text])
+    # return b''.join([cert_text, key_text])
+    return cert
 
 def check_failed(self, response):
     self.assertEqual(response.status_code, 200)
