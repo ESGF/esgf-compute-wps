@@ -3,7 +3,7 @@ from argparse import Namespace
 
 from compute_tasks import backend
 from compute_tasks import base
-from compute_tasks.context import ProcessExistsError
+from compute_tasks.context import state_mixin
 
 RAW_FRAMES_ERROR = [
     b'2.2.0',
@@ -36,7 +36,7 @@ DECODED_FRAMES = [
 
 
 def test_main(mocker):
-    mocker.patch.object(backend, 'StateMixin')
+    mocker.patch.object(backend, 'state_mixin')
     mocker.patch.object(backend, 'Worker')
     mocker.patch.object(backend, 'load_processes')
     mocker.patch.dict(os.environ, {
@@ -52,13 +52,13 @@ def test_main(mocker):
 
     backend.load_processes.assert_called()
 
-    backend.StateMixin.return_value.init_api.assert_called()
+    backend.state_mixin.StateMixin.return_value.init_api.assert_called()
 
     backend.Worker.return_value.run.assert_called()
 
 
 def test_reload_processes(mocker):
-    mocker.patch.object(backend, 'StateMixin')
+    mocker.patch.object(backend, 'state_mixin')
     mocker.patch.object(backend, 'load_processes')
     mocker.patch.object(backend, 'reload_argparse')
 
@@ -71,7 +71,7 @@ def test_load_processes_exists(mocker):
     mocker.patch.object(base, 'discover_processes')
     mocker.patch.object(base, 'build_process_bindings')
 
-    base.register_process.side_effect = ProcessExistsError()
+    base.register_process.side_effect = state_mixin.ProcessExistsError('')
 
     state = mocker.MagicMock()
 

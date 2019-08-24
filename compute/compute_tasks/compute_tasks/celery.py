@@ -1,7 +1,5 @@
 import datetime
-import importlib
 import json
-import types
 
 import cwt
 from celery import Celery
@@ -11,8 +9,8 @@ DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
 
 def default(obj):
-    from compute_tasks.context import OperationContext
-    from compute_tasks.context import WorkflowOperationContext
+    from compute_tasks.context import operation
+    from compute_tasks.context import workflow
 
     if isinstance(obj, slice):
         data = {
@@ -50,20 +48,12 @@ def default(obj):
             'data': obj.strftime(DATETIME_FMT),
             '__type': 'datetime',
         }
-    elif isinstance(obj, types.FunctionType):
-        data = {
-            'data': {
-                'module': obj.__module__,
-                'name': obj.__name__,
-            },
-            '__type': 'function',
-        }
-    elif isinstance(obj, OperationContext):
+    elif isinstance(obj, operation.OperationContext):
         data = {
             'data': obj.to_dict(),
             '__type': 'operation_context',
         }
-    elif isinstance(obj, WorkflowOperationContext):
+    elif isinstance(obj, workflow.WorkflowOperationContext):
         data = {
             'data': obj.to_dict(),
             '__type': 'workflow_operation_context',
@@ -75,8 +65,8 @@ def default(obj):
 
 
 def object_hook(obj):
-    from compute_tasks.context import OperationContext
-    from compute_tasks.context import WorkflowOperationContext
+    from compute_tasks.context import operation
+    from compute_tasks.context import workflow
 
     obj = byteify(obj)
 
@@ -101,14 +91,10 @@ def object_hook(obj):
         data = datetime.timedelta(**kwargs)
     elif obj['__type'] == 'datetime':
         data = datetime.datetime.strptime(obj['data'], DATETIME_FMT)
-    elif obj['__type'] == 'function':
-        data = importlib.import_module(obj['data']['module'])
-
-        data = getattr(data, obj['data']['name'])
     elif obj['__type'] == 'operation_context':
-        data = OperationContext.from_dict(obj['data'])
+        data = operation.OperationContext.from_dict(obj['data'])
     elif obj['__type'] == 'workflow_operation_context':
-        data = WorkflowOperationContext.from_dict(obj['data'])
+        data = workflow.WorkflowOperationContext.from_dict(obj['data'])
 
     return data
 

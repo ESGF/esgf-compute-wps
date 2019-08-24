@@ -1,0 +1,135 @@
+from celery.utils.log import get_task_logger
+
+from compute_tasks.context.state_mixin import StateMixin
+from compute_tasks import WPSError
+
+logger = get_task_logger('wps.context.workflow')
+
+
+class WorkflowOperationContext(StateMixin, object):
+    def __init__(self, inputs, domain, operation):
+        super(WorkflowOperationContext, self).__init__()
+
+        self._inputs = inputs
+        self.domain = domain
+        self.operation = operation
+
+    @classmethod
+    def from_data_inputs(cls, variable, domain, operation):
+        for op in operation.values():
+            inputs = []
+
+            for x in op.inputs:
+                if x in variable:
+                    inputs.append(variable[x])
+                elif x in operation:
+                    inputs.append(operation[x])
+                else:
+                    raise WPSError('Unable to find input {!r}', x)
+
+            op.inputs = inputs
+
+            op.domain = domain.get(op.domain, None)
+
+        instance = cls(variable, domain, operation)
+
+        return instance
+
+    @classmethod
+    def from_dict(cls, data):
+        variable = data.pop('_inputs')
+
+        domain = data.pop('domain')
+
+        operation = data.pop('operation')
+
+        for x in operation.values():
+            inputs = []
+
+            for y in x.inputs:
+                if y in variable:
+                    inputs.append(variable[y])
+                elif y in operation:
+                    inputs.append(operation[y])
+                else:
+                    raise WPSError('Failed to resolve input {!r}', y)
+
+            x.inputs = inputs
+
+            try:
+                x.domain = domain[x.domain]
+            except KeyError:
+                pass
+
+        instance = cls(variable, domain, operation)
+
+        instance.output = data.pop('output')
+
+        instance.init_state(data)
+
+        return instance
+
+    def to_dict(self):
+        data = {
+            '_inputs': self._inputs,
+            'domain': self.domain,
+            'operation': self.operation,
+        }
+
+        data.update(self.store_state())
+
+        return data
+
+    @property
+    def inputs(self):
+        return self._inputs.values()
+
+    def output_ops(self):
+        out_deg = dict((x, self.node_out_deg(x)) for x in self.operation.keys())
+
+        return [self.operation[x] for x, y in out_deg.items() if y == 0]
+
+    def interm_ops(self):
+        out_deg = dict((x, self.node_out_deg(x)) for x in self.operation.keys())
+
+        return [self.operation[x] for x, y in out_deg.items() if y > 0]
+
+    def node_in_deg(self, node):
+        return len([x for x in node.inputs if x.name in self.operation])
+
+    def node_out_deg(self, node):
+        return len([x for x, y in self.operation.items() if any(node == z.name for z in y.inputs)])
+
+    def find_neighbors(self, node):
+        return [x for x, y in self.operation.items() if node in [x.name for x in y.inputs]]
+
+    def topo_sort(self):
+        in_deg = dict((x, self.node_in_deg(y)) for x, y in self.operation.items())
+
+        neigh = dict((x, self.find_neighbors(x)) for x in in_deg.keys())
+
+        queue = [x for x, y in in_deg.items() if y == 0]
+
+        cnt = 0
+
+        topo_order = []
+
+        while queue:
+            next = queue.pop(0)
+
+            topo_order.append(self.operation[next])
+
+            for x in neigh[next]:
+                in_deg[x] -= 1
+
+                if in_deg[x] == 0:
+                    queue.append(x)
+
+            cnt += 1
+
+        if cnt != len(self.operation):
+            raise WPSError('Failed to compute the graph')
+
+        logger.info('Result of topo sort %r', topo_order)
+
+        return topo_order

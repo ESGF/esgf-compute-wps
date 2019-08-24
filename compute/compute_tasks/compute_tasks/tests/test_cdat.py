@@ -39,7 +39,7 @@ class CachedFileManager(FileManager):
     def open_file(self, uri):
         cached_uri = self.cache.get(uri, None)
 
-        if cached_uri is None:
+        if cached_uri is None or not os.path.exists(cached_uri):
             parts = urlparse(uri)
 
             cached_uri = os.path.join(self.cache_path, parts.path.split('/')[-1])

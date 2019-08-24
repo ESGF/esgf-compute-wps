@@ -108,8 +108,6 @@ class CWTBaseTask(celery.Task):
 
         try:
             args[0].message('Retrying from error: {!s}', exc)
-        except AttributeError:
-            logger.exception('First argument should be OperationContext or WorkflowOperationContext')
         except WPSError:
             raise
 
@@ -122,13 +120,11 @@ class CWTBaseTask(celery.Task):
             args[0].failed(str(exc))
 
             args[0].update_metrics(context.FAILURE)
-        except AttributeError:
-            logger.exception('First argument should be OperationContext or WorkflowOperationContext')
         except WPSError:
             raise
 
-    def on_success(self, retval, task_id, args, kwargs):
-        pass
+    # def on_success(self, retval, task_id, args, kwargs):
+    #     pass
 
 
 cwt_shared_task = partial(shared_task,

@@ -10,8 +10,8 @@ from compute_tasks import base
 from compute_tasks import celery # noqa
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
-from compute_tasks.context import StateMixin
-from compute_tasks.context import ProcessExistsError
+from compute_tasks import context
+from compute_tasks.context import state_mixin
 from compute_provisioner.worker import Worker
 from compute_provisioner.worker import REQUEST_TYPE
 from compute_provisioner.worker import RESOURCE_TYPE
@@ -154,7 +154,7 @@ def load_processes(state, register_tasks=True):
         for item in base.discover_processes():
             try:
                 state.register_process(**item)
-            except ProcessExistsError:  # pragma: no cover
+            except context.ProcessExistsError:  # pragma: no cover
                 logger.info('Process %r already exists', item['identifier'])
 
                 pass
@@ -177,7 +177,7 @@ def reload_processes():
 
     logging.basicConfig(level=args.log_level)
 
-    state = StateMixin()
+    state = state_mixin.StateMixin()
 
     state.init_api()
 
@@ -217,7 +217,7 @@ def main():
 
     env = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'))
 
-    state = StateMixin()
+    state = state_mixin.StateMixin()
 
     if init_api:
         state.init_api()
