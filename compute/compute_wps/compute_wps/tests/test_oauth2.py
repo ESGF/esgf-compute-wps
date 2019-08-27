@@ -82,23 +82,47 @@ class TestOAuth2(test.TestCase):
 
         self.assertEqual(result, 'NewToken')
 
+    def test_generate_certificate_request(self):
+        private_key, cert_request = oauth2.generate_certificate_request()
+        # how do we assert
+        
+    @mock.patch('compute_wps.auth.oauth2.check_certificate')
+    def test_get_certificate_good_cert_already(self, mock_check):
+        mock_check.return_value = True
+        cert = oauth2.get_certificate(self.user, 'http://test.com/refresh', 'http://test.com/certificate')
+        self.assertEqual(cert, self.user.auth.cert)
+
+    # HERE
+    @mock.patch('compute_wps.models.Auth')
+    @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
+    @mock.patch('compute_wps.auth.oauth2.check_certificate')
+    def test_get_certificate_token_updated(self, mock_check, mock_oauth2, mock_auth):
+        mock_check.return_value = False
+        mock_session = mock_oauth2.return_value
+        mock_session.post = mock.Mock(side_effect=Exception)
+        mock_auth.get = mock.Mock(return_value = ['some_token', 'some_state'])
+        with self.assertRaises(oauth2.TokenUpdated):
+            cert = oauth2.get_certificate(self.user, 'http://test.com/refresh', 'http://test.com/certificate')
+            
+
+    ## not working after this
+
     @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_certificate_status_code(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
-
         session_mock.post = mock.Mock(return_value=mock.Mock(status_code=300))
 
         with self.assertRaises(oauth2.OAuth2Error):
             oauth2.get_certificate(self.user, 'http://test.com/refresh', 'http://test.com/certificate')
 
+
     @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_certificate_exception(self, oauth2_mock):
         session_mock = oauth2_mock.return_value
-
         session_mock.post = mock.Mock(side_effect=Exception)
 
-        with self.assertRaises(oauth2.OAuth2Error):
-            oauth2.get_certificate('token', 'state', 'http://test.com/refresh', 'http://test.com/certificate')
+        with self.assertRaises(oauth2.TokenUpdated):
+            oauth2.get_certificate(self.user, 'http://test.com/refresh', 'http://test.com/certificate')
 
     @mock.patch('compute_wps.auth.oauth2.OAuth2Session')
     def test_get_certificate(self, oauth2_mock):

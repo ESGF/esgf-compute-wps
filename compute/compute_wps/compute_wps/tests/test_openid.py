@@ -16,6 +16,9 @@ class OpenIDTestCase(test.TestCase):
         mock.Mock(type_uris=['test_uri_3']),
     ]
 
+    def setUp(self):
+        self.user = models.User.objects.first()
+
     @mock.patch('compute_wps.views.openid.ax.FetchResponse.fromSuccessResponse')
     def test_handle_attribute_exchange_none(self, mock_fetch):
         mock_fetch.return_value = None
