@@ -603,10 +603,13 @@ class FileManager(object):
 
         self.cert_data = None
 
-    def __del__(self):
-        os.chdir('/')
+        self.old_dir = None
 
-        logger.info('Reverted working directory to %r', os.getcwd())
+    def __del__(self):
+        if self.old_dir is not None:
+            os.chdir(self.old_dir)
+
+            logger.info('Reverted working directory to %r', os.getcwd())
 
     def requires_cert(self, uri):
         return uri in self.auth
@@ -638,6 +641,31 @@ class FileManager(object):
 
         return self.handles[uri]
 
+    @staticmethod
+    def write_user_certificate(cert):
+        temp_dir = tempfile.TemporaryDirectory()
+
+        logger.info('Using temporary directory %s', temp_dir.name)
+
+        cert_path = os.path.join(temp_dir.name, 'cert.pem')
+
+        with open(cert_path, 'w') as outfile:
+            outfile.write(cert)
+
+        logger.info('Wrote cert.pem file')
+
+        dodsrc_path = os.path.join(temp_dir.name, '.dodsrc')
+
+        with open(dodsrc_path, 'w') as outfile:
+            outfile.write('HTTP.COOKIEJAR={!s}\n'.format(dodsrc_path))
+            outfile.write('HTTP.SSL.CERTIFICATE={!s}\n'.format(cert_path))
+            outfile.write('HTTP.SSL.KEY={!s}\n'.format(cert_path))
+            outfile.write('HTTP.SSL.VERIFY=0\n')
+
+        logger.info('Wrote .dodsrc file')
+
+        return temp_dir, cert_path, dodsrc_path
+
     def load_certificate(self):
         """ Loads a user certificate.
 
@@ -653,30 +681,13 @@ class FileManager(object):
 
         self.cert_data = self.context.user_cert()
 
-        self.temp_dir = tempfile.TemporaryDirectory()
+        self.old_dir = os.getcwd()
 
-        logger.info('Using temporary directory %r', self.temp_dir.name)
+        self.temp_dir, self.cert_path, dodsrc_path = FileManager.write_user_certificate(self.cert_data)
 
         os.chdir(self.temp_dir.name)
 
         logger.info('Changed working directory to %r', self.temp_dir.name)
-
-        self.cert_path = os.path.join(self.temp_dir.name, 'cert.pem')
-
-        with open(self.cert_path, 'w') as outfile:
-            outfile.write(self.cert_data)
-
-        logger.info('Wrote user certificate')
-
-        dodsrc_path = os.path.join(self.temp_dir.name, '.dodsrc')
-
-        with open(dodsrc_path, 'w') as outfile:
-            outfile.write('HTTP.COOKIEJAR=.dods_cookies\n')
-            outfile.write('HTTP.SSL.CERTIFICATE={}\n'.format(self.cert_path))
-            outfile.write('HTTP.SSL.KEY={}\n'.format(self.cert_path))
-            outfile.write('HTTP.SSL.VERIFY=0\n')
-
-        logger.info('Wrote .dodsrc file {}'.format(dodsrc_path))
 
         return self.cert_path
 

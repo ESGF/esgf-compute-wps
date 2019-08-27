@@ -5,7 +5,6 @@ import pytest
 
 from compute_tasks import celery
 from compute_tasks.context import operation
-from compute_tasks.context import workflow
 
 
 def test_byteify():
@@ -44,7 +43,6 @@ def test_encoder_decoder():
         'timedelta_data': datetime.timedelta(seconds=60),
         'datetime_data': now,
         'operation_context_data': operation.OperationContext(),
-        'workflow_operation_context_data': workflow.WorkflowOperationContext({}, {}, {}),
     }
 
     encoded = celery.encoder(data)
@@ -58,4 +56,3 @@ def test_encoder_decoder():
     assert isinstance(decoded['timedelta_data'], datetime.timedelta)
     assert isinstance(decoded['datetime_data'], datetime.datetime)
     assert isinstance(decoded['operation_context_data'], operation.OperationContext)
-    assert isinstance(decoded['workflow_operation_context_data'], workflow.WorkflowOperationContext)

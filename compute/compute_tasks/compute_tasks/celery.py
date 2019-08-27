@@ -10,7 +10,6 @@ DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
 def default(obj):
     from compute_tasks.context import operation
-    from compute_tasks.context import workflow
 
     if isinstance(obj, slice):
         data = {
@@ -53,11 +52,6 @@ def default(obj):
             'data': obj.to_dict(),
             '__type': 'operation_context',
         }
-    elif isinstance(obj, workflow.WorkflowOperationContext):
-        data = {
-            'data': obj.to_dict(),
-            '__type': 'workflow_operation_context',
-        }
     else:
         raise TypeError(type(obj))
 
@@ -66,7 +60,6 @@ def default(obj):
 
 def object_hook(obj):
     from compute_tasks.context import operation
-    from compute_tasks.context import workflow
 
     obj = byteify(obj)
 
@@ -93,8 +86,6 @@ def object_hook(obj):
         data = datetime.datetime.strptime(obj['data'], DATETIME_FMT)
     elif obj['__type'] == 'operation_context':
         data = operation.OperationContext.from_dict(obj['data'])
-    elif obj['__type'] == 'workflow_operation_context':
-        data = workflow.WorkflowOperationContext.from_dict(obj['data'])
 
     return data
 
