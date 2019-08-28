@@ -3,6 +3,7 @@ import requests
 from urllib.parse import urlparse
 
 import pytest
+import dask.array as da
 
 from compute_tasks import managers
 
@@ -18,23 +19,36 @@ class CachedFileManager(managers.FileManager):
         if not os.path.exists(self.cache_path):
             os.makedirs(self.cache_path)
 
+    def local_path(self, uri):
+        cached_uri = self.cache.get(uri, None)
+
+        if cached_uri is None or not os.path.exists(cached_uri):
+            cached_uri = self.localize_file(uri)
+
+        return cached_uri
+
+    def localize_file(self, uri):
+        parts = urlparse(uri)
+
+        cached_uri = os.path.join(self.cache_path, parts.path.split('/')[-1])
+
+        with open(cached_uri, 'wb') as outfile:
+            response = requests.get(uri, verify=False)
+
+            response.raise_for_status()
+
+            for chunk in response.iter_content(4096):
+                outfile.write(chunk)
+
+        os.chmod(cached_uri, 0o777)
+
+        return cached_uri
+
     def open_file(self, uri):
         cached_uri = self.cache.get(uri, None)
 
         if cached_uri is None or not os.path.exists(cached_uri):
-            parts = urlparse(uri)
-
-            cached_uri = os.path.join(self.cache_path, parts.path.split('/')[-1])
-
-            with open(cached_uri, 'wb') as outfile:
-                response = requests.get(uri, verify=False)
-
-                response.raise_for_status()
-
-                for chunk in response.iter_content(4096):
-                    outfile.write(chunk)
-
-            os.chmod(cached_uri, 0o777)
+            cached_uri = self.localize_file(uri)
 
             self.cache.set(uri, cached_uri)
 
@@ -71,6 +85,21 @@ class ESGFDataManager(object):
 
     def to_cdms2(self, name, file_index=0):
         return self.fm.open_file(self.data[name]['files'][file_index])
+
+    def to_cdms2_tv(self, name, file_index=0):
+        file_obj = self.to_cdms2(name, file_index)
+
+        var_name = self.data[name]['var']
+
+        return file_obj[var_name]
+
+    def to_dask_array(self, name, file_index=0, chunks='auto'):
+        tv = self.to_cdms2_tv(name, file_index)
+
+        return da.from_array(tv, chunks=chunks)
+
+    def to_local_path(self, name, file_index=0):
+        return self.fm.local_path(self.data[name]['files'][file_index])
 
 
 @pytest.fixture(scope='session')

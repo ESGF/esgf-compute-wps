@@ -5,7 +5,6 @@ import urllib
 import tempfile
 import time
 from collections import OrderedDict
-from past.utils import old_div
 
 import cdms2
 import cwt
@@ -22,6 +21,129 @@ from compute_tasks.dask_serialize import retrieve_chunk
 logger = logging.getLogger('compute_tasks.manager')
 
 
+def subset_grid(grid, selector):
+    target = cdms2.MV2.ones(grid.shape)
+
+    logger.debug('Target grid %r', target.shape)
+
+    target.setAxisList(grid.getAxisList())
+
+    logger.info('Subsetting grid with selector %r', selector)
+
+    target = target(**selector)
+
+    logger.debug('Target grid new shape %r', target.shape)
+
+    return target.getGrid()
+
+
+def parse_uniform_arg(value, default_start, default_n):
+    result = re.match('^(\\d\\.?\\d?)$|^(-?\\d\\.?\\d?):(\\d\\.?\\d?):(\\d\\.?\\d?)$', value)
+
+    if result is None:
+        raise WPSError('Failed to parse uniform argument {value}', value=value)
+
+    groups = result.groups()
+
+    if groups[1] is None:
+        delta = int(groups[0])
+
+        default_n = default_n / delta
+    else:
+        default_start = int(groups[1])
+
+        default_n = int(groups[2])
+
+        delta = int(groups[3])
+
+    start = default_start + (delta / 2.0)
+
+    logger.info('Parsed uniform args start %r default_n %r delta %r', start, default_n, delta)
+
+    return start, default_n, delta
+
+
+def generate_user_defined_grid(gridder):
+    try:
+        grid_type, grid_param = gridder.grid.split('~')
+    except AttributeError:
+        return None
+    except ValueError:
+        raise WPSError('Error generating grid "{name}"', name=gridder.grid)
+
+    logger.info('Generating grid %r %r', grid_type, grid_param)
+
+    if grid_type.lower() == 'uniform':
+        result = re.match('^(.*)x(.*)$', grid_param)
+
+        if result is None:
+            raise WPSError('Failed to parse uniform configuration from {value}', value=grid_param)
+
+        try:
+            start_lat, nlat, delta_lat = parse_uniform_arg(result.group(1), -90.0, 180.0)
+        except WPSError:
+            raise
+
+        try:
+            start_lon, nlon, delta_lon = parse_uniform_arg(result.group(2), 0.0, 360.0)
+        except WPSError:
+            raise
+
+        grid = cdms2.createUniformGrid(start_lat, nlat, delta_lat, start_lon, nlon, delta_lon)
+
+        logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
+            grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
+    elif grid_type.lower() == 'gaussian':
+        try:
+            nlats = int(grid_param)
+        except ValueError:
+            raise WPSError('Error converting gaussian parameter to an int')
+
+        grid = cdms2.createGaussianGrid(nlats)
+
+        logger.info('Created target gaussian grid {}'.format(grid.shape))
+    else:
+        raise WPSError('Unknown grid type for regridding: {}', grid_type)
+
+    return grid
+
+
+def read_grid_from_file(gridder):
+    try:
+        with cdms2.open(gridder.grid.uri) as infile:
+            data = infile(gridder.grid.var_name)
+    except cdms2.CDMSError:
+        raise WPSError('Failed to read the grid from {} in {}', gridder.grid.var_name, gridder.grid.uri)
+
+    return data.getGrid()
+
+
+def generate_grid(gridder, selector):
+    try:
+        if isinstance(gridder.grid, cwt.Variable):
+            grid = read_grid_from_file(gridder)
+        else:
+            grid = generate_user_defined_grid(gridder)
+    except AttributeError:
+        # Handle when gridder is None
+        return None
+
+    return subset_grid(grid, selector)
+
+
+def regrid_context(gridder, selector):
+    grid = generate_grid(gridder, selector)
+
+    if isinstance(gridder.grid, cwt.Variable):
+        grid_src = gridder.grid.uri
+    else:
+        grid_src = gridder.grid
+
+    metrics.WPS_REGRID.labels(gridder.tool, gridder.method, grid_src).inc()
+
+    return grid, gridder.tool, gridder.method
+
+
 class InputManager(object):
     def __init__(self, fm, uris, var_name):
         self.fm = fm
@@ -35,34 +157,11 @@ class InputManager(object):
         self.units = None
         self.time_axis = []
 
-    def remove_axis(self, axis_name):
-        try:
-            del self.axes[axis_name]
-        except KeyError as e:
-            raise WPSError('Did not find axis {!r}', e)
-        else:
-            for name in list(self.vars_axes.keys()):
-                if name == self.var_name:
-                    try:
-                        index = self.vars_axes[name].index(axis_name)
-                    except ValueError:
-                        pass
-                    else:
-                        self.vars_axes[name].pop(index)
-                else:
-                    if axis_name in self.vars_axes[name]:
-                        try:
-                            del self.vars_axes[name]
-
-                            del self.vars[name]
-                        except KeyError:
-                            pass
-
     def __repr__(self):
         return ('InputManager(uris={!r}, var_name={!r}, attrs={!r}, '
-                'vars={!r}, vars_axes={!r}, axes={!r}').format(self.uris, self.var_name,
-                                                               self.attrs, self.vars,
-                                                               self.vars_axes, self.axes)
+                'vars={!r}, vars_axes={!r}, axes={!r})').format(self.uris, self.var_name,
+                                                                self.attrs, self.vars,
+                                                                self.vars_axes, self.axes)
 
     @classmethod
     def from_cwt_variable(cls, fm, variable):
@@ -111,6 +210,24 @@ class InputManager(object):
     def variable_axes(self):
         return self.vars_axes[self.var_name]
 
+    def remove_axis(self, axis_name):
+        try:
+            del self.axes[axis_name]
+        except KeyError as e:
+            raise WPSError('Did not find axis {!r}', e)
+        else:
+            for name in list(self.vars_axes.keys()):
+                if name == self.var_name and axis_name in self.vars_axes[name]:
+                    index = self.vars_axes[name].index(axis_name)
+
+                    self.vars_axes[name].pop(index)
+                else:
+                    if axis_name in self.vars_axes[name]:
+                        del self.vars_axes[name]
+
+                    if name in self.vars:
+                        del self.vars[name]
+
     def copy(self):
         new = InputManager(self.fm, self.uris, self.var_name)
 
@@ -124,125 +241,6 @@ class InputManager(object):
         new.axes = dict((x, y.clone()) for x, y in self.axes.items())
 
         return new
-
-    def subset_grid(self, grid, selector):
-        target = cdms2.MV2.ones(grid.shape)
-
-        logger.debug('Target grid %r', target.shape)
-
-        target.setAxisList(grid.getAxisList())
-
-        logger.info('Subsetting grid with selector %r', selector)
-
-        target = target(**selector)
-
-        logger.debug('Target grid new shape %r', target.shape)
-
-        return target.getGrid()
-
-    def parse_uniform_arg(self, value, default_start, default_n):
-        result = re.match('^(\\d\\.?\\d?)$|^(-?\\d\\.?\\d?):(\\d\\.?\\d?):(\\d\\.?\\d?)$', value)
-
-        if result is None:
-            raise WPSError('Failed to parse uniform argument {value}', value=value)
-
-        groups = result.groups()
-
-        if groups[1] is None:
-            delta = int(groups[0])
-
-            default_n = old_div(default_n, delta)
-        else:
-            default_start = int(groups[1])
-
-            default_n = int(groups[2])
-
-            delta = int(groups[3])
-
-        start = default_start + (delta / 2.0)
-
-        logger.info('Parsed uniform args start %r default_n %r delta %r', start, default_n, delta)
-
-        return start, default_n, delta
-
-    def generate_user_defined_grid(self, gridder):
-        try:
-            grid_type, grid_param = gridder.grid.split('~')
-        except AttributeError:
-            return None
-        except ValueError:
-            raise WPSError('Error generating grid "{name}"', name=gridder.grid)
-
-        logger.info('Generating grid %r %r', grid_type, grid_param)
-
-        if grid_type.lower() == 'uniform':
-            result = re.match('^(.*)x(.*)$', grid_param)
-
-            if result is None:
-                raise WPSError('Failed to parse uniform configuration from {value}', value=grid_param)
-
-            try:
-                start_lat, nlat, delta_lat = self.parse_uniform_arg(result.group(1), -90.0, 180.0)
-            except WPSError:
-                raise
-
-            try:
-                start_lon, nlon, delta_lon = self.parse_uniform_arg(result.group(2), 0.0, 360.0)
-            except WPSError:
-                raise
-
-            grid = cdms2.createUniformGrid(start_lat, nlat, delta_lat, start_lon, nlon, delta_lon)
-
-            logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
-                grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
-        elif grid_type.lower() == 'gaussian':
-            try:
-                nlats = int(grid_param)
-            except ValueError:
-                raise WPSError('Error converting gaussian parameter to an int')
-
-            grid = cdms2.createGaussianGrid(nlats)
-
-            logger.info('Created target gaussian grid {}'.format(grid.shape))
-        else:
-            raise WPSError('Unknown grid type for regridding: {}', grid_type)
-
-        return grid
-
-    def read_grid_from_file(gridder):
-        try:
-            with cdms2.open(gridder.grid.uri) as infile:
-                data = infile(gridder.grid.var_name)
-        except cdms2.CDMSError:
-            raise WPSError('Failed to read the grid from {} in {}', gridder.grid.var_name, gridder.grid.uri)
-
-        return data.getGrid()
-
-    def generate_grid(self, gridder, selector):
-        try:
-            if isinstance(gridder.grid, cwt.Variable):
-                grid = self.read_grid_from_file(gridder)
-            else:
-                grid = self.generate_user_defined_grid(gridder)
-        except AttributeError:
-            # Handle when gridder is None
-            return None
-
-        grid = self.subset_grid(grid, selector)
-
-        return grid
-
-    def regrid_context(self, gridder, selector):
-        grid = self.generate_grid(gridder, selector)
-
-        if isinstance(gridder.grid, cwt.Variable):
-            grid_src = gridder.grid.uri
-        else:
-            grid_src = gridder.grid
-
-        metrics.WPS_REGRID.labels(gridder.tool, gridder.method, grid_src).inc()
-
-        return grid, gridder.tool, gridder.method
 
     def new_shape(self, shape, time_slice):
         diff = time_slice.stop - time_slice.start
@@ -595,7 +593,7 @@ class FileManager(object):
 
         self.handles = {}
 
-        self.auth = {}
+        self.auth = []
 
         self.temp_dir = None
 
@@ -610,36 +608,6 @@ class FileManager(object):
             os.chdir(self.old_dir)
 
             logger.info('Reverted working directory to %r', os.getcwd())
-
-    def requires_cert(self, uri):
-        return uri in self.auth
-
-    def open_file(self, uri, skip_access_check=False):
-        logger.info('Opening file %r', uri)
-
-        if uri not in self.handles:
-            logger.info('File has not been open before')
-
-            if not skip_access_check and not self.check_access(uri):
-                cert_path = self.load_certificate()
-
-                if not self.check_access(uri, cert_path):
-                    raise WPSError('File {!r} is not accessible, check the OpenDAP service', uri)
-
-                logger.info('File %r requires certificate', uri)
-
-                self.auth[uri] = True
-
-                time.sleep(4)
-
-            logger.info('Current directory %r', os.getcwd())
-
-            try:
-                self.handles[uri] = cdms2.open(uri)
-            except Exception as e:
-                raise AccessError(uri, e)
-
-        return self.handles[uri]
 
     @staticmethod
     def write_user_certificate(cert):
@@ -657,7 +625,7 @@ class FileManager(object):
         dodsrc_path = os.path.join(temp_dir.name, '.dodsrc')
 
         with open(dodsrc_path, 'w') as outfile:
-            outfile.write('HTTP.COOKIEJAR={!s}\n'.format(dodsrc_path))
+            outfile.write('HTTP.COOKIEJAR={!s}/.dods_cookie\n'.format(temp_dir.name))
             outfile.write('HTTP.SSL.CERTIFICATE={!s}\n'.format(cert_path))
             outfile.write('HTTP.SSL.KEY={!s}\n'.format(cert_path))
             outfile.write('HTTP.SSL.VERIFY=0\n')
@@ -691,6 +659,36 @@ class FileManager(object):
 
         return self.cert_path
 
+    def requires_cert(self, uri):
+        return uri in self.auth
+
+    def open_file(self, uri, skip_access_check=False):
+        logger.info('Opening file %r', uri)
+
+        if uri not in self.handles:
+            logger.info('File has not been open before')
+
+            if not skip_access_check and not self.check_access(uri):
+                cert_path = self.load_certificate()
+
+                if not self.check_access(uri, cert_path):
+                    raise WPSError('File {!r} is not accessible, check the OpenDAP service', uri)
+
+                logger.info('File %r requires certificate', uri)
+
+                self.auth.append(uri)
+
+                time.sleep(4)
+
+            logger.info('Current directory %r', os.getcwd())
+
+            try:
+                self.handles[uri] = cdms2.open(uri)
+            except Exception as e:
+                raise AccessError(uri, e)
+
+        return self.handles[uri]
+
     def get_variable(self, uri, var_name):
         file = self.open_file(uri)
 
@@ -712,12 +710,6 @@ class FileManager(object):
 
         try:
             response = requests.get(url, timeout=(10, 30), cert=cert, verify=False)
-        except requests.ConnectionError:
-            logger.exception('Connection error %r', parts.hostname)
-
-            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
-
-            raise AccessError(url, 'Connection error to {!r}'.format(parts.hostname))
         except requests.ConnectTimeout:
             logger.exception('Timeout connecting to %r', parts.hostname)
 
@@ -730,6 +722,12 @@ class FileManager(object):
             metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
 
             raise AccessError(url, 'Timeout reading from {!r}'.format(parts.hostname))
+        except requests.ConnectionError:
+            logger.exception('Connection error %r', parts.hostname)
+
+            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
+
+            raise AccessError(url, 'Connection error to {!r}'.format(parts.hostname))
 
         if response.status_code == 200:
             return True
