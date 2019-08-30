@@ -1,24 +1,104 @@
-import os
 import re
 import logging
-import urllib
-import tempfile
-import time
 from collections import OrderedDict
 
 import cdms2
 import cwt
 import dask
 import dask.array as da
-import requests
 import xarray as xr
 
 from compute_tasks import metrics_ as metrics
-from compute_tasks import AccessError
 from compute_tasks import WPSError
 from compute_tasks.dask_serialize import retrieve_chunk
 
 logger = logging.getLogger('compute_tasks.manager')
+
+
+def format_dimension(dim):
+    """ Formats a dimension.
+
+    Formats a cwt.Dimension to either a slice or tuple. A slice denotes that the axis
+    will not need to be mapped, whereas a tuple will need mapping.
+
+    Args:
+        dim: A cwt.Dimension to format.
+
+    Returns:
+        A slice or tuple.
+    """
+
+    if dim.crs == cwt.VALUES:
+        data = (dim.start, dim.end, dim.step)
+    elif dim.crs == cwt.INDICES:
+        data = slice(dim.start, dim.end, dim.step)
+    elif dim.crs == cwt.TIMESTAMPS:
+        data = (dim.start, dim.end, dim.step)
+    else:
+        raise WPSError('Unknown dimension CRS %r', dim)
+
+    logger.info('Formatted dimension as %r', data)
+
+    return data
+
+
+def domain_to_dict(domain):
+    """ Converts a domain to a dict.
+
+    Args:
+        domain: A cwt.Domain to convert.
+
+    Returns:
+        A dict mapping dimension names to the formatted dimension value.
+    """
+    if domain is None:
+        return {}
+
+    output = dict((x, format_dimension(y)) for x, y in domain.dimensions.items())
+
+    logger.info('Converted domain to %r', output)
+
+    return output
+
+
+def map_dimension(dim, axis):
+    if not isinstance(dim, slice):
+        try:
+            interval = axis.mapInterval(dim[:2])
+        except TypeError:
+            mapped = None
+        else:
+            if len(dim) > 2:
+                step = dim[2]
+            else:
+                step = 1
+
+            # Prevent wrapping by taking min of stop value and len of axis
+            mapped = slice(interval[0], min(interval[1], len(axis)), step)
+    else:
+        mapped = dim
+
+    logger.info('Mapped dimension %r shape %r -> %r', axis.id, dim, mapped)
+
+    return mapped
+
+
+def map_domain(domain, axes):
+    domain_dict = domain_to_dict(domain)
+
+    logger.info('Mapping domain %r', domain_dict)
+
+    map = OrderedDict()
+
+    for name, value in axes.items():
+        try:
+            dim = domain_dict[name]
+        except KeyError:
+            map[name] = slice(None, None, None)
+        else:
+            map[name] = map_dimension(dim, value)
+
+    return map
 
 
 def subset_grid(grid, selector):
@@ -37,30 +117,16 @@ def subset_grid(grid, selector):
     return target.getGrid()
 
 
-def parse_uniform_arg(value, default_start, default_n):
-    result = re.match('^(\\d\\.?\\d?)$|^(-?\\d\\.?\\d?):(\\d\\.?\\d?):(\\d\\.?\\d?)$', value)
+def parse_uniform_arg(value):
+    result = re.match(r'^(-?\d*\.?\d+):(\d*\.?\d+):(\d*\.?\d+)$', value)
 
-    if result is None:
-        raise WPSError('Failed to parse uniform argument {value}', value=value)
+    if not result:
+        raise WPSError('Uniform grid argument {!r} does not match expected format '
+                       '<start>:<number of gridlines>:<delta>', value)
 
     groups = result.groups()
 
-    if groups[1] is None:
-        delta = int(groups[0])
-
-        default_n = default_n / delta
-    else:
-        default_start = int(groups[1])
-
-        default_n = int(groups[2])
-
-        delta = int(groups[3])
-
-    start = default_start + (delta / 2.0)
-
-    logger.info('Parsed uniform args start %r default_n %r delta %r', start, default_n, delta)
-
-    return start, default_n, delta
+    return float(groups[0]), float(groups[1]), float(groups[2])
 
 
 def generate_user_defined_grid(gridder):
@@ -69,30 +135,27 @@ def generate_user_defined_grid(gridder):
     except AttributeError:
         return None
     except ValueError:
-        raise WPSError('Error generating grid "{name}"', name=gridder.grid)
+        raise WPSError('Error parsing grid definition {!r} expecting format <type>~<params>', gridder.grid)
 
-    logger.info('Generating grid %r %r', grid_type, grid_param)
+    logger.info('Parsed grid type %r and parameters %r', grid_type, grid_param)
 
     if grid_type.lower() == 'uniform':
-        result = re.match('^(.*)x(.*)$', grid_param)
+        result = re.match('^([^x]+)x(.+)$', grid_param)
 
         if result is None:
-            raise WPSError('Failed to parse uniform configuration from {value}', value=grid_param)
+            raise WPSError('Error parsing uniform grid format {!r}', grid_param)
 
-        try:
-            start_lat, nlat, delta_lat = parse_uniform_arg(result.group(1), -90.0, 180.0)
-        except WPSError:
-            raise
+        start_lat, nlat, delta_lat = parse_uniform_arg(result.group(1))
 
-        try:
-            start_lon, nlon, delta_lon = parse_uniform_arg(result.group(2), 0.0, 360.0)
-        except WPSError:
-            raise
+        logger.info('Parsed Latitude start: %r nlat: %r delat: %r', start_lat, nlat, delta_lat)
+
+        start_lon, nlon, delta_lon = parse_uniform_arg(result.group(2))
+
+        logger.info('Parsed Longitude start: %r nlat: %r delat: %r', start_lon, nlon, delta_lon)
 
         grid = cdms2.createUniformGrid(start_lat, nlat, delta_lat, start_lon, nlon, delta_lon)
 
-        logger.info('Created target uniform grid {} from lat {}:{}:{} lon {}:{}:{}'.format(
-            grid.shape, start_lat, delta_lat, nlat, start_lon, delta_lon, nlon))
+        logger.info('Created uniform grid {!r}', grid.shape)
     elif grid_type.lower() == 'gaussian':
         try:
             nlats = int(grid_param)
@@ -119,20 +182,10 @@ def read_grid_from_file(gridder):
 
 
 def generate_grid(gridder, selector):
-    try:
-        if isinstance(gridder.grid, cwt.Variable):
-            grid = read_grid_from_file(gridder)
-        else:
-            grid = generate_user_defined_grid(gridder)
-    except AttributeError:
-        # Handle when gridder is None
-        return None
-
-    return subset_grid(grid, selector)
-
-
-def regrid_context(gridder, selector):
-    grid = generate_grid(gridder, selector)
+    if isinstance(gridder.grid, cwt.Variable):
+        grid = read_grid_from_file(gridder)
+    else:
+        grid = generate_user_defined_grid(gridder)
 
     if isinstance(gridder.grid, cwt.Variable):
         grid_src = gridder.grid.uri
@@ -141,7 +194,39 @@ def regrid_context(gridder, selector):
 
     metrics.WPS_REGRID.labels(gridder.tool, gridder.method, grid_src).inc()
 
-    return grid, gridder.tool, gridder.method
+    return subset_grid(grid, selector)
+
+
+def new_shape(shape, time_slice):
+    diff = time_slice.stop - time_slice.start
+
+    return (diff, ) + shape[1:]
+
+
+def from_delayed(fm, uri, var, chunk_shape):
+    size = var.shape[0]
+
+    step = chunk_shape[0]
+
+    logger.info('Building input from delayed functions size %r step %r', size, step)
+
+    chunks = [slice(x, min(size, x+step), 1) for x in range(0, size, step)]
+
+    logger.info('Generated %r chunks', len(chunks))
+
+    delayed = [dask.delayed(retrieve_chunk)(uri, var.id, {'time': x}, fm.cert_data) for x in chunks]
+
+    arrays = [da.from_delayed(x, new_shape(var.shape, y), var.dtype) for x, y in zip(delayed, chunks)]
+
+    return da.concatenate(arrays, axis=0)
+
+
+def slice_to_subaxis(axis_slice, axis):
+    i = axis_slice.start or 0
+    j = axis_slice.stop or len(axis)
+    k = axis_slice.step or 1
+
+    return i, j, k
 
 
 class InputManager(object):
@@ -242,35 +327,6 @@ class InputManager(object):
 
         return new
 
-    def new_shape(self, shape, time_slice):
-        diff = time_slice.stop - time_slice.start
-
-        return (diff, ) + shape[1:]
-
-    def from_delayed(self, uri, var, chunk_shape):
-        size = var.shape[0]
-
-        step = chunk_shape[0]
-
-        logger.info('Building input from delayed functions size %r step %r', size, step)
-
-        chunks = [slice(x, min(size, x+step), 1) for x in range(0, size, step)]
-
-        logger.info('Generated %r chunks', len(chunks))
-
-        delayed = [dask.delayed(retrieve_chunk)(uri, var.id, {'time': x}, self.fm.cert_data) for x in chunks]
-
-        arrays = [da.from_delayed(x, self.new_shape(var.shape, y), var.dtype) for x, y in zip(delayed, chunks)]
-
-        return da.concatenate(arrays, axis=0)
-
-    def slice_to_subaxis(self, axis_slice, axis):
-        i = axis_slice.start or 0
-        j = axis_slice.stop or len(axis)
-        k = axis_slice.step or 1
-
-        return i, j, k
-
     def load_axes(self, var, stored_time):
         axis_ids = []
 
@@ -366,7 +422,7 @@ class InputManager(object):
     def subset_variables_and_axes(self, domain, target_variable):
         self.load_variables_and_axes(target_variable)
 
-        map = self.map_domain(domain, self.axes)
+        map = map_domain(domain, self.axes)
 
         for name in list(self.axes.keys()):
             if name not in self.target_var_axes:
@@ -374,10 +430,7 @@ class InputManager(object):
 
             axis_slice = map.get(name, slice(None, None, None))
 
-            try:
-                i, j, k = self.slice_to_subaxis(axis_slice, self.axes[name])
-            except AttributeError:
-                raise WPSError('Failed to convert slice to subaxis for axis {!r}', name)
+            i, j, k = slice_to_subaxis(axis_slice, self.axes[name])
 
             shape = self.axes[name].shape
 
@@ -386,27 +439,20 @@ class InputManager(object):
             logger.info('Subsetting axis %r shape %r -> %r', name, shape, self.axes[name].shape)
 
         for name in list(self.vars.keys()):
-            if name in self.vars_axes:
-                selector = OrderedDict((x, map[x]) for x in self.vars_axes[name] if x in map)
-            else:
-                selector = {}
+            selector = OrderedDict((x, map[x]) for x in self.vars_axes[name] if x in map)
 
             logger.info('Variable %r selector %r', name, selector)
 
             shape = self.vars[name].shape
 
-            # Applying selector fails take the whole axis
-            try:
-                if name == self.var_name:
-                    dask_selector = tuple(selector.values())
+            if name == self.var_name:
+                dask_selector = tuple(selector.values())
 
-                    logger.info('Dask selector %r', dask_selector)
+                logger.info('Dask selector %r', dask_selector)
 
-                    self.vars[name] = self.vars[name][dask_selector]
-                else:
-                    self.vars[name] = self.vars[name](**selector)
-            except TypeError:
-                self.vars[name] = self.vars[name]
+                self.vars[name] = self.vars[name][dask_selector]
+            else:
+                self.vars[name] = self.vars[name](**selector)
 
             logger.info('Subsetting variable %r shape %r -> %r', name, shape, self.vars[name].shape)
 
@@ -445,7 +491,9 @@ class InputManager(object):
         logger.info('Subsetting the inputs')
 
         if len(self.uris) > 1:
-            self.sort_uris()
+            temporal_info = self.gather_temporal_info()
+
+            self.sort_uris(temporal_info)
 
         for uri in self.uris:
             var = self.fm.get_variable(uri, self.var_name)
@@ -453,7 +501,7 @@ class InputManager(object):
             chunks = (100, ) + var.shape[1:]
 
             if self.fm.requires_cert(uri):
-                data.append(self.from_delayed(uri, var, chunks))
+                data.append(from_delayed(self.fm, uri, var, chunks))
             else:
                 data.append(da.from_array(var, chunks=chunks))
 
@@ -470,7 +518,7 @@ class InputManager(object):
 
         return data, subset_data
 
-    def sort_uris(self):
+    def gather_temporal_info(self):
         ordering = []
 
         for uri in self.uris:
@@ -483,11 +531,18 @@ class InputManager(object):
 
             ordering.append((uri, time.units, time[0]))
 
+        return ordering
+
+    def sort_uris(self, ordering):
         logger.info('Sorting uris with %r', ordering)
 
-        by_units = set([x[1] for x in ordering]) != 1
+        by_units = len(set([x[1] for x in ordering])) != 1
 
-        by_first = set([x[2] for x in ordering]) != 1
+        logger.info('By Units: %r', by_units)
+
+        by_first = len(set([x[2] for x in ordering])) != 1
+
+        logger.info('By Firsts: %r', by_first)
 
         if by_units:
             ordering = sorted(ordering, key=lambda x: x[1])
@@ -503,237 +558,3 @@ class InputManager(object):
         self.uris = [x[0] for x in ordering]
 
         logger.info('Sorted uris %r', self.uris)
-
-    def map_dimension(self, dim, axis):
-        if not isinstance(dim, slice):
-            try:
-                interval = axis.mapInterval(dim[:2])
-            except TypeError:
-                new_dim = None
-            else:
-                if len(dim) > 2:
-                    step = dim[2]
-                else:
-                    step = 1
-
-                # Prevent wrapping by taking min of stop value and len of axis
-                new_dim = slice(interval[0], min(interval[1], len(axis)), step)
-        else:
-            new_dim = dim
-
-        logger.info('Mapped dimension %r shape %r -> %r', axis.id, dim, new_dim)
-
-        return new_dim
-
-    def map_domain(self, domain, axes):
-        domain_dict = self.domain_to_dict(domain)
-
-        logger.info('Mapping domain %r', domain_dict)
-
-        map = OrderedDict()
-
-        for name, value in axes.items():
-            try:
-                dim = domain_dict[name]
-            except KeyError:
-                map[name] = slice(None, None, None)
-            else:
-                map[name] = self.map_dimension(dim, value)
-
-        return map
-
-    def domain_to_dict(self, domain):
-        """ Converts a domain to a dict.
-
-        Args:
-            domain: A cwt.Domain to convert.
-
-        Returns:
-            A dict mapping dimension names to the formatted dimension value.
-        """
-        if domain is None:
-            return {}
-
-        output = dict((x, self.format_dimension(y)) for x, y in domain.dimensions.items())
-
-        logger.info('Converted domain to %r', output)
-
-        return output
-
-    def format_dimension(self, dim):
-        """ Formats a dimension.
-
-        Formats a cwt.Dimension to either a slice or tuple. A slice denotes that the axis
-        will not need to be mapped, whereas a tuple will need mapping.
-
-        Args:
-            dim: A cwt.Dimension to format.
-
-        Returns:
-            A slice or tuple.
-        """
-
-        if dim.crs == cwt.VALUES:
-            data = (dim.start, dim.end, dim.step)
-        elif dim.crs == cwt.INDICES:
-            data = slice(dim.start, dim.end, dim.step)
-        elif dim.crs == cwt.TIMESTAMPS:
-            data = (dim.start, dim.end, dim.step)
-        else:
-            raise WPSError('Unknown dimension CRS %r', dim)
-
-        logger.info('Formatted dimension as %r', data)
-
-        return data
-
-
-class FileManager(object):
-    def __init__(self, context):
-        self.context = context
-
-        self.handles = {}
-
-        self.auth = []
-
-        self.temp_dir = None
-
-        self.cert_path = None
-
-        self.cert_data = None
-
-        self.old_dir = None
-
-    def __del__(self):
-        if self.old_dir is not None:
-            os.chdir(self.old_dir)
-
-            logger.info('Reverted working directory to %r', os.getcwd())
-
-    @staticmethod
-    def write_user_certificate(cert):
-        temp_dir = tempfile.TemporaryDirectory()
-
-        logger.info('Using temporary directory %s', temp_dir.name)
-
-        cert_path = os.path.join(temp_dir.name, 'cert.pem')
-
-        with open(cert_path, 'w') as outfile:
-            outfile.write(cert)
-
-        logger.info('Wrote cert.pem file')
-
-        dodsrc_path = os.path.join(temp_dir.name, '.dodsrc')
-
-        with open(dodsrc_path, 'w') as outfile:
-            outfile.write('HTTP.COOKIEJAR={!s}/.dods_cookie\n'.format(temp_dir.name))
-            outfile.write('HTTP.SSL.CERTIFICATE={!s}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.KEY={!s}\n'.format(cert_path))
-            outfile.write('HTTP.SSL.VERIFY=0\n')
-
-        logger.info('Wrote .dodsrc file')
-
-        return temp_dir, cert_path, dodsrc_path
-
-    def load_certificate(self):
-        """ Loads a user certificate.
-
-        First the users certificate is checked and refreshed if needed. It's
-        then written to disk and the processes current working directory is
-        set, allowing calls to NetCDF library to use the certificate.
-
-        Args:
-            user: User object.
-        """
-        if self.cert_path is not None:
-            return self.cert_path
-
-        self.cert_data = self.context.user_cert()
-
-        self.old_dir = os.getcwd()
-
-        self.temp_dir, self.cert_path, dodsrc_path = FileManager.write_user_certificate(self.cert_data)
-
-        os.chdir(self.temp_dir.name)
-
-        logger.info('Changed working directory to %r', self.temp_dir.name)
-
-        return self.cert_path
-
-    def requires_cert(self, uri):
-        return uri in self.auth
-
-    def open_file(self, uri, skip_access_check=False):
-        logger.info('Opening file %r', uri)
-
-        if uri not in self.handles:
-            logger.info('File has not been open before')
-
-            if not skip_access_check and not self.check_access(uri):
-                cert_path = self.load_certificate()
-
-                if not self.check_access(uri, cert_path):
-                    raise WPSError('File {!r} is not accessible, check the OpenDAP service', uri)
-
-                logger.info('File %r requires certificate', uri)
-
-                self.auth.append(uri)
-
-                time.sleep(4)
-
-            logger.info('Current directory %r', os.getcwd())
-
-            try:
-                self.handles[uri] = cdms2.open(uri)
-            except Exception as e:
-                raise AccessError(uri, e)
-
-        return self.handles[uri]
-
-    def get_variable(self, uri, var_name):
-        file = self.open_file(uri)
-
-        logger.info('Retieving FileVariable %r', var_name)
-
-        var = file[var_name]
-
-        if var is None:
-            raise WPSError('Did not find variable {!r} in {!r}', var_name, uri)
-
-        return var
-
-    def check_access(self, uri, cert=None):
-        url = '{!s}.dds'.format(uri)
-
-        logger.info('Checking access with %r', url)
-
-        parts = urllib.parse.urlparse(url)
-
-        try:
-            response = requests.get(url, timeout=(10, 30), cert=cert, verify=False)
-        except requests.ConnectTimeout:
-            logger.exception('Timeout connecting to %r', parts.hostname)
-
-            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
-
-            raise AccessError(url, 'Timeout connecting to {!r}'.format(parts.hostname))
-        except requests.ReadTimeout:
-            logger.exception('Timeout reading from %r', parts.hostname)
-
-            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
-
-            raise AccessError(url, 'Timeout reading from {!r}'.format(parts.hostname))
-        except requests.ConnectionError:
-            logger.exception('Connection error %r', parts.hostname)
-
-            metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
-
-            raise AccessError(url, 'Connection error to {!r}'.format(parts.hostname))
-
-        if response.status_code == 200:
-            return True
-
-        logger.info('Checking url failed with status code %r', response.status_code)
-
-        metrics.WPS_DATA_ACCESS_FAILED.labels(parts.hostname).inc()
-
-        return False

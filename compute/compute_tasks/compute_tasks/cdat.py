@@ -258,7 +258,7 @@ def regrid(operation, *inputs):
     selector = dict((x, (input.axes[x][0], input.axes[x][-1])) for x in input.variable_axes)
 
     # Generate the target grid
-    grid, tool, method = input.regrid_context(gridder, selector)
+    grid, tool, method = managers.generate_grid(gridder, selector), gridder.tool, gridder.method
 
     # Convert to delayed functions
     delayed = input.variable.to_delayed().squeeze()

@@ -384,7 +384,7 @@ def test_regrid(esgf_data):
 
     cdat.regrid(operation, input)
 
-    assert input.variable.shape == (3650, 32, 64)
+    assert input.variable.shape == (7300, 32, 64)
 
     assert input.axes['lat'].shape == (32, )
 

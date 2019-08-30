@@ -9,86 +9,86 @@ from compute_tasks import WPSError
 
 
 def test_check_access_no_success_status(mocker):
-    mocker.patch.object(managers.requests, 'get')
+    mocker.patch.object(managers.file_manager.requests, 'get')
 
-    managers.requests.get.return_value.status_code = 401
+    managers.file_manager.requests.get.return_value.status_code = 401
 
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     output = fm.check_access('file:///test.nc')
 
     assert not output
 
-    managers.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
+    managers.file_manager.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
 
 
 def test_check_access_read_timeout(mocker):
-    mocker.patch.object(managers.requests, 'get')
+    mocker.patch.object(managers.file_manager.requests, 'get')
 
-    managers.requests.get.side_effect = requests.ReadTimeout
+    managers.file_manager.requests.get.side_effect = requests.ReadTimeout
 
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     with pytest.raises(AccessError):
         fm.check_access('file:///test.nc')
 
-    managers.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
+    managers.file_manager.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
 
 
 def test_check_access_connect_timeout(mocker):
-    mocker.patch.object(managers.requests, 'get')
+    mocker.patch.object(managers.file_manager.requests, 'get')
 
-    managers.requests.get.side_effect = requests.ConnectTimeout
+    managers.file_manager.requests.get.side_effect = requests.ConnectTimeout
 
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     with pytest.raises(AccessError):
         fm.check_access('file:///test.nc')
 
-    managers.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
+    managers.file_manager.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
 
 
 def test_check_access_connection_error(mocker):
-    mocker.patch.object(managers.requests, 'get')
+    mocker.patch.object(managers.file_manager.requests, 'get')
 
-    managers.requests.get.side_effect = requests.ConnectionError
+    managers.file_manager.requests.get.side_effect = requests.ConnectionError
 
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     with pytest.raises(AccessError):
         fm.check_access('file:///test.nc')
 
-    managers.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
+    managers.file_manager.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
 
 
 def test_check_access(mocker):
-    mocker.patch.object(managers, 'requests')
+    mocker.patch.object(managers.file_manager, 'requests')
 
-    managers.requests.get.return_value.status_code = 200
+    managers.file_manager.requests.get.return_value.status_code = 200
 
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     output = fm.check_access('file:///test.nc')
 
     assert output
 
-    managers.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
+    managers.file_manager.requests.get.assert_called_with('file:///test.nc.dds', timeout=(10, 30), cert=None, verify=False)
 
 
 def test_get_variable_var_missing(mocker):
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     mocker.patch.object(fm, 'open_file')
 
@@ -105,7 +105,7 @@ def test_get_variable_var_missing(mocker):
 def test_get_variable(mocker):
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     mocker.patch.object(fm, 'open_file')
 
@@ -121,7 +121,7 @@ def test_get_variable(mocker):
 def test_load_certificate_already_exists(mocker):
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     fm.cert_path = '/tmp/test/test.pem'
 
@@ -133,16 +133,16 @@ def test_load_certificate_already_exists(mocker):
 def test_load_certificate(mocker):
     context = mocker.MagicMock()
 
-    mocker.patch.object(managers.os, 'chdir')
+    mocker.patch.object(managers.file_manager.os, 'chdir')
 
-    mocker.patch.object(managers.FileManager, 'write_user_certificate')
+    mocker.patch.object(managers.file_manager.FileManager, 'write_user_certificate')
 
     temp_dir = mocker.MagicMock()
     temp_dir.name = '/tmp/test'
 
-    managers.FileManager.write_user_certificate.return_value = (temp_dir, '/tmp/test/test.pem', '/tmp/test/.dodsrc')
+    managers.file_manager.FileManager.write_user_certificate.return_value = (temp_dir, '/tmp/test/test.pem', '/tmp/test/.dodsrc')
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     output = fm.load_certificate()
 
@@ -150,11 +150,11 @@ def test_load_certificate(mocker):
 
     context.user_cert.assert_called()
 
-    managers.os.chdir.assert_called_with('/tmp/test')
+    managers.file_manager.os.chdir.assert_called_with('/tmp/test')
 
 
 def test_write_user_certificate(mocker):
-    temp_dir, cert_path, dodsrc_path = managers.FileManager.write_user_certificate('cert_data')
+    temp_dir, cert_path, dodsrc_path = managers.file_manager.FileManager.write_user_certificate('cert_data')
 
     assert os.path.exists(temp_dir.name)
     assert os.path.exists(cert_path)
@@ -181,11 +181,11 @@ def test_open_file_error_open(mocker, esgf_data):
 
     local_path = esgf_data.to_local_path('tas')
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
-    mocker.patch.object(managers, 'cdms2')
+    mocker.patch.object(managers.file_manager, 'cdms2')
 
-    managers.cdms2.open.side_effect = Exception
+    managers.file_manager.cdms2.open.side_effect = Exception
 
     mocker.patch.object(fm, 'check_access')
 
@@ -205,7 +205,7 @@ def test_open_file_check_access_fail(mocker, esgf_data):
 
     local_path = esgf_data.to_local_path('tas')
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     mocker.patch.object(fm, 'load_certificate')
 
@@ -227,7 +227,7 @@ def test_open_file_check_access_no_cert_fail(mocker, esgf_data):
 
     local_path = esgf_data.to_local_path('tas')
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     mocker.patch.object(fm, 'load_certificate')
 
@@ -252,7 +252,7 @@ def test_open_file(mocker, esgf_data):
 
     local_path = esgf_data.to_local_path('tas')
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     mocker.patch.object(fm, 'check_access')
 
@@ -270,7 +270,7 @@ def test_open_file(mocker, esgf_data):
 def test_requires_cert_required(mocker):
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     fm.auth.append('file:///test1.nc')
 
@@ -280,18 +280,18 @@ def test_requires_cert_required(mocker):
 def test_requires_cert(mocker):
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     assert not fm.requires_cert('file:///test1.nc')
 
 
 def test_file_manager(mocker):
-    mocker.patch.object(managers, 'os')
+    mocker.patch.object(managers.file_manager, 'os')
 
     context = mocker.MagicMock()
 
-    fm = managers.FileManager(context)
+    fm = managers.file_manager.FileManager(context)
 
     del fm
 
-    managers.os.chdir.assert_not_called()
+    managers.file_manager.os.chdir.assert_not_called()
