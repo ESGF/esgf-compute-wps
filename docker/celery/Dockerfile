@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.6.14 as builder
+FROM continuumio/miniconda3:4.7.10 as builder
 
 RUN conda install -y conda-build
 
@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends vim && \
       pip install -e compute_provisioner/ && \
       pip install -e compute_tasks/
 
-FROM continuumio/miniconda3:4.6.14
+FROM continuumio/miniconda3:4.7.10
 
 RUN mkdir -p /tmp/certs && \
       curl -sL https://github.com/ESGF/esgf-dist/raw/master/installer/certs/esg_trusted_certificates.tar | tar xvf - -C /tmp/certs --strip 1

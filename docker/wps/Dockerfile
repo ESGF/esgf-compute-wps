@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.6.14 as builder
+FROM continuumio/miniconda3:4.7.10 as builder
 
 ARG GIT_SHORT_COMMIT
 ARG COMPUTE_API_VER
@@ -48,7 +48,7 @@ ENTRYPOINT ["tini", "--"]
 
 CMD ["/bin/bash"]
 
-FROM continuumio/miniconda3:4.6.14
+FROM continuumio/miniconda3:4.7.10
 
 COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
