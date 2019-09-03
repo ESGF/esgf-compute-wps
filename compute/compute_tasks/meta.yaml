@@ -25,12 +25,7 @@ requirements:
   run:
     - python
     - nomkl=3.0
-    - cdms2=3.1.2.2019.05.08.23.56
-    - libcdms=3.1.2.2019.02.09.03.57
-    - libdrs=3.1.2.2019.02.09.01.20
-    - libdrs_f=3.1.2.2019.02.09.01.20
-    - cdtime=3.1.2.2019.02.09.12.03
-    - cdutil=8.1
+    - cdms2>=3.1
     - esgf-compute-api={{ environ.get('COMPUTE_API_VER') }}
     - pyzmq=18.0.1
     - redis-py=3.2.1

@@ -26,7 +26,7 @@ FROM builder as dev
 
 RUN apt-get update && apt-get install -y --no-install-recommends vim && \
       # Use conda to install package for dependencies
-      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-tasks &&\
+      conda install -c conda-forge -c cdat  --use-local --only-deps compute-tasks &&\
       conda install -c conda-forge flake8 pytest pytest-mock pytest-cov && \
       pip install -e compute_kubernetes/ && \
       pip install -e compute_provisioner/ && \
@@ -40,7 +40,7 @@ RUN mkdir -p /tmp/certs && \
 COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
-RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-tasks && \
+RUN conda install -c conda-forge -c cdat --use-local compute-tasks && \
       conda clean -a -y
 
 WORKDIR /
