@@ -3,9 +3,19 @@ import json
 
 import cwt
 from celery import Celery
+from celery import signals
 from kombu import serialization
 
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
+
+
+@signals.import_modules.connect
+def import_modules_handler(*args, **kwargs):
+    from compute_tasks import base
+
+    base.discover_processes()
+
+    base.build_process_bindings()
 
 
 def default(obj):

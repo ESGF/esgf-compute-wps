@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import os
+import types
 from functools import partial
 
 import cdms2
@@ -563,7 +564,14 @@ def process_wrapper(self, context):
     return context
 
 
-def register_processes():
+def copy_process_wrapper(f, operation):
+    name = '{!s}_func'.format(operation)
+
+    return types.FunctionType(f.__code__, f.__globals__, name=name, argdefs=f.__defaults__, closure=f.__closure__)
+
+
+def discover_processes():
+    from compute_tasks import base
     from compute_tasks import cdat
 
     template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
@@ -571,9 +579,9 @@ def register_processes():
     for name, func in PROCESS_FUNC_MAP.items():
         module, operation = name.split('.')
 
-        process_wrapper.__name__ = '{!s}_func'.format(operation)
+        p = copy_process_wrapper(process_wrapper, operation)
 
-        shared = base.cwt_shared_task()(process_wrapper)
+        shared = base.cwt_shared_task()(p)
 
         abstract = render_abstract(DESCRIPTION_MAP[name], func, template)
 
@@ -590,7 +598,6 @@ def register_processes():
 
         register = base.register_process(module, operation, abstract=abstract, inputs=inputs)(shared)
 
-        setattr(cdat, process_wrapper.__name__, register)
+        setattr(cdat, p.__name__, register)
 
-
-register_processes()
+    return base.REGISTRY.values()

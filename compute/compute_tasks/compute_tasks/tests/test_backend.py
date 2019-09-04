@@ -132,6 +132,7 @@ def test_resource_request(mocker):
     mocker.patch.dict(os.environ, {
         'IMAGE': 'aims2.llnl.gov/compute-celery',
         'WORKERS': '10',
+        'WPS_DEV': '1',
     })
 
     env = mocker.MagicMock()
@@ -144,11 +145,11 @@ def test_resource_request(mocker):
             mocker.call('dask-scheduler-pod.yaml'),
             mocker.call('dask-scheduler-service.yaml'),
             mocker.call('dask-worker-deployment.yaml'),
-            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
+            mocker.call().render(data_claim_name='data-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
                                  image_pull_secret=None, user='0', workers='10'),
-            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
+            mocker.call().render(data_claim_name='data-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
                                  image_pull_secret=None, user='0', workers='10'),
-            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
+            mocker.call().render(data_claim_name='data-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
                                  image_pull_secret=None, user='0', workers='10'),
     ])
 

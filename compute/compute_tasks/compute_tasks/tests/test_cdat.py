@@ -695,7 +695,7 @@ def test_process_wrapper(mocker):
     cdat.Client.return_value.compute.assert_called_with(to_netcdf.return_value)
 
 
-def test_register_processes(mocker):
+def test_discover_processes(mocker):
     mock_partial = mocker.MagicMock()
     mocker.spy(builtins, 'setattr')
     mocker.patch.object(base, 'cwt_shared_task')
@@ -707,10 +707,10 @@ def test_register_processes(mocker):
         'CDAT.subset': mock_partial,
     }, True)
 
-    cdat.register_processes()
+    cdat.discover_processes()
 
     base.cwt_shared_task.assert_called()
-    base.cwt_shared_task.return_value.assert_called_with(cdat.process_wrapper)
+    base.cwt_shared_task.return_value.assert_called()
 
     template = cdat.Environment.return_value.from_string.return_value
 

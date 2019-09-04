@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import requests
 
@@ -48,7 +50,9 @@ def test_query_prometheus(mocker):
 
     output = metrics.query_prometheus(verify=False)
 
-    metrics.requests.get.assert_called_with('/prometheus/api/v1/query', params={'verify': False}, timeout=(1, 30))
+    expected_url = '{!s}/prometheus/api/v1/query'.format(os.environ.get('PROMETHEUS_HOST'))
+
+    metrics.requests.get.assert_called_with(expected_url, params={'verify': False}, timeout=(1, 30))
 
     assert output == 10
 

@@ -7,7 +7,7 @@ from functools import partial
 import jinja2
 
 from compute_tasks import base
-from compute_tasks import celery # noqa
+from compute_tasks import celery_ as celery
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
 from compute_tasks import context

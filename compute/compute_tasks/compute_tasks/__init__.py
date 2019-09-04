@@ -1,7 +1,10 @@
 import os
 
+from celery.utils.log import get_task_logger
+
 os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
 
+logger = get_task_logger('wps.tasks.base')
 
 class WPSError(Exception):
     def __init__(self, fmt=None, *args, **kwargs):
