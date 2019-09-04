@@ -44,8 +44,6 @@ WORKDIR /src/compute/compute_wps
 
 COPY docker/wps/development.sh .
 
-ENTRYPOINT ["tini", "--"]
-
 CMD ["/bin/bash"]
 
 FROM continuumio/miniconda3:4.7.10
@@ -55,8 +53,13 @@ COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
 WORKDIR /
 
-RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-wps && \
-      django-admin startproject compute
+RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-wps curl && \
+      django-admin startproject compute 
+
+ENV TINI_VERSION v0.18.0
+
+RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/local/bin/tini && \
+      chmod +x /usr/local/bin/tini
 
 COPY docker/wps/django.properties /etc/config/
 
@@ -70,6 +73,6 @@ COPY docker/wps/entrypoint.sh .
 
 EXPOSE 8000
 
-ENTRYPOINT ["tini", "--"]
+ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
 CMD ["./entrypoint.sh"]

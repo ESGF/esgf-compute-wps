@@ -27,6 +27,6 @@ COPY docker/thredds/server.xml ${CATALINA_HOME}/conf/server.xml
 # Entrypoint
 COPY docker/thredds/entrypoint.sh entrypoint.sh
 
-ENTRYPOINT ["tini", "--"]
+ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
 CMD ["/bin/bash", "-c", "./entrypoint.sh ${CATALINA_HOME}/bin/catalina.sh run"]

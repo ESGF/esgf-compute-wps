@@ -154,7 +154,7 @@ def load_processes(state, register_tasks=True):
         for item in base.discover_processes():
             try:
                 state.register_process(**item)
-            except context.ProcessExistsError:  # pragma: no cover
+            except state_mixin.ProcessExistsError:  # pragma: no cover
                 logger.info('Process %r already exists', item['identifier'])
 
                 pass
