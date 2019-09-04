@@ -6,7 +6,7 @@ from openid.consumer import consumer
 # from openid.yadis.discover import DiscoveryFailure
 from openid.consumer import discover
 from compute_wps.auth import openid
-
+from compute_wps import models
 
 class OpenIDTestCase(test.TestCase):
     fixtures = ['users.json']

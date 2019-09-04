@@ -428,44 +428,6 @@ class Job(models.Model):
 
         metrics.WPS_JOBS_ACCEPTED.inc()
 
-    def started(self):
-        # Guard against duplicates
-        if not self.is_started:
-            status = self.status.create(status=ProcessStarted)
-
-            status.set_message('Job Started', self.progress)
-
-            metrics.WPS_JOBS_STARTED.inc()
-
-    def succeeded(self, output=None):
-        # Guard against duplicates
-        if not self.is_succeeded:
-            if output is None:
-                output = ''
-
-            status = self.status.create(status=ProcessSucceeded)
-
-            status.output = output
-
-            status.save()
-
-            metrics.WPS_JOBS_SUCCEEDED.inc()
-
-    def failed(self, exception):
-        # Guard against duplicates
-        if not self.is_failed:
-            status = self.status.create(status=ProcessFailed)
-
-            status.exception = exception
-
-            status.save()
-
-            metrics.WPS_JOBS_FAILED.inc()
-
-    def retry(self, exception):
-        self.update('Retrying... {}', exception)
-
-
 class Output(models.Model):
     job = models.ForeignKey(Job, related_name='output', on_delete=models.CASCADE)
 

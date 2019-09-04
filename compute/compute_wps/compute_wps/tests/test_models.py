@@ -8,8 +8,9 @@ import cwt
 
 from django import test
 from django.contrib.auth.models import User
-
+from django.db.models import DateTimeField
 from compute_wps import models
+from compute_wps import metrics
 
 # TEMPORARY
 from openid import association
@@ -419,7 +420,129 @@ class ModelsUserProcessTestCase(test.TestCase):
     def test_UserProcess_str(self):
         self.assertEqual(str(self.user_process), self.identifier)
 
-class CacheModelTestCase(test.TestCase):
-    pass
+class ModelsServerTestCase(test.TestCase):
+    server_host1 = "test_host1"
+    server_host2 = "test_host2"
 
-# WPS_DEBUG=1 python /compute/manage.py test compute_wps.tests.test_models.ModelsUserFileTestCase.test_UserFile_to_json
+    def setUp(self):
+        self.server1 = models.Server(host=self.server_host1)
+        self.server1.save()
+        self.server2 = models.Server(host=self.server_host2)
+        self.server2.save()
+
+    def test_Server(self):
+        '''
+        verify the ManyToManyField relationship between Server and Process
+        '''
+        self.user = models.User.objects.create_user('test_user1', 'test_email@test.com', 'test_password1')
+        process1 = models.Process(identifier='test_proc_id1', version='1.0.0')
+        process1.save()
+        process1.track(self.user)
+
+        process2 = models.Process(identifier='test_proc_id2', version='1.0.0')
+        process2.save()
+        process2.track(self.user)
+
+        self.server1.processes.add(process1)
+        self.server1.processes.add(process2)
+
+        self.server2.processes.add(process1)
+
+        processes = self.server1.processes.all()
+        self.assertEqual(len(processes), 2)
+
+        servers = process1.server_set.all()
+        self.assertEqual(len(servers), 2)
+
+    def test_Server_str(self):
+        self.assertEqual(str(self.server1), self.server_host1)
+        self.assertEqual(str(self.server2), self.server_host2)
+        self.assertEqual(self.server1.status, 1)
+
+class ModelsJobTestCase(test.TestCase):
+
+    job_started_msg = "Job Started"
+
+    def setUp(self):
+        self.user = models.User.objects.create_user('test_user1', 'test_email@test.com', 'test_password1')
+        self.process = models.Process(identifier='test_proc_id1', version='1.0.0')
+        self.process.save()
+        self.process.track(self.user)
+
+    def test_Job_not_accepted_yet(self):
+        self.job = models.Job(user=self.user, process=self.process)
+        self.job.save()
+        self.assertEqual('Unknown', self.job.accepted_on)
+        self.job.delete()
+
+    def test_Job_accepted(self):
+        self.job = models.Job(user=self.user, process=self.process)
+        self.job.save()
+        self.job.accepted()
+        self.assertEqual(self.job.status.latest('created_date').status, models.ProcessAccepted)
+        self.assertEqual(self.job.status.latest('created_date').created_date.isoformat(), self.job.accepted_on)
+        print("xxx created_date: ", self.job.status.latest('created_date').created_date)
+        print("xxx accepted_on: ", self.job.accepted_on)
+        self.job.delete()
+
+    def test_Job_not_started(self):
+        '''
+        verify is_started property returns False on a job that has not started yet.        
+        '''
+        self.job = models.Job(user=self.user, process=self.process)
+        self.job.save()
+        self.job.accepted()
+        self.assertFalse(self.job.is_started)
+   
+class ModelsOutputTestCase(test.TestCase):
+    def test_Output(self):
+        user = models.User.objects.create_user('test_user1', 'test_email@test.com', 'test_password1')
+        process = models.Process(identifier='test_proc_id1', version='1.0.0')
+        process.save()
+        process.track(user)
+        job = models.Job(user=user, process=process)
+        job.save()
+
+        output1 = models.Output(job=job)
+        output1.save()
+
+        output2 = models.Output(job=job)
+        output2.save()
+
+        the_job = models.Job.objects.first()
+        outputs = the_job.output.all()
+        self.assertEqual(len(outputs), 2)
+
+        # QUESTION:
+        # NOT SURE what to check / assert here..
+        # Output class has 'path = models.URLField()'
+
+class ModelsStatusTestCase(test.TestCase):
+
+    def setUp(self):
+        user = models.User.objects.create_user('test_user1', 'test_email@test.com', 'test_password1')
+        process = models.Process(identifier='test_proc_id1', version='1.0.0')
+        process.save()
+        process.track(user)
+        job = models.Job(user=user, process=process)
+        job.save()
+        self.status = models.Status(job=job)
+        self.status.save()
+
+    def test_set_message_no_percent(self):
+        msg = "job started test message"
+        self.status.set_message(msg)
+        self.assertEqual(self.status.latest_message, msg)
+        self.assertEqual(self.status.latest_percent, None)
+
+    def test_set_message(self):
+        msg = "job started test message"
+        percent = 88
+        self.status.set_message(msg, percent)
+        self.assertEqual(self.status.latest_message, msg)
+        self.assertEqual(self.status.latest_percent, percent)
+
+    # QUESTION:
+    # do we use the Status' status field? how does it get set?
+    # not sure how to test Status' exception_clean
+
