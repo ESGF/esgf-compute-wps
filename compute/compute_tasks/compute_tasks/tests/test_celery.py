@@ -7,6 +7,16 @@ from compute_tasks import celery_ as celery
 from compute_tasks.context import operation
 
 
+def test_import_handlers(mocker):
+    base = mocker.patch('compute_tasks.base')
+
+    celery.import_modules_handler()
+
+    base.discover_processes.assert_called()
+
+    base.build_process_bindings.assert_called()
+
+
 def test_byteify():
     data = {
         b'data': {

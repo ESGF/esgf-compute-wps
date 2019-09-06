@@ -452,7 +452,11 @@ class InputManager(object):
 
                 self.vars[name] = self.vars[name][dask_selector]
             else:
-                self.vars[name] = self.vars[name](**selector)
+                try:
+                    self.vars[name] = self.vars[name](**selector)
+                except TypeError:
+                    # No Reason to subset
+                    pass
 
             logger.info('Subsetting variable %r shape %r -> %r', name, shape, self.vars[name].shape)
 

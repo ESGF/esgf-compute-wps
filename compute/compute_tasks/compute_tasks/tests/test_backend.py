@@ -145,12 +145,15 @@ def test_resource_request(mocker):
             mocker.call('dask-scheduler-pod.yaml'),
             mocker.call('dask-scheduler-service.yaml'),
             mocker.call('dask-worker-deployment.yaml'),
-            mocker.call().render(data_claim_name='data-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret=None, user='0', workers='10'),
-            mocker.call().render(data_claim_name='data-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret=None, user='0', workers='10'),
-            mocker.call().render(data_claim_name='data-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret=None, user='0', workers='10'),
+            mocker.call().render(data_claim_name='data-dev-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
+                                 image_pull_secret='docker-registry-config-aims2', image_pull_policy='IfNotPresent',
+                                 user='0', workers='10'),
+            mocker.call().render(data_claim_name='data-dev-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
+                                 image_pull_secret='docker-registry-config-aims2', image_pull_policy='IfNotPresent',
+                                 user='0', workers='10'),
+            mocker.call().render(data_claim_name='data-dev-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
+                                 image_pull_secret='docker-registry-config-aims2', image_pull_policy='IfNotPresent',
+                                 user='0', workers='10'),
     ])
 
     assert output == '["", "", ""]'

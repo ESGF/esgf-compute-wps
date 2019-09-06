@@ -135,7 +135,7 @@ def test_output_ops(cwt_data):
     assert set([x.identifier for x in ops]) == set(['CDAT.divide', 'CDAT.min', 'CDAT.max'])
 
 
-def test_is_regrid(cwt_data):
+def test_accessors(cwt_data):
     ctx = operation.OperationContext()
 
     cwt_data.op1.gridder = cwt.Gridder()
@@ -143,24 +143,20 @@ def test_is_regrid(cwt_data):
     ctx.operation = cwt_data.op1
 
     assert ctx.is_regrid
-
-
-def test_identifier(cwt_data):
-    ctx = operation.OperationContext()
-    ctx.operation = cwt_data.op1
-
     assert ctx.identifier == 'CDAT.aggregate'
+    assert ctx.inputs == []
+    assert ctx.domain is None
 
 
 def test_to_dict(cwt_data):
     data = {
-        'variable': {
+        '_variable': {
             'v1': cwt_data.v1,
         },
-        'domain': {
+        '_domain': {
             'd0': cwt_data.d0,
         },
-        'operation': {
+        '_operation': {
             'op1': cwt_data.op1,
         },
         'output': [
@@ -170,48 +166,33 @@ def test_to_dict(cwt_data):
         'job': 0,
         'user': 0,
         'process': 0,
+        'operation': cwt_data.op1,
+        'gdomain': None,
+        'gparameters': {},
     }
 
     ctx = operation.OperationContext.from_dict(data)
 
     output = ctx.to_dict()
 
-    assert 'variable' in output
-    assert 'domain' in output
+    assert '_variable' in output
+    assert '_domain' in output
+    assert '_operation' in output
     assert 'operation' in output
+    assert 'gdomain' in output
+    assert 'gparameters' in output
     assert 'output' in output
-
-
-def test_from_dict_missing_required(cwt_data):
-    data = {
-        'domain': {
-            'd0': cwt_data.d0,
-        },
-        'operation': {
-            'op1': cwt_data.op1,
-        },
-        'output': [
-            cwt_data.v1,
-        ],
-        'extra': {},
-        'job': 0,
-        'user': 0,
-        'process': 0,
-    }
-
-    with pytest.raises(WPSError):
-        operation.OperationContext.from_dict(data)
 
 
 def test_from_dict(cwt_data):
     data = {
-        'variable': {
+        '_variable': {
             'v1': cwt_data.v1,
         },
-        'domain': {
+        '_domain': {
             'd0': cwt_data.d0,
         },
-        'operation': {
+        '_operation': {
             'op1': cwt_data.op1,
         },
         'output': [
@@ -221,6 +202,9 @@ def test_from_dict(cwt_data):
         'job': 0,
         'user': 0,
         'process': 0,
+        'operation': cwt_data.op1,
+        'gdomain': None,
+        'gparameters': {},
     }
 
     ctx = operation.OperationContext.from_dict(data)

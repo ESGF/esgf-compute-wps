@@ -13,12 +13,15 @@ class OperationContext(state_mixin.StateMixin, object):
     def __init__(self, variable=None, domain=None, operation=None):
         super(OperationContext, self).__init__()
 
-        self._variable = variable
-        self._domain = domain
-        self._operation = operation
+        self._variable = variable or {}
+        self._domain = domain or {}
+        self._operation = operation or {}
 
         self.operation = None
         self.output = []
+
+        self.gdomain = None
+        self.gparameters = None
 
     @staticmethod
     def decode_data_inputs(data_inputs):
@@ -75,17 +78,27 @@ class OperationContext(state_mixin.StateMixin, object):
         except IndexError:
             raise WPSError('Error finding operation {!r}', identifier)
 
+        gdomain = None
+
+        gparameters = None
+
         if identifier == 'CDAT.workflow':
             # Remove workflow operation servers no further purpose
             operation.pop(root_op.name)
 
             gdomain = domain.get(root_op.domain, None)
 
-            OperationContext.resolve_dependencies(variable, domain, operation, gdomain, root_op.parameters)
+            gparameters = root_op.parameters
+
+            OperationContext.resolve_dependencies(variable, domain, operation, gdomain, gparameters)
         else:
             OperationContext.resolve_dependencies(variable, domain, operation)
 
         ctx = cls(variable, domain, operation)
+
+        ctx.gdomain = gdomain
+
+        ctx.gparameters = gparameters
 
         if identifier == 'CDAT.workflow':
             try:
@@ -95,20 +108,37 @@ class OperationContext(state_mixin.StateMixin, object):
         else:
             ctx.operation = root_op
 
+        logger.info('Set context operation to %r', ctx.operation)
+
         return ctx
 
     @classmethod
     def from_dict(cls, data):
-        try:
-            variable = data.pop('variable')
+        gdomain = data.pop('gdomain')
 
-            domain = data.pop('domain')
+        gparameters = data.pop('gparameters')
 
-            operation = data.pop('operation')
-        except KeyError:
-            raise WPSError('Unabled to load operation context')
+        variable = data.pop('_variable')
+
+        domain = data.pop('_domain')
+
+        operation = data.pop('_operation')
+
+        OperationContext.resolve_dependencies(variable, domain, operation, gdomain, gparameters)
 
         obj = cls(variable, domain, operation)
+
+        obj.operation = data.pop('operation')
+
+        try:
+            obj.operation.inputs = [variable[x] if x in variable else operation[x] for x in obj.operation.inputs]
+        except AttributeError:
+            pass
+
+        try:
+            obj.operation.domain = domain.get(obj.operation.domain, None)
+        except AttributeError:
+            pass
 
         obj.output = data.pop('output')
 
@@ -118,9 +148,12 @@ class OperationContext(state_mixin.StateMixin, object):
 
     def to_dict(self):
         data = {
-            'variable': self._variable,
-            'domain': self._variable,
-            'operation': self._operation,
+            'gdomain': self.gdomain,
+            'gparameters': self.gparameters,
+            '_variable': self._variable,
+            '_domain': self._domain,
+            '_operation': self._operation,
+            'operation': self.operation,
             'output': self.output,
         }
 
@@ -131,6 +164,14 @@ class OperationContext(state_mixin.StateMixin, object):
     @property
     def identifier(self):
         return self.operation.identifier
+
+    @property
+    def domain(self):
+        return self.operation.domain
+
+    @property
+    def inputs(self):
+        return self.operation.inputs
 
     @property
     def is_regrid(self):

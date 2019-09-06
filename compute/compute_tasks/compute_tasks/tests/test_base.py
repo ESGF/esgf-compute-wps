@@ -28,13 +28,20 @@ def test_build_process_bindings_error(mocker):
 
     tests.process_bindings.side_effect = Exception()
 
-    base.build_process_bindings()
+    base.build_process_bindings(ignore_modules=['base'])
 
     assert 'test_process' not in base.BINDINGS
 
 
-def test_build_process_bindings():
+def test_build_process_bindings_empty_ignore():
     base.build_process_bindings()
+
+    assert len(base.BINDINGS) > 0
+    assert 'test_process' not in base.BINDINGS
+
+
+def test_build_process_bindings():
+    base.build_process_bindings(ignore_modules=['base'])
 
     assert len(base.BINDINGS) > 0
     assert 'test_process' in base.BINDINGS

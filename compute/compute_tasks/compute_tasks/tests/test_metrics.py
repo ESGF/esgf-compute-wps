@@ -1,5 +1,3 @@
-import os
-
 import pytest
 import requests
 
@@ -39,6 +37,8 @@ def test_query_prometheus_connection_error(mocker):
 
 
 def test_query_prometheus(mocker):
+    metrics.PROMETHEUS_HOST = '127.0.0.1'
+
     mocker.patch.object(metrics, 'requests')
 
     metrics.requests.get.return_value.json.return_value = {
@@ -50,7 +50,7 @@ def test_query_prometheus(mocker):
 
     output = metrics.query_prometheus(verify=False)
 
-    expected_url = '{!s}/prometheus/api/v1/query'.format(os.environ.get('PROMETHEUS_HOST'))
+    expected_url = '127.0.0.1/prometheus/api/v1/query'
 
     metrics.requests.get.assert_called_with(expected_url, params={'verify': False}, timeout=(1, 30))
 

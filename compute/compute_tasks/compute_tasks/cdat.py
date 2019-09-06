@@ -47,7 +47,7 @@ class DaskJobTracker(ProgressBar):
         loop_runner.run_sync(self.listen)
 
     def _draw_bar(self, **kwargs):
-        logger.info('_draw_bar %r', kwargs)
+        logger.debug('_draw_bar %r', kwargs)
 
         remaining = kwargs.get('remaining', 0)
 
@@ -522,6 +522,9 @@ Optional parameters:
 
 
 def process_wrapper(self, context):
+    # TODO create custom retry wrapper, build_workflow is expensive and theres no real
+    # way to cache the interm dict, so localizing retries could be a solid solution.
+    # See workflow_func
     try:
         client = Client('{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE))
     except OSError:
@@ -529,7 +532,7 @@ def process_wrapper(self, context):
 
     fm = managers.FileManager(context)
 
-    inputs = gather_inputs(context.identifier, fm, context.inputs)
+    inputs = gather_inputs(context.operation.identifier, fm, context.operation.inputs)
 
     if context.identifier in PROCESS_FUNC_MAP:
         func = PROCESS_FUNC_MAP[context.identifier]

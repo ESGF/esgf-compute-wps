@@ -165,6 +165,8 @@ class StateMixin(object):
 
         r = retry(count=4, delay=4, ignore=ignore_errors)(self.client.action)
 
+        logger.debug('Action keys %r params %r kwargs %r', keys, params, kwargs)
+
         try:
             return r(self.schema, keys, params=params, **kwargs)
             # return self.client.action(self.schema, keys, params=params, **kwargs)
@@ -200,7 +202,7 @@ class StateMixin(object):
 
         msg = fmt.format(*args, **kwargs)
 
-        logger.info('%s', msg)
+        logger.info('%s: %r', msg, percent)
 
         params = {
             'job_pk': self.job,
