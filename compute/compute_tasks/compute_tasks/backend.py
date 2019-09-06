@@ -120,6 +120,7 @@ def resource_request(frames, env):
     data = {
         'image': os.environ['IMAGE'],
         'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
+        'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
         'dev': os.environ.get('DEV', False),
         'user': user,
         'workers': os.environ['WORKERS'],
@@ -191,9 +192,9 @@ def backend_argparse():  # pragma: no cover
 
     parser.add_argument('--queue-host', help='Queue to communicate with')
 
-    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_false')
+    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_true')
 
-    parser.add_argument('--skip-init-api', help='Skip initializing API', action='store_false')
+    parser.add_argument('--skip-init-api', help='Skip initializing API', action='store_true')
 
     parser.add_argument('-d', help='Development mode', action='store_true')
 
@@ -205,9 +206,9 @@ def main():
 
     args = parser.parse_args()
 
-    register_tasks = not args.skip_register_tasks or not args.d
+    register_tasks = not (args.skip_register_tasks or args.d)
 
-    init_api = not args.skip_init_api or not args.d
+    init_api = not (args.skip_init_api or args.d)
 
     logging.basicConfig(level=args.log_level)
 

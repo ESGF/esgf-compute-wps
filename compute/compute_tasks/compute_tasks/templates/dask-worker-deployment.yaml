@@ -24,7 +24,7 @@ spec:
       containers:
       - name: dask-worker-{{ user }}
         image: {{ image }}
-        imagePullPolicy: Always
+        imagePullPolicy: {{ image_pull_policy }}
         env:
         - name: CDAT_ANONYMOUS_LOG
           value: 'no'
