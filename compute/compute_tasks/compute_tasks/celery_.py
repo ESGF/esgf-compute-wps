@@ -4,9 +4,12 @@ import json
 import cwt
 from celery import Celery
 from celery import signals
+from celery.utils.log import get_task_logger
 from kombu import serialization
 
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
+
+logger = get_task_logger('compute_task.celery')
 
 
 @signals.import_modules.connect
@@ -30,17 +33,17 @@ def default(obj):
         }
     elif isinstance(obj, cwt.Variable):
         data = {
-            'data': obj.parameterize(),
+            'data': obj.to_dict(),
             '__type': 'variable',
         }
     elif isinstance(obj, cwt.Domain):
         data = {
-            'data': obj.parameterize(),
+            'data': obj.to_dict(),
             '__type': 'domain',
         }
     elif isinstance(obj, cwt.Process):
         data = {
-            'data': obj.parameterize(),
+            'data': obj.to_dict(),
             '__type': 'process',
         }
     elif isinstance(obj, datetime.timedelta):
@@ -65,6 +68,8 @@ def default(obj):
     else:
         raise TypeError(type(obj))
 
+    logger.debug('Serialized to %r', data)
+
     return data
 
 
@@ -75,6 +80,8 @@ def object_hook(obj):
 
     if '__type' not in obj:
         return obj
+
+    logger.debug('Deserializing %r', obj)
 
     if obj['__type'] == 'slice':
         data = slice(obj['start'], obj['stop'], obj['step'])

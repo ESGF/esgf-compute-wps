@@ -102,11 +102,11 @@ class OperationContext(state_mixin.StateMixin, object):
 
         if identifier == 'CDAT.workflow':
             try:
-                ctx.operation = operation[root_op.inputs[0]]
+                ctx.operation = operation[root_op.inputs[0]].copy()
             except KeyError as e:
                 raise WPSError('{!s} is not a valid input for CDAT.workflow', e)
         else:
-            ctx.operation = root_op
+            ctx.operation = root_op.copy()
 
         logger.info('Set context operation to %r', ctx.operation)
 
