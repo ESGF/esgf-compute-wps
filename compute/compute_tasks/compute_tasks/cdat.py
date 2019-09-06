@@ -307,6 +307,8 @@ def regrid(operation, *inputs):
         axes=[input.axes[x] for x in input.vars_axes['lon_bnds']]
     )
 
+    return input.variable
+
 
 FEAT_AXES = 'FEAT_AXES'
 FEAT_CONST = 'FEAT_CONST'
@@ -476,7 +478,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.min': partial(process_input, process_func=da.min, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.multiply': partial(process_input, process_func=da.multiply, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.power': partial(process_input, process_func=da.power, FEAT_CONST=True),
-    'CDAT.regrid': regrid,
+    'CDAT.regrid': None,
     'CDAT.subset': None,
     'CDAT.subtract': partial(process_input, process_func=da.subtract, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.sum': partial(process_input, process_func=da.sum, FEAT_AXES=True),
