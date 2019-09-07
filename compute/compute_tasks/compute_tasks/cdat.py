@@ -231,10 +231,10 @@ def process(inputs, context, process_func=None):
         output = inputs[0]
 
     # Apply regridding if needed
-    if context.is_regrid:
-        regrid(context.operation, output)
+    # if context.is_regrid:
+    #     regrid(context.operation, output)
 
-        context.message('Applied regridding shape {!r}', output.shape)
+    #     context.message('Applied regridding shape {!r}', output.shape)
 
     return output
 
@@ -261,26 +261,26 @@ def regrid(operation, *inputs):
     # Generate the target grid
     grid, tool, method = managers.generate_grid(gridder, selector), gridder.tool, gridder.method
 
+    logger.info('Using grid shape %r tool %r method %r', grid.shape, tool, method)
+
     # Convert to delayed functions
     delayed = input.variable.to_delayed().squeeze()
 
     # Flatten the array
     if delayed.size == 1:
+        logger.info('Flattening array')
+
         delayed = delayed.reshape((1, ))
 
-    logger.debug('Converted dask graph to %r delayed', delayed.shape)
+    logger.info('Delayed shape %r', delayed.shape)
 
     # Create list of axis data that is present in the selector.
     axis_data = [input.axes[x] for x in selector.keys()]
 
-    logger.info('Creating regrid_chunk delayed functions')
-
     # Build list of delayed functions that will process the chunks
     regrid_delayed = [dask.delayed(regrid_chunk)(x, axis_data, grid, tool, method) for x in delayed]
 
-    logger.info('Converting delayed functions to dask arrays')
-
-    logger.info('BLOCKS %r', [x for x in input.blocks])
+    logger.info('Created regrid delayed functions')
 
     # Build a list of dask arrays created by the delayed functions
     regrid_arrays = [da.from_delayed(x, y.shape[:-2] + grid.shape, input.dtype)
@@ -307,7 +307,7 @@ def regrid(operation, *inputs):
         axes=[input.axes[x] for x in input.vars_axes['lon_bnds']]
     )
 
-    return input.variable
+    return input
 
 
 FEAT_AXES = 'FEAT_AXES'
@@ -478,7 +478,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.min': partial(process_input, process_func=da.min, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.multiply': partial(process_input, process_func=da.multiply, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.power': partial(process_input, process_func=da.power, FEAT_CONST=True),
-    'CDAT.regrid': None,
+    'CDAT.regrid': regrid,
     'CDAT.subset': None,
     'CDAT.subtract': partial(process_input, process_func=da.subtract, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.sum': partial(process_input, process_func=da.sum, FEAT_AXES=True),

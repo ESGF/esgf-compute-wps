@@ -112,7 +112,7 @@ def subset_grid(grid, selector):
 
     target = target(**selector)
 
-    logger.debug('Target grid new shape %r', target.shape)
+    logger.info('Target grid new shape %r', target.shape)
 
     return target.getGrid()
 
@@ -194,7 +194,8 @@ def generate_grid(gridder, selector):
 
     metrics.WPS_REGRID.labels(gridder.tool, gridder.method, grid_src).inc()
 
-    return subset_grid(grid, selector)
+    return grid
+    # return subset_grid(grid, selector)
 
 
 def new_shape(shape, time_slice):
