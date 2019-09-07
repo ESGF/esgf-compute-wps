@@ -171,7 +171,7 @@ class OperationContext(state_mixin.StateMixin, object):
 
     @property
     def inputs(self):
-        return self.operation.inputs
+        return [x for x in self.operation.inputs if isinstance(x, cwt.Variable)]
 
     @property
     def is_regrid(self):
