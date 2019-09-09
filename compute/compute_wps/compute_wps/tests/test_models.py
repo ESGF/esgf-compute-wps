@@ -2,8 +2,7 @@
 
 import time
 from base64 import b64decode
-# TEMPORARY
-import mock
+
 import cwt
 
 from django import test
@@ -12,16 +11,10 @@ from django.db.models import DateTimeField
 from compute_wps import models
 from compute_wps import metrics
 
-# TEMPORARY
-from openid import association
-
 def get_association_vars(i):
     a = {}
     a['handle'] = "handle{}".format(i)
     a['secret'] = bytes("secret{}".format(i), 'utf-8')
-    # a['issued'] = time.time() + seconds_from_now
-    # a['lifetime'] = 3600 
-    # a['assoc_type'] = 'HMAC-SHA1'
     return a
 
 def create_association(index, server_url, lifetime):
@@ -485,15 +478,6 @@ class ModelsJobTestCase(test.TestCase):
         print("xxx accepted_on: ", self.job.accepted_on)
         self.job.delete()
 
-    def test_Job_not_started(self):
-        '''
-        verify is_started property returns False on a job that has not started yet.        
-        '''
-        self.job = models.Job(user=self.user, process=self.process)
-        self.job.save()
-        self.job.accepted()
-        self.assertFalse(self.job.is_started)
-   
 class ModelsOutputTestCase(test.TestCase):
     def test_Output(self):
         user = models.User.objects.create_user('test_user1', 'test_email@test.com', 'test_password1')
@@ -524,25 +508,39 @@ class ModelsStatusTestCase(test.TestCase):
         process = models.Process(identifier='test_proc_id1', version='1.0.0')
         process.save()
         process.track(user)
-        job = models.Job(user=user, process=process)
-        job.save()
-        self.status = models.Status(job=job)
-        self.status.save()
+        self.job = models.Job(user=user, process=process)
+        self.job.save()
+    
 
     def test_set_message_no_percent(self):
+        self.status = models.Status(job=self.job)
+        self.status.save()
         msg = "job started test message"
         self.status.set_message(msg)
         self.assertEqual(self.status.latest_message, msg)
         self.assertEqual(self.status.latest_percent, None)
 
     def test_set_message(self):
+        self.status = models.Status(job=self.job)
+        self.status.save()
         msg = "job started test message"
         percent = 88
         self.status.set_message(msg, percent)
         self.assertEqual(self.status.latest_message, msg)
         self.assertEqual(self.status.latest_percent, percent)
 
-    # QUESTION:
-    # do we use the Status' status field? how does it get set?
-    # not sure how to test Status' exception_clean
+    def test_exception_clean(self):
+        exception = "<ows:ExceptionReport xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:compute_wps=\"http://www.opengis.net/compute_wps/1.0.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.0.0\">\n  <ows:Exception exceptionCode=\"NoApplicableCode\">\n    <ows:ExceptionText>Job Failed</ows:ExceptionText>\n  </ows:Exception>\n</ows:ExceptionReport>\n"
 
+        clean_exception = "<ows:ExceptionReport>\n  <ows:Exception exceptionCode=\"NoApplicableCode\">\n    <ows:ExceptionText>Job Failed</ows:ExceptionText>\n  </ows:Exception>\n</ows:ExceptionReport>\n"
+
+        self.status = models.Status(job=self.job, exception=exception)
+        self.status.save()
+
+        msg = "job failed test message"
+        self.status.set_message(msg)
+        self.assertEqual(self.status.exception_clean, clean_exception)
+
+        #
+        # QUESTION:
+        # how do the Status' status and exception fields get updated?

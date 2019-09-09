@@ -405,24 +405,6 @@ class Job(models.Model):
 
         return wps_response.execute(**kwargs)
 
-    @property
-    def is_started(self):
-        latest = self.status.latest('created_date')
-
-        return latest is not None and latest.status == ProcessStarted
-
-    @property
-    def is_failed(self):
-        latest = self.status.latest('created_date')
-
-        return latest is not None and latest.status == ProcessFailed
-
-    @property
-    def is_succeeded(self):
-        latest = self.status.latest('created_date')
-
-        return latest is not None and latest.status == ProcessSucceeded
-
     def accepted(self):
         self.status.create(status=ProcessAccepted)
 
