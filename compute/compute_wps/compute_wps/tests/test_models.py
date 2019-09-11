@@ -3,6 +3,7 @@
 import time
 from base64 import b64decode
 
+import mock
 import cwt
 
 from django import test
@@ -474,8 +475,19 @@ class ModelsJobTestCase(test.TestCase):
         self.job.accepted()
         self.assertEqual(self.job.status.latest('created_date').status, models.ProcessAccepted)
         self.assertEqual(self.job.status.latest('created_date').created_date.isoformat(), self.job.accepted_on)
-        print("xxx created_date: ", self.job.status.latest('created_date').created_date)
-        print("xxx accepted_on: ", self.job.accepted_on)
+        self.job.delete()
+
+    def ABCtest_Job_report(self):
+        extra = '{"extra": "extra_val"}'
+        self.job = models.Job(user=self.user, process=self.process, extra=extra)
+        self.job.save()
+        self.job.accepted()
+        time.sleep(1)
+        self.job.status.create(status='ProcessStarted')
+        time.sleep(1)
+        self.job.status.create(status='ProcessSucceeded')
+        response = self.job.report
+        self.assertContains(response, 'wps:ExecuteResponse')
         self.job.delete()
 
 class ModelsOutputTestCase(test.TestCase):
@@ -540,7 +552,3 @@ class ModelsStatusTestCase(test.TestCase):
         msg = "job failed test message"
         self.status.set_message(msg)
         self.assertEqual(self.status.exception_clean, clean_exception)
-
-        #
-        # QUESTION:
-        # how do the Status' status and exception fields get updated?
