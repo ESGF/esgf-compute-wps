@@ -1,34 +1,33 @@
 FROM continuumio/miniconda3:4.7.10 as builder
 
 ARG GIT_SHORT_COMMIT
-ARG COMPUTE_API_VER
 
 ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
-ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 
 RUN conda install -y conda-build
 
 WORKDIR /src
 
-COPY compute/compute_settings/ compute_settings/
 COPY compute/compute_wps/ compute_wps/
 
-RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_settings/compute_settings/_version.py && \
-      echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_wps/compute_wps/_version.py 
+RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_wps/compute_wps/_version.py 
 
-RUN conda build -c conda-forge -c cdat compute_settings/ && \
-      conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_wps/
+RUN conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_wps/
 
 FROM builder as dev
 
 COPY docker/wps/django.properties /etc/config/django.properties
 
 RUN apt-get update && \
-      apt-get install -y --no-install-recommends vim && \
+      apt-get install -y --no-install-recommends vim curl && \
       rm -rf /var/lib/apt/lists/* && \
       conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-wps flake8 pytest && \
-      pip install -e compute_settings/ && \
       pip install -e compute_wps/
+
+ENV TINI_VERSION v0.18.0
+
+RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/local/bin/tini && \
+      chmod +x /usr/local/bin/tini
 
 WORKDIR /
 
@@ -43,6 +42,8 @@ COPY docker/wps/wsgi.py .
 WORKDIR /src/compute/compute_wps
 
 COPY docker/wps/development.sh .
+
+ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
 CMD ["/bin/bash"]
 

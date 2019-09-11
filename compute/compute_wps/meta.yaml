@@ -45,7 +45,7 @@ requirements:
     - prometheus_client=0.6.0
     - python-coreapi=2.3.3
     - pyyaml=5.1
-    - compute-settings
+    - netaddr=0.7.19
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
