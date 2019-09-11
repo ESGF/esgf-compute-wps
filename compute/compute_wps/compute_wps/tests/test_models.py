@@ -552,3 +552,4 @@ class ModelsStatusTestCase(test.TestCase):
         msg = "job failed test message"
         self.status.set_message(msg)
         self.assertEqual(self.status.exception_clean, clean_exception)
+
