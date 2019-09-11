@@ -158,5 +158,3 @@ class OpenIDTestCase(test.TestCase):
         service = openid.find_service_by_type(self.mock_services, 'test_uri_1')
 
         self.assertIsNotNone(service)
-
-        

@@ -18,7 +18,8 @@ def get_association_vars(i):
     a['secret'] = bytes("secret{}".format(i), 'utf-8')
     return a
 
-def create_association(index, server_url, lifetime):
+def create_association(index=1, server_url="https://identity_server_url",
+                       lifetime=3600):
     user = models.User.objects.create_user("user{}".format(index),
                                            "email{}@test.com".format(index),
                                            first_name="first_name{}".format(index),
@@ -34,96 +35,66 @@ def create_association(index, server_url, lifetime):
 
 class ModelsDjangoOpenIDStoreTestCase(test.TestCase):
 
+    server_url = "https://identity_server_url"
+    never_used_server_url = "https://never_used_server_url"
     def test_storeAssociation(self):
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 3600
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
+        user, assoc_vars, issued, assoc = create_association()
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
 
         a = models.OpenIDAssociation.objects.first()
-        self.assertEqual(a.server_url, server_url)
+        self.assertEqual(a.server_url, self.server_url)
         self.assertEqual(a.handle, assoc_vars['handle'])
         self.assertEqual(a.issued, issued)
         self.assertEqual(a.lifetime, 3600)
         self.assertEqual(b64decode(a.secret), assoc_vars['secret'])
 
     def test_storeAssociation_already_exists(self):
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 3600
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
+        user, assoc_vars, issued, assoc = create_association()
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
 
         lifetime2 = 1200
         secret2 = bytes("new_secret", 'utf-8')
         assoc.lifetime = lifetime2
         assoc.secret = secret2
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
         a = models.OpenIDAssociation.objects.first()
-        self.assertEqual(a.server_url, server_url)
+        self.assertEqual(a.server_url, self.server_url)
         self.assertEqual(a.handle, assoc_vars['handle'])
         self.assertEqual(a.issued, issued)
         self.assertEqual(a.lifetime, lifetime2)
         self.assertEqual(b64decode(a.secret), secret2)
 
     def test_getAssociation(self):
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 3600
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
+        user, assoc_vars, issued, assoc = create_association()
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
 
-        active_assoc = openid_store.getAssociation(server_url, assoc_vars['handle'])
+        active_assoc = openid_store.getAssociation(self.server_url, assoc_vars['handle'])
         self.assertEqual(active_assoc.handle, assoc_vars['handle'])
 
     def test_getAssociation_not_specify_handle(self):
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 3600
-
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
+        user, assoc_vars, issued, assoc = create_association()
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
 
-        active_assoc = openid_store.getAssociation(server_url, None)
+        active_assoc = openid_store.getAssociation(self.server_url, None)
         self.assertEqual(active_assoc.handle, assoc_vars['handle'])
         
     def test_getAssociation_expired(self):
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 1
-
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
-        time.sleep(lifetime)
+        user, assoc_vars, issued, assoc = create_association(lifetime=1)
+        time.sleep(1)
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
 
-        active_assoc = openid_store.getAssociation(server_url, None)
+        active_assoc = openid_store.getAssociation(self.server_url, None)
         self.assertEqual(active_assoc, None)
 
     def test_getAssociation_multiple_diff_servers(self):
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 60
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
+        user, assoc_vars, issued, assoc = create_association(lifetime=60)
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
 
         server_url2 = "https://identity_server_url2"
         index2 = 2
@@ -133,7 +104,7 @@ class ModelsDjangoOpenIDStoreTestCase(test.TestCase):
                                                                  lifetime2)
         openid_store.storeAssociation(server_url2, assoc2)
 
-        active_assoc = openid_store.getAssociation(server_url, None)
+        active_assoc = openid_store.getAssociation(self.server_url, None)
         self.assertEqual(active_assoc.handle, assoc_vars['handle'])        
 
     def test_getAssociation_multiple_same_servers(self):
@@ -143,52 +114,36 @@ class ModelsDjangoOpenIDStoreTestCase(test.TestCase):
         that getAssociation() returns the one recently issued.
         
         '''
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 60
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
+        user, assoc_vars, issued, assoc = create_association(lifetime=60)
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
 
         index2 = 2
         lifetime2 = 60
         user2, assoc_vars2, issued2, assoc2 = create_association(index2,
-                                                                 server_url,
+                                                                 self.server_url,
                                                                  lifetime2)
-        openid_store.storeAssociation(server_url, assoc2)
+        openid_store.storeAssociation(self.server_url, assoc2)
 
-        active_assoc = openid_store.getAssociation(server_url, None)
+        active_assoc = openid_store.getAssociation(self.server_url, None)
         self.assertEqual(active_assoc.handle, assoc_vars2['handle'])        
 
     def test_removeAssociation(self):
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 3600
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
+        user, assoc_vars, issued, assoc = create_association()
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
-        ret = openid_store.removeAssociation(server_url, assoc.handle)
+        openid_store.storeAssociation(self.server_url, assoc)
+        ret = openid_store.removeAssociation(self.server_url, assoc.handle)
         self.assertTrue(ret)
 
     def test_removeAssociation_not_exists(self):
-        server_url = "https://identity_server_url"
         openid_store = models.DjangoOpenIDStore()
-        ret = openid_store.removeAssociation(server_url, "some_handle")
+        ret = openid_store.removeAssociation(self.server_url, "some_handle")
         self.assertFalse(ret)
 
     def test_cleanupAssociations(self):
-        server_url = "https://identity_server_url"
-        index = 1
-        lifetime = 1
-        user, assoc_vars, issued, assoc = create_association(index,
-                                                             server_url,
-                                                             lifetime)
+        user, assoc_vars, issued, assoc = create_association(lifetime=1)
         openid_store = models.DjangoOpenIDStore()
-        openid_store.storeAssociation(server_url, assoc)
+        openid_store.storeAssociation(self.server_url, assoc)
 
         server_url2 = "https://identity_server2_url"
         index2 = 2
@@ -202,13 +157,13 @@ class ModelsDjangoOpenIDStoreTestCase(test.TestCase):
         self.assertEqual(count, 2)
 
     def test_useNonce_did_not_exist(self):
-        server_url = "https://never_used_server_url"
         timestamp = time.time()
         salt = "abc"
         openid_store = models.DjangoOpenIDStore()
-        ret = openid_store.useNonce(server_url, timestamp, salt)
+        ret = openid_store.useNonce(self.never_used_server_url,
+                                    timestamp, salt)
         self.assertTrue(ret)
-        ret = openid_store.useNonce(server_url, timestamp, salt)
+        ret = openid_store.useNonce(self.never_used_server_url, timestamp, salt)
         self.assertFalse(ret)
 
     def test_useNonce_exceed_skew(self):
@@ -216,11 +171,10 @@ class ModelsDjangoOpenIDStoreTestCase(test.TestCase):
         verify that if the timestamp window exceeds nonce.skew 
         useNonce returns False
         '''
-        server_url = "https://never_used_server_url"
         timestamp = time.time() - models.nonce.SKEW - 1
         salt = "abc"
         openid_store = models.DjangoOpenIDStore()
-        ret = openid_store.useNonce(server_url, timestamp, salt)        
+        ret = openid_store.useNonce(self.never_used_server_url, timestamp, salt)        
         self.assertFalse(ret)
 
     def test_cleanupNonces_not_expired(self):
@@ -228,11 +182,10 @@ class ModelsDjangoOpenIDStoreTestCase(test.TestCase):
         verify that if nonce has not expired yet, cleanupNonce() does not 
         delete it.
         '''
-        server_url = "https://never_used_server_url"
         timestamp = time.time()
         salt = "abc"
         openid_store = models.DjangoOpenIDStore()
-        ret = openid_store.useNonce(server_url, timestamp, salt)
+        ret = openid_store.useNonce(self.never_used_server_url, timestamp, salt)
         count = openid_store.cleanupNonces()
         self.assertEqual(count, 0)
 
@@ -240,12 +193,11 @@ class ModelsDjangoOpenIDStoreTestCase(test.TestCase):
         '''
         verify that if nonce has expired, cleanupNonce() deletes it.
         '''
-        server_url = "https://never_used_server_url"
         wait_seconds = 2
         timestamp = int(time.time()) - models.nonce.SKEW + wait_seconds
         salt = "defg"
         openid_store = models.DjangoOpenIDStore()
-        ret = openid_store.useNonce(server_url, timestamp, salt)
+        ret = openid_store.useNonce(self.never_used_server_url, timestamp, salt)
         self.assertTrue(ret)
         time.sleep(wait_seconds + 1)
         count = openid_store.cleanupNonces()
@@ -268,17 +220,15 @@ class ModelsOpenIDNonce(test.TestCase):
         self.assertEqual(str(self.openid_nonce), self.server_url)
 
 class ModelsOpenIDAssociationTestCase(test.TestCase):
-    lifetime = 3600
     server_url = "https://identity_server_url"
 
     def setUp(self):
-        self.user, self.vars, self.issued, self.assoc = create_association(1, 
-                                                                           self.server_url, 
-                                                                           self.lifetime)
+        self.user, self.vars, self.issued, self.assoc = create_association()
 
     def test_OpenIDAssocation(self):
+        lifetime = 3600
         self.assertEqual(self.assoc.user.username, self.user.username)
-        self.assertEqual(self.assoc.lifetime, self.lifetime)
+        self.assertEqual(self.assoc.lifetime, lifetime)
         self.assertEqual(self.assoc.handle, self.vars['handle'])
         self.assertEqual(self.assoc.secret, self.vars['secret'])
 
@@ -477,7 +427,7 @@ class ModelsJobTestCase(test.TestCase):
         self.assertEqual(self.job.status.latest('created_date').created_date.isoformat(), self.job.accepted_on)
         self.job.delete()
 
-    def ABCtest_Job_report(self):
+    def ABCtest_Job_report_DOES_NOT_WORK(self):
         extra = '{"extra": "extra_val"}'
         self.job = models.Job(user=self.user, process=self.process, extra=extra)
         self.job.save()
@@ -491,6 +441,7 @@ class ModelsJobTestCase(test.TestCase):
         self.job.delete()
 
 class ModelsOutputTestCase(test.TestCase):
+
     def test_Output(self):
         user = models.User.objects.create_user('test_user1', 'test_email@test.com', 'test_password1')
         process = models.Process(identifier='test_proc_id1', version='1.0.0')
@@ -522,7 +473,6 @@ class ModelsStatusTestCase(test.TestCase):
         process.track(user)
         self.job = models.Job(user=user, process=process)
         self.job.save()
-    
 
     def test_set_message_no_percent(self):
         self.status = models.Status(job=self.job)
