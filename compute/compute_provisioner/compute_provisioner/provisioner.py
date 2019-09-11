@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import threading
 import time
 from collections import OrderedDict
 from uuid import uuid4
@@ -13,12 +14,18 @@ from kubernetes import client
 from kubernetes import config
 
 from compute_provisioner import constants
+from compute_provisioner import kube_cluster
 
-logger = logging.getLogger('compute_provisioner.provisioner')
+logger = logging.getLogger('provisioner')
 
-NAMESPACE = os.environ.get('NAMESPACE', 'default')
+CLEANUP_PHASES = ('Succeeded', 'Failed')
 
-LIFETIME = int(os.environ.get('LIFETIME', 3600))
+
+class ResourceAllocationError(Exception):
+    def __init__(self, name):
+        self.name = name
+
+        super(ResourceAllocationError, self).__init__('Error allocating resource {!s}'.format(name))
 
 
 def json_encoder(x):
@@ -105,8 +112,13 @@ class WorkerQueue(object):
         return address
 
 
-class LoadBalancer(object):
-    def __init__(self):
+class Provisioner(threading.Thread):
+    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime):
+        super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port, redis_host))
+        self.namespace = namespace
+
+        self.lifetime = lifetime
+
         self.context = None
 
         self.frontend = None
@@ -120,6 +132,14 @@ class LoadBalancer(object):
         self.redis = None
 
         self.waiting_ack = {}
+
+        config.load_incluster_config()
+
+        self.core = client.CoreV1Api()
+
+        self.apps = client.AppsV1Api()
+
+        self.extensions = client.ExtensionsV1beta1Api()
 
     def initialize(self, frontend_port, backend_port, redis_host):
         """ Initializes the load balancer.
@@ -161,6 +181,87 @@ class LoadBalancer(object):
 
         logger.info('Connected to redis db %r', self.redis)
 
+    def update_labels(self, yaml_data, labels):
+        try:
+            yaml_data['metadata']['labels'].update(labels)
+        except AttributeError:
+            # Labels not a dict, is this really a possible case?
+            yaml_data['metadata']['labels'] = labels
+        except KeyError:
+            # Labels does not exists
+            yaml_data['metadata'] = {
+                'labels': labels,
+            }
+
+    def request_resources(self, request, resource_uuid, labels):
+        requested = {}
+
+        try:
+            for item in request:
+                yaml_data = yaml.safe_load(item)
+
+                self.update_labels(yaml_data, labels)
+
+                kind = yaml_data['kind']
+
+                if kind == 'Pod':
+                    self.core.create_namespaced_pod(body=yaml_data, namespace=self.namespace)
+
+                    key = '{!s}:{!s}:Pod'.format(resource_uuid, yaml_data['metadata']['name'])
+                elif kind == 'Deployment':
+                    self.apps.create_namespaced_deployment(body=yaml_data, namespace=self.namespace)
+
+                    key = '{!s}:{!s}:Deployment'.format(resource_uuid, yaml_data['metadata']['name'])
+                elif kind == 'Service':
+                    self.core.create_namespaced_service(body=yaml_data, namespace=self.namespace)
+
+                    key = '{!s}:{!s}:Service'.format(resource_uuid, yaml_data['metadata']['name'])
+                elif kind == 'Ingress':
+                    self.extensions.create_namespaced_ingress(body=yaml_data, namespace=self.namespace)
+
+                    key = '{!s}:{!s}:Ingress'.format(resource_uuid, yaml_data['metadata']['name'])
+                else:
+                    raise Exception('Requested an unsupported resource')
+
+                requested[key] = yaml_data
+        except client.rest.ApiException as e:
+            if e.status == 409:
+                logger.info('Resources already exists on the server')
+
+                pass
+            else:
+                logger.error('Error allocating resources')
+
+                raise ResourceAllocationError(yaml_data['metadata']['name'])
+
+        return requested
+
+    def wait_resources(self, resources, namespace, wait_timeout):
+        for key, value in resources.items():
+            logger.info('Waiting on resource %r', key)
+
+            # start = time.time()
+
+            # while time.time() - start < wait_timeout:
+            #     time.sleep(2)
+
+            kind = value['kind']
+
+            logger.info('Getting status for %r kind %r', value['metadata']['name'], kind)
+
+            if kind == 'Pod':
+                status = self.core.read_namespaced_pod_status(value['metadata']['name'], namespace)
+            elif kind == 'Deployment':
+                status = self.apps.read_namespaced_deployment_status(value['metadata']['name'], namespace)
+            elif kind == 'Service':
+                status = self.core.read_namespaced_service_status(value['metadata']['name'], namespace)
+            elif kind == 'Ingress':
+                status = self.extensions.read_namespaced_ingress_status(value['metadata']['name'], namespace)
+            else:
+                raise Exception('Unable to retrieve status for {!r}'.format(value['metadata']['name']))
+
+            logger.info('HELP %r', status)
+
     def allocate_resources(self, request):
         """ Allocate resources.
 
@@ -169,14 +270,6 @@ class LoadBalancer(object):
         Args:
             request: A list of YAML strs to create in the cluster.
         """
-        config.load_incluster_config()
-
-        core = client.CoreV1Api()
-
-        apps = client.AppsV1Api()
-
-        extensions = client.ExtensionsV1beta1Api()
-
         logger.info('Allocating resources')
 
         resource_uuid = str(uuid4())[:8]
@@ -190,66 +283,18 @@ class LoadBalancer(object):
         # succeed, this might need to change and block until everything is up and
         # running
         try:
-            created = {}
+            requested = self.request_resources(request, resource_uuid, labels)
+        except ResourceAllocationError as e:
+            logger.error('Error allocation resource %s', e.name)
 
-            expired = (datetime.datetime.now() + datetime.timedelta(seconds=LIFETIME)).timestamp()
+            raise e
 
-            for item in request:
-                yaml_data = yaml.load(item)
+        self.wait_resources(requested, self.namespace, 60)
 
-                try:
-                    yaml_data['metadata']['labels'].update(labels)
-                except AttributeError:
-                    # Labels not a dict, is this really a possible case?
-                    yaml_data['metadata']['labels'] = labels
-                except KeyError:
-                    # Labels does not exists
-                    yaml_data['metadata'] = {
-                        'labels': labels,
-                    }
+        expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
-                kind = yaml_data['kind']
-
-                if kind == 'Pod':
-                    core.create_namespaced_pod(body=yaml_data, namespace=NAMESPACE)
-
-                    key = '{!s}:{!s}:Pod'.format(resource_uuid, yaml_data['metadata']['name'])
-
-                    created[key] = expired
-                elif kind == 'Deployment':
-                    apps.create_namespaced_deployment(body=yaml_data, namespace=NAMESPACE)
-
-                    key = '{!s}:{!s}:Deployment'.format(resource_uuid, yaml_data['metadata']['name'])
-
-                    created[key] = expired
-                elif kind == 'Service':
-                    core.create_namespaced_service(body=yaml_data, namespace=NAMESPACE)
-
-                    key = '{!s}:{!s}:Service'.format(resource_uuid, yaml_data['metadata']['name'])
-
-                    created[key] = expired
-                elif kind == 'Ingress':
-                    extensions.create_namespaced_ingress(body=yaml_data, namespace=NAMESPACE)
-
-                    key = '{!s}:{!s}:Ingress'.format(resource_uuid, yaml_data['metadata']['name'])
-
-                    created[key] = expired
-                else:
-                    logger.error('Cannot handle kind %r', kind)
-        except client.rest.ApiException as e:
-            if e.status == 409:
-                logger.info('Resources already exists on the server')
-
-                pass
-            else:
-                logger.exception('%s', e)
-
-                logger.error('Resource already exists')
-
-                raise e
-        else:
-            for key, expire in created.items():
-                self.redis.hset('resource', key, expire)
+        for key in requested.keys():
+            self.redis.hset('resource', key, expired)
 
     def handle_backend_frames(self, frames):
         address = frames[0]
@@ -259,9 +304,9 @@ class LoadBalancer(object):
         if frames[1] == constants.RESOURCE:
             try:
                 self.allocate_resources(json.loads(frames[2]))
-            except client.rest.ApiException as e:
+            except ResourceAllocationError as e:
                 # Notify error in allocating resources
-                new_frames = [address, constants.ERR, e.reason]
+                new_frames = [address, constants.ERR, str(e)]
             else:
                 # Allocate resources
                 new_frames = [address, constants.ACK]
@@ -336,7 +381,7 @@ class LoadBalancer(object):
         except redis.lock.LockError:
             pass
 
-    def run(self, frontend_port, backend_port, redis_host):
+    def monitor(self, frontend_port, backend_port, redis_host):
         """ Main loop for the load balancer.
         """
         self.initialize(frontend_port, backend_port, redis_host)
@@ -369,25 +414,6 @@ class LoadBalancer(object):
 
             self.handle_unacknowledge_requests()
 
-    def single_heartbeat(self, frontend_port, backend_port, redis_host):
-        self.initialize(frontend_port, backend_port, redis_host)
-
-        while True:
-            socks = dict(self.poll_both.poll(constants.HEARTBEAT_INTERVAL * 1000))
-
-            logger.debug('poll %r', socks)
-
-            if socks.get(self.backend) == zmq.POLLIN:
-                frames = self.backend.recv_multipart()
-
-                if not frames:
-                    pass
-
-                self.handle_backend_frames(frames)
-
-            if self.workers.heartbeat_time:
-                self.workers.heartbeat(self.backend)
-
 
 def main():
     import argparse
@@ -402,11 +428,15 @@ def main():
 
     parser.add_argument('--backend-port', help='Backend port')
 
+    parser.add_argument('--namespace', help='Kubernetes namespace to monitor', default='default')
+
+    parser.add_argument('--timeout', help='Resource monitor timeout', type=int, default=30)
+
+    parser.add_argument('--lifetime', help='Time in seconds to let resources live', type=int, default=3600)
+
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
-
-    load_balancer = LoadBalancer()
 
     frontend_port = args.frontend_port or constants.FRONTEND_PORT
 
@@ -414,7 +444,19 @@ def main():
 
     redis_host = args.redis_host or constants.REDIS_HOST
 
-    load_balancer.run(frontend_port, backend_port, redis_host)
+    namespace = args.namespace or os.environ['NAMESPACE']
+
+    provisioner = Provisioner(frontend_port, backend_port, redis_host, args.namespace, args.lifetime)
+
+    provisioner.start()
+
+    monitor = kube_cluster.KubeCluster(redis_host, namespace, args.timeout, False)
+
+    monitor.start()
+
+    provisioner.join()
+
+    monitor.join()
 
 
 if __name__ == '__main__':
