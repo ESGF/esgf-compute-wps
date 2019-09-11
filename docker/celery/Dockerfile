@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.6.14 as builder
+FROM continuumio/miniconda3:4.7.10 as builder
 
 RUN conda install -y conda-build
 
@@ -26,21 +26,32 @@ FROM builder as dev
 
 RUN apt-get update && apt-get install -y --no-install-recommends vim && \
       # Use conda to install package for dependencies
-      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-tasks flake8 pytest && \
+      conda install -c conda-forge -c cdat  --use-local --only-deps compute-tasks &&\
+      conda install -c conda-forge flake8 pytest pytest-mock pytest-cov && \
       pip install -e compute_kubernetes/ && \
       pip install -e compute_provisioner/ && \
       pip install -e compute_tasks/
 
-FROM continuumio/miniconda3:4.6.14
+ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
-RUN mkdir -p /tmp/certs && \
+CMD ["/bin/bash"]
+
+FROM continuumio/miniconda3:4.7.10
+
+RUN conda install -c conda-forge curl && \
+      mkdir -p /tmp/certs && \
       curl -sL https://github.com/ESGF/esgf-dist/raw/master/installer/certs/esg_trusted_certificates.tar | tar xvf - -C /tmp/certs --strip 1
 
 COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
-RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-tasks && \
+RUN conda install -c conda-forge -c cdat --use-local compute-tasks && \
       conda clean -a -y
+
+ENV TINI_VERSION v0.18.0
+
+RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/local/bin/tini && \
+      chmod +x /usr/local/bin/tini
 
 WORKDIR /
 
@@ -56,6 +67,6 @@ ENV prometheus_multiproc_dir /metrics
 
 EXPOSE 8000
 
-ENTRYPOINT ["tini", "--"]
+ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
 CMD ["/bin/bash", "./entrypoint.sh", "-c", "1", "-Q", "default", "-n", "default", "-l", "INFO"]

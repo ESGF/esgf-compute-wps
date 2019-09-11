@@ -15,7 +15,6 @@ setuptools.setup(
     packages=['compute_provisioner'],
     entry_points={
         'console_scripts': [
-            'compute-provisioner-debug = compute_provisioner.load_balancer:debug',
             'compute-provisioner = compute_provisioner.load_balancer:main',
             'compute-worker-demo = compute_provisioner.worker:demo',
         ]

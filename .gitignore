@@ -4,6 +4,7 @@ compute/assets/
 webpack-stats.json
 compute/wps/assets/bundles/
 compute/compute/settings.py
+.coverage*
 
 *.rdb
 *.swp

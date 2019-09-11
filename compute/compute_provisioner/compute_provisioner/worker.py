@@ -4,7 +4,6 @@ import time
 import zmq
 
 from compute_provisioner import constants
-from compute_provisioner import metrics
 
 logger = logging.getLogger('compute_provisioner.worker')
 
@@ -29,8 +28,6 @@ class Worker(object):
         self.liveness = constants.HEARTBEAT_LIVENESS
 
         self.interval = constants.INTERVAL_INIT
-
-        self.metrics = metrics.Metrics()
 
     def initialize(self, worker_addr):
         """ Initializes the worker.
@@ -67,8 +64,6 @@ class Worker(object):
                 if not frames:
                     logger.error('Received empty message from queue')
 
-                    self.metrics.inc('recv_queue_empty')
-
                     break
 
                 logger.debug('Handling frames from provisioner %r', frames[:3])
@@ -77,12 +72,8 @@ class Worker(object):
                     self.liveness = constants.HEARTBEAT_LIVENESS
 
                     logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
-
-                    self.metrics.inc('recv_heartbeat')
                 elif frames[0] == constants.REQUEST:
                     logger.info('Received request from queue %r', frames)
-
-                    self.metrics.inc('recv_request')
 
                     pending_request = frames[3:]
 
@@ -91,13 +82,9 @@ class Worker(object):
                     logger.info('Resources %r', resources)
 
                     self.worker.send_multipart([constants.RESOURCE, resources.encode()])
-
-                    self.metrics.inc('sent_resource')
                 elif frames[0] == constants.ACK:
                     # Resource allocation ack, moving forward with execution
                     logger.info('Received data from queue %r', frames)
-
-                    self.metrics.inc('recv_ack')
 
                     if pending_request is None:
                         logger.error('Recieved ack from resource allocation but have no pending request')
@@ -107,8 +94,6 @@ class Worker(object):
                         # Send provisioner ack
                         self.worker.send_multipart([constants.ACK])
 
-                        self.metrics.inc('sent_ack')
-
                         # Clear out pending request
                         pending_request = None
                 elif frames[0] == constants.ERR:
@@ -116,12 +101,8 @@ class Worker(object):
                     logger.info('Received error from queue %r', frames[1])
 
                     callback_handler(ERROR_TYPE, pending_request + frames)
-
-                    self.metrics.inc('recv_err')
                 else:
                     logger.error('Received unknown message from queue %r', frames)
-
-                    self.metrics.inc('recv_unknown')
 
                 self.interval = constants.INTERVAL_INIT
             else:
@@ -146,16 +127,12 @@ class Worker(object):
 
                     self.liveness = constants.HEARTBEAT_LIVENESS
 
-                    self.metrics.inc('missed_heartbeat')
-
             if time.time() > self.heartbeat_at:
                 self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
 
                 logger.debug('Sending heartbeat to queue')
 
                 self.worker.send_multipart([constants.HEARTBEAT, self.version])
-
-                self.metrics.inc('sent_heartbeat')
 
 
 def demo():

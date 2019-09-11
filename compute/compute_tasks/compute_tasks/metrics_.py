@@ -44,7 +44,7 @@ def query_prometheus(**kwargs):
 
     try:
         response = requests.get(url, params=kwargs, timeout=(1, 30))
-    except requests.ConnectionError:
+    except Exception:
         logger.exception('Error connecting to prometheus server at %r', PROMETHEUS_HOST)
 
         raise PrometheusError('Error connecting to metrics server')

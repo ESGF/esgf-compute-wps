@@ -1,18 +1,28 @@
 import datetime
-import importlib
 import json
-import types
 
 import cwt
 from celery import Celery
+from celery import signals
+from celery.utils.log import get_task_logger
 from kombu import serialization
 
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
+logger = get_task_logger('compute_task.celery')
+
+
+@signals.import_modules.connect
+def import_modules_handler(*args, **kwargs):
+    from compute_tasks import base
+
+    base.discover_processes()
+
+    base.build_process_bindings()
+
 
 def default(obj):
-    from compute_tasks.context import OperationContext
-    from compute_tasks.context import WorkflowOperationContext
+    from compute_tasks.context import operation
 
     if isinstance(obj, slice):
         data = {
@@ -23,17 +33,17 @@ def default(obj):
         }
     elif isinstance(obj, cwt.Variable):
         data = {
-            'data': obj.parameterize(),
+            'data': obj.to_dict(),
             '__type': 'variable',
         }
     elif isinstance(obj, cwt.Domain):
         data = {
-            'data': obj.parameterize(),
+            'data': obj.to_dict(),
             '__type': 'domain',
         }
     elif isinstance(obj, cwt.Process):
         data = {
-            'data': obj.parameterize(),
+            'data': obj.to_dict(),
             '__type': 'process',
         }
     elif isinstance(obj, datetime.timedelta):
@@ -50,38 +60,28 @@ def default(obj):
             'data': obj.strftime(DATETIME_FMT),
             '__type': 'datetime',
         }
-    elif isinstance(obj, types.FunctionType):
-        data = {
-            'data': {
-                'module': obj.__module__,
-                'name': obj.__name__,
-            },
-            '__type': 'function',
-        }
-    elif isinstance(obj, OperationContext):
+    elif isinstance(obj, operation.OperationContext):
         data = {
             'data': obj.to_dict(),
             '__type': 'operation_context',
         }
-    elif isinstance(obj, WorkflowOperationContext):
-        data = {
-            'data': obj.to_dict(),
-            '__type': 'workflow_operation_context',
-        }
     else:
         raise TypeError(type(obj))
+
+    logger.debug('Serialized to %r', data)
 
     return data
 
 
 def object_hook(obj):
-    from compute_tasks.context import OperationContext
-    from compute_tasks.context import WorkflowOperationContext
+    from compute_tasks.context import operation
 
     obj = byteify(obj)
 
     if '__type' not in obj:
         return obj
+
+    logger.debug('Deserializing %r', obj)
 
     if obj['__type'] == 'slice':
         data = slice(obj['start'], obj['stop'], obj['step'])
@@ -101,14 +101,8 @@ def object_hook(obj):
         data = datetime.timedelta(**kwargs)
     elif obj['__type'] == 'datetime':
         data = datetime.datetime.strptime(obj['data'], DATETIME_FMT)
-    elif obj['__type'] == 'function':
-        data = importlib.import_module(obj['data']['module'])
-
-        data = getattr(data, obj['data']['name'])
     elif obj['__type'] == 'operation_context':
-        data = OperationContext.from_dict(obj['data'])
-    elif obj['__type'] == 'workflow_operation_context':
-        data = WorkflowOperationContext.from_dict(obj['data'])
+        data = operation.OperationContext.from_dict(obj['data'])
 
     return data
 

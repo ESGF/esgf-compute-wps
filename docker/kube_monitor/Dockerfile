@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.6.14 as builder
+FROM continuumio/miniconda3:4.7.10 as builder
 
 ARG GIT_SHORT_COMMIT
 
@@ -21,14 +21,21 @@ RUN apt-get update && \
       conda install -c conda-forge -c cdat --use-local --only-deps compute-kubernetes flake8 pytest && \
       pip install -e compute_kubernetes/
 
-FROM continuumio/miniconda3:4.6.14
+CMD ["/bin/bash"]
+
+FROM continuumio/miniconda3:4.7.10
 
 COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
-RUN conda install -c conda-forge -c cdat --use-local compute-kubernetes && \
+RUN conda install -c conda-forge -c cdat --use-local compute-kubernetes curl && \
       conda clean -a -y
 
-ENTRYPOINT ["tini", "--"]
+ENV TINI_VERSION v0.18.0
+
+RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/local/bin/tini && \
+      chmod +x /usr/local/bin/tini
+
+ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
 CMD ["compute-kube-monitor"]

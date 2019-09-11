@@ -1,0 +1,7 @@
+[run]
+omit =
+  */tests/*
+  */templates/*
+
+[report]
+show_missing=true

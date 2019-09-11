@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os
@@ -6,11 +7,11 @@ from functools import partial
 import jinja2
 
 from compute_tasks import base
-from compute_tasks import celery # noqa
+from compute_tasks import celery_ as celery
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
-from compute_tasks.context import StateMixin
-from compute_tasks.context import ProcessExistsError
+from compute_tasks import context
+from compute_tasks.context import state_mixin
 from compute_provisioner.worker import Worker
 from compute_provisioner.worker import REQUEST_TYPE
 from compute_provisioner.worker import RESOURCE_TYPE
@@ -73,6 +74,7 @@ def format_frames(frames):
 
     return identifier, data_inputs, job, user, process, extra
 
+
 def build_workflow(frames):
     started = job_started.s(*frames).set(**DEFAULT_QUEUE)
 
@@ -91,6 +93,7 @@ def build_workflow(frames):
     logger.info('Created job stopped task %r', succeeded)
 
     return started | process | succeeded
+
 
 def request_handler(frames, state):
     try:
@@ -117,6 +120,7 @@ def resource_request(frames, env):
     data = {
         'image': os.environ['IMAGE'],
         'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
+        'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
         'dev': os.environ.get('DEV', False),
         'user': user,
         'workers': os.environ['WORKERS'],
@@ -146,32 +150,12 @@ def error_handler(frames, state):
     fail_job(state, job, frames[-1].decode())
 
 
-def parse_args_backend():
-    import argparse
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
-
-    parser.add_argument('--queue-host', help='Queue to communicate with')
-
-    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_false')
-
-    parser.add_argument('--skip-init-api', help='Skip initializing API', action='store_false')
-
-    parser.add_argument('-d', help='Development mode', action='store_true')
-
-    args = parser.parse_args()
-
-    return args
-
-
 def load_processes(state, register_tasks=True):
     if register_tasks:
         for item in base.discover_processes():
             try:
                 state.register_process(**item)
-            except ProcessExistsError:
+            except state_mixin.ProcessExistsError:  # pragma: no cover
                 logger.info('Process %r already exists', item['identifier'])
 
                 pass
@@ -179,30 +163,52 @@ def load_processes(state, register_tasks=True):
     base.build_process_bindings()
 
 
-def reload_processes():
-    import argparse
-
+def reload_argparse():  # pragma: no cover
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    return parser
+
+
+def reload_processes():
+    parser = reload_argparse()
 
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
 
-    state = StateMixin()
+    state = state_mixin.StateMixin()
 
     state.init_api()
 
     load_processes(state)
 
 
+def backend_argparse():  # pragma: no cover
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    parser.add_argument('--queue-host', help='Queue to communicate with')
+
+    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_true')
+
+    parser.add_argument('--skip-init-api', help='Skip initializing API', action='store_true')
+
+    parser.add_argument('-d', help='Development mode', action='store_true')
+
+    return parser
+
+
 def main():
-    args = parse_args_backend()
+    parser = backend_argparse()
 
-    register_tasks = not args.skip_register_tasks or not args.d
+    args = parser.parse_args()
 
-    init_api = not args.skip_init_api or not args.d
+    register_tasks = not (args.skip_register_tasks or args.d)
+
+    init_api = not (args.skip_init_api or args.d)
 
     logging.basicConfig(level=args.log_level)
 
@@ -212,7 +218,7 @@ def main():
 
     env = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'))
 
-    state = StateMixin()
+    state = state_mixin.StateMixin()
 
     if init_api:
         state.init_api()
@@ -231,7 +237,7 @@ def main():
 
     error_handler_partial = partial(error_handler, state=state)
 
-    def callback_handler(type, frames):
+    def callback_handler(type, frames):  # pragma: no cover
         if type == REQUEST_TYPE:
             value = request_handler_partial(frames)
         elif type == RESOURCE_TYPE:

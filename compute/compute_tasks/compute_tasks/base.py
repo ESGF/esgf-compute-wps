@@ -21,14 +21,17 @@ REGISTRY = {}
 BINDINGS = {}
 
 
-def discover_processes():
+def discover_processes(ignore_modules=None):
+    if not ignore_modules:
+        ignore_modules = ['base', 'tests']
+
     processes = []
 
     logger.info('Discovering processes for module %r', os.path.dirname(__file__))
 
     for _, name, _ in pkgutil.iter_modules([os.path.dirname(__file__)]):
-        if name == 'base':
-            logger.info('Skipping base module')
+        if name in ignore_modules:
+            logger.info('Skipping %s module', name)
 
             continue
 
@@ -54,9 +57,14 @@ def discover_processes():
     return processes
 
 
-def build_process_bindings():
+def build_process_bindings(ignore_modules=None):
+    if not ignore_modules:
+        ignore_modules = ['base', 'tests']
+
     for _, name, _ in pkgutil.iter_modules([os.path.dirname(__file__)]):
-        if name == 'base':
+        if name in ignore_modules:
+            logger.info('Skipping %s module', name)
+
             continue
 
         mod = importlib.import_module('.{!s}'.format(name), package='compute_tasks')
@@ -108,8 +116,6 @@ class CWTBaseTask(celery.Task):
 
         try:
             args[0].message('Retrying from error: {!s}', exc)
-        except AttributeError:
-            logger.exception('First argument should be OperationContext or WorkflowOperationContext')
         except WPSError:
             raise
 
@@ -122,13 +128,11 @@ class CWTBaseTask(celery.Task):
             args[0].failed(str(exc))
 
             args[0].update_metrics(context.FAILURE)
-        except AttributeError:
-            logger.exception('First argument should be OperationContext or WorkflowOperationContext')
         except WPSError:
             raise
 
-    def on_success(self, retval, task_id, args, kwargs):
-        pass
+    # def on_success(self, retval, task_id, args, kwargs):
+    #     pass
 
 
 cwt_shared_task = partial(shared_task,

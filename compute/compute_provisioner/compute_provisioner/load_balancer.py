@@ -13,7 +13,6 @@ from kubernetes import client
 from kubernetes import config
 
 from compute_provisioner import constants
-from compute_provisioner import metrics
 
 logger = logging.getLogger('compute_provisioner.provisioner')
 
@@ -121,8 +120,6 @@ class LoadBalancer(object):
         self.redis = None
 
         self.waiting_ack = {}
-
-        self.metrics = metrics.Metrics()
 
     def initialize(self, frontend_port, backend_port, redis_host):
         """ Initializes the load balancer.
@@ -259,8 +256,6 @@ class LoadBalancer(object):
 
         logger.debug('Handling frames from backend %r', frames[:3])
 
-        self.metrics.inc('recv_backend')
-
         if frames[1] == constants.RESOURCE:
             try:
                 self.allocate_resources(json.loads(frames[2]))
@@ -276,8 +271,6 @@ class LoadBalancer(object):
             logger.info('Received ack from backend %r', address)
 
             self.waiting_ack.pop(address, None)
-
-            self.metrics.inc('recv_ack')
         else:
             logger.debug('Received message from backend %r', address)
 
@@ -286,12 +279,10 @@ class LoadBalancer(object):
             self.workers.ready(Worker(address, version))
 
             if frames[1] == constants.READY:
-                self.metrics.inc('recv_ready')
+                pass
             elif frames[1] == constants.HEARTBEAT:
-                self.metrics.inc('recv_heartbeat')
+                pass
             else:
-                self.metrics.inc('recv_unknown')
-
                 logger.error('Unknown message %r', frames)
 
     def handle_frontend_frames(self, frames):
@@ -304,13 +295,9 @@ class LoadBalancer(object):
 
         logger.info('Added frames to %r queue %r', version, frames)
 
-        self.metrics.inc('recv_frontend')
-
     def handle_unacknowledge_requests(self):
         for address, waiting in list(self.waiting_ack.items()):
             if time.time() >= waiting.expiry:
-                self.metrics.inc('unack')
-
                 logger.info('Backend %r never acknowledged request', address)
 
                 self.waiting_ack.pop(address, None)
@@ -346,8 +333,6 @@ class LoadBalancer(object):
                     self.workers.queue.pop(address, None)
 
                     logger.info('Dispatch work to %r', address)
-
-                    self.metrics.inc('dispatched')
         except redis.lock.LockError:
             pass
 
@@ -363,8 +348,6 @@ class LoadBalancer(object):
                 frames = self.backend.recv_multipart()
 
                 if not frames:
-                    self.metrics.inc('recv_backend_empty')
-
                     break
 
                 self.handle_backend_frames(frames)
@@ -373,16 +356,12 @@ class LoadBalancer(object):
                 frames = self.frontend.recv_multipart()
 
                 if not frames:
-                    self.metrics.inc('recv_frontend_empty')
-
                     break
 
                 self.handle_frontend_frames(frames)
 
             if self.workers.heartbeat_time:
                 self.workers.heartbeat(self.backend)
-
-                self.metrics.inc('sent_heartbeat')
 
             self.workers.purge()
 
@@ -402,43 +381,12 @@ class LoadBalancer(object):
                 frames = self.backend.recv_multipart()
 
                 if not frames:
-                    self.metrics.inc('recv_backend_empty')
+                    pass
 
                 self.handle_backend_frames(frames)
 
             if self.workers.heartbeat_time:
                 self.workers.heartbeat(self.backend)
-
-                self.metrics.inc('sent_heartbeat')
-
-
-def debug():
-    import argparse
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
-
-    parser.add_argument('--redis-host', help='Redis host', default='127.0.0.1')
-
-    parser.add_argument('--backend-port', help='Backend port', type=int, default=7778)
-
-    action_choices = (
-        'heartbeat',
-    )
-
-    parser.add_argument('--action', help='Action to perform', choices=action_choices, default=action_choices[0])
-
-    args = parser.parse_args()
-
-    print(args)
-
-    logging.basicConfig(level=args.log_level)
-
-    load_balancer = LoadBalancer()
-
-    if args.action == action_choices[0]:
-        load_balancer.single_heartbeat(7777, args.backend_port, args.redis_host)
 
 
 def main():

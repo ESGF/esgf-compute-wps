@@ -13,7 +13,7 @@ spec:
   containers:
   - name: dask-scheduler-{{ user }}
     image: {{ image }}
-    imagePullPolicy: Always
+    imagePullPolicy: {{ image_pull_policy }}
     livenessProbe:
       tcpSocket:
         port: 8786
