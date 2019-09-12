@@ -18,33 +18,36 @@ class ProcessExistsError(WPSError):
     pass
 
 
-def retry(count, delay, ignore):
+def retry(count, delay, raise_errors=None):
+    if raise_errors is None:
+        raise_errors = ()
+
     def wrapper(func):
         def wrapped(*args, **kwargs):
+            retry_delay = delay
+
             last_exc = None
-            completed = False
 
             for x in range(count):
                 try:
                     data = func(*args, **kwargs)
                 except Exception as e:
-                    if isinstance(e, ignore):
+                    logger.info('HELP %r', e)
+
+                    if len(raise_errors) > 0 and isinstance(e, raise_errors):
                         raise e
 
                     last_exc = e
                 else:
-                    completed = True
+                    return data
 
-                    break
+                logger.debug('Delaying retry by %r seconds', delay)
 
-                time.sleep(5)
+                time.sleep(retry_delay)
 
-                logger.info('Retrying...')
+                retry_delay = retry_delay * 2  # noqa F841, F823
 
-            if not completed:
-                raise last_exc
-
-            return data
+            raise last_exc
         return wrapped
     return wrapper
 
@@ -60,10 +63,6 @@ class StateMixin(object):
         self.schema = None
         self.metrics = {}
         self.output = []
-
-        # self.inputs = []
-        # self.domain = None
-        # self.operation = None
 
     def init_state(self, data):
         self.extra = data['extra']
@@ -161,17 +160,16 @@ class StateMixin(object):
         if self.client is None:
             self.init_api()
 
-        ignore_errors = kwargs.pop('ignore_errors', ())
+        raise_errors = kwargs.pop('raise_errors', ())
 
-        r = retry(count=4, delay=4, ignore=ignore_errors)(self.client.action)
+        r = retry(count=4, delay=4, raise_errors=raise_errors)(self.client.action)
 
         logger.debug('Action keys %r params %r kwargs %r', keys, params, kwargs)
 
         try:
             return r(self.schema, keys, params=params, **kwargs)
-            # return self.client.action(self.schema, keys, params=params, **kwargs)
         except Exception as e:
-            if isinstance(e, ignore_errors):
+            if isinstance(e, raise_errors):
                 raise e
 
             logger.debug('Params %r kwargs %r', params, kwargs)
@@ -232,7 +230,7 @@ class StateMixin(object):
 
     def register_process(self, **params):
         try:
-            self.action(['process', 'create'], params, ignore_errors=(coreapi.exceptions.ErrorMessage, ))
+            self.action(['process', 'create'], params, raise_errors=(coreapi.exceptions.ErrorMessage, ))
         except coreapi.exceptions.ErrorMessage as e:
             if 'unique set' in str(e):
                 raise ProcessExistsError()

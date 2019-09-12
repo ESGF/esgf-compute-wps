@@ -10,7 +10,6 @@ from compute_tasks import base
 from compute_tasks import celery_ as celery
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
-from compute_tasks import context
 from compute_tasks.context import state_mixin
 from compute_provisioner.worker import Worker
 from compute_provisioner.worker import REQUEST_TYPE

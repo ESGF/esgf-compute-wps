@@ -18,9 +18,9 @@ from tornado.ioloop import IOLoop
 
 from compute_tasks import base
 from compute_tasks import context as ctx
+from compute_tasks.context import state_mixin
 from compute_tasks import managers
 from compute_tasks import WPSError
-from compute_tasks import DaskClusterAccessError
 from compute_tasks.dask_serialize import regrid_chunk
 
 logger = get_task_logger('compute_tasks.cdat')
@@ -166,14 +166,9 @@ def workflow_func(self, context):
 
     context.message('Preparing to execute workflow')
 
-    # TODO create custom retry wrapper, build_workflow is expensive and theres no real
-    # way to cache the interm dict, so localizing retries could be a solid solution.
+    scheduler_addr = '{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE)
 
-    # Initialize the cluster resources
-    try:
-        client = Client('{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE))
-    except OSError:
-        raise DaskClusterAccessError()
+    client = state_mixin.retry(8, 1)(Client)(scheduler_addr)
 
     try:
         delayed = []
@@ -524,14 +519,6 @@ Optional parameters:
 
 
 def process_wrapper(self, context):
-    # TODO create custom retry wrapper, build_workflow is expensive and theres no real
-    # way to cache the interm dict, so localizing retries could be a solid solution.
-    # See workflow_func
-    try:
-        client = Client('{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE))
-    except OSError:
-        raise DaskClusterAccessError()
-
     fm = managers.FileManager(context)
 
     inputs = gather_inputs(context.operation.identifier, fm, context.operation.inputs)
@@ -552,6 +539,10 @@ def process_wrapper(self, context):
     logger.debug('Writing output to %r', local_path)
 
     context.message('Preparing to execute')
+
+    scheduler_addr = '{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE)
+
+    client = state_mixin.retry(8, 1)(Client)(scheduler_addr)
 
     try:
         # Execute the dask graph
