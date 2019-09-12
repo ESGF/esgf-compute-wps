@@ -21,6 +21,11 @@ logger = logging.getLogger('provisioner')
 CLEANUP_PHASES = ('Succeeded', 'Failed')
 
 
+class ResourceTimeoutError(Exception):
+    def __init__(self, name):
+        super(ResourceTimeoutError, self).__init__('Timed out waitin for resources {!s}'.format(name))
+
+
 class ResourceAllocationError(Exception):
     def __init__(self, name):
         self.name = name
@@ -113,11 +118,13 @@ class WorkerQueue(object):
 
 
 class Provisioner(threading.Thread):
-    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime):
+    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime, resource_timeout, **kwargs):
         super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port, redis_host))
         self.namespace = namespace
 
         self.lifetime = lifetime
+
+        self.resource_timeout = resource_timeout
 
         self.context = None
 
@@ -240,27 +247,32 @@ class Provisioner(threading.Thread):
         for key, value in resources.items():
             logger.info('Waiting on resource %r', key)
 
-            # start = time.time()
+            start = time.time()
 
-            # while time.time() - start < wait_timeout:
-            #     time.sleep(2)
+            while True:
+                kind = value['kind']
 
-            kind = value['kind']
+                if kind == 'Pod':
+                    output = self.core.read_namespaced_pod_status(value['metadata']['name'], namespace)
 
-            logger.info('Getting status for %r kind %r', value['metadata']['name'], kind)
+                    if all([x.ready for x in output.status.container_statuses]):
+                        logger.info('Pod %r containers are ready', value['metadata']['name'])
 
-            if kind == 'Pod':
-                status = self.core.read_namespaced_pod_status(value['metadata']['name'], namespace)
-            elif kind == 'Deployment':
-                status = self.apps.read_namespaced_deployment_status(value['metadata']['name'], namespace)
-            elif kind == 'Service':
-                status = self.core.read_namespaced_service_status(value['metadata']['name'], namespace)
-            elif kind == 'Ingress':
-                status = self.extensions.read_namespaced_ingress_status(value['metadata']['name'], namespace)
-            else:
-                raise Exception('Unable to retrieve status for {!r}'.format(value['metadata']['name']))
+                        break
+                elif kind == 'Deployment':
+                    output = self.apps.read_namespaced_deployment_status(value['metadata']['name'], namespace)
 
-            logger.info('HELP %r', status)
+                    if output.spec.replicas == output.status.ready_replicas:
+                        logger.info('Deployment %r Pods are ready', value['metadata']['name'])
+
+                        break
+                else:
+                    break
+
+                if (time.time() - start) < wait_timeout:
+                    raise ResourceTimeoutError(value['metadata']['name'])
+
+                time.sleep(2)
 
     def allocate_resources(self, request):
         """ Allocate resources.
@@ -289,7 +301,13 @@ class Provisioner(threading.Thread):
 
             raise e
 
-        self.wait_resources(requested, self.namespace, 60)
+        if self.wait_for_resources:
+            try:
+                self.wait_resources(requested, self.namespace, self.resource_timeout)
+            except ResoureTimeoutError as e:
+                logger.error('Timed out waiting for resource')
+
+                raise e
 
         expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
@@ -304,7 +322,7 @@ class Provisioner(threading.Thread):
         if frames[1] == constants.RESOURCE:
             try:
                 self.allocate_resources(json.loads(frames[2]))
-            except ResourceAllocationError as e:
+            except (ResourceAllocationError, ResourceTimeoutError) as e:
                 # Notify error in allocating resources
                 new_frames = [address, constants.ERR, str(e)]
             else:
@@ -422,15 +440,17 @@ def main():
 
     parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
 
-    parser.add_argument('--redis-host', help='Redis host')
+    parser.add_argument('--redis-host', help='Redis host', required=True)
 
-    parser.add_argument('--frontend-port', help='Frontend port')
+    parser.add_argument('--frontend-port', help='Frontend port', type=int, default=7777)
 
-    parser.add_argument('--backend-port', help='Backend port')
+    parser.add_argument('--backend-port', help='Backend port', type=int, default=7778)
 
     parser.add_argument('--namespace', help='Kubernetes namespace to monitor', default='default')
 
     parser.add_argument('--timeout', help='Resource monitor timeout', type=int, default=30)
+
+    parser.add_argument('--resource-timeout', help='Time in seconds allowed for resources to be allocated', type=int, default=240)
 
     parser.add_argument('--lifetime', help='Time in seconds to let resources live', type=int, default=3600)
 
@@ -444,9 +464,9 @@ def main():
 
     redis_host = args.redis_host or constants.REDIS_HOST
 
-    namespace = args.namespace or os.environ['NAMESPACE']
+    namespace = args.namespace
 
-    provisioner = Provisioner(frontend_port, backend_port, redis_host, args.namespace, args.lifetime)
+    provisioner = Provisioner(frontend_port, backend_port, redis_host, **vars(args))
 
     provisioner.start()
 
