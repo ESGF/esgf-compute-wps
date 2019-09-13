@@ -181,7 +181,7 @@ def test_register_process_unique(mocker):
 
     ignore = (state_mixin.coreapi.exceptions.ErrorMessage, )
 
-    state.action.assert_called_with(['process', 'create'], {'identifier': 'CDAT.subset'}, ignore_errors=ignore)
+    state.action.assert_called_with(['process', 'create'], {'identifier': 'CDAT.subset'}, raise_errors=ignore)
 
 
 def test_register_process_exception(mocker):
@@ -196,7 +196,7 @@ def test_register_process_exception(mocker):
 
     ignore = (state_mixin.coreapi.exceptions.ErrorMessage, )
 
-    state.action.assert_called_with(['process', 'create'], {'identifier': 'CDAT.subset'}, ignore_errors=ignore)
+    state.action.assert_called_with(['process', 'create'], {'identifier': 'CDAT.subset'}, raise_errors=ignore)
 
 
 def test_register_process(mocker):
@@ -208,7 +208,7 @@ def test_register_process(mocker):
 
     ignore = (state_mixin.coreapi.exceptions.ErrorMessage, )
 
-    state.action.assert_called_with(['process', 'create'], {'identifier': 'CDAT.subset'}, ignore_errors=ignore)
+    state.action.assert_called_with(['process', 'create'], {'identifier': 'CDAT.subset'}, raise_errors=ignore)
 
 
 def test_processes(mocker):
@@ -371,11 +371,11 @@ def test_action_ignore_exception(mocker):
     state_mixin.retry.return_value.return_value.side_effect = Exception()
 
     with pytest.raises(Exception):
-        state.action('key1', ignore_errors=(Exception, ))
+        state.action('key1', raise_errors=(Exception, ))
 
     state.init_api.assert_called()
 
-    state_mixin.retry.assert_called_with(count=4, delay=4, ignore=(Exception, ))
+    state_mixin.retry.assert_called_with(count=4, delay=4, raise_errors=(Exception, ))
 
 
 def test_action_exception(mocker):
@@ -398,7 +398,7 @@ def test_action_exception(mocker):
 
     state.init_api.assert_called()
 
-    state_mixin.retry.assert_called_with(count=4, delay=4, ignore=())
+    state_mixin.retry.assert_called_with(count=4, delay=4, raise_errors=())
 
 
 def test_action(mocker):
@@ -418,7 +418,7 @@ def test_action(mocker):
 
     state.init_api.assert_called()
 
-    state_mixin.retry.assert_called_with(count=4, delay=4, ignore=())
+    state_mixin.retry.assert_called_with(count=4, delay=4, raise_errors=())
 
 
 def test_update_metrics_domain_dict(mocker):
@@ -585,27 +585,90 @@ def test_process_timer(mocker):
     assert c.metrics.__setitem__.call_count == 2
 
 
-def test_retry_ignore_exception():
-    @state_mixin.retry(1, 0, (Exception, ))
-    def test_func():
-        raise Exception()
+def test_retry_error_raised(mocker):
+    mocker.patch.object(state_mixin.time, 'sleep')
+
+    class Test(object):
+        def __init__(self):
+            self.cnt = 0
+
+        @state_mixin.retry(4, 1, raise_errors=(Exception, ))
+        def test(self):
+            if self.cnt <= 2:
+                self.cnt += 1
+
+                raise Exception('error')
+
+            return None
+
+    t = Test()
 
     with pytest.raises(Exception):
-        test_func()
+        t.test()
 
 
-def test_retry_exception():
-    @state_mixin.retry(1, 0, ())
-    def test_func():
-        raise Exception()
+def test_retry_failure(mocker):
+    mocker.patch.object(state_mixin.time, 'sleep')
+
+    class Test(object):
+        def __init__(self):
+            self.cnt = 0
+
+        @state_mixin.retry(4, 1)
+        def test(self):
+            raise Exception('error')
+
+    t = Test()
+
+    mocker.spy(t, 'test')
 
     with pytest.raises(Exception):
-        test_func()
+        t.test()
+
+    assert t.test.call_count == 1
+    state_mixin.time.sleep.assert_any_call(1)
+    state_mixin.time.sleep.assert_any_call(2)
+    state_mixin.time.sleep.assert_any_call(4)
 
 
-def test_retry():
-    @state_mixin.retry(1, 0, ())
-    def test_func():
-        pass
+def test_retry_error(mocker):
+    mocker.patch.object(state_mixin.time, 'sleep')
 
-    test_func()
+    class Test(object):
+        def __init__(self):
+            self.cnt = 0
+
+        @state_mixin.retry(4, 1)
+        def test(self):
+            if self.cnt <= 2:
+                self.cnt += 1
+
+                raise Exception('error')
+
+            return None
+
+    t = Test()
+
+    mocker.spy(t, 'test')
+
+    t.test()
+
+    assert t.test.call_count == 1
+    state_mixin.time.sleep.assert_any_call(1)
+    state_mixin.time.sleep.assert_any_call(2)
+    state_mixin.time.sleep.assert_any_call(4)
+
+
+def test_retry(mocker):
+    class Test(object):
+        @state_mixin.retry(4, 1)
+        def test(self):
+            return None
+
+    t = Test()
+
+    mocker.spy(t, 'test')
+
+    t.test()
+
+    assert t.test.call_count == 1
