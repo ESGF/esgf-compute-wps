@@ -47,7 +47,7 @@ class TasksTestCase(test.TestCase):
 
     @mock.patch('compute_wps.tasks.mail')
     def test_warn_expired_jobs(self, mock_mail):
-        print(models.Job.objects.all().update(expired=False))
+        models.Job.objects.all().update(expired=False)
 
         mock_mail.send_mail.return_value = 1
 

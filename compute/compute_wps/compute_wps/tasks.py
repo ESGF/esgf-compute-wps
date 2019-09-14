@@ -13,10 +13,13 @@ from django.utils import timezone
 from jinja2 import Environment, PackageLoader
 
 # Number of days before a job will expire
-EXPIRE = os.environ.get('EXPIRE', 30)
+EXPIRE = os.environ.get('JOB_EXPIRATION', 30)
 
 # Number of days before a job will expire to warn user
-WARN = os.environ.get('WARN', 10)
+WARN = os.environ.get('JOB_EXPIRATION_WARN', 10)
+
+# Enabled Job expiration
+ENABLED = os.environ.get('JOB_EXPIRATION_ENABLED', 'false').lower() == 'true'
 
 EXPIRE_DELTA = datetime.timedelta(days=EXPIRE)
 
@@ -30,8 +33,9 @@ logger = get_task_logger('tasks')
 
 app = Celery('compute_wps')
 
+# Setup the task routing
 app.conf.task_routes = {
-    'compute_wps.tasks.expire_files': {
+    'compute_wps.tasks.*': {
         'queue': 'periodic',
     },
 }
@@ -59,13 +63,15 @@ env.filters['filename'] = filename
 
 @app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    # sender.add_periodic_task(crontab(), expire_jobs.s())
-    pass
+    if ENABLED:
+        sender.add_periodic_task(crontab(), check_expired_jobs.s() | remove_expired_jobs.s())
 
 
 @app.task
 def check_expired_jobs():
     warn_date = timezone.now() - WARN_DELTA
+
+    logger.info('Checking for jobs started before %s and not expired', warn_date)
 
     annotated = models.Job.objects.annotate(updated_date=aggregates.Max('status__updated_date'))
 
@@ -86,14 +92,16 @@ def check_expired_jobs():
                 'files': [y.path for y in x.output.all()],
             }
 
+    logger.info('Grouped expired jobs by %r users', len(group_by_user))
+
     for x, y in group_by_user.items():
         group_by_user[x]['jobs'] = almost.filter(user=y['user'])
 
     template = env.get_template('warn_expiration_email.html')
 
-    for x in group_by_user.values():
-        logger.info('FILES %r', len(x['files']))
+    logger.info('Sending user emails with expiring files')
 
+    for x in group_by_user.values():
         html_message = template.render(**x)
 
         user = x['user']
@@ -103,13 +111,21 @@ def check_expired_jobs():
 
         # If we have successfully delivered email mark jobs for expiration
         if sent == 1:
-            print('EXPIRED', x['jobs'].update(expired=True))
+            result = x['jobs'].update(expired=True)
+
+            logger.info('Successfully sent user email and marked %r jobs as expired', result)
+        else:
+            logger.info('Failed sending user email, not expiring jobs')
 
 
 @app.task
 def remove_expired_jobs():
     expired_date = timezone.now() - EXPIRE_DELTA
 
+    logger.info('Removing jobs started before %s and expired', expired_date)
+
     annotated = models.Job.objects.annotate(updated_date=aggregates.Max('status__updated_date'))
 
-    annotated.filter(updated_date__lte=expired_date, expired=True).delete()
+    result = annotated.filter(updated_date__lte=expired_date, expired=True).delete()
+
+    logger.info('Removed %r jobs that had that expired', result[1].get('compute_wps.Job', 0))
