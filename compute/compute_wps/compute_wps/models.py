@@ -355,6 +355,7 @@ class Server(models.Model):
 class Job(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     process = models.ForeignKey(Process, on_delete=models.CASCADE, null=True)
+    expired = models.BooleanField(default=False)
     extra = models.TextField(null=True)
 
     @property
@@ -409,6 +410,7 @@ class Job(models.Model):
         self.status.create(status=ProcessAccepted)
 
         metrics.WPS_JOBS_ACCEPTED.inc()
+
 
 class Output(models.Model):
     job = models.ForeignKey(Job, related_name='output', on_delete=models.CASCADE)

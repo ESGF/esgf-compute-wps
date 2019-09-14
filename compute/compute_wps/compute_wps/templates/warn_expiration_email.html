@@ -1,0 +1,20 @@
+<html lang="en">
+  <head>
+    <title>Output Expiration</title>
+  </head>
+  <body>
+    Hello {{ user.get_full_name() }},
+
+    The following outputs from LLNL's Compute service will expire in {{ days_until_expire }} days on {{ expiration_date|datetime }}.
+
+    <ul>
+    {%- for path in files %}
+      <li><a href="{{ path }}">{{ path|filename }}</a></li>
+    {%- endfor %}
+    </ul>
+
+    Please save a copy of these files before {{ expiration_date|datetime }}, after this date they will be permanently removed.
+
+    Thank you
+  </body>
+</html>
