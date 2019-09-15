@@ -44,4 +44,4 @@ ENV BACKEND_PORT 7778
 
 ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
-CMD ["python", "-m", "compute_provisioner.load_balancer"]
+CMD ["python", "-m", "compute_provisioner.provisioner"]

@@ -4,7 +4,6 @@ RUN conda install -y conda-build
 
 WORKDIR /src
 
-COPY compute/compute_kubernetes compute_kubernetes/
 COPY compute/compute_provisioner compute_provisioner/
 COPY compute/compute_tasks compute_tasks/
 
@@ -14,12 +13,10 @@ ARG GIT_SHORT_COMMIT
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
 
-RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_kubernetes/compute_kubernetes/_version.py && \
-      echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_provisioner/compute_provisioner/_version.py && \
+RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_provisioner/compute_provisioner/_version.py && \
       echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_tasks/compute_tasks/_version.py
 
-RUN conda build -c conda-forge compute_kubernetes/ && \
-      conda build -c conda-forge compute_provisioner/ && \
+RUN conda build -c conda-forge compute_provisioner/ && \
       conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_tasks/
 
 FROM builder as dev
@@ -28,7 +25,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends vim && \
       # Use conda to install package for dependencies
       conda install -c conda-forge -c cdat  --use-local --only-deps compute-tasks &&\
       conda install -c conda-forge flake8 pytest pytest-mock pytest-cov && \
-      pip install -e compute_kubernetes/ && \
       pip install -e compute_provisioner/ && \
       pip install -e compute_tasks/
 
