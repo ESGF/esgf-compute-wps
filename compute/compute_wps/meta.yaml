@@ -41,7 +41,7 @@ requirements:
     - redis-py=3.2.1
     - requests=2.21.0
     - requests-oauthlib=1.2.0
-    - celery=4.2.1
+    - celery=4.4.0rc1
     - prometheus_client=0.6.0
     - python-coreapi=2.3.3
     - pyyaml=5.1

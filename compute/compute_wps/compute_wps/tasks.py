@@ -12,14 +12,23 @@ from django.db.models import aggregates
 from django.utils import timezone
 from jinja2 import Environment, PackageLoader
 
+
+def int_or_str(value):
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
+CRONTAB_HOUR = int_or_str(os.environ.get('CRONTAB_HOUR', 23))
+
+CRONTAB_MINUTE = int_or_str(os.environ.get('CRONTAB_MINUTE', 0))
+
 # Number of days before a job will expire
-EXPIRE = os.environ.get('JOB_EXPIRATION', 30)
+EXPIRE = float(os.environ.get('JOB_EXPIRATION', 30))
 
 # Number of days before a job will expire to warn user
-WARN = os.environ.get('JOB_EXPIRATION_WARN', 10)
-
-# Enabled Job expiration
-ENABLED = os.environ.get('JOB_EXPIRATION_ENABLED', 'false').lower() == 'true'
+WARN = float(os.environ.get('JOB_EXPIRATION_WARN', 10))
 
 EXPIRE_DELTA = datetime.timedelta(days=EXPIRE)
 
@@ -63,8 +72,8 @@ env.filters['filename'] = filename
 
 @app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    if ENABLED:
-        sender.add_periodic_task(crontab(), check_expired_jobs.s() | remove_expired_jobs.s())
+    sender.add_periodic_task(crontab(hour=CRONTAB_HOUR, minute=CRONTAB_MINUTE),
+                             check_expired_jobs.s() | remove_expired_jobs.s())
 
 
 @app.task
