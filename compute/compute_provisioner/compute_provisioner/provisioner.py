@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-import os
 import threading
 import time
 from collections import OrderedDict
@@ -118,8 +117,10 @@ class WorkerQueue(object):
 
 
 class Provisioner(threading.Thread):
-    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime, resource_timeout, **kwargs):
+    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime, resource_timeout, wait_for_resources, **kwargs):
         super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port, redis_host))
+        self.wait_for_resources = wait_for_resources
+
         self.namespace = namespace
 
         self.lifetime = lifetime
@@ -304,7 +305,7 @@ class Provisioner(threading.Thread):
         if self.wait_for_resources:
             try:
                 self.wait_resources(requested, self.namespace, self.resource_timeout)
-            except ResoureTimeoutError as e:
+            except ResourceTimeoutError as e:
                 logger.error('Timed out waiting for resource')
 
                 raise e
@@ -450,27 +451,23 @@ def main():
 
     parser.add_argument('--timeout', help='Resource monitor timeout', type=int, default=30)
 
-    parser.add_argument('--resource-timeout', help='Time in seconds allowed for resources to be allocated', type=int, default=240)
+    parser.add_argument('--resource-timeout', help='Time in seconds allowed for resources to be allocated', type=int,
+                        default=240)
 
     parser.add_argument('--lifetime', help='Time in seconds to let resources live', type=int, default=3600)
+
+    parser.add_argument('--wait-for-resources', help='The provisioner will wait until resources are allocated '
+                        'before replying to the backend', type=bool, default=False)
 
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
 
-    frontend_port = args.frontend_port or constants.FRONTEND_PORT
-
-    backend_port = args.backend_port or constants.BACKEND_PORT
-
-    redis_host = args.redis_host or constants.REDIS_HOST
-
-    namespace = args.namespace
-
-    provisioner = Provisioner(frontend_port, backend_port, redis_host, **vars(args))
+    provisioner = Provisioner(**vars(args))
 
     provisioner.start()
 
-    monitor = kube_cluster.KubeCluster(redis_host, namespace, args.timeout, False)
+    monitor = kube_cluster.KubeCluster(args.redis_host, args.namespace, args.timeout, False)
 
     monitor.start()
 
