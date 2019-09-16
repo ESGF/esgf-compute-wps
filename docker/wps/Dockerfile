@@ -21,7 +21,7 @@ COPY docker/wps/django.properties /etc/config/django.properties
 RUN apt-get update && \
       apt-get install -y --no-install-recommends vim curl && \
       rm -rf /var/lib/apt/lists/* && \
-      conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local --only-deps compute-wps flake8 pytest && \
+      conda install -c conda-forge -c cdat --use-local --only-deps compute-wps flake8 pytest && \
       pip install -e compute_wps/
 
 ENV TINI_VERSION v0.18.0
@@ -54,7 +54,7 @@ COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
 WORKDIR /
 
-RUN conda install -c cdat/label/nightly -c cdat -c conda-forge --use-local compute-wps curl && \
+RUN conda install -c conda-forge -c cdat --use-local compute-wps curl && \
       django-admin startproject compute 
 
 ENV TINI_VERSION v0.18.0
