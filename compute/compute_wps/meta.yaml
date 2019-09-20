@@ -28,9 +28,7 @@ requirements:
     - djangorestframework=3.9.4
     - django-grappelli=2.12.3
     - cdms2>=3.1
-    - libnetcdf=4.6.2
     - bjoern=3.0.0
-    - pyophidia=1.8.1
     - esgf-compute-api>=2.2
     - jinja2=2.10.1
     - myproxyclient=2.0.1

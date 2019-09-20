@@ -12,7 +12,7 @@ COPY compute/compute_wps/ compute_wps/
 
 RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_wps/compute_wps/_version.py 
 
-RUN conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_wps/
+RUN conda build -c conda-forge -c cdat --use-local compute_wps/
 
 FROM builder as dev
 
@@ -21,7 +21,7 @@ COPY docker/wps/django.properties /etc/config/django.properties
 RUN apt-get update && \
       apt-get install -y --no-install-recommends vim curl && \
       rm -rf /var/lib/apt/lists/* && \
-      conda install -c conda-forge -c cdat --use-local --only-deps compute-wps flake8 pytest && \
+      conda install -c conda-forge -c cdat --use-local --only-deps compute-wps flake8 pytest python=3.6 && \
       pip install -e compute_wps/
 
 ENV TINI_VERSION v0.18.0
@@ -54,7 +54,7 @@ COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
 WORKDIR /
 
-RUN conda install -c conda-forge -c cdat --use-local compute-wps curl && \
+RUN conda install -c conda-forge -c cdat --use-local compute-wps curl python=3.6 && \
       django-admin startproject compute 
 
 ENV TINI_VERSION v0.18.0
