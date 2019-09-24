@@ -1,6 +1,7 @@
 # flake8: noqa
 from contextlib import contextmanager
 from contextlib import ExitStack
+from functools import partial
 
 import cdms2
 import cwt
@@ -50,11 +51,113 @@ def wps_client(request):
     return client
 
 
+def assert_shape(value, expected):
+    assert value.shape == expected
+
+
 @pytest.fixture
-def esgf_data():
+def esgf_data(request):
     class ESGFData(object):
-        tas1 = cwt.Variable('http://aims3.llnl.gov/thredds/dodsC/user_pub_work/CMIP6/CMIP/E3SM-Project/E3SM-1-0/1pctCO2/r1i1p1f1/Amon/tas/gr/v20190718/tas_Amon_E3SM-1-0_1pctCO2_r1i1p1f1_gr_000101-002512.nc', 'tas')
-        tas2 = cwt.Variable('http://aims3.llnl.gov/thredds/dodsC/user_pub_work/CMIP6/CMIP/E3SM-Project/E3SM-1-0/1pctCO2/r1i1p1f1/Amon/tas/gr/v20190718/tas_Amon_E3SM-1-0_1pctCO2_r1i1p1f1_gr_002601-005012.nc', 'tas')
+        source = {
+            'llnl': {
+                'tas': {
+                    'files': [
+                        {
+                            'url': 'http://aims3.llnl.gov/thredds/dodsC/user_pub_work/CMIP6/CMIP/E3SM-Project/E3SM-1-0/1pctCO2/r1i1p1f1/Amon/tas/gr/v20190718/tas_Amon_E3SM-1-0_1pctCO2_r1i1p1f1_gr_000101-002512.nc',
+                        },
+                        {
+                            'url': 'http://aims3.llnl.gov/thredds/dodsC/user_pub_work/CMIP6/CMIP/E3SM-Project/E3SM-1-0/1pctCO2/r1i1p1f1/Amon/tas/gr/v20190718/tas_Amon_E3SM-1-0_1pctCO2_r1i1p1f1_gr_002601-005012.nc',
+                        }
+                    ],
+                }
+            },
+            'ucar': {
+                'tas': {
+                    'files': [
+                        {
+                            'url': 'http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/LUMIP/NCAR/CESM2/hist-noLu/r1i1p1f1/day/tas/gn/v20190401/tas_day_CESM2_hist-noLu_r1i1p1f1_gn_18500101-18591231.nc',
+                        },
+                        {
+                            'url': 'http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/LUMIP/NCAR/CESM2/hist-noLu/r1i1p1f1/day/tas/gn/v20190401/tas_day_CESM2_hist-noLu_r1i1p1f1_gn_18600101-18691231.nc',
+                        }
+                    ],
+                    'subset': {
+                        'domain': {
+                            'time': (675509.0, 675561.0),
+                            'lat': (-90, 0),
+                        },
+                        'expected': (53, 96, 288),
+                    },
+                    'aggregate': {
+                        'expected': (7300, 192, 288),
+                    },
+                    'regrid': {
+                        'grid': 'gaussian~32',
+                        'expected': (3650, 32, 64),
+                    },
+                    'workflow': {
+                        'grid': 'gaussian~32',
+                        'axes': 'time',
+                        'domain': {
+                            'time': (675509.0, 675561.0),
+                            'lat': (-90, 0),
+                        },
+                        'expected': (3650, 32, 64)
+                    }
+                }
+            }
+        }
+
+        def __init__(self, request):
+            self.request = request
+
+            self._test_data = None
+
+        @property
+        def test_data(self):
+            if self._test_data is None:
+                site = self.request.config.getoption('--site')
+
+                variable = self.request.config.getoption('--variable')
+
+                self._test_data = self.source[site][variable]
+
+            return self._test_data
+
+        def get_workflow(self, site, variable):
+            test = self.test_data
+
+            srcs = [cwt.Variable(x['url'], variable) for x in test['files'][:1]]
+
+            domain = cwt.Domain(**test['workflow']['domain'])
+
+            gridder = cwt.Gridder(grid=test['workflow']['grid'])
+
+            return srcs, domain, gridder, test['workflow']['axes'], partial(assert_shape, expected=test['workflow']['expected'])
+
+
+        def get_regrid(self, site, variable):
+            test = self.test_data
+
+            srcs = [cwt.Variable(x['url'], variable) for x in test['files'][:1]]
+
+            return srcs, cwt.Gridder(grid=test['regrid']['grid']), partial(assert_shape, expected=test['regrid']['expected'])
+
+        def get_aggregate(self, site, variable):
+            test = self.test_data
+
+            srcs = [cwt.Variable(x['url'], variable) for x in test['files']]
+
+            return srcs, partial(assert_shape, expected=test['aggregate']['expected'])
+
+        def get_subset(self):
+            test = self.test_data
+
+            srcs = [cwt.Variable(x['url'], variable) for x in test['files'][:1]]
+
+            domain = cwt.Domain(**test['subset']['domain'])
+
+            return srcs, domain, partial(assert_shape, expected=test['subset']['expected'])
 
         @contextmanager
         def to_cdms2(self, variable, **kwargs):
@@ -65,7 +168,7 @@ def esgf_data():
             finally:
                 input.close()
 
-    return ESGFData()
+    return ESGFData(request)
 
 
 def test_workflow(wps_client, esgf_data):
@@ -75,73 +178,70 @@ def test_workflow(wps_client, esgf_data):
 
     s = wps_client.process_by_name('CDAT.subset')
 
-    s.add_inputs(esgf_data.tas1)
+    srcs, domain, gridder, axes, assert_func = esgf_data.get_workflow('ucar', 'tas')
+
+    s.add_inputs(*srcs)
+
+    s.domain = domain
 
     r.add_inputs(s)
 
-    r.gridder = cwt.Gridder(grid='gaussian~32')
+    r.gridder = gridder
 
     wps_client.execute(w, [r])
 
     w.wait()
 
-    assert len(w.output) == 2
+    with ExitStack() as stack:
+        output = stack.enter_context(cdms2.open(w.output[0].uri))
+
+        assert_func(output['tas'])
 
 
 def test_regrid(wps_client, esgf_data):
     p = wps_client.process_by_name('CDAT.regrid')
 
-    p.gridder = cwt.Gridder(grid='gaussian~32')
+    srcs, gridder, assert_func = esgf_data.get_regrid('ucar', 'tas')
 
-    wps_client.execute(p, [esgf_data.tas1])
+    p.gridder = gridder
+
+    wps_client.execute(p, srcs)
 
     p.wait()
 
     with ExitStack() as stack:
         output = stack.enter_context(cdms2.open(p.output.uri))
 
-        truth_data = stack.enter_context(esgf_data.to_cdms2(esgf_data.tas1, time=slice(0, 1)))
-
-        grid = cdms2.createGaussianGrid(32)
-
-        truth = truth_data.regrid(grid, regridTool=p.gridder.tool, regridMethod=p.gridder.method)
-
-        assert np.allclose(output['tas'][0], truth[0])
+        assert_func(output['tas'])
 
 
 def test_aggregate(wps_client, esgf_data):
     p = wps_client.process_by_name('CDAT.aggregate')
 
-    wps_client.execute(p, [esgf_data.tas1, esgf_data.tas2])
+    srcs, assert_func = esgf_data.get_aggregate('ucar', 'tas')
+
+    wps_client.execute(p, srcs)
 
     p.wait()
 
     with ExitStack() as stack:
         output = stack.enter_context(cdms2.open(p.output.uri))
 
-        t1 = stack.enter_context(esgf_data.to_cdms2(esgf_data.tas1))
-
-        t2 = stack.enter_context(esgf_data.to_cdms2(esgf_data.tas2))
-
-        truth_shape = (t1.shape[0]+t2.shape[0],) + t1.shape[1:]
-
-        assert output['tas'].shape == truth_shape
-        assert np.allclose(output['tas'][0], t1[0])
-        assert np.allclose(output['tas'][-1], t2[-1])
+        assert_func(output['tas'])
 
 
 def test_subset(wps_client, esgf_data):
     p = wps_client.process_by_name('CDAT.subset')
 
-    wps_client.execute(p, [esgf_data.tas1], cwt.Domain(time=(4000, 6000), lat=(-90, 0)))
+    srcs, domain, assert_func = esgf_data.get_subset('ucar', 'tas')
+
+    print(srcs)
+
+    wps_client.execute(p, srcs, domain)
 
     p.wait()
 
     with ExitStack() as stack:
         output = stack.enter_context(cdms2.open(p.output.uri))
 
-        truth = stack.enter_context(esgf_data.to_cdms2(esgf_data.tas1, time=(4000, 6000), lat=(-90, 0)))
-
-        assert output['tas'].shape == truth.shape
-
-        assert np.allclose(output['tas'], truth)
+        assert_func(output['tas'])
