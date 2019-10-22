@@ -1,7 +1,10 @@
 # flake8: noqa
+import os
 from contextlib import contextmanager
 from contextlib import ExitStack
 from functools import partial
+
+os.environ['CDAT_ANONYMOUS_LOG'] = 'yes'
 
 import cdms2
 import cwt
@@ -150,7 +153,7 @@ def esgf_data(request):
 
             return srcs, partial(assert_shape, expected=test['aggregate']['expected'])
 
-        def get_subset(self):
+        def get_subset(self, site, variable):
             test = self.test_data
 
             srcs = [cwt.Variable(x['url'], variable) for x in test['files'][:1]]
