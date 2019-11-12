@@ -428,6 +428,7 @@ def process_multiple_input(process_func, input1, input2):
     return new_input
 
 
+# TODO remove this and utilize **kwargs on process_input to configure when stacking is required.
 REQUIRES_STACK = [
     'sum_func',
     'max_func',
@@ -435,6 +436,7 @@ REQUIRES_STACK = [
     'average_func',
 ]
 
+# Process descriptions used in abstracts.
 DESCRIPTION_MAP = {
     'CDAT.abs': 'Computes the element-wise absolute value.',
     'CDAT.add': 'Adds an element-wise constant or another input.',
@@ -453,6 +455,11 @@ DESCRIPTION_MAP = {
     'CDAT.sum': 'Computes the sum over a set of axes.',
 }
 
+"""
+This dict maps identifiers to functions that will be used for processing. The function ``process_input`` is
+the main entrypoint. Partials are used here to provide some configuration for how each process is executed.
+See the doctstring of ``process_input`` for additional details.
+"""
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_input, process_func=da.absolute),
     'CDAT.add': partial(process_input, process_func=da.add, FEAT_CONST=True, FEAT_MULTI=True),
@@ -474,6 +481,19 @@ PROCESS_FUNC_MAP = {
 
 
 def render_abstract(description, func, template):
+    """ Renders an abstract for a process.
+
+    This function will use a jinja2 template and render out an abstract for a process. The keyword arguments
+    for the ``func`` function are used to enable details in the abstract.
+
+    Args:
+        description (str): The process description.
+        func (function): The process function.
+        template (jinja2.Template): The jinja2 template that will be used to render the abstract.
+
+    Returns:
+        str: The abstract as a string.
+    """
     axes = False
     const = False
     multi = False
@@ -512,64 +532,59 @@ Optional parameters:
 
 
 def process_wrapper(self, context):
-    fm = managers.FileManager(context)
+    """ Wrapper function for a process.
 
-    inputs = gather_inputs(context.operation.identifier, fm, context.operation.inputs)
+    This function acts as the main entrypoint of a Celery task. It represents a single process e.g. Subset, Aggregate,
+    etc. The function calls ``workflow_func`` since a single process is just a workflow with a single task.
 
-    if context.identifier in PROCESS_FUNC_MAP:
-        func = PROCESS_FUNC_MAP[context.identifier]
-
-        output = process(inputs, context, process_func=func)
-    else:
-        output = process(inputs, context)
-
-    context.track_out_bytes(output.nbytes)
-
-    dataset = output.to_xarray()
-
-    local_path = context.build_output_variable(output.var_name)
-
-    logger.debug('Writing output to %r', local_path)
-
-    context.message('Preparing to execute')
-
-    client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
-
-    try:
-        # Execute the dask graph
-        delayed = dataset.to_netcdf(local_path, compute=False)
-
-        context.message('Executing')
-
-        with ctx.ProcessTimer(context):
-            fut = client.compute(delayed)
-
-            DaskJobTracker(context, fut)
-    except Exception as e:
-        raise WPSError('Error executing process: {!r}', e)
-
-    return context
+    Args:
+        context (OperationContext): The OperationContext holding all details of the current job.
+    """
+    return workflow_func(context)
 
 
-def copy_process_wrapper(f, operation):
+def copy_function(f, operation):
+    """ Creates a unique version of a function.
+
+    Copies function ``f`` giving it a unique name using ``operation``.
+
+    Args:
+        f (FunctionType): The function to copy.
+        operation (str): The unique identifier for the function.
+
+    Returns:
+        FunctionType: A new function.
+    """
     name = '{!s}_func'.format(operation)
 
     return types.FunctionType(f.__code__, f.__globals__, name=name, argdefs=f.__defaults__, closure=f.__closure__)
 
 
 def discover_processes():
+    """ Discovers and binds functions to `cdat` module.
+
+    This function iterates over PROCESS_FUNC_MAP, generating a description, creating a Celery task, registering it with
+    the backend and binding it to the "cdat" module.
+
+    Returns:
+        list: List of dict, describing each registered process.
+    """
     from compute_tasks import base
     from compute_tasks import cdat
 
+    # Use jinja2 to template process abstract
     template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
 
     for name, func in PROCESS_FUNC_MAP.items():
         module, operation = name.split('.')
 
-        p = copy_process_wrapper(process_wrapper, operation)
+        # Create a unique function for each process
+        p = copy_function(process_wrapper, operation)
 
+        # Decorate the new function as a Celery task
         shared = base.cwt_shared_task()(p)
 
+        # Render the abstract
         abstract = render_abstract(DESCRIPTION_MAP[name], func, template)
 
         inputs = 1
@@ -583,8 +598,10 @@ def discover_processes():
             # Handle where no func is supplied
             pass
 
+        # Decorate the Celery task as a registered process
         register = base.register_process(module, operation, abstract=abstract, inputs=inputs)(shared)
 
+        # Bind the new function to the "cdat" module
         setattr(cdat, p.__name__, register)
 
     return base.REGISTRY.values()
