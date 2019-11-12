@@ -1,5 +1,8 @@
 import builtins
+import json
+import os
 
+import cdms2
 import cwt
 import pytest
 import dask.array as da
@@ -13,6 +16,45 @@ from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import managers
 from compute_tasks import WPSError
+from compute_tasks.context import operation
+
+
+@pytest.mark.dask
+def test_subset(mocker, esgf_data, client):  # noqa: F811
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/',
+    })
+
+    self = mocker.MagicMock()
+
+    v1 = cwt.Variable(esgf_data.data['tas-opendap']['files'][0], 'tas')
+
+    subset = cwt.Process('CDAT.subset')
+    subset.set_domain(cwt.Domain(time=(674885.0, 674911.0)))
+    subset.add_inputs(v1)
+
+    data_inputs = {
+        'variable': json.dumps([v1.to_dict()]),
+        'domain': json.dumps([subset.domain.to_dict()]),
+        'operation': json.dumps([subset.to_dict()]),
+    }
+
+    ctx = operation.OperationContext.from_data_inputs('CDAT.subset', data_inputs)
+    ctx.extra['DASK_SCHEDULER'] = client.scheduler.address
+    ctx.user = 0
+    ctx.job = 0
+
+    mocker.patch.object(ctx, 'message')
+    mocker.patch.object(ctx, 'action')
+
+    new_ctx = cdat.process_wrapper(self, ctx)
+
+    assert new_ctx
+
+    with cdms2.open(new_ctx.output[0].uri) as infile:
+        var_name = new_ctx.output[0].var_name
+
+        assert infile[var_name].shape == (27, 192, 288)
 
 
 def test_dask_job_tracker(mocker, client):  # noqa: F811

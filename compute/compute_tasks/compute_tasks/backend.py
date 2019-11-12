@@ -68,7 +68,7 @@ def format_frames(frames):
     logger.info('Building celery workflow')
 
     extra = {
-        'DASK_SCHEDULER': 'dask-scheduler-{!s}'.format(user),
+        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE']),
     }
 
     return identifier, data_inputs, job, user, process, extra

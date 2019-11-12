@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 
-import os
 import types
 from functools import partial
 
@@ -24,10 +23,6 @@ from compute_tasks import WPSError
 from compute_tasks.dask_serialize import regrid_chunk
 
 logger = get_task_logger('compute_tasks.cdat')
-
-DEV = os.environ.get('DEV', False)
-
-NAMESPACE = os.environ.get('NAMESPACE', 'default')
 
 
 class DaskJobTracker(ProgressBar):
@@ -166,9 +161,7 @@ def workflow_func(self, context):
 
     context.message('Preparing to execute workflow')
 
-    scheduler_addr = '{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE)
-
-    client = state_mixin.retry(8, 1)(Client)(scheduler_addr)
+    client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
 
     try:
         delayed = []
@@ -540,9 +533,7 @@ def process_wrapper(self, context):
 
     context.message('Preparing to execute')
 
-    scheduler_addr = '{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE)
-
-    client = state_mixin.retry(8, 1)(Client)(scheduler_addr)
+    client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
 
     try:
         # Execute the dask graph
