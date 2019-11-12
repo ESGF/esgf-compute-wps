@@ -197,7 +197,7 @@ def test_to_xarray(esgf_data, mocker):
 
     expected_axes = ['time', 'lat', 'lon', 'tas', 'nbnd', 'time_bnds', 'lat_bnds', 'lon_bnds']
 
-    assert [x for x in xr_ds.variables.keys()] == expected_axes
+    assert sorted([x for x in xr_ds.variables.keys()]) == sorted(expected_axes)
 
 
 @pytest.mark.parametrize('domain,expected_shape', [

@@ -14,7 +14,6 @@ from distributed.utils_test import (  # noqa: F401
 
 from compute_tasks import base
 from compute_tasks import cdat
-from compute_tasks import managers
 from compute_tasks import WPSError
 from compute_tasks.context import operation
 
@@ -288,7 +287,7 @@ def test_workflow_func_execute_error(mocker):
 
     cdat.build_workflow.assert_called()
 
-    cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+    cdat.Client.assert_called_with('dask-scheduler')
 
     cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
                                                  context.output_ops.return_value)
@@ -314,7 +313,7 @@ def test_workflow_func(mocker):
 
     cdat.build_workflow.assert_called()
 
-    cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+    cdat.Client.assert_called_with('dask-scheduler')
 
     cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
                                                  context.output_ops.return_value)
@@ -632,109 +631,109 @@ def test_process_multiple_input(mocker):
     assert output == input1.copy.return_value
 
 
-def test_process_wrapper_func(mocker):
-    mock_partial = mocker.MagicMock()
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.aggregate': mock_partial,
-        'CDAT.subset': mock_partial,
-    }, True)
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'process')
-    mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.object(cdat, 'DaskJobTracker')
-    mocker.patch.object(managers, 'InputManager')
-    mocker.patch.object(managers, 'FileManager')
-
-    self = mocker.MagicMock()
-
-    context = mocker.MagicMock()
-    context.identifier = 'CDAT.subset'
-
-    cdat.process_wrapper(self, context)
-
-    cdat.process.assert_called_with(cdat.gather_inputs.return_value, context, process_func=mock_partial)
-
-
-@pytest.mark.skip(reason='Unconfigurable exponential timeout')
-def test_process_wrapper_dask_cluster_error(mocker):
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'process')
-    mocker.patch.object(managers, 'FileManager')
-
-    cdat.Client.side_effect = OSError()
-
-    self = mocker.MagicMock()
-
-    context = mocker.MagicMock()
-    context.identifier = 'CDAT.aggregate'
-
-    cdat.process_wrapper(self, context)
-
-
-def test_process_wrapper_execute_error(mocker):
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'process')
-    mocker.patch.object(managers, 'InputManager')
-    mocker.patch.object(managers, 'FileManager')
-    mocker.patch.object(cdat, 'DaskJobTracker')
-
-    self = mocker.MagicMock()
-
-    input1 = mocker.MagicMock()
-    input2 = mocker.MagicMock()
-
-    context = mocker.MagicMock()
-    context.identifier = 'CDAT.aggregate'
-    context.inputs = [input1, input2]
-    context.extra = {
-        'DASK_SCHEDULER': 'dask-scheduler',
-    }
-
-    cdat.Client.return_value.compute.side_effect = Exception()
-
-    with pytest.raises(WPSError):
-        cdat.process_wrapper(self, context)
-
-
-def test_process_wrapper(mocker):
-    mock_partial = mocker.MagicMock()
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.subset': mock_partial,
-    }, True)
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'process')
-    mocker.patch.object(cdat, 'DaskJobTracker')
-    mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.object(managers, 'InputManager')
-    mocker.patch.object(managers, 'FileManager')
-
-    self = mocker.MagicMock()
-
-    input1 = mocker.MagicMock()
-    input2 = mocker.MagicMock()
-
-    context = mocker.MagicMock()
-    context.identifier = 'CDAT.aggregate'
-    context.inputs = [input1, input2]
-    context.extra = {
-        'DASK_SCHEDULER': 'dask-scheduler',
-    }
-
-    cdat.process_wrapper(self, context)
-
-    cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
-
-    cdat.process.assert_called_with(cdat.gather_inputs.return_value, context)
-
-    to_xarray = cdat.process.return_value.to_xarray
-
-    to_xarray.assert_called()
-
-    to_netcdf = to_xarray.return_value.to_netcdf
-
-    to_netcdf.assert_called_with(context.build_output_variable.return_value, compute=False)
-
-    cdat.Client.return_value.compute.assert_called_with(to_netcdf.return_value)
+# TODO remove these tests since process_wrapper just calls workflow_func which is already tested
+# def test_process_wrapper_func(mocker):
+#     mock_partial = mocker.MagicMock()
+#     mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
+#         'CDAT.aggregate': mock_partial,
+#         'CDAT.subset': mock_partial,
+#     }, True)
+#     mocker.patch.object(cdat, 'Client')
+#     mocker.patch.object(cdat, 'process')
+#     mocker.patch.object(cdat, 'gather_inputs')
+#     mocker.patch.object(cdat, 'DaskJobTracker')
+#     mocker.patch.object(managers, 'InputManager')
+#     mocker.patch.object(managers, 'FileManager')
+# 
+#     self = mocker.MagicMock()
+# 
+#     context = mocker.MagicMock()
+#     context.identifier = 'CDAT.subset'
+# 
+#     cdat.process_wrapper(self, context)
+# 
+#     cdat.process.assert_called_with(cdat.gather_inputs.return_value, context, process_func=mock_partial)
+# 
+# 
+# def test_process_wrapper_dask_cluster_error(mocker):
+#     mocker.patch.object(cdat, 'Client')
+#     mocker.patch.object(cdat, 'process')
+#     mocker.patch.object(managers, 'FileManager')
+# 
+#     cdat.Client.side_effect = OSError()
+# 
+#     self = mocker.MagicMock()
+# 
+#     context = mocker.MagicMock()
+#     context.identifier = 'CDAT.aggregate'
+# 
+#     cdat.process_wrapper(self, context)
+# 
+# 
+# def test_process_wrapper_execute_error(mocker):
+#     mocker.patch.object(cdat, 'Client')
+#     mocker.patch.object(cdat, 'process')
+#     mocker.patch.object(managers, 'InputManager')
+#     mocker.patch.object(managers, 'FileManager')
+#     mocker.patch.object(cdat, 'DaskJobTracker')
+# 
+#     self = mocker.MagicMock()
+# 
+#     input1 = mocker.MagicMock()
+#     input2 = mocker.MagicMock()
+# 
+#     context = mocker.MagicMock()
+#     context.identifier = 'CDAT.aggregate'
+#     context.inputs = [input1, input2]
+#     context.extra = {
+#         'DASK_SCHEDULER': 'dask-scheduler',
+#     }
+# 
+#     cdat.Client.return_value.compute.side_effect = Exception()
+# 
+#     with pytest.raises(WPSError):
+#         cdat.process_wrapper(self, context)
+# 
+# 
+# def test_process_wrapper(mocker):
+#     mock_partial = mocker.MagicMock()
+#     mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
+#         'CDAT.subset': mock_partial,
+#     }, True)
+#     mocker.patch.object(cdat, 'Client')
+#     mocker.patch.object(cdat, 'process')
+#     mocker.patch.object(cdat, 'DaskJobTracker')
+#     mocker.patch.object(cdat, 'gather_inputs')
+#     mocker.patch.object(managers, 'InputManager')
+#     mocker.patch.object(managers, 'FileManager')
+# 
+#     self = mocker.MagicMock()
+# 
+#     input1 = mocker.MagicMock()
+#     input2 = mocker.MagicMock()
+# 
+#     context = mocker.MagicMock()
+#     context.identifier = 'CDAT.aggregate'
+#     context.inputs = [input1, input2]
+#     context.extra = {
+#         'DASK_SCHEDULER': 'dask-scheduler',
+#     }
+# 
+#     cdat.process_wrapper(self, context)
+# 
+#     cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+# 
+#     cdat.process.assert_called_with(cdat.gather_inputs.return_value, context)
+# 
+#     to_xarray = cdat.process.return_value.to_xarray
+# 
+#     to_xarray.assert_called()
+# 
+#     to_netcdf = to_xarray.return_value.to_netcdf
+# 
+#     to_netcdf.assert_called_with(context.build_output_variable.return_value, compute=False)
+# 
+#     cdat.Client.return_value.compute.assert_called_with(to_netcdf.return_value)
 
 
 def test_discover_processes(mocker):
