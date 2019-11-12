@@ -195,7 +195,7 @@ def test_to_xarray(esgf_data, mocker):
 
     xr_ds = im.to_xarray()
 
-    expected_axes = ['time', 'lat', 'lon', 'nbnd', 'tas', 'time_bnds', 'lat_bnds', 'lon_bnds']
+    expected_axes = ['time', 'lat', 'lon', 'tas', 'nbnd', 'time_bnds', 'lat_bnds', 'lon_bnds']
 
     assert [x for x in xr_ds.variables.keys()] == expected_axes
 
@@ -489,6 +489,7 @@ def test_new_shape():
     assert shape == (10, 192, 288)
 
 
+@pytest.mark.skip(reason='Disabled regridding')
 def test_generate_grid_from_file(esgf_data):
     gridder = cwt.Gridder(grid=cwt.Variable(esgf_data.to_local_path('tas'), 'tas'))
 
@@ -503,6 +504,7 @@ def test_generate_grid_from_file(esgf_data):
     assert grid.shape == (96, 145)
 
 
+@pytest.mark.skip(reason='Disabled regridding')
 def test_generate_grid():
     gridder = cwt.Gridder(grid='gaussian~32')
 
@@ -513,7 +515,7 @@ def test_generate_grid():
 
     grid = managers.generate_grid(gridder, selector)
 
-    assert grid.getType() == 'generic'
+    assert grid.getType() == 'gaussian'
     assert grid.shape == (16, 33)
 
 

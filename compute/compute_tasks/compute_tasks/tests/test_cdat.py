@@ -12,7 +12,6 @@ from distributed.utils_test import (  # noqa: F401
 from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import managers
-from compute_tasks import DaskClusterAccessError
 from compute_tasks import WPSError
 
 
@@ -208,6 +207,7 @@ def test_build_workflow(mocker):
     assert subset.name in interm
 
 
+@pytest.mark.skip(reason='Unconfigurable exponential timeout')
 def test_workflow_func_dask_cluster_error(mocker):
     mocker.patch.object(cdat, 'gather_workflow_outputs')
     mocker.patch.object(cdat, 'Client')
@@ -221,8 +221,7 @@ def test_workflow_func_dask_cluster_error(mocker):
 
     cdat.Client.side_effect = OSError()
 
-    with pytest.raises(DaskClusterAccessError):
-        cdat.workflow_func(context)
+    cdat.workflow_func(context)
 
     cdat.build_workflow.assert_called()
 
@@ -302,6 +301,7 @@ def test_process_process_func(mocker):
     assert output == process_func.return_value
 
 
+@pytest.mark.skip(reason='Regriding from any process has been disabled')
 def test_process_regrid(mocker):
     mocker.patch.object(cdat, 'regrid')
 
@@ -613,6 +613,7 @@ def test_process_wrapper_func(mocker):
     cdat.process.assert_called_with(cdat.gather_inputs.return_value, context, process_func=mock_partial)
 
 
+@pytest.mark.skip(reason='Unconfigurable exponential timeout')
 def test_process_wrapper_dask_cluster_error(mocker):
     mocker.patch.object(cdat, 'Client')
     mocker.patch.object(cdat, 'process')
@@ -625,8 +626,7 @@ def test_process_wrapper_dask_cluster_error(mocker):
     context = mocker.MagicMock()
     context.identifier = 'CDAT.aggregate'
 
-    with pytest.raises(DaskClusterAccessError):
-        cdat.process_wrapper(self, context)
+    cdat.process_wrapper(self, context)
 
 
 def test_process_wrapper_execute_error(mocker):
