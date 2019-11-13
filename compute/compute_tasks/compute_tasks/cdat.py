@@ -123,12 +123,9 @@ def build_workflow(fm, context):
             if len(inputs) == 1:
                 inputs = [inputs[0].copy(), ]
 
-        if next.identifier in PROCESS_FUNC_MAP:
-            process_func = PROCESS_FUNC_MAP[next.identifier]
+        process_func = PROCESS_FUNC_MAP[next.identifier]
 
-            interm[next.name] = process(inputs, context, process_func=process_func)
-        else:
-            interm[next.name] = process(inputs, context)
+        interm[next.name] = process_func(context, next, *inputs)
 
         context.message('Storing intermediate {!r}', next.name)
 
@@ -182,49 +179,6 @@ def workflow_func(self, context):
         raise WPSError('Error executing process: {!r}', e)
 
     return context
-
-
-def process(inputs, context, process_func=None):
-    """ Process a single variable.
-
-    Initialize the cluster workers, create the dask graph then execute.
-
-    The `process_func` function should take a cwt.Process and a list of
-    compute_tasks.managers.FileManager. See process_input as an example.
-
-    Args:
-        context: A cwt.context.OperationContext.
-        process_func: A custom processing function to be applied.
-        aggregate: A bool value to treat the inputs as an aggregation.
-
-    Returns:
-        An updated cwt.context.OperationContext.
-    """
-    # Subset each input and track the bytes
-    for input in inputs:
-        src, subset = input.subset(context.domain)
-
-        context.track_src_bytes(src.nbytes)
-
-        context.track_in_bytes(subset.nbytes)
-
-        context.message('Data subset shape {!r}', input.shape)
-
-    # Apply processing if needed
-    if process_func is not None:
-        output = process_func(context.operation, *inputs)
-
-        context.message('Applied process {!r} shape {!r}', context.operation.identifier, output.shape)
-    else:
-        output = inputs[0]
-
-    # Apply regridding if needed
-    # if context.is_regrid:
-    #     regrid(context.operation, output)
-
-    #     context.message('Applied regridding shape {!r}', output.shape)
-
-    return output
 
 
 def regrid(operation, *inputs):
@@ -303,7 +257,7 @@ FEAT_CONST = 'FEAT_CONST'
 FEAT_MULTI = 'FEAT_MULTI'
 
 
-def process_input(operation, *inputs, process_func, **supported):
+def process_input(context, operation, *inputs, process_func=None, **supported):
     """ Process inputs.
 
     Possible values for `supported`:
@@ -317,47 +271,59 @@ def process_input(operation, *inputs, process_func, **supported):
         process_func: An optional dask ufunc.
         supported: An optional dict defining the support processing types. See above for explanation.
     """
-    axes = operation.get_parameter('axes')
+    for input in inputs:
+        src, subset = input.subset(context.domain)
 
-    constant = operation.get_parameter('constant')
+        context.track_src_bytes(src.nbytes)
 
-    logger.info('Axes %r Constant %r', axes, constant)
+        context.track_in_bytes(subset.nbytes)
 
-    if axes is not None:
-        if not supported.get(FEAT_AXES, False):
-            raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
+        context.message('Data subset shape {!r}', input.shape)
 
-        # Apply process to first input over axes
-        output = process_single_input(axes.values, process_func, inputs[0])
-    elif constant is not None:
-        if not supported.get(FEAT_CONST, False):
-            raise WPSError('Constant parameter is not supported by operation {!r}', operation.identifier)
+    if process_func is not None:
+        axes = operation.get_parameter('axes')
 
-        try:
-            constant = float(constant.values[0])
-        except ValueError:
-            raise WPSError('Invalid constant value {!r} type {!s} expecting <class \'float\'>',
-                           constant, type(constant))
+        constant = operation.get_parameter('constant')
 
-        output = inputs[0]
+        logger.info('Axes %r Constant %r', axes, constant)
 
-        # Apply the process to the existing dask array
-        output.variable = process_func(output.variable, constant)
+        if axes is not None:
+            if not supported.get(FEAT_AXES, False):
+                raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
 
-        logger.info('Process output %r', output.variable)
-    elif len(inputs) > 1:
-        if not supported.get(FEAT_MULTI, False):
-            raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
+            # Apply process to first input over axes
+            output = process_single_input(axes.values, process_func, inputs[0])
+        elif constant is not None:
+            if not supported.get(FEAT_CONST, False):
+                raise WPSError('Constant parameter is not supported by operation {!r}', operation.identifier)
 
-        # Apply the process to all inputs
-        output = process_multiple_input(process_func, *inputs)
+            try:
+                constant = float(constant.values[0])
+            except ValueError:
+                raise WPSError('Invalid constant value {!r} type {!s} expecting <class \'float\'>',
+                               constant, type(constant))
+
+            output = inputs[0]
+
+            # Apply the process to the existing dask array
+            output.variable = process_func(output.variable, constant)
+
+            logger.info('Process output %r', output.variable)
+        elif len(inputs) > 1:
+            if not supported.get(FEAT_MULTI, False):
+                raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
+
+            # Apply the process to all inputs
+            output = process_multiple_input(process_func, *inputs)
+        else:
+            output = inputs[0]
+
+            # Apply the process
+            output.variable = process_func(output.variable)
+
+            logger.info('Process output %r', output.variable)
     else:
         output = inputs[0]
-
-        # Apply the process
-        output.variable = process_func(output.variable)
-
-        logger.info('Process output %r', output.variable)
 
     return output
 
@@ -463,7 +429,7 @@ See the doctstring of ``process_input`` for additional details.
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_input, process_func=da.absolute),
     'CDAT.add': partial(process_input, process_func=da.add, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.aggregate': None,
+    'CDAT.aggregate': process_input,
     'CDAT.average': partial(process_input, process_func=da.average, FEAT_MULTI=True),
     'CDAT.divide': partial(process_input, process_func=da.divide, FEAT_CONST=True, FEAT_MULTI=True),
     # Disabled due to overflow issue, setting dtype=float64 works for dask portion but xarray is writing Inf.
@@ -474,7 +440,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.multiply': partial(process_input, process_func=da.multiply, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.power': partial(process_input, process_func=da.power, FEAT_CONST=True),
     # 'CDAT.regrid': regrid,
-    'CDAT.subset': None,
+    'CDAT.subset': process_input,
     'CDAT.subtract': partial(process_input, process_func=da.subtract, FEAT_CONST=True, FEAT_MULTI=True),
     'CDAT.sum': partial(process_input, process_func=da.sum, FEAT_AXES=True),
 }
