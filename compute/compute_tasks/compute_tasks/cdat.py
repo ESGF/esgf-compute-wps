@@ -257,7 +257,7 @@ FEAT_CONST = 'FEAT_CONST'
 FEAT_MULTI = 'FEAT_MULTI'
 
 
-def process_input(context, operation, *inputs, process_func=None, **supported):
+def process_input(context, operation, *inputs, **kwargs):
     """ Process inputs.
 
     Possible values for `supported`:
@@ -280,6 +280,8 @@ def process_input(context, operation, *inputs, process_func=None, **supported):
 
         context.message('Data subset shape {!r}', input.shape)
 
+    process_func = kwargs.get('process_func', None)
+
     if process_func is not None:
         axes = operation.get_parameter('axes')
 
@@ -288,13 +290,13 @@ def process_input(context, operation, *inputs, process_func=None, **supported):
         logger.info('Axes %r Constant %r', axes, constant)
 
         if axes is not None:
-            if not supported.get(FEAT_AXES, False):
+            if not kwargs.get(FEAT_AXES, False):
                 raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
 
             # Apply process to first input over axes
             output = process_single_input(axes.values, process_func, inputs[0])
         elif constant is not None:
-            if not supported.get(FEAT_CONST, False):
+            if not kwargs.get(FEAT_CONST, False):
                 raise WPSError('Constant parameter is not supported by operation {!r}', operation.identifier)
 
             try:
@@ -310,7 +312,7 @@ def process_input(context, operation, *inputs, process_func=None, **supported):
 
             logger.info('Process output %r', output.variable)
         elif len(inputs) > 1:
-            if not supported.get(FEAT_MULTI, False):
+            if not kwargs.get(FEAT_MULTI, False):
                 raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
 
             # Apply the process to all inputs
