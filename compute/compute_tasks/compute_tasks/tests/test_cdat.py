@@ -402,11 +402,11 @@ def test_process_input_axes(mocker):
     input1 = mocker.MagicMock()
     input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
-    output = cdat.process_input(ctx, operation, input1, process_func=process_func, FEAT_AXES=True)
+    output = cdat.process_input(ctx, operation, input1, process_func=process_func, features=cdat.AXES)
 
     assert output == cdat.process_single_input.return_value
 
-    cdat.process_single_input.assert_called_with(('time', 'lat'), process_func, input1)
+    cdat.process_single_input.assert_called_with(('time', 'lat'), process_func, input1, 1)
 
 
 def test_process_input_axes_missing_feat(mocker):
@@ -436,7 +436,7 @@ def test_process_input_constant(mocker):
 
     orig_input1_variable = input1.variable
 
-    output = cdat.process_input(ctx, operation, input1, process_func=process_func, FEAT_CONST=True)
+    output = cdat.process_input(ctx, operation, input1, process_func=process_func, features=cdat.CONST)
 
     assert output == input1
 
@@ -455,7 +455,7 @@ def test_process_input_constant_invalid(mocker):
     input1 = mocker.MagicMock()
 
     with pytest.raises(WPSError):
-        cdat.process_input(operation, input1,  process_func=process_func, FEAT_CONST=True)
+        cdat.process_input(operation, input1,  process_func=process_func, features=cdat.CONST)
 
 
 def test_process_input_constant_missing_feat(mocker):
@@ -486,13 +486,13 @@ def test_process_input_multiple_inputs(mocker):
     input2 = mocker.MagicMock()
     input2.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
-    output = cdat.process_input(ctx, operation, input1, input2, process_func=process_func, FEAT_MULTI=True)
+    output = cdat.process_input(ctx, operation, input1, input2, process_func=process_func, features=cdat.MULTI)
 
     assert output == cdat.process_multiple_input.return_value
 
     process_func.assert_not_called()
 
-    cdat.process_multiple_input.assert_called_with(process_func, input1, input2)
+    cdat.process_multiple_input.assert_called_with(process_func, input1, input2, cdat.MULTI)
 
 
 def test_process_input_multiple_inputs_missing_feat(mocker):
@@ -540,7 +540,7 @@ def test_process_single_input(mocker):
     orig_input_variable = input.variable
     input.variable_axes = ['time', 'lat', 'lon']
 
-    output = cdat.process_single_input(['time'], process_func, input)
+    output = cdat.process_single_input(['time'], process_func, input, 0)
 
     assert output == input
 
@@ -560,7 +560,7 @@ def test_process_multiple_input_stack(mocker):
     input1 = mocker.MagicMock()
     input2 = mocker.MagicMock()
 
-    output = cdat.process_multiple_input(process_func, input1, input2)
+    output = cdat.process_multiple_input(process_func, input1, input2, cdat.STACK)
 
     input1.copy.assert_called()
 
@@ -580,7 +580,7 @@ def test_process_multiple_input(mocker):
     input1 = mocker.MagicMock()
     input2 = mocker.MagicMock()
 
-    output = cdat.process_multiple_input(process_func, input1, input2)
+    output = cdat.process_multiple_input(process_func, input1, input2, 0)
 
     input1.copy.assert_called()
 
@@ -592,27 +592,20 @@ def test_process_multiple_input(mocker):
 
 
 def test_discover_processes(mocker):
-    mock_partial = mocker.MagicMock()
     mocker.spy(builtins, 'setattr')
     mocker.patch.object(base, 'cwt_shared_task')
     mocker.patch.object(base, 'register_process')
     mocker.patch.object(cdat, 'render_abstract')
     mocker.patch.object(cdat, 'Environment')
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.aggregate': mock_partial,
-        'CDAT.subset': mock_partial,
-    }, True)
 
     cdat.discover_processes()
 
     base.cwt_shared_task.assert_called()
     base.cwt_shared_task.return_value.assert_called()
 
-    template = cdat.Environment.return_value.from_string.return_value
+    cdat.render_abstract.assert_called()
 
-    cdat.render_abstract.assert_called_with(cdat.DESCRIPTION_MAP['CDAT.subset'], mock_partial, template)
-
-    base.register_process.assert_called_with('CDAT', 'subset', abstract=cdat.render_abstract.return_value, inputs=1)
+    base.register_process.assert_any_call('CDAT', 'subset', abstract=cdat.render_abstract.return_value, inputs=1)
     base.register_process.return_value.assert_called_with(base.cwt_shared_task.return_value.return_value)
 
     builtins.setattr.assert_any_call(cdat, 'subset_func', base.register_process.return_value.return_value)

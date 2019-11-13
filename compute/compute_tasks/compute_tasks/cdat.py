@@ -252,9 +252,10 @@ def regrid(operation, *inputs):
     return input
 
 
-FEAT_AXES = 'FEAT_AXES'
-FEAT_CONST = 'FEAT_CONST'
-FEAT_MULTI = 'FEAT_MULTI'
+AXES = 1    # Enable processing over axes
+CONST = 2   # Enable processing against a constant value
+MULTI = 4   # Enable processing multiple inputs
+STACK = 8   # Process requires stacking of inputs
 
 
 def process_input(context, operation, *inputs, **kwargs):
@@ -280,7 +281,7 @@ def process_input(context, operation, *inputs, **kwargs):
 
         context.message('Data subset shape {!r}', input.shape)
 
-    process_func = kwargs.get('process_func', None)
+    process_func = kwargs.pop('process_func', None)
 
     if process_func is not None:
         axes = operation.get_parameter('axes')
@@ -289,14 +290,16 @@ def process_input(context, operation, *inputs, **kwargs):
 
         logger.info('Axes %r Constant %r', axes, constant)
 
+        features = kwargs.pop('features', 0)
+
         if axes is not None:
-            if not kwargs.get(FEAT_AXES, False):
+            if not features & AXES:
                 raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
 
             # Apply process to first input over axes
-            output = process_single_input(axes.values, process_func, inputs[0])
+            output = process_single_input(axes.values, process_func, inputs[0], features, **kwargs)
         elif constant is not None:
-            if not kwargs.get(FEAT_CONST, False):
+            if not features & CONST:
                 raise WPSError('Constant parameter is not supported by operation {!r}', operation.identifier)
 
             try:
@@ -312,11 +315,11 @@ def process_input(context, operation, *inputs, **kwargs):
 
             logger.info('Process output %r', output.variable)
         elif len(inputs) > 1:
-            if not kwargs.get(FEAT_MULTI, False):
+            if not features & MULTI:
                 raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
 
             # Apply the process to all inputs
-            output = process_multiple_input(process_func, *inputs)
+            output = process_multiple_input(process_func, *inputs, features, **kwargs)
         else:
             output = inputs[0]
 
@@ -330,7 +333,7 @@ def process_input(context, operation, *inputs, **kwargs):
     return output
 
 
-def process_single_input(axes, process_func, input):
+def process_single_input(axes, process_func, input, features, **kwargs):
     """ Process single input.
 
     Args:
@@ -363,7 +366,7 @@ def process_single_input(axes, process_func, input):
     return input
 
 
-def process_multiple_input(process_func, input1, input2):
+def process_multiple_input(process_func, input1, input2, features, **kwargs):
     """ Process multiple inputs.
 
     Note that some ufuncs will only process a single array over some dimensions,
@@ -381,7 +384,7 @@ def process_multiple_input(process_func, input1, input2):
     new_input = input1.copy()
 
     # Check if we need to stack the arrays.
-    if process_func.__name__ in REQUIRES_STACK:
+    if features & STACK:
         stacked = da.stack([input1.variable, input2.variable])
 
         logger.info('Stacking inputs %r', stacked)
@@ -395,14 +398,6 @@ def process_multiple_input(process_func, input1, input2):
 
     return new_input
 
-
-# TODO remove this and utilize **kwargs on process_input to configure when stacking is required.
-REQUIRES_STACK = [
-    'sum_func',
-    'max_func',
-    'min_func',
-    'average_func',
-]
 
 # Process descriptions used in abstracts.
 DESCRIPTION_MAP = {
@@ -430,21 +425,21 @@ See the doctstring of ``process_input`` for additional details.
 """
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_input, process_func=da.absolute),
-    'CDAT.add': partial(process_input, process_func=da.add, FEAT_CONST=True, FEAT_MULTI=True),
+    'CDAT.add': partial(process_input, process_func=da.add, features=CONST | MULTI),
     'CDAT.aggregate': process_input,
-    'CDAT.average': partial(process_input, process_func=da.average, FEAT_MULTI=True),
-    'CDAT.divide': partial(process_input, process_func=da.divide, FEAT_CONST=True, FEAT_MULTI=True),
+    'CDAT.average': partial(process_input, process_func=da.average, features=MULTI | STACK),
+    'CDAT.divide': partial(process_input, process_func=da.divide, features=CONST | MULTI),
     # Disabled due to overflow issue, setting dtype=float64 works for dask portion but xarray is writing Inf.
     # 'CDAT.exp': partial(process_input, process_func=da.exp),
     'CDAT.log': partial(process_input, process_func=da.log),
-    'CDAT.max': partial(process_input, process_func=da.max, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.min': partial(process_input, process_func=da.min, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.multiply': partial(process_input, process_func=da.multiply, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.power': partial(process_input, process_func=da.power, FEAT_CONST=True),
+    'CDAT.max': partial(process_input, process_func=da.max, features=AXES | CONST | MULTI | STACK),
+    'CDAT.min': partial(process_input, process_func=da.min, features=AXES | CONST | MULTI | STACK),
+    'CDAT.multiply': partial(process_input, process_func=da.multiply, features=MULTI | CONST),
+    'CDAT.power': partial(process_input, process_func=da.power, features=CONST),
     # 'CDAT.regrid': regrid,
     'CDAT.subset': process_input,
-    'CDAT.subtract': partial(process_input, process_func=da.subtract, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.sum': partial(process_input, process_func=da.sum, FEAT_AXES=True),
+    'CDAT.subtract': partial(process_input, process_func=da.subtract, features=CONST | MULTI),
+    'CDAT.sum': partial(process_input, process_func=da.sum, features=CONST | MULTI),
 }
 
 
@@ -462,20 +457,18 @@ def render_abstract(description, func, template):
     Returns:
         str: The abstract as a string.
     """
-    axes = False
-    const = False
-    multi = False
-
     try:
         kwargs = func.keywords
+
+        features = kwargs.get('features', 0)
     except AttributeError:
-        pass
-    else:
-        axes = FEAT_AXES in kwargs and kwargs[FEAT_AXES]
+        features = 0
 
-        const = FEAT_CONST in kwargs and kwargs[FEAT_CONST]
+    axes = True if features & AXES else False
 
-        multi = FEAT_MULTI in kwargs and kwargs[FEAT_MULTI]
+    const = True if features & CONST else False
+
+    multi = True if features & MULTI else False
 
     return template.render(description=description, axes=axes, const=const, multi=multi)
 
@@ -558,13 +551,14 @@ def discover_processes():
         inputs = 1
 
         try:
-            if FEAT_MULTI in func.keywords:
-                inputs = 2
-            elif name == 'CDAT.aggregate':
-                inputs = '*'
+            features = func.keywords.get('features', 0)
         except AttributeError:
-            # Handle where no func is supplied
-            pass
+            features = 0
+
+        if features & MULTI:
+            inputs = 2
+        elif name == 'CDAT.aggregate':
+            inputs = '*'
 
         # Decorate the Celery task as a registered process
         register = base.register_process(module, operation, abstract=abstract, inputs=inputs)(shared)
