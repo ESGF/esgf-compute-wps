@@ -174,6 +174,10 @@ class OperationContext(state_mixin.StateMixin, object):
         return [x for x in self.operation.inputs if isinstance(x, cwt.Variable)]
 
     @property
+    def variable(self):
+        return list(set(x.var_name for x in self.inputs))[0]
+
+    @property
     def is_regrid(self):
         return 'gridder' in self.operation.parameters
 

@@ -7,6 +7,8 @@ import cdms2
 import cwt
 import dask
 import dask.array as da
+import metpy  # noqa F401
+import xarray as xr
 from celery.utils.log import get_task_logger
 from dask.distributed import Client
 from distributed.diagnostics.progressbar import ProgressBar
@@ -63,38 +65,68 @@ class DaskJobTracker(ProgressBar):
         pass
 
 
+def clean_variable_encoding(dataset):
+    for name, variable in dataset.variables.items():
+        if 'missing_value' in variable.encoding:
+            del variable.encoding['missing_value']
+
+    return dataset
+
+
 def gather_workflow_outputs(context, interm, operations):
     delayed = []
 
     for output in operations:
         try:
-            interm_value = interm.pop(output.name)
+            interm_ds = interm.pop(output.name)
         except KeyError as e:
             raise WPSError('Failed to find intermediate {!s}', e)
 
-        context.track_out_bytes(interm_value.nbytes)
-
-        dataset = interm_value.to_xarray()
+        context.track_out_bytes(interm_ds.nbytes)
 
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-        local_path = context.build_output_variable(interm_value.var_name, name=output_name)
+        local_path = context.build_output_variable(context.variable, name=output_name)
 
         context.message('Building output for {!r} - {!r}', output.name, output.identifier)
 
         logger.debug('Writing local output to %r', local_path)
 
+        interm_ds = clean_variable_encoding(interm_ds)
+
         # Create an output file and store the future
-        delayed.append(dataset.to_netcdf(local_path, compute=False))
+        delayed.append(interm_ds.to_netcdf(local_path, compute=False))
 
     return delayed
 
 
 def gather_inputs(identifier, fm, inputs):
+    # TODO make chunks smarter
+    chunks = {
+        'time': 100,
+    }
+
+    file_paths = []
+
+    # Check that each file is accessible.
+    # xarray supports accessing protected data such as CMIP5/CMIP3 on ESGF. This is provided
+    # through the PydapDataStore class and a requests session. This works when xarray is run
+    # locally, if run using dask distributed we run into an error where PydapDataStore is not
+    # serialized. This can be fixed by subclassing PydapDataStore and implementing __getstate__
+    # and __setstate__. The next issue that occurs is massive recursion caused by Pydap's data
+    # model. At this moment a path forward is not clear. The simple, inefficient solution would
+    # be localizing the data to shared storage then opening it with xarray.
+    for x in inputs:
+        if not fm.check_access(x.uri):
+            raise WPSError('Unable to access input {!r}, this resource may be protected and unsupported by the compute '
+                           'service.', x.uri)
+
+        file_paths.append(x.uri)
+
     if identifier == 'CDAT.aggregate':
-        gathered = [managers.InputManager.from_cwt_variables(fm, inputs)]
+        gathered = [xr.open_mfdataset(file_paths, chunks=chunks, combine='by_coords')]
     else:
-        gathered = [managers.InputManager.from_cwt_variable(fm, x) for x in inputs]
+        gathered = [xr.open_dataset(x, chunks=chunks) for x in file_paths]
 
     return gathered
 
@@ -258,6 +290,38 @@ MULTI = 4   # Enable processing multiple inputs
 STACK = 8   # Process requires stacking of inputs
 
 
+def subset_input(context, operation, input):
+    context.track_src_bytes(input.nbytes)
+
+    try:
+        time = list(input[context.variable].metpy.coordinates('time'))[0]
+    except (AttributeError, IndexError):
+        time = None
+
+    for dim in context.domain.dimensions.values():
+        if dim.crs == cwt.INDICES:
+            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+
+            input = input.isel(**selector)
+        elif dim.crs == cwt.VALUES:
+            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+
+            if time is not None and time.name == dim.name:
+                input[time.name] = xr.conventions.encode_cf_variable(input[time.name])
+
+                input = input.sel(**selector)
+            else:
+                input = input.loc[selector]
+        else:
+            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+
+            input = input.sel(**selector)
+
+    context.track_in_bytes(input.nbytes)
+
+    return input
+
+
 def process_input(context, operation, *inputs, **kwargs):
     """ Process inputs.
 
@@ -272,14 +336,7 @@ def process_input(context, operation, *inputs, **kwargs):
         process_func: An optional dask ufunc.
         supported: An optional dict defining the support processing types. See above for explanation.
     """
-    for input in inputs:
-        src, subset = input.subset(context.domain)
-
-        context.track_src_bytes(src.nbytes)
-
-        context.track_in_bytes(subset.nbytes)
-
-        context.message('Data subset shape {!r}', input.shape)
+    inputs = [subset_input(context, operation, x) for x in inputs]
 
     process_func = kwargs.pop('process_func', None)
 

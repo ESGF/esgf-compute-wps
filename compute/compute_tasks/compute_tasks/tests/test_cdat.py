@@ -11,11 +11,51 @@ from distributed.utils_test import (  # noqa: F401
     loop,
     cluster_fixture,
 )
+from myproxy.client import MyProxyClient
 
 from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import WPSError
 from compute_tasks.context import operation
+
+
+@pytest.mark.dask
+@pytest.mark.require_certificate
+def test_protected_data(mocker, esgf_data, client):  # noqa: F811
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/',
+    })
+
+    self = mocker.MagicMock()
+
+    v1 = cwt.Variable(esgf_data.data['tas-opendap-cmip5']['files'][0], 'tas')
+
+    subset = cwt.Process('CDAT.subset')
+    subset.set_domain(cwt.Domain(time=(674885.0, 674911.0)))
+    subset.add_inputs(v1)
+
+    data_inputs = {
+        'variable': json.dumps([v1.to_dict()]),
+        'domain': json.dumps([subset.domain.to_dict()]),
+        'operation': json.dumps([subset.to_dict()]),
+    }
+
+    ctx = operation.OperationContext.from_data_inputs('CDAT.subset', data_inputs)
+    ctx.extra['DASK_SCHEDULER'] = client.scheduler.address
+    ctx.user = 0
+    ctx.job = 0
+
+    m = MyProxyClient(hostname=os.environ['MPC_HOST'])
+
+    cert = m.logon(os.environ['MPC_USERNAME'], os.environ['MPC_PASSWORD'], bootstrap=True)
+
+    mocker.patch.object(ctx, 'user_cert', return_value=''.join([x.decode() for x in cert]))
+
+    mocker.patch.object(ctx, 'message')
+    mocker.patch.object(ctx, 'action')
+
+    with pytest.raises(WPSError):
+        cdat.process_wrapper(self, ctx)
 
 
 @pytest.mark.dask
@@ -94,8 +134,8 @@ def test_gather_workflow_outputs(mocker):
     max_delayed = mocker.MagicMock()
 
     interm = {
-            subset.name: subset_delayed,
-            max.name: max_delayed,
+        subset.name: subset_delayed,
+        max.name: max_delayed,
     }
 
     delayed = cdat.gather_workflow_outputs(context, interm, [subset, max])
@@ -103,24 +143,9 @@ def test_gather_workflow_outputs(mocker):
     assert len(delayed) == 2
     assert len(interm) == 0
 
-    subset_delayed.to_xarray.assert_called()
-    subset_delayed.to_xarray.return_value.to_netcdf.assert_called()
 
-    max_delayed.to_xarray.assert_called()
-    max_delayed.to_xarray.return_value.to_netcdf.assert_called()
-
-
-def test_gather_inputs_aggregate(mocker):
-    input1 = mocker.MagicMock()
-    input1.var_name = 'tas'
-
-    input2 = mocker.MagicMock()
-    input2.var_name = 'tas'
-
-    inputs = [
-        input1,
-        input2
-    ]
+def test_gather_inputs_aggregate(mocker, esgf_data):
+    inputs = [cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']]
 
     fm = mocker.MagicMock()
 
@@ -129,11 +154,8 @@ def test_gather_inputs_aggregate(mocker):
     assert len(data) == 1
 
 
-def test_gather_inputs(mocker):
-    inputs = [
-        mocker.MagicMock(),
-        mocker.MagicMock(),
-    ]
+def test_gather_inputs(mocker, esgf_data):
+    inputs = [cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']]
 
     fm = mocker.MagicMock()
 
