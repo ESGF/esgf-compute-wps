@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import types
+import os
 from functools import partial
 
 import cdms2
@@ -8,6 +9,8 @@ import cwt
 import dask
 import dask.array as da
 import metpy  # noqa F401
+import requests
+import tempfile
 import xarray as xr
 from celery.utils.log import get_task_logger
 from dask.distributed import Client
@@ -67,7 +70,7 @@ class DaskJobTracker(ProgressBar):
 
 def clean_variable_encoding(dataset):
     for name, variable in dataset.variables.items():
-        if 'missing_value' in variable.encoding:
+        if 'missing_value' in variable.encoding and '_FillValue' in variable.encoding:
             del variable.encoding['missing_value']
 
     return dataset
@@ -94,39 +97,121 @@ def gather_workflow_outputs(context, interm, operations):
 
         interm_ds = clean_variable_encoding(interm_ds)
 
-        # Create an output file and store the future
-        delayed.append(interm_ds.to_netcdf(local_path, compute=False))
+        try:
+            # Create an output file and store the future
+            delayed.append(interm_ds.to_netcdf(local_path, compute=False))
+        except ValueError:
+            shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
+
+            bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
+
+            raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
 
     return delayed
 
 
-def gather_inputs(identifier, fm, inputs):
+def check_access(url, cert=None):
+    """ Checks if url is accessible.
+
+    Checks if a remote file is accessible by the service. It's expecting an OpenDAP url, to check for this an
+    HTTP GET request is executed against the `.dds` path. Allows the passing of a SSL client certificate in
+    cases such as ESGF's protected data.
+
+    Args:
+        url (str): The URL to check.
+        cert (str): A path to an SSL client certificate.
+
+    Returns:
+        bool: True if the HTTP status code is 200, False if its 401 or 403.
+
+    Raises:
+        WPSError: If the status code is anything other than 200, 401 or 403.
+    """
+    dds_url = '{!s}.dds'.format(url)
+
+    try:
+        # TODO bootstrap trust roots and set verify True
+        response = requests.get(dds_url, timeout=(10, 4), cert=cert, verify=False)
+    except Exception as e:
+        raise WPSError('Failed to access input {!s}, {!s}'.format(url, e))
+
+    if response.status_code == 200:
+        return True
+
+    if response.status_code in (401, 403):
+        return False
+
+    raise WPSError('Failed to access input {!r}, reason {!s} ({!s})', url, response.reason, response.status_code)
+
+
+def get_user_cert(context):
+    tf = tempfile.NamedTemporaryFile()
+
+    cert = context.user_cert()
+
+    tf.write(cert.encode())
+
+    return tf
+
+
+def localize_protected(context, urls, cert_path):
+    new_urls = []
+
+    session = requests.Session()
+
+    session.cert = cert_path
+
+    for url in urls:
+        # TODO make a smarter version of cache_local_path.
+        cached_path = context.cache_local_path(url)
+
+        # Already exists, skip localizing.
+        if not os.path.exists(cached_path):
+            store = xr.backends.PydapDataStore.open(url, session=session)
+
+            ds = xr.open_dataset(store, chunks={'time': 50})
+
+            # Retry 4 times start with a 1 second delay.
+            state_mixin.retry(4, 1)(ds.to_netcdf)(cached_path)
+
+        new_urls.append(cached_path)
+
+    return new_urls
+
+
+def gather_inputs(context, identifier, fm, inputs):
     # TODO make chunks smarter
     chunks = {
         'time': 100,
     }
 
-    file_paths = []
+    cert_tempfile = None
+    protected = []
+    urls = []
 
-    # Check that each file is accessible.
-    # xarray supports accessing protected data such as CMIP5/CMIP3 on ESGF. This is provided
-    # through the PydapDataStore class and a requests session. This works when xarray is run
-    # locally, if run using dask distributed we run into an error where PydapDataStore is not
-    # serialized. This can be fixed by subclassing PydapDataStore and implementing __getstate__
-    # and __setstate__. The next issue that occurs is massive recursion caused by Pydap's data
-    # model. At this moment a path forward is not clear. The simple, inefficient solution would
-    # be localizing the data to shared storage then opening it with xarray.
+    # Determine which files are accessible
     for x in inputs:
-        if not fm.check_access(x.uri):
-            raise WPSError('Unable to access input {!r}, this resource may be protected and unsupported by the compute '
-                           'service.', x.uri)
+        if not check_access(x.uri):
+            if cert_tempfile is None:
+                cert_tempfile = get_user_cert(context)
 
-        file_paths.append(x.uri)
+            if not check_access(x.uri, cert=cert_tempfile.name):
+                raise WPSError('Failed to access input {!r}', x.uri)
+
+            protected.append(x.uri)
+        else:
+            urls.append(x.uri)
+
+    # Localize any files requiring an SSL client certificate
+    # TODO figure out a way to get PydapDataStore to work with dask.distributed,
+    # currently fails with recurrsion error.
+    if len(protected) > 0:
+        protected = localize_protected(context, protected, cert_tempfile.name)
 
     if identifier == 'CDAT.aggregate':
-        gathered = [xr.open_mfdataset(file_paths, chunks=chunks, combine='by_coords')]
+        gathered = [xr.open_mfdataset(urls+protected, chunks=chunks, combine='by_coords')]
     else:
-        gathered = [xr.open_dataset(x, chunks=chunks) for x in file_paths]
+        gathered = [xr.open_dataset(x, chunks=chunks) for x in urls+protected]
 
     return gathered
 
@@ -144,7 +229,7 @@ def build_workflow(fm, context):
         context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
 
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
-            inputs = gather_inputs(next.identifier, fm, next.inputs)
+            inputs = gather_inputs(context, next.identifier, fm, next.inputs)
         else:
             try:
                 inputs = [interm[x.name] for x in next.inputs]
@@ -162,6 +247,16 @@ def build_workflow(fm, context):
         context.message('Storing intermediate {!r}', next.name)
 
     return interm
+
+
+def execute_delayed(context, delayed, client):
+    with ctx.ProcessTimer(context):
+        if client is None:
+            dask.compute(delayed)
+        else:
+            fut = client.compute(delayed)
+
+            DaskJobTracker(context, fut)
 
 
 WORKFLOW_ABSTRACT = """
@@ -190,7 +285,10 @@ def workflow_func(self, context):
 
     context.message('Preparing to execute workflow')
 
-    client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
+    if 'DASK_SCHEDULER' in context.extra:
+        client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
+    else:
+        client = None
 
     try:
         delayed = []
@@ -201,12 +299,9 @@ def workflow_func(self, context):
 
         context.message('Gathered {!s} outputs', len(delayed))
 
-        with ctx.ProcessTimer(context):
-            # Execute the futures
-            fut = client.compute(delayed)
-
-            # Track the progress
-            DaskJobTracker(context, fut)
+        execute_delayed(context, delayed, client)
+    except WPSError:
+        raise
     except Exception as e:
         raise WPSError('Error executing process: {!r}', e)
 
@@ -299,13 +394,13 @@ def subset_input(context, operation, input):
         time = None
 
     for dim in context.domain.dimensions.values():
-        if dim.crs == cwt.INDICES:
-            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+        selector = {dim.name: slice(dim.start, dim.end, dim.step)}
 
+        print('SELECTOR', selector)
+
+        if dim.crs == cwt.INDICES:
             input = input.isel(**selector)
         elif dim.crs == cwt.VALUES:
-            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
-
             if time is not None and time.name == dim.name:
                 input[time.name] = xr.conventions.encode_cf_variable(input[time.name])
 
@@ -313,8 +408,6 @@ def subset_input(context, operation, input):
             else:
                 input = input.loc[selector]
         else:
-            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
-
             input = input.sel(**selector)
 
     context.track_in_bytes(input.nbytes)
@@ -397,6 +490,8 @@ def process_single_input(axes, process_func, input, features, **kwargs):
         axes: List of str axis names.
         process_func: A function with the same signature as process_input.
         input: A compute_tasks.managers.FileManager instance.
+        features: A int storing feature flags.
+        kwargs: A dict with any extra configuration.
 
     Returns:
         A new instance of compute_tasks.managers.FileManager containing the results.
@@ -433,6 +528,8 @@ def process_multiple_input(process_func, input1, input2, features, **kwargs):
         process_func: A function with the same signature as process_input.
         input1: A compute_tasks.managers.FileManager instance.
         input2: A compute_tasks.managers.FileManager instance.
+        features: A int storing feature flags.
+        kwargs: A dict with any extra configuration.
 
     Returns:
         A new instance of compute_tasks.managers.FileManager containing the results.
@@ -446,8 +543,8 @@ def process_multiple_input(process_func, input1, input2, features, **kwargs):
 
         logger.info('Stacking inputs %r', stacked)
 
+        # Process over the next axis from stacking the arrays.
         new_input.variable = process_func(stacked, axis=0)
-
     else:
         new_input.variable = process_func(input1.variable, input2.variable)
 
@@ -593,6 +690,8 @@ def discover_processes():
     # Use jinja2 to template process abstract
     template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
 
+    logger.info('Loadiung jinja2 abstract tempalate')
+
     for name, func in PROCESS_FUNC_MAP.items():
         module, operation = name.split('.')
 
@@ -622,5 +721,7 @@ def discover_processes():
 
         # Bind the new function to the "cdat" module
         setattr(cdat, p.__name__, register)
+
+        logger.info('Binding process %r', name)
 
     return base.REGISTRY.values()

@@ -21,7 +21,7 @@ from compute_tasks.context import operation
 
 @pytest.mark.dask
 @pytest.mark.require_certificate
-def test_protected_data(mocker, esgf_data, client):  # noqa: F811
+def test_protected_data(mocker, esgf_data):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/',
     })
@@ -31,7 +31,7 @@ def test_protected_data(mocker, esgf_data, client):  # noqa: F811
     v1 = cwt.Variable(esgf_data.data['tas-opendap-cmip5']['files'][0], 'tas')
 
     subset = cwt.Process('CDAT.subset')
-    subset.set_domain(cwt.Domain(time=(674885.0, 674911.0)))
+    subset.set_domain(cwt.Domain(time=(50, 100)))
     subset.add_inputs(v1)
 
     data_inputs = {
@@ -41,7 +41,6 @@ def test_protected_data(mocker, esgf_data, client):  # noqa: F811
     }
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.subset', data_inputs)
-    ctx.extra['DASK_SCHEDULER'] = client.scheduler.address
     ctx.user = 0
     ctx.job = 0
 
@@ -54,8 +53,14 @@ def test_protected_data(mocker, esgf_data, client):  # noqa: F811
     mocker.patch.object(ctx, 'message')
     mocker.patch.object(ctx, 'action')
 
-    with pytest.raises(WPSError):
-        cdat.process_wrapper(self, ctx)
+    new_ctx = cdat.process_wrapper(self, ctx)
+
+    assert new_ctx
+
+    with cdms2.open(new_ctx.output[0].uri) as infile:
+        var_name = new_ctx.output[0].var_name
+
+        assert infile[var_name].shape == (50, 96, 192)
 
 
 @pytest.mark.dask
