@@ -1,3 +1,4 @@
+import hashlib
 import os
 import uuid
 import urllib
@@ -283,6 +284,23 @@ class StateMixin(object):
         }
 
         return self.action(['jobs', 'set_output'], params, validate=False)
+
+    def cache_local_path(self, url):
+        """ Builds path for a local cached file.
+
+        TODO: Make this a little smarter, duplicates can exist since the url could point to a
+        replica and uid is based of the entire url not just the unique portion related to the file.
+        """
+        uid = hashlib.sha256(url.encode()).hexdigest()
+
+        filename_ext = '{!s}.nc'.format(uid)
+
+        base_path = os.path.join(os.environ['DATA_PATH'], 'cache')
+
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
+        return os.path.join(base_path, filename_ext)
 
     def generate_local_path(self, extension, filename=None):
         if filename is None:

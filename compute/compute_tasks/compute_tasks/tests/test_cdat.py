@@ -1,6 +1,11 @@
 import builtins
+import json
+import re
+import os
 
+import cdms2
 import cwt
+import dask
 import pytest
 import dask.array as da
 from distributed.utils_test import (  # noqa: F401
@@ -8,12 +13,277 @@ from distributed.utils_test import (  # noqa: F401
     loop,
     cluster_fixture,
 )
+from jinja2 import Environment, BaseLoader
+from myproxy.client import MyProxyClient
 
 from compute_tasks import base
 from compute_tasks import cdat
-from compute_tasks import managers
-from compute_tasks import DaskClusterAccessError
 from compute_tasks import WPSError
+from compute_tasks.context import operation
+
+
+@pytest.mark.dask
+@pytest.mark.require_certificate
+def test_protected_data(mocker, esgf_data):
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/',
+    })
+
+    self = mocker.MagicMock()
+
+    v1 = cwt.Variable(esgf_data.data['tas-opendap-cmip5']['files'][0], 'tas')
+
+    subset = cwt.Process('CDAT.subset')
+    subset.set_domain(cwt.Domain(time=(50, 100)))
+    subset.add_inputs(v1)
+
+    data_inputs = {
+        'variable': json.dumps([v1.to_dict()]),
+        'domain': json.dumps([subset.domain.to_dict()]),
+        'operation': json.dumps([subset.to_dict()]),
+    }
+
+    ctx = operation.OperationContext.from_data_inputs('CDAT.subset', data_inputs)
+    ctx.user = 0
+    ctx.job = 0
+
+    m = MyProxyClient(hostname=os.environ['MPC_HOST'])
+
+    cert = m.logon(os.environ['MPC_USERNAME'], os.environ['MPC_PASSWORD'], bootstrap=True)
+
+    mocker.patch.object(ctx, 'user_cert', return_value=''.join([x.decode() for x in cert]))
+
+    mocker.patch.object(ctx, 'message')
+    mocker.patch.object(ctx, 'action')
+
+    new_ctx = cdat.process_wrapper(self, ctx)
+
+    assert new_ctx
+
+    with cdms2.open(new_ctx.output[0].uri) as infile:
+        var_name = new_ctx.output[0].var_name
+
+        assert infile[var_name].shape == (50, 96, 192)
+
+
+@pytest.mark.dask
+def test_subset(mocker, esgf_data, client):  # noqa: F811
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/',
+    })
+
+    self = mocker.MagicMock()
+
+    v1 = cwt.Variable(esgf_data.data['tas-opendap']['files'][0], 'tas')
+
+    subset = cwt.Process('CDAT.subset')
+    subset.set_domain(cwt.Domain(time=(674885.0, 674911.0)))
+    subset.add_inputs(v1)
+
+    data_inputs = {
+        'variable': json.dumps([v1.to_dict()]),
+        'domain': json.dumps([subset.domain.to_dict()]),
+        'operation': json.dumps([subset.to_dict()]),
+    }
+
+    ctx = operation.OperationContext.from_data_inputs('CDAT.subset', data_inputs)
+    ctx.extra['DASK_SCHEDULER'] = client.scheduler.address
+    ctx.user = 0
+    ctx.job = 0
+
+    mocker.patch.object(ctx, 'message')
+    mocker.patch.object(ctx, 'action')
+
+    new_ctx = cdat.process_wrapper(self, ctx)
+
+    assert new_ctx
+
+    with cdms2.open(new_ctx.output[0].uri) as infile:
+        var_name = new_ctx.output[0].var_name
+
+        assert infile[var_name].shape == (27, 192, 288)
+
+
+def test_subset_input_value_spatial(mocker, esgf_data):
+    context = operation.OperationContext()
+    context._variable = {'tas': cwt.Variable('', 'tas')}
+
+    process = cwt.Process('CDAT.subset')
+    process.set_domain(cwt.Domain(lat=(-45, 45)))
+
+    input = esgf_data.to_xarray('tas-opendap')
+
+    new_input = cdat.subset_input(context, process, input)
+
+    assert list(new_input.dims.values()) == [96, 288, 2, 3650]
+
+
+def test_subset_input_value_timestamps(mocker, esgf_data):
+    context = operation.OperationContext()
+    context._variable = {'tas': cwt.Variable('', 'tas')}
+
+    process = cwt.Process('CDAT.subset')
+    process.set_domain(cwt.Domain(time=('1850', '1851')))
+
+    input = esgf_data.to_xarray('tas-opendap')
+
+    new_input = cdat.subset_input(context, process, input)
+
+    assert list(new_input.dims.values()) == [192, 288, 2, 730]
+
+
+def test_subset_input_value_time(mocker, esgf_data):
+    context = operation.OperationContext()
+    context._variable = {'tas': cwt.Variable('', 'tas')}
+
+    process = cwt.Process('CDAT.subset')
+    process.set_domain(cwt.Domain(time=(674885., 674985.)))
+
+    input = esgf_data.to_xarray('tas-opendap')
+
+    new_input = cdat.subset_input(context, process, input)
+
+    assert list(new_input.dims.values()) == [192, 288, 2, 101]
+
+
+def test_subset_input_indices(mocker, esgf_data):
+    context = operation.OperationContext()
+
+    process = cwt.Process('CDAT.subset')
+    process.set_domain(cwt.Domain(time=slice(0, 10)))
+
+    input = esgf_data.to_xarray('tas-opendap')
+
+    new_input = cdat.subset_input(context, process, input)
+
+    assert list(new_input.dims.values()) == [192, 288, 2, 10]
+
+
+def test_filter_protected_exception(mocker):
+    ctx = mocker.MagicMock()
+    ctx.user_cert.return_value = 'cert data'
+
+    mocker.patch.object(cdat, 'check_access', side_effect=[False, False])
+
+    args = [
+        ctx,
+        ['/file1.nc', '/file2.nc'],
+    ]
+
+    with pytest.raises(WPSError):
+        cdat.filter_protected(*args)
+
+
+def test_filter_protected(mocker):
+    ctx = mocker.MagicMock()
+    ctx.user_cert.return_value = 'cert data'
+
+    mocker.patch.object(cdat, 'check_access', side_effect=[False, True, True])
+
+    args = [
+        ctx,
+        ['/file1.nc', '/file2.nc'],
+    ]
+
+    unprotected, protected, cert_tempfile = cdat.filter_protected(*args)
+
+    assert len(unprotected) == 1
+    assert len(protected) == 1
+    assert cert_tempfile is not None
+
+
+@pytest.mark.data
+def test_localize_protected(mocker, esgf_data):
+    output_path = '/cache/595e40d39c7468cbf4f04e7a8ad711187e469eee903f158b3c8f190adcb1ac1b.nc'
+
+    if os.path.exists(output_path):
+        os.remove(output_path)
+
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/',
+    })
+
+    context = operation.OperationContext()
+
+    mocker.spy(os.path, 'exists')
+
+    output = cdat.localize_protected(context, esgf_data.data['tas-opendap']['files'][:1], None)
+
+    assert len(output) == 1
+    assert output[0] == output_path
+    assert not os.path.exists.return_value
+
+    output = cdat.localize_protected(context, esgf_data.data['tas-opendap']['files'][:1], None)
+
+    assert len(output) == 1
+    assert output[0] == output_path
+    assert os.path.exists.return_value
+
+
+def test_execute_delayed_with_client(mocker):
+    mocker.patch.object(dask, 'compute')
+    mocker.patch.object(cdat, 'DaskJobTracker')
+
+    context = mocker.MagicMock()
+
+    client = mocker.MagicMock()  # noqa: F811
+
+    futures = []
+
+    cdat.execute_delayed(context, futures, client)
+
+    dask.compute.assert_not_called()
+
+    client.compute.assert_called_with(futures)
+
+    cdat.DaskJobTracker.assert_called_with(context, client.compute.return_value)
+
+
+def test_execute_delayed(mocker):
+    mocker.patch.object(dask, 'compute')
+
+    context = mocker.MagicMock()
+
+    futures = []
+
+    cdat.execute_delayed(context, futures)
+
+    dask.compute.assert_called_with(futures)
+
+
+def test_get_user_cert(mocker):
+    context = mocker.MagicMock()
+    context.user_cert.return_value = 'client cert data'
+
+    tf = cdat.get_user_cert(context)
+
+    assert tf
+
+
+def test_check_access_exception(esgf_data):
+    with pytest.raises(WPSError):
+        cdat.check_access('https://esgf-node.llnl.gov/sjdlasjdla')
+
+
+def test_check_access_request_exception(esgf_data):
+    with pytest.raises(WPSError):
+        cdat.check_access('https://ajsdklajskdja')
+
+
+def test_check_access_protected(esgf_data):
+    assert not cdat.check_access(esgf_data.data['tas-opendap-cmip5']['files'][0])
+
+
+def test_check_access(esgf_data):
+    assert cdat.check_access(esgf_data.data['tas-opendap']['files'][0])
+
+
+def test_clean_variable_encoding(mocker, esgf_data):
+    ds = esgf_data.to_xarray('tas-opendap')
+
+    cdat.clean_variable_encoding(ds)
+
+    assert 'missing_value' not in ds.tas.encoding
 
 
 def test_dask_job_tracker(mocker, client):  # noqa: F811
@@ -28,6 +298,21 @@ def test_dask_job_tracker(mocker, client):  # noqa: F811
     assert context.message.call_count > 0
 
 
+def test_gather_workflow_outputs_bad_coord(mocker):
+    context = mocker.MagicMock()
+
+    subset = cwt.Process(identifier='CDAT.subset')
+    subset_delayed = mocker.MagicMock()
+    subset_delayed.to_netcdf.side_effect = ValueError
+
+    interm = {
+        subset.name: subset_delayed,
+    }
+
+    with pytest.raises(WPSError):
+        cdat.gather_workflow_outputs(context, interm, [subset])
+
+
 def test_gather_workflow_outputs_missing_interm(mocker):
     context = mocker.MagicMock()
 
@@ -37,7 +322,7 @@ def test_gather_workflow_outputs_missing_interm(mocker):
     max = cwt.Process(identifier='CDAT.max')
 
     interm = {
-            subset.name: subset_delayed,
+        subset.name: subset_delayed,
     }
 
     with pytest.raises(WPSError):
@@ -54,8 +339,8 @@ def test_gather_workflow_outputs(mocker):
     max_delayed = mocker.MagicMock()
 
     interm = {
-            subset.name: subset_delayed,
-            max.name: max_delayed,
+        subset.name: subset_delayed,
+        max.name: max_delayed,
     }
 
     delayed = cdat.gather_workflow_outputs(context, interm, [subset, max])
@@ -63,41 +348,46 @@ def test_gather_workflow_outputs(mocker):
     assert len(delayed) == 2
     assert len(interm) == 0
 
-    subset_delayed.to_xarray.assert_called()
-    subset_delayed.to_xarray.return_value.to_netcdf.assert_called()
 
-    max_delayed.to_xarray.assert_called()
-    max_delayed.to_xarray.return_value.to_netcdf.assert_called()
+def test_gather_inputs_aggregate(mocker, esgf_data):
+    process = cwt.Process('CDAT.aggregate')
+    process.add_inputs(*[cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']])
 
+    context = mocker.MagicMock()
 
-def test_gather_inputs_aggregate(mocker):
-    input1 = mocker.MagicMock()
-    input1.var_name = 'tas'
-
-    input2 = mocker.MagicMock()
-    input2.var_name = 'tas'
-
-    inputs = [
-        input1,
-        input2
-    ]
-
-    fm = mocker.MagicMock()
-
-    data = cdat.gather_inputs('CDAT.aggregate', fm, inputs)
+    data = cdat.gather_inputs(context, process)
 
     assert len(data) == 1
 
 
-def test_gather_inputs(mocker):
-    inputs = [
-        mocker.MagicMock(),
-        mocker.MagicMock(),
-    ]
+def test_gather_inputs_exception(mocker, esgf_data):
+    tempfile_mock = mocker.MagicMock()
 
-    fm = mocker.MagicMock()
+    mocker.patch.object(cdat, 'filter_protected', return_value=([], esgf_data.data['tas-opendap']['files'],
+                        tempfile_mock))
+    mocker.patch.object(cdat, 'localize_protected', return_value=esgf_data.data['tas-opendap']['files'])
 
-    data = cdat.gather_inputs('CDAT.subset', fm, inputs)
+    files = esgf_data.data['tas-opendap-cmip5']['files']
+
+    process = cwt.Process('CDAT.subset')
+    process.add_inputs(*[cwt.Variable(x, 'tas') for x in files])
+
+    context = mocker.MagicMock()
+    context.user_cert.return_value = 'cert data'
+
+    data = cdat.gather_inputs(context, process)
+
+    assert len(data) == 2
+    cdat.localize_protected.assert_called()
+
+
+def test_gather_inputs(mocker, esgf_data):
+    process = cwt.Process('CDAT.subset')
+    process.add_inputs(*[cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']])
+
+    context = mocker.MagicMock()
+
+    data = cdat.gather_inputs(context, process)
 
     assert len(data) == 2
 
@@ -105,7 +395,6 @@ def test_gather_inputs(mocker):
 def test_build_workflow_missing_interm(mocker):
     process_func = mocker.MagicMock()
     mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.object(cdat, 'process')
     mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
         'CDAT.subset': process_func,
     }, True)
@@ -122,18 +411,15 @@ def test_build_workflow_missing_interm(mocker):
     context = mocker.MagicMock()
     context.topo_sort.return_value = [subset, max]
 
-    fm = mocker.MagicMock()
-
     with pytest.raises(WPSError):
-        cdat.build_workflow(fm, context)
+        cdat.build_workflow(context)
 
 
 def test_build_workflow_use_interm(mocker):
-    process_func = mocker.MagicMock()
     mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.object(cdat, 'process')
     mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.subset': process_func,
+        'CDAT.subset': mocker.MagicMock(),
+        'CDAT.max': mocker.MagicMock(),
     }, True)
 
     subset = cwt.Process(identifier='CDAT.subset')
@@ -146,14 +432,9 @@ def test_build_workflow_use_interm(mocker):
     context = mocker.MagicMock()
     context.topo_sort.return_value = [subset, max]
 
-    fm = mocker.MagicMock()
+    interm = cdat.build_workflow(context)
 
-    interm = cdat.build_workflow(fm, context)
-
-    cdat.gather_inputs.assert_called_with('CDAT.subset', fm, subset.inputs)
-
-    cdat.process.assert_any_call(cdat.gather_inputs.return_value, context, process_func=process_func)
-    cdat.process.assert_any_call([cdat.process.return_value.copy.return_value], context)
+    cdat.gather_inputs.assert_called_with(context, subset)
 
     assert len(interm) == 2
     assert subset.name in interm
@@ -163,7 +444,6 @@ def test_build_workflow_use_interm(mocker):
 def test_build_workflow_process_func(mocker):
     process_func = mocker.MagicMock()
     mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.object(cdat, 'process')
     mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
         'CDAT.subset': process_func,
     }, True)
@@ -173,13 +453,9 @@ def test_build_workflow_process_func(mocker):
     context = mocker.MagicMock()
     context.topo_sort.return_value = [subset]
 
-    fm = mocker.MagicMock()
+    interm = cdat.build_workflow(context)
 
-    interm = cdat.build_workflow(fm, context)
-
-    cdat.gather_inputs.assert_called_with('CDAT.subset', fm, subset.inputs)
-
-    cdat.process.assert_called_with(cdat.gather_inputs.return_value, context, process_func=process_func)
+    cdat.gather_inputs.assert_called_with(context, subset)
 
     assert len(interm) == 1
     assert subset.name in interm
@@ -187,8 +463,8 @@ def test_build_workflow_process_func(mocker):
 
 def test_build_workflow(mocker):
     mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.object(cdat, 'process')
     mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
+        'CDAT.subset': mocker.MagicMock(),
     }, True)
 
     subset = cwt.Process(identifier='CDAT.subset')
@@ -196,18 +472,15 @@ def test_build_workflow(mocker):
     context = mocker.MagicMock()
     context.topo_sort.return_value = [subset]
 
-    fm = mocker.MagicMock()
+    interm = cdat.build_workflow(context)
 
-    interm = cdat.build_workflow(fm, context)
-
-    cdat.gather_inputs.assert_called_with('CDAT.subset', fm, subset.inputs)
-
-    cdat.process.assert_called_with(cdat.gather_inputs.return_value, context)
+    cdat.gather_inputs.assert_called_with(context, subset)
 
     assert len(interm) == 1
     assert subset.name in interm
 
 
+@pytest.mark.skip(reason='Unconfigurable exponential timeout')
 def test_workflow_func_dask_cluster_error(mocker):
     mocker.patch.object(cdat, 'gather_workflow_outputs')
     mocker.patch.object(cdat, 'Client')
@@ -221,12 +494,41 @@ def test_workflow_func_dask_cluster_error(mocker):
 
     cdat.Client.side_effect = OSError()
 
-    with pytest.raises(DaskClusterAccessError):
-        cdat.workflow_func(context)
+    cdat.workflow_func(context)
 
     cdat.build_workflow.assert_called()
 
     cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+
+
+def test_workflow_func_error(mocker):
+    mocker.patch.object(cdat, 'gather_workflow_outputs')
+    mocker.patch.object(cdat, 'Client')
+    mocker.patch.object(cdat, 'build_workflow')
+    mocker.patch.object(cdat, 'DaskJobTracker')
+    mocker.patch.object(cdat, 'execute_delayed')
+
+    context = mocker.MagicMock()
+    context.extra = {
+        'DASK_SCHEDULER': 'dask-scheduler',
+    }
+
+    cdat.execute_delayed.side_effect = WPSError
+
+    with pytest.raises(WPSError):
+        cdat.workflow_func(context)
+
+    cdat.build_workflow.assert_called()
+
+    cdat.Client.assert_called_with('dask-scheduler')
+
+    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
+                                                 context.output_ops.return_value)
+
+    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
+                                                 context.interm_ops.return_value)
+
+    cdat.Client.return_value.compute.assert_not_called()
 
 
 def test_workflow_func_execute_error(mocker):
@@ -247,7 +549,7 @@ def test_workflow_func_execute_error(mocker):
 
     cdat.build_workflow.assert_called()
 
-    cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+    cdat.Client.assert_called_with('dask-scheduler')
 
     cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
                                                  context.output_ops.return_value)
@@ -256,6 +558,30 @@ def test_workflow_func_execute_error(mocker):
                                                  context.interm_ops.return_value)
 
     cdat.Client.return_value.compute.assert_called()
+
+
+def test_workflow_func_no_client(mocker):
+    mocker.patch.object(cdat, 'gather_workflow_outputs')
+    mocker.patch.object(cdat, 'Client')
+    mocker.patch.object(cdat, 'build_workflow')
+    mocker.patch.object(cdat, 'DaskJobTracker')
+
+    context = mocker.MagicMock()
+    context.extra = {}
+
+    cdat.workflow_func(context)
+
+    cdat.build_workflow.assert_called()
+
+    cdat.Client.assert_not_called()
+
+    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
+                                                 context.output_ops.return_value)
+
+    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
+                                                 context.interm_ops.return_value)
+
+    cdat.Client.return_value.compute.assert_not_called()
 
 
 def test_workflow_func(mocker):
@@ -273,7 +599,7 @@ def test_workflow_func(mocker):
 
     cdat.build_workflow.assert_called()
 
-    cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+    cdat.Client.assert_called_with('dask-scheduler')
 
     cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
                                                  context.output_ops.return_value)
@@ -284,24 +610,7 @@ def test_workflow_func(mocker):
     cdat.Client.return_value.compute.assert_called()
 
 
-def test_process_process_func(mocker):
-    input = mocker.MagicMock()
-    input.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    context = mocker.MagicMock()
-    context.is_regrid = False
-
-    process_func = mocker.MagicMock()
-
-    output = cdat.process([input, input], context, process_func=process_func)
-
-    input.subset.assert_called_with(context.domain)
-
-    process_func.assert_called_with(context.operation, input, input)
-
-    assert output == process_func.return_value
-
-
+@pytest.mark.skip(reason='Regriding from any process has been disabled')
 def test_process_regrid(mocker):
     mocker.patch.object(cdat, 'regrid')
 
@@ -316,35 +625,6 @@ def test_process_regrid(mocker):
     input.subset.assert_called_with(context.domain)
 
     cdat.regrid.assert_called_with(context.operation, output)
-
-    assert output == input
-
-
-def test_process_multiple_inputs(mocker):
-    input = mocker.MagicMock()
-    input.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-    # input.regrid_context.return_value = (mocker.MagicMock(), mocker.MagicMock(), mocker.MagicMock())
-
-    context = mocker.MagicMock()
-    context.is_regrid = False
-
-    output = cdat.process([input, input], context)
-
-    input.subset.assert_called_with(context.domain)
-
-    assert output == input
-
-
-def test_process(mocker):
-    input = mocker.MagicMock()
-    input.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    context = mocker.MagicMock()
-    context.is_regrid = False
-
-    output = cdat.process([input], context)
-
-    input.subset.assert_called_with(context.domain)
 
     assert output == input
 
@@ -405,6 +685,8 @@ def test_regrid_error(mocker):
 
 
 def test_process_input_axes(mocker):
+    ctx = mocker.MagicMock()
+
     mocker.patch.object(cdat, 'process_single_input')
 
     process_func = mocker.MagicMock()
@@ -414,12 +696,13 @@ def test_process_input_axes(mocker):
     operation.add_parameters(axes=['time', 'lat'])
 
     input1 = mocker.MagicMock()
+    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
-    output = cdat.process_input(operation, input1, process_func=process_func, FEAT_AXES=True)
+    output = cdat.process_input(ctx, operation, input1, process_func=process_func, features=cdat.AXES)
 
     assert output == cdat.process_single_input.return_value
 
-    cdat.process_single_input.assert_called_with(('time', 'lat'), process_func, input1)
+    cdat.process_single_input.assert_called_with(('time', 'lat'), process_func, input1, 1)
 
 
 def test_process_input_axes_missing_feat(mocker):
@@ -436,6 +719,8 @@ def test_process_input_axes_missing_feat(mocker):
 
 
 def test_process_input_constant(mocker):
+    ctx = mocker.MagicMock()
+
     process_func = mocker.MagicMock()
 
     operation = cwt.Process(identifier='CDAT.subset')
@@ -443,10 +728,11 @@ def test_process_input_constant(mocker):
     operation.add_parameters(constant=10)
 
     input1 = mocker.MagicMock()
+    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
     orig_input1_variable = input1.variable
 
-    output = cdat.process_input(operation, input1, process_func=process_func, FEAT_CONST=True)
+    output = cdat.process_input(ctx, operation, input1, process_func=process_func, features=cdat.CONST)
 
     assert output == input1
 
@@ -455,7 +741,9 @@ def test_process_input_constant(mocker):
     process_func.assert_called_with(orig_input1_variable, 10)
 
 
-def test_process_input_constant_invalid(mocker):
+def test_process_input_constant_not_supported(mocker):
+    context = mocker.MagicMock()
+
     process_func = mocker.MagicMock()
 
     operation = cwt.Process(identifier='CDAT.subset')
@@ -465,10 +753,27 @@ def test_process_input_constant_invalid(mocker):
     input1 = mocker.MagicMock()
 
     with pytest.raises(WPSError):
-        cdat.process_input(operation, input1,  process_func=process_func, FEAT_CONST=True)
+        cdat.process_input(context, operation, input1,  process_func=process_func)
+
+
+def test_process_input_constant_invalid(mocker):
+    context = mocker.MagicMock()
+
+    process_func = mocker.MagicMock()
+
+    operation = cwt.Process(identifier='CDAT.subset')
+
+    operation.add_parameters(constant='hello')
+
+    input1 = mocker.MagicMock()
+
+    with pytest.raises(WPSError):
+        cdat.process_input(context, operation, input1,  process_func=process_func, features=cdat.CONST)
 
 
 def test_process_input_constant_missing_feat(mocker):
+    context = mocker.MagicMock()
+
     process_func = mocker.MagicMock()
 
     operation = cwt.Process(identifier='CDAT.subset')
@@ -478,10 +783,12 @@ def test_process_input_constant_missing_feat(mocker):
     input1 = mocker.MagicMock()
 
     with pytest.raises(WPSError):
-        cdat.process_input(operation, input1,  process_func=process_func)
+        cdat.process_input(context, operation, input1,  process_func=process_func)
 
 
 def test_process_input_multiple_inputs(mocker):
+    ctx = mocker.MagicMock()
+
     mocker.patch.object(cdat, 'process_multiple_input')
 
     process_func = mocker.MagicMock()
@@ -489,41 +796,63 @@ def test_process_input_multiple_inputs(mocker):
     operation = cwt.Process(identifier='CDAT.subset')
 
     input1 = mocker.MagicMock()
+    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
     input2 = mocker.MagicMock()
+    input2.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
-    output = cdat.process_input(operation, input1, input2, process_func=process_func, FEAT_MULTI=True)
+    output = cdat.process_input(ctx, operation, input1, input2, process_func=process_func, features=cdat.MULTI)
 
     assert output == cdat.process_multiple_input.return_value
 
     process_func.assert_not_called()
 
-    cdat.process_multiple_input.assert_called_with(process_func, input1, input2)
+    cdat.process_multiple_input.assert_called_with(process_func, input1, input2, cdat.MULTI)
 
 
 def test_process_input_multiple_inputs_missing_feat(mocker):
+    ctx = mocker.MagicMock()
+
     process_func = mocker.MagicMock()
 
     operation = cwt.Process(identifier='CDAT.subset')
 
     input1 = mocker.MagicMock()
+    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
     input2 = mocker.MagicMock()
+    input2.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
     with pytest.raises(WPSError):
-        cdat.process_input(operation, input1, input2, process_func=process_func)
+        cdat.process_input(ctx, operation, input1, input2, process_func=process_func)
+
+
+def test_process_input_no_process_func(mocker):
+    ctx = mocker.MagicMock()
+
+    operation = cwt.Process(identifier='CDAT.subset')
+
+    input1 = mocker.MagicMock()
+    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
+
+    output = cdat.process_input(ctx, operation, input1)
+
+    assert output == input1
 
 
 def test_process_input(mocker):
+    ctx = mocker.MagicMock()
+
     process_func = mocker.MagicMock()
 
     operation = cwt.Process(identifier='CDAT.subset')
 
     input1 = mocker.MagicMock()
+    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
 
     orig_input1_variable = input1.variable
 
-    output = cdat.process_input(operation, input1, process_func=process_func)
+    output = cdat.process_input(ctx, operation, input1, process_func=process_func)
 
     assert output == input1
 
@@ -539,7 +868,7 @@ def test_process_single_input(mocker):
     orig_input_variable = input.variable
     input.variable_axes = ['time', 'lat', 'lon']
 
-    output = cdat.process_single_input(['time'], process_func, input)
+    output = cdat.process_single_input(['time'], process_func, input, 0)
 
     assert output == input
 
@@ -559,7 +888,7 @@ def test_process_multiple_input_stack(mocker):
     input1 = mocker.MagicMock()
     input2 = mocker.MagicMock()
 
-    output = cdat.process_multiple_input(process_func, input1, input2)
+    output = cdat.process_multiple_input(process_func, input1, input2, cdat.STACK)
 
     input1.copy.assert_called()
 
@@ -579,7 +908,7 @@ def test_process_multiple_input(mocker):
     input1 = mocker.MagicMock()
     input2 = mocker.MagicMock()
 
-    output = cdat.process_multiple_input(process_func, input1, input2)
+    output = cdat.process_multiple_input(process_func, input1, input2, 0)
 
     input1.copy.assert_called()
 
@@ -590,133 +919,117 @@ def test_process_multiple_input(mocker):
     assert output == input1.copy.return_value
 
 
-def test_process_wrapper_func(mocker):
-    mock_partial = mocker.MagicMock()
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.aggregate': mock_partial,
-        'CDAT.subset': mock_partial,
-    }, True)
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'process')
-    mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.object(cdat, 'DaskJobTracker')
-    mocker.patch.object(managers, 'InputManager')
-    mocker.patch.object(managers, 'FileManager')
-
-    self = mocker.MagicMock()
-
-    context = mocker.MagicMock()
-    context.identifier = 'CDAT.subset'
-
-    cdat.process_wrapper(self, context)
-
-    cdat.process.assert_called_with(cdat.gather_inputs.return_value, context, process_func=mock_partial)
-
-
-def test_process_wrapper_dask_cluster_error(mocker):
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'process')
-    mocker.patch.object(managers, 'FileManager')
-
-    cdat.Client.side_effect = OSError()
-
-    self = mocker.MagicMock()
-
-    context = mocker.MagicMock()
-    context.identifier = 'CDAT.aggregate'
-
-    with pytest.raises(DaskClusterAccessError):
-        cdat.process_wrapper(self, context)
-
-
-def test_process_wrapper_execute_error(mocker):
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'process')
-    mocker.patch.object(managers, 'InputManager')
-    mocker.patch.object(managers, 'FileManager')
-    mocker.patch.object(cdat, 'DaskJobTracker')
-
-    self = mocker.MagicMock()
-
-    input1 = mocker.MagicMock()
-    input2 = mocker.MagicMock()
-
-    context = mocker.MagicMock()
-    context.identifier = 'CDAT.aggregate'
-    context.inputs = [input1, input2]
-    context.extra = {
-        'DASK_SCHEDULER': 'dask-scheduler',
-    }
-
-    cdat.Client.return_value.compute.side_effect = Exception()
-
-    with pytest.raises(WPSError):
-        cdat.process_wrapper(self, context)
-
-
 def test_process_wrapper(mocker):
-    mock_partial = mocker.MagicMock()
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.subset': mock_partial,
-    }, True)
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'process')
-    mocker.patch.object(cdat, 'DaskJobTracker')
-    mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.object(managers, 'InputManager')
-    mocker.patch.object(managers, 'FileManager')
+    mocker.patch.object(cdat, 'workflow_func')
+
+    context = mocker.MagicMock()
 
     self = mocker.MagicMock()
 
-    input1 = mocker.MagicMock()
-    input2 = mocker.MagicMock()
-
-    context = mocker.MagicMock()
-    context.identifier = 'CDAT.aggregate'
-    context.inputs = [input1, input2]
-    context.extra = {
-        'DASK_SCHEDULER': 'dask-scheduler',
-    }
-
     cdat.process_wrapper(self, context)
 
-    cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+    cdat.workflow_func.assert_called_with(context)
 
-    cdat.process.assert_called_with(cdat.gather_inputs.return_value, context)
 
-    to_xarray = cdat.process.return_value.to_xarray
+def test_render_abstract_const(mocker):
+    description = 'This is a custom description'
 
-    to_xarray.assert_called()
+    process_func = mocker.MagicMock()
+    process_func.keywords = {'features': cdat.CONST}
 
-    to_netcdf = to_xarray.return_value.to_netcdf
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
 
-    to_netcdf.assert_called_with(context.build_output_variable.return_value, compute=False)
+    abstract = cdat.render_abstract(description, process_func, template)
 
-    cdat.Client.return_value.compute.assert_called_with(to_netcdf.return_value)
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is None
+    assert re.search('Optional parameters:', abstract) is not None
+    assert re.search('axes: .*', abstract) is None
+    assert re.search('constant: .*', abstract) is not None
+
+
+def test_render_abstract_axes(mocker):
+    description = 'This is a custom description'
+
+    process_func = mocker.MagicMock()
+    process_func.keywords = {'features': cdat.AXES}
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, process_func, template)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is None
+    assert re.search('Optional parameters:', abstract) is not None
+    assert re.search('axes: .*', abstract) is not None
+    assert re.search('constant: .*', abstract) is None
+
+
+def test_render_abstract_multi(mocker):
+    description = 'This is a custom description'
+
+    process_func = mocker.MagicMock()
+    process_func.keywords = {'features': cdat.MULTI}
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, process_func, template)
+
+    print(abstract)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is not None
+    assert re.search('Optional parameters:', abstract) is None
+    assert re.search('axes: .*', abstract) is None
+    assert re.search('constant: .*', abstract) is None
+
+
+def test_render_abstract_no_keywords(mocker):
+    description = 'This is a custom description'
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, cdat.process_input, template)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is None
+    assert re.search('Optional parameters:', abstract) is None
+    assert re.search('axes: .*', abstract) is None
+    assert re.search('constant: .*', abstract) is None
+
+
+def test_render_abstract(mocker):
+    description = 'This is a custom description'
+
+    process_func = mocker.MagicMock()
+    process_func.keywords = mocker.PropertyMock(return_value={'features': 0})
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, process_func, template)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is None
+    assert re.search('Optional parameters:', abstract) is None
+    assert re.search('axes: .*', abstract) is None
+    assert re.search('constant: .*', abstract) is None
 
 
 def test_discover_processes(mocker):
-    mock_partial = mocker.MagicMock()
     mocker.spy(builtins, 'setattr')
     mocker.patch.object(base, 'cwt_shared_task')
     mocker.patch.object(base, 'register_process')
     mocker.patch.object(cdat, 'render_abstract')
     mocker.patch.object(cdat, 'Environment')
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.aggregate': mock_partial,
-        'CDAT.subset': mock_partial,
-    }, True)
 
     cdat.discover_processes()
 
     base.cwt_shared_task.assert_called()
     base.cwt_shared_task.return_value.assert_called()
 
-    template = cdat.Environment.return_value.from_string.return_value
+    cdat.render_abstract.assert_called()
 
-    cdat.render_abstract.assert_called_with(cdat.DESCRIPTION_MAP['CDAT.subset'], mock_partial, template)
-
-    base.register_process.assert_called_with('CDAT', 'subset', abstract=cdat.render_abstract.return_value, inputs=1)
+    base.register_process.assert_any_call('CDAT', 'subset', abstract=cdat.render_abstract.return_value, inputs=1)
     base.register_process.return_value.assert_called_with(base.cwt_shared_task.return_value.return_value)
 
     builtins.setattr.assert_any_call(cdat, 'subset_func', base.register_process.return_value.return_value)

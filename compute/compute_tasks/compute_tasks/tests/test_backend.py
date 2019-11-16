@@ -145,14 +145,14 @@ def test_resource_request(mocker):
             mocker.call('dask-scheduler-pod.yaml'),
             mocker.call('dask-scheduler-service.yaml'),
             mocker.call('dask-worker-deployment.yaml'),
-            mocker.call().render(data_claim_name='data-dev-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret='docker-registry-config-aims2', image_pull_policy='IfNotPresent',
+            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
+                                 image_pull_secret=None, image_pull_policy='Always',
                                  user='0', workers='10'),
-            mocker.call().render(data_claim_name='data-dev-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret='docker-registry-config-aims2', image_pull_policy='IfNotPresent',
+            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
+                                 image_pull_secret=None, image_pull_policy='Always',
                                  user='0', workers='10'),
-            mocker.call().render(data_claim_name='data-dev-pvc', dev='1', image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret='docker-registry-config-aims2', image_pull_policy='IfNotPresent',
+            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
+                                 image_pull_secret=None, image_pull_policy='Always',
                                  user='0', workers='10'),
     ])
 
@@ -160,6 +160,8 @@ def test_resource_request(mocker):
 
 
 def test_requeust_handler_exception(mocker):
+    mocker.patch.dict(os.environ, {'NAMESPACE': 'default'})
+
     mocker.patch.object(backend, 'fail_job')
     mocker.patch.object(backend, 'build_workflow')
 
@@ -173,6 +175,8 @@ def test_requeust_handler_exception(mocker):
 
 
 def test_requeust_handler(mocker):
+    mocker.patch.dict(os.environ, {'NAMESPACE': 'default'})
+
     mocker.patch.object(backend, 'build_workflow')
 
     state = mocker.MagicMock()
@@ -211,7 +215,9 @@ def test_build_workflow(mocker):
     assert workflow == job_started.s.return_value.set.return_value.__or__.return_value.__or__.return_value
 
 
-def test_format_frames():
+def test_format_frames(mocker):
+    mocker.patch.dict(os.environ, {'NAMESPACE': 'default'})
+
     output = backend.format_frames(RAW_FRAMES)
 
     assert len(output) == 6
@@ -220,7 +226,7 @@ def test_format_frames():
     assert output[2] == '0'
     assert output[3] == '0'
     assert output[4] == '0'
-    assert output[5] == {'DASK_SCHEDULER': 'dask-scheduler-0'}
+    assert output[5] == {'DASK_SCHEDULER': 'dask-scheduler-0.default.svc:8786'}
 
 
 def test_fail_job_exception(mocker):

@@ -1,13 +1,17 @@
 #! /usr/bin/env python
 
-import os
 import types
+import os
 from functools import partial
 
 import cdms2
 import cwt
 import dask
 import dask.array as da
+import metpy  # noqa F401
+import requests
+import tempfile
+import xarray as xr
 from celery.utils.log import get_task_logger
 from dask.distributed import Client
 from distributed.diagnostics.progressbar import ProgressBar
@@ -25,13 +29,20 @@ from compute_tasks.dask_serialize import regrid_chunk
 
 logger = get_task_logger('compute_tasks.cdat')
 
-DEV = os.environ.get('DEV', False)
-
-NAMESPACE = os.environ.get('NAMESPACE', 'default')
-
 
 class DaskJobTracker(ProgressBar):
     def __init__(self, context, futures, scheduler=None, interval='100ms', complete=True):
+        """ Init method.
+
+        Class init method.
+
+        Args:
+            context (context.OperationContext): The current context.
+            futures (list): A list of futures to track the progress of.
+            scheduler (dask.distributed.Scheduler, optional): The dask scheduler being used.
+            interval (str, optional): The interval used between posting updates of the tracked futures.
+            complete (bool, optional): Whether to callback after all futures are complete.
+        """
         futures = futures_of(futures)
 
         context.message('Tracking {!r} futures', len(futures))
@@ -47,6 +58,14 @@ class DaskJobTracker(ProgressBar):
         loop_runner.run_sync(self.listen)
 
     def _draw_bar(self, **kwargs):
+        """ Update callback.
+
+        After each interval this method is called allowing for a update of the progress.
+
+        Args:
+            remaining (int): The number of remaining futures to be processed.
+            all (int): The total number of futures to be processed.
+        """
         logger.debug('_draw_bar %r', kwargs)
 
         remaining = kwargs.get('remaining', 0)
@@ -68,43 +87,243 @@ class DaskJobTracker(ProgressBar):
         pass
 
 
+def clean_variable_encoding(dataset):
+    """ Cleans the encoding for a variable.
+
+    Sometimes a variable's encoding will have missing_value and _FillValue, xarray does not like
+    this, thus one must be removed. ``missing_value`` was arbitrarily selected to be removed.
+
+    Args:
+        dataset (xarray.DataSet): The dataset to check each variables encoding settings.
+    """
+    for name, variable in dataset.variables.items():
+        if 'missing_value' in variable.encoding and '_FillValue' in variable.encoding:
+            del variable.encoding['missing_value']
+
+    return dataset
+
+
 def gather_workflow_outputs(context, interm, operations):
+    """ Gather the ouputs for a set of processes (operations).
+
+    For each process we find it's output. Next the output path for the file is created. Next
+    the Dask delayed function to create a netCDF file is created and added to a list that is
+    returned.
+
+    Args:
+        context (context.OperationContext): The current context.
+        interm (dict): A dict mapping process names to Dask delayed functions.
+        operations (list): A list of ``cwt.Process`` objects whose outputs are being gathered.
+
+    Returns:
+        list: Of Dask delayed functions outputting netCDF files.
+
+    Raises:
+        WPSError: If output is not found or there exists and issue creating the output netCDF file.
+    """
     delayed = []
 
     for output in operations:
         try:
-            interm_value = interm.pop(output.name)
+            interm_ds = interm.pop(output.name)
         except KeyError as e:
             raise WPSError('Failed to find intermediate {!s}', e)
 
-        context.track_out_bytes(interm_value.nbytes)
-
-        dataset = interm_value.to_xarray()
+        context.track_out_bytes(interm_ds.nbytes)
 
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-        local_path = context.build_output_variable(interm_value.var_name, name=output_name)
+        local_path = context.build_output_variable(context.variable, name=output_name)
 
         context.message('Building output for {!r} - {!r}', output.name, output.identifier)
 
         logger.debug('Writing local output to %r', local_path)
 
-        # Create an output file and store the future
-        delayed.append(dataset.to_netcdf(local_path, compute=False))
+        interm_ds = clean_variable_encoding(interm_ds)
+
+        try:
+            # Create an output file and store the future
+            delayed.append(interm_ds.to_netcdf(local_path, compute=False))
+        except ValueError:
+            shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
+
+            bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
+
+            raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
 
     return delayed
 
 
-def gather_inputs(identifier, fm, inputs):
-    if identifier == 'CDAT.aggregate':
-        gathered = [managers.InputManager.from_cwt_variables(fm, inputs)]
+def check_access(url, cert=None):
+    """ Checks if url is accessible.
+
+    Checks if a remote file is accessible by the service. It's expecting an OpenDAP url, to check for this an
+    HTTP GET request is executed against the `.dds` path. Allows the passing of a SSL client certificate in
+    cases such as ESGF's protected data.
+
+    Args:
+        url (str): The URL to check.
+        cert (str): A path to an SSL client certificate.
+
+    Returns:
+        bool: True if the HTTP status code is 200, False if its 401 or 403.
+
+    Raises:
+        WPSError: If the status code is anything other than 200, 401 or 403.
+    """
+    dds_url = '{!s}.dds'.format(url)
+
+    try:
+        # TODO bootstrap trust roots and set verify True
+        response = requests.get(dds_url, timeout=(10, 4), cert=cert, verify=False)
+    except Exception as e:
+        raise WPSError('Failed to access input {!s}, {!s}'.format(url, e))
+
+    if response.status_code == 200:
+        return True
+
+    if response.status_code in (401, 403):
+        return False
+
+    raise WPSError('Failed to access input {!r}, reason {!s} ({!s})', url, response.reason, response.status_code)
+
+
+def get_user_cert(context):
+    """ Stores the user certificate in a temporary file.
+
+    Args:
+        context (context.OperationContext): The current context.
+
+    Returns:
+        A tempfile.NamedTemporaryFile object.
+    """
+    tf = tempfile.NamedTemporaryFile()
+
+    cert = context.user_cert()
+
+    tf.write(cert.encode())
+
+    return tf
+
+
+def localize_protected(context, urls, cert_path):
+    """ Localize protected data.
+
+    Attempt to localize protected data. A unique path is generated and checked if it already exists.
+    If the cached file does not exist then we localize it. This supports retry attempts for small
+    outages.
+
+    Args:
+        context (context.OperationContext): The current context.a
+        urls (list): A list of urls to localize.
+        cert_path (str): A str path to an SSL client certificate used to access the remote data.
+
+    Returns:
+        list: Of paths to the localized content.
+    """
+    new_urls = []
+
+    session = requests.Session()
+
+    session.cert = cert_path
+
+    for url in urls:
+        # TODO make a smarter version of cache_local_path.
+        cached_path = context.cache_local_path(url)
+
+        # Already exists, skip localizing.
+        if not os.path.exists(cached_path):
+            store = xr.backends.PydapDataStore.open(url, session=session)
+
+            ds = xr.open_dataset(store, chunks={'time': 50})
+
+            # Retry 4 times start with a 1 second delay.
+            state_mixin.retry(4, 1)(ds.to_netcdf)(cached_path)
+
+        new_urls.append(cached_path)
+
+    return new_urls
+
+
+def filter_protected(context, urls):
+    """ Filters the protected urls.
+
+    Filter the protected urls from the unprotected. Also returns a certificate if
+    protected urls are discovered.
+
+    Args:
+        context (context.OperationContext): The current context.
+        urls (list): List of str urls to check.
+    """
+    protected = []
+    unprotected = []
+    cert_tempfile = None
+
+    # Determine which files are accessible
+    for x in urls:
+        if not check_access(x):
+            if cert_tempfile is None:
+                cert_tempfile = get_user_cert(context)
+
+            if not check_access(x, cert=cert_tempfile.name):
+                raise WPSError('Failed to access input {!r}', x)
+
+            protected.append(x)
+        else:
+            unprotected.append(x)
+
+    return unprotected, protected, cert_tempfile
+
+
+def gather_inputs(context, process):
+    """ Gathers the inputs for a process.
+
+    The inputs for a process which are assumed to be OpenDAP urls to CF compliant data files are
+    converted to ``xarray.DataSet`` objects which are lazy loaded. If an input is no accessible
+    due to requiring authorization e.g. ESGF CMIP5/CMIP3 then we need to localize the file and
+    cache it. The ability to lazy load the remote data is not supported at the moment,
+    ``xarray.backends.PydapDataStore`` does not work with Dask clusters, due to a recusion error
+    in the Pydap data model.
+
+    Args:
+        context (context.OperationContext): Current context.
+        process (cwt.Process): The process whose inputs are being gathered.
+
+    Returns:
+        list: A list of ``xarray.DataSet``s.
+    """
+    # TODO make chunks smarter
+    chunks = {
+        'time': 100,
+    }
+
+    urls, protected, cert_tempfile = filter_protected(context, [x.uri for x in process.inputs])
+
+    # Localize any files requiring an SSL client certificate
+    # TODO figure out a way to get PydapDataStore to work with dask.distributed,
+    # currently fails with recurrsion error.
+    if len(protected) > 0:
+        protected = localize_protected(context, protected, cert_tempfile.name)
+
+    if process.identifier == 'CDAT.aggregate':
+        gathered = [xr.open_mfdataset(urls+protected, chunks=chunks, combine='by_coords')]
     else:
-        gathered = [managers.InputManager.from_cwt_variable(fm, x) for x in inputs]
+        gathered = [xr.open_dataset(x, chunks=chunks) for x in urls+protected]
 
     return gathered
 
 
-def build_workflow(fm, context):
+def build_workflow(context):
+    """ Builds a workflow.
+
+    The processes are processed intopological order. When processed the inputs are gathered,
+    current these are limited to either are variable inputs or all intermediate products, eventually
+    a mix of inputs will be accepted. The appropriate process is applied to the inputs and the
+    output is stored for future use.
+
+    Args:
+        context (context.OperationContext): Current context.
+    """
     # Topologically sort the operations
     topo_order = context.topo_sort()
 
@@ -117,7 +336,7 @@ def build_workflow(fm, context):
         context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
 
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
-            inputs = gather_inputs(next.identifier, fm, next.inputs)
+            inputs = gather_inputs(context, next)
         else:
             try:
                 inputs = [interm[x.name] for x in next.inputs]
@@ -128,16 +347,35 @@ def build_workflow(fm, context):
             if len(inputs) == 1:
                 inputs = [inputs[0].copy(), ]
 
-        if next.identifier in PROCESS_FUNC_MAP:
-            process_func = PROCESS_FUNC_MAP[next.identifier]
+        process_func = PROCESS_FUNC_MAP[next.identifier]
 
-            interm[next.name] = process(inputs, context, process_func=process_func)
-        else:
-            interm[next.name] = process(inputs, context)
+        interm[next.name] = process_func(context, next, *inputs)
 
         context.message('Storing intermediate {!r}', next.name)
 
     return interm
+
+
+def execute_delayed(context, delayed, client=None):
+    """ Executes a list of Dask delayed functions.
+
+    The list of Dask delayed functions are executed locally unless a client is defined. When a
+    client is passed the delays are execute and futures are returned, these are then tracked
+    using ``DaskJobTracker`` to update the user on the progress of execution. Thise is all wrapped
+    by a `context.ProcessTimer` which times the whole event then updates the metrics.
+
+    Args:
+        context (context.OperationContext): Current context.
+        delayed (list): List of Dask delayed functions.
+        client (dask.distributed.Client): Client to execute the Dask delays.
+    """
+    with ctx.ProcessTimer(context):
+        if client is None:
+            dask.compute(delayed)
+        else:
+            fut = client.compute(delayed)
+
+            DaskJobTracker(context, fut)
 
 
 WORKFLOW_ABSTRACT = """
@@ -151,24 +389,24 @@ here will become the default values on child operations.
 def workflow_func(self, context):
     """ Executes a workflow.
 
-    Process a forest of operations. The graph can have multiple inputs and
-    outputs.
+    A Celery task for executing a workflow of processes. The workflow is built then the
+    intermediate and output Dask delayed functions are gathered. These are then executed
+    Dask.
 
     Args:
-        context (WorkflowOperationContext): Current context.
+        context (OperationContext): The context containing all information needed to execute process.
 
     Returns:
-        Updated context.
+        The input context for the next Celery task.
     """
-    fm = managers.FileManager(context)
-
-    interm = build_workflow(fm, context)
+    interm = build_workflow(context)
 
     context.message('Preparing to execute workflow')
 
-    scheduler_addr = '{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE)
-
-    client = state_mixin.retry(8, 1)(Client)(scheduler_addr)
+    if 'DASK_SCHEDULER' in context.extra:
+        client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
+    else:
+        client = None
 
     try:
         delayed = []
@@ -179,59 +417,13 @@ def workflow_func(self, context):
 
         context.message('Gathered {!s} outputs', len(delayed))
 
-        with ctx.ProcessTimer(context):
-            # Execute the futures
-            fut = client.compute(delayed)
-
-            # Track the progress
-            DaskJobTracker(context, fut)
+        execute_delayed(context, delayed, client)
+    except WPSError:
+        raise
     except Exception as e:
         raise WPSError('Error executing process: {!r}', e)
 
     return context
-
-
-def process(inputs, context, process_func=None):
-    """ Process a single variable.
-
-    Initialize the cluster workers, create the dask graph then execute.
-
-    The `process_func` function should take a cwt.Process and a list of
-    compute_tasks.managers.FileManager. See process_input as an example.
-
-    Args:
-        context: A cwt.context.OperationContext.
-        process_func: A custom processing function to be applied.
-        aggregate: A bool value to treat the inputs as an aggregation.
-
-    Returns:
-        An updated cwt.context.OperationContext.
-    """
-    # Subset each input and track the bytes
-    for input in inputs:
-        src, subset = input.subset(context.domain)
-
-        context.track_src_bytes(src.nbytes)
-
-        context.track_in_bytes(subset.nbytes)
-
-        context.message('Data subset shape {!r}', input.shape)
-
-    # Apply processing if needed
-    if process_func is not None:
-        output = process_func(context.operation, *inputs)
-
-        context.message('Applied process {!r} shape {!r}', context.operation.identifier, output.shape)
-    else:
-        output = inputs[0]
-
-    # Apply regridding if needed
-    # if context.is_regrid:
-    #     regrid(context.operation, output)
-
-    #     context.message('Applied regridding shape {!r}', output.shape)
-
-    return output
 
 
 def regrid(operation, *inputs):
@@ -305,12 +497,52 @@ def regrid(operation, *inputs):
     return input
 
 
-FEAT_AXES = 'FEAT_AXES'
-FEAT_CONST = 'FEAT_CONST'
-FEAT_MULTI = 'FEAT_MULTI'
+AXES = 1    # Enable processing over axes
+CONST = 2   # Enable processing against a constant value
+MULTI = 4   # Enable processing multiple inputs
+STACK = 8   # Process requires stacking of inputs
 
 
-def process_input(operation, *inputs, process_func, **supported):
+def subset_input(context, operation, input):
+    """ Subsets a Dataset.
+
+    Subset a ``xarray.Dataset`` using the user-defined ``cwt.Domain``. For each dimension
+    the selector is built and applied using the appropriate method.
+
+    Args:
+        context (context.OperationContext): The current operation context.
+        operation (cwt.Process): The process definition the input is associated with.
+        input (xarray.DataSet): The input DataSet.
+    """
+    context.track_src_bytes(input.nbytes)
+
+    if operation.domain is not None:
+        try:
+            time = list(input[context.variable].metpy.coordinates('time'))[0]
+        except (AttributeError, IndexError):
+            time = None
+
+        for dim in operation.domain.dimensions.values():
+            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+
+            if dim.crs == cwt.INDICES:
+                input = input.isel(**selector)
+            elif dim.crs == cwt.VALUES:
+                if time is not None and time.name == dim.name:
+                    input[time.name] = xr.conventions.encode_cf_variable(input[time.name])
+
+                    input = input.sel(**selector)
+                else:
+                    input = input.loc[selector]
+            else:
+                input = input.sel(**selector)
+
+    context.track_in_bytes(input.nbytes)
+
+    return input
+
+
+def process_input(context, operation, *inputs, **kwargs):
     """ Process inputs.
 
     Possible values for `supported`:
@@ -324,58 +556,69 @@ def process_input(operation, *inputs, process_func, **supported):
         process_func: An optional dask ufunc.
         supported: An optional dict defining the support processing types. See above for explanation.
     """
-    axes = operation.get_parameter('axes')
+    inputs = [subset_input(context, operation, x) for x in inputs]
 
-    constant = operation.get_parameter('constant')
+    process_func = kwargs.pop('process_func', None)
 
-    logger.info('Axes %r Constant %r', axes, constant)
+    if process_func is not None:
+        axes = operation.get_parameter('axes')
 
-    if axes is not None:
-        if not supported.get(FEAT_AXES, False):
-            raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
+        constant = operation.get_parameter('constant')
 
-        # Apply process to first input over axes
-        output = process_single_input(axes.values, process_func, inputs[0])
-    elif constant is not None:
-        if not supported.get(FEAT_CONST, False):
-            raise WPSError('Constant parameter is not supported by operation {!r}', operation.identifier)
+        logger.info('Axes %r Constant %r', axes, constant)
 
-        try:
-            constant = float(constant.values[0])
-        except ValueError:
-            raise WPSError('Invalid constant value {!r} type {!s} expecting <class \'float\'>',
-                           constant, type(constant))
+        features = kwargs.pop('features', 0)
 
-        output = inputs[0]
+        if axes is not None:
+            if (features & AXES) == 0:
+                raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
 
-        # Apply the process to the existing dask array
-        output.variable = process_func(output.variable, constant)
+            # Apply process to first input over axes
+            output = process_single_input(axes.values, process_func, inputs[0], features, **kwargs)
+        elif constant is not None:
+            if (features & CONST) == 0:
+                raise WPSError('Constant parameter is not supported by operation {!r}', operation.identifier)
 
-        logger.info('Process output %r', output.variable)
-    elif len(inputs) > 1:
-        if not supported.get(FEAT_MULTI, False):
-            raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
+            try:
+                constant = float(constant.values[0])
+            except ValueError:
+                raise WPSError('Invalid constant value {!r} type {!s} expecting <class \'float\'>',
+                               constant, type(constant))
 
-        # Apply the process to all inputs
-        output = process_multiple_input(process_func, *inputs)
+            output = inputs[0]
+
+            # Apply the process to the existing dask array
+            output.variable = process_func(output.variable, constant)
+
+            logger.info('Process output %r', output.variable)
+        elif len(inputs) > 1:
+            if (features & MULTI) == 0:
+                raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
+
+            # Apply the process to all inputs
+            output = process_multiple_input(process_func, *inputs, features, **kwargs)
+        else:
+            output = inputs[0]
+
+            # Apply the process
+            output.variable = process_func(output.variable)
+
+            logger.info('Process output %r', output.variable)
     else:
         output = inputs[0]
-
-        # Apply the process
-        output.variable = process_func(output.variable)
-
-        logger.info('Process output %r', output.variable)
 
     return output
 
 
-def process_single_input(axes, process_func, input):
+def process_single_input(axes, process_func, input, features, **kwargs):
     """ Process single input.
 
     Args:
         axes: List of str axis names.
         process_func: A function with the same signature as process_input.
         input: A compute_tasks.managers.FileManager instance.
+        features: A int storing feature flags.
+        kwargs: A dict with any extra configuration.
 
     Returns:
         A new instance of compute_tasks.managers.FileManager containing the results.
@@ -402,7 +645,7 @@ def process_single_input(axes, process_func, input):
     return input
 
 
-def process_multiple_input(process_func, input1, input2):
+def process_multiple_input(process_func, input1, input2, features, **kwargs):
     """ Process multiple inputs.
 
     Note that some ufuncs will only process a single array over some dimensions,
@@ -412,6 +655,8 @@ def process_multiple_input(process_func, input1, input2):
         process_func: A function with the same signature as process_input.
         input1: A compute_tasks.managers.FileManager instance.
         input2: A compute_tasks.managers.FileManager instance.
+        features: A int storing feature flags.
+        kwargs: A dict with any extra configuration.
 
     Returns:
         A new instance of compute_tasks.managers.FileManager containing the results.
@@ -420,13 +665,13 @@ def process_multiple_input(process_func, input1, input2):
     new_input = input1.copy()
 
     # Check if we need to stack the arrays.
-    if process_func.__name__ in REQUIRES_STACK:
+    if features & STACK:
         stacked = da.stack([input1.variable, input2.variable])
 
         logger.info('Stacking inputs %r', stacked)
 
+        # Process over the next axis from stacking the arrays.
         new_input.variable = process_func(stacked, axis=0)
-
     else:
         new_input.variable = process_func(input1.variable, input2.variable)
 
@@ -435,13 +680,7 @@ def process_multiple_input(process_func, input1, input2):
     return new_input
 
 
-REQUIRES_STACK = [
-    'sum_func',
-    'max_func',
-    'min_func',
-    'average_func',
-]
-
+# Process descriptions used in abstracts.
 DESCRIPTION_MAP = {
     'CDAT.abs': 'Computes the element-wise absolute value.',
     'CDAT.add': 'Adds an element-wise constant or another input.',
@@ -460,58 +699,79 @@ DESCRIPTION_MAP = {
     'CDAT.sum': 'Computes the sum over a set of axes.',
 }
 
+"""
+This dict maps identifiers to functions that will be used for processing. The function ``process_input`` is
+the main entrypoint. Partials are used here to provide some configuration for how each process is executed.
+See the doctstring of ``process_input`` for additional details.
+"""
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_input, process_func=da.absolute),
-    'CDAT.add': partial(process_input, process_func=da.add, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.aggregate': None,
-    'CDAT.average': partial(process_input, process_func=da.average, FEAT_MULTI=True),
-    'CDAT.divide': partial(process_input, process_func=da.divide, FEAT_CONST=True, FEAT_MULTI=True),
+    'CDAT.add': partial(process_input, process_func=da.add, features=CONST | MULTI),
+    'CDAT.aggregate': process_input,
+    'CDAT.average': partial(process_input, process_func=da.average, features=MULTI | STACK),
+    'CDAT.divide': partial(process_input, process_func=da.divide, features=CONST | MULTI),
     # Disabled due to overflow issue, setting dtype=float64 works for dask portion but xarray is writing Inf.
     # 'CDAT.exp': partial(process_input, process_func=da.exp),
     'CDAT.log': partial(process_input, process_func=da.log),
-    'CDAT.max': partial(process_input, process_func=da.max, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.min': partial(process_input, process_func=da.min, FEAT_AXES=True, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.multiply': partial(process_input, process_func=da.multiply, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.power': partial(process_input, process_func=da.power, FEAT_CONST=True),
-    'CDAT.regrid': regrid,
-    'CDAT.subset': None,
-    'CDAT.subtract': partial(process_input, process_func=da.subtract, FEAT_CONST=True, FEAT_MULTI=True),
-    'CDAT.sum': partial(process_input, process_func=da.sum, FEAT_AXES=True),
+    'CDAT.max': partial(process_input, process_func=da.max, features=AXES | CONST | MULTI | STACK),
+    'CDAT.min': partial(process_input, process_func=da.min, features=AXES | CONST | MULTI | STACK),
+    'CDAT.multiply': partial(process_input, process_func=da.multiply, features=MULTI | CONST),
+    'CDAT.power': partial(process_input, process_func=da.power, features=CONST),
+    # 'CDAT.regrid': regrid,
+    'CDAT.subset': process_input,
+    'CDAT.subtract': partial(process_input, process_func=da.subtract, features=CONST | MULTI),
+    'CDAT.sum': partial(process_input, process_func=da.sum, features=CONST | MULTI),
 }
 
 
 def render_abstract(description, func, template):
-    axes = False
-    const = False
-    multi = False
+    """ Renders an abstract for a process.
 
+    This function will use a jinja2 template and render out an abstract for a process. The keyword arguments
+    for the ``func`` function are used to enable details in the abstract.
+
+    Args:
+        description (str): The process description.
+        func (function): The process function.
+        template (jinja2.Template): The jinja2 template that will be used to render the abstract.
+
+    Returns:
+        str: The abstract as a string.
+    """
     try:
         kwargs = func.keywords
+
+        features = kwargs.get('features', 0)
     except AttributeError:
-        pass
-    else:
-        axes = FEAT_AXES in kwargs and kwargs[FEAT_AXES]
+        features = 0
 
-        const = FEAT_CONST in kwargs and kwargs[FEAT_CONST]
+    kwargs = {
+        'description': description,
+    }
 
-        multi = FEAT_MULTI in kwargs and kwargs[FEAT_MULTI]
+    kwargs['axes'] = True if (features & AXES) == AXES else False
 
-    return template.render(description=description, axes=axes, const=const, multi=multi)
+    kwargs['const'] = True if (features & CONST) == CONST else False
+
+    kwargs['multi'] = True if (features & MULTI) == MULTI else False
+
+    print(kwargs)
+
+    return template.render(**kwargs)
 
 
-BASE_ABSTRACT = """
-{{ description }}
+BASE_ABSTRACT = """{{ description }}
 {%- if multi %}
 
 Supports multiple inputs.
 {%- endif %}
-{%- if (axes or constant) %}
+{%- if (axes or const) %}
 
 Optional parameters:
 {%- if axes %}
     axes: A list of axes to operate on. Multiple values should be separated by "|" e.g. "lat|lon".
 {%- endif %}
-{%- if constant %}
+{%- if const %}
     constant: An integer or float value that will be applied element-wise.
 {%- endif %}
 {%- endif %}
@@ -519,81 +779,81 @@ Optional parameters:
 
 
 def process_wrapper(self, context):
-    fm = managers.FileManager(context)
+    """ Wrapper function for a process.
 
-    inputs = gather_inputs(context.operation.identifier, fm, context.operation.inputs)
+    This function acts as the main entrypoint of a Celery task. It represents a single process e.g. Subset, Aggregate,
+    etc. The function calls ``workflow_func`` since a single process is just a workflow with a single task.
 
-    if context.identifier in PROCESS_FUNC_MAP:
-        func = PROCESS_FUNC_MAP[context.identifier]
-
-        output = process(inputs, context, process_func=func)
-    else:
-        output = process(inputs, context)
-
-    context.track_out_bytes(output.nbytes)
-
-    dataset = output.to_xarray()
-
-    local_path = context.build_output_variable(output.var_name)
-
-    logger.debug('Writing output to %r', local_path)
-
-    context.message('Preparing to execute')
-
-    scheduler_addr = '{!s}.{!s}.svc:8786'.format(context.extra['DASK_SCHEDULER'], NAMESPACE)
-
-    client = state_mixin.retry(8, 1)(Client)(scheduler_addr)
-
-    try:
-        # Execute the dask graph
-        delayed = dataset.to_netcdf(local_path, compute=False)
-
-        context.message('Executing')
-
-        with ctx.ProcessTimer(context):
-            fut = client.compute(delayed)
-
-            DaskJobTracker(context, fut)
-    except Exception as e:
-        raise WPSError('Error executing process: {!r}', e)
-
-    return context
+    Args:
+        context (OperationContext): The OperationContext holding all details of the current job.
+    """
+    return workflow_func(context)
 
 
-def copy_process_wrapper(f, operation):
+def copy_function(f, operation):
+    """ Creates a unique version of a function.
+
+    Copies function ``f`` giving it a unique name using ``operation``.
+
+    Args:
+        f (FunctionType): The function to copy.
+        operation (str): The unique identifier for the function.
+
+    Returns:
+        FunctionType: A new function.
+    """
     name = '{!s}_func'.format(operation)
 
     return types.FunctionType(f.__code__, f.__globals__, name=name, argdefs=f.__defaults__, closure=f.__closure__)
 
 
 def discover_processes():
+    """ Discovers and binds functions to `cdat` module.
+
+    This function iterates over PROCESS_FUNC_MAP, generating a description, creating a Celery task, registering it with
+    the backend and binding it to the "cdat" module.
+
+    Returns:
+        list: List of dict, describing each registered process.
+    """
     from compute_tasks import base
     from compute_tasks import cdat
 
+    # Use jinja2 to template process abstract
     template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
+
+    logger.info('Loadiung jinja2 abstract tempalate')
 
     for name, func in PROCESS_FUNC_MAP.items():
         module, operation = name.split('.')
 
-        p = copy_process_wrapper(process_wrapper, operation)
+        # Create a unique function for each process
+        p = copy_function(process_wrapper, operation)
 
+        # Decorate the new function as a Celery task
         shared = base.cwt_shared_task()(p)
 
+        # Render the abstract
         abstract = render_abstract(DESCRIPTION_MAP[name], func, template)
 
         inputs = 1
 
         try:
-            if FEAT_MULTI in func.keywords:
-                inputs = 2
-            elif name == 'CDAT.aggregate':
-                inputs = '*'
+            features = func.keywords.get('features', 0)
         except AttributeError:
-            # Handle where no func is supplied
-            pass
+            features = 0
 
+        if features & MULTI:
+            inputs = 2
+        elif name == 'CDAT.aggregate':
+            inputs = '*'
+
+        # Decorate the Celery task as a registered process
         register = base.register_process(module, operation, abstract=abstract, inputs=inputs)(shared)
 
+        # Bind the new function to the "cdat" module
         setattr(cdat, p.__name__, register)
+
+        logger.info('Binding process %r', name)
 
     return base.REGISTRY.values()

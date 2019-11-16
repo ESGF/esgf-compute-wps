@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 import pytest
 import dask.array as da
+import xarray as xr
 
 from compute_tasks import managers
 
@@ -66,6 +67,20 @@ class ESGFDataManager(object):
                     'http://esgf-data.ucar.edu/thredds/fileServer/esg_dataroot/CMIP6/CMIP/NCAR/CESM2-WACCM/historical/r2i1p1f1/day/tas/gn/v20190227/tas_day_CESM2-WACCM_historical_r2i1p1f1_gn_18600101-18691231.nc',  # noqa: E501
                 ],
             },
+            'tas-opendap': {
+                'var': 'tas',
+                'files': [
+                    'http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2-WACCM/historical/r2i1p1f1/day/tas/gn/v20190227/tas_day_CESM2-WACCM_historical_r2i1p1f1_gn_18500101-18591231.nc',  # noqa: E501
+                    'http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2-WACCM/historical/r2i1p1f1/day/tas/gn/v20190227/tas_day_CESM2-WACCM_historical_r2i1p1f1_gn_18600101-18691231.nc',  # noqa: E501
+                ],
+            },
+            'tas-opendap-cmip5': {
+                'var': 'tas',
+                'files': [
+                    'http://aims3.llnl.gov/thredds/dodsC/cmip5_css02_data/cmip5/output1/CMCC/CMCC-CMS/historical/day/atmos/day/r1i1p1/tas/1/tas_day_CMCC-CMS_historical_r1i1p1_18500101-18591231.nc',  # noqa: E501
+                    'http://aims3.llnl.gov/thredds/dodsC/cmip5_css02_data/cmip5/output1/CMCC/CMCC-CMS/historical/day/atmos/day/r1i1p1/tas/1/tas_day_CMCC-CMS_historical_r1i1p1_18600101-18691231.nc',  # noqa: E501
+                ],
+            },
         }
 
     def to_input_manager(self, name, domain=None):
@@ -91,6 +106,9 @@ class ESGFDataManager(object):
         tv = self.to_cdms2_tv(name, file_index)
 
         return da.from_array(tv, chunks=chunks)
+
+    def to_xarray(self, name, file_index=0, chunks=None):
+        return xr.open_dataset(self.data[name]['files'][file_index], chunks=chunks)
 
     def to_local_path(self, name, file_index=0):
         return self.fm.local_path(self.data[name]['files'][file_index])

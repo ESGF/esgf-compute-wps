@@ -24,19 +24,20 @@ requirements:
 
   run:
     - python
-    - nomkl=3.0
-    - cdms2>=3.1
-    - esgf-compute-api>=2.2
-    - pyzmq=18.0.1
-    - redis-py=3.2.1
-    - requests=2.21.0
-    - celery=4.4.0rc1
-    - prometheus_client=0.6.0
-    - dask=1.2.2=py_2 # Pin build 2, >=3 breaks
-    - distributed=1.28.0
-    - xarray=0.12.1
-    - netcdf4=1.5.1.2
-    - python-coreapi=2.3.3
+    - nomkl
+    - cdms2
+    - esgf-compute-api
+    - pyzmq
+    - redis-py
+    - requests
+    - celery
+    - prometheus_client
+    - dask
+    - distributed
+    - xarray
+    - cftime=1.0.3.4 # Need 1.0.3.4 until next version of xarray
+    - netcdf4
+    - python-coreapi
     - compute-provisioner
 
 about:
