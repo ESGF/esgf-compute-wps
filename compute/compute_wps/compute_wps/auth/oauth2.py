@@ -64,7 +64,7 @@ def check_certificate(user):
 
     after = datetime.strptime(cert.get_notAfter().decode('utf-8'), CERT_DATE_FMT)
 
-    now = datetime.now()
+    now = datetime.utcnow()
 
     if now >= after:
         logger.info('Certificate not valid after %r, now %r', after, now)
@@ -97,7 +97,7 @@ def refresh_certificate(user, token_url, certificate_url):
 
     token, oauth2_state = user.auth.get('token', 'state')
 
-    certs = get_certificate(token, oauth2_state, token_url, certificate_url)
+    certs = get_certificate(user, token_url, certificate_url)
 
     return certs
 
@@ -165,7 +165,7 @@ def get_certificate(user, refresh_url, certificate_url):
 
             response = slcs.post(certificate_url, data=data, verify=False, headers=headers)
         except (Exception or InvalidGrantError):
-            logger.exception('Error retrieving certificate')
+            logger.info('Error retrieving certificate')
 
             raise OAuth2Error('OAuth2 authorization required')
 
