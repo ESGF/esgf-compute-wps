@@ -4,6 +4,7 @@ import os
 
 import cdms2
 import cwt
+import dask
 import pytest
 import dask.array as da
 from distributed.utils_test import (  # noqa: F401
@@ -101,6 +102,188 @@ def test_subset(mocker, esgf_data, client):  # noqa: F811
         assert infile[var_name].shape == (27, 192, 288)
 
 
+def test_subset_input_value_spatial(mocker, esgf_data):
+    context = operation.OperationContext()
+    context._variable = {'tas': cwt.Variable('', 'tas')}
+
+    process = cwt.Process('CDAT.subset')
+    process.set_domain(cwt.Domain(lat=(-45, 45)))
+
+    input = esgf_data.to_xarray('tas-opendap')
+
+    new_input = cdat.subset_input(context, process, input)
+
+    assert list(new_input.dims.values()) == [96, 288, 2, 3650]
+
+
+def test_subset_input_value_timestamps(mocker, esgf_data):
+    context = operation.OperationContext()
+    context._variable = {'tas': cwt.Variable('', 'tas')}
+
+    process = cwt.Process('CDAT.subset')
+    process.set_domain(cwt.Domain(time=('1850', '1851')))
+
+    input = esgf_data.to_xarray('tas-opendap')
+
+    new_input = cdat.subset_input(context, process, input)
+
+    assert list(new_input.dims.values()) == [192, 288, 2, 730]
+
+
+def test_subset_input_value_time(mocker, esgf_data):
+    context = operation.OperationContext()
+    context._variable = {'tas': cwt.Variable('', 'tas')}
+
+    process = cwt.Process('CDAT.subset')
+    process.set_domain(cwt.Domain(time=(674885., 674985.)))
+
+    input = esgf_data.to_xarray('tas-opendap')
+
+    new_input = cdat.subset_input(context, process, input)
+
+    assert list(new_input.dims.values()) == [192, 288, 2, 101]
+
+
+def test_subset_input_indices(mocker, esgf_data):
+    context = operation.OperationContext()
+
+    process = cwt.Process('CDAT.subset')
+    process.set_domain(cwt.Domain(time=slice(0, 10)))
+
+    input = esgf_data.to_xarray('tas-opendap')
+
+    new_input = cdat.subset_input(context, process, input)
+
+    assert list(new_input.dims.values()) == [192, 288, 2, 10]
+
+
+def test_filter_protected_exception(mocker):
+    ctx = mocker.MagicMock()
+    ctx.user_cert.return_value = 'cert data'
+
+    mocker.patch.object(cdat, 'check_access', side_effect=[False, False])
+
+    args = [
+        ctx,
+        ['/file1.nc', '/file2.nc'],
+    ]
+
+    with pytest.raises(WPSError):
+        cdat.filter_protected(*args)
+
+
+def test_filter_protected(mocker):
+    ctx = mocker.MagicMock()
+    ctx.user_cert.return_value = 'cert data'
+
+    mocker.patch.object(cdat, 'check_access', side_effect=[False, True, True])
+
+    args = [
+        ctx,
+        ['/file1.nc', '/file2.nc'],
+    ]
+
+    unprotected, protected, cert_tempfile = cdat.filter_protected(*args)
+
+    assert len(unprotected) == 1
+    assert len(protected) == 1
+    assert cert_tempfile is not None
+
+
+@pytest.mark.data
+def test_localize_protected(mocker, esgf_data):
+    output_path = '/cache/595e40d39c7468cbf4f04e7a8ad711187e469eee903f158b3c8f190adcb1ac1b.nc'
+
+    if os.path.exists(output_path):
+        os.remove(output_path)
+
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/',
+    })
+
+    context = operation.OperationContext()
+
+    mocker.spy(os.path, 'exists')
+
+    output = cdat.localize_protected(context, esgf_data.data['tas-opendap']['files'][:1], None)
+
+    assert len(output) == 1
+    assert output[0] == output_path
+    assert not os.path.exists.return_value
+
+    output = cdat.localize_protected(context, esgf_data.data['tas-opendap']['files'][:1], None)
+
+    assert len(output) == 1
+    assert output[0] == output_path
+    assert os.path.exists.return_value
+
+
+def test_execute_delayed_with_client(mocker):
+    mocker.patch.object(dask, 'compute')
+    mocker.patch.object(cdat, 'DaskJobTracker')
+
+    context = mocker.MagicMock()
+
+    client = mocker.MagicMock()  # noqa: F811
+
+    futures = []
+
+    cdat.execute_delayed(context, futures, client)
+
+    dask.compute.assert_not_called()
+
+    client.compute.assert_called_with(futures)
+
+    cdat.DaskJobTracker.assert_called_with(context, client.compute.return_value)
+
+
+def test_execute_delayed(mocker):
+    mocker.patch.object(dask, 'compute')
+
+    context = mocker.MagicMock()
+
+    futures = []
+
+    cdat.execute_delayed(context, futures)
+
+    dask.compute.assert_called_with(futures)
+
+
+def test_get_user_cert(mocker):
+    context = mocker.MagicMock()
+    context.user_cert.return_value = 'client cert data'
+
+    tf = cdat.get_user_cert(context)
+
+    assert tf
+
+
+def test_check_access_exception(esgf_data):
+    with pytest.raises(WPSError):
+        cdat.check_access('https://esgf-node.llnl.gov/sjdlasjdla')
+
+
+def test_check_access_request_exception(esgf_data):
+    with pytest.raises(WPSError):
+        cdat.check_access('https://ajsdklajskdja')
+
+
+def test_check_access_protected(esgf_data):
+    assert not cdat.check_access(esgf_data.data['tas-opendap-cmip5']['files'][0])
+
+
+def test_check_access(esgf_data):
+    assert cdat.check_access(esgf_data.data['tas-opendap']['files'][0])
+
+
+def test_clean_variable_encoding(mocker, esgf_data):
+    ds = esgf_data.to_xarray('tas-opendap')
+
+    cdat.clean_variable_encoding(ds)
+
+    assert 'missing_value' not in ds.tas.encoding
+
+
 def test_dask_job_tracker(mocker, client):  # noqa: F811
     context = mocker.MagicMock()
 
@@ -113,6 +296,21 @@ def test_dask_job_tracker(mocker, client):  # noqa: F811
     assert context.message.call_count > 0
 
 
+def test_gather_workflow_outputs_bad_coord(mocker):
+    context = mocker.MagicMock()
+
+    subset = cwt.Process(identifier='CDAT.subset')
+    subset_delayed = mocker.MagicMock()
+    subset_delayed.to_netcdf.side_effect = ValueError
+
+    interm = {
+        subset.name: subset_delayed,
+    }
+
+    with pytest.raises(WPSError):
+        cdat.gather_workflow_outputs(context, interm, [subset])
+
+
 def test_gather_workflow_outputs_missing_interm(mocker):
     context = mocker.MagicMock()
 
@@ -122,7 +320,7 @@ def test_gather_workflow_outputs_missing_interm(mocker):
     max = cwt.Process(identifier='CDAT.max')
 
     interm = {
-            subset.name: subset_delayed,
+        subset.name: subset_delayed,
     }
 
     with pytest.raises(WPSError):
@@ -150,21 +348,44 @@ def test_gather_workflow_outputs(mocker):
 
 
 def test_gather_inputs_aggregate(mocker, esgf_data):
-    inputs = [cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']]
+    process = cwt.Process('CDAT.aggregate')
+    process.add_inputs(*[cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']])
 
-    fm = mocker.MagicMock()
+    context = mocker.MagicMock()
 
-    data = cdat.gather_inputs('CDAT.aggregate', fm, inputs)
+    data = cdat.gather_inputs(context, process)
 
     assert len(data) == 1
 
 
+def test_gather_inputs_exception(mocker, esgf_data):
+    tempfile_mock = mocker.MagicMock()
+
+    mocker.patch.object(cdat, 'filter_protected', return_value=([], esgf_data.data['tas-opendap']['files'],
+                        tempfile_mock))
+    mocker.patch.object(cdat, 'localize_protected', return_value=esgf_data.data['tas-opendap']['files'])
+
+    files = esgf_data.data['tas-opendap-cmip5']['files']
+
+    process = cwt.Process('CDAT.subset')
+    process.add_inputs(*[cwt.Variable(x, 'tas') for x in files])
+
+    context = mocker.MagicMock()
+    context.user_cert.return_value = 'cert data'
+
+    data = cdat.gather_inputs(context, process)
+
+    assert len(data) == 2
+    cdat.localize_protected.assert_called()
+
+
 def test_gather_inputs(mocker, esgf_data):
-    inputs = [cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']]
+    process = cwt.Process('CDAT.subset')
+    process.add_inputs(*[cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']])
 
-    fm = mocker.MagicMock()
+    context = mocker.MagicMock()
 
-    data = cdat.gather_inputs('CDAT.subset', fm, inputs)
+    data = cdat.gather_inputs(context, process)
 
     assert len(data) == 2
 
@@ -188,10 +409,8 @@ def test_build_workflow_missing_interm(mocker):
     context = mocker.MagicMock()
     context.topo_sort.return_value = [subset, max]
 
-    fm = mocker.MagicMock()
-
     with pytest.raises(WPSError):
-        cdat.build_workflow(fm, context)
+        cdat.build_workflow(context)
 
 
 def test_build_workflow_use_interm(mocker):
@@ -211,11 +430,9 @@ def test_build_workflow_use_interm(mocker):
     context = mocker.MagicMock()
     context.topo_sort.return_value = [subset, max]
 
-    fm = mocker.MagicMock()
+    interm = cdat.build_workflow(context)
 
-    interm = cdat.build_workflow(fm, context)
-
-    cdat.gather_inputs.assert_called_with('CDAT.subset', fm, subset.inputs)
+    cdat.gather_inputs.assert_called_with(context, subset)
 
     assert len(interm) == 2
     assert subset.name in interm
@@ -234,11 +451,9 @@ def test_build_workflow_process_func(mocker):
     context = mocker.MagicMock()
     context.topo_sort.return_value = [subset]
 
-    fm = mocker.MagicMock()
+    interm = cdat.build_workflow(context)
 
-    interm = cdat.build_workflow(fm, context)
-
-    cdat.gather_inputs.assert_called_with('CDAT.subset', fm, subset.inputs)
+    cdat.gather_inputs.assert_called_with(context, subset)
 
     assert len(interm) == 1
     assert subset.name in interm
@@ -255,11 +470,9 @@ def test_build_workflow(mocker):
     context = mocker.MagicMock()
     context.topo_sort.return_value = [subset]
 
-    fm = mocker.MagicMock()
+    interm = cdat.build_workflow(context)
 
-    interm = cdat.build_workflow(fm, context)
-
-    cdat.gather_inputs.assert_called_with('CDAT.subset', fm, subset.inputs)
+    cdat.gather_inputs.assert_called_with(context, subset)
 
     assert len(interm) == 1
     assert subset.name in interm
@@ -284,6 +497,36 @@ def test_workflow_func_dask_cluster_error(mocker):
     cdat.build_workflow.assert_called()
 
     cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+
+
+def test_workflow_func_error(mocker):
+    mocker.patch.object(cdat, 'gather_workflow_outputs')
+    mocker.patch.object(cdat, 'Client')
+    mocker.patch.object(cdat, 'build_workflow')
+    mocker.patch.object(cdat, 'DaskJobTracker')
+    mocker.patch.object(cdat, 'execute_delayed')
+
+    context = mocker.MagicMock()
+    context.extra = {
+        'DASK_SCHEDULER': 'dask-scheduler',
+    }
+
+    cdat.execute_delayed.side_effect = WPSError
+
+    with pytest.raises(WPSError):
+        cdat.workflow_func(context)
+
+    cdat.build_workflow.assert_called()
+
+    cdat.Client.assert_called_with('dask-scheduler')
+
+    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
+                                                 context.output_ops.return_value)
+
+    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
+                                                 context.interm_ops.return_value)
+
+    cdat.Client.return_value.compute.assert_not_called()
 
 
 def test_workflow_func_execute_error(mocker):
@@ -313,6 +556,30 @@ def test_workflow_func_execute_error(mocker):
                                                  context.interm_ops.return_value)
 
     cdat.Client.return_value.compute.assert_called()
+
+
+def test_workflow_func_no_client(mocker):
+    mocker.patch.object(cdat, 'gather_workflow_outputs')
+    mocker.patch.object(cdat, 'Client')
+    mocker.patch.object(cdat, 'build_workflow')
+    mocker.patch.object(cdat, 'DaskJobTracker')
+
+    context = mocker.MagicMock()
+    context.extra = {}
+
+    cdat.workflow_func(context)
+
+    cdat.build_workflow.assert_called()
+
+    cdat.Client.assert_not_called()
+
+    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
+                                                 context.output_ops.return_value)
+
+    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
+                                                 context.interm_ops.return_value)
+
+    cdat.Client.return_value.compute.assert_not_called()
 
 
 def test_workflow_func(mocker):

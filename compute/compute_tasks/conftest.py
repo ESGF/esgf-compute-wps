@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 import pytest
 import dask.array as da
+import xarray as xr
 
 from compute_tasks import managers
 
@@ -105,6 +106,9 @@ class ESGFDataManager(object):
         tv = self.to_cdms2_tv(name, file_index)
 
         return da.from_array(tv, chunks=chunks)
+
+    def to_xarray(self, name, file_index=0, chunks=None):
+        return xr.open_dataset(self.data[name]['files'][file_index], chunks=chunks)
 
     def to_local_path(self, name, file_index=0):
         return self.fm.local_path(self.data[name]['files'][file_index])

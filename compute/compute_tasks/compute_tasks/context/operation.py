@@ -90,25 +90,13 @@ class OperationContext(state_mixin.StateMixin, object):
 
             gparameters = root_op.parameters
 
-            OperationContext.resolve_dependencies(variable, domain, operation, gdomain, gparameters)
-        else:
-            OperationContext.resolve_dependencies(variable, domain, operation)
+        OperationContext.resolve_dependencies(variable, domain, operation, gdomain, gparameters)
 
         ctx = cls(variable, domain, operation)
 
         ctx.gdomain = gdomain
 
         ctx.gparameters = gparameters
-
-        if identifier == 'CDAT.workflow':
-            try:
-                ctx.operation = operation[root_op.inputs[0]].copy()
-            except KeyError as e:
-                raise WPSError('{!s} is not a valid input for CDAT.workflow', e)
-        else:
-            ctx.operation = root_op.copy()
-
-        logger.info('Set context operation to %r', ctx.operation)
 
         return ctx
 
@@ -128,18 +116,6 @@ class OperationContext(state_mixin.StateMixin, object):
 
         obj = cls(variable, domain, operation)
 
-        obj.operation = data.pop('operation')
-
-        try:
-            obj.operation.inputs = [variable[x] if x in variable else operation[x] for x in obj.operation.inputs]
-        except AttributeError:
-            pass
-
-        try:
-            obj.operation.domain = domain.get(obj.operation.domain, None)
-        except AttributeError:
-            pass
-
         obj.output = data.pop('output')
 
         obj.init_state(data)
@@ -153,7 +129,6 @@ class OperationContext(state_mixin.StateMixin, object):
             '_variable': self._variable,
             '_domain': self._domain,
             '_operation': self._operation,
-            'operation': self.operation,
             'output': self.output,
         }
 
@@ -162,24 +137,8 @@ class OperationContext(state_mixin.StateMixin, object):
         return data
 
     @property
-    def identifier(self):
-        return self.operation.identifier
-
-    @property
-    def domain(self):
-        return self.operation.domain
-
-    @property
-    def inputs(self):
-        return [x for x in self.operation.inputs if isinstance(x, cwt.Variable)]
-
-    @property
     def variable(self):
-        return list(set(x.var_name for x in self.inputs))[0]
-
-    @property
-    def is_regrid(self):
-        return 'gridder' in self.operation.parameters
+        return list(set([x.var_name for x in self._variable.values()]))[0]
 
     def output_ops(self):
         out_deg = dict((x, self.node_out_deg(y)) for x, y in self._operation.items())
@@ -207,19 +166,13 @@ class OperationContext(state_mixin.StateMixin, object):
 
         queue = [x for x, y in in_deg.items() if y == 0]
 
-        topo_order = []
-
         while queue:
             next = queue.pop(0)
 
-            topo_order.append(self._operation[next])
+            yield self._operation[next]
 
             for x in neigh[next]:
                 in_deg[x] -= 1
 
                 if in_deg[x] == 0:
                     queue.append(x)
-
-        logger.info('Result of topo sort %r', topo_order)
-
-        return topo_order

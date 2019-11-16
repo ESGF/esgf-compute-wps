@@ -63,7 +63,7 @@ def test_topo_sort(cwt_data):
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.workflow', workflow)
 
-    ops = ctx.topo_sort()
+    ops = [x for x in ctx.topo_sort()]
 
     assert ops[0].identifier == 'CDAT.aggregate'
     assert ops[1].identifier == 'CDAT.average'
@@ -135,19 +135,6 @@ def test_output_ops(cwt_data):
     assert set([x.identifier for x in ops]) == set(['CDAT.divide', 'CDAT.min', 'CDAT.max'])
 
 
-def test_accessors(cwt_data):
-    ctx = operation.OperationContext()
-
-    cwt_data.op1.gridder = cwt.Gridder()
-
-    ctx.operation = cwt_data.op1
-
-    assert ctx.is_regrid
-    assert ctx.identifier == 'CDAT.aggregate'
-    assert ctx.inputs == []
-    assert ctx.domain is None
-
-
 def test_to_dict(cwt_data):
     data = {
         '_variable': {
@@ -166,7 +153,6 @@ def test_to_dict(cwt_data):
         'job': 0,
         'user': 0,
         'process': 0,
-        'operation': cwt_data.op1,
         'gdomain': None,
         'gparameters': {},
     }
@@ -178,7 +164,6 @@ def test_to_dict(cwt_data):
     assert '_variable' in output
     assert '_domain' in output
     assert '_operation' in output
-    assert 'operation' in output
     assert 'gdomain' in output
     assert 'gparameters' in output
     assert 'output' in output
@@ -227,12 +212,15 @@ def test_from_data_inputs_missing_operation():
 
 
 def test_from_data_inputs_invalid_input_workflow(cwt_data):
-    cwt_data.op2.add_inputs(cwt_data.v1)
+    cwt_data.op1.add_inputs(cwt_data.v1, cwt_data.v2)
+
+    cwt_data.op2.add_inputs(cwt_data.op1)
 
     data_inputs = {
         'variable': '[]',
         'domain': '[]',
         'operation': json.dumps([
+            cwt_data.op1.to_dict(),
             cwt_data.op2.to_dict(),
         ]),
     }
@@ -265,13 +253,12 @@ def test_from_data_inputs_global(cwt_data):
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.workflow', data_inputs)
 
-    assert ctx.operation.identifier == cwt_data.op1.identifier
-    assert ctx.operation.name == cwt_data.op1.name
-    assert ctx.operation.domain.name == cwt_data.d0.name
-    assert 'axes' in ctx.operation.parameters
-    assert 'constant' in ctx.operation.parameters
-    assert len(ctx.operation.inputs) == 2
-    assert set([cwt_data.v1.name, cwt_data.v2.name]) == set([x.name for x in ctx.operation.inputs])
+    assert len(ctx._variable) == 2
+    assert len(ctx._domain) == 1
+    assert len(ctx._operation) == 1
+
+    assert ctx.gdomain.name == cwt_data.d0.name
+    assert ctx.gparameters.keys() == cwt_data.op2.parameters.keys()
 
 
 def test_from_data_inputs_workflow(cwt_data):
@@ -296,12 +283,9 @@ def test_from_data_inputs_workflow(cwt_data):
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.workflow', data_inputs)
 
+    assert len(ctx._variable) == 2
+    assert len(ctx._domain) == 1
     assert len(ctx._operation) == 1
-    assert ctx.operation.identifier == cwt_data.op1.identifier
-    assert ctx.operation.name == cwt_data.op1.name
-    assert ctx.operation.domain.name == cwt_data.d0.name
-    assert len(ctx.operation.inputs) == 2
-    assert set([cwt_data.v1.name, cwt_data.v2.name]) == set([x.name for x in ctx.operation.inputs])
 
 
 def test_from_data_inputs(cwt_data):
@@ -323,11 +307,9 @@ def test_from_data_inputs(cwt_data):
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
 
-    assert ctx.operation.identifier == cwt_data.op1.identifier
-    assert ctx.operation.name == cwt_data.op1.name
-    assert ctx.operation.domain.name == cwt_data.d0.name
-    assert len(ctx.operation.inputs) == 2
-    assert set([cwt_data.v1.name, cwt_data.v2.name]) == set([x.name for x in ctx.operation.inputs])
+    assert len(ctx._variable) == 2
+    assert len(ctx._domain) == 1
+    assert len(ctx._operation) == 1
 
 
 def test_resolve_dependencies_globals(cwt_data):

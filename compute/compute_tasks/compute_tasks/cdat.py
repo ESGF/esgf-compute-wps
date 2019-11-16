@@ -32,6 +32,17 @@ logger = get_task_logger('compute_tasks.cdat')
 
 class DaskJobTracker(ProgressBar):
     def __init__(self, context, futures, scheduler=None, interval='100ms', complete=True):
+        """ Init method.
+
+        Class init method.
+
+        Args:
+            context (context.OperationContext): The current context.
+            futures (list): A list of futures to track the progress of.
+            scheduler (dask.distributed.Scheduler, optional): The dask scheduler being used.
+            interval (str, optional): The interval used between posting updates of the tracked futures.
+            complete (bool, optional): Whether to callback after all futures are complete.
+        """
         futures = futures_of(futures)
 
         context.message('Tracking {!r} futures', len(futures))
@@ -47,6 +58,14 @@ class DaskJobTracker(ProgressBar):
         loop_runner.run_sync(self.listen)
 
     def _draw_bar(self, **kwargs):
+        """ Update callback.
+
+        After each interval this method is called allowing for a update of the progress.
+
+        Args:
+            remaining (int): The number of remaining futures to be processed.
+            all (int): The total number of futures to be processed.
+        """
         logger.debug('_draw_bar %r', kwargs)
 
         remaining = kwargs.get('remaining', 0)
@@ -69,6 +88,14 @@ class DaskJobTracker(ProgressBar):
 
 
 def clean_variable_encoding(dataset):
+    """ Cleans the encoding for a variable.
+
+    Sometimes a variable's encoding will have missing_value and _FillValue, xarray does not like
+    this, thus one must be removed. ``missing_value`` was arbitrarily selected to be removed.
+
+    Args:
+        dataset (xarray.DataSet): The dataset to check each variables encoding settings.
+    """
     for name, variable in dataset.variables.items():
         if 'missing_value' in variable.encoding and '_FillValue' in variable.encoding:
             del variable.encoding['missing_value']
@@ -77,6 +104,23 @@ def clean_variable_encoding(dataset):
 
 
 def gather_workflow_outputs(context, interm, operations):
+    """ Gather the ouputs for a set of processes (operations).
+
+    For each process we find it's output. Next the output path for the file is created. Next
+    the Dask delayed function to create a netCDF file is created and added to a list that is
+    returned.
+
+    Args:
+        context (context.OperationContext): The current context.
+        interm (dict): A dict mapping process names to Dask delayed functions.
+        operations (list): A list of ``cwt.Process`` objects whose outputs are being gathered.
+
+    Returns:
+        list: Of Dask delayed functions outputting netCDF files.
+
+    Raises:
+        WPSError: If output is not found or there exists and issue creating the output netCDF file.
+    """
     delayed = []
 
     for output in operations:
@@ -145,6 +189,14 @@ def check_access(url, cert=None):
 
 
 def get_user_cert(context):
+    """ Stores the user certificate in a temporary file.
+
+    Args:
+        context (context.OperationContext): The current context.
+
+    Returns:
+        A tempfile.NamedTemporaryFile object.
+    """
     tf = tempfile.NamedTemporaryFile()
 
     cert = context.user_cert()
@@ -155,6 +207,20 @@ def get_user_cert(context):
 
 
 def localize_protected(context, urls, cert_path):
+    """ Localize protected data.
+
+    Attempt to localize protected data. A unique path is generated and checked if it already exists.
+    If the cached file does not exist then we localize it. This supports retry attempts for small
+    outages.
+
+    Args:
+        context (context.OperationContext): The current context.a
+        urls (list): A list of urls to localize.
+        cert_path (str): A str path to an SSL client certificate used to access the remote data.
+
+    Returns:
+        list: Of paths to the localized content.
+    """
     new_urls = []
 
     session = requests.Session()
@@ -179,28 +245,59 @@ def localize_protected(context, urls, cert_path):
     return new_urls
 
 
-def gather_inputs(context, identifier, fm, inputs):
+def filter_protected(context, urls):
+    """ Filters the protected urls.
+
+    Filter the protected urls from the unprotected. Also returns a certificate if
+    protected urls are discovered.
+
+    Args:
+        context (context.OperationContext): The current context.
+        urls (list): List of str urls to check.
+    """
+    protected = []
+    unprotected = []
+    cert_tempfile = None
+
+    # Determine which files are accessible
+    for x in urls:
+        if not check_access(x):
+            if cert_tempfile is None:
+                cert_tempfile = get_user_cert(context)
+
+            if not check_access(x, cert=cert_tempfile.name):
+                raise WPSError('Failed to access input {!r}', x)
+
+            protected.append(x)
+        else:
+            unprotected.append(x)
+
+    return unprotected, protected, cert_tempfile
+
+
+def gather_inputs(context, process):
+    """ Gathers the inputs for a process.
+
+    The inputs for a process which are assumed to be OpenDAP urls to CF compliant data files are
+    converted to ``xarray.DataSet`` objects which are lazy loaded. If an input is no accessible
+    due to requiring authorization e.g. ESGF CMIP5/CMIP3 then we need to localize the file and
+    cache it. The ability to lazy load the remote data is not supported at the moment,
+    ``xarray.backends.PydapDataStore`` does not work with Dask clusters, due to a recusion error
+    in the Pydap data model.
+
+    Args:
+        context (context.OperationContext): Current context.
+        process (cwt.Process): The process whose inputs are being gathered.
+
+    Returns:
+        list: A list of ``xarray.DataSet``s.
+    """
     # TODO make chunks smarter
     chunks = {
         'time': 100,
     }
 
-    cert_tempfile = None
-    protected = []
-    urls = []
-
-    # Determine which files are accessible
-    for x in inputs:
-        if not check_access(x.uri):
-            if cert_tempfile is None:
-                cert_tempfile = get_user_cert(context)
-
-            if not check_access(x.uri, cert=cert_tempfile.name):
-                raise WPSError('Failed to access input {!r}', x.uri)
-
-            protected.append(x.uri)
-        else:
-            urls.append(x.uri)
+    urls, protected, cert_tempfile = filter_protected(context, [x.uri for x in process.inputs])
 
     # Localize any files requiring an SSL client certificate
     # TODO figure out a way to get PydapDataStore to work with dask.distributed,
@@ -208,7 +305,7 @@ def gather_inputs(context, identifier, fm, inputs):
     if len(protected) > 0:
         protected = localize_protected(context, protected, cert_tempfile.name)
 
-    if identifier == 'CDAT.aggregate':
+    if process.identifier == 'CDAT.aggregate':
         gathered = [xr.open_mfdataset(urls+protected, chunks=chunks, combine='by_coords')]
     else:
         gathered = [xr.open_dataset(x, chunks=chunks) for x in urls+protected]
@@ -216,7 +313,17 @@ def gather_inputs(context, identifier, fm, inputs):
     return gathered
 
 
-def build_workflow(fm, context):
+def build_workflow(context):
+    """ Builds a workflow.
+
+    The processes are processed intopological order. When processed the inputs are gathered,
+    current these are limited to either are variable inputs or all intermediate products, eventually
+    a mix of inputs will be accepted. The appropriate process is applied to the inputs and the
+    output is stored for future use.
+
+    Args:
+        context (context.OperationContext): Current context.
+    """
     # Topologically sort the operations
     topo_order = context.topo_sort()
 
@@ -229,7 +336,7 @@ def build_workflow(fm, context):
         context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
 
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
-            inputs = gather_inputs(context, next.identifier, fm, next.inputs)
+            inputs = gather_inputs(context, next)
         else:
             try:
                 inputs = [interm[x.name] for x in next.inputs]
@@ -249,7 +356,19 @@ def build_workflow(fm, context):
     return interm
 
 
-def execute_delayed(context, delayed, client):
+def execute_delayed(context, delayed, client=None):
+    """ Executes a list of Dask delayed functions.
+
+    The list of Dask delayed functions are executed locally unless a client is defined. When a
+    client is passed the delays are execute and futures are returned, these are then tracked
+    using ``DaskJobTracker`` to update the user on the progress of execution. Thise is all wrapped
+    by a `context.ProcessTimer` which times the whole event then updates the metrics.
+
+    Args:
+        context (context.OperationContext): Current context.
+        delayed (list): List of Dask delayed functions.
+        client (dask.distributed.Client): Client to execute the Dask delays.
+    """
     with ctx.ProcessTimer(context):
         if client is None:
             dask.compute(delayed)
@@ -270,18 +389,17 @@ here will become the default values on child operations.
 def workflow_func(self, context):
     """ Executes a workflow.
 
-    Process a forest of operations. The graph can have multiple inputs and
-    outputs.
+    A Celery task for executing a workflow of processes. The workflow is built then the
+    intermediate and output Dask delayed functions are gathered. These are then executed
+    Dask.
 
     Args:
-        context (WorkflowOperationContext): Current context.
+        context (OperationContext): The context containing all information needed to execute process.
 
     Returns:
-        Updated context.
+        The input context for the next Celery task.
     """
-    fm = managers.FileManager(context)
-
-    interm = build_workflow(fm, context)
+    interm = build_workflow(context)
 
     context.message('Preparing to execute workflow')
 
@@ -386,29 +504,38 @@ STACK = 8   # Process requires stacking of inputs
 
 
 def subset_input(context, operation, input):
+    """ Subsets a Dataset.
+
+    Subset a ``xarray.Dataset`` using the user-defined ``cwt.Domain``. For each dimension
+    the selector is built and applied using the appropriate method.
+
+    Args:
+        context (context.OperationContext): The current operation context.
+        operation (cwt.Process): The process definition the input is associated with.
+        input (xarray.DataSet): The input DataSet.
+    """
     context.track_src_bytes(input.nbytes)
 
-    try:
-        time = list(input[context.variable].metpy.coordinates('time'))[0]
-    except (AttributeError, IndexError):
-        time = None
+    if operation.domain is not None:
+        try:
+            time = list(input[context.variable].metpy.coordinates('time'))[0]
+        except (AttributeError, IndexError):
+            time = None
 
-    for dim in context.domain.dimensions.values():
-        selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+        for dim in operation.domain.dimensions.values():
+            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
 
-        print('SELECTOR', selector)
+            if dim.crs == cwt.INDICES:
+                input = input.isel(**selector)
+            elif dim.crs == cwt.VALUES:
+                if time is not None and time.name == dim.name:
+                    input[time.name] = xr.conventions.encode_cf_variable(input[time.name])
 
-        if dim.crs == cwt.INDICES:
-            input = input.isel(**selector)
-        elif dim.crs == cwt.VALUES:
-            if time is not None and time.name == dim.name:
-                input[time.name] = xr.conventions.encode_cf_variable(input[time.name])
-
-                input = input.sel(**selector)
+                    input = input.sel(**selector)
+                else:
+                    input = input.loc[selector]
             else:
-                input = input.loc[selector]
-        else:
-            input = input.sel(**selector)
+                input = input.sel(**selector)
 
     context.track_in_bytes(input.nbytes)
 
