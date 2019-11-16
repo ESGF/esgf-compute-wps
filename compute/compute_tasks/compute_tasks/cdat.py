@@ -570,13 +570,13 @@ def process_input(context, operation, *inputs, **kwargs):
         features = kwargs.pop('features', 0)
 
         if axes is not None:
-            if not features & AXES:
+            if (features & AXES) == 0:
                 raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
 
             # Apply process to first input over axes
             output = process_single_input(axes.values, process_func, inputs[0], features, **kwargs)
         elif constant is not None:
-            if not features & CONST:
+            if (features & CONST) == 0:
                 raise WPSError('Constant parameter is not supported by operation {!r}', operation.identifier)
 
             try:
@@ -592,7 +592,7 @@ def process_input(context, operation, *inputs, **kwargs):
 
             logger.info('Process output %r', output.variable)
         elif len(inputs) > 1:
-            if not features & MULTI:
+            if (features & MULTI) == 0:
                 raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
 
             # Apply the process to all inputs
@@ -745,28 +745,33 @@ def render_abstract(description, func, template):
     except AttributeError:
         features = 0
 
-    axes = True if features & AXES else False
+    kwargs = {
+        'description': description,
+    }
 
-    const = True if features & CONST else False
+    kwargs['axes'] = True if (features & AXES) == AXES else False
 
-    multi = True if features & MULTI else False
+    kwargs['const'] = True if (features & CONST) == CONST else False
 
-    return template.render(description=description, axes=axes, const=const, multi=multi)
+    kwargs['multi'] = True if (features & MULTI) == MULTI else False
+
+    print(kwargs)
+
+    return template.render(**kwargs)
 
 
-BASE_ABSTRACT = """
-{{ description }}
+BASE_ABSTRACT = """{{ description }}
 {%- if multi %}
 
 Supports multiple inputs.
 {%- endif %}
-{%- if (axes or constant) %}
+{%- if (axes or const) %}
 
 Optional parameters:
 {%- if axes %}
     axes: A list of axes to operate on. Multiple values should be separated by "|" e.g. "lat|lon".
 {%- endif %}
-{%- if constant %}
+{%- if const %}
     constant: An integer or float value that will be applied element-wise.
 {%- endif %}
 {%- endif %}

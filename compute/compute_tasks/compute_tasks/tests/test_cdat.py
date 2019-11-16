@@ -1,5 +1,6 @@
 import builtins
 import json
+import re
 import os
 
 import cdms2
@@ -12,6 +13,7 @@ from distributed.utils_test import (  # noqa: F401
     loop,
     cluster_fixture,
 )
+from jinja2 import Environment, BaseLoader
 from myproxy.client import MyProxyClient
 
 from compute_tasks import base
@@ -739,7 +741,9 @@ def test_process_input_constant(mocker):
     process_func.assert_called_with(orig_input1_variable, 10)
 
 
-def test_process_input_constant_invalid(mocker):
+def test_process_input_constant_not_supported(mocker):
+    context = mocker.MagicMock()
+
     process_func = mocker.MagicMock()
 
     operation = cwt.Process(identifier='CDAT.subset')
@@ -749,10 +753,27 @@ def test_process_input_constant_invalid(mocker):
     input1 = mocker.MagicMock()
 
     with pytest.raises(WPSError):
-        cdat.process_input(operation, input1,  process_func=process_func, features=cdat.CONST)
+        cdat.process_input(context, operation, input1,  process_func=process_func)
+
+
+def test_process_input_constant_invalid(mocker):
+    context = mocker.MagicMock()
+
+    process_func = mocker.MagicMock()
+
+    operation = cwt.Process(identifier='CDAT.subset')
+
+    operation.add_parameters(constant='hello')
+
+    input1 = mocker.MagicMock()
+
+    with pytest.raises(WPSError):
+        cdat.process_input(context, operation, input1,  process_func=process_func, features=cdat.CONST)
 
 
 def test_process_input_constant_missing_feat(mocker):
+    context = mocker.MagicMock()
+
     process_func = mocker.MagicMock()
 
     operation = cwt.Process(identifier='CDAT.subset')
@@ -762,7 +783,7 @@ def test_process_input_constant_missing_feat(mocker):
     input1 = mocker.MagicMock()
 
     with pytest.raises(WPSError):
-        cdat.process_input(operation, input1,  process_func=process_func)
+        cdat.process_input(context, operation, input1,  process_func=process_func)
 
 
 def test_process_input_multiple_inputs(mocker):
@@ -804,6 +825,19 @@ def test_process_input_multiple_inputs_missing_feat(mocker):
 
     with pytest.raises(WPSError):
         cdat.process_input(ctx, operation, input1, input2, process_func=process_func)
+
+
+def test_process_input_no_process_func(mocker):
+    ctx = mocker.MagicMock()
+
+    operation = cwt.Process(identifier='CDAT.subset')
+
+    input1 = mocker.MagicMock()
+    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
+
+    output = cdat.process_input(ctx, operation, input1)
+
+    assert output == input1
 
 
 def test_process_input(mocker):
@@ -883,6 +917,102 @@ def test_process_multiple_input(mocker):
     assert input1.copy.return_value.variable == process_func.return_value
 
     assert output == input1.copy.return_value
+
+
+def test_process_wrapper(mocker):
+    mocker.patch.object(cdat, 'workflow_func')
+
+    context = mocker.MagicMock()
+
+    self = mocker.MagicMock()
+
+    cdat.process_wrapper(self, context)
+
+    cdat.workflow_func.assert_called_with(context)
+
+
+def test_render_abstract_const(mocker):
+    description = 'This is a custom description'
+
+    process_func = mocker.MagicMock()
+    process_func.keywords = {'features': cdat.CONST}
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, process_func, template)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is None
+    assert re.search('Optional parameters:', abstract) is not None
+    assert re.search('axes: .*', abstract) is None
+    assert re.search('constant: .*', abstract) is not None
+
+
+def test_render_abstract_axes(mocker):
+    description = 'This is a custom description'
+
+    process_func = mocker.MagicMock()
+    process_func.keywords = {'features': cdat.AXES}
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, process_func, template)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is None
+    assert re.search('Optional parameters:', abstract) is not None
+    assert re.search('axes: .*', abstract) is not None
+    assert re.search('constant: .*', abstract) is None
+
+
+def test_render_abstract_multi(mocker):
+    description = 'This is a custom description'
+
+    process_func = mocker.MagicMock()
+    process_func.keywords = {'features': cdat.MULTI}
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, process_func, template)
+
+    print(abstract)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is not None
+    assert re.search('Optional parameters:', abstract) is None
+    assert re.search('axes: .*', abstract) is None
+    assert re.search('constant: .*', abstract) is None
+
+
+def test_render_abstract_no_keywords(mocker):
+    description = 'This is a custom description'
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, cdat.process_input, template)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is None
+    assert re.search('Optional parameters:', abstract) is None
+    assert re.search('axes: .*', abstract) is None
+    assert re.search('constant: .*', abstract) is None
+
+
+def test_render_abstract(mocker):
+    description = 'This is a custom description'
+
+    process_func = mocker.MagicMock()
+    process_func.keywords = mocker.PropertyMock(return_value={'features': 0})
+
+    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
+
+    abstract = cdat.render_abstract(description, process_func, template)
+
+    assert re.search(description, abstract) is not None
+    assert re.search('Supports multiple inputs.', abstract) is None
+    assert re.search('Optional parameters:', abstract) is None
+    assert re.search('axes: .*', abstract) is None
+    assert re.search('constant: .*', abstract) is None
 
 
 def test_discover_processes(mocker):
