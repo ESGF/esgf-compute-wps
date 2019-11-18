@@ -69,20 +69,13 @@ def get_oauth2_urls(user):
     try:
         authorize_url, token_url, certificate_url = user.auth.get('authorize_url', 'token_url', 'certificate_url')
     except KeyError:
-        if settings.DEBUG:
-            authorize_url = os.environ['OAUTH2_AUTHORIZE_URL']
+        services = openid.services(user.auth.openid_url, (URN_AUTHORIZE, URN_ACCESS, URN_RESOURCE))
 
-            token_url = os.environ['OAUTH2_TOKEN_URL']
+        authorize_url = services[0].server_url
 
-            certificate_url = os.environ['OAUTH2_CERTIFICATE_URL']
-        else:
-            services = openid.services(user.auth.openid_url, (URN_AUTHORIZE, URN_ACCESS, URN_RESOURCE))
+        token_url = services[1].server_url
 
-            authorize_url = services[0].server_url
-
-            token_url = services[1].server_url
-
-            certificate_url = services[2].server_url
+        certificate_url = services[2].server_url
 
         user.auth.update(authorize_url=authorize_url, token_url=token_url, certificate_url=certificate_url)
 
@@ -116,6 +109,8 @@ class InternalUserViewSet(viewsets.GenericViewSet):
 
             certs = oauth2.get_certificate(user, token_url, certificate_url)
         except Exception as e:
+            logger.exception('Error retrieving user client certificate')
+
             raise APIException(str(e))
 
         data = {
@@ -336,7 +331,7 @@ def oauth2_callback(request):
 
         logger.info('Fetched token %r', token)
 
-        user.auth.update(type='oauth2', token=token, state=oauth_state)
+        user.auth.update(type=models.OAUTH2_TYPE, token=token, state=oauth_state)
 
         _ = oauth2.get_certificate(user, token_url, certificate_url)
     except KeyError as e:
@@ -376,8 +371,12 @@ def user_cert(request):
 
         response['Content-Length'] = len(certs)
     except WPSError:
+        logger.exception('Error retrieving user client certificate')
+
         return http.HttpResponseBadRequest()
     except Exception as e:
+        logger.exception('Error retrieving user client certificate')
+
         return http.HttpResponseBadRequest(str(e))
     else:
         return response
@@ -417,7 +416,7 @@ def login_mpc(request):
 
         logger.info('Authenticated with MyProxyClient backend for user {}'.format(data['username']))
 
-        request.user.auth.update(type='myproxyclient', certs=c)
+        request.user.auth.update(type=models.MPC_TYPE, certs=c)
     except WPSError as e:
         logger.exception('Error authenticating MyProxyClient')
 

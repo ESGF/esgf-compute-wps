@@ -33,6 +33,9 @@ ProcessPaused = 'ProcessPaused'
 ProcessSucceeded = 'ProcessSucceeded'
 ProcessFailed = 'ProcessFailed'
 
+OAUTH2_TYPE = 'oauth2'
+MPC_TYPE = 'myproxyclient'
+
 
 class DjangoOpenIDStore(interface.OpenIDStore):
     # Heavily borrowed from http://bazaar.launchpad.net/~ubuntuone-pqm-team/django-openid-auth/trunk/view/head:/django_openid_auth/store.py # noqa
