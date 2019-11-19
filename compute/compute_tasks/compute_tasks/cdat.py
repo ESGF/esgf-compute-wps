@@ -324,15 +324,10 @@ def build_workflow(context):
     Args:
         context (context.OperationContext): Current context.
     """
-    # Topologically sort the operations
-    topo_order = context.topo_sort()
-
     # Hold the intermediate inputs
     interm = {}
 
-    while topo_order:
-        next = topo_order.pop(0)
-
+    for next in context.topo_sort():
         context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
 
         if all(isinstance(x, cwt.Variable) for x in next.inputs):

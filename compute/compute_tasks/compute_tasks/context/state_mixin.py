@@ -125,14 +125,14 @@ class StateMixin(object):
 
     def update_metrics(self, state):
         # Covers the case where domain is None
-        domain = self.domain or {}
+        # domain = self.domain or {}
 
-        if not isinstance(domain, dict):
-            domain = {domain.name: domain}
+        # if not isinstance(domain, dict):
+        #     domain = {domain.name: domain}
 
-        for item in domain.values():
-            for name, value in item.dimensions.items():
-                metrics.WPS_DOMAIN_CRS.labels(name, str(value.crs)).inc()
+        # for item in domain.values():
+        #     for name, value in item.dimensions.items():
+        #         metrics.WPS_DOMAIN_CRS.labels(name, str(value.crs)).inc()
 
         self.track_process()
 
