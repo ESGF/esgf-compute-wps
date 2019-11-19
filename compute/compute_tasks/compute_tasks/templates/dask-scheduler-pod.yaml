@@ -35,8 +35,6 @@ spec:
   {% endif %}
     command:
       - dask-scheduler 
-      - --bokeh-prefix
-      - /daskboard
     ports:
     - containerPort: 8786
       protocol: TCP
