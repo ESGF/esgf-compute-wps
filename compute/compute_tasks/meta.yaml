@@ -35,6 +35,7 @@ requirements:
     - dask
     - distributed
     - xarray
+    - metpy
     - cftime=1.0.3.4 # Need 1.0.3.4 until next version of xarray
     - netcdf4
     - python-coreapi
