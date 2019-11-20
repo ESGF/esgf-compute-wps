@@ -49,9 +49,9 @@ def discover_processes(ignore_modules=None):
 
             processes.extend(data)
 
-    logger.info('Extending processes from local registry by %r', len(REGISTRY.values()))
+    # logger.info('Extending processes from local registry by %r', len(REGISTRY.values()))
 
-    processes.extend(REGISTRY.values())
+    # processes.extend(REGISTRY.values())
 
     return processes
 

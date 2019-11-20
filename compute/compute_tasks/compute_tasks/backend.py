@@ -162,16 +162,10 @@ def load_processes(state, register_tasks=True):
     base.build_process_bindings()
 
 
-def reload_argparse():  # pragma: no cover
+def register_processes():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
-
-    return parser
-
-
-def reload_processes():
-    parser = reload_argparse()
 
     args = parser.parse_args()
 
@@ -191,10 +185,6 @@ def backend_argparse():  # pragma: no cover
 
     parser.add_argument('--queue-host', help='Queue to communicate with')
 
-    parser.add_argument('--skip-register-tasks', help='Skip registering Celery tasks', action='store_true')
-
-    parser.add_argument('--skip-init-api', help='Skip initializing API', action='store_true')
-
     parser.add_argument('-d', help='Development mode', action='store_true')
 
     return parser
@@ -204,10 +194,6 @@ def main():
     parser = backend_argparse()
 
     args = parser.parse_args()
-
-    register_tasks = not (args.skip_register_tasks or args.d)
-
-    init_api = not (args.skip_init_api or args.d)
 
     logging.basicConfig(level=args.log_level)
 
@@ -219,10 +205,7 @@ def main():
 
     state = state_mixin.StateMixin()
 
-    if init_api:
-        state.init_api()
-
-    load_processes(state, register_tasks)
+    state.init_api()
 
     # Need to get the supported version from somewhere
     # environment variable or hard code?
