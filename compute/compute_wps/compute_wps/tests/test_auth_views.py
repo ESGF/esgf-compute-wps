@@ -109,60 +109,60 @@ class AuthViewsTestCase(test.TestCase):
 
         self.check_failed(response)
 
-    @mock.patch('compute_wps.auth.oauth2.get_certificate')
-    @mock.patch('compute_wps.auth.oauth2.get_token')
-    @mock.patch('compute_wps.views.auth.openid.services')
-    def test_oauth2_callback(self, mock_services, mock_token, mock_certificate):
-        mock_services.return_value = (mock.Mock(server_url='http://testbad.com/oauth2/token'), mock.Mock(server_url='http://testbad.com/oauth2/cert'))
+    # @mock.patch('compute_wps.auth.oauth2.get_certificate')
+    # @mock.patch('compute_wps.auth.oauth2.get_token')
+    # @mock.patch('compute_wps.views.auth.openid.services')
+    # def test_oauth2_callback(self, mock_services, mock_token, mock_certificate):
+    #     mock_services.return_value = (mock.Mock(server_url='http://testbad.com/oauth2/token'), mock.Mock(server_url='http://testbad.com/oauth2/cert'))
 
-        mock_token.return_value = 'new_token'
+    #     mock_token.return_value = 'new_token'
 
-        mock_certificate.return_value = (b'cert', b'key', 'token')
+    #     mock_certificate.return_value = (b'cert', b'key', 'token')
 
-        user = models.User.objects.all()[0]
+    #     user = models.User.objects.all()[0]
 
-        user.auth.extra = json.dumps({})
+    #     user.auth.extra = json.dumps({})
 
-        user.auth.save()
+    #     user.auth.save()
 
-        session = self.client.session
+    #     session = self.client.session
 
-        session['openid'] = user.auth.openid_url
+    #     session['openid'] = user.auth.openid_url
 
-        session['oauth_state'] = {}
+    #     session['oauth_state'] = {}
 
-        session.save()
+    #     session.save()
 
-        response = self.client.get('/api/oauth2/callback/', {})
+    #     response = self.client.get('/api/oauth2/callback/', {})
 
-        self.check_redirect(response, 1)
+    #     self.check_redirect(response, 1)
 
-        user.auth.refresh_from_db()
+    #     user.auth.refresh_from_db()
 
     def test_login_oauth2_not_logged_in(self):
         response = self.client.post('/api/oauth2/', {})
 
         self.check_failed(response)
 
-    @mock.patch('compute_wps.auth.oauth2.get_authorization_url')
-    @mock.patch('compute_wps.views.auth.openid.services')
-    def test_login_oauth2(self, mock_services, mock_authorization):
-        mock_services.return_value = (mock.Mock(), mock.Mock())
+    # @mock.patch('compute_wps.auth.oauth2.get_authorization_url')
+    # @mock.patch('compute_wps.views.auth.openid.services')
+    # def test_login_oauth2(self, mock_services, mock_authorization):
+    #     mock_services.return_value = (mock.Mock(), mock.Mock())
 
-        mock_authorization.return_value = ('http://testbad.com/oauth2/redirect', {'test': 'test'})
+    #     mock_authorization.return_value = ('http://testbad.com/oauth2/redirect', {'test': 'test'})
 
-        user = models.User.objects.all()[0]
+    #     user = models.User.objects.all()[0]
 
-        self.client.login(username=user.username, password=user.username)
+    #     self.client.login(username=user.username, password=user.username)
 
-        response = self.client.post('/api/oauth2/', {})
+    #     response = self.client.post('/api/oauth2/', {})
 
-        data = self.check_success(response)['data']
+    #     data = self.check_success(response)['data']
 
-        self.assertEqual(data['redirect'], 'http://testbad.com/oauth2/redirect')
+    #     self.assertEqual(data['redirect'], 'http://testbad.com/oauth2/redirect')
 
-        self.assertEqual(self.client.session['openid'], user.auth.openid_url)
-        self.assertEqual(self.client.session['oauth_state'], {'test': 'test'})
+    #     self.assertEqual(self.client.session['openid'], user.auth.openid_url)
+    #     self.assertEqual(self.client.session['oauth_state'], {'test': 'test'})
 
     def test_user_logout_not_logged_in(self):
         response = self.client.get('/api/openid/logout/', {})
