@@ -49,6 +49,9 @@ ENV TINI_VERSION v0.18.0
 RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/local/bin/tini && \
       chmod +x /usr/local/bin/tini
 
+RUN apt-get update && apt-get install -y --no-install-recommends dnsutils && \
+      rm -rf /var/lib/apt/lists/*
+
 WORKDIR /
 
 COPY docker/celery/entrypoint.sh .
