@@ -124,6 +124,7 @@ class StateMixin(object):
         self.metrics[key] += nbytes
 
     def update_metrics(self, state):
+        # TODO need to redesign metrics.
         # Covers the case where domain is None
         # domain = self.domain or {}
 
@@ -136,7 +137,6 @@ class StateMixin(object):
 
         self.track_process()
 
-        # TODO need to redesign metrics.
         # if 'process_start' in self.metrics and 'process_stop' in self.metrics:
         #     elapsed = (self.metrics['process_stop'] - self.metrics['process_start']).total_seconds()
 
@@ -151,12 +151,12 @@ class StateMixin(object):
 
             metrics.WPS_DATA_OUT_BYTES.inc(self.metrics['bytes_out'])
 
-        for input in self.inputs:
-            self.track_file(input)
+        # for input in self.inputs:
+        #     self.track_file(input)
 
-            parts = urllib.parse.urlparse(input.uri)
+        #     parts = urllib.parse.urlparse(input.uri)
 
-            metrics.WPS_FILE_ACCESSED.labels(parts.hostname, input.var_name).inc()
+        #     metrics.WPS_FILE_ACCESSED.labels(parts.hostname, input.var_name).inc()
 
     def action(self, keys, params=None, **kwargs):
         if self.client is None:
