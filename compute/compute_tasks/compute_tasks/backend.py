@@ -207,6 +207,10 @@ def main():
 
     state.init_api()
 
+    base.discover_processes()
+
+    base.build_process_bindings()
+
     # Need to get the supported version from somewhere
     # environment variable or hard code?
     worker = Worker(b'devel')
