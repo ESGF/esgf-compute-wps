@@ -136,12 +136,13 @@ class StateMixin(object):
 
         self.track_process()
 
-        if 'process_start' in self.metrics and 'process_stop' in self.metrics:
-            elapsed = (self.metrics['process_stop'] - self.metrics['process_start']).total_seconds()
+        # TODO need to redesign metrics.
+        # if 'process_start' in self.metrics and 'process_stop' in self.metrics:
+        #     elapsed = (self.metrics['process_stop'] - self.metrics['process_start']).total_seconds()
 
-            identifier = self.operation.identifier
+        #     identifier = self.operation.identifier
 
-            metrics.WPS_PROCESS_TIME.labels(identifier, state).observe(elapsed)
+        #     metrics.WPS_PROCESS_TIME.labels(identifier, state).observe(elapsed)
 
         if set(['bytes_src', 'bytes_in', 'bytes_out']) <= set(self.metrics.keys()):
             metrics.WPS_DATA_SRC_BYTES.inc(self.metrics['bytes_src'])
