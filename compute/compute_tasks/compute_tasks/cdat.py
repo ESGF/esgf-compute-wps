@@ -145,7 +145,7 @@ def gather_workflow_outputs(context, interm, operations):
 
         try:
             # Create an output file and store the future
-            delayed.append(interm_ds.to_netcdf(local_path, compute=False))
+            delayed.append(interm_ds.to_netcdf(local_path, compute=False, format='NETCDF3_64BIT', engine='netcdf4'))
         except ValueError:
             shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
 
