@@ -29,6 +29,7 @@ from compute_tasks.context import operation
     ('CDAT.max', (2, 3650), {'axes': ['lat', 'lon']}, False),
     ('CDAT.add', (192, 288, 2, 3650), {}, True),
 ])
+@pytest.mark.data
 def test_processing(esgf_data, identifier, expected_shape, params, multiple):
     v = cwt.Variable(esgf_data.to_local_path('tas'), 'tas')
 
@@ -56,8 +57,7 @@ def test_processing(esgf_data, identifier, expected_shape, params, multiple):
     assert tuple(output.dims.values()) == expected_shape
 
 
-@pytest.mark.dask
-@pytest.mark.require_certificate
+@pytest.mark.data
 def test_protected_data(mocker, esgf_data):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/',
@@ -100,7 +100,7 @@ def test_protected_data(mocker, esgf_data):
         assert infile[var_name].shape == (50, 96, 192)
 
 
-@pytest.mark.dask
+@pytest.mark.data
 def test_subset(mocker, esgf_data, client):  # noqa: F811
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/',
@@ -304,7 +304,15 @@ def test_check_access_request_exception(esgf_data):
         cdat.check_access('https://ajsdklajskdja')
 
 
-def test_check_access_protected(esgf_data):
+@pytest.mark.parametrize('status_code', [
+    (401),
+    (403),
+])
+def test_check_access_protected(mocker, esgf_data, status_code):
+    requests = mocker.patch.object(cdat, 'requests')
+
+    requests.get.return_value.status_code = status_code
+
     assert not cdat.check_access(esgf_data.data['tas-opendap-cmip5']['files'][0])
 
 
@@ -656,105 +664,44 @@ def test_process_wrapper(mocker):
     cdat.workflow_func.assert_called_with(context)
 
 
-def test_render_abstract_const(mocker):
-    description = 'This is a custom description'
+def test_render_abstract_no_max():
+    d = 'This a test description.'
 
-    process_func = mocker.MagicMock()
-    process_func.keywords = {'features': cdat.CONST}
+    text = cdat.render_abstract(d, max_inputs=None)
 
-    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
-
-    abstract = cdat.render_abstract(description, process_func, template)
-
-    assert re.search(description, abstract) is not None
-    assert re.search('Supports multiple inputs.', abstract) is None
-    assert re.search('Optional parameters:', abstract) is not None
-    assert re.search('axes: .*', abstract) is None
-    assert re.search('constant: .*', abstract) is not None
+    assert d in text
+    assert re.search('.*minimum of 1.*', text) is not None
 
 
-def test_render_abstract_axes(mocker):
-    description = 'This is a custom description'
+def test_render_abstract_more_inputs():
+    d = 'This a test description.'
 
-    process_func = mocker.MagicMock()
-    process_func.keywords = {'features': cdat.AXES}
+    text = cdat.render_abstract(d, max_inputs=2)
 
-    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
-
-    abstract = cdat.render_abstract(description, process_func, template)
-
-    assert re.search(description, abstract) is not None
-    assert re.search('Supports multiple inputs.', abstract) is None
-    assert re.search('Optional parameters:', abstract) is not None
-    assert re.search('axes: .*', abstract) is not None
-    assert re.search('constant: .*', abstract) is None
+    assert d in text
+    assert re.search('.*minimum of 1.*', text) is not None
+    assert re.search('.*maximum of 2.*', text) is not None
 
 
-def test_render_abstract_multi(mocker):
-    description = 'This is a custom description'
+def test_render_abstract():
+    d = 'This a test description.'
 
-    process_func = mocker.MagicMock()
-    process_func.keywords = {'features': cdat.MULTI}
+    text = cdat.render_abstract(d)
 
-    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
-
-    abstract = cdat.render_abstract(description, process_func, template)
-
-    print(abstract)
-
-    assert re.search(description, abstract) is not None
-    assert re.search('Supports multiple inputs.', abstract) is not None
-    assert re.search('Optional parameters:', abstract) is None
-    assert re.search('axes: .*', abstract) is None
-    assert re.search('constant: .*', abstract) is None
-
-
-def test_render_abstract_no_keywords(mocker):
-    description = 'This is a custom description'
-
-    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
-
-    abstract = cdat.render_abstract(description, cdat.process_input, template)
-
-    assert re.search(description, abstract) is not None
-    assert re.search('Supports multiple inputs.', abstract) is None
-    assert re.search('Optional parameters:', abstract) is None
-    assert re.search('axes: .*', abstract) is None
-    assert re.search('constant: .*', abstract) is None
-
-
-def test_render_abstract(mocker):
-    description = 'This is a custom description'
-
-    process_func = mocker.MagicMock()
-    process_func.keywords = mocker.PropertyMock(return_value={'features': 0})
-
-    template = Environment(loader=BaseLoader).from_string(cdat.BASE_ABSTRACT)
-
-    abstract = cdat.render_abstract(description, process_func, template)
-
-    assert re.search(description, abstract) is not None
-    assert re.search('Supports multiple inputs.', abstract) is None
-    assert re.search('Optional parameters:', abstract) is None
-    assert re.search('axes: .*', abstract) is None
-    assert re.search('constant: .*', abstract) is None
+    assert d in text
+    assert 'A single input is required.' in text
 
 
 def test_discover_processes(mocker):
     mocker.spy(builtins, 'setattr')
     mocker.patch.object(base, 'cwt_shared_task')
     mocker.patch.object(base, 'register_process')
-    mocker.patch.object(cdat, 'render_abstract')
-    mocker.patch.object(cdat, 'Environment')
 
     cdat.discover_processes()
 
     base.cwt_shared_task.assert_called()
     base.cwt_shared_task.return_value.assert_called()
 
-    cdat.render_abstract.assert_called()
-
-    base.register_process.assert_any_call('CDAT', 'subset', abstract=cdat.render_abstract.return_value, inputs=1)
-    base.register_process.return_value.assert_called_with(base.cwt_shared_task.return_value.return_value)
+    base.register_process.assert_any_call('CDAT', 'subset', abstract=cdat.ABSTRACT_MAP['CDAT.subset'])
 
     builtins.setattr.assert_any_call(cdat, 'subset_func', base.register_process.return_value.return_value)

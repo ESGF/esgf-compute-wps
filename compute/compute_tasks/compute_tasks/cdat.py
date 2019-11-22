@@ -181,6 +181,8 @@ def check_access(url, cert=None):
     except Exception as e:
         raise WPSError('Failed to access input {!s}, {!s}'.format(url, e))
 
+    logger.info('Server response %r', response.status_code)
+
     if response.status_code == 200:
         return True
 
@@ -428,12 +430,6 @@ def workflow_func(self, context):
     return context
 
 
-AXES = 1    # Enable processing over axes
-CONST = 2   # Enable processing against a constant value
-MULTI = 4   # Enable processing multiple inputs
-STACK = 8   # Process requires stacking of inputs
-
-
 def subset_input(context, operation, input):
     """ Subsets a Dataset.
 
@@ -532,25 +528,29 @@ PROCESS_FUNC_MAP = {
     'CDAT.sum': partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y, keep_attrs=True)),
 }
 
-DESCRIPTION_MAP = {
-    'CDAT.abs': 'Computes the element-wise absolute value.',
-    'CDAT.add': 'Adds an element-wise constant or another input.',
-    'CDAT.aggregate': 'Aggregates multiple files over a temporal axis.',
-    'CDAT.average': 'Computes the average over a set of axes or inputs.',
-    'CDAT.divide': 'Divides element-wise by a constant or second input.',
-    'CDAT.exp': 'Computes element-wise exponential.',
-    'CDAT.log': 'Computes element-wise natural log',
-    'CDAT.max': 'Computes the maximum over a set of axes, between a constant or a second input.',
-    'CDAT.min': 'Computes the minimum over a set of axes, between a constant or a second input.',
-    'CDAT.multiply': 'Multiplies element-wise by a constant or a second input.',
-    'CDAT.power': 'Computes the element-wise power by a constant.',
-    'CDAT.subset': 'Subsets an input to desired domain.',
-    'CDAT.subtract': 'Subtracts element-wise constant or a second input.',
-    'CDAT.sum': 'Computes the sum over a set of axes.',
-}
+
+BASE_ABSTRACT = """
+{{- description }}
+{% if min_inputs > 0 and max_inputs is none %}
+A minimum of {{ min_inputs }} is required.
+{%- elif min_inputs == 1 and max_inputs == 1 %}
+A single input is required.
+{%- elif max_inputs > min_inputs %}
+A minimum of {{ min_inputs }} and maximum of {{ max_inputs }} inputs are allowed.
+{%- endif %}
+{%- if params|length > 0 %}
+Parameters:
+{%- for key, value in params.items() %}
+{{ key }}: {{ value }}
+{%- endfor %}
+{%- endif %}
+"""
 
 
-def render_abstract(description, func, template):
+template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
+
+
+def render_abstract(description, min_inputs=1, max_inputs=1, **params):
     """ Renders an abstract for a process.
 
     This function will use a jinja2 template and render out an abstract for a process. The keyword arguments
@@ -564,44 +564,35 @@ def render_abstract(description, func, template):
     Returns:
         str: The abstract as a string.
     """
-    try:
-        kwargs = func.keywords
-
-        features = kwargs.get('features', 0)
-    except AttributeError:
-        features = 0
-
     kwargs = {
         'description': description,
+        'min_inputs': min_inputs,
+        'max_inputs': max_inputs,
+        'params': params,
     }
-
-    kwargs['axes'] = True if (features & AXES) == AXES else False
-
-    kwargs['const'] = True if (features & CONST) == CONST else False
-
-    kwargs['multi'] = True if (features & MULTI) == MULTI else False
-
-    print(kwargs)
 
     return template.render(**kwargs)
 
 
-BASE_ABSTRACT = """{{ description }}
-{%- if multi %}
+AXES = 'A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.'
+CONST = 'A float value that will be applied element-wise.'
 
-Supports multiple inputs.
-{%- endif %}
-{%- if (axes or const) %}
-
-Optional parameters:
-{%- if axes %}
-    axes: A list of axes to operate on. Multiple values should be separated by "|" e.g. "lat|lon".
-{%- endif %}
-{%- if const %}
-    constant: An integer or float value that will be applied element-wise.
-{%- endif %}
-{%- endif %}
-"""
+ABSTRACT_MAP = {
+    'CDAT.abs': render_abstract('Computes element-wise absolute value.'),
+    'CDAT.add': render_abstract('Adds two variables or a constant element-wise.', const=CONST),
+    'CDAT.aggregate': render_abstract('Aggregates a variable spanning two or more files.'),
+    'CDAT.divide': render_abstract('Divides a variable by another or a constant element-wise.', const=CONST),
+    'CDAT.exp': render_abstract('Computes element-wise exponential value.'),
+    'CDAT.log': render_abstract('Computes element-wise log value.'),
+    'CDAT.max': render_abstract('Computes the maximum value over one or more axes.', axes=AXES),
+    'CDAT.mean': render_abstract('Computes the mean over one or more axes.', axes=AXES),
+    'CDAT.min': render_abstract('Computes the minimum value over one or more axes.', axes=AXES),
+    'CDAT.multiply': render_abstract('Multiplies a variable by another or a constant element-wise', const=CONST),
+    'CDAT.power': render_abstract('Takes a variable to the power of another variable or a constant element-wise.', const=CONST),
+    'CDAT.subset': render_abstract('Computes the subset of a variable defined by a domain.'),
+    'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST),
+    'CDAT.sum': render_abstract('Computes the sum over one or more axes.', axes=AXES),
+}
 
 
 def process_wrapper(self, context):
@@ -659,23 +650,10 @@ def discover_processes():
         # Decorate the new function as a Celery task
         shared = base.cwt_shared_task()(p)
 
-        # Render the abstract
-        abstract = render_abstract(DESCRIPTION_MAP[name], func, template)
-
-        inputs = 1
-
-        try:
-            features = func.keywords.get('features', 0)
-        except AttributeError:
-            features = 0
-
-        if features & MULTI:
-            inputs = 2
-        elif name == 'CDAT.aggregate':
-            inputs = '*'
+        abstract = ABSTRACT_MAP[name]
 
         # Decorate the Celery task as a registered process
-        register = base.register_process(module, operation, abstract=abstract, inputs=inputs)(shared)
+        register = base.register_process(module, operation, abstract=abstract)(shared)
 
         # Bind the new function to the "cdat" module
         setattr(cdat, p.__name__, register)
