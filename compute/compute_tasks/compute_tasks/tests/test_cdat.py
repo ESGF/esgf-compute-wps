@@ -8,6 +8,7 @@ import cwt
 import dask
 import pytest
 import dask.array as da
+import xarray as xr
 from distributed.utils_test import (  # noqa: F401
     client,
     loop,
@@ -20,6 +21,39 @@ from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import WPSError
 from compute_tasks.context import operation
+
+
+@pytest.mark.parametrize('identifier,expected_shape,params,multiple', [
+    ('CDAT.abs', (192, 288, 2, 3650), {}, False),
+    ('CDAT.max', (192, 288, 2), {'axes': 'time'}, False),
+    ('CDAT.max', (2, 3650), {'axes': ['lat', 'lon']}, False),
+    ('CDAT.add', (192, 288, 2, 3650), {}, True),
+])
+def test_processing(esgf_data, identifier, expected_shape, params, multiple):
+    v = cwt.Variable(esgf_data.to_local_path('tas'), 'tas')
+
+    inputs = [v]
+
+    if multiple:
+        inputs.append(cwt.Variable(esgf_data.to_local_path('tas', file_index=1), 'tas'))
+
+    p = cwt.Process(identifier)
+    p.add_inputs(*inputs)
+    p.add_parameters(**params)
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    ds_inputs = [xr.open_dataset(x.uri, chunks={'time': 100}) for x in inputs]
+
+    output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *ds_inputs)
+
+    assert tuple(output.dims.values()) == expected_shape
 
 
 @pytest.mark.dask
@@ -608,315 +642,6 @@ def test_workflow_func(mocker):
                                                  context.interm_ops.return_value)
 
     cdat.Client.return_value.compute.assert_called()
-
-
-@pytest.mark.skip(reason='Regriding from any process has been disabled')
-def test_process_regrid(mocker):
-    mocker.patch.object(cdat, 'regrid')
-
-    input = mocker.MagicMock()
-    input.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    context = mocker.MagicMock()
-    context.is_regrid = True
-
-    output = cdat.process([input, input], context)
-
-    input.subset.assert_called_with(context.domain)
-
-    cdat.regrid.assert_called_with(context.operation, output)
-
-    assert output == input
-
-
-def test_regrid_single_chunk(esgf_data):
-    operation = cwt.Process(identifier='CDAT.regrid')
-
-    gridder = cwt.Gridder(grid='gaussian~32')
-
-    operation.gridder = gridder
-
-    input = esgf_data.to_input_manager('tas', cwt.Domain(time=slice(1000, 1010)))
-
-    cdat.regrid(operation, input)
-
-    assert input.variable.shape == (10, 32, 64)
-
-    assert input.axes['lat'].shape == (32, )
-
-    assert input.axes['lon'].shape == (64, )
-
-    assert input.vars['lat_bnds'].shape == (32, 2)
-
-    assert input.vars['lon_bnds'].shape == (64, 2)
-
-    # TODO verify actually data is correct
-
-
-def test_regrid(esgf_data):
-    operation = cwt.Process(identifier='CDAT.regrid')
-
-    gridder = cwt.Gridder(grid='gaussian~32')
-
-    operation.gridder = gridder
-
-    input = esgf_data.to_input_manager('tas')
-
-    cdat.regrid(operation, input)
-
-    assert input.variable.shape == (7300, 32, 64)
-
-    assert input.axes['lat'].shape == (32, )
-
-    assert input.axes['lon'].shape == (64, )
-
-    assert input.vars['lat_bnds'].shape == (32, 2)
-
-    assert input.vars['lon_bnds'].shape == (64, 2)
-
-
-def test_regrid_error(mocker):
-    input1 = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.regrid')
-
-    with pytest.raises(cwt.errors.CWTError):
-        cdat.regrid(operation, input1)
-
-
-def test_process_input_axes(mocker):
-    ctx = mocker.MagicMock()
-
-    mocker.patch.object(cdat, 'process_single_input')
-
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    operation.add_parameters(axes=['time', 'lat'])
-
-    input1 = mocker.MagicMock()
-    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    output = cdat.process_input(ctx, operation, input1, process_func=process_func, features=cdat.AXES)
-
-    assert output == cdat.process_single_input.return_value
-
-    cdat.process_single_input.assert_called_with(('time', 'lat'), process_func, input1, 1)
-
-
-def test_process_input_axes_missing_feat(mocker):
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    operation.add_parameters(axes=['time', 'lat'])
-
-    input1 = mocker.MagicMock()
-
-    with pytest.raises(WPSError):
-        cdat.process_input(operation, input1,  process_func=process_func)
-
-
-def test_process_input_constant(mocker):
-    ctx = mocker.MagicMock()
-
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    operation.add_parameters(constant=10)
-
-    input1 = mocker.MagicMock()
-    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    orig_input1_variable = input1.variable
-
-    output = cdat.process_input(ctx, operation, input1, process_func=process_func, features=cdat.CONST)
-
-    assert output == input1
-
-    assert output.variable == process_func.return_value
-
-    process_func.assert_called_with(orig_input1_variable, 10)
-
-
-def test_process_input_constant_not_supported(mocker):
-    context = mocker.MagicMock()
-
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    operation.add_parameters(constant='hello')
-
-    input1 = mocker.MagicMock()
-
-    with pytest.raises(WPSError):
-        cdat.process_input(context, operation, input1,  process_func=process_func)
-
-
-def test_process_input_constant_invalid(mocker):
-    context = mocker.MagicMock()
-
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    operation.add_parameters(constant='hello')
-
-    input1 = mocker.MagicMock()
-
-    with pytest.raises(WPSError):
-        cdat.process_input(context, operation, input1,  process_func=process_func, features=cdat.CONST)
-
-
-def test_process_input_constant_missing_feat(mocker):
-    context = mocker.MagicMock()
-
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    operation.add_parameters(constant=10)
-
-    input1 = mocker.MagicMock()
-
-    with pytest.raises(WPSError):
-        cdat.process_input(context, operation, input1,  process_func=process_func)
-
-
-def test_process_input_multiple_inputs(mocker):
-    ctx = mocker.MagicMock()
-
-    mocker.patch.object(cdat, 'process_multiple_input')
-
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    input1 = mocker.MagicMock()
-    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    input2 = mocker.MagicMock()
-    input2.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    output = cdat.process_input(ctx, operation, input1, input2, process_func=process_func, features=cdat.MULTI)
-
-    assert output == cdat.process_multiple_input.return_value
-
-    process_func.assert_not_called()
-
-    cdat.process_multiple_input.assert_called_with(process_func, input1, input2, cdat.MULTI)
-
-
-def test_process_input_multiple_inputs_missing_feat(mocker):
-    ctx = mocker.MagicMock()
-
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    input1 = mocker.MagicMock()
-    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    input2 = mocker.MagicMock()
-    input2.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    with pytest.raises(WPSError):
-        cdat.process_input(ctx, operation, input1, input2, process_func=process_func)
-
-
-def test_process_input_no_process_func(mocker):
-    ctx = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    input1 = mocker.MagicMock()
-    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    output = cdat.process_input(ctx, operation, input1)
-
-    assert output == input1
-
-
-def test_process_input(mocker):
-    ctx = mocker.MagicMock()
-
-    process_func = mocker.MagicMock()
-
-    operation = cwt.Process(identifier='CDAT.subset')
-
-    input1 = mocker.MagicMock()
-    input1.subset.return_value = (mocker.MagicMock(), mocker.MagicMock())
-
-    orig_input1_variable = input1.variable
-
-    output = cdat.process_input(ctx, operation, input1, process_func=process_func)
-
-    assert output == input1
-
-    process_func.assert_called_with(orig_input1_variable)
-
-    assert output.variable == process_func.return_value
-
-
-def test_process_single_input(mocker):
-    process_func = mocker.MagicMock()
-
-    input = mocker.MagicMock()
-    orig_input_variable = input.variable
-    input.variable_axes = ['time', 'lat', 'lon']
-
-    output = cdat.process_single_input(['time'], process_func, input, 0)
-
-    assert output == input
-
-    assert input.variable == process_func.return_value
-
-    process_func.assert_called_with(orig_input_variable, axis=(0,))
-
-    input.remove_axis.assert_called_with('time')
-
-
-def test_process_multiple_input_stack(mocker):
-    mocker.patch.object(cdat, 'da')
-
-    process_func = mocker.MagicMock()
-    process_func.__name__ = 'sum_func'
-
-    input1 = mocker.MagicMock()
-    input2 = mocker.MagicMock()
-
-    output = cdat.process_multiple_input(process_func, input1, input2, cdat.STACK)
-
-    input1.copy.assert_called()
-
-    cdat.da.stack.assert_called_with([input1.variable, input2.variable])
-
-    process_func.assert_called_with(cdat.da.stack.return_value, axis=0)
-
-    assert input1.copy.return_value.variable == process_func.return_value
-
-    assert output == input1.copy.return_value
-
-
-def test_process_multiple_input(mocker):
-    process_func = mocker.MagicMock()
-    process_func.__name__ = 'subset_func'
-
-    input1 = mocker.MagicMock()
-    input2 = mocker.MagicMock()
-
-    output = cdat.process_multiple_input(process_func, input1, input2, 0)
-
-    input1.copy.assert_called()
-
-    process_func.assert_called_with(input1.variable, input2.variable)
-
-    assert input1.copy.return_value.variable == process_func.return_value
-
-    assert output == input1.copy.return_value
 
 
 def test_process_wrapper(mocker):

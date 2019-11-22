@@ -1,10 +1,11 @@
 import os
-import requests
-from urllib.parse import urlparse
+import hashlib
 
+import requests
 import pytest
 import dask.array as da
 import xarray as xr
+from urllib.parse import urlparse
 
 from compute_tasks import managers
 
@@ -21,39 +22,30 @@ class CachedFileManager(managers.FileManager):
             os.makedirs(self.cache_path)
 
     def local_path(self, uri):
-        cached_uri = self.cache.get(uri, None)
+        m = hashlib.sha256(uri.encode())
 
-        if cached_uri is None or not os.path.exists(cached_uri):
-            cached_uri = self.localize_file(uri)
-
-        return cached_uri
+        return os.path.join(self.cache_path, '{!s}.nc'.format(m.hexdigest()))
 
     def localize_file(self, uri):
-        parts = urlparse(uri)
+        local_path = self.local_path(uri)
 
-        cached_uri = os.path.join(self.cache_path, parts.path.split('/')[-1])
+        if not os.path.exists(local_path):
+            with open(local_path, 'wb') as outfile:
+                response = requests.get(uri, verify=False)
 
-        with open(cached_uri, 'wb') as outfile:
-            response = requests.get(uri, verify=False)
+                response.raise_for_status()
 
-            response.raise_for_status()
+                for chunk in response.iter_content(4096):
+                    outfile.write(chunk)
 
-            for chunk in response.iter_content(4096):
-                outfile.write(chunk)
+            os.chmod(local_path, 0o777)
 
-        os.chmod(cached_uri, 0o777)
-
-        return cached_uri
+        return local_path
 
     def open_file(self, uri):
-        cached_uri = self.cache.get(uri, None)
+        local_path = self.localize_file(uri)
 
-        if cached_uri is None or not os.path.exists(cached_uri):
-            cached_uri = self.localize_file(uri)
-
-            self.cache.set(uri, cached_uri)
-
-        return super(CachedFileManager, self).open_file(cached_uri, True)
+        return super(CachedFileManager, self).open_file(local_path, True)
 
 
 class ESGFDataManager(object):
@@ -83,6 +75,7 @@ class ESGFDataManager(object):
             },
         }
 
+
     def to_input_manager(self, name, domain=None):
         im = managers.InputManager(self.fm, self.data[name]['files'], self.data[name]['var'])
 
@@ -111,7 +104,7 @@ class ESGFDataManager(object):
         return xr.open_dataset(self.data[name]['files'][file_index], chunks=chunks)
 
     def to_local_path(self, name, file_index=0):
-        return self.fm.local_path(self.data[name]['files'][file_index])
+        return self.fm.localize_file(self.data[name]['files'][file_index])
 
 
 @pytest.fixture(scope='session')

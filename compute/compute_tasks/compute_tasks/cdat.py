@@ -9,9 +9,11 @@ import cwt
 import dask
 import dask.array as da
 import metpy  # noqa F401
+import numpy as np
 import requests
 import tempfile
 import xarray as xr
+import xarray.ufuncs as xu
 from celery.utils.log import get_task_logger
 from dask.distributed import Client
 from distributed.diagnostics.progressbar import ProgressBar
@@ -344,7 +346,12 @@ def build_workflow(context):
 
         process_func = PROCESS_FUNC_MAP[next.identifier]
 
-        interm[next.name] = process_func(context, next, *inputs)
+        if process_func is None:
+            interm[next.name] = subset_input(context, next, inputs[0].copy())
+        else:
+            inputs = [subset_input(context, next, x) for x in inputs]
+
+            interm[next.name] = process_func(context, next, *inputs)
 
         context.message('Storing intermediate {!r}', next.name)
 
@@ -421,77 +428,6 @@ def workflow_func(self, context):
     return context
 
 
-def regrid(operation, *inputs):
-    """ Build regridding from dask delayed.
-
-    Converts the current dask array into an array of delayed functions. Next for each delayed function.
-    another delayed function is linked. This function will regrid the chunk of data. Next the new delayed
-    functions are converted back to dask arrays which are then concatenated back together. Lastly the
-    spatial axes and bounds are updated.
-
-    Args:
-        operation: A cwt.Process instance.
-        inputs: A list of compute_tasks.managers.FileManager instances.
-    """
-    gridder = operation.get_parameter('gridder', True)
-
-    input = inputs[0]
-
-    # Build a selector which is a dict mapping axis name to the desired range
-    selector = dict((x, (input.axes[x][0], input.axes[x][-1])) for x in input.variable_axes)
-
-    # Generate the target grid
-    grid, tool, method = managers.generate_grid(gridder, selector), gridder.tool, gridder.method
-
-    logger.info('Using grid shape %r tool %r method %r', grid.shape, tool, method)
-
-    # Convert to delayed functions
-    delayed = input.variable.to_delayed().squeeze()
-
-    # Flatten the array
-    if delayed.size == 1:
-        logger.info('Flattening array')
-
-        delayed = delayed.reshape((1, ))
-
-    logger.info('Delayed shape %r', delayed.shape)
-
-    # Create list of axis data that is present in the selector.
-    axis_data = [input.axes[x] for x in selector.keys()]
-
-    # Build list of delayed functions that will process the chunks
-    regrid_delayed = [dask.delayed(regrid_chunk)(x, axis_data, grid, tool, method) for x in delayed]
-
-    logger.info('Created regrid delayed functions')
-
-    # Build a list of dask arrays created by the delayed functions
-    regrid_arrays = [da.from_delayed(x, y.shape[:-2] + grid.shape, input.dtype)
-                     for x, y in zip(regrid_delayed, input.blocks)]
-
-    # Concatenated the arrays together
-    input.variable = da.concatenate(regrid_arrays)
-
-    logger.info('Concatenated %r arrays to output %r', len(regrid_arrays), input.variable)
-
-    input.axes['lat'] = grid.getLatitude()
-
-    input.vars['lat_bnds'] = cdms2.createVariable(
-        input.axes['lat'].getBounds(),
-        id='lat',
-        axes=[input.axes[x] for x in input.vars_axes['lat_bnds']]
-    )
-
-    input.axes['lon'] = grid.getLongitude()
-
-    input.vars['lon_bnds'] = cdms2.createVariable(
-        input.axes['lon'].getBounds(),
-        id='lon',
-        axes=[input.axes[x] for x in input.vars_axes['lon_bnds']]
-    )
-
-    return input
-
-
 AXES = 1    # Enable processing over axes
 CONST = 2   # Enable processing against a constant value
 MULTI = 4   # Enable processing multiple inputs
@@ -537,145 +473,65 @@ def subset_input(context, operation, input):
     return input
 
 
-def process_input(context, operation, *inputs, **kwargs):
-    """ Process inputs.
+def process_elementwise(context, operation, *input, func, **kwargs):
+    v = context.variable
 
-    Possible values for `supported`:
-        single_input_axes: Process a single input array over some axes.
-        single_input_constant: Process a single input array with a constant value.
-        multiple_input: Process multiple inputs.
+    output = input[0].copy()
 
-    Args:
-        operation: A cwt.Process instance.
-        inputs: A list of compute_tasks.managers.FileManager instances.
-        process_func: An optional dask ufunc.
-        supported: An optional dict defining the support processing types. See above for explanation.
-    """
-    inputs = [subset_input(context, operation, x) for x in inputs]
-
-    process_func = kwargs.pop('process_func', None)
-
-    if process_func is not None:
-        axes = operation.get_parameter('axes')
-
-        constant = operation.get_parameter('constant')
-
-        logger.info('Axes %r Constant %r', axes, constant)
-
-        features = kwargs.pop('features', 0)
-
-        if axes is not None:
-            if (features & AXES) == 0:
-                raise WPSError('Axes parameter is not supported by operation {!r}', operation.identifier)
-
-            # Apply process to first input over axes
-            output = process_single_input(axes.values, process_func, inputs[0], features, **kwargs)
-        elif constant is not None:
-            if (features & CONST) == 0:
-                raise WPSError('Constant parameter is not supported by operation {!r}', operation.identifier)
-
-            try:
-                constant = float(constant.values[0])
-            except ValueError:
-                raise WPSError('Invalid constant value {!r} type {!s} expecting <class \'float\'>',
-                               constant, type(constant))
-
-            output = inputs[0]
-
-            # Apply the process to the existing dask array
-            output.variable = process_func(output.variable, constant)
-
-            logger.info('Process output %r', output.variable)
-        elif len(inputs) > 1:
-            if (features & MULTI) == 0:
-                raise WPSError('Multiple inputs are not supported by operation {!r}', operation.identifier)
-
-            # Apply the process to all inputs
-            output = process_multiple_input(process_func, *inputs, features, **kwargs)
-        else:
-            output = inputs[0]
-
-            # Apply the process
-            output.variable = process_func(output.variable)
-
-            logger.info('Process output %r', output.variable)
-    else:
-        output = inputs[0]
+    output[v] = func(input[0][v])
 
     return output
 
 
-def process_single_input(axes, process_func, input, features, **kwargs):
-    """ Process single input.
+def process_reduce(context, operation, *input, func, **kwargs):
+    axes = operation.get_parameter('axes', required=True)
 
-    Args:
-        axes: List of str axis names.
-        process_func: A function with the same signature as process_input.
-        input: A compute_tasks.managers.FileManager instance.
-        features: A int storing feature flags.
-        kwargs: A dict with any extra configuration.
-
-    Returns:
-        A new instance of compute_tasks.managers.FileManager containing the results.
-    """
-    # Get present in the current data
-    map_keys = list(input.variable_axes)
-
-    # Reduce them from names to indices
-    indices = tuple(map_keys.index(x) for x in axes)
-
-    logger.info('Mapped axes %r to indices %r', axes, indices)
-
-    # Apply the dask ufunc
-    input.variable = process_func(input.variable, axis=indices)
-
-    logger.info('Process output %r', input.variable)
-
-    # Remove the axes that have been squashed
-    for axis in axes:
-        logger.info('Removing axis %r', axis)
-
-        input.remove_axis(axis)
-
-    return input
+    return func(input[0], axes.values)
 
 
-def process_multiple_input(process_func, input1, input2, features, **kwargs):
-    """ Process multiple inputs.
+def process_dataset(context, operation, *input, func, **kwargs):
+    v = context.variable
 
-    Note that some ufuncs will only process a single array over some dimensions,
-    in this the function will need to be registed in the REQUIRES_STACK variable.
+    const = operation.get_parameter('const')
 
-    Args:
-        process_func: A function with the same signature as process_input.
-        input1: A compute_tasks.managers.FileManager instance.
-        input2: A compute_tasks.managers.FileManager instance.
-        features: A int storing feature flags.
-        kwargs: A dict with any extra configuration.
+    output = input[0].copy()
 
-    Returns:
-        A new instance of compute_tasks.managers.FileManager containing the results.
-    """
-    # Create a copy to retain any metadata
-    new_input = input1.copy()
+    if const is None:
+        if len(input) < 2:
+            raise WPSError('Process {!r} is expecting 2 inputs', operation.identifier)
 
-    # Check if we need to stack the arrays.
-    if features & STACK:
-        stacked = da.stack([input1.variable, input2.variable])
-
-        logger.info('Stacking inputs %r', stacked)
-
-        # Process over the next axis from stacking the arrays.
-        new_input.variable = process_func(stacked, axis=0)
+        output[v] = func(input[0][v], input[1][v])
     else:
-        new_input.variable = process_func(input1.variable, input2.variable)
+        try:
+            const = float(const.values[0])
+        except ValueError:
+            raise WPSError('Invalid value {!r} with type {!s}, expecting a float value.', constant, type(constant))
 
-    logger.info('Process output %r', new_input.variable)
+        output[v] = func(input[0][v], const)
 
-    return new_input
+    return output
 
+# Two parent types
+# 1. Operating on a variable
+# 2. Operating on a Dataset e.g. resample, groupby
 
-# Process descriptions used in abstracts.
+PROCESS_FUNC_MAP = {
+    'CDAT.abs': partial(process_elementwise, func=lambda x: np.abs(x)),
+    'CDAT.add': partial(process_dataset, func=lambda x, y: x + y),
+    'CDAT.aggregate': None,
+    'CDAT.divide': partial(process_dataset, func=lambda x, y: x / y),
+    'CDAT.exp': partial(process_elementwise, func=lambda x: np.exp(x)),
+    'CDAT.log': partial(process_elementwise, func=lambda x: np.log(x)),
+    'CDAT.max': partial(process_reduce, func=lambda x, y: getattr(x, 'max')(dim=y, keep_attrs=True)),
+    'CDAT.mean': partial(process_reduce, func=lambda x, y: getattr(x, 'mean')(dim=y, keep_attrs=True)),
+    'CDAT.min': partial(process_reduce, func=lambda x, y: getattr(x, 'min')(dim=y, keep_attrs=True)),
+    'CDAT.multiply': partial(process_dataset, func=lambda x, y: x * y),
+    'CDAT.power': partial(process_dataset, func=lambda x, y: x ** y),
+    'CDAT.subset': None,
+    'CDAT.subtract': partial(process_dataset, func=lambda x, y: x - y),
+    'CDAT.sum': partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y, keep_attrs=True)),
+}
+
 DESCRIPTION_MAP = {
     'CDAT.abs': 'Computes the element-wise absolute value.',
     'CDAT.add': 'Adds an element-wise constant or another input.',
@@ -688,34 +544,9 @@ DESCRIPTION_MAP = {
     'CDAT.min': 'Computes the minimum over a set of axes, between a constant or a second input.',
     'CDAT.multiply': 'Multiplies element-wise by a constant or a second input.',
     'CDAT.power': 'Computes the element-wise power by a constant.',
-    'CDAT.regrid': 'Regrids input by target grid.',
     'CDAT.subset': 'Subsets an input to desired domain.',
     'CDAT.subtract': 'Subtracts element-wise constant or a second input.',
     'CDAT.sum': 'Computes the sum over a set of axes.',
-}
-
-"""
-This dict maps identifiers to functions that will be used for processing. The function ``process_input`` is
-the main entrypoint. Partials are used here to provide some configuration for how each process is executed.
-See the doctstring of ``process_input`` for additional details.
-"""
-PROCESS_FUNC_MAP = {
-    'CDAT.abs': partial(process_input, process_func=da.absolute),
-    'CDAT.add': partial(process_input, process_func=da.add, features=CONST | MULTI),
-    'CDAT.aggregate': process_input,
-    'CDAT.average': partial(process_input, process_func=da.average, features=MULTI | STACK),
-    'CDAT.divide': partial(process_input, process_func=da.divide, features=CONST | MULTI),
-    # Disabled due to overflow issue, setting dtype=float64 works for dask portion but xarray is writing Inf.
-    # 'CDAT.exp': partial(process_input, process_func=da.exp),
-    'CDAT.log': partial(process_input, process_func=da.log),
-    'CDAT.max': partial(process_input, process_func=da.max, features=AXES | CONST | MULTI | STACK),
-    'CDAT.min': partial(process_input, process_func=da.min, features=AXES | CONST | MULTI | STACK),
-    'CDAT.multiply': partial(process_input, process_func=da.multiply, features=MULTI | CONST),
-    'CDAT.power': partial(process_input, process_func=da.power, features=CONST),
-    # 'CDAT.regrid': regrid,
-    'CDAT.subset': process_input,
-    'CDAT.subtract': partial(process_input, process_func=da.subtract, features=CONST | MULTI),
-    'CDAT.sum': partial(process_input, process_func=da.sum, features=CONST | MULTI),
 }
 
 
