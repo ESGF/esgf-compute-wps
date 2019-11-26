@@ -28,6 +28,8 @@ spec:
         env:
         - name: CDAT_ANONYMOUS_LOG
           value: 'no'
+        - name: HDF5_USE_FILE_LOCKING
+          value: 'FALSE'
         - name: CPU_LIMIT
           valueFrom:
             resourceFieldRef:
