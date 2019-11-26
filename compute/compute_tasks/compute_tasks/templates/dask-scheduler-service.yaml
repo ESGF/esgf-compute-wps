@@ -15,4 +15,4 @@ spec:
     name: scheduler
   - protocol: TCP
     port: 8787
-    name: bokeh
+    name: dashboard

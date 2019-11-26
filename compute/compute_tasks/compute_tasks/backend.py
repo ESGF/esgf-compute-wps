@@ -120,6 +120,11 @@ def resource_request(frames, env):
         'image': os.environ['IMAGE'],
         'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
         'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
+        'scheduler_cpu': os.environ.get('SCHEDULER_CPU', 1),
+        'scheduler_memory': os.environ.get('SCHEDULER_MEMORY', '1Gi'),
+        'worker_cpu': os.environ.get('WORKER_CPU', 1),
+        'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
+        'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
         'dev': os.environ.get('DEV', False),
         'user': user,
         'workers': os.environ['WORKERS'],
@@ -130,11 +135,15 @@ def resource_request(frames, env):
 
     dask_scheduler_service = env.get_template('dask-scheduler-service.yaml')
 
+    dask_scheduler_ingress = env.get_template('dask-scheduler-ingress.yaml')
+
     dask_worker_deployment = env.get_template('dask-worker-deployment.yaml')
 
     resources.append(dask_scheduler_pod.render(**data))
 
     resources.append(dask_scheduler_service.render(**data))
+
+    resources.append(dask_scheduler_ingress.render(**data))
 
     resources.append(dask_worker_deployment.render(**data))
 

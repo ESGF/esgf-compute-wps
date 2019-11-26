@@ -27,14 +27,17 @@ spec:
   {% if not dev %}
     resources:
       limits:
-        cpu: 2
-        memory: 1Gi
+        cpu: {{ shceduler_cpu }}
+        memory: {{ scheduler_memory }}
       requests:
-        cpu: 1
-        memory: 512Mi
+        cpu: {{ shceduler_cpu }}
+        memory: {{ scheduler_memory }}
   {% endif %}
     command:
       - dask-scheduler 
+      - --dashboard
+      - --dashboard-prefix
+      - /daskboard/{{ user }}
     ports:
     - containerPort: 8786
       protocol: TCP

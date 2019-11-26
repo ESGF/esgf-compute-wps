@@ -41,9 +41,9 @@ spec:
               divisor: 1Gi
         command:
         - dask-worker
-        - --no-bokeh
+        - --no-dashboard
         - --nthreads
-        - '4'
+        - {{ worker_nthreads }}
         - --nprocs
         - $(CPU_LIMIT)
         - --memory-limit
@@ -54,11 +54,11 @@ spec:
       {% if not dev %}
         resources:
           limits:
-            cpu: 1
-            memory: 8Gi
+            cpu: {{ worker_cpu }}
+            memory: {{ worker_memory }}
           request:
-            cpu: 1
-            memory: 8Gi
+            cpu: {{ worker_cpu }}
+            memory: {{ worker_memory }}
       {% endif %}
         volumeMounts:
         - mountPath: /data/public
