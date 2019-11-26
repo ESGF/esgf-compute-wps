@@ -417,7 +417,8 @@ def workflow_func(self, context):
 
         delayed.extend(gather_workflow_outputs(context, interm, context.output_ops()))
 
-        delayed.extend(gather_workflow_outputs(context, interm, context.interm_ops()))
+        if 'store_intermediates' in context.gparameters:
+            delayed.extend(gather_workflow_outputs(context, interm, context.interm_ops()))
 
         context.message('Gathered {!s} outputs', len(delayed))
 
