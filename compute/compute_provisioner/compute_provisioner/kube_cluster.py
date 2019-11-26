@@ -10,7 +10,7 @@ logger = logging.getLogger('provisioner.kube_cluster')
 
 
 class KubeCluster(threading.Thread):
-    def __init__(self, redis_host, namespace, timeout, dry_run):
+    def __init__(self, redis_host, namespace, timeout, dry_run, ignore_lifetime):
         super(KubeCluster, self).__init__(target=self.monitor)
 
         self.redis_host = redis_host
@@ -20,6 +20,8 @@ class KubeCluster(threading.Thread):
         self.timeout = timeout
 
         self.dry_run = dry_run
+
+        self.ignore_lifetime = ignore_lifetime
 
         config.load_incluster_config()
 
@@ -49,7 +51,9 @@ class KubeCluster(threading.Thread):
             else:
                 expire = float(expire.decode())
 
-                if expire < time.time():
+                logger.info('Resource %r set to expire in %r', x.metadata.name, expire-time.time())
+
+                if expire < time.time() or self.ignore_lifetime:
                     logger.info('Removing expired resource %r %r', kind, x.metadata.name)
 
                     if not self.dry_run:

@@ -238,9 +238,9 @@ class Provisioner(threading.Thread):
 
                 pass
             else:
-                logger.error('Error allocating resources')
+                logger.error(e)
 
-                raise ResourceAllocationError(yaml_data['metadata']['name'])
+                raise ResourceAllocationError(str(yaml_data['metadata']['name']))
 
         return requested
 
@@ -332,19 +332,21 @@ class Provisioner(threading.Thread):
 
             self.backend.send_multipart(new_frames)
         elif frames[1] == constants.ACK:
-            logger.info('Received ack from backend %r', address)
+            logger.debug('Received ack from backend %r', address)
 
             self.waiting_ack.pop(address, None)
         else:
-            logger.debug('Received message from backend %r', address)
-
             version = frames[2]
 
             self.workers.ready(Worker(address, version))
 
             if frames[1] == constants.READY:
+                logger.info('Received ready message from backend %r', address)
+
                 pass
             elif frames[1] == constants.HEARTBEAT:
+                logger.debug('Received heartbeat from backend %r', address)
+
                 pass
             else:
                 logger.error('Unknown message %r', frames)
@@ -456,6 +458,8 @@ def main():
 
     parser.add_argument('--lifetime', help='Time in seconds to let resources live', type=int, default=3600)
 
+    parser.add_argument('--ignore-lifetime', help='Ignores lifetime and removes existing resources', type=bool, default=False)
+
     parser.add_argument('--wait-for-resources', help='The provisioner will wait until resources are allocated '
                         'before replying to the backend', type=bool, default=False)
 
@@ -467,7 +471,7 @@ def main():
 
     provisioner.start()
 
-    monitor = kube_cluster.KubeCluster(args.redis_host, args.namespace, args.timeout, False)
+    monitor = kube_cluster.KubeCluster(args.redis_host, args.namespace, args.timeout, False, args.ignore_lifetime)
 
     monitor.start()
 
