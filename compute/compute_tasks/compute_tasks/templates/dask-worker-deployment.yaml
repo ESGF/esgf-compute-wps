@@ -43,7 +43,7 @@ spec:
         - dask-worker
         - --no-dashboard
         - --nthreads
-        - {{ worker_nthreads }}
+        - "{{ worker_nthreads }}"
         - --nprocs
         - $(CPU_LIMIT)
         - --memory-limit
