@@ -5,6 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/dask-component: ingress
     app.kubernetes.io/user: "{{ user }}"
+    traffic-type: "{{ traffic_type }}"
 spec:
   rules:
   - http:

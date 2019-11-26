@@ -125,6 +125,7 @@ def resource_request(frames, env):
         'worker_cpu': os.environ.get('WORKER_CPU', 1),
         'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
         'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
+        'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
         'dev': os.environ.get('DEV', False),
         'user': user,
         'workers': os.environ['WORKERS'],
