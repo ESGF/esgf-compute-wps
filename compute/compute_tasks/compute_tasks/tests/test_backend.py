@@ -133,7 +133,7 @@ def test_resource_request(mocker):
         'IMAGE': 'aims2.llnl.gov/compute-celery',
         'WORKERS': '10',
         'WPS_DEV': '1',
-    })
+    }, clear=True)
 
     env = mocker.MagicMock()
 
@@ -141,22 +141,34 @@ def test_resource_request(mocker):
 
     output = backend.resource_request(RAW_FRAMES, env)
 
+    kwargs = {
+        'data_claim_name': 'data-pvc',
+        'dev': False,
+        'image': 'aims2.llnl.gov/compute-celery',
+        'image_pull_secret': None,
+        'image_pull_policy': 'Always',
+        'scheduler_cpu': 1,
+        'scheduler_memory': '1Gi',
+        'traffic_type': 'development',
+        'user': '0',
+        'worker_cpu': 1,
+        'worker_memory': '1Gi',
+        'worker_nthreads': 4,
+        'workers': '10',
+    }
+
     env.get_template.assert_has_calls([
             mocker.call('dask-scheduler-pod.yaml'),
             mocker.call('dask-scheduler-service.yaml'),
+            mocker.call('dask-scheduler-ingress.yaml'),
             mocker.call('dask-worker-deployment.yaml'),
-            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret=None, image_pull_policy='Always',
-                                 user='0', workers='10'),
-            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret=None, image_pull_policy='Always',
-                                 user='0', workers='10'),
-            mocker.call().render(data_claim_name='data-pvc', dev=False, image='aims2.llnl.gov/compute-celery',
-                                 image_pull_secret=None, image_pull_policy='Always',
-                                 user='0', workers='10'),
+            mocker.call().render(**kwargs),
+            mocker.call().render(**kwargs),
+            mocker.call().render(**kwargs),
+            mocker.call().render(**kwargs),
     ])
 
-    assert output == '["", "", ""]'
+    assert output == '["", "", "", ""]'
 
 
 def test_requeust_handler_exception(mocker):
