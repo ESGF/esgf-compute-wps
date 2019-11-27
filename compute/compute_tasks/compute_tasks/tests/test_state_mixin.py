@@ -446,8 +446,8 @@ def test_update_metrics_domain_dict(mocker):
 
     state.update_metrics('ProcessStarted')
 
-    state_mixin.metrics.WPS_DOMAIN_CRS.labels.assert_called_with('time', 'indices')
-    state_mixin.metrics.WPS_DOMAIN_CRS.labels.return_value.inc.assert_called()
+    # state_mixin.metrics.WPS_DOMAIN_CRS.labels.assert_called_with('time', 'indices')
+    # state_mixin.metrics.WPS_DOMAIN_CRS.labels.return_value.inc.assert_called()
 
 
 def test_update_metrics(mocker):
@@ -477,22 +477,22 @@ def test_update_metrics(mocker):
 
     state.update_metrics('ProcessStarted')
 
-    state_mixin.metrics.WPS_DOMAIN_CRS.labels.assert_called_with('time', 'indices')
-    state_mixin.metrics.WPS_DOMAIN_CRS.labels.return_value.inc.assert_called()
+    # state_mixin.metrics.WPS_DOMAIN_CRS.labels.assert_called_with('time', 'indices')
+    # state_mixin.metrics.WPS_DOMAIN_CRS.labels.return_value.inc.assert_called()
 
     state.track_process.assert_called()
 
-    state_mixin.metrics.WPS_PROCESS_TIME.labels.assert_called_with('CDAT.subset', 'ProcessStarted')
-    state_mixin.metrics.WPS_PROCESS_TIME.labels.return_value.observe.assert_called_with(0)
+    # state_mixin.metrics.WPS_PROCESS_TIME.labels.assert_called_with('CDAT.subset', 'ProcessStarted')
+    # state_mixin.metrics.WPS_PROCESS_TIME.labels.return_value.observe.assert_called_with(0)
 
     state_mixin.metrics.WPS_DATA_SRC_BYTES.inc.assert_called_with(1000)
     state_mixin.metrics.WPS_DATA_IN_BYTES.inc.assert_called_with(2000)
     state_mixin.metrics.WPS_DATA_OUT_BYTES.inc.assert_called_with(3000)
 
-    state.track_file.assert_called_with(state.inputs[0])
+    # state.track_file.assert_called_with(state.inputs[0])
 
-    state_mixin.metrics.WPS_FILE_ACCESSED.labels.assert_called_with('127.0.0.1', 'tas')
-    state_mixin.metrics.WPS_FILE_ACCESSED.labels.return_value.inc.assert_called()
+    # state_mixin.metrics.WPS_FILE_ACCESSED.labels.assert_called_with('127.0.0.1', 'tas')
+    # state_mixin.metrics.WPS_FILE_ACCESSED.labels.return_value.inc.assert_called()
 
 
 def test_metrics():

@@ -38,7 +38,8 @@ DECODED_FRAMES = [
 def test_main(mocker):
     mocker.patch.object(backend, 'state_mixin')
     mocker.patch.object(backend, 'Worker')
-    mocker.patch.object(backend, 'load_processes')
+    mocker.patch.object(base, 'discover_processes')
+    mocker.patch.object(base, 'build_process_bindings')
     mocker.patch.dict(os.environ, {
         'PROVISIONER_BACKEND': '127.0.0.1',
     })
@@ -50,21 +51,13 @@ def test_main(mocker):
 
     backend.main()
 
-    backend.load_processes.assert_called()
+    base.discover_processes.assert_called()
+
+    base.build_process_bindings.assert_called()
 
     backend.state_mixin.StateMixin.return_value.init_api.assert_called()
 
     backend.Worker.return_value.run.assert_called()
-
-
-def test_reload_processes(mocker):
-    mocker.patch.object(backend, 'state_mixin')
-    mocker.patch.object(backend, 'load_processes')
-    mocker.patch.object(backend, 'reload_argparse')
-
-    backend.reload_processes()
-
-    backend.load_processes.assert_called()
 
 
 def test_load_processes_exists(mocker):
