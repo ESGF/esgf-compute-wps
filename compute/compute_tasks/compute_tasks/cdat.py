@@ -239,10 +239,10 @@ def localize_protected(context, urls, cert_path):
         if not os.path.exists(cached_path):
             store = xr.backends.PydapDataStore.open(url, session=session)
 
-            ds = xr.open_dataset(store, chunks={'time': 50})
+            ds = xr.open_dataset(store)
 
             # Retry 4 times start with a 1 second delay.
-            state_mixin.retry(4, 1)(ds.to_netcdf)(cached_path)
+            state_mixin.retry(4, 1)(ds.to_netcdf)(cached_path, format='NETCDF3_64BIT', engine='netcdf4')
 
         new_urls.append(cached_path)
 

@@ -21,7 +21,7 @@ class OperationContext(state_mixin.StateMixin, object):
         self.output = []
 
         self.gdomain = None
-        self.gparameters = None
+        self.gparameters = {}
 
     @staticmethod
     def decode_data_inputs(data_inputs):
@@ -96,7 +96,7 @@ class OperationContext(state_mixin.StateMixin, object):
 
         ctx.gdomain = gdomain
 
-        ctx.gparameters = gparameters
+        ctx.gparameters = gparameters or {}
 
         return ctx
 

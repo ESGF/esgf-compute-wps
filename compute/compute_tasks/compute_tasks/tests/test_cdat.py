@@ -58,6 +58,7 @@ def test_processing(esgf_data, identifier, expected_shape, params, multiple):
 
 
 @pytest.mark.data
+@pytest.mark.myproxyclient
 def test_protected_data(mocker, esgf_data):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/',
@@ -124,6 +125,8 @@ def test_subset(mocker, esgf_data, client):  # noqa: F811
     ctx.extra['DASK_SCHEDULER'] = client.scheduler.address
     ctx.user = 0
     ctx.job = 0
+
+    print(ctx.gparameters)
 
     mocker.patch.object(ctx, 'message')
     mocker.patch.object(ctx, 'action')
@@ -227,8 +230,9 @@ def test_filter_protected(mocker):
 
 
 @pytest.mark.data
-def test_localize_protected(mocker, esgf_data):
-    output_path = '/cache/595e40d39c7468cbf4f04e7a8ad711187e469eee903f158b3c8f190adcb1ac1b.nc'
+@pytest.mark.myproxyclient
+def test_localize_protected(mocker, esgf_data, client):
+    output_path = '/cache/501c6894f7a3b053e694cff02ec081fb69f4f736026bad72e9b7faff161589d8.nc'
 
     if os.path.exists(output_path):
         os.remove(output_path)
@@ -239,15 +243,21 @@ def test_localize_protected(mocker, esgf_data):
 
     context = operation.OperationContext()
 
+    m = MyProxyClient(hostname=os.environ['MPC_HOST'])
+
+    cert = m.logon(os.environ['MPC_USERNAME'], os.environ['MPC_PASSWORD'], bootstrap=True)
+
+    mocker.patch.object(context, 'user_cert', return_value=''.join([x.decode() for x in cert]))
+
     mocker.spy(os.path, 'exists')
 
-    output = cdat.localize_protected(context, esgf_data.data['tas-opendap']['files'][:1], None)
+    output = cdat.localize_protected(context, esgf_data.data['tas-opendap-cmip5']['files'][:1], None)
 
     assert len(output) == 1
     assert output[0] == output_path
     assert not os.path.exists.return_value
 
-    output = cdat.localize_protected(context, esgf_data.data['tas-opendap']['files'][:1], None)
+    output = cdat.localize_protected(context, esgf_data.data['tas-opendap-cmip5']['files'][:1], None)
 
     assert len(output) == 1
     assert output[0] == output_path
@@ -567,9 +577,6 @@ def test_workflow_func_error(mocker):
     cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
                                                  context.output_ops.return_value)
 
-    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
-                                                 context.interm_ops.return_value)
-
     cdat.Client.return_value.compute.assert_not_called()
 
 
@@ -596,9 +603,6 @@ def test_workflow_func_execute_error(mocker):
     cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
                                                  context.output_ops.return_value)
 
-    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
-                                                 context.interm_ops.return_value)
-
     cdat.Client.return_value.compute.assert_called()
 
 
@@ -619,9 +623,6 @@ def test_workflow_func_no_client(mocker):
 
     cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
                                                  context.output_ops.return_value)
-
-    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
-                                                 context.interm_ops.return_value)
 
     cdat.Client.return_value.compute.assert_not_called()
 
@@ -645,9 +646,6 @@ def test_workflow_func(mocker):
 
     cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
                                                  context.output_ops.return_value)
-
-    cdat.gather_workflow_outputs.assert_any_call(context, cdat.build_workflow.return_value,
-                                                 context.interm_ops.return_value)
 
     cdat.Client.return_value.compute.assert_called()
 
