@@ -19,18 +19,18 @@ RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_provisioner/compute_pro
 RUN conda build -c conda-forge compute_provisioner/ && \
       conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_tasks/
 
-FROM builder as dev
-
-RUN apt-get update && apt-get install -y --no-install-recommends vim && \
-      # Use conda to install package for dependencies
-      conda install -c conda-forge -c cdat  --use-local --only-deps compute-tasks &&\
-      conda install -c conda-forge flake8 pytest pytest-mock pytest-cov && \
-      pip install -e compute_provisioner/ && \
-      pip install -e compute_tasks/
-
-ENTRYPOINT ["/usr/local/bin/tini", "--"]
-
-CMD ["/bin/bash"]
+# FROM builder as dev
+# 
+# RUN apt-get update && apt-get install -y --no-install-recommends vim && \
+#       # Use conda to install package for dependencies
+#       conda install -c conda-forge -c cdat  --use-local --only-deps compute-tasks &&\
+#       conda install -c conda-forge flake8 pytest pytest-mock pytest-cov && \
+#       pip install -e compute_provisioner/ && \
+#       pip install -e compute_tasks/
+# 
+# ENTRYPOINT ["/usr/local/bin/tini", "--"]
+# 
+# CMD ["/bin/bash"]
 
 FROM continuumio/miniconda3:4.7.10
 
@@ -54,8 +54,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends dnsutils && \
 
 WORKDIR /
 
-COPY docker/celery/entrypoint.sh .
-COPY docker/celery/healthcheck.sh .
+COPY compute/compute_tasks/entrypoint.sh .
+COPY compute/compute_tasks/healthcheck.sh .
 
 ARG GIT_SHORT_COMMIT
 ARG COMPUTE_API_VER

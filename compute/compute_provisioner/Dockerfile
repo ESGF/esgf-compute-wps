@@ -13,17 +13,17 @@ RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_provisioner/compute_pro
 RUN conda install conda-build && \
       conda build -c conda-forge compute_provisioner/
 
-FROM builder as dev
-
-RUN apt-get update && \
-      apt-get install -y --no-install-recommends vim && \
-      rm -rf /var/lib/apt/lists/* && \
-      conda install -c conda-forge --use-local --only-deps compute-provisioner flake8 pytest && \
-      pip install -e compute_provisioner/
-
-ENTRYPOINT ["/usr/bin/tini", "--"]
-
-CMD ["/bin/bash"]
+# FROM builder as dev
+# 
+# RUN apt-get update && \
+#       apt-get install -y --no-install-recommends vim && \
+#       rm -rf /var/lib/apt/lists/* && \
+#       conda install -c conda-forge --use-local --only-deps compute-provisioner flake8 pytest && \
+#       pip install -e compute_provisioner/
+# 
+# ENTRYPOINT ["/usr/bin/tini", "--"]
+# 
+# CMD ["/bin/bash"]
 
 FROM continuumio/miniconda3:4.7.10
 
