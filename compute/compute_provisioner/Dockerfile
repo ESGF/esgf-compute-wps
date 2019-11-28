@@ -3,6 +3,7 @@ FROM continuumio/miniconda3:4.7.10 as builder
 ARG GIT_SHORT_COMMIT
 
 ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
+ENV VERSION 0.0.0
 
 WORKDIR /src
 
