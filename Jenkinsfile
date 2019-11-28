@@ -8,6 +8,9 @@ pipeline {
         }
 
       }
+      when {
+        changeset '**/compute_provisioner/**'
+      }
       steps {
         container(name: 'buildkit', shell: '/bin/sh') {
           sh '''buildctl-daemonless.sh build \\
