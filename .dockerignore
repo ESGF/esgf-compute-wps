@@ -1,0 +1,5 @@
+docker/*
+docs/*
+Jenkinsfile
+Makefile
+compute/*/Dockerfile

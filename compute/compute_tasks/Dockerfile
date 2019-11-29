@@ -8,31 +8,13 @@ COPY compute/compute_provisioner compute_provisioner/
 COPY compute/compute_tasks compute_tasks/
 
 ARG COMPUTE_API_VER
-ARG GIT_SHORT_COMMIT
 
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
-ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
-
-RUN echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_provisioner/compute_provisioner/_version.py && \
-      echo "__version__ = '${GIT_SHORT_COMMIT}'" > compute_tasks/compute_tasks/_version.py
 
 RUN conda build -c conda-forge compute_provisioner/ && \
-      conda build -c cdat/label/nightly -c cdat -c conda-forge --use-local compute_tasks/
+      conda build -c conda-forge -c cdat --use-local compute_tasks/
 
-# FROM builder as dev
-# 
-# RUN apt-get update && apt-get install -y --no-install-recommends vim && \
-#       # Use conda to install package for dependencies
-#       conda install -c conda-forge -c cdat  --use-local --only-deps compute-tasks &&\
-#       conda install -c conda-forge flake8 pytest pytest-mock pytest-cov && \
-#       pip install -e compute_provisioner/ && \
-#       pip install -e compute_tasks/
-# 
-# ENTRYPOINT ["/usr/local/bin/tini", "--"]
-# 
-# CMD ["/bin/bash"]
-
-FROM continuumio/miniconda3:4.7.10
+FROM continuumio/miniconda3:4.7.10 as production
 
 RUN conda install -c conda-forge curl && \
       mkdir -p /tmp/certs && \
@@ -69,3 +51,14 @@ EXPOSE 8000
 ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
 CMD ["/bin/bash", "./entrypoint.sh", "-c", "1", "-Q", "default", "-n", "default", "-l", "INFO"]
+
+FROM production as testing
+
+WORKDIR /testing
+
+RUN conda install -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap && \
+      mkdir /metrics
+
+COPY compute/compute_tasks .
+
+RUN pytest -vvv --junit-xml=unittesting.xml --cov=compute_tasks --cov-report=html:coverage/
