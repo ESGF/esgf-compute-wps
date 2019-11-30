@@ -125,7 +125,8 @@ pipeline {
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
         }
 
-        sh '''ls -la output
+        sh '''ls -la
+whoami
 '''
       }
     }
