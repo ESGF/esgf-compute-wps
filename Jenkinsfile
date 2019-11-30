@@ -126,6 +126,7 @@ pipeline {
           sh 'ls -la output'
         }
 
+        junit 'unittesting.xml'
       }
     }
 
