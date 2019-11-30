@@ -122,7 +122,10 @@ pipeline {
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
         --opt target=testresult \\
 	--output type=local,dest=output \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
+	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache
+
+chown -R 1000:1000 output/unittesting.xml
+chown -R 1000:1000 output/coverage'''
         }
 
         sh '''ls -la
