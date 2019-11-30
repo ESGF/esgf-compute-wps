@@ -118,11 +118,11 @@ pipeline {
           sh '''buildctl-daemonless.sh build \\
 	--frontend dockerfile.v0 \\
 	--local context=. \\
-	--local dockerfile=compute/compute_provisioner \\
+	--local dockerfile=compute/compute_tasks\\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
-        --opt target=testing \\
+        --opt target=testresult \\
 	--output type=local,dest=output \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-provisioner:cache'''
+	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
           sh 'ls -la output'
         }
 
