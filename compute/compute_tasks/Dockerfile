@@ -65,5 +65,7 @@ RUN pytest -vvv --junit-xml=unittesting.xml --cov=compute_tasks --cov-report=htm
 
 FROM scratch as testresult
 
+ENV TEST 1
+
 COPY --from=testing /testing/unittesting.xml .
 COPY --from=testing /testing/coverage coverage/
