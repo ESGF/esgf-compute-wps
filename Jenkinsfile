@@ -127,11 +127,8 @@ pipeline {
 chown -R 10000:10000 output'''
         }
 
-        sh '''ls -la
-whoami
-id -u
-id -g'''
-        junit 'unittesting.xml'
+        sh 'cat output/unittesting.xml'
+        junit 'output/unittesting.xml'
       }
     }
 
