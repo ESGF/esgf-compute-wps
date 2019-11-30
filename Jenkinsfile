@@ -123,10 +123,11 @@ pipeline {
         --opt target=testresult \\
 	--output type=local,dest=output \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
-          sh 'ls -la output'
+          sh '''ls -la output
+'''
         }
 
-        junit 'unittesting.xml'
+        junit 'output/unittesting.xml'
       }
     }
 
