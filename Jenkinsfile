@@ -129,7 +129,8 @@ chown -R 1001:1001 output'''
 
         sh '''ls -la
 whoami
-'''
+id -u
+id -g'''
       }
     }
 
