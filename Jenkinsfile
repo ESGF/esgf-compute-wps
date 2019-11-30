@@ -124,8 +124,7 @@ pipeline {
 	--output type=local,dest=output \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache
 
-chown -R 1000:1000 output/unittesting.xml
-chown -R 1000:1000 output/coverage'''
+chown -R 1000:1000 output'''
         }
 
         sh '''ls -la
