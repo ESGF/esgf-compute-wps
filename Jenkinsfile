@@ -106,5 +106,27 @@ pipeline {
       }
     }
 
+    stage('Testing') {
+      agent {
+        node {
+          label 'jenkins-buildkit'
+        }
+
+      }
+      steps {
+        container(name: 'buildkit', shell: '/bin/sh') {
+          sh '''buildctl-daemonless.sh build \\
+	--frontend dockerfile.v0 \\
+	--local context=. \\
+	--local dockerfile=compute/compute_provisioner \\
+	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
+	--output type=local,dest=output \\
+	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-provisioner:cache'''
+          sh 'ls -la output'
+        }
+
+      }
+    }
+
   }
 }
