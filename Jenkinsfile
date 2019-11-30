@@ -133,6 +133,7 @@ pipeline {
         }
 
         junit 'output/unittesting.xml'
+        cobertura(coberturaReportFile: 'output/coverage')
       }
     }
 
