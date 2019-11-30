@@ -128,12 +128,10 @@ pipeline {
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
         --opt target=testresult \\
 	--output type=local,dest=output \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache
-
-chown -R 10000:10000 output'''
+	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
+          sh 'chown -R 10000:10000 output'
         }
 
-        sh 'cat output/unittesting.xml'
         junit 'output/unittesting.xml'
       }
     }
