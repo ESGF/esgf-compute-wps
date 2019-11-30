@@ -120,7 +120,7 @@ pipeline {
 	--local context=. \\
 	--local dockerfile=compute/compute_tasks\\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
-        --opt target=testing \\
+        --opt target=testresult \\
 	--output type=local,dest=output \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
           sh 'ls -la output'
