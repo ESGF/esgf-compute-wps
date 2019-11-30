@@ -124,13 +124,14 @@ pipeline {
 	--output type=local,dest=output \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache
 
-chown -R 1001:1001 output'''
+chown -R 10000:10000 output'''
         }
 
         sh '''ls -la
 whoami
 id -u
 id -g'''
+        junit 'unittesting.xml'
       }
     }
 
