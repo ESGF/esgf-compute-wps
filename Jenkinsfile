@@ -132,7 +132,7 @@ pipeline {
           sh 'chown -R 10000:10000 output'
         }
 
-        junit 'output/unittesting.xml'
+        junit(testResults: 'output/unittesting.xml', healthScaleFactor: 0.8)
         cobertura(coberturaReportFile: 'output/coverage')
       }
     }
