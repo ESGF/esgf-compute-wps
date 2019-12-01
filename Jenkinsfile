@@ -1,9 +1,9 @@
 pipeline {
   agent none
   stages {
-    stage('Build Provisioner') {
+    stage('Build') {
       parallel {
-        stage('Build Provisioner') {
+        stage('provisioner') {
           agent {
             node {
               label 'jenkins-buildkit'
@@ -28,7 +28,7 @@ pipeline {
           }
         }
 
-        stage('Build Task') {
+        stage('tasks') {
           agent {
             node {
               label 'jenkins-buildkit'
@@ -59,7 +59,7 @@ pipeline {
           }
         }
 
-        stage('Build WPS') {
+        stage('wps') {
           agent {
             node {
               label 'jenkins-buildkit'
@@ -84,7 +84,7 @@ pipeline {
           }
         }
 
-        stage('Build Thredds') {
+        stage('thredds') {
           agent {
             node {
               label 'jenkins-buildkit'
@@ -113,15 +113,17 @@ pipeline {
     }
 
     stage('Testing') {
-      agent {
-        node {
-          label 'jenkins-buildkit'
-        }
+      parallel {
+        stage('tasks') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
 
-      }
-      steps {
-        container(name: 'buildkit', shell: '/bin/sh') {
-          sh '''buildctl-daemonless.sh build \\
+          }
+          steps {
+            container(name: 'buildkit', shell: '/bin/sh') {
+              sh '''buildctl-daemonless.sh build \\
 	--frontend dockerfile.v0 \\
 	--local context=. \\
 	--local dockerfile=compute/compute_tasks\\
@@ -129,11 +131,38 @@ pipeline {
         --opt target=testresult \\
 	--output type=local,dest=output \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
-          sh 'chown -R 10000:10000 output'
+              sh 'chown -R 10000:10000 output'
+            }
+
+            junit(testResults: 'output/unittesting.xml', healthScaleFactor: 0.8)
+            cobertura(coberturaReportFile: 'output/coverage')
+          }
         }
 
-        junit(testResults: 'output/unittesting.xml', healthScaleFactor: 0.8)
-        cobertura(coberturaReportFile: 'output/coverage')
+        stage('wps') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
+          steps {
+            container(name: 'buildkit', shell: '/bin/sh') {
+              sh '''buildctl-daemonless.sh build \\
+	--frontend dockerfile.v0 \\
+	--local context=. \\
+	--local dockerfile=compute/compute_wps \\
+	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
+        --opt target=testresult \\
+	--output type=local,dest=output \\
+	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-wps:cache'''
+              sh 'chown -R 10000:10000 output'
+            }
+
+            sh 'ls -la output/'
+          }
+        }
+
       }
     }
 
