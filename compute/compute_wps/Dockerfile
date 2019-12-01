@@ -53,12 +53,13 @@ ENV OAUTH2_CLIENT_SECRET ""
 ENV PROVISIONER_FRONTEND ""
 
 COPY compute/compute_wps/django.properties /etc/confiog/django.properties
+COPY compute/compute_wps/pytest.ini .
 
 COPY --from=builder /src/compute_wps .
 
-RUN conda install -c conda-forge mock django-nose coverage
+RUN conda install -c conda-forge mock pytest-django pytest-cov
 
-RUN python manage.py test --with-xunit --xunit-file unittest.xml --with-coverage --cover-package compute_wps --cover-html --cover-html-dir coverage
+RUN pytest -vvv --junit-xml=unittest.xml --cov=compute_wps --cov-report=html:coverage/ || exit 0
 
 FROM scratch as testresult
 
