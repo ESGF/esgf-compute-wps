@@ -159,7 +159,8 @@ pipeline {
               sh 'chown -R 10000:10000 output'
             }
 
-            sh 'ls -la output/'
+            xunit(tools: [JUnit(deleteOutputFiles: true, failIfNotNew: true, pattern: 'output/unittest.xml', skipNoTestFiles: false, stopProcessingIfError: true)])
+            cobertura(coberturaReportFile: 'output/coverage')
           }
         }
 
