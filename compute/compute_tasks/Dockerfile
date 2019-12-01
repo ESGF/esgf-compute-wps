@@ -54,6 +54,14 @@ CMD ["/bin/bash", "./entrypoint.sh", "-c", "1", "-Q", "default", "-n", "default"
 
 FROM production as testing
 
+ARG MPC_HOST
+ARG MPC_USERNAME
+ARG MPC_PASSWORD
+
+ENV MPC_HOST ${MPC_HOST}
+ENV MPC_USERNAME ${MPC_USERNAME}
+ENV MPC_PASSWORD ${MPC_PASSWORD}
+
 WORKDIR /testing
 
 RUN conda install -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap && \
