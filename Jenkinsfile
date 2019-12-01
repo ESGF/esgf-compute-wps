@@ -38,9 +38,6 @@ pipeline {
           when {
             changeset '**/compute_tasks/**'
           }
-          environment {
-            MPC = credentials('myproxyclient')
-          }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''buildctl-daemonless.sh build \\
@@ -48,9 +45,6 @@ pipeline {
 	--local context=. \\
 	--local dockerfile=compute/compute_tasks \\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
-        --opt build-arg:MPC_HOST=esgf-node.llnl.gov \\
-        --opt build-arg:MPC_USERNAME=${MPC_USR} \\
-        --opt build-arg:MPC_PASSWORD=${MPC_PSW} \\
 	--output type=image,name=${OUTPUT_REGISTRY}/compute-tasks:${GIT_COMMIT:0:8},push=true \\
 	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
@@ -120,6 +114,9 @@ pipeline {
               label 'jenkins-buildkit'
             }
 
+          }
+          environment {
+            MPC = credentials('myproxyclient')
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
