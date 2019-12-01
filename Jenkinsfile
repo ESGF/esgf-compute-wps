@@ -128,6 +128,9 @@ pipeline {
 	--local context=. \\
 	--local dockerfile=compute/compute_tasks\\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
+        --opt build-arg:MPC_HOST=esgf-node.llnl.gov \\
+        --opt build-arg:MPC_USERNAME=${MPC_USR} \\
+        --opt build-arg:MPC_PASSWORD=${MPC_PSW} \\
         --opt target=testresult \\
 	--output type=local,dest=output \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
