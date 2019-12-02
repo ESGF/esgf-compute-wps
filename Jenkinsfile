@@ -167,5 +167,20 @@ pipeline {
       }
     }
 
+    stage('Deploy') {
+      agent {
+        node {
+          label 'jenkins-helm'
+        }
+
+      }
+      steps {
+        container(name: 'helm', shell: '/bin/bash') {
+          sh 'helm list'
+        }
+
+      }
+    }
+
   }
 }
