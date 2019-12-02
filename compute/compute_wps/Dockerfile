@@ -59,9 +59,10 @@ COPY --from=builder /src/compute_wps .
 
 RUN conda install -c conda-forge mock pytest-django pytest-cov
 
-RUN pytest -vvv --junit-xml=unittest.xml --cov=compute_wps --cov-report=html:coverage/ || exit 0
+RUN pytest -vvv --junit-xml=unittest.xml --cov=compute_wps --cov-report=html:coverage/ --cov-report=xml || exit 0
 
 FROM scratch as testresult
 
 COPY --from=testing /compute/unittest.xml .
 COPY --from=testing /compute/coverage coverage
+COPY --from=testing /compute/coverage.xml .
