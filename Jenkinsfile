@@ -136,7 +136,7 @@ pipeline {
 
             sh 'ls -la output/'
             junit(testResults: 'output/unittesting.xml', healthScaleFactor: 0.8)
-            cobertura(coberturaReportFile: 'output/coverage')
+            cobertura(coberturaReportFile: 'output/coverage.xml')
           }
         }
 
@@ -162,7 +162,7 @@ pipeline {
 
             sh 'ls -la output/'
             junit 'output/unittest.xml'
-            cobertura(coberturaReportFile: 'output/coverage')
+            cobertura(coberturaReportFile: 'output/coverage.xml')
           }
         }
 
