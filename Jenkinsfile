@@ -134,9 +134,8 @@ pipeline {
               sh 'chown -R 10000:10000 output'
             }
 
-            sh 'ls -la output/'
-            junit(testResults: 'output/unittesting.xml', healthScaleFactor: 0.8)
-            cobertura(coberturaReportFile: 'output/coverage.xml')
+            junit(testResults: 'output/unittesting.xml', healthScaleFactor: 1)
+            cobertura(coberturaReportFile: 'output/coverage.xml', autoUpdateStability: true, autoUpdateHealth: true, classCoverageTargets: '80 80 80', conditionalCoverageTargets: '80 80 80', failNoReports: true, failUnhealthy: true, failUnstable: true, fileCoverageTargets: '80 80 80', lineCoverageTargets: '80 80 80', maxNumberOfBuilds: 2, methodCoverageTargets: '80 80 80', packageCoverageTargets: '80 80 80')
           }
         }
 
@@ -160,9 +159,8 @@ pipeline {
               sh 'chown -R 10000:10000 output'
             }
 
-            sh 'ls -la output/'
-            junit 'output/unittest.xml'
-            cobertura(coberturaReportFile: 'output/coverage.xml')
+            junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
+            cobertura(coberturaReportFile: 'output/coverage.xml', autoUpdateHealth: true, packageCoverageTargets: '80 80 80', methodCoverageTargets: '80 80 80', maxNumberOfBuilds: 2, lineCoverageTargets: '80 80 80', fileCoverageTargets: '80 80 80', conditionalCoverageTargets: '80 80 80', failNoReports: true, failUnhealthy: true, failUnstable: true, autoUpdateStability: true, classCoverageTargets: '80 80 80')
           }
         }
 
