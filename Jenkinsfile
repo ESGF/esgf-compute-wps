@@ -176,7 +176,9 @@ pipeline {
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
-          sh 'ls -la /jenkins-config'
+          sh '''ls -la /jenkins-config
+
+helm --kube-config /jenkins-config/jenkins-config init'''
         }
 
       }
