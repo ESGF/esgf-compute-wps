@@ -20,6 +20,7 @@ pipeline {
 	--local context=. \\
 	--local dockerfile=compute/compute_provisioner \\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
+        --opt target=production \\
 	--output type=image,name=${OUTPUT_REGISTRY}/compute-provisioner:${GIT_COMMIT:0:8},push=true \\
 	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-provisioner:cache \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-provisioner:cache'''
@@ -45,6 +46,7 @@ pipeline {
 	--local context=. \\
 	--local dockerfile=compute/compute_tasks \\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
+        --opt target=production \\
 	--output type=image,name=${OUTPUT_REGISTRY}/compute-tasks:${GIT_COMMIT:0:8},push=true \\
 	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
@@ -70,6 +72,7 @@ pipeline {
 	--local context=. \\
 	--local dockerfile=compute/compute_wps \\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
+        --opt target=production \\
 	--output type=image,name=${OUTPUT_REGISTRY}/compute-wps:${GIT_COMMIT:0:8},push=true \\
 	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-wps:cache \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-wps:cache'''
@@ -95,6 +98,7 @@ pipeline {
 	--local context=. \\
 	--local dockerfile=docker/thredds/ \\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
+        --opt target=production \\
 	--output type=image,name=${OUTPUT_REGISTRY}/compute-thredds:${GIT_COMMIT:0:8},push=true \\
 	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-thredds:cache \\
 	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-thredds:cache'''
@@ -114,6 +118,9 @@ pipeline {
               label 'jenkins-buildkit'
             }
 
+          }
+          when {
+            changeset '**/compute_tasks/**'
           }
           environment {
             MPC = credentials('myproxyclient')
@@ -146,6 +153,9 @@ pipeline {
             }
 
           }
+          when {
+            changeset '**/compute_wps/**'
+          }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''buildctl-daemonless.sh build \\
@@ -176,9 +186,9 @@ pipeline {
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
-          git(url: 'https://github.com/esgf-compute/charts', branch: 'devel')
-          sh 'helm --kubeconfig /jenkins-config/jenkins-config init --client-only'
-          sh 'ls -la'
+          sh '''helm --kubeconfig /jenkins-config/jenkins-config init --client-only
+
+export'''
         }
 
       }
