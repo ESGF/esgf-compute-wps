@@ -186,9 +186,14 @@ pipeline {
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
-          sh '''helm --kubeconfig /jenkins-config/jenkins-config init --client-only
+          git(url: 'https://github.com/esgf-compute/charts', branch: 'devel')
+          sh '''KUBECONFIG="--kubeconfig /jenkins-config/jenkins-config"
 
-git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT}'''
+helm ${KUBECONFIG} init --client-only
+
+helm ${KUBECONFIG} dependency update compute/
+
+GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"'''
         }
 
       }
