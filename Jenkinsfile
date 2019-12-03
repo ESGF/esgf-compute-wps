@@ -2,12 +2,6 @@ pipeline {
   agent none
   stages {
     stage('Build') {
-      input {
-        message 'Force provisioner build?'
-        parameters {
-          booleanParam(name: 'FORCE_PROVISIONER', defaultValue: false)
-        }
-      }
       parallel {
         stage('provisioner') {
           agent {
@@ -256,5 +250,11 @@ git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
       }
     }
 
+  }
+  parameters {
+    booleanParam(name: 'FORCE_PROVISIONER', defaultValue: false, description: 'Force provisioner build')
+    booleanParam(name: 'FORCE_TASKS', defaultValue: false, description: 'Force tasks(celery) build')
+    booleanParam(name: 'FORCE_WPS', defaultValue: false, description: 'Force WPS build')
+    booleanParam(name: 'FORCE_THREDDS', defaultValue: false, description: 'Force THREDDS build')
   }
 }
