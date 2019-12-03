@@ -191,6 +191,8 @@ pipeline {
 
 helm ${KUBECONFIG} init --client-only
 
+helm repo add --ca-file /ssl/llnl.ca.pem stable https://kubernetes-charts.storage.googleapis.com/
+
 helm ${KUBECONFIG} dependency update compute/
 
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"'''
