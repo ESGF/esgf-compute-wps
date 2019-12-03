@@ -61,9 +61,9 @@ pipeline {
 	--local dockerfile=compute/compute_tasks \\
 	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
         --opt target=production \\
-	--output type=image,name=${OUTPUT_REGISTRY}/compute-tasks:${GIT_COMMIT:0:8},push=true \\
-	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
+	--output type=image,name=${OUTPUT_REGISTRY}/compute-celery:${GIT_COMMIT:0:8},push=true \\
+	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-celery:cache \\
+	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-celery:cache'''
             }
 
           }
@@ -149,10 +149,6 @@ pipeline {
           }
           when {
             anyOf {
-              expression {
-                return params.FORCE_TASKS
-              }
-
               changeset '**/compute_tasks/**'
             }
 
@@ -190,10 +186,6 @@ pipeline {
           }
           when {
             anyOf {
-              expression {
-                return params.FORCE_WPS
-              }
-
               changeset '**/compute_wps/**'
             }
 
