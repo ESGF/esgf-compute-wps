@@ -197,6 +197,8 @@ helm repo add --ca-file /ssl/llnl.ca.pem stable https://kubernetes-charts.storag
 
 helm ${KUBECONFIG} dependency update compute/
 
+conda install -c conda-forge ruamel.yaml
+
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 
 SET_FLAGS=""
@@ -204,25 +206,36 @@ SET_FLAGS=""
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]]
 then
   SET_FLAGS="${SET_FLAGS} --set provisioner.imageTag=${GIT_COMMIT:0:8}"
+
+  python scripts/update_config.py configs/development.yaml provisioner ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]]
 then
   SET_FLAGS="${SET_FLAGS} --set wps.imageTag=${GIT_COMMIT:0:8}"
+
+  python scripts/update_config.py configs/development.yaml wps ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]]
 then
   SET_FLAGS="${SET_FLAGS} --set celery.imageTag=${GIT_COMMIT:0:8}"
+
+  python scripts/update_config.py configs/development.yaml celery ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]]
 then
   SET_FLAGS="${SET_FLAGS} --set thredds.imageTag=${GIT_COMMIT:0:8}"
+
+  python scripts/update_config.py configs/development.yaml thredds ${GIT_COMMIT:0:8}
 fi
 
 helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
-'''
+
+git add configs/development.yaml
+
+git status'''
         }
 
       }
