@@ -286,7 +286,9 @@ git add configs/development.yaml
 
 git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 
-git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
+git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts
+
+export'''
         }
 
       }
