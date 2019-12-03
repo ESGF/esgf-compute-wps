@@ -11,7 +11,14 @@ pipeline {
 
           }
           when {
-            changeset '**/compute_provisioner/**'
+            anyOf {
+              expression {
+                return params.FORCE_PROVISIONER
+              }
+
+              changeset '**/compute_provisioner/**'
+            }
+
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
