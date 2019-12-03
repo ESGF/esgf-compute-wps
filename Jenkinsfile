@@ -44,7 +44,14 @@ pipeline {
 
           }
           when {
-            changeset '**/compute_tasks/**'
+            anyOf {
+              expression {
+                return params.FORCE_TASKS
+              }
+
+              changeset '**/compute_tasks/**'
+            }
+
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
@@ -70,7 +77,14 @@ pipeline {
 
           }
           when {
-            changeset '**/compute_wps/**'
+            anyOf {
+              expression {
+                return params.FORCE_WPS
+              }
+
+              changeset '**/compute_wps/**'
+            }
+
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
@@ -96,7 +110,14 @@ pipeline {
 
           }
           when {
-            changeset '**/docker/thredds/**'
+            anyOf {
+              expression {
+                return params.FORCE_THREDDS
+              }
+
+              changeset '**/docker/thredds/**'
+            }
+
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
@@ -127,7 +148,14 @@ pipeline {
 
           }
           when {
-            changeset '**/compute_tasks/**'
+            anyOf {
+              expression {
+                return params.FORCE_TASKS
+              }
+
+              changeset '**/compute_tasks/**'
+            }
+
           }
           environment {
             MPC = credentials('myproxyclient')
@@ -161,7 +189,14 @@ pipeline {
 
           }
           when {
-            changeset '**/compute_wps/**'
+            anyOf {
+              expression {
+                return params.FORCE_WPS
+              }
+
+              changeset '**/compute_wps/**'
+            }
+
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
