@@ -199,19 +199,23 @@ GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 
 SET_FLAGS=""
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]]; then
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]]
+then
   SET_FLAGS="${SET_FLAGS} --set provisioner.imageTag=${GIT_COMMIT:0:8}"
 fi
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]]; then
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]]
+then
   SET_FLAGS="${SET_FLAGS} --set wps.imageTag=${GIT_COMMIT:0:8}"
 fi
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]]; then
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]]
+then
   SET_FLAGS="${SET_FLAGS} --set celery.imageTag=${GIT_COMMIT:0:8}"
 fi
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]]; then
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]]
+then
   SET_FLAGS="${SET_FLAGS} --set thredds.imageTag=${GIT_COMMIT:0:8}"
 fi
 
