@@ -1,4 +1,4 @@
-FROM tomcat:8.5
+FROM tomcat:8.5 as production
 
 ENV THREDDS_VER 4.6.14
 ENV TINI_VERSION v0.18.0
