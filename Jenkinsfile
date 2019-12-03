@@ -13,6 +13,12 @@ pipeline {
           when {
             changeset '**/compute_provisioner/**'
           }
+          input {
+            message 'Force provisioner build?'
+            parameters {
+              booleanParam(name: 'FORCE_PROVISIONER', defaultValue: false)
+            }
+          }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''buildctl-daemonless.sh build \\
