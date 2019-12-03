@@ -221,9 +221,7 @@ then
   SET_FLAGS="${SET_FLAGS} --set thredds.imageTag=${GIT_COMMIT:0:8}"
 fi
 
-echo ${SET_FLAGS}
-
-type [[
+helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
 '''
         }
 
