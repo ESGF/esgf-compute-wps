@@ -11,7 +11,14 @@ pipeline {
 
           }
           when {
-            changeset '**/compute_provisioner/**'
+            anyOf {
+              expression {
+                return params.FORCE_PROVISIONER
+              }
+
+              changeset '**/compute_provisioner/**'
+            }
+
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
@@ -250,5 +257,11 @@ git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
       }
     }
 
+  }
+  parameters {
+    booleanParam(name: 'FORCE_PROVISIONER', defaultValue: false, description: 'Force provisioner build')
+    booleanParam(name: 'FORCE_TASKS', defaultValue: false, description: 'Force tasks(celery) build')
+    booleanParam(name: 'FORCE_WPS', defaultValue: false, description: 'Force WPS build')
+    booleanParam(name: 'FORCE_THREDDS', defaultValue: false, description: 'Force THREDDS build')
   }
 }
