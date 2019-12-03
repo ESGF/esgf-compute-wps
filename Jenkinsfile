@@ -188,7 +188,7 @@ pipeline {
         container(name: 'helm', shell: '/bin/bash') {
           sh '''helm --kubeconfig /jenkins-config/jenkins-config init --client-only
 
-export'''
+git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT}'''
         }
 
       }
