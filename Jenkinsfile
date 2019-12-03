@@ -221,6 +221,7 @@ fi
 
 echo ${SET_FLAGS}
 
+type [[
 '''
         }
 
