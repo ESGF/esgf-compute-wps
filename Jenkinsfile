@@ -236,13 +236,15 @@ fi
 
 helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
 
-git add configs/development.yaml
-
 git config user.email ${GIT_EMAIL}
 
 git config user.name ${GIT_NAME}
 
-export'''
+git add configs/development.yaml
+
+git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
+
+git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
         }
 
       }
