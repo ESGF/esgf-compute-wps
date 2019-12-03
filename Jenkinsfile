@@ -238,9 +238,11 @@ helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLA
 
 git add configs/development.yaml
 
-git status
+git config user.email ${GIT_EMAIL}
 
-echo ${GH_USR} ${GH_PSW}'''
+git config user.name ${GIT_NAME}
+
+export'''
         }
 
       }
