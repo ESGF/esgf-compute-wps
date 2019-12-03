@@ -184,6 +184,9 @@ pipeline {
         }
 
       }
+      environment {
+        GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
+      }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
           git(url: 'https://github.com/esgf-compute/charts', branch: 'devel')
@@ -235,7 +238,9 @@ helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLA
 
 git add configs/development.yaml
 
-git status'''
+git status
+
+echo ${GH_USR} ${GH_PSW}'''
         }
 
       }
