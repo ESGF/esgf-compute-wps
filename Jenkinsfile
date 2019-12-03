@@ -187,7 +187,9 @@ pipeline {
       steps {
         container(name: 'helm', shell: '/bin/bash') {
           git(url: 'https://github.com/esgf-compute/charts', branch: 'devel')
-          sh '''KUBECONFIG="--kubeconfig /jenkins-config/jenkins-config"
+          sh '''#! /bin/bash
+
+KUBECONFIG="--kubeconfig /jenkins-config/jenkins-config"
 
 helm ${KUBECONFIG} init --client-only
 
