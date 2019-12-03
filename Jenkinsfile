@@ -248,28 +248,28 @@ GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 
 SET_FLAGS=""
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]]
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
 then
   SET_FLAGS="${SET_FLAGS} --set provisioner.imageTag=${GIT_COMMIT:0:8}"
 
   python scripts/update_config.py configs/development.yaml provisioner ${GIT_COMMIT:0:8}
 fi
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]]
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
 then
   SET_FLAGS="${SET_FLAGS} --set wps.imageTag=${GIT_COMMIT:0:8}"
 
   python scripts/update_config.py configs/development.yaml wps ${GIT_COMMIT:0:8}
 fi
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]]
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
 then
   SET_FLAGS="${SET_FLAGS} --set celery.imageTag=${GIT_COMMIT:0:8}"
 
   python scripts/update_config.py configs/development.yaml celery ${GIT_COMMIT:0:8}
 fi
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]]
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
 then
   SET_FLAGS="${SET_FLAGS} --set thredds.imageTag=${GIT_COMMIT:0:8}"
 
