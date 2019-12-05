@@ -223,8 +223,18 @@ pipeline {
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
+          sh '''#! /bin/bash
+
+git status
+git diff ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT}
+
+export BIG_DIFF=${GIT_COMMIT}'''
           git(url: 'https://github.com/esgf-compute/charts', branch: 'devel')
           sh '''#! /bin/bash
+
+echo ${BIG_DIFF}
+
+exit 0
 
 KUBECONFIG="--kubeconfig /jenkins-config/jenkins-config"
 
