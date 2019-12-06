@@ -226,18 +226,9 @@ pipeline {
         container(name: 'helm', shell: '/bin/bash') {
           sh '''#! /bin/bash
 
-echo ${GIT_DIFF}
+git clone -b devel https://github.com/esgf-compute/charts
 
-git status
-git diff ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT}
-
-export BIG_DIFF=${GIT_COMMIT}'''
-          git(url: 'https://github.com/esgf-compute/charts', branch: 'devel')
-          sh '''#! /bin/bash
-
-echo ${BIG_DIFF}
-
-exit 0
+pushd charts/
 
 KUBECONFIG="--kubeconfig /jenkins-config/jenkins-config"
 
@@ -246,6 +237,8 @@ helm ${KUBECONFIG} init --client-only
 helm repo add --ca-file /ssl/llnl.ca.pem stable https://kubernetes-charts.storage.googleapis.com/
 
 helm ${KUBECONFIG} dependency update compute/
+
+popd
 
 conda install -c conda-forge ruamel.yaml
 
@@ -281,7 +274,11 @@ then
   python scripts/update_config.py configs/development.yaml thredds ${GIT_COMMIT:0:8}
 fi
 
+pushd charts/
+
 helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
+
+echo "RETURN $?"
 
 git config user.email ${GIT_EMAIL}
 
@@ -291,9 +288,7 @@ git add configs/development.yaml
 
 git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 
-git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts
-
-export'''
+git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
         }
 
       }
