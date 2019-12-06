@@ -220,7 +220,6 @@ pipeline {
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
-        GIT_DIFF = sh(script: 'git diff ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT} --only-name', returnStdout: true).trim()
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
