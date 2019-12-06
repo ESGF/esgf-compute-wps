@@ -237,8 +237,6 @@ helm repo add --ca-file /ssl/llnl.ca.pem stable https://kubernetes-charts.storag
 
 helm ${KUBECONFIG} dependency update compute/
 
-popd
-
 conda install -c conda-forge ruamel.yaml
 
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
@@ -272,8 +270,6 @@ then
 
   python scripts/update_config.py configs/development.yaml thredds ${GIT_COMMIT:0:8}
 fi
-
-pushd charts/
 
 helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
 
