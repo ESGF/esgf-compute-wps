@@ -1,5 +1,13 @@
-docker/*
-docs/*
+compute/*/Dockerfile
+CONTRIBUTING.md
+DEVELOPER.md
+docker/*/Dockerfile
+.dockerignore
+docs/
+FAQ.md
+.git
+.github
+.gitignore
 Jenkinsfile
 Makefile
-compute/*/Dockerfile
+README.md
