@@ -555,6 +555,16 @@ def process_where(context, operation, *input, **kwargs):
     else:
         raise WPSError('Comparison with {!s} is not supported', comp)
 
+    fillna = operation.get_parameter('fillna')
+
+    if fillna is not None:
+        try:
+            fillna = float(fillna.values[0])
+        except ValueError:
+            raise WPSError('Could not convert the "fillna" value to float.')
+
+        output = output.fillna(fillna)
+
     return output
 
 # Two parent types
@@ -628,6 +638,8 @@ def render_abstract(description, min_inputs=1, max_inputs=1, **params):
 
 AXES = 'A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.'
 CONST = 'A float value that will be applied element-wise.'
+COND = 'A condition that when true will preserve the value, otherwise the value will be set to "nan".'
+FILLNA = 'A float value to replace "nan" values."'
 
 WHERE_ABS = """Filters elements based on a condition.
 
@@ -656,7 +668,7 @@ ABSTRACT_MAP = {
     'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST, max_inputs=2),
     'CDAT.sum': render_abstract('Computes the sum over one or more axes.', axes=AXES),
     'CDAT.merge': render_abstract('Merges variable from second input into first.', min_inputs=2, max_inputs=2),
-    'CDAT.where': render_abstract('')
+    'CDAT.where': render_abstract(WHERE_ABS, cond=COND, fillna=FILLNA)
 }
 
 

@@ -48,6 +48,57 @@ def test_data():
     return TestDataGenerator()
 
 
+def test_where_fillna_cannot_convert(test_data):
+    cond = 'pr>1'
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, 'pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(cond=cond, fillna='asd')
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+def test_where_fillna(test_data):
+    cond = 'pr>1'
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, 'pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(cond=cond, fillna='1e22')
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+    expected = test_data.standard(1e22, 'pr')
+
+    assert np.array_equal(output.pr.values, expected.pr.values)
+
+
 def test_where_unsupported_comp(test_data):
     cond = 'tas>>45'
     identifier = 'CDAT.where'
