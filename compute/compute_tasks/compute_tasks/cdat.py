@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import types
+import re
 import os
 from functools import partial
 
@@ -508,6 +509,54 @@ def process_dataset(context, operation, *input, func, **kwargs):
 
     return output
 
+def process_merge(context, operation, *input, **kwargs):
+    i = operation.inputs[1]
+
+    try:
+        # Copy variable from input 2 into input 1
+        input[0][i.var_name] = input[1][i.var_name]
+    except KeyError as e:
+        raise WPSError('Error variable {!s} was not found', e)
+
+    return input[0]
+
+def process_where(context, operation, *input, **kwargs):
+    cond = operation.get_parameter('cond')
+
+    if cond is None:
+        raise WPSError('Missing parameter "cond"')
+
+    match = re.match('(?P<left>\w+)(?P<comp>[<>=!]{1,2})(?P<right>-?\d+\.?\d?)', cond.values[0])
+
+    if match is None:
+        raise WPSError('Condition is not valid, check abstract')
+
+    comp = match['comp']
+
+    left = match['left']
+
+    if left not in input[0]:
+        raise WPSError('Did not find {!s} in input', left)
+
+    right = float(match['right'])
+
+    if comp == ">":
+        output = input[0].where(input[0][left]>right)
+    elif comp == ">=":
+        output = input[0].where(input[0][left]>=right)
+    elif comp == "<":
+        output = input[0].where(input[0][left]<right)
+    elif comp == "<=":
+        output = input[0].where(input[0][left]<=right)
+    elif comp == "==":
+        output = input[0].where(input[0][left]==right)
+    elif comp == "!=":
+        output = input[0].where(input[0][left]!=right)
+    else:
+        raise WPSError('Comparison with {!s} is not supported', comp)
+
+    return output
+
 # Two parent types
 # 1. Operating on a variable
 # 2. Operating on a Dataset e.g. resample, groupby
@@ -527,6 +576,8 @@ PROCESS_FUNC_MAP = {
     'CDAT.subset': None,
     'CDAT.subtract': partial(process_dataset, func=lambda x, y: x - y),
     'CDAT.sum': partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y, keep_attrs=True)),
+    'CDAT.merge': process_merge,
+    'CDAT.where': process_where,
 }
 
 
@@ -578,21 +629,34 @@ def render_abstract(description, min_inputs=1, max_inputs=1, **params):
 AXES = 'A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.'
 CONST = 'A float value that will be applied element-wise.'
 
+WHERE_ABS = """Filters elements based on a condition.
+
+Supported comparisons: >, >=, <, <=, ==, !=
+
+Left hand side should be a variable or axis name and the right can be an int or float.
+
+Examples:
+    lon>180
+    pr>0.000023408767
+"""
+
 ABSTRACT_MAP = {
     'CDAT.abs': render_abstract('Computes element-wise absolute value.'),
-    'CDAT.add': render_abstract('Adds two variables or a constant element-wise.', const=CONST),
-    'CDAT.aggregate': render_abstract('Aggregates a variable spanning two or more files.'),
-    'CDAT.divide': render_abstract('Divides a variable by another or a constant element-wise.', const=CONST),
+    'CDAT.add': render_abstract('Adds two variables or a constant element-wise.', const=CONST, max_inputs=2),
+    'CDAT.aggregate': render_abstract('Aggregates a variable spanning two or more files.', max_inputs=float('inf')),
+    'CDAT.divide': render_abstract('Divides a variable by another or a constant element-wise.', const=CONST, max_inputs=2),
     'CDAT.exp': render_abstract('Computes element-wise exponential value.'),
     'CDAT.log': render_abstract('Computes element-wise log value.'),
     'CDAT.max': render_abstract('Computes the maximum value over one or more axes.', axes=AXES),
     'CDAT.mean': render_abstract('Computes the mean over one or more axes.', axes=AXES),
     'CDAT.min': render_abstract('Computes the minimum value over one or more axes.', axes=AXES),
-    'CDAT.multiply': render_abstract('Multiplies a variable by another or a constant element-wise', const=CONST),
+    'CDAT.multiply': render_abstract('Multiplies a variable by another or a constant element-wise', const=CONST, max_inputs=2),
     'CDAT.power': render_abstract('Takes a variable to the power of another variable or a constant element-wise.', const=CONST),
     'CDAT.subset': render_abstract('Computes the subset of a variable defined by a domain.'),
-    'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST),
+    'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST, max_inputs=2),
     'CDAT.sum': render_abstract('Computes the sum over one or more axes.', axes=AXES),
+    'CDAT.merge': render_abstract('Merges variable from second input into first.', min_inputs=2, max_inputs=2),
+    'CDAT.where': render_abstract('')
 }
 
 
