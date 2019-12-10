@@ -510,15 +510,18 @@ def process_dataset(context, operation, *input, func, **kwargs):
     return output
 
 def process_merge(context, operation, *input, **kwargs):
-    i = operation.inputs[1]
+    input = list(input)
 
-    try:
-        # Copy variable from input 2 into input 1
-        input[0][i.var_name] = input[1][i.var_name]
-    except KeyError as e:
-        raise WPSError('Error variable {!s} was not found', e)
+    root = input.pop()
 
-    return input[0]
+    context.message('Merging {!s} variables', len(input))
+
+    for x in input:
+        root = root.merge(x)
+
+    context.message('Done merging variables')
+
+    return root
 
 def process_where(context, operation, *input, **kwargs):
     cond = operation.get_parameter('cond')
@@ -539,6 +542,8 @@ def process_where(context, operation, *input, **kwargs):
         raise WPSError('Did not find {!s} in input', left)
 
     right = float(match['right'])
+
+    context.message('Applying where with condition "{!s}{!s}{!s}"', left, comp, right)
 
     if comp == ">":
         output = input[0].where(input[0][left]>right)
@@ -563,6 +568,8 @@ def process_where(context, operation, *input, **kwargs):
         except ValueError:
             raise WPSError('Could not convert the "fillna" value to float.')
 
+        context.message('Filling nan with {!s}', fillna)
+
         output = output.fillna(fillna)
 
     return output
@@ -581,6 +588,8 @@ def process_groupby_bins(context, operation, *input, **kwargs):
         bins = [float(x) for x in b.values]
     except ValueError:
         raise WPSError('Failed to convert a bin value.')
+
+    context.message('Grouping {!s} into bins {!s}', variable, bins)
 
     groups = input[0].groupby_bins(variable, bins)
 
@@ -689,7 +698,7 @@ ABSTRACT_MAP = {
     'CDAT.subset': render_abstract('Computes the subset of a variable defined by a domain.'),
     'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST, max_inputs=2),
     'CDAT.sum': render_abstract('Computes the sum over one or more axes.', axes=AXES),
-    'CDAT.merge': render_abstract('Merges variable from second input into first.', min_inputs=2, max_inputs=2),
+    'CDAT.merge': render_abstract('Merges variable from second input into first.', min_inputs=2, max_inputs=float('inf')),
     'CDAT.where': render_abstract(WHERE_ABS, cond=COND, fillna=FILLNA),
     'CDAT.groupby_bins': render_abstract('Groups values of a variable into bins.', variable=VARIABLE, bins=BINS),
 }

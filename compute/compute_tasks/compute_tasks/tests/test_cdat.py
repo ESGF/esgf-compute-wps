@@ -65,7 +65,7 @@ def test_data():
     return TestDataGenerator()
 
 
-def test_groupby_bins_invalid_bin(test_data):
+def test_groupby_bins_invalid_bin(test_data, mocker):
     identifier = 'CDAT.groupby_bins'
 
     v1 = test_data.increasing_lat(name='pr')
@@ -84,11 +84,13 @@ def test_groupby_bins_invalid_bin(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     with pytest.raises(WPSError):
         cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
 
-def test_groupby_bins_missing_variable(test_data):
+def test_groupby_bins_missing_variable(test_data, mocker):
     identifier = 'CDAT.groupby_bins'
 
     v1 = test_data.increasing_lat(name='pr')
@@ -107,11 +109,13 @@ def test_groupby_bins_missing_variable(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     with pytest.raises(WPSError):
         cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
 
-def test_groupby_bins(test_data):
+def test_groupby_bins(test_data, mocker):
     identifier = 'CDAT.groupby_bins'
 
     v1 = test_data.increasing_lat(name='pr')
@@ -130,12 +134,14 @@ def test_groupby_bins(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
     assert len(output) == 8
 
 
-def test_where_fillna_cannot_convert(test_data):
+def test_where_fillna_cannot_convert(test_data, mocker):
     cond = 'pr>1'
     identifier = 'CDAT.where'
 
@@ -155,11 +161,13 @@ def test_where_fillna_cannot_convert(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     with pytest.raises(WPSError):
         cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
 
-def test_where_fillna(test_data):
+def test_where_fillna(test_data, mocker):
     cond = 'pr>1'
     identifier = 'CDAT.where'
 
@@ -179,6 +187,8 @@ def test_where_fillna(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
     expected = test_data.standard(1e22, name='pr')
@@ -186,7 +196,7 @@ def test_where_fillna(test_data):
     assert np.array_equal(output.pr.values, expected.pr.values)
 
 
-def test_where_unsupported_comp(test_data):
+def test_where_unsupported_comp(test_data, mocker):
     cond = 'tas>>45'
     identifier = 'CDAT.where'
 
@@ -206,11 +216,13 @@ def test_where_unsupported_comp(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     with pytest.raises(WPSError):
         cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
 
-def test_where_missing_var(test_data):
+def test_where_missing_var(test_data, mocker):
     cond = 'tas>-45'
     identifier = 'CDAT.where'
 
@@ -230,11 +242,13 @@ def test_where_missing_var(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     with pytest.raises(WPSError):
         cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
 
-def test_where_bad_cond(test_data):
+def test_where_bad_cond(test_data, mocker):
     cond = 'pr>--45'
     identifier = 'CDAT.where'
 
@@ -254,11 +268,13 @@ def test_where_bad_cond(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     with pytest.raises(WPSError):
         cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
 
-def test_where_missing_cond(test_data):
+def test_where_missing_cond(test_data, mocker):
     identifier = 'CDAT.where'
 
     v1 = test_data.standard(1, name='pr')
@@ -276,6 +292,8 @@ def test_where_missing_cond(test_data):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     with pytest.raises(WPSError):
         cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
@@ -290,7 +308,7 @@ def test_where_missing_cond(test_data):
     'lon==180',
     'lon!=180',
 ])
-def test_where(test_data, cond):
+def test_where(test_data, cond, mocker):
     identifier = 'CDAT.where'
 
     v1 = test_data.standard(1, name='pr')
@@ -309,6 +327,8 @@ def test_where(test_data, cond):
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
+    mocker.patch.object(context, 'message')
+
     result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
     assert 'pr' in result
@@ -319,29 +339,7 @@ def test_abstracts():
         assert x in cdat.ABSTRACT_MAP
 
 
-def test_merge_missing_input(test_data):
-    identifier = 'CDAT.merge'
-
-    v1 = test_data.standard(1, name='pr')
-
-    inputs = [v1, v1]
-
-    p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'), cwt.Variable('test.nc', 'prw'))
-
-    data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
-    }
-
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    with pytest.raises(WPSError):
-        result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
-
-
-def test_merge(test_data):
+def test_merge(test_data, mocker):
     identifier = 'CDAT.merge'
 
     v1 = test_data.standard(1, name='pr')
@@ -359,6 +357,8 @@ def test_merge(test_data):
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
 
     result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
