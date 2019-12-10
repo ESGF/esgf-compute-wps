@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import types
+import re
 import os
 from functools import partial
 
@@ -473,17 +474,39 @@ def subset_input(context, operation, input):
 def process_elementwise(context, operation, *input, func, **kwargs):
     v = context.variable
 
+    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
+
     output = input[0].copy()
 
-    output[v] = func(input[0][v])
+    input_var = output[v]
+
+    output[v] = func(input_var)
+
+    if rename:
+        name = operation.identifier.split('.')[-1]
+
+        output.rename({v: name})
 
     return output
 
 
 def process_reduce(context, operation, *input, func, **kwargs):
+    v = context.variable
+
     axes = operation.get_parameter('axes', required=True)
 
-    return func(input[0], axes.values)
+    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
+
+    output = input[0].copy()
+
+    output[v] = func(input[0][v], axes.values)
+
+    if rename:
+        name = operation.identifier.split('.')[-1]
+
+        output.rename({v: name})
+
+    return output
 
 
 def process_dataset(context, operation, *input, func, **kwargs):
@@ -491,13 +514,17 @@ def process_dataset(context, operation, *input, func, **kwargs):
 
     const = operation.get_parameter('const')
 
+    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
+
     output = input[0].copy()
 
     if const is None:
-        if len(input) < 2:
-            raise WPSError('Process {!r} is expecting 2 inputs', operation.identifier)
-
-        output[v] = func(input[0][v], input[1][v])
+        if len(input) == 2:
+            output[v] = func(input[0][v], input[1][v])
+        elif len(input) == 1:
+            output[v] = func(input[0][v])
+        else:
+            raise WPSError('Process {!r} was expecting either 1 or 2 inputs.', operation.identifier)
     else:
         try:
             const = float(const.values[0])
@@ -506,7 +533,98 @@ def process_dataset(context, operation, *input, func, **kwargs):
 
         output[v] = func(input[0][v], const)
 
+    if rename:
+        name = operation.identifier.split('.')[-1]
+
+        output.rename({v: name})
+
     return output
+
+def process_merge(context, operation, *input, **kwargs):
+    input = list(input)
+
+    root = input.pop()
+
+    context.message('Merging {!s} variables', len(input))
+
+    for x in input:
+        root = root.merge(x)
+
+    context.message('Done merging variables')
+
+    return root
+
+def process_where(context, operation, *input, **kwargs):
+    cond = operation.get_parameter('cond')
+
+    if cond is None:
+        raise WPSError('Missing parameter "cond"')
+
+    match = re.match('(?P<left>\w+)(?P<comp>[<>=!]{1,2})(?P<right>-?\d+\.?\d?)', cond.values[0])
+
+    if match is None:
+        raise WPSError('Condition is not valid, check abstract')
+
+    comp = match['comp']
+
+    left = match['left']
+
+    if left not in input[0]:
+        raise WPSError('Did not find {!s} in input', left)
+
+    right = float(match['right'])
+
+    context.message('Applying where with condition "{!s}{!s}{!s}"', left, comp, right)
+
+    if comp == ">":
+        output = input[0].where(input[0][left]>right)
+    elif comp == ">=":
+        output = input[0].where(input[0][left]>=right)
+    elif comp == "<":
+        output = input[0].where(input[0][left]<right)
+    elif comp == "<=":
+        output = input[0].where(input[0][left]<=right)
+    elif comp == "==":
+        output = input[0].where(input[0][left]==right)
+    elif comp == "!=":
+        output = input[0].where(input[0][left]!=right)
+    else:
+        raise WPSError('Comparison with {!s} is not supported', comp)
+
+    fillna = operation.get_parameter('fillna')
+
+    if fillna is not None:
+        try:
+            fillna = float(fillna.values[0])
+        except ValueError:
+            raise WPSError('Could not convert the "fillna" value to float.')
+
+        context.message('Filling nan with {!s}', fillna)
+
+        output = output.fillna(fillna)
+
+    return output
+
+def process_groupby_bins(context, operation, *input, **kwargs):
+    v = operation.get_parameter('variable', True)
+
+    variable = v.values[0]
+
+    if variable not in input[0]:
+        raise WPSError('Did not find variable {!s} in input.', variable)
+
+    b = operation.get_parameter('bins', True)
+
+    try:
+        bins = [float(x) for x in b.values]
+    except ValueError:
+        raise WPSError('Failed to convert a bin value.')
+
+    context.message('Grouping {!s} into bins {!s}', variable, bins)
+
+    groups = input[0].groupby_bins(variable, bins)
+
+    return groups
 
 # Two parent types
 # 1. Operating on a variable
@@ -527,6 +645,12 @@ PROCESS_FUNC_MAP = {
     'CDAT.subset': None,
     'CDAT.subtract': partial(process_dataset, func=lambda x, y: x - y),
     'CDAT.sum': partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y, keep_attrs=True)),
+    'CDAT.merge': process_merge,
+    'CDAT.where': process_where,
+    'CDAT.groupby_bins': process_groupby_bins,
+    'CDAT.count': partial(process_dataset, func=lambda x: getattr(x, 'count')()),
+    'CDAT.std': partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y, keep_attrs=True)),
+    'CDAT.var': partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y, keep_attrs=True)),
 }
 
 
@@ -577,22 +701,43 @@ def render_abstract(description, min_inputs=1, max_inputs=1, **params):
 
 AXES = 'A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.'
 CONST = 'A float value that will be applied element-wise.'
+COND = 'A condition that when true will preserve the value, otherwise the value will be set to "nan".'
+FILLNA = 'A float value to replace "nan" values."'
+VARIABLE = 'The variable to process.'
+BINS = 'A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).'
+
+WHERE_ABS = """Filters elements based on a condition.
+
+Supported comparisons: >, >=, <, <=, ==, !=
+
+Left hand side should be a variable or axis name and the right can be an int or float.
+
+Examples:
+    lon>180
+    pr>0.000023408767
+"""
 
 ABSTRACT_MAP = {
     'CDAT.abs': render_abstract('Computes element-wise absolute value.'),
-    'CDAT.add': render_abstract('Adds two variables or a constant element-wise.', const=CONST),
-    'CDAT.aggregate': render_abstract('Aggregates a variable spanning two or more files.'),
-    'CDAT.divide': render_abstract('Divides a variable by another or a constant element-wise.', const=CONST),
+    'CDAT.add': render_abstract('Adds two variables or a constant element-wise.', const=CONST, max_inputs=2),
+    'CDAT.aggregate': render_abstract('Aggregates a variable spanning two or more files.', max_inputs=float('inf')),
+    'CDAT.divide': render_abstract('Divides a variable by another or a constant element-wise.', const=CONST, max_inputs=2),
     'CDAT.exp': render_abstract('Computes element-wise exponential value.'),
     'CDAT.log': render_abstract('Computes element-wise log value.'),
     'CDAT.max': render_abstract('Computes the maximum value over one or more axes.', axes=AXES),
     'CDAT.mean': render_abstract('Computes the mean over one or more axes.', axes=AXES),
     'CDAT.min': render_abstract('Computes the minimum value over one or more axes.', axes=AXES),
-    'CDAT.multiply': render_abstract('Multiplies a variable by another or a constant element-wise', const=CONST),
+    'CDAT.multiply': render_abstract('Multiplies a variable by another or a constant element-wise', const=CONST, max_inputs=2),
     'CDAT.power': render_abstract('Takes a variable to the power of another variable or a constant element-wise.', const=CONST),
     'CDAT.subset': render_abstract('Computes the subset of a variable defined by a domain.'),
-    'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST),
+    'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST, max_inputs=2),
     'CDAT.sum': render_abstract('Computes the sum over one or more axes.', axes=AXES),
+    'CDAT.merge': render_abstract('Merges variable from second input into first.', min_inputs=2, max_inputs=float('inf')),
+    'CDAT.where': render_abstract(WHERE_ABS, cond=COND, fillna=FILLNA),
+    'CDAT.groupby_bins': render_abstract('Groups values of a variable into bins.', variable=VARIABLE, bins=BINS),
+    'CDAT.count': render_abstract('Computes count on each variable.'),
+    'CDAT.std': render_abstract('Computes the standard deviation over one or more axes.', axes=AXES),
+    'CDAT.var': render_abstract('Computes the variance over one or more axes.', axes=AXES),
 }
 
 

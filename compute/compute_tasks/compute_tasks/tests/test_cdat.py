@@ -7,8 +7,11 @@ import cdms2
 import cwt
 import dask
 import pytest
+import pandas as pd
+import numpy as np
 import dask.array as da
 import xarray as xr
+from OpenSSL import SSL
 from distributed.utils_test import (  # noqa: F401
     client,
     loop,
@@ -23,38 +26,396 @@ from compute_tasks import WPSError
 from compute_tasks.context import operation
 
 
-@pytest.mark.parametrize('identifier,expected_shape,params,multiple', [
-    ('CDAT.abs', (192, 288, 2, 3650), {}, False),
-    ('CDAT.max', (192, 288, 2), {'axes': 'time'}, False),
-    ('CDAT.max', (2, 3650), {'axes': ['lat', 'lon']}, False),
-    ('CDAT.add', (192, 288, 2, 3650), {}, True),
-])
-@pytest.mark.data
-def test_processing(esgf_data, identifier, expected_shape, params, multiple):
-    v = cwt.Variable(esgf_data.to_local_path('tas'), 'tas')
+MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
 
-    inputs = [v]
 
-    if multiple:
-        inputs.append(cwt.Variable(esgf_data.to_local_path('tas', file_index=1), 'tas'))
+class TestDataGenerator(object):
+    def standard(self, value, lat=90, lon=180, time=10, name=None):
+        if name is None:
+            name = 'pr'
+
+        data_vars = {
+            name: (['time', 'lat', 'lon'], np.full((time, lat, lon), value)),
+        }
+
+        coords = {
+            'time': pd.date_range('1990-01-01', periods=time),
+            'lat': (['lat'], np.arange(-90, 90, 180/lat)),
+            'lon': (['lon'], np.arange(0, 360, 360/lon)),
+        }
+
+        return xr.Dataset(data_vars, coords)
+
+    def increasing_lat(self, lat=90, lon=180, time=10, name=None):
+        if name is None:
+            name = 'pr'
+
+        data = np.array([np.array([np.full((lon), x) for x in range(lat)]) for _ in range(time)])
+
+        data_vars = {
+            name: (['time', 'lat', 'lon'], data),
+        }
+
+        coords = {
+            'time': pd.date_range('1990-01-01', periods=time),
+            'lat': (['lat'], np.arange(-90, 90, 180/lat)),
+            'lon': (['lon'], np.arange(0, 360, 360/lon)),
+        }
+
+        return xr.Dataset(data_vars, coords)
+
+@pytest.fixture
+def test_data():
+    return TestDataGenerator()
+
+
+def test_groupby_bins_invalid_bin(test_data, mocker):
+    identifier = 'CDAT.groupby_bins'
+
+    v1 = test_data.increasing_lat(name='pr')
+
+    inputs = [v1]
 
     p = cwt.Process(identifier)
-    p.add_inputs(*inputs)
-    p.add_parameters(**params)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(variable='tas', bins=[str(x) for x in range(0, 90, 10)]+['abcd'])
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in inputs]),
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
         'domain': json.dumps([]),
         'operation': json.dumps([p.to_dict()]),
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
-    ds_inputs = [xr.open_dataset(x.uri, chunks={'time': 100}) for x in inputs]
+    mocker.patch.object(context, 'message')
 
-    output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *ds_inputs)
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
-    assert tuple(output.dims.values()) == expected_shape
+
+def test_groupby_bins_missing_variable(test_data, mocker):
+    identifier = 'CDAT.groupby_bins'
+
+    v1 = test_data.increasing_lat(name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(variable='tas', bins=[str(x) for x in range(0, 90, 10)])
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+def test_groupby_bins(test_data, mocker):
+    identifier = 'CDAT.groupby_bins'
+
+    v1 = test_data.increasing_lat(name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(variable='pr', bins=[str(x) for x in range(0, 90, 10)])
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+    assert len(output) == 8
+
+
+def test_where_fillna_cannot_convert(test_data, mocker):
+    cond = 'pr>1'
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(cond=cond, fillna='asd')
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+def test_where_fillna(test_data, mocker):
+    cond = 'pr>1'
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(cond=cond, fillna='1e22')
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+    expected = test_data.standard(1e22, name='pr')
+
+    assert np.array_equal(output.pr.values, expected.pr.values)
+
+
+def test_where_unsupported_comp(test_data, mocker):
+    cond = 'tas>>45'
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(cond=cond)
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+def test_where_missing_var(test_data, mocker):
+    cond = 'tas>-45'
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(cond=cond)
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+def test_where_bad_cond(test_data, mocker):
+    cond = 'pr>--45'
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(cond=cond)
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+def test_where_missing_cond(test_data, mocker):
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+@pytest.mark.parametrize('cond', [
+    'lat>-45',
+    'lat>45',
+    'lon>360',
+    'lon>=360',
+    'lon<180',
+    'lon<=180',
+    'lon==180',
+    'lon!=180',
+])
+def test_where(test_data, cond, mocker):
+    identifier = 'CDAT.where'
+
+    v1 = test_data.standard(1, name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(cond=cond)
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+    assert 'pr' in result
+
+
+def test_abstracts():
+    for x in cdat.PROCESS_FUNC_MAP.keys():
+        assert x in cdat.ABSTRACT_MAP
+
+
+def test_merge(test_data, mocker):
+    identifier = 'CDAT.merge'
+
+    v1 = test_data.standard(1, name='pr')
+    v2 = test_data.standard(1, name='prw')
+
+    inputs = [v1, v2]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'), cwt.Variable('test.nc', 'prw'))
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'message')
+
+    result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+    assert 'pr' in result
+    assert 'prw' in result
+
+
+@pytest.mark.parametrize('identifier,v1,v2,output,extra', [
+    ('CDAT.abs', -2, None, 2, {}),
+    ('CDAT.add', 1, 2, 3, {}),
+    ('CDAT.add', 1, None, 3, {'const': '2'}),
+    ('CDAT.divide', 1, 2, 0.5, {}),
+    ('CDAT.divide', 1, None, 0.5, {'const': '2'}),
+    ('CDAT.exp', 1, None, 2.718281828459045, {}),
+    ('CDAT.log', 5, None, 1.6094379124341003, {}),
+    ('CDAT.multiply', 2, 3, 6, {}),
+    ('CDAT.multiply', 2, None, 6, {'const': '3'}),
+    ('CDAT.power', 2, 2, 4, {}),
+    ('CDAT.power', 2, None, 4, {'const': '2'}),
+    ('CDAT.subtract', 2, 1, 1, {}),
+    ('CDAT.subtract', 2, None, 3, {'const': '-1'}),
+    ('CDAT.count', 2, None, np.array(162000), {}),
+    ('CDAT.mean', 2, None, np.full((90, 180), 2), {'axes': ['time']}),
+    ('CDAT.std', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
+    ('CDAT.var', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
+])
+def test_processing(test_data, identifier, v1, v2, output, extra):
+    inputs = [test_data.standard(v1)]
+
+    if v2 is not None:
+        inputs.append(test_data.standard(v2))
+
+    p = cwt.Process(identifier)
+    p.add_parameters(**extra)
+
+    vars = [cwt.Variable('test{!s}.nc'.format(str(x)), 'pr') for x, _ in enumerate(inputs)]
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in vars]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+    if isinstance(output, np.ndarray):
+        assert np.array_equal(result.pr.values, output)
+    else:
+        expected = test_data.standard(output)
+
+        assert np.array_equal(result.pr.values, expected.pr.values)
 
 
 @pytest.mark.data

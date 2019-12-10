@@ -218,6 +218,9 @@ pipeline {
         }
 
       }
+      when {
+        branch 'devel'
+      }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
       }
