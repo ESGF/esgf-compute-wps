@@ -218,16 +218,19 @@ pipeline {
         }
 
       }
+      when {
+        anyOf {
+          branch 'master'
+          branch 'devel'
+        }
+
+      }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
           sh '''#! /bin/bash
-
-export 
-
-exit 1
 
 KUBECONFIG="--kubeconfig /jenkins-config/jenkins-config"
 
@@ -283,9 +286,12 @@ fi
 
 echo "SET_FLAGS: ${SET_FLAGS}"
 
-helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
+if [[ "${BRANCH_NAME}" == "devel" ]]
+then
+  helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
 
-echo "RETURN $?"
+  echo "RETURN $?"
+fi
 
 git config user.email ${GIT_EMAIL}
 
