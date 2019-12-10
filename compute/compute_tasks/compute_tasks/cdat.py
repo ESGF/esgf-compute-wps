@@ -567,6 +567,25 @@ def process_where(context, operation, *input, **kwargs):
 
     return output
 
+def process_groupby_bins(context, operation, *input, **kwargs):
+    v = operation.get_parameter('variable', True)
+
+    variable = v.values[0]
+
+    if variable not in input[0]:
+        raise WPSError('Did not find variable {!s} in input.', variable)
+
+    b = operation.get_parameter('bins', True)
+
+    try:
+        bins = [float(x) for x in b.values]
+    except ValueError:
+        raise WPSError('Failed to convert a bin value.')
+
+    groups = input[0].groupby_bins(variable, bins)
+
+    return groups
+
 # Two parent types
 # 1. Operating on a variable
 # 2. Operating on a Dataset e.g. resample, groupby
@@ -588,6 +607,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.sum': partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y, keep_attrs=True)),
     'CDAT.merge': process_merge,
     'CDAT.where': process_where,
+    'CDAT.groupby_bins': process_groupby_bins,
 }
 
 
@@ -640,6 +660,8 @@ AXES = 'A list of axes to reduce dimensionality over. Separate multiple values w
 CONST = 'A float value that will be applied element-wise.'
 COND = 'A condition that when true will preserve the value, otherwise the value will be set to "nan".'
 FILLNA = 'A float value to replace "nan" values."'
+VARIABLE = 'The variable to process.'
+BINS = 'A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).'
 
 WHERE_ABS = """Filters elements based on a condition.
 
@@ -668,7 +690,8 @@ ABSTRACT_MAP = {
     'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST, max_inputs=2),
     'CDAT.sum': render_abstract('Computes the sum over one or more axes.', axes=AXES),
     'CDAT.merge': render_abstract('Merges variable from second input into first.', min_inputs=2, max_inputs=2),
-    'CDAT.where': render_abstract(WHERE_ABS, cond=COND, fillna=FILLNA)
+    'CDAT.where': render_abstract(WHERE_ABS, cond=COND, fillna=FILLNA),
+    'CDAT.groupby_bins': render_abstract('Groups values of a variable into bins.', variable=VARIABLE, bins=BINS),
 }
 
 

@@ -26,33 +26,120 @@ from compute_tasks.context import operation
 
 
 class TestDataGenerator(object):
-    def standard(self, value, name=None):
+    def standard(self, value, lat=90, lon=180, time=10, name=None):
         if name is None:
             name = 'pr'
 
         data_vars = {
-            name: (['time', 'lat', 'lon'], np.full((432, 180, 360), value)),
+            name: (['time', 'lat', 'lon'], np.full((time, lat, lon), value)),
         }
 
         coords = {
-            'time': pd.date_range('1990-01-01', periods=432),
-            'lat': (['lat'], np.arange(-90, 90)),
-            'lon': (['lon'], np.arange(0, 360)),
+            'time': pd.date_range('1990-01-01', periods=time),
+            'lat': (['lat'], np.arange(-90, 90, 180/lat)),
+            'lon': (['lon'], np.arange(0, 360, 360/lon)),
         }
 
         return xr.Dataset(data_vars, coords)
 
+    def increasing_lat(self, lat=90, lon=180, time=10, name=None):
+        if name is None:
+            name = 'pr'
+
+        data = np.array([np.array([np.full((lon), x) for x in range(lat)]) for _ in range(time)])
+
+        data_vars = {
+            name: (['time', 'lat', 'lon'], data),
+        }
+
+        coords = {
+            'time': pd.date_range('1990-01-01', periods=time),
+            'lat': (['lat'], np.arange(-90, 90, 180/lat)),
+            'lon': (['lon'], np.arange(0, 360, 360/lon)),
+        }
+
+        return xr.Dataset(data_vars, coords)
 
 @pytest.fixture
 def test_data():
     return TestDataGenerator()
 
 
+def test_groupby_bins_invalid_bin(test_data):
+    identifier = 'CDAT.groupby_bins'
+
+    v1 = test_data.increasing_lat(name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(variable='tas', bins=[str(x) for x in range(0, 90, 10)]+['abcd'])
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+def test_groupby_bins_missing_variable(test_data):
+    identifier = 'CDAT.groupby_bins'
+
+    v1 = test_data.increasing_lat(name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(variable='tas', bins=[str(x) for x in range(0, 90, 10)])
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    with pytest.raises(WPSError):
+        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+
+def test_groupby_bins(test_data):
+    identifier = 'CDAT.groupby_bins'
+
+    v1 = test_data.increasing_lat(name='pr')
+
+    inputs = [v1]
+
+    p = cwt.Process(identifier)
+    p.add_inputs(cwt.Variable('test.nc', 'pr'))
+    p.add_parameters(variable='pr', bins=[str(x) for x in range(0, 90, 10)])
+
+    data_inputs = {
+        'variable': json.dumps([x.to_dict() for x in p.inputs]),
+        'domain': json.dumps([]),
+        'operation': json.dumps([p.to_dict()]),
+    }
+
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
+
+    assert len(output) == 8
+
+
 def test_where_fillna_cannot_convert(test_data):
     cond = 'pr>1'
     identifier = 'CDAT.where'
 
-    v1 = test_data.standard(1, 'pr')
+    v1 = test_data.standard(1, name='pr')
 
     inputs = [v1]
 
@@ -76,7 +163,7 @@ def test_where_fillna(test_data):
     cond = 'pr>1'
     identifier = 'CDAT.where'
 
-    v1 = test_data.standard(1, 'pr')
+    v1 = test_data.standard(1, name='pr')
 
     inputs = [v1]
 
@@ -94,7 +181,7 @@ def test_where_fillna(test_data):
 
     output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
-    expected = test_data.standard(1e22, 'pr')
+    expected = test_data.standard(1e22, name='pr')
 
     assert np.array_equal(output.pr.values, expected.pr.values)
 
@@ -103,7 +190,7 @@ def test_where_unsupported_comp(test_data):
     cond = 'tas>>45'
     identifier = 'CDAT.where'
 
-    v1 = test_data.standard(1, 'pr')
+    v1 = test_data.standard(1, name='pr')
 
     inputs = [v1]
 
@@ -127,7 +214,7 @@ def test_where_missing_var(test_data):
     cond = 'tas>-45'
     identifier = 'CDAT.where'
 
-    v1 = test_data.standard(1, 'pr')
+    v1 = test_data.standard(1, name='pr')
 
     inputs = [v1]
 
@@ -151,7 +238,7 @@ def test_where_bad_cond(test_data):
     cond = 'pr>--45'
     identifier = 'CDAT.where'
 
-    v1 = test_data.standard(1, 'pr')
+    v1 = test_data.standard(1, name='pr')
 
     inputs = [v1]
 
@@ -174,7 +261,7 @@ def test_where_bad_cond(test_data):
 def test_where_missing_cond(test_data):
     identifier = 'CDAT.where'
 
-    v1 = test_data.standard(1, 'pr')
+    v1 = test_data.standard(1, name='pr')
 
     inputs = [v1]
 
@@ -206,7 +293,7 @@ def test_where_missing_cond(test_data):
 def test_where(test_data, cond):
     identifier = 'CDAT.where'
 
-    v1 = test_data.standard(1, 'pr')
+    v1 = test_data.standard(1, name='pr')
 
     inputs = [v1]
 
@@ -235,7 +322,7 @@ def test_abstracts():
 def test_merge_missing_input(test_data):
     identifier = 'CDAT.merge'
 
-    v1 = test_data.standard(1, 'pr')
+    v1 = test_data.standard(1, name='pr')
 
     inputs = [v1, v1]
 
@@ -257,8 +344,8 @@ def test_merge_missing_input(test_data):
 def test_merge(test_data):
     identifier = 'CDAT.merge'
 
-    v1 = test_data.standard(1, 'pr')
-    v2 = test_data.standard(1, 'prw')
+    v1 = test_data.standard(1, name='pr')
+    v2 = test_data.standard(1, name='prw')
 
     inputs = [v1, v2]
 
