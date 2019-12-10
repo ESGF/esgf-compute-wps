@@ -474,23 +474,47 @@ def subset_input(context, operation, input):
 def process_elementwise(context, operation, *input, func, **kwargs):
     v = context.variable
 
+    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
+
     output = input[0].copy()
 
-    output[v] = func(input[0][v])
+    input_var = output[v]
+
+    output[v] = func(input_var)
+
+    if rename:
+        name = operation.identifier.split('.')[-1]
+
+        output.rename({v: name})
 
     return output
 
 
 def process_reduce(context, operation, *input, func, **kwargs):
+    v = context.variable
+
     axes = operation.get_parameter('axes', required=True)
 
-    return func(input[0], axes.values)
+    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
+
+    output = input[0].copy()
+
+    output[v] = func(input[0], axes.values)
+
+    if rename:
+        name = operation.identifier.split('.')[-1]
+
+        output.rename({v: name})
+
+    return output
 
 
 def process_dataset(context, operation, *input, func, **kwargs):
     v = context.variable
 
     const = operation.get_parameter('const')
+
+    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
 
     output = input[0].copy()
 
@@ -506,6 +530,11 @@ def process_dataset(context, operation, *input, func, **kwargs):
             raise WPSError('Invalid value {!r} with type {!s}, expecting a float value.', constant, type(constant))
 
         output[v] = func(input[0][v], const)
+
+    if rename:
+        name = operation.identifier.split('.')[-1]
+
+        output.rename({v: name})
 
     return output
 
