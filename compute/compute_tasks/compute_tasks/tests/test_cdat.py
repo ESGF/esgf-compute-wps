@@ -380,6 +380,7 @@ def test_merge(test_data, mocker):
     ('CDAT.power', 2, None, 4, {'const': '2'}),
     ('CDAT.subtract', 2, 1, 1, {}),
     ('CDAT.subtract', 2, None, 3, {'const': '-1'}),
+    ('CDAT.count', 2, None, np.array(162000), {}),
 ])
 def test_processing(test_data, identifier, v1, v2, output, extra):
     inputs = [test_data.standard(v1)]
@@ -402,9 +403,12 @@ def test_processing(test_data, identifier, v1, v2, output, extra):
 
     result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
-    expected = test_data.standard(output)
+    if isinstance(output, np.ndarray):
+        assert np.array_equal(result.pr.values, output)
+    else:
+        expected = test_data.standard(output)
 
-    assert np.array_equal(result.pr.values, expected.pr.values)
+        assert np.array_equal(result.pr.values, expected.pr.values)
 
 
 @pytest.mark.data

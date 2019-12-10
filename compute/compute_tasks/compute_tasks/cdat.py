@@ -519,10 +519,12 @@ def process_dataset(context, operation, *input, func, **kwargs):
     output = input[0].copy()
 
     if const is None:
-        if len(input) < 2:
-            raise WPSError('Process {!r} is expecting 2 inputs', operation.identifier)
-
-        output[v] = func(input[0][v], input[1][v])
+        if len(input) == 2:
+            output[v] = func(input[0][v], input[1][v])
+        elif len(input) == 1:
+            output[v] = func(input[0][v])
+        else:
+            raise WPSError('Process {!r} was expecting either 1 or 2 inputs.', operation.identifier)
     else:
         try:
             const = float(const.values[0])
@@ -646,6 +648,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.merge': process_merge,
     'CDAT.where': process_where,
     'CDAT.groupby_bins': process_groupby_bins,
+    'CDAT.count': partial(process_dataset, func=lambda x: getattr(x, 'count')()),
 }
 
 
@@ -730,6 +733,7 @@ ABSTRACT_MAP = {
     'CDAT.merge': render_abstract('Merges variable from second input into first.', min_inputs=2, max_inputs=float('inf')),
     'CDAT.where': render_abstract(WHERE_ABS, cond=COND, fillna=FILLNA),
     'CDAT.groupby_bins': render_abstract('Groups values of a variable into bins.', variable=VARIABLE, bins=BINS),
+    'CDAT.count': render_abstract('Computes count on each variable.'),
 }
 
 
