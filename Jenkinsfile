@@ -219,7 +219,11 @@ pipeline {
 
       }
       when {
-        branch 'devel'
+        anyOf {
+          branch 'master'
+          branch 'devel'
+        }
+
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
@@ -282,9 +286,12 @@ fi
 
 echo "SET_FLAGS: ${SET_FLAGS}"
 
-helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
+if [[ "${BRANCH_NAME}" == "devel" ]]
+then
+  helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
 
-echo "RETURN $?"
+  echo "RETURN $?"
+fi
 
 git config user.email ${GIT_EMAIL}
 
