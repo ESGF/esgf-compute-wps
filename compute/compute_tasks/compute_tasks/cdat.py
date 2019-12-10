@@ -4,6 +4,7 @@ import types
 import re
 import os
 from functools import partial
+from xml.sax.saxutils import escape
 
 import cdms2
 import cwt
@@ -696,7 +697,7 @@ def render_abstract(description, min_inputs=1, max_inputs=1, **params):
         'params': params,
     }
 
-    return template.render(**kwargs)
+    return escape(template.render(**kwargs))
 
 
 AXES = 'A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.'
