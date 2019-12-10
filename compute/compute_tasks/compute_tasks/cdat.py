@@ -736,6 +736,8 @@ ABSTRACT_MAP = {
     'CDAT.where': render_abstract(WHERE_ABS, cond=COND, fillna=FILLNA),
     'CDAT.groupby_bins': render_abstract('Groups values of a variable into bins.', variable=VARIABLE, bins=BINS),
     'CDAT.count': render_abstract('Computes count on each variable.'),
+    'CDAT.std': render_abstract('Computes the standard deviation over one or more axes.', axes=AXES),
+    'CDAT.var': render_abstract('Computes the variance over one or more axes.', axes=AXES),
 }
 
 
