@@ -381,6 +381,9 @@ def test_merge(test_data, mocker):
     ('CDAT.subtract', 2, 1, 1, {}),
     ('CDAT.subtract', 2, None, 3, {'const': '-1'}),
     ('CDAT.count', 2, None, np.array(162000), {}),
+    ('CDAT.mean', 2, None, np.full((90, 180), 2), {'axes': ['time']}),
+    ('CDAT.std', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
+    ('CDAT.var', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
 ])
 def test_processing(test_data, identifier, v1, v2, output, extra):
     inputs = [test_data.standard(v1)]

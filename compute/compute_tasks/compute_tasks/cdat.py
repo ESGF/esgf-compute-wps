@@ -499,7 +499,7 @@ def process_reduce(context, operation, *input, func, **kwargs):
 
     output = input[0].copy()
 
-    output[v] = func(input[0], axes.values)
+    output[v] = func(input[0][v], axes.values)
 
     if rename:
         name = operation.identifier.split('.')[-1]
@@ -649,6 +649,8 @@ PROCESS_FUNC_MAP = {
     'CDAT.where': process_where,
     'CDAT.groupby_bins': process_groupby_bins,
     'CDAT.count': partial(process_dataset, func=lambda x: getattr(x, 'count')()),
+    'CDAT.std': partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y, keep_attrs=True)),
+    'CDAT.var': partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y, keep_attrs=True)),
 }
 
 
