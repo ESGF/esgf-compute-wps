@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import dask.array as da
 import xarray as xr
+from OpenSSL import SSL
 from distributed.utils_test import (  # noqa: F401
     client,
     loop,
@@ -23,6 +24,9 @@ from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import WPSError
 from compute_tasks.context import operation
+
+
+MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
 
 
 class TestDataGenerator(object):
