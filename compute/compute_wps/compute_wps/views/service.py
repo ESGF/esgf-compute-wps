@@ -7,7 +7,6 @@ import re
 
 import zmq
 from django import http
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from owslib import wps
 
@@ -227,7 +226,6 @@ def handle_request(request):
 
 
 @require_http_methods(['GET', 'POST'])
-@csrf_exempt
 def wps_entrypoint(request):
     response = None
 

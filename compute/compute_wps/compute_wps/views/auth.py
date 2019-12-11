@@ -9,7 +9,6 @@ from django.contrib.auth import login
 from django.contrib.auth import logout
 from django.db import IntegrityError
 from django.shortcuts import redirect
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from openid.consumer import discover
 from myproxy.client import MyProxyClient
@@ -144,7 +143,6 @@ def send_welcome_mail(user):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def authorization(request):
     if not request.user.is_authenticated:
         try:
@@ -179,7 +177,6 @@ def authorization(request):
 
 
 @require_http_methods(['POST'])
-@ensure_csrf_cookie
 def user_login_openid(request):
     try:
         form = forms.OpenIDForm(request.POST)
@@ -221,7 +218,6 @@ def add_new_user(openid_url, attrs):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def user_login_openid_callback(request):
     try:
         openid_url, attrs = openid.complete(request)
@@ -267,7 +263,6 @@ def user_login_openid_callback(request):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def user_logout(request):
     try:
         common.authentication_required(request)
@@ -288,7 +283,6 @@ def user_logout(request):
 
 
 @require_http_methods(['POST'])
-@ensure_csrf_cookie
 def login_oauth2(request):
     try:
         common.authentication_required(request)
@@ -323,7 +317,6 @@ def login_oauth2(request):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def oauth2_callback(request):
     user = None
 
@@ -365,7 +358,6 @@ def oauth2_callback(request):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def user_cert(request):
     try:
         metrics.WPS_CERT_DOWNLOAD.inc()
@@ -396,7 +388,6 @@ def user_cert(request):
 
 
 @require_http_methods(['POST'])
-@ensure_csrf_cookie
 def login_mpc(request):
     try:
         common.authentication_required(request)

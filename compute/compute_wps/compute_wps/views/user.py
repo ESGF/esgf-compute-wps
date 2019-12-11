@@ -1,7 +1,6 @@
 from builtins import str
 import json
 
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
@@ -12,7 +11,6 @@ logger = common.logger
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def user_details(request):
     try:
         common.authentication_required(request)
@@ -23,7 +21,6 @@ def user_details(request):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def user_stats(request):
     try:
         common.authentication_required(request)
@@ -49,7 +46,6 @@ def user_stats(request):
 
 
 @require_http_methods(['POST'])
-@ensure_csrf_cookie
 def update(request):
     try:
         common.authentication_required(request)
@@ -74,7 +70,6 @@ def update(request):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def regenerate(request):
     try:
         common.authentication_required(request)

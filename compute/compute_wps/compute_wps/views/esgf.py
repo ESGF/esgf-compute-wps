@@ -17,7 +17,6 @@ from django.core.cache import cache
 from django.http import HttpResponse
 from django.http import JsonResponse
 from django.views.decorators.cache import cache_page
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
@@ -391,7 +390,6 @@ def search_solr(dataset_id, index_node, shard=None, query=None):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def search_variable(request):
     try:
         common.authentication_required(request)
@@ -430,7 +428,6 @@ def search_variable(request):
 
 
 @require_http_methods(['GET'])
-@ensure_csrf_cookie
 def search_dataset(request):
     try:
         common.authentication_required(request)
@@ -456,7 +453,6 @@ def search_dataset(request):
 
 
 @require_http_methods(['POST'])
-@ensure_csrf_cookie
 def combine(request):
     try:
         try:
