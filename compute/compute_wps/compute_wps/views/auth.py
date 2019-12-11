@@ -184,7 +184,7 @@ def user_login_openid(request):
     try:
         form = forms.OpenIDForm(request.POST)
 
-        data = common.validate_form(form, ('openid_url', 'next'))
+        data = common.validate_form(form, ('openid_url', 'next', 'response'))
 
         url = openid.begin(request, **data)
     except WPSError as e:
@@ -234,23 +234,36 @@ def user_login_openid_callback(request):
         login(request, user)
 
         next = request.GET.get('next', None)
+
+        response = request.GET.get('response', 'redirect')
     except WPSError as e:
         logger.exception('Error handling OpenID callback')
 
         redirect_url = '{!s}/auth/login?error={!s}'.format(settings.EXTERNAL_URL, str(e))
 
-        return redirect(redirect_url) 
+        if response == 'redirect':
+            return redirect(redirect_url)
+        elif resposne == 'json':
+            return http.JsonResponse({'error': str(e)})
+        else:
+            return http.HttpResponseBadRequest('Unknown response type {!s}'.format(response))
     else:
         metrics.track_login(metrics.WPS_OPENID_LOGIN_SUCCESS,
                             user.auth.openid_url)
 
-        redirect_url = '{!s}?expires={!s}'.format(settings.OPENID_CALLBACK_SUCCESS_URL,
-                                                  request.session.get_expiry_date())
+        if response == 'redirect':
+            redirect_url = '{!s}?expires={!s}'.format(settings.OPENID_CALLBACK_SUCCESS_URL,
+                                                      request.session.get_expiry_date())
 
-        if next is not None and next != 'null' and next != '':
-            redirect_url = '{!s}&next={!s}'.format(redirect_url, next)
+            if next is not None and next != 'null' and next != '':
+                redirect_url = '{!s}&next={!s}'.format(redirect_url, next)
 
-        return redirect(redirect_url)
+            return redirect(redirect_url)
+        elif response == 'json':
+            return http.JsonResponse({'expires': request.session.get_expiry_date(),
+                                      'token': user.auth.api_key})
+        else:
+            return http.HttpResponseBadRequest('Unknown response type {!s}'.format(response))
 
 
 @require_http_methods(['GET'])

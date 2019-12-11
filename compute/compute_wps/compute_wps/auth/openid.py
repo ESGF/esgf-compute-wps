@@ -85,7 +85,7 @@ def services(openid_url, service_urns):
     return list(requested.values())
 
 
-def begin(request, openid_url, next):
+def begin(request, openid_url, next, **kwargs):
     disc = manager.Discovery(request.session, openid_url)
 
     # Clean up any residual data from pevious attempts
@@ -120,8 +120,13 @@ def begin(request, openid_url, next):
 
     return_to = settings.OPENID_RETURN_TO_URL
 
-    if next is not None:
+    if next is not None and next != "":
         return_to = '{!s}?next={!s}'.format(return_to, next)
+
+    response = kwargs.get('response', None)
+
+    if response is not None:
+        return_to = '{!s}?response={!s}'.format(return_to, response)
 
     url = auth_request.redirectURL(settings.OPENID_TRUST_ROOT_URL, return_to)
 
