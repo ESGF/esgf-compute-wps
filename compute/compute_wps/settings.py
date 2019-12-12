@@ -213,8 +213,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-if not DEBUG:
-    MIDDLEWARE.insert(4, 'django.middleware.csrf.CsrfViewMiddleware')
+# if not DEBUG:
+#     MIDDLEWARE.insert(4, 'django.middleware.csrf.CsrfViewMiddleware')
 
 if DEBUG:
     MIDDLEWARE.insert(4, 'corsheaders.middleware.CorsMiddleware')
