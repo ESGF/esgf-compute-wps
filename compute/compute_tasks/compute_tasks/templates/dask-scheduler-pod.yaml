@@ -30,10 +30,10 @@ spec:
   {% if not dev %}
     resources:
       limits:
-        cpu: {{ shceduler_cpu }}
+        cpu: {{ scheduler_cpu }}
         memory: {{ scheduler_memory }}
       requests:
-        cpu: {{ shceduler_cpu }}
+        cpu: {{ scheduler_cpu }}
         memory: {{ scheduler_memory }}
   {% endif %}
     command:
