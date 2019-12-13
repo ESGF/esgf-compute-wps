@@ -3,6 +3,7 @@
 import types
 import re
 import os
+from contextlib import contextmanager
 from functools import partial
 from xml.sax.saxutils import escape
 
@@ -212,73 +213,123 @@ def get_user_cert(context):
     return tf
 
 
-def localize_protected(context, urls, cert_path):
-    """ Localize protected data.
+@contextmanager
+def chdir_cert_dir(dirname):
+    old_cwd = os.getcwd()
 
-    Attempt to localize protected data. A unique path is generated and checked if it already exists.
-    If the cached file does not exist then we localize it. This supports retry attempts for small
-    outages.
+    os.chdir(dirname)
 
-    Args:
-        context (context.OperationContext): The current context.a
-        urls (list): A list of urls to localize.
-        cert_path (str): A str path to an SSL client certificate used to access the remote data.
+    logger.info('Changed directory %s -> %s', old_cwd, dirname)
 
-    Returns:
-        list: Of paths to the localized content.
-    """
-    new_urls = []
+    yield
 
-    session = requests.Session()
+    os.chdir(old_cwd)
 
-    session.cert = cert_path
-
-    for url in urls:
-        # TODO make a smarter version of cache_local_path.
-        cached_path = context.cache_local_path(url)
-
-        # Already exists, skip localizing.
-        if not os.path.exists(cached_path):
-            store = xr.backends.PydapDataStore.open(url, session=session)
-
-            ds = xr.open_dataset(store)
-
-            # Retry 4 times start with a 1 second delay.
-            state_mixin.retry(4, 1)(ds.to_netcdf)(cached_path, format='NETCDF3_64BIT', engine='netcdf4')
-
-        new_urls.append(cached_path)
-
-    return new_urls
+    logger.info('Changed directory %s -> %s', dirname, old_cwd)
 
 
-def filter_protected(context, urls):
-    """ Filters the protected urls.
+def write_dodsrc(cert_file):
+    with open('.dodsrc', 'w') as outfile:
+        outfile.write('HTTP.COOKIEJAR=.cookies\n')
+        outfile.write('HTTP.SSL.CERTIFICATE={!s}\n'.format(cert_file))
+        outfile.write('HTTP.SSL.KEY={!s}\n'.format(cert_file))
+        outfile.write('HTTP.SSL.CAPATH={!s}\n'.format(cert_file))
+        outfile.write('http.ssl.validate=false\n')
 
-    Filter the protected urls from the unprotected. Also returns a certificate if
-    protected urls are discovered.
 
-    Args:
-        context (context.OperationContext): The current context.
-        urls (list): List of str urls to check.
-    """
-    protected = []
-    unprotected = []
-    cert_tempfile = None
+def update_shape(shape, index, size):
+    shape.pop(index)
 
-    # Determine which files are accessible
-    for x in urls:
-        if not check_access(x):
-            if cert_tempfile is None:
-                cert_tempfile = get_user_cert(context)
+    shape.insert(index, size)
 
-            if not check_access(x, cert=cert_tempfile.name):
-                raise WPSError('Failed to access input {!r}', x)
+    return shape
 
-            protected.append(x)
-        else:
-            unprotected.append(x)
 
-    return unprotected, protected, cert_tempfile
+def get_protected_data(url, var_name, cert, **chunk):
+    with tempfile.TemporaryDirectory() as tempdir:
+        with chdir_cert_dir(tempdir):
+            with open('cert.pem', 'w') as outfile:
+                outfile.write(cert)
+
+            write_dodsrc(os.path.join(tempdir, 'cert.pem'))
+
+            ds = xr.open_dataset(url)
+
+            data = ds.isel(chunk)[var_name]
+
+    return data
+
+
+def build_dask_array(url, var_name, dataarray, chunks, cert):
+    chunk_name = list(chunks.keys())[0]
+
+    chunk_step = list(chunks.values())[0]
+
+    index = dataarray.get_axis_num(chunk_name)
+
+    size = dataarray.shape[index]
+
+    shape = list(dataarray.shape)
+
+    chunk_slices = [slice(x, min(x+chunk_step, size)) for x in range(0, size, chunk_step)]
+
+    chunk_shapes = [update_shape(shape.copy(), index, x.stop-x.start) for x in chunk_slices]
+
+    delayed = [dask.delayed(get_protected_data)(url, var_name, cert, time=x) for x in chunk_slices]
+
+    dask_da = [da.from_delayed(y, shape=x, dtype=dataarray.dtype) for x, y in zip(chunk_shapes, delayed)]
+
+    concat = da.concatenate(dask_da, axis=0)
+
+    return concat
+
+
+def build_dataarray(url, var_name, da, chunks, cert):
+    dask_array = build_dask_array(url, var_name, da, chunks, cert)
+
+    data_array = xr.DataArray(dask_array, dims=da.dims, coords=da.coords, name=da.name, attrs=da.attrs)
+
+    return data_array
+
+
+def build_dataset(url, var_name, ds, chunks, cert):
+    data_array = build_dataarray(url, var_name, ds[var_name], chunks, cert)
+
+    data_vars = dict(ds.data_vars)
+
+    data_vars[var_name] = data_array
+
+    data_set = xr.Dataset(data_vars, attrs=ds.attrs)
+
+    return data_set
+
+
+def open_protected_dataset(context, url, var_name, chunks, cert_tempfile):
+    with chdir_cert_dir(os.path.dirname(cert_tempfile.name)):
+        write_dodsrc(cert_tempfile.name)
+
+        ds = xr.open_dataset(url, autoclose=True)
+
+        with open(cert_tempfile.name) as infile:
+            cert = infile.read()
+
+        ds = build_dataset(url, var_name, ds, chunks, cert)
+
+    return ds
+
+
+def open_dataset(context, url, var_name, chunks):
+    if not check_access(url):
+        cert_tempfile = get_user_cert(context)
+
+        if not check_access(url, cert_tempfile.name):
+            raise WPSError('Failed to access input {!r}', url)
+
+        ds = open_protected_dataset(context, url, var_name, chunks, cert_tempfile)
+    else:
+        ds = xr.open_dataset(url, chunks=chunks)
+
+    return ds
 
 
 def gather_inputs(context, process):
@@ -299,24 +350,14 @@ def gather_inputs(context, process):
         list: A list of ``xarray.DataSet``s.
     """
     # TODO make chunks smarter
-    chunks = {
-        'time': 100,
-    }
+    chunks = {'time': 100}
 
-    urls, protected, cert_tempfile = filter_protected(context, [x.uri for x in process.inputs])
-
-    # Localize any files requiring an SSL client certificate
-    # TODO figure out a way to get PydapDataStore to work with dask.distributed,
-    # currently fails with recurrsion error.
-    if len(protected) > 0:
-        protected = localize_protected(context, protected, cert_tempfile.name)
+    datasets = [open_dataset(context, x.uri, x.var_name, chunks) for x in process.inputs]
 
     if process.identifier == 'CDAT.aggregate':
-        gathered = [xr.open_mfdataset(urls+protected, chunks=chunks, combine='by_coords')]
-    else:
-        gathered = [xr.open_dataset(x, chunks=chunks) for x in urls+protected]
+        datasets = [xr.combine_by_coords(datasets)]
 
-    return gathered
+    return datasets
 
 
 def build_workflow(context):
@@ -419,8 +460,10 @@ def workflow_func(self, context):
 
         delayed.extend(gather_workflow_outputs(context, interm, context.output_ops()))
 
-        if 'store_intermediates' in context.gparameters:
-            delayed.extend(gather_workflow_outputs(context, interm, context.interm_ops()))
+        # TODO possibly re-enable after solving slow large outputs. Also should move
+        # this to individual processes.
+        # if 'store_intermediates' in context.gparameters:
+        #     delayed.extend(gather_workflow_outputs(context, interm, context.interm_ops()))
 
         context.message('Gathered {!s} outputs', len(delayed))
 

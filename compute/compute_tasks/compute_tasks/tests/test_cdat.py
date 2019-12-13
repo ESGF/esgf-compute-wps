@@ -419,50 +419,6 @@ def test_processing(test_data, identifier, v1, v2, output, extra):
 
 
 @pytest.mark.data
-@pytest.mark.myproxyclient
-def test_protected_data(mocker, esgf_data):
-    mocker.patch.dict(os.environ, {
-        'DATA_PATH': '/',
-    })
-
-    self = mocker.MagicMock()
-
-    v1 = cwt.Variable(esgf_data.data['tas-opendap-cmip5']['files'][0], 'tas')
-
-    subset = cwt.Process('CDAT.subset')
-    subset.set_domain(cwt.Domain(time=(50, 100)))
-    subset.add_inputs(v1)
-
-    data_inputs = {
-        'variable': json.dumps([v1.to_dict()]),
-        'domain': json.dumps([subset.domain.to_dict()]),
-        'operation': json.dumps([subset.to_dict()]),
-    }
-
-    ctx = operation.OperationContext.from_data_inputs('CDAT.subset', data_inputs)
-    ctx.user = 0
-    ctx.job = 0
-
-    m = MyProxyClient(hostname=os.environ['MPC_HOST'])
-
-    cert = m.logon(os.environ['MPC_USERNAME'], os.environ['MPC_PASSWORD'], bootstrap=True)
-
-    mocker.patch.object(ctx, 'user_cert', return_value=''.join([x.decode() for x in cert]))
-
-    mocker.patch.object(ctx, 'message')
-    mocker.patch.object(ctx, 'action')
-
-    new_ctx = cdat.process_wrapper(self, ctx)
-
-    assert new_ctx
-
-    with cdms2.open(new_ctx.output[0].uri) as infile:
-        var_name = new_ctx.output[0].var_name
-
-        assert infile[var_name].shape == (50, 96, 192)
-
-
-@pytest.mark.data
 def test_subset(mocker, esgf_data, client):  # noqa: F811
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/',
@@ -557,50 +513,9 @@ def test_subset_input_indices(mocker, esgf_data):
     assert list(new_input.dims.values()) == [192, 288, 2, 10]
 
 
-def test_filter_protected_exception(mocker):
-    ctx = mocker.MagicMock()
-    ctx.user_cert.return_value = 'cert data'
-
-    mocker.patch.object(cdat, 'check_access', side_effect=[False, False])
-
-    args = [
-        ctx,
-        ['/file1.nc', '/file2.nc'],
-    ]
-
-    with pytest.raises(WPSError):
-        cdat.filter_protected(*args)
-
-
-def test_filter_protected(mocker):
-    ctx = mocker.MagicMock()
-    ctx.user_cert.return_value = 'cert data'
-
-    mocker.patch.object(cdat, 'check_access', side_effect=[False, True, True])
-
-    args = [
-        ctx,
-        ['/file1.nc', '/file2.nc'],
-    ]
-
-    unprotected, protected, cert_tempfile = cdat.filter_protected(*args)
-
-    assert len(unprotected) == 1
-    assert len(protected) == 1
-    assert cert_tempfile is not None
-
-
-@pytest.mark.data
 @pytest.mark.myproxyclient
-def test_localize_protected(mocker, esgf_data, client):
-    output_path = '/cache/501c6894f7a3b053e694cff02ec081fb69f4f736026bad72e9b7faff161589d8.nc'
-
-    if os.path.exists(output_path):
-        os.remove(output_path)
-
-    mocker.patch.dict(os.environ, {
-        'DATA_PATH': '/',
-    })
+def test_open_dataset(mocker, client):
+    url = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanAM4/amip/3hr/atmos/clt/r1i1p1/clt_cf3hr_CanAM4_amip_r1i1p1_197901010300-201001010000.nc'
 
     context = operation.OperationContext()
 
@@ -610,19 +525,16 @@ def test_localize_protected(mocker, esgf_data, client):
 
     mocker.patch.object(context, 'user_cert', return_value=''.join([x.decode() for x in cert]))
 
-    mocker.spy(os.path, 'exists')
+    ds = cdat.open_dataset(context, url, 'clt', chunks={'time': 100})
 
-    output = cdat.localize_protected(context, esgf_data.data['tas-opendap-cmip5']['files'][:1], None)
+    assert ds
+    assert ds.clt.shape == (90520, 64, 128)
+    assert 'lat_bnds' in ds
+    assert 'lon_bnds' in ds
+    assert 'time_bnds' in ds
 
-    assert len(output) == 1
-    assert output[0] == output_path
-    assert not os.path.exists.return_value
-
-    output = cdat.localize_protected(context, esgf_data.data['tas-opendap-cmip5']['files'][:1], None)
-
-    assert len(output) == 1
-    assert output[0] == output_path
-    assert os.path.exists.return_value
+# 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanAM4/amip/3hr/atmos/clt/r1i1p1/clt_cf3hr_CanAM4_amip_r1i1p1_197901010300-201001010000.nc',
+# 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgA_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/amip/r2i1p1f1/day/clt/gn/v20190429/clt_day_CanESM5_amip_r2i1p1f1_gn_19500101-20141231.nc',
 
 
 def test_execute_delayed_with_client(mocker):
@@ -776,10 +688,6 @@ def test_gather_inputs_aggregate(mocker, esgf_data):
 def test_gather_inputs_exception(mocker, esgf_data):
     tempfile_mock = mocker.MagicMock()
 
-    mocker.patch.object(cdat, 'filter_protected', return_value=([], esgf_data.data['tas-opendap']['files'],
-                        tempfile_mock))
-    mocker.patch.object(cdat, 'localize_protected', return_value=esgf_data.data['tas-opendap']['files'])
-
     files = esgf_data.data['tas-opendap-cmip5']['files']
 
     process = cwt.Process('CDAT.subset')
@@ -791,7 +699,6 @@ def test_gather_inputs_exception(mocker, esgf_data):
     data = cdat.gather_inputs(context, process)
 
     assert len(data) == 2
-    cdat.localize_protected.assert_called()
 
 
 def test_gather_inputs(mocker, esgf_data):
