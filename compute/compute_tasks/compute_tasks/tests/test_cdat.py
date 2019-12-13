@@ -930,32 +930,45 @@ def test_process_wrapper(mocker):
     cdat.workflow_func.assert_called_with(context)
 
 
-def test_render_abstract_no_max():
-    d = 'This a test description.'
+SINGLE_ABS = """Test description.
 
-    text = cdat.render_abstract(d, max_inputs=None)
+Accepts exactly 1 input.
+"""
 
-    assert d in text
-    assert re.search('.*minimum of 1.*', text) is not None
+MIN_MAX_ABS = """Test description.
 
+Accepts 2 to 4 inputs.
+"""
 
-def test_render_abstract_more_inputs():
-    d = 'This a test description.'
+INF_ABS = """Test description.
 
-    text = cdat.render_abstract(d, max_inputs=2)
+Accepts a minimum of 1 inputs.
+"""
 
-    assert d in text
-    assert re.search('.*minimum of 1.*', text) is not None
-    assert re.search('.*maximum of 2.*', text) is not None
+MULTI_PARAM_ABS = """Test description.
 
+Accepts exactly 1 input.
 
-def test_render_abstract():
-    d = 'This a test description.'
+Parameters:
+    axes: A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.
+    bins: A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).
+"""
 
-    text = cdat.render_abstract(d)
+@pytest.mark.parametrize('d,min_inputs,max_inputs,params,expected', [
+    ('Test description.', None, None, {}, SINGLE_ABS),
+    ('Test description.', 2, 4, {}, MIN_MAX_ABS),
+    ('Test description.', None, float('inf'), {}, INF_ABS),
+    ('Test description.', None, None, {'axes': cdat.AXES, 'bins': cdat.BINS}, MULTI_PARAM_ABS),
+])
+def test_render_abstract(d, min_inputs, max_inputs, params, expected):
+    kwargs = params.copy()
 
-    assert d in text
-    assert 'A single input is required.' in text
+    kwargs['min_inputs'] = min_inputs
+    kwargs['max_inputs'] = max_inputs
+
+    text = cdat.render_abstract(d, **kwargs)
+
+    assert text == expected
 
 
 def test_discover_processes(mocker):

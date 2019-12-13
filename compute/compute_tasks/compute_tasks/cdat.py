@@ -700,26 +700,26 @@ PROCESS_FUNC_MAP = {
 
 BASE_ABSTRACT = """
 {{- description }}
-{% if min_inputs > 0 and max_inputs is none %}
-A minimum of {{ min_inputs }} is required.
-{%- elif min_inputs == 1 and max_inputs == 1 %}
-A single input is required.
-{%- elif max_inputs > min_inputs %}
-A minimum of {{ min_inputs }} and maximum of {{ max_inputs }} inputs are allowed.
-{%- endif %}
+{% if min_inputs > 0 and (max_inputs is none or max_inputs == infinity) %}
+Accepts a minimum of {{ min_inputs }} inputs.
+{% elif min_inputs == max_inputs %}
+Accepts exactly {{ min_inputs }} input.
+{% elif max_inputs > min_inputs %}
+Accepts {{ min_inputs }} to {{ max_inputs }} inputs.
+{% endif %}
 {%- if params|length > 0 %}
 Parameters:
 {%- for key, value in params.items() %}
-{{ key }}: {{ value }}
+    {{ key }}: {{ value }}
 {%- endfor %}
-{%- endif %}
+{% endif %}
 """
 
 
 template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
 
 
-def render_abstract(description, min_inputs=1, max_inputs=1, **params):
+def render_abstract(description, min_inputs=None, max_inputs=None, **params):
     """ Renders an abstract for a process.
 
     This function will use a jinja2 template and render out an abstract for a process. The keyword arguments
@@ -735,9 +735,10 @@ def render_abstract(description, min_inputs=1, max_inputs=1, **params):
     """
     kwargs = {
         'description': description,
-        'min_inputs': min_inputs,
-        'max_inputs': max_inputs,
+        'min_inputs': min_inputs if min_inputs is not None else 1,
+        'max_inputs': max_inputs if max_inputs is not None else 1,
         'params': params,
+        'infinity': float('inf'),
     }
 
     return escape(template.render(**kwargs))
