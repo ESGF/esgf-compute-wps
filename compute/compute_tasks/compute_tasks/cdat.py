@@ -195,49 +195,59 @@ def check_access(url, cert=None):
     raise WPSError('Failed to access input {!r}, reason {!s} ({!s})', url, response.reason, response.status_code)
 
 
-def get_user_cert(context):
-    """ Stores the user certificate in a temporary file.
+@contextmanager
+def chdir_temp():
+    """ Changes current working directory.
 
     Args:
-        context (context.OperationContext): The current context.
-
-    Returns:
-        A tempfile.NamedTemporaryFile object.
+        dirname (str): A directory name to change into.
     """
-    tf = tempfile.NamedTemporaryFile()
-
-    cert = context.user_cert()
-
-    tf.write(cert.encode())
-
-    return tf
-
-
-@contextmanager
-def chdir_cert_dir(dirname):
     old_cwd = os.getcwd()
 
-    os.chdir(dirname)
+    with tempfile.TemporaryDirectory() as tempdir:
+        os.chdir(tempdir)
 
-    logger.info('Changed directory %s -> %s', old_cwd, dirname)
+        logger.info('Changed directory %s -> %s', old_cwd, tempdir)
 
-    yield
+        try:
+            yield tempdir
+        finally:
+            os.chdir(old_cwd)
 
-    os.chdir(old_cwd)
-
-    logger.info('Changed directory %s -> %s', dirname, old_cwd)
+            logger.info('Changed directory %s -> %s', tempdir, old_cwd)
 
 
 def write_dodsrc(cert_file):
-    with open('.dodsrc', 'w') as outfile:
+    """ Writes a dodsrc file in the current working directory.
+
+    Args:
+        cert_file (str): A string path to the certificate file.
+    """
+    cwd = os.getcwd()
+
+    dodsrc_file = os.path.join(cwd, '.dodsrc')
+
+    with open(dodsrc_file, 'w') as outfile:
         outfile.write('HTTP.COOKIEJAR=.cookies\n')
         outfile.write('HTTP.SSL.CERTIFICATE={!s}\n'.format(cert_file))
         outfile.write('HTTP.SSL.KEY={!s}\n'.format(cert_file))
         outfile.write('HTTP.SSL.CAPATH={!s}\n'.format(cert_file))
-        outfile.write('http.ssl.validate=false\n')
+        outfile.write('HTTP.SSL.VALIDATE=false\n')
+
+    logger.info('Wrote dodsrc to %s', dodsrc_file)
 
 
 def update_shape(shape, index, size):
+    """ Updates a value in a list.
+
+    Args:
+        shape (list): A list that will have a value updated.
+        index (int): Index of the value to be updated.
+        size (int): An int value to replace at `index`.
+
+    Returns:
+        A new list whose value a `index` has been update with `size`.
+    """
     shape.pop(index)
 
     shape.insert(index, size)
@@ -246,24 +256,66 @@ def update_shape(shape, index, size):
 
 
 def get_protected_data(url, var_name, cert, **chunk):
-    with tempfile.TemporaryDirectory() as tempdir:
-        with chdir_cert_dir(tempdir):
-            with open('cert.pem', 'w') as outfile:
-                outfile.write(cert)
+    """ Retrieves a chunk of data requiring a client certificate.
 
-            write_dodsrc(os.path.join(tempdir, 'cert.pem'))
+    Create a temporary directory where the client certificate and a
+    .dodsrc file are written for the netCDF library to use when
+    accessing the remote file. A chunk of data whose domain is
+    `chunk` is retrieved and returned.
 
-            ds = xr.open_dataset(url)
+    Args:
+        url (str): The url to retrieve the chunk of data from.
+        var_name (str): The variable name.
+        cert (str): The client certificate.
+        chunk (dict): A dict containing dimension names and slices.
 
-            data = ds.isel(chunk)[var_name]
+    Returns:
+        An xarray.DataArray containing the chunk of data.
+    """
+    with chdir_temp() as tempdir:
+        cert_file = os.path.join(tempdir, 'cert.pem')
+
+        with open(cert_file, 'w') as outfile:
+            outfile.write(cert)
+
+        logger.info('Wrote certificate to %s', cert_file)
+
+        write_dodsrc(cert_file)
+
+        ds = xr.open_dataset(url)
+
+        data = ds.isel(chunk)[var_name]
+
+    logger.info('Returning chunk with %s bytes', data.nbytes)
 
     return data
 
 
 def build_dask_array(url, var_name, dataarray, chunks, cert):
+    """ Builds a Dask array from an xarray data array.
+
+    This will build a dask array from delayed functions which
+    will use a client certificate to access a protected opendap
+    endpoint.
+
+    Args:
+        url (str): Remote file url.
+        var_name (str): Variable name to create array from.
+        dataarray (xarray.DataArray): Source data array.
+        chunks (dict): Maps dimension name to chunk size.
+        cert (str): A client certificate to access remote opendap data.
+
+    Returns:
+        A dask.DataArray that represents the input `dataarray`.
+    """
+    logger.info('Building dask array for variable %s', var_name)
+
+    # TODO could be built out to handle chunking over multiple dimensions.
     chunk_name = list(chunks.keys())[0]
 
     chunk_step = list(chunks.values())[0]
+
+    logger.info('Chunk name %s step %s', chunk_name, chunk_step)
 
     index = dataarray.get_axis_num(chunk_name)
 
@@ -271,9 +323,13 @@ def build_dask_array(url, var_name, dataarray, chunks, cert):
 
     shape = list(dataarray.shape)
 
+    logger.info('Chunk index %s size %s, data array shape %s', index, size, shape)
+
     chunk_slices = [slice(x, min(x+chunk_step, size)) for x in range(0, size, chunk_step)]
 
     chunk_shapes = [update_shape(shape.copy(), index, x.stop-x.start) for x in chunk_slices]
+
+    logger.info('Split variable into %s chunks', len(chunk_slices))
 
     delayed = [dask.delayed(get_protected_data)(url, var_name, cert, time=x) for x in chunk_slices]
 
@@ -281,10 +337,30 @@ def build_dask_array(url, var_name, dataarray, chunks, cert):
 
     concat = da.concatenate(dask_da, axis=0)
 
+    logger.info('Created dask array shape %s', concat.shape)
+
     return concat
 
 
 def build_dataarray(url, var_name, da, chunks, cert):
+    """ Builds an xarray DataArray from a Dask Array.
+
+    Builds an equivelent DataArray of `da` from a Dask Array
+    built from delayed functions allowing accessing to protected
+    opendap data.
+
+    Args:
+        url (str): Remote file url.
+        var_name (str): Variable name to create array from.
+        da (xarray.DataArray): Source data array.
+        chunks (dict): Maps dimension name to chunk size.
+        cert (str): A client certificate to access remote opendap data.
+
+    Returns:
+        An xarray DataArray which is the equivelent of `da`.
+    """
+    logger.info('Building dataarray')
+
     dask_array = build_dask_array(url, var_name, da, chunks, cert)
 
     data_array = xr.DataArray(dask_array, dims=da.dims, coords=da.coords, name=da.name, attrs=da.attrs)
@@ -293,6 +369,22 @@ def build_dataarray(url, var_name, da, chunks, cert):
 
 
 def build_dataset(url, var_name, ds, chunks, cert):
+    """ Builds an xarray DataSet.
+
+    Builds an equivelent DataSet of `ds`.
+
+    Args:
+        url (str): Remote file url.
+        var_name (str): Variable name to create array from.
+        da (xarray.DataArray): Source data array.
+        chunks (dict): Maps dimension name to chunk size.
+        cert (str): A client certificate to access remote opendap data.
+
+    Returns:
+        An xarray DataSet equivelent to `ds`.
+    """
+    logger.info('Building dataset')
+
     data_array = build_dataarray(url, var_name, ds[var_name], chunks, cert)
 
     data_vars = dict(ds.data_vars)
@@ -304,30 +396,71 @@ def build_dataset(url, var_name, ds, chunks, cert):
     return data_set
 
 
-def open_protected_dataset(context, url, var_name, chunks, cert_tempfile):
-    with chdir_cert_dir(os.path.dirname(cert_tempfile.name)):
-        write_dodsrc(cert_tempfile.name)
+def open_protected_dataset(context, url, var_name, chunks):
+    """ Opens a protected dataset.
 
-        ds = xr.open_dataset(url, autoclose=True)
+    This will rebuild a DataSet using Dask delayed functions to
+    access protected opendap data.
 
-        with open(cert_tempfile.name) as infile:
-            cert = infile.read()
+    Args:
+        context (compute_tasks.context.OperationContext): Current context.
+        url (str): Remote file url.
+        var_name (str): Variable name to create array from.
+        chunks (dict): Maps dimension name to chunk size.
+        cert_data (str): A client certificate to access remote opendap data.
+        cert_file (str): A path to a local client certificate use to access the remote DataSet.
 
-        ds = build_dataset(url, var_name, ds, chunks, cert)
+    Returns:
+        An xarray DataSet.
+    """
+    logger.info('Opening protected dataset %s', url)
+
+    cert_data = context.user_cert()
+
+    logger.info('Retrieving user certificate')
+
+    with chdir_temp() as tempdir:
+        cert_file = os.path.join(tempdir, 'cert.pem')
+
+        with open(cert_file, 'w') as outfile:
+            outfile.write(cert_data)
+
+        logger.info('Wrote certificate to %s', cert_file)
+
+        if not check_access(url, cert_file):
+            raise WPSError('Failed to access input {!r}', url)
+
+        write_dodsrc(cert_file)
+
+        ds = xr.open_dataset(url, engine='netcdf4')
+
+        ds = build_dataset(url, var_name, ds, chunks, cert_data)
 
     return ds
 
 
 def open_dataset(context, url, var_name, chunks):
+    """ Opens a remote opendap dataset.
+
+    This will directly open a remote opendap dataset or build an
+    xarray DataSet capable of accessing a protected opendap url
+    using a client certificate.
+
+    Args:
+        context (compute_tasks.context.OperationContext): Current context.
+        url (str): Remote file url.
+        var_name (str): Variable name to create array from.
+        chunks (dict): Maps dimension name to chunk size.
+
+    Returns:
+        An xarray DataSet.
+    """
+    logger.info('Opening dataset %r', url)
+
     if not check_access(url):
-        cert_tempfile = get_user_cert(context)
-
-        if not check_access(url, cert_tempfile.name):
-            raise WPSError('Failed to access input {!r}', url)
-
-        ds = open_protected_dataset(context, url, var_name, chunks, cert_tempfile)
+        ds = open_protected_dataset(context, url, var_name, chunks)
     else:
-        ds = xr.open_dataset(url, chunks=chunks)
+        ds = xr.open_dataset(url, engine='netcdf4', chunks=chunks)
 
     return ds
 
@@ -515,6 +648,15 @@ def subset_input(context, operation, input):
     return input
 
 
+def rename_variable(var_name, input, operation, output):
+    if isinstance(input, xr.core.groupby.DatasetGroupBy):
+        name = operation.identifier.split('.')[-1]
+
+        output = output.rename({var_name: name})
+
+    return output
+
+
 def process_elementwise(context, operation, *input, func, **kwargs):
     v = context.variable
 
@@ -526,12 +668,7 @@ def process_elementwise(context, operation, *input, func, **kwargs):
 
     output[v] = func(input_var)
 
-    if rename:
-        name = operation.identifier.split('.')[-1]
-
-        output.rename({v: name})
-
-    return output
+    return rename_variable(v, input[0], operation, output)
 
 
 def process_reduce(context, operation, *input, func, **kwargs):
@@ -545,12 +682,7 @@ def process_reduce(context, operation, *input, func, **kwargs):
 
     output[v] = func(input[0][v], axes.values)
 
-    if rename:
-        name = operation.identifier.split('.')[-1]
-
-        output.rename({v: name})
-
-    return output
+    return rename_variable(v, input[0], operation, output)
 
 
 def process_dataset(context, operation, *input, func, **kwargs):
@@ -567,8 +699,6 @@ def process_dataset(context, operation, *input, func, **kwargs):
             output[v] = func(input[0][v], input[1][v])
         elif len(input) == 1:
             output[v] = func(input[0][v])
-        else:
-            raise WPSError('Process {!r} was expecting either 1 or 2 inputs.', operation.identifier)
     else:
         try:
             const = float(const.values[0])
@@ -577,12 +707,8 @@ def process_dataset(context, operation, *input, func, **kwargs):
 
         output[v] = func(input[0][v], const)
 
-    if rename:
-        name = operation.identifier.split('.')[-1]
+    return rename_variable(v, input[0], operation, output)
 
-        output.rename({v: name})
-
-    return output
 
 def process_merge(context, operation, *input, **kwargs):
     input = list(input)
@@ -597,6 +723,7 @@ def process_merge(context, operation, *input, **kwargs):
     context.message('Done merging variables')
 
     return root
+
 
 def process_where(context, operation, *input, **kwargs):
     cond = operation.get_parameter('cond')
@@ -648,6 +775,7 @@ def process_where(context, operation, *input, **kwargs):
         output = output.fillna(fillna)
 
     return output
+
 
 def process_groupby_bins(context, operation, *input, **kwargs):
     v = operation.get_parameter('variable', True)

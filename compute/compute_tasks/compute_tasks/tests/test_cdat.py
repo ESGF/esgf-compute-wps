@@ -2,6 +2,7 @@ import builtins
 import json
 import re
 import os
+import tempfile
 
 import cdms2
 import cwt
@@ -12,11 +13,10 @@ import numpy as np
 import dask.array as da
 import xarray as xr
 from OpenSSL import SSL
-from distributed.utils_test import (  # noqa: F401
-    client,
-    loop,
-    cluster_fixture,
-)
+from distributed.utils_test import client
+from distributed.utils_test import loop
+from distributed.utils_test import cluster_fixture
+
 from jinja2 import Environment, BaseLoader
 from myproxy.client import MyProxyClient
 
@@ -27,6 +27,9 @@ from compute_tasks.context import operation
 
 
 MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
+
+CMIP5_CLT = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanAM4/amip/3hr/atmos/clt/r1i1p1/clt_cf3hr_CanAM4_amip_r1i1p1_197901010300-201001010000.nc'
+CMIP6_CLT = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/abrupt-4xCO2/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_abrupt-4xCO2_r1i1p1f1_gn_185001-200012.nc'
 
 
 class TestDataGenerator(object):
@@ -69,6 +72,15 @@ def test_data():
     return TestDataGenerator()
 
 
+@pytest.fixture(scope='session')
+def mpc():
+    m = MyProxyClient(hostname=os.environ['MPC_HOST'])
+
+    cert = m.logon(os.environ['MPC_USERNAME'], os.environ['MPC_PASSWORD'], bootstrap=True)
+
+    return ''.join([x.decode() for x in cert])
+
+
 def test_groupby_bins_invalid_bin(test_data, mocker):
     identifier = 'CDAT.groupby_bins'
 
@@ -78,7 +90,7 @@ def test_groupby_bins_invalid_bin(test_data, mocker):
 
     p = cwt.Process(identifier)
     p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(variable='tas', bins=[str(x) for x in range(0, 90, 10)]+['abcd'])
+    p.add_parameters(variable='pr', bins=[str(x) for x in range(0, 90, 10)]+['abcd',])
 
     data_inputs = {
         'variable': json.dumps([x.to_dict() for x in p.inputs]),
@@ -200,108 +212,6 @@ def test_where_fillna(test_data, mocker):
     assert np.array_equal(output.pr.values, expected.pr.values)
 
 
-def test_where_unsupported_comp(test_data, mocker):
-    cond = 'tas>>45'
-    identifier = 'CDAT.where'
-
-    v1 = test_data.standard(1, name='pr')
-
-    inputs = [v1]
-
-    p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(cond=cond)
-
-    data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
-    }
-
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    mocker.patch.object(context, 'message')
-
-    with pytest.raises(WPSError):
-        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
-
-
-def test_where_missing_var(test_data, mocker):
-    cond = 'tas>-45'
-    identifier = 'CDAT.where'
-
-    v1 = test_data.standard(1, name='pr')
-
-    inputs = [v1]
-
-    p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(cond=cond)
-
-    data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
-    }
-
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    mocker.patch.object(context, 'message')
-
-    with pytest.raises(WPSError):
-        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
-
-
-def test_where_bad_cond(test_data, mocker):
-    cond = 'pr>--45'
-    identifier = 'CDAT.where'
-
-    v1 = test_data.standard(1, name='pr')
-
-    inputs = [v1]
-
-    p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(cond=cond)
-
-    data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
-    }
-
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    mocker.patch.object(context, 'message')
-
-    with pytest.raises(WPSError):
-        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
-
-
-def test_where_missing_cond(test_data, mocker):
-    identifier = 'CDAT.where'
-
-    v1 = test_data.standard(1, name='pr')
-
-    inputs = [v1]
-
-    p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-
-    data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
-    }
-
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    mocker.patch.object(context, 'message')
-
-    with pytest.raises(WPSError):
-        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
-
-
 @pytest.mark.parametrize('cond', [
     'lat>-45',
     'lat>45',
@@ -311,6 +221,10 @@ def test_where_missing_cond(test_data, mocker):
     'lon<=180',
     'lon==180',
     'lon!=180',
+    pytest.param('lon>>>>180', marks=pytest.mark.xfail),
+    pytest.param('lon>>180', marks=pytest.mark.xfail),
+    pytest.param(None, marks=pytest.mark.xfail),
+    pytest.param('tas>-45', marks=pytest.mark.xfail),
 ])
 def test_where(test_data, cond, mocker):
     identifier = 'CDAT.where'
@@ -321,7 +235,9 @@ def test_where(test_data, cond, mocker):
 
     p = cwt.Process(identifier)
     p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(cond=cond)
+
+    if cond is not None:
+        p.add_parameters(cond=cond)
 
     data_inputs = {
         'variable': json.dumps([x.to_dict() for x in p.inputs]),
@@ -384,6 +300,7 @@ def test_merge(test_data, mocker):
     ('CDAT.power', 2, None, 4, {'const': '2'}),
     ('CDAT.subtract', 2, 1, 1, {}),
     ('CDAT.subtract', 2, None, 3, {'const': '-1'}),
+    pytest.param('CDAT.subtract', 2, None, 3, {'const': 'abcd'}, marks=pytest.mark.xfail),
     ('CDAT.count', 2, None, np.array(162000), {}),
     ('CDAT.mean', 2, None, np.full((90, 180), 2), {'axes': ['time']}),
     ('CDAT.std', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
@@ -418,44 +335,21 @@ def test_processing(test_data, identifier, v1, v2, output, extra):
         assert np.array_equal(result.pr.values, expected.pr.values)
 
 
-@pytest.mark.data
-def test_subset(mocker, esgf_data, client):  # noqa: F811
-    mocker.patch.dict(os.environ, {
-        'DATA_PATH': '/',
-    })
+@pytest.mark.parametrize('operation,func,expected', [
+    (cwt.Process(identifier='CDAT.max'), lambda x: getattr(x, 'groupby_bins')('clt', bins=[0, 1]), 'max'),
+    (cwt.Process(identifier='CDAT.max'), None, 'clt'),
+])
+def test_rename_variable(test_data, operation, func, expected):
+    input = test_data.standard(1, name='clt')
 
-    self = mocker.MagicMock()
+    output = input.copy()
 
-    v1 = cwt.Variable(esgf_data.data['tas-opendap']['files'][0], 'tas')
+    if func is not None:
+        input = func(input)
 
-    subset = cwt.Process('CDAT.subset')
-    subset.set_domain(cwt.Domain(time=(674885.0, 674911.0)))
-    subset.add_inputs(v1)
+    result = cdat.rename_variable('clt', input, operation, output)
 
-    data_inputs = {
-        'variable': json.dumps([v1.to_dict()]),
-        'domain': json.dumps([subset.domain.to_dict()]),
-        'operation': json.dumps([subset.to_dict()]),
-    }
-
-    ctx = operation.OperationContext.from_data_inputs('CDAT.subset', data_inputs)
-    ctx.extra['DASK_SCHEDULER'] = client.scheduler.address
-    ctx.user = 0
-    ctx.job = 0
-
-    print(ctx.gparameters)
-
-    mocker.patch.object(ctx, 'message')
-    mocker.patch.object(ctx, 'action')
-
-    new_ctx = cdat.process_wrapper(self, ctx)
-
-    assert new_ctx
-
-    with cdms2.open(new_ctx.output[0].uri) as infile:
-        var_name = new_ctx.output[0].var_name
-
-        assert infile[var_name].shape == (27, 192, 288)
+    assert expected in result.data_vars
 
 
 def test_subset_input_value_spatial(mocker, esgf_data):
@@ -514,9 +408,132 @@ def test_subset_input_indices(mocker, esgf_data):
 
 
 @pytest.mark.myproxyclient
-def test_open_dataset(mocker, client):
-    url = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanAM4/amip/3hr/atmos/clt/r1i1p1/clt_cf3hr_CanAM4_amip_r1i1p1_197901010300-201001010000.nc'
+@pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
+    (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
+    pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
+    pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
+])
+def test_build_dataset(mpc, url, var_name, chunks, exp_chunks):
+    with cdat.chdir_temp() as tempdir:
+        with open('cert.pem', 'w') as outfile:
+            outfile.write(mpc)
 
+        cdat.write_dodsrc('./cert.pem')
+
+        ds = xr.open_dataset(url)
+
+        ds_ = cdat.build_dataset(url, var_name, ds, chunks, mpc)
+
+        assert ds.attrs == ds_.attrs
+        assert ds.data_vars.keys() == ds_.data_vars.keys()
+
+@pytest.mark.myproxyclient
+@pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
+    (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
+    pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
+    pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
+])
+def test_build_dataarray(mpc, url, var_name, chunks, exp_chunks):
+    with cdat.chdir_temp() as tempdir:
+        with open('cert.pem', 'w') as outfile:
+            outfile.write(mpc)
+
+        cdat.write_dodsrc('./cert.pem')
+
+        ds = xr.open_dataset(url)
+
+        da = cdat.build_dataarray(url, var_name, ds[var_name], chunks, mpc)
+
+        assert da.shape == ds[var_name].shape
+        assert da.dtype == ds[var_name].dtype
+        assert da.name == ds[var_name].name
+        assert da.attrs == ds[var_name].attrs
+        assert [len(x) for x in da.chunks] == exp_chunks
+
+
+@pytest.mark.myproxyclient
+@pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
+    (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
+    pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
+    pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
+])
+def test_build_dask_array(mpc, url, var_name, chunks, exp_chunks):
+    with cdat.chdir_temp() as tempdir:
+        with open('cert.pem', 'w') as outfile:
+            outfile.write(mpc)
+
+        cdat.write_dodsrc('./cert.pem')
+
+        ds = xr.open_dataset(url)
+
+        dataarray = ds[var_name]
+
+        da = cdat.build_dask_array(url, var_name, dataarray, chunks, mpc)
+
+        assert da.shape == ds[var_name].shape
+        assert da.dtype == ds[var_name].dtype
+        assert [len(x) for x in da.chunks] == exp_chunks
+
+
+@pytest.mark.myproxyclient
+@pytest.mark.parametrize('url,var_name,chunk,expected_shape', [
+    (CMIP6_CLT, 'clt', None, (10, 64, 128)),
+    pytest.param('{!s}c'.format(CMIP6_CLT), 'clt', None, (10, 64, 128), marks=pytest.mark.xfail),
+    pytest.param(CMIP6_CLT, 'pr', (10, 64, 128), None, marks=pytest.mark.xfail),
+    pytest.param(CMIP6_CLT, 'clt', (10, 64, 128), {'time': slice(1e6, 1e6+10)}, marks=pytest.mark.xfail),
+])
+def test_get_protected_data(mpc, url, var_name, chunk, expected_shape):
+    if chunk is None:
+        chunk = {'time': slice(100, 110)}
+
+    data = cdat.get_protected_data(url, var_name, mpc, **chunk)
+
+    assert var_name in data.name
+    assert data.shape == expected_shape
+
+
+@pytest.mark.parametrize('shape,index,size,expected', [
+    ([10, 12, 14], 1, 32, [10, 32, 14]),
+    pytest.param([], 1, 32, [], marks=pytest.mark.xfail),
+])
+def test_update_shape(shape, index, size, expected):
+    output = cdat.update_shape(shape, index, size)
+
+    assert output == expected
+
+
+def test_write_dodsrc(mocker):
+    m = mocker.patch('compute_tasks.cdat.open', mocker.mock_open())
+
+    cdat.write_dodsrc('cert.pem')
+
+    m.assert_called_with(os.path.join(os.getcwd(), '.dodsrc'), 'w')
+
+    e = m.return_value.__enter__.return_value
+
+    e.write.assert_any_call('HTTP.COOKIEJAR=.cookies\n')
+    e.write.assert_any_call('HTTP.SSL.CERTIFICATE=cert.pem\n')
+    e.write.assert_any_call('HTTP.SSL.KEY=cert.pem\n')
+    e.write.assert_any_call('HTTP.SSL.CAPATH=cert.pem\n')
+    e.write.assert_any_call('HTTP.SSL.VALIDATE=false\n')
+
+def test_chdir_temp(mocker):
+    mocker.patch.object(os, 'chdir')
+    mocker.patch.object(os, 'getcwd', return_value='/test')
+
+    with cdat.chdir_temp() as tempdir:
+        pass
+
+    os.chdir.assert_any_call(tempdir)
+    os.chdir.assert_any_call('/test')
+
+@pytest.mark.myproxyclient
+@pytest.mark.dask
+@pytest.mark.parametrize('url, expected_size', [
+    (CMIP5_CLT, (90520, 64, 128)),
+    (CMIP6_CLT, (1812, 64, 128)),
+])
+def test_open_dataset(mocker, url, expected_size):
     context = operation.OperationContext()
 
     m = MyProxyClient(hostname=os.environ['MPC_HOST'])
@@ -528,13 +545,10 @@ def test_open_dataset(mocker, client):
     ds = cdat.open_dataset(context, url, 'clt', chunks={'time': 100})
 
     assert ds
-    assert ds.clt.shape == (90520, 64, 128)
+    assert ds.clt.shape == expected_size
     assert 'lat_bnds' in ds
     assert 'lon_bnds' in ds
     assert 'time_bnds' in ds
-
-# 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanAM4/amip/3hr/atmos/clt/r1i1p1/clt_cf3hr_CanAM4_amip_r1i1p1_197901010300-201001010000.nc',
-# 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgA_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/amip/r2i1p1f1/day/clt/gn/v20190429/clt_day_CanESM5_amip_r2i1p1f1_gn_19500101-20141231.nc',
 
 
 def test_execute_delayed_with_client(mocker):
@@ -566,15 +580,6 @@ def test_execute_delayed(mocker):
     cdat.execute_delayed(context, futures)
 
     dask.compute.assert_called_with(futures)
-
-
-def test_get_user_cert(mocker):
-    context = mocker.MagicMock()
-    context.user_cert.return_value = 'client cert data'
-
-    tf = cdat.get_user_cert(context)
-
-    assert tf
 
 
 def test_check_access_exception(esgf_data):
@@ -611,6 +616,7 @@ def test_clean_variable_encoding(mocker, esgf_data):
     assert 'missing_value' not in ds.tas.encoding
 
 
+@pytest.mark.dask
 def test_dask_job_tracker(mocker, client):  # noqa: F811
     context = mocker.MagicMock()
 
@@ -735,90 +741,27 @@ def test_build_workflow_missing_interm(mocker):
         cdat.build_workflow(context)
 
 
-def test_build_workflow_use_interm(mocker):
-    mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.subset': mocker.MagicMock(),
-        'CDAT.max': mocker.MagicMock(),
-    }, True)
+SUBSET = cwt.Process(identifier='CDAT.subset')
+SUBSET.add_inputs(cwt.Variable(CMIP6_CLT, 'clt'))
 
-    subset = cwt.Process(identifier='CDAT.subset')
+MAX = cwt.Process(identifier='CDAT.max')
+MAX.add_inputs(SUBSET)
+MAX.add_parameters(axes='time')
 
-    mocker.patch.object(subset, 'copy')
+@pytest.mark.parametrize('processes,expected', [
+    ([SUBSET], 1),
+    ([SUBSET, MAX], 2)
+])
+def test_build_workflow(mocker, processes, expected):
+    context = operation.OperationContext()
 
-    max = cwt.Process(identifier='CDAT.max')
-    max.add_inputs(subset)
-
-    context = mocker.MagicMock()
-    context.topo_sort.return_value = [subset, max]
-
-    interm = cdat.build_workflow(context)
-
-    cdat.gather_inputs.assert_called_with(context, subset)
-
-    assert len(interm) == 2
-    assert subset.name in interm
-    assert max.name in interm
-
-
-def test_build_workflow_process_func(mocker):
-    process_func = mocker.MagicMock()
-    mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.subset': process_func,
-    }, True)
-
-    subset = cwt.Process(identifier='CDAT.subset')
-
-    context = mocker.MagicMock()
-    context.topo_sort.return_value = [subset]
+    type(context).variable = mocker.PropertyMock(return_value='clt')
+    mocker.patch.object(context, 'action')
+    mocker.patch.object(context, 'topo_sort', return_value=processes)
 
     interm = cdat.build_workflow(context)
 
-    cdat.gather_inputs.assert_called_with(context, subset)
-
-    assert len(interm) == 1
-    assert subset.name in interm
-
-
-def test_build_workflow(mocker):
-    mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.subset': mocker.MagicMock(),
-    }, True)
-
-    subset = cwt.Process(identifier='CDAT.subset')
-
-    context = mocker.MagicMock()
-    context.topo_sort.return_value = [subset]
-
-    interm = cdat.build_workflow(context)
-
-    cdat.gather_inputs.assert_called_with(context, subset)
-
-    assert len(interm) == 1
-    assert subset.name in interm
-
-
-@pytest.mark.skip(reason='Unconfigurable exponential timeout')
-def test_workflow_func_dask_cluster_error(mocker):
-    mocker.patch.object(cdat, 'gather_workflow_outputs')
-    mocker.patch.object(cdat, 'Client')
-    mocker.patch.object(cdat, 'build_workflow')
-    mocker.patch.object(cdat, 'DaskJobTracker')
-
-    context = mocker.MagicMock()
-    context.extra = {
-        'DASK_SCHEDULER': 'dask-scheduler',
-    }
-
-    cdat.Client.side_effect = OSError()
-
-    cdat.workflow_func(context)
-
-    cdat.build_workflow.assert_called()
-
-    cdat.Client.assert_called_with('dask-scheduler.default.svc:8786')
+    assert len(interm) == expected
 
 
 def test_workflow_func_error(mocker):
