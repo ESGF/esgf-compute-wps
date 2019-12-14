@@ -69,13 +69,13 @@ RUN conda install -c conda-forge pytest pytest-mock pytest-cov myproxyclient pyd
 
 COPY compute/compute_tasks .
 
-RUN pytest -vvv -m "not dask" --junit-xml=unittesting.xml --cov=compute_tasks --cov-report=html:coverage/ --cov-report=xml || exit 0
-RUN pytest -vvv -m "dask" --junit-xml=unittesting-dask.xml --cov=compute_tasks --cov-report=xml:coverage-dask.xml || exit 0
+RUN pytest -vvv -m "not myproxyclient" --junit-xml=unittesting.xml --cov=compute_tasks --cov-report=html:coverage/ --cov-report=xml || exit 0
+RUN pytest -vvv -m "myproxyclient" --junit-xml=unittesting-mpc.xml --cov=compute_tasks --cov-report=xml:coverage-mpc.xml || exit 0
 
 FROM scratch as testresult
 
 COPY --from=testing /testing/unittesting.xml .
-COPY --from=testing /testing/unittesting-dask.xml .
+COPY --from=testing /testing/unittesting-mpc.xml .
 COPY --from=testing /testing/coverage coverage/
 COPY --from=testing /testing/coverage.xml .
-COPY --from=testing /testing/coverage-dask.xml .
+COPY --from=testing /testing/coverage-mpc.xml .

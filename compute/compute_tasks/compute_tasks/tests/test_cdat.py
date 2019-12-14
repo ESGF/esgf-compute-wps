@@ -528,7 +528,6 @@ def test_chdir_temp(mocker):
     os.chdir.assert_any_call('/test')
 
 @pytest.mark.myproxyclient
-@pytest.mark.dask
 @pytest.mark.parametrize('url, expected_size', [
     (CMIP5_CLT, (90520, 64, 128)),
     (CMIP6_CLT, (1812, 64, 128)),
