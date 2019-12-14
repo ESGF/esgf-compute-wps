@@ -173,7 +173,7 @@ pipeline {
             }
 
             junit(testResults: 'output/unittesting.xml', healthScaleFactor: 1)
-            cobertura(coberturaReportFile: 'output/coverage.xml', autoUpdateStability: true, autoUpdateHealth: true, classCoverageTargets: '80 80 80', conditionalCoverageTargets: '80 80 80', failNoReports: true, failUnhealthy: true, failUnstable: true, fileCoverageTargets: '80 80 80', lineCoverageTargets: '80 80 80', maxNumberOfBuilds: 2, methodCoverageTargets: '80 80 80', packageCoverageTargets: '80 80 80')
+            cobertura(coberturaReportFile: 'output/coverage.xml', autoUpdateStability: true, autoUpdateHealth: true, failNoReports: true, failUnhealthy: true, failUnstable: true, maxNumberOfBuilds: 2)
           }
         }
 
