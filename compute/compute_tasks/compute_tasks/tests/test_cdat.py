@@ -5,6 +5,7 @@ import os
 import tempfile
 
 import cdms2
+import cftime
 import cwt
 import dask
 import pytest
@@ -31,6 +32,10 @@ MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
 CMIP5_CLT = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanAM4/amip/3hr/atmos/clt/r1i1p1/clt_cf3hr_CanAM4_amip_r1i1p1_197901010300-201001010000.nc'
 CMIP6_CLT = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/abrupt-4xCO2/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_abrupt-4xCO2_r1i1p1f1_gn_185001-200012.nc'
 
+AGG1 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_530101-540012.nc'
+AGG2 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_540101-560012.nc'
+AGG3 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_560101-580012.nc'
+AGG4 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_580101-600012.nc'
 
 class TestDataGenerator(object):
     def standard(self, value, lat=90, lon=180, time=10, name=None):
@@ -352,59 +357,24 @@ def test_rename_variable(test_data, operation, func, expected):
     assert expected in result.data_vars
 
 
-def test_subset_input_value_spatial(mocker, esgf_data):
-    context = operation.OperationContext()
-    context._variable = {'tas': cwt.Variable('', 'tas')}
-
-    process = cwt.Process('CDAT.subset')
-    process.set_domain(cwt.Domain(lat=(-45, 45)))
-
-    input = esgf_data.to_xarray('tas-opendap')
-
-    new_input = cdat.subset_input(context, process, input)
-
-    assert list(new_input.dims.values()) == [96, 288, 2, 3650]
-
-
-def test_subset_input_value_timestamps(mocker, esgf_data):
-    context = operation.OperationContext()
-    context._variable = {'tas': cwt.Variable('', 'tas')}
-
-    process = cwt.Process('CDAT.subset')
-    process.set_domain(cwt.Domain(time=('1850', '1851')))
-
-    input = esgf_data.to_xarray('tas-opendap')
-
-    new_input = cdat.subset_input(context, process, input)
-
-    assert list(new_input.dims.values()) == [192, 288, 2, 730]
-
-
-def test_subset_input_value_time(mocker, esgf_data):
-    context = operation.OperationContext()
-    context._variable = {'tas': cwt.Variable('', 'tas')}
-
-    process = cwt.Process('CDAT.subset')
-    process.set_domain(cwt.Domain(time=(674885., 674985.)))
-
-    input = esgf_data.to_xarray('tas-opendap')
-
-    new_input = cdat.subset_input(context, process, input)
-
-    assert list(new_input.dims.values()) == [192, 288, 2, 101]
-
-
-def test_subset_input_indices(mocker, esgf_data):
+@pytest.mark.parametrize('domain,decode_times,expected', [
+    (cwt.Domain(time=slice(0, 10)), True, (10, 64, 128)),
+    (cwt.Domain(time=(1049.0, 1960.5)), False, (31, 64, 128)),
+    (cwt.Domain(time=('1850', '1851')), True, (24, 64, 128)),
+    (cwt.Domain(time=slice(0, 10), lat=(-45, 45)), True, (10, 32, 128)),
+    pytest.param(cwt.Domain(time=slice(2000, 4000)), True, (2000, 64, 128), marks=pytest.mark.xfail),
+])
+def test_subset_input(mocker, domain, decode_times, expected):
     context = operation.OperationContext()
 
     process = cwt.Process('CDAT.subset')
-    process.set_domain(cwt.Domain(time=slice(0, 10)))
+    process.set_domain(domain)
 
-    input = esgf_data.to_xarray('tas-opendap')
+    ds = xr.open_dataset(CMIP6_CLT, decode_times=decode_times)
 
-    new_input = cdat.subset_input(context, process, input)
+    output = cdat.subset_input(context, process, ds)
 
-    assert list(new_input.dims.values()) == [192, 288, 2, 10]
+    assert output.clt.shape == expected
 
 
 @pytest.mark.myproxyclient
@@ -706,15 +676,22 @@ def test_gather_inputs_exception(mocker, esgf_data):
     assert len(data) == 2
 
 
-def test_gather_inputs(mocker, esgf_data):
-    process = cwt.Process('CDAT.subset')
-    process.add_inputs(*[cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']])
+@pytest.mark.parametrize('identifier,inputs,domain,expected,expected_type', [
+    ('CDAT.subset', [AGG1], None, 1, cftime.DatetimeNoLeap),
+    ('CDAT.subtract', [AGG1, AGG2], None, 2, cftime.DatetimeNoLeap),
+    ('CDAT.subset', [AGG1], cwt.Domain(time=(10, 200)), 1, np.float64),
+])
+def test_gather_inputs(mocker, identifier, inputs, domain, expected, expected_type):
+    process = cwt.Process(identifier)
+    process.add_inputs(*[cwt.Variable(x, 'tas') for x in inputs])
+    process.set_domain(domain)
 
-    context = mocker.MagicMock()
+    context = operation.OperationContext()
 
     data = cdat.gather_inputs(context, process)
 
-    assert len(data) == 2
+    assert len(data) == expected
+    assert isinstance(data[0].time.values[0], expected_type)
 
 
 def test_build_workflow_missing_interm(mocker):

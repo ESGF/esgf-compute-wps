@@ -396,7 +396,7 @@ def build_dataset(url, var_name, ds, chunks, cert):
     return data_set
 
 
-def open_protected_dataset(context, url, var_name, chunks):
+def open_protected_dataset(context, url, var_name, chunks, decode_times=False):
     """ Opens a protected dataset.
 
     This will rebuild a DataSet using Dask delayed functions to
@@ -432,14 +432,14 @@ def open_protected_dataset(context, url, var_name, chunks):
 
         write_dodsrc(cert_file)
 
-        ds = xr.open_dataset(url, engine='netcdf4')
+        ds = xr.open_dataset(url, engine='netcdf4', decode_times=decode_times)
 
-        ds = build_dataset(url, var_name, ds, chunks, cert_data)
+        ds = build_dataset(url, var_name, ds, chunks, cert_data, decode_time)
 
     return ds
 
 
-def open_dataset(context, url, var_name, chunks):
+def open_dataset(context, url, var_name, chunks, decode_times=True):
     """ Opens a remote opendap dataset.
 
     This will directly open a remote opendap dataset or build an
@@ -458,9 +458,9 @@ def open_dataset(context, url, var_name, chunks):
     logger.info('Opening dataset %r', url)
 
     if not check_access(url):
-        ds = open_protected_dataset(context, url, var_name, chunks)
+        ds = open_protected_dataset(context, url, var_name, chunks, decode_times)
     else:
-        ds = xr.open_dataset(url, engine='netcdf4', chunks=chunks)
+        ds = xr.open_dataset(url, engine='netcdf4', chunks=chunks, decode_times=decode_times)
 
     return ds
 
@@ -485,7 +485,18 @@ def gather_inputs(context, process):
     # TODO make chunks smarter
     chunks = {'time': 100}
 
-    datasets = [open_dataset(context, x.uri, x.var_name, chunks) for x in process.inputs]
+    decode_times = True
+
+    if process.domain is not None:
+        # TODO improve find the time axis if it exists, it may not be named time.
+        time = process.domain.get_dimension('time')
+
+        if time is not None and time.crs == cwt.VALUES:
+            decode_times = False
+
+    logger.info('DECODE TIMES %s', decode_times)
+
+    datasets = [open_dataset(context, x.uri, x.var_name, chunks, decode_times) for x in process.inputs]
 
     if process.identifier == 'CDAT.aggregate':
         datasets = [xr.combine_by_coords(datasets)]
@@ -623,25 +634,20 @@ def subset_input(context, operation, input):
     context.track_src_bytes(input.nbytes)
 
     if operation.domain is not None:
-        try:
-            time = list(input[context.variable].metpy.coordinates('time'))[0]
-        except (AttributeError, IndexError):
-            time = None
-
         for dim in operation.domain.dimensions.values():
             selector = {dim.name: slice(dim.start, dim.end, dim.step)}
 
             if dim.crs == cwt.INDICES:
                 input = input.isel(**selector)
             elif dim.crs == cwt.VALUES:
-                if time is not None and time.name == dim.name:
-                    input[time.name] = xr.conventions.encode_cf_variable(input[time.name])
-
-                    input = input.sel(**selector)
-                else:
-                    input = input.loc[selector]
+                input = input.loc[selector]
             else:
                 input = input.sel(**selector)
+
+    # Check if domain was outside the inputs domain.
+    for x, y in input.dims.items():
+        if y == 0:
+            raise WPSError('Domain for process {!r} resulted in a zero length dimension {!r}', operation.identifier, x)
 
     context.track_in_bytes(input.nbytes)
 
