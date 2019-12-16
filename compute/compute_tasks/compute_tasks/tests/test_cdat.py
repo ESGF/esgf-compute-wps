@@ -460,6 +460,7 @@ def test_get_protected_data(mpc, url, var_name, chunk, expected_shape):
 
     assert var_name in data.name
     assert data.shape == expected_shape
+    assert data.sum(dim=['time', 'lat', 'lon']).values == 5585352.5
 
 
 @pytest.mark.parametrize('shape,index,size,expected', [
