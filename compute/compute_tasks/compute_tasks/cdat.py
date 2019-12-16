@@ -434,7 +434,7 @@ def open_protected_dataset(context, url, var_name, chunks, decode_times=False):
 
         ds = xr.open_dataset(url, engine='netcdf4', decode_times=decode_times)
 
-        ds = build_dataset(url, var_name, ds, chunks, cert_data, decode_time)
+        ds = build_dataset(url, var_name, ds, chunks, cert_data)
 
     return ds
 
@@ -494,7 +494,7 @@ def gather_inputs(context, process):
         if time is not None and time.crs == cwt.VALUES:
             decode_times = False
 
-    logger.info('DECODE TIMES %s', decode_times)
+    logger.info('Decod times %r', decode_times)
 
     datasets = [open_dataset(context, x.uri, x.var_name, chunks, decode_times) for x in process.inputs]
 
