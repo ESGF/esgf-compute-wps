@@ -32,10 +32,13 @@ MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
 CMIP5_CLT = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanAM4/amip/3hr/atmos/clt/r1i1p1/clt_cf3hr_CanAM4_amip_r1i1p1_197901010300-201001010000.nc'
 CMIP6_CLT = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/abrupt-4xCO2/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_abrupt-4xCO2_r1i1p1f1_gn_185001-200012.nc'
 
-AGG1 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_530101-540012.nc'
-AGG2 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_540101-560012.nc'
-AGG3 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_560101-580012.nc'
-AGG4 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_580101-600012.nc'
+CMIP6_AGG1 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_530101-540012.nc'
+CMIP6_AGG2 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_540101-560012.nc'
+CMIP6_AGG3 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_560101-580012.nc'
+CMIP6_AGG4 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_580101-600012.nc'
+
+CMIP5_AGG1 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanCM4/decadal1960/day/atmos/tas/r10i1p1/tas_day_CanCM4_decadal1960_r10i1p1_19610101-19701231.nc'
+CMIP5_AGG2 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanCM4/decadal1960/day/atmos/tas/r10i1p1/tas_day_CanCM4_decadal1960_r10i1p1_19710101-19801231.nc'
 
 class TestDataGenerator(object):
     def standard(self, value, lat=90, lon=180, time=10, name=None):
@@ -650,44 +653,22 @@ def test_gather_workflow_outputs(mocker):
     assert len(interm) == 0
 
 
-def test_gather_inputs_aggregate(mocker, esgf_data):
-    process = cwt.Process('CDAT.aggregate')
-    process.add_inputs(*[cwt.Variable(x, 'tas') for x in esgf_data.data['tas-opendap']['files']])
-
-    context = mocker.MagicMock()
-
-    data = cdat.gather_inputs(context, process)
-
-    assert len(data) == 1
-
-
-def test_gather_inputs_exception(mocker, esgf_data):
-    tempfile_mock = mocker.MagicMock()
-
-    files = esgf_data.data['tas-opendap-cmip5']['files']
-
-    process = cwt.Process('CDAT.subset')
-    process.add_inputs(*[cwt.Variable(x, 'tas') for x in files])
-
-    context = mocker.MagicMock()
-    context.user_cert.return_value = 'cert data'
-
-    data = cdat.gather_inputs(context, process)
-
-    assert len(data) == 2
-
-
+@pytest.mark.myproxyclient
 @pytest.mark.parametrize('identifier,inputs,domain,expected,expected_type', [
-    ('CDAT.subset', [AGG1], None, 1, cftime.DatetimeNoLeap),
-    ('CDAT.subtract', [AGG1, AGG2], None, 2, cftime.DatetimeNoLeap),
-    ('CDAT.subset', [AGG1], cwt.Domain(time=(10, 200)), 1, np.float64),
+    ('CDAT.subset', [CMIP6_AGG1], None, 1, cftime.DatetimeNoLeap),
+    ('CDAT.subtract', [CMIP6_AGG1, CMIP6_AGG2], None, 2, cftime.DatetimeNoLeap),
+    ('CDAT.subset', [CMIP6_AGG1], cwt.Domain(time=(10, 200)), 1, np.float64),
+    ('CDAT.aggregate', [CMIP5_AGG1, CMIP5_AGG2], None, 1, cftime.DatetimeNoLeap),
 ])
-def test_gather_inputs(mocker, identifier, inputs, domain, expected, expected_type):
+def test_gather_inputs(mocker, mpc, identifier, inputs, domain, expected, expected_type):
     process = cwt.Process(identifier)
     process.add_inputs(*[cwt.Variable(x, 'tas') for x in inputs])
     process.set_domain(domain)
 
     context = operation.OperationContext()
+
+    mocker.patch.object(context, 'action')
+    mocker.patch.object(context, 'user_cert', return_value=mpc)
 
     data = cdat.gather_inputs(context, process)
 
