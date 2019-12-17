@@ -861,8 +861,8 @@ def render_abstract(description, min_inputs=None, max_inputs=None, **params):
 
     Args:
         description (str): The process description.
-        func (function): The process function.
-        template (jinja2.Template): The jinja2 template that will be used to render the abstract.
+        min_inputs (int): Minimum number of inputs.
+        max_inputs (int): Maximum number of inputs.
 
     Returns:
         str: The abstract as a string.
@@ -960,11 +960,6 @@ def discover_processes():
     """
     from compute_tasks import base
     from compute_tasks import cdat
-
-    # Use jinja2 to template process abstract
-    template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
-
-    logger.info('Loadiung jinja2 abstract tempalate')
 
     for name, func in PROCESS_FUNC_MAP.items():
         module, operation = name.split('.')
