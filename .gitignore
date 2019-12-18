@@ -5,6 +5,10 @@ webpack-stats.json
 compute/wps/assets/bundles/
 compute/compute/settings.py
 .coverage*
+.cookies
+.dodsrc
+cert.pem
+dask-worker-space/
 
 *.rdb
 *.swp
