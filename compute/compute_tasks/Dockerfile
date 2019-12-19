@@ -4,15 +4,17 @@ RUN conda install -y conda-build
 
 WORKDIR /src
 
-COPY compute/compute_provisioner compute_provisioner/
-COPY compute/compute_tasks compute_tasks/
-
 ARG COMPUTE_API_VER
 
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 
-RUN conda build -c conda-forge compute_provisioner/ && \
-      conda build -c conda-forge -c cdat --use-local compute_tasks/
+COPY compute/compute_provisioner compute_provisioner/
+
+RUN conda build -c conda-forge compute_provisioner/
+
+COPY compute/compute_tasks compute_tasks/
+
+RUN conda build -c conda-forge -c cdat --use-local compute_tasks/
 
 FROM continuumio/miniconda3:4.7.10 as production
 
