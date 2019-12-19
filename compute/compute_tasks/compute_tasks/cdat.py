@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import copy
 import types
 import re
 import os
@@ -499,6 +500,8 @@ def gather_inputs(context, process):
     datasets = [open_dataset(context, x.uri, x.var_name, chunks, decode_times) for x in process.inputs]
 
     if process.identifier == 'CDAT.aggregate':
+        logger.info('Combining %s datasets', len(datasets))
+
         datasets = [xr.combine_by_coords(datasets)]
 
     return datasets
@@ -834,17 +837,19 @@ PROCESS_FUNC_MAP = {
 
 BASE_ABSTRACT = """
 {{- description }}
-{% if min_inputs > 0 and (max_inputs is none or max_inputs == infinity) %}
-Accepts a minimum of {{ min_inputs }} inputs.
-{% elif min_inputs == max_inputs %}
-Accepts exactly {{ min_inputs }} input.
-{% elif max_inputs > min_inputs %}
-Accepts {{ min_inputs }} to {{ max_inputs }} inputs.
+{% if min > 0 and (max == infinity) %}
+Accepts a minimum of {{ min }} inputs.
+{% elif min == max %}
+Accepts exactly {{ min }} input.
+{% elif max > min %}
+Accepts {{ min }} to {{ max }} inputs.
 {% endif %}
 {%- if params|length > 0 %}
 Parameters:
-{%- for key, value in params.items() %}
-    {{ key }}: {{ value }}
+{%- for group in params|groupby('required')|reverse %}
+    {%- for item in group.list %}
+    {{ item['name'] }} ({{ item['type'] }}, {{ group.grouper }}): {{ item['desc'] }}
+    {%- endfor %}
 {%- endfor %}
 {% endif %}
 """
@@ -853,7 +858,7 @@ Parameters:
 template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
 
 
-def render_abstract(description, min_inputs=None, max_inputs=None, **params):
+def render_abstract(identifier, description, **params):
     """ Renders an abstract for a process.
 
     This function will use a jinja2 template and render out an abstract for a process. The keyword arguments
@@ -869,21 +874,55 @@ def render_abstract(description, min_inputs=None, max_inputs=None, **params):
     """
     kwargs = {
         'description': description,
-        'min_inputs': min_inputs if min_inputs is not None else 1,
-        'max_inputs': max_inputs if max_inputs is not None else 1,
-        'params': params,
+        'min': params.pop('min', 1),
+        'max': params.pop('max', 1),
+        'params': [],
         'infinity': float('inf'),
     }
 
-    return escape(template.render(**kwargs))
+    for x, y in params.items():
+        new = copy.deepcopy(y)
+
+        new['name'] = x
+
+        new['type'] = y['type'].__name__
+
+        new['desc'] = PARAMS_DESC[x]
+
+        new['required'] = 'Required' if y['required'] else 'Optional'
+
+        kwargs['params'].append(new)
+
+    VALIDATION[identifier] = validation(min=kwargs['min'], max=kwargs['max'], **params)
+
+    ABSTRACT[identifier] = escape(template.render(**kwargs))
 
 
-AXES = 'A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.'
-CONST = 'A float value that will be applied element-wise.'
-COND = 'A condition that when true will preserve the value, otherwise the value will be set to "nan".'
-FILLNA = 'A float value to replace "nan" values."'
-VARIABLE = 'The variable to process.'
-BINS = 'A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).'
+PARAMS_DESC = {
+    'axes': 'A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.',
+    'const': 'A float value that will be applied element-wise.',
+    'cond': 'A condition that when true will preserve the value, otherwise the value will be set to "nan".',
+    'fillna': 'A float value to replace "nan" values."',
+    'variable': 'The variable to process.',
+    'bins': 'A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).',
+}
+
+
+def validation(**params):
+    return {
+        'min': params.pop('min', 1),
+        'max': params.pop('max', 1),
+        'params': params,
+    }
+
+
+def parameter(type, required=False, **params):
+    return {
+        'required': required,
+        'type': type,
+        'min': params.pop('min', 1),
+        'max': params.pop('max', 1),
+    }
 
 WHERE_ABS = """Filters elements based on a condition.
 
@@ -896,28 +935,29 @@ Examples:
     pr>0.000023408767
 """
 
-ABSTRACT_MAP = {
-    'CDAT.abs': render_abstract('Computes element-wise absolute value.'),
-    'CDAT.add': render_abstract('Adds two variables or a constant element-wise.', const=CONST, max_inputs=2),
-    'CDAT.aggregate': render_abstract('Aggregates a variable spanning two or more files.', max_inputs=float('inf')),
-    'CDAT.divide': render_abstract('Divides a variable by another or a constant element-wise.', const=CONST, max_inputs=2),
-    'CDAT.exp': render_abstract('Computes element-wise exponential value.'),
-    'CDAT.log': render_abstract('Computes element-wise log value.'),
-    'CDAT.max': render_abstract('Computes the maximum value over one or more axes.', axes=AXES),
-    'CDAT.mean': render_abstract('Computes the mean over one or more axes.', axes=AXES),
-    'CDAT.min': render_abstract('Computes the minimum value over one or more axes.', axes=AXES),
-    'CDAT.multiply': render_abstract('Multiplies a variable by another or a constant element-wise', const=CONST, max_inputs=2),
-    'CDAT.power': render_abstract('Takes a variable to the power of another variable or a constant element-wise.', const=CONST),
-    'CDAT.subset': render_abstract('Computes the subset of a variable defined by a domain.'),
-    'CDAT.subtract': render_abstract('Subtracts a variable from another or a constant element-wise.', const=CONST, max_inputs=2),
-    'CDAT.sum': render_abstract('Computes the sum over one or more axes.', axes=AXES),
-    'CDAT.merge': render_abstract('Merges variable from second input into first.', min_inputs=2, max_inputs=float('inf')),
-    'CDAT.where': render_abstract(WHERE_ABS, cond=COND, fillna=FILLNA),
-    'CDAT.groupby_bins': render_abstract('Groups values of a variable into bins.', variable=VARIABLE, bins=BINS),
-    'CDAT.count': render_abstract('Computes count on each variable.'),
-    'CDAT.std': render_abstract('Computes the standard deviation over one or more axes.', axes=AXES),
-    'CDAT.var': render_abstract('Computes the variance over one or more axes.', axes=AXES),
-}
+VALIDATION = {}
+ABSTRACT = {}
+
+render_abstract('CDAT.abs', 'Computes element-wise absolute value.')
+render_abstract('CDAT.add', 'Adds two variables or a constant element-wise.', const=parameter(float), max=2)
+render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more files.', max=float('inf'))
+render_abstract('CDAT.divide', 'Divides a variable by another or a constant element-wise.', const=parameter(float), max=2)
+render_abstract('CDAT.exp', 'Computes element-wise exponential value.')
+render_abstract('CDAT.log', 'Computes element-wise log value.')
+render_abstract('CDAT.max', 'Computes the maximum value over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.mean', 'Computes the mean over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.min', 'Computes the minimum value over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.multiply', 'Multiplies a variable by another or a constant element-wise', const=parameter(float), max=2)
+render_abstract('CDAT.power', 'Takes a variable to the power of another variable or a constant element-wise.', const=parameter(float))
+render_abstract('CDAT.subset', 'Computes the subset of a variable defined by a domain.')
+render_abstract('CDAT.subtract', 'Subtracts a variable from another or a constant element-wise.', const=parameter(float), max=2)
+render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'))
+render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), fillna=parameter(float))
+render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', variable=parameter(str, True), bins=parameter(float, True))
+render_abstract('CDAT.count', 'Computes count on each variable.')
+render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str, True))
 
 
 def process_wrapper(self, context):
@@ -970,7 +1010,7 @@ def discover_processes():
         # Decorate the new function as a Celery task
         shared = base.cwt_shared_task()(p)
 
-        abstract = ABSTRACT_MAP[name]
+        abstract = ABSTRACT[name]
 
         # Decorate the Celery task as a registered process
         register = base.register_process(module, operation, abstract=abstract)(shared)

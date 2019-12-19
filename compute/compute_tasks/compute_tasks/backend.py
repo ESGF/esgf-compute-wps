@@ -7,7 +7,9 @@ from functools import partial
 import jinja2
 
 from compute_tasks import base
+from compute_tasks import cdat
 from compute_tasks import celery_ as celery
+from compute_tasks import WPSError
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
 from compute_tasks.context import state_mixin
@@ -74,7 +76,37 @@ def format_frames(frames):
     return identifier, data_inputs, job, user, process, extra
 
 
+def validate_process(process):
+    v = cdat.VALIDATION[process.identifier]
+
+    if len(process.inputs) < v['min'] or len(process.inputs) > v['max']:
+        raise WPSError('Validation failed, expected the number of inputs to be between {!s} and {!s}', v['min'], v['max'])
+
+    for key, param_v in v['params'].items():
+        required = param_v['required']
+
+        param = process.parameters.get(key, None)
+
+        if param is None and required:
+            raise WPSError('Validation failed, expected parameter {!r}', key)
+
+        if param is not None:
+            type = param_v['type']
+
+            for value in param.values:
+                try:
+                    type(value)
+                except ValueError:
+                    raise WPSError('Validation failed, could not convert parameter {!r} value {!r} to type {!r}', key, value, type.__name__)
+
+
+
 def build_workflow(frames):
+    data_inputs = frames[1]
+
+    for process in data_inputs['operation']:
+        validate_process(process)
+
     started = job_started.s(*frames).set(**DEFAULT_QUEUE)
 
     logger.info('Created job started task %r', started)

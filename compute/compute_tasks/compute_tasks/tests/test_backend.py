@@ -1,6 +1,9 @@
 import os
 from argparse import Namespace
 
+import cwt
+import pytest
+
 from compute_tasks import backend
 from compute_tasks import base
 from compute_tasks.context import state_mixin
@@ -33,6 +36,29 @@ DECODED_FRAMES = [
     '0',
     {'DASK_SCHEDULER': 'dask-scheduler-0'}
 ]
+
+v0 = cwt.Variable('file:///test1.nc', 'tas')
+v1 = cwt.Variable('file:///test2.nc', 'tas')
+
+@pytest.mark.parametrize('identifier,inputs,params', [
+    pytest.param('CDAT.subset', [], {}, marks=pytest.mark.xfail),
+    pytest.param('CDAT.subset', [v0, v1], {}, marks=pytest.mark.xfail),
+    ('CDAT.subset', [v0], {}),
+    ('CDAT.aggregate', [v0, v1], {}),
+    pytest.param('CDAT.max', [v0], {}, marks=pytest.mark.xfail),
+    ('CDAT.max', [v0], {'axes': [32]}),
+    pytest.param('CDAT.add', [v0], {'const': ['asdas']}, marks=pytest.mark.xfail),
+    ('CDAT.add', [v0], {'const': [32]}),
+    ('CDAT.add', [v0], {}),
+])
+def test_validation(identifier, inputs, params):
+    process = cwt.Process(identifier)
+
+    process.add_inputs(*inputs)
+
+    process.add_parameters(**params)
+
+    backend.validate_process(process)
 
 
 def test_main(mocker):

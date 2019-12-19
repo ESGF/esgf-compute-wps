@@ -264,7 +264,7 @@ def test_where(test_data, cond, mocker):
 
 def test_abstracts():
     for x in cdat.PROCESS_FUNC_MAP.keys():
-        assert x in cdat.ABSTRACT_MAP
+        assert x in cdat.ABSTRACT
 
 
 def test_merge(test_data, mocker):
@@ -851,25 +851,39 @@ MULTI_PARAM_ABS = """Test description.
 Accepts exactly 1 input.
 
 Parameters:
-    axes: A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.
-    bins: A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).
+    axes (str, Required): A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.
+    const (float, Optional): A float value that will be applied element-wise.
+    bins (str, Optional): A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).
 """
 
-@pytest.mark.parametrize('d,min_inputs,max_inputs,params,expected', [
-    ('Test description.', None, None, {}, SINGLE_ABS),
-    ('Test description.', 2, 4, {}, MIN_MAX_ABS),
-    ('Test description.', None, float('inf'), {}, INF_ABS),
-    ('Test description.', None, None, {'axes': cdat.AXES, 'bins': cdat.BINS}, MULTI_PARAM_ABS),
+@pytest.mark.parametrize('identifier,description,params,expected', [
+    ('CDAT.subset', 'Test description.', {}, SINGLE_ABS),
+    ('CDAT.subset', 'Test description.', {'min': 2, 'max': 4}, MIN_MAX_ABS),
+    ('CDAT.subset', 'Test description.', {'max': float('inf')}, INF_ABS),
+    ('CDAT.subset', 'Test description.', {'const': cdat.parameter(float), 'axes': cdat.parameter(str, True), 'bins': cdat.parameter(str)}, MULTI_PARAM_ABS),
 ])
-def test_render_abstract(d, min_inputs, max_inputs, params, expected):
-    kwargs = params.copy()
+def test_render_abstract(identifier, description, params, expected):
+    cdat.render_abstract(identifier, description, **params)
 
-    kwargs['min_inputs'] = min_inputs
-    kwargs['max_inputs'] = max_inputs
+    assert identifier in cdat.ABSTRACT
+    assert cdat.ABSTRACT[identifier] == expected
 
-    text = cdat.render_abstract(d, **kwargs)
+    min = params.pop('min', 1)
+    max = params.pop('max', 1)
 
-    assert text == expected
+    assert identifier in cdat.VALIDATION
+
+    v = cdat.VALIDATION[identifier]
+
+    assert 'min' in v and v['min'] == min
+    assert 'max' in v and v['max'] == max
+
+    for x, y in params.items():
+        assert x in v['params']
+
+        for xx, yy in y.items():
+            assert xx in v['params'][x]
+            assert yy == v['params'][x][xx]
 
 
 def test_discover_processes(mocker):
@@ -882,6 +896,6 @@ def test_discover_processes(mocker):
     base.cwt_shared_task.assert_called()
     base.cwt_shared_task.return_value.assert_called()
 
-    base.register_process.assert_any_call('CDAT', 'subset', abstract=cdat.ABSTRACT_MAP['CDAT.subset'])
+    base.register_process.assert_any_call('CDAT', 'subset', abstract=cdat.ABSTRACT['CDAT.subset'])
 
     builtins.setattr.assert_any_call(cdat, 'subset_func', base.register_process.return_value.return_value)
