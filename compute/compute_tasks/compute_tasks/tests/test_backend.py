@@ -1,3 +1,4 @@
+import json
 import os
 from argparse import Namespace
 
@@ -6,6 +7,8 @@ import pytest
 
 from compute_tasks import backend
 from compute_tasks import base
+from compute_tasks import cdat
+from compute_tasks import job
 from compute_tasks.context import state_mixin
 
 RAW_FRAMES_ERROR = [
@@ -28,9 +31,23 @@ RAW_FRAMES = [
     b'0',
 ]
 
+V0 = cwt.Variable('file:///test.nc', 'tas')
+
+SUBSET = cwt.Process('CDAT.max')
+SUBSET.add_parameters(axes=['time', 'lat'])
+SUBSET.add_inputs(V0)
+
 DECODED_FRAMES = [
-    'CDAT.subset',
-    {'variable': [], 'domain': [], 'operation': []},
+    'CDAT.workflow',
+    {
+        'variable': [
+            json.dumps(V0.to_dict()),
+        ],
+        'domain': [],
+        'operation': [
+            json.dumps(SUBSET.to_dict()),
+        ]
+    },
     '0',
     '0',
     '0',
@@ -220,30 +237,20 @@ def test_requeust_handler(mocker):
 
 
 def test_build_workflow(mocker):
-    mocker.patch.object(base, 'get_process')
+    cdat.discover_processes()
 
-    job_started = mocker.patch.object(backend, 'job_started')
-
-    job_succeeded = mocker.patch.object(backend, 'job_succeeded')
+    mocker.patch.object(backend, 'job_started')
+    mocker.patch.object(backend, 'job_succeeded')
+    mocker.patch.object(backend.base, 'get_process')
 
     workflow = backend.build_workflow(DECODED_FRAMES)
 
-    job_started.s.assert_called_with('CDAT.subset', {'variable': [], 'domain': [], 'operation': []}, '0', '0', '0',
-                                     {'DASK_SCHEDULER': 'dask-scheduler-0'})
+    assert workflow
 
-    job_started.s.return_value.set.assert_called_with(**backend.DEFAULT_QUEUE)
+    backend.job_started.s.assert_called()
+    backend.job_succeeded.s.assert_called()
 
-    base.get_process.assert_called_with('CDAT.subset')
-
-    base.get_process.return_value.s.assert_called()
-
-    base.get_process.return_value.s.return_value.set.assert_called_with(**backend.DEFAULT_QUEUE)
-
-    job_succeeded.s.assert_called()
-
-    job_succeeded.s.return_value.set.assert_called_with(**backend.DEFAULT_QUEUE)
-
-    assert workflow == job_started.s.return_value.set.return_value.__or__.return_value.__or__.return_value
+    backend.base.get_process.assert_called_with('CDAT.workflow')
 
 
 def test_format_frames(mocker):

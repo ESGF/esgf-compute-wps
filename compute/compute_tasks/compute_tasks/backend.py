@@ -4,6 +4,7 @@ import logging
 import os
 from functools import partial
 
+import cwt
 import jinja2
 
 from compute_tasks import base
@@ -105,7 +106,7 @@ def build_workflow(frames):
     data_inputs = frames[1]
 
     for process in data_inputs['operation']:
-        validate_process(process)
+        validate_process(cwt.Process.from_dict(json.loads(process)))
 
     started = job_started.s(*frames).set(**DEFAULT_QUEUE)
 
