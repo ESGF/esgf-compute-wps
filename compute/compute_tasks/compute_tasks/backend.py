@@ -156,7 +156,7 @@ class State(object):
 
 
 class WaitingState(State):
-    def on_event(self, backend, new_state, version, identifier, data_inputs, job, user, process):
+    def on_event(self, backend, new_state, address, space, version, identifier, data_inputs, job, user, process):
         if new_state == REQUEST:
             try:
                 templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
