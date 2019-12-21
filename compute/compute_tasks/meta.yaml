@@ -39,7 +39,6 @@ requirements:
     - cftime=1.0.3.4 # Need 1.0.3.4 until next version of xarray
     - netcdf4
     - python-coreapi
-    - compute-provisioner
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
