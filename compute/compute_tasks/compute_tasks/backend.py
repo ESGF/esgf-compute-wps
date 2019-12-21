@@ -2,10 +2,14 @@ import argparse
 import json
 import logging
 import os
+import sys
+import time
+import threading
 from functools import partial
 
 import cwt
 import jinja2
+import zmq
 
 from compute_tasks import base
 from compute_tasks import cdat
@@ -14,10 +18,6 @@ from compute_tasks import WPSError
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
 from compute_tasks.context import state_mixin
-from compute_provisioner.worker import Worker
-from compute_provisioner.worker import REQUEST_TYPE
-from compute_provisioner.worker import RESOURCE_TYPE
-from compute_provisioner.worker import ERROR_TYPE
 
 logger = logging.getLogger('compute_tasks.backend')
 
@@ -43,6 +43,34 @@ QUEUE = {
 
 QUEUE.update({'ingress': DEFAULT_QUEUE})
 
+# Handler types
+REQUEST_TYPE = 'execute'
+RESOURCE_TYPE = 'resource'
+ERROR_TYPE = 'error'
+
+# Flags
+ACK = b'ACK'
+ERR = b'ERR'
+HEARTBEAT = b'HEARTBEAT'
+READY = b'READY'
+REQUEST = b'REQUEST'
+RESOURCE = b'RESOURCE'
+
+HEARTBEAT_LIVENESS = 3
+HEARTBEAT_INTERVAL = 1.0 * 1000
+
+INTERVAL_INIT = 1
+INTERVAL_MAX = 32
+
+TEMPLATE_NAMES = [
+    'dask-scheduler-pod.yaml',
+    'dask-scheduler-service.yaml',
+    'dask-scheduler-ingress.yaml',
+    'dask-worker-deployment.yaml',
+]
+
+TEMPLATES = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'))
+
 
 def queue_from_identifier(identifier):
     module, name = identifier.split('.')
@@ -50,34 +78,9 @@ def queue_from_identifier(identifier):
     return QUEUE.get(module.lower(), DEFAULT_QUEUE)
 
 
-def fail_job(state, job, e):
-    try:
-        state.job = job
-
-        state.failed(str(e))
-    except Exception:
-        pass
-    finally:
-        state.job = None
-
-
-def format_frames(frames):
-    logger.debug('Handling frames %r', frames)
-
-    version, identifier, data_inputs, job, user, process = [x.decode() for x in frames]
-
-    data_inputs = celery.decoder(data_inputs)
-
-    logger.info('Building celery workflow')
-
-    extra = {
-        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE']),
-    }
-
-    return identifier, data_inputs, job, user, process, extra
-
-
 def validate_process(process):
+    logger.info('Validating process %r', process)
+
     v = cdat.VALIDATION[process.identifier]
 
     if len(process.inputs) < v['min'] or len(process.inputs) > v['max']:
@@ -101,12 +104,23 @@ def validate_process(process):
                     raise WPSError('Validation failed, could not convert parameter {!r} value {!r} to type {!r}', key, value, type.__name__)
 
 
+def build_workflow(*frames):
+    frames = [x.decode() for x in frames]
 
-def build_workflow(frames):
-    data_inputs = frames[1]
+    frames[1] = celery.decoder(frames[1])
 
-    for process in data_inputs['operation']:
-        validate_process(cwt.Process.from_dict(json.loads(process)))
+    for data in frames[1]['operation']:
+        process = cwt.Process.from_dict(data)
+
+        validate_process(process)
+
+    extra = {
+        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(frames[4], os.environ['NAMESPACE'])
+    }
+
+    frames.append(extra)
+
+    logger.info('Append extra %r to frames', extra)
 
     started = job_started.s(*frames).set(**DEFAULT_QUEUE)
 
@@ -114,95 +128,236 @@ def build_workflow(frames):
 
     queue = queue_from_identifier(frames[0])
 
-    logger.info('Using queue %r', queue)
+    logger.info('Using queue %r for process %r', queue, frames[0])
 
     process = base.get_process(frames[0]).s().set(**queue)
 
-    logger.info('Found process %r for %r', frames[4], frames[0])
+    logger.info('Created process task %r', process)
 
     succeeded = job_succeeded.s().set(**DEFAULT_QUEUE)
 
-    logger.info('Created job stopped task %r', succeeded)
+    logger.info('Created job succeeded task %r', succeeded)
 
     return started | process | succeeded
 
 
-def request_handler(frames, state):
-    try:
-        frames = format_frames(frames)
+class State(object):
+    def __init__(self):
+        logger.info('Procesing current state %s', str(self))
 
-        workflow = build_workflow(frames)
+    def on_event(self, **event):
+        pass
 
-        logger.info('Built workflow %r', workflow)
+    def __repr__(self):
+        return self.__str__()
 
-        workflow.delay()
-
-        logger.info('Executed workflow')
-    except Exception as e:
-        logger.exception('Error executing celery workflow %r', e)
-
-        fail_job(state, frames[2], e)
+    def __str__(self):
+        return self.__class__.__name__
 
 
-def resource_request(frames, env):
-    version, identifier, data_inputs, job, user, process = [x.decode() for x in frames]
-
-    resources = []
-
-    data = {
-        'image': os.environ['IMAGE'],
-        'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
-        'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
-        'scheduler_cpu': os.environ.get('SCHEDULER_CPU', 1),
-        'scheduler_memory': os.environ.get('SCHEDULER_MEMORY', '1Gi'),
-        'worker_cpu': os.environ.get('WORKER_CPU', 1),
-        'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
-        'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
-        'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
-        'dev': os.environ.get('DEV', False),
-        'user': user,
-        'workers': os.environ['WORKERS'],
-        'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
-    }
-
-    dask_scheduler_pod = env.get_template('dask-scheduler-pod.yaml')
-
-    dask_scheduler_service = env.get_template('dask-scheduler-service.yaml')
-
-    dask_scheduler_ingress = env.get_template('dask-scheduler-ingress.yaml')
-
-    dask_worker_deployment = env.get_template('dask-worker-deployment.yaml')
-
-    resources.append(dask_scheduler_pod.render(**data))
-
-    resources.append(dask_scheduler_service.render(**data))
-
-    resources.append(dask_scheduler_ingress.render(**data))
-
-    resources.append(dask_worker_deployment.render(**data))
-
-    return json.dumps(resources)
-
-
-def error_handler(frames, state):
-    version, identifier, data_inputs, job, user, process = [x.decode() for x in frames[:-2]]
-
-    logger.error('Resource allocation failed %r', frames[-1])
-
-    fail_job(state, job, frames[-1].decode())
-
-
-def load_processes(state, register_tasks=True):
-    if register_tasks:
-        for item in base.discover_processes():
+class WaitingState(State):
+    def on_event(self, backend, new_state, version, identifier, data_inputs, job, user, process):
+        if new_state == REQUEST:
             try:
-                state.register_process(**item)
-            except state_mixin.ProcessExistsError:  # pragma: no cover
-                logger.info('Process %r already exists', item['identifier'])
+                templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
 
-                pass
+                data = {
+                    'image': os.environ['IMAGE'],
+                    'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
+                    'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
+                    'scheduler_cpu': os.environ.get('SCHEDULER_CPU', 1),
+                    'scheduler_memory': os.environ.get('SCHEDULER_MEMORY', '1Gi'),
+                    'worker_cpu': os.environ.get('WORKER_CPU', 1),
+                    'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
+                    'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
+                    'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
+                    'dev': os.environ.get('DEV', False),
+                    'user': user.decode(),
+                    'workers': os.environ['WORKERS'],
+                    'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
+                }
 
-    base.build_process_bindings()
+                resources = json.dumps([x.render(**data) for x in templates])
+
+                backend.worker.send_multipart([RESOURCE, resources.encode()])
+            except Exception as e:
+                logger.exception('Damn')
+
+                backend.fail_job(job, e)
+
+                return self
+
+            return ResourceAckState(identifier, data_inputs, job, user, process)
+
+        logger.info('Invalid transition, staying in current state')
+
+        return self
+
+class ResourceAckState(State):
+    def __init__(self, identifier, data_inputs, job, user, process):
+        super(ResourceAckState, self).__init__()
+
+        self.identifier = identifier
+        self.data_inputs = data_inputs
+        self.job = job
+        self.user = user
+        self.process = process
+
+    def on_event(self, backend, *frames):
+        if frames[0] == ACK:
+            try:
+                workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process)
+
+                workflow.delay()
+
+                backend.worker.send_multipart([ACK])
+            except Exception as e:
+                backend.fail_job(self.job, e)
+
+            return WaitingState()
+        elif frames[0] == ERR:
+            backend.fail_job(self.job, frames[1])
+
+            return WaitingState()
+
+        logger.info('Invalid transition, staying in current state')
+
+        return self
+
+class Worker(state_mixin.StateMixin, threading.Thread):
+    def __init__(self, version, queue_host):
+        state_mixin.StateMixin.__init__(self)
+
+        threading.Thread.__init__(self)
+
+        self.version = version
+
+        self.context = None
+
+        self.worker = None
+
+        self.poller = None
+
+        self.heartbeat_at = None
+
+        self.running = True
+
+        self.liveness = HEARTBEAT_LIVENESS
+
+        self.interval = INTERVAL_INIT
+
+        self.queue_host = queue_host or os.environ['PROVISIONER_BACKEND']
+
+    def initialize(self):
+        """ Initializes the worker.
+        """
+        self.context = zmq.Context(1)
+
+        self.poller = zmq.Poller()
+
+        self.init_api()
+
+        base.discover_processes()
+
+        base.build_process_bindings()
+
+        self.state = WaitingState()
+
+    def stop(self):
+        self.running = False
+
+        self.join()
+
+        self.worker.close(0)
+
+        self.context.destroy(0)
+
+    def connect_provisioner(self):
+        self.worker = self.context.socket(zmq.DEALER)
+
+        self.worker.connect('tcp://{!s}'.format(self.queue_host))
+
+        logger.info('Created dealer socket and connected to %r', self.queue_host)
+
+        self.poller.register(self.worker, zmq.POLLIN)
+
+        self.worker.send_multipart([READY, self.version])
+
+        logger.info('Notifying queue, ready for work')
+
+    def reconnect_provisioner(self):
+        self.poller.unregister(self.worker)
+
+        self.worker.setsockopt(zmq.LINGER, 0)
+
+        self.worker.close(0)
+
+        self.connect_provisioner()
+
+    def fail_job(self, job, e):
+        try:
+            self.job = job
+
+            self.failed(str(e))
+        except Exception:
+            pass
+        finally:
+            self.job = None
+
+    def send_heartbeat(self):
+        if time.time() > self.heartbeat_at:
+            self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
+
+            logger.debug('Sending heartbeat to queue')
+
+            self.worker.send_multipart([HEARTBEAT, self.version])
+
+    def missed_heartbeat(self):
+        self.liveness -= 1
+
+        if self.liveness == 0:
+            logger.error('Heartbeat failed cannot reach queue')
+            logger.error('Reconnect in %r', self.interval)
+
+            time.sleep(self.interval)
+
+            if self.interval < INTERVAL_MAX:
+                self.interval *= 2
+
+            self.reconnect_provisioner()
+
+            self.liveness = HEARTBEAT_LIVENESS
+
+    def run(self):
+        self.initialize()
+
+        self.connect_provisioner()
+
+        self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
+
+        while self.running:
+            socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
+
+            if socks.get(self.worker) == zmq.POLLIN:
+                frames = self.worker.recv_multipart()
+
+                logger.debug('Handling frames from provisioner %r', frames[:3])
+
+                # Heartbeats dont alter state. Maybe they should?
+                if frames[0] == HEARTBEAT:
+                    self.liveness = HEARTBEAT_LIVENESS
+
+                    logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
+                else:
+                    self.state = self.state.on_event(self, *frames)
+
+                self.interval = INTERVAL_INIT
+            else:
+                self.missed_heartbeat()
+
+            self.send_heartbeat()
+
+        logger.info('Thread is finished')
 
 
 def register_processes():
@@ -218,66 +373,32 @@ def register_processes():
 
     state.init_api()
 
-    load_processes(state)
+    for item in base.discover_processes():
+        try:
+            state.register_process(**item)
+        except state_mixin.ProcessExistsError:  # pragma: no cover
+            logger.info('Process %r already exists', item['identifier'])
+
+            pass
+
+    base.build_process_bindings()
 
 
-def backend_argparse():  # pragma: no cover
+def parse_args():  # pragma: no cover
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
 
     parser.add_argument('--queue-host', help='Queue to communicate with')
 
-    parser.add_argument('-d', help='Development mode', action='store_true')
-
-    return parser
+    return parser.parse_args()
 
 
 def main():
-    parser = backend_argparse()
-
-    args = parser.parse_args()
+    args = parse_args()
 
     logging.basicConfig(level=args.log_level)
 
-    logger.debug('CLI Arguments %r', args)
+    worker = Worker(b'devel', args.queue_host)
 
-    logger.info('Loading templates')
-
-    env = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'))
-
-    state = state_mixin.StateMixin()
-
-    state.init_api()
-
-    base.discover_processes()
-
-    base.build_process_bindings()
-
-    # Need to get the supported version from somewhere
-    # environment variable or hard code?
-    worker = Worker(b'devel')
-
-    queue_host = args.queue_host or os.environ['PROVISIONER_BACKEND']
-
-    request_handler_partial = partial(request_handler, state=state)
-
-    request_resource_partial = partial(resource_request, env=env)
-
-    error_handler_partial = partial(error_handler, state=state)
-
-    def callback_handler(type, frames):  # pragma: no cover
-        if type == REQUEST_TYPE:
-            value = request_handler_partial(frames)
-        elif type == RESOURCE_TYPE:
-            value = request_resource_partial(frames)
-        elif type == ERROR_TYPE:
-            value = error_handler_partial(frames)
-        else:
-            logger.error('Could not handle unknown type %r', type)
-
-            raise Exception('Could not handle unknown type {!r}'.format(type))
-
-        return value
-
-    worker.run(queue_host, callback_handler)
+    worker.start()

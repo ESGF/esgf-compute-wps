@@ -8,10 +8,6 @@ ARG COMPUTE_API_VER
 
 ENV COMPUTE_API_VER ${COMPUTE_API_VER}
 
-COPY compute/compute_provisioner compute_provisioner/
-
-RUN conda build -c conda-forge compute_provisioner/
-
 COPY compute/compute_tasks compute_tasks/
 
 RUN conda build -c conda-forge -c cdat --use-local compute_tasks/

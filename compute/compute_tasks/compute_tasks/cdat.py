@@ -572,14 +572,6 @@ def execute_delayed(context, delayed, client=None):
             DaskJobTracker(context, fut)
 
 
-WORKFLOW_ABSTRACT = """
-This operation is used to store global values in workflows. Domain, regridders and parameters defined
-here will become the default values on child operations.
-"""
-
-
-@base.register_process('CDAT', 'workflow', abstract=WORKFLOW_ABSTRACT, inputs='*')
-@base.cwt_shared_task()
 def workflow_func(self, context):
     """ Executes a workflow.
 
@@ -832,6 +824,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.count': partial(process_dataset, func=lambda x: getattr(x, 'count')()),
     'CDAT.std': partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y, keep_attrs=True)),
     'CDAT.var': partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y, keep_attrs=True)),
+    'CDAT.workflow': None,
 }
 
 
@@ -935,12 +928,16 @@ Examples:
     pr>0.000023408767
 """
 
+WORKFLOW_ABS = """This process is used to store global values in workflows. Domain
+and parameters defined here will become the default values on child operations.
+"""
+
 VALIDATION = {}
 ABSTRACT = {}
 
 render_abstract('CDAT.abs', 'Computes element-wise absolute value.')
 render_abstract('CDAT.add', 'Adds two variables or a constant element-wise.', const=parameter(float), max=2)
-render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more files.', max=float('inf'))
+render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more files.', min=2, max=float('inf'))
 render_abstract('CDAT.divide', 'Divides a variable by another or a constant element-wise.', const=parameter(float), max=2)
 render_abstract('CDAT.exp', 'Computes element-wise exponential value.')
 render_abstract('CDAT.log', 'Computes element-wise log value.')
@@ -958,6 +955,7 @@ render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', v
 render_abstract('CDAT.count', 'Computes count on each variable.')
 render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str, True))
 render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'))
 
 
 def process_wrapper(self, context):

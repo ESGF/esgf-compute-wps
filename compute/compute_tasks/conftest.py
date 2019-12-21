@@ -1,13 +1,123 @@
-import os
+import contextlib
 import hashlib
+import logging
+import os
+import threading
+import time
 
-import requests
-import pytest
 import dask.array as da
+import pytest
+import requests
 import xarray as xr
+import zmq
 from urllib.parse import urlparse
 
+from compute_tasks import backend
 from compute_tasks import managers
+
+logger = logging.getLogger()
+
+
+class Provisioner(threading.Thread):
+    def __init__(self):
+        super(Provisioner, self).__init__(target=self.monitor)
+
+        self.running = True
+
+        self.next = None
+
+    def stop(self):
+        self.running = False
+
+        self.join()
+
+        self.backend.close()
+
+        self.context.destroy()
+
+    def monitor(self):
+        logger.info('Monitoring')
+
+        self.context = zmq.Context(1)
+
+        self.backend = self.context.socket(zmq.ROUTER)
+
+        backend_addr = 'tcp://*:8787'
+
+        self.backend.bind(backend_addr)
+
+        poller = zmq.Poller()
+
+        poller.register(self.backend, zmq.POLLIN)
+
+        worker = None
+
+        heartbeat_at = time.time() + 1.0
+
+        while self.running:
+            socks = dict(poller.poll(1000))
+
+            logger.info('POLL %r', socks)
+
+            if socks.get(self.backend) == zmq.POLLIN:
+                frames = self.backend.recv_multipart()
+
+                logger.info('Got frames %r %s', frames, type(frames))
+
+                if frames[1] == b'READY':
+                    worker = frames[0]
+
+                    logger.info('WORKER %s', worker)
+
+            if self.next is not None and worker:
+                logger.info('Sending %r', [worker]+self.next)
+
+                try:
+                    self.backend.send_multipart([worker]+self.next)
+                except Exception as e:
+                    logger.exception('HELLO')
+
+                self.next = None
+
+            if time.time() >= heartbeat_at and worker is not None:
+                logger.info('SENDING heartBEAT')
+
+                self.backend.send_multipart([worker, b'HEARTBEAT'])
+
+                heartbeat_at = time.time() + 1.0
+
+
+@pytest.fixture(scope='function')
+def provisioner():
+    p = Provisioner()
+
+    def stop():
+        if p.is_alive():
+            p.stop()
+
+    timer = threading.Timer(30, stop)
+
+    timer.start()
+
+    p.start()
+
+    try:
+        yield p
+    except Exception:
+        logger.exception('Failed')
+    finally:
+        timer.cancel()
+
+        stop()
+
+
+@pytest.fixture(scope='function')
+def worker():
+    w = backend.Worker(b'devel', '127.0.0.1:8787')
+
+    yield w
+
+    w.stop()
 
 
 class CachedFileManager(managers.FileManager):
