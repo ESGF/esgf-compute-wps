@@ -341,7 +341,7 @@ class Worker(state_mixin.StateMixin, threading.Thread):
             if socks.get(self.worker) == zmq.POLLIN:
                 frames = self.worker.recv_multipart()
 
-                logger.debug('Handling frames from provisioner %r', frames[:3])
+                logger.info('Handling frames from provisioner %r', frames)
 
                 # Heartbeats dont alter state. Maybe they should?
                 if frames[0] == HEARTBEAT:
