@@ -722,7 +722,7 @@ def test_build_workflow(mocker, processes, expected):
     assert len(interm) == expected
 
 
-def test_workflow_func_error(mocker):
+def test_workflow_error(mocker):
     mocker.patch.object(cdat, 'gather_workflow_outputs')
     mocker.patch.object(cdat, 'Client')
     mocker.patch.object(cdat, 'build_workflow')
@@ -737,7 +737,7 @@ def test_workflow_func_error(mocker):
     cdat.execute_delayed.side_effect = WPSError
 
     with pytest.raises(WPSError):
-        cdat.workflow_func(context)
+        cdat.workflow(context)
 
     cdat.build_workflow.assert_called()
 
@@ -749,7 +749,7 @@ def test_workflow_func_error(mocker):
     cdat.Client.return_value.compute.assert_not_called()
 
 
-def test_workflow_func_execute_error(mocker):
+def test_workflow_execute_error(mocker):
     mocker.patch.object(cdat, 'gather_workflow_outputs')
     mocker.patch.object(cdat, 'Client')
     mocker.patch.object(cdat, 'build_workflow')
@@ -763,7 +763,7 @@ def test_workflow_func_execute_error(mocker):
     cdat.Client.return_value.compute.side_effect = Exception()
 
     with pytest.raises(WPSError):
-        cdat.workflow_func(context)
+        cdat.workflow(context)
 
     cdat.build_workflow.assert_called()
 
@@ -775,7 +775,7 @@ def test_workflow_func_execute_error(mocker):
     cdat.Client.return_value.compute.assert_called()
 
 
-def test_workflow_func_no_client(mocker):
+def test_workflow_no_client(mocker):
     mocker.patch.object(cdat, 'gather_workflow_outputs')
     mocker.patch.object(cdat, 'Client')
     mocker.patch.object(cdat, 'build_workflow')
@@ -784,7 +784,7 @@ def test_workflow_func_no_client(mocker):
     context = mocker.MagicMock()
     context.extra = {}
 
-    cdat.workflow_func(context)
+    cdat.workflow(context)
 
     cdat.build_workflow.assert_called()
 
@@ -796,7 +796,7 @@ def test_workflow_func_no_client(mocker):
     cdat.Client.return_value.compute.assert_not_called()
 
 
-def test_workflow_func(mocker):
+def test_workflow(mocker):
     mocker.patch.object(cdat, 'gather_workflow_outputs')
     mocker.patch.object(cdat, 'Client')
     mocker.patch.object(cdat, 'build_workflow')
@@ -807,7 +807,7 @@ def test_workflow_func(mocker):
         'DASK_SCHEDULER': 'dask-scheduler',
     }
 
-    cdat.workflow_func(context)
+    cdat.workflow(context)
 
     cdat.build_workflow.assert_called()
 
@@ -820,7 +820,7 @@ def test_workflow_func(mocker):
 
 
 def test_process_wrapper(mocker):
-    mocker.patch.object(cdat, 'workflow_func')
+    mocker.patch.object(cdat, 'workflow')
 
     context = mocker.MagicMock()
 
@@ -828,7 +828,7 @@ def test_process_wrapper(mocker):
 
     cdat.process_wrapper(self, context)
 
-    cdat.workflow_func.assert_called_with(context)
+    cdat.workflow.assert_called_with(context)
 
 
 SINGLE_ABS = """Test description.

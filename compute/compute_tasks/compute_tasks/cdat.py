@@ -572,7 +572,7 @@ def execute_delayed(context, delayed, client=None):
             DaskJobTracker(context, fut)
 
 
-def workflow_func(self, context):
+def workflow(context):
     """ Executes a workflow.
 
     A Celery task for executing a workflow of processes. The workflow is built then the
@@ -967,7 +967,7 @@ def process_wrapper(self, context):
     Args:
         context (OperationContext): The OperationContext holding all details of the current job.
     """
-    return workflow_func(context)
+    return workflow(context)
 
 
 def copy_function(f, operation):
