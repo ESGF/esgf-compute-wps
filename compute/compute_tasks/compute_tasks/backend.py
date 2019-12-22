@@ -105,7 +105,7 @@ def validate_process(process):
 
 
 def build_workflow(*frames):
-    frames = [x.decode() for x in frames]
+    frames = list(frames)
 
     frames[1] = celery.decoder(frames[1])
 
@@ -181,7 +181,7 @@ class WaitingState(State):
 
                 backend.worker.send_multipart([RESOURCE, resources.encode()])
             except Exception as e:
-                logger.exception('Damn')
+                logger.exception('Error templating resources')
 
                 backend.fail_job(job, e)
 
@@ -349,6 +349,8 @@ class Worker(state_mixin.StateMixin, threading.Thread):
 
                     logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
                 else:
+                    frames = [x.decode() for x in frames]
+
                     self.state = self.state.on_event(self, *frames)
 
                 self.interval = INTERVAL_INIT

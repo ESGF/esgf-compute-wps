@@ -28,11 +28,11 @@ DATA_INPUTS = {
 }
 
 RAW_FRAMES = [
-    b'CDAT.workflow',
-    json.dumps(DATA_INPUTS).encode(),
-    b'0',
-    b'0',
-    b'0',
+    'CDAT.workflow',
+    json.dumps(DATA_INPUTS),
+    '0',
+    '0',
+    '0',
 ]
 
 ENV = {
@@ -88,7 +88,7 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
     state = backend.WaitingState()
 
-    new_state = state.on_event(b, transition, b'devel', b'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', b'0', b'0', b'0')
+    new_state = state.on_event(b, transition, b'address', b'', b'devel', b'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', b'0', b'0', b'0')
 
     assert isinstance(new_state, expected)
 
@@ -105,7 +105,7 @@ def test_build_workflow(mocker):
 
     assert workflow
 
-    expected = [x.decode() for x in RAW_FRAMES]
+    expected = [x for x in RAW_FRAMES]
 
     expected[1] = celery.decoder(expected[1])
 
