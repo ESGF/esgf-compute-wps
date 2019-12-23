@@ -14,17 +14,16 @@ RUN conda build -c conda-forge -c cdat --use-local compute_tasks/
 
 FROM continuumio/miniconda3:4.7.10 as production
 
-RUN conda install -c conda-forge curl && \
-      mkdir -p /tmp/certs && \
-      curl -sL https://github.com/ESGF/esgf-dist/raw/master/installer/certs/esg_trusted_certificates.tar | tar xvf - -C /tmp/certs --strip 1
-
 COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
-RUN conda install -c conda-forge -c cdat --use-local compute-tasks && \
-      conda clean -a -y
+RUN conda install -c conda-forge -c cdat --use-local compute-tasks curl --freeze-installed --yes && \
+      conda clean -afy
 
 ENV TINI_VERSION v0.18.0
+
+RUN mkdir -p /tmp/certs && \
+      curl -sL https://github.com/ESGF/esgf-dist/raw/master/installer/certs/esg_trusted_certificates.tar | tar xvf - -C /tmp/certs --strip 1
 
 RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/local/bin/tini && \
       chmod +x /usr/local/bin/tini
@@ -62,7 +61,7 @@ ENV MPC_PASSWORD ${MPC_PASSWORD}
 
 WORKDIR /testing
 
-RUN conda install -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap && \
+RUN conda install -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap --freeze-installed --yes && \
       mkdir /metrics
 
 COPY compute/compute_tasks .
