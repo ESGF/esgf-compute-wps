@@ -168,7 +168,7 @@ pipeline {
         --opt build-arg:MPC_PASSWORD=${MPC_PSW} \\
         --opt target=testresult \\
 	--output type=local,dest=output \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-tasks:cache'''
+	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-celery:cache'''
               sh 'chown -R 10000:10000 output'
             }
 
