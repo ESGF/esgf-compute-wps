@@ -17,7 +17,7 @@ FROM continuumio/miniconda3:4.7.10 as production
 COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
-RUN conda install -c conda-forge -c cdat --use-local compute-tasks curl --freeze-installed --yes && \
+RUN conda install --yes -c conda-forge -c cdat --use-local compute-tasks curl && \
       conda clean -afy
 
 ENV TINI_VERSION v0.18.0
@@ -61,7 +61,7 @@ ENV MPC_PASSWORD ${MPC_PASSWORD}
 
 WORKDIR /testing
 
-RUN conda install -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap --freeze-installed --yes && \
+RUN conda install --yes -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap && \
       mkdir /metrics
 
 COPY compute/compute_tasks .
