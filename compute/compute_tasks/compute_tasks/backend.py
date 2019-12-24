@@ -156,7 +156,7 @@ class State(object):
 
 
 class WaitingState(State):
-    def on_event(self, backend, new_state, address, space, version, identifier, data_inputs, job, user, process):
+    def on_event(self, backend, new_state, version, identifier, data_inputs, job, user, process):
         if new_state == REQUEST:
             try:
                 templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
@@ -248,6 +248,8 @@ class Worker(state_mixin.StateMixin, threading.Thread):
 
         self.queue_host = queue_host or os.environ['PROVISIONER_BACKEND']
 
+        self.exc = None
+
     def initialize(self):
         """ Initializes the worker.
         """
@@ -329,37 +331,40 @@ class Worker(state_mixin.StateMixin, threading.Thread):
             self.liveness = HEARTBEAT_LIVENESS
 
     def run(self):
-        self.initialize()
+        try:
+            self.initialize()
 
-        self.connect_provisioner()
+            self.connect_provisioner()
 
-        self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
+            self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
 
-        while self.running:
-            socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
+            while self.running:
+                socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
 
-            if socks.get(self.worker) == zmq.POLLIN:
-                frames = self.worker.recv_multipart()
+                if socks.get(self.worker) == zmq.POLLIN:
+                    frames = self.worker.recv_multipart()
 
-                logger.info('Handling frames from provisioner %r', frames)
+                    logger.info('Handling frames from provisioner %r', frames)
 
-                # Heartbeats dont alter state. Maybe they should?
-                if frames[0] == HEARTBEAT:
-                    self.liveness = HEARTBEAT_LIVENESS
+                    # Heartbeats dont alter state. Maybe they should?
+                    if frames[0] == HEARTBEAT:
+                        self.liveness = HEARTBEAT_LIVENESS
 
-                    logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
+                        logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
+                    else:
+                        frames = [x.decode() for x in frames]
+
+                        self.state = self.state.on_event(self, *frames)
+
+                    self.interval = INTERVAL_INIT
                 else:
-                    frames = [x.decode() for x in frames]
+                    self.missed_heartbeat()
 
-                    self.state = self.state.on_event(self, *frames)
+                self.send_heartbeat()
 
-                self.interval = INTERVAL_INIT
-            else:
-                self.missed_heartbeat()
-
-            self.send_heartbeat()
-
-        logger.info('Thread is finished')
+            logger.info('Thread is finished')
+        except Exception as e:
+            self.exc = e
 
 
 def register_processes():

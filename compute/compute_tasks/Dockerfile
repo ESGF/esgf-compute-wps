@@ -30,7 +30,7 @@ COPY compute/compute_tasks/healthcheck.sh .
 
 EXPOSE 8000
 
-ENTRYPOINT ["/usr/local/bin/tini", "--"]
+ENTRYPOINT ["tini", "--"]
 
 CMD ["/bin/bash", "./entrypoint.sh", "-c", "1", "-Q", "default", "-n", "default", "-l", "INFO"]
 

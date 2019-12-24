@@ -24,100 +24,105 @@ class Provisioner(threading.Thread):
 
         self.running = True
 
-        self.next = None
+        self.received = []
+
+        self.workers = []
+
+        self.exc = None
 
     def stop(self):
         self.running = False
 
         self.join()
 
-        self.backend.close()
+        self.backend.close(0)
 
-        self.context.destroy()
+        self.context.destroy(0)
+
+    def send(self, worker, frames):
+        logger.info('Sending %r', [worker]+frames)
+
+        self.backend.send_multipart([worker]+frames)
 
     def monitor(self):
-        logger.info('Monitoring')
+        try:
+            logger.info('Monitoring')
 
-        self.context = zmq.Context(1)
+            self.context = zmq.Context(1)
 
-        self.backend = self.context.socket(zmq.ROUTER)
+            self.backend = self.context.socket(zmq.ROUTER)
 
-        backend_addr = 'tcp://*:8787'
+            backend_addr = 'tcp://*:8787'
 
-        self.backend.bind(backend_addr)
+            self.backend.bind(backend_addr)
 
-        poller = zmq.Poller()
+            poller = zmq.Poller()
 
-        poller.register(self.backend, zmq.POLLIN)
+            poller.register(self.backend, zmq.POLLIN)
 
-        worker = None
+            worker = None
 
-        heartbeat_at = time.time() + 1.0
+            heartbeat_at = time.time() + 1.0
 
-        while self.running:
-            socks = dict(poller.poll(1000))
+            while self.running:
+                socks = dict(poller.poll(1000))
 
-            logger.info('POLL %r', socks)
+                logger.info('POLL %r', socks)
 
-            if socks.get(self.backend) == zmq.POLLIN:
-                frames = self.backend.recv_multipart()
+                if socks.get(self.backend) == zmq.POLLIN:
+                    frames = self.backend.recv_multipart()
 
-                logger.info('Got frames %r %s', frames, type(frames))
+                    self.received.append(frames)
 
-                if frames[1] == b'READY':
-                    worker = frames[0]
+                    logger.info('Got frames %r %s', frames, type(frames))
 
-                    logger.info('WORKER %s', worker)
+                    if frames[1] == b'READY':
+                        self.workers.append(frames[0])
 
-            if self.next is not None and worker:
-                logger.info('Sending %r', [worker]+self.next)
+                        logger.info('WORKER %s', self.workers)
 
-                try:
-                    self.backend.send_multipart([worker]+self.next)
-                except Exception as e:
-                    logger.exception('HELLO')
+                if time.time() >= heartbeat_at:
+                    logger.info('SENDING heartBEAT')
 
-                self.next = None
+                    for worker in self.workers:
+                        self.backend.send_multipart([worker, b'HEARTBEAT'])
 
-            if time.time() >= heartbeat_at and worker is not None:
-                logger.info('SENDING heartBEAT')
-
-                self.backend.send_multipart([worker, b'HEARTBEAT'])
-
-                heartbeat_at = time.time() + 1.0
+                    heartbeat_at = time.time() + 1.0
+        except Exception as e:
+            self.exc = e
 
 
 @pytest.fixture(scope='function')
 def provisioner():
     p = Provisioner()
 
-    def stop():
-        if p.is_alive():
-            p.stop()
-
-    timer = threading.Timer(30, stop)
-
-    timer.start()
-
     p.start()
 
     try:
         yield p
-    except Exception:
-        logger.exception('Failed')
     finally:
-        timer.cancel()
+        p.stop()
 
-        stop()
+        if p.exc is not None:
+            raise p.exc
 
 
 @pytest.fixture(scope='function')
-def worker():
+def worker(mocker):
     w = backend.Worker(b'devel', '127.0.0.1:8787')
 
-    yield w
+    mocker.patch.object(w, 'action')
+    mocker.patch.object(w, 'init_api')
 
-    w.stop()
+    w.start()
+
+    try:
+        yield w
+    finally:
+        w.stop()
+
+        if w.exc is not None:
+            raise w.exc
 
 
 class CachedFileManager(managers.FileManager):
