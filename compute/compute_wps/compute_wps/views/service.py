@@ -157,6 +157,9 @@ def handle_get(params, meta):
 
             raise WPSError('Failed to parse DataInputs param')
 
+        for x in data_inputs.keys():
+            data_inputs[x] = json.loads(data_inputs[x])
+
         with metrics.WPS_REQUESTS.labels('Execute', 'GET').time():
             response = handle_execute(meta, identifier, data_inputs)
     else:
@@ -204,7 +207,7 @@ def handle_post(data, meta):
                 raise WPSError('Invalid XML missing Identifier element')
 
             try:
-                data_inputs[input_id] = data.text
+                data_inputs[input_id] = json.loads(data.text)
             except AttributeError:
                 raise WPSError('Invalid XML missing ComplexData element')
 
