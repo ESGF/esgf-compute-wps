@@ -104,33 +104,29 @@ def validate_process(process):
                     raise WPSError('Validation failed, could not convert parameter {!r} value {!r} to type {!r}', key, value, type.__name__)
 
 
-def build_workflow(*frames):
-    frames = list(frames)
+def build_workflow(identifier, data_inputs, job, user, process):
+    data_inputs = celery.decoder(data_inputs)
 
-    frames[1] = celery.decoder(frames[1])
+    for data in data_inputs['operation']:
+        p = cwt.Process.from_dict(data)
 
-    for data in frames[1]['operation']:
-        process = cwt.Process.from_dict(data)
-
-        validate_process(process)
+        validate_process(p)
 
     extra = {
-        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(frames[4], os.environ['NAMESPACE'])
+        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE'])
     }
-
-    frames.append(extra)
 
     logger.info('Append extra %r to frames', extra)
 
-    started = job_started.s(*frames).set(**DEFAULT_QUEUE)
+    started = job_started.s(identifier, data_inputs, job, user, process, extra).set(**DEFAULT_QUEUE)
 
     logger.info('Created job started task %r', started)
 
-    queue = queue_from_identifier(frames[0])
+    queue = queue_from_identifier(identifier)
 
-    logger.info('Using queue %r for process %r', queue, frames[0])
+    logger.info('Using queue %r for process %r', queue, identifier)
 
-    process = base.get_process(frames[0]).s().set(**queue)
+    process = base.get_process(identifier).s().set(**queue)
 
     logger.info('Created process task %r', process)
 

@@ -238,19 +238,15 @@ def test_build_workflow(mocker):
 
     cdat.discover_processes()
 
-    workflow = backend.build_workflow(*RAW_FRAMES)
+    workflow = backend.build_workflow('CDAT.workflow', json.dumps(DATA_INPUTS), '0', '0', '0')
 
     assert workflow
 
-    expected = [x for x in RAW_FRAMES]
-
-    expected[1] = celery.decoder(expected[1])
-
-    expected.append({
+    extra = {
         'DASK_SCHEDULER': 'dask-scheduler-0.default.svc:8786',
-    })
+    }
 
-    backend.job_started.s.assert_called_with(*expected)
+    backend.job_started.s.assert_called_with('CDAT.workflow', DATA_INPUTS, '0', '0', '0', extra)
     backend.job_succeeded.s.assert_called()
 
 
