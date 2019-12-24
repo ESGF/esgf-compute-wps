@@ -385,6 +385,9 @@ class Provisioner(threading.Thread):
 
                         continue
 
+                    # Remove first two values, address and empty delimiter
+                    frames = frames[2:]
+
                     frames.insert(0, address)
 
                     frames.insert(1, constants.REQUEST)
