@@ -29,7 +29,7 @@ class OperationContext(state_mixin.StateMixin, object):
 
         for id in ('variable', 'domain', 'operation'):
             try:
-                data = json.loads(data_inputs[id])
+                data = data_inputs[id]
             except KeyError as e:
                 raise WPSError('Missing required data input "{!s}"', e)
 

@@ -36,9 +36,9 @@ class CWTData(object):
         self.workflow.add_inputs(self.divide, self.max, self.min)
 
         data_inputs = {
-            'variable': '[]',
-            'domain': '[]',
-            'operation': json.dumps([
+            'variable': [],
+            'domain': [],
+            'operation': [
                 self.aggregate.to_dict(),
                 self.average.to_dict(),
                 self.std.to_dict(),
@@ -47,7 +47,7 @@ class CWTData(object):
                 self.max.to_dict(),
                 self.min.to_dict(),
                 self.workflow.to_dict(),
-            ]),
+            ],
         }
 
         return data_inputs
@@ -202,9 +202,9 @@ def test_from_dict(cwt_data):
 
 def test_from_data_inputs_missing_operation():
     data_inputs = {
-        'variable': '[]',
-        'domain': '[]',
-        'operation': '[]',
+        'variable': [],
+        'domain': [],
+        'operation': [],
     }
 
     with pytest.raises(WPSError):
@@ -217,12 +217,12 @@ def test_from_data_inputs_invalid_input_workflow(cwt_data):
     cwt_data.op2.add_inputs(cwt_data.op1)
 
     data_inputs = {
-        'variable': '[]',
-        'domain': '[]',
-        'operation': json.dumps([
+        'variable': [],
+        'domain': [],
+        'operation': [
             cwt_data.op1.to_dict(),
             cwt_data.op2.to_dict(),
-        ]),
+        ],
     }
 
     with pytest.raises(WPSError):
@@ -238,17 +238,17 @@ def test_from_data_inputs_global(cwt_data):
     cwt_data.op2.add_parameters(axes=['time'])
 
     data_inputs = {
-        'variable': json.dumps([
+        'variable': [
             cwt_data.v1.to_dict(),
             cwt_data.v2.to_dict(),
-        ]),
-        'domain': json.dumps([
+        ],
+        'domain': [
             cwt_data.d0.to_dict(),
-        ]),
-        'operation': json.dumps([
+        ],
+        'operation': [
             cwt_data.op1.to_dict(),
             cwt_data.op2.to_dict(),
-        ]),
+        ],
     }
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.workflow', data_inputs)
@@ -268,17 +268,17 @@ def test_from_data_inputs_workflow(cwt_data):
     cwt_data.op2.add_inputs(cwt_data.op1)
 
     data_inputs = {
-        'variable': json.dumps([
+        'variable': [
             cwt_data.v1.to_dict(),
             cwt_data.v2.to_dict(),
-        ]),
-        'domain': json.dumps([
+        ],
+        'domain': [
             cwt_data.d0.to_dict(),
-        ]),
-        'operation': json.dumps([
+        ],
+        'operation': [
             cwt_data.op1.to_dict(),
             cwt_data.op2.to_dict(),
-        ]),
+        ],
     }
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.workflow', data_inputs)
@@ -293,16 +293,16 @@ def test_from_data_inputs(cwt_data):
     cwt_data.op1.domain = cwt_data.d0
 
     data_inputs = {
-        'variable': json.dumps([
+        'variable': [
             cwt_data.v1.to_dict(),
             cwt_data.v2.to_dict(),
-        ]),
-        'domain': json.dumps([
+        ],
+        'domain': [
             cwt_data.d0.to_dict(),
-        ]),
-        'operation': json.dumps([
+        ],
+        'operation': [
             cwt_data.op1.to_dict(),
-        ]),
+        ],
     }
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
@@ -394,16 +394,16 @@ def test_decode_data_inputs_json_exception(cwt_data):
 
 def test_decode_data_inputs(cwt_data):
     data_inputs = {
-        'variable': json.dumps([
+        'variable': [
             cwt_data.v1.to_dict(),
             cwt_data.v2.to_dict(),
-        ]),
-        'domain': json.dumps([
+        ],
+        'domain': [
             cwt_data.d0.to_dict(),
-        ]),
-        'operation': json.dumps([
+        ],
+        'operation': [
             cwt_data.op1.to_dict(),
-        ]),
+        ],
     }
 
     output = operation.OperationContext.decode_data_inputs(data_inputs)
