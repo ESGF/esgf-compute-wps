@@ -189,7 +189,7 @@ class WaitingState(State):
 
             return ResourceAckState(identifier, data_inputs, job, user, process)
 
-        logger.info('Invalid transition, staying in current state')
+        logger.info('Invalid transition %r, staying in current state %r', new_state, self)
 
         return self
 
@@ -220,7 +220,7 @@ class ResourceAckState(State):
 
             return WaitingState()
 
-        logger.info('Invalid transition, staying in current state')
+        logger.info('Invalid transition %r, staying in current state %r', new_state, self)
 
         return self
 
