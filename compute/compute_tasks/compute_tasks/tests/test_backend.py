@@ -190,7 +190,7 @@ def test_resource_ack_state(mocker, transition, frames, expected):
 
     state = backend.ResourceAckState('CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0')
 
-    frames.insert(0, transition)
+    frames.insert(0, transition.decode())
 
     new_state = state.on_event(b, *frames)
 
@@ -225,7 +225,7 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
     state = backend.WaitingState()
 
-    new_state = state.on_event(b, transition, b'devel', b'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', b'0', b'0', b'0')
+    new_state = state.on_event(b, transition.decode(), 'devel', 'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0')
 
     assert isinstance(new_state, expected)
 

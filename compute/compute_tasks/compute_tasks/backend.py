@@ -156,8 +156,10 @@ class State(object):
 
 
 class WaitingState(State):
-    def on_event(self, backend, new_state, version, identifier, data_inputs, job, user, process):
-        if new_state == REQUEST:
+    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process):
+        transition = transition.encode()
+
+        if transition == REQUEST:
             try:
                 templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
 
@@ -172,7 +174,7 @@ class WaitingState(State):
                     'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
                     'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
                     'dev': os.environ.get('DEV', False),
-                    'user': user.decode(),
+                    'user': user,
                     'workers': os.environ['WORKERS'],
                     'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
                 }
@@ -189,7 +191,7 @@ class WaitingState(State):
 
             return ResourceAckState(identifier, data_inputs, job, user, process)
 
-        logger.info('Invalid transition %r, staying in current state %r', new_state, self)
+        logger.info('Invalid transition %r, staying in current state %r', transition, self)
 
         return self
 
@@ -204,7 +206,9 @@ class ResourceAckState(State):
         self.process = process
 
     def on_event(self, backend, *frames):
-        if frames[0] == ACK:
+        transition = frames[0].encode()
+
+        if transition == ACK:
             try:
                 workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process)
 
@@ -215,12 +219,12 @@ class ResourceAckState(State):
                 backend.fail_job(self.job, e)
 
             return WaitingState()
-        elif frames[0] == ERR:
+        elif transition == ERR:
             backend.fail_job(self.job, frames[1])
 
             return WaitingState()
 
-        logger.info('Invalid transition %r, staying in current state %r', new_state, self)
+        logger.info('Invalid transition %r, staying in current state %r', transition, self)
 
         return self
 
