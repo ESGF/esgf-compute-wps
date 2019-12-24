@@ -74,7 +74,7 @@ class WorkerQueue(object):
 
         self.queue[worker.address] = worker
 
-        logger.debug('Setting worker %r to expire at %r', worker.address, worker.expiry)
+        logger.info('Setting worker %r to expire at %r', worker.address, worker.expiry)
 
     def purge(self):
         t = time.time()
@@ -98,16 +98,16 @@ class WorkerQueue(object):
         for address in self.queue:
             socket.send_multipart([address, constants.HEARTBEAT])
 
-            logger.debug('Sent heartbeat to %r', address)
+            logger.info('Sent heartbeat to %r', address)
 
         self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
 
-        logger.debug('Setting next heartbeat at %r', self.heartbeat_at)
+        logger.info('Setting next heartbeat at %r', self.heartbeat_at)
 
     def next(self, version):
         candidates = [x.address for x in self.queue.values() if x.version == version]
 
-        logger.debug('Candidates for next worker handling version %r: %r', version, candidates)
+        logger.info('Candidates for next worker handling version %r: %r', version, candidates)
 
         address = candidates.pop(0)
 
@@ -318,7 +318,7 @@ class Provisioner(threading.Thread):
     def handle_backend_frames(self, frames):
         address = frames[0]
 
-        logger.debug('Handling frames from backend %r', frames[:3])
+        logger.info('Handling frames from backend %r', frames[:3])
 
         if frames[1] == constants.RESOURCE:
             try:
@@ -332,7 +332,7 @@ class Provisioner(threading.Thread):
 
             self.backend.send_multipart(new_frames)
         elif frames[1] == constants.ACK:
-            logger.debug('Received ack from backend %r', address)
+            logger.info('Received ack from backend %r', address)
 
             self.waiting_ack.pop(address, None)
         else:
@@ -345,7 +345,7 @@ class Provisioner(threading.Thread):
 
                 pass
             elif frames[1] == constants.HEARTBEAT:
-                logger.debug('Received heartbeat from backend %r', address)
+                logger.info('Received heartbeat from backend %r', address)
 
                 pass
             else:
@@ -355,6 +355,9 @@ class Provisioner(threading.Thread):
         self.frontend.send_multipart(frames)
 
         version = frames[2]
+
+        # Remove first two frames that are not needed.
+        frames = frames[2:]
 
         with self.redis.lock('job_queue'):
             self.redis.rpush(version, json_encoder(frames))
@@ -376,23 +379,20 @@ class Provisioner(threading.Thread):
         try:
             with self.redis.lock('job_queue', blocking_timeout=4):
                 for address, worker in list(self.workers.queue.items()):
-                    logger.debug('Processing waiting worker %r', address)
+                    logger.info('Processing waiting worker %r', address)
 
                     try:
                         frames = json_decoder(self.redis.lpop(worker.version))
                     except Exception:
-                        logger.debug('No work found for version %r', worker.version)
+                        logger.info('No work found for version %r', worker.version)
 
                         continue
-
-                    # Remove first two values, address and empty delimiter
-                    frames = frames[2:]
 
                     frames.insert(0, address)
 
                     frames.insert(1, constants.REQUEST)
 
-                    logger.debug('Sending frames to worker %r', frames)
+                    logger.info('Sending frames to worker %r', frames)
 
                     self.backend.send_multipart(frames)
 
