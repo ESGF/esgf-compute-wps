@@ -428,10 +428,10 @@ def open_protected_dataset(context, url, var_name, chunks, decode_times=False):
 
         logger.info('Wrote certificate to %s', cert_file)
 
+        write_dodsrc(cert_file)
+
         if not check_access(url, cert_file):
             raise WPSError('Failed to access input {!r}', url)
-
-        write_dodsrc(cert_file)
 
         ds = xr.open_dataset(url, engine='netcdf4', decode_times=decode_times)
 
@@ -495,7 +495,7 @@ def gather_inputs(context, process):
         if time is not None and time.crs == cwt.VALUES:
             decode_times = False
 
-    logger.info('Decod times %r', decode_times)
+    logger.info('Decode times %r', decode_times)
 
     datasets = [open_dataset(context, x.uri, x.var_name, chunks, decode_times) for x in process.inputs]
 
