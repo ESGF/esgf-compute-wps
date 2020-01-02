@@ -104,33 +104,29 @@ def validate_process(process):
                     raise WPSError('Validation failed, could not convert parameter {!r} value {!r} to type {!r}', key, value, type.__name__)
 
 
-def build_workflow(*frames):
-    frames = list(frames)
+def build_workflow(identifier, data_inputs, job, user, process):
+    data_inputs = celery.decoder(data_inputs)
 
-    frames[1] = celery.decoder(frames[1])
+    for data in data_inputs['operation']:
+        p = cwt.Process.from_dict(data)
 
-    for data in frames[1]['operation']:
-        process = cwt.Process.from_dict(data)
-
-        validate_process(process)
+        validate_process(p)
 
     extra = {
-        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(frames[4], os.environ['NAMESPACE'])
+        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE'])
     }
-
-    frames.append(extra)
 
     logger.info('Append extra %r to frames', extra)
 
-    started = job_started.s(*frames).set(**DEFAULT_QUEUE)
+    started = job_started.s(identifier, data_inputs, job, user, process, extra).set(**DEFAULT_QUEUE)
 
     logger.info('Created job started task %r', started)
 
-    queue = queue_from_identifier(frames[0])
+    queue = queue_from_identifier(identifier)
 
-    logger.info('Using queue %r for process %r', queue, frames[0])
+    logger.info('Using queue %r for process %r', queue, identifier)
 
-    process = base.get_process(frames[0]).s().set(**queue)
+    process = base.get_process(identifier).s().set(**queue)
 
     logger.info('Created process task %r', process)
 
@@ -156,8 +152,10 @@ class State(object):
 
 
 class WaitingState(State):
-    def on_event(self, backend, new_state, address, space, version, identifier, data_inputs, job, user, process):
-        if new_state == REQUEST:
+    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process):
+        transition = transition.encode()
+
+        if transition == REQUEST:
             try:
                 templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
 
@@ -172,7 +170,7 @@ class WaitingState(State):
                     'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
                     'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
                     'dev': os.environ.get('DEV', False),
-                    'user': user.decode(),
+                    'user': user,
                     'workers': os.environ['WORKERS'],
                     'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
                 }
@@ -189,7 +187,7 @@ class WaitingState(State):
 
             return ResourceAckState(identifier, data_inputs, job, user, process)
 
-        logger.info('Invalid transition, staying in current state')
+        logger.info('Invalid transition %r, staying in current state %r', transition, self)
 
         return self
 
@@ -204,7 +202,9 @@ class ResourceAckState(State):
         self.process = process
 
     def on_event(self, backend, *frames):
-        if frames[0] == ACK:
+        transition = frames[0].encode()
+
+        if transition == ACK:
             try:
                 workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process)
 
@@ -215,12 +215,12 @@ class ResourceAckState(State):
                 backend.fail_job(self.job, e)
 
             return WaitingState()
-        elif frames[0] == ERR:
+        elif transition == ERR:
             backend.fail_job(self.job, frames[1])
 
             return WaitingState()
 
-        logger.info('Invalid transition, staying in current state')
+        logger.info('Invalid transition %r, staying in current state %r', transition, self)
 
         return self
 
@@ -247,6 +247,8 @@ class Worker(state_mixin.StateMixin, threading.Thread):
         self.interval = INTERVAL_INIT
 
         self.queue_host = queue_host or os.environ['PROVISIONER_BACKEND']
+
+        self.exc = None
 
     def initialize(self):
         """ Initializes the worker.
@@ -329,37 +331,40 @@ class Worker(state_mixin.StateMixin, threading.Thread):
             self.liveness = HEARTBEAT_LIVENESS
 
     def run(self):
-        self.initialize()
+        try:
+            self.initialize()
 
-        self.connect_provisioner()
+            self.connect_provisioner()
 
-        self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
+            self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
 
-        while self.running:
-            socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
+            while self.running:
+                socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
 
-            if socks.get(self.worker) == zmq.POLLIN:
-                frames = self.worker.recv_multipart()
+                if socks.get(self.worker) == zmq.POLLIN:
+                    frames = self.worker.recv_multipart()
 
-                logger.info('Handling frames from provisioner %r', frames)
+                    logger.info('Handling frames from provisioner %r', frames)
 
-                # Heartbeats dont alter state. Maybe they should?
-                if frames[0] == HEARTBEAT:
-                    self.liveness = HEARTBEAT_LIVENESS
+                    # Heartbeats dont alter state. Maybe they should?
+                    if frames[0] == HEARTBEAT:
+                        self.liveness = HEARTBEAT_LIVENESS
 
-                    logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
+                        logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
+                    else:
+                        frames = [x.decode() for x in frames]
+
+                        self.state = self.state.on_event(self, *frames)
+
+                    self.interval = INTERVAL_INIT
                 else:
-                    frames = [x.decode() for x in frames]
+                    self.missed_heartbeat()
 
-                    self.state = self.state.on_event(self, *frames)
+                self.send_heartbeat()
 
-                self.interval = INTERVAL_INIT
-            else:
-                self.missed_heartbeat()
-
-            self.send_heartbeat()
-
-        logger.info('Thread is finished')
+            logger.info('Thread is finished')
+        except Exception as e:
+            self.exc = e
 
 
 def register_processes():

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 import cwt
 import pytest
@@ -41,6 +42,142 @@ ENV = {
 }
 
 
+def test_worker_run(mocker, provisioner, worker):
+    time.sleep(4)
+
+    w = provisioner.workers[0]
+
+    RAW_PROVISIONER_FRAMES = [
+        backend.REQUEST,
+        b'devel',
+        b'CDAT.workflow',
+        json.dumps(DATA_INPUTS).encode(),
+        b'0',
+        b'0',
+        b'0',
+    ]
+
+    provisioner.send(w, RAW_PROVISIONER_FRAMES)
+
+
+def test_worker_missed_heartbeat(mocker, provisioner):
+    w = backend.Worker(b'devel', '127.0.0.1:8787')
+
+    mocker.patch.object(w, 'init_api')
+
+    w.initialize()
+
+    w.connect_provisioner()
+
+    w.missed_heartbeat()
+
+    assert w.liveness == 2
+
+    w.missed_heartbeat()
+
+    assert w.liveness == 1
+
+    assert w.interval == 1
+
+    w.missed_heartbeat()
+
+    assert w.interval == 2
+    assert w.liveness == 3
+
+    time.sleep(2)
+
+    assert len(provisioner.received) == 2
+    assert all([provisioner.received[x][1] == backend.READY for x in range(2)])
+
+
+def test_worker_send_heartbeat(mocker, provisioner):
+    w = backend.Worker(b'devel', '127.0.0.1:8787')
+
+    mocker.patch.object(w, 'init_api')
+
+    w.initialize()
+
+    w.connect_provisioner()
+
+    w.heartbeat_at = time.time()
+
+    time.sleep(2)
+
+    w.send_heartbeat()
+
+    time.sleep(4)
+
+    assert len(provisioner.received) == 2
+    assert provisioner.received[0][1] == backend.READY
+    assert provisioner.received[1][1] == backend.HEARTBEAT
+
+
+def test_worker_fail_job(mocker):
+    w = backend.Worker(b'devel', '127.0.0.1:8787')
+
+    mocker.patch.object(w, 'init_api')
+
+    mocker.spy(w, 'failed')
+
+    w.fail_job(10, 'test')
+
+    w.failed.assert_called_with('test')
+
+    assert w.job is None
+
+
+def test_worker_reconnect_provisioner(mocker, provisioner):
+    w = backend.Worker(b'devel', '127.0.0.1:8787')
+
+    mocker.patch.object(w, 'init_api')
+
+    w.initialize()
+
+    w.connect_provisioner()
+
+    time.sleep(4)
+
+    w.reconnect_provisioner()
+
+    time.sleep(4)
+
+    assert len(provisioner.received) == 2
+    assert all([provisioner.received[x][1] == backend.READY for x in range(2)])
+    assert all([provisioner.received[x][2] == b'devel' for x in range(2)])
+
+
+def test_worker_connect_provisioner(mocker, provisioner):
+    w = backend.Worker(b'devel', '127.0.0.1:8787')
+
+    mocker.patch.object(w, 'init_api')
+
+    w.initialize()
+
+    w.connect_provisioner()
+
+    time.sleep(4)
+
+    assert len(provisioner.received) == 1
+    assert provisioner.received[0][1] == backend.READY
+    assert provisioner.received[0][2] == b'devel'
+
+
+def test_worker_stop(worker):
+    worker.stop()
+
+    assert not worker.running
+
+
+def test_worker_initialize(mocker):
+    w = backend.Worker(b'devel', '127.0.0.1:8787')
+
+    mocker.patch.object(w, 'init_api')
+
+    w.initialize()
+
+    assert isinstance(w.state, backend.WaitingState)
+
+
 @pytest.mark.parametrize('transition,frames,expected', [
     (backend.ACK, [], backend.WaitingState),
     (backend.ERR, [b'Error message'], backend.WaitingState),
@@ -51,9 +188,9 @@ def test_resource_ack_state(mocker, transition, frames, expected):
 
     mocker.patch.object(backend, 'build_workflow')
 
-    state = backend.ResourceAckState(b'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', b'0', b'0', b'0')
+    state = backend.ResourceAckState('CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0')
 
-    frames.insert(0, transition)
+    frames.insert(0, transition.decode())
 
     new_state = state.on_event(b, *frames)
 
@@ -88,7 +225,7 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
     state = backend.WaitingState()
 
-    new_state = state.on_event(b, transition, b'address', b'', b'devel', b'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', b'0', b'0', b'0')
+    new_state = state.on_event(b, transition.decode(), 'devel', 'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0')
 
     assert isinstance(new_state, expected)
 
@@ -101,19 +238,15 @@ def test_build_workflow(mocker):
 
     cdat.discover_processes()
 
-    workflow = backend.build_workflow(*RAW_FRAMES)
+    workflow = backend.build_workflow('CDAT.workflow', json.dumps(DATA_INPUTS), '0', '0', '0')
 
     assert workflow
 
-    expected = [x for x in RAW_FRAMES]
-
-    expected[1] = celery.decoder(expected[1])
-
-    expected.append({
+    extra = {
         'DASK_SCHEDULER': 'dask-scheduler-0.default.svc:8786',
-    })
+    }
 
-    backend.job_started.s.assert_called_with(*expected)
+    backend.job_started.s.assert_called_with('CDAT.workflow', DATA_INPUTS, '0', '0', '0', extra)
     backend.job_succeeded.s.assert_called()
 
 
@@ -156,10 +289,6 @@ def test_missing_heartbeat(mocker, worker):
 
     backend.Worker.reconnect_provisioner = reconnect_provisioner
 
-    mocker.patch.object(worker, 'action')
-    mocker.patch.object(worker, 'init_api')
-
-    worker.start()
     worker.join()
 
     assert timeouts == [2, 4]

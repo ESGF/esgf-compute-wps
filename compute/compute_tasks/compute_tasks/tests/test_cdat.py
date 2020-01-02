@@ -101,9 +101,9 @@ def test_groupby_bins_invalid_bin(test_data, mocker):
     p.add_parameters(variable='pr', bins=[str(x) for x in range(0, 90, 10)]+['abcd',])
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
+        'variable': [x.to_dict() for x in p.inputs],
+        'domain': [],
+        'operation': [p.to_dict()],
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
@@ -126,9 +126,9 @@ def test_groupby_bins_missing_variable(test_data, mocker):
     p.add_parameters(variable='tas', bins=[str(x) for x in range(0, 90, 10)])
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
+        'variable': [x.to_dict() for x in p.inputs],
+        'domain': [],
+        'operation': [p.to_dict()],
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
@@ -151,9 +151,9 @@ def test_groupby_bins(test_data, mocker):
     p.add_parameters(variable='pr', bins=[str(x) for x in range(0, 90, 10)])
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
+        'variable': [x.to_dict() for x in p.inputs],
+        'domain': [],
+        'operation': [p.to_dict()],
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
@@ -178,9 +178,9 @@ def test_where_fillna_cannot_convert(test_data, mocker):
     p.add_parameters(cond=cond, fillna='asd')
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
+        'variable': [x.to_dict() for x in p.inputs],
+        'domain': [],
+        'operation': [p.to_dict()],
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
@@ -204,9 +204,9 @@ def test_where_fillna(test_data, mocker):
     p.add_parameters(cond=cond, fillna='1e22')
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
+        'variable': [x.to_dict() for x in p.inputs],
+        'domain': [],
+        'operation': [p.to_dict()],
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
@@ -248,9 +248,9 @@ def test_where(test_data, cond, mocker):
         p.add_parameters(cond=cond)
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
+        'variable': [x.to_dict() for x in p.inputs],
+        'domain': [],
+        'operation': [p.to_dict()],
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
@@ -279,9 +279,9 @@ def test_merge(test_data, mocker):
     p.add_inputs(cwt.Variable('test.nc', 'pr'), cwt.Variable('test.nc', 'prw'))
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in p.inputs]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
+        'variable': [x.to_dict() for x in p.inputs],
+        'domain': [],
+        'operation': [p.to_dict()],
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
@@ -326,9 +326,9 @@ def test_processing(test_data, identifier, v1, v2, output, extra):
     vars = [cwt.Variable('test{!s}.nc'.format(str(x)), 'pr') for x, _ in enumerate(inputs)]
 
     data_inputs = {
-        'variable': json.dumps([x.to_dict() for x in vars]),
-        'domain': json.dumps([]),
-        'operation': json.dumps([p.to_dict()]),
+        'variable': [x.to_dict() for x in vars],
+        'domain': [],
+        'operation': [p.to_dict()],
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
