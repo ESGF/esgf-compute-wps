@@ -43,10 +43,10 @@ FROM production as testing
 
 WORKDIR /testing
 
-RUN conda install --yes -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap && \
-      mkdir /metrics
-
-COPY compute/compute_tasks .
+COPY compute/compute_tasks/compute_tasks compute_tasks/
+COPY compute/compute_tasks/setup.py .
+COPY compute/compute_tasks/setup.cfg .
+COPY compute/compute_tasks/conftest.py .
 
 ARG MPC_HOST
 ARG MPC_USERNAME
@@ -55,6 +55,11 @@ ARG MPC_PASSWORD
 ENV MPC_HOST ${MPC_HOST}
 ENV MPC_USERNAME ${MPC_USERNAME}
 ENV MPC_PASSWORD ${MPC_PASSWORD}
+
+RUN conda install --yes -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap && \
+      mkdir /metrics && \
+      conda remove compute-tasks --force -y && \
+      pip install -e .
 
 RUN pytest -vvv -m "not myproxyclient" --junit-xml=unittesting.xml --cov=compute_tasks --cov-report=html:coverage/ --cov-report=xml || exit 0
 RUN pytest -vvv -m "myproxyclient" --junit-xml=unittesting-mpc.xml --cov=compute_tasks --cov-report=xml:coverage-mpc.xml || exit 0
