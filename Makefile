@@ -1,86 +1,56 @@
-REGISTRY := aims2.llnl.gov
-GIT_COMMIT := $(shell git log -n1 --pretty=%h)
+default: help
 
-.PHONY: provisioner
-provisioner: PROJECT_DIR = compute_provisioner
-provisioner: IMAGE_NAME = compute-provisioner
-provisioner: buildkit
+COMPONENTS = provisioner tasks wps thredds
+BUILD = $(patsubst %,build-%,$(COMPONENTS))
+RUN = $(patsubst %,run-%,$(COMPONENTS))
+RM = $(patsubst %,rm-%,$(COMPONENTS))
+TARGET = production
+IMAGE_TAG = $(shell git rev-parse --short HEAD)
 
-.PHONY: provisioner-docker
-provisioner-docker: PROJECT_DIR = compute_provisioner
-provisioner-docker: IMAGE_NAME = compute-provisioner
-provisioner-docker: docker
+.PHONY: $(BUILD) $(RUN) $(RM) help
 
-.PHONY: tasks
-tasks: PROJECT_DIR = compute_tasks
-tasks: IMAGE_NAME = compute-tasks
-tasks: buildkit
+define common_template =
+	$(eval NAME=compute-$(1))
+	$(eval COMP_DIR=compute_$(1))
+	$(eval DOCKERFILE_DIR=compute/$(COMP_DIR))
+	$(eval SRC_DIR=$(DOCKERFILE_DIR)/$(COMP_DIR))
+	$(eval IMAGE_NAME=$(if $(OUTPUT_REGISTRY),$(OUTPUT_REGISTRY)/)$(NAME))
+endef
 
-.PHONY: tasks-docker
-tasks-docker: PROJECT_DIR = compute_tasks
-tasks-docker: IMAGE_NAME = compute-tasks
-tasks-docker: docker
+$(RM):
+	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
 
-.PHONY: wps
-wps: PROJECT_DIR = compute_wps
-wps: IMAGE_NAME = compute-wps
-wps: buildkit
-	
-.PHONY: wps-docker
-wps-docker: PROJECT_DIR = compute_wps
-wps-docker: IMAGE_NAME = compute-wps
-wps-docker: docker
+	docker stop $(NAME) && \
+		docker rm $(NAME)
 
-.PHONY: thredds
-thredds:
-	buildctl-daemonless.sh build \
-		--frontend dockerfile.v0 \
-		--local context=. \
-		--local dockerfile=docker/thredds \
-		--output type=image,name=$(REGISTRY)/compute-thredds:$(GIT_COMMIT),push=true \
-		--export-cache type=registry,ref=$(REGISTRY)/compute_thredds:cache \
-		--import-cache type=registry,ref=$(REGISTRY)/compute_thredds:cache 
+$(RUN):
+	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
 
-.PHONY: thredds-docker
-thredds-docker:
-	docker run \
-		-it --privileged --rm \
-		-v ${PWD}:/data -v ${HOME}/.docker/config.json:/root/.docker/config.json \
-		-w /data \
+	docker run -it --name $(NAME) \
+		-v $(PWD)/$(SRC_DIR):/testing/$(COMP_DIR) \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		/bin/bash 2>/dev/null || \
+		(docker start $(NAME) && docker exec -it $(NAME) /bin/bash)
+
+$(BUILD):
+	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
+
+	docker run -it --rm --privileged \
+		-v $(PWD):/data -w /data \
+		-v $(PWD)/cache:/cache \
+		-v $(PWD)/output:/output \
 		--entrypoint buildctl-daemonless.sh \
 		moby/buildkit:master \
 		build \
 		--frontend dockerfile.v0 \
 		--local context=. \
-		--local dockerfile=docker/thredds \
-		--output type=image,name=$(REGISTRY)/compute-thredds:$(GIT_COMMIT),push=true \
-		--export-cache type=registry,ref=$(REGISTRY)/compute_thredds:cache \
-		--import-cache type=registry,ref=$(REGISTRY)/compute_thredds:cache 
+		--local dockerfile=$(DOCKERFILE_DIR) \
+		--opt target=$(TARGET) \
+		--output type=docker,name=$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$(NAME) \
+		--export-cache type=local,dest=/cache \
+		--import-cache type=local,src=/cache
 
-.PHONY: buildkit
-buildkit:
-	buildctl-daemonless.sh build \
-		--frontend dockerfile.v0 \
-		--local context=. \
-		--local dockerfile=compute/$(PROJECT_DIR) \
-		--opt build-arg:GIT_SHORT_COMMIT=$(GIT_COMMIT) \
-		--output type=image,name=$(REGISTRY)/$(IMAGE_NAME):$(GIT_COMMIT),push=true \
-		--export-cache type=registry,ref=$(REGISTRY)/$(IMAGE_NAME):cache \
-		--import-cache type=registry,ref=$(REGISTRY)/$(IMAGE_NAME):cache 
+	cat output/$(NAME) | docker load
 
-.PHONY: docker
-docker:
-	docker run \
-		-it --privileged --rm \
-		-v ${PWD}:/data -v ${HOME}/.docker/config.json:/root/.docker/config.json \
-		-w /data \
-		--entrypoint buildctl-daemonless.sh \
-		moby/buildkit:master \
-		build \
-		--frontend dockerfile.v0 \
-		--local context=. \
-		--local dockerfile=compute/$(PROJECT_DIR) \
-		--opt build-arg:GIT_SHORT_COMMIT=$(GIT_COMMIT) \
-		--output type=image,name=$(REGISTRY)/$(IMAGE_NAME):$(GIT_COMMIT),push=true \
-		--export-cache type=registry,ref=$(REGISTRY)/$(IMAGE_NAME):cache \
-		--import-cache type=registry,ref=$(REGISTRY)/$(IMAGE_NAME):cache 
+help: #: Show help topics
+	@grep "#:" Makefile* | grep -v "@grep" | sort | sed "s/\([A-Za-z_ -]*\):.*#\(.*\)/\1\2/g"

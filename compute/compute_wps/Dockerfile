@@ -55,17 +55,21 @@ ENV OAUTH2_CLIENT_ID ""
 ENV OAUTH2_CLIENT_SECRET ""
 ENV PROVISIONER_FRONTEND ""
 
-COPY compute/compute_wps/django.properties /etc/confiog/django.properties
+WORKDIR /testing
+
+COPY compute/compute_wps/django.properties /etc/config/django.properties
 COPY compute/compute_wps/pytest.ini .
+COPY compute/compute_wps/setup.py .
+COPY compute/compute_wps/compute_wps compute_wps/
 
-COPY --from=builder /src/compute_wps .
-
-RUN conda install -c conda-forge mock pytest-django pytest-cov
+RUN conda install -c conda-forge mock pytest-django pytest-cov && \
+      conda remove compute-wps --force -y && \
+      pip install -e .
 
 RUN pytest -vvv --junit-xml=unittest.xml --cov=compute_wps --cov-report=html:coverage/ --cov-report=xml || exit 0
 
 FROM scratch as testresult
 
-COPY --from=testing /compute/unittest.xml .
-COPY --from=testing /compute/coverage coverage
-COPY --from=testing /compute/coverage.xml .
+COPY --from=testing /testing/unittest.xml .
+COPY --from=testing /testing/coverage coverage
+COPY --from=testing /testing/coverage.xml .
