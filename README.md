@@ -6,9 +6,36 @@ The end goal is to provide a federated service for ESGF that brings the computat
 Table of Contents
 =================
 
+* [Building](#building)
+* [Testing](#testing)
+* [Installation](#installation)
 * [Contribute](#contribute)
 * [Question?](#question)
-* [Installation](#installation)
+
+# Building
+
+These commands will build the production stage of the containers. A buildkit container is used to build the containers unless buildkit is installed locally.
+
+* WPS `make build-wps`
+* Tasks `make build-tasks`
+* Provisioner `make build-provisioner`
+* THREDDS `make build-thredds`
+
+# Testing
+
+These commands will build the testing stage of the containers. The unittest results and coverage reports will be located in the `/testing` directory.
+
+* WPS `make build-wps TARGET=testing`
+* Tasks `make build-wps TARGET=testing`
+
+The following commands will run the containers, mount the local source and open a shell.
+
+* WPS `make run-wps`
+* Tasks `make run-tasks`
+
+# Installation
+
+The deployment instructions and Helm chart can be found at [esgf-compute/charts](https://github.com/esgf-compute/charts).
 
 # Contribute
 We welcome contributions to the project, before moving ahead please review the following documents:
@@ -18,10 +45,6 @@ We welcome contributions to the project, before moving ahead please review the f
 
 # Question?
 Please review the [FAQ](FAQ.md), if you do not find an answer to your question open an issue on [GitHub](https://github.com/ESGF/esgf-compute-wps/issues/new).
-
-# Installation
-
-The deployment instructions and Helm chart can be found at [esgf-compute/charts](https://github.com/esgf-compute/charts).
 
 # Design documents
 Coming soon.
