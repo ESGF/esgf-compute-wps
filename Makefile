@@ -1,6 +1,6 @@
 default: help
 
-COMPONENTS = provisioner tasks wps thredds
+COMPONENTS = provisioner tasks wps
 BUILD = $(patsubst %,build-%,$(COMPONENTS))
 RUN = $(patsubst %,run-%,$(COMPONENTS))
 RM = $(patsubst %,rm-%,$(COMPONENTS))
@@ -16,6 +16,24 @@ define common_template =
 	$(eval SRC_DIR=$(DOCKERFILE_DIR)/$(COMP_DIR))
 	$(eval IMAGE_NAME=$(if $(OUTPUT_REGISTRY),$(OUTPUT_REGISTRY)/)$(NAME))
 endef
+
+build-thredds:
+	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
+
+	docker run -it --rm --privileged \
+		-v $(PWD):/data -w /data \
+		-v $(PWD)/cache:/cache \
+		-v $(PWD)/output:/output \
+		--entrypoint buildctl-daemonless.sh \
+		moby/buildkit:master \
+		build \
+		--frontend dockerfile.v0 \
+		--local context=. \
+		--local dockerfile=docker/thredds \
+		--opt target=$(TARGET) \
+		--output type=docker,name=$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$(NAME) \
+		--export-cache type=local,dest=/cache \
+		--import-cache type=local,src=/cache
 
 $(RM):
 	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
