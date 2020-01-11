@@ -64,12 +64,13 @@ COPY compute/compute_wps/compute_wps compute_wps/
 
 RUN conda install -c conda-forge mock pytest-django pytest-cov && \
       conda remove compute-wps --force -y && \
-      pip install -e .
+      pip install -e . && \
+      pip install pytest-pythonpath
 
-RUN pytest -vvv --junit-xml=unittest.xml --cov=compute_wps --cov-report=html:coverage/ --cov-report=xml || exit 0
+RUN pytest -vvv --junit-xml=unittest.xml \
+      --cov=compute_wps --cov-report=xml || exit 0 
 
 FROM scratch as testresult
 
 COPY --from=testing /testing/unittest.xml .
-COPY --from=testing /testing/coverage coverage
 COPY --from=testing /testing/coverage.xml .

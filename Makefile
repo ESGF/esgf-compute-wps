@@ -1,39 +1,31 @@
 default: help
 
-COMPONENTS = provisioner tasks wps
+COMPONENTS = provisioner tasks wps thredds
 BUILD = $(patsubst %,build-%,$(COMPONENTS))
 RUN = $(patsubst %,run-%,$(COMPONENTS))
 RM = $(patsubst %,rm-%,$(COMPONENTS))
+TEST = $(patsubst %,testresult-%,$(COMPONENTS))
 TARGET = production
 IMAGE_TAG = $(shell git rev-parse --short HEAD)
 
-.PHONY: $(BUILD) $(RUN) $(RM) help
+OUTPUT_LOCAL=--output type=local,dest=testresult/
+OUTPUT_REMOTE=--output type=docker,name=$$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$$(NAME)
+
+.PHONY: $(BUILD) $(RUN) $(RM) $(TEST) help
 
 define common_template =
+	$(eval COMP=$(1))
 	$(eval NAME=compute-$(1))
 	$(eval COMP_DIR=compute_$(1))
-	$(eval DOCKERFILE_DIR=compute/$(COMP_DIR))
+	$(eval DOCKERFILE_DIR?=compute/$(COMP_DIR))
 	$(eval SRC_DIR=$(DOCKERFILE_DIR)/$(COMP_DIR))
 	$(eval IMAGE_NAME=$(if $(OUTPUT_REGISTRY),$(OUTPUT_REGISTRY)/)$(NAME))
 endef
 
-build-thredds:
+$(TEST):
 	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
 
-	docker run -it --rm --privileged \
-		-v $(PWD):/data -w /data \
-		-v $(PWD)/cache:/cache \
-		-v $(PWD)/output:/output \
-		--entrypoint buildctl-daemonless.sh \
-		moby/buildkit:master \
-		build \
-		--frontend dockerfile.v0 \
-		--local context=. \
-		--local dockerfile=docker/thredds \
-		--opt target=$(TARGET) \
-		--output type=docker,name=$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$(NAME) \
-		--export-cache type=local,dest=/cache \
-		--import-cache type=local,src=/cache
+	$(MAKE) build-$(COMP) TARGET=testresult	
 
 $(RM):
 	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
@@ -53,10 +45,16 @@ $(RUN):
 $(BUILD):
 	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
 
+	$(eval DOCKERFILE_DIR = $(if $(findstring compute-thredds,$(NAME)),docker/thredds,$(DOCKERFILE_DIR)))
+
+	$(eval OUTPUT = $(if $(findstring testresult,$(TARGET)),$(OUTPUT_LOCAL),$(OUTPUT_REMOTE)))
+
+ifeq ($(shell which buildctl-daemonless.sh),)
 	docker run -it --rm --privileged \
 		-v $(PWD):/data -w /data \
 		-v $(PWD)/cache:/cache \
 		-v $(PWD)/output:/output \
+		-v $(PWD)/testresult:/testresult \
 		--entrypoint buildctl-daemonless.sh \
 		moby/buildkit:master \
 		build \
@@ -64,11 +62,22 @@ $(BUILD):
 		--local context=. \
 		--local dockerfile=$(DOCKERFILE_DIR) \
 		--opt target=$(TARGET) \
-		--output type=docker,name=$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$(NAME) \
+		$(OUTPUT) \
 		--export-cache type=local,dest=/cache \
 		--import-cache type=local,src=/cache
 
 	cat output/$(NAME) | docker load
+else
+	buildctl-daemonless.sh \
+		build \
+		--frontend dockerfile.v0 \
+		--local context=. \
+		--local dockerfile=$(DOCKERFILE_DIR) \
+		--opt target=$(TARGET) \
+		--output type=image,name=$(IMAGE_NAME):$(IMAGE_TAG),push=true \
+		--export-cache type=registry,ref=$(IMAGE_NAME):cache \
+		--import-cache type=registry,ref=$(IMAGE_NAME):cache 
+endif
 
 help: #: Show help topics
 	@grep "#:" Makefile* | grep -v "@grep" | sort | sed "s/\([A-Za-z_ -]*\):.*#\(.*\)/\1\2/g"
