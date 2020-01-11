@@ -47,15 +47,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''buildctl-daemonless.sh build \\
-	--frontend dockerfile.v0 \\
-	--local context=. \\
-	--local dockerfile=compute/compute_tasks \\
-	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
-        --opt target=production \\
-	--output type=image,name=${OUTPUT_REGISTRY}/compute-celery:${GIT_COMMIT:0:8},push=true \\
-	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-celery:cache \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-celery:cache'''
+              sh 'make build-tasks'
             }
 
           }
@@ -80,15 +72,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''buildctl-daemonless.sh build \\
-	--frontend dockerfile.v0 \\
-	--local context=. \\
-	--local dockerfile=compute/compute_wps \\
-	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
-        --opt target=production \\
-	--output type=image,name=${OUTPUT_REGISTRY}/compute-wps:${GIT_COMMIT:0:8},push=true \\
-	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-wps:cache \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-wps:cache'''
+              sh 'make build-wps'
             }
 
           }
@@ -113,15 +97,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''buildctl-daemonless.sh build \\
-	--frontend dockerfile.v0 \\
-	--local context=. \\
-	--local dockerfile=docker/thredds/ \\
-	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
-        --opt target=production \\
-	--output type=image,name=${OUTPUT_REGISTRY}/compute-thredds:${GIT_COMMIT:0:8},push=true \\
-	--export-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-thredds:cache \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-thredds:cache'''
+              sh 'make build-thredds'
             }
 
           }
@@ -150,17 +126,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''buildctl-daemonless.sh build \\
-	--frontend dockerfile.v0 \\
-	--local context=. \\
-	--local dockerfile=compute/compute_tasks\\
-	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
-        --opt build-arg:MPC_HOST=esgf-node.llnl.gov \\
-        --opt build-arg:MPC_USERNAME=${MPC_USR} \\
-        --opt build-arg:MPC_PASSWORD=${MPC_PSW} \\
-        --opt target=testresult \\
-	--output type=local,dest=output \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-celery:cache'''
+              sh 'make testresult-tasks'
               sh 'chown -R 10000:10000 output'
             }
 
@@ -184,14 +150,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''buildctl-daemonless.sh build \\
-	--frontend dockerfile.v0 \\
-	--local context=. \\
-	--local dockerfile=compute/compute_wps \\
-	--opt build-arg:GIT_SHORT_COMMIT=${GIT_COMMIT:0:8} \\
-        --opt target=testresult \\
-	--output type=local,dest=output \\
-	--import-cache type=registry,ref=${OUTPUT_REGISTRY}/compute-wps:cache'''
+              sh 'make testresult-wps'
               sh 'chown -R 10000:10000 output'
             }
 
