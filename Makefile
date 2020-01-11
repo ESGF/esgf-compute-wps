@@ -9,8 +9,8 @@ TARGET = production
 IMAGE_TAG = $(shell git rev-parse --short HEAD)
 
 OUTPUT_LOCAL=--output type=local,dest=testresult/
-OUTPUT_REMOTE=--output type=docker,name=$$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$$(NAME)
-OUTPUT_IMAGE=--output type=image,name=$$(IMAGE_NAME):$(IMAGE_TAG),push=true
+OUTPUT_REMOTE=--output type=docker,name=$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$(NAME)
+OUTPUT_IMAGE=--output type=image,name=$(IMAGE_NAME):$(IMAGE_TAG),push=true
 
 .PHONY: $(BUILD) $(RUN) $(RM) $(TEST) help
 
