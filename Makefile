@@ -67,9 +67,9 @@ ifeq ($(shell which buildctl-daemonless.sh),)
 		--local dockerfile=$(DOCKERFILE_DIR) \
 		--opt target=$(TARGET) \
 		$(OUTPUT) \
-		$(MPC_HOST) \
-		$(MPC_USERNAME) \
-		$(MPC_PASSWORD) \
+		--opt build-arg:MPC_HOST=$(MPC_HOST) \
+		--opt build-arg:MPC_USERNAME=$(MPC_USERNAME) \
+		--opt build-arg:MPC_PASSWORD=$(MPC_PASSWORD) \
 		--export-cache type=local,dest=/cache \
 		--import-cache type=local,src=/cache
 
@@ -82,9 +82,9 @@ else
 		--local dockerfile=$(DOCKERFILE_DIR) \
 		--opt target=$(TARGET) \
 		$(OUTPUT) \
-		$(MPC_HOST) \
-		$(MPC_USERNAME) \
-		$(MPC_PASSWORD) \
+		--opt build-arg:MPC_HOST=$(MPC_HOST) \
+		--opt build-arg:MPC_USERNAME=$(MPC_USERNAME) \
+		--opt build-arg:MPC_PASSWORD=$(MPC_PASSWORD) \
 		--output type=image,name=$(IMAGE_NAME):$(IMAGE_TAG),push=true \
 		--export-cache type=registry,ref=$(IMAGE_NAME):cache \
 		--import-cache type=registry,ref=$(IMAGE_NAME):cache 
