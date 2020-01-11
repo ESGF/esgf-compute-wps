@@ -49,6 +49,10 @@ $(BUILD):
 
 	$(eval OUTPUT = $(if $(findstring testresult,$(TARGET)),$(OUTPUT_LOCAL),$(OUTPUT_REMOTE)))
 
+	$(eval MPC_HOST = $(if $(findstring compute-tasks,$(NAME)),esgf-node.llnl.gov))
+	$(eval MPC_USERNAME = $(if $(findstring compute-tasks,$(NAME)),$(MPC_USR)))
+	$(eval MPC_PASSWORD = $(if $(findstring compute-tasks,$(NAME)),$(MPC_PSW)))
+
 ifeq ($(shell which buildctl-daemonless.sh),)
 	docker run -it --rm --privileged \
 		-v $(PWD):/data -w /data \
@@ -63,6 +67,9 @@ ifeq ($(shell which buildctl-daemonless.sh),)
 		--local dockerfile=$(DOCKERFILE_DIR) \
 		--opt target=$(TARGET) \
 		$(OUTPUT) \
+		$(MPC_HOST) \
+		$(MPC_USERNAME) \
+		$(MPC_PASSWORD) \
 		--export-cache type=local,dest=/cache \
 		--import-cache type=local,src=/cache
 
@@ -74,6 +81,10 @@ else
 		--local context=. \
 		--local dockerfile=$(DOCKERFILE_DIR) \
 		--opt target=$(TARGET) \
+		$(OUTPUT) \
+		$(MPC_HOST) \
+		$(MPC_USERNAME) \
+		$(MPC_PASSWORD) \
 		--output type=image,name=$(IMAGE_NAME):$(IMAGE_TAG),push=true \
 		--export-cache type=registry,ref=$(IMAGE_NAME):cache \
 		--import-cache type=registry,ref=$(IMAGE_NAME):cache 
