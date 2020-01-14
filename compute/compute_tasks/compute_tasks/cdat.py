@@ -695,6 +695,23 @@ def process_dataset(context, operation, *input, **kwargs):
 
     v = context.variable
 
+    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
+
+    output = input[0].copy()
+
+    if len(input) == 1:
+        output[v] = func(input[0][v])
+    else:
+        raise WPSError('Process {!s} only requires 1 input', operation.identifier)
+
+    return rename_variable(v, input[0], operation, output)
+
+
+def process_dataset_or_const(context, operation, *input, **kwargs):
+    func = kwargs['func']
+
+    v = context.variable
+
     const = operation.get_parameter('const')
 
     rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
@@ -704,8 +721,8 @@ def process_dataset(context, operation, *input, **kwargs):
     if const is None:
         if len(input) == 2:
             output[v] = func(input[0][v], input[1][v])
-        elif len(input) == 1:
-            output[v] = func(input[0][v])
+        else:
+            raise WPSError('Process {!s} requires 2 inputs or "const" parameter.', operation.identifier)
     else:
         try:
             const = float(const.values[0])
@@ -811,18 +828,18 @@ def process_groupby_bins(context, operation, *input, **kwargs):
 
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_elementwise, func=lambda x: np.abs(x)),
-    'CDAT.add': partial(process_dataset, func=lambda x, y: x + y),
+    'CDAT.add': partial(process_dataset_or_const, func=lambda x, y: x + y),
     'CDAT.aggregate': None,
-    'CDAT.divide': partial(process_dataset, func=lambda x, y: x / y),
+    'CDAT.divide': partial(process_dataset_or_const, func=lambda x, y: x / y),
     'CDAT.exp': partial(process_elementwise, func=lambda x: np.exp(x)),
     'CDAT.log': partial(process_elementwise, func=lambda x: np.log(x)),
     'CDAT.max': partial(process_reduce, func=lambda x, y: getattr(x, 'max')(dim=y, keep_attrs=True)),
     'CDAT.mean': partial(process_reduce, func=lambda x, y: getattr(x, 'mean')(dim=y, keep_attrs=True)),
     'CDAT.min': partial(process_reduce, func=lambda x, y: getattr(x, 'min')(dim=y, keep_attrs=True)),
-    'CDAT.multiply': partial(process_dataset, func=lambda x, y: x * y),
-    'CDAT.power': partial(process_dataset, func=lambda x, y: x ** y),
+    'CDAT.multiply': partial(process_dataset_or_const, func=lambda x, y: x * y),
+    'CDAT.power': partial(process_dataset_or_const, func=lambda x, y: x ** y),
     'CDAT.subset': None,
-    'CDAT.subtract': partial(process_dataset, func=lambda x, y: x - y),
+    'CDAT.subtract': partial(process_dataset_or_const, func=lambda x, y: x - y),
     'CDAT.sum': partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y, keep_attrs=True)),
     'CDAT.merge': process_merge,
     'CDAT.where': process_where,
