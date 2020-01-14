@@ -181,7 +181,7 @@ def check_access(url, cert=None):
 
     try:
         # TODO bootstrap trust roots and set verify True
-        response = requests.get(dds_url, timeout=(10, 4), cert=cert, verify=False)
+        response = requests.get(dds_url, timeout=(5, 15), cert=cert, verify=False)
     except Exception as e:
         raise WPSError('Failed to access input {!s}, {!s}'.format(url, e))
 
@@ -658,7 +658,9 @@ def rename_variable(var_name, input, operation, output):
     return output
 
 
-def process_elementwise(context, operation, *input, func, **kwargs):
+def process_elementwise(context, operation, *input, **kwargs):
+    func = kwargs['func']
+
     v = context.variable
 
     rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
@@ -672,7 +674,9 @@ def process_elementwise(context, operation, *input, func, **kwargs):
     return rename_variable(v, input[0], operation, output)
 
 
-def process_reduce(context, operation, *input, func, **kwargs):
+def process_reduce(context, operation, *input, **kwargs):
+    func = kwargs['func']
+
     v = context.variable
 
     axes = operation.get_parameter('axes', required=True)
@@ -686,7 +690,9 @@ def process_reduce(context, operation, *input, func, **kwargs):
     return rename_variable(v, input[0], operation, output)
 
 
-def process_dataset(context, operation, *input, func, **kwargs):
+def process_dataset(context, operation, *input, **kwargs):
+    func = kwargs['func']
+
     v = context.variable
 
     const = operation.get_parameter('const')
