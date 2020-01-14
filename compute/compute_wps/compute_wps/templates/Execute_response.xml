@@ -11,15 +11,15 @@
   <wps:Status creationTime="{{ earliest.created_date|string }}">
   {% endif %}
     {% if latest.status == 'ProcessAccepted' %}
-    <wps:ProcessAccepted>{{ latest.latest_message }}</wps:ProcessAccepted>
+    <wps:ProcessAccepted>{{ latest.latest_message|escape }}</wps:ProcessAccepted>
     {% elif latest.status == 'ProcessStarted' %}
-    <wps:ProcessStarted percentCompleted="{{ latest.latest_percent|float }}">{{ latest.latest_message }}</wps:ProcessStarted>
+    <wps:ProcessStarted percentCompleted="{{ latest.latest_percent|float }}">{{ latest.latest_message|escape }}</wps:ProcessStarted>
     {% elif latest.status == 'ProcessPaused' %}
-    <wps:ProcessPaused percentCompleted="{{ latest.latest_percent|float }}">{{ latest.latest_message }}</wps:ProcessPaused> 
+    <wps:ProcessPaused percentCompleted="{{ latest.latest_percent|float }}">{{ latest.latest_message|escape }}</wps:ProcessPaused> 
     {% elif latest.status == 'ProcessSucceeded' %}
-    <wps:ProcessSucceeded>{{ latest.latest_message }}</wps:ProcessSucceeded>
+    <wps:ProcessSucceeded>{{ latest.latest_message|escape }}</wps:ProcessSucceeded>
     {% elif latest.status == 'ProcessFailed' %}
-    <wps:ProcessFailed>{{ latest.exception_clean }}</wps:ProcessFailed>
+    <wps:ProcessFailed>{{ latest.exception_clean|escape }}</wps:ProcessFailed>
     {% endif %}
 	</wps:Status>
 	<wps:DataInputs>
