@@ -313,9 +313,15 @@ def test_merge(test_data, mocker):
     ('CDAT.mean', 2, None, np.full((90, 180), 2), {'axes': ['time']}),
     ('CDAT.std', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
     ('CDAT.var', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
+    ('CDAT.squeeze', (5, {'time': 10, 'lat': 1, 'lon': 1}), None, np.full((10,), 5), {}),
 ])
 def test_processing(test_data, identifier, v1, v2, output, extra):
-    inputs = [test_data.standard(v1)]
+    if isinstance(v1, tuple):
+        data = test_data.standard(v1[0], **v1[1])
+    else:
+        data = test_data.standard(v1)
+
+    inputs = [data]
 
     if v2 is not None:
         inputs.append(test_data.standard(v2))

@@ -845,6 +845,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.where': process_where,
     'CDAT.groupby_bins': process_groupby_bins,
     'CDAT.count': partial(process_dataset, func=lambda x: getattr(x, 'count')()),
+    'CDAT.squeeze': partial(process_dataset, func=lambda x: getattr(x, 'squeeze')(drop=True)),
     'CDAT.std': partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y, keep_attrs=True)),
     'CDAT.var': partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y, keep_attrs=True)),
     'CDAT.workflow': None,
@@ -976,6 +977,7 @@ render_abstract('CDAT.merge', 'Merges variable from second input into first.', m
 render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), fillna=parameter(float))
 render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', variable=parameter(str, True), bins=parameter(float, True))
 render_abstract('CDAT.count', 'Computes count on each variable.')
+render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.')
 render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str, True))
 render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str, True))
 render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'))
