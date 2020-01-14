@@ -8,7 +8,7 @@ TEST = $(patsubst %,testresult-%,$(COMPONENTS))
 TARGET = production
 IMAGE_TAG = $(shell git rev-parse --short HEAD)
 
-OUTPUT_LOCAL=--output type=local,dest=testresult/
+OUTPUT_LOCAL=--output type=local,dest=output/
 OUTPUT_REMOTE=--output type=docker,name=$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$(NAME)
 OUTPUT_IMAGE=--output type=image,name=$(IMAGE_NAME):$(IMAGE_TAG),push=true
 
@@ -76,6 +76,8 @@ ifeq ($(shell which buildctl-daemonless.sh),)
 
 	cat output/$(NAME) | docker load
 else
+	$(eval OUTPUT = $(if $(findstring testresult,$(TARGET)),$(OUTPUT_LOCAL),$(OUTPUT_IMAGE)))
+
 	buildctl-daemonless.sh \
 		build \
 		--frontend dockerfile.v0 \
@@ -85,7 +87,7 @@ else
 		--opt build-arg:MPC_HOST=$(MPC_HOST) \
 		--opt build-arg:MPC_USERNAME=$(MPC_USERNAME) \
 		--opt build-arg:MPC_PASSWORD=$(MPC_PASSWORD) \
-		$(OUTPUT_IMAGE) \
+		$(OUTPUT) \
 		--export-cache type=registry,ref=$(IMAGE_NAME):cache \
 		--import-cache type=registry,ref=$(IMAGE_NAME):cache 
 endif
