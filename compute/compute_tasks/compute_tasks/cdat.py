@@ -659,7 +659,7 @@ def process_elementwise(context, operation, *input, **kwargs):
 
     v = context.variable
 
-    output = func(input[0])
+    output = func(input[0][v])
 
     return rename_variable(v, operation, input[0], output)
 
@@ -672,9 +672,9 @@ def process_reduce(context, operation, *input, **kwargs):
     axes = operation.get_parameter('axes')
 
     if axes is None:
-        output = func(input[0], None)
+        output = func(input[0][v], None)
     else:
-        output = func(input[0], axes.values)
+        output = func(input[0][v], axes.values)
 
     return rename_variable(v, operation, input[0], output)
 
@@ -684,7 +684,7 @@ def process_dataset(context, operation, *input, **kwargs):
 
     v = context.variable
 
-    output = func(input[0])
+    output = func(input[0][v])
 
     return rename_variable(v, operation, input[0], output)
 
@@ -698,7 +698,7 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
 
     if const is None:
         if len(input) == 2:
-            output = func(input[0], input[1])
+            output = func(input[0][v], input[1][v])
         else:
             raise WPSError('Process {!s} requires 2 inputs or "const" parameter.', operation.identifier)
     else:
@@ -707,7 +707,7 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
         except ValueError:
             raise WPSError('Invalid value {!r} with type {!s}, expecting a float value.', constant, type(constant))
 
-        output = func(input[0], const)
+        output = func(input[0][v], const)
 
     return rename_variable(v, operation, input[0], output)
 
