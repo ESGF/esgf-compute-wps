@@ -645,51 +645,66 @@ def subset_input(context, operation, input):
     return input
 
 
-def rename_variable(var_name, operation, input, output):
-    if isinstance(input, xr.core.groupby.DatasetGroupBy):
-        name = operation.identifier.split('.')[-1]
-
-        output = output.rename({var_name: name})
-
-    return output
-
-
 def process_elementwise(context, operation, *input, **kwargs):
+    is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
+
     func = kwargs['func']
 
     v = context.variable
 
-    output = func(input[0][v])
+    if is_groupby:
+        output = func(input[0])
+    else:
+        output = input[0].copy()
 
-    return rename_variable(v, operation, input[0], output)
+        output[v] = func(input[0][v])
+
+    return output
 
 
 def process_reduce(context, operation, *input, **kwargs):
+    is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
+
     func = kwargs['func']
 
     v = context.variable
 
     axes = operation.get_parameter('axes')
 
-    if axes is None:
-        output = func(input[0][v], None)
+    if is_groupby:
+        output = func(input[0], None)
     else:
-        output = func(input[0][v], axes.values)
+        output = input[0].copy()
 
-    return rename_variable(v, operation, input[0], output)
+        if axes is None:
+            output[v] = func(input[0][v], None)
+        else:
+            output[v] = func(input[0][v], axes.values)
+
+    return output
 
 
 def process_dataset(context, operation, *input, **kwargs):
+    is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
+
     func = kwargs['func']
 
     v = context.variable
 
-    output = func(input[0][v])
+    if is_groupby:
+        output = func(input[0])
+    else:
+        output = input[0].copy()
 
-    return rename_variable(v, operation, input[0], output)
+        output[v] = func(input[0][v])
+
+    return output
 
 
 def process_dataset_or_const(context, operation, *input, **kwargs):
+    if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
+        raise WPSError('GroupBy input not supported for process {!s}', operation.identifier)
+
     func = kwargs['func']
 
     v = context.variable
@@ -697,8 +712,10 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
     const = operation.get_parameter('const')
 
     if const is None:
+        output = input[0].copy()
+
         if len(input) == 2:
-            output = func(input[0][v], input[1][v])
+            output[v] = func(input[0][v], input[1][v])
         else:
             raise WPSError('Process {!s} requires 2 inputs or "const" parameter.', operation.identifier)
     else:
@@ -707,9 +724,11 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
         except ValueError:
             raise WPSError('Invalid value {!r} with type {!s}, expecting a float value.', constant, type(constant))
 
-        output = func(input[0][v], const)
+        output = input[0].copy()
 
-    return rename_variable(v, operation, input[0], output)
+        output[v] = func(input[0][v], const)
+
+    return output
 
 
 def process_merge(context, operation, *input, **kwargs):
@@ -720,7 +739,7 @@ def process_merge(context, operation, *input, **kwargs):
     return xr.merge(input)
 
 
-def process_where(context, operation, *input, **kwargs):
+def parse_condition(context, operation):
     cond = operation.get_parameter('cond')
 
     if cond is None:
@@ -729,31 +748,49 @@ def process_where(context, operation, *input, **kwargs):
     match = re.match('(?P<left>\w+)(?P<comp>[<>=!]{1,2})(?P<right>-?\d+\.?\d?)', cond.values[0])
 
     if match is None:
-        raise WPSError('Condition is not valid, check abstract')
+        raise WPSError('Condition is not valid, check abstract for format')
 
     comp = match['comp']
 
     left = match['left']
 
+    try:
+        right = float(match['right'])
+    except ValueError:
+        raise WPSError('Error converting right argument {!s} {!s}', match['right'], type(match['right']))
+
+    context.message('Using condition "{!s}{!s}{!s}"', left, comp, right)
+
+    return left, comp, right
+
+
+def process_where(context, operation, *input, **kwargs):
+    if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
+        raise WPSError('GroupBy input not supported for process {!s}', operation.identifier)
+
+    left, comp, right = parse_condition(context, operation)
+
     if left not in input[0]:
         raise WPSError('Did not find {!s} in input', left)
 
-    right = float(match['right'])
+    input_item = input[0][left]
 
-    context.message('Applying where with condition "{!s}{!s}{!s}"', left, comp, right)
+    output = input[0].copy()
+
+    v = context.variable
 
     if comp == ">":
-        output = input[0].where(input[0][left]>right)
+        output[v] = input[0][v].where(input_item>right)
     elif comp == ">=":
-        output = input[0].where(input[0][left]>=right)
+        output[v] = input[0][v].where(input_item>=right)
     elif comp == "<":
-        output = input[0].where(input[0][left]<right)
+        output[v] = input[0][v].where(input_item<right)
     elif comp == "<=":
-        output = input[0].where(input[0][left]<=right)
+        output[v] = input[0][v].where(input_item<=right)
     elif comp == "==":
-        output = input[0].where(input[0][left]==right)
+        output[v] = input[0][v].where(input_item==right)
     elif comp == "!=":
-        output = input[0].where(input[0][left]!=right)
+        output[v] = input[0][v].where(input_item!=right)
     else:
         raise WPSError('Comparison with {!s} is not supported', comp)
 
@@ -767,7 +804,7 @@ def process_where(context, operation, *input, **kwargs):
 
         context.message('Filling nan with {!s}', fillna)
 
-        output = output.fillna(fillna)
+        output[v] = output[v].fillna(fillna)
 
     return output
 

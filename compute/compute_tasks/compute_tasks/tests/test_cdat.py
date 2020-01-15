@@ -351,23 +351,6 @@ def test_processing(test_data, identifier, v1, v2, output, extra):
         assert np.array_equal(result.pr.values, expected.pr.values)
 
 
-@pytest.mark.parametrize('operation,func,expected', [
-    (cwt.Process(identifier='CDAT.max'), lambda x: getattr(x, 'groupby_bins')('clt', bins=[0, 1]), 'max'),
-    (cwt.Process(identifier='CDAT.max'), None, 'clt'),
-])
-def test_rename_variable(test_data, operation, func, expected):
-    input = test_data.standard(1, name='clt')
-
-    output = input.copy()
-
-    if func is not None:
-        input = func(input)
-
-    result = cdat.rename_variable('clt', operation, input, output)
-
-    assert expected in result.data_vars
-
-
 @pytest.mark.parametrize('domain,decode_times,expected', [
     (cwt.Domain(time=slice(0, 10)), True, (10, 64, 128)),
     (cwt.Domain(time=(1049.0, 1960.5)), False, (31, 64, 128)),
