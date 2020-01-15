@@ -663,8 +663,6 @@ def process_elementwise(context, operation, *input, **kwargs):
 
     v = context.variable
 
-    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
-
     output = input[0].copy()
 
     input_var = output[v]
@@ -679,9 +677,7 @@ def process_reduce(context, operation, *input, **kwargs):
 
     v = context.variable
 
-    axes = operation.get_parameter('axes', required=True)
-
-    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
+    axes = operation.get_parameter('axes') or None
 
     output = input[0].copy()
 
@@ -694,8 +690,6 @@ def process_dataset(context, operation, *input, **kwargs):
     func = kwargs['func']
 
     v = context.variable
-
-    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
 
     output = input[0].copy()
 
@@ -713,8 +707,6 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
     v = context.variable
 
     const = operation.get_parameter('const')
-
-    rename = True if isinstance(input[0], xr.core.groupby.DatasetGroupBy) else False
 
     output = input[0].copy()
 
@@ -965,21 +957,21 @@ render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more fi
 render_abstract('CDAT.divide', 'Divides a variable by another or a constant element-wise.', const=parameter(float), max=2)
 render_abstract('CDAT.exp', 'Computes element-wise exponential value.')
 render_abstract('CDAT.log', 'Computes element-wise log value.')
-render_abstract('CDAT.max', 'Computes the maximum value over one or more axes.', axes=parameter(str, True))
-render_abstract('CDAT.mean', 'Computes the mean over one or more axes.', axes=parameter(str, True))
-render_abstract('CDAT.min', 'Computes the minimum value over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.max', 'Computes the maximum value over one or more axes.', axes=parameter(str))
+render_abstract('CDAT.mean', 'Computes the mean over one or more axes.', axes=parameter(str))
+render_abstract('CDAT.min', 'Computes the minimum value over one or more axes.', axes=parameter(str))
 render_abstract('CDAT.multiply', 'Multiplies a variable by another or a constant element-wise', const=parameter(float), max=2)
 render_abstract('CDAT.power', 'Takes a variable to the power of another variable or a constant element-wise.', const=parameter(float))
 render_abstract('CDAT.subset', 'Computes the subset of a variable defined by a domain.')
 render_abstract('CDAT.subtract', 'Subtracts a variable from another or a constant element-wise.', const=parameter(float), max=2)
-render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str))
 render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'))
 render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), fillna=parameter(float))
 render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', variable=parameter(str, True), bins=parameter(float, True))
 render_abstract('CDAT.count', 'Computes count on each variable.')
 render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.')
-render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str, True))
-render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str, True))
+render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str))
+render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str))
 render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'))
 
 
