@@ -297,6 +297,7 @@ def test_merge(test_data, mocker):
 @pytest.mark.parametrize('identifier,v1,v2,output,extra', [
     ('CDAT.abs', -2, None, 2, {}),
     ('CDAT.add', 1, 2, 3, {}),
+    pytest.param('CDAT.add', 1, None, 3, {}, marks=pytest.mark.xfail),
     ('CDAT.add', 1, None, 3, {'const': '2'}),
     ('CDAT.divide', 1, 2, 0.5, {}),
     ('CDAT.divide', 1, None, 0.5, {'const': '2'}),
@@ -310,6 +311,7 @@ def test_merge(test_data, mocker):
     ('CDAT.subtract', 2, None, 3, {'const': '-1'}),
     pytest.param('CDAT.subtract', 2, None, 3, {'const': 'abcd'}, marks=pytest.mark.xfail),
     ('CDAT.count', 2, None, np.array(162000), {}),
+    ('CDAT.mean', 2, None, np.array(2.0), {}),
     ('CDAT.mean', 2, None, np.full((90, 180), 2), {'axes': ['time']}),
     ('CDAT.std', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
     ('CDAT.var', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
@@ -361,7 +363,7 @@ def test_rename_variable(test_data, operation, func, expected):
     if func is not None:
         input = func(input)
 
-    result = cdat.rename_variable('clt', input, operation, output)
+    result = cdat.rename_variable('clt', operation, input, output)
 
     assert expected in result.data_vars
 

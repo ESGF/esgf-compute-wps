@@ -532,14 +532,10 @@ def build_workflow(context):
             except KeyError as e:
                 raise WPSError('Missing intermediate data {!s}', e)
 
-            # Create copy of single input, multiple inputs automatically create a new output
-            if len(inputs) == 1:
-                inputs = [inputs[0].copy(), ]
-
         process_func = PROCESS_FUNC_MAP[next.identifier]
 
         if process_func is None:
-            interm[next.name] = subset_input(context, next, inputs[0].copy())
+            interm[next.name] = subset_input(context, next, inputs[0])
         else:
             inputs = [subset_input(context, next, x) for x in inputs]
 
@@ -649,7 +645,7 @@ def subset_input(context, operation, input):
     return input
 
 
-def rename_variable(var_name, input, operation, output):
+def rename_variable(var_name, operation, input, output):
     if isinstance(input, xr.core.groupby.DatasetGroupBy):
         name = operation.identifier.split('.')[-1]
 
@@ -663,13 +659,9 @@ def process_elementwise(context, operation, *input, **kwargs):
 
     v = context.variable
 
-    output = input[0].copy()
+    output = func(input[0])
 
-    input_var = output[v]
-
-    output[v] = func(input_var)
-
-    return rename_variable(v, input[0], operation, output)
+    return rename_variable(v, operation, input[0], output)
 
 
 def process_reduce(context, operation, *input, **kwargs):
@@ -677,13 +669,14 @@ def process_reduce(context, operation, *input, **kwargs):
 
     v = context.variable
 
-    axes = operation.get_parameter('axes') or None
+    axes = operation.get_parameter('axes')
 
-    output = input[0].copy()
+    if axes is None:
+        output = func(input[0], None)
+    else:
+        output = func(input[0], axes.values)
 
-    output[v] = func(input[0][v], axes.values)
-
-    return rename_variable(v, input[0], operation, output)
+    return rename_variable(v, operation, input[0], output)
 
 
 def process_dataset(context, operation, *input, **kwargs):
@@ -691,14 +684,9 @@ def process_dataset(context, operation, *input, **kwargs):
 
     v = context.variable
 
-    output = input[0].copy()
+    output = func(input[0])
 
-    if len(input) == 1:
-        output[v] = func(input[0][v])
-    else:
-        raise WPSError('Process {!s} only requires 1 input', operation.identifier)
-
-    return rename_variable(v, input[0], operation, output)
+    return rename_variable(v, operation, input[0], output)
 
 
 def process_dataset_or_const(context, operation, *input, **kwargs):
@@ -708,11 +696,9 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
 
     const = operation.get_parameter('const')
 
-    output = input[0].copy()
-
     if const is None:
         if len(input) == 2:
-            output[v] = func(input[0][v], input[1][v])
+            output = func(input[0], input[1])
         else:
             raise WPSError('Process {!s} requires 2 inputs or "const" parameter.', operation.identifier)
     else:
@@ -721,24 +707,17 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
         except ValueError:
             raise WPSError('Invalid value {!r} with type {!s}, expecting a float value.', constant, type(constant))
 
-        output[v] = func(input[0][v], const)
+        output = func(input[0], const)
 
-    return rename_variable(v, input[0], operation, output)
+    return rename_variable(v, operation, input[0], output)
 
 
 def process_merge(context, operation, *input, **kwargs):
     input = list(input)
 
-    root = input.pop()
-
     context.message('Merging {!s} variables', len(input))
 
-    for x in input:
-        root = root.merge(x)
-
-    context.message('Done merging variables')
-
-    return root
+    return xr.merge(input)
 
 
 def process_where(context, operation, *input, **kwargs):
