@@ -521,7 +521,8 @@ def build_workflow(context):
     # Hold the intermediate inputs
     interm = {}
 
-    for next in context.topo_sort():
+    # Should have already been sorted
+    for next in context.sorted:
         context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
 
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
@@ -650,7 +651,17 @@ def process_elementwise(context, operation, *input, **kwargs):
 
     func = kwargs['func']
 
-    v = context.variable
+    candidates = context.input_var_names[operation.name]
+
+    if len(candidates) == 1:
+        v = candidates[0]
+    else:
+        v = operation.get_parameter('variable')
+
+        if v is None:
+            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
+        else:
+            v = v.values[0]
 
     if is_groupby:
         output = func(input[0])
@@ -667,7 +678,17 @@ def process_reduce(context, operation, *input, **kwargs):
 
     func = kwargs['func']
 
-    v = context.variable
+    candidates = context.input_var_names[operation.name]
+
+    if len(candidates) == 1:
+        v = candidates[0]
+    else:
+        v = operation.get_parameter('variable')
+
+        if v is None:
+            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
+        else:
+            v = v.values[0]
 
     axes = operation.get_parameter('axes')
 
@@ -689,7 +710,17 @@ def process_dataset(context, operation, *input, **kwargs):
 
     func = kwargs['func']
 
-    v = context.variable
+    candidates = context.input_var_names[operation.name]
+
+    if len(candidates) == 1:
+        v = candidates[0]
+    else:
+        v = operation.get_parameter('variable')
+
+        if v is None:
+            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
+        else:
+            v = v.values[0]
 
     if is_groupby:
         output = func(input[0])
@@ -707,7 +738,17 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
 
     func = kwargs['func']
 
-    v = context.variable
+    candidates = context.input_var_names[operation.name]
+
+    if len(candidates) == 1:
+        v = candidates[0]
+    else:
+        v = operation.get_parameter('variable')
+
+        if v is None:
+            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
+        else:
+            v = v.values[0]
 
     const = operation.get_parameter('const')
 
@@ -745,7 +786,7 @@ def parse_condition(context, operation):
     if cond is None:
         raise WPSError('Missing parameter "cond"')
 
-    match = re.match('(?P<left>\w+)(?P<comp>[<>=!]{1,2})(?P<right>-?\d+\.?\d?)', cond.values[0])
+    match = re.match(r'(?P<left>\w+)(?P<comp>[<>=!]{1,2})(?P<right>-?\d+\.?\d?)', cond.values[0])
 
     if match is None:
         raise WPSError('Condition is not valid, check abstract for format')
@@ -777,7 +818,17 @@ def process_where(context, operation, *input, **kwargs):
 
     output = input[0].copy()
 
-    v = context.variable
+    candidates = context.input_var_names[operation.name]
+
+    if len(candidates) == 1:
+        v = candidates[0]
+    else:
+        v = operation.get_parameter('variable')
+
+        if v is None:
+            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
+        else:
+            v = v.values[0]
 
     if comp == ">":
         output[v] = input[0][v].where(input_item>right)

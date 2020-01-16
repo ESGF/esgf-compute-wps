@@ -17,11 +17,13 @@ class OperationContext(state_mixin.StateMixin, object):
         self._domain = domain or {}
         self._operation = operation or {}
 
-        self.operation = None
         self.output = []
 
         self.gdomain = None
         self.gparameters = {}
+
+        self.sorted = []
+        self.input_var_names = {}
 
     @staticmethod
     def decode_data_inputs(data_inputs):
@@ -118,6 +120,10 @@ class OperationContext(state_mixin.StateMixin, object):
 
         obj.output = data.pop('output')
 
+        obj.sorted = data.pop('sorted')
+
+        obj.input_var_names = data.pop('input_var_names')
+
         obj.init_state(data)
 
         return obj
@@ -130,6 +136,8 @@ class OperationContext(state_mixin.StateMixin, object):
             '_domain': self._domain,
             '_operation': self._operation,
             'output': self.output,
+            'sorted': self.sorted,
+            'input_var_names': self.input_var_names,
         }
 
         data.update(self.store_state())
@@ -168,6 +176,8 @@ class OperationContext(state_mixin.StateMixin, object):
 
         while queue:
             next = queue.pop(0)
+
+            self.sorted.append(next)
 
             yield self._operation[next]
 

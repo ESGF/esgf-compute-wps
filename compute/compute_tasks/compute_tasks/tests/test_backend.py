@@ -8,6 +8,7 @@ import pytest
 from compute_tasks import backend
 from compute_tasks import cdat
 from compute_tasks import celery_ as celery
+from compute_tasks import WPSError
 
 logger = logging.getLogger()
 
@@ -20,7 +21,7 @@ WORKFLOW = cwt.Process('CDAT.workflow')
 WORKFLOW.add_inputs(SUBSET)
 
 DATA_INPUTS = {
-    'variable': [],
+    'variable': [V0.to_dict()],
     'domain': [],
     'operation': [
         WORKFLOW.to_dict(),
@@ -40,6 +41,122 @@ ENV = {
     'IMAGE': 'aims2.llnl.gov/compute-tasks:latest',
     'WORKERS': '8',
 }
+
+
+def test_validate_workflow_specify_variable_not_found(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'prw')
+
+    sub1 = cwt.Process('CDAT.subset')
+    sub1.add_inputs(pr1)
+
+    sub2 = cwt.Process('CDAT.subset')
+    sub2.add_inputs(pr2)
+
+    merge = cwt.Process('CDAT.merge')
+    merge.add_inputs(sub1, sub2)
+
+    sum = cwt.Process('CDAT.sum')
+    sum.add_inputs(merge)
+    sum.add_parameters(variable='clt')
+
+    context = mocker.MagicMock()
+    context.topo_sort.return_value = [
+        sub1,
+        sub2,
+        merge,
+        sum,
+    ]
+
+    with pytest.raises(WPSError):
+        backend.validate_workflow(context)
+
+
+def test_validate_workflow_specify_variable(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'prw')
+
+    sub1 = cwt.Process('CDAT.subset')
+    sub1.add_inputs(pr1)
+
+    sub2 = cwt.Process('CDAT.subset')
+    sub2.add_inputs(pr2)
+
+    merge = cwt.Process('CDAT.merge')
+    merge.add_inputs(sub1, sub2)
+
+    sum = cwt.Process('CDAT.sum')
+    sum.add_inputs(merge)
+    sum.add_parameters(variable='pr')
+
+    context = mocker.MagicMock()
+    context.topo_sort.return_value = [
+        sub1,
+        sub2,
+        merge,
+        sum,
+    ]
+
+    backend.validate_workflow(context)
+
+
+def test_validate_workflow_indeterminable_variable(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'prw')
+
+    sub1 = cwt.Process('CDAT.subset')
+    sub1.add_inputs(pr1)
+
+    sub2 = cwt.Process('CDAT.subset')
+    sub2.add_inputs(pr2)
+
+    merge = cwt.Process('CDAT.merge')
+    merge.add_inputs(sub1, sub2)
+
+    sum = cwt.Process('CDAT.sum')
+    sum.add_inputs(merge)
+
+    context = mocker.MagicMock()
+    context.topo_sort.return_value = [
+        sub1,
+        sub2,
+        merge,
+        sum,
+    ]
+
+    with pytest.raises(WPSError):
+        backend.validate_workflow(context)
+
+
+def test_validate_workflow_missmatch_input(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'prw')
+
+    agg = cwt.Process('CDAT.aggregate')
+    agg.add_inputs(pr1, pr2)
+
+    context = mocker.MagicMock()
+    context.topo_sort.return_value = [
+        agg,
+    ]
+
+    with pytest.raises(WPSError):
+        backend.validate_workflow(context)
+
+
+def test_validate_workflow(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'pr')
+
+    agg = cwt.Process('CDAT.aggregate')
+    agg.add_inputs(pr1, pr2)
+
+    context = mocker.MagicMock()
+    context.topo_sort.return_value = [
+        agg,
+    ]
+
+    backend.validate_workflow(context)
 
 
 def test_worker_run(mocker, provisioner, worker):
@@ -242,11 +359,7 @@ def test_build_workflow(mocker):
 
     assert workflow
 
-    extra = {
-        'DASK_SCHEDULER': 'dask-scheduler-0.default.svc:8786',
-    }
-
-    backend.job_started.s.assert_called_with('CDAT.workflow', DATA_INPUTS, '0', '0', '0', extra)
+    backend.job_started.s.assert_called()
     backend.job_succeeded.s.assert_called()
 
 

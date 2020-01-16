@@ -18,6 +18,7 @@ from compute_tasks import WPSError
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
 from compute_tasks.context import state_mixin
+from compute_tasks.context import operation as ctx
 
 logger = logging.getLogger('compute_tasks.backend')
 
@@ -78,8 +79,31 @@ def queue_from_identifier(identifier):
     return QUEUE.get(module.lower(), DEFAULT_QUEUE)
 
 
+def build_context(identifier, data_inputs, job, user, process):
+    data_inputs = celery.decoder(data_inputs)
+
+    context = ctx.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    extra = {
+        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE'])
+    }
+
+    logger.info('Append extra %r to frames', extra)
+
+    data = {
+        'extra': extra,
+        'job': job,
+        'user': user,
+        'process': process,
+    }
+
+    context.init_state(data)
+
+    return context
+
+
 def validate_process(process):
-    logger.info('Validating process %r', process)
+    logger.info('Validating process %r (%s)', process.identifier, process.name)
 
     v = cdat.VALIDATION[process.identifier]
 
@@ -104,21 +128,44 @@ def validate_process(process):
                     raise WPSError('Validation failed, could not convert parameter {!r} value {!r} to type {!r}', key, value, type.__name__)
 
 
+def validate_workflow(context):
+    input_var_names = {}
+
+    for next in context.topo_sort():
+        validate_process(next)
+
+        if all([isinstance(x, cwt.Variable) for x in next.inputs]):
+            var_names = set([x.var_name for x in next.inputs])
+
+            logger.info('Variable names %r', var_names)
+
+            if len(var_names) > 1:
+                raise WPSError('Expecting the same variable name for all inputs of {!s}, got {!s}', next.identifier, ', '.join(var_names))
+
+            input_var_names[next.name] = list(var_names)
+        else:
+            candidate_var_names = set([y for x in next.inputs for y in input_var_names[x.name]])
+
+            if len(candidate_var_names) > 1 and next.identifier != 'CDAT.merge':
+                variable = next.get_parameter('variable')
+
+                if variable is None:
+                    raise WPSError('Could not determine target variable for operation {!s} ({!s}), define "variable" parameter with target variable.', next.identifier, next.name)
+
+                if variable.values[0] not in candidate_var_names:
+                    raise WPSError('Target variable {!r} not present, check inputs to {!s} ({!s}).', variable.values[0], next.identifier, next.name)
+            else:
+                input_var_names[next.name] = list(candidate_var_names)
+
+    return input_var_names
+
+
 def build_workflow(identifier, data_inputs, job, user, process):
-    data_inputs = celery.decoder(data_inputs)
+    context = build_context(identifier, data_inputs, job, user, process)
 
-    for data in data_inputs['operation']:
-        p = cwt.Process.from_dict(data)
+    context.input_var_names = validate_workflow(context)
 
-        validate_process(p)
-
-    extra = {
-        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE'])
-    }
-
-    logger.info('Append extra %r to frames', extra)
-
-    started = job_started.s(identifier, data_inputs, job, user, process, extra).set(**DEFAULT_QUEUE)
+    started = job_started.s(context).set(**DEFAULT_QUEUE)
 
     logger.info('Created job started task %r', started)
 

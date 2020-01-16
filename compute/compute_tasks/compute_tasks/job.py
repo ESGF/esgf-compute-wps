@@ -6,24 +6,12 @@ import cwt
 from celery.utils.log import get_task_logger
 
 from compute_tasks import base
-from compute_tasks.context import operation as ctx
 
 logger = get_task_logger('compute_tasks.job')
 
 
 @base.cwt_shared_task()
-def job_started(self, identifier, data_inputs, job_id, user_id, process_id, extra):
-    context = ctx.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    data = {
-        'extra': extra,
-        'job': job_id,
-        'user': user_id,
-        'process': process_id,
-    }
-
-    context.init_state(data)
-
+def job_started(self, context):
     context.started()
 
     return context

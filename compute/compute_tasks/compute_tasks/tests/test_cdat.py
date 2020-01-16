@@ -157,6 +157,7 @@ def test_groupby_bins(test_data, mocker):
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+    context.input_var_names = {p.name: ['pr']}
 
     mocker.patch.object(context, 'message')
 
@@ -184,6 +185,7 @@ def test_where_fillna_cannot_convert(test_data, mocker):
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+    context.input_var_names = {p.name: ['pr']}
 
     mocker.patch.object(context, 'message')
 
@@ -210,6 +212,7 @@ def test_where_fillna(test_data, mocker):
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+    context.input_var_names = {p.name: ['pr']}
 
     mocker.patch.object(context, 'message')
 
@@ -254,6 +257,7 @@ def test_where(test_data, cond, mocker):
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+    context.input_var_names = {p.name: ['pr']}
 
     mocker.patch.object(context, 'message')
 
@@ -340,6 +344,8 @@ def test_processing(test_data, identifier, v1, v2, output, extra):
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    context.input_var_names = {p.name: ['pr']}
 
     result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
@@ -684,16 +690,16 @@ def test_build_workflow_missing_interm(mocker):
     max.add_inputs(subset, subset2)
 
     context = mocker.MagicMock()
-    context.topo_sort.return_value = [subset, max]
+    context.sorted = [subset, max]
 
     with pytest.raises(WPSError):
         cdat.build_workflow(context)
 
 
-SUBSET = cwt.Process(identifier='CDAT.subset')
+SUBSET = cwt.Process(identifier='CDAT.subset', name='subset')
 SUBSET.add_inputs(cwt.Variable(CMIP6_CLT, 'clt'))
 
-MAX = cwt.Process(identifier='CDAT.max')
+MAX = cwt.Process(identifier='CDAT.max', name='max')
 MAX.add_inputs(SUBSET)
 MAX.add_parameters(axes='time')
 
@@ -703,10 +709,13 @@ MAX.add_parameters(axes='time')
 ])
 def test_build_workflow(mocker, processes, expected):
     context = operation.OperationContext()
+    context.sorted = processes
+    context.input_var_names = {
+        'subset': ['clt'],
+        'max': ['clt'],
+    }
 
-    type(context).variable = mocker.PropertyMock(return_value='clt')
     mocker.patch.object(context, 'action')
-    mocker.patch.object(context, 'topo_sort', return_value=processes)
 
     interm = cdat.build_workflow(context)
 
