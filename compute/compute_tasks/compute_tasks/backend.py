@@ -134,6 +134,8 @@ def validate_workflow(context):
     for next in context.topo_sort():
         validate_process(next)
 
+        logger.info('input_var_names %r', input_var_names)
+
         if all([isinstance(x, cwt.Variable) for x in next.inputs]):
             var_names = set([x.var_name for x in next.inputs])
 
@@ -154,8 +156,8 @@ def validate_workflow(context):
 
                 if variable.values[0] not in candidate_var_names:
                     raise WPSError('Target variable {!r} not present, check inputs to {!s} ({!s}).', variable.values[0], next.identifier, next.name)
-            else:
-                input_var_names[next.name] = list(candidate_var_names)
+
+            input_var_names[next.name] = list(candidate_var_names)
 
     return input_var_names
 

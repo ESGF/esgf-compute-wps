@@ -85,8 +85,12 @@ def test_validate_workflow_specify_variable(mocker):
     merge = cwt.Process('CDAT.merge')
     merge.add_inputs(sub1, sub2)
 
+    group = cwt.Process('CDAT.groupby_bins')
+    group.add_inputs(merge)
+    group.add_parameters(variable='prw', bins=['10', '20'])
+
     sum = cwt.Process('CDAT.sum')
-    sum.add_inputs(merge)
+    sum.add_inputs(group)
     sum.add_parameters(variable='pr')
 
     context = mocker.MagicMock()
@@ -94,6 +98,7 @@ def test_validate_workflow_specify_variable(mocker):
         sub1,
         sub2,
         merge,
+        group,
         sum,
     ]
 
