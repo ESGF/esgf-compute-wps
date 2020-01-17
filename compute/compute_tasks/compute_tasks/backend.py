@@ -13,7 +13,7 @@ import zmq
 
 from compute_tasks import base
 from compute_tasks import cdat
-from compute_tasks import celery_ as celery
+from compute_tasks import celery_app
 from compute_tasks import WPSError
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
@@ -80,7 +80,7 @@ def queue_from_identifier(identifier):
 
 
 def build_context(identifier, data_inputs, job, user, process):
-    data_inputs = celery.decoder(data_inputs)
+    data_inputs = celery_app.decoder(data_inputs)
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
@@ -453,8 +453,6 @@ def main():
     args = parse_args()
 
     logging.basicConfig(level=args.log_level)
-
-    logger.info('%r', celery.app.conf)
 
     worker = Worker(b'devel', args.queue_host)
 

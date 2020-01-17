@@ -3,7 +3,7 @@ import datetime
 import cwt
 import pytest
 
-from compute_tasks import celery_ as celery
+from compute_tasks import celery_appapp
 from compute_tasks.context import operation
 
 

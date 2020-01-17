@@ -7,7 +7,7 @@ import pytest
 
 from compute_tasks import backend
 from compute_tasks import cdat
-from compute_tasks import celery_ as celery
+from compute_tasks import celery_app
 from compute_tasks import WPSError
 
 logger = logging.getLogger()
@@ -352,11 +352,8 @@ def test_waiting_state(mocker, transition, patch_env, expected):
     assert isinstance(new_state, expected)
 
 
-def test_build_workflow(mocker, celery_worker):
+def test_build_workflow(mocker):
     mocker.patch.dict(backend.os.environ, {'NAMESPACE': 'default'})
-
-    # mocker.spy(backend, 'job_started')
-    # mocker.spy(backend, 'job_succeeded')
 
     cdat.discover_processes()
 
@@ -364,12 +361,7 @@ def test_build_workflow(mocker, celery_worker):
 
     assert workflow
 
-    print(workflow.delay().get())
-
-    assert False
-
-    # backend.job_started.s.assert_called()
-    # backend.job_succeeded.s.assert_called()
+    # workflow.delay()
 
 
 @pytest.mark.parametrize('identifier,inputs,params', [
