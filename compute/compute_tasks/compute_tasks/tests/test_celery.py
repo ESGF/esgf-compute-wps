@@ -10,7 +10,7 @@ from compute_tasks.context import operation
 def test_import_handlers(mocker):
     base = mocker.patch('compute_tasks.base')
 
-    celery.import_modules_handler()
+    celery_app.import_modules_handler()
 
     base.discover_processes.assert_called()
 
@@ -25,7 +25,7 @@ def test_byteify():
         },
     }
 
-    output = celery.byteify(data)
+    output = celery_app.byteify(data)
 
     assert isinstance(list(output.keys())[0], str)
     assert isinstance(list(output['data'].keys())[0], str)
@@ -39,7 +39,7 @@ def test_default_unknown_type():
     data = {}
 
     with pytest.raises(TypeError):
-        celery.default(data)
+        celery_app.default(data)
 
 
 def test_encoder_decoder():
@@ -55,9 +55,9 @@ def test_encoder_decoder():
         'operation_context_data': operation.OperationContext(),
     }
 
-    encoded = celery.encoder(data)
+    encoded = celery_app.encoder(data)
 
-    decoded = celery.decoder(encoded)
+    decoded = celery_app.decoder(encoded)
 
     assert isinstance(decoded['slice_data'], slice)
     assert isinstance(decoded['variable_data'], cwt.Variable)
