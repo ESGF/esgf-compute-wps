@@ -201,30 +201,35 @@ class State(object):
 
 
 class WaitingState(State):
+    def build_resources(self, **kwargs):
+        templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
+
+        data = {
+            'image': os.environ['IMAGE'],
+            'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
+            'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
+            'scheduler_cpu': os.environ.get('SCHEDULER_CPU', 1),
+            'scheduler_memory': os.environ.get('SCHEDULER_MEMORY', '1Gi'),
+            'worker_cpu': os.environ.get('WORKER_CPU', 1),
+            'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
+            'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
+            'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
+            'dev': os.environ.get('DEV', False),
+            'workers': os.environ['WORKERS'],
+            'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
+        }
+
+        data.update(kwargs)
+
+        return json.dumps([x.render(**data) for x in templates])
+
+
     def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process):
         transition = transition.encode()
 
         if transition == REQUEST:
             try:
-                templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
-
-                data = {
-                    'image': os.environ['IMAGE'],
-                    'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
-                    'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
-                    'scheduler_cpu': os.environ.get('SCHEDULER_CPU', 1),
-                    'scheduler_memory': os.environ.get('SCHEDULER_MEMORY', '1Gi'),
-                    'worker_cpu': os.environ.get('WORKER_CPU', 1),
-                    'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
-                    'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
-                    'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
-                    'dev': os.environ.get('DEV', False),
-                    'user': user,
-                    'workers': os.environ['WORKERS'],
-                    'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
-                }
-
-                resources = json.dumps([x.render(**data) for x in templates])
+                resources = self.build_resources(user=user)
 
                 backend.worker.send_multipart([RESOURCE, resources.encode()])
             except Exception as e:
@@ -261,17 +266,16 @@ class ResourceAckState(State):
 
                 backend.worker.send_multipart([ACK])
             except Exception as e:
-                backend.fail_job(self.job, e)
+                logger.exception('Error building and executing workflow')
 
-            return WaitingState()
+                backend.fail_job(self.job, e)
         elif transition == ERR:
             backend.fail_job(self.job, frames[1])
 
-            return WaitingState()
-
         logger.info('Invalid transition %r, staying in current state %r', transition, self)
 
-        return self
+        return WaitingState()
+
 
 class Worker(state_mixin.StateMixin, threading.Thread):
     def __init__(self, version, queue_host):
@@ -296,8 +300,6 @@ class Worker(state_mixin.StateMixin, threading.Thread):
         self.interval = INTERVAL_INIT
 
         self.queue_host = queue_host or os.environ['PROVISIONER_BACKEND']
-
-        self.exc = None
 
     def initialize(self):
         """ Initializes the worker.
@@ -380,40 +382,37 @@ class Worker(state_mixin.StateMixin, threading.Thread):
             self.liveness = HEARTBEAT_LIVENESS
 
     def run(self):
-        try:
-            self.initialize()
+        self.initialize()
 
-            self.connect_provisioner()
+        self.connect_provisioner()
 
-            self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
+        self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
 
-            while self.running:
-                socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
+        while self.running:
+            socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
 
-                if socks.get(self.worker) == zmq.POLLIN:
-                    frames = self.worker.recv_multipart()
+            if socks.get(self.worker) == zmq.POLLIN:
+                frames = self.worker.recv_multipart()
 
-                    logger.info('Handling frames from provisioner %r', frames)
+                logger.info('Handling frames from provisioner %r', frames)
 
-                    # Heartbeats dont alter state. Maybe they should?
-                    if frames[0] == HEARTBEAT:
-                        self.liveness = HEARTBEAT_LIVENESS
+                # Heartbeats dont alter state. Maybe they should?
+                if frames[0] == HEARTBEAT:
+                    self.liveness = HEARTBEAT_LIVENESS
 
-                        logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
-                    else:
-                        frames = [x.decode() for x in frames]
-
-                        self.state = self.state.on_event(self, *frames)
-
-                    self.interval = INTERVAL_INIT
+                    logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
                 else:
-                    self.missed_heartbeat()
+                    frames = [x.decode() for x in frames]
 
-                self.send_heartbeat()
+                    self.state = self.state.on_event(self, *frames)
 
-            logger.info('Thread is finished')
-        except Exception as e:
-            self.exc = e
+                self.interval = INTERVAL_INIT
+            else:
+                self.missed_heartbeat()
+
+            self.send_heartbeat()
+
+        logger.info('Thread is finished')
 
 
 def register_processes():

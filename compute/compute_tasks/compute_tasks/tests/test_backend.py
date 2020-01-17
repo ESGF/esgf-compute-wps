@@ -303,7 +303,7 @@ def test_worker_initialize(mocker):
 @pytest.mark.parametrize('transition,frames,expected', [
     (backend.ACK, [], backend.WaitingState),
     (backend.ERR, [b'Error message'], backend.WaitingState),
-    (b'NO', [], backend.ResourceAckState),
+    (b'NO', [], backend.WaitingState),
 ])
 def test_resource_ack_state(mocker, transition, frames, expected):
     b = mocker.MagicMock()

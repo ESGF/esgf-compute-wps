@@ -109,7 +109,15 @@ def provisioner():
 
 @pytest.fixture(scope='function')
 def worker(mocker):
-    w = backend.Worker(b'devel', '127.0.0.1:8787')
+    class WorkerWrapper(backend.Worker):
+        def run(self, *args, **kwargs):
+            self.exc = None
+            try:
+                super(WorkerWrapper, self).run()
+            except Exception as e:
+                self.exc = e
+
+    w = WorkerWrapper(b'devel', '127.0.0.1:8787')
 
     mocker.patch.object(w, 'action')
     mocker.patch.object(w, 'init_api')
