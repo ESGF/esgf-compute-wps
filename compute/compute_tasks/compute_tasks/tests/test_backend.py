@@ -352,11 +352,11 @@ def test_waiting_state(mocker, transition, patch_env, expected):
     assert isinstance(new_state, expected)
 
 
-def test_build_workflow(mocker):
+def test_build_workflow(mocker, celery_worker):
     mocker.patch.dict(backend.os.environ, {'NAMESPACE': 'default'})
 
-    mocker.spy(backend, 'job_started')
-    mocker.spy(backend, 'job_succeeded')
+    # mocker.spy(backend, 'job_started')
+    # mocker.spy(backend, 'job_succeeded')
 
     cdat.discover_processes()
 
@@ -364,8 +364,12 @@ def test_build_workflow(mocker):
 
     assert workflow
 
-    backend.job_started.s.assert_called()
-    backend.job_succeeded.s.assert_called()
+    print(workflow.delay().get())
+
+    assert False
+
+    # backend.job_started.s.assert_called()
+    # backend.job_succeeded.s.assert_called()
 
 
 @pytest.mark.parametrize('identifier,inputs,params', [

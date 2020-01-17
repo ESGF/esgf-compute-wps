@@ -18,7 +18,7 @@ from compute_tasks import WPSError
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
 from compute_tasks.context import state_mixin
-from compute_tasks.context import operation as ctx
+from compute_tasks.context import operation
 
 logger = logging.getLogger('compute_tasks.backend')
 
@@ -82,7 +82,7 @@ def queue_from_identifier(identifier):
 def build_context(identifier, data_inputs, job, user, process):
     data_inputs = celery.decoder(data_inputs)
 
-    context = ctx.OperationContext.from_data_inputs(identifier, data_inputs)
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
     extra = {
         'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE'])
@@ -453,6 +453,8 @@ def main():
     args = parse_args()
 
     logging.basicConfig(level=args.log_level)
+
+    logger.info('%r', celery.app.conf)
 
     worker = Worker(b'devel', args.queue_host)
 
