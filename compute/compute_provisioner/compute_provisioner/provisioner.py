@@ -234,11 +234,12 @@ class Provisioner(threading.Thread):
                 requested[key] = yaml_data
         except client.rest.ApiException as e:
             if e.status == 409:
-                logger.info('Resources already exists on the server')
+                # TODO resources are being requested again, should extend alive time
+                logger.info('Resources already exist')
 
                 pass
             else:
-                logger.error(e)
+                logger.exception('Failed to allocation resources')
 
                 raise ResourceAllocationError(str(yaml_data['metadata']['name']))
 
