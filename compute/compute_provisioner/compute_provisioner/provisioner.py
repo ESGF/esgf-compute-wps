@@ -325,7 +325,7 @@ class Provisioner(threading.Thread):
                 self.allocate_resources(json.loads(frames[2]))
             except (ResourceAllocationError, ResourceTimeoutError) as e:
                 # Notify error in allocating resources
-                new_frames = [address, constants.ERR, str(e)]
+                new_frames = [address, constants.ERR, str(e).encode()]
             else:
                 # Allocate resources
                 new_frames = [address, constants.ACK]
