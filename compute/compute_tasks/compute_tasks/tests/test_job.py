@@ -2,6 +2,7 @@ import cwt
 import json
 
 from compute_tasks import job
+from compute_tasks.context import operation
 
 
 def test_job_succeeded_multiple_variable(mocker):
@@ -43,7 +44,10 @@ def test_job_succeeded(mocker):
 
 
 def test_job_started(mocker):
-    context = mocker.MagicMock()
+    context = operation.OperationContext()
+
+    mocker.patch.object(context, 'action')
+    mocker.spy(context, 'started')
 
     output = job.job_started(context)
 
