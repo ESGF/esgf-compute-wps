@@ -155,7 +155,7 @@ def test_to_dict(cwt_data):
         'process': 0,
         'gdomain': None,
         'gparameters': {},
-        'sorted': [],
+        '_sorted': [],
         'input_var_names': {},
     }
 
@@ -192,7 +192,7 @@ def test_from_dict(cwt_data):
         'operation': cwt_data.op1,
         'gdomain': None,
         'gparameters': {},
-        'sorted': [],
+        '_sorted': [],
         'input_var_names': {},
     }
 

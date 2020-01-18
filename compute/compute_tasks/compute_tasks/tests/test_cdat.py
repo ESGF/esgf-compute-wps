@@ -673,29 +673,6 @@ def test_gather_inputs(mocker, mpc, identifier, inputs, domain, expected, expect
     assert isinstance(data[0].time.values[0], expected_type)
 
 
-def test_build_workflow_missing_interm(mocker):
-    process_func = mocker.MagicMock()
-    mocker.patch.object(cdat, 'gather_inputs')
-    mocker.patch.dict(cdat.PROCESS_FUNC_MAP, {
-        'CDAT.subset': process_func,
-    }, True)
-
-    subset = cwt.Process(identifier='CDAT.subset')
-
-    mocker.patch.object(subset, 'copy')
-
-    subset2 = cwt.Process(identifier='CDAT.subset')
-
-    max = cwt.Process(identifier='CDAT.max')
-    max.add_inputs(subset, subset2)
-
-    context = mocker.MagicMock()
-    context.sorted = [subset, max]
-
-    with pytest.raises(WPSError):
-        cdat.build_workflow(context)
-
-
 SUBSET = cwt.Process(identifier='CDAT.subset', name='subset')
 SUBSET.add_inputs(cwt.Variable(CMIP6_CLT, 'clt'))
 
@@ -709,7 +686,8 @@ MAX.add_parameters(axes='time')
 ])
 def test_build_workflow(mocker, processes, expected):
     context = operation.OperationContext()
-    context.sorted = processes
+    context._sorted = [x.name for x in processes]
+    context._operation = dict([(x.name, x) for x in processes])
     context.input_var_names = {
         'subset': ['clt'],
         'max': ['clt'],

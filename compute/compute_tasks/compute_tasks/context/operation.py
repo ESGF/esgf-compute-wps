@@ -22,7 +22,7 @@ class OperationContext(state_mixin.StateMixin, object):
         self.gdomain = None
         self.gparameters = {}
 
-        self.sorted = []
+        self._sorted = []
         self.input_var_names = {}
 
     @staticmethod
@@ -120,7 +120,7 @@ class OperationContext(state_mixin.StateMixin, object):
 
         obj.output = data.pop('output')
 
-        obj.sorted = data.pop('sorted')
+        obj._sorted = data.pop('_sorted')
 
         obj.input_var_names = data.pop('input_var_names')
 
@@ -136,7 +136,7 @@ class OperationContext(state_mixin.StateMixin, object):
             '_domain': self._domain,
             '_operation': self._operation,
             'output': self.output,
-            'sorted': self.sorted,
+            '_sorted': self._sorted,
             'input_var_names': self.input_var_names,
         }
 
@@ -147,6 +147,11 @@ class OperationContext(state_mixin.StateMixin, object):
     @property
     def variable(self):
         return list(set([x.var_name for x in self._variable.values()]))[0]
+
+    @property
+    def sorted(self):
+        for x in self._sorted:
+            yield self._operation[x]
 
     def output_ops(self):
         out_deg = dict((x, self.node_out_deg(y)) for x, y in self._operation.items())
@@ -177,7 +182,7 @@ class OperationContext(state_mixin.StateMixin, object):
         while queue:
             next = queue.pop(0)
 
-            self.sorted.append(next)
+            self._sorted.append(next)
 
             yield self._operation[next]
 
