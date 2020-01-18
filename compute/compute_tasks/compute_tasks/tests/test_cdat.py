@@ -589,10 +589,10 @@ def test_check_access(esgf_data):
     assert cdat.check_access(esgf_data.data['tas-opendap']['files'][0])
 
 
-def test_clean_variable_encoding(mocker, esgf_data):
+def test_clean_output(mocker, esgf_data):
     ds = esgf_data.to_xarray('tas-opendap')
 
-    cdat.clean_variable_encoding(ds)
+    cdat.clean_output(ds)
 
     assert 'missing_value' not in ds.tas.encoding
 

@@ -93,7 +93,7 @@ class DaskJobTracker(ProgressBar):
         pass
 
 
-def clean_variable_encoding(dataset):
+def clean_output(dataset):
     """ Cleans the encoding for a variable.
 
     Sometimes a variable's encoding will have missing_value and _FillValue, xarray does not like
@@ -105,6 +105,10 @@ def clean_variable_encoding(dataset):
     for name, variable in dataset.variables.items():
         if 'missing_value' in variable.encoding and '_FillValue' in variable.encoding:
             del variable.encoding['missing_value']
+
+    for x in dataset.coords:
+        if dataset.coords[x].dtype == np.object:
+            dataset.coords[x] = [str(y) for y in dataset.coords[x].values]
 
     return dataset
 
@@ -145,7 +149,7 @@ def gather_workflow_outputs(context, interm, operations):
 
         logger.debug('Writing local output to %r', local_path)
 
-        interm_ds = clean_variable_encoding(interm_ds)
+        interm_ds = clean_output(interm_ds)
 
         try:
             # Create an output file and store the future
@@ -646,11 +650,7 @@ def subset_input(context, operation, input):
     return input
 
 
-def process_elementwise(context, operation, *input, **kwargs):
-    is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
-
-    func = kwargs['func']
-
+def get_variable_name(context, operation):
     candidates = context.input_var_names[operation.name]
 
     if len(candidates) == 1:
@@ -662,6 +662,16 @@ def process_elementwise(context, operation, *input, **kwargs):
             raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
         else:
             v = v.values[0]
+
+    return v
+
+
+def process_elementwise(context, operation, *input, **kwargs):
+    is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
+
+    func = kwargs['func']
+
+    v = get_variable_name(context, operation)
 
     if is_groupby:
         output = func(input[0])
@@ -678,17 +688,7 @@ def process_reduce(context, operation, *input, **kwargs):
 
     func = kwargs['func']
 
-    candidates = context.input_var_names[operation.name]
-
-    if len(candidates) == 1:
-        v = candidates[0]
-    else:
-        v = operation.get_parameter('variable')
-
-        if v is None:
-            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
-        else:
-            v = v.values[0]
+    v = get_variable_name(context, operation)
 
     axes = operation.get_parameter('axes')
 
@@ -710,17 +710,7 @@ def process_dataset(context, operation, *input, **kwargs):
 
     func = kwargs['func']
 
-    candidates = context.input_var_names[operation.name]
-
-    if len(candidates) == 1:
-        v = candidates[0]
-    else:
-        v = operation.get_parameter('variable')
-
-        if v is None:
-            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
-        else:
-            v = v.values[0]
+    v = get_variable_name(context, operation)
 
     if is_groupby:
         output = func(input[0])
@@ -738,17 +728,7 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
 
     func = kwargs['func']
 
-    candidates = context.input_var_names[operation.name]
-
-    if len(candidates) == 1:
-        v = candidates[0]
-    else:
-        v = operation.get_parameter('variable')
-
-        if v is None:
-            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
-        else:
-            v = v.values[0]
+    v = get_variable_name(context, operation)
 
     const = operation.get_parameter('const')
 
@@ -818,17 +798,7 @@ def process_where(context, operation, *input, **kwargs):
 
     output = input[0].copy()
 
-    candidates = context.input_var_names[operation.name]
-
-    if len(candidates) == 1:
-        v = candidates[0]
-    else:
-        v = operation.get_parameter('variable')
-
-        if v is None:
-            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
-        else:
-            v = v.values[0]
+    v = get_variable_name(context, operation)
 
     if comp == ">":
         output[v] = input[0][v].where(input_item>right)
