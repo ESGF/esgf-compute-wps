@@ -499,11 +499,6 @@ def gather_inputs(context, process):
 
     datasets = [open_dataset(context, x.uri, x.var_name, chunks, decode_times) for x in process.inputs]
 
-    if process.identifier == 'CDAT.aggregate':
-        logger.info('Combining %s datasets', len(datasets))
-
-        datasets = [xr.combine_by_coords(datasets)]
-
     return datasets
 
 
@@ -523,10 +518,16 @@ def build_workflow(context):
 
     # Should have already been sorted
     for next in context.sorted:
+        is_input = False
+
         context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
 
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
             inputs = gather_inputs(context, next)
+
+            context.track_src_bytes(sum(x.nbytes for x in inputs))
+
+            is_input = True
         else:
             try:
                 inputs = [interm[x.name] for x in next.inputs]
@@ -541,6 +542,9 @@ def build_workflow(context):
             inputs = [subset_input(context, next, x) for x in inputs]
 
             interm[next.name] = process_func(context, next, *inputs)
+
+        if is_input:
+            context.track_in_bytes(interm[next.name].nbytes)
 
         context.message('Storing intermediate {!r}', next.name)
 
@@ -623,8 +627,6 @@ def subset_input(context, operation, input):
         operation (cwt.Process): The process definition the input is associated with.
         input (xarray.DataSet): The input DataSet.
     """
-    context.track_src_bytes(input.nbytes)
-
     if operation.domain is not None:
         for dim in operation.domain.dimensions.values():
             selector = {dim.name: slice(dim.start, dim.end, dim.step)}
@@ -640,8 +642,6 @@ def subset_input(context, operation, input):
     for x, y in input.dims.items():
         if y == 0:
             raise WPSError('Domain for process {!r} resulted in a zero length dimension {!r}', operation.identifier, x)
-
-    context.track_in_bytes(input.nbytes)
 
     return input
 
@@ -881,6 +881,13 @@ def process_groupby_bins(context, operation, *input, **kwargs):
 
     return groups
 
+
+def process_aggregate(context, operation, *input, **kwargs):
+    context.message('Aggregating {!s} files by coords', len(input))
+
+    return xr.combine_by_coords(input)
+
+
 # Two parent types
 # 1. Operating on a variable
 # 2. Operating on a Dataset e.g. resample, groupby
@@ -888,7 +895,7 @@ def process_groupby_bins(context, operation, *input, **kwargs):
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_elementwise, func=lambda x: np.abs(x)),
     'CDAT.add': partial(process_dataset_or_const, func=lambda x, y: x + y),
-    'CDAT.aggregate': None,
+    'CDAT.aggregate': process_aggregate,
     'CDAT.divide': partial(process_dataset_or_const, func=lambda x, y: x / y),
     'CDAT.exp': partial(process_elementwise, func=lambda x: np.exp(x)),
     'CDAT.log': partial(process_elementwise, func=lambda x: np.log(x)),

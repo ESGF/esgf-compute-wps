@@ -41,16 +41,19 @@ CMIP5_AGG1 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/
 CMIP5_AGG2 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanCM4/decadal1960/day/atmos/tas/r10i1p1/tas_day_CanCM4_decadal1960_r10i1p1_19710101-19801231.nc'
 
 class TestDataGenerator(object):
-    def standard(self, value, lat=90, lon=180, time=10, name=None):
+    def standard(self, value, lat=90, lon=180, time=10, name=None, time_start=None):
         if name is None:
             name = 'pr'
+
+        if time_start is None:
+            time_start = '1990-01-01'
 
         data_vars = {
             name: (['time', 'lat', 'lon'], np.full((time, lat, lon), value)),
         }
 
         coords = {
-            'time': pd.date_range('1990-01-01', periods=time),
+            'time': pd.date_range(time_start, periods=time),
             'lat': (['lat'], np.arange(-90, 90, 180/lat)),
             'lon': (['lon'], np.arange(0, 360, 360/lon)),
         }
@@ -320,8 +323,9 @@ def test_merge(test_data, mocker):
     ('CDAT.std', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
     ('CDAT.var', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
     ('CDAT.squeeze', (5, {'time': 10, 'lat': 1, 'lon': 1}), None, np.full((10,), 5), {}),
+    ('CDAT.aggregate', (5, {'time_start': '1990'}), (5, {'time_start': '1991'}), np.full((20, 90, 180), 5), {}),
 ])
-def test_processing(test_data, identifier, v1, v2, output, extra):
+def test_processing(mocker, test_data, identifier, v1, v2, output, extra):
     if isinstance(v1, tuple):
         data = test_data.standard(v1[0], **v1[1])
     else:
@@ -330,7 +334,12 @@ def test_processing(test_data, identifier, v1, v2, output, extra):
     inputs = [data]
 
     if v2 is not None:
-        inputs.append(test_data.standard(v2))
+        if isinstance(v2, tuple):
+            data = test_data.standard(v2[0], **v2[1])
+        else:
+            data = test_data.standard(v2)
+
+        inputs.append(data)
 
     p = cwt.Process(identifier)
     p.add_parameters(**extra)
@@ -344,6 +353,8 @@ def test_processing(test_data, identifier, v1, v2, output, extra):
     }
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+
+    mocker.patch.object(context, 'action')
 
     context.input_var_names = {p.name: ['pr']}
 
