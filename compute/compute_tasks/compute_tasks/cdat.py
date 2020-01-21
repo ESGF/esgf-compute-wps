@@ -781,7 +781,7 @@ def parse_condition(context, operation):
     if cond is None:
         raise WPSError('Missing parameter "cond"')
 
-    match = re.match(r'(?P<left>\w+)(?P<comp>[<>=!]{1,2})(?P<right>-?\d+\.?\d?)', cond.values[0])
+    match = re.match(r'(?P<left>\w+)\ ?(?P<comp>[<>=!]{1,2}|(is|not)null)(?P<right>-?\d+\.?\d?)?', cond.values[0])
 
     if match is None:
         raise WPSError('Condition is not valid, check abstract for format')
@@ -794,6 +794,8 @@ def parse_condition(context, operation):
         right = float(match['right'])
     except ValueError:
         raise WPSError('Error converting right argument {!s} {!s}', match['right'], type(match['right']))
+    except TypeError:
+        right = None
 
     context.message('Using condition "{!s}{!s}{!s}"', left, comp, right)
 
@@ -820,6 +822,8 @@ def build_condition(context, operation, input):
         cond = input_item==right
     elif comp == "!=":
         cond = input_item!=right
+    elif comp in ("isnull", "notnull"):
+        cond = getattr(input_item, comp)()
     else:
         raise WPSError('Comparison with {!s} is not supported', comp)
 

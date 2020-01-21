@@ -178,10 +178,13 @@ def test_groupby_bins(test_data, mocker):
     'lon<=180',
     'lon==180',
     'lon!=180',
+    'pr isnull',
+    'pr notnull',
+    'prisnull',
     pytest.param('lon>>>>180', marks=pytest.mark.xfail),
     pytest.param('lon>>180', marks=pytest.mark.xfail),
     pytest.param(None, marks=pytest.mark.xfail),
-    pytest.param('tas>-45', marks=pytest.mark.xfail),
+    pytest.param('tas>-45', marks=pytest.mark.xfail(reason='tas not available')),
 ])
 def test_where(test_data, cond, mocker):
     identifier = 'CDAT.where'
