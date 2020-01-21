@@ -261,7 +261,10 @@ def _build_data(test_data, input):
     return data
 
 
-@pytest.mark.parametrize('output_name', [None, 'pr_test'])
+@pytest.mark.parametrize('output_name', [
+    None,
+    'pr_test',
+])
 @pytest.mark.parametrize('identifier,v1,v2,output,extra', [
     ('CDAT.abs', -2, None, 2, {}),
     ('CDAT.add', 1, 2, 3, {}),
@@ -290,6 +293,7 @@ def _build_data(test_data, input):
     ('CDAT.filter_map', ('increasing_lat', {'bins': np.arange(0, 90, 10).tolist()}), None, np.array(162000), {'cond': 'pr>30', 'func': 'count', 'other': '40'}),
     ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), {'cond': 'pr>30', 'other': '1e20'}),
     ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(60.0)), {'cond': 'pr>30'}),
+    ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), {'cond': 'pr>30', 'fillna': '1e20'}),
 ])
 def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output_name):
     inputs = [_build_data(test_data, v1)]
@@ -321,16 +325,23 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output
 
     v = 'pr' if output_name is None else output_name
 
+    assert v in result
+
     if isinstance(output, np.ndarray):
-        assert np.array_equal(result[v].values, output)
+        expected = output
+
+        result = result[v].values
     elif isinstance(output, tuple):
-        print(getattr(result[v], output[0])().values, output[1])
+        expected = output[1]
 
-        assert np.array_equal(getattr(result[v], output[0])().values, output[1])
+        result = getattr(result[v], output[0])().values
     else:
-        expected = test_data.standard(output)
+        expected = test_data.standard(output).pr.values
 
-        assert np.array_equal(result[v].values, expected.pr.values)
+        result = result[v].values
+
+
+    assert np.array_equal(result, expected)
 
 
 @pytest.mark.parametrize('domain,decode_times,expected', [

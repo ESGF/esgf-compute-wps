@@ -681,6 +681,20 @@ def maybe_rename_variable(context, operation, output, name):
     return output
 
 
+def maybe_fillna(context, operation, output):
+    fillna_param = operation.get_parameter('fillna')
+
+    if fillna_param is not None:
+        try:
+            fillna = fillna_param.values[0]
+        except ValueError:
+            raise WPSError('Could not convert "fillna" parameter to float')
+
+        output = output.fillna(fillna)
+
+    return output
+
+
 def process_elementwise(context, operation, *input, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
@@ -695,7 +709,11 @@ def process_elementwise(context, operation, *input, **kwargs):
 
         output[v] = func(input[0][v])
 
-    return maybe_rename_variable(context, operation, output, v)
+    output = maybe_fillna(context, operation, output)
+
+    output = maybe_rename_variable(context, operation, output, v)
+
+    return output
 
 
 def process_reduce(context, operation, *input, **kwargs):
@@ -717,7 +735,11 @@ def process_reduce(context, operation, *input, **kwargs):
         else:
             output[v] = func(input[0][v], axes.values)
 
-    return maybe_rename_variable(context, operation, output, v)
+    output = maybe_fillna(context, operation, output)
+
+    output = maybe_rename_variable(context, operation, output, v)
+
+    return output
 
 
 def process_dataset(context, operation, *input, **kwargs):
@@ -727,14 +749,20 @@ def process_dataset(context, operation, *input, **kwargs):
 
     v = get_variable_name(context, operation)
 
+    extra = dict((x, y.values if len(y.values) > 1 else y.values[0]) for x, y in operation.parameters.items())
+
     if is_groupby:
-        output = func(input[0])
+        output = func(input[0], **extra)
     else:
         output = input[0].copy()
 
-        output[v] = func(input[0][v])
+        output[v] = func(input[0][v], **extra)
 
-    return maybe_rename_variable(context, operation, output, v)
+    output = maybe_fillna(context, operation, output)
+
+    output = maybe_rename_variable(context, operation, output, v)
+
+    return output
 
 
 def process_dataset_or_const(context, operation, *input, **kwargs):
@@ -764,7 +792,11 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
 
         output[v] = func(input[0][v], const)
 
-    return maybe_rename_variable(context, operation, output, v)
+    output = maybe_fillna(context, operation, output)
+
+    output = maybe_rename_variable(context, operation, output, v)
+
+    return output
 
 
 def process_merge(context, operation, *input, **kwargs):
@@ -852,7 +884,11 @@ def process_where(context, operation, *input, **kwargs):
 
     output[v] = input[0][v].where(cond, other)
 
-    return maybe_rename_variable(context, operation, output, v)
+    output = maybe_fillna(context, operation, output)
+
+    output = maybe_rename_variable(context, operation, output, v)
+
+    return output
 
 
 def process_groupby_bins(context, operation, *input, **kwargs):
@@ -914,7 +950,11 @@ def process_filter_map(context, operation, *input, **kwargs):
 
     output = input[0].map(_inner, args=(cond, other, func_param.values[0]))
 
-    return maybe_rename_variable(context, operation, output, v)
+    output = maybe_fillna(context, operation, output)
+
+    output = maybe_rename_variable(context, operation, output, v)
+
+    return output
 
 
 PROCESS_FUNC_MAP = {
@@ -936,8 +976,8 @@ PROCESS_FUNC_MAP = {
     'CDAT.merge': process_merge,
     'CDAT.where': process_where,
     'CDAT.groupby_bins': process_groupby_bins,
-    'CDAT.count': partial(process_dataset, func=lambda x: getattr(x, 'count')()),
-    'CDAT.squeeze': partial(process_dataset, func=lambda x: getattr(x, 'squeeze')(drop=True)),
+    'CDAT.count': partial(process_dataset, func=lambda x, **kwargs: getattr(x, 'count')()),
+    'CDAT.squeeze': partial(process_dataset, func=lambda x, **kwargs: getattr(x, 'squeeze')(drop=True)),
     'CDAT.std': partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y, keep_attrs=True)),
     'CDAT.var': partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y, keep_attrs=True)),
     'CDAT.workflow': None,
@@ -1021,6 +1061,7 @@ PARAMS_DESC = {
     'output': 'Named used to rename the output variable of the current process.',
     'func': 'Name of computation to apply.',
     'other': 'A float value to use when `cond` is false, otherwise nan is used.',
+    'value': 'A float value.',
 }
 
 
@@ -1061,6 +1102,7 @@ ABSTRACT = {}
 COMMON_PARAM = {
     'variable': parameter(str),
     'output': parameter(str),
+    'fillna': parameter(float),
 }
 
 
@@ -1089,7 +1131,7 @@ render_abstract('CDAT.subtract', 'Subtracts a variable from another or a constan
 render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str), **COMMON_PARAM)
 render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'), **override_default(output=None))
 render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), other=parameter(float), **COMMON_PARAM)
-render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', bins=parameter(float, True), **override_default(variable=parameter(str, True), output=None))
+render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', bins=parameter(float, True), **override_default(variable=parameter(str, True), output=None, fillna=None))
 render_abstract('CDAT.count', 'Computes count on each variable.', **COMMON_PARAM)
 render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.', **COMMON_PARAM)
 render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str), **COMMON_PARAM)
