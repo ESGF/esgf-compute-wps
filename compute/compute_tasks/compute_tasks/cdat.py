@@ -663,7 +663,22 @@ def get_variable_name(context, operation):
         else:
             v = v.values[0]
 
+    context.message('Using {!s} as input variable', v)
+
     return v
+
+
+def maybe_rename_variable(context, operation, output, name):
+    output_param = operation.get_parameter('output')
+
+    if output_param is not None:
+        output_name = output_param.values[0]
+
+        context.message('Renaming variable {!s} -> {!s}', name, output_name)
+
+        output = output.rename({name: output_name})
+
+    return output
 
 
 def process_elementwise(context, operation, *input, **kwargs):
@@ -680,7 +695,7 @@ def process_elementwise(context, operation, *input, **kwargs):
 
         output[v] = func(input[0][v])
 
-    return output
+    return maybe_rename_variable(context, operation, output, v)
 
 
 def process_reduce(context, operation, *input, **kwargs):
@@ -702,7 +717,7 @@ def process_reduce(context, operation, *input, **kwargs):
         else:
             output[v] = func(input[0][v], axes.values)
 
-    return output
+    return maybe_rename_variable(context, operation, output, v)
 
 
 def process_dataset(context, operation, *input, **kwargs):
@@ -719,7 +734,7 @@ def process_dataset(context, operation, *input, **kwargs):
 
         output[v] = func(input[0][v])
 
-    return output
+    return maybe_rename_variable(context, operation, output, v)
 
 
 def process_dataset_or_const(context, operation, *input, **kwargs):
@@ -749,7 +764,7 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
 
         output[v] = func(input[0][v], const)
 
-    return output
+    return maybe_rename_variable(context, operation, output, v)
 
 
 def process_merge(context, operation, *input, **kwargs):
@@ -827,7 +842,7 @@ def process_where(context, operation, *input, **kwargs):
 
         output[v] = output[v].fillna(fillna)
 
-    return output
+    return maybe_rename_variable(context, operation, output, v)
 
 
 def process_groupby_bins(context, operation, *input, **kwargs):
@@ -855,7 +870,11 @@ def process_groupby_bins(context, operation, *input, **kwargs):
 def process_aggregate(context, operation, *input, **kwargs):
     context.message('Aggregating {!s} files by coords', len(input))
 
-    return xr.combine_by_coords(input)
+    v = get_variable_name(context, operation)
+
+    output = xr.combine_by_coords(input)
+
+    return maybe_rename_variable(context, operation, output, v)
 
 
 # Two parent types
@@ -934,6 +953,9 @@ def render_abstract(identifier, description, **params):
     }
 
     for x, y in params.items():
+        if y is None:
+            continue
+
         new = copy.deepcopy(y)
 
         new['name'] = x
@@ -959,6 +981,7 @@ PARAMS_DESC = {
     'variable': 'The variable to process.',
     'bins': 'A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).',
     'variable': 'Name of the variable to process.',
+    'output': 'Named used to rename the output variable of the current process.',
 }
 
 
@@ -998,6 +1021,7 @@ ABSTRACT = {}
 
 COMMON_PARAM = {
     'variable': parameter(str),
+    'output': parameter(str),
 }
 
 
@@ -1023,14 +1047,14 @@ render_abstract('CDAT.power', 'Takes a variable to the power of another variable
 render_abstract('CDAT.subset', 'Computes the subset of a variable defined by a domain.', **COMMON_PARAM)
 render_abstract('CDAT.subtract', 'Subtracts a variable from another or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
 render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str), **COMMON_PARAM)
-render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'), **COMMON_PARAM)
+render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'), **override_default(output=None))
 render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), fillna=parameter(float), **COMMON_PARAM)
-render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', bins=parameter(float, True), **override_default(variable=parameter(str, True)))
+render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', bins=parameter(float, True), **override_default(variable=parameter(str, True), output=None))
 render_abstract('CDAT.count', 'Computes count on each variable.', **COMMON_PARAM)
 render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.', **COMMON_PARAM)
 render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str), **COMMON_PARAM)
 render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str), **COMMON_PARAM)
-render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'), **COMMON_PARAM)
+render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'))
 
 
 def process_wrapper(self, context):

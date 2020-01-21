@@ -324,6 +324,7 @@ def test_merge(test_data, mocker):
     ('CDAT.var', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
     ('CDAT.squeeze', (5, {'time': 10, 'lat': 1, 'lon': 1}), None, np.full((10,), 5), {}),
     ('CDAT.aggregate', (5, {'time_start': '1990'}), (5, {'time_start': '1991'}), np.full((20, 90, 180), 5), {}),
+    ('CDAT.mean', 2, None, np.array(2.0), {'output': 'pr_mean'}),
 ])
 def test_processing(mocker, test_data, identifier, v1, v2, output, extra):
     if isinstance(v1, tuple):
@@ -360,12 +361,14 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, extra):
 
     result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
+    v = 'pr' if 'output' not in extra else extra['output']
+
     if isinstance(output, np.ndarray):
-        assert np.array_equal(result.pr.values, output)
+        assert np.array_equal(result[v].values, output)
     else:
         expected = test_data.standard(output)
 
-        assert np.array_equal(result.pr.values, expected.pr.values)
+        assert np.array_equal(result[v].values, expected.pr.values)
 
 
 @pytest.mark.parametrize('domain,decode_times,expected', [

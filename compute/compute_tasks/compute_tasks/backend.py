@@ -111,6 +111,9 @@ def validate_process(process):
         raise WPSError('Validation failed, expected the number of inputs to be between {!s} and {!s}', v['min'], v['max'])
 
     for key, param_v in v['params'].items():
+        if param_v is None:
+            continue
+
         required = param_v['required']
 
         param = process.parameters.get(key, None)
