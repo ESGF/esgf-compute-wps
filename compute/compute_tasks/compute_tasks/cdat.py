@@ -836,7 +836,19 @@ def process_where(context, operation, *input, **kwargs):
 
     cond = build_condition(context, operation, input[0])
 
-    output[v] = input[0][v].where(cond)
+    extra = {}
+
+    other = operation.get_parameter('other')
+
+    if other is not None:
+        try:
+            other = float(other.values[0])
+        except ValueError:
+            raise WPSError('Unable to convert parameter "other" to type float')
+
+        extra['other'] = other
+
+    output[v] = input[0][v].where(cond, **extra)
 
     return maybe_rename_variable(context, operation, output, v)
 
@@ -996,6 +1008,7 @@ PARAMS_DESC = {
     'variable': 'Name of the variable to process.',
     'output': 'Named used to rename the output variable of the current process.',
     'func': 'Name of computation to apply.',
+    'other': 'A float value to use when `cond` is false, otherwise nan is used.',
 }
 
 
@@ -1063,7 +1076,7 @@ render_abstract('CDAT.subset', 'Computes the subset of a variable defined by a d
 render_abstract('CDAT.subtract', 'Subtracts a variable from another or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
 render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str), **COMMON_PARAM)
 render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'), **override_default(output=None))
-render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), fillna=parameter(float), **COMMON_PARAM)
+render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), other=parameter(float), **COMMON_PARAM)
 render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', bins=parameter(float, True), **override_default(variable=parameter(str, True), output=None))
 render_abstract('CDAT.count', 'Computes count on each variable.', **COMMON_PARAM)
 render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.', **COMMON_PARAM)

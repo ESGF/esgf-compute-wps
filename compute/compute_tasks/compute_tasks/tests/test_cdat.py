@@ -169,63 +169,6 @@ def test_groupby_bins(test_data, mocker):
     assert len(output) == 8
 
 
-def test_where_fillna_cannot_convert(test_data, mocker):
-    cond = 'pr>1'
-    identifier = 'CDAT.where'
-
-    v1 = test_data.standard(1, name='pr')
-
-    inputs = [v1]
-
-    p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(cond=cond, fillna='asd')
-
-    data_inputs = {
-        'variable': [x.to_dict() for x in p.inputs],
-        'domain': [],
-        'operation': [p.to_dict()],
-    }
-
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-    context.input_var_names = {p.name: ['pr']}
-
-    mocker.patch.object(context, 'message')
-
-    with pytest.raises(WPSError):
-        cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
-
-
-def test_where_fillna(test_data, mocker):
-    cond = 'pr>1'
-    identifier = 'CDAT.where'
-
-    v1 = test_data.standard(1, name='pr')
-
-    inputs = [v1]
-
-    p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(cond=cond, fillna='1e22')
-
-    data_inputs = {
-        'variable': [x.to_dict() for x in p.inputs],
-        'domain': [],
-        'operation': [p.to_dict()],
-    }
-
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-    context.input_var_names = {p.name: ['pr']}
-
-    mocker.patch.object(context, 'message')
-
-    output = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
-
-    expected = test_data.standard(1e22, name='pr')
-
-    assert np.array_equal(output.pr.values, expected.pr.values)
-
-
 @pytest.mark.parametrize('cond', [
     'lat>-45',
     'lat>45',
@@ -341,6 +284,8 @@ def _build_data(test_data, input):
     ('CDAT.aggregate', (5, {'time_start': '1990'}), (5, {'time_start': '1991'}), np.full((20, 90, 180), 5), {}),
     ('CDAT.filter_map', ('increasing_lat', {}), None, np.array(106200), {'cond': 'pr>30', 'func': 'count'}),
     ('CDAT.filter_map', ('increasing_lat', {'bins': np.arange(0, 90, 10).tolist()}), None, np.array(106200), {'cond': 'pr>30', 'func': 'count'}),
+    ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), {'cond': 'pr>30', 'other': '1e20'}),
+    ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(60.0)), {'cond': 'pr>30'}),
 ])
 def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output_name):
     inputs = [_build_data(test_data, v1)]
@@ -374,6 +319,10 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output
 
     if isinstance(output, np.ndarray):
         assert np.array_equal(result[v].values, output)
+    elif isinstance(output, tuple):
+        print(getattr(result[v], output[0])().values, output[1])
+
+        assert np.array_equal(getattr(result[v], output[0])().values, output[1])
     else:
         expected = test_data.standard(output)
 
