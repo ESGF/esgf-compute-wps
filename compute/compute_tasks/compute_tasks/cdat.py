@@ -800,47 +800,43 @@ def parse_condition(context, operation):
     return left, comp, right
 
 
+def build_condition(context, operation, input):
+    left, comp, right = parse_condition(context, operation)
+
+    if left not in input:
+        raise WPSError('Did not find {!s} in input', left)
+
+    input_item = input[left]
+
+    if comp == ">":
+        cond = input_item>right
+    elif comp == ">=":
+        cond = input_item>=right
+    elif comp == "<":
+        cond = input_item<right
+    elif comp == "<=":
+        cond = input_item<=right
+    elif comp == "==":
+        cond = input_item==right
+    elif comp == "!=":
+        cond = input_item!=right
+    else:
+        raise WPSError('Comparison with {!s} is not supported', comp)
+
+    return cond
+
+
 def process_where(context, operation, *input, **kwargs):
     if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
         raise WPSError('GroupBy input not supported for process {!s}', operation.identifier)
-
-    left, comp, right = parse_condition(context, operation)
-
-    if left not in input[0]:
-        raise WPSError('Did not find {!s} in input', left)
-
-    input_item = input[0][left]
 
     output = input[0].copy()
 
     v = get_variable_name(context, operation)
 
-    if comp == ">":
-        output[v] = input[0][v].where(input_item>right)
-    elif comp == ">=":
-        output[v] = input[0][v].where(input_item>=right)
-    elif comp == "<":
-        output[v] = input[0][v].where(input_item<right)
-    elif comp == "<=":
-        output[v] = input[0][v].where(input_item<=right)
-    elif comp == "==":
-        output[v] = input[0][v].where(input_item==right)
-    elif comp == "!=":
-        output[v] = input[0][v].where(input_item!=right)
-    else:
-        raise WPSError('Comparison with {!s} is not supported', comp)
+    cond = build_condition(context, operation, input[0])
 
-    fillna = operation.get_parameter('fillna')
-
-    if fillna is not None:
-        try:
-            fillna = float(fillna.values[0])
-        except ValueError:
-            raise WPSError('Could not convert the "fillna" value to float.')
-
-        context.message('Filling nan with {!s}', fillna)
-
-        output[v] = output[v].fillna(fillna)
+    output[v] = input[0][v].where(cond)
 
     return maybe_rename_variable(context, operation, output, v)
 
@@ -877,9 +873,25 @@ def process_aggregate(context, operation, *input, **kwargs):
     return maybe_rename_variable(context, operation, output, v)
 
 
-# Two parent types
-# 1. Operating on a variable
-# 2. Operating on a Dataset e.g. resample, groupby
+def process_filter_map(context, operation, *input, **kwargs):
+    def _inner(x, cond, func):
+        filtered = x.where(cond)
+
+        return getattr(filtered, func)()
+
+    v = get_variable_name(context, operation)
+
+    if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
+        cond = build_condition(context, operation, input[0]._obj)
+    else:
+        cond = build_condition(context, operation, input[0])
+
+    func_param = operation.get_parameter('func', True)
+
+    output = input[0].map(_inner, args=(cond, func_param.values[0]))
+
+    return maybe_rename_variable(context, operation, output, v)
+
 
 PROCESS_FUNC_MAP = {
     'CDAT.abs': partial(process_elementwise, func=lambda x: np.abs(x)),
@@ -887,6 +899,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.aggregate': process_aggregate,
     'CDAT.divide': partial(process_dataset_or_const, func=lambda x, y: x / y),
     'CDAT.exp': partial(process_elementwise, func=lambda x: np.exp(x)),
+    'CDAT.filter_map': process_filter_map,
     'CDAT.log': partial(process_elementwise, func=lambda x: np.log(x)),
     'CDAT.max': partial(process_reduce, func=lambda x, y: getattr(x, 'max')(dim=y, keep_attrs=True)),
     'CDAT.mean': partial(process_reduce, func=lambda x, y: getattr(x, 'mean')(dim=y, keep_attrs=True)),
@@ -982,6 +995,7 @@ PARAMS_DESC = {
     'bins': 'A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).',
     'variable': 'Name of the variable to process.',
     'output': 'Named used to rename the output variable of the current process.',
+    'func': 'Name of computation to apply.',
 }
 
 
@@ -1038,6 +1052,7 @@ render_abstract('CDAT.add', 'Adds two variables or a constant element-wise.', co
 render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more files.', min=2, max=float('inf'), **COMMON_PARAM)
 render_abstract('CDAT.divide', 'Divides a variable by another or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
 render_abstract('CDAT.exp', 'Computes element-wise exponential value.', **COMMON_PARAM)
+render_abstract('CDAT.filter_map', 'Applies a where and function using map.', **COMMON_PARAM, cond=parameter(str, True), func=parameter(str, True))
 render_abstract('CDAT.log', 'Computes element-wise log value.', **COMMON_PARAM)
 render_abstract('CDAT.max', 'Computes the maximum value over one or more axes.', axes=parameter(str), **COMMON_PARAM)
 render_abstract('CDAT.mean', 'Computes the mean over one or more axes.', axes=parameter(str), **COMMON_PARAM)

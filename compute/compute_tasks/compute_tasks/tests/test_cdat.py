@@ -301,6 +301,21 @@ def test_merge(test_data, mocker):
     assert 'prw' in result
 
 
+def _build_data(test_data, input):
+    if isinstance(input, tuple):
+        bins = input[1].pop('bins', None)
+
+        if isinstance(input[0], str) and input[0] == 'increasing_lat':
+            data = test_data.increasing_lat(**input[1])
+        else:
+            data = test_data.standard(input[0], **input[1])
+    else:
+        data = test_data.standard(input)
+
+    return data
+
+
+@pytest.mark.parametrize('output_name', [None, 'pr_test'])
 @pytest.mark.parametrize('identifier,v1,v2,output,extra', [
     ('CDAT.abs', -2, None, 2, {}),
     ('CDAT.add', 1, 2, 3, {}),
@@ -324,26 +339,20 @@ def test_merge(test_data, mocker):
     ('CDAT.var', 5, None, np.full((90, 180), 0), {'axes': ['time']}),
     ('CDAT.squeeze', (5, {'time': 10, 'lat': 1, 'lon': 1}), None, np.full((10,), 5), {}),
     ('CDAT.aggregate', (5, {'time_start': '1990'}), (5, {'time_start': '1991'}), np.full((20, 90, 180), 5), {}),
-    ('CDAT.mean', 2, None, np.array(2.0), {'output': 'pr_mean'}),
+    ('CDAT.filter_map', ('increasing_lat', {}), None, np.array(106200), {'cond': 'pr>30', 'func': 'count'}),
+    ('CDAT.filter_map', ('increasing_lat', {'bins': np.arange(0, 90, 10).tolist()}), None, np.array(106200), {'cond': 'pr>30', 'func': 'count'}),
 ])
-def test_processing(mocker, test_data, identifier, v1, v2, output, extra):
-    if isinstance(v1, tuple):
-        data = test_data.standard(v1[0], **v1[1])
-    else:
-        data = test_data.standard(v1)
-
-    inputs = [data]
+def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output_name):
+    inputs = [_build_data(test_data, v1)]
 
     if v2 is not None:
-        if isinstance(v2, tuple):
-            data = test_data.standard(v2[0], **v2[1])
-        else:
-            data = test_data.standard(v2)
-
-        inputs.append(data)
+        inputs.append(_build_data(test_data, v2))
 
     p = cwt.Process(identifier)
     p.add_parameters(**extra)
+
+    if output_name is not None:
+        p.add_parameters(output=output_name)
 
     vars = [cwt.Variable('test{!s}.nc'.format(str(x)), 'pr') for x, _ in enumerate(inputs)]
 
@@ -361,7 +370,7 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, extra):
 
     result = cdat.PROCESS_FUNC_MAP[identifier](context, p, *inputs)
 
-    v = 'pr' if 'output' not in extra else extra['output']
+    v = 'pr' if output_name is None else output_name
 
     if isinstance(output, np.ndarray):
         assert np.array_equal(result[v].values, output)
