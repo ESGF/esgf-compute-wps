@@ -958,6 +958,7 @@ PARAMS_DESC = {
     'fillna': 'A float value to replace "nan" values."',
     'variable': 'The variable to process.',
     'bins': 'A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).',
+    'variable': 'Name of the variable to process.',
 }
 
 
@@ -995,28 +996,41 @@ and parameters defined here will become the default values on child operations.
 VALIDATION = {}
 ABSTRACT = {}
 
-render_abstract('CDAT.abs', 'Computes element-wise absolute value.')
-render_abstract('CDAT.add', 'Adds two variables or a constant element-wise.', const=parameter(float), max=2)
-render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more files.', min=2, max=float('inf'))
-render_abstract('CDAT.divide', 'Divides a variable by another or a constant element-wise.', const=parameter(float), max=2)
-render_abstract('CDAT.exp', 'Computes element-wise exponential value.')
-render_abstract('CDAT.log', 'Computes element-wise log value.')
-render_abstract('CDAT.max', 'Computes the maximum value over one or more axes.', axes=parameter(str))
-render_abstract('CDAT.mean', 'Computes the mean over one or more axes.', axes=parameter(str))
-render_abstract('CDAT.min', 'Computes the minimum value over one or more axes.', axes=parameter(str))
-render_abstract('CDAT.multiply', 'Multiplies a variable by another or a constant element-wise', const=parameter(float), max=2)
-render_abstract('CDAT.power', 'Takes a variable to the power of another variable or a constant element-wise.', const=parameter(float))
-render_abstract('CDAT.subset', 'Computes the subset of a variable defined by a domain.')
-render_abstract('CDAT.subtract', 'Subtracts a variable from another or a constant element-wise.', const=parameter(float), max=2)
-render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str))
-render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'))
-render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), fillna=parameter(float))
-render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', variable=parameter(str, True), bins=parameter(float, True))
-render_abstract('CDAT.count', 'Computes count on each variable.')
-render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.')
-render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str))
-render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str))
-render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'))
+COMMON_PARAM = {
+    'variable': parameter(str),
+}
+
+
+def override_default(**kwargs):
+    d = COMMON_PARAM.copy()
+
+    d.update(kwargs)
+
+    return d
+
+
+render_abstract('CDAT.abs', 'Computes element-wise absolute value.', **COMMON_PARAM)
+render_abstract('CDAT.add', 'Adds two variables or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
+render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more files.', min=2, max=float('inf'), **COMMON_PARAM)
+render_abstract('CDAT.divide', 'Divides a variable by another or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
+render_abstract('CDAT.exp', 'Computes element-wise exponential value.', **COMMON_PARAM)
+render_abstract('CDAT.log', 'Computes element-wise log value.', **COMMON_PARAM)
+render_abstract('CDAT.max', 'Computes the maximum value over one or more axes.', axes=parameter(str), **COMMON_PARAM)
+render_abstract('CDAT.mean', 'Computes the mean over one or more axes.', axes=parameter(str), **COMMON_PARAM)
+render_abstract('CDAT.min', 'Computes the minimum value over one or more axes.', axes=parameter(str), **COMMON_PARAM)
+render_abstract('CDAT.multiply', 'Multiplies a variable by another or a constant element-wise', const=parameter(float), max=2, **COMMON_PARAM)
+render_abstract('CDAT.power', 'Takes a variable to the power of another variable or a constant element-wise.', const=parameter(float), **COMMON_PARAM)
+render_abstract('CDAT.subset', 'Computes the subset of a variable defined by a domain.', **COMMON_PARAM)
+render_abstract('CDAT.subtract', 'Subtracts a variable from another or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
+render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str), **COMMON_PARAM)
+render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'), **COMMON_PARAM)
+render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), fillna=parameter(float), **COMMON_PARAM)
+render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', bins=parameter(float, True), **override_default(variable=parameter(str, True)))
+render_abstract('CDAT.count', 'Computes count on each variable.', **COMMON_PARAM)
+render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.', **COMMON_PARAM)
+render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str), **COMMON_PARAM)
+render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str), **COMMON_PARAM)
+render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'), **COMMON_PARAM)
 
 
 def process_wrapper(self, context):
