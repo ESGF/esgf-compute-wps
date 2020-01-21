@@ -981,6 +981,7 @@ PROCESS_FUNC_MAP = {
     'CDAT.std': partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y, keep_attrs=True)),
     'CDAT.var': partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y, keep_attrs=True)),
     'CDAT.workflow': None,
+    'CDAT.sqrt': partial(process_elementwise, func=lambda x: np.sqrt(x)),
 }
 
 

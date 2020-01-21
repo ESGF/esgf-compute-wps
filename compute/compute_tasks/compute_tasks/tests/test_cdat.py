@@ -294,6 +294,7 @@ def _build_data(test_data, input):
     ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), {'cond': 'pr>30', 'other': '1e20'}),
     ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(60.0)), {'cond': 'pr>30'}),
     ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), {'cond': 'pr>30', 'fillna': '1e20'}),
+    ('CDAT.sqrt', 5, None, np.full((10, 90, 180), 2.23606797749979), {}),
 ])
 def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output_name):
     inputs = [_build_data(test_data, v1)]
