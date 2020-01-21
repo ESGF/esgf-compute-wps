@@ -836,19 +836,17 @@ def process_where(context, operation, *input, **kwargs):
 
     cond = build_condition(context, operation, input[0])
 
-    extra = {}
-
     other = operation.get_parameter('other')
 
-    if other is not None:
+    if other is None:
+        other = xr.core.dtypes.NA
+    else:
         try:
             other = float(other.values[0])
         except ValueError:
             raise WPSError('Unable to convert parameter "other" to type float')
 
-        extra['other'] = other
-
-    output[v] = input[0][v].where(cond, **extra)
+    output[v] = input[0][v].where(cond, other)
 
     return maybe_rename_variable(context, operation, output, v)
 
@@ -886,8 +884,8 @@ def process_aggregate(context, operation, *input, **kwargs):
 
 
 def process_filter_map(context, operation, *input, **kwargs):
-    def _inner(x, cond, func):
-        filtered = x.where(cond)
+    def _inner(x, cond, other, func):
+        filtered = x.where(cond, other)
 
         return getattr(filtered, func)()
 
@@ -898,9 +896,19 @@ def process_filter_map(context, operation, *input, **kwargs):
     else:
         cond = build_condition(context, operation, input[0])
 
+    other = operation.get_parameter('other')
+
+    if other is None:
+        other = xr.core.dtypes.NA
+    else:
+        try:
+            other = float(other.values[0])
+        except ValueError:
+            raise WPSError('Could not convert "other" parameter to float')
+
     func_param = operation.get_parameter('func', True)
 
-    output = input[0].map(_inner, args=(cond, func_param.values[0]))
+    output = input[0].map(_inner, args=(cond, other, func_param.values[0]))
 
     return maybe_rename_variable(context, operation, output, v)
 
@@ -1065,7 +1073,7 @@ render_abstract('CDAT.add', 'Adds two variables or a constant element-wise.', co
 render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more files.', min=2, max=float('inf'), **COMMON_PARAM)
 render_abstract('CDAT.divide', 'Divides a variable by another or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
 render_abstract('CDAT.exp', 'Computes element-wise exponential value.', **COMMON_PARAM)
-render_abstract('CDAT.filter_map', 'Applies a where and function using map.', **COMMON_PARAM, cond=parameter(str, True), func=parameter(str, True))
+render_abstract('CDAT.filter_map', 'Applies a where and function using map.', **COMMON_PARAM, cond=parameter(str, True), func=parameter(str, True), other=parameter(float))
 render_abstract('CDAT.log', 'Computes element-wise log value.', **COMMON_PARAM)
 render_abstract('CDAT.max', 'Computes the maximum value over one or more axes.', axes=parameter(str), **COMMON_PARAM)
 render_abstract('CDAT.mean', 'Computes the mean over one or more axes.', axes=parameter(str), **COMMON_PARAM)

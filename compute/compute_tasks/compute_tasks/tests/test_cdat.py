@@ -284,6 +284,7 @@ def _build_data(test_data, input):
     ('CDAT.aggregate', (5, {'time_start': '1990'}), (5, {'time_start': '1991'}), np.full((20, 90, 180), 5), {}),
     ('CDAT.filter_map', ('increasing_lat', {}), None, np.array(106200), {'cond': 'pr>30', 'func': 'count'}),
     ('CDAT.filter_map', ('increasing_lat', {'bins': np.arange(0, 90, 10).tolist()}), None, np.array(106200), {'cond': 'pr>30', 'func': 'count'}),
+    ('CDAT.filter_map', ('increasing_lat', {'bins': np.arange(0, 90, 10).tolist()}), None, np.array(162000), {'cond': 'pr>30', 'func': 'count', 'other': '40'}),
     ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), {'cond': 'pr>30', 'other': '1e20'}),
     ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(60.0)), {'cond': 'pr>30'}),
 ])
