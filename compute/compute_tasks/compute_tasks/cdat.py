@@ -1137,6 +1137,7 @@ render_abstract('CDAT.count', 'Computes count on each variable.', **COMMON_PARAM
 render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.', **COMMON_PARAM)
 render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str), **COMMON_PARAM)
 render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str), **COMMON_PARAM)
+render_abstract('CDAT.sqrt', 'Computes the elementwise sqrt for a variable.', **COMMON_PARAM)
 render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'))
 
 
