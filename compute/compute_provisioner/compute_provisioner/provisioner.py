@@ -377,22 +377,24 @@ class Provisioner(threading.Thread):
                 logger.error('Unknown message %r', frames)
 
     def handle_frontend_frames(self, frames):
+        logger.info('Handling frontend frames %r', frames)
+
+        address = frames[0:1]
+
         version = frames[2]
 
         # Frames to be forwarded to the backend
         frames = frames[2:]
 
-        logger.info('Handling frontend frames %r', frames)
-
         try:
             with self.redis.lock('job_queue', blocking_timeout=4):
                 self.redis.rpush(version, json_encoder(frames))
         except redis.lock.LockError:
-            response = frames[0:1] + [constants.ERR]
+            response = address + [constants.ERR]
 
             logger.info('Error aquiring redis lock')
         else:
-            response = frames[0:1] + [constants.ACK]
+            response = address + [constants.ACK]
 
             logger.info('Successfully queued job')
 
