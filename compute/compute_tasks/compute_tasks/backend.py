@@ -331,22 +331,35 @@ class Worker(state_mixin.StateMixin, threading.Thread):
     def connect_provisioner(self):
         self.worker = self.context.socket(zmq.DEALER)
 
+        SNDTIMEO = os.environ.get('SEND_TIMEOUT', 1)
+        RCVTIMEO = os.environ.get('RECV_TIMEOUT', 4)
+
+        self.worker.setsockopt(zmq.SNDTIMEO, SNDTIMEO * 1000)
+        self.worker.setsockopt(zmq.RCVTIMEO, RCVTIMEO * 1000)
+        self.worker.setsockopt(zmq.LINGER, 0)
+
         self.worker.connect('tcp://{!s}'.format(self.queue_host))
 
         logger.info('Created dealer socket and connected to %r', self.queue_host)
 
         self.poller.register(self.worker, zmq.POLLIN)
 
-        self.worker.send_multipart([READY, self.version])
+        try:
+            self.worker.send_multipart([READY, self.version])
+        except zmq.ZMQError:
+            logger.info('Error notifying provisioner of READY state')
 
-        logger.info('Notifying queue, ready for work')
+            self.disconnect_provisioner()
+        else:
+            logger.info('Notified provisioner, in READY state')
 
-    def reconnect_provisioner(self):
+    def disconnect_provisioner(self):
         self.poller.unregister(self.worker)
 
-        self.worker.setsockopt(zmq.LINGER, 0)
-
         self.worker.close(0)
+
+    def reconnect_provisioner(self):
+        self.disconnect_provisioner()
 
         self.connect_provisioner()
 
@@ -366,7 +379,12 @@ class Worker(state_mixin.StateMixin, threading.Thread):
 
             logger.debug('Sending heartbeat to queue')
 
-            self.worker.send_multipart([HEARTBEAT, self.version])
+            try:
+                self.worker.send_multipart([HEARTBEAT, self.version])
+            except zmq.ZMQError:
+                logger.info('Error sending heartbeat to provisioner')
+
+                raise Exception()
 
     def missed_heartbeat(self):
         self.liveness -= 1
@@ -395,23 +413,30 @@ class Worker(state_mixin.StateMixin, threading.Thread):
             socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
 
             if socks.get(self.worker) == zmq.POLLIN:
-                frames = self.worker.recv_multipart()
-
-                logger.info('Handling frames from provisioner %r', frames)
-
-                # Heartbeats dont alter state. Maybe they should?
-                if frames[0] == HEARTBEAT:
-                    self.liveness = HEARTBEAT_LIVENESS
-
-                    logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
+                try:
+                    frames = self.worker.recv_multipart()
+                except zmq.ZMQError:
+                    logger.info('Error receiving data from provisioner')
                 else:
-                    frames = [x.decode() for x in frames]
+                    if frames[0] == HEARTBEAT:
+                        self.liveness = HEARTBEAT_LIVENESS
 
-                    self.state = self.state.on_event(self, *frames)
+                        logger.info('Received heartbeat setting liveness to %r', self.liveness)
+                    else:
+                        frames = [x.decode() for x in frames]
 
-                self.interval = INTERVAL_INIT
+                        self.state = self.state.on_event(self, *frames)
+
+                        logger.info('Transitioning state %r', frames)
+
+                    self.interval = INTERVAL_INIT
             else:
-                self.missed_heartbeat()
+                try:
+                    self.missed_heartbeat()
+                except Exception:
+                    self.reconnect_provisioner()
+
+                    continue
 
             self.send_heartbeat()
 

@@ -1,3 +1,4 @@
+import os
 import datetime
 import json
 import logging
@@ -96,9 +97,12 @@ class WorkerQueue(object):
 
     def heartbeat(self, socket):
         for address in self.queue:
-            socket.send_multipart([address, constants.HEARTBEAT])
+            try:
+                socket.send_multipart([address, constants.HEARTBEAT])
 
-            logger.info('Sent heartbeat to %r', address)
+                logger.info('Send heartbeat to %r', address)
+            except zmq.ZMQError:
+                logger.info('Error sending heartbaet to %r', address)
 
         self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
 
@@ -165,6 +169,12 @@ class Provisioner(threading.Thread):
 
         self.frontend = self.context.socket(zmq.ROUTER)
 
+        FSNDTIMEO = os.environ.get('FRONTEND_SEND_TIMEOUT', 1)
+        FRCVTIMEO = os.environ.get('FRONTEND_RECV_TIMEOUT', 4)
+
+        self.frontend.setsockopt(zmq.SNDTIMEO, FSNDTIMEO * 1000)
+        self.frontend.setsockopt(zmq.RCVTIMEO, FRCVTIMEO * 1000)
+
         frontend_addr = 'tcp://*:{!s}'.format(frontend_port)
 
         self.frontend.bind(frontend_addr)
@@ -172,6 +182,12 @@ class Provisioner(threading.Thread):
         logger.info('Binding frontend to %r', frontend_addr)
 
         self.backend = self.context.socket(zmq.ROUTER)
+
+        BSNDTIMEO = os.environ.get('BACKEND_SEND_TIMEOUT', 1)
+        BRCVTIMEO = os.environ.get('BACKEND_RECV_TIMEOUT', 4)
+
+        self.backend.setsockopt(zmq.SNDTIMEO, BSNDTIMEO * 1000)
+        self.backend.setsockopt(zmq.RCVTIMEO, BRCVTIMEO * 1000)
 
         backend_addr = 'tcp://*:{!s}'.format(backend_port)
 
@@ -327,13 +343,21 @@ class Provisioner(threading.Thread):
             except (ResourceAllocationError, ResourceTimeoutError) as e:
                 # Notify error in allocating resources
                 new_frames = [address, constants.ERR, str(e).encode()]
+
+                logger.info('Notifying backend %r of allocation error', address)
             else:
                 # Allocate resources
                 new_frames = [address, constants.ACK]
 
-            self.backend.send_multipart(new_frames)
+                logger.info('Notifying backend %r of successful allocation', address)
+
+            try:
+                self.backend.send_multipart(new_frames)
+            except zmq.ZMQError:
+                # If the ack never sends we just let the worker timeout
+                pass
         elif frames[1] == constants.ACK:
-            logger.info('Received ack from backend %r', address)
+            logger.info('Received ack from backend removeing %r from list', address)
 
             self.waiting_ack.pop(address, None)
         else:
@@ -353,17 +377,29 @@ class Provisioner(threading.Thread):
                 logger.error('Unknown message %r', frames)
 
     def handle_frontend_frames(self, frames):
-        self.frontend.send_multipart(frames)
-
         version = frames[2]
 
-        # Remove first two frames that are not needed.
+        # Frames to be forwarded to the backend
         frames = frames[2:]
 
-        with self.redis.lock('job_queue'):
-            self.redis.rpush(version, json_encoder(frames))
+        try:
+            with self.redis.lock('job_queue', blocking_timeout=4):
+                self.redis.rpush(version, json_encoder(frames))
+        except redis.lock.LockError:
+            response = [constants.ERR]
 
-        logger.info('Added frames to %r queue %r', version, frames)
+            logger.info('Error aquiring redis lock')
+        else:
+            response = [constants.ACK]
+
+            logger.info('Successfully queued job')
+
+        try:
+            self.frontend.send_multipart(response)
+        except zmq.ZMQError:
+            logger.info('Error notifying client with response %r', response)
+        else:
+            logger.info('Notified client with response %r', response)
 
     def handle_unacknowledge_requests(self):
         for address, waiting in list(self.waiting_ack.items()):
@@ -385,6 +421,7 @@ class Provisioner(threading.Thread):
                     try:
                         frames = json_decoder(self.redis.lpop(worker.version))
                     except Exception:
+                        # TODO handle edge case of malformed data
                         logger.info('No work found for version %r', worker.version)
 
                         continue
@@ -393,9 +430,14 @@ class Provisioner(threading.Thread):
 
                     frames.insert(1, constants.REQUEST)
 
-                    logger.info('Sending frames to worker %r', frames)
+                    try:
+                        self.backend.send_multipart(frames)
+                    except zmq.ZMQError:
+                        logger.info('Error sending frames to worker %r', address)
 
-                    self.backend.send_multipart(frames)
+                        self.redis.lpush(worker.version, json_encoder(frames[2:]))
+                    else:
+                        logger.info('Sent frames to worker %r waiting for acknowledgment', address)
 
                     self.waiting_ack[address] = WaitingAck(worker.version, frames[2:])
 
@@ -404,6 +446,8 @@ class Provisioner(threading.Thread):
 
                     logger.info('Dispatch work to %r', address)
         except redis.lock.LockError:
+            # No need to handle anything if we fail to aquire the lock
+            # TODO we should track how often we cannot aquire the lock, as there may be a bigger issue
             pass
 
     def monitor(self, frontend_port, backend_port, redis_host):
@@ -415,20 +459,26 @@ class Provisioner(threading.Thread):
             socks = dict(self.poll_both.poll(constants.HEARTBEAT_INTERVAL * 1000))
 
             if socks.get(self.backend) == zmq.POLLIN:
-                frames = self.backend.recv_multipart()
+                try:
+                    frames = self.backend.recv_multipart()
+                except zmq.ZMQError:
+                    logger.info('Error receiving frames from backend')
+                else:
+                    if not frames:
+                        break
 
-                if not frames:
-                    break
-
-                self.handle_backend_frames(frames)
+                    self.handle_backend_frames(frames)
 
             if socks.get(self.frontend) == zmq.POLLIN:
-                frames = self.frontend.recv_multipart()
+                try:
+                    frames = self.frontend.recv_multipart()
+                except zmq.ZMQError:
+                    logger.info('Error receiving frames from frontend')
+                else:
+                    if not frames:
+                        break
 
-                if not frames:
-                    break
-
-                self.handle_frontend_frames(frames)
+                    self.handle_frontend_frames(frames)
 
             if self.workers.heartbeat_time:
                 self.workers.heartbeat(self.backend)

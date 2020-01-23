@@ -61,6 +61,59 @@ def handle_describe_process(identifiers):
     return data
 
 
+def send_request_provisioner(identifier, data_inputs, process, user):
+    job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
+
+    context = zmq.Context(1)
+
+    client = context.socket(zmq.REQ)
+
+    SNDTIMEO = os.environ.get('SEND_TIMEOUT', 1)
+    RCVTIMEO = os.environ.get('RECV_TIMEOUT', 4)
+
+    client.setsockopt(zmq.SNDTIMEO, SNDTIMEO * 1000)
+    client.setsockopt(zmq.RCVTIMEO, RCVTIMEO * 1000)
+
+    client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
+
+    job_id = str(job.id).encode()
+
+    user_id = str(user.id).encode()
+
+    process_id = str(process.id).encode()
+
+    data_inputs = helpers.encoder(data_inputs).encode()
+
+    try:
+        client.send_multipart([b'devel', identifier.encode(), data_inputs, job_id, user_id, process_id])
+    except zmq.ZMQError:
+        logger.info('Error sending request to provisioner')
+
+        job.failed('Error sending request to provisioner, retry in a few minutes.')
+
+    try:
+        msg = client.recv_multipart()
+    except zmq.ZMQError:
+        logger.info('Error receiving acknowledgment from provisioner')
+
+        job.failed('Error receiving acknowledgment from provisioner, retry in a few minutes.')
+    else:
+        if msg[0] == b'ACK':
+            job.accepted()
+
+            logger.info('Accepted job %r', msg)
+        elif msg[0] == b'ERR':
+            job.failed('Provisioner error, retry in a few minutes.')
+
+            logger.info('Provisioner error %r', msg)
+        else:
+            job.failed('Unknown response from provisioner.')
+
+            logger.info('Provisioner responded with an unknown response %r', msg)
+
+    return job.report
+
+
 REQUIRED_DATA_INPUTS = set(['variable', 'domain', 'operation'])
 
 
@@ -88,35 +141,7 @@ def handle_execute(meta, identifier, data_inputs):
     except models.Process.DoesNotExist:
         raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
-    job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
-
-    # at this point we've accepted the job
-    job.accepted()
-
-    logger.info('Acceped job %r', job.id)
-
-    context = zmq.Context(1)
-
-    client = context.socket(zmq.REQ)
-
-    client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
-
-    job_id = str(job.id).encode()
-
-    user_id = str(user.id).encode()
-
-    process_id = str(process.id).encode()
-
-    data_inputs = helpers.encoder(data_inputs).encode()
-
-    client.send_multipart([b'devel', identifier.encode(), data_inputs, job_id, user_id, process_id])
-
-    msg = client.recv_multipart()
-
-    logger.info('Response from provisioner %r', msg)
-
-    return job.report
-
+    return send_request_provisioner(identifier, data_inputs, process, user)
 
 def handle_get(params, meta):
     """ Handle an HTTP GET request. """

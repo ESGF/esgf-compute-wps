@@ -414,6 +414,14 @@ class Job(models.Model):
 
         metrics.WPS_JOBS_ACCEPTED.inc()
 
+    def failed(self, exc):
+        if not isinstance(exc, str):
+            exc = str(exc)
+
+        self.status.create(status=ProcessFailed, exception=exc)
+
+        metrics.WPS_JOBS_FAILED.inc()
+
 
 class Output(models.Model):
     job = models.ForeignKey(Job, related_name='output', on_delete=models.CASCADE)
