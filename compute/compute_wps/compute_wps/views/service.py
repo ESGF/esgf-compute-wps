@@ -61,7 +61,7 @@ def handle_describe_process(identifiers):
     return data
 
 
-def send_request_provisioner(identifier, data_inputs, process, user):
+def send_request_provisioner(identifier, data_inputs, job, user, process):
     context = zmq.Context(1)
 
     client = context.socket(zmq.REQ)
@@ -74,16 +74,16 @@ def send_request_provisioner(identifier, data_inputs, process, user):
 
     client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
 
-    job_id = str(job.id).encode()
+    job= str(job).encode()
 
-    user_id = str(user.id).encode()
+    user = str(user).encode()
 
-    process_id = str(process.id).encode()
+    process = str(process).encode()
 
     data_inputs = helpers.encoder(data_inputs).encode()
 
     try:
-        client.send_multipart([b'devel', identifier.encode(), data_inputs, job_id, user_id, process_id])
+        client.send_multipart([b'devel', identifier.encode(), data_inputs, job, user, process])
     except zmq.Again:
         logger.info('Error sending request to provisioner')
 
@@ -140,7 +140,7 @@ def handle_execute(meta, identifier, data_inputs):
     job.accepted()
 
     try:
-        send_request_provisioner(identifier, data_inputs, process, user)
+        send_request_provisioner(identifier, data_inputs, job.id, user.id, process.id)
     except WPSError as e:
         job.failed(e)
 
