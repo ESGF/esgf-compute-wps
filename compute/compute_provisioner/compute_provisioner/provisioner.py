@@ -379,7 +379,8 @@ class Provisioner(threading.Thread):
     def handle_frontend_frames(self, frames):
         logger.info('Handling frontend frames %r', frames)
 
-        address = frames[0:1]
+        # Address and blank space
+        address = frames[0:2]
 
         version = frames[2]
 
