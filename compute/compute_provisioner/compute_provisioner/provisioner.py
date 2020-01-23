@@ -388,11 +388,11 @@ class Provisioner(threading.Thread):
             with self.redis.lock('job_queue', blocking_timeout=4):
                 self.redis.rpush(version, json_encoder(frames))
         except redis.lock.LockError:
-            response = [constants.ERR]
+            response = frames[0:1] + [constants.ERR]
 
             logger.info('Error aquiring redis lock')
         else:
-            response = [constants.ACK]
+            response = frames[0:1] + [constants.ACK]
 
             logger.info('Successfully queued job')
 
