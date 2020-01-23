@@ -346,7 +346,7 @@ class Worker(state_mixin.StateMixin, threading.Thread):
 
         try:
             self.worker.send_multipart([READY, self.version])
-        except zmq.ZMQError:
+        except zmq.Again:
             logger.info('Error notifying provisioner of READY state')
 
             self.disconnect_provisioner()
@@ -381,7 +381,7 @@ class Worker(state_mixin.StateMixin, threading.Thread):
 
             try:
                 self.worker.send_multipart([HEARTBEAT, self.version])
-            except zmq.ZMQError:
+            except zmq.Again:
                 logger.info('Error sending heartbeat to provisioner')
 
                 raise Exception()
@@ -415,7 +415,7 @@ class Worker(state_mixin.StateMixin, threading.Thread):
             if socks.get(self.worker) == zmq.POLLIN:
                 try:
                     frames = self.worker.recv_multipart()
-                except zmq.ZMQError:
+                except zmq.Again:
                     logger.info('Error receiving data from provisioner')
                 else:
                     if frames[0] == HEARTBEAT:

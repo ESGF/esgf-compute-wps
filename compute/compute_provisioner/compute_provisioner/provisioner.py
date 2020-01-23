@@ -100,8 +100,8 @@ class WorkerQueue(object):
             try:
                 socket.send_multipart([address, constants.HEARTBEAT])
 
-                logger.info('Send heartbeat to %r', address)
-            except zmq.ZMQError:
+                logger.debug('Send heartbeat to %r', address)
+            except zmq.Again:
                 logger.info('Error sending heartbaet to %r', address)
 
         self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
@@ -169,7 +169,7 @@ class Provisioner(threading.Thread):
 
         self.frontend = self.context.socket(zmq.ROUTER)
 
-        FSNDTIMEO = os.environ.get('FRONTEND_SEND_TIMEOUT', 1)
+        FSNDTIMEO = os.environ.get('FRONTEND_SEND_TIMEOUT', 4)
         FRCVTIMEO = os.environ.get('FRONTEND_RECV_TIMEOUT', 4)
 
         self.frontend.setsockopt(zmq.SNDTIMEO, FSNDTIMEO * 1000)
@@ -183,7 +183,7 @@ class Provisioner(threading.Thread):
 
         self.backend = self.context.socket(zmq.ROUTER)
 
-        BSNDTIMEO = os.environ.get('BACKEND_SEND_TIMEOUT', 1)
+        BSNDTIMEO = os.environ.get('BACKEND_SEND_TIMEOUT', 4)
         BRCVTIMEO = os.environ.get('BACKEND_RECV_TIMEOUT', 4)
 
         self.backend.setsockopt(zmq.SNDTIMEO, BSNDTIMEO * 1000)
@@ -353,7 +353,7 @@ class Provisioner(threading.Thread):
 
             try:
                 self.backend.send_multipart(new_frames)
-            except zmq.ZMQError:
+            except zmq.Again:
                 # If the ack never sends we just let the worker timeout
                 pass
         elif frames[1] == constants.ACK:
@@ -370,7 +370,7 @@ class Provisioner(threading.Thread):
 
                 pass
             elif frames[1] == constants.HEARTBEAT:
-                logger.info('Received heartbeat from backend %r', address)
+                logger.debug('Received heartbeat from backend %r', address)
 
                 pass
             else:
@@ -396,7 +396,7 @@ class Provisioner(threading.Thread):
 
         try:
             self.frontend.send_multipart(response)
-        except zmq.ZMQError:
+        except zmq.Again:
             logger.info('Error notifying client with response %r', response)
         else:
             logger.info('Notified client with response %r', response)
@@ -432,7 +432,7 @@ class Provisioner(threading.Thread):
 
                     try:
                         self.backend.send_multipart(frames)
-                    except zmq.ZMQError:
+                    except zmq.Again:
                         logger.info('Error sending frames to worker %r', address)
 
                         self.redis.lpush(worker.version, json_encoder(frames[2:]))
@@ -461,7 +461,7 @@ class Provisioner(threading.Thread):
             if socks.get(self.backend) == zmq.POLLIN:
                 try:
                     frames = self.backend.recv_multipart()
-                except zmq.ZMQError:
+                except zmq.Again:
                     logger.info('Error receiving frames from backend')
                 else:
                     if not frames:
@@ -472,7 +472,7 @@ class Provisioner(threading.Thread):
             if socks.get(self.frontend) == zmq.POLLIN:
                 try:
                     frames = self.frontend.recv_multipart()
-                except zmq.ZMQError:
+                except zmq.Again:
                     logger.info('Error receiving frames from frontend')
                 else:
                     if not frames:

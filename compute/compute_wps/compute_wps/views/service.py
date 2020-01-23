@@ -68,7 +68,7 @@ def send_request_provisioner(identifier, data_inputs, process, user):
 
     client = context.socket(zmq.REQ)
 
-    SNDTIMEO = os.environ.get('SEND_TIMEOUT', 1)
+    SNDTIMEO = os.environ.get('SEND_TIMEOUT', 4)
     RCVTIMEO = os.environ.get('RECV_TIMEOUT', 4)
 
     client.setsockopt(zmq.SNDTIMEO, SNDTIMEO * 1000)
@@ -86,14 +86,14 @@ def send_request_provisioner(identifier, data_inputs, process, user):
 
     try:
         client.send_multipart([b'devel', identifier.encode(), data_inputs, job_id, user_id, process_id])
-    except zmq.ZMQError:
+    except zmq.Again:
         logger.info('Error sending request to provisioner')
 
         job.failed('Error sending request to provisioner, retry in a few minutes.')
 
     try:
         msg = client.recv_multipart()
-    except zmq.ZMQError:
+    except zmq.Again:
         logger.info('Error receiving acknowledgment from provisioner')
 
         job.failed('Error receiving acknowledgment from provisioner, retry in a few minutes.')
