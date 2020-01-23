@@ -382,6 +382,8 @@ class Provisioner(threading.Thread):
         # Frames to be forwarded to the backend
         frames = frames[2:]
 
+        logger.info('Handling frontend frames %r', frames)
+
         try:
             with self.redis.lock('job_queue', blocking_timeout=4):
                 self.redis.rpush(version, json_encoder(frames))
