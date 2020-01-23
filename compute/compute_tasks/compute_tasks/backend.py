@@ -331,8 +331,8 @@ class Worker(state_mixin.StateMixin, threading.Thread):
     def connect_provisioner(self):
         self.worker = self.context.socket(zmq.DEALER)
 
-        SNDTIMEO = os.environ.get('SEND_TIMEOUT', 1)
-        RCVTIMEO = os.environ.get('RECV_TIMEOUT', 4)
+        SNDTIMEO = os.environ.get('SEND_TIMEOUT', 15)
+        RCVTIMEO = os.environ.get('RECV_TIMEOUT', 15)
 
         self.worker.setsockopt(zmq.SNDTIMEO, SNDTIMEO * 1000)
         self.worker.setsockopt(zmq.RCVTIMEO, RCVTIMEO * 1000)

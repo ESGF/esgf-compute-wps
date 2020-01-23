@@ -14,10 +14,12 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.db import models
 from django.db.models import F
 from django.db.models.query_utils import Q
 from django.utils import timezone
+
 from openid import association
 from openid.store import interface
 from openid.store import nonce
@@ -418,9 +420,12 @@ class Job(models.Model):
         if not isinstance(exc, str):
             exc = str(exc)
 
-        self.status.create(status=ProcessFailed, exception=exc)
-
-        metrics.WPS_JOBS_FAILED.inc()
+        try:
+            self.status.create(status=ProcessFailed, exception=exc)
+        except IntegrityError:
+            logger.error('Failed status already exists')
+        else:
+            metrics.WPS_JOBS_FAILED.inc()
 
 
 class Output(models.Model):

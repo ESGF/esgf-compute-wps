@@ -62,14 +62,12 @@ def handle_describe_process(identifiers):
 
 
 def send_request_provisioner(identifier, data_inputs, process, user):
-    job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
-
     context = zmq.Context(1)
 
     client = context.socket(zmq.REQ)
 
-    SNDTIMEO = os.environ.get('SEND_TIMEOUT', 4)
-    RCVTIMEO = os.environ.get('RECV_TIMEOUT', 4)
+    SNDTIMEO = os.environ.get('SEND_TIMEOUT', 15)
+    RCVTIMEO = os.environ.get('RECV_TIMEOUT', 15)
 
     client.setsockopt(zmq.SNDTIMEO, SNDTIMEO * 1000)
     client.setsockopt(zmq.RCVTIMEO, RCVTIMEO * 1000)
@@ -89,29 +87,25 @@ def send_request_provisioner(identifier, data_inputs, process, user):
     except zmq.Again:
         logger.info('Error sending request to provisioner')
 
-        job.failed('Error sending request to provisioner, retry in a few minutes.')
+        raise WPSError('Error sending request to provisioner, retry in a few minutes.')
 
     try:
         msg = client.recv_multipart()
     except zmq.Again:
         logger.info('Error receiving acknowledgment from provisioner')
 
-        job.failed('Error receiving acknowledgment from provisioner, retry in a few minutes.')
+        raise WPSError('Error receiving acknowledgment from provisioner, retry in a few minutes.')
     else:
         if msg[0] == b'ACK':
-            job.accepted()
-
             logger.info('Accepted job %r', msg)
         elif msg[0] == b'ERR':
-            job.failed('Provisioner error, retry in a few minutes.')
-
             logger.info('Provisioner error %r', msg)
-        else:
-            job.failed('Unknown response from provisioner.')
 
+            raise WPSError('Provisioner error, retry in a few minutes.')
+        else:
             logger.info('Provisioner responded with an unknown response %r', msg)
 
-    return job.report
+            raise WPSError('Unknown response from provisioner.')
 
 
 REQUIRED_DATA_INPUTS = set(['variable', 'domain', 'operation'])
@@ -141,7 +135,17 @@ def handle_execute(meta, identifier, data_inputs):
     except models.Process.DoesNotExist:
         raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
-    return send_request_provisioner(identifier, data_inputs, process, user)
+    job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
+
+    job.accepted()
+
+    try:
+        send_request_provisioner(identifier, data_inputs, process, user)
+    except WPSError as e:
+        job.failed(e)
+
+    return job.report
+
 
 def handle_get(params, meta):
     """ Handle an HTTP GET request. """

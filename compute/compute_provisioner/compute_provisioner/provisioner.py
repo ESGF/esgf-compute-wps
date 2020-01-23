@@ -106,7 +106,7 @@ class WorkerQueue(object):
 
         self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
 
-        logger.info('Setting next heartbeat at %r', self.heartbeat_at)
+        logger.debug('Setting next heartbeat at %r', self.heartbeat_at)
 
     def next(self, version):
         candidates = [x.address for x in self.queue.values() if x.version == version]
@@ -169,8 +169,8 @@ class Provisioner(threading.Thread):
 
         self.frontend = self.context.socket(zmq.ROUTER)
 
-        FSNDTIMEO = os.environ.get('FRONTEND_SEND_TIMEOUT', 4)
-        FRCVTIMEO = os.environ.get('FRONTEND_RECV_TIMEOUT', 4)
+        FSNDTIMEO = os.environ.get('FRONTEND_SEND_TIMEOUT', 15)
+        FRCVTIMEO = os.environ.get('FRONTEND_RECV_TIMEOUT', 15)
 
         self.frontend.setsockopt(zmq.SNDTIMEO, FSNDTIMEO * 1000)
         self.frontend.setsockopt(zmq.RCVTIMEO, FRCVTIMEO * 1000)
@@ -183,8 +183,8 @@ class Provisioner(threading.Thread):
 
         self.backend = self.context.socket(zmq.ROUTER)
 
-        BSNDTIMEO = os.environ.get('BACKEND_SEND_TIMEOUT', 4)
-        BRCVTIMEO = os.environ.get('BACKEND_RECV_TIMEOUT', 4)
+        BSNDTIMEO = os.environ.get('BACKEND_SEND_TIMEOUT', 15)
+        BRCVTIMEO = os.environ.get('BACKEND_RECV_TIMEOUT', 15)
 
         self.backend.setsockopt(zmq.SNDTIMEO, BSNDTIMEO * 1000)
         self.backend.setsockopt(zmq.RCVTIMEO, BRCVTIMEO * 1000)
