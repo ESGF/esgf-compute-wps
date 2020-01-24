@@ -29,9 +29,7 @@ from tornado.ioloop import IOLoop
 from compute_tasks import base
 from compute_tasks import context as ctx
 from compute_tasks.context import state_mixin
-from compute_tasks import managers
 from compute_tasks import WPSError
-from compute_tasks.dask_serialize import regrid_chunk
 
 logger = get_task_logger('compute_tasks.cdat')
 
