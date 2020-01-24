@@ -632,15 +632,27 @@ def subset_input(context, operation, input):
         input (xarray.DataSet): The input DataSet.
     """
     if operation.domain is not None:
-        for dim in operation.domain.dimensions.values():
-            selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+        method = operation.get_parameter('method', None)
 
-            if dim.crs == cwt.INDICES:
-                input = input.isel(**selector)
-            elif dim.crs == cwt.VALUES:
-                input = input.loc[selector]
+        if method is not None:
+            method = method.values[0]
+
+        for dim in operation.domain.dimensions.values():
+            if dim.start == dim.end and (dim.step is None or dim.step == 1):
+                selector = {dim.name: dim.start}
             else:
-                input = input.sel(**selector)
+                selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+
+            try:
+                if dim.crs == cwt.INDICES:
+                    input = input.isel(**selector)
+                else:
+                    input = input.sel(**selector, method=method)
+            except KeyError as e:
+                if isinstance(selector[dim.name], (int, float)):
+                    raise WPSError('Unable to subset {!r} with value {!s}, add parameter method set to "nearest" may resolve this.', dim.name, e)
+
+                raise WPSError('Unable to select to select data with {!r}', selector)
 
     # Check if domain was outside the inputs domain.
     for x, y in input.dims.items():

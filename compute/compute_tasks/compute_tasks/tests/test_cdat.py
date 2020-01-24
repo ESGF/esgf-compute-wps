@@ -345,18 +345,27 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output
     assert np.array_equal(result, expected)
 
 
-@pytest.mark.parametrize('domain,decode_times,expected', [
-    (cwt.Domain(time=slice(0, 10)), True, (10, 64, 128)),
-    (cwt.Domain(time=(1049.0, 1960.5)), False, (31, 64, 128)),
-    (cwt.Domain(time=('1850', '1851')), True, (24, 64, 128)),
-    (cwt.Domain(time=slice(0, 10), lat=(-45, 45)), True, (10, 32, 128)),
-    pytest.param(cwt.Domain(time=slice(2000, 4000)), True, (2000, 64, 128), marks=pytest.mark.xfail),
+@pytest.mark.parametrize('domain,decode_times,expected,params', [
+    pytest.param(cwt.Domain(time=('1800-01', '1800-12')), True, (12, 64, 128), {}, marks=pytest.mark.xfail),
+    pytest.param(cwt.Domain(time=(1718.5, 1718.5)), False, (64, 128), {}, marks=pytest.mark.xfail),
+    (cwt.Domain(time=(1718.5, 1718.5)), False, (64, 128), {'method': 'nearest'}),
+    (cwt.Domain(time=('1870-01', '1870-01')), True, (1, 64, 128), {}),
+    (cwt.Domain(time=(1718, 1718)), False, (64, 128), {}),
+    (cwt.Domain(time=slice(150, 150)), True, (64, 128), {}),
+    (cwt.Domain(time=('1870-01', '1870-12')), True, (12, 64, 128), {}),
+    (cwt.Domain(time=(1718, 2205.5)), False, (17, 64, 128), {}),
+    (cwt.Domain(time=slice(150, 300, 3)), True, (50, 64, 128), {}),
+    (None, True, (1812, 64, 128), {}),
 ])
-def test_subset_input(mocker, domain, decode_times, expected):
-    context = operation.OperationContext()
-
+def test_subset_input(mocker, domain, decode_times, expected, params):
     process = cwt.Process('CDAT.subset')
     process.set_domain(domain)
+    process.add_parameters(**params)
+
+    context = operation.OperationContext()
+    context.input_var_names[process.name] = ['clt']
+
+    mocker.patch.object(context, 'action')
 
     ds = xr.open_dataset(CMIP6_CLT, decode_times=decode_times)
 
