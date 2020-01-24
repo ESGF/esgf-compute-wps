@@ -15,7 +15,6 @@ setuptools.setup(
     packages=[
         'compute_tasks',
         'compute_tasks.context',
-        'compute_tasks.managers',
         'compute_tasks.templates',
     ],
     entry_points={
