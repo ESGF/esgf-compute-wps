@@ -130,7 +130,8 @@ def validate(self, process):
     for x in self._parameters.values():
         p = process.get_parameter(x['name'])
 
-        validate_parameter(p, **x)
+        if p is not None:
+            validate_parameter(p, **x)
 
 
 BASE_ABSTRACT = """

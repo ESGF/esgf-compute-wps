@@ -17,16 +17,11 @@ V1 = cwt.Variable('file:///test1.nc', 'tas')
 
 SUBSET = cwt.Process('CDAT.subset')
 SUBSET.add_inputs(V0)
-WORKFLOW = cwt.Process('CDAT.workflow')
-WORKFLOW.add_inputs(SUBSET)
 
 DATA_INPUTS = {
     'variable': [V0.to_dict()],
     'domain': [],
-    'operation': [
-        WORKFLOW.to_dict(),
-        SUBSET.to_dict(),
-    ],
+    'operation': [SUBSET.to_dict()],
 }
 
 RAW_FRAMES = [
@@ -355,32 +350,9 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 def test_build_workflow(mocker):
     mocker.patch.dict(backend.os.environ, {'NAMESPACE': 'default'})
 
-    cdat.discover_processes()
-
-    workflow = backend.build_workflow('CDAT.workflow', json.dumps(DATA_INPUTS), '0', '0', '0')
+    workflow = backend.build_workflow('CDAT.subset', json.dumps(DATA_INPUTS), '0', '0', '0')
 
     assert workflow
-
-    # workflow.delay()
-
-
-@pytest.mark.parametrize('identifier,inputs,params', [
-    pytest.param('CDAT.subset', [], {}, marks=pytest.mark.xfail),
-    ('CDAT.subset', [V0], {}),
-    pytest.param('CDAT.aggregate', [V0], {}, marks=pytest.mark.xfail),
-    ('CDAT.aggregate', [V0, V1], {}),
-    pytest.param('CDAT.max', [V0], {}, marks=pytest.mark.xfail),
-    ('CDAT.max', [V0], {'axes': ['time']}),
-    pytest.param('CDAT.add', [V0], {'const': 'asdasd'}, marks=pytest.mark.xfail),
-])
-def test_validate_process(identifier, inputs, params):
-    process = cwt.Process(identifier)
-
-    process.add_inputs(*inputs)
-
-    process.add_parameters(**params)
-
-    backend.validate_process(process)
 
 
 @pytest.mark.parametrize('identifier,expected', [

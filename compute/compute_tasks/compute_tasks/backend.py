@@ -106,7 +106,9 @@ def validate_workflow(context):
     input_var_names = {}
 
     for next in context.topo_sort():
-        next.validate()
+        process = base.get_process(next.identifier)
+
+        process._validate(next)
 
         logger.info('input_var_names %r', input_var_names)
 
@@ -149,7 +151,7 @@ def build_workflow(identifier, data_inputs, job, user, process):
 
     logger.info('Using queue %r for process %r', queue, identifier)
 
-    process = base.get_process(identifier).s().set(**queue)
+    process = base.get_process(identifier)._task.s().set(**queue)
 
     logger.info('Created process task %r', process)
 
@@ -285,8 +287,6 @@ class Worker(state_mixin.StateMixin, threading.Thread):
         self.init_api()
 
         base.discover_processes()
-
-        base.build_process_bindings()
 
         self.state = WaitingState()
 
