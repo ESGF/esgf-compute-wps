@@ -540,6 +540,8 @@ def build_workflow(context):
 
         params = process._get_parameters(next)
 
+        logger.info('Params %r', params)
+
         if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
             interm[next.name] = process._process_func(context, next, *inputs, **params)
         else:
@@ -577,52 +579,23 @@ def execute_delayed(context, delayed, client=None):
             DaskJobTracker(context, fut)
 
 
-def get_variable_name(context, operation):
+def get_variable_name(context, operation, variable):
     candidates = context.input_var_names[operation.name]
 
-    if len(candidates) == 1:
+    if len(candidates) == 1 and variable is None:
         v = candidates[0]
     else:
-        v = operation.get_parameter('variable')
-
-        if v is None:
+        if variable is None:
             raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
         else:
-            v = v.values[0]
+            v = variable
 
     context.message('Using {!s} as input variable', v)
 
     return v
 
 
-def maybe_rename_variable(context, operation, output, name):
-    output_param = operation.get_parameter('output')
-
-    if output_param is not None:
-        output_name = output_param.values[0]
-
-        context.message('Renaming variable {!s} -> {!s}', name, output_name)
-
-        output = output.rename({name: output_name})
-
-    return output
-
-
-def maybe_fillna(context, operation, output):
-    fillna_param = operation.get_parameter('fillna')
-
-    if fillna_param is not None:
-        try:
-            fillna = fillna_param.values[0]
-        except ValueError:
-            raise WPSError('Could not convert "fillna" parameter to float')
-
-        output = output.fillna(fillna)
-
-    return output
-
-
-def process_subset(context, operation, *input, method=None):
+def process_subset(context, operation, *input, method=None, rename=None, fillna=None, **kwargs):
     """ Subsets a Dataset.
 
     Subset a ``xarray.Dataset`` using the user-defined ``cwt.Domain``. For each dimension
@@ -633,9 +606,9 @@ def process_subset(context, operation, *input, method=None):
         operation (cwt.Process): The process definition the input is associated with.
         input (xarray.DataSet): The input DataSet.
     """
-    if operation.domain is not None:
-        input = input[0]
+    input = input[0]
 
+    if operation.domain is not None:
         logger.info('Method %r', method)
 
         for dim in operation.domain.dimensions.values():
@@ -655,20 +628,28 @@ def process_subset(context, operation, *input, method=None):
 
                 raise WPSError('Unable to select to select data with {!r}', selector)
 
-    # Check if domain was outside the inputs domain.
-    for x, y in input.dims.items():
-        if y == 0:
-            raise WPSError('Domain for process {!r} resulted in a zero length dimension {!r}', operation.identifier, x)
+        # Check if domain was outside the inputs domain.
+        for x, y in input.dims.items():
+            if y == 0:
+                raise WPSError('Domain for process {!r} resulted in a zero length dimension {!r}', operation.identifier, x)
 
     return input
 
 
-def process_elementwise(context, operation, *input, **kwargs):
+def post_processing(variable, output, rename=None, fillna=None, **kwargs):
+    if fillna is not None:
+        output[variable] = output[variable].fillna(fillna)
+
+    if rename is not None:
+        output = output.rename({variable: rename})
+
+    return output
+
+
+def process_elementwise(context, operation, *input, func, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
-    func = kwargs['func']
-
-    v = get_variable_name(context, operation)
+    v = get_variable_name(context, operation, variable)
 
     if is_groupby:
         output = func(input[0])
@@ -677,21 +658,13 @@ def process_elementwise(context, operation, *input, **kwargs):
 
         output[v] = func(input[0][v])
 
-    output = maybe_fillna(context, operation, output)
-
-    output = maybe_rename_variable(context, operation, output, v)
-
-    return output
+    return post_processing(v, output, **kwargs)
 
 
-def process_reduce(context, operation, *input, **kwargs):
+def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
-    func = kwargs['func']
-
-    v = get_variable_name(context, operation)
-
-    axes = operation.get_parameter('axes')
+    v = get_variable_name(context, operation, variable)
 
     if is_groupby:
         output = func(input[0], None)
@@ -701,47 +674,31 @@ def process_reduce(context, operation, *input, **kwargs):
         if axes is None:
             output[v] = func(input[0][v], None)
         else:
-            output[v] = func(input[0][v], axes.values)
+            output[v] = func(input[0][v], axes)
 
-    output = maybe_fillna(context, operation, output)
-
-    output = maybe_rename_variable(context, operation, output, v)
-
-    return output
+    return post_processing(v, output, **kwargs)
 
 
-def process_dataset(context, operation, *input, **kwargs):
+def process_dataset(context, operation, *input, func, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
-    func = kwargs['func']
-
-    v = get_variable_name(context, operation)
-
-    extra = dict((x, y.values if len(y.values) > 1 else y.values[0]) for x, y in operation.parameters.items())
+    v = get_variable_name(context, operation, variable)
 
     if is_groupby:
-        output = func(input[0], **extra)
+        output = func(input[0])
     else:
         output = input[0].copy()
 
-        output[v] = func(input[0][v], **extra)
+        output[v] = func(input[0][v])
 
-    output = maybe_fillna(context, operation, output)
-
-    output = maybe_rename_variable(context, operation, output, v)
-
-    return output
+    return post_processing(v, output, **kwargs)
 
 
-def process_dataset_or_const(context, operation, *input, **kwargs):
+def process_dataset_or_const(context, operation, *input, func, variable, const, **kwargs):
     if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
         raise WPSError('GroupBy input not supported for process {!s}', operation.identifier)
 
-    func = kwargs['func']
-
-    v = get_variable_name(context, operation)
-
-    const = operation.get_parameter('const')
+    v = get_variable_name(context, operation, variable)
 
     if const is None:
         output = input[0].copy()
@@ -751,20 +708,11 @@ def process_dataset_or_const(context, operation, *input, **kwargs):
         else:
             raise WPSError('Process {!s} requires 2 inputs or "const" parameter.', operation.identifier)
     else:
-        try:
-            const = float(const.values[0])
-        except ValueError:
-            raise WPSError('Invalid value {!r} with type {!s}, expecting a float value.', constant, type(constant))
-
         output = input[0].copy()
 
         output[v] = func(input[0][v], const)
 
-    output = maybe_fillna(context, operation, output)
-
-    output = maybe_rename_variable(context, operation, output, v)
-
-    return output
+    return post_processing(v, output, **kwargs)
 
 
 def process_merge(context, operation, *input, **kwargs):
@@ -775,13 +723,11 @@ def process_merge(context, operation, *input, **kwargs):
     return xr.merge(input)
 
 
-def parse_condition(context, operation):
-    cond = operation.get_parameter('cond')
-
+def parse_condition(context, cond):
     if cond is None:
         raise WPSError('Missing parameter "cond"')
 
-    match = re.match(r'(?P<left>\w+)\ ?(?P<comp>[<>=!]{1,2}|(is|not)null)(?P<right>-?\d+\.?\d?)?', cond.values[0])
+    match = re.match(r'(?P<left>\w+)\ ?(?P<comp>[<>=!]{1,2}|(is|not)null)(?P<right>-?\d+\.?\d?)?', cond)
 
     if match is None:
         raise WPSError('Condition is not valid, check abstract for format')
@@ -802,8 +748,8 @@ def parse_condition(context, operation):
     return left, comp, right
 
 
-def build_condition(context, operation, input):
-    left, comp, right = parse_condition(context, operation)
+def build_condition(context, cond, input):
+    left, comp, right = parse_condition(context, cond)
 
     if left not in input:
         raise WPSError('Did not find {!s} in input', left)
@@ -830,99 +776,67 @@ def build_condition(context, operation, input):
     return cond
 
 
-def process_where(context, operation, *input, **kwargs):
+def process_where(context, operation, *input, variable, cond, other, **kwargs):
     if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
         raise WPSError('GroupBy input not supported for process {!s}', operation.identifier)
 
-    output = input[0].copy()
+    v = get_variable_name(context, operation, variable)
 
-    v = get_variable_name(context, operation)
-
-    cond = build_condition(context, operation, input[0])
-
-    other = operation.get_parameter('other')
+    cond = build_condition(context, cond, input[0])
 
     if other is None:
         other = xr.core.dtypes.NA
-    else:
-        try:
-            other = float(other.values[0])
-        except ValueError:
-            raise WPSError('Unable to convert parameter "other" to type float')
+
+    output = input[0].copy()
 
     output[v] = input[0][v].where(cond, other)
 
-    output = maybe_fillna(context, operation, output)
+    return post_processing(v, output, **kwargs)
 
-    output = maybe_rename_variable(context, operation, output, v)
+
+def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
+    if variable not in input[0]:
+        raise WPSError('Did not find variable {!s} in input.', variable)
+
+    context.message('Grouping {!s} into bins {!s}', variable, bins)
+
+    try:
+        output = input[0].groupby_bins(variable, bins)
+    except ValueError:
+        raise WPSError('Invalid bin value.')
 
     return output
 
 
-def process_groupby_bins(context, operation, *input, **kwargs):
-    v = operation.get_parameter('variable', True)
-
-    variable = v.values[0]
-
-    if variable not in input[0]:
-        raise WPSError('Did not find variable {!s} in input.', variable)
-
-    b = operation.get_parameter('bins', True)
-
-    try:
-        bins = [float(x) for x in b.values]
-    except ValueError:
-        raise WPSError('Failed to convert a bin value.')
-
-    context.message('Grouping {!s} into bins {!s}', variable, bins)
-
-    groups = input[0].groupby_bins(variable, bins)
-
-    return groups
-
-
-def process_aggregate(context, operation, *input, **kwargs):
+def process_aggregate(context, operation, *input, variable, **kwargs):
     context.message('Aggregating {!s} files by coords', len(input))
 
-    v = get_variable_name(context, operation)
+    v = get_variable_name(context, operation, variable)
 
     output = xr.combine_by_coords(input)
 
-    return maybe_rename_variable(context, operation, output, v)
+    return post_processing(v, output, **kwargs)
 
 
-def process_filter_map(context, operation, *input, **kwargs):
+def process_filter_map(context, operation, *input, variable, cond, other, func, **kwargs):
     def _inner(x, cond, other, func):
         filtered = x.where(cond, other)
 
         return getattr(filtered, func)()
 
-    v = get_variable_name(context, operation)
+    v = get_variable_name(context, operation, variable)
 
     if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
-        cond = build_condition(context, operation, input[0]._obj)
+        cond = build_condition(context, cond, input[0]._obj)
     else:
-        cond = build_condition(context, operation, input[0])
-
-    other = operation.get_parameter('other')
+        cond = build_condition(context, cond, input[0])
 
     if other is None:
         other = xr.core.dtypes.NA
-    else:
-        try:
-            other = float(other.values[0])
-        except ValueError:
-            raise WPSError('Could not convert "other" parameter to float')
 
-    func_param = operation.get_parameter('func', True)
+    output = input[0].map(_inner, args=(cond, other, func))
 
-    output = input[0].map(_inner, args=(cond, other, func_param.values[0]))
-
-    output = maybe_fillna(context, operation, output)
-
-    output = maybe_rename_variable(context, operation, output, v)
-
-    return output
+    return post_processing(v, output, **kwargs)
 
 
 WHERE_ABS = """Filters elements based on a condition.
@@ -942,21 +856,18 @@ and parameters defined here will become the default values on child operations.
 """
 
 param_variable = base.build_parameter('variable', 'The variable to process.', str)
-param_output = base.build_parameter('output', 'Output variable name.', str, min=1)
+param_rename = base.build_parameter('rename', 'Name used to rename output of process.', str, min=1)
 param_fillna = base.build_parameter('fillna', 'The number used to replace nan values.', float)
 
 DEFAULT_PARAMS = [
     param_variable,
-    param_output,
+    param_rename,
     param_fillna,
 ]
 
-def default_params(ignore=None, parameters=DEFAULT_PARAMS):
-    if ignore is None:
-        ignore = []
-
+def param_defaults(*ignore):
     def _wrapper(func):
-        for x in parameters:
+        for x in DEFAULT_PARAMS:
             name = x['name']
             if name not in ignore:
                 if name in func._parameters:
@@ -985,7 +896,7 @@ param_other = base.parameter('other', 'A value that will be used when `cond` is 
 @bind_process_func(None)
 @base.abstract(WORKFLOW_ABS)
 @base.register_process('CDAT.workflow', max=float('inf'))
-def workflow(context):
+def workflow(self, context):
     """ Executes a workflow.
 
     A Celery task for executing a workflow of processes. The workflow is built then the
@@ -1029,6 +940,7 @@ def workflow(context):
 
 
 @bind_process_func(partial(process_elementwise, func=lambda x: np.abs(x)))
+@param_defaults()
 @base.abstract('Computes element-wise absolute value.')
 @base.register_process('CDAT.abs')
 def task_abs(self, context):
@@ -1037,6 +949,7 @@ def task_abs(self, context):
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x + y))
 @param_const
+@param_defaults()
 @base.abstract('Adds two variables or a constant element-wise.')
 @base.register_process('CDAT.add', max=2)
 def task_add(self, context):
@@ -1044,6 +957,7 @@ def task_add(self, context):
 
 
 @bind_process_func(process_aggregate)
+@param_defaults('variable')
 @base.abstract('Aggregates a variable spanning two or more files.')
 @base.register_process('CDAT.aggregate', min=2, max=float('inf'))
 def task_aggregate(self, context):
@@ -1052,6 +966,7 @@ def task_aggregate(self, context):
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x / y))
 @param_const
+@param_defaults()
 @base.abstract('Divides a variable by another or a constant element-wise.')
 @base.register_process('CDAT.divide', max=2)
 def task_divide(self, context):
@@ -1059,6 +974,7 @@ def task_divide(self, context):
 
 
 @bind_process_func(partial(process_elementwise, func=lambda x: np.exp(x)))
+@param_defaults()
 @base.abstract('Computes element-wise exponential value.')
 @base.register_process('CDAT.exp')
 def task_exp(self, context):
@@ -1066,9 +982,10 @@ def task_exp(self, context):
 
 
 @bind_process_func(process_filter_map)
-@base.parameter('other', 'A value to use when `cond` is false, otherwise nan is used.', float)
 @base.parameter('func', 'A reduction process to apply e.g. max, min, sum, mean.', str, min=1)
+@param_other
 @param_cond
+@param_defaults()
 @base.abstract('Applies a where and function using map.')
 @base.register_process('CDAT.filter_map')
 def task_filter_map(self, context):
@@ -1076,6 +993,7 @@ def task_filter_map(self, context):
 
 
 @bind_process_func(partial(process_elementwise, func=lambda x: np.log(x)))
+@param_defaults()
 @base.abstract('Computes element-wise log value.')
 @base.register_process('CDAT.log')
 def task_log(self, context):
@@ -1084,6 +1002,7 @@ def task_log(self, context):
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'max')(dim=y)))
 @param_axes
+@param_defaults()
 @base.abstract('Computes the maximum value over one or more axes.')
 @base.register_process('CDAT.max')
 def task_max(self, context):
@@ -1092,6 +1011,7 @@ def task_max(self, context):
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'mean')(dim=y)))
 @param_axes
+@param_defaults()
 @base.abstract('Computes the mean over one or more axes.')
 @base.register_process('CDAT.mean')
 def task_mean(self, context):
@@ -1100,6 +1020,7 @@ def task_mean(self, context):
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'min')(dim=y)))
 @param_axes
+@param_defaults()
 @base.abstract('Computes the minimum value over one or more axes.')
 @base.register_process('CDAT.min')
 def task_min(self, context):
@@ -1108,6 +1029,7 @@ def task_min(self, context):
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x * y))
 @param_const
+@param_defaults()
 @base.abstract('Multiplies a variable by another or a constant element-wise.')
 @base.register_process('CDAT.multiply', max=2)
 def task_multiply(self, context):
@@ -1116,6 +1038,7 @@ def task_multiply(self, context):
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x ** y))
 @param_const
+@param_defaults()
 @base.abstract('Takes a variable to the power of another variable or a constant element-wise.')
 @base.register_process('CDAT.power')
 def task_power(self, context):
@@ -1124,6 +1047,7 @@ def task_power(self, context):
 
 @bind_process_func(process_subset)
 @base.parameter('method', 'method to apply', str)
+@param_defaults()
 @base.abstract('Computes the subset of a variable defined by a domain.')
 @base.register_process('CDAT.subset')
 def task_subset(self, context):
@@ -1132,6 +1056,7 @@ def task_subset(self, context):
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x - y))
 @param_const
+@param_defaults()
 @base.abstract('Subtracts a variable from another or a constant element-wise.')
 @base.register_process('CDAT.subtract', max=2)
 def task_subtract(self, context):
@@ -1140,6 +1065,7 @@ def task_subtract(self, context):
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y)))
 @param_axes
+@param_defaults()
 @base.abstract('Computes the sum over one or more axes.')
 @base.register_process('CDAT.sum')
 def task_sum(self, context):
@@ -1156,6 +1082,7 @@ def task_merge(self, context):
 @bind_process_func(process_where)
 @param_cond
 @param_other
+@param_defaults()
 @base.abstract(WHERE_ABS)
 @base.register_process('CDAT.where')
 def task_where(self, context):
@@ -1164,6 +1091,7 @@ def task_where(self, context):
 
 @bind_process_func(process_groupby_bins)
 @base.parameter('bins', 'A list of bins boundaries. e.g. 0, 10, 20 would create 2 bins (0-10), (10, 20).', list, float, min=1, max=float('inf'))
+@param_defaults('variable', 'rename')
 @base.abstract('Groups values of a variable into bins.')
 @base.register_process('CDAT.groupby_bins')
 def task_groupby_bins(self, context):
@@ -1171,6 +1099,7 @@ def task_groupby_bins(self, context):
 
 
 @bind_process_func(partial(process_dataset, func=lambda x: getattr(x, 'count')()))
+@param_defaults()
 @base.abstract('Computes count on each variable.')
 @base.register_process('CDAT.count')
 def task_count(self, context):
@@ -1178,6 +1107,7 @@ def task_count(self, context):
 
 
 @bind_process_func(partial(process_dataset, func=lambda x: getattr(x, 'squeeze')(drop=True)))
+@param_defaults()
 @base.abstract('Squeezes data, will drop coordinates.')
 @base.register_process('CDAT.squeeze')
 def task_squeeze(self, context):
@@ -1185,6 +1115,7 @@ def task_squeeze(self, context):
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y)))
 @param_axes
+@param_defaults()
 @base.abstract('Computes the standard deviation over one or more axes.')
 @base.register_process('CDAT.std')
 def task_std(self, context):
@@ -1193,6 +1124,7 @@ def task_std(self, context):
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y)))
 @param_axes
+@param_defaults()
 @base.abstract('Computes the variance over one or more axes.')
 @base.register_process('CDAT.var')
 def task_var(self, context):
@@ -1200,6 +1132,7 @@ def task_var(self, context):
 
 
 @bind_process_func(partial(process_elementwise, func=lambda x: np.sqrt(x)))
+@param_defaults()
 @base.abstract('Computes the elementwise sqrt for a variable.')
 @base.register_process('CDAT.sqrt')
 def task_sqrt(self, context):

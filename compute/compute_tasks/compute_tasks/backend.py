@@ -103,45 +103,31 @@ def build_context(identifier, data_inputs, job, user, process):
 
 
 def validate_workflow(context):
-    input_var_names = {}
+    for next, var_names in context.topo_sort():
+        logger.info('Validating %r candidate variable names %r', next.identifier, var_names)
 
-    for next in context.topo_sort():
         process = base.get_process(next.identifier)
 
         process._validate(next)
 
-        logger.info('input_var_names %r', input_var_names)
-
         if all([isinstance(x, cwt.Variable) for x in next.inputs]):
-            var_names = set([x.var_name for x in next.inputs])
-
-            logger.info('Variable names %r', var_names)
-
             if len(var_names) > 1:
                 raise base.ValidationError('Expecting the same variable name for all inputs of {!s}, got {!s}', next.identifier, ', '.join(var_names))
-
-            input_var_names[next.name] = list(var_names)
         else:
-            candidate_var_names = set([y for x in next.inputs for y in input_var_names[x.name]])
-
-            if len(candidate_var_names) > 1 and next.identifier != 'CDAT.merge':
+            if len(var_names) > 1 and next.identifier != 'CDAT.merge':
                 variable = next.get_parameter('variable')
 
                 if variable is None:
                     raise base.ValidationError('Could not determine target variable for operation {!s} ({!s}), define "variable" parameter with target variable.', next.identifier, next.name)
 
-                if variable.values[0] not in candidate_var_names:
+                if variable.values[0] not in var_names:
                     raise base.ValidationError('Target variable {!r} not present, check inputs to {!s} ({!s}).', variable.values[0], next.identifier, next.name)
-
-            input_var_names[next.name] = list(candidate_var_names)
-
-    return input_var_names
 
 
 def build_workflow(identifier, data_inputs, job, user, process):
     context = build_context(identifier, data_inputs, job, user, process)
 
-    context.input_var_names = validate_workflow(context)
+    validate_workflow(context)
 
     started = job_started.s(context).set(**DEFAULT_QUEUE)
 

@@ -63,7 +63,7 @@ def test_topo_sort(cwt_data):
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.workflow', workflow)
 
-    ops = [x for x in ctx.topo_sort()]
+    ops = [x for x, _ in ctx.topo_sort()]
 
     assert ops[0].identifier == 'CDAT.aggregate'
     assert ops[1].identifier == 'CDAT.average'

@@ -6,7 +6,7 @@ from compute_tasks import WPSError
 
 
 def test_register_process():
-    @base.register_process('CDAT', 'subset', 'abstract data', '1.0.0', 10, extra_data='extra_data_content')
+    @base.register_process('CDAT.subset', abstract='abstract data', version='1.0.0', min=10, extra_data='extra_data_content')
     def test_task(self, context):
         return context
 
@@ -21,30 +21,6 @@ def test_register_process():
     assert 'CDAT.subset' in base.REGISTRY
     assert base.REGISTRY['CDAT.subset'] == registry_entry
     assert base.BINDINGS['CDAT.subset'] == test_task
-
-
-def test_build_process_bindings_error(mocker):
-    mocker.patch.object(tests, 'process_bindings')
-
-    tests.process_bindings.side_effect = Exception()
-
-    base.build_process_bindings(ignore_modules=['base'])
-
-    assert 'test_process' not in base.BINDINGS
-
-
-def test_build_process_bindings_empty_ignore():
-    base.build_process_bindings()
-
-    assert len(base.BINDINGS) > 0
-    assert 'test_process' not in base.BINDINGS
-
-
-def test_build_process_bindings():
-    base.build_process_bindings(ignore_modules=['base'])
-
-    assert len(base.BINDINGS) > 0
-    assert 'test_process' in base.BINDINGS
 
 
 def test_discover_processes():

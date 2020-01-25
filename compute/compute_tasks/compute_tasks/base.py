@@ -187,13 +187,21 @@ def render_abstract(self):
     return template.render(**kwargs)
 
 
-def get_parameters(self, operation):
+def get_parameters(self, process):
     params = {}
 
     for x in self._parameters.values():
-        name = x['name']
+        name, type, subtype = x['name'], x['type'], x['subtype']
 
-        params[name] = None
+        proc_param = process.get_parameter(name)
+
+        if proc_param is None:
+            params[name] = None
+        else:
+            if type in (list, tuple):
+                params[name] = [subtype(x) for x in proc_param.values]
+            else:
+                params[name] = type(proc_param.values[0])
 
     return params
 

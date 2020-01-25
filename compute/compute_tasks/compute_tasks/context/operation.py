@@ -190,7 +190,19 @@ class OperationContext(state_mixin.StateMixin, object):
 
             self._sorted.append(next)
 
-            yield self._operation[next]
+            operation = self._operation[next]
+
+            if all([isinstance(x, cwt.Variable) for x in operation.inputs]):
+                var_names = set([x.var_name for x in operation.inputs])
+
+                self.input_var_names[next] = list(var_names)
+            else:
+                var_names = set([y for x in operation.inputs for y in self.input_var_names[x.name]])
+
+                self.input_var_names[next] = list(var_names)
+
+            yield operation, self.input_var_names[next]
+            # yield self._operation[next], self.input_var_names[next.name]
 
             for x in neigh[next]:
                 in_deg[x] -= 1
