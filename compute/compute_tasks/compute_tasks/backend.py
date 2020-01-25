@@ -102,40 +102,11 @@ def build_context(identifier, data_inputs, job, user, process):
     return context
 
 
-def validate_process(process):
-    logger.info('Validating process %r (%s)', process.identifier, process.name)
-
-    v = cdat.VALIDATION[process.identifier]
-
-    if len(process.inputs) < v['min'] or len(process.inputs) > v['max']:
-        raise WPSError('Validation failed, expected the number of inputs to be between {!s} and {!s}', v['min'], v['max'])
-
-    for key, param_v in v['params'].items():
-        if param_v is None:
-            continue
-
-        required = param_v['required']
-
-        param = process.parameters.get(key, None)
-
-        if param is None and required:
-            raise WPSError('Validation failed, expected parameter {!r}', key)
-
-        if param is not None:
-            type = param_v['type']
-
-            for value in param.values:
-                try:
-                    type(value)
-                except ValueError:
-                    raise WPSError('Validation failed, could not convert parameter {!r} value {!r} to type {!r}', key, value, type.__name__)
-
-
 def validate_workflow(context):
     input_var_names = {}
 
     for next in context.topo_sort():
-        validate_process(next)
+        next.validate()
 
         logger.info('input_var_names %r', input_var_names)
 
@@ -145,7 +116,7 @@ def validate_workflow(context):
             logger.info('Variable names %r', var_names)
 
             if len(var_names) > 1:
-                raise WPSError('Expecting the same variable name for all inputs of {!s}, got {!s}', next.identifier, ', '.join(var_names))
+                raise base.ValidationError('Expecting the same variable name for all inputs of {!s}, got {!s}', next.identifier, ', '.join(var_names))
 
             input_var_names[next.name] = list(var_names)
         else:
@@ -155,10 +126,10 @@ def validate_workflow(context):
                 variable = next.get_parameter('variable')
 
                 if variable is None:
-                    raise WPSError('Could not determine target variable for operation {!s} ({!s}), define "variable" parameter with target variable.', next.identifier, next.name)
+                    raise base.ValidationError('Could not determine target variable for operation {!s} ({!s}), define "variable" parameter with target variable.', next.identifier, next.name)
 
                 if variable.values[0] not in candidate_var_names:
-                    raise WPSError('Target variable {!r} not present, check inputs to {!s} ({!s}).', variable.values[0], next.identifier, next.name)
+                    raise base.ValidationError('Target variable {!r} not present, check inputs to {!s} ({!s}).', variable.values[0], next.identifier, next.name)
 
             input_var_names[next.name] = list(candidate_var_names)
 
@@ -448,23 +419,31 @@ def register_processes():
 
     parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
 
+    parser.add_argument('--dry-run', help='Run without actually doing anything', action='store_true')
+
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
 
-    state = state_mixin.StateMixin()
+    if not args.dry_run:
+        state = state_mixin.StateMixin()
 
-    state.init_api()
+        state.init_api()
 
     for item in base.discover_processes():
-        try:
-            state.register_process(**item)
-        except state_mixin.ProcessExistsError:  # pragma: no cover
-            logger.info('Process %r already exists', item['identifier'])
+        process = base.get_process(item['identifier'])
 
-            pass
+        item['abstract'] = process._render_abstract()
 
-    base.build_process_bindings()
+        logger.debug('Abstract %r', item['abstract'])
+
+        if not args.dry_run:
+            try:
+                state.register_process(**item)
+            except state_mixin.ProcessExistsError:  # pragma: no cover
+                logger.info('Process %r already exists', item['identifier'])
+
+                pass
 
 
 def parse_args():  # pragma: no cover

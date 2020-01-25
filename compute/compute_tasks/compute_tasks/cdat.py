@@ -536,14 +536,16 @@ def build_workflow(context):
             except KeyError as e:
                 raise WPSError('Missing intermediate data {!s}', e)
 
-        process_func = PROCESS_FUNC_MAP[next.identifier]
+        process = base.get_process(next.identifier)
 
-        if process_func is None:
-            interm[next.name] = subset_input(context, next, inputs[0])
+        params = process._get_parameters(next)
+
+        if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
+            interm[next.name] = process._process_func(context, next, *inputs, **params)
         else:
-            inputs = [subset_input(context, next, x) for x in inputs]
+            inputs = [process_subset(context, next, x) for x in inputs]
 
-            interm[next.name] = process_func(context, next, *inputs)
+            interm[next.name] = process._process_func(context, next, *inputs, **params)
 
         if is_input:
             context.track_in_bytes(interm[next.name].nbytes)
@@ -573,91 +575,6 @@ def execute_delayed(context, delayed, client=None):
             fut = client.compute(delayed)
 
             DaskJobTracker(context, fut)
-
-
-def workflow(context):
-    """ Executes a workflow.
-
-    A Celery task for executing a workflow of processes. The workflow is built then the
-    intermediate and output Dask delayed functions are gathered. These are then executed
-    Dask.
-
-    Args:
-        context (OperationContext): The context containing all information needed to execute process.
-
-    Returns:
-        The input context for the next Celery task.
-    """
-    interm = build_workflow(context)
-
-    context.message('Preparing to execute workflow')
-
-    if 'DASK_SCHEDULER' in context.extra:
-        client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
-    else:
-        client = None
-
-    try:
-        delayed = []
-
-        delayed.extend(gather_workflow_outputs(context, interm, context.output_ops()))
-
-        # TODO possibly re-enable after solving slow large outputs. Also should move
-        # this to individual processes.
-        # if 'store_intermediates' in context.gparameters:
-        #     delayed.extend(gather_workflow_outputs(context, interm, context.interm_ops()))
-
-        context.message('Gathered {!s} outputs', len(delayed))
-
-        execute_delayed(context, delayed, client)
-    except WPSError:
-        raise
-    except Exception as e:
-        raise WPSError('Error executing process: {!r}', e)
-
-    return context
-
-
-def subset_input(context, operation, input):
-    """ Subsets a Dataset.
-
-    Subset a ``xarray.Dataset`` using the user-defined ``cwt.Domain``. For each dimension
-    the selector is built and applied using the appropriate method.
-
-    Args:
-        context (context.OperationContext): The current operation context.
-        operation (cwt.Process): The process definition the input is associated with.
-        input (xarray.DataSet): The input DataSet.
-    """
-    if operation.domain is not None:
-        method = operation.get_parameter('method', None)
-
-        if method is not None:
-            method = method.values[0]
-
-        for dim in operation.domain.dimensions.values():
-            if dim.start == dim.end and (dim.step is None or dim.step == 1):
-                selector = {dim.name: dim.start}
-            else:
-                selector = {dim.name: slice(dim.start, dim.end, dim.step)}
-
-            try:
-                if dim.crs == cwt.INDICES:
-                    input = input.isel(**selector)
-                else:
-                    input = input.sel(**selector, method=method)
-            except KeyError as e:
-                if isinstance(selector[dim.name], (int, float)):
-                    raise WPSError('Unable to subset {!r} with value {!s}, add parameter method set to "nearest" may resolve this.', dim.name, e)
-
-                raise WPSError('Unable to select to select data with {!r}', selector)
-
-    # Check if domain was outside the inputs domain.
-    for x, y in input.dims.items():
-        if y == 0:
-            raise WPSError('Domain for process {!r} resulted in a zero length dimension {!r}', operation.identifier, x)
-
-    return input
 
 
 def get_variable_name(context, operation):
@@ -703,6 +620,47 @@ def maybe_fillna(context, operation, output):
         output = output.fillna(fillna)
 
     return output
+
+
+def process_subset(context, operation, *input, method=None):
+    """ Subsets a Dataset.
+
+    Subset a ``xarray.Dataset`` using the user-defined ``cwt.Domain``. For each dimension
+    the selector is built and applied using the appropriate method.
+
+    Args:
+        context (context.OperationContext): The current operation context.
+        operation (cwt.Process): The process definition the input is associated with.
+        input (xarray.DataSet): The input DataSet.
+    """
+    if operation.domain is not None:
+        input = input[0]
+
+        logger.info('Method %r', method)
+
+        for dim in operation.domain.dimensions.values():
+            if dim.start == dim.end and (dim.step is None or dim.step == 1):
+                selector = {dim.name: dim.start}
+            else:
+                selector = {dim.name: slice(dim.start, dim.end, dim.step)}
+
+            try:
+                if dim.crs == cwt.INDICES:
+                    input = input.isel(**selector)
+                else:
+                    input = input.sel(**selector, method=method)
+            except KeyError as e:
+                if isinstance(selector[dim.name], (int, float)):
+                    raise WPSError('Unable to subset {!r} with value {!s}, add parameter method set to "nearest" may resolve this.', dim.name, e)
+
+                raise WPSError('Unable to select to select data with {!r}', selector)
+
+    # Check if domain was outside the inputs domain.
+    for x, y in input.dims.items():
+        if y == 0:
+            raise WPSError('Domain for process {!r} resulted in a zero length dimension {!r}', operation.identifier, x)
+
+    return input
 
 
 def process_elementwise(context, operation, *input, **kwargs):
@@ -967,131 +925,6 @@ def process_filter_map(context, operation, *input, **kwargs):
     return output
 
 
-PROCESS_FUNC_MAP = {
-    'CDAT.abs': partial(process_elementwise, func=lambda x: np.abs(x)),
-    'CDAT.add': partial(process_dataset_or_const, func=lambda x, y: x + y),
-    'CDAT.aggregate': process_aggregate,
-    'CDAT.divide': partial(process_dataset_or_const, func=lambda x, y: x / y),
-    'CDAT.exp': partial(process_elementwise, func=lambda x: np.exp(x)),
-    'CDAT.filter_map': process_filter_map,
-    'CDAT.log': partial(process_elementwise, func=lambda x: np.log(x)),
-    'CDAT.max': partial(process_reduce, func=lambda x, y: getattr(x, 'max')(dim=y, keep_attrs=True)),
-    'CDAT.mean': partial(process_reduce, func=lambda x, y: getattr(x, 'mean')(dim=y, keep_attrs=True)),
-    'CDAT.min': partial(process_reduce, func=lambda x, y: getattr(x, 'min')(dim=y, keep_attrs=True)),
-    'CDAT.multiply': partial(process_dataset_or_const, func=lambda x, y: x * y),
-    'CDAT.power': partial(process_dataset_or_const, func=lambda x, y: x ** y),
-    'CDAT.subset': None,
-    'CDAT.subtract': partial(process_dataset_or_const, func=lambda x, y: x - y),
-    'CDAT.sum': partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y, keep_attrs=True)),
-    'CDAT.merge': process_merge,
-    'CDAT.where': process_where,
-    'CDAT.groupby_bins': process_groupby_bins,
-    'CDAT.count': partial(process_dataset, func=lambda x, **kwargs: getattr(x, 'count')()),
-    'CDAT.squeeze': partial(process_dataset, func=lambda x, **kwargs: getattr(x, 'squeeze')(drop=True)),
-    'CDAT.std': partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y, keep_attrs=True)),
-    'CDAT.var': partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y, keep_attrs=True)),
-    'CDAT.workflow': None,
-    'CDAT.sqrt': partial(process_elementwise, func=lambda x: np.sqrt(x)),
-}
-
-
-BASE_ABSTRACT = """
-{{- description }}
-{% if min > 0 and (max == infinity) %}
-Accepts a minimum of {{ min }} inputs.
-{% elif min == max %}
-Accepts exactly {{ min }} input.
-{% elif max > min %}
-Accepts {{ min }} to {{ max }} inputs.
-{% endif %}
-{%- if params|length > 0 %}
-Parameters:
-{%- for group in params|groupby('required')|reverse %}
-    {%- for item in group.list %}
-    {{ item['name'] }} ({{ item['type'] }}, {{ group.grouper }}): {{ item['desc'] }}
-    {%- endfor %}
-{%- endfor %}
-{% endif %}
-"""
-
-
-template = Environment(loader=BaseLoader).from_string(BASE_ABSTRACT)
-
-
-def render_abstract(identifier, description, **params):
-    """ Renders an abstract for a process.
-
-    This function will use a jinja2 template and render out an abstract for a process. The keyword arguments
-    for the ``func`` function are used to enable details in the abstract.
-
-    Args:
-        description (str): The process description.
-        min_inputs (int): Minimum number of inputs.
-        max_inputs (int): Maximum number of inputs.
-
-    Returns:
-        str: The abstract as a string.
-    """
-    kwargs = {
-        'description': description,
-        'min': params.pop('min', 1),
-        'max': params.pop('max', 1),
-        'params': [],
-        'infinity': float('inf'),
-    }
-
-    for x, y in params.items():
-        if y is None:
-            continue
-
-        new = copy.deepcopy(y)
-
-        new['name'] = x
-
-        new['type'] = y['type'].__name__
-
-        new['desc'] = PARAMS_DESC[x]
-
-        new['required'] = 'Required' if y['required'] else 'Optional'
-
-        kwargs['params'].append(new)
-
-    VALIDATION[identifier] = validation(min=kwargs['min'], max=kwargs['max'], **params)
-
-    ABSTRACT[identifier] = escape(template.render(**kwargs))
-
-
-PARAMS_DESC = {
-    'axes': 'A list of axes to reduce dimensionality over. Separate multiple values with "|" e.g. time|lat.',
-    'const': 'A float value that will be applied element-wise.',
-    'cond': 'A condition that when true will preserve the value, otherwise the value will be set to "nan".',
-    'fillna': 'A float value to replace "nan" values."',
-    'variable': 'The variable to process.',
-    'bins': 'A list of bins. Separate values with "|" e.g. 0|10|20, this would create 2 bins (0-10), (10, 20).',
-    'variable': 'Name of the variable to process.',
-    'output': 'Named used to rename the output variable of the current process.',
-    'func': 'Name of computation to apply.',
-    'other': 'A float value to use when `cond` is false, otherwise nan is used.',
-    'value': 'A float value.',
-}
-
-
-def validation(**params):
-    return {
-        'min': params.pop('min', 1),
-        'max': params.pop('max', 1),
-        'params': params,
-    }
-
-
-def parameter(type, required=False, **params):
-    return {
-        'required': required,
-        'type': type,
-        'min': params.pop('min', 1),
-        'max': params.pop('max', 1),
-    }
-
 WHERE_ABS = """Filters elements based on a condition.
 
 Supported comparisons: >, >=, <, <=, ==, !=
@@ -1103,112 +936,271 @@ Examples:
     pr>0.000023408767
 """
 
+
 WORKFLOW_ABS = """This process is used to store global values in workflows. Domain
 and parameters defined here will become the default values on child operations.
 """
 
-VALIDATION = {}
-ABSTRACT = {}
+param_variable = base.build_parameter('variable', 'The variable to process.', str)
+param_output = base.build_parameter('output', 'Output variable name.', str, min=1)
+param_fillna = base.build_parameter('fillna', 'The number used to replace nan values.', float)
 
-COMMON_PARAM = {
-    'variable': parameter(str),
-    'output': parameter(str),
-    'fillna': parameter(float),
-}
+DEFAULT_PARAMS = [
+    param_variable,
+    param_output,
+    param_fillna,
+]
 
+def default_params(ignore=None, parameters=DEFAULT_PARAMS):
+    if ignore is None:
+        ignore = []
 
-def override_default(**kwargs):
-    d = COMMON_PARAM.copy()
+    def _wrapper(func):
+        for x in parameters:
+            name = x['name']
+            if name not in ignore:
+                if name in func._parameters:
+                    raise Exception('Parameter {!s} already exists'.format(name))
 
-    d.update(kwargs)
+                func._parameters[name] = x
 
-    return d
-
-
-render_abstract('CDAT.abs', 'Computes element-wise absolute value.', **COMMON_PARAM)
-render_abstract('CDAT.add', 'Adds two variables or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
-render_abstract('CDAT.aggregate', 'Aggregates a variable spanning two or more files.', min=2, max=float('inf'), **COMMON_PARAM)
-render_abstract('CDAT.divide', 'Divides a variable by another or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
-render_abstract('CDAT.exp', 'Computes element-wise exponential value.', **COMMON_PARAM)
-render_abstract('CDAT.filter_map', 'Applies a where and function using map.', **COMMON_PARAM, cond=parameter(str, True), func=parameter(str, True), other=parameter(float))
-render_abstract('CDAT.log', 'Computes element-wise log value.', **COMMON_PARAM)
-render_abstract('CDAT.max', 'Computes the maximum value over one or more axes.', axes=parameter(str), **COMMON_PARAM)
-render_abstract('CDAT.mean', 'Computes the mean over one or more axes.', axes=parameter(str), **COMMON_PARAM)
-render_abstract('CDAT.min', 'Computes the minimum value over one or more axes.', axes=parameter(str), **COMMON_PARAM)
-render_abstract('CDAT.multiply', 'Multiplies a variable by another or a constant element-wise', const=parameter(float), max=2, **COMMON_PARAM)
-render_abstract('CDAT.power', 'Takes a variable to the power of another variable or a constant element-wise.', const=parameter(float), **COMMON_PARAM)
-render_abstract('CDAT.subset', 'Computes the subset of a variable defined by a domain.', **COMMON_PARAM)
-render_abstract('CDAT.subtract', 'Subtracts a variable from another or a constant element-wise.', const=parameter(float), max=2, **COMMON_PARAM)
-render_abstract('CDAT.sum', 'Computes the sum over one or more axes.', axes=parameter(str), **COMMON_PARAM)
-render_abstract('CDAT.merge', 'Merges variable from second input into first.', min=2, max=float('inf'), **override_default(output=None))
-render_abstract('CDAT.where', WHERE_ABS, cond=parameter(str, True), other=parameter(float), **COMMON_PARAM)
-render_abstract('CDAT.groupby_bins', 'Groups values of a variable into bins.', bins=parameter(float, True), **override_default(variable=parameter(str, True), output=None, fillna=None))
-render_abstract('CDAT.count', 'Computes count on each variable.', **COMMON_PARAM)
-render_abstract('CDAT.squeeze', 'Squeezes data, will drop coordinates.', **COMMON_PARAM)
-render_abstract('CDAT.std', 'Computes the standard deviation over one or more axes.', axes=parameter(str), **COMMON_PARAM)
-render_abstract('CDAT.var', 'Computes the variance over one or more axes.', axes=parameter(str), **COMMON_PARAM)
-render_abstract('CDAT.sqrt', 'Computes the elementwise sqrt for a variable.', **COMMON_PARAM)
-render_abstract('CDAT.workflow', WORKFLOW_ABS, max=float('inf'))
+        return func
+    return _wrapper
 
 
-def process_wrapper(self, context):
-    """ Wrapper function for a process.
+def bind_process_func(process_func):
+    def _wrapper(func):
+        func._process_func = process_func
 
-    This function acts as the main entrypoint of a Celery task. It represents a single process e.g. Subset, Aggregate,
-    etc. The function calls ``workflow_func`` since a single process is just a workflow with a single task.
+        return func
+    return _wrapper
+
+
+param_axes = base.parameter('axes', 'A list of axes used to reduce dimensionality.', list, str)
+param_cond = base.parameter('cond', 'A condition that when true will preserve the value.', str)
+param_const = base.parameter('const', 'A value that will be applied element-wise.', float)
+param_other = base.parameter('other', 'A value that will be used when `cond` is false.', float)
+
+
+@bind_process_func(None)
+@base.abstract(WORKFLOW_ABS)
+@base.register_process('CDAT.workflow', max=float('inf'))
+def workflow(context):
+    """ Executes a workflow.
+
+    A Celery task for executing a workflow of processes. The workflow is built then the
+    intermediate and output Dask delayed functions are gathered. These are then executed
+    Dask.
 
     Args:
-        context (OperationContext): The OperationContext holding all details of the current job.
+        context (OperationContext): The context containing all information needed to execute process.
+
+    Returns:
+        The input context for the next Celery task.
     """
+    interm = build_workflow(context)
+
+    context.message('Preparing to execute workflow')
+
+    if 'DASK_SCHEDULER' in context.extra:
+        client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
+    else:
+        client = None
+
+    try:
+        delayed = []
+
+        delayed.extend(gather_workflow_outputs(context, interm, context.output_ops()))
+
+        # TODO possibly re-enable after solving slow large outputs. Also should move
+        # this to individual processes.
+        # if 'store_intermediates' in context.gparameters:
+        #     delayed.extend(gather_workflow_outputs(context, interm, context.interm_ops()))
+
+        context.message('Gathered {!s} outputs', len(delayed))
+
+        execute_delayed(context, delayed, client)
+    except WPSError:
+        raise
+    except Exception as e:
+        raise WPSError('Error executing process: {!r}', e)
+
+    return context
+
+
+@bind_process_func(partial(process_elementwise, func=lambda x: np.abs(x)))
+@base.abstract('Computes element-wise absolute value.')
+@base.register_process('CDAT.abs')
+def task_abs(self, context):
     return workflow(context)
 
 
-def copy_function(f, operation):
-    """ Creates a unique version of a function.
-
-    Copies function ``f`` giving it a unique name using ``operation``.
-
-    Args:
-        f (FunctionType): The function to copy.
-        operation (str): The unique identifier for the function.
-
-    Returns:
-        FunctionType: A new function.
-    """
-    name = '{!s}_func'.format(operation)
-
-    return types.FunctionType(f.__code__, f.__globals__, name=name, argdefs=f.__defaults__, closure=f.__closure__)
+@bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x + y))
+@param_const
+@base.abstract('Adds two variables or a constant element-wise.')
+@base.register_process('CDAT.add', max=2)
+def task_add(self, context):
+    return workflow(context)
 
 
-def discover_processes():
-    """ Discovers and binds functions to `cdat` module.
+@bind_process_func(process_aggregate)
+@base.abstract('Aggregates a variable spanning two or more files.')
+@base.register_process('CDAT.aggregate', min=2, max=float('inf'))
+def task_aggregate(self, context):
+    return workflow(context)
 
-    This function iterates over PROCESS_FUNC_MAP, generating a description, creating a Celery task, registering it with
-    the backend and binding it to the "cdat" module.
 
-    Returns:
-        list: List of dict, describing each registered process.
-    """
-    from compute_tasks import base
-    from compute_tasks import cdat
+@bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x / y))
+@param_const
+@base.abstract('Divides a variable by another or a constant element-wise.')
+@base.register_process('CDAT.divide', max=2)
+def task_divide(self, context):
+    return workflow(context)
 
-    for name, func in PROCESS_FUNC_MAP.items():
-        module, operation = name.split('.')
 
-        # Create a unique function for each process
-        p = copy_function(process_wrapper, operation)
+@bind_process_func(partial(process_elementwise, func=lambda x: np.exp(x)))
+@base.abstract('Computes element-wise exponential value.')
+@base.register_process('CDAT.exp')
+def task_exp(self, context):
+    return workflow(context)
 
-        # Decorate the new function as a Celery task
-        shared = base.cwt_shared_task()(p)
 
-        abstract = ABSTRACT[name]
+@bind_process_func(process_filter_map)
+@base.parameter('other', 'A value to use when `cond` is false, otherwise nan is used.', float)
+@base.parameter('func', 'A reduction process to apply e.g. max, min, sum, mean.', str, min=1)
+@param_cond
+@base.abstract('Applies a where and function using map.')
+@base.register_process('CDAT.filter_map')
+def task_filter_map(self, context):
+    return workflow(context)
 
-        # Decorate the Celery task as a registered process
-        register = base.register_process(module, operation, abstract=abstract)(shared)
 
-        # Bind the new function to the "cdat" module
-        setattr(cdat, p.__name__, register)
+@bind_process_func(partial(process_elementwise, func=lambda x: np.log(x)))
+@base.abstract('Computes element-wise log value.')
+@base.register_process('CDAT.log')
+def task_log(self, context):
+    return workflow(context)
 
-        logger.info('Binding process %r', name)
 
-    return base.REGISTRY.values()
+@bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'max')(dim=y)))
+@param_axes
+@base.abstract('Computes the maximum value over one or more axes.')
+@base.register_process('CDAT.max')
+def task_max(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'mean')(dim=y)))
+@param_axes
+@base.abstract('Computes the mean over one or more axes.')
+@base.register_process('CDAT.mean')
+def task_mean(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'min')(dim=y)))
+@param_axes
+@base.abstract('Computes the minimum value over one or more axes.')
+@base.register_process('CDAT.min')
+def task_min(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x * y))
+@param_const
+@base.abstract('Multiplies a variable by another or a constant element-wise.')
+@base.register_process('CDAT.multiply', max=2)
+def task_multiply(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x ** y))
+@param_const
+@base.abstract('Takes a variable to the power of another variable or a constant element-wise.')
+@base.register_process('CDAT.power')
+def task_power(self, context):
+    return workflow(context)
+
+
+@bind_process_func(process_subset)
+@base.parameter('method', 'method to apply', str)
+@base.abstract('Computes the subset of a variable defined by a domain.')
+@base.register_process('CDAT.subset')
+def task_subset(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x - y))
+@param_const
+@base.abstract('Subtracts a variable from another or a constant element-wise.')
+@base.register_process('CDAT.subtract', max=2)
+def task_subtract(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y)))
+@param_axes
+@base.abstract('Computes the sum over one or more axes.')
+@base.register_process('CDAT.sum')
+def task_sum(self, context):
+    return workflow(context)
+
+
+@bind_process_func(process_merge)
+@base.abstract('Merges variable from second input into first.')
+@base.register_process('CDAT.merge', min=2, max=float('inf'))
+def task_merge(self, context):
+    return workflow(context)
+
+
+@bind_process_func(process_where)
+@param_cond
+@param_other
+@base.abstract(WHERE_ABS)
+@base.register_process('CDAT.where')
+def task_where(self, context):
+    return workflow(context)
+
+
+@bind_process_func(process_groupby_bins)
+@base.parameter('bins', 'A list of bins boundaries. e.g. 0, 10, 20 would create 2 bins (0-10), (10, 20).', list, float, min=1, max=float('inf'))
+@base.abstract('Groups values of a variable into bins.')
+@base.register_process('CDAT.groupby_bins')
+def task_groupby_bins(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_dataset, func=lambda x: getattr(x, 'count')()))
+@base.abstract('Computes count on each variable.')
+@base.register_process('CDAT.count')
+def task_count(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_dataset, func=lambda x: getattr(x, 'squeeze')(drop=True)))
+@base.abstract('Squeezes data, will drop coordinates.')
+@base.register_process('CDAT.squeeze')
+def task_squeeze(self, context):
+    return workflow(context)
+
+@bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y)))
+@param_axes
+@base.abstract('Computes the standard deviation over one or more axes.')
+@base.register_process('CDAT.std')
+def task_std(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y)))
+@param_axes
+@base.abstract('Computes the variance over one or more axes.')
+@base.register_process('CDAT.var')
+def task_var(self, context):
+    return workflow(context)
+
+
+@bind_process_func(partial(process_elementwise, func=lambda x: np.sqrt(x)))
+@base.abstract('Computes the elementwise sqrt for a variable.')
+@base.register_process('CDAT.sqrt')
+def task_sqrt(self, context):
+    return workflow(context)

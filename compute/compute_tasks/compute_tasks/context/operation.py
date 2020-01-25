@@ -25,6 +25,12 @@ class OperationContext(state_mixin.StateMixin, object):
         self._sorted = []
         self.input_var_names = {}
 
+    def __repr__(self):
+        return (f'{self.__class__.__name__}('
+                f'{self._variable!r}, {self._domain!r}, {self._operation!r},'
+                f' {self.gdomain!r}, {self.gparameters!r}, {self._sorted!r},'
+                f' {self.output!r}, {self.input_var_names!r})')
+
     @staticmethod
     def decode_data_inputs(data_inputs):
         items = {}
