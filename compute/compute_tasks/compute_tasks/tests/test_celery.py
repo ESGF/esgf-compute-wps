@@ -14,8 +14,6 @@ def test_import_handlers(mocker):
 
     base.discover_processes.assert_called()
 
-    base.build_process_bindings.assert_called()
-
 
 def test_byteify():
     data = {

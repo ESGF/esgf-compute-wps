@@ -9,6 +9,7 @@ from compute_tasks import backend
 from compute_tasks import cdat
 from compute_tasks import celery_app
 from compute_tasks import WPSError
+from compute_tasks.context import operation
 
 logger = logging.getLogger()
 
@@ -55,13 +56,13 @@ def test_validate_workflow_specify_variable_not_found(mocker):
     sum.add_inputs(merge)
     sum.add_parameters(variable='clt')
 
-    context = mocker.MagicMock()
-    context.topo_sort.return_value = [
-        sub1,
-        sub2,
-        merge,
-        sum,
-    ]
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
 
     with pytest.raises(WPSError):
         backend.validate_workflow(context)
@@ -88,14 +89,13 @@ def test_validate_workflow_specify_variable(mocker):
     sum.add_inputs(group)
     sum.add_parameters(variable='pr')
 
-    context = mocker.MagicMock()
-    context.topo_sort.return_value = [
-        sub1,
-        sub2,
-        merge,
-        group,
-        sum,
-    ]
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict(), group.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
 
     backend.validate_workflow(context)
 
@@ -116,13 +116,13 @@ def test_validate_workflow_indeterminable_variable(mocker):
     sum = cwt.Process('CDAT.sum')
     sum.add_inputs(merge)
 
-    context = mocker.MagicMock()
-    context.topo_sort.return_value = [
-        sub1,
-        sub2,
-        merge,
-        sum,
-    ]
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
 
     with pytest.raises(WPSError):
         backend.validate_workflow(context)
@@ -135,10 +135,13 @@ def test_validate_workflow_missmatch_input(mocker):
     agg = cwt.Process('CDAT.aggregate')
     agg.add_inputs(pr1, pr2)
 
-    context = mocker.MagicMock()
-    context.topo_sort.return_value = [
-        agg,
-    ]
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [agg.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
 
     with pytest.raises(WPSError):
         backend.validate_workflow(context)
@@ -151,10 +154,13 @@ def test_validate_workflow(mocker):
     agg = cwt.Process('CDAT.aggregate')
     agg.add_inputs(pr1, pr2)
 
-    context = mocker.MagicMock()
-    context.topo_sort.return_value = [
-        agg,
-    ]
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [agg.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
 
     backend.validate_workflow(context)
 
