@@ -356,10 +356,10 @@ class Provisioner(threading.Thread):
             except zmq.Again:
                 # If the ack never sends we just let the worker timeout
                 pass
-        elif frames[1] == constants.ACK:
-            logger.info('Received ack from backend removeing %r from list', address)
+            else:
+                logger.info('Removing worker %s from waiting ack', address)
 
-            self.waiting_ack.pop(address, None)
+                self.waiting_ack.pop(address, None)
         else:
             version = frames[2]
 
