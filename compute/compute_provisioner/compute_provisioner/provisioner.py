@@ -249,7 +249,7 @@ class Provisioner(threading.Thread):
 
                 requested[key] = yaml_data
         except client.rest.ApiException as e:
-            if e.status == 409:
+            if e.status in (403, 409):
                 # TODO resources are being requested again, should extend alive time
                 logger.info('Resources already exist')
 
