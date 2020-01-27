@@ -621,7 +621,10 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
                 if dim.crs == cwt.INDICES:
                     input = input.isel(**selector)
                 else:
-                    input = input.sel(**selector, method=method)
+                    if isinstance(selector[dim.name], slice):
+                        input = input.sel(**selector)
+                    else:
+                        input = input.sel(**selector, method=method)
             except KeyError as e:
                 if isinstance(selector[dim.name], (int, float)):
                     raise WPSError('Unable to subset {!r} with value {!s}, add parameter method set to "nearest" may resolve this.', dim.name, e)
