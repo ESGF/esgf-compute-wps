@@ -1091,7 +1091,7 @@ def task_where(self, context):
 
 @bind_process_func(process_groupby_bins)
 @base.parameter('bins', 'A list of bins boundaries. e.g. 0, 10, 20 would create 2 bins (0-10), (10, 20).', list, float, min=1, max=float('inf'))
-@param_defaults('variable', 'rename')
+@param_defaults('fillna', 'rename')
 @base.abstract('Groups values of a variable into bins.')
 @base.register_process('CDAT.groupby_bins')
 def task_groupby_bins(self, context):
