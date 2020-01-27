@@ -225,8 +225,6 @@ class ResourceAckState(State):
                 workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process)
 
                 workflow.apply_async(serializer='cwt_json')
-
-                backend.worker.send_multipart([ACK])
             except Exception as e:
                 logger.exception('Error building and executing workflow')
 
