@@ -23,13 +23,11 @@ class CWTData(object):
         self.min = cwt.Process(identifier='CDAT.min')
         self.subtract = cwt.Process(identifier='CDAT.subtract')
         self.divide = cwt.Process(identifier='CDAT.divide')
-        self.average = cwt.Process(identifier='CDAT.average')
         self.std = cwt.Process(identifier='CDAT.std')
 
     def sample_workflow(self):
-        self.average.add_inputs(self.aggregate)
         self.std.add_inputs(self.aggregate)
-        self.subtract.add_inputs(self.aggregate, self.average)
+        self.subtract.add_inputs(self.aggregate)
         self.divide.add_inputs(self.subtract, self.std)
         self.max.add_inputs(self.aggregate)
         self.min.add_inputs(self.aggregate)
@@ -40,7 +38,6 @@ class CWTData(object):
             'domain': [],
             'operation': [
                 self.aggregate.to_dict(),
-                self.average.to_dict(),
                 self.std.to_dict(),
                 self.subtract.to_dict(),
                 self.divide.to_dict(),
@@ -66,12 +63,11 @@ def test_topo_sort(cwt_data):
     ops = [x for x, _ in ctx.topo_sort()]
 
     assert ops[0].identifier == 'CDAT.aggregate'
-    assert ops[1].identifier == 'CDAT.average'
-    assert ops[2].identifier == 'CDAT.std'
+    assert ops[1].identifier == 'CDAT.std'
+    assert ops[2].identifier == 'CDAT.subtract'
     assert ops[3].identifier == 'CDAT.max'
     assert ops[4].identifier == 'CDAT.min'
-    assert ops[5].identifier == 'CDAT.subtract'
-    assert ops[6].identifier == 'CDAT.divide'
+    assert ops[5].identifier == 'CDAT.divide'
 
 
 def test_find_neighbors(cwt_data):
@@ -110,7 +106,7 @@ def test_node_in_deg(cwt_data):
 
     node = [x for x in ops if x.identifier == 'CDAT.subtract'][0]
 
-    assert ctx.node_in_deg(node) == 2
+    assert ctx.node_in_deg(node) == 1
 
 
 def test_interm_ops(cwt_data):
@@ -120,8 +116,8 @@ def test_interm_ops(cwt_data):
 
     ops = ctx.interm_ops()
 
-    assert len(ops) == 4
-    assert set([x.identifier for x in ops]) == set(['CDAT.aggregate', 'CDAT.std', 'CDAT.subtract', 'CDAT.average'])
+    assert len(ops) == 3
+    assert set([x.identifier for x in ops]) == set(['CDAT.aggregate', 'CDAT.std', 'CDAT.subtract'])
 
 
 def test_output_ops(cwt_data):

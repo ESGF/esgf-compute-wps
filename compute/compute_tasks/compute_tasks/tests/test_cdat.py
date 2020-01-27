@@ -236,7 +236,7 @@ def test_merge(test_data, mocker):
 
     mocker.patch.object(context, 'message')
 
-    result = base.get_process(identifier)._process_func(context, p, *inputs)
+    result = base.get_process(identifier)._process_func(context, p, *inputs, compat=None)
 
     assert 'pr' in result
     assert 'prw' in result

@@ -4,6 +4,7 @@ import cwt
 from celery.utils.log import get_task_logger
 
 from compute_tasks import WPSError
+from compute_tasks import base
 from compute_tasks.context import state_mixin
 
 logger = get_task_logger('wps.context.operation')
@@ -198,6 +199,22 @@ class OperationContext(state_mixin.StateMixin, object):
                 self.input_var_names[next] = list(var_names)
             else:
                 var_names = set([y for x in operation.inputs for y in self.input_var_names[x.name]])
+
+                process = base.get_process(operation.identifier)
+
+                params = process._get_parameters(operation)
+
+                rename = params.get('rename')
+
+                if rename is not None:
+                    # Add new variable name to candidates
+                    var_names.add(rename)
+
+                    variable = params.get('variable')
+
+                    if variable is not None:
+                        # Remove original variable name
+                        var_names.remove(variable)
 
                 self.input_var_names[next] = list(var_names)
 
