@@ -718,12 +718,18 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
     return post_processing(v, output, **kwargs)
 
 
-def process_merge(context, operation, *input, **kwargs):
+def process_merge(context, operation, *input, compat, **kwargs):
+    if compat is None:
+        compat = 'no_conflicts'
+
+    if compat not in ('no_conflicts', 'override'):
+        raise WPSError('Cannot use {!r} as compat method, choose no_conflicts or override.')
+
     input = list(input)
 
     context.message('Merging {!s} variables', len(input))
 
-    return xr.merge(input)
+    return xr.merge(input, compat=compat)
 
 
 def parse_condition(context, cond):
@@ -1076,6 +1082,7 @@ def task_sum(self, context):
 
 
 @bind_process_func(process_merge)
+@base.parameter('compat', 'Method used to resolve conflicts, defaults to no_conflicts, can be changed to override to bypass checks.', str)
 @base.abstract('Merges variable from second input into first.')
 @base.register_process('CDAT.merge', min=2, max=float('inf'))
 def task_merge(self, context):
