@@ -212,9 +212,9 @@ class OperationContext(state_mixin.StateMixin, object):
 
             if rename is not None:
                 for x, y in zip(rename[::2], rename[1::2]):
-                    var_names.add(x)
+                    var_names.add(y)
 
-                    var_names.remove(y)
+                    var_names.remove(x)
 
                 self.input_var_names[next] = list(var_names)
 
