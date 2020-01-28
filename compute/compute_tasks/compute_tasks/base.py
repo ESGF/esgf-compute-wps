@@ -4,6 +4,7 @@ import importlib
 import json
 import os
 import pkgutil
+import types
 from builtins import str
 from functools import partial
 from functools import wraps
@@ -99,15 +100,27 @@ class ValidationError(WPSError):
     pass
 
 
-def validate_parameter(param, name, type, subtype, min, max, **kwargs):
+def validate_parameter(param, name, type, subtype, min, max, inputs, **kwargs):
     if param is None and min > 0:
         raise ValidationError(f'Parameter {name!r} is required')
 
     if isinstance(type, (list, tuple)):
         num = len(param.values)
 
-        if num < min or num > max:
-            raise ValidationError(f'The number of parameter values {num!r} is out of range min {min!r} max {max!r}.')
+        if isinstance(min, (types.FunctionType, types.LambdaType)):
+            try:
+                valid = min(name, num, inputs)
+
+                # Handle simple lambda's returning false
+                if not valid:
+                    raise Exception()
+            except ValidationError:
+                raise e
+            except Exception:
+                raise ValidationError(f'Parameter {name!r} failed validation, check abstract for details.')
+        else:
+            if num < min or num > max:
+                raise ValidationError(f'The number of parameter values {num!r} for {name!r} is out of range min {min!r} max {max!r}.')
 
         for x in param.values:
             try:
@@ -131,7 +144,7 @@ def validate(self, process):
         p = process.get_parameter(x['name'])
 
         if p is not None:
-            validate_parameter(p, **x)
+            validate_parameter(p, inputs=num, **x)
 
 
 BASE_ABSTRACT = """

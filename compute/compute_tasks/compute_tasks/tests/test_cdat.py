@@ -151,7 +151,7 @@ def test_groupby_bins(test_data, mocker):
 
     p = cwt.Process(identifier)
     p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(variable='pr', bins=[str(x) for x in range(0, 90, 10)])
+    p.add_parameters(variable=['pr',], bins=[str(x) for x in range(0, 90, 10)])
 
     data_inputs = {
         'variable': [x.to_dict() for x in p.inputs],
@@ -164,7 +164,7 @@ def test_groupby_bins(test_data, mocker):
 
     mocker.patch.object(context, 'message')
 
-    output = base.get_process(identifier)._process_func(context, p, *inputs, variable='pr', bins=[x for x in range(0, 90, 10)])
+    output = base.get_process(identifier)._process_func(context, p, *inputs, variable=['pr',], bins=[x for x in range(0, 90, 10)])
 
     assert len(output) == 8
 
@@ -270,7 +270,7 @@ def params(**kwargs):
 
 @pytest.mark.parametrize('identifier,v1,v2,output,extra', [
     ('CDAT.abs', -2, None, 2, params()),
-    ('CDAT.abs', -2, None, 2, params(variable='pr', rename='pr_test')),
+    ('CDAT.abs', -2, None, 2, params(variable=['pr'], rename=['pr', 'pr_test'])),
     ('CDAT.add', 1, 2, 3, params(const=None)),
     pytest.param('CDAT.add', 1, None, 3, params(), marks=pytest.mark.xfail),
     ('CDAT.add', 1, None, 3, params(const=2)),
@@ -324,7 +324,7 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, extra):
 
     result = base.get_process(identifier)._process_func(context, p, *inputs, **extra)
 
-    v = extra['rename'] if extra['rename'] is not None else 'pr'
+    v = extra['rename'][1] if extra['rename'] is not None else 'pr'
 
     assert v in result
 

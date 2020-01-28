@@ -659,8 +659,9 @@ def post_processing(variable, output, rename=None, fillna=None, **kwargs):
         else:
             output[variable] = output[variable].fillna(fillna)
 
-    if variable is not None and rename is not None:
-        output = output.rename({variable: rename})
+    if rename is not None:
+        for x, y in zip(rename[::2], rename[1::2]):
+            output = output.rename({x: y})
 
     return output
 
@@ -674,6 +675,8 @@ def process_elementwise(context, operation, *input, func, variable, **kwargs):
         if variable is None:
             output = func(input[0])
         else:
+            variable = variable[0]
+
             output = input[0].copy()
 
             output[variable] = func(input[0][variable])
@@ -692,6 +695,8 @@ def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
         if variable is None:
             output = func(input[0], axes)
         else:
+            variable = variable[0]
+
             output = input[0].copy()
 
             output[variable] = func(input[0][variable], axes)
@@ -710,6 +715,8 @@ def process_dataset(context, operation, *input, func, variable, **kwargs):
         if variable is None:
             output = func(input[0])
         else:
+            variable = variable[0]
+
             output = input[0].copy()
 
             output[variable] = func(input[0][variable])
@@ -732,7 +739,13 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
         else:
             output = input[0].copy()
 
-            output[variable] = func(input[0][variable], input[1][variable])
+            # Grab relative variable from its input
+            inputs = [input[x][y] for x, y in zip(range(len(input)), variable)]
+
+            # Set variable for post processing
+            variable = variable[0]
+
+            output[variable] = func(*inputs)
 
         output = post_processing(variable, output, **kwargs)
     else:
@@ -740,6 +753,8 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
             output = func(input[0], const)
         else:
             output = input[0].copy()
+
+            variable = variable[0]
 
             output[variable] = func(input[0][variable], const)
 
@@ -829,6 +844,8 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
     else:
         output = input[0].copy()
 
+        variable = variable[0]
+
         output[variable] = input[0][variable].where(cond, other)
 
     output = post_processing(variable, output, **kwargs)
@@ -837,6 +854,8 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
 
 
 def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
+    variable = variable[0]
+
     if variable not in input[0]:
         raise WPSError('Did not find variable {!s} in input.', variable)
 
@@ -874,6 +893,9 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
     if other is None:
         other = xr.core.dtypes.NA
 
+    if variable is not None:
+        variable = variable[0]
+
     output = input[0].map(_inner, args=(cond, other, func))
 
     output = post_processing(variable, output, **kwargs)
@@ -897,9 +919,19 @@ WORKFLOW_ABS = """This process is used to store global values in workflows. Doma
 and parameters defined here will become the default values on child operations.
 """
 
-param_variable = base.build_parameter('variable', 'The variable to process.', str)
-param_rename = base.build_parameter('rename', 'Name used to rename output of process.', str, min=1)
-param_fillna = base.build_parameter('fillna', 'The number used to replace nan values.', float)
+def validate_pairs(name, param_num, input_num):
+    if param_num % 2 != 0:
+        raise base.ValidationError(f'Parameter {name!r} failed validation, expected pairs of values but got odd number.')
+
+    return True
+
+def validate_param(name, param_num, input_nim):
+    if param_num != input_num:
+        raise base.ValidationError(f'Parameter {name!r} failed validation, expecting the number of values to match the number of inputs')
+
+param_variable = base.build_parameter('variable', 'Target variable for the process.', list, str, min=validate_param)
+param_rename = base.build_parameter('rename', 'List of pairs mapping variable to new name e.g. pr,pr_test will rename pr to pr_test.', list, str, min=validate_pairs)
+param_fillna = base.build_parameter('fillna', 'The number used to replace nan values in output.', float)
 
 DEFAULT_PARAMS = [
     param_variable,
