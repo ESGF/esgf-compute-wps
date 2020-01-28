@@ -557,7 +557,7 @@ def build_workflow(context):
 
         context.message('Operation {!r} new shape {!r}', next.identifier, tuple(interm[next.name].dims.values()))
 
-        logger.info('Operation %r variables %r shape %r', next.name, list(interm[next.name].data_vars), tuple(interm[next.name].dims.values))
+        logger.info('Operation %r variables %r shape %r', next.name, list(interm[next.name].data_vars), tuple(interm[next.name].dims.values()))
 
         if is_input:
             context.track_in_bytes(interm[next.name].nbytes)
