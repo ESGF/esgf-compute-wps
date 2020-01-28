@@ -536,11 +536,17 @@ def build_workflow(context):
             except KeyError as e:
                 raise WPSError('Missing intermediate data {!s}', e)
 
+        context.message('Gathered {!s} inputs for operation {!r}', len(inputs), next.identifier)
+
+        logger.info('Operation %r inputs %r', next.name, len(inputs))
+
         process = base.get_process(next.identifier)
 
         params = process._get_parameters(next)
 
-        logger.info('Params %r', params)
+        logger.info('Operation %r params %r', next.name, params)
+
+        context.message('Applying operation {!r}', next.identifier)
 
         if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
             interm[next.name] = process._process_func(context, next, *inputs, **params)
@@ -549,10 +555,12 @@ def build_workflow(context):
 
             interm[next.name] = process._process_func(context, next, *inputs, **params)
 
+        context.message('Operation {!r} new shape {!r}', next.identifier, tuple(interm[next.name].dims.values()))
+
+        logger.info('Operation %r variables %r shape %r', next.name, list(interm[next.name].data_vars), tuple(interm[next.name].dims.values))
+
         if is_input:
             context.track_in_bytes(interm[next.name].nbytes)
-
-        context.message('Storing intermediate {!r}', next.name)
 
     return interm
 
@@ -609,7 +617,7 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
     input = input[0]
 
     if operation.domain is not None:
-        logger.info('Method %r', method)
+        input_shape = tuple(input.dims.values())
 
         for dim in operation.domain.dimensions.values():
             if dim.start == dim.end and (dim.step is None or dim.step == 1):
@@ -630,6 +638,9 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
                     raise WPSError('Unable to subset {!r} with value {!s}, add parameter method set to "nearest" may resolve this.', dim.name, e)
 
                 raise WPSError('Unable to select to select data with {!r}', selector)
+        new_shape = tuple(input.dims.values())
+
+        context.message('Subset input {!r} -> {!r} for operation {!s}', input_shape, new_shape, operation.identifier)
 
         # Check if domain was outside the inputs domain.
         for x, y in input.dims.items():
@@ -640,6 +651,8 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
 
 
 def post_processing(variable, output, rename=None, fillna=None, **kwargs):
+    logger.info('Post-processing %r fillna %s rename %r **kwargs %r', variable, fillna, rename, kwargs)
+
     if fillna is not None:
         if variable is None:
             output = output.fillna(fillna)
@@ -665,7 +678,7 @@ def process_elementwise(context, operation, *input, func, variable, **kwargs):
 
             output[variable] = func(input[0][variable])
 
-        output = post_processing(variable, output, **kwargs)
+    output = post_processing(variable, output, **kwargs)
 
     return output
 
@@ -683,7 +696,7 @@ def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
 
             output[variable] = func(input[0][variable], axes)
 
-        output = post_processing(variable, output, **kwargs)
+    output = post_processing(variable, output, **kwargs)
 
     return output
 
@@ -701,7 +714,7 @@ def process_dataset(context, operation, *input, func, variable, **kwargs):
 
             output[variable] = func(input[0][variable])
 
-        output = post_processing(variable, output, **kwargs)
+    output = post_processing(variable, output, **kwargs)
 
     return output
 
