@@ -268,12 +268,9 @@ def params(**kwargs):
     return x
 
 
-@pytest.mark.parametrize('output_name', [
-    None,
-    'pr_test',
-])
 @pytest.mark.parametrize('identifier,v1,v2,output,extra', [
     ('CDAT.abs', -2, None, 2, params()),
+    ('CDAT.abs', -2, None, 2, params(variable='pr', rename='pr_test')),
     ('CDAT.add', 1, 2, 3, params(const=None)),
     pytest.param('CDAT.add', 1, None, 3, params(), marks=pytest.mark.xfail),
     ('CDAT.add', 1, None, 3, params(const=2)),
@@ -303,16 +300,13 @@ def params(**kwargs):
     ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), params(cond='pr>30', other=None, fillna=1e20)),
     ('CDAT.sqrt', 5, None, np.full((10, 90, 180), 2.23606797749979), params()),
 ])
-def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output_name):
+def test_processing(mocker, test_data, identifier, v1, v2, output, extra):
     inputs = [_build_data(test_data, v1)]
 
     if v2 is not None:
         inputs.append(_build_data(test_data, v2))
 
     p = cwt.Process(identifier)
-
-    if output_name is not None:
-        p.add_parameters(rename=output_name)
 
     vars = [cwt.Variable('test{!s}.nc'.format(str(x)), 'pr') for x, _ in enumerate(inputs)]
 
@@ -328,11 +322,9 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output
 
     context.input_var_names = {p.name: ['pr']}
 
-    extra.update(rename=output_name)
-
     result = base.get_process(identifier)._process_func(context, p, *inputs, **extra)
 
-    v = 'pr' if output_name is None else output_name
+    v = extra['rename'] if extra['rename'] is not None else 'pr'
 
     assert v in result
 
@@ -348,7 +340,6 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, extra, output
         expected = test_data.standard(output).pr.values
 
         result = result[v].values
-
 
     assert np.array_equal(result, expected)
 

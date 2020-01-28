@@ -641,9 +641,12 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
 
 def post_processing(variable, output, rename=None, fillna=None, **kwargs):
     if fillna is not None:
-        output[variable] = output[variable].fillna(fillna)
+        if variable is None:
+            output = output.fillna(fillna)
+        else:
+            output[variable] = output[variable].fillna(fillna)
 
-    if rename is not None:
+    if variable is not None and rename is not None:
         output = output.rename({variable: rename})
 
     return output
@@ -652,70 +655,84 @@ def post_processing(variable, output, rename=None, fillna=None, **kwargs):
 def process_elementwise(context, operation, *input, func, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
-    v = get_variable_name(context, operation, variable)
-
     if is_groupby:
         output = func(input[0])
     else:
-        output = input[0].copy()
+        if variable is None:
+            output = func(input[0])
+        else:
+            output = input[0].copy()
 
-        output[v] = func(input[0][v])
+            output[variable] = func(input[0][variable])
 
-    return post_processing(v, output, **kwargs)
+        output = post_processing(variable, output, **kwargs)
+
+    return output
 
 
 def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
-    v = get_variable_name(context, operation, variable)
-
     if is_groupby:
         output = func(input[0], None)
     else:
-        output = input[0].copy()
-
-        if axes is None:
-            output[v] = func(input[0][v], None)
+        if variable is None:
+            output = func(input[0], axes)
         else:
-            output[v] = func(input[0][v], axes)
+            output = input[0].copy()
 
-    return post_processing(v, output, **kwargs)
+            output[variable] = func(input[0][variable], axes)
+
+        output = post_processing(variable, output, **kwargs)
+
+    return output
 
 
 def process_dataset(context, operation, *input, func, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
-    v = get_variable_name(context, operation, variable)
-
     if is_groupby:
         output = func(input[0])
     else:
-        output = input[0].copy()
+        if variable is None:
+            output = func(input[0])
+        else:
+            output = input[0].copy()
 
-        output[v] = func(input[0][v])
+            output[variable] = func(input[0][variable])
 
-    return post_processing(v, output, **kwargs)
+        output = post_processing(variable, output, **kwargs)
+
+    return output
 
 
 def process_dataset_or_const(context, operation, *input, func, variable, const, **kwargs):
     if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
         raise WPSError('GroupBy input not supported for process {!s}', operation.identifier)
 
-    v = get_variable_name(context, operation, variable)
-
     if const is None:
-        output = input[0].copy()
-
-        if len(input) == 2:
-            output[v] = func(input[0][v], input[1][v])
-        else:
+        if len(input) != 2:
             raise WPSError('Process {!s} requires 2 inputs or "const" parameter.', operation.identifier)
+
+        if variable is None:
+            output = func(input[0], input[1])
+        else:
+            output = input[0].copy()
+
+            output[variable] = func(input[0][variable], input[1][variable])
+
+        output = post_processing(variable, output, **kwargs)
     else:
-        output = input[0].copy()
+        if variable is None:
+            output = func(input[0], const)
+        else:
+            output = input[0].copy()
 
-        output[v] = func(input[0][v], const)
+            output[variable] = func(input[0][variable], const)
 
-    return post_processing(v, output, **kwargs)
+        output = post_processing(variable, output, **kwargs)
+
+    return output
 
 
 def process_merge(context, operation, *input, compat, **kwargs):
@@ -752,7 +769,7 @@ def parse_condition(context, cond):
     except TypeError:
         right = None
 
-    context.message('Using condition "{!s}{!s}{!s}"', left, comp, right)
+    context.message('Using condition "{!s} - {!s} - {!s}"', left, comp, right)
 
     return left, comp, right
 
@@ -787,20 +804,23 @@ def build_condition(context, cond, input):
 
 def process_where(context, operation, *input, variable, cond, other, **kwargs):
     if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
-        raise WPSError('GroupBy input not supported for process {!s}', operation.identifier)
-
-    v = get_variable_name(context, operation, variable)
+        raise WPSError('Cannot apply where to DatasetGroupBy input.')
 
     cond = build_condition(context, cond, input[0])
 
     if other is None:
         other = xr.core.dtypes.NA
 
-    output = input[0].copy()
+    if variable is None:
+        output = input[0].where(cond, other)
+    else:
+        output = input[0].copy()
 
-    output[v] = input[0][v].where(cond, other)
+        output[variable] = input[0][variable].where(cond, other)
 
-    return post_processing(v, output, **kwargs)
+    output = post_processing(variable, output, **kwargs)
+
+    return output
 
 
 def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
@@ -820,11 +840,11 @@ def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
 def process_aggregate(context, operation, *input, variable, **kwargs):
     context.message('Aggregating {!s} files by coords', len(input))
 
-    v = get_variable_name(context, operation, variable)
-
     output = xr.combine_by_coords(input)
 
-    return post_processing(v, output, **kwargs)
+    output = post_processing(variable, output, **kwargs)
+
+    return output
 
 
 def process_filter_map(context, operation, *input, variable, cond, other, func, **kwargs):
@@ -832,8 +852,6 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
         filtered = x.where(cond, other)
 
         return getattr(filtered, func)()
-
-    v = get_variable_name(context, operation, variable)
 
     if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
         cond = build_condition(context, cond, input[0]._obj)
@@ -845,7 +863,9 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
 
     output = input[0].map(_inner, args=(cond, other, func))
 
-    return post_processing(v, output, **kwargs)
+    output = post_processing(variable, output, **kwargs)
+
+    return output
 
 
 WHERE_ABS = """Filters elements based on a condition.
