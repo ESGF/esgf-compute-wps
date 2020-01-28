@@ -617,7 +617,7 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
     input = input[0]
 
     if operation.domain is not None:
-        input_shape = tuple(input.dims.values())
+        # input_shape = tuple(input.dims.values())
 
         for dim in operation.domain.dimensions.values():
             if dim.start == dim.end and (dim.step is None or dim.step == 1):
@@ -638,9 +638,9 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
                     raise WPSError('Unable to subset {!r} with value {!s}, add parameter method set to "nearest" may resolve this.', dim.name, e)
 
                 raise WPSError('Unable to select to select data with {!r}', selector)
-        new_shape = tuple(input.dims.values())
+        # new_shape = tuple(input.dims.values())
 
-        context.message('Subset input {!r} -> {!r} for operation {!s}', input_shape, new_shape, operation.identifier)
+        # context.message('Subset input {!r} -> {!r} for operation {!s}', input_shape, new_shape, operation.identifier)
 
         # Check if domain was outside the inputs domain.
         for x, y in input.dims.items():
@@ -669,14 +669,15 @@ def post_processing(variable, output, rename=None, fillna=None, **kwargs):
 def process_elementwise(context, operation, *input, func, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
+    if variable is not None:
+        variable = variable[0]
+
     if is_groupby:
         output = func(input[0])
     else:
         if variable is None:
             output = func(input[0])
         else:
-            variable = variable[0]
-
             output = input[0].copy()
 
             output[variable] = func(input[0][variable])
@@ -689,14 +690,15 @@ def process_elementwise(context, operation, *input, func, variable, **kwargs):
 def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
+    if variable is not None:
+        variable = variable[0]
+
     if is_groupby:
         output = func(input[0], None)
     else:
         if variable is None:
             output = func(input[0], axes)
         else:
-            variable = variable[0]
-
             output = input[0].copy()
 
             output[variable] = func(input[0][variable], axes)
@@ -709,14 +711,15 @@ def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
 def process_dataset(context, operation, *input, func, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
 
+    if variable is not None:
+        variable = variable[0]
+
     if is_groupby:
         output = func(input[0])
     else:
         if variable is None:
             output = func(input[0])
         else:
-            variable = variable[0]
-
             output = input[0].copy()
 
             output[variable] = func(input[0][variable])
@@ -742,10 +745,12 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
             # Grab relative variable from its input
             inputs = [input[x][y] for x, y in zip(range(len(input)), variable)]
 
-            # Set variable for post processing
             variable = variable[0]
 
             output[variable] = func(*inputs)
+
+        if variable is not None:
+            variable = variable[0]
 
         output = post_processing(variable, output, **kwargs)
     else:
@@ -757,6 +762,9 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
             variable = variable[0]
 
             output[variable] = func(input[0][variable], const)
+
+        if variable is not None:
+            variable = variable[0]
 
         output = post_processing(variable, output, **kwargs)
 
@@ -838,6 +846,9 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
 
     if other is None:
         other = xr.core.dtypes.NA
+
+    if variable is not None:
+        variable = variable[0]
 
     if variable is None:
         output = input[0].where(cond, other)
