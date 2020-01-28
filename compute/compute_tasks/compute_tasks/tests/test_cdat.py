@@ -667,3 +667,9 @@ def test_gather_inputs(mocker, mpc, identifier, inputs, domain, expected, expect
 
     assert len(data) == expected
     assert isinstance(data[0].time.values[0], expected_type)
+
+def test_render_abstract():
+    for x in base.REGISTRY:
+        p = base.get_process(x)
+
+        assert p._render_abstract() is not None

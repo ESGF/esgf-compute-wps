@@ -66,7 +66,7 @@ def get_process(identifier):
         raise WPSError('Unknown process {!r}', e)
 
 
-def build_parameter(name, desc, type, subtype=None, min=0, max=1):
+def build_parameter(name, desc, type, subtype=None, min=0, max=1, validate_func=None):
     return {
         'name': name,
         'desc': desc,
@@ -74,15 +74,16 @@ def build_parameter(name, desc, type, subtype=None, min=0, max=1):
         'subtype': subtype,
         'min': min,
         'max': max,
+        'validate_func': validate_func,
     }
 
 
-def parameter(name, desc, type, subtype=None, min=0, max=1):
+def parameter(name, desc, type, subtype=None, min=0, max=1, validate_func=None):
     def _wrapper(func):
         if name in func._parameters:
             raise Exception('Parameter {!s} already exists'.format(name))
 
-        func._parameters[name] = build_parameter(name, desc, type, subtype, min, max)
+        func._parameters[name] = build_parameter(name, desc, type, subtype, min, max, validate_func)
 
         return func
     return _wrapper
@@ -100,16 +101,16 @@ class ValidationError(WPSError):
     pass
 
 
-def validate_parameter(param, name, type, subtype, min, max, inputs, **kwargs):
+def validate_parameter(param, name, type, subtype, min, max, validate_func, inputs, **kwargs):
     if param is None and min > 0:
         raise ValidationError(f'Parameter {name!r} is required')
 
     if isinstance(type, (list, tuple)):
         num = len(param.values)
 
-        if isinstance(min, (types.FunctionType, types.LambdaType)):
+        if validate_func is not None:
             try:
-                valid = min(name, num, inputs)
+                valid = validate(name, num, inputs)
 
                 # Handle simple lambda's returning false
                 if not valid:
