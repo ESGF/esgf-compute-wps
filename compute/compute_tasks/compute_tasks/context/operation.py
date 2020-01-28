@@ -211,14 +211,10 @@ class OperationContext(state_mixin.StateMixin, object):
             rename = params.get('rename')
 
             if rename is not None:
-                # Add new variable name to candidates
-                var_names.add(rename)
+                for x, y in zip(rename[::2], rename[1::2]):
+                    var_names.add(x)
 
-                variable = params.get('variable')
-
-                if variable is not None:
-                    # Remove original variable name
-                    var_names.remove(variable)
+                    var_names.remove(y)
 
                 self.input_var_names[next] = list(var_names)
 
