@@ -3,6 +3,7 @@ import json
 import re
 import os
 import tempfile
+import sys
 
 import cdms2
 import cftime
@@ -40,43 +41,40 @@ CMIP6_AGG4 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6
 CMIP5_AGG1 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanCM4/decadal1960/day/atmos/tas/r10i1p1/tas_day_CanCM4_decadal1960_r10i1p1_19610101-19701231.nc'
 CMIP5_AGG2 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanCM4/decadal1960/day/atmos/tas/r10i1p1/tas_day_CanCM4_decadal1960_r10i1p1_19710101-19801231.nc'
 
+np.set_printoptions(threshold=sys.maxsize)
+
 class TestDataGenerator(object):
-    def standard(self, value, lat=90, lon=180, time=10, name=None, time_start=None):
-        if name is None:
-            name = 'pr'
+    def generate(self, type=None, value=None, name=None, time_start=None):
+        type = type or 'standard'
+        name = name or 'pr'
+        time_start = time_start or '1990-01-01'
+        value = value or 5
 
-        if time_start is None:
-            time_start = '1990-01-01'
+        if type == 'standard':
+            data = np.full((10, 90, 180), value)
+        elif type == 'random':
+            np.random.seed(0)
+            data = np.random.normal(size=(10, 90, 180))
+        else:
+            raise Exception('Unknown type')
 
         data_vars = {
-            name: (['time', 'lat', 'lon'], np.full((time, lat, lon), value)),
+            name: (('time', 'lat', 'lon'), data),
         }
 
         coords = {
-            'time': pd.date_range(time_start, periods=time),
-            'lat': (['lat'], np.arange(-90, 90, 180/lat)),
-            'lon': (['lon'], np.arange(0, 360, 360/lon)),
+            'time': pd.date_range(time_start, periods=10),
+            'lat': (['lat'], np.arange(-90, 90, 2)),
+            'lon': (['lon'], np.arange(0, 360, 2)),
         }
 
         return xr.Dataset(data_vars, coords)
 
-    def increasing_lat(self, lat=90, lon=180, time=10, name=None):
-        if name is None:
-            name = 'pr'
+    def groupby_bins(self):
+        ds = self.generate('random')
 
-        data = np.array([np.array([np.full((lon), x) for x in range(lat)]) for _ in range(time)])
+        return ds.groupby_bins('pr', bins=np.arange(0.0, 1.0, 0.1))
 
-        data_vars = {
-            name: (['time', 'lat', 'lon'], data),
-        }
-
-        coords = {
-            'time': pd.date_range('1990-01-01', periods=time),
-            'lat': (['lat'], np.arange(-90, 90, 180/lat)),
-            'lon': (['lon'], np.arange(0, 360, 360/lon)),
-        }
-
-        return xr.Dataset(data_vars, coords)
 
 @pytest.fixture
 def test_data():
@@ -95,78 +93,47 @@ def mpc():
 def test_groupby_bins_invalid_bin(test_data, mocker):
     identifier = 'CDAT.groupby_bins'
 
-    v1 = test_data.increasing_lat(name='pr')
-
-    inputs = [v1]
+    v1 = test_data.generate('random')
 
     p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(variable='pr', bins=[str(x) for x in range(0, 90, 10)]+['abcd',])
 
-    data_inputs = {
-        'variable': [x.to_dict() for x in p.inputs],
-        'domain': [],
-        'operation': [p.to_dict()],
-    }
+    context = operation.OperationContext()
 
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    mocker.patch.object(context, 'message')
+    mocker.patch.object(context, 'action')
 
     with pytest.raises(WPSError):
-        base.get_process(identifier)._process_func(context, p, *inputs, variable='pr', bins=['abcd'])
+        base.get_process(identifier)._process_func(context, p, *[v1], variable=['prw'], bins=['abcd'])
 
 
 def test_groupby_bins_missing_variable(test_data, mocker):
     identifier = 'CDAT.groupby_bins'
 
-    v1 = test_data.increasing_lat(name='pr')
-
-    inputs = [v1]
+    v1 = test_data.generate('random')
 
     p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(variable='tas', bins=[str(x) for x in range(0, 90, 10)])
 
-    data_inputs = {
-        'variable': [x.to_dict() for x in p.inputs],
-        'domain': [],
-        'operation': [p.to_dict()],
-    }
+    context = operation.OperationContext()
 
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    mocker.patch.object(context, 'message')
+    mocker.patch.object(context, 'action')
 
     with pytest.raises(WPSError):
-        base.get_process(identifier)._process_func(context, p, *inputs, variable='tas', bins=[x for x in range(0, 90, 10)])
+        base.get_process(identifier)._process_func(context, p, *[v1], variable=['prw'], bins=np.arange(0.0, 1.0, 0.1))
 
 
 def test_groupby_bins(test_data, mocker):
     identifier = 'CDAT.groupby_bins'
 
-    v1 = test_data.increasing_lat(name='pr')
-
-    inputs = [v1]
+    v1 = test_data.generate('random')
 
     p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
-    p.add_parameters(variable=['pr',], bins=[str(x) for x in range(0, 90, 10)])
 
-    data_inputs = {
-        'variable': [x.to_dict() for x in p.inputs],
-        'domain': [],
-        'operation': [p.to_dict()],
-    }
+    context = operation.OperationContext()
 
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-    context.input_var_names = {p.name: ['pr']}
+    mocker.patch.object(context, 'action')
 
-    mocker.patch.object(context, 'message')
+    output = base.get_process(identifier)._process_func(context, p, *[v1], variable=['pr'], bins=np.arange(0.0, 1.0, 0.1))
 
-    output = base.get_process(identifier)._process_func(context, p, *inputs, variable=['pr',], bins=[x for x in range(0, 90, 10)])
-
-    assert len(output) == 8
+    assert len(output) == 9
 
 
 @pytest.mark.parametrize('cond', [
@@ -181,167 +148,171 @@ def test_groupby_bins(test_data, mocker):
     'pr isnull',
     'pr notnull',
     'prisnull',
-    pytest.param('lon>>>>180', marks=pytest.mark.xfail),
-    pytest.param('lon>>180', marks=pytest.mark.xfail),
-    pytest.param(None, marks=pytest.mark.xfail),
-    pytest.param('tas>-45', marks=pytest.mark.xfail(reason='tas not available')),
 ])
 def test_where(test_data, cond, mocker):
     identifier = 'CDAT.where'
 
-    v1 = test_data.standard(1, name='pr')
-
-    inputs = [v1]
+    v1 = test_data.generate()
 
     p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'))
 
-    if cond is not None:
-        p.add_parameters(cond=cond)
+    context = operation.OperationContext()
 
-    data_inputs = {
-        'variable': [x.to_dict() for x in p.inputs],
-        'domain': [],
-        'operation': [p.to_dict()],
-    }
+    mocker.patch.object(context, 'action')
 
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-    context.input_var_names = {p.name: ['pr']}
-
-    mocker.patch.object(context, 'message')
-
-    result = base.get_process(identifier)._process_func(context, p, *inputs, variable=None, cond=cond, other=None)
+    result = base.get_process(identifier)._process_func(context, p, *[v1], variable=None, cond=cond, other=None)
 
     assert 'pr' in result
+
+
+def test_where_other(test_data, mocker):
+    identifier = 'CDAT.where'
+
+    v1 = test_data.generate('random')
+
+    p = cwt.Process(identifier)
+
+    context = operation.OperationContext()
+
+    mocker.patch.object(context, 'action')
+
+    result = base.get_process(identifier)._process_func(context, p, *[v1], variable=None, cond='pr<0.5', other=1e20)
+
+    assert 'pr' in result
+
+    print(np.sum(result.pr).values)
+
+    assert np.sum(result.pr).values == np.array(5.0156e+24)
+
+
+@pytest.mark.parametrize('cond', [
+    'lon>>>>180',
+    'lon>>180',
+    None,
+    'tas>-45',
+])
+def test_where_error(test_data, cond, mocker):
+    identifier = 'CDAT.where'
+
+    v1 = test_data.generate()
+
+    p = cwt.Process(identifier)
+
+    context = operation.OperationContext()
+
+    mocker.patch.object(context, 'action')
+
+    with pytest.raises(WPSError):
+        base.get_process(identifier)._process_func(context, p, *[v1], variable=None, cond=cond, other=None)
 
 
 def test_merge(test_data, mocker):
     identifier = 'CDAT.merge'
 
-    v1 = test_data.standard(1, name='pr')
-    v2 = test_data.standard(1, name='prw')
+    v1 = test_data.generate(name='pr')
+    v2 = test_data.generate(name='prw')
 
     inputs = [v1, v2]
 
     p = cwt.Process(identifier)
-    p.add_inputs(cwt.Variable('test.nc', 'pr'), cwt.Variable('test.nc', 'prw'))
 
-    data_inputs = {
-        'variable': [x.to_dict() for x in p.inputs],
-        'domain': [],
-        'operation': [p.to_dict()],
-    }
+    context = operation.OperationContext()
 
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
-
-    mocker.patch.object(context, 'message')
+    mocker.patch.object(context, 'action')
 
     result = base.get_process(identifier)._process_func(context, p, *inputs, compat=None)
 
     assert 'pr' in result
     assert 'prw' in result
 
-
-def _build_data(test_data, input):
-    if isinstance(input, tuple):
-        bins = input[1].pop('bins', None)
-
-        if isinstance(input[0], str) and input[0] == 'increasing_lat':
-            data = test_data.increasing_lat(**input[1])
-        else:
-            data = test_data.standard(input[0], **input[1])
-    else:
-        data = test_data.standard(input)
-
-    return data
-
-
 def params(**kwargs):
-    x = {
+    p = {
         'variable': None,
-        'rename': None,
         'fillna': None,
+        'rename': None
     }
 
-    x.update(kwargs)
+    p.update(kwargs)
 
-    return x
+    return p
 
+POS_5 = {'value': 5}
+POS_2 = {'value': 2}
+NEG_5 = {'value': -5}
+RAND = {'type': 'random'}
 
-@pytest.mark.parametrize('identifier,v1,v2,output,extra', [
-    ('CDAT.abs', -2, None, 2, params()),
-    ('CDAT.abs', -2, None, 2, params(variable=['pr'], rename=['pr', 'pr_test'])),
-    ('CDAT.add', 1, 2, 3, params(const=None)),
-    pytest.param('CDAT.add', 1, None, 3, params(), marks=pytest.mark.xfail),
-    ('CDAT.add', 1, None, 3, params(const=2)),
-    ('CDAT.divide', 1, 2, 0.5, params(const=None)),
-    ('CDAT.divide', 1, None, 0.5, params(const=2)),
-    ('CDAT.exp', 1, None, 2.718281828459045, params(const=None)),
-    ('CDAT.log', 5, None, 1.6094379124341003, params(const=None)),
-    ('CDAT.multiply', 2, 3, 6, params(const=None)),
-    ('CDAT.multiply', 2, None, 6, params(const=3)),
-    ('CDAT.power', 2, 2, 4, params(const=None)),
-    ('CDAT.power', 2, None, 4, params(const=2)),
-    ('CDAT.subtract', 2, 1, 1, params(const=None)),
-    ('CDAT.subtract', 2, None, 3, params(const=-1)),
-    pytest.param('CDAT.subtract', 2, None, 3, params(const='abcd'), marks=pytest.mark.xfail),
-    ('CDAT.count', 2, None, np.array(162000), params()),
-    ('CDAT.mean', 2, None, np.array(2.0), params(axes=None)),
-    ('CDAT.mean', 2, None, np.full((90, 180), 2), params(axes=['time'])),
-    ('CDAT.std', 5, None, np.full((90, 180), 0), params(axes=['time'])),
-    ('CDAT.var', 5, None, np.full((90, 180), 0), params(axes=['time'])),
-    ('CDAT.squeeze', (5, {'time': 10, 'lat': 1, 'lon': 1}), None, np.full((10,), 5), params()),
-    ('CDAT.aggregate', (5, {'time_start': '1990'}), (5, {'time_start': '1991'}), np.full((20, 90, 180), 5), params()),
-    ('CDAT.filter_map', ('increasing_lat', {}), None, np.array(106200), params(cond='pr>30', func='count', other=None)),
-    ('CDAT.filter_map', ('increasing_lat', {'bins': np.arange(0, 90, 10).tolist()}), None, np.array(106200), params(cond='pr>30', func='count', other=None)),
-    ('CDAT.filter_map', ('increasing_lat', {'bins': np.arange(0, 90, 10).tolist()}), None, np.array(162000), params(cond='pr>30', func='count', other=40)),
-    ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), params(cond='pr>30', other=1e20)),
-    ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(60.0)), params(cond='pr>30', other=None)),
-    ('CDAT.where', ('increasing_lat', {}), None, ('mean', np.array(3.4444444444444443e+19)), params(cond='pr>30', other=None, fillna=1e20)),
-    ('CDAT.sqrt', 5, None, np.full((10, 90, 180), 2.23606797749979), params()),
+@pytest.mark.parametrize('identifier,v1,v2,output,output_var,extra', [
+    ('CDAT.abs', NEG_5, None, np.array(810000), 'pr', params()),
+    ('CDAT.abs', NEG_5, None, np.array(810000), 'pr', params(variable=['pr'])),
+    ('CDAT.abs', NEG_5, None, np.array(810000), 'pr', params(fillna=1e20)),
+    ('CDAT.abs', NEG_5, None, np.array(810000), 'pr_test', params(rename=['pr', 'pr_test'])),
+    ('CDAT.add', POS_5, POS_2, np.array(1134000), 'pr', params(const=None)),
+    ('CDAT.add', POS_5, None, np.array(1458000), 'pr', params(const=4)),
+    ('CDAT.add', POS_5, None, np.array(1458000), 'pr', params(const=4, variable=['pr'])),
+    ('CDAT.add', POS_5, None, np.array(1458000), 'pr', params(const=4, fillna=1e20)),
+    ('CDAT.add', POS_5, None, np.array(1458000), 'pr_test', params(const=4, rename=['pr', 'pr_test'])),
+    ('CDAT.divide', POS_5, POS_2, np.array(405000.), 'pr', params(const=None)),
+    ('CDAT.divide', POS_5, POS_2, np.array(405000.), 'pr', params(const=None, variable=['pr', 'pr'])),
+    ('CDAT.divide', POS_5, None, np.array(162000.), 'pr', params(const=5)),
+    ('CDAT.exp', POS_5, None, np.array(24042931.77461741), 'pr', params()),
+    ('CDAT.filter_map', RAND, None, np.array(57172.20906099566), 'pr', params(cond='pr>0.5', func='sum', other=None)),
+    ('CDAT.filter_map', RAND, None, np.array(1.11844e+25), 'pr', params(cond='pr>0.5', func='sum', other=1e20)),
+    ('CDAT.filter_map', RAND, None, np.array(57172.20906099566), 'pr', params(cond='pr>0.5', func='sum', other=None, fillna=1e20)),
+    ('CDAT.filter_map', RAND, None, np.array(57172.20906099566), 'pr_test', params(cond='pr>0.5', func='sum', other=None, rename=['pr', 'pr_test'])),
+    ('CDAT.log', POS_5, None, np.array(260728.94181432418), 'pr', params()),
+    ('CDAT.max', RAND, None, np.array(4.285855641221728), 'pr', params(axes=None)),
+    ('CDAT.max', RAND, None, np.array(24966.70967411557), 'pr', params(axes=['time'])),
+    ('CDAT.max', RAND, None, np.array(4.285855641221728), 'pr', params(axes=None, variable=['pr'])),
+    ('CDAT.max', RAND, None, np.array(4.285855641221728), 'pr', params(axes=None, fillna=1e20)),
+    ('CDAT.max', RAND, None, np.array(4.285855641221728), 'pr_test', params(axes=None, rename=['pr', 'pr_test'])),
+    ('CDAT.mean', RAND, None, np.array(0.005161633523396578), 'pr', params(axes=None)),
+    ('CDAT.min', RAND, None, np.array(-4.852117653180117), 'pr', params(axes=None)),
+    ('CDAT.multiply', POS_5, None, np.array(4050000), 'pr', params(const=5)),
+    ('CDAT.power', POS_5, None, np.array(4050000), 'pr', params(const=2)),
+    ('CDAT.subtract', POS_5, None, np.array(486000), 'pr', params(const=2)),
+    ('CDAT.sum', RAND, None, np.array(836.1846307902457), 'pr', params(axes=None)),
+    ('CDAT.where', RAND, None, np.array(57172.20906099566), 'pr', params(cond='pr>0.5', other=None)),
+    ('CDAT.where', RAND, None, np.array(1.11844e+25), 'pr', params(cond='pr>0.5', other=1e20)),
+    ('CDAT.count', RAND, None, np.array(162000), 'pr', params()),
+    ('CDAT.std', RAND, None, np.array(0.9975010966537913), 'pr', params(axes=None)),
+    ('CDAT.var', RAND, None, np.array(0.9950084378255163), 'pr', params(axes=None)),
+    ('CDAT.sqrt', RAND, None, np.array(66860.64544173385), 'pr', params()),
 ])
-def test_processing(mocker, test_data, identifier, v1, v2, output, extra):
-    inputs = [_build_data(test_data, v1)]
+def test_processing(mocker, test_data, identifier, v1, v2, output, output_var, extra):
+    data = [test_data.generate(**v1)]
 
     if v2 is not None:
-        inputs.append(_build_data(test_data, v2))
+        data.append(test_data.generate(**v2))
 
-    p = cwt.Process(identifier)
-
-    vars = [cwt.Variable('test{!s}.nc'.format(str(x)), 'pr') for x, _ in enumerate(inputs)]
-
-    data_inputs = {
-        'variable': [x.to_dict() for x in vars],
-        'domain': [],
-        'operation': [p.to_dict()],
-    }
-
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+    context = operation.OperationContext()
 
     mocker.patch.object(context, 'action')
 
-    context.input_var_names = {p.name: ['pr']}
+    p = cwt.Process(identifier)
 
-    result = base.get_process(identifier)._process_func(context, p, *inputs, **extra)
+    result = base.get_process(identifier)._process_func(context, p, *data, **extra)
 
-    v = extra['rename'][1] if extra['rename'] is not None else 'pr'
+    assert output_var in result
 
-    assert v in result
+    print(np.sum(result[output_var]).values)
 
-    if isinstance(output, np.ndarray):
-        expected = output
+    assert np.sum(result[output_var]) == output
 
-        result = result[v].values
-    elif isinstance(output, tuple):
-        expected = output[1]
+@pytest.mark.parametrize('identifier,v1,v2,output,output_var,extra', [
+    ('CDAT.add', POS_5, None, None, 'pr', params(const=None)),
+])
 
-        result = getattr(result[v], output[0])().values
-    else:
-        expected = test_data.standard(output).pr.values
+def test_processing_error(mocker, test_data, identifier, v1, v2, output, output_var, extra):
+    data = [test_data.generate(**v1)]
 
-        result = result[v].values
+    context = operation.OperationContext()
 
-    assert np.array_equal(result, expected)
+    mocker.patch.object(context, 'action')
+
+    p = cwt.Process(identifier)
+
+    with pytest.raises(WPSError):
+        base.get_process(identifier)._process_func(context, p, *data, **extra)
 
 
 @pytest.mark.parametrize('domain,decode_times,expected,params', [

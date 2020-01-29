@@ -114,8 +114,19 @@ def validate_workflow(context):
             if len(var_names) > 1:
                 raise base.ValidationError('Expecting the same variable name for all inputs of {!s}, got {!s}', next.identifier, ', '.join(var_names))
         else:
-            # TODO validate variable names are available
-            pass
+            variable = next.get_parameter('variable')
+
+            if variable is not None:
+                for x in variable.values:
+                    if x not in var_names:
+                        raise base.ValidationError(f'Expecting variable {x!r} to be present')
+
+            rename = next.get_parameter('rename')
+
+            if rename is not None:
+                for x, y in zip(rename[::2], rename[1::2]):
+                    if x not in var_names:
+                        raise base.ValidationError(f'Expecting variable {x!r} to be present')
 
 
 def build_workflow(identifier, data_inputs, job, user, process):

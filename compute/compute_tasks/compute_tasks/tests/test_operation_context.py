@@ -11,6 +11,8 @@ class CWTData(object):
     def __init__(self):
         self.v1 = cwt.Variable('file:///test1.nc', 'tas')
         self.v2 = cwt.Variable('file:///test2.nc', 'tas')
+        self.v3 = cwt.Variable('file:///test3.nc', 'pr')
+        self.v4 = cwt.Variable('file:///test3.nc', 'prw')
 
         self.d0 = cwt.Domain(time=slice(10, 20, 2))
 
@@ -49,6 +51,32 @@ class CWTData(object):
 
         return data_inputs
 
+    def workflow_with_rename(self):
+        s1 = cwt.Process('CDAT.subset', name='s1')
+        s1.add_inputs(self.v3)
+
+        s2 = cwt.Process('CDAT.subset', name='s2')
+        s2.add_inputs(self.v4)
+
+        m = cwt.Process('CDAT.merge', name='m')
+        m.add_inputs(s1, s2)
+
+        c = cwt.Process('CDAT.count', name='c')
+        c.add_inputs(m)
+        c.add_parameters(rename=['pr', 'pr_count'])
+
+        s = cwt.Process('CDAT.sum', name='s')
+        s.add_inputs(c)
+        s.add_parameters(variable=['pr_count'], rename=['pr_count', 'pr_sum'])
+
+        w = cwt.Process('CDAT.workflow')
+        w.add_inputs(s)
+
+        return {
+            'variable': [self.v3.to_dict(), self.v4.to_dict()],
+            'domain': [],
+            'operation': [s1.to_dict(), s2.to_dict(), m.to_dict(), c.to_dict(), s.to_dict(), w.to_dict()]
+        }
 
 @pytest.fixture(scope='function')
 def cwt_data():
@@ -56,18 +84,22 @@ def cwt_data():
 
 
 def test_topo_sort(cwt_data):
-    workflow = cwt_data.sample_workflow()
+    workflow = cwt_data.workflow_with_rename()
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.workflow', workflow)
 
-    ops = [x for x, _ in ctx.topo_sort()]
+    output = dict((x.name, y) for x, y in ctx.topo_sort())
 
-    assert ops[0].identifier == 'CDAT.aggregate'
-    assert ops[1].identifier == 'CDAT.std'
-    assert ops[2].identifier == 'CDAT.subtract'
-    assert ops[3].identifier == 'CDAT.max'
-    assert ops[4].identifier == 'CDAT.min'
-    assert ops[5].identifier == 'CDAT.divide'
+    assert 's1' in output
+    assert output['s1'] == ['pr']
+    assert 's2' in output
+    assert output['s2'] == ['prw']
+    assert 'm' in output
+    assert sorted(output['m']) == ['pr', 'prw']
+    assert 'c' in output
+    assert sorted(output['c']) == ['pr', 'prw']
+    assert 's' in output
+    assert sorted(output['s']) == ['pr_count', 'prw']
 
 
 def test_find_neighbors(cwt_data):

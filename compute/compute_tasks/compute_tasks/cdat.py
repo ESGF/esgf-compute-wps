@@ -587,22 +587,6 @@ def execute_delayed(context, delayed, client=None):
             DaskJobTracker(context, fut)
 
 
-def get_variable_name(context, operation, variable):
-    candidates = context.input_var_names[operation.name]
-
-    if len(candidates) == 1 and variable is None:
-        v = candidates[0]
-    else:
-        if variable is None:
-            raise WPSError('Could not determine target variable for process {!s} ({!s})', operation.identifier, operation.name)
-        else:
-            v = variable
-
-    context.message('Using {!s} as input variable', v)
-
-    return v
-
-
 def process_subset(context, operation, *input, method=None, rename=None, fillna=None, **kwargs):
     """ Subsets a Dataset.
 
@@ -617,8 +601,6 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
     input = input[0]
 
     if operation.domain is not None:
-        # input_shape = tuple(input.dims.values())
-
         for dim in operation.domain.dimensions.values():
             if dim.start == dim.end and (dim.step is None or dim.step == 1):
                 selector = {dim.name: dim.start}
@@ -638,9 +620,6 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
                     raise WPSError('Unable to subset {!r} with value {!s}, add parameter method set to "nearest" may resolve this.', dim.name, e)
 
                 raise WPSError('Unable to select to select data with {!r}', selector)
-        # new_shape = tuple(input.dims.values())
-
-        # context.message('Subset input {!r} -> {!r} for operation {!s}', input_shape, new_shape, operation.identifier)
 
         # Check if domain was outside the inputs domain.
         for x, y in input.dims.items():
@@ -650,27 +629,33 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
     return input
 
 
-def post_processing(variable, output, rename=None, fillna=None, **kwargs):
-    logger.info('Post-processing %r fillna %s rename %r **kwargs %r', variable, fillna, rename, kwargs)
+def post_processing(context, variable, output, rename=None, fillna=None, **kwargs):
+    logger.info('Post-processing arguments rename %r fillna %r **kwargs %r', rename, fillna, kwargs)
+
+    # Default to first variable
+    if variable is not None and isinstance(variable, (list, tuple)):
+        variable = variable[0]
 
     if fillna is not None:
+        context.message('Filling nan with {!r}', fillna)
+
         if variable is None:
             output = output.fillna(fillna)
         else:
             output[variable] = output[variable].fillna(fillna)
 
     if rename is not None:
-        for x, y in zip(rename[::2], rename[1::2]):
-            output = output.rename({x: y})
+        rename_dict = dict(x for x in zip(rename[::2], rename[1::2]))
+
+        context.message('Renaming against map %r', rename_dict)
+
+        output = output.rename(rename_dict)
 
     return output
 
 
-def process_elementwise(context, operation, *input, func, variable, **kwargs):
+def process_dataset(context, operation, *input, func, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
-
-    if variable is not None:
-        variable = variable[0]
 
     if is_groupby:
         output = func(input[0])
@@ -680,18 +665,17 @@ def process_elementwise(context, operation, *input, func, variable, **kwargs):
         else:
             output = input[0].copy()
 
+            variable = variable[0]
+
             output[variable] = func(input[0][variable])
 
-    output = post_processing(variable, output, **kwargs)
+    output = post_processing(context, variable, output, **kwargs)
 
     return output
 
 
 def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
     is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
-
-    if variable is not None:
-        variable = variable[0]
 
     if is_groupby:
         output = func(input[0], None)
@@ -701,30 +685,11 @@ def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
         else:
             output = input[0].copy()
 
+            variable = variable[0]
+
             output[variable] = func(input[0][variable], axes)
 
-    output = post_processing(variable, output, **kwargs)
-
-    return output
-
-
-def process_dataset(context, operation, *input, func, variable, **kwargs):
-    is_groupby = isinstance(input[0], xr.core.groupby.DatasetGroupBy)
-
-    if variable is not None:
-        variable = variable[0]
-
-    if is_groupby:
-        output = func(input[0])
-    else:
-        if variable is None:
-            output = func(input[0])
-        else:
-            output = input[0].copy()
-
-            output[variable] = func(input[0][variable])
-
-    output = post_processing(variable, output, **kwargs)
+    output = post_processing(context, variable, output, **kwargs)
 
     return output
 
@@ -748,11 +713,6 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
             variable = variable[0]
 
             output[variable] = func(*inputs)
-
-        if variable is not None:
-            variable = variable[0]
-
-        output = post_processing(variable, output, **kwargs)
     else:
         if variable is None:
             output = func(input[0], const)
@@ -763,10 +723,7 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
 
             output[variable] = func(input[0][variable], const)
 
-        if variable is not None:
-            variable = variable[0]
-
-        output = post_processing(variable, output, **kwargs)
+    output = post_processing(context, variable, output, **kwargs)
 
     return output
 
@@ -847,9 +804,6 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
     if other is None:
         other = xr.core.dtypes.NA
 
-    if variable is not None:
-        variable = variable[0]
-
     if variable is None:
         output = input[0].where(cond, other)
     else:
@@ -859,7 +813,7 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
 
         output[variable] = input[0][variable].where(cond, other)
 
-    output = post_processing(variable, output, **kwargs)
+    output = post_processing(context, variable, output, **kwargs)
 
     return output
 
@@ -885,7 +839,7 @@ def process_aggregate(context, operation, *input, variable, **kwargs):
 
     output = xr.combine_by_coords(input)
 
-    output = post_processing(variable, output, **kwargs)
+    output = post_processing(context, variable, output, **kwargs)
 
     return output
 
@@ -896,6 +850,9 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
 
         return getattr(filtered, func)()
 
+    if func is None:
+        raise WPSError('Missing func parameter.')
+
     if isinstance(input[0], xr.core.groupby.DatasetGroupBy):
         cond = build_condition(context, cond, input[0]._obj)
     else:
@@ -904,12 +861,9 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
     if other is None:
         other = xr.core.dtypes.NA
 
-    if variable is not None:
-        variable = variable[0]
-
     output = input[0].map(_inner, args=(cond, other, func))
 
-    output = post_processing(variable, output, **kwargs)
+    output = post_processing(context, variable, output, **kwargs)
 
     return output
 
@@ -1024,7 +978,7 @@ def workflow(self, context):
     return context
 
 
-@bind_process_func(partial(process_elementwise, func=lambda x: np.abs(x)))
+@bind_process_func(partial(process_dataset, func=lambda x: np.abs(x)))
 @param_defaults()
 @base.abstract('Computes element-wise absolute value.')
 @base.register_process('CDAT.abs')
@@ -1058,7 +1012,7 @@ def task_divide(self, context):
     return workflow(context)
 
 
-@bind_process_func(partial(process_elementwise, func=lambda x: np.exp(x)))
+@bind_process_func(partial(process_dataset, func=lambda x: np.exp(x)))
 @param_defaults()
 @base.abstract('Computes element-wise exponential value.')
 @base.register_process('CDAT.exp')
@@ -1077,7 +1031,7 @@ def task_filter_map(self, context):
     return workflow(context)
 
 
-@bind_process_func(partial(process_elementwise, func=lambda x: np.log(x)))
+@bind_process_func(partial(process_dataset, func=lambda x: np.log(x)))
 @param_defaults()
 @base.abstract('Computes element-wise log value.')
 @base.register_process('CDAT.log')
@@ -1217,7 +1171,7 @@ def task_var(self, context):
     return workflow(context)
 
 
-@bind_process_func(partial(process_elementwise, func=lambda x: np.sqrt(x)))
+@bind_process_func(partial(process_dataset, func=lambda x: np.sqrt(x)))
 @param_defaults()
 @base.abstract('Computes the elementwise sqrt for a variable.')
 @base.register_process('CDAT.sqrt')
