@@ -193,14 +193,16 @@ class OperationContext(state_mixin.StateMixin, object):
 
             operation = self._operation[next]
 
-            if all([isinstance(x, cwt.Variable) for x in operation.inputs]):
-                var_names = set([x.var_name for x in operation.inputs])
+            var_names = set()
 
-                self.input_var_names[next] = list(var_names)
-            else:
-                var_names = set([y for x in operation.inputs for y in self.input_var_names[x.name]])
+            for x in operation.inputs:
+                if isinstance(x, cwt.Variable):
+                    var_names.add(x.var_name)
+                else:
+                    for y in self.input_var_names[x.name]:
+                        var_names.add(y)
 
-                self.input_var_names[next] = list(var_names)
+            self.input_var_names[next] = list(var_names)
 
             yield operation, self.input_var_names[next]
 

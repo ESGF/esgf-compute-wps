@@ -51,6 +51,19 @@ class CWTData(object):
 
         return data_inputs
 
+    def process_mixed_inputs(self):
+        s1 = cwt.Process('CDAT.subset', name='s1')
+        s1.add_inputs(self.v3)
+
+        m = cwt.Process('CDAT.merge', name='m')
+        m.add_inputs(s1, self.v4)
+
+        return {
+            'variable': [self.v3.to_dict(), self.v4.to_dict()],
+            'domain': [],
+            'operation': [s1.to_dict(), m.to_dict()],
+        }
+
     def workflow_with_rename(self):
         s1 = cwt.Process('CDAT.subset', name='s1')
         s1.add_inputs(self.v3)
@@ -81,6 +94,14 @@ class CWTData(object):
 @pytest.fixture(scope='function')
 def cwt_data():
     return CWTData()
+
+
+def test_topo_sort_mixed_inputs(cwt_data):
+    workflow = cwt_data.process_mixed_inputs()
+
+    ctx = operation.OperationContext.from_data_inputs('CDAT.merge', workflow)
+
+    output = dict((x.name, y) for x, y in ctx.topo_sort())
 
 
 def test_topo_sort(cwt_data):
