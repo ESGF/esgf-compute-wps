@@ -111,7 +111,8 @@ def validate_workflow(context):
         process._validate(next)
 
         if all([isinstance(x, cwt.Variable) for x in next.inputs]):
-            if len(var_names) > 1:
+            # Other instances where we care about matching variable names?
+            if len(var_names) > 1 and next.identifier == 'CDAT.aggregate':
                 raise base.ValidationError('Expecting the same variable name for all inputs of {!s}, got {!s}', next.identifier, ', '.join(var_names))
         else:
             variable = next.get_parameter('variable')
