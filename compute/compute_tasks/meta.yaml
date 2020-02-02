@@ -28,7 +28,7 @@ requirements:
     - cdms2
     - esgf-compute-api
     - pyzmq
-    - redis-py
+    - redis-py=3.2.0
     - requests
     - celery
     - prometheus_client
