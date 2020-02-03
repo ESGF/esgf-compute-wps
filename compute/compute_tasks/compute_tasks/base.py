@@ -10,6 +10,7 @@ from functools import partial
 from functools import wraps
 
 import celery
+import cwt
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from jinja2 import Environment, BaseLoader
@@ -135,17 +136,37 @@ def validate_parameter(param, name, type, subtype, min, max, validate_func, inpu
             raise ValidationError(f'Could not convert parameter {name!r} to {type.__name__!s}.')
 
 
-def validate(self, process):
+def validate(self, process, input_var_names):
     num = len(process.inputs)
 
     if num < self._min or num > self._max:
         raise ValidationError(f'The number of inputs {num!r} is out of range min {self._min!r} max {self._max!r}.')
+
+    if (all([isinstance(x, cwt.Variable) for x in process.inputs]) and
+            len(input_var_names) > 1 and
+            process.identifier == 'CDAT.aggregate'):
+        raise ValidationError(f'Expecting the same variable for all inputs to {process.identifier!r}, got {input_var_names!r}')
 
     for x in self._parameters.values():
         p = process.get_parameter(x['name'])
 
         if p is not None:
             validate_parameter(p, inputs=num, **x)
+
+            if x['name'] == 'variable':
+                for y in p.values:
+                    if y not in input_var_names:
+                        raise ValidationError(f'Variable {p.values[0]!r} is not present in input, found values {input_var_names!r}')
+
+
+def validate_workflow(context):
+    for next, var_names in context.topo_sort():
+        logger.info('Validating %r candidate variable names %r', next.identifier, var_names)
+
+        process = get_process(next.identifier)
+
+        # Need to call attached method since its bootstrapped with self
+        process._validate(next, var_names)
 
 
 BASE_ABSTRACT = """

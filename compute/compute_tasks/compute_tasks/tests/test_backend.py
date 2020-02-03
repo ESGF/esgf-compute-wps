@@ -66,7 +66,7 @@ def test_validate_workflow_specify_variable_not_found(mocker):
     context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
 
     with pytest.raises(WPSError):
-        backend.validate_workflow(context)
+        base.validate_workflow(context)
 
 
 def test_validate_workflow_specify_variable(mocker):
@@ -98,7 +98,7 @@ def test_validate_workflow_specify_variable(mocker):
 
     context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
 
-    backend.validate_workflow(context)
+    base.validate_workflow(context)
 
 
 def test_validate_workflow_missmatch_input(mocker):
@@ -117,7 +117,7 @@ def test_validate_workflow_missmatch_input(mocker):
     context = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
 
     with pytest.raises(base.ValidationError):
-        backend.validate_workflow(context)
+        base.validate_workflow(context)
 
 
 def test_validate_workflow(mocker):
@@ -127,15 +127,19 @@ def test_validate_workflow(mocker):
     agg = cwt.Process('CDAT.aggregate')
     agg.add_inputs(pr1, pr2)
 
+    max = cwt.Process('CDAT.max')
+    max.add_inputs(agg)
+    max.add_parameters(rename=['pr', 'pr_test'])
+
     data_inputs = {
         'variable': [pr1.to_dict(), pr2.to_dict()],
         'domain': [],
-        'operation': [agg.to_dict()],
+        'operation': [agg.to_dict(), max.to_dict()],
     }
 
-    context = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
+    context = operation.OperationContext.from_data_inputs('CDAT.max', data_inputs)
 
-    backend.validate_workflow(context)
+    base.validate_workflow(context)
 
 
 def test_worker_run(mocker, provisioner, worker):

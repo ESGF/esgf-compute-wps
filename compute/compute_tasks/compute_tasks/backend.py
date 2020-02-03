@@ -102,38 +102,10 @@ def build_context(identifier, data_inputs, job, user, process):
     return context
 
 
-def validate_workflow(context):
-    for next, var_names in context.topo_sort():
-        logger.info('Validating %r candidate variable names %r', next.identifier, var_names)
-
-        process = base.get_process(next.identifier)
-
-        process._validate(next)
-
-        if all([isinstance(x, cwt.Variable) for x in next.inputs]):
-            # Other instances where we care about matching variable names?
-            if len(var_names) > 1 and next.identifier == 'CDAT.aggregate':
-                raise base.ValidationError('Expecting the same variable name for all inputs of {!s}, got {!s}', next.identifier, ', '.join(var_names))
-        else:
-            variable = next.get_parameter('variable')
-
-            if variable is not None:
-                for x in variable.values:
-                    if x not in var_names:
-                        raise base.ValidationError(f'Expecting variable {x!r} to be present')
-
-            rename = next.get_parameter('rename')
-
-            if rename is not None:
-                for x, y in zip(rename[::2], rename[1::2]):
-                    if x not in var_names:
-                        raise base.ValidationError(f'Expecting variable {x!r} to be present')
-
-
 def build_workflow(identifier, data_inputs, job, user, process):
     context = build_context(identifier, data_inputs, job, user, process)
 
-    validate_workflow(context)
+    base.validate_workflow(context)
 
     started = job_started.s(context).set(**DEFAULT_QUEUE)
 
