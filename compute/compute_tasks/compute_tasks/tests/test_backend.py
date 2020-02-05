@@ -65,6 +65,8 @@ def test_validate_workflow_specify_variable_not_found(mocker):
 
     context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
 
+    mocker.patch.object(context, 'action')
+
     with pytest.raises(WPSError):
         base.validate_workflow(context)
 
@@ -98,6 +100,8 @@ def test_validate_workflow_specify_variable(mocker):
 
     context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
 
+    mocker.patch.object(context, 'action')
+
     base.validate_workflow(context)
 
 
@@ -115,6 +119,8 @@ def test_validate_workflow_missmatch_input(mocker):
     }
 
     context = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
+
+    mocker.patch.object(context, 'action')
 
     with pytest.raises(base.ValidationError):
         base.validate_workflow(context)
@@ -138,6 +144,8 @@ def test_validate_workflow(mocker):
     }
 
     context = operation.OperationContext.from_data_inputs('CDAT.max', data_inputs)
+
+    mocker.patch.object(context, 'action')
 
     base.validate_workflow(context)
 
@@ -332,6 +340,8 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
 def test_build_workflow(mocker):
     mocker.patch.dict(backend.os.environ, {'NAMESPACE': 'default'})
+
+    mocker.patch('compute_tasks.context.operation.OperationContext.action')
 
     workflow = backend.build_workflow('CDAT.subset', json.dumps(DATA_INPUTS), '0', '0', '0')
 

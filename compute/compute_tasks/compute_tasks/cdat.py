@@ -522,7 +522,9 @@ def build_workflow(context):
     for next in context.sorted:
         is_input = False
 
-        context.message('Processing operation {!r} - {!r}', next.name, next.identifier)
+        p_id = f'{next.identifier!s} ({next.name!s})'
+
+        context.message(f'Preparing inputs for process {p_id!s}')
 
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
             inputs = gather_inputs(context, next)
@@ -536,17 +538,15 @@ def build_workflow(context):
             except KeyError as e:
                 raise WPSError('Missing intermediate data {!s}', e)
 
-        context.message('Gathered {!s} inputs for operation {!r}', len(inputs), next.identifier)
-
-        logger.info('Operation %r inputs %r', next.name, len(inputs))
+        context.message(f'Gathered {len(inputs)!s} inputs for process {p_id!s}')
 
         process = base.get_process(next.identifier)
 
         params = process._get_parameters(next)
 
-        logger.info('Operation %r params %r', next.name, params)
+        logger.info(f'PARAMS {p_id!s} {params!r}')
 
-        context.message('Applying operation {!r}', next.identifier)
+        context.message(f'Building process {p_id!s}')
 
         if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
             interm[next.name] = process._process_func(context, next, *inputs, **params)
@@ -554,10 +554,6 @@ def build_workflow(context):
             inputs = [process_subset(context, next, x) for x in inputs]
 
             interm[next.name] = process._process_func(context, next, *inputs, **params)
-
-        # context.message('Operation {!r} new shape {!r}', next.identifier, tuple(interm[next.name].dims.values()))
-
-        # logger.info('Operation %r variables %r shape %r', next.name, list(interm[next.name].data_vars), tuple(interm[next.name].dims.values()))
 
         if is_input:
             context.track_in_bytes(interm[next.name].nbytes)
@@ -608,6 +604,8 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
                 selector = {dim.name: slice(dim.start, dim.end, dim.step)}
 
             try:
+                before = input.coords[dim.name].shape
+
                 if dim.crs == cwt.INDICES:
                     input = input.isel(**selector)
                 else:
@@ -620,6 +618,8 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
                     raise WPSError('Unable to subset {!r} with value {!s}, add parameter method set to "nearest" may resolve this.', dim.name, e)
 
                 raise WPSError('Unable to select to select data with {!r}', selector)
+
+            context.message(f'Subset dimension {dim.name!s} {before!r} -> {input.coords[dim.name].shape!r}') 
 
         # Check if domain was outside the inputs domain.
         for x, y in input.dims.items():
@@ -647,7 +647,7 @@ def post_processing(context, variable, output, rename=None, fillna=None, **kwarg
     if rename is not None:
         rename_dict = dict(x for x in zip(rename[::2], rename[1::2]))
 
-        context.message('Renaming against map %r', rename_dict)
+        context.message('Renaming variables with mapping {!r}', rename_dict)
 
         output = output.rename(rename_dict)
 
@@ -737,7 +737,7 @@ def process_merge(context, operation, *input, compat, **kwargs):
 
     input = list(input)
 
-    context.message('Merging {!s} variables', len(input))
+    context.message(f'Merging {len(input)!s} variable using compat {compat!r}')
 
     return xr.merge(input, compat=compat)
 

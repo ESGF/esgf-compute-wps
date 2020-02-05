@@ -136,7 +136,9 @@ def validate_parameter(param, name, type, subtype, min, max, validate_func, inpu
             raise ValidationError(f'Could not convert parameter {name!r} to {type.__name__!s}.')
 
 
-def validate(self, process, input_var_names):
+def validate(self, context, process, input_var_names):
+    context.message(f'Validating inputs of {process.identifier!s} ({process.name!s})')
+
     num = len(process.inputs)
 
     if num < self._min or num > self._max:
@@ -146,6 +148,8 @@ def validate(self, process, input_var_names):
             len(input_var_names) > 1 and
             process.identifier == 'CDAT.aggregate'):
         raise ValidationError(f'Expecting the same variable for all inputs to {process.identifier!r}, got {input_var_names!r}')
+
+    context.message(f'Validating parameters of {process.identifier!s} ({process.name!s})')
 
     for x in self._parameters.values():
         p = process.get_parameter(x['name'])
@@ -160,13 +164,15 @@ def validate(self, process, input_var_names):
 
 
 def validate_workflow(context):
+    context.message('Validating workflow')
+
     for next, var_names in context.topo_sort():
         logger.info('Validating %r candidate variable names %r', next.identifier, var_names)
 
         process = get_process(next.identifier)
 
         # Need to call attached method since its bootstrapped with self
-        process._validate(next, var_names)
+        process._validate(context, next, var_names)
 
 
 BASE_ABSTRACT = """
