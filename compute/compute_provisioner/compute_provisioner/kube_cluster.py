@@ -37,7 +37,7 @@ class KubeCluster(threading.Thread):
         logger.info('Checking %r %r resources', len(resource.items), kind)
 
         for x in resource.items:
-            key = '{!s}:{!s}:{!s}'.format(x.metadata.labels[selector], x.metadata.name, kind)
+            key = x.metadata.labels[selector]
 
             expire = self.redis.hget('resource', key)
 
@@ -65,51 +65,45 @@ class KubeCluster(threading.Thread):
                 else:
                     logger.debug('Found validate resource %r %r', kind, x.metadata.name)
 
+    def remove_resource(self, resource, delete_func):
+        for x in resource['items']:
+            try:
+                delete_func(x['metadata']['name'], self.namespace)
+            except Exception:
+                # Resource should get cleaned up
+                logger.exception('Failed to delete resource')
+
     def check_resources(self):
-        for key, expire in self.redis.hscan_iter('resource'):
-            logger.debug('Checking key %r expire %r', key, expire)
+        with self.redis.lock('resource'):
+            for resource_uuid, expire in self.redis.hscan_iter('resource'):
+                logger.info(f'Checking resource uuid {resource_uuid!r} expire {expire!r}')
 
-            uuid, name, kind = key.decode().split(':')
+                selector = 'app.kubernetes.io/resource-group-uuid={!s}'.format(resource_uuid)
 
-            selector = 'app.kubernetes.io/resource-group-uuid={!s}'.format(uuid)
+                expire = float(expire)
 
-            if kind == 'Pod':
-                resource = self.core.list_namespaced_pod(self.namespace, label_selector=selector)
+                if time.time() <= expire:
+                    logger.info('Resource not expired')
 
-                delete_func = self.core.delete_namespaced_pod
-            elif kind == 'Deployment':
+                    continue
+
                 resource = self.apps.list_namespaced_deployment(self.namespace, label_selector=selector)
 
-                delete_func = self.apps.delete_namespaced_deployment
-            elif kind == 'Service':
+                self.remove_resource(resource, self.apps.delete_namespaced_deployment)
+
+                resource = self.core.list_namespaced_pod(self.namespace, label_selector=selector)
+
+                self.remove_resource(resource, self.core.delete_namespaced_pod)
+
                 resource = self.core.list_namespaced_service(self.namespace, label_selector=selector)
 
-                delete_func = self.core.delete_namespaced_service
-            elif kind == 'Ingress':
+                self.remove_resource(resource, self.core.delete_namespaced_service)
+
                 resource = self.exts.list_namespaced_ingress(self.namespace, label_selector=selector)
 
-                delete_func = self.exts.delete_namespaced_ingress
-            else:
-                logger.error('Cannot handle resource %r kind', kind)
+                self.remove_resource(resource, self.exts.delete_namespaced_ingress)
 
-                continue
-
-            expire = float(expire)
-
-            if len(resource.items) == 0:
-                logger.info('Resource not found, removing key %r', name)
-
-                # Resource not found
-                if not self.dry_run:
-                    self.redis.hdel('resource', key)
-            elif time.time() > expire:
-                logger.info('Resource expired, removing %r %r', kind, name)
-
-                # Resource expired
-                if not self.dry_run:
-                    delete_func(name, self.namespace)
-
-                    self.redis.hdel('resource', key)
+                self.redis.hdel('resource', resource_uuid)
 
         logger.info('Done checking for resources')
 

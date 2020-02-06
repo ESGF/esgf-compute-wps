@@ -1,7 +1,8 @@
-import os
 import datetime
+import hashlib
 import json
 import logging
+import os
 import threading
 import time
 from collections import OrderedDict
@@ -22,18 +23,10 @@ CLEANUP_PHASES = ('Succeeded', 'Failed')
 
 
 class ResourceTimeoutError(Exception):
-    def __init__(self, name):
-        super(ResourceTimeoutError, self).__init__('Timed out waitin for resources {!s}'.format(name))
+    pass
 
 
 class ResourceAllocationError(Exception):
-    def __init__(self, name):
-        self.name = name
-
-        super(ResourceAllocationError, self).__init__('Error allocating resource {!s}'.format(name))
-
-
-class ResourceAlreadyAllocatedError(Exception):
     pass
 
 
@@ -125,10 +118,8 @@ class WorkerQueue(object):
 
 
 class Provisioner(threading.Thread):
-    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime, resource_timeout, wait_for_resources, **kwargs):
+    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime, resource_timeout, **kwargs):
         super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port, redis_host))
-        self.wait_for_resources = wait_for_resources
-
         self.namespace = namespace
 
         self.lifetime = lifetime
@@ -209,6 +200,14 @@ class Provisioner(threading.Thread):
 
         logger.info('Connected to redis db %r', self.redis)
 
+    def queue_job(self, version, frames):
+        with self.redis.lock('job_queue', blocking_timeout=4):
+            self.redis.rpush(version, json_encoder(frames))
+
+    def requeue_job(self, version, frames):
+        with self.redis.lock('job_queue', blocking_timeout=4):
+            self.redis.lpush(version, json_encoder(frames))
+
     def update_labels(self, yaml_data, labels):
         try:
             yaml_data['metadata']['labels'].update(labels)
@@ -221,7 +220,11 @@ class Provisioner(threading.Thread):
                 'labels': labels,
             }
 
-    def request_resources(self, request, labels):
+    def request_resources(self, request, resource_uuid):
+        labels = {
+            'app.kubernetes.io/resource-group-uuid': resource_uuid,
+        }
+
         try:
             for item in request:
                 yaml_data = yaml.safe_load(item)
@@ -241,80 +244,43 @@ class Provisioner(threading.Thread):
                 else:
                     raise Exception('Requested an unsupported resource')
         except client.rest.ApiException as e:
-            if e.status in (403, 409):
-                raise ResourceAlreadyAllocatedError()
+            logger.info(f'Kubernetes API call failed {e!r}')
 
-            raise ResourceAllocationError(str(yaml_data['metadata']['name']))
+            # 403 is Forbidden tends to be raised when namespace is out of resources.
+            # 409 is Conflict, generally because the resource already exists.
+            if e.status not in (403, 409):
+                raise ResourceAllocationError()
 
-    def wait_resources(self, resources, namespace, wait_timeout):
-        for key, value in resources.items():
-            logger.info('Waiting on resource %r', key)
+    def existing_resources(self, resource_uuid):
+        with self.redis.lock('resource'):
+            if self.redis.hexists('resource', resource_uuid):
+                expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
-            start = time.time()
+                self.redis.hset('resource', resource_uuid, expired)
 
-            while True:
-                kind = value['kind']
+                return True
 
-                if kind == 'Pod':
-                    output = self.core.read_namespaced_pod_status(value['metadata']['name'], namespace)
+        return False
 
-                    if all([x.ready for x in output.status.container_statuses]):
-                        logger.info('Pod %r containers are ready', value['metadata']['name'])
-
-                        break
-                elif kind == 'Deployment':
-                    output = self.apps.read_namespaced_deployment_status(value['metadata']['name'], namespace)
-
-                    if output.spec.replicas == output.status.ready_replicas:
-                        logger.info('Deployment %r Pods are ready', value['metadata']['name'])
-
-                        break
-                else:
-                    break
-
-                if (time.time() - start) < wait_timeout:
-                    raise ResourceTimeoutError(value['metadata']['name'])
-
-                time.sleep(2)
-
-
-    def set_resource_expiration(self, resource_uuid):
-            expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
-
-            self.redis.hset('resource', resource_uuid, expired)
-
-
-    def allocate_resources(self, request):
+    def allocate_resources(self, request_raw):
         """ Allocate resources.
 
         Only support the following resources types: Pod, Deployment, Service, Ingress.
 
         Args:
-            request: A list of YAML strs to create in the cluster.
+            request: A str containing a list of YAML definition of k8s resources.
         """
-        logger.info('Allocating resources')
+        resource_uuid = hashlib.sha256(request_raw)
 
-        resource_uuid = str(uuid4())[:8]
+        request = json.loads(request_raw)
 
-        # Create label with a uuid which can be queried for by the kube-monitor
-        labels = {
-            'app.kubernetes.io/resource-group-uuid': resource_uuid,
-        }
+        logger.info(f'Allocating {len(request)!r} resources with uuid {resource_uuid!r}')
 
-        try:
-            self.request_resources(request, labels)
-        except ResourceAlreadyAllocatedError as e:
-            self.set_resource_expiration(resource_uuid)
-        else:
-            if self.wait_for_resources:
-                try:
-                    self.wait_resources(requested, self.namespace, self.resource_timeout)
-                except ResourceTimeoutError as e:
-                    logger.error('Timed out waiting for resource')
+        # Check if the resources exist
+        existing = self.existing_resources(resource_uuid)
 
-                    raise e
-
-            self.set_resource_expiration(resource_uuid)
+        if not existing:
+            self.request_resources(request, resource_uuid)
 
     def handle_backend_frames(self, frames):
         address = frames[0]
@@ -323,7 +289,7 @@ class Provisioner(threading.Thread):
 
         if frames[1] == constants.RESOURCE:
             try:
-                self.allocate_resources(json.loads(frames[2]))
+                self.allocate_resources(frames[2])
             except (ResourceAllocationError, ResourceTimeoutError) as e:
                 waiting = self.waiting_ack.pop(address, None)
 
@@ -331,6 +297,8 @@ class Provisioner(threading.Thread):
                     # On resource allocation error job is pushed to front of the queue.
                     with self.redis.lock('job_queue'):
                         self.redis.lpush(waiting.version, json_encoder(waiting.frames))
+                else:
+                    logger.error('Failed allocation but job is missing from queue waiting for ack')
             else:
                 new_frames = [address, constants.ACK]
 
@@ -373,8 +341,7 @@ class Provisioner(threading.Thread):
         frames = frames[2:]
 
         try:
-            with self.redis.lock('job_queue', blocking_timeout=4):
-                self.redis.rpush(version, json_encoder(frames))
+            self.queue_job(version, frames)
         except redis.lock.LockError:
             response = address + [constants.ERR]
 
@@ -503,9 +470,6 @@ def main():
     parser.add_argument('--lifetime', help='Time in seconds to let resources live', type=int, default=3600)
 
     parser.add_argument('--ignore-lifetime', help='Ignores lifetime and removes existing resources', type=bool, default=False)
-
-    parser.add_argument('--wait-for-resources', help='The provisioner will wait until resources are allocated '
-                        'before replying to the backend', type=bool, default=False)
 
     args = parser.parse_args()
 
