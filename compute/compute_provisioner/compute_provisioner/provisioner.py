@@ -33,6 +33,10 @@ class ResourceAllocationError(Exception):
         super(ResourceAllocationError, self).__init__('Error allocating resource {!s}'.format(name))
 
 
+class ResourceAlreadyAllocatedError(Exception):
+    pass
+
+
 def json_encoder(x):
     def default(y):
         return {'data': y.decode(constants.ENCODING)}
@@ -217,9 +221,7 @@ class Provisioner(threading.Thread):
                 'labels': labels,
             }
 
-    def request_resources(self, request, resource_uuid, labels):
-        requested = {}
-
+    def request_resources(self, request, labels):
         try:
             for item in request:
                 yaml_data = yaml.safe_load(item)
@@ -230,36 +232,19 @@ class Provisioner(threading.Thread):
 
                 if kind == 'Pod':
                     self.core.create_namespaced_pod(body=yaml_data, namespace=self.namespace)
-
-                    key = '{!s}:{!s}:Pod'.format(resource_uuid, yaml_data['metadata']['name'])
                 elif kind == 'Deployment':
                     self.apps.create_namespaced_deployment(body=yaml_data, namespace=self.namespace)
-
-                    key = '{!s}:{!s}:Deployment'.format(resource_uuid, yaml_data['metadata']['name'])
                 elif kind == 'Service':
                     self.core.create_namespaced_service(body=yaml_data, namespace=self.namespace)
-
-                    key = '{!s}:{!s}:Service'.format(resource_uuid, yaml_data['metadata']['name'])
                 elif kind == 'Ingress':
                     self.extensions.create_namespaced_ingress(body=yaml_data, namespace=self.namespace)
-
-                    key = '{!s}:{!s}:Ingress'.format(resource_uuid, yaml_data['metadata']['name'])
                 else:
                     raise Exception('Requested an unsupported resource')
-
-                requested[key] = yaml_data
         except client.rest.ApiException as e:
             if e.status in (403, 409):
-                # TODO resources are being requested again, should extend alive time
-                logger.info('Resources already exist')
+                raise ResourceAlreadyAllocatedError()
 
-                pass
-            else:
-                logger.exception('Failed to allocation resources')
-
-                raise ResourceAllocationError(str(yaml_data['metadata']['name']))
-
-        return requested
+            raise ResourceAllocationError(str(yaml_data['metadata']['name']))
 
     def wait_resources(self, resources, namespace, wait_timeout):
         for key, value in resources.items():
@@ -292,6 +277,13 @@ class Provisioner(threading.Thread):
 
                 time.sleep(2)
 
+
+    def set_resource_expiration(self, resource_uuid):
+            expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
+
+            self.redis.hset('resource', resource_uuid, expired)
+
+
     def allocate_resources(self, request):
         """ Allocate resources.
 
@@ -309,28 +301,20 @@ class Provisioner(threading.Thread):
             'app.kubernetes.io/resource-group-uuid': resource_uuid,
         }
 
-        # Try to create the resources in the cluster, dont check to see if they
-        # succeed, this might need to change and block until everything is up and
-        # running
         try:
-            requested = self.request_resources(request, resource_uuid, labels)
-        except ResourceAllocationError as e:
-            logger.error('Error allocation resource %s', e.name)
+            self.request_resources(request, labels)
+        except ResourceAlreadyAllocatedError as e:
+            self.set_resource_expiration(resource_uuid)
+        else:
+            if self.wait_for_resources:
+                try:
+                    self.wait_resources(requested, self.namespace, self.resource_timeout)
+                except ResourceTimeoutError as e:
+                    logger.error('Timed out waiting for resource')
 
-            raise e
+                    raise e
 
-        if self.wait_for_resources:
-            try:
-                self.wait_resources(requested, self.namespace, self.resource_timeout)
-            except ResourceTimeoutError as e:
-                logger.error('Timed out waiting for resource')
-
-                raise e
-
-        expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
-
-        for key in requested.keys():
-            self.redis.hset('resource', key, expired)
+            self.set_resource_expiration(resource_uuid)
 
     def handle_backend_frames(self, frames):
         address = frames[0]
@@ -341,25 +325,26 @@ class Provisioner(threading.Thread):
             try:
                 self.allocate_resources(json.loads(frames[2]))
             except (ResourceAllocationError, ResourceTimeoutError) as e:
-                # Notify error in allocating resources
-                new_frames = [address, constants.ERR, str(e).encode()]
+                waiting = self.waiting_ack.pop(address, None)
 
-                logger.info('Notifying backend %r of allocation error', address)
+                if waiting is not None:
+                    # On resource allocation error job is pushed to front of the queue.
+                    with self.redis.lock('job_queue'):
+                        self.redis.lpush(waiting.version, json_encoder(waiting.frames))
             else:
-                # Allocate resources
                 new_frames = [address, constants.ACK]
 
                 logger.info('Notifying backend %r of successful allocation', address)
 
-            try:
-                self.backend.send_multipart(new_frames)
-            except zmq.Again:
-                # If the ack never sends we just let the worker timeout
-                pass
-            else:
-                logger.info('Removing worker %s from waiting ack', address)
+                try:
+                    self.backend.send_multipart(new_frames)
+                except zmq.Again:
+                    # If the ack never sends we just let the worker timeout
+                    pass
+                else:
+                    logger.info('Removing worker %s from waiting ack', address)
 
-                self.waiting_ack.pop(address, None)
+                    self.waiting_ack.pop(address, None)
         else:
             version = frames[2]
 
