@@ -1,6 +1,7 @@
 FROM continuumio/miniconda3:4.7.10 as builder
 
-RUN conda install -y conda-build
+RUN conda update -n base conda && \
+      conda install -y conda-build
 
 WORKDIR /src
 

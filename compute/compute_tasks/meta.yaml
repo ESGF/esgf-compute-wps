@@ -25,7 +25,7 @@ requirements:
   run:
     - python
     - nomkl
-    - cdms2
+    - cdms2<3.1.4
     - esgf-compute-api
     - pyzmq
     - redis-py=3.2.0
@@ -39,6 +39,10 @@ requirements:
     - cftime=1.0.3.4 # Need 1.0.3.4 until next version of xarray
     - netcdf4
     - python-coreapi
+
+test:
+  imports:
+    - compute_tasks
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
