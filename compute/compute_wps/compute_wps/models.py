@@ -412,9 +412,9 @@ class Job(models.Model):
         return wps_response.execute(**kwargs)
 
     def accepted(self):
-        self.status.create(status=ProcessAccepted)
+        status = self.status.create(status=ProcessAccepted)
 
-        metrics.WPS_JOBS_ACCEPTED.inc()
+        return status.id
 
     def failed(self, exc):
         if not isinstance(exc, str):

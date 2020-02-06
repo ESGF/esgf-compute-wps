@@ -61,7 +61,7 @@ def handle_describe_process(identifiers):
     return data
 
 
-def send_request_provisioner(identifier, data_inputs, job, user, process):
+def send_request_provisioner(identifier, data_inputs, job, user, process, status_id):
     context = zmq.Context(1)
 
     client = context.socket(zmq.REQ)
@@ -80,10 +80,12 @@ def send_request_provisioner(identifier, data_inputs, job, user, process):
 
     process = str(process).encode()
 
+    status = str(status_id).encode()
+
     data_inputs = helpers.encoder(data_inputs).encode()
 
     try:
-        client.send_multipart([b'devel', identifier.encode(), data_inputs, job, user, process])
+        client.send_multipart([b'devel', identifier.encode(), data_inputs, job, user, process, status])
     except zmq.Again:
         logger.info('Error sending request to provisioner')
 
@@ -137,11 +139,10 @@ def handle_execute(meta, identifier, data_inputs):
 
     job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
 
-    # Job really shouldn't be marked as accepted since it has not been validated yet, will be marked accepted once it hits the 
-    # job.accepted()
+    status_id = job.accepted()
 
     try:
-        send_request_provisioner(identifier, data_inputs, job.id, user.id, process.id)
+        send_request_provisioner(identifier, data_inputs, job.id, user.id, process.id, status_id)
     except WPSError as e:
         job.failed(e)
 

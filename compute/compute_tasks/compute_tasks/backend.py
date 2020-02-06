@@ -95,6 +95,7 @@ def build_context(identifier, data_inputs, job, user, process):
         'job': job,
         'user': user,
         'process': process,
+        'status': status,
     }
 
     context.init_state(data)
@@ -102,11 +103,8 @@ def build_context(identifier, data_inputs, job, user, process):
     return context
 
 
-def build_workflow(identifier, data_inputs, job, user, process):
-    context = build_context(identifier, data_inputs, job, user, process)
-
-    # Set the accepted state, and can now start pushing messages
-    context.accepted()
+def build_workflow(identifier, data_inputs, job, user, process, status):
+    context = build_context(identifier, data_inputs, job, user, process, status)
 
     base.validate_workflow(context)
 
@@ -167,7 +165,7 @@ class WaitingState(State):
         return json.dumps([x.render(**data) for x in templates])
 
 
-    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process):
+    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process, status):
         transition = transition.encode()
 
         if transition == REQUEST:
@@ -182,14 +180,14 @@ class WaitingState(State):
 
                 return self
 
-            return ResourceAckState(identifier, data_inputs, job, user, process)
+            return ResourceAckState(identifier, data_inputs, job, user, process, status)
 
         logger.info('Invalid transition %r, staying in current state %r', transition, self)
 
         return self
 
 class ResourceAckState(State):
-    def __init__(self, identifier, data_inputs, job, user, process):
+    def __init__(self, identifier, data_inputs, job, user, process, status):
         super(ResourceAckState, self).__init__()
 
         self.identifier = identifier
@@ -197,13 +195,14 @@ class ResourceAckState(State):
         self.job = job
         self.user = user
         self.process = process
+        self.status = status
 
     def on_event(self, backend, *frames):
         transition = frames[0].encode()
 
         if transition == ACK:
             try:
-                workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process)
+                workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process, self.status)
 
                 workflow.apply_async(serializer='cwt_json')
             except Exception as e:
