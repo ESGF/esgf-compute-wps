@@ -137,7 +137,8 @@ def handle_execute(meta, identifier, data_inputs):
 
     job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
 
-    job.accepted()
+    # Job really shouldn't be marked as accepted since it has not been validated yet, will be marked accepted once it hits the 
+    # job.accepted()
 
     try:
         send_request_provisioner(identifier, data_inputs, job.id, user.id, process.id)

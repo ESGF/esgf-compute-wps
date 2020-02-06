@@ -105,6 +105,9 @@ def build_context(identifier, data_inputs, job, user, process):
 def build_workflow(identifier, data_inputs, job, user, process):
     context = build_context(identifier, data_inputs, job, user, process)
 
+    # Set the accepted state, and can now start pushing messages
+    context.accepted()
+
     base.validate_workflow(context)
 
     started = job_started.s(context).set(**DEFAULT_QUEUE)
