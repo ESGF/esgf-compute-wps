@@ -204,9 +204,13 @@ class Provisioner(threading.Thread):
         with self.redis.lock('job_queue', blocking_timeout=4):
             self.redis.rpush(version, json_encoder(frames))
 
+            logger.info(f'Queued job')
+
     def requeue_job(self, version, frames):
         with self.redis.lock('job_queue', blocking_timeout=4):
             self.redis.lpush(version, json_encoder(frames))
+
+            logger.info(f'Requeued job')
 
     def update_labels(self, yaml_data, labels):
         try:
