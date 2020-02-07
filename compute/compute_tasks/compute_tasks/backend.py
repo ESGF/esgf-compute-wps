@@ -79,7 +79,7 @@ def queue_from_identifier(identifier):
     return QUEUE.get(module.lower(), DEFAULT_QUEUE)
 
 
-def build_context(identifier, data_inputs, job, user, process):
+def build_context(identifier, data_inputs, job, user, process, status):
     data_inputs = celery_app.decoder(data_inputs)
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
