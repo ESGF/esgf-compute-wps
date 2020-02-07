@@ -256,13 +256,13 @@ class Provisioner(threading.Thread):
                 raise ResourceAllocationError()
 
     def existing_resources(self, resource_uuid):
-        with self.redis.lock('resource'):
-            if self.redis.hexists('resource', resource_uuid):
-                expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
+        if self.redis.hexists('resource', resource_uuid):
+            expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
+            with self.redis.lock('resource'):
                 self.redis.hset('resource', resource_uuid, expired)
 
-                return True
+            return True
 
         return False
 
