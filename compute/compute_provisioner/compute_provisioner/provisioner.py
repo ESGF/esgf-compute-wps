@@ -270,7 +270,7 @@ class Provisioner(threading.Thread):
         Args:
             request: A str containing a list of YAML definition of k8s resources.
         """
-        resource_uuid = hashlib.sha256(request_raw)
+        resource_uuid = hashlib.sha256(request_raw).hexdigest()
 
         request = json.loads(request_raw)
 
