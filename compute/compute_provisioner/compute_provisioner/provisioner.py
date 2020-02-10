@@ -244,7 +244,7 @@ class Provisioner(threading.Thread):
                 else:
                     raise Exception('Requested an unsupported resource')
         except client.rest.ApiException as e:
-            logger.info(f'Kubernetes API call failed {e!r}')
+            logger.info(f'Kubernetes API call failed status code {e.status!r}')
 
             # 403 is Forbidden tends to be raised when namespace is out of resources.
             # 409 is Conflict, generally because the resource already exists.
