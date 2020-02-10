@@ -255,12 +255,19 @@ class Provisioner(threading.Thread):
             if e.status not in (403, 409):
                 raise ResourceAllocationError()
 
-    def existing_resources(self, resource_uuid):
-        if self.redis.hexists('resource', resource_uuid):
-            expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
+    def set_resource_expiry(self, resource_uuid):
+        expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
-            with self.redis.lock('resource'):
-                self.redis.hset('resource', resource_uuid, expired)
+        with self.redis.lock('resource'):
+            self.redis.hset('resource', resource_uuid, expired)
+
+        logger.info(f'Set resource {resource_uuid!r} to expire in {self.lifetime!r} seconds')
+
+    def try_extend_resource_expiry(self, resource_uuid):
+        if self.redis.hexists('resource', resource_uuid):
+            logger.info(f'Extending resource {resource_uuid!r} expiration')
+
+            self.set_resource_expiry(resource_uuid)
 
             return True
 
@@ -281,10 +288,12 @@ class Provisioner(threading.Thread):
         logger.info(f'Allocating {len(request)!r} resources with uuid {resource_uuid!r}')
 
         # Check if the resources exist
-        existing = self.existing_resources(resource_uuid)
+        existing = self.try_extend_resource_expiry(resource_uuid)
 
         if not existing:
             self.request_resources(request, resource_uuid)
+
+            self.set_resource_expiry(resource_uuid)
 
     def handle_backend_frames(self, frames):
         address = frames[0]
