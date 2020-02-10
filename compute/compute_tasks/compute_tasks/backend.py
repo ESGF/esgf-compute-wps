@@ -58,7 +58,7 @@ REQUEST = b'REQUEST'
 RESOURCE = b'RESOURCE'
 
 HEARTBEAT_LIVENESS = 3
-HEARTBEAT_INTERVAL = 4.0 * 1000
+HEARTBEAT_INTERVAL = 4.0
 
 INTERVAL_INIT = 1
 INTERVAL_MAX = 32
@@ -355,7 +355,7 @@ class Worker(state_mixin.StateMixin, threading.Thread):
         self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
 
         while self.running:
-            socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
+            socks = dict(self.poller.poll(HEARTBEAT_INTERVAL*1000))
 
             if socks.get(self.worker) == zmq.POLLIN:
                 try:
