@@ -10,7 +10,7 @@ logger = logging.getLogger('provisioner.kube_cluster')
 
 
 class KubeCluster(threading.Thread):
-    def __init__(self, redis_host, namespace, timeout, dry_run, ignore_lifetime):
+    def __init__(self, redis_host, namespace, timeout, dry_run, ignore_lifetime, **kwargs):
         super(KubeCluster, self).__init__(target=self.monitor)
 
         self.redis_host = redis_host
@@ -144,3 +144,30 @@ class KubeCluster(threading.Thread):
             self.check_resources()
 
             time.sleep(self.timeout)
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    parser.add_argument('--redis-host', help='Redis host', required=True)
+
+    parser.add_argument('--namespace', help='Kubernetes namespace to monitor', default='default')
+
+    parser.add_argument('--timeout', help='Resource monitor timeout', type=int, default=30)
+
+    parser.add_argument('--dry-run', help='Does not actually remove resources', action='store_true')
+
+    parser.add_argument('--ignore-lifetime', help='Ignores lifetime', action='store_true')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=args.log_level)
+
+    monitor = KubeCluster(**vars(args))
+
+    monitor.start()
+
+    monitor.join()

@@ -475,21 +475,26 @@ def main():
 
     parser.add_argument('--ignore-lifetime', help='Ignores lifetime and removes existing resources', type=bool, default=False)
 
+    parser.add_argument('--enable-resource-monitor', help='Enables monitoring expired resources', action='store_true')
+
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
+
+    if args.enable_resource_monitor:
+        logger.info('Starting resource monitor')
+
+        monitor = kube_cluster.KubeCluster(args.redis_host, args.namespace, args.timeout, False, args.ignore_lifetime)
+
+        monitor.start()
+
+        monitor.join()
 
     provisioner = Provisioner(**vars(args))
 
     provisioner.start()
 
-    monitor = kube_cluster.KubeCluster(args.redis_host, args.namespace, args.timeout, False, args.ignore_lifetime)
-
-    monitor.start()
-
     provisioner.join()
-
-    monitor.join()
 
 
 if __name__ == '__main__':
