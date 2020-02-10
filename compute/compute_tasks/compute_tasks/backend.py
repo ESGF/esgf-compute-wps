@@ -88,7 +88,7 @@ def build_context(identifier, data_inputs, job, user, process, status):
         'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE'])
     }
 
-    logger.info('Append extra %r to frames', extra)
+    logger.info(f'Built operation context with extra {extra!r}')
 
     data = {
         'extra': extra,
@@ -99,6 +99,8 @@ def build_context(identifier, data_inputs, job, user, process, status):
     }
 
     context.init_state(data)
+
+    logger.info(f'Initialized state with {data!r}')
 
     return context
 
@@ -129,7 +131,7 @@ def build_workflow(identifier, data_inputs, job, user, process, status):
 
 class State(object):
     def __init__(self):
-        logger.info('Procesing current state %s', str(self))
+        pass
 
     def on_event(self, **event):
         pass
@@ -162,11 +164,15 @@ class WaitingState(State):
 
         data.update(kwargs)
 
+        logger.info(f'Rendering {len(templates)} templates with {data!r}')
+
         return json.dumps([x.render(**data) for x in templates])
 
 
     def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process, status):
         transition = transition.encode()
+
+        logger.info(f'Current state {self!s} transition to {transition!s}')
 
         if transition == REQUEST:
             try:
@@ -174,15 +180,15 @@ class WaitingState(State):
 
                 backend.worker.send_multipart([RESOURCE, resources.encode()])
             except Exception as e:
-                logger.exception('Error templating resources')
-
                 backend.fail_job(job, e)
 
-                return self
+                logger.exception(f'Failed job, error building resources')
+            else:
+                logger.info(f'Setting new state to ResourceAckState')
 
-            return ResourceAckState(identifier, data_inputs, job, user, process, status)
-
-        logger.info('Invalid transition %r, staying in current state %r', transition, self)
+                return ResourceAckState(identifier, data_inputs, job, user, process, status)
+        else:
+            logger.info(f'Transition is invalid resetting to WaitingState')
 
         return self
 
@@ -200,19 +206,23 @@ class ResourceAckState(State):
     def on_event(self, backend, *frames):
         transition = frames[0].encode()
 
+        logger.info(f'Current state {self!s} transitioning to {transition!s}')
+
         if transition == ACK:
             try:
                 workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process, self.status)
 
                 workflow.apply_async(serializer='cwt_json')
             except Exception as e:
-                logger.exception('Error building and executing workflow')
-
                 backend.fail_job(self.job, e)
+
+                logger.exception(f'Failed job, error building workflow')
         elif transition == ERR:
             backend.fail_job(self.job, frames[1])
 
-        logger.info('Invalid transition %r, staying in current state %r', transition, self)
+            logger.info(f'Failed job, error allocating resources')
+        else:
+            logger.info(f'Transition is invalid resetting to WaitingState')
 
         return WaitingState()
 
@@ -319,14 +329,14 @@ class Worker(state_mixin.StateMixin, threading.Thread):
             except zmq.Again:
                 logger.info('Error sending heartbeat to provisioner')
 
+                # Might want to replace with sys.exit, in this state we may need to kill the container.
                 raise Exception()
 
     def missed_heartbeat(self):
         self.liveness -= 1
 
         if self.liveness == 0:
-            logger.error('Heartbeat failed cannot reach queue')
-            logger.error('Reconnect in %r', self.interval)
+            logger.info(f'Missed provisioner heartbeat {HEARTBEAT_LIVENESS!r} times sleeping for {self.interval!r} seconds before reconnecting')
 
             time.sleep(self.interval)
 
@@ -356,13 +366,11 @@ class Worker(state_mixin.StateMixin, threading.Thread):
                     if frames[0] == HEARTBEAT:
                         self.liveness = HEARTBEAT_LIVENESS
 
-                        logger.info('Received heartbeat setting liveness to %r', self.liveness)
+                        logger.debug('Received heartbeat setting liveness to %r', self.liveness)
                     else:
                         frames = [x.decode() for x in frames]
 
                         self.state = self.state.on_event(self, *frames)
-
-                        logger.info('Transitioning state %r', frames)
 
                     self.interval = INTERVAL_INIT
             else:

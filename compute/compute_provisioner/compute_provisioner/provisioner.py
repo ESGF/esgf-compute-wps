@@ -204,9 +204,13 @@ class Provisioner(threading.Thread):
         with self.redis.lock('job_queue', blocking_timeout=4):
             self.redis.rpush(version, json_encoder(frames))
 
+            logger.info(f'Queued job')
+
     def requeue_job(self, version, frames):
         with self.redis.lock('job_queue', blocking_timeout=4):
             self.redis.lpush(version, json_encoder(frames))
+
+            logger.info(f'Requeued job')
 
     def update_labels(self, yaml_data, labels):
         try:
@@ -252,13 +256,13 @@ class Provisioner(threading.Thread):
                 raise ResourceAllocationError()
 
     def existing_resources(self, resource_uuid):
-        with self.redis.lock('resource'):
-            if self.redis.hexists('resource', resource_uuid):
-                expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
+        if self.redis.hexists('resource', resource_uuid):
+            expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
+            with self.redis.lock('resource'):
                 self.redis.hset('resource', resource_uuid, expired)
 
-                return True
+            return True
 
         return False
 
@@ -270,7 +274,7 @@ class Provisioner(threading.Thread):
         Args:
             request: A str containing a list of YAML definition of k8s resources.
         """
-        resource_uuid = hashlib.sha256(request_raw)
+        resource_uuid = hashlib.sha256(request_raw).hexdigest()
 
         request = json.loads(request_raw)
 
