@@ -75,35 +75,46 @@ class KubeCluster(threading.Thread):
 
     def check_resources(self):
         with self.redis.lock('resource'):
-            for resource_uuid, expire in self.redis.hscan_iter('resource'):
-                logger.info(f'Checking resource uuid {resource_uuid!r} expire {expire!r}')
+            try:
+                keys_to_remove = []
 
-                selector = 'app.kubernetes.io/resource-group-uuid={!s}'.format(resource_uuid)
+                for resource_uuid, expire in self.redis.hscan_iter('resource'):
+                    logger.info(f'Checking resource uuid {resource_uuid!r} expire {expire!r}')
 
-                expire = float(expire)
+                    selector = 'app.kubernetes.io/resource-group-uuid={!s}'.format(resource_uuid)
 
-                if time.time() <= expire:
-                    logger.info('Resource not expired')
+                    expire = float(expire)
 
-                    continue
+                    if time.time() <= expire:
+                        logger.info('Resource not expired')
 
-                resource = self.apps.list_namespaced_deployment(self.namespace, label_selector=selector)
+                        continue
 
-                self.remove_resource(resource, self.apps.delete_namespaced_deployment)
+                    resource = self.apps.list_namespaced_deployment(self.namespace, label_selector=selector)
 
-                resource = self.core.list_namespaced_pod(self.namespace, label_selector=selector)
+                    self.remove_resource(resource, self.apps.delete_namespaced_deployment)
 
-                self.remove_resource(resource, self.core.delete_namespaced_pod)
+                    resource = self.core.list_namespaced_pod(self.namespace, label_selector=selector)
 
-                resource = self.core.list_namespaced_service(self.namespace, label_selector=selector)
+                    self.remove_resource(resource, self.core.delete_namespaced_pod)
 
-                self.remove_resource(resource, self.core.delete_namespaced_service)
+                    resource = self.core.list_namespaced_service(self.namespace, label_selector=selector)
 
-                resource = self.exts.list_namespaced_ingress(self.namespace, label_selector=selector)
+                    self.remove_resource(resource, self.core.delete_namespaced_service)
 
-                self.remove_resource(resource, self.exts.delete_namespaced_ingress)
+                    resource = self.exts.list_namespaced_ingress(self.namespace, label_selector=selector)
 
-                self.redis.hdel('resource', resource_uuid)
+                    self.remove_resource(resource, self.exts.delete_namespaced_ingress)
+
+                    keys_to_remove.append(resource_uuid)
+            except redis.ResponseError as e:
+                logger.error(f'Error with hash scan resource uuid {resource_uuid!r} expires {expire!r}')
+
+                keys_to_remove.append(resource_uuid)
+
+            logger.info(f'Removing keys {keys_to_remove!r}')
+
+            self.redis.hdel(*keys_to_remove)
 
         logger.info('Done checking for resources')
 
