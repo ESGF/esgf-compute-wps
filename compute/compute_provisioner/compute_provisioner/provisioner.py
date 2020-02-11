@@ -258,8 +258,7 @@ class Provisioner(threading.Thread):
     def set_resource_expiry(self, resource_uuid):
         expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
-        with self.redis.lock('resource'):
-            self.redis.hset('resource', resource_uuid, expired)
+        self.redis.hset('resource', resource_uuid, expired)
 
         logger.info(f'Set resource {resource_uuid!r} to expire in {self.lifetime!r} seconds')
 
