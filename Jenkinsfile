@@ -217,8 +217,7 @@ git config user.email ${GIT_EMAIL}
 
 git config user.name ${GIT_NAME}
 
-git add configs/development.yaml
-git add configs/production-ci.yaml
+git add compute/values.yaml
 
 git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 
