@@ -66,9 +66,9 @@ class KubeCluster(threading.Thread):
                     logger.debug('Found validate resource %r %r', kind, x.metadata.name)
 
     def remove_resource(self, resource, delete_func):
-        for x in resource['items']:
+        for x in resource.items:
             try:
-                delete_func(x['metadata']['name'], self.namespace)
+                delete_func(x.metadata.name, self.namespace)
             except Exception:
                 # Resource should get cleaned up
                 logger.exception('Failed to delete resource')
