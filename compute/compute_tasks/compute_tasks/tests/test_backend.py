@@ -7,7 +7,10 @@ import pytest
 
 from compute_tasks import backend
 from compute_tasks import cdat
-from compute_tasks import celery_ as celery
+from compute_tasks import base
+from compute_tasks import celery_app
+from compute_tasks import WPSError
+from compute_tasks.context import operation
 
 logger = logging.getLogger()
 
@@ -16,16 +19,11 @@ V1 = cwt.Variable('file:///test1.nc', 'tas')
 
 SUBSET = cwt.Process('CDAT.subset')
 SUBSET.add_inputs(V0)
-WORKFLOW = cwt.Process('CDAT.workflow')
-WORKFLOW.add_inputs(SUBSET)
 
 DATA_INPUTS = {
-    'variable': [],
+    'variable': [V0.to_dict()],
     'domain': [],
-    'operation': [
-        WORKFLOW.to_dict(),
-        SUBSET.to_dict(),
-    ],
+    'operation': [SUBSET.to_dict()],
 }
 
 RAW_FRAMES = [
@@ -42,6 +40,116 @@ ENV = {
 }
 
 
+def test_validate_workflow_specify_variable_not_found(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'prw')
+
+    sub1 = cwt.Process('CDAT.subset')
+    sub1.add_inputs(pr1)
+
+    sub2 = cwt.Process('CDAT.subset')
+    sub2.add_inputs(pr2)
+
+    merge = cwt.Process('CDAT.merge')
+    merge.add_inputs(sub1, sub2)
+
+    sum = cwt.Process('CDAT.sum')
+    sum.add_inputs(merge)
+    sum.add_parameters(variable='clt')
+
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
+
+    mocker.patch.object(context, 'action')
+
+    with pytest.raises(WPSError):
+        base.validate_workflow(context)
+
+
+def test_validate_workflow_specify_variable(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'prw')
+
+    sub1 = cwt.Process('CDAT.subset')
+    sub1.add_inputs(pr1)
+
+    sub2 = cwt.Process('CDAT.subset')
+    sub2.add_inputs(pr2)
+
+    merge = cwt.Process('CDAT.merge')
+    merge.add_inputs(sub1, sub2)
+
+    group = cwt.Process('CDAT.groupby_bins')
+    group.add_inputs(merge)
+    group.add_parameters(variable='prw', bins=['10', '20'])
+
+    sum = cwt.Process('CDAT.sum')
+    sum.add_inputs(group)
+    sum.add_parameters(variable='pr')
+
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict(), group.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
+
+    mocker.patch.object(context, 'action')
+
+    base.validate_workflow(context)
+
+
+def test_validate_workflow_missmatch_input(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'prw')
+
+    agg = cwt.Process('CDAT.aggregate')
+    agg.add_inputs(pr1, pr2)
+
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [agg.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
+
+    mocker.patch.object(context, 'action')
+
+    with pytest.raises(base.ValidationError):
+        base.validate_workflow(context)
+
+
+def test_validate_workflow(mocker):
+    pr1 = cwt.Variable('file:///test1.nc', 'pr')
+    pr2 = cwt.Variable('file:///test2.nc', 'pr')
+
+    agg = cwt.Process('CDAT.aggregate')
+    agg.add_inputs(pr1, pr2)
+
+    max = cwt.Process('CDAT.max')
+    max.add_inputs(agg)
+    max.add_parameters(rename=['pr', 'pr_test'])
+
+    data_inputs = {
+        'variable': [pr1.to_dict(), pr2.to_dict()],
+        'domain': [],
+        'operation': [agg.to_dict(), max.to_dict()],
+    }
+
+    context = operation.OperationContext.from_data_inputs('CDAT.max', data_inputs)
+
+    mocker.patch.object(context, 'action')
+
+    base.validate_workflow(context)
+
+
 def test_worker_run(mocker, provisioner, worker):
     time.sleep(4)
 
@@ -52,6 +160,7 @@ def test_worker_run(mocker, provisioner, worker):
         b'devel',
         b'CDAT.workflow',
         json.dumps(DATA_INPUTS).encode(),
+        b'0',
         b'0',
         b'0',
         b'0',
@@ -181,14 +290,14 @@ def test_worker_initialize(mocker):
 @pytest.mark.parametrize('transition,frames,expected', [
     (backend.ACK, [], backend.WaitingState),
     (backend.ERR, [b'Error message'], backend.WaitingState),
-    (b'NO', [], backend.ResourceAckState),
+    (b'NO', [], backend.WaitingState),
 ])
 def test_resource_ack_state(mocker, transition, frames, expected):
     b = mocker.MagicMock()
 
     mocker.patch.object(backend, 'build_workflow')
 
-    state = backend.ResourceAckState('CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0')
+    state = backend.ResourceAckState('CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0')
 
     frames.insert(0, transition.decode())
 
@@ -225,7 +334,7 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
     state = backend.WaitingState()
 
-    new_state = state.on_event(b, transition.decode(), 'devel', 'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0')
+    new_state = state.on_event(b, transition.decode(), 'devel', 'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0')
 
     assert isinstance(new_state, expected)
 
@@ -233,40 +342,11 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 def test_build_workflow(mocker):
     mocker.patch.dict(backend.os.environ, {'NAMESPACE': 'default'})
 
-    mocker.spy(backend, 'job_started')
-    mocker.spy(backend, 'job_succeeded')
+    mocker.patch('compute_tasks.context.operation.OperationContext.action')
 
-    cdat.discover_processes()
-
-    workflow = backend.build_workflow('CDAT.workflow', json.dumps(DATA_INPUTS), '0', '0', '0')
+    workflow = backend.build_workflow('CDAT.subset', json.dumps(DATA_INPUTS), '0', '0', '0', '0')
 
     assert workflow
-
-    extra = {
-        'DASK_SCHEDULER': 'dask-scheduler-0.default.svc:8786',
-    }
-
-    backend.job_started.s.assert_called_with('CDAT.workflow', DATA_INPUTS, '0', '0', '0', extra)
-    backend.job_succeeded.s.assert_called()
-
-
-@pytest.mark.parametrize('identifier,inputs,params', [
-    pytest.param('CDAT.subset', [], {}, marks=pytest.mark.xfail),
-    ('CDAT.subset', [V0], {}),
-    pytest.param('CDAT.aggregate', [V0], {}, marks=pytest.mark.xfail),
-    ('CDAT.aggregate', [V0, V1], {}),
-    pytest.param('CDAT.max', [V0], {}, marks=pytest.mark.xfail),
-    ('CDAT.max', [V0], {'axes': ['time']}),
-    pytest.param('CDAT.add', [V0], {'const': 'asdasd'}, marks=pytest.mark.xfail),
-])
-def test_validate_process(identifier, inputs, params):
-    process = cwt.Process(identifier)
-
-    process.add_inputs(*inputs)
-
-    process.add_parameters(**params)
-
-    backend.validate_process(process)
 
 
 @pytest.mark.parametrize('identifier,expected', [

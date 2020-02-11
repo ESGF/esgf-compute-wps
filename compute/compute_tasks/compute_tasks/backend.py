@@ -13,11 +13,12 @@ import zmq
 
 from compute_tasks import base
 from compute_tasks import cdat
-from compute_tasks import celery_ as celery
+from compute_tasks import celery_app
 from compute_tasks import WPSError
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
 from compute_tasks.context import state_mixin
+from compute_tasks.context import operation
 
 logger = logging.getLogger('compute_tasks.backend')
 
@@ -57,7 +58,7 @@ REQUEST = b'REQUEST'
 RESOURCE = b'RESOURCE'
 
 HEARTBEAT_LIVENESS = 3
-HEARTBEAT_INTERVAL = 1.0 * 1000
+HEARTBEAT_INTERVAL = 4.0
 
 INTERVAL_INIT = 1
 INTERVAL_MAX = 32
@@ -78,47 +79,38 @@ def queue_from_identifier(identifier):
     return QUEUE.get(module.lower(), DEFAULT_QUEUE)
 
 
-def validate_process(process):
-    logger.info('Validating process %r', process)
+def build_context(identifier, data_inputs, job, user, process, status):
+    data_inputs = celery_app.decoder(data_inputs)
 
-    v = cdat.VALIDATION[process.identifier]
-
-    if len(process.inputs) < v['min'] or len(process.inputs) > v['max']:
-        raise WPSError('Validation failed, expected the number of inputs to be between {!s} and {!s}', v['min'], v['max'])
-
-    for key, param_v in v['params'].items():
-        required = param_v['required']
-
-        param = process.parameters.get(key, None)
-
-        if param is None and required:
-            raise WPSError('Validation failed, expected parameter {!r}', key)
-
-        if param is not None:
-            type = param_v['type']
-
-            for value in param.values:
-                try:
-                    type(value)
-                except ValueError:
-                    raise WPSError('Validation failed, could not convert parameter {!r} value {!r} to type {!r}', key, value, type.__name__)
-
-
-def build_workflow(identifier, data_inputs, job, user, process):
-    data_inputs = celery.decoder(data_inputs)
-
-    for data in data_inputs['operation']:
-        p = cwt.Process.from_dict(data)
-
-        validate_process(p)
+    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
     extra = {
         'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE'])
     }
 
-    logger.info('Append extra %r to frames', extra)
+    logger.info(f'Built operation context with extra {extra!r}')
 
-    started = job_started.s(identifier, data_inputs, job, user, process, extra).set(**DEFAULT_QUEUE)
+    data = {
+        'extra': extra,
+        'job': job,
+        'user': user,
+        'process': process,
+        'status': status,
+    }
+
+    context.init_state(data)
+
+    logger.info(f'Initialized state with {data!r}')
+
+    return context
+
+
+def build_workflow(identifier, data_inputs, job, user, process, status):
+    context = build_context(identifier, data_inputs, job, user, process, status)
+
+    base.validate_workflow(context)
+
+    started = job_started.s(context).set(**DEFAULT_QUEUE)
 
     logger.info('Created job started task %r', started)
 
@@ -126,7 +118,7 @@ def build_workflow(identifier, data_inputs, job, user, process):
 
     logger.info('Using queue %r for process %r', queue, identifier)
 
-    process = base.get_process(identifier).s().set(**queue)
+    process = base.get_process(identifier)._task.s().set(**queue)
 
     logger.info('Created process task %r', process)
 
@@ -139,7 +131,7 @@ def build_workflow(identifier, data_inputs, job, user, process):
 
 class State(object):
     def __init__(self):
-        logger.info('Procesing current state %s', str(self))
+        pass
 
     def on_event(self, **event):
         pass
@@ -152,47 +144,56 @@ class State(object):
 
 
 class WaitingState(State):
-    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process):
+    def build_resources(self, **kwargs):
+        templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
+
+        data = {
+            'image': os.environ['IMAGE'],
+            'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
+            'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
+            'scheduler_cpu': os.environ.get('SCHEDULER_CPU', 1),
+            'scheduler_memory': os.environ.get('SCHEDULER_MEMORY', '1Gi'),
+            'worker_cpu': os.environ.get('WORKER_CPU', 1),
+            'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
+            'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
+            'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
+            'dev': os.environ.get('DEV', False),
+            'workers': os.environ['WORKERS'],
+            'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
+        }
+
+        data.update(kwargs)
+
+        logger.info(f'Rendering {len(templates)} templates with {data!r}')
+
+        return json.dumps([x.render(**data) for x in templates])
+
+
+    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process, status):
         transition = transition.encode()
+
+        logger.info(f'Current state {self!s} transition to {transition!s}')
 
         if transition == REQUEST:
             try:
-                templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
-
-                data = {
-                    'image': os.environ['IMAGE'],
-                    'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
-                    'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
-                    'scheduler_cpu': os.environ.get('SCHEDULER_CPU', 1),
-                    'scheduler_memory': os.environ.get('SCHEDULER_MEMORY', '1Gi'),
-                    'worker_cpu': os.environ.get('WORKER_CPU', 1),
-                    'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
-                    'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
-                    'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
-                    'dev': os.environ.get('DEV', False),
-                    'user': user,
-                    'workers': os.environ['WORKERS'],
-                    'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
-                }
-
-                resources = json.dumps([x.render(**data) for x in templates])
+                resources = self.build_resources(user=user)
 
                 backend.worker.send_multipart([RESOURCE, resources.encode()])
             except Exception as e:
-                logger.exception('Error templating resources')
-
                 backend.fail_job(job, e)
 
-                return self
+                logger.exception(f'Failed job, error building resources')
+            else:
+                logger.info(f'Setting new state to ResourceAckState')
 
-            return ResourceAckState(identifier, data_inputs, job, user, process)
-
-        logger.info('Invalid transition %r, staying in current state %r', transition, self)
+                return ResourceAckState(identifier, data_inputs, job, user, process, status)
+        else:
+            logger.info(f'Transition is invalid resetting to WaitingState')
 
         return self
 
 class ResourceAckState(State):
-    def __init__(self, identifier, data_inputs, job, user, process):
+    def __init__(self, identifier, data_inputs, job, user, process, status):
         super(ResourceAckState, self).__init__()
 
         self.identifier = identifier
@@ -200,29 +201,31 @@ class ResourceAckState(State):
         self.job = job
         self.user = user
         self.process = process
+        self.status = status
 
     def on_event(self, backend, *frames):
         transition = frames[0].encode()
 
+        logger.info(f'Current state {self!s} transitioning to {transition!s}')
+
         if transition == ACK:
             try:
-                workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process)
+                workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process, self.status)
 
-                workflow.delay()
-
-                backend.worker.send_multipart([ACK])
+                workflow.apply_async(serializer='cwt_json')
             except Exception as e:
                 backend.fail_job(self.job, e)
 
-            return WaitingState()
+                logger.exception(f'Failed job, error building workflow')
         elif transition == ERR:
             backend.fail_job(self.job, frames[1])
 
-            return WaitingState()
+            logger.info(f'Failed job, error allocating resources')
+        else:
+            logger.info(f'Transition is invalid resetting to WaitingState')
 
-        logger.info('Invalid transition %r, staying in current state %r', transition, self)
+        return WaitingState()
 
-        return self
 
 class Worker(state_mixin.StateMixin, threading.Thread):
     def __init__(self, version, queue_host):
@@ -248,8 +251,6 @@ class Worker(state_mixin.StateMixin, threading.Thread):
 
         self.queue_host = queue_host or os.environ['PROVISIONER_BACKEND']
 
-        self.exc = None
-
     def initialize(self):
         """ Initializes the worker.
         """
@@ -260,8 +261,6 @@ class Worker(state_mixin.StateMixin, threading.Thread):
         self.init_api()
 
         base.discover_processes()
-
-        base.build_process_bindings()
 
         self.state = WaitingState()
 
@@ -277,22 +276,35 @@ class Worker(state_mixin.StateMixin, threading.Thread):
     def connect_provisioner(self):
         self.worker = self.context.socket(zmq.DEALER)
 
+        SNDTIMEO = os.environ.get('SEND_TIMEOUT', 15)
+        RCVTIMEO = os.environ.get('RECV_TIMEOUT', 15)
+
+        self.worker.setsockopt(zmq.SNDTIMEO, SNDTIMEO * 1000)
+        self.worker.setsockopt(zmq.RCVTIMEO, RCVTIMEO * 1000)
+        self.worker.setsockopt(zmq.LINGER, 0)
+
         self.worker.connect('tcp://{!s}'.format(self.queue_host))
 
         logger.info('Created dealer socket and connected to %r', self.queue_host)
 
         self.poller.register(self.worker, zmq.POLLIN)
 
-        self.worker.send_multipart([READY, self.version])
+        try:
+            self.worker.send_multipart([READY, self.version])
+        except zmq.Again:
+            logger.info('Error notifying provisioner of READY state')
 
-        logger.info('Notifying queue, ready for work')
+            self.disconnect_provisioner()
+        else:
+            logger.info('Notified provisioner, in READY state')
 
-    def reconnect_provisioner(self):
+    def disconnect_provisioner(self):
         self.poller.unregister(self.worker)
 
-        self.worker.setsockopt(zmq.LINGER, 0)
-
         self.worker.close(0)
+
+    def reconnect_provisioner(self):
+        self.disconnect_provisioner()
 
         self.connect_provisioner()
 
@@ -312,14 +324,19 @@ class Worker(state_mixin.StateMixin, threading.Thread):
 
             logger.debug('Sending heartbeat to queue')
 
-            self.worker.send_multipart([HEARTBEAT, self.version])
+            try:
+                self.worker.send_multipart([HEARTBEAT, self.version])
+            except zmq.Again:
+                logger.info('Error sending heartbeat to provisioner')
+
+                # Might want to replace with sys.exit, in this state we may need to kill the container.
+                raise Exception()
 
     def missed_heartbeat(self):
         self.liveness -= 1
 
         if self.liveness == 0:
-            logger.error('Heartbeat failed cannot reach queue')
-            logger.error('Reconnect in %r', self.interval)
+            logger.info(f'Missed provisioner heartbeat {HEARTBEAT_LIVENESS!r} times sleeping for {self.interval!r} seconds before reconnecting')
 
             time.sleep(self.interval)
 
@@ -331,40 +348,42 @@ class Worker(state_mixin.StateMixin, threading.Thread):
             self.liveness = HEARTBEAT_LIVENESS
 
     def run(self):
-        try:
-            self.initialize()
+        self.initialize()
 
-            self.connect_provisioner()
+        self.connect_provisioner()
 
-            self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
+        self.heartbeat_at = time.time() + HEARTBEAT_INTERVAL
 
-            while self.running:
-                socks = dict(self.poller.poll(HEARTBEAT_INTERVAL))
+        while self.running:
+            socks = dict(self.poller.poll(HEARTBEAT_INTERVAL*1000))
 
-                if socks.get(self.worker) == zmq.POLLIN:
+            if socks.get(self.worker) == zmq.POLLIN:
+                try:
                     frames = self.worker.recv_multipart()
-
-                    logger.info('Handling frames from provisioner %r', frames)
-
-                    # Heartbeats dont alter state. Maybe they should?
+                except zmq.Again:
+                    logger.info('Error receiving data from provisioner')
+                else:
                     if frames[0] == HEARTBEAT:
                         self.liveness = HEARTBEAT_LIVENESS
 
-                        logger.debug('Received heartbeat from queue, setting liveness to %r', self.liveness)
+                        logger.debug('Received heartbeat setting liveness to %r', self.liveness)
                     else:
                         frames = [x.decode() for x in frames]
 
                         self.state = self.state.on_event(self, *frames)
 
                     self.interval = INTERVAL_INIT
-                else:
+            else:
+                try:
                     self.missed_heartbeat()
+                except Exception:
+                    self.reconnect_provisioner()
 
-                self.send_heartbeat()
+                    continue
 
-            logger.info('Thread is finished')
-        except Exception as e:
-            self.exc = e
+            self.send_heartbeat()
+
+        logger.info('Thread is finished')
 
 
 def register_processes():
@@ -372,23 +391,31 @@ def register_processes():
 
     parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
 
+    parser.add_argument('--dry-run', help='Run without actually doing anything', action='store_true')
+
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
 
-    state = state_mixin.StateMixin()
+    if not args.dry_run:
+        state = state_mixin.StateMixin()
 
-    state.init_api()
+        state.init_api()
 
     for item in base.discover_processes():
-        try:
-            state.register_process(**item)
-        except state_mixin.ProcessExistsError:  # pragma: no cover
-            logger.info('Process %r already exists', item['identifier'])
+        process = base.get_process(item['identifier'])
 
-            pass
+        item['abstract'] = process._render_abstract()
 
-    base.build_process_bindings()
+        logger.debug('Abstract %r', item['abstract'])
+
+        if not args.dry_run:
+            try:
+                state.register_process(**item)
+            except state_mixin.ProcessExistsError:  # pragma: no cover
+                logger.info('Process %r already exists', item['identifier'])
+
+                pass
 
 
 def parse_args():  # pragma: no cover

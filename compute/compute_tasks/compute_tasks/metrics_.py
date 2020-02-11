@@ -162,8 +162,7 @@ def query_usage(context):
     return data
 
 
-@base.register_process('CDAT', 'metrics', abstract=METRICS_ABSTRACT, inputs=0)
-@base.cwt_shared_task()
+@base.register_process('CDAT.metrics', abstract=METRICS_ABSTRACT, inputs=0)
 def metrics_task(self, context):
     data = {
         'time': datetime.now().ctime(),

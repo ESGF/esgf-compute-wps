@@ -18,8 +18,6 @@ def import_modules_handler(*args, **kwargs):
 
     base.discover_processes()
 
-    base.build_process_bindings()
-
 
 def default(obj):
     from compute_tasks.context import operation
@@ -130,9 +128,17 @@ serialization.register('cwt_json', encoder, decoder, 'application/json')
 
 app = Celery('compute_tasks')
 
-app.conf.event_serializer = 'cwt_json'
-app.conf.result_serializer = 'cwt_json'
-app.conf.task_serializer = 'cwt_json'
+app.conf.update({
+    'broker_url': 'filesystem://',
+    'broker_transport_options': {
+        'data_folder_in': '/app/broker/out',
+        'data_folder_out': '/app/broker/out',
+        'data_folder_processed': '/app/broker/processed',
+    },
+    'event_serializer': 'cwt_json',
+    'task_serializer': 'cwt_json',
+    'result_serializer': 'cwt_json',
+})
 
 app.autodiscover_tasks(['compute_tasks'], related_name='cdat', force=True)
 app.autodiscover_tasks(['compute_tasks'], related_name='job', force=True)

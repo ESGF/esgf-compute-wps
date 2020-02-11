@@ -9,6 +9,9 @@ compute/compute/settings.py
 .dodsrc
 cert.pem
 dask-worker-space/
+cache/
+output/
+testresult/
 
 *.rdb
 *.swp

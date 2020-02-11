@@ -61,6 +61,55 @@ def handle_describe_process(identifiers):
     return data
 
 
+def send_request_provisioner(identifier, data_inputs, job, user, process, status_id):
+    context = zmq.Context(1)
+
+    client = context.socket(zmq.REQ)
+
+    SNDTIMEO = os.environ.get('SEND_TIMEOUT', 15)
+    RCVTIMEO = os.environ.get('RECV_TIMEOUT', 15)
+
+    client.setsockopt(zmq.SNDTIMEO, SNDTIMEO * 1000)
+    client.setsockopt(zmq.RCVTIMEO, RCVTIMEO * 1000)
+
+    client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
+
+    job= str(job).encode()
+
+    user = str(user).encode()
+
+    process = str(process).encode()
+
+    status = str(status_id).encode()
+
+    data_inputs = helpers.encoder(data_inputs).encode()
+
+    try:
+        client.send_multipart([b'devel', identifier.encode(), data_inputs, job, user, process, status])
+    except zmq.Again:
+        logger.info('Error sending request to provisioner')
+
+        raise WPSError('Error sending request to provisioner, retry in a few minutes.')
+
+    try:
+        msg = client.recv_multipart()
+    except zmq.Again:
+        logger.info('Error receiving acknowledgment from provisioner')
+
+        raise WPSError('Error receiving acknowledgment from provisioner, retry in a few minutes.')
+    else:
+        if msg[0] == b'ACK':
+            logger.info('Accepted job %r', msg)
+        elif msg[0] == b'ERR':
+            logger.info('Provisioner error %r', msg)
+
+            raise WPSError('Provisioner error, retry in a few minutes.')
+        else:
+            logger.info('Provisioner responded with an unknown response %r', msg)
+
+            raise WPSError('Unknown response from provisioner.')
+
+
 REQUIRED_DATA_INPUTS = set(['variable', 'domain', 'operation'])
 
 
@@ -90,30 +139,12 @@ def handle_execute(meta, identifier, data_inputs):
 
     job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
 
-    # at this point we've accepted the job
-    job.accepted()
+    status_id = job.accepted()
 
-    logger.info('Acceped job %r', job.id)
-
-    context = zmq.Context(1)
-
-    client = context.socket(zmq.REQ)
-
-    client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
-
-    job_id = str(job.id).encode()
-
-    user_id = str(user.id).encode()
-
-    process_id = str(process.id).encode()
-
-    data_inputs = helpers.encoder(data_inputs).encode()
-
-    client.send_multipart([b'devel', identifier.encode(), data_inputs, job_id, user_id, process_id])
-
-    msg = client.recv_multipart()
-
-    logger.info('Response from provisioner %r', msg)
+    try:
+        send_request_provisioner(identifier, data_inputs, job.id, user.id, process.id, status_id)
+    except WPSError as e:
+        job.failed(e)
 
     return job.report
 

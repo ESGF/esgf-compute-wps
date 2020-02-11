@@ -4,6 +4,7 @@ import cwt
 from celery.utils.log import get_task_logger
 
 from compute_tasks import WPSError
+from compute_tasks import base
 from compute_tasks.context import state_mixin
 
 logger = get_task_logger('wps.context.operation')
@@ -17,11 +18,19 @@ class OperationContext(state_mixin.StateMixin, object):
         self._domain = domain or {}
         self._operation = operation or {}
 
-        self.operation = None
         self.output = []
 
         self.gdomain = None
         self.gparameters = {}
+
+        self._sorted = []
+        self.input_var_names = {}
+
+    def __repr__(self):
+        return (f'{self.__class__.__name__}('
+                f'{self._variable!r}, {self._domain!r}, {self._operation!r},'
+                f' {self.gdomain!r}, {self.gparameters!r}, {self._sorted!r},'
+                f' {self.output!r}, {self.input_var_names!r})')
 
     @staticmethod
     def decode_data_inputs(data_inputs):
@@ -118,6 +127,10 @@ class OperationContext(state_mixin.StateMixin, object):
 
         obj.output = data.pop('output')
 
+        obj._sorted = data.pop('_sorted')
+
+        obj.input_var_names = data.pop('input_var_names')
+
         obj.init_state(data)
 
         return obj
@@ -130,6 +143,8 @@ class OperationContext(state_mixin.StateMixin, object):
             '_domain': self._domain,
             '_operation': self._operation,
             'output': self.output,
+            '_sorted': self._sorted,
+            'input_var_names': self.input_var_names,
         }
 
         data.update(self.store_state())
@@ -139,6 +154,11 @@ class OperationContext(state_mixin.StateMixin, object):
     @property
     def variable(self):
         return list(set([x.var_name for x in self._variable.values()]))[0]
+
+    @property
+    def sorted(self):
+        for x in self._sorted:
+            yield self._operation[x]
 
     def output_ops(self):
         out_deg = dict((x, self.node_out_deg(y)) for x, y in self._operation.items())
@@ -169,7 +189,36 @@ class OperationContext(state_mixin.StateMixin, object):
         while queue:
             next = queue.pop(0)
 
-            yield self._operation[next]
+            self._sorted.append(next)
+
+            operation = self._operation[next]
+
+            var_names = set()
+
+            for x in operation.inputs:
+                if isinstance(x, cwt.Variable):
+                    var_names.add(x.var_name)
+                else:
+                    for y in self.input_var_names[x.name]:
+                        var_names.add(y)
+
+            self.input_var_names[next] = list(var_names)
+
+            yield operation, self.input_var_names[next]
+
+            process = base.get_process(operation.identifier)
+
+            params = process._get_parameters(operation)
+
+            rename = params.get('rename')
+
+            if rename is not None:
+                for x, y in zip(rename[::2], rename[1::2]):
+                    var_names.add(y)
+
+                    var_names.remove(x)
+
+                self.input_var_names[next] = list(var_names)
 
             for x in neigh[next]:
                 in_deg[x] -= 1

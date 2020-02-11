@@ -11,6 +11,8 @@ class CWTData(object):
     def __init__(self):
         self.v1 = cwt.Variable('file:///test1.nc', 'tas')
         self.v2 = cwt.Variable('file:///test2.nc', 'tas')
+        self.v3 = cwt.Variable('file:///test3.nc', 'pr')
+        self.v4 = cwt.Variable('file:///test3.nc', 'prw')
 
         self.d0 = cwt.Domain(time=slice(10, 20, 2))
 
@@ -23,13 +25,11 @@ class CWTData(object):
         self.min = cwt.Process(identifier='CDAT.min')
         self.subtract = cwt.Process(identifier='CDAT.subtract')
         self.divide = cwt.Process(identifier='CDAT.divide')
-        self.average = cwt.Process(identifier='CDAT.average')
         self.std = cwt.Process(identifier='CDAT.std')
 
     def sample_workflow(self):
-        self.average.add_inputs(self.aggregate)
         self.std.add_inputs(self.aggregate)
-        self.subtract.add_inputs(self.aggregate, self.average)
+        self.subtract.add_inputs(self.aggregate)
         self.divide.add_inputs(self.subtract, self.std)
         self.max.add_inputs(self.aggregate)
         self.min.add_inputs(self.aggregate)
@@ -40,7 +40,6 @@ class CWTData(object):
             'domain': [],
             'operation': [
                 self.aggregate.to_dict(),
-                self.average.to_dict(),
                 self.std.to_dict(),
                 self.subtract.to_dict(),
                 self.divide.to_dict(),
@@ -52,26 +51,76 @@ class CWTData(object):
 
         return data_inputs
 
+    def process_mixed_inputs(self):
+        s1 = cwt.Process('CDAT.subset', name='s1')
+        s1.add_inputs(self.v3)
+
+        m = cwt.Process('CDAT.merge', name='m')
+        m.add_inputs(s1, self.v4)
+
+        return {
+            'variable': [self.v3.to_dict(), self.v4.to_dict()],
+            'domain': [],
+            'operation': [s1.to_dict(), m.to_dict()],
+        }
+
+    def workflow_with_rename(self):
+        s1 = cwt.Process('CDAT.subset', name='s1')
+        s1.add_inputs(self.v3)
+
+        s2 = cwt.Process('CDAT.subset', name='s2')
+        s2.add_inputs(self.v4)
+
+        m = cwt.Process('CDAT.merge', name='m')
+        m.add_inputs(s1, s2)
+
+        c = cwt.Process('CDAT.count', name='c')
+        c.add_inputs(m)
+        c.add_parameters(rename=['pr', 'pr_count'])
+
+        s = cwt.Process('CDAT.sum', name='s')
+        s.add_inputs(c)
+        s.add_parameters(variable=['pr_count'], rename=['pr_count', 'pr_sum'])
+
+        w = cwt.Process('CDAT.workflow')
+        w.add_inputs(s)
+
+        return {
+            'variable': [self.v3.to_dict(), self.v4.to_dict()],
+            'domain': [],
+            'operation': [s1.to_dict(), s2.to_dict(), m.to_dict(), c.to_dict(), s.to_dict(), w.to_dict()]
+        }
 
 @pytest.fixture(scope='function')
 def cwt_data():
     return CWTData()
 
 
+def test_topo_sort_mixed_inputs(cwt_data):
+    workflow = cwt_data.process_mixed_inputs()
+
+    ctx = operation.OperationContext.from_data_inputs('CDAT.merge', workflow)
+
+    output = dict((x.name, y) for x, y in ctx.topo_sort())
+
+
 def test_topo_sort(cwt_data):
-    workflow = cwt_data.sample_workflow()
+    workflow = cwt_data.workflow_with_rename()
 
     ctx = operation.OperationContext.from_data_inputs('CDAT.workflow', workflow)
 
-    ops = [x for x in ctx.topo_sort()]
+    output = dict((x.name, y) for x, y in ctx.topo_sort())
 
-    assert ops[0].identifier == 'CDAT.aggregate'
-    assert ops[1].identifier == 'CDAT.average'
-    assert ops[2].identifier == 'CDAT.std'
-    assert ops[3].identifier == 'CDAT.max'
-    assert ops[4].identifier == 'CDAT.min'
-    assert ops[5].identifier == 'CDAT.subtract'
-    assert ops[6].identifier == 'CDAT.divide'
+    assert 's1' in output
+    assert output['s1'] == ['pr']
+    assert 's2' in output
+    assert output['s2'] == ['prw']
+    assert 'm' in output
+    assert sorted(output['m']) == ['pr', 'prw']
+    assert 'c' in output
+    assert sorted(output['c']) == ['pr', 'prw']
+    assert 's' in output
+    assert sorted(output['s']) == ['pr_count', 'prw']
 
 
 def test_find_neighbors(cwt_data):
@@ -110,7 +159,7 @@ def test_node_in_deg(cwt_data):
 
     node = [x for x in ops if x.identifier == 'CDAT.subtract'][0]
 
-    assert ctx.node_in_deg(node) == 2
+    assert ctx.node_in_deg(node) == 1
 
 
 def test_interm_ops(cwt_data):
@@ -120,8 +169,8 @@ def test_interm_ops(cwt_data):
 
     ops = ctx.interm_ops()
 
-    assert len(ops) == 4
-    assert set([x.identifier for x in ops]) == set(['CDAT.aggregate', 'CDAT.std', 'CDAT.subtract', 'CDAT.average'])
+    assert len(ops) == 3
+    assert set([x.identifier for x in ops]) == set(['CDAT.aggregate', 'CDAT.std', 'CDAT.subtract'])
 
 
 def test_output_ops(cwt_data):
@@ -155,6 +204,8 @@ def test_to_dict(cwt_data):
         'process': 0,
         'gdomain': None,
         'gparameters': {},
+        '_sorted': [],
+        'input_var_names': {},
     }
 
     ctx = operation.OperationContext.from_dict(data)
@@ -190,6 +241,8 @@ def test_from_dict(cwt_data):
         'operation': cwt_data.op1,
         'gdomain': None,
         'gparameters': {},
+        '_sorted': [],
+        'input_var_names': {},
     }
 
     ctx = operation.OperationContext.from_dict(data)

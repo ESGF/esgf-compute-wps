@@ -10,7 +10,7 @@ logger = logging.getLogger('provisioner.kube_cluster')
 
 
 class KubeCluster(threading.Thread):
-    def __init__(self, redis_host, namespace, timeout, dry_run, ignore_lifetime):
+    def __init__(self, redis_host, namespace, timeout, dry_run, ignore_lifetime, **kwargs):
         super(KubeCluster, self).__init__(target=self.monitor)
 
         self.redis_host = redis_host
@@ -37,7 +37,7 @@ class KubeCluster(threading.Thread):
         logger.info('Checking %r %r resources', len(resource.items), kind)
 
         for x in resource.items:
-            key = '{!s}:{!s}:{!s}'.format(x.metadata.labels[selector], x.metadata.name, kind)
+            key = x.metadata.labels[selector]
 
             expire = self.redis.hget('resource', key)
 
@@ -65,51 +65,52 @@ class KubeCluster(threading.Thread):
                 else:
                     logger.debug('Found validate resource %r %r', kind, x.metadata.name)
 
+    def remove_resource(self, resource, delete_func):
+        for x in resource['items']:
+            try:
+                delete_func(x['metadata']['name'], self.namespace)
+            except Exception:
+                # Resource should get cleaned up
+                logger.exception('Failed to delete resource')
+
     def check_resources(self):
-        for key, expire in self.redis.hscan_iter('resource'):
-            logger.debug('Checking key %r expire %r', key, expire)
+        keys_to_remove = []
 
-            uuid, name, kind = key.decode().split(':')
+        for resource_uuid, expire in self.redis.hscan_iter('resource'):
+            logger.info(f'Checking resource uuid {resource_uuid!r} expire {expire!r}')
 
-            selector = 'app.kubernetes.io/resource-group-uuid={!s}'.format(uuid)
-
-            if kind == 'Pod':
-                resource = self.core.list_namespaced_pod(self.namespace, label_selector=selector)
-
-                delete_func = self.core.delete_namespaced_pod
-            elif kind == 'Deployment':
-                resource = self.apps.list_namespaced_deployment(self.namespace, label_selector=selector)
-
-                delete_func = self.apps.delete_namespaced_deployment
-            elif kind == 'Service':
-                resource = self.core.list_namespaced_service(self.namespace, label_selector=selector)
-
-                delete_func = self.core.delete_namespaced_service
-            elif kind == 'Ingress':
-                resource = self.exts.list_namespaced_ingress(self.namespace, label_selector=selector)
-
-                delete_func = self.exts.delete_namespaced_ingress
-            else:
-                logger.error('Cannot handle resource %r kind', kind)
-
-                continue
+            selector = 'app.kubernetes.io/resource-group-uuid={!s}'.format(resource_uuid)
 
             expire = float(expire)
 
-            if len(resource.items) == 0:
-                logger.info('Resource not found, removing key %r', name)
+            if time.time() <= expire:
+                logger.info('Resource not expired')
 
-                # Resource not found
-                if not self.dry_run:
-                    self.redis.hdel('resource', key)
-            elif time.time() > expire:
-                logger.info('Resource expired, removing %r %r', kind, name)
+                continue
 
-                # Resource expired
-                if not self.dry_run:
-                    delete_func(name, self.namespace)
+            resource = self.apps.list_namespaced_deployment(self.namespace, label_selector=selector)
 
-                    self.redis.hdel('resource', key)
+            self.remove_resource(resource, self.apps.delete_namespaced_deployment)
+
+            resource = self.core.list_namespaced_pod(self.namespace, label_selector=selector)
+
+            self.remove_resource(resource, self.core.delete_namespaced_pod)
+
+            resource = self.core.list_namespaced_service(self.namespace, label_selector=selector)
+
+            self.remove_resource(resource, self.core.delete_namespaced_service)
+
+            resource = self.exts.list_namespaced_ingress(self.namespace, label_selector=selector)
+
+            self.remove_resource(resource, self.exts.delete_namespaced_ingress)
+
+            keys_to_remove.append(resource_uuid)
+
+        logger.info(f'Removing keys {keys_to_remove!r}')
+
+        if len(keys_to_remove) > 0:
+            with self.redis.lock('resource'):
+                self.redis.hdel(*keys_to_remove)
 
         logger.info('Done checking for resources')
 
@@ -139,3 +140,33 @@ class KubeCluster(threading.Thread):
             self.check_resources()
 
             time.sleep(self.timeout)
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+
+    parser.add_argument('--redis-host', help='Redis host', required=True)
+
+    parser.add_argument('--namespace', help='Kubernetes namespace to monitor', default='default')
+
+    parser.add_argument('--timeout', help='Resource monitor timeout', type=int, default=30)
+
+    parser.add_argument('--dry-run', help='Does not actually remove resources', action='store_true')
+
+    parser.add_argument('--ignore-lifetime', help='Ignores lifetime', action='store_true')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=args.log_level)
+
+    monitor = KubeCluster(**vars(args))
+
+    monitor.start()
+
+    monitor.join()
+
+if __name__ == '__main__':
+    main()

@@ -11,3 +11,6 @@ FAQ.md
 Jenkinsfile
 Makefile
 README.md
+
+output/
+cache/

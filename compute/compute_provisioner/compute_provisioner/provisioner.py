@@ -1,6 +1,8 @@
 import datetime
+import hashlib
 import json
 import logging
+import os
 import threading
 import time
 from collections import OrderedDict
@@ -21,15 +23,11 @@ CLEANUP_PHASES = ('Succeeded', 'Failed')
 
 
 class ResourceTimeoutError(Exception):
-    def __init__(self, name):
-        super(ResourceTimeoutError, self).__init__('Timed out waitin for resources {!s}'.format(name))
+    pass
 
 
 class ResourceAllocationError(Exception):
-    def __init__(self, name):
-        self.name = name
-
-        super(ResourceAllocationError, self).__init__('Error allocating resource {!s}'.format(name))
+    pass
 
 
 def json_encoder(x):
@@ -96,13 +94,16 @@ class WorkerQueue(object):
 
     def heartbeat(self, socket):
         for address in self.queue:
-            socket.send_multipart([address, constants.HEARTBEAT])
+            try:
+                socket.send_multipart([address, constants.HEARTBEAT])
 
-            logger.info('Sent heartbeat to %r', address)
+                logger.debug('Send heartbeat to %r', address)
+            except zmq.Again:
+                logger.info('Error sending heartbaet to %r', address)
 
         self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
 
-        logger.info('Setting next heartbeat at %r', self.heartbeat_at)
+        logger.debug('Setting next heartbeat at %r', self.heartbeat_at)
 
     def next(self, version):
         candidates = [x.address for x in self.queue.values() if x.version == version]
@@ -117,10 +118,8 @@ class WorkerQueue(object):
 
 
 class Provisioner(threading.Thread):
-    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime, resource_timeout, wait_for_resources, **kwargs):
+    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime, resource_timeout, **kwargs):
         super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port, redis_host))
-        self.wait_for_resources = wait_for_resources
-
         self.namespace = namespace
 
         self.lifetime = lifetime
@@ -165,6 +164,12 @@ class Provisioner(threading.Thread):
 
         self.frontend = self.context.socket(zmq.ROUTER)
 
+        FSNDTIMEO = os.environ.get('FRONTEND_SEND_TIMEOUT', 15)
+        FRCVTIMEO = os.environ.get('FRONTEND_RECV_TIMEOUT', 15)
+
+        self.frontend.setsockopt(zmq.SNDTIMEO, FSNDTIMEO * 1000)
+        self.frontend.setsockopt(zmq.RCVTIMEO, FRCVTIMEO * 1000)
+
         frontend_addr = 'tcp://*:{!s}'.format(frontend_port)
 
         self.frontend.bind(frontend_addr)
@@ -172,6 +177,12 @@ class Provisioner(threading.Thread):
         logger.info('Binding frontend to %r', frontend_addr)
 
         self.backend = self.context.socket(zmq.ROUTER)
+
+        BSNDTIMEO = os.environ.get('BACKEND_SEND_TIMEOUT', 15)
+        BRCVTIMEO = os.environ.get('BACKEND_RECV_TIMEOUT', 15)
+
+        self.backend.setsockopt(zmq.SNDTIMEO, BSNDTIMEO * 1000)
+        self.backend.setsockopt(zmq.RCVTIMEO, BRCVTIMEO * 1000)
 
         backend_addr = 'tcp://*:{!s}'.format(backend_port)
 
@@ -189,6 +200,18 @@ class Provisioner(threading.Thread):
 
         logger.info('Connected to redis db %r', self.redis)
 
+    def queue_job(self, version, frames):
+        with self.redis.lock('job_queue', blocking_timeout=4):
+            self.redis.rpush(version, json_encoder(frames))
+
+            logger.info(f'Queued job')
+
+    def requeue_job(self, version, frames):
+        with self.redis.lock('job_queue', blocking_timeout=4):
+            self.redis.lpush(version, json_encoder(frames))
+
+            logger.info(f'Requeued job')
+
     def update_labels(self, yaml_data, labels):
         try:
             yaml_data['metadata']['labels'].update(labels)
@@ -201,8 +224,10 @@ class Provisioner(threading.Thread):
                 'labels': labels,
             }
 
-    def request_resources(self, request, resource_uuid, labels):
-        requested = {}
+    def request_resources(self, request, resource_uuid):
+        labels = {
+            'app.kubernetes.io/resource-group-uuid': resource_uuid,
+        }
 
         try:
             for item in request:
@@ -214,106 +239,61 @@ class Provisioner(threading.Thread):
 
                 if kind == 'Pod':
                     self.core.create_namespaced_pod(body=yaml_data, namespace=self.namespace)
-
-                    key = '{!s}:{!s}:Pod'.format(resource_uuid, yaml_data['metadata']['name'])
                 elif kind == 'Deployment':
                     self.apps.create_namespaced_deployment(body=yaml_data, namespace=self.namespace)
-
-                    key = '{!s}:{!s}:Deployment'.format(resource_uuid, yaml_data['metadata']['name'])
                 elif kind == 'Service':
                     self.core.create_namespaced_service(body=yaml_data, namespace=self.namespace)
-
-                    key = '{!s}:{!s}:Service'.format(resource_uuid, yaml_data['metadata']['name'])
                 elif kind == 'Ingress':
                     self.extensions.create_namespaced_ingress(body=yaml_data, namespace=self.namespace)
-
-                    key = '{!s}:{!s}:Ingress'.format(resource_uuid, yaml_data['metadata']['name'])
                 else:
                     raise Exception('Requested an unsupported resource')
-
-                requested[key] = yaml_data
         except client.rest.ApiException as e:
-            if e.status == 409:
-                logger.info('Resources already exists on the server')
+            logger.info(f'Kubernetes API call failed status code {e.status!r}')
 
-                pass
-            else:
-                logger.error(e)
+            # 403 is Forbidden tends to be raised when namespace is out of resources.
+            # 409 is Conflict, generally because the resource already exists.
+            if e.status not in (403, 409):
+                raise ResourceAllocationError()
 
-                raise ResourceAllocationError(str(yaml_data['metadata']['name']))
+    def set_resource_expiry(self, resource_uuid):
+        expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
-        return requested
+        with self.redis.lock('resource'):
+            self.redis.hset('resource', resource_uuid, expired)
 
-    def wait_resources(self, resources, namespace, wait_timeout):
-        for key, value in resources.items():
-            logger.info('Waiting on resource %r', key)
+        logger.info(f'Set resource {resource_uuid!r} to expire in {self.lifetime!r} seconds')
 
-            start = time.time()
+    def try_extend_resource_expiry(self, resource_uuid):
+        if self.redis.hexists('resource', resource_uuid):
+            logger.info(f'Extending resource {resource_uuid!r} expiration')
 
-            while True:
-                kind = value['kind']
+            self.set_resource_expiry(resource_uuid)
 
-                if kind == 'Pod':
-                    output = self.core.read_namespaced_pod_status(value['metadata']['name'], namespace)
+            return True
 
-                    if all([x.ready for x in output.status.container_statuses]):
-                        logger.info('Pod %r containers are ready', value['metadata']['name'])
+        return False
 
-                        break
-                elif kind == 'Deployment':
-                    output = self.apps.read_namespaced_deployment_status(value['metadata']['name'], namespace)
-
-                    if output.spec.replicas == output.status.ready_replicas:
-                        logger.info('Deployment %r Pods are ready', value['metadata']['name'])
-
-                        break
-                else:
-                    break
-
-                if (time.time() - start) < wait_timeout:
-                    raise ResourceTimeoutError(value['metadata']['name'])
-
-                time.sleep(2)
-
-    def allocate_resources(self, request):
+    def allocate_resources(self, request_raw):
         """ Allocate resources.
 
         Only support the following resources types: Pod, Deployment, Service, Ingress.
 
         Args:
-            request: A list of YAML strs to create in the cluster.
+            request: A str containing a list of YAML definition of k8s resources.
         """
-        logger.info('Allocating resources')
+        resource_uuid = hashlib.sha256(request_raw).hexdigest()[:7]
 
-        resource_uuid = str(uuid4())[:8]
+        request = json.loads(request_raw)
 
-        # Create label with a uuid which can be queried for by the kube-monitor
-        labels = {
-            'app.kubernetes.io/resource-group-uuid': resource_uuid,
-        }
+        logger.info(f'Allocating {len(request)!r} resources with uuid {resource_uuid!r}')
 
-        # Try to create the resources in the cluster, dont check to see if they
-        # succeed, this might need to change and block until everything is up and
-        # running
-        try:
-            requested = self.request_resources(request, resource_uuid, labels)
-        except ResourceAllocationError as e:
-            logger.error('Error allocation resource %s', e.name)
+        # Check if the resources exist
+        existing = self.try_extend_resource_expiry(resource_uuid)
 
-            raise e
+        if not existing:
+            self.request_resources(request, resource_uuid)
 
-        if self.wait_for_resources:
-            try:
-                self.wait_resources(requested, self.namespace, self.resource_timeout)
-            except ResourceTimeoutError as e:
-                logger.error('Timed out waiting for resource')
-
-                raise e
-
-        expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
-
-        for key in requested.keys():
-            self.redis.hset('resource', key, expired)
+            self.set_resource_expiry(resource_uuid)
 
     def handle_backend_frames(self, frames):
         address = frames[0]
@@ -322,19 +302,30 @@ class Provisioner(threading.Thread):
 
         if frames[1] == constants.RESOURCE:
             try:
-                self.allocate_resources(json.loads(frames[2]))
+                self.allocate_resources(frames[2])
             except (ResourceAllocationError, ResourceTimeoutError) as e:
-                # Notify error in allocating resources
-                new_frames = [address, constants.ERR, str(e)]
+                waiting = self.waiting_ack.pop(address, None)
+
+                if waiting is not None:
+                    # On resource allocation error job is pushed to front of the queue.
+                    with self.redis.lock('job_queue'):
+                        self.redis.lpush(waiting.version, json_encoder(waiting.frames))
+                else:
+                    logger.error('Failed allocation but job is missing from queue waiting for ack')
             else:
-                # Allocate resources
                 new_frames = [address, constants.ACK]
 
-            self.backend.send_multipart(new_frames)
-        elif frames[1] == constants.ACK:
-            logger.info('Received ack from backend %r', address)
+                logger.info('Notifying backend %r of successful allocation', address)
 
-            self.waiting_ack.pop(address, None)
+                try:
+                    self.backend.send_multipart(new_frames)
+                except zmq.Again:
+                    # If the ack never sends we just let the worker timeout
+                    pass
+                else:
+                    logger.info('Removing worker %s from waiting ack', address)
+
+                    self.waiting_ack.pop(address, None)
         else:
             version = frames[2]
 
@@ -345,24 +336,40 @@ class Provisioner(threading.Thread):
 
                 pass
             elif frames[1] == constants.HEARTBEAT:
-                logger.info('Received heartbeat from backend %r', address)
+                logger.debug('Received heartbeat from backend %r', address)
 
                 pass
             else:
                 logger.error('Unknown message %r', frames)
 
     def handle_frontend_frames(self, frames):
-        self.frontend.send_multipart(frames)
+        logger.info('Handling frontend frames %r', frames)
+
+        # Address and blank space
+        address = frames[0:2]
 
         version = frames[2]
 
-        # Remove first two frames that are not needed.
+        # Frames to be forwarded to the backend
         frames = frames[2:]
 
-        with self.redis.lock('job_queue'):
-            self.redis.rpush(version, json_encoder(frames))
+        try:
+            self.queue_job(version, frames)
+        except redis.lock.LockError:
+            response = address + [constants.ERR]
 
-        logger.info('Added frames to %r queue %r', version, frames)
+            logger.info('Error aquiring redis lock')
+        else:
+            response = address + [constants.ACK]
+
+            logger.info('Successfully queued job')
+
+        try:
+            self.frontend.send_multipart(response)
+        except zmq.Again:
+            logger.info('Error notifying client with response %r', response)
+        else:
+            logger.info('Notified client with response %r', response)
 
     def handle_unacknowledge_requests(self):
         for address, waiting in list(self.waiting_ack.items()):
@@ -384,6 +391,7 @@ class Provisioner(threading.Thread):
                     try:
                         frames = json_decoder(self.redis.lpop(worker.version))
                     except Exception:
+                        # TODO handle edge case of malformed data
                         logger.info('No work found for version %r', worker.version)
 
                         continue
@@ -392,9 +400,14 @@ class Provisioner(threading.Thread):
 
                     frames.insert(1, constants.REQUEST)
 
-                    logger.info('Sending frames to worker %r', frames)
+                    try:
+                        self.backend.send_multipart(frames)
+                    except zmq.Again:
+                        logger.info('Error sending frames to worker %r', address)
 
-                    self.backend.send_multipart(frames)
+                        self.redis.lpush(worker.version, json_encoder(frames[2:]))
+                    else:
+                        logger.info('Sent frames to worker %r waiting for acknowledgment', address)
 
                     self.waiting_ack[address] = WaitingAck(worker.version, frames[2:])
 
@@ -403,6 +416,8 @@ class Provisioner(threading.Thread):
 
                     logger.info('Dispatch work to %r', address)
         except redis.lock.LockError:
+            # No need to handle anything if we fail to aquire the lock
+            # TODO we should track how often we cannot aquire the lock, as there may be a bigger issue
             pass
 
     def monitor(self, frontend_port, backend_port, redis_host):
@@ -414,20 +429,26 @@ class Provisioner(threading.Thread):
             socks = dict(self.poll_both.poll(constants.HEARTBEAT_INTERVAL * 1000))
 
             if socks.get(self.backend) == zmq.POLLIN:
-                frames = self.backend.recv_multipart()
+                try:
+                    frames = self.backend.recv_multipart()
+                except zmq.Again:
+                    logger.info('Error receiving frames from backend')
+                else:
+                    if not frames:
+                        break
 
-                if not frames:
-                    break
-
-                self.handle_backend_frames(frames)
+                    self.handle_backend_frames(frames)
 
             if socks.get(self.frontend) == zmq.POLLIN:
-                frames = self.frontend.recv_multipart()
+                try:
+                    frames = self.frontend.recv_multipart()
+                except zmq.Again:
+                    logger.info('Error receiving frames from frontend')
+                else:
+                    if not frames:
+                        break
 
-                if not frames:
-                    break
-
-                self.handle_frontend_frames(frames)
+                    self.handle_frontend_frames(frames)
 
             if self.workers.heartbeat_time:
                 self.workers.heartbeat(self.backend)
@@ -463,24 +484,26 @@ def main():
 
     parser.add_argument('--ignore-lifetime', help='Ignores lifetime and removes existing resources', type=bool, default=False)
 
-    parser.add_argument('--wait-for-resources', help='The provisioner will wait until resources are allocated '
-                        'before replying to the backend', type=bool, default=False)
+    parser.add_argument('--enable-resource-monitor', help='Enables monitoring expired resources', action='store_true')
 
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
 
+    if args.enable_resource_monitor:
+        logger.info('Starting resource monitor')
+
+        monitor = kube_cluster.KubeCluster(args.redis_host, args.namespace, args.timeout, False, args.ignore_lifetime)
+
+        monitor.start()
+
+        monitor.join()
+
     provisioner = Provisioner(**vars(args))
 
     provisioner.start()
 
-    monitor = kube_cluster.KubeCluster(args.redis_host, args.namespace, args.timeout, False, args.ignore_lifetime)
-
-    monitor.start()
-
     provisioner.join()
-
-    monitor.join()
 
 
 if __name__ == '__main__':

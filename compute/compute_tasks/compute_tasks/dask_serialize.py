@@ -7,48 +7,6 @@ from distributed.protocol.serialize import register_serialization
 logger = get_task_logger('dask_serialize')
 
 
-def regrid_chunk(data, axes, grid, tool, method):
-    # Subset time to just fit, don't care if its the correct range
-    axes[0] = axes[0].subAxis(0, data.shape[0], 1)
-
-    var = cdms2.createVariable(data, axes=axes)
-
-    data = var.regrid(grid, regridTool=tool, regridMethod=method)
-
-    return data
-
-
-def retrieve_chunk(url, var_name, selector, cert):
-    from compute_tasks import managers
-
-    old_cwd = None
-    temp_dir = None
-
-    if selector is None:
-        selector = {}
-
-    try:
-        if cert is not None:
-            temp_dir, _, _ = managers.InputManager.write_user_certificate(cert)
-
-        try:
-            if temp_dir is not None:
-                old_cwd = os.getcwd()
-
-                os.chdir(temp_dir.name)
-
-            with cdms2.open(url) as infile:
-                data = infile(var_name, **selector)
-        finally:
-            if old_cwd is not None:
-                os.chdir(old_cwd)
-    finally:
-        if temp_dir is not None:
-            del temp_dir
-
-    return data
-
-
 def serialize_transient_axis(axis):
     axis_data = axis[:]
     bounds = axis.getBounds()

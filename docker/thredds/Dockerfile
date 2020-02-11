@@ -10,6 +10,7 @@ ENV THREDDS_WAR_URL http://artifacts.unidata.ucar.edu/content/repositories/unida
 RUN curl -fSLk "${THREDDS_WAR_URL}" -o thredds.war && \
       unzip thredds.war -d ${CATALINA_HOME}/webapps/threddsCWT/ && \
       rm -rf thredds.war && \
+      mkdir -p ${CATALINA_HOME}/webapps/ROOT && \
       /bin/bash -c "cp -rf ${CATALINA_HOME}/webapps/threddsCWT/*.{gif,jpg,css} ${CATALINA_HOME}/webapps/ROOT/" && \
       sed -i.bak "s/<param-value>thredds/<param-value>threddsCWT/g" ${CATALINA_HOME}/webapps/threddsCWT/WEB-INF/web.xml
   

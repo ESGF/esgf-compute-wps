@@ -1,86 +1,96 @@
-REGISTRY := aims2.llnl.gov
-GIT_COMMIT := $(shell git log -n1 --pretty=%h)
+default: help
 
-.PHONY: provisioner
-provisioner: PROJECT_DIR = compute_provisioner
-provisioner: IMAGE_NAME = compute-provisioner
-provisioner: buildkit
+COMPONENTS = provisioner tasks wps thredds
+BUILD = $(patsubst %,build-%,$(COMPONENTS))
+RUN = $(patsubst %,run-%,$(COMPONENTS))
+RM = $(patsubst %,rm-%,$(COMPONENTS))
+TEST = $(patsubst %,testresult-%,$(COMPONENTS))
+TARGET = production
+IMAGE_TAG = $(shell git rev-parse --short HEAD)
 
-.PHONY: provisioner-docker
-provisioner-docker: PROJECT_DIR = compute_provisioner
-provisioner-docker: IMAGE_NAME = compute-provisioner
-provisioner-docker: docker
+OUTPUT_LOCAL=--output type=local,dest=output/
+OUTPUT_REMOTE=--output type=docker,name=$(IMAGE_NAME):$(IMAGE_TAG),dest=/output/$(NAME)
+OUTPUT_IMAGE=--output type=image,name=$(IMAGE_NAME):$(IMAGE_TAG),push=true
 
-.PHONY: tasks
-tasks: PROJECT_DIR = compute_tasks
-tasks: IMAGE_NAME = compute-tasks
-tasks: buildkit
+.PHONY: $(BUILD) $(RUN) $(RM) $(TEST) help
 
-.PHONY: tasks-docker
-tasks-docker: PROJECT_DIR = compute_tasks
-tasks-docker: IMAGE_NAME = compute-tasks
-tasks-docker: docker
+define common_template =
+	$(eval COMP=$(1))
+	$(eval NAME=compute-$(1))
+	$(eval COMP_DIR=compute_$(1))
+	$(eval DOCKERFILE_DIR?=compute/$(COMP_DIR))
+	$(eval SRC_DIR=$(DOCKERFILE_DIR)/$(COMP_DIR))
+	$(eval IMAGE_NAME=$(if $(OUTPUT_REGISTRY),$(OUTPUT_REGISTRY)/)$(NAME))
+endef
 
-.PHONY: wps
-wps: PROJECT_DIR = compute_wps
-wps: IMAGE_NAME = compute-wps
-wps: buildkit
-	
-.PHONY: wps-docker
-wps-docker: PROJECT_DIR = compute_wps
-wps-docker: IMAGE_NAME = compute-wps
-wps-docker: docker
+$(TEST):
+	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
 
-.PHONY: thredds
-thredds:
-	buildctl-daemonless.sh build \
-		--frontend dockerfile.v0 \
-		--local context=. \
-		--local dockerfile=docker/thredds \
-		--output type=image,name=$(REGISTRY)/compute-thredds:$(GIT_COMMIT),push=true \
-		--export-cache type=registry,ref=$(REGISTRY)/compute_thredds:cache \
-		--import-cache type=registry,ref=$(REGISTRY)/compute_thredds:cache 
+	$(MAKE) build-$(COMP) TARGET=testresult	
 
-.PHONY: thredds-docker
-thredds-docker:
-	docker run \
-		-it --privileged --rm \
-		-v ${PWD}:/data -v ${HOME}/.docker/config.json:/root/.docker/config.json \
-		-w /data \
+$(RM):
+	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
+
+	docker stop $(NAME) && \
+		docker rm $(NAME)
+
+$(RUN):
+	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
+
+	docker run -it --name $(NAME) \
+		-v $(PWD)/$(SRC_DIR):/testing/$(COMP_DIR) \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		/bin/bash 2>/dev/null || \
+		(docker start $(NAME) && docker exec -it $(NAME) /bin/bash)
+
+$(BUILD):
+	$(eval $(call common_template,$(word 2,$(subst -, ,$@))))
+
+	$(eval DOCKERFILE_DIR = $(if $(findstring compute-thredds,$(NAME)),docker/thredds,$(DOCKERFILE_DIR)))
+
+	$(eval MPC_HOST = $(if $(findstring compute-tasks,$(NAME)),esgf-node.llnl.gov))
+	$(eval MPC_USERNAME = $(if $(findstring compute-tasks,$(NAME)),$(MPC_USR)))
+	$(eval MPC_PASSWORD = $(if $(findstring compute-tasks,$(NAME)),$(MPC_PSW)))
+
+ifeq ($(shell which buildctl-daemonless.sh),)
+	$(eval OUTPUT = $(if $(findstring testresult,$(TARGET)),$(OUTPUT_LOCAL),$(OUTPUT_REMOTE)))
+
+	docker run -it --rm --privileged \
+		-v $(PWD):/data -w /data \
+		-v $(PWD)/cache:/cache \
+		-v $(PWD)/output:/output \
+		-v $(PWD)/testresult:/testresult \
 		--entrypoint buildctl-daemonless.sh \
 		moby/buildkit:master \
 		build \
 		--frontend dockerfile.v0 \
 		--local context=. \
-		--local dockerfile=docker/thredds \
-		--output type=image,name=$(REGISTRY)/compute-thredds:$(GIT_COMMIT),push=true \
-		--export-cache type=registry,ref=$(REGISTRY)/compute_thredds:cache \
-		--import-cache type=registry,ref=$(REGISTRY)/compute_thredds:cache 
+		--local dockerfile=$(DOCKERFILE_DIR) \
+		--opt target=$(TARGET) \
+		--opt build-arg:MPC_HOST=$(MPC_HOST) \
+		--opt build-arg:MPC_USERNAME=$(MPC_USERNAME) \
+		--opt build-arg:MPC_PASSWORD=$(MPC_PASSWORD) \
+		$(OUTPUT) \
+		--export-cache type=local,dest=/cache \
+		--import-cache type=local,src=/cache
 
-.PHONY: buildkit
-buildkit:
-	buildctl-daemonless.sh build \
-		--frontend dockerfile.v0 \
-		--local context=. \
-		--local dockerfile=compute/$(PROJECT_DIR) \
-		--opt build-arg:GIT_SHORT_COMMIT=$(GIT_COMMIT) \
-		--output type=image,name=$(REGISTRY)/$(IMAGE_NAME):$(GIT_COMMIT),push=true \
-		--export-cache type=registry,ref=$(REGISTRY)/$(IMAGE_NAME):cache \
-		--import-cache type=registry,ref=$(REGISTRY)/$(IMAGE_NAME):cache 
+	cat output/$(NAME) | docker load
+else
+	$(eval OUTPUT = $(if $(findstring testresult,$(TARGET)),$(OUTPUT_LOCAL),$(OUTPUT_IMAGE)))
 
-.PHONY: docker
-docker:
-	docker run \
-		-it --privileged --rm \
-		-v ${PWD}:/data -v ${HOME}/.docker/config.json:/root/.docker/config.json \
-		-w /data \
-		--entrypoint buildctl-daemonless.sh \
-		moby/buildkit:master \
+	buildctl-daemonless.sh \
 		build \
 		--frontend dockerfile.v0 \
 		--local context=. \
-		--local dockerfile=compute/$(PROJECT_DIR) \
-		--opt build-arg:GIT_SHORT_COMMIT=$(GIT_COMMIT) \
-		--output type=image,name=$(REGISTRY)/$(IMAGE_NAME):$(GIT_COMMIT),push=true \
-		--export-cache type=registry,ref=$(REGISTRY)/$(IMAGE_NAME):cache \
-		--import-cache type=registry,ref=$(REGISTRY)/$(IMAGE_NAME):cache 
+		--local dockerfile=$(DOCKERFILE_DIR) \
+		--opt target=$(TARGET) \
+		--opt build-arg:MPC_HOST=$(MPC_HOST) \
+		--opt build-arg:MPC_USERNAME=$(MPC_USERNAME) \
+		--opt build-arg:MPC_PASSWORD=$(MPC_PASSWORD) \
+		$(OUTPUT) \
+		--export-cache type=registry,ref=$(IMAGE_NAME):cache \
+		--import-cache type=registry,ref=$(IMAGE_NAME):cache 
+endif
+
+help: #: Show help topics
+	@grep "#:" Makefile* | grep -v "@grep" | sort | sed "s/\([A-Za-z_ -]*\):.*#\(.*\)/\1\2/g"

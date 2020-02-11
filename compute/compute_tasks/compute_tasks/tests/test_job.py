@@ -2,6 +2,7 @@ import cwt
 import json
 
 from compute_tasks import job
+from compute_tasks.context import operation
 
 
 def test_job_succeeded_multiple_variable(mocker):
@@ -43,22 +44,11 @@ def test_job_succeeded(mocker):
 
 
 def test_job_started(mocker):
-    mocker.patch.object(job, 'ctx')
+    context = operation.OperationContext()
 
-    data_inputs = {
-        'variable': '[]',
-        'domain': '[]',
-        'operation': json.dumps({
-            'op1': cwt.Process(identifier='CDAT.subset').to_dict(),
-        }),
-    }
+    mocker.patch.object(context, 'action')
+    mocker.spy(context, 'started')
 
-    output = job.job_started('CDAT.subset', data_inputs, 0, 0, 0, {})
-
-    assert output == job.ctx.OperationContext.from_data_inputs.return_value
-
-    job.ctx.OperationContext.from_data_inputs.assert_called_with('CDAT.subset', data_inputs)
-
-    output.init_state.assert_called_with({'extra': {}, 'job': 0, 'user': 0, 'process': 0})
+    output = job.job_started(context)
 
     output.started.assert_called()
