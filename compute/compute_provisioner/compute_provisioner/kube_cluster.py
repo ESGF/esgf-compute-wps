@@ -79,7 +79,7 @@ class KubeCluster(threading.Thread):
         for resource_uuid, expire in self.redis.hscan_iter('resource'):
             logger.info(f'Checking resource uuid {resource_uuid!r} expire {expire!r}')
 
-            selector = 'app.kubernetes.io/resource-group-uuid={!s}'.format(resource_uuid)
+            selector = 'app.kubernetes.io/resource-group-uuid={!s}'.format(resource_uuid.decode())
 
             expire = float(expire)
 
@@ -109,8 +109,7 @@ class KubeCluster(threading.Thread):
         logger.info(f'Removing keys {keys_to_remove!r}')
 
         if len(keys_to_remove) > 0:
-            with self.redis.lock('resource'):
-                self.redis.hdel(*keys_to_remove)
+            self.redis.hdel(*keys_to_remove)
 
         logger.info('Done checking for resources')
 
