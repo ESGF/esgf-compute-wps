@@ -290,7 +290,12 @@ class Provisioner(threading.Thread):
         existing = self.try_extend_resource_expiry(resource_uuid)
 
         if not existing:
-            self.request_resources(request, resource_uuid)
+            try:
+                self.request_resources(request, resource_uuid)
+            except ResourceAllocationError as e:
+                raise e
+            except Exception:
+                pass
 
             self.set_resource_expiry(resource_uuid)
 
