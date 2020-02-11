@@ -195,26 +195,22 @@ conda install -c conda-forge ruamel.yaml
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
 then
-  python scripts/update_config.py configs/development.yaml provisioner ${GIT_COMMIT:0:8}
-  python scripts/update_config.py configs/production-ci.yaml provisioner ${GIT_COMMIT:0:8}
+  python scripts/update_config.py compute/values.yaml provisioner ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
 then
-  python scripts/update_config.py configs/development.yaml wps ${GIT_COMMIT:0:8}
-  python scripts/update_config.py configs/production-ci.yaml wps ${GIT_COMMIT:0:8}
+  python scripts/update_config.py compute/values.yaml wps ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
 then
-  python scripts/update_config.py configs/development.yaml celery ${GIT_COMMIT:0:8}
-  python scripts/update_config.py configs/production-ci.yaml celery ${GIT_COMMIT:0:8}
+  python scripts/update_config.py compute/values.yaml celery ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
 then
-  python scripts/update_config.py configs/development.yaml thredds ${GIT_COMMIT:0:8}
-  python scripts/update_config.py configs/production-ci.yaml thredds ${GIT_COMMIT:0:8}
+  python scripts/update_config.py compute/values.yaml thredds ${GIT_COMMIT:0:8}
 fi
 
 git config user.email ${GIT_EMAIL}
