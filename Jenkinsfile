@@ -183,8 +183,6 @@ pipeline {
         container(name: 'helm', shell: '/bin/bash') {
           sh '''#! /bin/bash
 
-KUBECONFIG="--kubeconfig /jenkins-config/jenkins-config"
-
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 
 echo -e "GIT_DIFF\\n${GIT_DIFF}"
@@ -193,55 +191,30 @@ git clone -b devel https://github.com/esgf-compute/charts
 
 cd charts/
 
-helm ${KUBECONFIG} init --client-only
-
-helm repo add --ca-file /ssl/llnl.ca.pem stable https://kubernetes-charts.storage.googleapis.com/
-
-helm ${KUBECONFIG} dependency update compute/
-
 conda install -c conda-forge ruamel.yaml
-
-SET_FLAGS=""
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
 then
-  SET_FLAGS="${SET_FLAGS} --set provisioner.imageTag=${GIT_COMMIT:0:8}"
-
   python scripts/update_config.py configs/development.yaml provisioner ${GIT_COMMIT:0:8}
   python scripts/update_config.py configs/production-ci.yaml provisioner ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
 then
-  SET_FLAGS="${SET_FLAGS} --set wps.imageTag=${GIT_COMMIT:0:8}"
-
   python scripts/update_config.py configs/development.yaml wps ${GIT_COMMIT:0:8}
   python scripts/update_config.py configs/production-ci.yaml wps ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
 then
-  SET_FLAGS="${SET_FLAGS} --set celery.imageTag=${GIT_COMMIT:0:8}"
-
   python scripts/update_config.py configs/development.yaml celery ${GIT_COMMIT:0:8}
   python scripts/update_config.py configs/production-ci.yaml celery ${GIT_COMMIT:0:8}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
 then
-  SET_FLAGS="${SET_FLAGS} --set thredds.imageTag=${GIT_COMMIT:0:8}"
-
   python scripts/update_config.py configs/development.yaml thredds ${GIT_COMMIT:0:8}
   python scripts/update_config.py configs/production-ci.yaml thredds ${GIT_COMMIT:0:8}
-fi
-
-echo "SET_FLAGS: ${SET_FLAGS}"
-
-if [[ "${BRANCH_NAME}" == "devel" ]]
-then
-  helm ${KUBECONFIG} upgrade ${DEV_RELEASE_NAME} compute/ --reuse-values ${SET_FLAGS} --wait --timeout 300
-
-  echo "RETURN $?"
 fi
 
 git config user.email ${GIT_EMAIL}
