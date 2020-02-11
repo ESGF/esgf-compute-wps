@@ -109,7 +109,7 @@ class KubeCluster(threading.Thread):
         logger.info(f'Removing keys {keys_to_remove!r}')
 
         if len(keys_to_remove) > 0:
-            self.redis.hdel(*keys_to_remove)
+            self.redis.hdel('resource', *keys_to_remove)
 
         logger.info('Done checking for resources')
 
