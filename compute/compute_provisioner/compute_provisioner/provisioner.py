@@ -201,16 +201,14 @@ class Provisioner(threading.Thread):
         logger.info('Connected to redis db %r', self.redis)
 
     def queue_job(self, version, frames):
-        with self.redis.lock('job_queue', blocking_timeout=4):
-            self.redis.rpush(version, json_encoder(frames))
+        self.redis.rpush(version, json_encoder(frames))
 
-            logger.info(f'Queued job')
+        logger.info('Queued job')
 
     def requeue_job(self, version, frames):
-        with self.redis.lock('job_queue', blocking_timeout=4):
-            self.redis.lpush(version, json_encoder(frames))
+        self.redis.lpush(version, json_encoder(frames))
 
-            logger.info(f'Requeued job')
+        logger.info('Requeued job')
 
     def update_labels(self, yaml_data, labels):
         try:
