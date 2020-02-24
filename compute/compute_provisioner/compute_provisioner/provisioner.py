@@ -15,20 +15,13 @@ from kubernetes import client
 from kubernetes import config
 
 from compute_provisioner import constants
-from compute_provisioner import kube_cluster
 
 logger = logging.getLogger('provisioner')
-
-CLEANUP_PHASES = ('Succeeded', 'Failed')
-
 
 class ResourceAllocationError(Exception):
     pass
 
-class WorkDone(Exception):
-    pass
-
-class RequeueJob(Exception):
+class RemoveWorkerError(Exception):
     pass
 
 def json_encoder(x):
@@ -68,18 +61,8 @@ class State(object):
     def __str__(self):
         return self.__class__.__name__
 
-class WaitingResourceRequestState(State, RedisQueue):
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-        self.redis = kwargs['redis']
-
-        self.namespace = kwargs['namespace']
-
-        self.lifetime = kwargs['lifetime']
-
-        self.backend = kwargs['backend']
-
+class KubernetesAllocator(object):
+    def __init__(self):
         config.load_incluster_config()
 
         self.core = client.CoreV1Api()
@@ -87,6 +70,53 @@ class WaitingResourceRequestState(State, RedisQueue):
         self.apps = client.AppsV1Api()
 
         self.extensions = client.ExtensionsV1beta1Api()
+
+        self.rbac = client.RbacAuthorizationV1Api()
+
+    def create_namespace(self, body, **kwargs):
+        return self.core.create_namespace(body, **kwargs)
+
+    def list_namespace(self, **kwargs):
+        return self.core.list_namespace(**kwargs)
+
+    def delete_namespace(self, name, **kwargs):
+        return self.core.delete_namespace(name, **kwargs)
+
+    def create_service_account(self, namespace, body, **kwargs):
+        return self.core.create_namespaced_service_account(namespace, body, **kwargs)
+
+    def create_role(self, namespace, body, **kwargs):
+        return self.rbac.create_namespaced_role(namespace, body, **kwargs)
+
+    def create_role_binding(self, namespace, body, **kwargs):
+        return self.rbac.create_namespaced_role_binding(namespace, body, **kwargs)
+
+    def create_resource_quota(self, namespace, body, **kwargs):
+        return self.core.create_namespaced_resource_quota(namespace, body, **kwargs)
+
+    def create_pod(self, namespace, body, **kwargs):
+        return self.core.create_namespaced_pod(namespace, body, **kwargs)
+
+    def create_deployment(self, namespace, body, **kwargs):
+        return self.apps.create_namespaced_deployment(namespace, body, **kwargs)
+
+    def create_service(self, namespace, body, **kwargs):
+        return self.core.create_namespaced_service(namespace, body, **kwargs)
+
+    def create_ingress(self, namespace, body, **kwargs):
+        return self.extensions.create_namespaced_ingress(namespace, body, **kwargs)
+
+class WaitingResourceRequestState(State, RedisQueue):
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+        self.redis = kwargs['redis']
+
+        self.lifetime = kwargs['lifetime']
+
+        self.backend = kwargs['backend']
+
+        self.k8s = KubernetesAllocator()
 
     def set_resource_expiry(self, resource_uuid):
         expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
@@ -105,48 +135,61 @@ class WaitingResourceRequestState(State, RedisQueue):
 
         return False
 
-    def update_labels(self, yaml_data, labels):
-        try:
-            yaml_data['metadata']['labels'].update(labels)
-        except AttributeError:
-            # Labels not a dict, is this really a possible case?
-            yaml_data['metadata']['labels'] = labels
-        except KeyError:
-            # Labels does not exists
-            yaml_data['metadata'] = {
-                'labels': labels,
-            }
+    def create_user_environment(self, namespace, labels):
+        name = 'compute-user'
 
-    def request_resources(self, request, resource_uuid):
-        labels = {
-            'app.kubernetes.io/resource-group-uuid': resource_uuid,
+        ns = client.V1Namespace()
+        ns.metadata = client.V1ObjectMeta(name=namespace, labels=labels)
+
+        self.k8s.create_namespace(ns)
+
+        logger.info(f'Created namespace {namespace!s}')
+
+        sa = client.V1ServiceAccount()
+        sa.metadata = client.V1ObjectMeta(name=name, labels=labels)
+
+        self.k8s.create_service_account(namespace, sa)
+
+        api_groups = ['', 'apps', 'extensions']
+        resources = ['pods', 'deployments', 'services', 'ingresses']
+        verbs = ['get', 'list', 'create', 'delete']
+
+        rules = [
+            client.V1PolicyRule(api_groups=api_groups, resources=resources, verbs=verbs),
+        ]
+
+        role = client.V1Role(rules=rules)
+        role.metadata = client.V1ObjectMeta(name=name, labels=labels)
+
+        self.k8s.create_role(namespace, role)
+
+        role_ref = client.V1RoleRef(api_group='rbac.authorization.k8s.io', kind='Role', name=name)
+        subjects = [
+            client.V1Subject(api_group='', kind='ServiceAccount', name=name, namespace=namespace)
+        ]
+
+        role_binding = client.V1RoleBinding(role_ref=role_ref, subjects=subjects)
+        role_binding.metadata = client.V1ObjectMeta(name=name, labels=labels)
+        role_binding.subjects = [
+            client.V1Subject(api_group='', kind='ServiceAccount', name=name, namespace=namespace)
+        ]
+
+        self.k8s.create_role_binding(namespace, role_binding)
+
+        spec = client.V1ResourceQuotaSpec()
+        spec.hard = {
+            'limits.cpu': os.environ.get('USER_LIMIT_CPU', '1'),
+            'limits.memory': os.environ.get('USER_LIMIT_MEMORY', '1Gi'),
+            'requests.cpu': os.environ.get('USER_REQUEST_CPU', '1'),
+            'requests.memory': os.environ.get('USER_REQUEST_MEMORY', '1Gi'),
         }
 
-        try:
-            for item in request:
-                yaml_data = yaml.safe_load(item)
+        rq = client.V1ResourceQuota(spec=spec)
+        rq.metadata = client.V1ObjectMeta(name=name, labels=labels)
 
-                self.update_labels(yaml_data, labels)
+        self.k8s.create_resource_quota(namespace, rq)
 
-                kind = yaml_data['kind']
-
-                if kind == 'Pod':
-                    self.core.create_namespaced_pod(body=yaml_data, namespace=self.namespace)
-                elif kind == 'Deployment':
-                    self.apps.create_namespaced_deployment(body=yaml_data, namespace=self.namespace)
-                elif kind == 'Service':
-                    self.core.create_namespaced_service(body=yaml_data, namespace=self.namespace)
-                elif kind == 'Ingress':
-                    self.extensions.create_namespaced_ingress(body=yaml_data, namespace=self.namespace)
-                else:
-                    raise Exception('Requested an unsupported resource')
-        except client.rest.ApiException as e:
-            logger.info(f'Kubernetes API call failed status code {e.status!r}')
-
-            # 403 is Forbidden tends to be raised when namespace is out of resources.
-            # 409 is Conflict, generally because the resource already exists.
-            if e.status not in (403, 409):
-                raise ResourceAllocationError()
+        logger.info(f'Created resource quota')
 
     def allocate_resources(self, request_raw):
         """ Allocate resources.
@@ -158,20 +201,57 @@ class WaitingResourceRequestState(State, RedisQueue):
         """
         resource_uuid = hashlib.sha256(request_raw).hexdigest()[:7]
 
+        labels = {'compute.io/resource-group': resource_uuid}
+
+        namespace = f'compute-{resource_uuid!s}'
+
         request = json.loads(request_raw)
 
         logger.info(f'Allocating {len(request)!r} resources with uuid {resource_uuid!r}')
 
-        # Check if the resources exist
         existing = self.try_extend_resource_expiry(resource_uuid)
 
         if not existing:
             try:
-                self.request_resources(request, resource_uuid)
-            except ResourceAllocationError as e:
-                raise e
-            except Exception:
-                pass
+                self.create_user_environment(namespace, labels)
+
+                for item in request:
+                    yaml_data = yaml.safe_load(item)
+
+                    try:
+                        yaml_data['metadata']['labels'] = labels
+                    except KeyError:
+                        yaml_data['metadata'] = {
+                            'labels': labels
+                        }
+
+                    kind = yaml_data['kind']
+
+                    logger.info(f'Allocating resource {kind!s}')
+
+                    if kind == 'Pod':
+                        yaml_data['spec']['serviceAccountName'] = 'compute-user'
+
+                        self.k8s.create_pod(namespace, yaml_data)
+                    elif kind == 'Deployment':
+                        yaml_data['spec']['template']['spec']['serviceAccountName'] = 'compute-user'
+
+                        self.k8s.create_deployment(namespace, yaml_data)
+                    elif kind == 'Service':
+                        self.k8s.create_service(namespace, yaml_data)
+                    elif kind == 'Ingress':
+                        self.k8s.create_ingress(namespace, yaml_data)
+                    else:
+                        raise Exception('Requested an unsupported resource')
+            except client.rest.ApiException as e:
+                logger.exception(f'Kubernetes API call failed status code {e.status!r}')
+
+                # 403 is Forbidden tends to be raised when namespace is out of resources.
+                # 409 is Conflict, generally because the resource already exists.
+                if e.status not in (403, 409):
+                    raise ResourceAllocationError()
+
+                raise Exception()
 
             self.set_resource_expiry(resource_uuid)
 
@@ -179,22 +259,18 @@ class WaitingResourceRequestState(State, RedisQueue):
         logger.info(f'{self!s} transition state {transition!r}')
 
         if transition == constants.RESOURCE:
+            self.allocate_resources(args[0])
+
+            new_frames = [address, constants.ACK]
+
+            logger.info('Notifying backend %r of successful allocation', address)
+
             try:
-                self.allocate_resources(args[0])
-            except ResourceAllocationError as e:
-                raise RequeueJob()
-            else:
-                new_frames = [address, constants.ACK]
+                self.backend.send_multipart(new_frames)
+            except zmq.Again:
+                logger.error(f'Error notifying backend of successful allocation')
 
-                logger.info('Notifying backend %r of successful allocation', address)
-
-                try:
-                    self.backend.send_multipart(new_frames)
-                except zmq.Again:
-                    # If the ack never sends we just let the worker timeout
-                    pass
-
-                raise WorkDone()
+            return None
 
         return self
 
@@ -213,6 +289,9 @@ class Worker(object):
         self.state = self.state.on_event(address, *frames)
 
         logger.info(f'Worker {address!r} transition from {old_state!s} to {self.state!s}')
+
+        if self.state is None:
+            raise RemoveWorkerError()
 
 class WorkerQueue(object):
     def __init__(self):
@@ -257,7 +336,7 @@ class WorkerQueue(object):
 
                 logger.debug('Send heartbeat to %r', address)
             except zmq.Again:
-                logger.info('Error sending heartbaet to %r', address)
+                logger.error('Error sending heartbaet to %r', address)
 
         self.heartbeat_at = time.time() + constants.HEARTBEAT_INTERVAL
 
@@ -276,13 +355,9 @@ class WorkerQueue(object):
 
 
 class Provisioner(threading.Thread, RedisQueue):
-    def __init__(self, frontend_port, backend_port, redis_host, namespace, lifetime, resource_timeout, **kwargs):
+    def __init__(self, frontend_port, backend_port, redis_host, lifetime, **kwargs):
         super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port, redis_host))
-        self.namespace = namespace
-
         self.lifetime = lifetime
-
-        self.resource_timeout = resource_timeout
 
         self.context = None
 
@@ -389,7 +464,7 @@ class Provisioner(threading.Thread, RedisQueue):
 
             kwargs = {
                 'redis': self.redis,
-                'namespace': self.namespace,
+                'namespace': 'default',
                 'lifetime': self.lifetime,
                 'backend': self.backend,
             }
@@ -400,14 +475,12 @@ class Provisioner(threading.Thread, RedisQueue):
                 self.running[address].on_event(*frames)
             except KeyError:
                 logger.error(f'Worker {address!r} is not in the running list')
-            except WorkDone:
+            except RemoveWorkerError:
+                self.running.pop(address)
+            except ResourceAllocationError:
                 self.running.pop(address)
 
-                logger.info(f'Worker {address!r} finished work')
-            except RequeueJob:
-                self.running.pop(address)
-
-                self.requeue_job(frames[2:])
+                self.requeue_job(frames[2], frames[3:])
 
                 logger.info(f'Worker {address!r} failed, requeueing job')
 
@@ -504,31 +577,11 @@ def main():
 
     parser.add_argument('--backend-port', help='Backend port', type=int, default=7778)
 
-    parser.add_argument('--namespace', help='Kubernetes namespace to monitor', default='default')
-
-    parser.add_argument('--timeout', help='Resource monitor timeout', type=int, default=30)
-
-    parser.add_argument('--resource-timeout', help='Time in seconds allowed for resources to be allocated', type=int,
-                        default=240)
-
-    parser.add_argument('--lifetime', help='Time in seconds to let resources live', type=int, default=3600)
-
-    parser.add_argument('--ignore-lifetime', help='Ignores lifetime and removes existing resources', type=bool, default=False)
-
-    parser.add_argument('--enable-resource-monitor', help='Enables monitoring expired resources', action='store_true')
+    parser.add_argument('--lifetime', help='Life time of resources in seconds', type=int, default=120)
 
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
-
-    if args.enable_resource_monitor:
-        logger.info('Starting resource monitor')
-
-        monitor = kube_cluster.KubeCluster(args.redis_host, args.namespace, args.timeout, False, args.ignore_lifetime)
-
-        monitor.start()
-
-        monitor.join()
 
     provisioner = Provisioner(**vars(args))
 
