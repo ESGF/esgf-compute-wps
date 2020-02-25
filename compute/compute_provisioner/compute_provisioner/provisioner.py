@@ -247,7 +247,7 @@ class WaitingResourceRequestState(State, RedisQueue):
                     yaml_data = yaml.safe_load(item)
 
                     try:
-                        yaml_data['metadata']['labels'] = labels
+                        yaml_data['metadata']['labels'].update(labels)
                     except KeyError:
                         yaml_data['metadata'] = {
                             'labels': labels
@@ -283,13 +283,19 @@ class WaitingResourceRequestState(State, RedisQueue):
 
             self.set_resource_expiry(resource_uuid)
 
+        extra = {
+            'namespace': namespace,
+        }
+
+        return extra
+
     def on_event(self, address, transition, *args):
         logger.info(f'{self!s} transition state {transition!r}')
 
         if transition == constants.RESOURCE:
-            self.allocate_resources(args[0])
+            extra = self.allocate_resources(args[0])
 
-            new_frames = [address, constants.ACK]
+            new_frames = [address, constants.ACK, json.dumps(extra).encode()]
 
             logger.info('Notifying backend %r of successful allocation', address)
 
