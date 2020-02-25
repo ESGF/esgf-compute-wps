@@ -36,3 +36,10 @@ data:
               requests:
                 cpu: {{ worker_cpu }}
                 memory: {{ worker_memory }}
+            volumeMounts:
+              - name: data
+                mountPath: /data/public
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ data_claim_name }}
