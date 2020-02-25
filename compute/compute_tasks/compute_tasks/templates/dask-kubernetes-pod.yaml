@@ -17,7 +17,7 @@ spec:
         fieldRef:
           fieldPath: metadata.namespace
     - name: MAXIMUM_WORKERS
-      value: {{ workers }}
+      value: "{{ workers }}"
     - name: HDF5_USE_FILE_LOCKING
       value: "False"
     resources:

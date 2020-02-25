@@ -8,6 +8,7 @@ data:
       worker-template:
         kind: Pod
         metadata:
+          generateName: dask-worker
         spec:
           restartPolicy: Never
           containers:

@@ -87,10 +87,10 @@ logger.info(f'Available for workers CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
 
 WORKERS = int(os.environ.get('WORKERS', 2))
 
-WORKERS_CPU = LIMIT_CPU / WORKERS
-WORKERS_MEMORY = LIMIT_MEMORY / WORKERS
+WORKER_CPU = LIMIT_CPU / WORKERS
+WORKER_MEMORY = LIMIT_MEMORY / WORKERS
 
-WORKERS_NTHREADS = os.environ.get('WORKER_NTHREADS', 1)
+WORKER_NTHREADS = os.environ.get('WORKER_NTHREADS', 1)
 
 logger.info(f'Worker CPU {WORKER_CPU!s} Memory {WORKER_MEMORY!s} Threads {WORKER_NTHREADS!s}')
 
