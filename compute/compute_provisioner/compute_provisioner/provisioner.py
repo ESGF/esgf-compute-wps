@@ -1,3 +1,4 @@
+import base64
 import datetime
 import hashlib
 import json
@@ -106,6 +107,9 @@ class KubernetesAllocator(object):
     def create_ingress(self, namespace, body, **kwargs):
         return self.extensions.create_namespaced_ingress(namespace, body, **kwargs)
 
+    def create_secret(self, namespace, body, **kwargs):
+        return self.core.create_namespaced_secret(namespace, body, **kwargs)
+
 class WaitingResourceRequestState(State, RedisQueue):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -145,7 +149,31 @@ class WaitingResourceRequestState(State, RedisQueue):
 
         logger.info(f'Created namespace {namespace!s}')
 
-        sa = client.V1ServiceAccount()
+        image_pull_secrets = []
+
+        root_path = '/etc/imagepullsecrets'
+
+        for x in os.listdir(root_path):
+            path = os.path.join(root_path, x, '.dockerconfigjson')
+
+            if not os.path.exists(path):
+                continue
+
+            image_pull_secrets.append(client.V1LocalObjectReference(name=x))
+
+            with open(path, 'rb') as f:
+                data = base64.b64encode(f.read())
+
+            data = {
+                '.dockerconfigjson': data.decode(),
+            }
+
+            secret = client.V1Secret(data=data, type='kubernetes.io/dockerconfigjson')
+            secret.metadata = client.V1ObjectMeta(name=x, labels=labels)
+
+            self.k8s.create_secret(namespace, secret)
+
+        sa = client.V1ServiceAccount(image_pull_secrets=image_pull_secrets)
         sa.metadata = client.V1ObjectMeta(name=name, labels=labels)
 
         self.k8s.create_service_account(namespace, sa)
