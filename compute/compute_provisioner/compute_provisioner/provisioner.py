@@ -107,6 +107,9 @@ class KubernetesAllocator(object):
     def create_ingress(self, namespace, body, **kwargs):
         return self.extensions.create_namespaced_ingress(namespace, body, **kwargs)
 
+    def create_config_map(self, namespace, body, **kwargs):
+        return self.core.create_namespaced_config_map(namespace, body, **kwargs)
+
     def create_secret(self, namespace, body, **kwargs):
         return self.core.create_namespaced_secret(namespace, body, **kwargs)
 
@@ -249,13 +252,13 @@ class WaitingResourceRequestState(State, RedisQueue):
                     try:
                         yaml_data['metadata']['labels'].update(labels)
                     except KeyError:
-                        yaml_data['metadata'] = {
+                        yaml_data['metadata'].update({
                             'labels': labels
-                        }
+                        })
 
                     kind = yaml_data['kind']
 
-                    logger.info(f'Allocating resource {kind!s}')
+                    logger.info(f'Allocating {kind!r} with labels {yaml_data["metadata"]["labels"]!r}')
 
                     if kind == 'Pod':
                         yaml_data['spec']['serviceAccountName'] = 'compute-user'
@@ -269,6 +272,8 @@ class WaitingResourceRequestState(State, RedisQueue):
                         self.k8s.create_service(namespace, yaml_data)
                     elif kind == 'Ingress':
                         self.k8s.create_ingress(namespace, yaml_data)
+                    elif kind == 'ConfigMap':
+                        self.k8s.create_config_map(namespace, yaml_data)
                     else:
                         raise Exception('Requested an unsupported resource')
             except client.rest.ApiException as e:
