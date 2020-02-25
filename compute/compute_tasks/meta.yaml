@@ -34,6 +34,7 @@ requirements:
     - celery
     - prometheus_client
     - dask
+    - dask_kubernetes
     - distributed
     - xarray
     - metpy

@@ -10,6 +10,7 @@ from functools import partial
 import cwt
 import jinja2
 import zmq
+from dask import utils
 
 from compute_tasks import base
 from compute_tasks import cdat
@@ -63,11 +64,44 @@ HEARTBEAT_INTERVAL = 4.0
 INTERVAL_INIT = 1
 INTERVAL_MAX = 32
 
+LIMIT_CPU = int(os.environ.get('USER_LIMIT_CPU', 2))
+LIMIT_MEMORY = int(utils.parse_bytes(os.environ.get('USER_LIMIT_MEMORY', '2Gi')))
+
+logger.info(f'Limit CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
+
+SCHEDULER_CPU = os.environ.get('SCHEDULER_CPU', 1)
+
+try:
+    SCHEDULER_CPU = int(SCHEDULER_CPU)
+except ValueError:
+    SCHEDULER_CPU = float(SCHEDULER_CPU)
+
+SCHEDULER_MEMORY = int(utils.parse_bytes(os.environ.get('SCHEDULER_MEMORY', '1Gi')))
+
+logger.info(f'Scheduler CPU {SCHEDULER_CPU!s} Memory {SCHEDULER_MEMORY!s}')
+
+LIMIT_CPU -= SCHEDULER_CPU
+LIMIT_MEMORY -= SCHEDULER_MEMORY
+
+logger.info(f'Available for workers CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
+
+WORKERS = int(os.environ.get('WORKERS', 2))
+
+WORKERS_CPU = LIMIT_CPU / WORKERS
+WORKERS_MEMORY = LIMIT_MEMORY / WORKERS
+
+WORKERS_NTHREADS = os.environ.get('WORKER_NTHREADS', 1)
+
+logger.info(f'Worker CPU {WORKER_CPU!s} Memory {WORKER_MEMORY!s} Threads {WORKER_NTHREADS!s}')
+
 TEMPLATE_NAMES = [
-    'dask-scheduler-pod.yaml',
-    'dask-scheduler-service.yaml',
-    'dask-scheduler-ingress.yaml',
-    'dask-worker-deployment.yaml',
+    'dask-kubernetes-configmap.yaml',
+    'dask-kubernetes-service.yaml',
+    'dask-kubernetes-pod.yaml',
+#     'dask-scheduler-pod.yaml',
+#     'dask-scheduler-service.yaml',
+#     'dask-scheduler-ingress.yaml',
+#     'dask-worker-deployment.yaml',
 ]
 
 TEMPLATES = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'))
@@ -79,13 +113,13 @@ def queue_from_identifier(identifier):
     return QUEUE.get(module.lower(), DEFAULT_QUEUE)
 
 
-def build_context(identifier, data_inputs, job, user, process, status):
+def build_context(identifier, data_inputs, job, user, process, status, **extra):
     data_inputs = celery_app.decoder(data_inputs)
 
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
     extra = {
-        'DASK_SCHEDULER': 'dask-scheduler-{!s}.{!s}.svc:8786'.format(user, os.environ['NAMESPACE'])
+        'DASK_SCHEDULER': f'dask-scheduler.{extra["namespace"]!s}.svc:8786',
     }
 
     logger.info(f'Built operation context with extra {extra!r}')
@@ -105,8 +139,8 @@ def build_context(identifier, data_inputs, job, user, process, status):
     return context
 
 
-def build_workflow(identifier, data_inputs, job, user, process, status):
-    context = build_context(identifier, data_inputs, job, user, process, status)
+def build_workflow(identifier, data_inputs, job, user, process, status, **extra):
+    context = build_context(identifier, data_inputs, job, user, process, status, **extra)
 
     base.validate_workflow(context)
 
@@ -149,16 +183,15 @@ class WaitingState(State):
 
         data = {
             'image': os.environ['IMAGE'],
-            'image_pull_secret': os.environ.get('IMAGE_PULL_SECRET', None),
             'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
-            'scheduler_cpu': os.environ.get('SCHEDULER_CPU', 1),
-            'scheduler_memory': os.environ.get('SCHEDULER_MEMORY', '1Gi'),
-            'worker_cpu': os.environ.get('WORKER_CPU', 1),
-            'worker_memory': os.environ.get('WORKER_MEMORY', '1Gi'),
-            'worker_nthreads': os.environ.get('WORKER_NTHREADS', 4),
+            'scheduler_cpu': SCHEDULER_CPU,
+            'scheduler_memory': SCHEDULER_MEMORY,
+            'workers': WORKERS,
+            'worker_cpu': WORKER_CPU,
+            'worker_memory': WORKER_MEMORY,
+            'worker_nthreads': WORKER_NTHREADS,
             'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
             'dev': os.environ.get('DEV', False),
-            'workers': os.environ['WORKERS'],
             'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
         }
 
@@ -209,8 +242,10 @@ class ResourceAckState(State):
         logger.info(f'Current state {self!s} transitioning to {transition!s}')
 
         if transition == ACK:
+            extra = json.loads(frames[1])
+
             try:
-                workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process, self.status)
+                workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process, self.status, **extra)
 
                 workflow.apply_async(serializer='cwt_json')
             except Exception as e:

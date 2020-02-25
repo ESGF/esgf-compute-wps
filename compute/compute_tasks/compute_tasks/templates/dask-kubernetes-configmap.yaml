@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dask-configmap
+data:
+  kubernetes.yaml: |
+    kubernetes:
+      worker-template:
+        kind: Pod
+        metadata:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: dask-worker
+            image: {{ image }}
+            imagePullPolicy: {{ image_pull_policy }}
+            env:
+            - name: CDAT_ANONYMOUS_LOG
+              value: 'no'
+            - name: HDF5_USE_FILE_LOCKING
+              value: 'FALSE'
+            args:
+              - dask-worker
+              - --nthreads
+              - "{{ worker_nthreads }}"
+              - --no-bokeh
+              - --memory-limit
+              - "{{ worker_memory }}"
+              - --death-timeout
+              - '60'
+            resources:
+              limits:
+                cpu: {{ worker_cpu }}
+                memory: {{ worker_memory }}
+              requests:
+                cpu: {{ worker_cpu }}
+                memory: {{ worker_memory }}

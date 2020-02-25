@@ -68,5 +68,8 @@ spec:
           subPath: public
       volumes:
       - name: data-volume
-        persistentVolumeClaim:
-          claimName: {{ data_claim_name }}
+        hostPath:
+          path: /opt/nimbus/data/public/
+          type: DirectoryOrCreate
+        # persistentVolumeClaim:
+        #   claimName: {{ data_claim_name }}

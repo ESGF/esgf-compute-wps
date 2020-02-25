@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dask-kubernetes
+  labels:
+    compute.io/component: scheduler
+spec:
+  containers:
+  - name: dask-kubernetes
+    image: {{ image }}
+    imagePullPolicy: {{ image_pull_policy }}
+    command:
+      - compute-tasks-kube
+    env:
+    - name: NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: MAXIMUM_WORKERS
+      value: {{ workers }}
+    - name: HDF5_USE_FILE_LOCKING
+      value: "False"
+    resources:
+      limits:
+        cpu: {{ scheduler_cpu }}
+        memory: {{ scheduler_memory }}
+      requests:
+        cpu: {{ scheduler_cpu }}
+        memory: {{ scheduler_memory }}
+    volumeMounts:
+    - name: dask-config
+      mountPath: /etc/dask
+  volumes:
+    - name: dask-config
+      configMap:
+        name: dask-configmap
