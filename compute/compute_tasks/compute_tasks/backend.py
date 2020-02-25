@@ -67,7 +67,7 @@ INTERVAL_MAX = 32
 LIMIT_CPU = int(os.environ.get('USER_LIMIT_CPU', 2))
 LIMIT_MEMORY = int(utils.parse_bytes(os.environ.get('USER_LIMIT_MEMORY', '2Gi')))
 
-logger.info(f'Limit CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
+print(f'Limit CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
 
 SCHEDULER_CPU = os.environ.get('SCHEDULER_CPU', 1)
 
@@ -78,12 +78,12 @@ except ValueError:
 
 SCHEDULER_MEMORY = int(utils.parse_bytes(os.environ.get('SCHEDULER_MEMORY', '1Gi')))
 
-logger.info(f'Scheduler CPU {SCHEDULER_CPU!s} Memory {SCHEDULER_MEMORY!s}')
+print(f'Scheduler CPU {SCHEDULER_CPU!s} Memory {SCHEDULER_MEMORY!s}')
 
 LIMIT_CPU -= SCHEDULER_CPU
 LIMIT_MEMORY -= SCHEDULER_MEMORY
 
-logger.info(f'Available for workers CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
+print(f'Available for workers CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
 
 WORKERS = int(os.environ.get('WORKERS', 2))
 
@@ -92,16 +92,12 @@ WORKER_MEMORY = LIMIT_MEMORY / WORKERS
 
 WORKER_NTHREADS = os.environ.get('WORKER_NTHREADS', 1)
 
-logger.info(f'Worker CPU {WORKER_CPU!s} Memory {WORKER_MEMORY!s} Threads {WORKER_NTHREADS!s}')
+print(f'Worker CPU {WORKER_CPU!s} Memory {WORKER_MEMORY!s} Threads {WORKER_NTHREADS!s}')
 
 TEMPLATE_NAMES = [
     'dask-kubernetes-configmap.yaml',
     'dask-kubernetes-service.yaml',
     'dask-kubernetes-pod.yaml',
-#     'dask-scheduler-pod.yaml',
-#     'dask-scheduler-service.yaml',
-#     'dask-scheduler-ingress.yaml',
-#     'dask-worker-deployment.yaml',
 ]
 
 TEMPLATES = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'))
@@ -177,31 +173,29 @@ class State(object):
         return self.__class__.__name__
 
 
+def render_templates(**kwargs):
+    templates = dict((x, TEMPLATES.get_template(x)) for x in TEMPLATE_NAMES)
+
+    data = {
+        'image': os.environ['IMAGE'],
+        'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
+        'scheduler_cpu': SCHEDULER_CPU,
+        'scheduler_memory': SCHEDULER_MEMORY,
+        'workers': WORKERS,
+        'worker_cpu': WORKER_CPU,
+        'worker_memory': WORKER_MEMORY,
+        'worker_nthreads': WORKER_NTHREADS,
+        'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
+        'dev': os.environ.get('DEV', False),
+        'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
+    }
+
+    data.update(kwargs)
+
+    return dict((x, y.render(**data)) for x, y in templates.items())
+
+
 class WaitingState(State):
-    def build_resources(self, **kwargs):
-        templates = [TEMPLATES.get_template(x) for x in TEMPLATE_NAMES]
-
-        data = {
-            'image': os.environ['IMAGE'],
-            'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
-            'scheduler_cpu': SCHEDULER_CPU,
-            'scheduler_memory': SCHEDULER_MEMORY,
-            'workers': WORKERS,
-            'worker_cpu': WORKER_CPU,
-            'worker_memory': WORKER_MEMORY,
-            'worker_nthreads': WORKER_NTHREADS,
-            'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
-            'dev': os.environ.get('DEV', False),
-            'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
-        }
-
-        data.update(kwargs)
-
-        logger.info(f'Rendering {len(templates)} templates with {data!r}')
-
-        return json.dumps([x.render(**data) for x in templates])
-
-
     def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process, status):
         transition = transition.encode()
 
@@ -209,7 +203,7 @@ class WaitingState(State):
 
         if transition == REQUEST:
             try:
-                resources = self.build_resources(user=user)
+                resources = json.dumps(render_templates(user=user).values())
 
                 backend.worker.send_multipart([RESOURCE, resources.encode()])
             except Exception as e:
@@ -451,6 +445,23 @@ def register_processes():
                 logger.info('Process %r already exists', item['identifier'])
 
                 pass
+
+
+def template():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--output-dir', required=True)
+
+    args = parser.parse_args()
+
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+
+    data = render_templates(user=0)
+
+    for x, y in data.items():
+        with open(os.path.join(args.output_dir, x), 'w') as f:
+            f.write(y)
 
 
 def parse_args():  # pragma: no cover

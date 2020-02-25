@@ -21,6 +21,7 @@ setuptools.setup(
         'console_scripts': [
             'compute-tasks-metrics=compute_tasks.metrics_:main',
             'compute-tasks-backend=compute_tasks.backend:main',
+            'compute-tasks-render=compute_tasks.backend:template',
             'compute-tasks-register=compute_tasks.backend:register_processes',
             'compute-tasks-kube=compute_tasks.dask_kube:main',
         ],
