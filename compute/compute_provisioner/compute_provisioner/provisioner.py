@@ -107,6 +107,44 @@ class KubernetesAllocator(object):
             for x in output.items:
                 getattr(api, delete_name)(x.metadata.name, namespace, **kwargs)
 
+    def create_resources(self, request, namespace, labels, service_account_name, image_pull_secret, **kwargs):
+        for item in request:
+            yaml_data = yaml.safe_load(item)
+
+            try:
+                yaml_data['metadata']['labels'].update(labels)
+            except KeyError:
+                yaml_data['metadata'].update({
+                    'labels': labels
+                })
+
+            kind = yaml_data['kind']
+
+            logger.info(f'Allocating {kind!r} with labels {yaml_data["metadata"]["labels"]!r}')
+
+            if kind == 'Pod':
+                yaml_data['spec']['serviceAccountName'] = service_account_name
+                yaml_data['spec']['imagePullSecrets'] = [
+                    {'name': image_pull_secret},
+                ]
+
+                self.create_pod(namespace, yaml_data)
+            elif kind == 'Deployment':
+                yaml_data['spec']['template']['spec']['serviceAccountName'] = service_account_name
+                yaml_data['spec']['template']['spec']['imagePullSecrets'] = [
+                    {'name': image_pull_secret},
+                ]
+
+                self.create_deployment(namespace, yaml_data)
+            elif kind == 'Service':
+                self.create_service(namespace, yaml_data)
+            elif kind == 'Ingress':
+                self.create_ingress(namespace, yaml_data)
+            elif kind == 'ConfigMap':
+                self.create_config_map(namespace, yaml_data)
+            else:
+                raise Exception('Requested an unsupported resource')
+
 class WaitingResourceRequestState(State, RedisQueue):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -154,42 +192,15 @@ class WaitingResourceRequestState(State, RedisQueue):
 
         logger.info(f'Allocating {len(request)!r} resources with uuid {resource_uuid!r}')
 
-        service_account_name = os.environ.get('SERVICE_ACCOUNT_NAME')
+        service_account_name = os.environ.get('SERVICE_ACCOUNT_NAME', 'compute')
+
+        image_pull_secret = os.environ.get('IMAGE_PULL_SECRET', 'docker-registry')
 
         existing = self.try_extend_resource_expiry(resource_uuid)
 
         if not existing:
             try:
-                for item in request:
-                    yaml_data = yaml.safe_load(item)
-
-                    try:
-                        yaml_data['metadata']['labels'].update(labels)
-                    except KeyError:
-                        yaml_data['metadata'].update({
-                            'labels': labels
-                        })
-
-                    kind = yaml_data['kind']
-
-                    logger.info(f'Allocating {kind!r} with labels {yaml_data["metadata"]["labels"]!r}')
-
-                    if kind == 'Pod':
-                        yaml_data['spec']['serviceAccountName'] = service_account_name
-
-                        self.k8s.create_pod(namespace, yaml_data)
-                    elif kind == 'Deployment':
-                        yaml_data['spec']['template']['spec']['serviceAccountName'] = service_account_name
-
-                        self.k8s.create_deployment(namespace, yaml_data)
-                    elif kind == 'Service':
-                        self.k8s.create_service(namespace, yaml_data)
-                    elif kind == 'Ingress':
-                        self.k8s.create_ingress(namespace, yaml_data)
-                    elif kind == 'ConfigMap':
-                        self.k8s.create_config_map(namespace, yaml_data)
-                    else:
-                        raise Exception('Requested an unsupported resource')
+                self.k8s.create_resources(request, namespace, labels, service_account_name, image_pull_secret)
             except client.rest.ApiException as e:
                 logger.exception(f'Kubernetes API call failed status code {e.status!r}')
 
@@ -517,6 +528,30 @@ class Provisioner(threading.Thread, RedisQueue):
             self.dispatch_workers()
 
 
+def create_resources():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('input_dir')
+
+    args = parser.parse_args()
+
+    data = []
+
+    for x in os.listdir(args.input_dir):
+        with open(os.path.join(args.input_dir, x)) as f:
+            data.append(f.read())
+
+    k8s = KubernetesAllocator()
+
+    k8s.create_resources(data, 'default', {'compute.io/group-uid': 'test'}, 'compute', 'docker-registry')
+
+def delete_resources():
+    k8s = KubernetesAllocator()
+
+    k8s.delete_resources('default', 'compute.io/group-uid=test')
+
 def main():
     import argparse
 
@@ -545,3 +580,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
