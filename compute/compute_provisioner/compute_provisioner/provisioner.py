@@ -72,29 +72,6 @@ class KubernetesAllocator(object):
 
         self.extensions = client.ExtensionsV1beta1Api()
 
-        self.rbac = client.RbacAuthorizationV1Api()
-
-    def create_namespace(self, body, **kwargs):
-        return self.core.create_namespace(body, **kwargs)
-
-    def list_namespace(self, **kwargs):
-        return self.core.list_namespace(**kwargs)
-
-    def delete_namespace(self, name, **kwargs):
-        return self.core.delete_namespace(name, **kwargs)
-
-    def create_service_account(self, namespace, body, **kwargs):
-        return self.core.create_namespaced_service_account(namespace, body, **kwargs)
-
-    def create_role(self, namespace, body, **kwargs):
-        return self.rbac.create_namespaced_role(namespace, body, **kwargs)
-
-    def create_role_binding(self, namespace, body, **kwargs):
-        return self.rbac.create_namespaced_role_binding(namespace, body, **kwargs)
-
-    def create_resource_quota(self, namespace, body, **kwargs):
-        return self.core.create_namespaced_resource_quota(namespace, body, **kwargs)
-
     def create_pod(self, namespace, body, **kwargs):
         return self.core.create_namespaced_pod(namespace, body, **kwargs)
 
@@ -110,8 +87,25 @@ class KubernetesAllocator(object):
     def create_config_map(self, namespace, body, **kwargs):
         return self.core.create_namespaced_config_map(namespace, body, **kwargs)
 
-    def create_secret(self, namespace, body, **kwargs):
-        return self.core.create_namespaced_secret(namespace, body, **kwargs)
+    def delete_resources(self, namespace, label_selector, **kwargs):
+        api_mapping = {
+            'pod': self.core,
+            'deployment': self.apps,
+            'service': self.core,
+            'ingress': self.extensions,
+            'config_map': self.core,
+        }
+
+        for name, api in api_mapping.items():
+            list_name = f'list_namespaced_{name!s}'
+            delete_name = f'delete_namespaced_{name!s}'
+
+            output = getattr(api, list_name)(namespace, label_selector=label_selector, **kwargs)
+
+            logger.info(f'Removing {len(output.items)!r} {name!s}')
+
+            for x in output.items:
+                getattr(api, delete_name)(x.metadata.name, namespace, **kwargs)
 
 class WaitingResourceRequestState(State, RedisQueue):
     def __init__(self, **kwargs):
@@ -142,86 +136,6 @@ class WaitingResourceRequestState(State, RedisQueue):
 
         return False
 
-    def create_user_environment(self, namespace, labels):
-        name = 'compute-user'
-
-        ns = client.V1Namespace()
-        ns.metadata = client.V1ObjectMeta(name=namespace, labels=labels)
-
-        self.k8s.create_namespace(ns)
-
-        logger.info(f'Created namespace {namespace!s}')
-
-        image_pull_secrets = []
-
-        root_path = '/etc/imagepullsecrets'
-
-        for x in os.listdir(root_path):
-            path = os.path.join(root_path, x, '.dockerconfigjson')
-
-            if not os.path.exists(path):
-                continue
-
-            image_pull_secrets.append(client.V1LocalObjectReference(name=x))
-
-            with open(path, 'rb') as f:
-                data = base64.b64encode(f.read())
-
-            data = {
-                '.dockerconfigjson': data.decode(),
-            }
-
-            secret = client.V1Secret(data=data, type='kubernetes.io/dockerconfigjson')
-            secret.metadata = client.V1ObjectMeta(name=x, labels=labels)
-
-            self.k8s.create_secret(namespace, secret)
-
-        sa = client.V1ServiceAccount(image_pull_secrets=image_pull_secrets)
-        sa.metadata = client.V1ObjectMeta(name=name, labels=labels)
-
-        self.k8s.create_service_account(namespace, sa)
-
-        api_groups = ['', 'apps', 'extensions']
-        resources = ['pods', 'deployments', 'services', 'ingresses']
-        verbs = ['get', 'list', 'create', 'delete']
-
-        rules = [
-            client.V1PolicyRule(api_groups=api_groups, resources=resources, verbs=verbs),
-        ]
-
-        role = client.V1Role(rules=rules)
-        role.metadata = client.V1ObjectMeta(name=name, labels=labels)
-
-        self.k8s.create_role(namespace, role)
-
-        role_ref = client.V1RoleRef(api_group='rbac.authorization.k8s.io', kind='Role', name=name)
-        subjects = [
-            client.V1Subject(api_group='', kind='ServiceAccount', name=name, namespace=namespace)
-        ]
-
-        role_binding = client.V1RoleBinding(role_ref=role_ref, subjects=subjects)
-        role_binding.metadata = client.V1ObjectMeta(name=name, labels=labels)
-        role_binding.subjects = [
-            client.V1Subject(api_group='', kind='ServiceAccount', name=name, namespace=namespace)
-        ]
-
-        self.k8s.create_role_binding(namespace, role_binding)
-
-        spec = client.V1ResourceQuotaSpec()
-        spec.hard = {
-            'limits.cpu': os.environ.get('USER_LIMIT_CPU', '1'),
-            'limits.memory': os.environ.get('USER_LIMIT_MEMORY', '1Gi'),
-            'requests.cpu': os.environ.get('USER_REQUEST_CPU', '1'),
-            'requests.memory': os.environ.get('USER_REQUEST_MEMORY', '1Gi'),
-        }
-
-        rq = client.V1ResourceQuota(spec=spec)
-        rq.metadata = client.V1ObjectMeta(name=name, labels=labels)
-
-        self.k8s.create_resource_quota(namespace, rq)
-
-        logger.info(f'Created resource quota')
-
     def allocate_resources(self, request_raw):
         """ Allocate resources.
 
@@ -234,18 +148,18 @@ class WaitingResourceRequestState(State, RedisQueue):
 
         labels = {'compute.io/resource-group': resource_uuid}
 
-        namespace = f'compute-{resource_uuid!s}'
+        namespace = os.environ.get('NAMESPACE', 'default')
 
         request = json.loads(request_raw)
 
         logger.info(f'Allocating {len(request)!r} resources with uuid {resource_uuid!r}')
 
+        service_account_name = os.environ.get('SERVICE_ACCOUNT_NAME')
+
         existing = self.try_extend_resource_expiry(resource_uuid)
 
         if not existing:
             try:
-                self.create_user_environment(namespace, labels)
-
                 for item in request:
                     yaml_data = yaml.safe_load(item)
 
@@ -261,11 +175,11 @@ class WaitingResourceRequestState(State, RedisQueue):
                     logger.info(f'Allocating {kind!r} with labels {yaml_data["metadata"]["labels"]!r}')
 
                     if kind == 'Pod':
-                        yaml_data['spec']['serviceAccountName'] = 'compute-user'
+                        yaml_data['spec']['serviceAccountName'] = service_account_name
 
                         self.k8s.create_pod(namespace, yaml_data)
                     elif kind == 'Deployment':
-                        yaml_data['spec']['template']['spec']['serviceAccountName'] = 'compute-user'
+                        yaml_data['spec']['template']['spec']['serviceAccountName'] = service_account_name
 
                         self.k8s.create_deployment(namespace, yaml_data)
                     elif kind == 'Service':

@@ -30,34 +30,28 @@ class KubeCluster(threading.Thread):
         self.redis = redis.Redis(self.redis_host, db=1)
 
     def check_resources(self):
-        label_selector = 'compute.io/resource-group'
+        keys = self.redis.hkeys('resource')
 
-        ns = self.k8s.list_namespace(label_selector=label_selector)
+        for x in keys:
+            expire = self.redis.hget('resource', x)
 
-        logger.info(f'Checking {len(ns.items)!s} namespaces')
-
-        for x in ns.items:
-            key = x.metadata.labels[label_selector]
-
-            expire = self.redis.hget('resource', key)
+            label_selector = f'compute.io/resource-group={x!s}'
 
             if expire is None:
-                logger.info(f'Removing non-tracked namespace {x.metadata.name!r}')
-
-                if not self.dry_run:
-                    self.k8s.delete_namespace(x.metadata.name)
+                self.k8s.delete_resources(self.namespace, label_selector)
             else:
                 expire = float(expire.decode())
 
-                logger.info(f'Checking if namespace {x.metadata.name!r} is expired')
-
                 if expire < time.time() or self.ignore_lifetime:
-                    logger.info(f'Namespace {x.metadata.name!r} expired')
+                    self.k8s.delete_resources(self.namespace, label_selector)
 
-                    if not self.dry_run:
-                        self.k8s.delete_namespace(x.metadata.name)
+                    self.redis.hdel('resource', key)
 
-                        self.redis.hdel('resource', key)
+        key_list = ', '.join(keys)
+
+        rogue_selector = f'compute.io/resource-group notin ({key_list!s})'
+
+        self.k8s.delete_resources(self.namespace, rogue_selector)
 
     def monitor(self):
         while True:
