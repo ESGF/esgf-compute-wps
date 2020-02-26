@@ -49,7 +49,7 @@ class KubeCluster(threading.Thread):
 
         key_list = ', '.join(keys)
 
-        rogue_selector = f'compute.io/resource-group notin ({key_list!s})'
+        rogue_selector = f'compute.io/resource-group,compute.io/resource-group notin ({key_list!s})'
 
         self.k8s.delete_resources(self.namespace, rogue_selector)
 
