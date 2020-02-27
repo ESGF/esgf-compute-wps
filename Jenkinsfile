@@ -22,7 +22,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make build-provisioner'
+              sh 'make provisioner'
             }
 
           }
@@ -47,7 +47,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make build-tasks'
+              sh 'make tasks'
             }
 
           }
@@ -72,7 +72,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make build-wps'
+              sh 'make wps'
             }
 
           }
@@ -97,7 +97,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make build-thredds'
+              sh 'make thredds'
             }
 
           }
@@ -126,7 +126,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make testresult-tasks'
+              sh 'make tasks TARGET=testresult'
               sh 'chown -R 10000:10000 output'
             }
 
@@ -150,7 +150,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make testresult-wps'
+              sh 'make wps TARGET=testresult'
               sh 'chown -R 10000:10000 output'
             }
 
