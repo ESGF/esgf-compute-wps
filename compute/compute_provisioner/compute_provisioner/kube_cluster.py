@@ -35,7 +35,7 @@ class KubeCluster(threading.Thread):
         for x in keys:
             expire = self.redis.hget('resource', x)
 
-            label_selector = f'compute.io/resource-group={x!s}'
+            label_selector = f'compute.io/resource-group={x.decode()!s}'
 
             if expire is None:
                 self.k8s.delete_resources(self.namespace, label_selector)
@@ -45,9 +45,9 @@ class KubeCluster(threading.Thread):
                 if expire < time.time() or self.ignore_lifetime:
                     self.k8s.delete_resources(self.namespace, label_selector)
 
-                    self.redis.hdel('resource', key)
+                    self.redis.hdel('resource', x)
 
-        key_list = ', '.join(keys)
+        key_list = ', '.join([x.decode() for x in keys])
 
         rogue_selector = f'compute.io/resource-group,compute.io/resource-group notin ({key_list!s})'
 
