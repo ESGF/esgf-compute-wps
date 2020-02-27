@@ -15,7 +15,7 @@ def main():
 
     core = client.CoreV1Api()
 
-    cluster = KubeCluster(port=8786)
+    cluster = KubeCluster()
 
     cluster.adapt(minimum=0, maximum=MAXIMUM)
 

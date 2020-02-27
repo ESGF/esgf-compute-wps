@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: dask-kubernetes
+  name: dask-kubernetes-{{ user }}
   labels:
     compute.io/component: scheduler
 spec:
   containers:
-  - name: dask-kubernetes-{{ user }}
+  - name: dask-kubernetes
     image: {{ image }}
     imagePullPolicy: {{ image_pull_policy }}
     command:

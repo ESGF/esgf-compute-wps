@@ -5,10 +5,10 @@ metadata:
 data:
   kubernetes.yaml: |
     kubernetes:
+      name: "dask-worker-{{ user }}-{{ uuid }}"
+      port: 8786
       worker-template:
         kind: Pod
-        metadata:
-          generateName: dask-worker-{{ user }}
         spec:
           restartPolicy: Never
           containers:
