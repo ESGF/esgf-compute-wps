@@ -115,7 +115,7 @@ def build_context(identifier, data_inputs, job, user, process, status, **extra):
     context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
 
     extra = {
-        'DASK_SCHEDULER': f'dask-scheduler.{extra["namespace"]!s}.svc:8786',
+        'DASK_SCHEDULER': f'dask-scheduler-{user!s}.{extra["namespace"]!s}.svc:8786',
     }
 
     logger.info(f'Built operation context with extra {extra!r}')
@@ -203,7 +203,7 @@ class WaitingState(State):
 
         if transition == REQUEST:
             try:
-                resources = json.dumps(render_templates(user=user).values())
+                resources = json.dumps(list(render_templates(user=user).values()))
 
                 backend.worker.send_multipart([RESOURCE, resources.encode()])
             except Exception as e:
