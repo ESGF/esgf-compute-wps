@@ -6,7 +6,7 @@ metadata:
     compute.io/component: scheduler
 spec:
   containers:
-  - name: dask-kubernetes
+  - name: dask-kubernetes-{{ user }}
     image: {{ image }}
     imagePullPolicy: {{ image_pull_policy }}
     command:
@@ -33,4 +33,4 @@ spec:
   volumes:
     - name: dask-config
       configMap:
-        name: dask-configmap
+        name: dask-configmap-{{ user }}
