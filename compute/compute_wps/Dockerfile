@@ -34,7 +34,7 @@ WORKDIR /compute
 COPY compute/compute_wps/settings.py compute/
 COPY compute/compute_wps/urls.py compute/
 COPY compute/compute_wps/wsgi.py compute/
-COPY compute/compute_wps/app.py .
+COPY compute/compute_wps/init.sh .
 COPY compute/compute_wps/entrypoint.sh .
 
 EXPOSE 8000
