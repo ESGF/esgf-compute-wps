@@ -3,6 +3,7 @@ from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls import include
 from django.contrib import admin
+from rest_framework import renderers
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.schemas import get_schema_view
 from rest_framework.routers import SimpleRouter
@@ -55,12 +56,15 @@ api_urlpatterns = [
     url(r'^mpc/$', views.login_mpc),
 ]
 
-schema = get_schema_view(title='Internal API', patterns=internal_router.urls,
-                         url='https://{!s}/internal_api'.format(settings.INTERNAL_LB),
-                         authentication_classes=[BasicAuthentication, ])
+schema = get_schema_view(
+        title='Internal API',
+        patterns=internal_router.urls,
+        url='https://{!s}/internal_api'.format(settings.INTERNAL_LB),
+        authentication_classes=[BasicAuthentication, ],
+)
 
 internal_router_urls = internal_router.urls
-internal_router.urls.append(url('^schema$', schema))
+internal_router_urls.append(url('^schema$', schema))
 
 urlpatterns = [
     url(r'^wps/?$', views.wps_entrypoint),

@@ -28,6 +28,7 @@ logger = logging.getLogger('compute_wps.views.job')
 
 class InternalFileViewSet(viewsets.GenericViewSet):
     queryset = models.File.objects.all()
+    serializer_class = serializers.FileSerializer
     authentication_classes = (BasicAuthentication, )
     permission_classes = (DjangoModelPermissions, )
 
