@@ -13,6 +13,10 @@ from compute_wps.util import wps_response
 
 logger = logging.getLogger('compute_wps.serializers')
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.User
+        fields = '__all__'
 
 class UserFileSerializer(serializers.ModelSerializer):
     url = serializers.URLField(write_only=True)

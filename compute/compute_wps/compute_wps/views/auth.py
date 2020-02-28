@@ -20,6 +20,7 @@ from rest_framework.exceptions import APIException
 from compute_wps import forms
 from compute_wps import metrics
 from compute_wps import models
+from compute_wps import serializers
 from compute_wps.auth import oauth2
 from compute_wps.auth import openid
 from compute_wps.exceptions import WPSError
@@ -82,6 +83,8 @@ def get_oauth2_urls(user):
 
 
 class InternalUserViewSet(viewsets.GenericViewSet):
+    serializer_class = serializers.UserSerializer
+
     @action(detail=True)
     def details(self, request, pk):
         try:
