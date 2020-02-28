@@ -5,15 +5,25 @@ export
 IMAGE := $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE)
 TAG := $(shell git rev-parse --short HEAD)
 
-ifeq ($(which buildctl-daemonless.sh),)
+ifeq ($(shell which buildctl-daemonless.sh),)
 CACHE = --import-cache type=local,src=/cache \
 	--export-cache type=local,dest=/cache,mode=max
 OUTPUT = --output type=docker,name=$(IMAGE):$(TAG),dest=/output/image.tar
 EXTRA = cat output/image.tar | docker load
+BUILD =  docker run \
+				 -it --rm \
+				 --privileged \
+				 -v $(PWD)/cache:/cache \
+				 -v $(PWD)/output:/output \
+				 -v $(PWD):/build \
+				 -w /build \
+				 --entrypoint=/bin/sh \
+				 moby/buildkit:master 
 else
 CACHE = --import-cache type=registry,ref=$(IMAGE):cache \
 	--export-cache type=registry,ref=$(IMAGE):cache
 OUTPUT = --output type=registry,ref=$(IMAGE):$(TAG),push=true
+BUILD = /bin/bash
 endif
 
 TARGET = production
@@ -43,15 +53,6 @@ thredds:
 	$(MAKE) build	
 
 build:
-	docker run \
-		-it --rm \
-		--privileged \
-		-v $(PWD)/cache:/cache \
-		-v $(PWD)/output:/output \
-		-v $(PWD):/build \
-		-w /build \
-		--entrypoint=/bin/sh \
-		moby/buildkit:master \
-		build.sh $(DOCKERFILE) $(TARGET) $(CACHE) $(OUTPUT) 
+	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(CACHE) $(OUTPUT) 
 	
-		$(EXTRA)
+	$(EXTRA)
