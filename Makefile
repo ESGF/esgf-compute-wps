@@ -23,7 +23,7 @@ else
 CACHE = --import-cache type=registry,ref=$(IMAGE):cache \
 	--export-cache type=registry,ref=$(IMAGE):cache
 OUTPUT = --output type=registry,ref=$(IMAGE):$(TAG),push=true
-BUILD = /bin/bash
+BUILD = $(SHELL)
 endif
 
 TARGET = production
