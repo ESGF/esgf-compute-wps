@@ -21,30 +21,29 @@ requirements:
 
   run:
     - python
-    - numpy<=1.18
-    - nomkl=3.0
+    - numpy
+    - nomkl
     - django=1.11
-    - django-cors-headers=2.5.0
-    - django-allow-cidr=0.3.1
-    - djangorestframework=3.9.4
-    - django-grappelli=2.12.3
-    - cdms2>=3.1
-    - bjoern=3.0.0
-    - esgf-compute-api>=2.2
-    - jinja2=2.10.1
-    - myproxyclient=2.0.1
-    - gunicorn=19.9.0
-    - psycopg2=2.8.2
-    - python3-openid=3.1.0
-    - pyzmq=18.0.1
-    - redis-py=3.2.1
-    - requests=2.21.0
-    - requests-oauthlib=1.2.0
-    - celery=4.4.0rc1
-    - prometheus_client=0.6.0
-    - python-coreapi=2.3.3
-    - pyyaml=5.1
-    - netaddr=0.7.19
+    - django-cors-headers
+    - django-allow-cidr
+    - djangorestframework
+    - django-grappelli
+    - cdms2
+    - esgf-compute-api
+    - jinja2
+    - myproxyclient
+    - gunicorn
+    - psycopg2
+    - python3-openid
+    - pyzmq
+    - redis-py
+    - requests
+    - requests-oauthlib
+    - celery
+    - prometheus_client
+    - python-coreapi
+    - pyyaml
+    - netaddr
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
