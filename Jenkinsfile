@@ -22,7 +22,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make provisioner'
+              sh 'make provisioner REGISTRY=${OUTPUT_REGISTRY}'
             }
 
           }
@@ -47,7 +47,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make tasks'
+              sh 'make tasks REGISTRY=${OUTPUT_REGISTRY}'
             }
 
           }
@@ -72,7 +72,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make wps'
+              sh 'make wps REGISTRY=${OUTPUT_REGISTRY}'
             }
 
           }
@@ -97,7 +97,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make thredds'
+              sh 'make thredds REGISTRY=${OUTPUT_REGISTRY}'
             }
 
           }
