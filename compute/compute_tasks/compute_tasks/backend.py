@@ -100,7 +100,7 @@ TEMPLATE_NAMES = [
     'dask-kubernetes-pod.yaml',
 ]
 
-TEMPLATES = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'))
+TEMPLATES = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'), undefined=jinja2.DebugUndefined)
 
 
 def queue_from_identifier(identifier):
