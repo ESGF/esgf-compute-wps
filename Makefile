@@ -22,7 +22,7 @@ BUILD =  docker run \
 else
 CACHE = --import-cache type=registry,ref=$(IMAGE):cache \
 	--export-cache type=registry,ref=$(IMAGE):cache
-OUTPUT = --output type=image,ref=$(IMAGE):$(TAG),push=true
+OUTPUT = --output type=image,name=$(IMAGE):$(TAG),push=true
 BUILD = $(SHELL)
 endif
 
