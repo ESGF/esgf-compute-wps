@@ -300,6 +300,7 @@ def test_resource_ack_state(mocker, transition, frames, expected):
     state = backend.ResourceAckState('CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0')
 
     frames.insert(0, transition.decode())
+    frames.append('{"namespace": "default"}')
 
     new_state = state.on_event(b, *frames)
 
@@ -340,11 +341,9 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
 
 def test_build_workflow(mocker):
-    mocker.patch.dict(backend.os.environ, {'NAMESPACE': 'default'})
-
     mocker.patch('compute_tasks.context.operation.OperationContext.action')
 
-    workflow = backend.build_workflow('CDAT.subset', json.dumps(DATA_INPUTS), '0', '0', '0', '0')
+    workflow = backend.build_workflow('CDAT.subset', json.dumps(DATA_INPUTS), '0', '0', '0', '0', namespace='default')
 
     assert workflow
 
@@ -372,3 +371,4 @@ def test_missing_heartbeat(mocker, worker):
     worker.join()
 
     assert timeouts == [2, 4]
+
