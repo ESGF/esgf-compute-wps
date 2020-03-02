@@ -12,6 +12,8 @@ from uuid import uuid4
 import redis
 import yaml
 import zmq
+from jinja2 import DebugUndefined
+from jinja2 import Template
 from kubernetes import client
 from kubernetes import config
 
@@ -109,7 +111,11 @@ class KubernetesAllocator(object):
 
     def create_resources(self, request, namespace, labels, service_account_name, image_pull_secret, **kwargs):
         for item in request:
-            yaml_data = yaml.safe_load(item)
+            template = Template(item, undefined=DebugUndefined)
+
+            rendered_item = template.render(image_pull_secret=image_pull_secret)
+
+            yaml_data = yaml.safe_load(rendered_item)
 
             try:
                 yaml_data['metadata']['labels'].update(labels)

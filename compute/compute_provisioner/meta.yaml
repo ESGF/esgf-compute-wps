@@ -24,6 +24,7 @@ requirements:
     - pyzmq=18.0.1
     - redis-py=3.2.1
     - python-kubernetes=9.0.0
+    - jinja2
 
 test:
   imports:

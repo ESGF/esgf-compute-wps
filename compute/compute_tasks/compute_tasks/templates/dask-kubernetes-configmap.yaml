@@ -11,6 +11,8 @@ data:
         kind: Pod
         spec:
           restartPolicy: Never
+          imagePullSecrets:
+          - name: {{ image_pull_secret }}
           containers:
           - name: dask-worker
             image: {{ image }}
