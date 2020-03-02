@@ -126,7 +126,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make tasks TARGET=testresult'
+              sh 'make tasks TARGET=testresult REGISTRY=${OUTPUT_REGISTRY}'
               sh 'chown -R 10000:10000 output'
             }
 
@@ -150,7 +150,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make wps TARGET=testresult'
+              sh 'make wps TARGET=testresult REGISTRY=${OUTPUT_REGISTRY}'
               sh 'chown -R 10000:10000 output'
             }
 
