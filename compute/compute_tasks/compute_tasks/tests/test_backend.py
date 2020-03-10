@@ -34,11 +34,6 @@ RAW_FRAMES = [
     '0',
 ]
 
-ENV = {
-    'IMAGE': 'aims2.llnl.gov/compute-tasks:latest',
-    'WORKERS': '8',
-}
-
 
 def test_validate_workflow_specify_variable_not_found(mocker):
     pr1 = cwt.Variable('file:///test1.nc', 'pr')
@@ -306,6 +301,14 @@ def test_resource_ack_state(mocker, transition, frames, expected):
 
     assert isinstance(new_state, expected)
 
+
+ENV = {
+    'IMAGE': 'aims2.llnl.gov/compute-tasks:latest',
+    'WORKERS': '8',
+    'REDIS_HOST': '127.0.0.1',
+    'REDIS_PORT': '6379',
+    'REDIS_DB': '0',
+}
 
 @pytest.mark.parametrize('transition,patch_env,expected', [
     (backend.REQUEST, ENV, backend.ResourceAckState),
