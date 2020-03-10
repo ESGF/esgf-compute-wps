@@ -178,6 +178,9 @@ def render_templates(**kwargs):
 
     data = {
         'image': os.environ['IMAGE'],
+        'redis_host': os.environ['REDIS_HOST'],
+        'redis_port': os.environ['REDIS_PORT'],
+        'redis_db': os.environ['REDIS_DB'],
         'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
         'scheduler_cpu': SCHEDULER_CPU,
         'scheduler_memory': SCHEDULER_MEMORY,
