@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 import time
@@ -34,6 +35,18 @@ RAW_FRAMES = [
     '0',
 ]
 
+
+def test_render_templates(mocker):
+    mocker.patch.dict(os.environ, {
+        'IMAGE': 'test',
+        'REDIS_HOST': '127.0.0.1',
+        'REDIS_PORT': '6379',
+        'REDIS_DB': '0',
+    })
+
+    output = backend.render_templates()
+
+    assert list(output.keys()) == ['dask-kubernetes-configmap.yaml', 'dask-kubernetes-service.yaml', 'dask-kubernetes-pod.yaml']
 
 def test_validate_workflow_specify_variable_not_found(mocker):
     pr1 = cwt.Variable('file:///test1.nc', 'pr')
