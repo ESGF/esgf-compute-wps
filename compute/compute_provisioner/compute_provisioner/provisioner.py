@@ -118,7 +118,7 @@ class KubernetesAllocator(object):
 
             config = {
                 'image_pull_secret': image_pull_secret,
-                'labels': [f'{x}: {Y}' for x, y in labels.items()],
+                'labels': [f'{x}: {y}' for x, y in labels.items()],
             }
 
             rendered_item = template.render(**config)
