@@ -113,7 +113,12 @@ class KubernetesAllocator(object):
         for item in request:
             template = Template(item, undefined=DebugUndefined)
 
-            rendered_item = template.render(image_pull_secret=image_pull_secret)
+            config = {
+                'image_pull_secret': image_pull_secret,
+                'labels': [f'{x}: {Y}' for x, y in labels.items()],
+            }
+
+            rendered_item = template.render(**config)
 
             yaml_data = yaml.safe_load(rendered_item)
 
