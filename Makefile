@@ -29,7 +29,7 @@ endif
 TARGET = production
 
 ifeq ($(TARGET),testresult)
-OUTPUT = --output type=local,dest=/output
+OUTPUT = --output type=local,dest=output
 endif
 
 provisioner: IMAGE := compute-provisioner
