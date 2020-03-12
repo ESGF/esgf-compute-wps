@@ -490,7 +490,7 @@ def test_open_dataset(mocker, url, expected_size):
 
 def test_execute_delayed_with_client(mocker):
     mocker.patch.object(dask, 'compute')
-    mocker.patch.object(cdat, 'DaskJobTracker')
+    mocker.patch.object(cdat, 'DaskTaskTracker')
 
     context = mocker.MagicMock()
 
@@ -504,7 +504,7 @@ def test_execute_delayed_with_client(mocker):
 
     client.compute.assert_called_with(futures)
 
-    cdat.DaskJobTracker.assert_called_with(context, client.compute.return_value)
+    cdat.DaskTaskTracker.assert_called_with(context, client.compute.return_value)
 
 
 def test_execute_delayed(mocker):
@@ -561,7 +561,7 @@ def test_dask_job_tracker(mocker, client):  # noqa: F811
 
     fut = client.compute(data)
 
-    cdat.DaskJobTracker(context, fut)
+    cdat.DaskTaskTracker(context, fut)
 
     assert context.message.call_count > 0
 

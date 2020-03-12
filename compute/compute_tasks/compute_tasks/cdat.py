@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import copy
+import time
 import types
 import re
 import os
@@ -33,8 +34,14 @@ from compute_tasks import WPSError
 
 logger = get_task_logger('compute_tasks.cdat')
 
+# If percentage doesn't
+UPDATE_TIMEOUT = os.environ.get('UPDATE_TIMEOUT', 120)
 
-class DaskJobTracker(ProgressBar):
+
+class DaskTimeoutError(WPSError):
+    pass
+
+class DaskTaskTracker(ProgressBar):
     def __init__(self, context, futures, scheduler=None, interval='100ms', complete=True):
         """ Init method.
 
@@ -47,14 +54,15 @@ class DaskJobTracker(ProgressBar):
             interval (str, optional): The interval used between posting updates of the tracked futures.
             complete (bool, optional): Whether to callback after all futures are complete.
         """
-        futures = futures_of(futures)
+        self.futures = futures_of(futures)
 
-        context.message('Tracking {!r} futures', len(futures))
+        context.message('Tracking {!r} futures', len(self.futures))
 
-        super(DaskJobTracker, self).__init__(futures, scheduler, interval, complete)
+        super(DaskTaskTracker, self).__init__(self.futures, scheduler, interval, complete)
 
         self.context = context
         self.last = None
+        self.updated = None
 
         self.loop = IOLoop()
 
@@ -83,9 +91,17 @@ class DaskJobTracker(ProgressBar):
         logger.debug('Percent processed %r', percent)
 
         if self.last is None or self.last != percent:
-            self.context.message('Processing', percent=percent)
+            self.updated = time.time()
 
             self.last = percent
+
+            self.context.message('Processing', percent=percent)
+        else:
+            # Check how long since last update
+            if time.time() > (self.updated + UPDATE_TIMEOUT):
+                logger.error(f'Job has not progressed in {UPDATE_TIMEOUT} seconds')
+
+                raise DaskTimeoutError(f'Job has not progresed in {UPDATE_TIMEOUT} seconds')
 
     def _draw_stop(self, **kwargs):
         pass
@@ -566,7 +582,7 @@ def execute_delayed(context, delayed, client=None):
 
     The list of Dask delayed functions are executed locally unless a client is defined. When a
     client is passed the delays are execute and futures are returned, these are then tracked
-    using ``DaskJobTracker`` to update the user on the progress of execution. Thise is all wrapped
+    using ``DaskTaskTracker`` to update the user on the progress of execution. Thise is all wrapped
     by a `context.ProcessTimer` which times the whole event then updates the metrics.
 
     Args:
@@ -580,7 +596,7 @@ def execute_delayed(context, delayed, client=None):
         else:
             fut = client.compute(delayed)
 
-            DaskJobTracker(context, fut)
+            DaskTaskTracker(context, fut)
 
 
 def process_subset(context, operation, *input, method=None, rename=None, fillna=None, **kwargs):
@@ -970,6 +986,10 @@ def workflow(self, context):
         context.message('Gathered {!s} outputs', len(delayed))
 
         execute_delayed(context, delayed, client)
+    except DaskTimeoutError:
+        client.cancel(delayed)
+
+        raise
     except WPSError:
         raise
     except Exception as e:
