@@ -19,5 +19,9 @@ def main():
 
     cluster.adapt(minimum=0, maximum=MAXIMUM)
 
-    while True:
+    # Shouldn't take more than 1 minute to spin up workers
+    time.sleep(60)
+
+    # Wait until workers are removed by KubeCluster then exit
+    while len(cluster.scheduler.workers) > 0:
         time.sleep(2)

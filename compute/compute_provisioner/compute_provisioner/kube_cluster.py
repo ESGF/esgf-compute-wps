@@ -35,6 +35,8 @@ class KubeCluster(threading.Thread):
         for x in keys:
             expire = self.redis.hget('resource', x)
 
+            logger.info(f'Checking resource group {x}')
+
             label_selector = f'compute.io/resource-group={x.decode()!s}'
 
             if expire is None:
@@ -47,11 +49,37 @@ class KubeCluster(threading.Thread):
 
                     self.redis.hdel('resource', x)
 
+        logger.info('Removing rogue resources')
+
         key_list = ', '.join([x.decode() for x in keys])
 
         rogue_selector = f'compute.io/resource-group,compute.io/resource-group notin ({key_list!s})'
 
         self.k8s.delete_resources(self.namespace, rogue_selector)
+
+        complete_selector = f'compute.io/resource-group'
+
+        pods = self.k8s.list_namespaced_pod(self.namespace, complete_selector)
+
+        logger.info(f'Checking {len(pod.items)} resource groups of end of life phase')
+
+        resource_keys = []
+
+        for x in pods.items:
+            if x.status.phase in ('Succeeded', 'Failed', 'Unknown'):
+                resource_keys.append(x.metadata.labels['compute.io/resource-group'])
+
+                logger.info(f'Found resource group {resource_keys[-1]} in phase {x.status.phase}')
+
+                count = self.redis.hdel('resource', resources_keys[-1])
+
+                logger.debug(f'Removed {count} entries in redis')
+
+        eol_resource_keys = ', '.join(resource_keys)
+
+        eol_selector = f'compute.io/resource-group,compute.io/resource-group in ({eol_resource_keys!s})'
+
+        self.k8s.delete_resources(self.namespace, eol_selector)
 
     def monitor(self):
         while True:
