@@ -1,0 +1,21 @@
+kind: Pod
+metadata:
+  labels:
+    foo: bar
+spec:
+  restartPolicy: Never
+  containers:
+  - image: aims2.llnl.gov/compute-tasks:95189b31
+    imagePullPolicy: IfNotPresent
+    args: [dask-worker, --nthreads, '2', --no-bokeh, --memory-limit, 1GB, --death-timeout, '60']
+    name: dask
+    env:
+      - name: EXTRA_PIP_PACKAGES
+        value: fastparquet git+https://github.com/dask/distributed
+    resources:
+      limits:
+        cpu: .5
+        memory: 1G
+      requests:
+        cpu: .5
+        memory: 1G
