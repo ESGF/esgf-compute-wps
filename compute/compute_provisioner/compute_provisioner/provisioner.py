@@ -237,11 +237,16 @@ class WaitingResourceRequestState(State, RedisQueue):
         logger.info(f'{self!s} transition state {transition!r}')
 
         if transition == constants.RESOURCE:
-            extra = self.allocate_resources(args[0])
+            try:
+                extra = self.allocate_resources(args[0])
+            except Exception as e:
+                new_frames = [address, constants.ERR, str(e).encode()]
 
-            new_frames = [address, constants.ACK, json.dumps(extra).encode()]
+                logger.info(f'Notifying backend {address} of allocation error')
+            else:
+                new_frames = [address, constants.ACK, json.dumps(extra).encode()]
 
-            logger.info('Notifying backend %r of successful allocation', address)
+                logger.info(f'Notifying backend {address} of allocation success')
 
             try:
                 self.backend.send_multipart(new_frames)
