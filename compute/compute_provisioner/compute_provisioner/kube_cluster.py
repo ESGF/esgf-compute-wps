@@ -59,7 +59,7 @@ class KubeCluster(threading.Thread):
 
         complete_selector = f'compute.io/resource-group'
 
-        pods = self.k8s.list_namespaced_pod(self.namespace, complete_selector)
+        pods = self.k8s.list_pods(self.namespace, complete_selector)
 
         logger.info(f'Checking {len(pod.items)} resource groups of end of life phase')
 

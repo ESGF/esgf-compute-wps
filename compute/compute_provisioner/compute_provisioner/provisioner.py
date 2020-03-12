@@ -77,7 +77,7 @@ class KubernetesAllocator(object):
     def create_pod(self, namespace, body, **kwargs):
         return self.core.create_namespaced_pod(namespace, body, **kwargs)
 
-    def list_pod(self, namespace, label_selector, **kwargs):
+    def list_pods(self, namespace, label_selector, **kwargs):
         return self.core.list_namespaced_pod(namespace, label_selector, **kwargs)
 
     def create_deployment(self, namespace, body, **kwargs):
