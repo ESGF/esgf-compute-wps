@@ -61,7 +61,7 @@ class KubeCluster(threading.Thread):
 
         pods = self.k8s.list_pods(self.namespace, complete_selector)
 
-        logger.info(f'Checking {len(pod.items)} resource groups of end of life phase')
+        logger.info(f'Checking {len(pods.items)} resource groups of end of life phase')
 
         resource_keys = []
 
