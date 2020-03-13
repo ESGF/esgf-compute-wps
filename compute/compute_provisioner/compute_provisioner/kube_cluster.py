@@ -66,10 +66,13 @@ class KubeCluster(threading.Thread):
         resource_keys = []
 
         for x in pods.items:
-            if x.status.phase in ('Succeeded', 'Failed', 'Unknown'):
+            eol_phase = x.status.phase in ('Succeeded', 'Failed', 'Unknown')
+            work_done = x.metadata.labels.get('compute.io/state', '') == 'Done'
+
+            if eol_phase or work_done:
                 resource_keys.append(x.metadata.labels['compute.io/resource-group'])
 
-                logger.info(f'Found resource group {resource_keys[-1]} in phase {x.status.phase}')
+                logger.info(f'Found resource group {resource_keys[-1]} with eol condition')
 
                 count = self.redis.hdel('resource', resources_keys[-1])
 

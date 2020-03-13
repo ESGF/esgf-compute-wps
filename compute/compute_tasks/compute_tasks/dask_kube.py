@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import sys
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -19,9 +20,28 @@ def main():
 
     cluster.adapt(minimum=0, maximum=MAXIMUM)
 
-    # Shouldn't take more than 1 minute to spin up workers
-    time.sleep(60)
+    timeout = time.time() + 120
 
-    # Wait until workers are removed by KubeCluster then exit
+    while True:
+        # Workers took too long to spawn
+        if time.time() > timeout:
+            sys.exit(1)
+
+        if len(cluster.scheduler.workers) > 0:
+            break
+
+        time.sleep(2)
+
+    # Wait for workers to end
     while len(cluster.scheduler.workers) > 0:
+        time.sleep(2)
+
+    namespace = os.environ['NAMESPACE']
+    name = os.environ['HOSTNAME']
+
+    # Mark our pod as done
+    core.patch_namespaced_pod(name, namespace, {"metadata": {"labels": {"compute.io/state": "Done"}}})
+
+    # Wait to be killed
+    while True:
         time.sleep(2)
