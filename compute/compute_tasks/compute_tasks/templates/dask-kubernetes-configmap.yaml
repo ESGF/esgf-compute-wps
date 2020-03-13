@@ -42,8 +42,10 @@ data:
               - "{{ worker_memory }}"
               - --death-timeout
               - '60'
+            {%- if worker_redis_cache_enabled %}
               - --worker-class
               - compute_tasks.dask_worker.CachedWorker
+            {%- endif %}
             resources:
               limits:
                 cpu: {{ worker_cpu }}
