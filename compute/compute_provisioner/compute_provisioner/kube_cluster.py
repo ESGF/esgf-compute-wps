@@ -74,7 +74,7 @@ class KubeCluster(threading.Thread):
 
                 logger.info(f'Found resource group {resource_keys[-1]} with eol condition')
 
-                count = self.redis.hdel('resource', resources_keys[-1])
+                count = self.redis.hdel('resource', resource_keys[-1])
 
                 logger.debug(f'Removed {count} entries in redis')
 
