@@ -1,13 +1,14 @@
 FROM continuumio/miniconda3:4.7.10 as builder
 
 RUN conda update -n base conda && \
-      conda install -y conda-build
+      conda install -c defaults -c conda-forge -y conda-build conda-forge-pinning
 
 WORKDIR /src
 
 COPY compute/compute_tasks compute_tasks/
 
-RUN conda build -c conda-forge -c cdat --use-local compute_tasks/
+RUN export
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 compute_tasks/
 
 FROM continuumio/miniconda3:4.7.10 as production
 
