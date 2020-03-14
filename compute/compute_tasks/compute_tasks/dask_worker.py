@@ -48,7 +48,8 @@ class CachedStore(MutableMapping):
         target_memory (int): Number of bytes the store is able to hold before spilling to disk.
         storage_path (str): The path to spill data to when memories full.
     """
-    def __init__(self, target_memory, storage_path):
+    def __init__(self, worker, target_memory, storage_path):
+        self.worker = worker
         # Build exact chain that dask already provides,
         # Fill local memory to target then spill to disk
         file = zict.File(storage_path)
@@ -74,11 +75,11 @@ class CachedStore(MutableMapping):
 
         data = self.l2[key]
 
-        self.nbytes[key] = safe_sizeof(data)
+        nbytes = self.worker.nbytes[key] = safe_sizeof(data)
 
-        self.types[key] = type(data)
+        types = self.worker.types[key] = type(data)
 
-        logger.info(f'Found {key} in redis store, nbytes {self.nbytes[key]}, types {self.types[key]}')
+        logger.info(f'Found {key} in redis store, nbytes {nbytes}, types {types}')
 
         return protocol.deserialize_bytes(data)
 
@@ -100,11 +101,11 @@ class CachedStore(MutableMapping):
 
                 logger.error('OOM response from redis trying to store {sizeof(data)} {info["used_memoryy"]} of {info["maxmemory"]}')
             else:
-                self.nbytes[key] = safe_sizeof(data)
+                nbytes = self.worker.nbytes[key] = safe_sizeof(data)
 
-                self.types[key] = type(data)
+                types = self.worker.types[key] = type(data)
 
-                logger.info(f'Moved {key} from local to redis store')
+                logger.info(f'Moved {key} from local memory to redis store, nbytes {nbytes}, types {types}')
 
     def __iter__(self):
         return itertools.chain(iter(self.l1), iter(self.l2.keys()))
@@ -124,4 +125,4 @@ class CachedWorker(worker.Worker):
 
         storage_path = os.path.join(self.local_directory, 'storage')
 
-        self.data = CachedStore(target_memory, storage_path)
+        self.data = CachedStore(self, target_memory, storage_path)
