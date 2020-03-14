@@ -188,7 +188,7 @@ def render_templates(**kwargs):
         'worker_cpu': WORKER_CPU,
         'worker_memory': WORKER_MEMORY,
         'worker_nthreads': WORKER_NTHREADS,
-        'worker_redis_cache_enabled': os.environ.get('WORKER_REDIS_CACHE_ENABLED', False),
+        'worker_redis_cache_enabled': bool(os.environ.get('WORKER_REDIS_CACHE_ENABLED', False)),
         'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
         'dev': os.environ.get('DEV', False),
         'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
