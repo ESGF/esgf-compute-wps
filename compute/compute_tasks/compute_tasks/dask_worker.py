@@ -74,7 +74,11 @@ class CachedStore(MutableMapping):
 
         data = self.l2[key]
 
-        logger.info(f'Found {key} in redis store')
+        self.nbytes[key] = safe_sizeof(data)
+
+        self.types[key] = type(data)
+
+        logger.info(f'Found {key} in redis store, nbytes {self.nbytes[key]}, types {self.types[key]}')
 
         return protocol.deserialize_bytes(data)
 
@@ -96,6 +100,10 @@ class CachedStore(MutableMapping):
 
                 logger.error('OOM response from redis trying to store {sizeof(data)} {info["used_memoryy"]} of {info["maxmemory"]}')
             else:
+                self.nbytes[key] = safe_sizeof(data)
+
+                self.types[key] = type(data)
+
                 logger.info(f'Moved {key} from local to redis store')
 
     def __iter__(self):
