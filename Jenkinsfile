@@ -112,6 +112,12 @@ pipeline {
       }
     }
 
+    stage('Test') {
+      steps {
+        sh 'ls -la'
+      }
+    }
+
   }
   parameters {
     booleanParam(name: 'FORCE_PROVISIONER', defaultValue: false, description: 'Force provisioner build')
