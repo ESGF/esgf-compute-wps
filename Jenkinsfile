@@ -113,6 +113,12 @@ pipeline {
     }
 
     stage('Test') {
+      agent {
+        node {
+          label 'jenkins-buildkit'
+        }
+
+      }
       steps {
         sh 'ls -la'
       }
