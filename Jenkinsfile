@@ -189,6 +189,21 @@ echo $(git rev-parse --short HEAD) >> output/wps.yaml'''
       }
     }
 
+    stage('Test') {
+      agent {
+        node {
+          label 'jenkins-helm'
+        }
+
+      }
+      steps {
+        container(name: 'helm', shell: '/bin/bash') {
+          sh 'ls -la output/'
+        }
+
+      }
+    }
+
   }
   parameters {
     booleanParam(name: 'FORCE_PROVISIONER', defaultValue: false, description: 'Force provisioner build')
