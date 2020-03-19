@@ -26,9 +26,6 @@ pipeline {
 '''
             }
 
-            sh '''#! /bin/bash
-
-export PROVISIONER=$(git rev-parse --short HEAD)'''
           }
         }
 
@@ -53,9 +50,7 @@ export PROVISIONER=$(git rev-parse --short HEAD)'''
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''make tasks REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
 '''
-              sh '''chown -R 10000:10000 /output
-
-export TASKS=$(git rev-parse --short HEAD)'''
+              sh 'chown -R 10000:10000 /output'
             }
 
           }
@@ -82,9 +77,7 @@ export TASKS=$(git rev-parse --short HEAD)'''
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''make wps REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
 '''
-              sh '''chown -R 10000:10000 /output
-
-export WPS=$(git rev-parse --short HEAD'''
+              sh 'chown -R 10000:10000 /output'
             }
 
           }
@@ -113,9 +106,6 @@ export WPS=$(git rev-parse --short HEAD'''
 '''
             }
 
-            sh '''#! /bin/bash
-
-export THREDDS=$(git rev-parse --short HEAD)'''
           }
         }
 
