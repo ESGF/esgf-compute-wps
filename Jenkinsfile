@@ -1,14 +1,15 @@
 pipeline {
-  agent {
-    node {
-      label 'jenkins-buildkit'
-    }
-
-  }
+  agent none
   stages {
     stage('Build/Unittest') {
       parallel {
         stage('provisioner') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           when {
             anyOf {
               expression {
@@ -29,6 +30,12 @@ pipeline {
         }
 
         stage('tasks') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           when {
             anyOf {
               expression {
@@ -54,6 +61,12 @@ touch output/*'''
         }
 
         stage('wps') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           when {
             anyOf {
               expression {
@@ -79,6 +92,12 @@ touch output/*'''
         }
 
         stage('thredds') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           when {
             anyOf {
               expression {
@@ -101,9 +120,9 @@ touch output/*'''
       }
     }
 
-    stage('Provisioner') {
+    stage('Push Container') {
       parallel {
-        stage('Provisioner') {
+        stage('provisioner') {
           agent {
             node {
               label 'jenkins-buildkit'
@@ -118,9 +137,52 @@ touch output/*'''
           }
         }
 
-        stage('') {
+        stage('tasks') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           steps {
-            sh 'echo "ehllo"'
+            container(name: 'buildkit', shell: '/bin/sh') {
+              sh '''make tasks REGISTRY=${OUTPUT_REGISTRY}
+
+echo $(git rev-parse --short HEAD) >> output/tasks.yaml'''
+            }
+
+          }
+        }
+
+        stage('wps') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
+          steps {
+            container(name: 'buildkit', shell: '/bin/sh') {
+              sh '''make wps REGISTRY=${OUTPUT_REGISTRY}
+
+echo $(git rev-parse --short HEAD) >> output/wps.yaml'''
+            }
+
+          }
+        }
+
+        stage('thredds') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
+          steps {
+            container(name: 'buildkit', shell: '/bin/sh') {
+              sh 'make thredds REGISTRY=${OUTPUT_REGISTRY}'
+            }
+
           }
         }
 
