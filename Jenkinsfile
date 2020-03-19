@@ -50,7 +50,9 @@ pipeline {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''make tasks REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
 '''
-              sh 'chown -R 10000:10000 output'
+              sh '''chown -R 10000:10000 output
+
+touch output/*'''
             }
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
@@ -79,7 +81,9 @@ pipeline {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''make wps REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
 '''
-              sh 'chown -R 10000:10000 output'
+              sh '''chown -R 10000:10000 output
+
+touch output/*'''
             }
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
