@@ -300,6 +300,10 @@ STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'assets'),
 )
 
+FIXTURE_DIRS = (
+    os.path.join(BASE_DIR, 'compute_wps/fixtures'),
+)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

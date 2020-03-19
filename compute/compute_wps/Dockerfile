@@ -4,7 +4,8 @@ ARG GIT_SHORT_COMMIT
 
 ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
 
-RUN conda install -y conda-build
+RUN conda update -n base conda && \
+      conda install -y conda-build 
 
 WORKDIR /src
 
@@ -19,7 +20,7 @@ COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
 WORKDIR /
 
-RUN conda install -c conda-forge -c cdat --use-local compute-wps curl python=3.6 && \
+RUN conda install -c conda-forge -c cdat --use-local compute-wps curl && \
       django-admin startproject compute 
 
 ENV TINI_VERSION v0.18.0
@@ -43,34 +44,7 @@ ENTRYPOINT ["/usr/local/bin/tini", "--"]
 
 CMD ["./entrypoint.sh"]
 
-FROM production as testing
-
-ENV SECRET_KEY "abcd"
-ENV WPS_DEBUG 1
-ENV WPS_DEV 1
-ENV WPS_TEST 1
-ENV API_USERNAME "test"
-ENV API_PASSWORD "test"
-ENV OAUTH2_CLIENT_ID ""
-ENV OAUTH2_CLIENT_SECRET ""
-ENV PROVISIONER_FRONTEND ""
-
-WORKDIR /testing
-
-COPY compute/compute_wps/django.properties /etc/config/django.properties
-COPY compute/compute_wps/pytest.ini .
-COPY compute/compute_wps/setup.py .
-COPY compute/compute_wps/compute_wps compute_wps/
-
-RUN conda install -c conda-forge mock pytest-django pytest-cov && \
-      conda remove compute-wps --force -y && \
-      pip install -e . && \
-      pip install pytest-pythonpath
-
-RUN pytest -vvv --junit-xml=unittest.xml \
-      --cov=compute_wps --cov-report=xml || exit 0 
-
 FROM scratch as testresult
 
-COPY --from=testing /testing/unittest.xml .
-COPY --from=testing /testing/coverage.xml .
+COPY --from=builder /builder/unittest.xml .
+COPY --from=builder /builder/coverage.xml .

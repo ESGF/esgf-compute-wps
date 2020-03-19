@@ -14,6 +14,6 @@ setuptools.setup(
     url='https://github.com/ESGF/esgf-compute-wps',
     packages=setuptools.find_packages(),
     package_data={
-        '': ['*.xml'],
+        '': ['*.xml', '*.html'],
     },
 )

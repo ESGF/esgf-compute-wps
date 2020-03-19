@@ -16,6 +16,7 @@ setuptools.setup(
         'compute_tasks',
         'compute_tasks.context',
         'compute_tasks.templates',
+        'compute_tasks.tests',
     ],
     entry_points={
         'console_scripts': [

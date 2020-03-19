@@ -41,34 +41,31 @@ ARG GIT_SHORT_COMMIT
 ENV CONTAINER_VER ${GIT_SHORT_COMMIT}
 ENV prometheus_multiproc_dir /metrics
 
-FROM production as testing
-
-WORKDIR /testing
-
-COPY compute/compute_tasks/compute_tasks compute_tasks/
-COPY compute/compute_tasks/setup.py .
-COPY compute/compute_tasks/setup.cfg .
-COPY compute/compute_tasks/conftest.py .
-
-ARG MPC_HOST
-ARG MPC_USERNAME
-ARG MPC_PASSWORD
-
-ENV MPC_HOST ${MPC_HOST}
-ENV MPC_USERNAME ${MPC_USERNAME}
-ENV MPC_PASSWORD ${MPC_PASSWORD}
-
-RUN conda install --yes -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap && \
-      mkdir /metrics && \
-      conda remove compute-tasks --force -y && \
-      pip install -e .
-
-RUN pytest -vvv -m "not myproxyclient" --junit-xml=unittesting.xml --cov=compute_tasks --cov-report=xml || exit 0
-# RUN pytest -vvv -m "myproxyclient" --junit-xml=unittesting-mpc.xml --cov=compute_tasks --cov-report=xml:coverage-mpc.xml || exit 0
+# FROM production as testing
+# 
+# WORKDIR /testing
+# 
+# COPY compute/compute_tasks/compute_tasks compute_tasks/
+# COPY compute/compute_tasks/setup.py .
+# COPY compute/compute_tasks/setup.cfg .
+# COPY compute/compute_tasks/conftest.py .
+# 
+# ARG MPC_HOST
+# ARG MPC_USERNAME
+# ARG MPC_PASSWORD
+# 
+# ENV MPC_HOST ${MPC_HOST}
+# ENV MPC_USERNAME ${MPC_USERNAME}
+# ENV MPC_PASSWORD ${MPC_PASSWORD}
+# 
+# RUN conda install --yes -c conda-forge pytest pytest-mock pytest-cov myproxyclient pydap && \
+#       mkdir /metrics && \
+#       conda remove compute-tasks --force -y && \
+#       pip install -e .
+# 
+# RUN pytest -vvv -m "not myproxyclient" --junit-xml=unittesting.xml --cov=compute_tasks --cov-report=xml || exit 0
 
 FROM scratch as testresult
 
-COPY --from=testing /testing/unittesting.xml .
-# COPY --from=testing /testing/unittesting-mpc.xml .
-COPY --from=testing /testing/coverage.xml .
-# COPY --from=testing /testing/coverage-mpc.xml .
+COPY --from=builder /testing/unittest.xml .
+COPY --from=builder /testing/coverage.xml .

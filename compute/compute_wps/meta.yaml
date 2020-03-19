@@ -45,6 +45,42 @@ requirements:
     - pyyaml
     - netaddr
 
+test:
+  imports:
+    - compute_wps
+  source_files:
+    - django.properties
+    - settings.py
+    - urls.py
+    - wsgi.py
+    - pytest.ini
+    - compute_wps/templates
+    - compute_wps/fixtures
+    - compute_wps/tests
+  requires:
+    - pytest
+    - pytest-cov
+    - pytest-mock
+    - pytest-django
+    - mock
+  commands:
+    - export SECRET_KEY="abcd"
+    - export WPS_DEBUG=1
+    - export WPS_DEV=1
+    - export WPS_TEST=1
+    - export API_USERNAME="test"
+    - export API_PASSWORD="test"
+    - export OAUTH2_CLIENT_ID=""
+    - export OAUTH2_CLIENT_SECRET=""
+    - export PROVISIONER_FRONTEND=""
+    - pip install pytest-pythonpath
+    - django-admin startproject compute 
+    - cp settings.py compute/
+    - cp urls.py compute/
+    - cp wsgi.py compute/
+    - export DJANGO_CONFIG_PATH="${PWD}/django.properties"
+    - pytest -vvv --junit-xml=testing/unittest.xml --cov=compute_wps --cov-report=xml:testing/coverage.xml compute_wps/tests
+
 about:
   home: https://github.com/ESGF/esgf-compute-wps
   summary: LLNL WPS Django Application
