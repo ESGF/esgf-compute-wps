@@ -29,7 +29,11 @@ endif
 TARGET = production
 
 ifeq ($(TARGET),testresult)
+ifeq ($(shell which buildctl-daemonless.sh),)
 OUTPUT = --output type=local,dest=/output
+else
+OUTPUT = --output type=local,dest=output
+endif
 endif
 
 provisioner: IMAGE := compute-provisioner
