@@ -120,7 +120,9 @@ pipeline {
 
       }
       steps {
-        sh 'ls -la'
+        sh '''ls -la
+
+ls -la /output'''
       }
     }
 
