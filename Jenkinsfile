@@ -1,15 +1,14 @@
 pipeline {
-  agent none
+  agent {
+    node {
+      label 'jenkins-buildkit'
+    }
+
+  }
   stages {
     stage('Build/Unittest') {
       parallel {
         stage('provisioner') {
-          agent {
-            node {
-              label 'jenkins-buildkit'
-            }
-
-          }
           when {
             anyOf {
               expression {
@@ -30,12 +29,6 @@ pipeline {
         }
 
         stage('tasks') {
-          agent {
-            node {
-              label 'jenkins-buildkit'
-            }
-
-          }
           when {
             anyOf {
               expression {
@@ -61,12 +54,6 @@ touch output/*'''
         }
 
         stage('wps') {
-          agent {
-            node {
-              label 'jenkins-buildkit'
-            }
-
-          }
           when {
             anyOf {
               expression {
@@ -92,12 +79,6 @@ touch output/*'''
         }
 
         stage('thredds') {
-          agent {
-            node {
-              label 'jenkins-buildkit'
-            }
-
-          }
           when {
             anyOf {
               expression {
@@ -114,6 +95,32 @@ touch output/*'''
 '''
             }
 
+          }
+        }
+
+      }
+    }
+
+    stage('Provisioner') {
+      parallel {
+        stage('Provisioner') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
+          steps {
+            container(name: 'buildkit', shell: '/bin/sh') {
+              sh 'make provisioner REGISTRY=${OUTPUT_REGISTRY}'
+            }
+
+          }
+        }
+
+        stage('') {
+          steps {
+            sh 'echo "ehllo"'
           }
         }
 
