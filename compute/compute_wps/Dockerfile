@@ -46,5 +46,5 @@ CMD ["./entrypoint.sh"]
 
 FROM scratch as testresult
 
-COPY --from=builder /builder/unittest.xml .
-COPY --from=builder /builder/coverage.xml .
+COPY --from=builder /output/unittest.xml .
+COPY --from=builder /output/coverage.xml .
