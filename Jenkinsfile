@@ -53,7 +53,8 @@ pipeline {
               sh 'chown -R 10000:10000 output'
             }
 
-            junit 'output/unittest.xml'
+            junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
+            cobertura(coberturaReportFile: 'output/coverage.xml', autoUpdateHealth: true, autoUpdateStability: true)
           }
         }
 
@@ -81,7 +82,8 @@ pipeline {
               sh 'chown -R 10000:10000 output'
             }
 
-            junit 'output/unittest.xml'
+            junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
+            cobertura(autoUpdateHealth: true, autoUpdateStability: true, coberturaReportFile: 'output/coverage.xml')
           }
         }
 
