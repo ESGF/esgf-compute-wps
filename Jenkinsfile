@@ -53,6 +53,7 @@ pipeline {
               sh 'chown -R 10000:10000 output'
             }
 
+            junit 'output/unittest.xml'
           }
         }
 
@@ -80,6 +81,7 @@ pipeline {
               sh 'chown -R 10000:10000 output'
             }
 
+            junit 'output/unittest.xml'
           }
         }
 
@@ -109,20 +111,6 @@ pipeline {
           }
         }
 
-      }
-    }
-
-    stage('Test') {
-      agent {
-        node {
-          label 'jenkins-buildkit'
-        }
-
-      }
-      steps {
-        sh '''ls -la
-
-ls -la /output'''
       }
     }
 
