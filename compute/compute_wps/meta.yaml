@@ -79,7 +79,7 @@ test:
     - cp urls.py compute/
     - cp wsgi.py compute/
     - export DJANGO_CONFIG_PATH="${PWD}/django.properties"
-    - pytest -vvv --junit-xml=testing/unittest.xml --cov=compute_wps --cov-report=xml:testing/coverage.xml compute_wps/tests
+    - pytest -vvv --junit-xml=/output/unittest.xml --cov=compute_wps --cov-report=xml:/output/coverage.xml compute_wps/tests
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps

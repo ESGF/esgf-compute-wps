@@ -54,7 +54,7 @@ test:
     - pytest-mock
     - myproxyclient
   commands:
-    - pytest -vvv -m "not myproxyclient" --junit-xml=/testing/unittest.xml --cov=compute_tasks --cov-report=xml:/testing/coverage.xml
+    - pytest -vvv -m "not myproxyclient" --junit-xml=/output/unittest.xml --cov=compute_tasks --cov-report=xml:/output/coverage.xml
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
