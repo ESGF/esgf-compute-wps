@@ -1,14 +1,15 @@
 pipeline {
-  agent {
-    node {
-      label 'jenkins-buildkit'
-    }
-
-  }
+  agent none
   stages {
     stage('Build/Unittest') {
       parallel {
         stage('provisioner') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           when {
             anyOf {
               expression {
@@ -32,6 +33,12 @@ export PROVISIONER=$(git rev-parse --short HEAD)'''
         }
 
         stage('tasks') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           when {
             anyOf {
               expression {
@@ -55,6 +62,12 @@ export TASKS=$(git rev-parse --short HEAD)'''
         }
 
         stage('wps') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           when {
             anyOf {
               expression {
@@ -78,6 +91,12 @@ export WPS=$(git rev-parse --short HEAD'''
         }
 
         stage('thredds') {
+          agent {
+            node {
+              label 'jenkins-buildkit'
+            }
+
+          }
           when {
             anyOf {
               expression {
