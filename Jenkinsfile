@@ -8,16 +8,6 @@ pipeline {
         }
 
       }
-      when {
-        anyOf {
-          expression {
-            return params.FORCE_PROVISIONER
-          }
-
-          changeset '**/compute_provisioner/**'
-        }
-
-      }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
           sh 'git clone https://github.com/esgf-compute/charts'
