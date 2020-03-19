@@ -23,10 +23,12 @@ pipeline {
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''make provisioner REGISTRY=${OUTPUT_REGISTRY}
-
-export PROVISIONER=$(git rev-parse --short HEAD)'''
+'''
             }
 
+            sh '''#! /bin/bash
+
+export PROVISIONER=$(git rev-parse --short HEAD)'''
           }
         }
 
@@ -50,9 +52,10 @@ export PROVISIONER=$(git rev-parse --short HEAD)'''
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''make tasks REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
+'''
+              sh '''chown -R 10000:10000 /output
 
 export TASKS=$(git rev-parse --short HEAD)'''
-              sh 'chown -R 10000:10000 /output'
             }
 
           }
@@ -78,9 +81,10 @@ export TASKS=$(git rev-parse --short HEAD)'''
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''make wps REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
+'''
+              sh '''chown -R 10000:10000 /output
 
-export WPS=$(git rev-parse --short HEAD)'''
-              sh 'chown -R 10000:10000 /output'
+export WPS=$(git rev-parse --short HEAD'''
             }
 
           }
@@ -106,10 +110,12 @@ export WPS=$(git rev-parse --short HEAD)'''
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''make thredds REGISTRY=${OUTPUT_REGISTRY}
-
-export THREDDS=$(git rev-parse --short HEAD)'''
+'''
             }
 
+            sh '''#! /bin/bash
+
+export THREDDS=$(git rev-parse --short HEAD)'''
           }
         }
 
