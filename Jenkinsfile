@@ -4,7 +4,7 @@ pipeline {
     stage('Checkout Chart') {
       agent {
         node {
-          label 'jekins-buildkit'
+          label 'jenkins-buildkit'
         }
 
       }
