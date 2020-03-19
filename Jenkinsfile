@@ -116,7 +116,13 @@ export THREDDS=$(git rev-parse --short HEAD)'''
       }
     }
 
-    stage('') {
+    stage('error') {
+      agent {
+        node {
+          label 'jenkins-buildkit'
+        }
+
+      }
       steps {
         container(name: 'buildkit', shell: '/bin/sh') {
           sh '''echo "PROVISIONER ${PROVISIONER}"
