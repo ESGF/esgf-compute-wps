@@ -1,6 +1,31 @@
 pipeline {
   agent none
   stages {
+    stage('Checkout Chart') {
+      agent {
+        node {
+          label 'jekins-helm'
+        }
+
+      }
+      when {
+        anyOf {
+          expression {
+            return params.FORCE_PROVISIONER
+          }
+
+          changeset '**/compute_provisioner/**'
+        }
+
+      }
+      steps {
+        container(name: 'buildkit', shell: '/bin/sh') {
+          sh 'git clone https://github.com/esgf-compute/charts'
+        }
+
+      }
+    }
+
     stage('Build/Unittest') {
       parallel {
         stage('provisioner') {
