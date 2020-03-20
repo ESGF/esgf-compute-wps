@@ -1,9 +1,9 @@
-compute/*/Dockerfile
+build.sh
+**/Dockerfile
 CONTRIBUTING.md
 DEVELOPER.md
-docker/*/Dockerfile
 .dockerignore
-docs/
+docs
 FAQ.md
 .git
 .github
@@ -12,6 +12,6 @@ Jenkinsfile
 Makefile
 README.md
 
-output/
-cache/
-charts/
+output
+cache
+charts
