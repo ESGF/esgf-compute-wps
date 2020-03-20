@@ -31,6 +31,8 @@ pipeline {
 '''
             }
 
+            sh 'touch provisioner.txt'
+            stash(name: 'provisioner', includes: 'provisioner.txt')
           }
         }
 
@@ -66,8 +68,8 @@ touch output/*'''
               sh 'make tasks REGISTRY=${OUTPUT_REGISTRY}'
             }
 
-            sh 'echo -e "test:\\n\\thello: world" >> test1.txt'
-            stash(name: 'test', includes: 'test1.txt')
+            sh 'touch tasks.txt'
+            stash(name: 'tasks', includes: 'tasks.txt')
           }
         }
 
@@ -103,8 +105,8 @@ touch output/*'''
               sh 'make wps REGISTRY=${OUTPUT_REGISTRY}'
             }
 
-            sh 'echo -e "test:\\n\\thello: world" >> test2.txt'
-            stash(name: 'test', includes: 'test2.txt')
+            sh 'touch wps.txt'
+            stash(name: 'wps', includes: 'wps.txt')
           }
         }
 
@@ -131,6 +133,8 @@ touch output/*'''
 '''
             }
 
+            sh 'touch thredds.txt'
+            stash(name: 'thredds', includes: 'thredds.txt')
           }
         }
 
@@ -139,7 +143,10 @@ touch output/*'''
 
     stage('Unstash') {
       steps {
-        unstash 'test'
+        unstash 'provisioner'
+        unstash 'tasks'
+        unstash 'wps'
+        unstash 'thredds'
         sh 'ls -la'
       }
     }
