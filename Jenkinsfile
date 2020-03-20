@@ -142,7 +142,9 @@ touch output/*'''
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
-          sh '''GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
+          sh '''#! /bin/bash
+
+GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 
 git clone -b devel https://github.com/esgf-compute/charts
 
@@ -174,7 +176,6 @@ git add compute/values.yaml
 git status
 git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
-          sh 'echo ${GIT_DIFF}'
         }
 
       }
