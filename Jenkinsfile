@@ -1,21 +1,11 @@
 pipeline {
-  agent none
-  stages {
-    stage('Checkout Chart') {
-      agent {
-        node {
-          label 'jenkins-buildkit'
-        }
-
-      }
-      steps {
-        container(name: 'helm', shell: '/bin/bash') {
-          sh 'git clone https://github.com/esgf-compute/charts'
-        }
-
-      }
+  agent {
+    node {
+      label 'jenkins-helm'
     }
 
+  }
+  stages {
     stage('Build/Unittest') {
       parallel {
         stage('provisioner') {
@@ -72,6 +62,13 @@ touch output/*'''
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
             cobertura(coberturaReportFile: 'output/coverage.xml', autoUpdateHealth: true, autoUpdateStability: true)
+            container(name: 'buildkit', shell: '/bin/sh') {
+              sh 'make tasks REGISTRY=${OUTPUT_REGISTRY}'
+            }
+
+            sh '''echo -e "test:\\n\\thello: world" >> test1.txt
+
+stash allowEmpty: true, includes: \'test1.txt\', name: \'test\''''
           }
         }
 
@@ -103,6 +100,13 @@ touch output/*'''
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
             cobertura(autoUpdateHealth: true, autoUpdateStability: true, coberturaReportFile: 'output/coverage.xml')
+            container(name: 'buildkit', shell: '/bin/sh') {
+              sh 'make wps REGISTRY=${OUTPUT_REGISTRY}'
+            }
+
+            sh '''echo -e "test:\\n\\thello: world" >> test2.txt
+
+stash allowEmpty: true, includes: \'test2.txt\', name: \'test\''''
           }
         }
 
@@ -135,129 +139,11 @@ touch output/*'''
       }
     }
 
-    stage('Push Container') {
-      parallel {
-        stage('provisioner') {
-          agent {
-            node {
-              label 'jenkins-buildkit'
-            }
-
-          }
-          when {
-            anyOf {
-              expression {
-                return params.FORCE_PROVISIONER
-              }
-
-              changeset '**/compute_provisioner/**'
-            }
-
-          }
-          steps {
-            container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make provisioner REGISTRY=${OUTPUT_REGISTRY}'
-            }
-
-          }
-        }
-
-        stage('tasks') {
-          agent {
-            node {
-              label 'jenkins-buildkit'
-            }
-
-          }
-          when {
-            anyOf {
-              expression {
-                return params.FORCE_TASKS
-              }
-
-              changeset '**/compute_tasks/**'
-            }
-
-          }
-          steps {
-            container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make tasks REGISTRY=${OUTPUT_REGISTRY}'
-            }
-
-            container(name: 'helm', shell: '/bin/bash') {
-              sh 'ls -la'
-            }
-
-          }
-        }
-
-        stage('wps') {
-          agent {
-            node {
-              label 'jenkins-buildkit'
-            }
-
-          }
-          when {
-            anyOf {
-              expression {
-                return params.FORCE_WPS
-              }
-
-              changeset '**/compute_wps/**'
-            }
-
-          }
-          steps {
-            container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make wps REGISTRY=${OUTPUT_REGISTRY}'
-            }
-
-          }
-        }
-
-        stage('thredds') {
-          agent {
-            node {
-              label 'jenkins-buildkit'
-            }
-
-          }
-          when {
-            anyOf {
-              expression {
-                return params.FORCE_THREDDS
-              }
-
-              changeset '**/docker/thredds/**'
-            }
-
-          }
-          steps {
-            container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make thredds REGISTRY=${OUTPUT_REGISTRY}'
-            }
-
-          }
-        }
-
-      }
-    }
-
-    stage('Test') {
-      agent {
-        node {
-          label 'jenkins-helm'
-        }
-
-      }
+    stage('Unstash') {
       steps {
-        container(name: 'helm', shell: '/bin/bash') {
-          sh '''ls -la output/
+        sh '''unstash \'test\'
 
-'''
-        }
-
+ls -la'''
       }
     }
 
