@@ -4,10 +4,17 @@ export
 
 IMAGE := $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE)
 TAG := $(shell git rev-parse --short HEAD)
+CACHE := local
 
-ifeq ($(shell which buildctl-daemonless.sh),)
+ifeq ($(CACHE),local)
 CACHE = --import-cache type=local,src=/cache \
 	--export-cache type=local,dest=/cache,mode=max
+else
+CACHE = --import-cache type=registry,ref=$(IMAGE):cache \
+	--export-cache type=registry,ref=$(IMAGE):cache,mode=max
+endif
+
+ifeq ($(shell which buildctl-daemonless.sh),)
 OUTPUT = --output type=docker,name=$(IMAGE):$(TAG),dest=/output/image.tar
 EXTRA = cat output/image.tar | docker load
 BUILD =  docker run \
@@ -20,8 +27,6 @@ BUILD =  docker run \
 				 --entrypoint=/bin/sh \
 				 moby/buildkit:master 
 else
-CACHE = --import-cache type=registry,ref=$(IMAGE):cache \
-	--export-cache type=registry,ref=$(IMAGE):cache,mode=max
 OUTPUT = --output type=image,name=$(IMAGE):$(TAG),push=true
 BUILD = $(SHELL)
 endif
