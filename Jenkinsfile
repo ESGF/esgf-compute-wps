@@ -185,7 +185,7 @@ touch output/*'''
             }
 
             container(name: 'helm', shell: '/bin/bash') {
-              sh 'la -la'
+              sh 'ls -la'
             }
 
           }
