@@ -144,6 +144,16 @@ touch output/*'''
             }
 
           }
+          when {
+            anyOf {
+              expression {
+                return params.FORCE_PROVISIONER
+              }
+
+              changeset '**/compute_provisioner/**'
+            }
+
+          }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh 'make provisioner REGISTRY=${OUTPUT_REGISTRY}'
@@ -156,6 +166,16 @@ touch output/*'''
           agent {
             node {
               label 'jenkins-buildkit'
+            }
+
+          }
+          when {
+            anyOf {
+              expression {
+                return params.FORCE_TASKS
+              }
+
+              changeset '**/compute_tasks/**'
             }
 
           }
@@ -178,6 +198,16 @@ touch output/*'''
             }
 
           }
+          when {
+            anyOf {
+              expression {
+                return params.FORCE_WPS
+              }
+
+              changeset '**/compute_wps/**'
+            }
+
+          }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh 'make wps REGISTRY=${OUTPUT_REGISTRY}'
@@ -190,6 +220,16 @@ touch output/*'''
           agent {
             node {
               label 'jenkins-buildkit'
+            }
+
+          }
+          when {
+            anyOf {
+              expression {
+                return params.FORCE_THREDDS
+              }
+
+              changeset '**/docker/thredds/**'
             }
 
           }
