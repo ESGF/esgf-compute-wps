@@ -142,7 +142,38 @@ touch output/*'''
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
-          sh 'GIT_DIFF=$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})'
+          sh '''GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
+
+git clone -b devel https://github.com/esgf-compute/charts
+
+cd charts/
+
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
+then
+  python scripts/update_config.py compute/values.yaml provisioner ${GIT_COMMIT:0:8}
+fi
+
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
+then
+  python scripts/update_config.py compute/values.yaml wps ${GIT_COMMIT:0:8}
+fi
+
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
+then
+  python scripts/update_config.py compute/values.yaml celery ${GIT_COMMIT:0:8}
+fi
+
+if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
+then
+  python scripts/update_config.py compute/values.yaml thredds ${GIT_COMMIT:0:8}
+fi
+
+git config user.email ${GIT_EMAIL}
+git config user.name ${GIT_NAME}
+git add compute/values.yaml
+git status
+git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
+git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
           sh 'echo ${GIT_DIFF}'
         }
 
