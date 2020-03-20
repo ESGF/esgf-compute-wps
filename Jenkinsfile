@@ -66,9 +66,8 @@ touch output/*'''
               sh 'make tasks REGISTRY=${OUTPUT_REGISTRY}'
             }
 
-            sh '''echo -e "test:\\n\\thello: world" >> test1.txt
-
-stash allowEmpty: true, includes: \'test1.txt\', name: \'test\''''
+            sh 'echo -e "test:\\n\\thello: world" >> test1.txt'
+            stash(name: 'test', includes: 'test1.txt')
           }
         }
 
@@ -104,9 +103,8 @@ touch output/*'''
               sh 'make wps REGISTRY=${OUTPUT_REGISTRY}'
             }
 
-            sh '''echo -e "test:\\n\\thello: world" >> test2.txt
-
-stash allowEmpty: true, includes: \'test2.txt\', name: \'test\''''
+            sh 'echo -e "test:\\n\\thello: world" >> test2.txt'
+            stash(name: 'test', includes: 'test2.txt')
           }
         }
 
@@ -141,9 +139,8 @@ stash allowEmpty: true, includes: \'test2.txt\', name: \'test\''''
 
     stage('Unstash') {
       steps {
-        sh '''unstash \'test\'
-
-ls -la'''
+        unstash 'test'
+        sh 'ls -la'
       }
     }
 
