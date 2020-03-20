@@ -140,6 +140,16 @@ touch output/*'''
         }
 
       }
+      when {
+        anyOf {
+          branch 'master'
+          branch 'devel'
+        }
+
+      }
+      environment {
+        GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
+      }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
           sh '''#! /bin/bash
