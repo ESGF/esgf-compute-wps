@@ -21,7 +21,7 @@ BUILD =  docker run \
 				 moby/buildkit:master 
 else
 CACHE = --import-cache type=registry,ref=$(IMAGE):cache \
-	--export-cache type=registry,ref=$(IMAGE):cache
+	--export-cache type=registry,ref=$(IMAGE):cache,mode=max
 OUTPUT = --output type=image,name=$(IMAGE):$(TAG),push=true
 BUILD = $(SHELL)
 endif
@@ -57,6 +57,6 @@ thredds:
 	$(MAKE) build	
 
 build:
-	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(CACHE) $(OUTPUT) 
+	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(CACHE) $(OUTPUT)
 	
 	$(EXTRA)
