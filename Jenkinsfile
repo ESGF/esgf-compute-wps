@@ -31,8 +31,6 @@ pipeline {
 '''
             }
 
-            sh 'touch provisioner.txt'
-            stash(name: 'provisioner', includes: 'provisioner.txt')
           }
         }
 
@@ -68,8 +66,6 @@ touch output/*'''
               sh 'make tasks REGISTRY=${OUTPUT_REGISTRY}'
             }
 
-            sh 'touch tasks.txt'
-            stash(name: 'tasks', includes: 'tasks.txt')
           }
         }
 
@@ -105,8 +101,6 @@ touch output/*'''
               sh 'make wps REGISTRY=${OUTPUT_REGISTRY}'
             }
 
-            sh 'touch wps.txt'
-            stash(name: 'wps', includes: 'wps.txt')
           }
         }
 
@@ -133,21 +127,25 @@ touch output/*'''
 '''
             }
 
-            sh 'touch thredds.txt'
-            stash(name: 'thredds', includes: 'thredds.txt')
           }
         }
 
       }
     }
 
-    stage('Unstash') {
+    stage('Update Helm Chart') {
+      agent {
+        node {
+          label 'jenkins-buildkit'
+        }
+
+      }
       steps {
-        unstash 'provisioner'
-        unstash 'tasks'
-        unstash 'wps'
-        unstash 'thredds'
-        sh 'ls -la'
+        container(name: 'helm', shell: '/bin/bash') {
+          sh 'GIT_DIFF=$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})'
+          sh 'echo ${GIT_DIFF}'
+        }
+
       }
     }
 
