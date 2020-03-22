@@ -136,7 +136,7 @@ touch output/*'''
     stage('Update Helm Chart') {
       agent {
         node {
-          label 'jenkins-buildkit'
+          label 'jenkins-helm'
         }
 
       }
