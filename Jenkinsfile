@@ -53,7 +53,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make tasks REGISTRY=${OUTPUT_REGISTRY}/compute-tasks TARGET=testresult
+              sh '''make tasks REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
 '''
               sh '''chown -R 10000:10000 output
 
