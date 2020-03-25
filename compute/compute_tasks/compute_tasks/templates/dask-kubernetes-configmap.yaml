@@ -56,7 +56,23 @@ data:
             volumeMounts:
               - name: data
                 mountPath: /data/public
+            {%- for mount in volumes %}
+            {%- with path_uid = mount["path"]|sha256sum %}
+              - name: mapping-{{ path_uid[:8] }}
+            {%- endwith %}
+                mountPath: {{ mount["path"] }}
+                readOnly: true
+            {%- endfor %}
           volumes:
             - name: data
               persistentVolumeClaim:
                 claimName: {{ data_claim_name }}
+          {%- for mount in volumes %}
+          {%- with path_uid = mount["path"]|sha256sum %}
+            - name: mapping-{{ path_uid[:8] }}
+          {%- endwith %}
+          {%- if mount["type"].lower() == "hostpath" %}
+              hostPath:
+                path: {{ mount["path"] }}
+          {%- endif %}
+          {%- endfor %}

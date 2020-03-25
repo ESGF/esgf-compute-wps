@@ -12,7 +12,7 @@ POD = """
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test
+    name: test
 spec:
   containers:
   - name: test
@@ -37,6 +37,11 @@ spec:
       - name: test
 """
 
+CONFIGMAP = """
+apiVersion: apps/v1
+kind: ConfigMap
+"""
+
 TEST_CONFIG = {
     'mounts': [
         {
@@ -54,12 +59,20 @@ TEST_CONFIG = {
     }
 }
 
+def test_patch_k8s_resource_invalid_type():
+    resource = yaml.load(CONFIGMAP)
+
+    map = Mapper(TEST_CONFIG['mounts'], Mapper.convert_mapping(TEST_CONFIG['mapping']))
+
+    with pytest.raises(Exception):
+        map.patch_k8s_resource(resource)
+
 @pytest.mark.parametrize('data,spec_func', [
     (POD, lambda x: x['spec']),
     (DEPLOYMENT, lambda x: x['spec']['template']['spec']),
 ])
 def test_patch_k8s_resource(data, spec_func):
-    resource = yaml.load(data, Loader=yaml.SafeLoader)
+    resource = yaml.load(data)
 
     map = Mapper(TEST_CONFIG['mounts'], Mapper.convert_mapping(TEST_CONFIG['mapping']))
 

@@ -325,7 +325,6 @@ ENV = {
 
 @pytest.mark.parametrize('transition,patch_env,expected', [
     (backend.REQUEST, ENV, backend.ResourceAckState),
-    (backend.REQUEST, {}, backend.WaitingState),
     (b'NO', {}, backend.WaitingState),
 ])
 def test_waiting_state(mocker, transition, patch_env, expected):
@@ -345,6 +344,7 @@ def test_waiting_state(mocker, transition, patch_env, expected):
         'user': '0',
         'workers': '8',
         'data_claim_name': 'data-pvc',
+        'mounts': [],
     }
 
     b = mocker.MagicMock()

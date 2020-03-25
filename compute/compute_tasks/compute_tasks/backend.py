@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -15,6 +16,7 @@ from dask import utils
 from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import celery_app
+from compute_tasks import mapper
 from compute_tasks import WPSError
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
@@ -100,7 +102,14 @@ TEMPLATE_NAMES = [
     'dask-kubernetes-pod.yaml',
 ]
 
+def sha256sum(x):
+    if not isinstance(x, bytes):
+        x = x.encode()
+
+    return hashlib.sha256(x).hexdigest()
+
 TEMPLATES = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'), undefined=jinja2.DebugUndefined)
+TEMPLATES.filters['sha256sum'] = sha256sum
 
 
 def queue_from_identifier(identifier):
@@ -174,6 +183,8 @@ class State(object):
 
 
 def render_templates(**kwargs):
+    map = mapper.Mapper.from_config('/etc/config/mapping.json')
+
     templates = dict((x, TEMPLATES.get_template(x)) for x in TEMPLATE_NAMES)
 
     data = {
@@ -192,6 +203,7 @@ def render_templates(**kwargs):
         'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
         'dev': os.environ.get('DEV', False),
         'data_claim_name': os.environ.get('DATA_CLAIM_NAME', 'data-pvc'),
+        'volumes': map.mounts,
     }
 
     data.update(kwargs)

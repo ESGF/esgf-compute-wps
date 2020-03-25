@@ -3,8 +3,9 @@ import json
 import cwt
 from celery.utils.log import get_task_logger
 
-from compute_tasks import WPSError
 from compute_tasks import base
+from compute_tasks import mapper
+from compute_tasks import WPSError
 from compute_tasks.context import state_mixin
 
 logger = get_task_logger('wps.context.operation')
@@ -81,6 +82,19 @@ class OperationContext(state_mixin.StateMixin, object):
     @classmethod
     def from_data_inputs(cls, identifier, data_inputs):
         variable, domain, operation = OperationContext.decode_data_inputs(data_inputs)
+
+        map = mapper.Mapper.from_config('/etc/config/mapping.json')
+
+        logger.info('Loaded mapper')
+
+        # Attempt to find local match
+        for x in list(variable.keys()):
+            try:
+                local_path = map.find_match(variable[x].uri)
+            except mapper.MatchNotFoundError:
+                pass
+            else:
+                variable[x].uri = local_path
 
         try:
             root_op = [x for x in operation.values() if x.identifier == identifier][0]
