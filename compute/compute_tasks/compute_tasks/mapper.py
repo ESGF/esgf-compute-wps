@@ -29,8 +29,11 @@ class Mapper(object):
 
     @classmethod
     def from_config(cls, path):
-        with open(path) as f:
-            config = json.loads(f.read())
+        try:
+            with open(path) as f:
+                config = json.loads(f.read())
+        except FileNotFoundError:
+            config = {}
 
         mounts = config.get('mounts', [])
 
