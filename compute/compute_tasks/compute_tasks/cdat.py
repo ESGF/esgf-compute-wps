@@ -200,19 +200,24 @@ def check_access(url, cert=None):
     try:
         # TODO bootstrap trust roots and set verify True
         response = requests.get(dds_url, timeout=(5, 15), cert=cert, verify=False)
+    except requests.exceptions.MissingSchema:
+        if os.path.exists(url):
+            result =  True
+        else:
+            result =  False
     except Exception as e:
         raise WPSError('Failed to access input {!s}, {!s}'.format(url, e))
+    else:
+        logger.info('Server response %r', response.status_code)
 
-    logger.info('Server response %r', response.status_code)
+        if response.status_code == 200:
+            result = True
+        elif response.status_code in (401, 403):
+            result =  False
+        else:
+            raise WPSError('Failed to access input {!r}, reason {!s} ({!s})', url, response.reason, response.status_code)
 
-    if response.status_code == 200:
-        return True
-
-    if response.status_code in (401, 403):
-        return False
-
-    raise WPSError('Failed to access input {!r}, reason {!s} ({!s})', url, response.reason, response.status_code)
-
+    return result
 
 @contextmanager
 def chdir_temp():
