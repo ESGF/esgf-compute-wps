@@ -23,6 +23,8 @@ class Mapper(object):
         for x, y in mapping.items():
             m = re.compile(f'^.*{ x }/(.*)$')
 
+            logger.info(f'Creating map {m} for {x} -> {y}')
+
             matchers.append((m, y))
 
         return matchers
@@ -100,6 +102,8 @@ class Mapper(object):
 
             if m is not None:
                 break
+
+            logger.info(f'{m} did not match')
 
         if m is None:
             logger.info(f'Did not find match')
