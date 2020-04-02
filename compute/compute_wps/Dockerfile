@@ -1,19 +1,17 @@
-FROM continuumio/miniconda3:4.7.10 as builder
+ARG CONDA_VERSION=4.8.2
 
-ARG GIT_SHORT_COMMIT
-
-ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
+FROM continuumio/miniconda3:${CONDA_VERSION} as builder
 
 RUN conda update -n base conda && \
-      conda install -y conda-build 
+      conda install -c conda-forge -y conda-build conda-forge-pinning
 
-WORKDIR /src
+WORKDIR /build
 
 COPY compute/compute_wps/ compute_wps/
 
-RUN conda build -c conda-forge -c cdat --use-local compute_wps/
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 compute_wps/
 
-FROM continuumio/miniconda3:4.7.10 as production
+FROM continuumio/miniconda3:${CONDA_VERSION} as production
 
 COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
@@ -22,11 +20,6 @@ WORKDIR /
 
 RUN conda install -c conda-forge -c cdat --use-local compute-wps curl && \
       django-admin startproject compute 
-
-ENV TINI_VERSION v0.18.0
-
-RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/local/bin/tini && \
-      chmod +x /usr/local/bin/tini
 
 COPY compute/compute_wps/django.properties /etc/config/
 
@@ -38,9 +31,16 @@ COPY compute/compute_wps/wsgi.py compute/
 COPY compute/compute_wps/init.sh .
 COPY compute/compute_wps/entrypoint.sh .
 
+ENV TINI_VERSION v0.18.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
+
 EXPOSE 8000
 
-ENTRYPOINT ["/usr/local/bin/tini", "--"]
+ARG CONTAINER_IMAGE
+ENV CONTAINER_IMAGE $CONTAINER_IMAGE
+
+ENTRYPOINT ["/tini", "--"]
 
 CMD ["./entrypoint.sh"]
 

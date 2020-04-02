@@ -52,10 +52,10 @@ class CWTData(object):
         return data_inputs
 
     def process_mixed_inputs(self):
-        s1 = cwt.Process('CDAT.subset', name='s1')
+        s1 = cwt.Process(identifier='CDAT.subset', name='s1')
         s1.add_inputs(self.v3)
 
-        m = cwt.Process('CDAT.merge', name='m')
+        m = cwt.Process(identifier='CDAT.merge', name='m')
         m.add_inputs(s1, self.v4)
 
         return {
@@ -65,24 +65,24 @@ class CWTData(object):
         }
 
     def workflow_with_rename(self):
-        s1 = cwt.Process('CDAT.subset', name='s1')
+        s1 = cwt.Process(identifier='CDAT.subset', name='s1')
         s1.add_inputs(self.v3)
 
-        s2 = cwt.Process('CDAT.subset', name='s2')
+        s2 = cwt.Process(identifier='CDAT.subset', name='s2')
         s2.add_inputs(self.v4)
 
-        m = cwt.Process('CDAT.merge', name='m')
+        m = cwt.Process(identifier='CDAT.merge', name='m')
         m.add_inputs(s1, s2)
 
-        c = cwt.Process('CDAT.count', name='c')
+        c = cwt.Process(identifier='CDAT.count', name='c')
         c.add_inputs(m)
         c.add_parameters(rename=['pr', 'pr_count'])
 
-        s = cwt.Process('CDAT.sum', name='s')
+        s = cwt.Process(identifier='CDAT.sum', name='s')
         s.add_inputs(c)
         s.add_parameters(variable=['pr_count'], rename=['pr_count', 'pr_sum'])
 
-        w = cwt.Process('CDAT.workflow')
+        w = cwt.Process(identifier='CDAT.workflow')
         w.add_inputs(s)
 
         return {

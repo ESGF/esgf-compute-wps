@@ -1,34 +1,36 @@
-FROM continuumio/miniconda3:4.7.10 as builder
+ARG CONDA_VERSION=4.8.2
 
-ARG GIT_SHORT_COMMIT
+FROM continuumio/miniconda3:${CONDA_VERSION} as builder
 
-ENV GIT_SHORT_COMMIT ${GIT_SHORT_COMMIT}
-ENV VERSION 0.0.0
+RUN conda update -n base conda && \
+      conda install -c conda-forge -y conda-build conda-forge-pinning
 
-WORKDIR /src
+WORKDIR /build
 
 COPY compute/compute_provisioner/ compute_provisioner/
 
-RUN conda install conda-build && \
-      conda build -c conda-forge compute_provisioner/
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 compute_provisioner/
 
-FROM continuumio/miniconda3:4.7.10 as production
+FROM continuumio/miniconda3:${CONDA_VERSION} as production
 
 COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
 COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
 
-RUN conda install -c conda-forge --use-local compute-provisioner curl
+RUN conda install -c conda-forge --use-local compute-provisioner && \
+      conda clean -afy
 
 ENV TINI_VERSION v0.18.0
-
-RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini -o /usr/local/bin/tini && \
-      chmod +x /usr/local/bin/tini
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
 
 EXPOSE 7777 7778
 
 ENV FRONTEND_PORT 7777
 ENV BACKEND_PORT 7778
 
-ENTRYPOINT ["/usr/local/bin/tini", "--"]
+ARG CONTAINER_IMAGE
+ENV CONTAINER_IMAGE $CONTAINER_IMAGE
+
+ENTRYPOINT ["/tini", "--"]
 
 CMD ["python", "-m", "compute_provisioner.provisioner"]

@@ -18,7 +18,7 @@ logger = logging.getLogger()
 V0 = cwt.Variable('file:///test0.nc', 'tas')
 V1 = cwt.Variable('file:///test1.nc', 'tas')
 
-SUBSET = cwt.Process('CDAT.subset')
+SUBSET = cwt.Process(identifier='CDAT.subset')
 SUBSET.add_inputs(V0)
 
 DATA_INPUTS = {
@@ -52,16 +52,16 @@ def test_validate_workflow_specify_variable_not_found(mocker):
     pr1 = cwt.Variable('file:///test1.nc', 'pr')
     pr2 = cwt.Variable('file:///test2.nc', 'prw')
 
-    sub1 = cwt.Process('CDAT.subset')
+    sub1 = cwt.Process(identifier='CDAT.subset')
     sub1.add_inputs(pr1)
 
-    sub2 = cwt.Process('CDAT.subset')
+    sub2 = cwt.Process(identifier='CDAT.subset')
     sub2.add_inputs(pr2)
 
-    merge = cwt.Process('CDAT.merge')
+    merge = cwt.Process(identifier='CDAT.merge')
     merge.add_inputs(sub1, sub2)
 
-    sum = cwt.Process('CDAT.sum')
+    sum = cwt.Process(identifier='CDAT.sum')
     sum.add_inputs(merge)
     sum.add_parameters(variable='clt')
 
@@ -83,20 +83,20 @@ def test_validate_workflow_specify_variable(mocker):
     pr1 = cwt.Variable('file:///test1.nc', 'pr')
     pr2 = cwt.Variable('file:///test2.nc', 'prw')
 
-    sub1 = cwt.Process('CDAT.subset')
+    sub1 = cwt.Process(identifier='CDAT.subset')
     sub1.add_inputs(pr1)
 
-    sub2 = cwt.Process('CDAT.subset')
+    sub2 = cwt.Process(identifier='CDAT.subset')
     sub2.add_inputs(pr2)
 
-    merge = cwt.Process('CDAT.merge')
+    merge = cwt.Process(identifier='CDAT.merge')
     merge.add_inputs(sub1, sub2)
 
-    group = cwt.Process('CDAT.groupby_bins')
+    group = cwt.Process(identifier='CDAT.groupby_bins')
     group.add_inputs(merge)
     group.add_parameters(variable='prw', bins=['10', '20'])
 
-    sum = cwt.Process('CDAT.sum')
+    sum = cwt.Process(identifier='CDAT.sum')
     sum.add_inputs(group)
     sum.add_parameters(variable='pr')
 
@@ -117,7 +117,7 @@ def test_validate_workflow_missmatch_input(mocker):
     pr1 = cwt.Variable('file:///test1.nc', 'pr')
     pr2 = cwt.Variable('file:///test2.nc', 'prw')
 
-    agg = cwt.Process('CDAT.aggregate')
+    agg = cwt.Process(identifier='CDAT.aggregate')
     agg.add_inputs(pr1, pr2)
 
     data_inputs = {
@@ -138,10 +138,10 @@ def test_validate_workflow(mocker):
     pr1 = cwt.Variable('file:///test1.nc', 'pr')
     pr2 = cwt.Variable('file:///test2.nc', 'pr')
 
-    agg = cwt.Process('CDAT.aggregate')
+    agg = cwt.Process(identifier='CDAT.aggregate')
     agg.add_inputs(pr1, pr2)
 
-    max = cwt.Process('CDAT.max')
+    max = cwt.Process(identifier='CDAT.max')
     max.add_inputs(agg)
     max.add_parameters(rename=['pr', 'pr_test'])
 

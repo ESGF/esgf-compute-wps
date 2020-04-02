@@ -5,6 +5,8 @@ export
 IMAGE := $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE)
 TAG := $(shell git rev-parse --short HEAD)
 CACHE := local
+TARGET = production
+CONDA_VERSION = 4.8.2
 
 ifeq ($(CACHE),local)
 CACHE = --import-cache type=local,src=/cache \
@@ -16,7 +18,7 @@ endif
 
 ifeq ($(shell which buildctl-daemonless.sh),)
 OUTPUT = --output type=docker,name=$(IMAGE):$(TAG),dest=/output/image.tar
-EXTRA = cat output/image.tar | docker load
+POST_BUILD = cat output/image.tar | docker load
 BUILD =  docker run \
 				 -it --rm \
 				 --privileged \
@@ -31,8 +33,6 @@ OUTPUT = --output type=image,name=$(IMAGE):$(TAG),push=true
 BUILD = $(SHELL)
 endif
 
-TARGET = production
-
 ifeq ($(TARGET),testresult)
 ifeq ($(shell which buildctl-daemonless.sh),)
 OUTPUT = --output type=local,dest=/output
@@ -40,6 +40,9 @@ else
 OUTPUT = --output type=local,dest=output
 endif
 endif
+
+EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
+	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION)
 
 provisioner: IMAGE := compute-provisioner
 provisioner: DOCKERFILE := compute/compute_provisioner
@@ -62,6 +65,6 @@ thredds:
 	$(MAKE) build	
 
 build:
-	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(CACHE) $(OUTPUT)
+	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(EXTRA) $(CACHE) $(OUTPUT)
 	
-	$(EXTRA)
+	$(POST_BUILD)

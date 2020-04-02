@@ -25,7 +25,8 @@ requirements:
   run:
     - python
     - nomkl
-    - cdms2
+    - libnetcdf<=4.7.4=nompi_h9f9fd6a_101
+    - cdms2<=3.1.4=py37h34d3450_8
     - numpy<=1.17.5
     - esgf-compute-api
     - pyzmq

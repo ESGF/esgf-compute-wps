@@ -95,7 +95,7 @@ def test_groupby_bins_invalid_bin(test_data, mocker):
 
     v1 = test_data.generate('random')
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     context = operation.OperationContext()
 
@@ -110,7 +110,7 @@ def test_groupby_bins_missing_variable(test_data, mocker):
 
     v1 = test_data.generate('random')
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     context = operation.OperationContext()
 
@@ -125,7 +125,7 @@ def test_groupby_bins(test_data, mocker):
 
     v1 = test_data.generate('random')
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     context = operation.OperationContext()
 
@@ -154,7 +154,7 @@ def test_where(test_data, cond, mocker):
 
     v1 = test_data.generate()
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     context = operation.OperationContext()
 
@@ -170,7 +170,7 @@ def test_where_other(test_data, mocker):
 
     v1 = test_data.generate('random')
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     context = operation.OperationContext()
 
@@ -196,7 +196,7 @@ def test_where_error(test_data, cond, mocker):
 
     v1 = test_data.generate()
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     context = operation.OperationContext()
 
@@ -214,7 +214,7 @@ def test_merge(test_data, mocker):
 
     inputs = [v1, v2]
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     context = operation.OperationContext()
 
@@ -288,7 +288,7 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, output_var, e
 
     mocker.patch.object(context, 'action')
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     result = base.get_process(identifier)._process_func(context, p, *data, **extra)
 
@@ -309,7 +309,7 @@ def test_processing_error(mocker, test_data, identifier, v1, v2, output, output_
 
     mocker.patch.object(context, 'action')
 
-    p = cwt.Process(identifier)
+    p = cwt.Process(identifier=identifier)
 
     with pytest.raises(WPSError):
         base.get_process(identifier)._process_func(context, p, *data, **extra)
@@ -328,7 +328,7 @@ def test_processing_error(mocker, test_data, identifier, v1, v2, output, output_
     (None, True, (1812, 64, 128), {}),
 ])
 def test_process_subset(mocker, domain, decode_times, expected, params):
-    process = cwt.Process('CDAT.subset')
+    process = cwt.Process(identifier='CDAT.subset')
     process.set_domain(domain)
     process.add_parameters(**params)
 
