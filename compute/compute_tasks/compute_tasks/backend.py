@@ -16,12 +16,11 @@ from dask import utils
 from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import celery_app
+from compute_tasks import context
 from compute_tasks import mapper
 from compute_tasks import WPSError
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
-from compute_tasks.context import state_mixin
-from compute_tasks.context import operation
 
 logger = logging.getLogger('compute_tasks.backend')
 
@@ -121,7 +120,7 @@ def queue_from_identifier(identifier):
 def build_context(identifier, data_inputs, job, user, process, status, **extra):
     data_inputs = celery_app.decoder(data_inputs)
 
-    context = operation.OperationContext.from_data_inputs(identifier, data_inputs)
+    ctx = context.OperationContext.from_data_inputs(identifier, data_inputs)
 
     extra = {
         'DASK_SCHEDULER': f'dask-scheduler-{user!s}.{extra["namespace"]!s}.svc:8786',
@@ -137,19 +136,19 @@ def build_context(identifier, data_inputs, job, user, process, status, **extra):
         'status': status,
     }
 
-    context.init_state(data)
+    ctx.init_state(data)
 
     logger.info(f'Initialized state with {data!r}')
 
-    return context
+    return ctx
 
 
 def build_workflow(identifier, data_inputs, job, user, process, status, **extra):
-    context = build_context(identifier, data_inputs, job, user, process, status, **extra)
+    ctx = build_context(identifier, data_inputs, job, user, process, status, **extra)
 
-    base.validate_workflow(context)
+    base.validate_workflow(ctx)
 
-    started = job_started.s(context).set(**DEFAULT_QUEUE)
+    started = job_started.s(ctx).set(**DEFAULT_QUEUE)
 
     logger.info('Created job started task %r', started)
 
@@ -272,15 +271,15 @@ class ResourceAckState(State):
         return WaitingState()
 
 
-class Worker(state_mixin.StateMixin, threading.Thread):
+class Worker(context.TrackerAPI, threading.Thread):
     def __init__(self, version, queue_host):
-        state_mixin.StateMixin.__init__(self)
+        context.TrackerAPI.__init__(self)
 
         threading.Thread.__init__(self)
 
         self.version = version
 
-        self.context = None
+        self.ctx = None
 
         self.worker = None
 
@@ -299,7 +298,7 @@ class Worker(state_mixin.StateMixin, threading.Thread):
     def initialize(self):
         """ Initializes the worker.
         """
-        self.context = zmq.Context(1)
+        self.ctx = zmq.Context(1)
 
         self.poller = zmq.Poller()
 
@@ -316,10 +315,10 @@ class Worker(state_mixin.StateMixin, threading.Thread):
 
         self.worker.close(0)
 
-        self.context.destroy(0)
+        self.ctx.destroy(0)
 
     def connect_provisioner(self):
-        self.worker = self.context.socket(zmq.DEALER)
+        self.worker = self.ctx.socket(zmq.DEALER)
 
         SNDTIMEO = os.environ.get('SEND_TIMEOUT', 15)
         RCVTIMEO = os.environ.get('RECV_TIMEOUT', 15)

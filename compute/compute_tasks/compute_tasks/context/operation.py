@@ -4,14 +4,14 @@ import cwt
 from celery.utils.log import get_task_logger
 
 from compute_tasks import base
+from compute_tasks import context
 from compute_tasks import mapper
 from compute_tasks import WPSError
-from compute_tasks.context import state_mixin
 
 logger = get_task_logger('wps.context.operation')
 
 
-class OperationContext(state_mixin.StateMixin, object):
+class OperationContext(context.TrackerAPI):
     def __init__(self, variable=None, domain=None, operation=None):
         super(OperationContext, self).__init__()
 

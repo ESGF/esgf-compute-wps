@@ -29,7 +29,7 @@ from tornado.ioloop import IOLoop
 
 from compute_tasks import base
 from compute_tasks import context as ctx
-from compute_tasks.context import state_mixin
+from compute_tasks import utilities
 from compute_tasks import WPSError
 
 logger = get_task_logger('compute_tasks.cdat')
@@ -974,7 +974,7 @@ def workflow(self, context):
     context.message('Preparing to execute workflow')
 
     if 'DASK_SCHEDULER' in context.extra:
-        client = state_mixin.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
+        client = utilities.retry(8, 1)(Client)(context.extra['DASK_SCHEDULER'])
     else:
         client = None
 

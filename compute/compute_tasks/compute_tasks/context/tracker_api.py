@@ -10,7 +10,9 @@ import requests
 from celery.utils.log import get_task_logger
 
 from compute_tasks import metrics_ as metrics
+from compute_tasks import utilities
 from compute_tasks import WPSError
+from compute_tasks.context import tracker
 
 logger = get_task_logger('wps.context.state_mixin')
 
@@ -19,41 +21,7 @@ class ProcessExistsError(WPSError):
     pass
 
 
-def retry(count, delay, raise_errors=None):
-    if raise_errors is None:
-        raise_errors = ()
-
-    def wrapper(func):
-        def wrapped(*args, **kwargs):
-            retry_delay = delay
-
-            last_exc = None
-
-            for x in range(count):
-                try:
-                    data = func(*args, **kwargs)
-                except Exception as e:
-                    logger.info('HELP %r', e)
-
-                    if len(raise_errors) > 0 and isinstance(e, raise_errors):
-                        raise e
-
-                    last_exc = e
-                else:
-                    return data
-
-                logger.debug('Delaying retry by %r seconds', delay)
-
-                time.sleep(retry_delay)
-
-                retry_delay = retry_delay * 2  # noqa F841, F823
-
-            raise last_exc
-        return wrapped
-    return wrapper
-
-
-class StateMixin(object):
+class TrackerAPI(tracker.Tracker):
     def __init__(self):
         self.extra = {}
         self.job = None
@@ -78,6 +46,17 @@ class StateMixin(object):
 
         self.metrics = data.get('metrics', {})
 
+    def store_state(self):
+        return {
+            'extra': self.extra,
+            'job': self.job,
+            'user': self.user,
+            'process': self.process,
+            'status': self.status,
+            'metrics': self.metrics,
+            'output': self.output,
+        }
+
     def init_api(self):
         session = requests.Session()
 
@@ -97,17 +76,6 @@ class StateMixin(object):
 
         self.schema = self.client.get(schema_url)
 
-    def store_state(self):
-        return {
-            'extra': self.extra,
-            'job': self.job,
-            'user': self.user,
-            'process': self.process,
-            'status': self.status,
-            'metrics': self.metrics,
-            'output': self.output,
-        }
-
     def track_src_bytes(self, nbytes):
         self._track_bytes('bytes_src', nbytes)
 
@@ -124,25 +92,7 @@ class StateMixin(object):
         self.metrics[key] += nbytes
 
     def update_metrics(self, state):
-        # TODO need to redesign metrics.
-        # Covers the case where domain is None
-        # domain = self.domain or {}
-
-        # if not isinstance(domain, dict):
-        #     domain = {domain.name: domain}
-
-        # for item in domain.values():
-        #     for name, value in item.dimensions.items():
-        #         metrics.WPS_DOMAIN_CRS.labels(name, str(value.crs)).inc()
-
         self.track_process()
-
-        # if 'process_start' in self.metrics and 'process_stop' in self.metrics:
-        #     elapsed = (self.metrics['process_stop'] - self.metrics['process_start']).total_seconds()
-
-        #     identifier = self.operation.identifier
-
-        #     metrics.WPS_PROCESS_TIME.labels(identifier, state).observe(elapsed)
 
         if set(['bytes_src', 'bytes_in', 'bytes_out']) <= set(self.metrics.keys()):
             metrics.WPS_DATA_SRC_BYTES.inc(self.metrics['bytes_src'])
@@ -151,20 +101,13 @@ class StateMixin(object):
 
             metrics.WPS_DATA_OUT_BYTES.inc(self.metrics['bytes_out'])
 
-        # for input in self.inputs:
-        #     self.track_file(input)
-
-        #     parts = urllib.parse.urlparse(input.uri)
-
-        #     metrics.WPS_FILE_ACCESSED.labels(parts.hostname, input.var_name).inc()
-
     def action(self, keys, params=None, **kwargs):
         if self.client is None:
             self.init_api()
 
         raise_errors = kwargs.pop('raise_errors', ())
 
-        r = retry(count=4, delay=4, raise_errors=raise_errors)(self.client.action)
+        r = utilities.retry(count=4, delay=4, raise_errors=raise_errors)(self.client.action)
 
         logger.debug('Action keys %r params %r kwargs %r', keys, params, kwargs)
 
@@ -285,45 +228,3 @@ class StateMixin(object):
         }
 
         return self.action(['jobs', 'set_output'], params, validate=False)
-
-    def cache_local_path(self, url):
-        """ Builds path for a local cached file.
-
-        TODO: Make this a little smarter, duplicates can exist since the url could point to a
-        replica and uid is based of the entire url not just the unique portion related to the file.
-        """
-        uid = hashlib.sha256(url.encode()).hexdigest()
-
-        filename_ext = '{!s}.nc'.format(uid)
-
-        base_path = os.path.join(os.environ['DATA_PATH'], 'cache')
-
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-
-        return os.path.join(base_path, filename_ext)
-
-    def generate_local_path(self, extension, filename=None):
-        if filename is None:
-            filename = str(uuid.uuid4())
-
-        filename_ext = '{!s}.{!s}'.format(filename, extension)
-
-        base_path = os.path.join(os.environ['DATA_PATH'], str(self.user), str(self.job))
-
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-
-        return os.path.join(base_path, filename_ext)
-
-    def build_output(self, extension, mime_type, filename=None, var_name=None, name=None):
-        local_path = self.generate_local_path(extension, filename=filename)
-
-        self.track_output(local_path)
-
-        self.output.append(cwt.Variable(local_path, var_name, name=name, mime_type=mime_type))
-
-        return local_path
-
-    def build_output_variable(self, var_name, name=None):
-        return self.build_output('nc', 'application/netcdf', var_name=var_name, name=name)
