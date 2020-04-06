@@ -16,9 +16,10 @@ from dask import utils
 from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import celery_app
-from compute_tasks import context
 from compute_tasks import mapper
 from compute_tasks import WPSError
+from compute_tasks.context import OperationContext
+from compute_tasks.context.tracker_api import TrackerAPI
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
 
@@ -120,7 +121,7 @@ def queue_from_identifier(identifier):
 def build_context(identifier, data_inputs, job, user, process, status, **extra):
     data_inputs = celery_app.decoder(data_inputs)
 
-    ctx = context.OperationContext.from_data_inputs(identifier, data_inputs)
+    ctx = OperationContext.from_data_inputs(identifier, data_inputs)
 
     extra = {
         'DASK_SCHEDULER': f'dask-scheduler-{user!s}.{extra["namespace"]!s}.svc:8786',
@@ -271,9 +272,9 @@ class ResourceAckState(State):
         return WaitingState()
 
 
-class Worker(context.TrackerAPI, threading.Thread):
+class Worker(TrackerAPI, threading.Thread):
     def __init__(self, version, queue_host):
-        context.TrackerAPI.__init__(self)
+        TrackerAPI.__init__(self)
 
         threading.Thread.__init__(self)
 

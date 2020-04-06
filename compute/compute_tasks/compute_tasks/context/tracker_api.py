@@ -14,7 +14,7 @@ from compute_tasks import utilities
 from compute_tasks import WPSError
 from compute_tasks.context import tracker
 
-logger = get_task_logger('wps.context.state_mixin')
+logger = get_task_logger(__name__)
 
 
 class ProcessExistsError(WPSError):
@@ -22,7 +22,9 @@ class ProcessExistsError(WPSError):
 
 
 class TrackerAPI(tracker.Tracker):
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
         self.extra = {}
         self.job = None
         self.user = None

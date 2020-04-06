@@ -4,7 +4,10 @@ import uuid
 
 import cwt
 
-class Tracker(object):
+class Tracker:
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     def init_state(self, data):
         raise NotImplementedError()
 

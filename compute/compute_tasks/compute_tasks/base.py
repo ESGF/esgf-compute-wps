@@ -166,6 +166,8 @@ def validate(self, context, process, input_var_names):
 def validate_workflow(context):
     context.message('Validating workflow')
 
+    logger.info(f'{context}')
+
     for next, var_names in context.topo_sort():
         logger.info('Validating %r candidate variable names %r', next.identifier, var_names)
 

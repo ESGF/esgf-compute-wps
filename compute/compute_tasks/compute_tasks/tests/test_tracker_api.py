@@ -5,13 +5,14 @@ import time
 import cwt
 import pytest
 
+from compute_tasks.context.tracker_api import TrackerAPI
 from compute_tasks import context
 from compute_tasks import utilities
 from compute_tasks import WPSError
 
 
 def test_build_output_variable(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'build_output')
 
@@ -25,7 +26,7 @@ def test_build_output(mocker):
         'DATA_PATH': '/tmp',
     })
 
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.user = 0
     state.job = 0
 
@@ -50,7 +51,7 @@ def test_generate_local_path(mocker):
         'DATA_PATH': '/tmp',
     })
 
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.user = 0
     state.job = 0
 
@@ -72,7 +73,7 @@ def test_generate_local_path(mocker):
 
 
 def test_track_output(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -87,7 +88,7 @@ def test_track_output(mocker):
 
 
 def test_details(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -101,7 +102,7 @@ def test_details(mocker):
 
 
 def test_user_cert(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -119,7 +120,7 @@ def test_user_cert(mocker):
 
 
 def test_files_distinct_users(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -129,7 +130,7 @@ def test_files_distinct_users(mocker):
 
 
 def test_unique_set(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -139,7 +140,7 @@ def test_unique_set(mocker):
 
 
 def test_track_process(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -154,7 +155,7 @@ def test_track_process(mocker):
 
 
 def test_track_file(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -170,7 +171,7 @@ def test_track_file(mocker):
 
 
 def test_register_process_unique(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -185,7 +186,7 @@ def test_register_process_unique(mocker):
 
 
 def test_register_process_exception(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -200,7 +201,7 @@ def test_register_process_exception(mocker):
 
 
 def test_register_process(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -212,7 +213,7 @@ def test_register_process(mocker):
 
 
 def test_processes(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.patch.object(state, 'action')
 
@@ -224,7 +225,7 @@ def test_processes(mocker):
 
 
 def test_succeeded(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.job = 10
     state.status = 22
 
@@ -242,7 +243,7 @@ def test_succeeded(mocker):
 
 
 def test_failed(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.job = 10
     state.status = 22
 
@@ -262,7 +263,7 @@ def test_failed(mocker):
 
 
 def test_started(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.job = 10
     state.status = 22
 
@@ -279,7 +280,7 @@ def test_started(mocker):
 
 
 def test_accepted(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.job = 10
     state.status = 22
 
@@ -296,7 +297,7 @@ def test_accepted(mocker):
 
 
 def test_message(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.job = 10
     state.status = 22
 
@@ -315,7 +316,7 @@ def test_message(mocker):
 
 
 def test_set_status_exception(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.job = 10
     state.status = 22
 
@@ -337,7 +338,7 @@ def test_set_status_exception(mocker):
 
 
 def test_set_status(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.job = 10
     state.status = 22
 
@@ -364,7 +365,7 @@ def test_action_ignore_exception(mocker):
     coreapi = mocker.patch('compute_tasks.context.tracker_api.coreapi')
     mocker.patch.object(utilities, 'retry')
 
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.spy(state, 'init_api')
 
@@ -387,7 +388,7 @@ def test_action_exception(mocker):
     coreapi = mocker.patch('compute_tasks.context.tracker_api.coreapi')
     mocker.patch.object(utilities, 'retry')
 
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.spy(state, 'init_api')
 
@@ -410,7 +411,7 @@ def test_action(mocker):
     coreapi = mocker.patch('compute_tasks.context.tracker_api.coreapi')
     mocker.patch.object(utilities, 'retry')
 
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     mocker.spy(state, 'init_api')
 
@@ -424,7 +425,7 @@ def test_action(mocker):
 def test_update_metrics_domain_dict(mocker):
     now = datetime.datetime.now()
 
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.domain = cwt.Domain(time=slice(10, 20, 2), name='d0')
     state.metrics = {
         'process_start': now,
@@ -447,7 +448,7 @@ def test_update_metrics_domain_dict(mocker):
 def test_update_metrics(mocker):
     now = datetime.datetime.now()
 
-    state = context.TrackerAPI()
+    state = TrackerAPI()
     state.domain = {
         'd0': cwt.Domain(time=slice(10, 20, 2)),
     }
@@ -472,7 +473,7 @@ def test_update_metrics(mocker):
     state.track_process.assert_called()
 
 def test_metrics():
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     state.track_src_bytes(1000)
 
@@ -486,7 +487,7 @@ def test_metrics():
 
 
 def test_store_state():
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     state.extra = {'DASK_SCHEDULER': '127.0.0.1'}
     state.job = 0
@@ -510,7 +511,7 @@ def test_context_init_api(mocker):
         'API_PASSWORD': 'wps_api_password',
     })
 
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     state.init_api()
 
@@ -530,7 +531,7 @@ def test_context_init_api(mocker):
 
 
 def test_context_init_state(mocker):
-    state = context.TrackerAPI()
+    state = TrackerAPI()
 
     data = {
         'extra': {'DASK_SCHEDULER': '127.0.0.1'},
