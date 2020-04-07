@@ -252,11 +252,9 @@ class BaseContext:
                 if in_deg[x] == 0:
                     queue.append(x)
 
-    def generate_local_path(self, extension, filename=None):
+    def generate_local_path(self, filename=None):
         if filename is None:
-            filename = str(uuid.uuid4())
-
-        filename_ext = '{!s}.{!s}'.format(filename, extension)
+            filename = f'{uuid.uuid4()!s}.nc'
 
         if 'output_path' in self.extra and self.extra['output_path'] is not None:
             base_path = self.extra['output_path']
@@ -266,10 +264,10 @@ class BaseContext:
         if not os.path.exists(base_path):
             os.makedirs(base_path)
 
-        return os.path.join(base_path, filename_ext)
+        return os.path.join(base_path, filename)
 
-    def build_output(self, extension, mime_type, filename=None, var_name=None, name=None):
-        local_path = self.generate_local_path(extension, filename=filename)
+    def build_output(self, mime_type, filename=None, var_name=None, name=None):
+        local_path = self.generate_local_path(filename=filename)
 
         self.track_output(local_path)
 

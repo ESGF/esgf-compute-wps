@@ -5,6 +5,7 @@ import time
 import types
 import re
 import os
+import uuid
 from contextlib import contextmanager
 from functools import partial
 from xml.sax.saxutils import escape
@@ -127,6 +128,17 @@ def clean_output(dataset):
     return dataset
 
 
+def build_filename(ds, operation):
+    uid = str(uuid.uuid4())[:8]
+
+    desc = None
+
+    if 'time' in ds:
+        desc = f'_{ds.time[0].values!s}-{ds.time[-1].values!s}'
+
+    return f'{operation.identifier}_{operation.name}{desc}_{uid}.nc'
+
+
 def gather_workflow_outputs(context, interm, operations):
     """ Gather the ouputs for a set of processes (operations).
 
@@ -155,15 +167,11 @@ def gather_workflow_outputs(context, interm, operations):
 
         context.track_out_bytes(interm_ds.nbytes)
 
-        process = base.get_process(output.identifier)
-
-        params = process._get_parameters(output)
-
-        logger.info(f'PARAMS {params}')
-
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-        local_path = context.build_output_variable(context.variable, name=output_name)
+        filename = build_filename(interm_ds, output)
+
+        local_path = context.build_output('application/netcdf', filename=filename, var_name=context.variable, name=output_name)
 
         context.message('Building output for {!r} - {!r}', output.name, output.identifier)
 
