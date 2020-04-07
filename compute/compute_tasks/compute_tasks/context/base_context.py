@@ -276,4 +276,4 @@ class BaseContext:
         return local_path
 
     def build_output_variable(self, var_name, name=None):
-        return self.build_output('nc', 'application/netcdf', var_name=var_name, name=name)
+        return self.build_output('application/netcdf', var_name=var_name, name=name)
