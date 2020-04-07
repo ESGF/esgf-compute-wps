@@ -25,6 +25,7 @@ setuptools.setup(
             'compute-tasks-render=compute_tasks.backend:template',
             'compute-tasks-register=compute_tasks.backend:register_processes',
             'compute-tasks-kube=compute_tasks.dask_kube:main',
+            'compute-tasks-execute=compute_tasks.commands:local_execute',
         ],
     },
     package_data={

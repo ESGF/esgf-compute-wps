@@ -25,14 +25,9 @@ class TrackerAPI(tracker.Tracker):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.extra = {}
-        self.job = None
-        self.user = None
-        self.process = None
         self.status = None
         self.client = None
         self.schema = None
-        self.metrics = {}
         self.output = []
 
     def init_state(self, data):

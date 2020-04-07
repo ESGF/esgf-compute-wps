@@ -1,4 +1,8 @@
+import hashlib
+import json
 import logging
+import os
+import uuid
 
 import cwt
 
@@ -13,6 +17,8 @@ class BaseContext:
         self._variable = kwargs.pop('variable', {})
         self._domain = kwargs.pop('domain', {})
         self._operation = kwargs.pop('operation', {})
+
+        self.extra = kwargs.pop('extra', {})
 
         super().__init__(**kwargs)
 
@@ -77,7 +83,7 @@ class BaseContext:
                 item.add_parameters(**gparameters)
 
     @classmethod
-    def from_data_inputs(cls, identifier, data_inputs):
+    def from_data_inputs(cls, identifier, data_inputs, **kwargs):
         variable, domain, operation = cls.decode_data_inputs(data_inputs)
 
         map = mapper.Mapper.from_config('/etc/config/mapping.json')
@@ -112,7 +118,7 @@ class BaseContext:
 
         cls.resolve_dependencies(variable, domain, operation, gdomain, gparameters)
 
-        ctx = cls(variable=variable, domain=domain, operation=operation)
+        ctx = cls(variable=variable, domain=domain, operation=operation, **kwargs)
 
         ctx.gdomain = gdomain
 
@@ -170,6 +176,15 @@ class BaseContext:
     def sorted(self):
         for x in self._sorted:
             yield self._operation[x]
+
+    def set_provenance(self, ds):
+        frontend = self.extra.get('provenance', {})
+
+        for x, y in frontend.items():
+            ds.attrs[f'provenance.{x}'] = str(y)
+
+        if 'CONTAINER_IMAGE' in os.environ:
+            ds.attrs['provenance.container_image'] = os.environ['CONTAINER_IMAGE']
 
     def output_ops(self):
         out_deg = dict((x, self.node_out_deg(y)) for x, y in self._operation.items())
@@ -236,3 +251,31 @@ class BaseContext:
 
                 if in_deg[x] == 0:
                     queue.append(x)
+
+    def generate_local_path(self, extension, filename=None):
+        if filename is None:
+            filename = str(uuid.uuid4())
+
+        filename_ext = '{!s}.{!s}'.format(filename, extension)
+
+        if 'output_path' in self.extra and self.extra['output_path'] is not None:
+            base_path = self.extra['output_path']
+        else:
+            base_path = os.path.join(os.environ['DATA_PATH'], str(self.user), str(self.job))
+
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
+        return os.path.join(base_path, filename_ext)
+
+    def build_output(self, extension, mime_type, filename=None, var_name=None, name=None):
+        local_path = self.generate_local_path(extension, filename=filename)
+
+        self.track_output(local_path)
+
+        self.output.append(cwt.Variable(local_path, var_name, name=name, mime_type=mime_type))
+
+        return local_path
+
+    def build_output_variable(self, var_name, name=None):
+        return self.build_output('nc', 'application/netcdf', var_name=var_name, name=name)

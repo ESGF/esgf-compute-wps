@@ -165,6 +165,8 @@ def gather_workflow_outputs(context, interm, operations):
 
         interm_ds = clean_output(interm_ds)
 
+        context.set_provenance(interm_ds)
+
         try:
             # Create an output file and store the future
             delayed.append(interm_ds.to_netcdf(local_path, compute=False, format='NETCDF3_64BIT', engine='netcdf4'))
@@ -565,7 +567,7 @@ def build_workflow(context):
 
         params = process._get_parameters(next)
 
-        logger.info(f'PARAMS {p_id!s} {params!r}')
+        logger.info(f'Parmeters {p_id!s} {params!r}')
 
         context.message(f'Building process {p_id!s}')
 

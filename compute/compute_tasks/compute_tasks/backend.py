@@ -123,9 +123,7 @@ def build_context(identifier, data_inputs, job, user, process, status, **extra):
 
     ctx = OperationContext.from_data_inputs(identifier, data_inputs)
 
-    extra = {
-        'DASK_SCHEDULER': f'dask-scheduler-{user!s}.{extra["namespace"]!s}.svc:8786',
-    }
+    extra.update(DASK_SCHEDULER = f'dask-scheduler-{user!s}.{extra["namespace"]!s}.svc:8786')
 
     logger.info(f'Built operation context with extra {extra!r}')
 
@@ -212,7 +210,7 @@ def render_templates(**kwargs):
 
 
 class WaitingState(State):
-    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process, status):
+    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process, status, extra):
         transition = transition.encode()
 
         logger.info(f'Current state {self!s} transition to {transition!s}')
@@ -229,14 +227,14 @@ class WaitingState(State):
             else:
                 logger.info(f'Setting new state to ResourceAckState')
 
-                return ResourceAckState(identifier, data_inputs, job, user, process, status)
+                return ResourceAckState(identifier, data_inputs, job, user, process, status, extra)
         else:
             logger.info(f'Transition is invalid resetting to WaitingState')
 
         return self
 
 class ResourceAckState(State):
-    def __init__(self, identifier, data_inputs, job, user, process, status):
+    def __init__(self, identifier, data_inputs, job, user, process, status, extra):
         super(ResourceAckState, self).__init__()
 
         self.identifier = identifier
@@ -245,6 +243,7 @@ class ResourceAckState(State):
         self.user = user
         self.process = process
         self.status = status
+        self.extra = json.loads(extra)
 
     def on_event(self, backend, *frames):
         transition = frames[0].encode()
@@ -253,6 +252,8 @@ class ResourceAckState(State):
 
         if transition == ACK:
             extra = json.loads(frames[1])
+
+            extra['provenance'] = self.extra
 
             try:
                 workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process, self.status, **extra)

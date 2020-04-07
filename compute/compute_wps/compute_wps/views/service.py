@@ -6,7 +6,9 @@ import urllib.error
 import re
 
 import zmq
+from cwt import utilities
 from django import http
+from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from owslib import wps
 
@@ -82,10 +84,17 @@ def send_request_provisioner(identifier, data_inputs, job, user, process, status
 
     status = str(status_id).encode()
 
+    logger.info(f'DATA_INPUTS {data_inputs}')
+
+    extra = helpers.encoder({
+        'wps_server': settings.EXTERNAL_WPS_URL,
+        'wps_document': utilities.data_inputs_to_document(identifier, data_inputs),
+    }).encode()
+
     data_inputs = helpers.encoder(data_inputs).encode()
 
     try:
-        client.send_multipart([b'devel', identifier.encode(), data_inputs, job, user, process, status])
+        client.send_multipart([b'devel', identifier.encode(), data_inputs, job, user, process, status, extra])
     except zmq.Again:
         logger.info('Error sending request to provisioner')
 

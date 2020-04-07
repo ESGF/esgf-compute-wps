@@ -1,12 +1,14 @@
-import hashlib
-import os
-import uuid
-
 import cwt
 
 class Tracker:
     def __init__(self, **kwargs):
+        self.job = kwargs.pop('job', None)
+        self.user = kwargs.pop('user', None)
+        self.process = kwargs.pop('process', None)
+
         super().__init__(**kwargs)
+
+        self.metrics = {}
 
     def init_state(self, data):
         raise NotImplementedError()
@@ -70,45 +72,3 @@ class Tracker:
 
     def track_output(self, path):
         raise NotImplementedError()
-
-    def cache_local_path(self, url):
-        """ Builds path for a local cached file.
-
-        TODO: Make this a little smarter, duplicates can exist since the url could point to a
-        replica and uid is based of the entire url not just the unique portion related to the file.
-        """
-        uid = hashlib.sha256(url.encode()).hexdigest()
-
-        filename_ext = '{!s}.nc'.format(uid)
-
-        base_path = os.path.join(os.environ['DATA_PATH'], 'cache')
-
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-
-        return os.path.join(base_path, filename_ext)
-
-    def generate_local_path(self, extension, filename=None):
-        if filename is None:
-            filename = str(uuid.uuid4())
-
-        filename_ext = '{!s}.{!s}'.format(filename, extension)
-
-        base_path = os.path.join(os.environ['DATA_PATH'], str(self.user), str(self.job))
-
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-
-        return os.path.join(base_path, filename_ext)
-
-    def build_output(self, extension, mime_type, filename=None, var_name=None, name=None):
-        local_path = self.generate_local_path(extension, filename=filename)
-
-        self.track_output(local_path)
-
-        self.output.append(cwt.Variable(local_path, var_name, name=name, mime_type=mime_type))
-
-        return local_path
-
-    def build_output_variable(self, var_name, name=None):
-        return self.build_output('nc', 'application/netcdf', var_name=var_name, name=name)
