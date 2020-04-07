@@ -84,9 +84,8 @@ def send_request_provisioner(identifier, data_inputs, job, user, process, status
 
     status = str(status_id).encode()
 
-    logger.info(f'DATA_INPUTS {data_inputs}')
-
     extra = helpers.encoder({
+        'wps_identifier': identifier,
         'wps_server': settings.EXTERNAL_WPS_URL,
         'wps_document': utilities.data_inputs_to_document(identifier, data_inputs),
     }).encode()
