@@ -172,6 +172,7 @@ def test_worker_run(mocker, provisioner, worker):
         b'0',
         b'0',
         b'0',
+        b'{}',
     ]
 
     provisioner.send(w, RAW_PROVISIONER_FRAMES)
@@ -305,7 +306,7 @@ def test_resource_ack_state(mocker, transition, frames, expected):
 
     mocker.patch.object(backend, 'build_workflow')
 
-    state = backend.ResourceAckState('CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0')
+    state = backend.ResourceAckState('CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0', '{}')
 
     frames.insert(0, transition.decode())
     frames.append('{"namespace": "default"}')
@@ -351,7 +352,7 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
     state = backend.WaitingState()
 
-    new_state = state.on_event(b, transition.decode(), 'devel', 'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0')
+    new_state = state.on_event(b, transition.decode(), 'devel', 'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0', '{}')
 
     assert isinstance(new_state, expected)
 

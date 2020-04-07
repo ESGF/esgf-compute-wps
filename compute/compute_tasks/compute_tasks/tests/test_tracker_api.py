@@ -11,67 +11,6 @@ from compute_tasks import utilities
 from compute_tasks import WPSError
 
 
-def test_build_output_variable(mocker):
-    state = TrackerAPI()
-
-    mocker.patch.object(state, 'build_output')
-
-    state.build_output_variable('tas', name='test_output')
-
-    state.build_output.assert_called_with('nc', 'application/netcdf', var_name='tas', name='test_output')
-
-
-def test_build_output(mocker):
-    mocker.patch.dict(os.environ, {
-        'DATA_PATH': '/tmp',
-    })
-
-    state = TrackerAPI()
-    state.user = 0
-    state.job = 0
-
-    mocker.patch.object(state, 'track_output')
-
-    path = state.build_output('nc', 'application/netcdf', filename='test', var_name='tas', name='test_output')
-
-    state.track_output.assert_called_with('/tmp/0/0/test.nc')
-
-    variable = state.output[0]
-
-    assert variable.uri == '/tmp/0/0/test.nc'
-    assert variable.var_name == 'tas'
-    assert variable.name == 'test_output'
-    assert variable.mime_type == 'application/netcdf'
-
-    assert path == '/tmp/0/0/test.nc'
-
-
-def test_generate_local_path(mocker):
-    mocker.patch.dict(os.environ, {
-        'DATA_PATH': '/tmp',
-    })
-
-    state = TrackerAPI()
-    state.user = 0
-    state.job = 0
-
-    mocker.patch.object(context.tracker, 'uuid')
-
-    context.tracker.uuid.uuid4.return_value = '1234'
-
-    mocker.patch.object(context.tracker.os.path, 'exists')
-    mocker.patch.object(context.tracker.os, 'makedirs')
-
-    context.tracker.os.path.exists.return_value = False
-
-    path = state.generate_local_path('nc')
-
-    assert path == '/tmp/0/0/1234.nc'
-
-    context.tracker.os.path.exists.assert_called_with('/tmp/0/0')
-    context.tracker.os.makedirs.assert_called_with('/tmp/0/0')
-
-
 def test_track_output(mocker):
     state = TrackerAPI()
 

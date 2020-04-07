@@ -155,6 +155,12 @@ def gather_workflow_outputs(context, interm, operations):
 
         context.track_out_bytes(interm_ds.nbytes)
 
+        process = base.get_process(output.identifier)
+
+        params = process._get_parameters(output)
+
+        logger.info(f'PARAMS {params}')
+
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
         local_path = context.build_output_variable(context.variable, name=output_name)
