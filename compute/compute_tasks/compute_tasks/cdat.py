@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import copy
+import math
 import time
 import types
 import re
@@ -128,15 +129,19 @@ def clean_output(dataset):
     return dataset
 
 
-def build_filename(ds, operation):
+def build_filename(ds, operation, index=None):
     uid = str(uuid.uuid4())[:8]
 
-    desc = None
+    desc = ''
+    part = ''
 
     if 'time' in ds:
         desc = f'_{ds.time[0].values!s}-{ds.time[-1].values!s}'
 
-    return f'{operation.identifier}_{operation.name}{desc}_{uid}.nc'
+    if index is not None:
+        part = f'_{index}'
+
+    return f'{operation.identifier}_{operation.name}{desc}_{uid}{part}.nc'
 
 
 def gather_workflow_outputs(context, interm, operations):
@@ -169,27 +174,63 @@ def gather_workflow_outputs(context, interm, operations):
 
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-        filename = build_filename(interm_ds, output)
+        max_size = 1024**3
 
-        local_path = context.build_output('application/netcdf', filename=filename, var_name=context.variable, name=output_name)
+        # Estimate how large the output will be, larger than 1GB will have degraded performance when
+        # writing to a ReadWriteOne style filesystem. This causes dask/distributed lock to timeout
+        # killing the entire job. Work around is splitting the file into smaller chunks and delgate
+        # the aggregate to the client software. This could change in the future if we move to zarr
+        # or some other object store style storage.
+        if interm_ds.nbytes/max_size > 1.0:
+            largest_dim = max(interm_ds.dims, key=lambda x: interm_ds.dims[x])
 
-        context.message('Building output for {!r} - {!r}', output.name, output.identifier)
+            largest_len = len(interm_ds[largest_dim])
 
-        logger.debug('Writing local output to %r', local_path)
+            required_splits = interm_ds.nbytes / max_size
 
-        interm_ds = clean_output(interm_ds)
+            split_size = math.ceil(largest_len / required_splits)
 
-        context.set_provenance(interm_ds)
+            datasets = [interm_ds.isel({largest_dim: slice(x, min(largest_len, x+split_size))}) for x in range(0, largest_len, split_size)]
 
-        try:
-            # Create an output file and store the future
-            delayed.append(interm_ds.to_netcdf(local_path, compute=False, format='NETCDF3_64BIT', engine='netcdf4'))
-        except ValueError:
-            shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
+            filenames = [build_filename(interm_ds, output, i) for i, _ in enumerate(datasets)]
 
-            bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
+            local_paths = [context.build_output('application/netcdf', filename=x, var_name=context.variable, name=output_name) for x in filenames]
 
-            raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
+            fixed_ds = [clean_output(x) for x in datasets]
+
+            for x in datasets:
+                context.set_provenance(x)
+
+            try:
+                delayed = [xr.save_mfdataset(datasets, filenames, compute=False, format='NETCDF3_64BIT', engine='netcdf4')]
+            except ValueError:
+                shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
+
+                bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
+
+                raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
+        else:
+            filename = build_filename(interm_ds, output)
+
+            local_path = context.build_output('application/netcdf', filename=filename, var_name=context.variable, name=output_name)
+
+            context.message('Building output for {!r} - {!r}', output.name, output.identifier)
+
+            logger.debug('Writing local output to %r', local_path)
+
+            interm_ds = clean_output(interm_ds)
+
+            context.set_provenance(interm_ds)
+
+            try:
+                # Create an output file and store the future
+                delayed.append(interm_ds.to_netcdf(local_path, compute=False, format='NETCDF3_64BIT', engine='netcdf4'))
+            except ValueError:
+                shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
+
+                bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
+
+                raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
 
     return delayed
 
