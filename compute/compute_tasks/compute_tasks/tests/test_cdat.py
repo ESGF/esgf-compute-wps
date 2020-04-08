@@ -572,6 +572,7 @@ def test_gather_workflow_outputs_bad_coord(mocker):
     subset = cwt.Process(identifier='CDAT.subset')
     subset_delayed = mocker.MagicMock()
     subset_delayed.to_netcdf.side_effect = ValueError
+    type(subset_delayed).nbytes = mocker.PropertyMock(return_value=1024)
 
     interm = {
         subset.name: subset_delayed,
@@ -586,6 +587,7 @@ def test_gather_workflow_outputs_missing_interm(mocker):
 
     subset = cwt.Process(identifier='CDAT.subset')
     subset_delayed = mocker.MagicMock()
+    type(subset_delayed).nbytes = mocker.PropertyMock(return_value=1024)
 
     max = cwt.Process(identifier='CDAT.max')
 
@@ -602,9 +604,11 @@ def test_gather_workflow_outputs(mocker):
 
     subset = cwt.Process(identifier='CDAT.subset')
     subset_delayed = mocker.MagicMock()
+    type(subset_delayed).nbytes = mocker.PropertyMock(return_value=1024)
 
     max = cwt.Process(identifier='CDAT.max')
     max_delayed = mocker.MagicMock()
+    type(max_delayed).nbytes = mocker.PropertyMock(return_value=1024)
 
     interm = {
         subset.name: subset_delayed,
