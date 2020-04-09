@@ -225,7 +225,7 @@ class WaitingState(State):
 
                 backend.worker.send_multipart([RESOURCE, resources.encode()])
             except Exception as e:
-                backend.fail_job(self.payload['job'], e)
+                backend.fail_job(payload['job'], e)
 
                 logger.exception(f'Failed job, error building resources')
             else:
