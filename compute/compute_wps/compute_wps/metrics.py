@@ -15,9 +15,6 @@ def track_login(counter, url):
 
 WPS = REGISTRY
 
-WPS_DATA_ACCESS_FAILED = Counter('wps_data_access_failed_total',
-                                 'Number of times remote sites are inaccesible', ['host'])
-
 WPS_CERT_DOWNLOAD = Counter('wps_cert_download', 'Number of times certificates'
                             ' have been downloaded')
 
@@ -35,12 +32,6 @@ WPS_OAUTH_LOGIN_SUCCESS = Counter('wps_oauth_login_success', 'ESGF OAuth'
 WPS_MPC_LOGIN = Counter('wps_mpc_login', 'ESGF MyProxyClient logins attempts', ['idp'])
 WPS_MPC_LOGIN_SUCCESS = Counter('wps_mpc_login_success', 'ESGF MyProxyClient'
                                 ' logins', ['idp'])
-
-WPS_ESGF_SEARCH = Summary('wps_esgf_search', 'ESGF search duration (seconds)')
-WPS_ESGF_SEARCH_SUCCESS = Counter('wps_esgf_search_success', 'Successful ESGF'
-                                  ' searches')
-WPS_ESGF_SEARCH_FAILED = Counter('wps_esgf_search_failed', 'Failed ESGF'
-                                 ' searches')
 
 WPS_REQUESTS = Histogram('wps_request_seconds', 'WPS request duration (seconds)',
                          ['request', 'method'])

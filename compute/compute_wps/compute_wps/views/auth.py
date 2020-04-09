@@ -195,8 +195,7 @@ def user_login_openid(request):
         return common.success({'redirect': url})
     finally:
         if 'openid_url' in request.POST:
-            metrics.track_login(metrics.WPS_OPENID_LOGIN,
-                                request.POST['openid_url'])
+            metrics.track_login(metrics.WPS_OPENID_LOGIN, request.POST['openid_url'])
 
 
 def add_new_user(openid_url, attrs):
@@ -247,8 +246,7 @@ def user_login_openid_callback(request):
         else:
             return http.HttpResponseBadRequest('Unknown response type {!s}'.format(response))
     else:
-        metrics.track_login(metrics.WPS_OPENID_LOGIN_SUCCESS,
-                            user.auth.openid_url)
+        metrics.track_login(metrics.WPS_OPENID_LOGIN_SUCCESS, user.auth.openid_url)
 
         if response == 'redirect':
             redirect_url = '{!s}?expires={!s}'.format(settings.OPENID_CALLBACK_SUCCESS_URL,

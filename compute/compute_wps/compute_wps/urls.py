@@ -34,11 +34,8 @@ api_urlpatterns = [
     url(r'^neil/', admin.site.urls),
 
     url(r'^ping/$', views.ping),
-    url(r'^search/$', views.search_dataset),
-    url(r'^search/variable/$', views.search_variable),
     url(r'^status/(?P<job_id>[0-9]*)/$', views.status),
     url(r'^metrics/$', views.metrics_view),
-    url(r'^combine/$', views.combine),
     url(r'^providers/?$', views.providers),
 
     # Authentication and authorization
