@@ -8,6 +8,7 @@ from django.conf import settings
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
+from compute_wps import metrics
 from compute_wps import models
 from compute_wps.util import wps_response
 
@@ -127,6 +128,8 @@ class StatusSerializer(serializers.ModelSerializer):
                     logger.info('Failed to handle output of type {!r}'.format(type(data)))
 
                     raise serializers.ValidationError('Failed to handle output of type {!r}'.format(type(data)))
+
+        metrics.WPS_JOB_STATE.labels(validated_data['status']).inc()
 
         return models.Status.objects.create(**validated_data)
 
