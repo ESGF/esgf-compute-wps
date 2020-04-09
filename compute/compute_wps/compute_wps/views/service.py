@@ -76,24 +76,23 @@ def send_request_provisioner(identifier, data_inputs, job, user, process, status
 
     client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
 
-    job= str(job).encode()
+    payload = {
+        'job': job,
+        'user': user,
+        'process': process,
+        'status': status_id,
+        'provenance': {
+            'wps_identifier': identifier,
+            'wps_server': settings.EXTERNAL_WPS_URL,
+            'wps_document': utilities.data_inputs_to_document(identifier, data_inputs),
+        },
+        'data_inputs': data_inputs,
+    }
 
-    user = str(user).encode()
-
-    process = str(process).encode()
-
-    status = str(status_id).encode()
-
-    extra = helpers.encoder({
-        'wps_identifier': identifier,
-        'wps_server': settings.EXTERNAL_WPS_URL,
-        'wps_document': utilities.data_inputs_to_document(identifier, data_inputs),
-    }).encode()
-
-    data_inputs = helpers.encoder(data_inputs).encode()
+    payload = helpers.encoder(payload).encode()
 
     try:
-        client.send_multipart([b'devel', identifier.encode(), data_inputs, job, user, process, status, extra])
+        client.send_multipart([b'devel', payload])
     except zmq.Again:
         logger.info('Error sending request to provisioner')
 

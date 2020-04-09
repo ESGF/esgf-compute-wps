@@ -166,13 +166,15 @@ def test_worker_run(mocker, provisioner, worker):
     RAW_PROVISIONER_FRAMES = [
         backend.REQUEST,
         b'devel',
-        b'CDAT.workflow',
-        json.dumps(DATA_INPUTS).encode(),
-        b'0',
-        b'0',
-        b'0',
-        b'0',
-        b'{}',
+        json.dumps({
+            'identifier': 'CDAT.workflow',
+            'data_inputs': DATA_INPUTS,
+            'user': 0,
+            'job': 0,
+            'process': 0,
+            'status': 0,
+            'extra': {},
+        }).encode()
     ]
 
     provisioner.send(w, RAW_PROVISIONER_FRAMES)
@@ -297,19 +299,32 @@ def test_worker_initialize(mocker):
 
 
 @pytest.mark.parametrize('transition,frames,expected', [
-    (backend.ACK, [], backend.WaitingState),
+    (backend.ACK, [b'{"namespace": "default"}'], backend.WaitingState),
     (backend.ERR, [b'Error message'], backend.WaitingState),
-    (b'NO', [], backend.WaitingState),
+    (b'NO', [b'Error message'], backend.WaitingState),
 ])
 def test_resource_ack_state(mocker, transition, frames, expected):
     b = mocker.MagicMock()
 
     mocker.patch.object(backend, 'build_workflow')
 
-    state = backend.ResourceAckState('CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0', '{}')
+    payload = {
+        'identifier': 'CDAT.subset',
+        'data_inputs': {
+            'variable': [],
+            'domain': [],
+            'operation': [],
+        },
+        'user': 0,
+        'job': 0,
+        'process': 0,
+        'status': 0,
+        'extra': {},
+    }
+
+    state = backend.ResourceAckState(payload)
 
     frames.insert(0, transition.decode())
-    frames.append('{"namespace": "default"}')
 
     new_state = state.on_event(b, *frames)
 
@@ -352,7 +367,21 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
     state = backend.WaitingState()
 
-    new_state = state.on_event(b, transition.decode(), 'devel', 'CDAT.subset', '{"variable": [], "domain": [], "operation": []}', '0', '0', '0', '0', '{}')
+    payload = json.dumps({
+        'identifier': 'CDAT.subset',
+        'data_inputs': {
+            'variable': [],
+            'domain': [],
+            'operation': [],
+        },
+        'user': 0,
+        'job': 0,
+        'process': 0,
+        'status': 0,
+        'extra': {},
+    })
+
+    new_state = state.on_event(b, transition.decode(), 'devel', payload)
 
     assert isinstance(new_state, expected)
 

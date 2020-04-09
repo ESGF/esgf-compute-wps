@@ -119,12 +119,12 @@ def queue_from_identifier(identifier):
     return QUEUE.get(module.lower(), DEFAULT_QUEUE)
 
 
-def build_context(identifier, data_inputs, job, user, process, status, **extra):
+def build_context(identifier, data_inputs, job, user, process, status, namespace, **extra):
     data_inputs = celery_app.decoder(data_inputs)
 
     ctx = OperationContext.from_data_inputs(identifier, data_inputs)
 
-    extra.update(DASK_SCHEDULER = f'dask-scheduler-{user!s}.{extra["namespace"]!s}.svc:8786')
+    extra.update(DASK_SCHEDULER = f'dask-scheduler-{user!s}.{namespace!s}.svc:8786')
 
     logger.info(f'Built operation context with extra {extra!r}')
 
@@ -143,8 +143,8 @@ def build_context(identifier, data_inputs, job, user, process, status, **extra):
     return ctx
 
 
-def build_workflow(identifier, data_inputs, job, user, process, status, **extra):
-    ctx = build_context(identifier, data_inputs, job, user, process, status, **extra)
+def build_workflow(identifier, data_inputs, job, user, process, status, **kwargs):
+    ctx = build_context(identifier, data_inputs, job, user, process, status, **kwargs)
 
     base.validate_workflow(ctx)
 
@@ -211,14 +211,17 @@ def render_templates(**kwargs):
 
 
 class WaitingState(State):
-    def on_event(self, backend, transition, version, identifier, data_inputs, job, user, process, status, extra):
+    def on_event(self, backend, transition, version, payload):
+        # TODO fix constants to compare str
         transition = transition.encode()
+
+        payload = json.loads(payload)
 
         logger.info(f'Current state {self!s} transition to {transition!s}')
 
         if transition == REQUEST:
             try:
-                resources = json.dumps(list(render_templates(user=user).values()))
+                resources = json.dumps(list(render_templates(user=payload['user']).values()))
 
                 backend.worker.send_multipart([RESOURCE, resources.encode()])
             except Exception as e:
@@ -228,44 +231,36 @@ class WaitingState(State):
             else:
                 logger.info(f'Setting new state to ResourceAckState')
 
-                return ResourceAckState(identifier, data_inputs, job, user, process, status, extra)
+                return ResourceAckState(payload)
         else:
             logger.info(f'Transition is invalid resetting to WaitingState')
 
         return self
 
 class ResourceAckState(State):
-    def __init__(self, identifier, data_inputs, job, user, process, status, extra):
+    def __init__(self, payload):
         super(ResourceAckState, self).__init__()
 
-        self.identifier = identifier
-        self.data_inputs = data_inputs
-        self.job = job
-        self.user = user
-        self.process = process
-        self.status = status
-        self.extra = json.loads(extra)
+        self.payload = payload
 
-    def on_event(self, backend, *frames):
-        transition = frames[0].encode()
+    def on_event(self, backend, transition, data):
+        transition = transition.encode()
 
         logger.info(f'Current state {self!s} transitioning to {transition!s}')
 
         if transition == ACK:
-            extra = json.loads(frames[1])
-
-            extra['provenance'] = self.extra
+            self.payload.update(json.loads(data))
 
             try:
-                workflow = build_workflow(self.identifier, self.data_inputs, self.job, self.user, self.process, self.status, **extra)
+                workflow = build_workflow(**self.payload)
 
                 workflow.apply_async(serializer='cwt_json')
             except Exception as e:
-                backend.fail_job(self.job, e)
+                backend.fail_job(self.payload['job'], e)
 
                 logger.exception(f'Failed job, error building workflow')
         elif transition == ERR:
-            backend.fail_job(self.job, frames[1])
+            backend.fail_job(self.payload['job'], data)
 
             logger.info(f'Failed job, error allocating resources')
         else:
