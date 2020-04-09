@@ -77,6 +77,7 @@ def send_request_provisioner(identifier, data_inputs, job, user, process, status
     client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
 
     payload = {
+        'identifier': identifier,
         'job': job,
         'user': user,
         'process': process,
