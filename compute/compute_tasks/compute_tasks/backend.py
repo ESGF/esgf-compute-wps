@@ -120,8 +120,6 @@ def queue_from_identifier(identifier):
 
 
 def build_context(identifier, data_inputs, job, user, process, status, namespace, **extra):
-    data_inputs = celery_app.decoder(data_inputs)
-
     ctx = OperationContext.from_data_inputs(identifier, data_inputs)
 
     extra.update(DASK_SCHEDULER = f'dask-scheduler-{user!s}.{namespace!s}.svc:8786')
