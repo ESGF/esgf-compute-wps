@@ -389,7 +389,7 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 def test_build_workflow(mocker):
     mocker.patch('compute_tasks.context.operation.OperationContext.action')
 
-    workflow = backend.build_workflow('CDAT.subset', json.dumps(DATA_INPUTS), '0', '0', '0', '0', namespace='default')
+    workflow = backend.build_workflow('CDAT.subset', DATA_INPUTS, '0', '0', '0', '0', namespace='default')
 
     assert workflow
 
