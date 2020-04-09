@@ -19,6 +19,7 @@ from compute_tasks import celery_app
 from compute_tasks import mapper
 from compute_tasks import WPSError
 from compute_tasks.context import OperationContext
+from compute_tasks.context.tracker_api import ProcessExistsError
 from compute_tasks.context.tracker_api import TrackerAPI
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
@@ -444,9 +445,9 @@ def register_processes():
     logging.basicConfig(level=args.log_level)
 
     if not args.dry_run:
-        state = state_mixin.StateMixin()
+        tracker = TrackerAPI()
 
-        state.init_api()
+        tracker.init_api()
 
     for item in base.discover_processes():
         process = base.get_process(item['identifier'])
@@ -457,8 +458,8 @@ def register_processes():
 
         if not args.dry_run:
             try:
-                state.register_process(**item)
-            except state_mixin.ProcessExistsError:  # pragma: no cover
+                tracker.register_process(**item)
+            except ProcessExistsError:  # pragma: no cover
                 logger.info('Process %r already exists', item['identifier'])
 
                 pass
