@@ -12,11 +12,13 @@ import cwt
 import jinja2
 import zmq
 from dask import utils
+from prometheus_client import start_http_server
 
 from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import celery_app
 from compute_tasks import mapper
+from compute_tasks import metrics
 from compute_tasks import WPSError
 from compute_tasks.context import OperationContext
 from compute_tasks.context.tracker_api import ProcessExistsError
@@ -247,6 +249,8 @@ class ResourceAckState(State):
         logger.info(f'Current state {self!s} transitioning to {transition!s}')
 
         if transition == ACK:
+            metrics.BACKEND_RESOURCE_RESPONSE.labels('success').inc()
+
             self.payload.update(json.loads(data))
 
             try:
@@ -258,10 +262,14 @@ class ResourceAckState(State):
 
                 logger.exception(f'Failed job, error building workflow')
         elif transition == ERR:
+            metrics.BACKEND_RESOURCE_RESPONSE.labels('error').inc()
+
             backend.fail_job(self.payload['job'], data)
 
             logger.info(f'Failed job, error allocating resources')
         else:
+            metrics.BACKEND_RESOURCE_RESPONSE.labels('unknown').inc()
+
             logger.info(f'Transition is invalid resetting to WaitingState')
 
         return WaitingState()
@@ -344,6 +352,8 @@ class Worker(TrackerAPI, threading.Thread):
         self.worker.close(0)
 
     def reconnect_provisioner(self):
+        metrics.BACKEND_PROVISIONER_RECONNECT.inc()
+
         self.disconnect_provisioner()
 
         self.connect_provisioner()
@@ -376,6 +386,8 @@ class Worker(TrackerAPI, threading.Thread):
         self.liveness -= 1
 
         if self.liveness == 0:
+            metrics.BACKEND_MISSED_HEARTBEAT.inc()
+
             logger.info(f'Missed provisioner heartbeat {HEARTBEAT_LIVENESS!r} times sleeping for {self.interval!r} seconds before reconnecting')
 
             time.sleep(self.interval)
@@ -404,13 +416,16 @@ class Worker(TrackerAPI, threading.Thread):
                     logger.info('Error receiving data from provisioner')
                 else:
                     if frames[0] == HEARTBEAT:
+                        metrics.BACKEND_MISSED_HEARTBEAT.set(0)
+
                         self.liveness = HEARTBEAT_LIVENESS
 
                         logger.debug('Received heartbeat setting liveness to %r', self.liveness)
                     else:
                         frames = [x.decode() for x in frames]
 
-                        self.state = self.state.on_event(self, *frames)
+                        with metrics.BACKEND_STATE_PROCESS_DURATION.labels(str(self.state)).time():
+                            self.state = self.state.on_event(self, *frames)
 
                     self.interval = INTERVAL_INIT
             else:
@@ -490,6 +505,16 @@ def main():
 
     logging.basicConfig(level=args.log_level)
 
+    start_http_server(8888, '0.0.0.0', registry=metrics.backend_registry)
+
+    logger.info('Started metrics server')
+
     worker = Worker(b'devel', args.queue_host)
 
     worker.start()
+
+    logger.info('Started main thread')
+
+    worker.join()
+
+    logger.info('Thread exited')
