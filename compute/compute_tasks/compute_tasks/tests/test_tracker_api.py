@@ -477,16 +477,6 @@ def test_context_init_state(mocker):
     assert state.metrics == {}
 
 
-def test_process_timer(mocker):
-    c = mocker.MagicMock()
-
-    with context.ProcessTimer(c):
-        time.sleep(1)
-
-    c.metrics.__setitem__.assert_called()
-    assert c.metrics.__setitem__.call_count == 2
-
-
 def test_retry_error_raised(mocker):
     mocker.patch.object(utilities.time, 'sleep')
 

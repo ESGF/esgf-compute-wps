@@ -488,37 +488,6 @@ def test_open_dataset(mocker, url, expected_size):
     assert 'time_bnds' in ds
 
 
-def test_execute_delayed_with_client(mocker):
-    mocker.patch.object(dask, 'compute')
-    mocker.patch.object(cdat, 'DaskTaskTracker')
-
-    context = mocker.MagicMock()
-
-    client = mocker.MagicMock()  # noqa: F811
-
-    futures = []
-
-    cdat.execute_delayed(context, futures, client)
-
-    dask.compute.assert_not_called()
-
-    client.compute.assert_called_with(futures)
-
-    cdat.DaskTaskTracker.assert_called_with(context, client.compute.return_value)
-
-
-def test_execute_delayed(mocker):
-    mocker.patch.object(dask, 'compute')
-
-    context = mocker.MagicMock()
-
-    futures = []
-
-    cdat.execute_delayed(context, futures)
-
-    dask.compute.assert_called_with(futures)
-
-
 def test_check_access_exception(esgf_data):
     with pytest.raises(WPSError):
         cdat.check_access('https://esgf-node.llnl.gov/sjdlasjdla')
