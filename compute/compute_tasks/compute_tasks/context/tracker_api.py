@@ -9,7 +9,6 @@ import coreapi
 import requests
 from celery.utils.log import get_task_logger
 
-from compute_tasks import metrics_ as metrics
 from compute_tasks import utilities
 from compute_tasks import WPSError
 from compute_tasks.context import tracker
@@ -41,8 +40,6 @@ class TrackerAPI(tracker.Tracker):
 
         self.status = data.get('status')
 
-        self.metrics = data.get('metrics', {})
-
     def store_state(self):
         return {
             'extra': self.extra,
@@ -50,7 +47,6 @@ class TrackerAPI(tracker.Tracker):
             'user': self.user,
             'process': self.process,
             'status': self.status,
-            'metrics': self.metrics,
             'output': self.output,
         }
 
@@ -73,30 +69,8 @@ class TrackerAPI(tracker.Tracker):
 
         self.schema = self.client.get(schema_url)
 
-    def track_src_bytes(self, nbytes):
-        self._track_bytes('bytes_src', nbytes)
-
-    def track_in_bytes(self, nbytes):
-        self._track_bytes('bytes_in', nbytes)
-
-    def track_out_bytes(self, nbytes):
-        self._track_bytes('bytes_out', nbytes)
-
-    def _track_bytes(self, key, nbytes):
-        if key not in self.metrics:
-            self.metrics[key] = 0
-
-        self.metrics[key] += nbytes
-
     def update_metrics(self, state):
         self.track_process()
-
-        if set(['bytes_src', 'bytes_in', 'bytes_out']) <= set(self.metrics.keys()):
-            metrics.WPS_DATA_SRC_BYTES.inc(self.metrics['bytes_src'])
-
-            metrics.WPS_DATA_IN_BYTES.inc(self.metrics['bytes_in'])
-
-            metrics.WPS_DATA_OUT_BYTES.inc(self.metrics['bytes_out'])
 
     def action(self, keys, params=None, **kwargs):
         if self.client is None:

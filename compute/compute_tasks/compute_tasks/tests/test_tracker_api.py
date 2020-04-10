@@ -411,20 +411,6 @@ def test_update_metrics(mocker):
 
     state.track_process.assert_called()
 
-def test_metrics():
-    state = TrackerAPI()
-
-    state.track_src_bytes(1000)
-
-    state.track_in_bytes(2000)
-
-    state.track_out_bytes(3000)
-
-    assert state.metrics['bytes_src'] == 1000
-    assert state.metrics['bytes_in'] == 2000
-    assert state.metrics['bytes_out'] == 3000
-
-
 def test_store_state():
     state = TrackerAPI()
 

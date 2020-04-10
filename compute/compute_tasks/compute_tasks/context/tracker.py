@@ -16,15 +16,6 @@ class Tracker:
     def store_state(self):
         raise NotImplementedError()
 
-    def track_src_bytes(self, nbytes):
-        raise NotImplementedError()
-
-    def track_in_bytes(self, nbytes):
-        raise NotImplementedError()
-
-    def track_out_bytes(self, nbytes):
-        raise NotImplementedError()
-
     def update_metrics(self, state):
         raise NotImplementedError()
 

@@ -9,6 +9,7 @@ import os
 import uuid
 from contextlib import contextmanager
 from functools import partial
+from urllib import parse
 from xml.sax.saxutils import escape
 
 import cdms2
@@ -31,6 +32,7 @@ from tornado.ioloop import IOLoop
 
 from compute_tasks import base
 from compute_tasks import context as ctx
+from compute_tasks import metrics
 from compute_tasks import utilities
 from compute_tasks import WPSError
 
@@ -165,12 +167,12 @@ def gather_workflow_outputs(context, interm, operations):
     delayed = []
 
     for output in operations:
+        context.message('Building output for {!r} - {!r}', output.name, output.identifier)
+
         try:
             interm_ds = interm.pop(output.name)
         except KeyError as e:
             raise WPSError('Failed to find intermediate {!s}', e)
-
-        context.track_out_bytes(interm_ds.nbytes)
 
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
@@ -182,13 +184,19 @@ def gather_workflow_outputs(context, interm, operations):
         # the aggregate to the client software. This could change in the future if we move to zarr
         # or some other object store style storage.
         if interm_ds.nbytes/max_size > 1.0:
+            logger.info(f'Splitting {interm_ds.nbytes/1024**3} GB output')
+
             largest_dim = max(interm_ds.dims, key=lambda x: interm_ds.dims[x])
 
             largest_len = len(interm_ds[largest_dim])
 
+            logger.info(f'Found largest dimension {largest_dim} with {largest_len} elements')
+
             required_splits = interm_ds.nbytes / max_size
 
             split_size = math.ceil(largest_len / required_splits)
+
+            logger.info(f'Splitting into {required_splits} parts with {split_size} elements')
 
             datasets = [interm_ds.isel({largest_dim: slice(x, min(largest_len, x+split_size))}) for x in range(0, largest_len, split_size)]
 
@@ -209,12 +217,12 @@ def gather_workflow_outputs(context, interm, operations):
                 bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
 
                 raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
+
+            context.message(f'Split large {interm_ds.nbytes/1024**3} GB file into {required_splits} parts')
         else:
             filename = build_filename(interm_ds, output)
 
             local_path = context.build_output('application/netcdf', filename=filename, var_name=context.variable, name=output_name)
-
-            context.message('Building output for {!r} - {!r}', output.name, output.identifier)
 
             logger.debug('Writing local output to %r', local_path)
 
@@ -231,6 +239,8 @@ def gather_workflow_outputs(context, interm, operations):
                 bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
 
                 raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
+
+            context.message(f'Setting output filename {filename}')
 
     return delayed
 
@@ -538,10 +548,15 @@ def open_dataset(context, url, var_name, chunks, decode_times=True):
     """
     logger.info('Opening dataset %r', url)
 
-    if not check_access(url):
-        ds = open_protected_dataset(context, url, var_name, chunks, decode_times)
-    else:
-        ds = xr.open_dataset(url, engine='netcdf4', chunks=chunks, decode_times=decode_times)
+    parts = parse.urlparse(url)
+
+    metrics.TASK_DATA_ACCESS.labels(parts.netloc).inc()
+
+    with metrics.TASK_DATA_ACCESS_FAILURE.labels(parts.netloc).count_exceptions():
+        if not check_access(url):
+            ds = open_protected_dataset(context, url, var_name, chunks, decode_times)
+        else:
+            ds = xr.open_dataset(url, engine='netcdf4', chunks=chunks, decode_times=decode_times)
 
     return ds
 
@@ -598,7 +613,7 @@ def build_workflow(context):
 
     # Should have already been sorted
     for next in context.sorted:
-        is_input = False
+        metrics.TASK_PROCESS_USED.labels(next.identifier).inc()
 
         p_id = f'{next.identifier!s} ({next.name!s})'
 
@@ -606,10 +621,6 @@ def build_workflow(context):
 
         if all(isinstance(x, cwt.Variable) for x in next.inputs):
             inputs = gather_inputs(context, next)
-
-            context.track_src_bytes(sum(x.nbytes for x in inputs))
-
-            is_input = True
         else:
             try:
                 inputs = [interm[x.name] for x in next.inputs]
@@ -626,6 +637,8 @@ def build_workflow(context):
 
         context.message(f'Building process {p_id!s}')
 
+        metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(x.nbytes for x in inputs))
+
         if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
             interm[next.name] = process._process_func(context, next, *inputs, **params)
         else:
@@ -633,32 +646,9 @@ def build_workflow(context):
 
             interm[next.name] = process._process_func(context, next, *inputs, **params)
 
-        if is_input:
-            context.track_in_bytes(interm[next.name].nbytes)
+        metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(interm[next.name].nbytes)
 
     return interm
-
-
-def execute_delayed(context, delayed, client=None):
-    """ Executes a list of Dask delayed functions.
-
-    The list of Dask delayed functions are executed locally unless a client is defined. When a
-    client is passed the delays are execute and futures are returned, these are then tracked
-    using ``DaskTaskTracker`` to update the user on the progress of execution. Thise is all wrapped
-    by a `context.ProcessTimer` which times the whole event then updates the metrics.
-
-    Args:
-        context (context.OperationContext): Current context.
-        delayed (list): List of Dask delayed functions.
-        client (dask.distributed.Client): Client to execute the Dask delays.
-    """
-    with ctx.ProcessTimer(context):
-        if client is None:
-            dask.compute(delayed)
-        else:
-            fut = client.compute(delayed)
-
-            DaskTaskTracker(context, fut)
 
 
 def process_subset(context, operation, *input, method=None, rename=None, fillna=None, **kwargs):
@@ -1026,7 +1016,8 @@ def workflow(self, context):
     Returns:
         The input context for the next Celery task.
     """
-    interm = build_workflow(context)
+    with metrics.TASK_BUILD_WORKFLOW_DURATION.time():
+        interm = build_workflow(context)
 
     context.message('Preparing to execute workflow')
 
@@ -1040,22 +1031,30 @@ def workflow(self, context):
 
         delayed.extend(gather_workflow_outputs(context, interm, context.output_ops()))
 
-        # TODO possibly re-enable after solving slow large outputs. Also should move
-        # this to individual processes.
-        # if 'store_intermediates' in context.gparameters:
-        #     delayed.extend(gather_workflow_outputs(context, interm, context.interm_ops()))
-
         context.message('Gathered {!s} outputs', len(delayed))
 
-        execute_delayed(context, delayed, client)
+        with metrics.TASK_EXECUTE_WORKFLOW_DURATION.time():
+            fut = client.compute(delayed)
+
+            DaskTaskTracker(context, fut)
     except DaskTimeoutError:
+        metrics.TASK_WORKFLOW_FAILURE.inc()
+
         client.cancel(delayed)
 
         raise
     except WPSError:
+        metrics.TASK_WORKFLOW_FAILURE.inc()
+
         raise
     except Exception as e:
+        metrics.TASK_WORKFLOW_FAILURE.inc()
+
         raise WPSError('Error executing process: {!r}', e)
+    else:
+        metrics.TASK_WORKFLOW_SUCCESS.inc()
+
+    metrics.push(context.job)
 
     return context
 

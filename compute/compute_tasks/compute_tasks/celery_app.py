@@ -142,4 +142,3 @@ app.conf.update({
 
 app.autodiscover_tasks(['compute_tasks'], related_name='cdat', force=True)
 app.autodiscover_tasks(['compute_tasks'], related_name='job', force=True)
-app.autodiscover_tasks(['compute_tasks'], related_name='metrics_', force=True)
