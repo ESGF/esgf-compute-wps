@@ -25,6 +25,7 @@ requirements:
     - redis-py=3.2.1
     - python-kubernetes=9.0.0
     - jinja2
+    - prometheus_client
 
 test:
   imports:

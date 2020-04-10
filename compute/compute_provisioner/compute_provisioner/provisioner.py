@@ -16,8 +16,10 @@ from jinja2 import DebugUndefined
 from jinja2 import Template
 from kubernetes import client
 from kubernetes import config
+from prometheus_client import start_http_server
 
 from compute_provisioner import constants
+from compute_provisioner import metrics
 
 logger = logging.getLogger('provisioner')
 
@@ -269,7 +271,8 @@ class Worker(object):
     def on_event(self, address, *frames):
         old_state = str(self.state)
 
-        self.state = self.state.on_event(address, *frames)
+        with metrics.PROVISIONER_STATE_PROCESS_DURATION.labels(old_state).time():
+            self.state = self.state.on_event(address, *frames)
 
         logger.info(f'Worker {address!r} transition from {old_state!s} to {self.state!s}')
 
@@ -422,10 +425,15 @@ class Provisioner(threading.Thread, RedisQueue):
         try:
             self.queue_job(version, frames)
         except redis.lock.LockError:
+            metrics.PROVISIONER_QUEUE_ERROR.inc()
+
             response = address + [constants.ERR]
 
             logger.info('Error aquiring redis lock')
         else:
+            metrics.PROVISIONER_QUEUE.inc()
+            metrics.PROVISIONER_QUEUED.inc()
+
             response = address + [constants.ACK]
 
             logger.info('Successfully queued job')
@@ -497,6 +505,8 @@ class Provisioner(threading.Thread, RedisQueue):
 
                         self.requeue_job(worker.version, json_enceder(frames[2:]))
                     else:
+                        metrics.PROVISIONER_QUEUE.dec()
+
                         worker.frames = raw_frames
 
                         self.running[address] = worker
@@ -590,12 +600,19 @@ def main():
 
     logging.basicConfig(level=args.log_level)
 
+    start_http_server(8888, '0.0.0.0', registry=metrics.registry)
+
+    logger.info('Started metrics server')
+
     provisioner = Provisioner(**vars(args))
 
     provisioner.start()
 
+    logger.info('Started provisioner')
+
     provisioner.join()
 
+    logger.info('Thread exited')
 
 if __name__ == '__main__':
     main()
