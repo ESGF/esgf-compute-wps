@@ -647,7 +647,7 @@ def build_workflow(context):
 
         context.message(f'Building process {p_id!s}')
 
-        metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(input_bytes(x) for x in inputs))
+        metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(input_nbytes(x) for x in inputs))
 
         if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
             interm[next.name] = process._process_func(context, next, *inputs, **params)
@@ -656,7 +656,7 @@ def build_workflow(context):
 
             interm[next.name] = process._process_func(context, next, *inputs, **params)
 
-        metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(input_bytes(interm[next.name]))
+        metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(input_nbytes(interm[next.name]))
 
     return interm
 
