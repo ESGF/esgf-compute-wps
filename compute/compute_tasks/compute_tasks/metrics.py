@@ -32,7 +32,7 @@ TASK_DATA_ACCESS_FAILURE = Counter('task_data_access_failure_total', 'Number of 
 
 def push(job):
     try:
-        push_to_gateway(PROMETHEUS_PUSHGATEWAY_HOST, job=job, registry=task_registry)
+        push_to_gateway(PROMETHEUS_PUSHGATEWAY_HOST, job=str(job), registry=task_registry)
     except error.URLError:
         logger.error(f'Failed to push metrics to {PROMETHEUS_PUSHGATEWAY_HOST}')
 
