@@ -597,6 +597,16 @@ def gather_inputs(context, process):
     return datasets
 
 
+def input_nbytes(input):
+    if isinstance(input, xr.core.groupby.DatasetGroupBy):
+        nbytes = sum(y.nbytes for x, y in input)
+    elif isinstance(input, xr.Dataset):
+        nbytes = input.nbytes
+    else:
+        raise WPSError(f'Could not determine nbytes for {type(input)}')
+
+    return nbytes
+
 def build_workflow(context):
     """ Builds a workflow.
 
@@ -637,7 +647,7 @@ def build_workflow(context):
 
         context.message(f'Building process {p_id!s}')
 
-        metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(x.nbytes for x in inputs))
+        metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(input_bytes(x) for x in inputs))
 
         if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
             interm[next.name] = process._process_func(context, next, *inputs, **params)
@@ -646,7 +656,7 @@ def build_workflow(context):
 
             interm[next.name] = process._process_func(context, next, *inputs, **params)
 
-        metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(interm[next.name].nbytes)
+        metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(input_bytes(interm[next.name]))
 
     return interm
 
