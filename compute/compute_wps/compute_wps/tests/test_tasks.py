@@ -1,95 +1,166 @@
 import datetime
+import logging
+import os
+import random
 import re
 
+import pytest
 from unittest import mock
 from django import test
+from django.conf import settings
+from django.db.models import aggregates
 from django.utils import timezone
 
 from compute_wps import models
 from compute_wps import tasks
 
 
-class TasksTestCase(test.TestCase):
-    def setUp(self):
-        self.user1 = models.User.objects.create(username='test1', email='test1@site.org',
-                                                first_name="John", last_name="Smith")
+logger = logging.getLogger(__name__)
 
-        self.user2 = models.User.objects.create(username='test2', email='test2@site.org',
-                                                first_name="Jennifer", last_name="Lawrence")
 
-        now = timezone.now()
+@pytest.fixture
+def db_users(db):
+    users = []
 
-        for x in range(64):
-            expired = True if x > 32 and x < 55 else False
+    for x in range(4):
+        kwargs = {
+                'username': f'user-{x}',
+                'email': f'user{x}@compute.io',
+                'first_name': f'first_name_{x}',
+                'last_name': f'last_name_{x}',
+                }
 
-            job = models.Job.objects.create(user=self.user1, expired=expired)
+        users.append(models.User.objects.create(**kwargs))
 
-            job.output.create(path='/test/user-{!s}/job-{!s}/test.nc'.format(self.user1.id, job.id))
+    return users
 
-            status = job.status.create(status=models.ProcessStarted)
+@pytest.fixture
+def db_jobs(db, db_users):
+    jobs = []
 
-            status.updated_date = now - datetime.timedelta(days=x)
+    now = timezone.now()
 
-            status.save()
+    for x in range(16):
+        u = random.choice(db_users)
 
-            if x < 32:
-                expired = True if x > 30 else False
+        expired = random.choice([True, False])
 
-                job = models.Job.objects.create(user=self.user2, expired=expired)
+        if expired:
+            marked = random.choice([True, False])
+        else:
+            marked = False
 
-                job.output.create(path='/test/user-{!s}/job-{!s}/test.nc'.format(self.user2.id, job.id))
+        job = models.Job.objects.create(user=u, expired=marked)
 
-                status = job.status.create(status=models.ProcessStarted)
+        for x in range(random.randint(1, 4)):
+            job.output.create(path=f'/test/{u.id}/{job.id}/test-{x}.nc')
 
-                status.updated_date = now - datetime.timedelta(days=x)
+        jobs.append(job)
 
-                status.save()
+        if expired:
+            updated_date = now - datetime.timedelta(30)
+        else:
+            updated_date = now
 
-    @mock.patch('compute_wps.tasks.mail')
-    def test_warn_expired_jobs(self, mock_mail):
-        models.Job.objects.all().update(expired=False)
+        s = job.status.create(status=models.ProcessStarted)
 
-        mock_mail.send_mail.return_value = 1
+        s.updated_date = updated_date
 
-        tasks.check_expired_jobs()
+        s.save()
 
-        mock_mail.send_mail.assert_called()
+    return db_users, jobs
 
-        self.assertEqual(mock_mail.send_mail.call_count, 2)
 
-        jobs = models.Job.objects.all()
+def test_remove_expired_jobs(mocker, db_jobs):
+    expired = models.Job.objects.filter(expired=True)
 
-        self.assertEqual(len(jobs), 96)
+    remove_count = sum(len(x.output.all()) for x in expired)
 
-        expired = models.Job.objects.filter(expired=True)
+    remove = mocker.patch('compute_wps.signals.os.remove')
 
-        self.assertEqual(len(expired), 56)
+    output = tasks.remove_expired_jobs()
 
-        user1_msg = mock_mail.send_mail.call_args_list[0][1]['html_message']
+    assert output == expired.count()
+    assert remove.call_count == remove_count
 
-        self.assertIn(self.user1.get_full_name(), user1_msg)
+def test_notify_users(mocker, db_jobs):
+    send_mail = mocker.patch('compute_wps.tasks.mail.send_mail')
 
-        self.assertEqual(len(re.findall('<li><a href=".*">.*</a></li>', user1_msg)), 44)
+    send_mail.side_effect = [1, 1, 1]
 
-        user2_msg = mock_mail.send_mail.call_args_list[1][1]['html_message']
+    mocker.patch.dict(os.environ, {
+        'JOB_EXPIRATION': '30',
+        'JOB_EXPIRATION_WARN': '10',
+        })
 
-        self.assertIn(self.user2.get_full_name(), user2_msg)
+    now = datetime.datetime(2020, 4, 15)
 
-        self.assertEqual(len(re.findall('<li><a href=".*">.*</a></li>', user2_msg)), 12)
+    mocker.patch('compute_wps.tasks.timezone.now', return_value=now)
 
-    def test_remove_expired_jobs_set_to_expire(self):
-        tasks.remove_expired_jobs()
+    expired = models.Job.objects.annotate(
+            updated_date=aggregates.Max('status__updated_date')).filter(
+                    updated_date__lte=now-datetime.timedelta(20), expired=False)
 
-        jobs = models.Job.objects.all()
+    groups = tasks.group_by_user(expired)
 
-        self.assertEqual(len(jobs), 73)
+    test = list(groups.items())[0]
 
-    def test_remove_expired_jobs(self):
-        # Reset all jobs to unexpired
-        models.Job.objects.all().update(expired=False)
+    html = tasks.TEMPLATE.render(**test[1])
 
-        tasks.remove_expired_jobs()
+    tasks.notify_users(groups)
 
-        jobs = models.Job.objects.all()
+    send_mail.assert_any_call('LLNL ESGF Compute', html, settings.ADMIN_EMAIL, [test[0],], html_message=html)
 
-        self.assertEqual(len(jobs), 96)
+    expired = models.Job.objects.annotate(
+            updated_date=aggregates.Max('status__updated_date')).filter(
+                    updated_date__lte=timezone.now()-datetime.timedelta(20), expired=False)
+
+    assert expired.count() == 0
+
+def test_group_by_user(mocker, db_jobs):
+    mocker.patch.dict(os.environ, {
+        'JOB_EXPIRATION': '30',
+        'JOB_EXPIRATION_WARN': '10',
+        })
+
+    expired = models.Job.objects.annotate(
+            updated_date=aggregates.Max('status__updated_date')).filter(
+                    updated_date__lte=timezone.now()-datetime.timedelta(20), expired=False)
+
+    groups = tasks.group_by_user(expired)
+
+    assert len(groups) == len(set(x.user.id for x in expired))
+
+def test_gather_expired_jobs(mocker, db_jobs):
+    mocker.patch.dict(os.environ, {
+        'JOB_EXPIRATION': '30',
+        'JOB_EXPIRATION_WARN': '10',
+        })
+
+    expected = models.Job.objects.annotate(
+            updated_date=aggregates.Max('status__updated_date')).filter(
+                    updated_date__lte=timezone.now()-datetime.timedelta(20), expired=False)
+
+    expired = tasks.gather_expired_jobs()
+
+    assert expired.count() == expected.count()
+    assert all([x == False for x in expired.values_list('expired', flat=True)])
+
+def test_setup_period_tasks(mocker):
+    sender = mocker.MagicMock()
+
+    tasks.setup_periodic_tasks(sender)
+
+    sender.add_periodic_task.assert_called()
+
+def test_filename():
+    output = tasks.filename('/test/data.nc')
+
+    assert output == 'data.nc'
+
+def test_datetime_format():
+    input = datetime.datetime(1990, 12, 12)
+
+    output = tasks.datetime_format(input)
+
+    assert output == 'Wednesday, 12 Dec 90'

@@ -7,14 +7,19 @@
 
     The following outputs from LLNL's Compute service will expire in {{ days_until_expire }} days on {{ expiration_date|datetime }}.
 
+
+    {%- for job in jobs %}
+    <h4>Job {{ job.id }}</h4>
     <ul>
-    {%- for path in files %}
-      <li><a href="{{ path }}">{{ path|filename }}</a></li>
+    {%- for x in job.output.order_by('path') %}
+      <li><a href="{{ x.path }}">{{ x.path|filename }}</a></li>
     {%- endfor %}
     </ul>
+    {%- endfor %}
 
     Please save a copy of these files before {{ expiration_date|datetime }}, after this date they will be permanently removed.
 
-    Thank you
+    Thank you,
+    LLNL ESGF Compute Team
   </body>
 </html>

@@ -20,9 +20,7 @@ def int_or_str(value):
         return value
 
 
-CRONTAB_HOUR = int_or_str(os.environ.get('CRONTAB_HOUR', 23))
-
-CRONTAB_MINUTE = int_or_str(os.environ.get('CRONTAB_MINUTE', 0))
+logger = get_task_logger(__name__)
 
 # Number of days before a job will expire
 EXPIRE = float(os.environ.get('JOB_EXPIRATION', 30))
@@ -30,22 +28,14 @@ EXPIRE = float(os.environ.get('JOB_EXPIRATION', 30))
 # Number of days before a job will expire to warn user
 WARN = float(os.environ.get('JOB_EXPIRATION_WARN', 10))
 
-EXPIRE_DELTA = datetime.timedelta(days=EXPIRE)
-
-WARN_DELTA = datetime.timedelta(days=EXPIRE-WARN)
-
-EXPIRATION_DELTA = datetime.timedelta(days=WARN)
-
-env = Environment(loader=PackageLoader('compute_wps', 'templates'))
-
-logger = get_task_logger('tasks')
-
 app = Celery('compute_wps')
 
 # Setup the task routing
 app.conf.task_routes = {
     'compute_wps.tasks.*': {
         'queue': 'periodic',
+        'exchange': 'periodic',
+        'routing_key': 'periodic',
     },
 }
 
@@ -66,70 +56,90 @@ def filename(value):
     return value.split('/')[-1]
 
 
-env.filters['datetime'] = datetime_format
-env.filters['filename'] = filename
+ENV = Environment(loader=PackageLoader('compute_wps', 'templates'))
+
+ENV.filters['datetime'] = datetime_format
+ENV.filters['filename'] = filename
+
+TEMPLATE = ENV.get_template('warn_expiration_email.html')
 
 
 @app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(crontab(hour=CRONTAB_HOUR, minute=CRONTAB_MINUTE),
-                             check_expired_jobs.s() | remove_expired_jobs.s())
+    CRONTAB_HOUR = int_or_str(os.environ.get('CRONTAB_HOUR', 23))
+
+    CRONTAB_MINUTE = int_or_str(os.environ.get('CRONTAB_MINUTE', 0))
+
+    check_task = check_expired_jobs.s()
+
+    sender.add_periodic_task(crontab(hour=CRONTAB_HOUR, minute=CRONTAB_MINUTE), check_task)
+
+    remove_task = remove_expired_jobs.s()
+
+    sender.add_periodic_task(crontab(hour=CRONTAB_HOUR, minute=CRONTAB_MINUTE), remove_task)
+
+
+def gather_expired_jobs():
+    warn_date = timezone.now() - datetime.timedelta(EXPIRE-WARN)
+
+    annotated = models.Job.objects.annotate(updated_date=aggregates.Max('status__updated_date'))
+
+    expired = annotated.filter(updated_date__lte=warn_date, expired=False)
+
+    logger.info(f'Found {expired.count()} jobs that completed before {warn_date}')
+
+    return expired
+
+
+def group_by_user(expired):
+    group_by_user = {}
+
+    for x in expired:
+        if x.user.email not in group_by_user:
+            group_by_user[x.user.email] = {
+                'user': x.user,
+                'days_until_expire': WARN,
+                'expiration_date': timezone.now() + datetime.timedelta(WARN),
+                'jobs': expired.filter(user=x.user),
+            }
+
+    logger.info(f'Grouped expired jobs into {len(group_by_user)} groups')
+
+    return group_by_user
+
+
+def notify_users(groups):
+    logger.info('Sending user emails with expiring files')
+
+    for email, data in groups.items():
+        html_message = TEMPLATE.render(**data)
+
+        sent = mail.send_mail('LLNL ESGF Compute', html_message, settings.ADMIN_EMAIL, [email], html_message=html_message)
+
+        # If we have successfully delivered email mark jobs for expiration
+        if sent == 1:
+            result = data['jobs'].update(expired=True)
+
+            logger.info(f'Successfully sent user email, marked {result} jobs as expired')
+        else:
+            job_ids = ', '.join(x.id for x in data['jobs'])
+
+            logger.error(f'Failed sending expire notification for jobs, {job_ids}')
 
 
 @app.task
 def check_expired_jobs():
-    warn_date = timezone.now() - WARN_DELTA
+    expired = gather_expired_jobs()
 
-    logger.info('Checking for jobs started before %s and not expired', warn_date)
+    groups = group_by_user(expired)
 
-    annotated = models.Job.objects.annotate(updated_date=aggregates.Max('status__updated_date'))
-
-    almost = annotated.filter(updated_date__lte=warn_date, expired=False)
-
-    logger.info('Found %r jobs that will expire in %r days', almost.count(), WARN)
-
-    group_by_user = {}
-
-    for x in almost:
-        if x.user.email in group_by_user:
-            group_by_user[x.user.email]['files'].extend([y.path for y in x.output.all()])
-        else:
-            group_by_user[x.user.email] = {
-                'user': x.user,
-                'days_until_expire': WARN,
-                'expiration_date': timezone.now() + WARN_DELTA,
-                'files': [y.path for y in x.output.all()],
-            }
-
-    logger.info('Grouped expired jobs by %r users', len(group_by_user))
-
-    for x, y in group_by_user.items():
-        group_by_user[x]['jobs'] = almost.filter(user=y['user'])
-
-    template = env.get_template('warn_expiration_email.html')
-
-    logger.info('Sending user emails with expiring files')
-
-    for x in group_by_user.values():
-        html_message = template.render(**x)
-
-        user = x['user']
-
-        sent = mail.send_mail('LLNL ESGF Compute', html_message, settings.ADMIN_EMAIL, [user.email],
-                              html_message=html_message)
-
-        # If we have successfully delivered email mark jobs for expiration
-        if sent == 1:
-            result = x['jobs'].update(expired=True)
-
-            logger.info('Successfully sent user email and marked %r jobs as expired', result)
-        else:
-            logger.info('Failed sending user email, not expiring jobs')
-
+    notify_users(groups)
 
 @app.task
 def remove_expired_jobs():
-    expired_date = timezone.now() - EXPIRE_DELTA
+    """ Removes expird jobs.
+    """
+    expired_date = timezone.now() - datetime.timedelta(EXPIRE)
 
     logger.info('Removing jobs started before %s and expired', expired_date)
 
@@ -138,3 +148,5 @@ def remove_expired_jobs():
     result = annotated.filter(updated_date__lte=expired_date, expired=True).delete()
 
     logger.info('Removed %r jobs that had that expired', result[1].get('compute_wps.Job', 0))
+
+    return result[1].get('compute_wps.Job')
