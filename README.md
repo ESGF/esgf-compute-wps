@@ -21,6 +21,10 @@ These commands will build the production stage of the containers. A buildkit con
 * Provisioner `make build-provisioner`
 * THREDDS `make build-thredds`
 
+# Provenance
+
+Information about provenance can be found [here](PROVENANCE.md)
+
 # Testing
 
 These commands will build the testing stage of the containers. The unittest results and coverage reports will be located in the `/testing` directory.
