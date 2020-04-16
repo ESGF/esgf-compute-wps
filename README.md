@@ -32,11 +32,6 @@ These commands will build the testing stage of the containers. The unittest resu
 * WPS `make build-wps TARGET=testing`
 * Tasks `make build-wps TARGET=testing`
 
-The following commands will run the containers, mount the local source and open a shell.
-
-* WPS `make run-wps`
-* Tasks `make run-tasks`
-
 # Installation
 
 The deployment instructions and Helm chart can be found at [esgf-compute/charts](https://github.com/esgf-compute/charts).
