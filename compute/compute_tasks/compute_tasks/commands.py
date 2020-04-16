@@ -17,7 +17,7 @@ def get_arguments():
 
     parser.add_argument('identifier', type=str)
 
-    parser.add_argument('--output-path', type=str, default=None)
+    parser.add_argument('--output-path', type=str, default='/data')
 
     parser.add_argument('--workers', type=int, default=2)
 
