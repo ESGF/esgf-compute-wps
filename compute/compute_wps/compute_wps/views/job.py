@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import DjangoModelPermissions
 from rest_framework.exceptions import APIException
 
-from compute_wps import metrics
+# from compute_wps import metrics
 from compute_wps import models
 from compute_wps import serializers
 from compute_wps.auth import token_authentication
@@ -208,12 +208,12 @@ class InternalJobStatusViewSet(mixins.CreateModelMixin,
         except db.IntegrityError:
             raise APIException('Status {!r} already exists for job {!r}'.format(request.data['status'], job.id))
 
-        if request.data['status'] == 'ProcessStarted':
-            metrics.WPS_JOBS_STARTED.inc()
-        elif request.data['status'] == 'ProcessSucceeded':
-            metrics.WPS_JOBS_SUCCEEDED.inc()
-        elif request.data['status'] == 'ProcessFailed':
-            metrics.WPS_JOBS_FAILED.inc()
+        # if request.data['status'] == 'ProcessStarted':
+        #     metrics.WPS_JOBS_STARTED.inc()
+        # elif request.data['status'] == 'ProcessSucceeded':
+        #     metrics.WPS_JOBS_SUCCEEDED.inc()
+        # elif request.data['status'] == 'ProcessFailed':
+        #     metrics.WPS_JOBS_FAILED.inc()
 
         return Response(status_serializer.data, status=201)
 

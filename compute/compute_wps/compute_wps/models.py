@@ -425,7 +425,7 @@ class Job(models.Model):
         except IntegrityError:
             logger.error('Failed status already exists')
         else:
-            metrics.WPS_JOBS_FAILED.inc()
+            metrics.WPS_JOB_STATE.label(ProcessFailed).inc()
 
 
 class Output(models.Model):

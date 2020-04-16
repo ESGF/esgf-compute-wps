@@ -149,6 +149,8 @@ def handle_execute(meta, identifier, data_inputs):
 
     status_id = job.accepted()
 
+    metrics.WPS_JOB_STATE.labels(models.ProcessAccepted).inc()
+
     try:
         send_request_provisioner(identifier, data_inputs, job.id, user.id, process.id, status_id)
     except WPSError as e:
