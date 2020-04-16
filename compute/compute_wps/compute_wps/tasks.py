@@ -78,6 +78,10 @@ def setup_periodic_tasks(sender, **kwargs):
 
     sender.add_periodic_task(crontab(hour=CRONTAB_HOUR, minute=CRONTAB_MINUTE), remove_task)
 
+    rogue_task = remove_rogue_files.s()
+
+    sender.add_periodic_task(crontab(hour=CRONTAB_HOUR, minute=CRONTAB_MINUTE), rogue_task)
+
 
 def gather_expired_jobs():
     warn_date = timezone.now() - datetime.timedelta(EXPIRE-WARN)
@@ -109,12 +113,20 @@ def group_by_user(expired):
 
 
 def notify_users(groups):
-    logger.info('Sending user emails with expiring files')
+    logger.info('Sending job expiration notices')
 
     for email, data in groups.items():
         html_message = TEMPLATE.render(**data)
 
-        sent = mail.send_mail('LLNL ESGF Compute', html_message, settings.ADMIN_EMAIL, [email], html_message=html_message)
+        logger.info(f'Notifying user {data["user"].id} of {len(data["jobs"])} expiring jobs')
+
+        try:
+            sent = mail.send_mail('LLNL ESGF Compute', html_message, settings.ADMIN_EMAIL, [email], html_message=html_message)
+        except Exception:
+            logger.info(f'Failed to send notification to user {data["user"].id}')
+
+            # If we fail to send mail then we'll delay removing the files.
+            continue
 
         # If we have successfully delivered email mark jobs for expiration
         if sent == 1:
@@ -126,14 +138,28 @@ def notify_users(groups):
 
             logger.error(f'Failed sending expire notification for jobs, {job_ids}')
 
+def list_files(path):
+    output = []
+
+    for path, dir, files in os.walk(path):
+        # At bottom of current path, build file list.
+        if len(files) > 0:
+            for x in files:
+                output.append(os.path.join(path, x))
+
+    return output
 
 @app.task
-def check_expired_jobs():
-    expired = gather_expired_jobs()
+def remove_rogue_files():
+    files = list_files(os.environ.get('DATA_PATH', '/data'))
 
-    groups = group_by_user(expired)
+    logger.info(f'Checking {len(files)} files for invalid entries')
 
-    notify_users(groups)
+    for x in files:
+        if not models.Output.objects.filter(path=x).exists():
+            logger.info(f'Removing {x}, not linked to an output')
+
+            os.remove(x)
 
 @app.task
 def remove_expired_jobs():
@@ -150,3 +176,11 @@ def remove_expired_jobs():
     logger.info('Removed %r jobs that had that expired', result[1].get('compute_wps.Job', 0))
 
     return result[1].get('compute_wps.Job')
+
+@app.task
+def check_expired_jobs():
+    expired = gather_expired_jobs()
+
+    groups = group_by_user(expired)
+
+    notify_users(groups)

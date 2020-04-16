@@ -17,9 +17,7 @@ from compute_wps import tasks
 
 logger = logging.getLogger(__name__)
 
-
-@pytest.fixture
-def db_users(db):
+def _create_users():
     users = []
 
     for x in range(4):
@@ -34,14 +32,13 @@ def db_users(db):
 
     return users
 
-@pytest.fixture
-def db_jobs(db, db_users):
+def _create_jobs(users):
     jobs = []
 
     now = timezone.now()
 
     for x in range(16):
-        u = random.choice(db_users)
+        u = random.choice(users)
 
         expired = random.choice([True, False])
 
@@ -68,8 +65,39 @@ def db_jobs(db, db_users):
 
         s.save()
 
+    return jobs
+
+@pytest.fixture
+def db_users(db):
+    return _create_users()
+
+@pytest.fixture
+def db_jobs(db, db_users):
+    jobs = _create_jobs(db_users)
+
     return db_users, jobs
 
+def test_remove_rogue_files(mocker, db_jobs):
+    files = models.Output.objects.all().values_list('path', flat=True)
+
+    remove = mocker.patch('compute_wps.tasks.os.remove')
+
+    list_files = mocker.patch('compute_wps.tasks.list_files')
+
+    expected_files = [
+        '/data/test1.nc',
+        '/data/test2.nc',
+        '/data/test3.nc',
+        '/data/test4.nc',
+    ]
+
+    list_files.return_value = expected_files
+
+    tasks.remove_rogue_files()
+
+    remove.assert_called()
+
+    assert remove.call_count == len(expected_files)
 
 def test_remove_expired_jobs(mocker, db_jobs):
     expired = models.Job.objects.filter(expired=True)
