@@ -9,6 +9,7 @@ import zmq
 from cwt import utilities
 from django import http
 from django.conf import settings
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from owslib import wps
 
@@ -268,8 +269,8 @@ def handle_request(request):
     elif request.method == 'POST':
         return handle_post(request.body, request.META)
 
-
 @require_http_methods(['GET', 'POST'])
+@ensure_csrf_cookie
 def wps_entrypoint(request):
     response = None
 

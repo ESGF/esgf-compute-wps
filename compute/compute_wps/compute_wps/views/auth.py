@@ -8,7 +8,9 @@ from django.core.mail import EmailMessage
 from django.contrib.auth import login
 from django.contrib.auth import logout
 from django.db import IntegrityError
+from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from openid.consumer import discover
 from myproxy.client import MyProxyClient
@@ -179,9 +181,13 @@ def authorization(request):
     return http.HttpResponse()
 
 
-@require_http_methods(['POST'])
+@require_http_methods(['GET', 'POST'])
+@ensure_csrf_cookie
 def user_login_openid(request):
     try:
+        if request.method == 'GET':
+            return HttpResponse()
+
         form = forms.OpenIDForm(request.POST)
 
         data = common.validate_form(form, ('openid_url', 'next', 'response'))
@@ -283,9 +289,13 @@ def user_logout(request):
         return common.success('Logged out')
 
 
-@require_http_methods(['POST'])
+@require_http_methods(['GET', 'POST'])
+@ensure_csrf_cookie
 def login_oauth2(request):
     try:
+        if request.method == 'GET':
+            return HttpResponse()
+
         common.authentication_required(request)
 
         logger.info('OAuth2 authorization for {!s}'.format(request.user.auth.openid_url))
@@ -388,9 +398,13 @@ def user_cert(request):
         return response
 
 
-@require_http_methods(['POST'])
+@require_http_methods(['GET', 'POST'])
+@ensure_csrf_cookie
 def login_mpc(request):
     try:
+        if request.method == 'GET':
+            return HttpResponse()
+
         common.authentication_required(request)
 
         form = forms.MPCForm(request.POST)

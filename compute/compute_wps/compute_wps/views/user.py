@@ -1,6 +1,8 @@
 from builtins import str
 import json
 
+from django.http import HttpResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from . import common
@@ -45,9 +47,13 @@ def user_stats(request):
         return common.success(data)
 
 
-@require_http_methods(['POST'])
+@require_http_methods(['GET', 'POST'])
+@ensure_csrf_cookie
 def update(request):
     try:
+        if request.method == 'GET':
+            return HttpResponse()
+
         common.authentication_required(request)
 
         form = forms.UpdateForm(request.POST)
