@@ -35,7 +35,7 @@ def _create_users():
 def _create_jobs(users):
     jobs = []
 
-    now = timezone.now()
+    now = datetime.datetime(2020, 4, 15)
 
     for x in range(16):
         u = random.choice(users)
