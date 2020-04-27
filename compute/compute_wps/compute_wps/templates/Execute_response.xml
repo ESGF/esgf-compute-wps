@@ -27,21 +27,21 @@
       <ows:Identifier>variable</ows:Identifier>
 			<ows:Title>variable</ows:Title>
       <wps:Data>
-        <wps:ComplexData mimeType="application/json">{{ variable }}</wps:ComplexData>
+        <wps:ComplexData mimeType="application/json">{{ variable|escape }}</wps:ComplexData>
       </wps:Data>
 		</wps:Input>
 		<wps:Input>
       <ows:Identifier>domain</ows:Identifier>
 			<ows:Title>domain</ows:Title>
       <wps:Data>
-        <wps:ComplexData mimeType="application/json">{{ domain }}</wps:ComplexData>
+        <wps:ComplexData mimeType="application/json">{{ domain|escape }}</wps:ComplexData>
       </wps:Data>
 		</wps:Input>
 		<wps:Input>
       <ows:Identifier>operation</ows:Identifier>
 			<ows:Title>operation</ows:Title>
       <wps:Data>
-        <wps:ComplexData mimeType="application/json">{{ operation }}</wps:ComplexData>
+        <wps:ComplexData mimeType="application/json">{{ operation|escape }}</wps:ComplexData>
       </wps:Data>
 		</wps:Input>
 	</wps:DataInputs>
