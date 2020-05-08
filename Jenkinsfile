@@ -27,7 +27,9 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make provisioner REGISTRY=${OUTPUT_REGISTRY}
+              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+
+make provisioner REGISTRY=${REGISTRY}
 '''
             }
 
@@ -53,7 +55,9 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make tasks REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
+              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+
+make tasks REGISTRY=${REGISTRY} TARGET=testresult
 '''
               sh '''chown -R 10000:10000 output
 
@@ -88,7 +92,9 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make wps REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
+              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+
+make wps REGISTRY=${REGISTRY} TARGET=testresult
 '''
               sh '''chown -R 10000:10000 output
 
@@ -123,7 +129,9 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make thredds REGISTRY=${OUTPUT_REGISTRY}
+              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+
+make thredds REGISTRY=${REGISTRY}
 '''
             }
 
