@@ -3,7 +3,7 @@
 export
 
 IMAGE := $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE)
-TAG := $(shell git rev-parse --short HEAD)
+TAG := $(or $(if $(shell git rev-parse --abbrev-ref HEAD | grep master),$(shell cat $(DOCKERFILE)/VERSION)),$(shell git rev-parse --short HEAD))
 CACHE := local
 TARGET = production
 CONDA_VERSION = 4.8.2
