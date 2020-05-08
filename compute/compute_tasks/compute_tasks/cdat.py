@@ -945,18 +945,20 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
 
     return output
 
-def validate_pairs(name, param_num, input_num):
-    if param_num % 2 != 0:
-        raise base.ValidationError(f'Parameter {name!r} failed validation, expected pairs of values but got odd number.')
+def validate_pairs(name, values, **kwargs):
+    if len(values) % 2 != 0:
+        raise base.ValidationError(f'Parameter {name!r} failed validation, expected even number of values but got odd number.')
 
     return True
 
-def validate_param(name, param_num, input_nim):
-    if param_num != input_num:
+def validate_param(name, input_num, values, **kwargs):
+    if len(values) != input_num:
         raise base.ValidationError(f'Parameter {name!r} failed validation, expecting the number of values to match the number of inputs')
 
-param_variable = base.build_parameter('variable', 'Target variable for the process.', list, str, min=1, max=float('inf'), validate_func=validate_param)
-param_rename = base.build_parameter('rename', 'List of pairs mapping variable to new name e.g. pr,pr_test will rename pr to pr_test.', list, str, min=2, max=float('inf'), validate_func=validate_pairs)
+param_variable = base.build_parameter('variable', 'Target variable for the process.', list, str,
+        min=1, max=float('inf'), validate_func=validate_param)
+param_rename = base.build_parameter('rename', 'List of pairs mapping variable to new name e.g. '
+        'pr,pr_test will rename pr to pr_test.', list, str, min=2, max=float('inf'), validate_func=validate_pairs)
 param_fillna = base.build_parameter('fillna', 'The number used to replace nan values in output.', float)
 
 DEFAULT_PARAMS = [

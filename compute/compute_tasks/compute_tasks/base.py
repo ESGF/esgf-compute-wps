@@ -103,7 +103,7 @@ class ValidationError(WPSError):
     pass
 
 
-def validate_parameter(param, name, type, subtype, min, max, validate_func, inputs, **kwargs):
+def validate_parameter(param, name, type, subtype, min, max, validate_func, input_num, **kwargs):
     if param is None and min > 0:
         raise ValidationError(f'Parameter {name!r} is required')
 
@@ -112,7 +112,7 @@ def validate_parameter(param, name, type, subtype, min, max, validate_func, inpu
 
         if validate_func is not None:
             try:
-                valid = validate(name, num, inputs)
+                valid = validate(name, input_num=input_num, values=param.values)
 
                 # Handle simple lambda's returning false
                 if not valid:
@@ -154,7 +154,7 @@ def validate(self, context, process, input_var_names):
         p = process.get_parameter(x['name'])
 
         if p is not None:
-            validate_parameter(p, inputs=num, **x)
+            validate_parameter(p, input_num=num, **x)
 
             if x['name'] == 'variable':
                 for y in p.values:
