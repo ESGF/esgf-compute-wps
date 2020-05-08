@@ -138,7 +138,7 @@ def validate_parameter(param, name, type, subtype, min, max, validate_func, inpu
 
 
 def validate(self, context, process, input_var_names):
-    context.message(f'Validating inputs of {process.identifier!s} ({process.name!s})')
+    context.message(f'Validating inputs and parameters of {process.identifier!s} ({process.name!s})')
 
     num = len(process.inputs)
 
@@ -149,8 +149,6 @@ def validate(self, context, process, input_var_names):
             len(input_var_names) > 1 and
             process.identifier == 'CDAT.aggregate'):
         raise ValidationError(f'Expecting the same variable for all inputs to {process.identifier!r}, got {input_var_names!r}')
-
-    context.message(f'Validating parameters of {process.identifier!s} ({process.name!s})')
 
     for x in self._parameters.values():
         p = process.get_parameter(x['name'])
