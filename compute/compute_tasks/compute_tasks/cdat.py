@@ -945,23 +945,6 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
 
     return output
 
-
-WHERE_ABS = """Filters elements based on a condition.
-
-Supported comparisons: >, >=, <, <=, ==, !=
-
-Left hand side should be a variable or axis name and the right can be an int or float.
-
-Examples:
-    lon>180
-    pr>0.000023408767
-"""
-
-
-WORKFLOW_ABS = """This process is used to store global values in workflows. Domain
-and parameters defined here will become the default values on child operations.
-"""
-
 def validate_pairs(name, param_num, input_num):
     if param_num % 2 != 0:
         raise base.ValidationError(f'Parameter {name!r} failed validation, expected pairs of values but got odd number.')
@@ -1011,20 +994,12 @@ param_other = base.parameter('other', 'A value that will be used when `cond` is 
 
 
 @bind_process_func(None)
-@base.abstract(WORKFLOW_ABS)
 @base.register_process('CDAT.workflow', max=float('inf'))
 def workflow(self, context):
-    """ Executes a workflow.
+    """ Holds the ouputs to a complex workflow.
 
-    A Celery task for executing a workflow of processes. The workflow is built then the
-    intermediate and output Dask delayed functions are gathered. These are then executed
-    Dask.
-
-    Args:
-        context (OperationContext): The context containing all information needed to execute process.
-
-    Returns:
-        The input context for the next Celery task.
+    Each input represents a unique output. Domain and parameters defined in the workflow process
+    will act like defaults for each child process.
     """
     with metrics.TASK_BUILD_WORKFLOW_DURATION.time():
         interm = build_workflow(context)
@@ -1071,43 +1046,56 @@ def workflow(self, context):
 
 @bind_process_func(partial(process_dataset, func=lambda x: np.abs(x)))
 @param_defaults()
-@base.abstract('Computes element-wise absolute value.')
 @base.register_process('CDAT.abs')
 def task_abs(self, context):
+    """ Computes elementwise absolute on each variable.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x + y))
 @param_const
 @param_defaults()
-@base.abstract('Adds two variables or a constant element-wise.')
 @base.register_process('CDAT.add', max=2)
 def task_add(self, context):
+    """ Computes an elementwise sum for each variable between an input or constant.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(process_aggregate)
 @param_defaults('variable')
-@base.abstract('Aggregates a variable spanning two or more files.')
 @base.register_process('CDAT.aggregate', min=2, max=float('inf'))
 def task_aggregate(self, context):
+    """ Aggregates a variable spanning multiple input files.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x / y))
 @param_const
 @param_defaults()
-@base.abstract('Divides a variable by another or a constant element-wise.')
 @base.register_process('CDAT.divide', max=2)
 def task_divide(self, context):
+    """ Compute elementwise division between a variable or constant.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset, func=lambda x: np.exp(x)))
 @param_defaults()
-@base.abstract('Computes element-wise exponential value.')
 @base.register_process('CDAT.exp')
 def task_exp(self, context):
+    """ Computes elementwise exponent on each variable.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
@@ -1116,155 +1104,221 @@ def task_exp(self, context):
 @param_other
 @param_cond
 @param_defaults()
-@base.abstract('Applies a where and function using map.')
 @base.register_process('CDAT.filter_map')
 def task_filter_map(self, context):
+    """ Applies a filter and function to a variable defined using the `variable` parameter.
+
+    See `CDAT.where` abstract for details on supported conditions.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset, func=lambda x: np.log(x)))
 @param_defaults()
-@base.abstract('Computes element-wise log value.')
 @base.register_process('CDAT.log')
 def task_log(self, context):
+    """ Computes the elementwise log for each variable.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'max')(dim=y)))
 @param_axes
 @param_defaults()
-@base.abstract('Computes the maximum value over one or more axes.')
 @base.register_process('CDAT.max')
 def task_max(self, context):
+    """ Computes the maximum for each variable over one or more axes.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'mean')(dim=y)))
 @param_axes
 @param_defaults()
-@base.abstract('Computes the mean over one or more axes.')
 @base.register_process('CDAT.mean')
 def task_mean(self, context):
+    """ Computes the mean for each variable over one or more axes.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'min')(dim=y)))
 @param_axes
 @param_defaults()
-@base.abstract('Computes the minimum value over one or more axes.')
 @base.register_process('CDAT.min')
 def task_min(self, context):
+    """ Computes the minimum for each variable over one or more axes.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x * y))
 @param_const
 @param_defaults()
-@base.abstract('Multiplies a variable by another or a constant element-wise.')
 @base.register_process('CDAT.multiply', max=2)
 def task_multiply(self, context):
+    """ Computes the elementwise multi for each variable using a variable or constant.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x ** y))
 @param_const
 @param_defaults()
-@base.abstract('Takes a variable to the power of another variable or a constant element-wise.')
 @base.register_process('CDAT.power')
 def task_power(self, context):
+    """ Computes the elementwise power for each variable using a variable or constant.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(process_subset)
 @base.parameter('method', 'method to apply', str)
 @param_defaults()
-@base.abstract('Computes the subset of a variable defined by a domain.')
 @base.register_process('CDAT.subset')
 def task_subset(self, context):
+    """ Computes the subset of each variable.
+
+    When subsetting by values selection can be controlled with the `method` parameter.
+    Possible values: pad, backfill, nearest
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset_or_const, func=lambda x, y: x - y))
 @param_const
 @param_defaults()
-@base.abstract('Subtracts a variable from another or a constant element-wise.')
 @base.register_process('CDAT.subtract', max=2)
 def task_subtract(self, context):
+    """ Computes the difference between inputs or a constant.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'sum')(dim=y)))
 @param_axes
 @param_defaults()
-@base.abstract('Computes the sum over one or more axes.')
 @base.register_process('CDAT.sum')
 def task_sum(self, context):
+    """ Computes the sum for each variable over one or more axes.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(process_merge)
 @base.parameter('compat', 'Method used to resolve conflicts, defaults to no_conflicts, can be changed to override to bypass checks.', str)
-@base.abstract('Merges variable from second input into first.')
 @base.register_process('CDAT.merge', min=2, max=float('inf'))
 def task_merge(self, context):
-    return workflow(context)
+    """ Merge variables from multiple inputs.
 
+    Use parameter `compat` to control how conflicts are handled.
+    """
+    return workflow(context)
 
 @bind_process_func(process_where)
 @param_cond
 @param_other
 @param_defaults()
-@base.abstract(WHERE_ABS)
 @base.register_process('CDAT.where')
 def task_where(self, context):
-    return workflow(context)
+    """Filters values based on condition.
 
+    Supported comparisons: >, >=, <, <=, ==, !=
+
+    Left hand side should be a variable or axis name and the right can be an int or float.
+
+    Examples:
+        lon>180
+        pr>0.000023408767
+        pr>=prw
+    """
+    return workflow(context)
 
 @bind_process_func(process_groupby_bins)
 @base.parameter('bins', 'A list of bins boundaries. e.g. 0, 10, 20 would create 2 bins (0-10), (10, 20).', list, float, min=1, max=float('inf'))
 @param_defaults('fillna', 'rename')
-@base.abstract('Groups values of a variable into bins.')
 @base.register_process('CDAT.groupby_bins')
 def task_groupby_bins(self, context):
+    """ Groups values of a variable into bins.
+
+    This process is not lazily evaluated and it's processing time will scale with the size of input data.
+
+    If the input to this process contains multiple variables use `variable` to specify which one to use.
+
+    A variable can be grouped based of the values of second variables values, to accomplish this both variables
+    must be present in the input, this can be accomplished by having the variables in the source or by calling
+    `CDAT.merge` with multiple inputs.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset, func=lambda x: getattr(x, 'count')()))
 @param_defaults()
-@base.abstract('Computes count on each variable.')
 @base.register_process('CDAT.count')
 def task_count(self, context):
+    """ Computes count on each variable.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset, func=lambda x: getattr(x, 'squeeze')(drop=True)))
 @param_defaults()
-@base.abstract('Squeezes data, will drop coordinates.')
 @base.register_process('CDAT.squeeze')
 def task_squeeze(self, context):
+    """ Squeezes each variable.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'std')(dim=y)))
 @param_axes
 @param_defaults()
-@base.abstract('Computes the standard deviation over one or more axes.')
 @base.register_process('CDAT.std')
 def task_std(self, context):
+    """ Computes the standard deviation on each variable over one or more axes.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_reduce, func=lambda x, y: getattr(x, 'var')(dim=y)))
 @param_axes
 @param_defaults()
-@base.abstract('Computes the variance over one or more axes.')
 @base.register_process('CDAT.var')
 def task_var(self, context):
+    """ Compute the variance on each variable over one or more axes.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)
 
 
 @bind_process_func(partial(process_dataset, func=lambda x: np.sqrt(x)))
 @param_defaults()
-@base.abstract('Computes the elementwise sqrt for a variable.')
 @base.register_process('CDAT.sqrt')
 def task_sqrt(self, context):
+    """ Compute the elementwise square root on each variable.
+
+    Can be applied to a single variable if the parameter `variable` is used.
+    """
     return workflow(context)

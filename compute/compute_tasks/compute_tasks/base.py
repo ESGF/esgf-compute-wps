@@ -92,7 +92,8 @@ def parameter(name, desc, type, subtype=None, min=0, max=1, validate_func=None):
 
 def abstract(txt):
     def _wrapper(func):
-        func._abstract = txt
+        if func._abstract is None:
+            func._abstract = txt
 
         return func
     return _wrapper
@@ -252,11 +253,17 @@ def register_process(identifier, min=1, max=1, abstract=None, version=None, **me
         def _inner_wrapper(*args, **kwargs):
             return func(*args, **kwargs)
 
+        if func.__doc__ is not None:
+            _abstract = func.__doc__
+        else:
+            _abstract = abstract
+
+        # Setting self using partial
         process = partial(_inner_wrapper, _inner_wrapper)
 
         setattr(process, '_identififer', identifier)
         setattr(process, '_parameters', {})
-        setattr(process, '_abstract', abstract)
+        setattr(process, '_abstract', _abstract)
         setattr(process, '_validate', partial(validate, process))
         setattr(process, '_render_abstract', partial(render_abstract, process))
         setattr(process, '_get_parameters', partial(get_parameters, process))
@@ -271,7 +278,7 @@ def register_process(identifier, min=1, max=1, abstract=None, version=None, **me
         REGISTRY[identifier] = {
             'identifier': identifier,
             'backend': backend,
-            'abstract': abstract or None,
+            'abstract': _abstract or None,
             'metadata': json.dumps(metadata),
             'version': version or 'devel',
         }
