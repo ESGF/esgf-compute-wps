@@ -27,7 +27,9 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make provisioner REGISTRY=${OUTPUT_REGISTRY}
+              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+
+make provisioner REGISTRY=${REGISTRY}
 '''
             }
 
@@ -53,7 +55,9 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make tasks REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
+              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+
+make tasks REGISTRY=${REGISTRY} TARGET=testresult
 '''
               sh '''chown -R 10000:10000 output
 
@@ -88,7 +92,9 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make wps REGISTRY=${OUTPUT_REGISTRY} TARGET=testresult
+              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+
+make wps REGISTRY=${REGISTRY} TARGET=testresult
 '''
               sh '''chown -R 10000:10000 output
 
@@ -123,7 +129,9 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make thredds REGISTRY=${OUTPUT_REGISTRY}
+              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+
+make thredds REGISTRY=${REGISTRY}
 '''
             }
 
@@ -155,6 +163,9 @@ touch output/*'''
           sh '''#! /bin/bash
 
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
+GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+if [[ "${GIT_BRANCH}" == "master" ]]; then FILE="compute/values.yaml"; else FILE="development.yaml"; fi
 
 git clone -b devel https://github.com/esgf-compute/charts
 
@@ -162,22 +173,30 @@ cd charts/
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
 then
-  python scripts/update_config.py compute/values.yaml provisioner ${GIT_COMMIT:0:8}
+  if [[ "${GIT_BRANCH}" == "master" ]]; then TAG=$(cat ../compute/compute_provisioner/VERSION); else TAG=${GIT_COMMIT:0:8}; fi
+
+  python scripts/update_config.py ${FILE} provisioner ${TAG}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
 then
-  python scripts/update_config.py compute/values.yaml wps ${GIT_COMMIT:0:8}
+  if [[ "${GIT_BRANCH}" == "master" ]]; then TAG=$(cat ../compute/compute_wps/VERSION); else TAG=${GIT_COMMIT:0:8}; fi
+
+  python scripts/update_config.py ${FILE} wps ${TAG}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
 then
-  python scripts/update_config.py compute/values.yaml celery ${GIT_COMMIT:0:8}
+  if [[ "${GIT_BRANCH}" == "master" ]]; then TAG=$(cat ../compute/compute_tasks/VERSION); else TAG=${GIT_COMMIT:0:8}; fi
+
+  python scripts/update_config.py ${FILE} celery ${TAG}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
 then
-  python scripts/update_config.py compute/values.yaml thredds ${GIT_COMMIT:0:8}
+  if [[ "${GIT_BRANCH}" == "master" ]]; then TAG=$(cat ../docker/thredds/VERSION); else TAG=${GIT_COMMIT:0:8}; fi
+
+  python scripts/update_config.py ${FILE} thredds ${TAG}
 fi
 
 git config user.email ${GIT_EMAIL}
