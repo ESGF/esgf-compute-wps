@@ -201,7 +201,7 @@ fi
 
 git config user.email ${GIT_EMAIL}
 git config user.name ${GIT_NAME}
-git add compute/values.yaml
+git add ${FILE}
 git status
 git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
