@@ -5,7 +5,7 @@ import pytest
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 
-os.environ['WPS_TOKEN'] = 'ANXnEmQgMOf6XQOqywVhJvuj7kTzmjNxzjEcHAQRlKTaBzfsIZyNs4qCYrW3cA4r'
+os.environ['WPS_TOKEN'] = ''
 
 @pytest.mark.parametrize('notebook', [
     'workflow.ipynb',
