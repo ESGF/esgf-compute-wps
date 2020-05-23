@@ -9,6 +9,7 @@ import os
 import uuid
 from contextlib import contextmanager
 from functools import partial
+from functools import reduce
 from urllib import parse
 from xml.sax.saxutils import escape
 
@@ -18,6 +19,7 @@ import dask
 import dask.array as da
 import metpy  # noqa F401
 import numpy as np
+import pandas as pd
 import requests
 import tempfile
 import xarray as xr
@@ -131,6 +133,31 @@ def clean_output(dataset):
     return dataset
 
 
+def find_most_verbose_time(t1, t2):
+    """ Finds verbose time format.
+
+    Takes two datetime objects and finds the minimal format to differentiate the two values.
+
+    Args:
+        t1 (datetime): First time value.
+        t2 (datetime): Second time value.
+
+    Returns:
+        str: Minimal format to differentiate time values or None if not possible.
+    """
+    formats = ('%Y', '%Y-%m', '%Y-%m-%d', '%Y-%d-%m-%dT%H', '%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f')
+
+    for f in formats:
+        t1_fmt = pd.to_datetime(str(t1)).strftime(f)
+
+        t2_fmt = pd.to_datetime(str(t2)).strftime(f)
+
+        if t1_fmt != t2_fmt:
+            return f
+
+    return None
+
+
 def build_filename(ds, operation, index=None):
     uid = str(uuid.uuid4())[:8]
 
@@ -138,12 +165,106 @@ def build_filename(ds, operation, index=None):
     part = ''
 
     if 'time' in ds:
-        desc = f'_{ds.time[0].values!s}-{ds.time[-1].values!s}'
+        fmt = find_most_verbose_time(ds.time[0].values, ds.time[-1].values)
+
+        if fmt is not None:
+            t1 = pd.to_datetime(str(ds.time[0].values)).strftime(fmt)
+
+            t2 = pd.to_datetime(str(ds.time[-1].values)).strftime(fmt)
+
+            desc = f'_{t1!s}-{t2!s}'
 
     if index is not None:
         part = f'_{index}'
 
-    return f'{operation.identifier}_{operation.name}{desc}_{uid}{part}.nc'
+    return f'{operation.identifier}_{operation.name}_{uid}{desc}{part}.nc'
+
+
+def build_split_output(context, interm_ds, output, output_name, max_size):
+    logger.info(f'Splitting output with {interm_ds.nbytes} bytes into {max_size} byte chunks')
+
+    sizes = dict((x, interm_ds.sizes[x]) for x in interm_ds.coords)
+
+    logger.info(f'Found coord sizes {sizes}')
+
+    itemsize = interm_ds[context.variable].dtype.itemsize
+
+    logger.info(f'Using itemsize {itemsize} for dtype {interm_ds[context.variable].dtype}')
+
+    split_dim = None
+
+    # Prefer to split by time if available
+    if 'time' in sizes:
+        temp = sizes.copy()
+        temp.pop('time')
+        chunk_size = reduce(lambda x, y: x*y, temp.values())*itemsize
+
+        if chunk_size <= max_size:
+            split_dim = 'time'
+
+    # Check other dimensions if time wasn't valid
+    if split_dim is None:
+        for x in sizes:
+            if x == 'time':
+                continue
+
+            temp = sizes.copy()
+            temp.pop(x)
+            chunk_size = reduce(lambda x, y: x*y, temp.values())*itemsize
+
+            if chunk_size <= max_size:
+                split_dim = x
+
+                break
+
+    # No valid dimension to split on, should almost never occur.
+    if split_dim is None:
+        raise Exception(f'No valid dimensions to split along. Dimension sizes {sizes}, total bytes {interm_ds.nbytes}')
+
+    logger.info(f'Using dimension {split_dim} to split with a chunk size of {chunk_size} bytes')
+
+    chunks_per_file = math.floor(max_size/chunk_size)
+
+    split_len = sizes[split_dim]
+
+    step = min(chunks_per_file, split_len)
+
+    datasets = [interm_ds.isel({split_dim: slice(x, min(split_len, x+step))})
+        for x in range(0, split_len, step)]
+
+    logger.info(f'Split output in {len(datasets)} files containing {step} chunks per file')
+
+    filenames = [build_filename(interm_ds, output, i) for i, _ in enumerate(datasets)]
+
+    local_paths = [context.build_output('application/netcdf', filename=x, var_name=context.variable, name=output_name)
+            for x in filenames]
+
+    fixed_ds = [clean_output(x) for x in datasets]
+
+    for x in datasets:
+        context.set_provenance(x)
+
+    delayed = xr.save_mfdataset(datasets, filenames, compute=False, format='NETCDF3_64BIT', engine='netcdf4')
+
+    return delayed
+
+
+def build_output(context, interm_ds, output, output_name):
+    filename = build_filename(interm_ds, output)
+
+    local_path = context.build_output('application/netcdf', filename=filename, var_name=context.variable, name=output_name)
+
+    logger.debug('Writing local output to %r', local_path)
+
+    interm_ds = clean_output(interm_ds)
+
+    context.set_provenance(interm_ds)
+
+    delayed = interm_ds.to_netcdf(local_path, compute=False, format='NETCDF3_64BIT', engine='netcdf4')
+
+    context.message(f'Setting output filename {filename}')
+
+    return delayed
 
 
 def gather_workflow_outputs(context, interm, operations):
@@ -178,69 +299,19 @@ def gather_workflow_outputs(context, interm, operations):
 
         max_size = 1024**3
 
-        # Estimate how large the output will be, larger than 1GB will have degraded performance when
-        # writing to a ReadWriteOne style filesystem. This causes dask/distributed lock to timeout
-        # killing the entire job. Work around is splitting the file into smaller chunks and delgate
-        # the aggregate to the client software. This could change in the future if we move to zarr
-        # or some other object store style storage.
-        if interm_ds.nbytes/max_size > 1.0:
-            logger.info(f'Splitting {interm_ds.nbytes/1024**3} GB output')
+        try:
+            if interm_ds.nbytes/max_size > 1.0:
+                _delayed = build_split_output(context, interm_ds, output, output_name, max_size)
+            else:
+                _delayed = build_output(context, interm_ds, output, output_name)
+        except ValueError:
+            shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
 
-            largest_dim = max(interm_ds.dims, key=lambda x: interm_ds.dims[x])
+            bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
 
-            largest_len = len(interm_ds[largest_dim])
+            raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
 
-            logger.info(f'Found largest dimension {largest_dim} with {largest_len} elements')
-
-            required_splits = interm_ds.nbytes / max_size
-
-            split_size = math.ceil(largest_len / required_splits)
-
-            logger.info(f'Splitting into {required_splits} parts with {split_size} elements')
-
-            datasets = [interm_ds.isel({largest_dim: slice(x, min(largest_len, x+split_size))}) for x in range(0, largest_len, split_size)]
-
-            filenames = [build_filename(interm_ds, output, i) for i, _ in enumerate(datasets)]
-
-            local_paths = [context.build_output('application/netcdf', filename=x, var_name=context.variable, name=output_name) for x in filenames]
-
-            fixed_ds = [clean_output(x) for x in datasets]
-
-            for x in datasets:
-                context.set_provenance(x)
-
-            try:
-                delayed = [xr.save_mfdataset(datasets, filenames, compute=False, format='NETCDF3_64BIT', engine='netcdf4')]
-            except ValueError:
-                shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
-
-                bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
-
-                raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
-
-            context.message(f'Split large {interm_ds.nbytes/1024**3} GB file into {required_splits} parts')
-        else:
-            filename = build_filename(interm_ds, output)
-
-            local_path = context.build_output('application/netcdf', filename=filename, var_name=context.variable, name=output_name)
-
-            logger.debug('Writing local output to %r', local_path)
-
-            interm_ds = clean_output(interm_ds)
-
-            context.set_provenance(interm_ds)
-
-            try:
-                # Create an output file and store the future
-                delayed.append(interm_ds.to_netcdf(local_path, compute=False, format='NETCDF3_64BIT', engine='netcdf4'))
-            except ValueError:
-                shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
-
-                bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
-
-                raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
-
-            context.message(f'Setting output filename {filename}')
+        delayed.append(_delayed)
 
     return delayed
 

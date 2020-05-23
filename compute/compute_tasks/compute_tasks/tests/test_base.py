@@ -6,21 +6,21 @@ from compute_tasks import WPSError
 
 
 def test_register_process():
-    @base.register_process('CDAT.subset', abstract='abstract data', version='1.0.0', min=10, extra_data='extra_data_content')
+    @base.register_process('CDAT.mathstuff45', abstract='abstract data', version='1.0.0', min=10, extra_data='extra_data_content')
     def test_task(self, context):
         return context
 
     registry_entry = {
-        'identifier': 'CDAT.subset',
+        'identifier': 'CDAT.mathstuff45',
         'backend': 'CDAT',
         'abstract': 'abstract data',
         'metadata': '{"extra_data": "extra_data_content", "inputs": 10}',
         'version': '1.0.0',
     }
 
-    assert 'CDAT.subset' in base.REGISTRY
-    assert base.REGISTRY['CDAT.subset'] == registry_entry
-    assert base.BINDINGS['CDAT.subset'] == test_task
+    assert 'CDAT.mathstuff45' in base.REGISTRY
+    assert base.REGISTRY['CDAT.mathstuff45'] == registry_entry
+    assert base.BINDINGS['CDAT.mathstuff45'] == test_task
 
 
 def test_discover_processes():

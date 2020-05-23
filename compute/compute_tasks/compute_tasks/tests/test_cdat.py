@@ -4,6 +4,7 @@ import re
 import os
 import tempfile
 import sys
+import time
 
 import cdms2
 import cftime
@@ -24,6 +25,7 @@ from myproxy.client import MyProxyClient
 
 from compute_tasks import base
 from compute_tasks import cdat
+from compute_tasks import metrics
 from compute_tasks import WPSError
 from compute_tasks.context import operation
 
@@ -44,17 +46,17 @@ CMIP5_AGG2 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/
 np.set_printoptions(threshold=sys.maxsize)
 
 class TestDataGenerator(object):
-    def generate(self, type=None, value=None, name=None, time_start=None):
+    def generate(self, type=None, value=None, name=None, time_start=None, periods=10):
         type = type or 'standard'
         name = name or 'pr'
         time_start = time_start or '1990-01-01'
         value = value or 5
 
         if type == 'standard':
-            data = np.full((10, 90, 180), value)
+            data = np.full((periods, 90, 180), value)
         elif type == 'random':
             np.random.seed(0)
-            data = np.random.normal(size=(10, 90, 180))
+            data = np.random.normal(size=(periods, 90, 180))
         else:
             raise Exception('Unknown type')
 
@@ -63,7 +65,7 @@ class TestDataGenerator(object):
         }
 
         coords = {
-            'time': pd.date_range(time_start, periods=10),
+            'time': pd.date_range(time_start, periods=periods),
             'lat': (['lat'], np.arange(-90, 90, 2)),
             'lon': (['lon'], np.arange(0, 360, 2)),
         }
@@ -88,6 +90,59 @@ def mpc():
     cert = m.logon(os.environ['MPC_USERNAME'], os.environ['MPC_PASSWORD'], bootstrap=True)
 
     return ''.join([x.decode() for x in cert])
+
+
+def test_build_filename(mocker, test_data):
+    uuid = mocker.patch.object(cdat, 'uuid')
+
+    uuid.uuid4.return_value = '79271ac7'
+
+    v1 = test_data.generate('random')
+
+    p = cwt.Process(identifier='CDAT.subset', name='roi')
+
+    name = cdat.build_filename(v1, p)
+
+    assert name == 'CDAT.subset_roi_79271ac7_1990-01-01-1990-01-10.nc'
+
+    name = cdat.build_filename(v1, p, 0)
+
+    assert name == 'CDAT.subset_roi_79271ac7_1990-01-01-1990-01-10_0.nc'
+
+V0 = cwt.Variable(CMIP6_CLT, 'clt')
+
+P0 = cwt.Process(identifier='CDAT.subset', inputs=V0, domain=cwt.Domain(time=('1979-01-01', '1979-06-01')))
+
+WORKFLOW1 = [P0,]
+
+P1 = cwt.Process(identifier='CDAT.max', inputs=P0)
+P1.add_parameters(axes='time')
+
+WORKFLOW2 = [P0, P1]
+
+
+@pytest.mark.parametrize('input,expected', [
+    (WORKFLOW1, [(59423712.0, 168568.0),]),
+    (WORKFLOW2, [(59423712.0, 168568.0), (168568, 37392)]),
+])
+def test_build_workflow(mocker, input, expected):
+    context = mocker.MagicMock()
+
+    context.sorted = input
+
+    for x in input:
+        metrics.TASK_PROCESS_USED.labels(x.identifier)._value._value = 0
+        metrics.TASK_PREPROCESS_BYTES.labels(x.identifier)._sum._value = 0
+        metrics.TASK_POSTPROCESS_BYTES.labels(x.identifier)._sum._value = 0
+
+    interm = cdat.build_workflow(context)
+
+    for x, y in zip(input, expected):
+        assert x.name in interm
+
+        assert metrics.TASK_PROCESS_USED.labels(x.identifier)._value._value == 1
+        assert metrics.TASK_PREPROCESS_BYTES.labels(x.identifier)._sum._value == y[0]
+        assert metrics.TASK_POSTPROCESS_BYTES.labels(x.identifier)._sum._value == y[1]
 
 
 def test_groupby_bins_invalid_bin(test_data, mocker):
@@ -344,19 +399,12 @@ def test_process_subset(mocker, domain, decode_times, expected, params):
     assert output.clt.shape == expected
 
 
-@pytest.mark.myproxyclient
 @pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
     (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
     pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
     pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
 ])
-def test_build_dataset(mpc, url, var_name, chunks, exp_chunks):
-    with cdat.chdir_temp() as tempdir:
-        with open('cert.pem', 'w') as outfile:
-            outfile.write(mpc)
-
-        cdat.write_dodsrc('./cert.pem')
-
+def test_build_dataset(url, var_name, chunks, exp_chunks):
         ds = xr.open_dataset(url)
 
         ds_ = cdat.build_dataset(url, var_name, ds, chunks, mpc)
@@ -364,66 +412,50 @@ def test_build_dataset(mpc, url, var_name, chunks, exp_chunks):
         assert ds.attrs == ds_.attrs
         assert ds.data_vars.keys() == ds_.data_vars.keys()
 
-@pytest.mark.myproxyclient
 @pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
     (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
     pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
     pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
 ])
-def test_build_dataarray(mpc, url, var_name, chunks, exp_chunks):
-    with cdat.chdir_temp() as tempdir:
-        with open('cert.pem', 'w') as outfile:
-            outfile.write(mpc)
+def test_build_dataarray(url, var_name, chunks, exp_chunks):
+    ds = xr.open_dataset(url)
 
-        cdat.write_dodsrc('./cert.pem')
+    da = cdat.build_dataarray(url, var_name, ds[var_name], chunks, mpc)
 
-        ds = xr.open_dataset(url)
+    assert da.shape == ds[var_name].shape
+    assert da.dtype == ds[var_name].dtype
+    assert da.name == ds[var_name].name
+    assert da.attrs == ds[var_name].attrs
+    assert [len(x) for x in da.chunks] == exp_chunks
 
-        da = cdat.build_dataarray(url, var_name, ds[var_name], chunks, mpc)
-
-        assert da.shape == ds[var_name].shape
-        assert da.dtype == ds[var_name].dtype
-        assert da.name == ds[var_name].name
-        assert da.attrs == ds[var_name].attrs
-        assert [len(x) for x in da.chunks] == exp_chunks
-
-
-@pytest.mark.myproxyclient
 @pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
     (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
     pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
     pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
 ])
-def test_build_dask_array(mpc, url, var_name, chunks, exp_chunks):
-    with cdat.chdir_temp() as tempdir:
-        with open('cert.pem', 'w') as outfile:
-            outfile.write(mpc)
+def test_build_dask_array(url, var_name, chunks, exp_chunks):
+    ds = xr.open_dataset(url)
 
-        cdat.write_dodsrc('./cert.pem')
+    dataarray = ds[var_name]
 
-        ds = xr.open_dataset(url)
+    da = cdat.build_dask_array(url, var_name, dataarray, chunks, mpc)
 
-        dataarray = ds[var_name]
-
-        da = cdat.build_dask_array(url, var_name, dataarray, chunks, mpc)
-
-        assert da.shape == ds[var_name].shape
-        assert da.dtype == ds[var_name].dtype
-        assert [len(x) for x in da.chunks] == exp_chunks
+    assert da.shape == ds[var_name].shape
+    assert da.dtype == ds[var_name].dtype
+    assert [len(x) for x in da.chunks] == exp_chunks
 
 
-@pytest.mark.myproxyclient
 @pytest.mark.parametrize('url,var_name,chunk,expected_shape', [
     (CMIP6_CLT, 'clt', None, (10, 64, 128)),
     pytest.param('{!s}c'.format(CMIP6_CLT), 'clt', None, (10, 64, 128), marks=pytest.mark.xfail),
     pytest.param(CMIP6_CLT, 'pr', (10, 64, 128), None, marks=pytest.mark.xfail),
     pytest.param(CMIP6_CLT, 'clt', (10, 64, 128), {'time': slice(1e6, 1e6+10)}, marks=pytest.mark.xfail),
 ])
-def test_get_protected_data(mpc, url, var_name, chunk, expected_shape):
+def test_get_protected_data(url, var_name, chunk, expected_shape):
     if chunk is None:
         chunk = {'time': slice(100, 110)}
 
-    data = cdat.get_protected_data(url, var_name, mpc, **chunk)
+    data = cdat.get_protected_data(url, var_name, '', **chunk)
 
     assert var_name in data.name
     assert data.shape == expected_shape
@@ -465,19 +497,12 @@ def test_chdir_temp(mocker):
     os.chdir.assert_any_call(tempdir)
     os.chdir.assert_any_call('/test')
 
-@pytest.mark.myproxyclient
 @pytest.mark.parametrize('url, expected_size', [
     (CMIP5_CLT, (90520, 64, 128)),
     (CMIP6_CLT, (1812, 64, 128)),
 ])
 def test_open_dataset(mocker, url, expected_size):
     context = operation.OperationContext()
-
-    m = MyProxyClient(hostname=os.environ['MPC_HOST'])
-
-    cert = m.logon(os.environ['MPC_USERNAME'], os.environ['MPC_PASSWORD'], bootstrap=True)
-
-    mocker.patch.object(context, 'user_cert', return_value=''.join([x.decode() for x in cert]))
 
     ds = cdat.open_dataset(context, url, 'clt', chunks={'time': 100})
 
@@ -535,6 +560,58 @@ def test_dask_job_tracker(mocker, client):  # noqa: F811
     assert context.message.call_count > 0
 
 
+@pytest.mark.dask
+def test_dask_job_tracker_timeout(mocker, client):  # noqa: F811
+    context = mocker.MagicMock()
+
+    data = da.random.random((100, 100), chunks=(10, 10))
+
+    fut = client.compute(data)
+
+    cdat.UPDATE_TIMEOUT = 1
+
+    with pytest.raises(cdat.DaskTimeoutError):
+        tracker = cdat.DaskTaskTracker(context, fut)
+
+        tracker._draw_bar()
+
+        time.sleep(2)
+
+        tracker._draw_bar()
+
+
+def test_build_split_output(test_data, mocker):
+    context = mocker.MagicMock()
+
+    context.variable = 'pr'
+
+    data = test_data.generate('random', periods=100)
+
+    p = cwt.Process(identifier='CDAT.subset')
+
+    save_mfdataset = mocker.spy(xr, 'save_mfdataset')
+
+    delayed = cdat.build_split_output(context, data, p, 'test', data.nbytes/8)
+
+    save_mfdataset.assert_called()
+
+    first = save_mfdataset.call_args[0]
+
+    # Check 9 files
+    assert len(first[0]) == 9
+
+    data = test_data.generate('random', periods=1)
+
+    delayed = cdat.build_split_output(context, data, p, 'test', data.nbytes/8)
+
+    save_mfdataset.assert_called()
+
+    first = save_mfdataset.call_args[0]
+
+    # Check 9 files
+    assert len(first[0]) == 9
+
+
 def test_gather_workflow_outputs_bad_coord(mocker):
     context = mocker.MagicMock()
 
@@ -590,22 +667,20 @@ def test_gather_workflow_outputs(mocker):
     assert len(interm) == 0
 
 
-@pytest.mark.myproxyclient
 @pytest.mark.parametrize('identifier,inputs,domain,expected,expected_type', [
     ('CDAT.subset', [CMIP6_AGG1], None, 1, cftime.DatetimeNoLeap),
     ('CDAT.subtract', [CMIP6_AGG1, CMIP6_AGG2], None, 2, cftime.DatetimeNoLeap),
     ('CDAT.subset', [CMIP6_AGG1], cwt.Domain(time=(10, 200)), 1, np.float64),
-    ('CDAT.aggregate', [CMIP5_AGG1, CMIP5_AGG2], None, 1, cftime.DatetimeNoLeap),
+    ('CDAT.aggregate', [CMIP5_AGG1, CMIP5_AGG2], None, 2, cftime.DatetimeNoLeap),
 ])
-def test_gather_inputs(mocker, mpc, identifier, inputs, domain, expected, expected_type):
-    process = cwt.Process(identifier)
+def test_gather_inputs(mocker, identifier, inputs, domain, expected, expected_type):
+    process = cwt.Process(identifier=identifier)
     process.add_inputs(*[cwt.Variable(x, 'tas') for x in inputs])
     process.set_domain(domain)
 
     context = operation.OperationContext()
 
     mocker.patch.object(context, 'action')
-    mocker.patch.object(context, 'user_cert', return_value=mpc)
 
     data = cdat.gather_inputs(context, process)
 
