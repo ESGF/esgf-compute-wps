@@ -121,7 +121,7 @@ def validate_parameter(param, name, type, subtype, min, max, validate_func, num_
             try:
                 valid = validate_func(**validate_kwargs)
             except ValidationError as e:
-                raise e
+                raise ValidationError(f'Parameter {name!r} failed validation: {e!s}')
             except Exception:
                 raise ValidationError(f'Parameter {name!r} failed validation, check abstract for details.')
 
