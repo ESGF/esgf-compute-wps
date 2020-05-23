@@ -983,12 +983,22 @@ def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
     return output
 
 
-def process_aggregate(context, operation, *input, variable, **kwargs):
+def process_aggregate(context, operation, *input, **kwargs):
     context.message('Aggregating {!s} files by coords', len(input))
+
+    variable = list(set([x.var_name for x in operation.inputs]))[0]
+
+    shapes = [x[variable].values.shape for x in input]
+
+    logger.info(f'Aggregating {len(input)} inputs with shapes {shapes}')
 
     output = xr.combine_by_coords(input)
 
     output = post_processing(context, variable, output, **kwargs)
+
+    output_shape = output[variable].values.shape
+
+    logger.info(f'Output shape {output_shape}')
 
     return output
 

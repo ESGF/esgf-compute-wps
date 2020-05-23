@@ -370,6 +370,25 @@ def test_processing_error(mocker, test_data, identifier, v1, v2, output, output_
         base.get_process(identifier)._process_func(context, p, *data, **extra)
 
 
+def test_process_aggregate(mocker):
+    context = mocker.MagicMock()
+
+    files = [CMIP6_AGG1, CMIP6_AGG2, CMIP6_AGG3, CMIP6_AGG4]
+
+    data = [xr.open_dataset(x, chunks={'time': 100}) for x in files]
+
+    v0 = cwt.Variable(CMIP6_AGG1, 'clt')
+    v1 = cwt.Variable(CMIP6_AGG2, 'clt')
+    v2 = cwt.Variable(CMIP6_AGG3, 'clt')
+    v3 = cwt.Variable(CMIP6_AGG4, 'clt')
+
+    process = cwt.Process(identifier='CDAT.aggregate', inputs=[v0, v1, v2, v3])
+
+    output = cdat.process_aggregate(context, process, *data)
+
+    assert output.sizes['time'] == 8400
+
+
 @pytest.mark.parametrize('domain,decode_times,expected,params', [
     pytest.param(cwt.Domain(time=('1800-01', '1800-12')), True, (12, 64, 128), {}, marks=pytest.mark.xfail),
     pytest.param(cwt.Domain(time=(1718.5, 1718.5)), False, (64, 128), {}, marks=pytest.mark.xfail),
