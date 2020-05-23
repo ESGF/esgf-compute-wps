@@ -1026,17 +1026,19 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
 
     return output
 
-def validate_pairs(name, param_num, input_num):
-    if param_num % 2 != 0:
-        raise base.ValidationError(f'Parameter {name!r} failed validation, expected pairs of values but got odd number.')
+def validate_pairs(num_param, **kwargs):
+    if num_param % 2 != 0:
+        raise base.ValidationError(f'Expected even number of values.')
 
     return True
 
-def validate_param(name, param_num, input_nim):
-    if param_num != input_num:
-        raise base.ValidationError(f'Parameter {name!r} failed validation, expecting the number of values to match the number of inputs')
+def validate_variable(values, input_var_names):
+    if values[0] not in input_var_names:
+        raise base.ValidationError(f'Did not find variable {values[0]!r} in available inputs {input_var_names!r}')
 
-param_variable = base.build_parameter('variable', 'Target variable for the process.', list, str, min=1, max=float('inf'), validate_func=validate_param)
+    return True
+
+param_variable = base.build_parameter('variable', 'Target variable for the process.', str, min=1, max=1, validate_func=validate_variable)
 param_rename = base.build_parameter('rename', 'List of pairs mapping variable to new name e.g. pr,pr_test will rename pr to pr_test.', list, str, min=2, max=float('inf'), validate_func=validate_pairs)
 param_fillna = base.build_parameter('fillna', 'The number used to replace nan values in output.', float)
 
@@ -1330,6 +1332,7 @@ def task_where(self, context):
         pr>=prw
     """
     return workflow(context)
+
 
 @bind_process_func(process_groupby_bins)
 @base.parameter('bins', 'A list of bins boundaries. e.g. 0, 10, 20 would create 2 bins (0-10), (10, 20).', list, float, min=1, max=float('inf'))

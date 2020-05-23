@@ -103,31 +103,37 @@ class ValidationError(WPSError):
     pass
 
 
-def validate_parameter(param, name, type, subtype, min, max, validate_func, inputs, **kwargs):
+def validate_parameter(param, name, type, subtype, min, max, validate_func, num_inputs, input_var_names, **kwargs):
     if param is None and min > 0:
         raise ValidationError(f'Parameter {name!r} is required')
 
-    if isinstance(type, (list, tuple)):
+    if type in (list, tuple):
         num = len(param.values)
 
         if validate_func is not None:
-            try:
-                valid = validate(name, num, inputs)
+            validate_kwargs = {
+                'values': param.values,
+                'num_param': num,
+                'num_inputs': num_inputs,
+                'input_var_names': input_var_names,
+            }
 
-                # Handle simple lambda's returning false
-                if not valid:
-                    raise Exception()
-            except ValidationError:
+            try:
+                valid = validate_func(**validate_kwargs)
+            except ValidationError as e:
                 raise e
             except Exception:
                 raise ValidationError(f'Parameter {name!r} failed validation, check abstract for details.')
-        else:
-            if num < min or num > max:
-                raise ValidationError(f'The number of parameter values {num!r} for {name!r} is out of range min {min!r} max {max!r}.')
+
+            if not valid:
+                raise ValidationError(f'Parameter {name!r} failed validation, check abstract for details.')
+
+        if num < min or num > max:
+            raise ValidationError(f'The number of parameter values {num!r} for {name!r} is out of range min {min!r} max {max!r}.')
 
         for x in param.values:
             try:
-                type(x)
+                subtype(x)
             except ValueError:
                 raise ValidationError(f'Could not convert parameter {name!r} to {type.__name__!s}.')
     else:
@@ -154,7 +160,7 @@ def validate(self, context, process, input_var_names):
         p = process.get_parameter(x['name'])
 
         if p is not None:
-            validate_parameter(p, inputs=num, **x)
+            validate_parameter(p, num_inputs=num, input_var_names=input_var_names, **x)
 
             if x['name'] == 'variable':
                 for y in p.values:
