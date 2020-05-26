@@ -50,6 +50,9 @@ class _TestData(object):
     def __init__(self):
         self.temp = tempfile.TemporaryDirectory()
 
+    def cleanup(self):
+        self.temp.cleanup()
+
     def to_xarray(self, url, **kwarg):
         local_path = self.local(url)
 
@@ -107,7 +110,9 @@ class _TestData(object):
 
 @pytest.fixture(scope='session')
 def test_data():
-    return _TestData()
+    td = _TestData()
+    yield td
+    td.cleanup()
 
 
 @pytest.fixture(scope='session')
