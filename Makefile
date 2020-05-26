@@ -1,12 +1,17 @@
-.PHONY: provisioner tasks wps thredds build
+.PHONY: provisioner tasks wps thredds build test-env
 
 export
+
+SHELL = /bin/bash
 
 IMAGE := $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE)
 TAG := $(or $(if $(shell git rev-parse --abbrev-ref HEAD | grep master),$(shell cat $(DOCKERFILE)/VERSION)),$(shell git rev-parse --short HEAD))
 CACHE := local
 TARGET = production
 CONDA_VERSION = 4.8.2
+
+CONDA_TEST_ENV = base
+CONDA = $(patsubst %/bin/conda,%,$(shell find /opt/**/bin ${HOME}/**/bin -type f -iname 'conda' 2>/dev/null))
 
 ifeq ($(CACHE),local)
 CACHE = --import-cache type=local,src=/cache \
@@ -43,6 +48,14 @@ endif
 
 EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
 	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION)
+
+test-env:
+	conda install -n $(CONDA_TEST_ENV) -y -c conda-forge -c cdat pytest nbconvert nbformat xarray jupyter_client ipykernel
+
+	source $(CONDA)/bin/activate $(CONDA_TEST_ENV); \
+		python -m ipykernel install --name $(CONDA_TEST_ENV) --user
+
+	mkdir notebooks/
 
 provisioner: IMAGE := compute-provisioner
 provisioner: DOCKERFILE := compute/compute_provisioner
