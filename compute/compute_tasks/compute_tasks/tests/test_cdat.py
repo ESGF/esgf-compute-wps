@@ -48,10 +48,13 @@ np.set_printoptions(threshold=sys.maxsize)
 
 class _TestData(object):
     def __init__(self):
-        self.temp = tempfile.TemporaryDirectory()
+        self.data = os.path.join(os.getcwd(), 'data')
+
+        if not os.path.exists(self.data):
+            os.makedirs(self.data)
 
     def cleanup(self):
-        self.temp.cleanup()
+        pass
 
     def to_xarray(self, url, **kwarg):
         local_path = self.local(url)
@@ -61,7 +64,7 @@ class _TestData(object):
     def local(self, url):
         filename = url.split('/')[-1]
 
-        file_path = os.path.join(self.temp.name, filename)
+        file_path = os.path.join(self.data, filename)
 
         if not os.path.exists(file_path):
             if 'dodsC' in url:

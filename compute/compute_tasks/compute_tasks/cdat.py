@@ -978,17 +978,17 @@ def process_aggregate(context, operation, *input, **kwargs):
 
     variable = list(set([x.var_name for x in operation.inputs]))[0]
 
-    shapes = [x[variable].values.shape for x in input]
+    isizes = [x[variable].shape for x in input]
 
-    logger.info(f'Aggregating {len(input)} inputs with shapes {shapes}')
+    logger.info(f'{len(isizes)} inputs with shapes {isizes}')
 
     output = xr.combine_by_coords(input)
 
+    osize = output[variable].shape
+
+    logger.info(f'Output shape {osize}')
+
     output = post_processing(context, variable, output, **kwargs)
-
-    output_shape = output[variable].values.shape
-
-    logger.info(f'Output shape {output_shape}')
 
     return output
 
