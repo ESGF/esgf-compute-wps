@@ -13,6 +13,7 @@ import dask
 import pytest
 import pandas as pd
 import numpy as np
+import requests
 import dask.array as da
 import xarray as xr
 from OpenSSL import SSL
@@ -45,7 +46,33 @@ CMIP5_AGG2 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/
 
 np.set_printoptions(threshold=sys.maxsize)
 
-class TestDataGenerator(object):
+class _TestData(object):
+    def __init__(self):
+        self.temp = tempfile.TemporaryDirectory()
+
+    def to_xarray(self, url, **kwarg):
+        local_path = self.local(url)
+
+        return xr.open_dataset(local_path, **kwarg)
+
+    def local(self, url):
+        filename = url.split('/')[-1]
+
+        file_path = os.path.join(self.temp.name, filename)
+
+        if not os.path.exists(file_path):
+            if 'dodsC' in url:
+                url = url.replace('dodsC', 'fileServer')
+
+            with requests.get(url) as r:
+                r.raise_for_status()
+
+                with open(file_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+        return file_path
+
     def generate(self, type=None, value=None, name=None, time_start=None, periods=10):
         type = type or 'standard'
         name = name or 'pr'
@@ -78,9 +105,9 @@ class TestDataGenerator(object):
         return ds.groupby_bins('pr', bins=np.arange(0.0, 1.0, 0.1))
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def test_data():
-    return TestDataGenerator()
+    return _TestData()
 
 
 @pytest.fixture(scope='session')
@@ -289,6 +316,9 @@ def params(**kwargs):
 
     p.update(kwargs)
 
+    if p['variable'] is not None:
+        p['variable'] = p['variable'][0]
+
     return p
 
 POS_5 = {'value': 5}
@@ -370,12 +400,12 @@ def test_processing_error(mocker, test_data, identifier, v1, v2, output, output_
         base.get_process(identifier)._process_func(context, p, *data, **extra)
 
 
-def test_process_aggregate(mocker):
+def test_process_aggregate(mocker, test_data):
     context = mocker.MagicMock()
 
     files = [CMIP6_AGG1, CMIP6_AGG2, CMIP6_AGG3, CMIP6_AGG4]
 
-    data = [xr.open_dataset(x, chunks={'time': 100}) for x in files]
+    data = [test_data.to_xarray(x, chunks={'time': 100}) for x in files]
 
     v0 = cwt.Variable(CMIP6_AGG1, 'clt')
     v1 = cwt.Variable(CMIP6_AGG2, 'clt')
@@ -401,7 +431,7 @@ def test_process_aggregate(mocker):
     (cwt.Domain(time=slice(150, 300, 3)), True, (50, 64, 128), {}),
     (None, True, (1812, 64, 128), {}),
 ])
-def test_process_subset(mocker, domain, decode_times, expected, params):
+def test_process_subset(test_data, mocker, domain, decode_times, expected, params):
     process = cwt.Process(identifier='CDAT.subset')
     process.set_domain(domain)
     process.add_parameters(**params)
@@ -411,7 +441,7 @@ def test_process_subset(mocker, domain, decode_times, expected, params):
 
     mocker.patch.object(context, 'action')
 
-    ds = xr.open_dataset(CMIP6_CLT, decode_times=decode_times)
+    ds = test_data.to_xarray(CMIP6_CLT, decode_times=decode_times)
 
     output = cdat.process_subset(context, process, ds, **params)
 
@@ -423,21 +453,21 @@ def test_process_subset(mocker, domain, decode_times, expected, params):
     pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
     pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
 ])
-def test_build_dataset(url, var_name, chunks, exp_chunks):
-        ds = xr.open_dataset(url)
+def test_build_dataset(test_data, url, var_name, chunks, exp_chunks):
+    ds = test_data.to_xarray(url)
 
-        ds_ = cdat.build_dataset(url, var_name, ds, chunks, mpc)
+    ds_ = cdat.build_dataset(ds.encoding['source'], var_name, ds, chunks, mpc)
 
-        assert ds.attrs == ds_.attrs
-        assert ds.data_vars.keys() == ds_.data_vars.keys()
+    assert ds.attrs == ds_.attrs
+    assert ds.data_vars.keys() == ds_.data_vars.keys()
 
 @pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
     (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
     pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
     pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
 ])
-def test_build_dataarray(url, var_name, chunks, exp_chunks):
-    ds = xr.open_dataset(url)
+def test_build_dataarray(test_data, url, var_name, chunks, exp_chunks):
+    ds = test_data.to_xarray(url)
 
     da = cdat.build_dataarray(url, var_name, ds[var_name], chunks, mpc)
 
@@ -452,8 +482,8 @@ def test_build_dataarray(url, var_name, chunks, exp_chunks):
     pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
     pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
 ])
-def test_build_dask_array(url, var_name, chunks, exp_chunks):
-    ds = xr.open_dataset(url)
+def test_build_dask_array(test_data, url, var_name, chunks, exp_chunks):
+    ds = test_data.to_xarray(url)
 
     dataarray = ds[var_name]
 
@@ -478,7 +508,6 @@ def test_get_protected_data(url, var_name, chunk, expected_shape):
 
     assert var_name in data.name
     assert data.shape == expected_shape
-    assert data.sum(dim=['time', 'lat', 'lon']).values == 5585352.5
 
 
 @pytest.mark.parametrize('shape,index,size,expected', [
@@ -520,8 +549,10 @@ def test_chdir_temp(mocker):
     (CMIP5_CLT, (90520, 64, 128)),
     (CMIP6_CLT, (1812, 64, 128)),
 ])
-def test_open_dataset(mocker, url, expected_size):
+def test_open_dataset(test_data, mocker, url, expected_size):
     context = operation.OperationContext()
+
+    url = test_data.local(url)
 
     ds = cdat.open_dataset(context, url, 'clt', chunks={'time': 100})
 
@@ -532,12 +563,12 @@ def test_open_dataset(mocker, url, expected_size):
     assert 'time_bnds' in ds
 
 
-def test_check_access_exception(esgf_data):
+def test_check_access_exception():
     with pytest.raises(WPSError):
         cdat.check_access('https://esgf-node.llnl.gov/sjdlasjdla')
 
 
-def test_check_access_request_exception(esgf_data):
+def test_check_access_request_exception():
     with pytest.raises(WPSError):
         cdat.check_access('https://ajsdklajskdja')
 
@@ -546,27 +577,26 @@ def test_check_access_request_exception(esgf_data):
     (401),
     (403),
 ])
-def test_check_access_protected(mocker, esgf_data, status_code):
+def test_check_access_protected(mocker, status_code):
     requests = mocker.patch.object(cdat, 'requests')
 
     requests.get.return_value.status_code = status_code
 
-    assert not cdat.check_access(esgf_data.data['tas-opendap-cmip5']['files'][0])
+    assert not cdat.check_access(CMIP5_CLT)
 
 
-def test_check_access(esgf_data):
-    assert cdat.check_access(esgf_data.data['tas-opendap']['files'][0])
+def test_check_access():
+    assert cdat.check_access(CMIP5_CLT)
 
 
-def test_clean_output(mocker, esgf_data):
-    ds = esgf_data.to_xarray('tas-opendap')
+def test_clean_output(mocker, test_data):
+    ds = test_data.to_xarray(CMIP5_CLT)
 
     cdat.clean_output(ds)
 
-    assert 'missing_value' not in ds.tas.encoding
+    assert 'missing_value' not in ds.clt.encoding
 
 
-@pytest.mark.dask
 def test_dask_job_tracker(mocker, client):  # noqa: F811
     context = mocker.MagicMock()
 
@@ -579,7 +609,6 @@ def test_dask_job_tracker(mocker, client):  # noqa: F811
     assert context.message.call_count > 0
 
 
-@pytest.mark.dask
 def test_dask_job_tracker_timeout(mocker, client):  # noqa: F811
     context = mocker.MagicMock()
 
@@ -692,9 +721,9 @@ def test_gather_workflow_outputs(mocker):
     ('CDAT.subset', [CMIP6_AGG1], cwt.Domain(time=(10, 200)), 1, np.float64),
     ('CDAT.aggregate', [CMIP5_AGG1, CMIP5_AGG2], None, 2, cftime.DatetimeNoLeap),
 ])
-def test_gather_inputs(mocker, identifier, inputs, domain, expected, expected_type):
+def test_gather_inputs(test_data, mocker, identifier, inputs, domain, expected, expected_type):
     process = cwt.Process(identifier=identifier)
-    process.add_inputs(*[cwt.Variable(x, 'tas') for x in inputs])
+    process.add_inputs(*[cwt.Variable(test_data.local(x), 'tas') for x in inputs])
     process.set_domain(domain)
 
     context = operation.OperationContext()

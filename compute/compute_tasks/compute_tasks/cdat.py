@@ -814,8 +814,6 @@ def process_dataset(context, operation, *input, func, variable, **kwargs):
         else:
             output = input[0].copy()
 
-            variable = variable[0]
-
             output[variable] = func(input[0][variable])
 
     output = post_processing(context, variable, output, **kwargs)
@@ -833,8 +831,6 @@ def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
             output = func(input[0], axes)
         else:
             output = input[0].copy()
-
-            variable = variable[0]
 
             output[variable] = func(input[0][variable], axes)
 
@@ -857,9 +853,7 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
             output = input[0].copy()
 
             # Grab relative variable from its input
-            inputs = [input[x][y] for x, y in zip(range(len(input)), variable)]
-
-            variable = variable[0]
+            inputs = [input[x][variable] for x in range(len(input))]
 
             output[variable] = func(*inputs)
     else:
@@ -867,8 +861,6 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
             output = func(input[0], const)
         else:
             output = input[0].copy()
-
-            variable = variable[0]
 
             output[variable] = func(input[0][variable], const)
 
@@ -957,8 +949,6 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
         output = input[0].where(cond, other)
     else:
         output = input[0].copy()
-
-        variable = variable[0]
 
         output[variable] = input[0][variable].where(cond, other)
 
