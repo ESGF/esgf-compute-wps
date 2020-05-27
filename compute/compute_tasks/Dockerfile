@@ -2,6 +2,9 @@ ARG CONDA_VERSION=4.8.2
 
 FROM continuumio/miniconda3:${CONDA_VERSION} as builder
 
+ARG TEST_DATA=/test_data
+ENV TEST_DATA ${TEST_DATA}
+
 RUN conda update -n base conda && \
       conda install -c defaults -c conda-forge -y conda-build conda-forge-pinning curl
 

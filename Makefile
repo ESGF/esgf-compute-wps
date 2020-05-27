@@ -7,6 +7,7 @@ TAG := $(or $(if $(shell git rev-parse --abbrev-ref HEAD | grep master),$(shell 
 CACHE := local
 TARGET = production
 CONDA_VERSION = 4.8.2
+TEST_DATA = /test_data
 
 ifeq ($(CACHE),local)
 CACHE = --import-cache type=local,src=/cache \
@@ -22,6 +23,7 @@ POST_BUILD = cat output/image.tar | docker load
 BUILD =  docker run \
 				 -it --rm \
 				 --privileged \
+				 -v $(PWD)/test_data:/test_data \
 				 -v $(PWD)/cache:/cache \
 				 -v $(PWD)/output:/output \
 				 -v $(PWD):/build \
@@ -42,7 +44,9 @@ endif
 endif
 
 EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
-	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION)
+	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) \
+	--opt build-arg:TEST_DATA=$(TEST_DATA)
+
 
 provisioner: IMAGE := compute-provisioner
 provisioner: DOCKERFILE := compute/compute_provisioner
