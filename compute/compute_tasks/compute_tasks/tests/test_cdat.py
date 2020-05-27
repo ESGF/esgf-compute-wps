@@ -111,7 +111,7 @@ class _TestData(object):
         return ds.groupby_bins('pr', bins=np.arange(0.0, 1.0, 0.1))
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='function')
 def test_data():
     td = _TestData()
     yield td
