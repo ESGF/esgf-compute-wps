@@ -33,7 +33,7 @@ from compute_tasks.context import operation
 
 MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
 
-CMIP5_CLT = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esg_dataroot/AR5/CMIP5/output/CCCma/CanAM4/amip/3hr/atmos/clt/r1i1p1/clt_cf3hr_CanAM4_amip_r1i1p1_197901010300-201001010000.nc'
+CMIP5_CLT = 'http://aims3.llnl.gov/thredds/dodsC/cmip5_css02_data/cmip5/output1/CMCC/CMCC-CM/decadal1985/mon/atmos/Amon/r1i2p1/clt/1/clt_Amon_CMCC-CM_decadal1985_r1i2p1_198511-199512.nc'
 CMIP6_CLT = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/abrupt-4xCO2/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_abrupt-4xCO2_r1i1p1f1_gn_185001-200012.nc'
 
 CMIP6_AGG1 = 'http://crd-esgf-drc.ec.gc.ca/thredds/dodsC/esgC_dataroot/AR6/CMIP6/CMIP/CCCma/CanESM5/esm-piControl/r1i1p1f1/Amon/clt/gn/v20190429/clt_Amon_CanESM5_esm-piControl_r1i1p1f1_gn_530101-540012.nc'
@@ -470,7 +470,7 @@ def test_build_dataset(test_data, url, var_name, chunks, exp_chunks):
     assert ds.data_vars.keys() == ds_.data_vars.keys()
 
 @pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
-    (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
+    (CMIP5_CLT, 'clt', {'time': 100}, [2, 1, 1]),
     pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
     pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
 ])
@@ -486,7 +486,7 @@ def test_build_dataarray(test_data, url, var_name, chunks, exp_chunks):
     assert [len(x) for x in da.chunks] == exp_chunks
 
 @pytest.mark.parametrize('url,var_name,chunks,exp_chunks', [
-    (CMIP5_CLT, 'clt', {'time': 100}, [906, 1, 1]),
+    (CMIP5_CLT, 'clt', {'time': 100}, [2, 1, 1]),
     pytest.param(CMIP5_CLT, 'pr', {'time': 100}, [906, 1, 1], marks=pytest.mark.xfail),
     pytest.param(CMIP5_CLT, 'clt', {'time': 1e20}, [906, 1, 1], marks=pytest.mark.xfail),
 ])
@@ -554,7 +554,7 @@ def test_chdir_temp(mocker):
     os.chdir.assert_any_call('/test')
 
 @pytest.mark.parametrize('url, expected_size', [
-    (CMIP5_CLT, (90520, 64, 128)),
+    (CMIP5_CLT, (122, 240, 480)),
     (CMIP6_CLT, (1812, 64, 128)),
 ])
 def test_open_dataset(test_data, mocker, url, expected_size):
