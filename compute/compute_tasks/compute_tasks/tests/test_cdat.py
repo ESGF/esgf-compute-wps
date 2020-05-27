@@ -48,7 +48,7 @@ np.set_printoptions(threshold=sys.maxsize)
 
 class _TestData(object):
     def __init__(self):
-        self.data = os.path.join(os.getcwd(), 'data')
+        self.data = os.environ.get('TEST_DATA', os.path.join(os.getcwd(), 'test_data'))
 
         if not os.path.exists(self.data):
             os.makedirs(self.data)
