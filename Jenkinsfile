@@ -57,6 +57,8 @@ make provisioner REGISTRY=${REGISTRY}
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
+export TEST_DATA=/nfs/jenkins-test-data
+
 make tasks REGISTRY=${REGISTRY} TARGET=testresult
 '''
               sh '''chown -R 10000:10000 output
