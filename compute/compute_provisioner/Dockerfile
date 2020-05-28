@@ -7,7 +7,7 @@ RUN conda update -n base conda && \
 
 WORKDIR /build
 
-COPY compute_tasks/ compute_tasks/
+COPY compute_provisioner/ compute_provisioner/
 COPY meta.yaml meta.yaml
 COPY setup.cfg setup.cfg
 COPY setup.py setup.py

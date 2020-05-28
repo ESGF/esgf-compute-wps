@@ -50,32 +50,27 @@ endif
 EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
 	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) 
 
-prep:
-	cp build.sh $(DOCKERFILE)
-
 provisioner: IMAGE := compute-provisioner
 provisioner: DOCKERFILE := compute/compute_provisioner
-provisioner: prep
+provisioner:
 	$(MAKE) build	
 
 tasks: IMAGE := compute-tasks
 tasks: DOCKERFILE := compute/compute_tasks
-tasks: prep
+tasks:
 	$(MAKE) build	
 
 wps: IMAGE := compute-wps
 wps: DOCKERFILE := compute/compute_wps
-wps: prep
+wps:
 	$(MAKE) build	
 
 thredds: IMAGE := compute-thredds
 thredds: DOCKERFILE := docker/thredds
-thredds: prep
+thredds:
 	$(MAKE) build	
 
 build:
-	cd $(DOCKERFILE)
-
-	$(BUILD) build.sh . $(TARGET) $(EXTRA) $(CACHE) $(OUTPUT)
+	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(EXTRA) $(CACHE) $(OUTPUT)
 	
 	$(POST_BUILD)
