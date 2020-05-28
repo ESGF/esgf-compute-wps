@@ -29,7 +29,7 @@ pipeline {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
-make provisioner REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
+make provisioner REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=${PWD}/output
 '''
             }
 
@@ -59,10 +59,7 @@ make provisioner REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
 
 make tasks REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=${PWD}/output
 
-make tasks TARGET=testdata OUTPUT_PATH=/nfs/tasks-test-data
-
-ls -la /nfs/tasks-test-data
-ls -la /nfs/tasks-test-data/test_data
+make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=/nfs/tasks-test-data
 '''
               sh '''chown -R 10000:10000 output
 
@@ -99,7 +96,7 @@ touch output/*'''
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
-make wps REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache
+make wps REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=${PWD}/output
 '''
               sh '''chown -R 10000:10000 output
 
