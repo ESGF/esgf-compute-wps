@@ -29,7 +29,7 @@ pipeline {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
-make provisioner REGISTRY=${REGISTRY}
+make provisioner REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
 '''
             }
 
@@ -57,7 +57,7 @@ make provisioner REGISTRY=${REGISTRY}
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
-make tasks REGISTRY=${REGISTRY} TARGET=testresult TEST_DATA=/nfs/jenkins-test-data
+make tasks REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache
 '''
               sh '''chown -R 10000:10000 output
 
@@ -94,7 +94,7 @@ touch output/*'''
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
-make wps REGISTRY=${REGISTRY} TARGET=testresult
+make wps REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache
 '''
               sh '''chown -R 10000:10000 output
 
@@ -131,7 +131,7 @@ touch output/*'''
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
-make thredds REGISTRY=${REGISTRY}
+make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
 '''
             }
 
