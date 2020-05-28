@@ -60,3 +60,7 @@ FROM scratch as testresult
 
 COPY --from=builder /output/unittest.xml .
 COPY --from=builder /output/coverage.xml .
+
+FROM scratch as testdata
+
+COPY --from=builder /test_data test_data/

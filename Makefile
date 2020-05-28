@@ -1,17 +1,21 @@
-.PHONY: provisioner tasks wps thredds build
+.PHONY: provisioner tasks wps thredds build prep
 
 export
 
 IMAGE := $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE)
 TAG := $(or $(if $(shell git rev-parse --abbrev-ref HEAD | grep master),$(shell cat $(DOCKERFILE)/VERSION)),$(shell git rev-parse --short HEAD))
-CACHE := local
+
 TARGET = production
 CONDA_VERSION = 4.8.2
-TEST_DATA = /test_data
+
+CACHE = local
+CACHE_PATH = /cache
+
+OUTPUT_PATH = output
 
 ifeq ($(CACHE),local)
-CACHE = --import-cache type=local,src=/cache \
-	--export-cache type=local,dest=/cache,mode=max
+CACHE = --import-cache type=local,src=$(CACHE_PATH) \
+	--export-cache type=local,dest=$(CACHE_PATH),mode=max
 else
 CACHE = --import-cache type=registry,ref=$(IMAGE):cache \
 	--export-cache type=registry,ref=$(IMAGE):cache,mode=max
@@ -24,7 +28,7 @@ BUILD =  docker run \
 				 -it --rm \
 				 --privileged \
 				 -v $(PWD)/test_data:/test_data \
-				 -v $(PWD)/cache:/cache \
+				 -v $(PWD)/cache:$(CACHE_PATH) \
 				 -v $(PWD)/output:/output \
 				 -v $(PWD)/$(DOCKERFILE):/build \
 				 -w /build \
@@ -35,17 +39,16 @@ OUTPUT = --output type=image,name=$(IMAGE):$(TAG),push=true
 BUILD = $(SHELL)
 endif
 
-ifeq ($(TARGET),testresult)
+ifneq ($(or $(findstring testresult,$(TARGET)),$(findstring testdata,$(TARGET))),)
 ifeq ($(shell which buildctl-daemonless.sh),)
 OUTPUT = --output type=local,dest=/output
 else
-OUTPUT = --output type=local,dest=output
+OUTPUT = --output type=local,dest=$(OUTPUT_PATH)
 endif
 endif
 
 EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
-	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) \
-	--opt build-arg:TEST_DATA=$(TEST_DATA)
+	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) 
 
 prep:
 	cp build.sh $(DOCKERFILE)
