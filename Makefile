@@ -1,4 +1,4 @@
-.PHONY: provisioner tasks wps thredds build prep
+.PHONY: provisioner tasks wps thredds build
 
 export
 
@@ -58,6 +58,8 @@ provisioner:
 tasks: IMAGE := compute-tasks
 tasks: DOCKERFILE := compute/compute_tasks
 tasks:
+	mkdir -p compute/compute_tasks/test_data
+
 	$(MAKE) build	
 
 wps: IMAGE := compute-wps

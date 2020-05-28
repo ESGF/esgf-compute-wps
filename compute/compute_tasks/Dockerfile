@@ -13,6 +13,7 @@ RUN mkdir -p /tmp/certs && \
 
 WORKDIR /build
 
+COPY test_data/ /test_data
 COPY compute_tasks/ compute_tasks/
 COPY conftest.py conftest.py
 COPY meta.yaml meta.yaml
