@@ -58,6 +58,10 @@ make provisioner REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
 make tasks REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache
+
+ls -la
+
+ls -la compute/compute_tasks
 '''
               sh '''chown -R 10000:10000 output
 
