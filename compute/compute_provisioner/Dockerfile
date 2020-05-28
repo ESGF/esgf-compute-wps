@@ -7,9 +7,12 @@ RUN conda update -n base conda && \
 
 WORKDIR /build
 
-COPY compute/compute_provisioner/ compute_provisioner/
+COPY compute_tasks/ compute_tasks/
+COPY meta.yaml meta.yaml
+COPY setup.cfg setup.cfg
+COPY setup.py setup.py
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 compute_provisioner/
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 .
 
 FROM continuumio/miniconda3:${CONDA_VERSION} as production
 

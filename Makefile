@@ -26,7 +26,7 @@ BUILD =  docker run \
 				 -v $(PWD)/test_data:/test_data \
 				 -v $(PWD)/cache:/cache \
 				 -v $(PWD)/output:/output \
-				 -v $(PWD):/build \
+				 -v $(PWD)/$(DOCKERFILE):/build \
 				 -w /build \
 				 --entrypoint=/bin/sh \
 				 moby/buildkit:master 
@@ -47,28 +47,32 @@ EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
 	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) \
 	--opt build-arg:TEST_DATA=$(TEST_DATA)
 
+prep:
+	cp build.sh $(DOCKERFILE)
 
 provisioner: IMAGE := compute-provisioner
 provisioner: DOCKERFILE := compute/compute_provisioner
-provisioner:
+provisioner: prep
 	$(MAKE) build	
 
 tasks: IMAGE := compute-tasks
 tasks: DOCKERFILE := compute/compute_tasks
-tasks:
+tasks: prep
 	$(MAKE) build	
 
 wps: IMAGE := compute-wps
 wps: DOCKERFILE := compute/compute_wps
-wps:
+wps: prep
 	$(MAKE) build	
 
 thredds: IMAGE := compute-thredds
 thredds: DOCKERFILE := docker/thredds
-thredds:
+thredds: prep
 	$(MAKE) build	
 
 build:
-	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(EXTRA) $(CACHE) $(OUTPUT)
+	cd $(DOCKERFILE)
+
+	$(BUILD) build.sh . $(TARGET) $(EXTRA) $(CACHE) $(OUTPUT)
 	
 	$(POST_BUILD)

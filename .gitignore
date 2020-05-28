@@ -1,4 +1,5 @@
 _*/
+**/build.sh
 node_modules/
 compute/assets/
 webpack-stats.json

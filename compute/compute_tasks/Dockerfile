@@ -13,9 +13,13 @@ RUN mkdir -p /tmp/certs && \
 
 WORKDIR /build
 
-COPY compute/compute_tasks compute_tasks/
+COPY compute_tasks/ compute_tasks/
+COPY conftest.py conftest.py
+COPY meta.yaml meta.yaml
+COPY setup.cfg setup.cfg
+COPY setup.py setup.py
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 compute_tasks/
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 .
 
 FROM continuumio/miniconda3:${CONDA_VERSION} as production
 
@@ -34,8 +38,8 @@ RUN conda install -c conda-forge -c cdat --use-local compute-tasks && \
 
 WORKDIR /
 
-COPY compute/compute_tasks/entrypoint.sh .
-COPY compute/compute_tasks/healthcheck.sh .
+COPY entrypoint.sh .
+COPY healthcheck.sh .
 
 ENV TINI_VERSION v0.18.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini

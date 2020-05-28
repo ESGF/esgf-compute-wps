@@ -1,0 +1,4 @@
+build.sh
+VERSION
+.dockerignore
+.bumpversion.cfg
