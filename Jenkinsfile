@@ -57,7 +57,7 @@ make provisioner REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
 
-# cp -rf /nfs/tasks-test-data compute/compute_tasks/test_data
+ln -sf /nfs/tasks-test-data ${PWD}/compute/compute_tasks/
 
 make tasks REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=${PWD}/output
 
