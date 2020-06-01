@@ -249,6 +249,8 @@ def get_parameters(self, process):
             else:
                 params[name] = type(proc_param.values[0])
 
+        logger.info(f'Converted parameter {name} to {params[name]}')
+
     return params
 
 

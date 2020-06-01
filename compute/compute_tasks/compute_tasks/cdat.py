@@ -678,6 +678,42 @@ def input_nbytes(input):
 
     return nbytes
 
+def build_process(context, next, interm):
+    metrics.TASK_PROCESS_USED.labels(next.identifier).inc()
+
+    p_id = f'{next.identifier!s} ({next.name!s})'
+
+    context.message(f'Preparing inputs for process {p_id!s}')
+
+    if all(isinstance(x, cwt.Variable) for x in next.inputs):
+        inputs = gather_inputs(context, next)
+    else:
+        try:
+            inputs = [interm[x.name] for x in next.inputs]
+        except KeyError as e:
+            raise WPSError('Missing intermediate data {!s}', e)
+
+    context.message(f'Gathered {len(inputs)!s} inputs for process {p_id!s}')
+
+    process = base.get_process(next.identifier)
+
+    params = process._get_parameters(next)
+
+    logger.info(f'Parmeters {p_id!s} {params!r}')
+
+    context.message(f'Building process {p_id!s}')
+
+    metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(input_nbytes(x) for x in inputs))
+
+    if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
+        output = process._process_func(context, next, *inputs, **params)
+    else:
+        inputs = [process_subset(context, next, x) for x in inputs]
+
+        output = process._process_func(context, next, *inputs, **params)
+
+    return output
+
 def build_workflow(context):
     """ Builds a workflow.
 
@@ -692,42 +728,16 @@ def build_workflow(context):
     # Hold the intermediate inputs
     interm = {}
 
-    # Should have already been sorted
-    for next in context.sorted:
-        metrics.TASK_PROCESS_USED.labels(next.identifier).inc()
+    try:
+        # Should have already been sorted
+        for next in context.sorted:
+            output = build_process(context, next, interm)
 
-        p_id = f'{next.identifier!s} ({next.name!s})'
+            interm[next.name] = output
 
-        context.message(f'Preparing inputs for process {p_id!s}')
-
-        if all(isinstance(x, cwt.Variable) for x in next.inputs):
-            inputs = gather_inputs(context, next)
-        else:
-            try:
-                inputs = [interm[x.name] for x in next.inputs]
-            except KeyError as e:
-                raise WPSError('Missing intermediate data {!s}', e)
-
-        context.message(f'Gathered {len(inputs)!s} inputs for process {p_id!s}')
-
-        process = base.get_process(next.identifier)
-
-        params = process._get_parameters(next)
-
-        logger.info(f'Parmeters {p_id!s} {params!r}')
-
-        context.message(f'Building process {p_id!s}')
-
-        metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(input_nbytes(x) for x in inputs))
-
-        if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
-            interm[next.name] = process._process_func(context, next, *inputs, **params)
-        else:
-            inputs = [process_subset(context, next, x) for x in inputs]
-
-            interm[next.name] = process._process_func(context, next, *inputs, **params)
-
-        metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(input_nbytes(interm[next.name]))
+            metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(input_nbytes(interm[next.name]))
+    except Exception as e:
+        raise WPSError(f'Failed to build process {next.name}: {repr(e)}')
 
     return interm
 
@@ -768,7 +778,7 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
 
                 raise WPSError('Unable to select to select data with {!r}', selector)
 
-            context.message(f'Subset dimension {dim.name!s} {before!r} -> {input.coords[dim.name].shape!r}') 
+            context.message(f'Subset dimension {dim.name!s} {before!r} -> {input.coords[dim.name].shape!r}')
 
         # Check if domain was outside the inputs domain.
         for x, y in input.dims.items():
@@ -1017,12 +1027,16 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
     return output
 
 def validate_pairs(num_param, **kwargs):
+    logger.info(f'Validating pairs for {num_param} parameters')
+
     if num_param % 2 != 0:
         raise base.ValidationError(f'Expected even number of values.')
 
     return True
 
 def validate_variable(values, input_var_names):
+    logger.info(f'Validating variable {values[0]} in {input_var_names}')
+
     if values[0] not in input_var_names:
         raise base.ValidationError(f'Did not find variable {values[0]!r} in available inputs {input_var_names!r}')
 

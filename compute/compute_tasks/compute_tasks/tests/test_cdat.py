@@ -147,6 +147,7 @@ def test_build_filename(mocker, test_data):
 V0 = cwt.Variable(CMIP6_CLT, 'clt')
 
 P0 = cwt.Process(identifier='CDAT.subset', inputs=V0, domain=cwt.Domain(time=('1979-01-01', '1979-06-01')))
+P0.add_parameters(variable='clt')
 
 WORKFLOW1 = [P0,]
 
