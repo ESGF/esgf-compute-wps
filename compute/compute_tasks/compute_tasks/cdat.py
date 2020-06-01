@@ -968,11 +968,6 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
 
 
 def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
-    variable = variable[0]
-
-    if variable not in input[0]:
-        raise WPSError('Did not find variable {!s} in input.', variable)
-
     context.message('Grouping {!s} into bins {!s}', variable, bins)
 
     try:

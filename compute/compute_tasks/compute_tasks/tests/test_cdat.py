@@ -193,22 +193,7 @@ def test_groupby_bins_invalid_bin(test_data, mocker):
     mocker.patch.object(context, 'action')
 
     with pytest.raises(WPSError):
-        base.get_process(identifier)._process_func(context, p, *[v1], variable=['prw'], bins=['abcd'])
-
-
-def test_groupby_bins_missing_variable(test_data, mocker):
-    identifier = 'CDAT.groupby_bins'
-
-    v1 = test_data.generate('random')
-
-    p = cwt.Process(identifier=identifier)
-
-    context = operation.OperationContext()
-
-    mocker.patch.object(context, 'action')
-
-    with pytest.raises(WPSError):
-        base.get_process(identifier)._process_func(context, p, *[v1], variable=['prw'], bins=np.arange(0.0, 1.0, 0.1))
+        base.get_process(identifier)._process_func(context, p, *[v1], variable='pr', bins=['abcd'])
 
 
 def test_groupby_bins(test_data, mocker):
@@ -222,7 +207,7 @@ def test_groupby_bins(test_data, mocker):
 
     mocker.patch.object(context, 'action')
 
-    output = base.get_process(identifier)._process_func(context, p, *[v1], variable=['pr'], bins=np.arange(0.0, 1.0, 0.1))
+    output = base.get_process(identifier)._process_func(context, p, *[v1], variable='pr', bins=np.arange(0.0, 1.0, 0.1))
 
     assert len(output) == 9
 
