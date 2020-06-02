@@ -5,6 +5,8 @@ import sys
 
 logging.basicConfig(level=logging.DEBUG)
 
+logger = logging.getLogger(__name__)
+
 MAXIMUM = int(os.environ.get('MAXIMUM_WORKERS', 2))
 
 def main():
