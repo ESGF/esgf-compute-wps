@@ -5,6 +5,7 @@ import os
 import tempfile
 import sys
 import time
+from functools import reduce
 
 import cdms2
 import cftime
@@ -79,17 +80,22 @@ class _TestData(object):
 
         return file_path
 
-    def generate(self, type=None, value=None, name=None, time_start=None, periods=10):
+    def generate(self, type=None, value=None, name=None, time_start=None, periods=10, lat=None, lon=None):
         type = type or 'standard'
         name = name or 'pr'
         time_start = time_start or '1990-01-01'
         value = value or 5
+        lat = lat or slice(-90, 90, 2)
+        lon = lon or slice(0, 360, 2)
+
+        lat_len = int((lat.stop-lat.start)/lat.step)
+        lon_len = int((lon.stop-lon.start)/lon.step)
 
         if type == 'standard':
-            data = np.full((periods, 90, 180), value)
+            data = np.full((periods, lat_len, lon_len), value)
         elif type == 'random':
             np.random.seed(0)
-            data = np.random.normal(size=(periods, 90, 180))
+            data = np.random.normal(size=(periods, lat_len, lon_len))
         else:
             raise Exception('Unknown type')
 
@@ -99,8 +105,8 @@ class _TestData(object):
 
         coords = {
             'time': pd.date_range(time_start, periods=periods),
-            'lat': (['lat'], np.arange(-90, 90, 2)),
-            'lon': (['lon'], np.arange(0, 360, 2)),
+            'lat': (['lat'], np.arange(lat.start, lat.stop, lat.step)),
+            'lon': (['lon'], np.arange(lon.start, lon.stop, lon.step)),
         }
 
         return xr.Dataset(data_vars, coords)
@@ -622,6 +628,30 @@ def test_dask_job_tracker_timeout(mocker, client):  # noqa: F811
         tracker._draw_bar()
 
 
+def test_find_split_dimension(test_data, mocker):
+    ds = test_data.generate('random')
+
+    dtype = ds['pr'].dtype.itemsize
+
+    size = reduce(lambda x, y: x*y, ds.sizes.values())
+
+    split_dim, chunk = cdat.find_split_dimension('pr', ds, size/4)
+
+    assert split_dim == 'lat'
+    assert chunk == 14400
+
+    ds = test_data.generate('random', periods=100)
+
+    dtype = ds['pr'].dtype.itemsize
+
+    size = reduce(lambda x, y: x*y, ds.sizes.values())
+
+    split_dim, chunk = cdat.find_split_dimension('pr', ds, size/4)
+
+    assert split_dim == 'time'
+    assert chunk == 129600
+
+
 def test_build_split_output(test_data, mocker):
     context = mocker.MagicMock()
 
@@ -654,28 +684,12 @@ def test_build_split_output(test_data, mocker):
     assert len(first[0]) == 9
 
 
-def test_gather_workflow_outputs_bad_coord(mocker):
+def test_gather_workflow_outputs_missing_interm(test_data, mocker):
     context = mocker.MagicMock()
+    type(context).variable = mocker.PropertyMock(return_value='pr')
 
     subset = cwt.Process(identifier='CDAT.subset')
-    subset_delayed = mocker.MagicMock()
-    subset_delayed.to_netcdf.side_effect = ValueError
-    type(subset_delayed).nbytes = mocker.PropertyMock(return_value=1024)
-
-    interm = {
-        subset.name: subset_delayed,
-    }
-
-    with pytest.raises(WPSError):
-        cdat.gather_workflow_outputs(context, interm, [subset])
-
-
-def test_gather_workflow_outputs_missing_interm(mocker):
-    context = mocker.MagicMock()
-
-    subset = cwt.Process(identifier='CDAT.subset')
-    subset_delayed = mocker.MagicMock()
-    type(subset_delayed).nbytes = mocker.PropertyMock(return_value=1024)
+    subset_delayed = test_data.generate('random')
 
     max = cwt.Process(identifier='CDAT.max')
 
@@ -687,16 +701,15 @@ def test_gather_workflow_outputs_missing_interm(mocker):
         cdat.gather_workflow_outputs(context, interm, [subset, max])
 
 
-def test_gather_workflow_outputs(mocker):
+def test_gather_workflow_outputs(test_data, mocker):
     context = mocker.MagicMock()
+    type(context).variable = mocker.PropertyMock(return_value='pr')
 
     subset = cwt.Process(identifier='CDAT.subset')
-    subset_delayed = mocker.MagicMock()
-    type(subset_delayed).nbytes = mocker.PropertyMock(return_value=1024)
+    subset_delayed = test_data.generate('random')
 
     max = cwt.Process(identifier='CDAT.max')
-    max_delayed = mocker.MagicMock()
-    type(max_delayed).nbytes = mocker.PropertyMock(return_value=1024)
+    max_delayed = test_data.generate('random')
 
     interm = {
         subset.name: subset_delayed,

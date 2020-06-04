@@ -180,36 +180,27 @@ def build_filename(ds, operation, index=None):
     return f'{operation.identifier}_{operation.name}_{uid}{desc}{part}.nc'
 
 
-def build_split_output(context, interm_ds, output, output_name, max_size):
-    logger.info(f'Splitting output with {interm_ds.nbytes} bytes into {max_size} byte chunks')
+def find_split_dimension(variable, interm_ds, max_size):
+    logger.info(f'Determining optimal dimension to split {variable!r} along to create files of {max_size} bytes')
 
     sizes = dict((x, interm_ds.sizes[x]) for x in interm_ds.coords)
 
-    logger.info(f'Found coord sizes {sizes}')
+    logger.info(f'Using dimension sizes {sizes}')
 
-    itemsize = interm_ds[context.variable].dtype.itemsize
+    dtype = interm_ds[variable].dtype
 
-    logger.info(f'Using itemsize {itemsize} for dtype {interm_ds[context.variable].dtype}')
+    itemsize = dtype.itemsize
+
+    logger.info(f'Using {itemsize} bytes for dtype {dtype} to estimate sizes')
 
     split_dim = None
-
-    # Prefer to split by time if available
-    if 'time' in sizes:
-        temp = sizes.copy()
-        temp.pop('time')
-        chunk_size = reduce(lambda x, y: x*y, temp.values())*itemsize
-
-        if chunk_size <= max_size:
-            split_dim = 'time'
 
     # Check other dimensions if time wasn't valid
     if split_dim is None:
         for x in sizes:
-            if x == 'time':
-                continue
-
             temp = sizes.copy()
             temp.pop(x)
+
             chunk_size = reduce(lambda x, y: x*y, temp.values())*itemsize
 
             if chunk_size <= max_size:
@@ -223,9 +214,15 @@ def build_split_output(context, interm_ds, output, output_name, max_size):
 
     logger.info(f'Using dimension {split_dim} to split with a chunk size of {chunk_size} bytes')
 
+    return split_dim, chunk_size
+
+
+def build_split_output(context, interm_ds, output, output_name, max_size):
+    split_dim, chunk_size = find_split_dimension(context.variable, interm_ds, max_size)
+
     chunks_per_file = math.floor(max_size/chunk_size)
 
-    split_len = sizes[split_dim]
+    split_len = interm_ds.sizes[split_dim]
 
     step = min(chunks_per_file, split_len)
 
@@ -297,10 +294,13 @@ def gather_workflow_outputs(context, interm, operations):
 
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-        max_size = 1024**3
+        itemsize = interm_ds[context.variable].dtype.itemsize
+
+        # Limit max filesize to 100MB
+        max_size = 1024e6
 
         try:
-            if interm_ds.nbytes/max_size > 1.0:
+            if interm_ds.nbytes * itemsize > max_size:
                 _delayed = build_split_output(context, interm_ds, output, output_name, max_size)
             else:
                 _delayed = build_output(context, interm_ds, output, output_name)
