@@ -297,7 +297,7 @@ def test_set_status(mocker):
 
 def test_action_ignore_exception(mocker):
     mocker.patch.dict(os.environ, {
-        'INTERNAL_LB': '127.0.0.1',
+        'API_URL': 'https://127.0.0.1/internal_api/schema',
         'API_USERNAME': 'wps_api_user',
         'API_PASSWORD': 'wps_api_password',
     })
@@ -320,7 +320,7 @@ def test_action_ignore_exception(mocker):
 
 def test_action_exception(mocker):
     mocker.patch.dict(os.environ, {
-        'INTERNAL_LB': '127.0.0.1',
+        'API_URL': 'https://127.0.0.1/internal_api/schema',
         'API_USERNAME': 'wps_api_user',
         'API_PASSWORD': 'wps_api_password',
     })
@@ -343,7 +343,7 @@ def test_action_exception(mocker):
 
 def test_action(mocker):
     mocker.patch.dict(os.environ, {
-        'INTERNAL_LB': '127.0.0.1',
+        'API_URL': 'https://127.0.0.1/internal_api/schema',
         'API_USERNAME': 'wps_api_user',
         'API_PASSWORD': 'wps_api_password',
     })
@@ -431,7 +431,7 @@ def test_context_init_api(mocker):
     requests = mocker.patch('compute_tasks.context.tracker_api.requests')
     coreapi = mocker.patch('compute_tasks.context.tracker_api.coreapi')
     mocker.patch.dict(os.environ, {
-        'INTERNAL_LB': '127.0.0.1',
+        'API_URL': 'https://127.0.0.1/internal_api/schema',
         'API_USERNAME': 'wps_api_user',
         'API_PASSWORD': 'wps_api_password',
     })
