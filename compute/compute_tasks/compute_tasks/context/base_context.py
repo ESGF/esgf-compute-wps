@@ -173,9 +173,9 @@ class BaseContext:
 
         return data
 
-    @property
-    def variable(self):
-        return list(set([x.var_name for x in self._variable.values()]))[0]
+    # @property
+    # def variable(self):
+    #     return list(set([x.var_name for x in self._variable.values()]))[0]
 
     @property
     def sorted(self):

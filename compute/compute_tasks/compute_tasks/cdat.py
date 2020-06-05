@@ -217,8 +217,11 @@ def find_split_dimension(variable, interm_ds, max_size):
     return split_dim, chunk_size
 
 
-def build_split_output(context, interm_ds, output, output_name, max_size):
-    split_dim, chunk_size = find_split_dimension(context.variable, interm_ds, max_size)
+def build_split_output(context, variables, interm_ds, output, output_name, max_size):
+    # Choose arbitary first variable, api doesn't support multiple
+    variable = variables[0]
+
+    split_dim, chunk_size = find_split_dimension(variable, interm_ds, max_size)
 
     chunks_per_file = math.floor(max_size/chunk_size)
 
@@ -233,7 +236,7 @@ def build_split_output(context, interm_ds, output, output_name, max_size):
 
     filenames = [build_filename(interm_ds, output, i) for i, _ in enumerate(datasets)]
 
-    local_paths = [context.build_output('application/netcdf', filename=x, var_name=context.variable, name=output_name)
+    local_paths = [context.build_output('application/netcdf', filename=x, var_name=variable, name=output_name)
             for x in filenames]
 
     fixed_ds = [clean_output(x) for x in datasets]
@@ -246,10 +249,13 @@ def build_split_output(context, interm_ds, output, output_name, max_size):
     return delayed
 
 
-def build_output(context, interm_ds, output, output_name):
+def build_output(context, variables, interm_ds, output, output_name):
     filename = build_filename(interm_ds, output)
 
-    local_path = context.build_output('application/netcdf', filename=filename, var_name=context.variable, name=output_name)
+    # Choose arbitary first variable, api doesn't support multiple
+    variable = variables[0]
+
+    local_path = context.build_output('application/netcdf', filename=filename, var_name=variable, name=output_name)
 
     logger.debug('Writing local output to %r', local_path)
 
@@ -294,16 +300,21 @@ def gather_workflow_outputs(context, interm, operations):
 
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-        itemsize = interm_ds[context.variable].dtype.itemsize
+        variables = context.input_var_names[output.name]
+
+        # Choose arbitary variable to retrieve dtype
+        variable = variables[0]
+
+        itemsize = interm_ds[variable].dtype.itemsize
 
         # Limit max filesize to 100MB
         max_size = 1024e5
 
         try:
             if interm_ds.nbytes * itemsize > max_size:
-                _delayed = build_split_output(context, interm_ds, output, output_name, max_size)
+                _delayed = build_split_output(context, variables, interm_ds, output, output_name, max_size)
             else:
-                _delayed = build_output(context, interm_ds, output, output_name)
+                _delayed = build_output(context, variables, interm_ds, output, output_name)
         except ValueError:
             shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
 

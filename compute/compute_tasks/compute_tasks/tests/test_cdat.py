@@ -652,18 +652,39 @@ def test_find_split_dimension(test_data, mocker):
     assert chunk == 129600
 
 
-def test_build_split_output(test_data, mocker):
-    context = mocker.MagicMock()
-
-    context.variable = 'pr'
+def test_build_output(test_data, mocker):
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/data',
+    })
 
     data = test_data.generate('random', periods=100)
 
     p = cwt.Process(identifier='CDAT.subset')
 
+    context = operation.OperationContext()
+    mocker.patch.object(context, 'action')
+
+    delayed = cdat.build_output(context, ['pr'], data, p, 'test')
+
+    assert delayed is not None
+
+
+def test_build_split_output(test_data, mocker):
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/data',
+    })
+
+    data = test_data.generate('random', periods=100)
+
+    p = cwt.Process(identifier='CDAT.subset')
+
+    context = operation.OperationContext()
+
+    mocker.patch.object(context, 'action')
+
     save_mfdataset = mocker.spy(xr, 'save_mfdataset')
 
-    delayed = cdat.build_split_output(context, data, p, 'test', data.nbytes/8)
+    delayed = cdat.build_split_output(context, ['pr'], data, p, 'test', data.nbytes/8)
 
     save_mfdataset.assert_called()
 
@@ -674,7 +695,7 @@ def test_build_split_output(test_data, mocker):
 
     data = test_data.generate('random', periods=1)
 
-    delayed = cdat.build_split_output(context, data, p, 'test', data.nbytes/8)
+    delayed = cdat.build_split_output(context, ['pr'], data, p, 'test', data.nbytes/8)
 
     save_mfdataset.assert_called()
 
