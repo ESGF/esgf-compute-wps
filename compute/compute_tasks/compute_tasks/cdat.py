@@ -297,7 +297,7 @@ def gather_workflow_outputs(context, interm, operations):
         itemsize = interm_ds[context.variable].dtype.itemsize
 
         # Limit max filesize to 100MB
-        max_size = 1024e6
+        max_size = 1024e5
 
         try:
             if interm_ds.nbytes * itemsize > max_size:
