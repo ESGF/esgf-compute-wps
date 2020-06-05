@@ -1,6 +1,39 @@
 import os
+import cwt
 
 from compute_tasks.context.base_context import BaseContext
+
+def test_topo_sort(mocker):
+    v0 = cwt.Variable('file:///test1.nc', 'pr', name='v0')
+    v1 = cwt.Variable('file:///test2.nc', 'prw', name='v1')
+
+    s0 = cwt.Process(identifier='CDAT.subset', inputs=v0, name='s0')
+    s1 = cwt.Process(identifier='CDAT.subset', inputs=v1, name='s1')
+
+    merge = cwt.Process(identifier='CDAT.merge', inputs=[s0, s1], name='merge')
+
+    max = cwt.Process(identifier='CDAT.max', inputs=merge, name='max')
+    max.add_parameters(rename=['pr', 'pr_max'])
+
+    v = {v0.name: v0, v1.name: v1}
+    o = {s0.name: s0, s1.name: s1, merge.name: merge, max.name: max}
+
+    base = BaseContext(variable=v, operation=o)
+
+    expected = (
+        ('s0', ['pr']),
+        ('s1', ['prw']),
+        ('merge', ['prw', 'pr']),
+        ('max', ['pr', 'prw']),
+    )
+
+    for x, y in zip(base.topo_sort(), expected):
+        id, vars = x
+        exp_id, exp_vars = y
+
+        assert id.name == exp_id
+        assert sorted(vars) == sorted(exp_vars)
+
 
 def test_build_output_variable(mocker):
     state = BaseContext()
