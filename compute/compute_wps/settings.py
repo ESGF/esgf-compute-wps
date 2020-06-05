@@ -2,6 +2,7 @@ import configparser
 import logging
 import netaddr
 import os
+import socket
 
 logger = logging.getLogger('settings')
 
