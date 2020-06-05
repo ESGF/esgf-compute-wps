@@ -706,13 +706,19 @@ def test_build_split_output(test_data, mocker):
 
 
 def test_gather_workflow_outputs_missing_interm(test_data, mocker):
-    context = mocker.MagicMock()
-    type(context).variable = mocker.PropertyMock(return_value='pr')
-
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/data',
+    })
+    
     subset = cwt.Process(identifier='CDAT.subset')
     subset_delayed = test_data.generate('random')
 
     max = cwt.Process(identifier='CDAT.max')
+
+    context = operation.OperationContext()
+    context.input_var_names[subset.name] = ['pr']
+    context.input_var_names[max.name] = ['pr']
+    mocker.patch.object(context, 'action')
 
     interm = {
         subset.name: subset_delayed,
@@ -723,14 +729,20 @@ def test_gather_workflow_outputs_missing_interm(test_data, mocker):
 
 
 def test_gather_workflow_outputs(test_data, mocker):
-    context = mocker.MagicMock()
-    type(context).variable = mocker.PropertyMock(return_value='pr')
+    mocker.patch.dict(os.environ, {
+        'DATA_PATH': '/data',
+    })
 
     subset = cwt.Process(identifier='CDAT.subset')
     subset_delayed = test_data.generate('random')
 
     max = cwt.Process(identifier='CDAT.max')
     max_delayed = test_data.generate('random')
+
+    context = operation.OperationContext()
+    context.input_var_names[subset.name] = ['pr']
+    context.input_var_names[max.name] = ['pr']
+    mocker.patch.object(context, 'action')
 
     interm = {
         subset.name: subset_delayed,
