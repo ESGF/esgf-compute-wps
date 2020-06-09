@@ -166,6 +166,11 @@ TAG="${GIT_COMMIT:0:8}"
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 HELM_ARGS="--atomic --timeout 60 --reuse-values"
 
+echo ${PWD}
+ls -la .
+
+exit 1
+
 git clone https://github.com/esgf-compute/charts
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
