@@ -145,7 +145,7 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
       }
     }
 
-    stage('Update Helm Chart') {
+    stage('Deploy Development') {
       agent {
         node {
           label 'jenkins-helm'
@@ -153,11 +153,7 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
 
       }
       when {
-        anyOf {
-          branch 'master'
-          branch 'devel'
-        }
-
+        branch 'devel'
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
@@ -166,49 +162,32 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
         container(name: 'helm', shell: '/bin/bash') {
           sh '''#! /bin/bash
 
+TAG="${GIT_COMMIT:0:8}"
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
-GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+HELM_ARGS="--atomic --timeout 60
 
-if [[ "${GIT_BRANCH}" == "master" ]]; then FILE="compute/values.yaml"; else FILE="development.yaml"; fi
+git clone https://github.com/esgf-compute/charts
 
-git clone -b devel https://github.com/esgf-compute/charts
-
-cd charts/
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
 then
-  if [[ "${GIT_BRANCH}" == "master" ]]; then TAG=$(cat ../compute/compute_provisioner/VERSION); else TAG=${GIT_COMMIT:0:8}; fi
-
-  python scripts/update_config.py ${FILE} provisioner ${TAG}
+  helm upgrade ${DEV_RELEASE_NAME} charts/compute/ --set provisioner.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
 then
-  if [[ "${GIT_BRANCH}" == "master" ]]; then TAG=$(cat ../compute/compute_wps/VERSION); else TAG=${GIT_COMMIT:0:8}; fi
-
-  python scripts/update_config.py ${FILE} wps ${TAG}
+  helm upgrade ${DEV_RELEASE_NAME} charts/compute/ --set wps.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
 then
-  if [[ "${GIT_BRANCH}" == "master" ]]; then TAG=$(cat ../compute/compute_tasks/VERSION); else TAG=${GIT_COMMIT:0:8}; fi
-
-  python scripts/update_config.py ${FILE} celery ${TAG}
+  helm upgrade ${DEV_RELEASE_NAME} charts/compute/ --set celery.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
 then
-  if [[ "${GIT_BRANCH}" == "master" ]]; then TAG=$(cat ../docker/thredds/VERSION); else TAG=${GIT_COMMIT:0:8}; fi
-
-  python scripts/update_config.py ${FILE} thredds ${TAG}
-fi
-
-git config user.email ${GIT_EMAIL}
-git config user.name ${GIT_NAME}
-git add ${FILE}
-git status
-git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
-git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
+  helm upgrade ${DEV_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
+fi'''
         }
 
       }
