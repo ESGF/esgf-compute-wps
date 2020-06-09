@@ -196,6 +196,8 @@ then
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
 fi
 
+helm3 get values ${DEV_RELEASE_NAME} >> development.yaml
+
 git config user.email ${GIT_EMAIL}
 git config user.name ${GIT_NAME}
 git add charts/development.yaml
@@ -204,6 +206,7 @@ git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
         }
 
+        archiveArtifacts(artifacts: 'development.yaml', fingerprint: true)
       }
     }
 
