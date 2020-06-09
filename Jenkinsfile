@@ -153,7 +153,7 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
 
       }
       when {
-        branch 'devel'
+        branch '*'
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
@@ -218,7 +218,7 @@ git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
 
       }
       when {
-        branch 'devel'
+        branch 'master'
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
