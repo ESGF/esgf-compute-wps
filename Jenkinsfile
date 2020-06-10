@@ -165,38 +165,34 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
 TAG="${GIT_COMMIT:0:8}"
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 HELM_ARGS="--atomic --timeout 60 --reuse-values"
-
-echo ${PWD}
-ls -la .
-
-exit 1
+UPDATE_SCRIPT="charts/scripts/update_config.py"
 
 git clone https://github.com/esgf-compute/charts
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
 then
-  python scripts/update_config.py charts/compute/values.yaml provisioner ${TAG}
+  python ${UPDATE_SCRIPT} charts/compute/values.yaml provisioner ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set provisioner.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
 then
-  python scripts/update_config.py charts/compute/values.yaml wps ${TAG}
+  python ${UPDATE_SCRIPT} charts/compute/values.yaml wps ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set wps.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
 then
-  python scripts/update_config.py charts/compute/values.yaml celery ${TAG}
+  python ${UPDATE_SCRIPT} charts/compute/values.yaml celery ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set celery.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
 then
-  python scripts/update_config.py charts/compute/values.yaml thredds ${TAG}
+  python ${UPDATE_SCRIPT} charts/compute/values.yaml thredds ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
 fi
@@ -234,6 +230,7 @@ git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
 
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 HELM_ARGS="--atomic --timeout 60 --reuse-values"
+UPDATE_SCRIPT="charts/scripts/update_config.py"
 
 git clone https://github.com/esgf-compute/charts
 
@@ -241,7 +238,7 @@ if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_
 then
   TAG="$(cat compute/compute_provisioner/VERSION)"
 
-  python scripts/update_config.py charts/compute/values.yaml provisioner ${TAG}
+  python ${UPDATE_SCRIPT} charts/compute/values.yaml provisioner ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set provisioner.imageTag=${TAG} ${HELM_ARGS}
 fi
@@ -250,7 +247,7 @@ if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" ==
 then
   TAG="$(cat compute/compute_wps/VERSION)"
 
-  python scripts/update_config.py charts/compute/values.yaml wps ${TAG}
+  python ${UPDATE_SCRIPT} charts/compute/values.yaml wps ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set wps.imageTag=${TAG} ${HELM_ARGS}
 fi
@@ -259,7 +256,7 @@ if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}
 then
   TAG="$(cat compute/compute_tasks/VERSION)"
 
-  python scripts/update_config.py charts/compute/values.yaml celery ${TAG}
+  python ${UPDATE_SCRIPT} charts/compute/values.yaml celery ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set celery.imageTag=${TAG} ${HELM_ARGS}
 fi
@@ -268,7 +265,7 @@ if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THRED
 then
   TAG="$(cat docker/thredds/VERSION)"
 
-  python scripts/update_config.py charts/compute/values.yaml thredds ${TAG}
+  python ${UPDATE_SCRIPT} charts/compute/values.yaml thredds ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
 fi
