@@ -160,7 +160,8 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
-          sh '''#! /bin/bash
+          ws(dir: 'work') {
+            sh '''#! /bin/bash
 
 TAG="${GIT_COMMIT:0:8}"
 GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
@@ -205,8 +206,11 @@ git add charts/development.yaml
 git status
 git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
+          }
+
         }
 
+        sh 'ls -la'
         archiveArtifacts(artifacts: 'development.yaml', fingerprint: true)
       }
     }
