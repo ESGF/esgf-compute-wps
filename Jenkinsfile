@@ -198,9 +198,13 @@ then
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
 fi
 
+helm3 status ${DEV_RELEASE_NAME}
+
 helm3 get values ${DEV_RELEASE_NAME} >> development.yaml
 
 cd charts/
+
+git status
 
 git config user.email ${GIT_EMAIL}
 git config user.name ${GIT_NAME}
@@ -276,6 +280,12 @@ then
 
   helm3 upgrade ${PROD_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
 fi
+
+helm3 status ${PROD_RELEASE_NAME}
+
+cd charts/
+
+git status
 
 git config user.email ${GIT_EMAIL}
 git config user.name ${GIT_NAME}
