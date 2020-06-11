@@ -161,6 +161,8 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
       steps {
         container(name: 'helm', shell: '/bin/bash') {
           ws(dir: 'work') {
+            sh '''echo ${PWD}
+ls -la'''
             sh '''#! /bin/bash
 
 TAG="${GIT_COMMIT:0:8}"
