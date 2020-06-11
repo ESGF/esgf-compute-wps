@@ -172,37 +172,39 @@ git clone https://github.com/esgf-compute/charts
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
 then
-  python ${UPDATE_SCRIPT} charts/compute/values.yaml provisioner ${TAG}
+  python ${UPDATE_SCRIPT} charts/development.yaml provisioner ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set provisioner.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
 then
-  python ${UPDATE_SCRIPT} charts/compute/values.yaml wps ${TAG}
+  python ${UPDATE_SCRIPT} charts/development.yaml wps ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set wps.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
 then
-  python ${UPDATE_SCRIPT} charts/compute/values.yaml celery ${TAG}
+  python ${UPDATE_SCRIPT} charts/development.yaml celery ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set celery.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
 then
-  python ${UPDATE_SCRIPT} charts/compute/values.yaml thredds ${TAG}
+  python ${UPDATE_SCRIPT} charts/development.yaml thredds ${TAG}
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 helm3 get values ${DEV_RELEASE_NAME} >> development.yaml
 
+cd charts/
+
 git config user.email ${GIT_EMAIL}
 git config user.name ${GIT_NAME}
-git add charts/development.yaml
+git add development.yaml
 git status
 git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
