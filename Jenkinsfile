@@ -208,12 +208,12 @@ git add development.yaml
 git status
 git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
 git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
+            sh 'ls -la'
+            archiveArtifacts(artifacts: 'development.yaml', fingerprint: true)
           }
 
         }
 
-        sh 'ls -la'
-        archiveArtifacts(artifacts: 'development.yaml', fingerprint: true)
       }
     }
 
