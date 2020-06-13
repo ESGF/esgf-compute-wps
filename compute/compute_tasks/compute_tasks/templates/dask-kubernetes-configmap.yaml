@@ -5,7 +5,7 @@ metadata:
 data:
   kubernetes.yaml: |
     kubernetes:
-      name: "dask-worker-{user}-{uuid}"
+      name: "dask-worker-{{user}}-{uuid}"
       port: 8786
       worker-template:
         kind: Pod

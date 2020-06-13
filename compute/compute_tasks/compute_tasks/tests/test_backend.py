@@ -44,7 +44,7 @@ def test_render_templates(mocker):
         'REDIS_DB': '0',
     })
 
-    output = backend.render_templates()
+    output = backend.render_templates(user=0, image_pull_secret='docker-registry')
 
     assert list(output.keys()) == ['dask-kubernetes-configmap.yaml', 'dask-kubernetes-service.yaml', 'dask-kubernetes-pod.yaml']
 
