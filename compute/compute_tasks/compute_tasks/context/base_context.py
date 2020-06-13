@@ -38,7 +38,7 @@ class BaseContext:
                 f'gdomain={self.gdomain!r}, '
                 f'gparameters={list(self.gparameters.values())!r}, '
                 f'sorted={self._sorted!r}, '
-                f'output={self.output!r}, '
+                f'output={[x.name for x in self.output]!r}, '
                 f'input_var_names={self.input_var_names!r})')
 
     @staticmethod

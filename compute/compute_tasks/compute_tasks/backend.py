@@ -69,36 +69,6 @@ HEARTBEAT_INTERVAL = 4.0
 INTERVAL_INIT = 1
 INTERVAL_MAX = 32
 
-LIMIT_CPU = int(os.environ.get('USER_LIMIT_CPU', 2))
-LIMIT_MEMORY = int(utils.parse_bytes(os.environ.get('USER_LIMIT_MEMORY', '2Gi')))
-
-print(f'Limit CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
-
-SCHEDULER_CPU = os.environ.get('SCHEDULER_CPU', 1)
-
-try:
-    SCHEDULER_CPU = int(SCHEDULER_CPU)
-except ValueError:
-    SCHEDULER_CPU = float(SCHEDULER_CPU)
-
-SCHEDULER_MEMORY = int(utils.parse_bytes(os.environ.get('SCHEDULER_MEMORY', '1Gi')))
-
-print(f'Scheduler CPU {SCHEDULER_CPU!s} Memory {SCHEDULER_MEMORY!s}')
-
-LIMIT_CPU -= SCHEDULER_CPU
-LIMIT_MEMORY -= SCHEDULER_MEMORY
-
-print(f'Available for workers CPU {LIMIT_CPU!s} Memory {LIMIT_MEMORY!s}')
-
-WORKERS = int(os.environ.get('WORKERS', 2))
-
-WORKER_CPU = LIMIT_CPU / WORKERS
-WORKER_MEMORY = LIMIT_MEMORY / WORKERS
-
-WORKER_NTHREADS = os.environ.get('WORKER_NTHREADS', 1)
-
-print(f'Worker CPU {WORKER_CPU!s} Memory {WORKER_MEMORY!s} Threads {WORKER_NTHREADS!s}')
-
 TEMPLATE_NAMES = [
     'dask-kubernetes-configmap.yaml',
     'dask-kubernetes-service.yaml',
@@ -114,6 +84,44 @@ def sha256sum(x):
 TEMPLATES = jinja2.Environment(loader=jinja2.PackageLoader('compute_tasks', 'templates'), undefined=jinja2.DebugUndefined)
 TEMPLATES.filters['sha256sum'] = sha256sum
 
+def int_or_float(x):
+    try:
+        return int(x)
+    except ValueError:
+        return float(x)
+
+def determine_user_resources():
+    limit_cpu = int_or_float(os.environ.get('USER_LIMIT_CPU', 2))
+    limit_memory = utils.parse_bytes(os.environ.get('USER_LIMIT_MEMORY', '2Gi'))
+
+    logger.info(f'User resource limits cpu: {limit_cpu!r} memory: {limit_memory!r}')
+
+    scheduler_cpu = int_or_float(os.environ.get('SCHEDULER_CPU', 1))
+    scheduler_memory = utils.parse_bytes(os.environ.get('SCHEDULER_MEMORY', '1Gi'))
+
+    logger.info(f'Scheduler resources cpu: {scheduler_cpu!r} memory: {scheduler_memory!r}')
+
+    assert limit_cpu > scheduler_cpu, f'USER_LIMIT_CPU must be greater than SCHEDULER_CPU'
+    assert limit_memory > scheduler_memory, f'USER_LIMIT_MEMORY must be greater than SCHEDULER_MEMORY'
+
+    workers = int(os.environ.get('WORKERS', 2))
+    worker_nthreads = int(os.environ.get('WORKER_NTHREADS', 1))
+
+    worker_cpu = (limit_cpu - scheduler_cpu) / workers
+    worker_memory = (limit_memory - scheduler_memory) / workers
+
+    logger.info(f'Using {workers!r} worker with resources threads: {worker_nthreads} cpu: {worker_cpu!r} memory: {worker_memory!r}')
+
+    resources = {
+        'scheduler_cpu': scheduler_cpu,
+        'scheduler_memory': scheduler_memory,
+        'workers': workers,
+        'worker_cpu': worker_cpu,
+        'worker_memory': worker_memory,
+        'worker_nthreads': worker_nthreads,
+    }
+
+    return resources
 
 def queue_from_identifier(identifier):
     module, name = identifier.split('.')
@@ -192,12 +200,6 @@ def render_templates(**kwargs):
         'redis_port': os.environ['REDIS_PORT'],
         'redis_db': os.environ['REDIS_DB'],
         'image_pull_policy': os.environ.get('IMAGE_PULL_POLICY', 'Always'),
-        'scheduler_cpu': SCHEDULER_CPU,
-        'scheduler_memory': SCHEDULER_MEMORY,
-        'workers': WORKERS,
-        'worker_cpu': WORKER_CPU,
-        'worker_memory': WORKER_MEMORY,
-        'worker_nthreads': WORKER_NTHREADS,
         'worker_redis_cache_enabled': bool(os.environ.get('WORKER_REDIS_CACHE_ENABLED', False)),
         'traffic_type': os.environ.get('TRAFFIC_TYPE', 'development'),
         'dev': os.environ.get('DEV', False),
@@ -206,6 +208,10 @@ def render_templates(**kwargs):
     }
 
     data.update(kwargs)
+
+    user_resources = determine_user_resources()
+
+    data.update(user_resources)
 
     return dict((x, y.render(**data)) for x, y in templates.items())
 
