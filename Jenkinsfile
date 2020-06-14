@@ -160,11 +160,14 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
+          sh '''#! /bin/bash
+
+TAG="${GIT_COMMIT:0:8}"
+
+GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"'''
           ws(dir: 'work') {
             sh '''#! /bin/bash
 
-TAG="${GIT_COMMIT:0:8}"
-GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
 HELM_ARGS="--atomic --timeout 2m --reuse-values"
 UPDATE_SCRIPT="charts/scripts/update_config.py"
 
