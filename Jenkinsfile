@@ -162,18 +162,17 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
         container(name: 'helm', shell: '/bin/bash') {
           sh '''#! /bin/bash
 
-export TAG="${GIT_COMMIT:0:8}"
+echo "export TAG=\\"${GIT_COMMIT:0:8}\\"" >> env.txt
+echo "export GIT_DIFF=\\"$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})\\"" >> env.txt
 
-echo ${TAG}
-
-export GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
-
-echo ${GIT_DIFF}'''
+cat env.txt'''
+          stash(name: 'env.txt', includes: 'env.txt')
           ws(dir: 'work') {
+            unstash 'env.txt'
             sh '''#! /bin/bash
 
-echo ${GIT_DIFF}
-echo ${TAG}
+echo "GIT_DIFF: ${GIT_DIFF}"
+echo "TAG: ${TAG}"
 
 HELM_ARGS="--atomic --timeout 2m --reuse-values"
 UPDATE_SCRIPT="charts/scripts/update_config.py"
