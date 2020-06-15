@@ -171,6 +171,8 @@ cat env.txt'''
             unstash 'env.txt'
             sh '''#! /bin/bash
 
+source ./env.txt
+
 echo "GIT_DIFF: ${GIT_DIFF}"
 echo "TAG: ${TAG}"
 
