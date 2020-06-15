@@ -27,10 +27,25 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+              sh '''TAG="$(cat compute/compute_provisioner/VERSION)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+REGISTRY="${REGISTRY_PRIVATE}"
 
-make provisioner REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=${PWD}/output
-'''
+if [[ "${BRANCH}" == "master" ]] 
+then 
+  REGISTRY="${REGISTRY_PUBLIC}"
+elif [[ "${BRANCH}" == "devel" ]]
+then
+  TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
+fi
+
+make provisioner REGISTRY=${REGISTRY} \\
+  CACHE_PATH=/nfs/buildkit-cache \\
+  OUTPUT_PATH=${PWD}/output \\
+  TAG=${TAG}
+
+echo -e "provisioner:\\n  imageTag: ${TAG}\\n" > update_provisioner.yaml'''
+              stash(name: 'update_provisioner', includes: 'update_provisioner.yaml')
             }
 
           }
@@ -55,17 +70,37 @@ make provisioner REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+              sh '''TAG="$(cat compute/compute_tasks/VERSION)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+REGISTRY="${REGISTRY_PRIVATE}"
+
+if [[ "${BRANCH}" == "master" ]] 
+then 
+  REGISTRY="${REGISTRY_PUBLIC}"
+elif [[ "${BRANCH}" == "devel" ]]
+then
+  TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
+fi
 
 ln -sf /nfs/tasks-test-data ${PWD}/compute/compute_tasks/
 
-make tasks REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=${PWD}/output
+ls -la ${PWD}/compute/compute_tasks/
 
-make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=/nfs/tasks-test-data
-'''
+make tasks REGISTRY=${REGISTRY} \\
+  TARGET=testresult \\
+  CACHE_PATH=/nfs/buildkit-cache \\
+  OUTPUT_PATH=${PWD}/output \\
+  TAG=${TAG}
+
+make tasks TARGET=testdata \\
+  CACHE_PATH=/nfs/buildkit-cache \\
+  OUTPUT_PATH=/nfs/tasks-test-data
+
+echo -e "celery:\\n  imageTag: ${TAG}\\n" > update_tasks.yaml'''
               sh '''chown -R 10000:10000 output
 
 touch output/*'''
+              stash(name: 'update_tasks', includes: 'update_tasks.yaml')
             }
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
@@ -96,13 +131,29 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+              sh '''TAG="$(cat compute/compute_wps/VERSION)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+REGISTRY="${REGISTRY_PRIVATE}"
 
-make wps REGISTRY=${REGISTRY} TARGET=testresult CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=${PWD}/output
-'''
+if [[ "${BRANCH}" == "master" ]] 
+then 
+  REGISTRY="${REGISTRY_PUBLIC}"
+elif [[ "${BRANCH}" == "devel" ]]
+then
+  TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
+fi
+
+make wps REGISTRY=${REGISTRY} \\
+  TARGET=testresult \\
+  CACHE_PATH=/nfs/buildkit-cache \\
+  OUTPUT_PATH=${PWD}/output \\
+  TAG=${TAG}
+
+echo -e "wps:\\n  imageTag: ${TAG}\\n" > update_wps.yaml'''
               sh '''chown -R 10000:10000 output
 
 touch output/*'''
+              stash(name: 'update_wps', includes: 'update_wps.yaml')
             }
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
@@ -133,10 +184,26 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''if [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then REGISTRY=${REGISTRY_PUBLIC}; else REGISTRY=${REGISTRY_PRIVATE}; fi
+              sh '''make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
 
-make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
-'''
+TAG="$(cat docker/thredds/VERSION)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+REGISTRY="${REGISTRY_PRIVATE}"
+
+if [[ "${BRANCH}" == "master" ]] 
+then 
+  REGISTRY="${REGISTRY_PUBLIC}"
+elif [[ "${BRANCH}" == "devel" ]]
+then
+  TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
+fi
+
+make thredds REGISTRY=${REGISTRY} \\
+  CACHE_PATH=/nfs/buildkit-cache \\
+  TAG=${TAG}
+
+echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
+              stash(name: 'update_thredds', includes: 'update_thredds.yaml')
             }
 
           }
@@ -160,69 +227,28 @@ make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
-          sh '''#! /bin/bash
-
-echo "export TAG=\\"${GIT_COMMIT:0:8}\\"" >> env.txt
-echo "export GIT_DIFF=\\"$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})\\"" >> env.txt
-
-cat env.txt'''
-          stash(name: 'env.txt', includes: 'env.txt')
           ws(dir: 'work') {
-            unstash 'env.txt'
+            script {
+              try {
+                unstash 'update_provisioner.yaml'
+              } catch (err) { }
+
+              try {
+                unstash 'update_tasks.yaml'
+              } catch (err) { }
+
+              try {
+                unstash 'update_wps.yaml'
+              } catch (err) { }
+
+              try {
+                unstash 'update_thredds.yaml'
+              } catch (err) { }
+            }
+
             sh '''#! /bin/bash
 
-source ./env.txt
-
-echo "GIT_DIFF: ${GIT_DIFF}"
-echo "TAG: ${TAG}"
-
-HELM_ARGS="--atomic --timeout 2m --reuse-values"
-UPDATE_SCRIPT="charts/scripts/update_config.py"
-
-git clone https://github.com/esgf-compute/charts
-
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
-then
-  python ${UPDATE_SCRIPT} charts/development.yaml provisioner ${TAG}
-
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set provisioner.imageTag=${TAG} ${HELM_ARGS}
-fi
-
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
-then
-  python ${UPDATE_SCRIPT} charts/development.yaml wps ${TAG}
-
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set wps.imageTag=${TAG} ${HELM_ARGS}
-fi
-
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
-then
-  python ${UPDATE_SCRIPT} charts/development.yaml celery ${TAG}
-
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set celery.imageTag=${TAG} ${HELM_ARGS}
-fi
-
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
-then
-  python ${UPDATE_SCRIPT} charts/development.yaml thredds ${TAG}
-
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
-fi
-
-helm3 status ${DEV_RELEASE_NAME}
-
-helm3 get values ${DEV_RELEASE_NAME} >> development.yaml
-
-cd charts/
-
-git status
-
-git config user.email ${GIT_EMAIL}
-git config user.name ${GIT_NAME}
-git add development.yaml
-git status
-git commit -m "Updates imageTag to ${GIT_COMMIT:0:8}"
-git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
+ls -la .'''
             archiveArtifacts(artifacts: 'development.yaml', fingerprint: true)
           }
 
