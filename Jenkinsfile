@@ -46,7 +46,7 @@ make provisioner REGISTRY=${REGISTRY} \\
   CACHE=remote
 
 echo -e "provisioner:\\n  imageTag: ${TAG}\\n" > update_provisioner.yaml'''
-              stash(name: 'update_provisioner', includes: 'update_provisioner.yaml')
+              stash(name: 'update_provisioner.yaml', includes: 'update_provisioner.yaml')
             }
 
           }
@@ -103,7 +103,7 @@ echo -e "celery:\\n  imageTag: ${TAG}\\n" > update_tasks.yaml'''
               sh '''chown -R 10000:10000 output
 
 touch output/*'''
-              stash(name: 'update_tasks', includes: 'update_tasks.yaml')
+              stash(name: 'update_tasks.yaml', includes: 'update_tasks.yaml')
             }
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
@@ -157,7 +157,7 @@ echo -e "wps:\\n  imageTag: ${TAG}\\n" > update_wps.yaml'''
               sh '''chown -R 10000:10000 output
 
 touch output/*'''
-              stash(name: 'update_wps', includes: 'update_wps.yaml')
+              stash(name: 'update_wps.yaml', includes: 'update_wps.yaml')
             }
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
@@ -208,7 +208,7 @@ make thredds REGISTRY=${REGISTRY} \\
   CACHE=remote
 
 echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
-              stash(name: 'update_thredds', includes: 'update_thredds.yaml')
+              stash(name: 'update_thredds.yaml', includes: 'update_thredds.yaml')
             }
 
           }
