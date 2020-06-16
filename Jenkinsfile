@@ -39,6 +39,7 @@ then
   TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
 fi
 
+# Build and push production image
 make provisioner REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
@@ -86,15 +87,24 @@ ln -sf /nfs/tasks-test-data ${PWD}/compute/compute_tasks/
 
 ls -la ${PWD}/compute/compute_tasks/
 
-make tasks REGISTRY=${REGISTRY} \\
-  TARGET=testresult \\
+# Run the unit tests and copy results
+make tasks TARGET=testresult \\
+  REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
   TAG=${TAG}
 
+# Update test data cache
 make tasks TARGET=testdata \\
+  REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
-  OUTPUT_PATH=/nfs/tasks-test-data
+  OUTPUT_PATH=/nfs/tasks-test-data \\
+  TAG=${TAG}
+
+# Push production image
+make tasks REGISTRY=${REGISTRY} \\
+  CACHE_PATH=/nfs/buildkit-cache \\
+  TAG=${TAG}
 
 echo -e "celery:\\n  imageTag: ${TAG}\\n" > update_tasks.yaml'''
               sh '''chown -R 10000:10000 output
@@ -105,10 +115,6 @@ touch output/*'''
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
             cobertura(coberturaReportFile: 'output/coverage.xml', autoUpdateHealth: true, autoUpdateStability: true)
-            container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make tasks REGISTRY=${OUTPUT_REGISTRY}'
-            }
-
           }
         }
 
@@ -143,11 +149,16 @@ then
   TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
 fi
 
-make wps REGISTRY=${REGISTRY} \\
-  TARGET=testresult \\
+# Run unit tests and copy output
+make wps TARGET=testresult \\
+  REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG} 
+  TAG=${TAG}
+
+make wps REGISTRY=${REGISTRY} \\
+  CACHE_PATH=/nfs/buildkit-cache \\
+  TAG=${TAG}
 
 echo -e "wps:\\n  imageTag: ${TAG}\\n" > update_wps.yaml'''
               sh '''chown -R 10000:10000 output
@@ -158,10 +169,6 @@ touch output/*'''
 
             junit(testResults: 'output/unittest.xml', healthScaleFactor: 1)
             cobertura(autoUpdateHealth: true, autoUpdateStability: true, coberturaReportFile: 'output/coverage.xml')
-            container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make wps REGISTRY=${OUTPUT_REGISTRY}'
-            }
-
           }
         }
 
