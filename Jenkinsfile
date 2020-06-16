@@ -83,7 +83,7 @@ then
   TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
 fi
 
-ln -sf /nfs/tasks-test-data ${PWD}/compute/compute_tasks/
+ln -sf /nfs/tasks-test-data/test_data ${PWD}/compute/compute_tasks/
 
 ls -la ${PWD}/compute/compute_tasks/
 
