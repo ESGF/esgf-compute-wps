@@ -8,14 +8,15 @@ TARGET ?= production
 CONDA_VERSION ?= 4.8.2
 CACHE ?= local
 CACHE_PATH ?= /cache
+CACHE_REGISTRY ?= $(REGISTRY)
 OUTPUT_PATH ?= output
 
 ifeq ($(CACHE),local)
 CACHE_ARG = --import-cache type=local,src=$(CACHE_PATH) \
 	--export-cache type=local,dest=$(CACHE_PATH),mode=max
 else ifeq ($(CACHE),remote)
-CACHE_ARG = --import-cache type=registry,ref=$(IMAGE):cache \
-	--export-cache type=registry,ref=$(IMAGE):cache,mode=max
+CACHE_ARG = --import-cache type=registry,ref=$(REGISTRY)/$(IMAGE):cache \
+	--export-cache type=registry,ref=$(REGISTRY)/$(IMAGE):cache,mode=max
 endif
 
 ifeq ($(shell which buildctl-daemonless.sh),)
