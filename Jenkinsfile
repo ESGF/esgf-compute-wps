@@ -263,7 +263,9 @@ then
 
   git clone https://github.com/esgf-compute/charts
 
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m
+  helm3 status ${DEV_RELEASE_NAME}
+
+  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m | exit 1
 fi'''
             sh '''#! /bin/bash
 
@@ -273,10 +275,12 @@ then
 
   cd charts/
 
+  git status
+
   git config user.email ${GIT_EMAIL}
   git config user.name ${GIT_NAME}
 
-  git add charts/compute/values.yaml
+  git add development.yaml
 
   git status
 
