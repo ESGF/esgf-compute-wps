@@ -83,9 +83,12 @@ then
   TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
 fi
 
-ln -sf /nfs/tasks-test-data/test_data ${PWD}/compute/compute_tasks/
+TEST_DATA_SRC=/nfs/tasks-test-data/test_data
+TEST_DATA_DST=${PWD}/compute/compute_tasks/test_data
+mkdir -p ${TEST_DATA_DST}
+find ${TEST_DATA_SRC} -type f -exec sh -c \'ln ${1} ${TEST_DATA_DST}/${1##*/}\' sh {} \\;
 
-ls -la ${PWD}/compute/compute_tasks/
+ls -la ${PWD}/compute/compute_tasks/test_data
 
 # Run the unit tests and copy results
 make tasks TARGET=testresult \\
@@ -93,6 +96,8 @@ make tasks TARGET=testresult \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
   TAG=${TAG}
+
+find ${TEST_DATA_DST} -type f -exec unlink {} \\;
 
 # Update test data cache
 make tasks TARGET=testdata \\
