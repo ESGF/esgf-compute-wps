@@ -272,7 +272,7 @@ then
 
   helm3 status ${DEV_RELEASE_NAME}
 
-  echo "Helm upgrade ${DEV_RELEASE_NAME} 
+  echo "Helm upgrade ${DEV_RELEASE_NAME}"
 
   helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m | exit 0
 fi'''
