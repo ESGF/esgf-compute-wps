@@ -280,7 +280,7 @@ fi'''
 
 if [[ -e "development.yaml" ]]
 then
-  python charts/compute/scripts/merge.py development.yaml charts/development.yaml
+  python charts/scripts/merge.py development.yaml charts/development.yaml
 
   cd charts/
 
