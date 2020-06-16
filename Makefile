@@ -30,7 +30,7 @@ BUILD =  docker run \
 				 -v $(PWD)/test_data:/test_data \
 				 -v $(PWD)/cache:$(CACHE_PATH) \
 				 -v $(PWD)/output:/output \
-				 -v $(PWD)/$(DOCKERFILE):/build \
+				 -v $(PWD):/build \
 				 -w /build \
 				 --entrypoint=/bin/sh \
 				 moby/buildkit:master 
