@@ -254,7 +254,6 @@ echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
             sh '''#! /bin/bash
 
 ls -la .'''
-            archiveArtifacts(artifacts: 'development.yaml', fingerprint: true)
           }
 
         }
