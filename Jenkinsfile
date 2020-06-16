@@ -42,8 +42,7 @@ fi
 make provisioner REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG} \\
-  CACHE=remote
+  TAG=${TAG}
 
 echo -e "provisioner:\\n  imageTag: ${TAG}\\n" > update_provisioner.yaml'''
               stash(name: 'update_provisioner.yaml', includes: 'update_provisioner.yaml')
@@ -91,13 +90,11 @@ make tasks REGISTRY=${REGISTRY} \\
   TARGET=testresult \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG} \\
-  CACHE=remote
+  TAG=${TAG}
 
 make tasks TARGET=testdata \\
   CACHE_PATH=/nfs/buildkit-cache \\
-  OUTPUT_PATH=/nfs/tasks-test-data \\
-  CACHE=remote
+  OUTPUT_PATH=/nfs/tasks-test-data
 
 echo -e "celery:\\n  imageTag: ${TAG}\\n" > update_tasks.yaml'''
               sh '''chown -R 10000:10000 output
@@ -150,8 +147,7 @@ make wps REGISTRY=${REGISTRY} \\
   TARGET=testresult \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG} \\
-  CACHE=remote
+  TAG=${TAG} 
 
 echo -e "wps:\\n  imageTag: ${TAG}\\n" > update_wps.yaml'''
               sh '''chown -R 10000:10000 output
@@ -204,8 +200,7 @@ fi
 
 make thredds REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
-  TAG=${TAG} \\
-  CACHE=remote
+  TAG=${TAG}
 
 echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
               stash(name: 'update_thredds.yaml', includes: 'update_thredds.yaml')
