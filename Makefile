@@ -2,22 +2,19 @@
 
 export
 
-IMAGE := $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE)
-TAG := $(or $(if $(shell git rev-parse --abbrev-ref HEAD | grep master),$(shell cat $(DOCKERFILE)/VERSION)),$(shell git rev-parse --short HEAD))
-
-TARGET = production
-CONDA_VERSION = 4.8.2
-
-CACHE = local
-CACHE_PATH = /cache
-
-OUTPUT_PATH = output
+IMAGE ?= $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE)
+TAG ?= $(or $(if $(shell git rev-parse --abbrev-ref HEAD | grep master),$(shell cat $(DOCKERFILE)/VERSION)),$(shell git rev-parse --short HEAD))
+TARGET ?= production
+CONDA_VERSION ?= 4.8.2
+CACHE ?= local
+CACHE_PATH ?= /cache
+OUTPUT_PATH ?= output
 
 ifeq ($(CACHE),local)
-CACHE = --import-cache type=local,src=$(CACHE_PATH) \
+CACHE_ARG = --import-cache type=local,src=$(CACHE_PATH) \
 	--export-cache type=local,dest=$(CACHE_PATH),mode=max
-else
-CACHE = --import-cache type=registry,ref=$(IMAGE):cache \
+else ifeq ($(CACHE),remote)
+CACHE_ARG = --import-cache type=registry,ref=$(IMAGE):cache \
 	--export-cache type=registry,ref=$(IMAGE):cache,mode=max
 endif
 
@@ -73,6 +70,6 @@ thredds:
 	$(MAKE) build	
 
 build:
-	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(EXTRA) $(CACHE) $(OUTPUT)
+	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(EXTRA) $(CACHE_ARG) $(OUTPUT)
 	
 	$(POST_BUILD)
