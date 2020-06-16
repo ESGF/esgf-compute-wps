@@ -263,7 +263,7 @@ then
 
   git clone https://github.com/esgf-compute/charts
 
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --set-file development.yaml --reuse-values --wait --timeout 2m
+  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m
 fi'''
             sh '''#! /bin/bash
 
