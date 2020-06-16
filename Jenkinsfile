@@ -220,7 +220,7 @@ echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
 
       }
       when {
-        branch '*'
+        branch 'devel'
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
@@ -256,7 +256,25 @@ then
 
   git clone https://github.com/esgf-compute/charts
 
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --set-file development.yaml --atomic --reuse-values
+  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --set-file development.yaml --reuse-values --wait --timeout 2m
+fi'''
+            sh '''#! /bin/bash
+
+if [[ -e "development.yaml" ]]
+then
+  python charts/compute/scripts/merge.py development.yaml charts/development.yaml
+
+  cd charts/
+
+  git config user.email ${GIT_EMAIL}
+  git config user.name ${GIT_NAME}
+
+  git add charts/compute/values.yaml
+
+  git status
+
+  git commit -m "Updates image tag."
+  git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts
 fi'''
             archiveArtifacts(artifacts: 'development.yaml', fingerprint: true, allowEmptyArchive: true)
           }
