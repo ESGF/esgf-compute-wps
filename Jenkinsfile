@@ -253,7 +253,9 @@ echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
 
             sh '''#! /bin/bash
 
-ls -la .'''
+cat update_*.yaml > development.yaml
+
+cat development.yaml'''
           }
 
         }
