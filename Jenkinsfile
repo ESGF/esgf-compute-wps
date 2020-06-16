@@ -88,7 +88,7 @@ TEST_DATA_DST=${PWD}/compute/compute_tasks/test_data
 mkdir -p ${TEST_DATA_DST}
 find ${TEST_DATA_SRC} -type f -exec sh -c \'cp ${1} ${TEST_DATA_DST}/${1##*/}\' sh {} \\;
 
-rm -rf ${PWD}/compute/compute_tasks/test_data
+ls -la ${TEST_DATA_DST}
 
 # Run the unit tests and copy results
 make tasks TARGET=testresult \\
@@ -97,7 +97,7 @@ make tasks TARGET=testresult \\
   OUTPUT_PATH=${PWD}/output \\
   TAG=${TAG}
 
-find ${TEST_DATA_DST} -type f -exec unlink {} \\;
+rm -rf ${TEST_DATA_DST}
 
 # Update test data cache
 make tasks TARGET=testdata \\
