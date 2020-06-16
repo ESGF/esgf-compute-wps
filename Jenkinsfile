@@ -268,11 +268,13 @@ then
 
   git clone https://github.com/esgf-compute/charts
 
-  helm3 dep up charts/compute
+  echo "Helm ${DEV_RELEASE_NAME} status"
 
   helm3 status ${DEV_RELEASE_NAME}
 
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m | exit 1
+  echo "Helm upgrade ${DEV_RELEASE_NAME} 
+
+  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m | exit 0
 fi'''
             sh '''#! /bin/bash
 
