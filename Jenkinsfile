@@ -248,14 +248,17 @@ echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
 
             sh '''#! /bin/bash
 
-cat update_*.yaml > development.yaml
+if [[ ! -z "$(find . -type f -iname \'update_*.yaml\')" ]]
+then
+  cat update_*.yaml > development.yaml
 
-cat development.yaml
+  cat development.yaml
 
-git clone https://github.com/esgf-compute/charts
+  git clone https://github.com/esgf-compute/charts
 
-helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --set-file development.yaml --atomic --reuse-values'''
-            archiveArtifacts(artifacts: 'development.yaml', fingerprint: true)
+  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --set-file development.yaml --atomic --reuse-values
+fi'''
+            archiveArtifacts(artifacts: 'development.yaml', fingerprint: true, allowEmptyArchive: true)
           }
 
         }
