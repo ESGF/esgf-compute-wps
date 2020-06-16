@@ -86,9 +86,9 @@ fi
 TEST_DATA_SRC=/nfs/tasks-test-data/test_data
 TEST_DATA_DST=${PWD}/compute/compute_tasks/test_data
 mkdir -p ${TEST_DATA_DST}
-find ${TEST_DATA_SRC} -type f -exec sh -c \'ln ${1} ${TEST_DATA_DST}/${1##*/}\' sh {} \\;
+find ${TEST_DATA_SRC} -type f -exec sh -c \'cp ${1} ${TEST_DATA_DST}/${1##*/}\' sh {} \\;
 
-ls -la ${PWD}/compute/compute_tasks/test_data
+rm -rf ${PWD}/compute/compute_tasks/test_data
 
 # Run the unit tests and copy results
 make tasks TARGET=testresult \\
