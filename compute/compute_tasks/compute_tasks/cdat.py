@@ -180,59 +180,32 @@ def build_filename(ds, operation, index=None):
     return f'{operation.identifier}_{operation.name}_{uid}{desc}{part}.nc'
 
 
-def find_split_dimension(variable, interm_ds, max_size):
-    logger.info(f'Determining optimal dimension to split {variable!r} along to create files of {max_size} bytes')
+def generate_chunk_indices(variable, ds, max_file_size):
+    number_of_files = math.ceil(ds.nbytes/max_file_size)
 
-    sizes = dict((x, interm_ds.sizes[x]) for x in interm_ds.coords)
+    logger.info(f'Splitting output into {number_of_files} files')
 
-    logger.info(f'Using dimension sizes {sizes}')
+    dim_sizes = dict((x, len(ds.coords[x])) for x in ds.coords)
 
-    dtype = interm_ds[variable].dtype
+    split_dim, dim_size = max(dim_sizes.items(), key=lambda x: x[1])
 
-    itemsize = dtype.itemsize
+    logger.info(f'Splitting along {split_dim!r} dimension of {dim_size} length')
 
-    logger.info(f'Using {itemsize} bytes for dtype {dtype} to estimate sizes')
+    items_per_file = math.ceil(dim_size/number_of_files)
 
-    split_dim = None
+    chunk_indices = [slice(x, min(x+items_per_file, dim_size))
+            for x in range(0, dim_size, items_per_file)]
 
-    # Check other dimensions if time wasn't valid
-    if split_dim is None:
-        for x in sizes:
-            temp = sizes.copy()
-            temp.pop(x)
-
-            chunk_size = reduce(lambda x, y: x*y, temp.values())*itemsize
-
-            if chunk_size <= max_size:
-                split_dim = x
-
-                break
-
-    # No valid dimension to split on, should almost never occur.
-    if split_dim is None:
-        raise Exception(f'No valid dimensions to split along. Dimension sizes {sizes}, total bytes {interm_ds.nbytes}')
-
-    logger.info(f'Using dimension {split_dim} to split with a chunk size of {chunk_size} bytes')
-
-    return split_dim, chunk_size
+    return split_dim, chunk_indices
 
 
 def build_split_output(context, variables, interm_ds, output, output_name, max_size):
     # Choose arbitary first variable, api doesn't support multiple
     variable = variables[0]
 
-    split_dim, chunk_size = find_split_dimension(variable, interm_ds, max_size)
+    chunk_dim, chunk_indices = generate_chunk_indices(variable, interm_ds, max_size)
 
-    chunks_per_file = math.floor(max_size/chunk_size)
-
-    split_len = interm_ds.sizes[split_dim]
-
-    step = min(chunks_per_file, split_len)
-
-    datasets = [interm_ds.isel({split_dim: slice(x, min(split_len, x+step))})
-        for x in range(0, split_len, step)]
-
-    logger.info(f'Split output in {len(datasets)} files containing {step} chunks per file')
+    datasets = [interm_ds.isel({chunk_dim: x}) for x in chunk_indices]
 
     filenames = [build_filename(interm_ds, output, i) for i, _ in enumerate(datasets)]
 

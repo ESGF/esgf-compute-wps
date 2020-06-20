@@ -628,30 +628,6 @@ def test_dask_job_tracker_timeout(mocker, client):  # noqa: F811
         tracker._draw_bar()
 
 
-def test_find_split_dimension(test_data, mocker):
-    ds = test_data.generate('random')
-
-    dtype = ds['pr'].dtype.itemsize
-
-    size = reduce(lambda x, y: x*y, ds.sizes.values())
-
-    split_dim, chunk = cdat.find_split_dimension('pr', ds, size/4)
-
-    assert split_dim == 'lat'
-    assert chunk == 14400
-
-    ds = test_data.generate('random', periods=100)
-
-    dtype = ds['pr'].dtype.itemsize
-
-    size = reduce(lambda x, y: x*y, ds.sizes.values())
-
-    split_dim, chunk = cdat.find_split_dimension('pr', ds, size/4)
-
-    assert split_dim == 'time'
-    assert chunk == 129600
-
-
 def test_build_output(test_data, mocker):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/data',
@@ -691,7 +667,7 @@ def test_build_split_output(test_data, mocker):
     first = save_mfdataset.call_args[0]
 
     # Check 9 files
-    assert len(first[0]) == 9
+    assert len(first[0]) == 8
 
     data = test_data.generate('random', periods=1)
 
@@ -702,7 +678,7 @@ def test_build_split_output(test_data, mocker):
     first = save_mfdataset.call_args[0]
 
     # Check 9 files
-    assert len(first[0]) == 9
+    assert len(first[0]) == 8
 
 
 def test_gather_workflow_outputs_missing_interm(test_data, mocker):
