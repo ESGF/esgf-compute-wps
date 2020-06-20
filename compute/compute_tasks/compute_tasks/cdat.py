@@ -1129,6 +1129,8 @@ def workflow(self, context):
         raise WPSError('Error executing process: {!r}', e)
     else:
         metrics.TASK_WORKFLOW_SUCCESS.inc()
+    finally:
+        client.close()
 
     metrics.push(context.job)
 
