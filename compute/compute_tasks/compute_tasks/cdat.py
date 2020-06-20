@@ -305,13 +305,11 @@ def gather_workflow_outputs(context, interm, operations):
         # Choose arbitary variable to retrieve dtype
         variable = variables[0]
 
-        itemsize = interm_ds[variable].dtype.itemsize
-
         # Limit max filesize to 100MB
         max_size = 1024e5
 
         try:
-            if interm_ds.nbytes * itemsize > max_size:
+            if interm_ds.nbytes > max_size:
                 _delayed = build_split_output(context, variables, interm_ds, output, output_name, max_size)
             else:
                 _delayed = build_output(context, variables, interm_ds, output, output_name)
