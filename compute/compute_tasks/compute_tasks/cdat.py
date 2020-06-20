@@ -244,7 +244,7 @@ def build_split_output(context, variables, interm_ds, output, output_name, max_s
     for x in datasets:
         context.set_provenance(x)
 
-    delayed = xr.save_mfdataset(datasets, filenames, compute=False, format='NETCDF3_64BIT', engine='netcdf4')
+    delayed = xr.save_mfdataset(datasets, local_paths, compute=False, format='NETCDF3_64BIT', engine='netcdf4')
 
     return delayed
 
