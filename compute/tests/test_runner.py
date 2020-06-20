@@ -7,9 +7,9 @@ from nbconvert.preprocessors import ExecutePreprocessor
 
 @pytest.mark.parametrize('notebook', [
       'workflow.ipynb',
-#      'aggregate.ipynb',
-#     'subset_indices.ipynb',
-#     'subset_values.ipynb',
+      'aggregate.ipynb',
+      'subset_indices.ipynb',
+      'subset_values.ipynb',
 ])
 def test_notebooks(wps_env, notebook):
     base_path = os.path.dirname(__file__)
