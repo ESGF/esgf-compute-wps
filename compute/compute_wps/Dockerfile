@@ -7,9 +7,17 @@ RUN conda update -n base conda && \
 
 WORKDIR /build
 
-COPY compute/compute_wps/ compute_wps/
+COPY compute_wps/ compute_wps/
+COPY setup.cfg .
+COPY django.properties .
+COPY setup.py .
+COPY settings.py .
+COPY meta.yaml .
+COPY urls.py .
+COPY wsgi.py .
+COPY pytest.ini .
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 compute_wps/
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 .
 
 FROM continuumio/miniconda3:${CONDA_VERSION} as production
 
@@ -21,15 +29,15 @@ WORKDIR /
 RUN conda install -c conda-forge -c cdat --use-local compute-wps curl && \
       django-admin startproject compute 
 
-COPY compute/compute_wps/django.properties /etc/config/
+COPY django.properties /etc/config/
 
 WORKDIR /compute
 
-COPY compute/compute_wps/settings.py compute/
-COPY compute/compute_wps/urls.py compute/
-COPY compute/compute_wps/wsgi.py compute/
-COPY compute/compute_wps/init.sh .
-COPY compute/compute_wps/entrypoint.sh .
+COPY settings.py compute/
+COPY urls.py compute/
+COPY wsgi.py compute/
+COPY init.sh .
+COPY entrypoint.sh .
 
 ENV TINI_VERSION v0.18.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini

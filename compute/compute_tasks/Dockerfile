@@ -2,6 +2,9 @@ ARG CONDA_VERSION=4.8.2
 
 FROM continuumio/miniconda3:${CONDA_VERSION} as builder
 
+ARG TEST_DATA=/test_data
+ENV TEST_DATA ${TEST_DATA}
+
 RUN conda update -n base conda && \
       conda install -c defaults -c conda-forge -y conda-build conda-forge-pinning curl
 
@@ -10,9 +13,14 @@ RUN mkdir -p /tmp/certs && \
 
 WORKDIR /build
 
-COPY compute/compute_tasks compute_tasks/
+COPY test_data/ /test_data
+COPY compute_tasks/ compute_tasks/
+COPY conftest.py conftest.py
+COPY meta.yaml meta.yaml
+COPY setup.cfg setup.cfg
+COPY setup.py setup.py
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 compute_tasks/
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 .
 
 FROM continuumio/miniconda3:${CONDA_VERSION} as production
 
@@ -31,8 +39,8 @@ RUN conda install -c conda-forge -c cdat --use-local compute-tasks && \
 
 WORKDIR /
 
-COPY compute/compute_tasks/entrypoint.sh .
-COPY compute/compute_tasks/healthcheck.sh .
+COPY entrypoint.sh .
+COPY healthcheck.sh .
 
 ENV TINI_VERSION v0.18.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
@@ -53,3 +61,7 @@ FROM scratch as testresult
 
 COPY --from=builder /output/unittest.xml .
 COPY --from=builder /output/coverage.xml .
+
+FROM scratch as testdata
+
+COPY --from=builder /test_data test_data/

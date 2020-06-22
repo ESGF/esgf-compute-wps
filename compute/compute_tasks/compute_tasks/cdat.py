@@ -9,6 +9,7 @@ import os
 import uuid
 from contextlib import contextmanager
 from functools import partial
+from functools import reduce
 from urllib import parse
 from xml.sax.saxutils import escape
 
@@ -18,6 +19,7 @@ import dask
 import dask.array as da
 import metpy  # noqa F401
 import numpy as np
+import pandas as pd
 import requests
 import tempfile
 import xarray as xr
@@ -131,6 +133,31 @@ def clean_output(dataset):
     return dataset
 
 
+def find_most_verbose_time(t1, t2):
+    """ Finds verbose time format.
+
+    Takes two datetime objects and finds the minimal format to differentiate the two values.
+
+    Args:
+        t1 (datetime): First time value.
+        t2 (datetime): Second time value.
+
+    Returns:
+        str: Minimal format to differentiate time values or None if not possible.
+    """
+    formats = ('%Y', '%Y-%m', '%Y-%m-%d', '%Y-%d-%m-%dT%H', '%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f')
+
+    for f in formats:
+        t1_fmt = pd.to_datetime(str(t1)).strftime(f)
+
+        t2_fmt = pd.to_datetime(str(t2)).strftime(f)
+
+        if t1_fmt != t2_fmt:
+            return f
+
+    return None
+
+
 def build_filename(ds, operation, index=None):
     uid = str(uuid.uuid4())[:8]
 
@@ -138,12 +165,82 @@ def build_filename(ds, operation, index=None):
     part = ''
 
     if 'time' in ds:
-        desc = f'_{ds.time[0].values!s}-{ds.time[-1].values!s}'
+        fmt = find_most_verbose_time(ds.time[0].values, ds.time[-1].values)
+
+        if fmt is not None:
+            t1 = pd.to_datetime(str(ds.time[0].values)).strftime(fmt)
+
+            t2 = pd.to_datetime(str(ds.time[-1].values)).strftime(fmt)
+
+            desc = f'_{t1!s}-{t2!s}'
 
     if index is not None:
         part = f'_{index}'
 
-    return f'{operation.identifier}_{operation.name}{desc}_{uid}{part}.nc'
+    return f'{operation.identifier}_{operation.name}_{uid}{desc}{part}.nc'
+
+
+def generate_chunk_indices(variable, ds, max_file_size):
+    number_of_files = math.ceil(ds.nbytes/max_file_size)
+
+    logger.info(f'Splitting output into {number_of_files} files')
+
+    dim_sizes = dict((x, len(ds.coords[x])) for x in ds.coords)
+
+    split_dim, dim_size = max(dim_sizes.items(), key=lambda x: x[1])
+
+    logger.info(f'Splitting along {split_dim!r} dimension of {dim_size} length')
+
+    items_per_file = math.ceil(dim_size/number_of_files)
+
+    chunk_indices = [slice(x, min(x+items_per_file, dim_size))
+            for x in range(0, dim_size, items_per_file)]
+
+    return split_dim, chunk_indices
+
+
+def build_split_output(context, variables, interm_ds, output, output_name, max_size):
+    # Choose arbitary first variable, api doesn't support multiple
+    variable = variables[0]
+
+    chunk_dim, chunk_indices = generate_chunk_indices(variable, interm_ds, max_size)
+
+    datasets = [interm_ds.isel({chunk_dim: x}) for x in chunk_indices]
+
+    filenames = [build_filename(interm_ds, output, i) for i, _ in enumerate(datasets)]
+
+    local_paths = [context.build_output('application/netcdf', filename=x, var_name=variable, name=output_name)
+            for x in filenames]
+
+    fixed_ds = [clean_output(x) for x in datasets]
+
+    for x in datasets:
+        context.set_provenance(x)
+
+    delayed = xr.save_mfdataset(datasets, local_paths, compute=False, format='NETCDF3_64BIT', engine='netcdf4')
+
+    return delayed
+
+
+def build_output(context, variables, interm_ds, output, output_name):
+    filename = build_filename(interm_ds, output)
+
+    # Choose arbitary first variable, api doesn't support multiple
+    variable = variables[0]
+
+    local_path = context.build_output('application/netcdf', filename=filename, var_name=variable, name=output_name)
+
+    logger.debug('Writing local output to %r', local_path)
+
+    interm_ds = clean_output(interm_ds)
+
+    context.set_provenance(interm_ds)
+
+    delayed = interm_ds.to_netcdf(local_path, compute=False, format='NETCDF3_64BIT', engine='netcdf4')
+
+    context.message(f'Setting output filename {filename}')
+
+    return delayed
 
 
 def gather_workflow_outputs(context, interm, operations):
@@ -176,71 +273,27 @@ def gather_workflow_outputs(context, interm, operations):
 
         output_name = '{!s}-{!s}'.format(output.name, output.identifier)
 
-        max_size = 1024**3
+        variables = context.input_var_names[output.name]
 
-        # Estimate how large the output will be, larger than 1GB will have degraded performance when
-        # writing to a ReadWriteOne style filesystem. This causes dask/distributed lock to timeout
-        # killing the entire job. Work around is splitting the file into smaller chunks and delgate
-        # the aggregate to the client software. This could change in the future if we move to zarr
-        # or some other object store style storage.
-        if interm_ds.nbytes/max_size > 1.0:
-            logger.info(f'Splitting {interm_ds.nbytes/1024**3} GB output')
+        # Choose arbitary variable to retrieve dtype
+        variable = variables[0]
 
-            largest_dim = max(interm_ds.dims, key=lambda x: interm_ds.dims[x])
+        # Limit max filesize to 100MB
+        max_size = 1024e5
 
-            largest_len = len(interm_ds[largest_dim])
+        try:
+            if interm_ds.nbytes > max_size:
+                _delayed = build_split_output(context, variables, interm_ds, output, output_name, max_size)
+            else:
+                _delayed = build_output(context, variables, interm_ds, output, output_name)
+        except ValueError:
+            shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
 
-            logger.info(f'Found largest dimension {largest_dim} with {largest_len} elements')
+            bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
 
-            required_splits = interm_ds.nbytes / max_size
+            raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
 
-            split_size = math.ceil(largest_len / required_splits)
-
-            logger.info(f'Splitting into {required_splits} parts with {split_size} elements')
-
-            datasets = [interm_ds.isel({largest_dim: slice(x, min(largest_len, x+split_size))}) for x in range(0, largest_len, split_size)]
-
-            filenames = [build_filename(interm_ds, output, i) for i, _ in enumerate(datasets)]
-
-            local_paths = [context.build_output('application/netcdf', filename=x, var_name=context.variable, name=output_name) for x in filenames]
-
-            fixed_ds = [clean_output(x) for x in datasets]
-
-            for x in datasets:
-                context.set_provenance(x)
-
-            try:
-                delayed = [xr.save_mfdataset(datasets, filenames, compute=False, format='NETCDF3_64BIT', engine='netcdf4')]
-            except ValueError:
-                shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
-
-                bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
-
-                raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
-
-            context.message(f'Split large {interm_ds.nbytes/1024**3} GB file into {required_splits} parts')
-        else:
-            filename = build_filename(interm_ds, output)
-
-            local_path = context.build_output('application/netcdf', filename=filename, var_name=context.variable, name=output_name)
-
-            logger.debug('Writing local output to %r', local_path)
-
-            interm_ds = clean_output(interm_ds)
-
-            context.set_provenance(interm_ds)
-
-            try:
-                # Create an output file and store the future
-                delayed.append(interm_ds.to_netcdf(local_path, compute=False, format='NETCDF3_64BIT', engine='netcdf4'))
-            except ValueError:
-                shapes = dict((x, y.shape[0] if len(y.shape) > 0 else None) for x, y in interm_ds.coords.items())
-
-                bad_coords = ', '.join([x for x, y in shapes.items() if y == 1])
-
-                raise WPSError('Domain resulted in empty coordinates {!s}', bad_coords)
-
-            context.message(f'Setting output filename {filename}')
+        delayed.append(_delayed)
 
     return delayed
 
@@ -607,6 +660,42 @@ def input_nbytes(input):
 
     return nbytes
 
+def build_process(context, next, interm):
+    metrics.TASK_PROCESS_USED.labels(next.identifier).inc()
+
+    p_id = f'{next.identifier!s} ({next.name!s})'
+
+    context.message(f'Preparing inputs for process {p_id!s}')
+
+    if all(isinstance(x, cwt.Variable) for x in next.inputs):
+        inputs = gather_inputs(context, next)
+    else:
+        try:
+            inputs = [interm[x.name] for x in next.inputs]
+        except KeyError as e:
+            raise WPSError('Missing intermediate data {!s}', e)
+
+    context.message(f'Gathered {len(inputs)!s} inputs for process {p_id!s}')
+
+    process = base.get_process(next.identifier)
+
+    params = process._get_parameters(next)
+
+    logger.info(f'Parmeters {p_id!s} {params!r}')
+
+    context.message(f'Building process {p_id!s}')
+
+    metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(input_nbytes(x) for x in inputs))
+
+    if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
+        output = process._process_func(context, next, *inputs, **params)
+    else:
+        inputs = [process_subset(context, next, x) for x in inputs]
+
+        output = process._process_func(context, next, *inputs, **params)
+
+    return output
+
 def build_workflow(context):
     """ Builds a workflow.
 
@@ -621,42 +710,16 @@ def build_workflow(context):
     # Hold the intermediate inputs
     interm = {}
 
-    # Should have already been sorted
-    for next in context.sorted:
-        metrics.TASK_PROCESS_USED.labels(next.identifier).inc()
+    try:
+        # Should have already been sorted
+        for next in context.sorted:
+            output = build_process(context, next, interm)
 
-        p_id = f'{next.identifier!s} ({next.name!s})'
+            interm[next.name] = output
 
-        context.message(f'Preparing inputs for process {p_id!s}')
-
-        if all(isinstance(x, cwt.Variable) for x in next.inputs):
-            inputs = gather_inputs(context, next)
-        else:
-            try:
-                inputs = [interm[x.name] for x in next.inputs]
-            except KeyError as e:
-                raise WPSError('Missing intermediate data {!s}', e)
-
-        context.message(f'Gathered {len(inputs)!s} inputs for process {p_id!s}')
-
-        process = base.get_process(next.identifier)
-
-        params = process._get_parameters(next)
-
-        logger.info(f'Parmeters {p_id!s} {params!r}')
-
-        context.message(f'Building process {p_id!s}')
-
-        metrics.TASK_PREPROCESS_BYTES.labels(next.identifier).observe(sum(input_nbytes(x) for x in inputs))
-
-        if next.identifier in ('CDAT.subset', 'CDAT.aggregate'):
-            interm[next.name] = process._process_func(context, next, *inputs, **params)
-        else:
-            inputs = [process_subset(context, next, x) for x in inputs]
-
-            interm[next.name] = process._process_func(context, next, *inputs, **params)
-
-        metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(input_nbytes(interm[next.name]))
+            metrics.TASK_POSTPROCESS_BYTES.labels(next.identifier).observe(input_nbytes(interm[next.name]))
+    except Exception as e:
+        raise WPSError(f'Failed to build process {next.name}: {repr(e)}')
 
     return interm
 
@@ -697,7 +760,7 @@ def process_subset(context, operation, *input, method=None, rename=None, fillna=
 
                 raise WPSError('Unable to select to select data with {!r}', selector)
 
-            context.message(f'Subset dimension {dim.name!s} {before!r} -> {input.coords[dim.name].shape!r}') 
+            context.message(f'Subset dimension {dim.name!s} {before!r} -> {input.coords[dim.name].shape!r}')
 
         # Check if domain was outside the inputs domain.
         for x, y in input.dims.items():
@@ -743,8 +806,6 @@ def process_dataset(context, operation, *input, func, variable, **kwargs):
         else:
             output = input[0].copy()
 
-            variable = variable[0]
-
             output[variable] = func(input[0][variable])
 
     output = post_processing(context, variable, output, **kwargs)
@@ -762,8 +823,6 @@ def process_reduce(context, operation, *input, func, axes, variable, **kwargs):
             output = func(input[0], axes)
         else:
             output = input[0].copy()
-
-            variable = variable[0]
 
             output[variable] = func(input[0][variable], axes)
 
@@ -786,9 +845,7 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
             output = input[0].copy()
 
             # Grab relative variable from its input
-            inputs = [input[x][y] for x, y in zip(range(len(input)), variable)]
-
-            variable = variable[0]
+            inputs = [input[x][variable] for x in range(len(input))]
 
             output[variable] = func(*inputs)
     else:
@@ -796,8 +853,6 @@ def process_dataset_or_const(context, operation, *input, func, variable, const, 
             output = func(input[0], const)
         else:
             output = input[0].copy()
-
-            variable = variable[0]
 
             output[variable] = func(input[0][variable], const)
 
@@ -887,8 +942,6 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
     else:
         output = input[0].copy()
 
-        variable = variable[0]
-
         output[variable] = input[0][variable].where(cond, other)
 
     output = post_processing(context, variable, output, **kwargs)
@@ -897,11 +950,6 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
 
 
 def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
-    variable = variable[0]
-
-    if variable not in input[0]:
-        raise WPSError('Did not find variable {!s} in input.', variable)
-
     context.message('Grouping {!s} into bins {!s}', variable, bins)
 
     try:
@@ -912,10 +960,20 @@ def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
     return output
 
 
-def process_aggregate(context, operation, *input, variable, **kwargs):
+def process_aggregate(context, operation, *input, **kwargs):
     context.message('Aggregating {!s} files by coords', len(input))
 
+    variable = list(set([x.var_name for x in operation.inputs]))[0]
+
+    isizes = [x[variable].shape for x in input]
+
+    logger.info(f'{len(isizes)} inputs with shapes {isizes}')
+
     output = xr.combine_by_coords(input)
+
+    osize = output[variable].shape
+
+    logger.info(f'Output shape {osize}')
 
     output = post_processing(context, variable, output, **kwargs)
 
@@ -945,17 +1003,23 @@ def process_filter_map(context, operation, *input, variable, cond, other, func, 
 
     return output
 
-def validate_pairs(name, param_num, input_num):
-    if param_num % 2 != 0:
-        raise base.ValidationError(f'Parameter {name!r} failed validation, expected pairs of values but got odd number.')
+def validate_pairs(num_param, **kwargs):
+    logger.info(f'Validating pairs for {num_param} parameters')
+
+    if num_param % 2 != 0:
+        raise base.ValidationError(f'Expected even number of values.')
 
     return True
 
-def validate_param(name, param_num, input_nim):
-    if param_num != input_num:
-        raise base.ValidationError(f'Parameter {name!r} failed validation, expecting the number of values to match the number of inputs')
+def validate_variable(values, input_var_names):
+    logger.info(f'Validating variable {values[0]} in {input_var_names}')
 
-param_variable = base.build_parameter('variable', 'Target variable for the process.', list, str, min=1, max=float('inf'), validate_func=validate_param)
+    if values[0] not in input_var_names:
+        raise base.ValidationError(f'Did not find variable {values[0]!r} in available inputs {input_var_names!r}')
+
+    return True
+
+param_variable = base.build_parameter('variable', 'Target variable for the process.', str, min=1, max=1, validate_func=validate_variable)
 param_rename = base.build_parameter('rename', 'List of pairs mapping variable to new name e.g. pr,pr_test will rename pr to pr_test.', list, str, min=2, max=float('inf'), validate_func=validate_pairs)
 param_fillna = base.build_parameter('fillna', 'The number used to replace nan values in output.', float)
 
@@ -1038,6 +1102,8 @@ def workflow(self, context):
         raise WPSError('Error executing process: {!r}', e)
     else:
         metrics.TASK_WORKFLOW_SUCCESS.inc()
+    finally:
+        client.close()
 
     metrics.push(context.job)
 
@@ -1249,6 +1315,7 @@ def task_where(self, context):
         pr>=prw
     """
     return workflow(context)
+
 
 @bind_process_func(process_groupby_bins)
 @base.parameter('bins', 'A list of bins boundaries. e.g. 0, 10, 20 would create 2 bins (0-10), (10, 20).', list, float, min=1, max=float('inf'))

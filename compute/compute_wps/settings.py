@@ -2,6 +2,7 @@ import configparser
 import logging
 import netaddr
 import os
+import socket
 
 logger = logging.getLogger('settings')
 
@@ -95,9 +96,17 @@ else:
     ALLOWED_HOSTS = [host]
 
 # Default values
-INTERNAL_LB = config.get_value('default', 'internal.lb')
+INTERNAL_API_PROTO = config.get_value('default', 'internal_api.proto', 'http')
+INTERNAL_API_HOST = config.get_value('default', 'internal_api.host', '{hostname}')
+INTERNAL_API_PORT = config.get_value('default', 'internal_api.port', '8000')
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')
+
+INTERNAL_API_URL = f'{INTERNAL_API_PROTO}://{INTERNAL_API_HOST}'
+INTERNAL_API_URL = INTERNAL_API_URL.format(hostname=socket.gethostname())
+
+if INTERNAL_API_PORT is not None:
+    INTERNAL_API_URL = f'{INTERNAL_API_URL}:{INTERNAL_API_PORT}'
 
 # Email values
 EMAIL_HOST = config.get_value('email', 'host')

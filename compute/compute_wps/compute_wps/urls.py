@@ -56,7 +56,7 @@ api_urlpatterns = [
 schema = get_schema_view(
         title='Internal API',
         patterns=internal_router.urls,
-        url='https://{!s}/internal_api'.format(settings.INTERNAL_LB),
+        url='{!s}/internal_api'.format(settings.INTERNAL_API_URL),
         authentication_classes=[BasicAuthentication, ],
 )
 

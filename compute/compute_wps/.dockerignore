@@ -1,0 +1,4 @@
+VERSION
+.dockerignore
+.bumpversion.cfg
+Dockerfile

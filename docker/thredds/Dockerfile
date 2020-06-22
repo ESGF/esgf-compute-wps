@@ -20,13 +20,13 @@ RUN curl -fSLk https://github.com/krallin/tini/releases/download/${TINI_VERSION}
 RUN mkdir -p ${CATALINA_HOME}/content/thredds
 
 # Thredds configuration
-COPY docker/thredds/threddsConfig.xml ${CATALINA_HOME}/content/thredds/threddsConfig.xml
-COPY docker/thredds/catalog.xml ${CATALINA_HOME}/content/thredds/catalog.xml
+COPY threddsConfig.xml ${CATALINA_HOME}/content/thredds/threddsConfig.xml
+COPY catalog.xml ${CATALINA_HOME}/content/thredds/catalog.xml
 # Tomcat configuration
-COPY docker/thredds/setenv.sh ${CATALINA_HOME}/bin/setenv.sh
-COPY docker/thredds/server.xml ${CATALINA_HOME}/conf/server.xml
+COPY setenv.sh ${CATALINA_HOME}/bin/setenv.sh
+COPY server.xml ${CATALINA_HOME}/conf/server.xml
 # Entrypoint
-COPY docker/thredds/entrypoint.sh entrypoint.sh
+COPY entrypoint.sh entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/tini", "--"]
 

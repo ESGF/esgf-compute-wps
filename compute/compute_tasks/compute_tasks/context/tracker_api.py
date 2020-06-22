@@ -65,7 +65,7 @@ class TrackerAPI(tracker.Tracker):
 
         self.client = coreapi.Client(transports=[transport, ])
 
-        schema_url = 'https://{!s}/internal_api/schema'.format(os.environ.get('INTERNAL_LB', '127.0.0.1'))
+        schema_url = os.environ['API_URL']
 
         self.schema = self.client.get(schema_url)
 

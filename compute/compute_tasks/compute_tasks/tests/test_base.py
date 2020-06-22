@@ -1,3 +1,4 @@
+import cwt
 import pytest
 
 from compute_tasks import base
@@ -5,22 +6,103 @@ from compute_tasks import tests
 from compute_tasks import WPSError
 
 
+def test_validate_parameter():
+    param = cwt.NamedParameter('axes', 'time')
+    param2 = cwt.NamedParameter('axes')
+    param3 = cwt.NamedParameter('axes', 'time', 'lat', 'lon')
+    param4 = cwt.NamedParameter('axes', '3.0')
+
+    def validate_true(**kwargs):
+        return True
+
+    def validate_false(**kwargs):
+        return False
+
+    def validate_exception(**kwargs):
+        raise Exception('bad')
+
+    def validate_validationerror(**kwargs):
+        raise base.ValidationError('bad')
+
+    base.validate_parameter(param, 'axes', list, str, 1, float('inf'), validate_true, 1, ['tas',])
+
+    base.validate_parameter(param, 'axes', list, str, 1, float('inf'), None, 1, ['tas',])
+
+    with pytest.raises(base.ValidationError):
+        base.validate_parameter(None, 'axes', list, str, 1, float('inf'), None, 1, ['tas',])
+
+    with pytest.raises(base.ValidationError):
+        base.validate_parameter(param, 'axes', list, str, 1, float('inf'), validate_exception, 1, ['tas',])
+
+    with pytest.raises(base.ValidationError):
+        base.validate_parameter(param, 'axes', list, str, 1, float('inf'), validate_validationerror, 1, ['tas',])
+
+    with pytest.raises(base.ValidationError):
+        base.validate_parameter(param, 'axes', list, str, 1, float('inf'), validate_false, 1, ['tas',])
+
+    with pytest.raises(base.ValidationError):
+        base.validate_parameter(param2, 'axes', list, str, 1, float('inf'), None, 1, ['tas',])
+
+    with pytest.raises(base.ValidationError):
+        base.validate_parameter(param3, 'axes', list, str, 1, 2, None, 1, ['tas',])
+
+    with pytest.raises(base.ValidationError):
+        base.validate_parameter(param4, 'axes', list, int, 1, float('inf'), None, 1, ['tas',])
+
+    with pytest.raises(base.ValidationError):
+        base.validate_parameter(param4, 'axes', int, None, 1, float('inf'), None, 1, ['tas',])
+
+def test_parameter_decorator():
+    def validate():
+        pass
+
+    def process():
+        pass
+
+    process._parameters = {}
+
+    base.parameter('axes', 'Description', list, str, min=1, max=float('inf'), validate_func=validate)(process)
+
+    assert process._parameters['axes']['name'] == 'axes'
+    assert process._parameters['axes']['desc'] == 'Description'
+    assert process._parameters['axes']['type'] == list
+    assert process._parameters['axes']['subtype'] == str
+    assert process._parameters['axes']['min'] == 1
+    assert process._parameters['axes']['max'] == float('inf')
+    assert process._parameters['axes']['validate_func'] == validate
+
+
+def test_build_parameter():
+    def validate():
+        pass
+
+    param = base.build_parameter('axes', 'Description', list, str, min=1, max=float('inf'), validate_func=validate)
+
+    assert param['name'] == 'axes'
+    assert param['desc'] == 'Description'
+    assert param['type'] == list
+    assert param['subtype'] == str
+    assert param['min'] == 1
+    assert param['max'] == float('inf')
+    assert param['validate_func'] == validate
+
+
 def test_register_process():
-    @base.register_process('CDAT.subset', abstract='abstract data', version='1.0.0', min=10, extra_data='extra_data_content')
+    @base.register_process('CDAT.mathstuff45', abstract='abstract data', version='1.0.0', min=10, extra_data='extra_data_content')
     def test_task(self, context):
         return context
 
     registry_entry = {
-        'identifier': 'CDAT.subset',
+        'identifier': 'CDAT.mathstuff45',
         'backend': 'CDAT',
         'abstract': 'abstract data',
         'metadata': '{"extra_data": "extra_data_content", "inputs": 10}',
         'version': '1.0.0',
     }
 
-    assert 'CDAT.subset' in base.REGISTRY
-    assert base.REGISTRY['CDAT.subset'] == registry_entry
-    assert base.BINDINGS['CDAT.subset'] == test_task
+    assert 'CDAT.mathstuff45' in base.REGISTRY
+    assert base.REGISTRY['CDAT.mathstuff45'] == registry_entry
+    assert base.BINDINGS['CDAT.mathstuff45'] == test_task
 
 
 def test_discover_processes():

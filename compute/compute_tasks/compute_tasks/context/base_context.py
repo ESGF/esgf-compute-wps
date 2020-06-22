@@ -32,9 +32,14 @@ class BaseContext:
 
     def __repr__(self):
         return (f'{self.__class__.__name__}('
-                f'{self._variable!r}, {self._domain!r}, {self._operation!r},'
-                f' {self.gdomain!r}, {self.gparameters!r}, {self._sorted!r},'
-                f' {self.output!r}, {self.input_var_names!r})')
+                f'variable={list(self._variable.keys())!r}, '
+                f'domain={list(self._domain.keys())!r}, '
+                f'operation={list(self._operation.keys())!r}, '
+                f'gdomain={self.gdomain!r}, '
+                f'gparameters={list(self.gparameters.values())!r}, '
+                f'sorted={self._sorted!r}, '
+                f'output={[x.name for x in self.output]!r}, '
+                f'input_var_names={self.input_var_names!r})')
 
     @staticmethod
     def decode_data_inputs(data_inputs):
@@ -168,9 +173,9 @@ class BaseContext:
 
         return data
 
-    @property
-    def variable(self):
-        return list(set([x.var_name for x in self._variable.values()]))[0]
+    # @property
+    # def variable(self):
+    #     return list(set([x.var_name for x in self._variable.values()]))[0]
 
     @property
     def sorted(self):
