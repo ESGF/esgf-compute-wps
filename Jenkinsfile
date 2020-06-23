@@ -270,11 +270,11 @@ then
 
   echo "Helm ${DEV_RELEASE_NAME} status"
 
-  helm3 status ${DEV_RELEASE_NAME}
+  helm status ${DEV_RELEASE_NAME}
 
   echo "Helm upgrade ${DEV_RELEASE_NAME}"
 
-  helm3 upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m | exit 0
+  helm upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m | exit 0
 fi'''
             sh '''#! /bin/bash
 
@@ -335,7 +335,7 @@ then
 
   python ${UPDATE_SCRIPT} ${VALUES} provisioner ${TAG}
 
-  helm3 upgrade ${PROD_RELEASE_NAME} charts/compute/ --set provisioner.imageTag=${TAG} ${HELM_ARGS}
+  helm upgrade ${PROD_RELEASE_NAME} charts/compute/ --set provisioner.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
@@ -344,7 +344,7 @@ then
 
   python ${UPDATE_SCRIPT} ${VALUES} wps ${TAG}
 
-  helm3 upgrade ${PROD_RELEASE_NAME} charts/compute/ --set wps.imageTag=${TAG} ${HELM_ARGS}
+  helm upgrade ${PROD_RELEASE_NAME} charts/compute/ --set wps.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
@@ -353,7 +353,7 @@ then
 
   python ${UPDATE_SCRIPT} ${VALUES} celery ${TAG}
 
-  helm3 upgrade ${PROD_RELEASE_NAME} charts/compute/ --set celery.imageTag=${TAG} ${HELM_ARGS}
+  helm upgrade ${PROD_RELEASE_NAME} charts/compute/ --set celery.imageTag=${TAG} ${HELM_ARGS}
 fi
 
 if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
@@ -362,10 +362,10 @@ then
 
   python ${UPDATE_SCRIPT} ${VALUES} thredds ${TAG}
 
-  helm3 upgrade ${PROD_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
+  helm upgrade ${PROD_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
 fi
 
-helm3 status ${PROD_RELEASE_NAME}
+helm status ${PROD_RELEASE_NAME}
 
 cd charts/
 
