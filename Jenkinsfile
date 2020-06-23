@@ -300,6 +300,9 @@ then
   git commit -m "Updates image tag."
   git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts
 fi'''
+          }
+
+          ws(dir: 'workspace') {
             sh '''#! /bin/bash
 
 POD_NAME=$(kubectl get pods --selector component=wps | cut -d " " -f 1)
