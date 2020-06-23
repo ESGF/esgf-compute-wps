@@ -269,6 +269,7 @@ fi'''
 
             sh '''#! /bin/bash
 if [[ -e "development.yaml" ]]
+then
   git clone https://github.com/esgf-compute/charts
 
   echo "Helm ${DEV_RELEASE_NAME} status"
@@ -277,7 +278,7 @@ if [[ -e "development.yaml" ]]
 
   echo "Helm upgrade ${DEV_RELEASE_NAME}"
 
-  helm upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m | exit 0
+  helm upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m
 fi'''
             sh '''#! /bin/bash
 
