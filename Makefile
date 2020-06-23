@@ -1,4 +1,4 @@
-.PHONY: provisioner tasks wps thredds build test-env
+.PHONY: provisioner tasks wps thredds build integration-tests
 
 export
 
@@ -13,7 +13,7 @@ CACHE_PATH ?= /cache
 CACHE_REGISTRY == $(REGISTRY)
 OUTPUT_PATH ?= output
 
-CONDA_TEST_ENV = base
+CONDA_TEST_ENV = wps-integration-tests
 CONDA = $(patsubst %/bin/conda,%,$(shell find /opt/**/bin ${HOME}/**/bin -type f -iname 'conda' 2>/dev/null))
 
 ifeq ($(CACHE),local)
@@ -53,13 +53,17 @@ endif
 EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
 	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) 
 
-test-env:
-	conda install -n $(CONDA_TEST_ENV) -y -c conda-forge -c cdat pytest nbconvert nbformat xarray jupyter_client ipykernel
+integration-tests:
+	source $(CONDA)/bin/activate base; \
+		[[ "$(conda env list | grep $(CONDA_TEST_ENV))" ]] || \
+		conda create -n $(CONDA_TEST_ENV) -y -c conda-forge -c cdat \
+		esgf-compute-api pytest nbconvert nbformat xarray jupyter_client ipykernel ; \
+		mkdir notebooks/ || exit 0
 
 	source $(CONDA)/bin/activate $(CONDA_TEST_ENV); \
-		python -m ipykernel install --name $(CONDA_TEST_ENV) --user
-
-	mkdir notebooks/
+		python -m ipykernel install --user --name $(CONDA_TEST_ENV); \
+		pytest compute/tests/test_runner.py --wps-kernel $(CONDA_TEST_ENV) \
+		--wps-url $(WPS_URL) --wps-token $(WPS_TOKEN)
 
 provisioner: IMAGE := compute-provisioner
 provisioner: DOCKERFILE := compute/compute_provisioner
