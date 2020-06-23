@@ -236,6 +236,7 @@ echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
+        WPS_API_KEY = credentials('wps-api-key')
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
@@ -266,7 +267,6 @@ then
   cat development.yaml
 fi'''
             archiveArtifacts(artifacts: 'development.yaml', fingerprint: true, allowEmptyArchive: true)
-
             sh '''#! /bin/bash
 if [[ -e "development.yaml" ]]
 then
@@ -300,9 +300,13 @@ then
   git commit -m "Updates image tag."
   git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts
 fi'''
-
             sh '''#! /bin/bash
-kubectl get pods'''
+
+POD_NAME=$(kubectl get pods --selector component=wps | cut -d " " -n 1)
+
+echo ${POD_NAME}
+
+ls -la '''
           }
 
         }
