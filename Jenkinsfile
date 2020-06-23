@@ -390,5 +390,6 @@ git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
     booleanParam(name: 'FORCE_TASKS', defaultValue: false, description: 'Force tasks(celery) build')
     booleanParam(name: 'FORCE_WPS', defaultValue: false, description: 'Force WPS build')
     booleanParam(name: 'FORCE_THREDDS', defaultValue: false, description: 'Force THREDDS build')
+    booleanParam(name: 'FORCE_DEV_DEPLOY', defaultValue: false, description: 'Force dev deploy')
   }
 }
