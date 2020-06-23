@@ -311,7 +311,7 @@ kubectl get pods
 
 POD_NAME=$(kubectl get pods --selector component=wps | grep compute-wps | cut -d " " -f 1)
 
-kubectl exec -it ${POD_NAME} -- python manage.py test_user --api-key -h'''
+kubectl exec -it ${POD_NAME} -- python manage.py test_user --api-key "${WPS_API_KEY}"'''
           }
 
         }
