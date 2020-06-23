@@ -305,13 +305,13 @@ fi'''
           ws(dir: 'workspace') {
             sh '''#! /bin/bash
 
-POD_NAME=$(kubectl get pods --selector component=wps | cut -d " " -f 1)
+POD_NAME=$(kubectl get pods --selector component=wps | grep compute-wps | cut -d " " -f 1)
 
-echo ${POD_NAME}
+kubectl exec -it ${POD_NAME} -- python manage.py test_user --api-key ${WPS_API_KEY}
 
-ls -la 
+cd esgf-compute-wps_${GIT_BRANCH}
 
-echo ${PWD}'''
+make integration-tests WPS_URL=${DEV_SITE}/wps WPS_TOKEN=${WPS_API_KEY}'''
           }
 
         }
