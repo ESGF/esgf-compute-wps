@@ -159,11 +159,13 @@ make wps TARGET=testresult \\
   REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG}
+  TAG=${TAG} \\
+  SHELL=/bin/sh
 
 make wps REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
-  TAG=${TAG}
+  TAG=${TAG} \\
+  SHELL=/bin/sh
 
 echo -e "wps:\\n  imageTag: ${TAG}\\n" > update_wps.yaml'''
               sh '''chown -R 10000:10000 output
