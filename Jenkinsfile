@@ -259,13 +259,16 @@ echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
             }
 
             sh '''#! /bin/bash
-
 if [[ ! -z "$(find . -type f -iname \'update_*.yaml\')" ]]
 then
   cat update_*.yaml > development.yaml
 
   cat development.yaml
+fi'''
+            archiveArtifacts(artifacts: 'development.yaml', fingerprint: true, allowEmptyArchive: true)
 
+            sh '''#! /bin/bash
+if [[ -e "development.yaml" ]]
   git clone https://github.com/esgf-compute/charts
 
   echo "Helm ${DEV_RELEASE_NAME} status"
@@ -296,7 +299,9 @@ then
   git commit -m "Updates image tag."
   git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts
 fi'''
-            archiveArtifacts(artifacts: 'development.yaml', fingerprint: true, allowEmptyArchive: true)
+
+            sh '''#! /bin/bash
+kubectl get pods'''
           }
 
         }
@@ -390,6 +395,5 @@ git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
     booleanParam(name: 'FORCE_TASKS', defaultValue: false, description: 'Force tasks(celery) build')
     booleanParam(name: 'FORCE_WPS', defaultValue: false, description: 'Force WPS build')
     booleanParam(name: 'FORCE_THREDDS', defaultValue: false, description: 'Force THREDDS build')
-    booleanParam(name: 'FORCE_DEV_DEPLOY', defaultValue: false, description: 'Force dev deploy')
   }
 }
