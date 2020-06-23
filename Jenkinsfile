@@ -302,11 +302,13 @@ then
 fi'''
             sh '''#! /bin/bash
 
-POD_NAME=$(kubectl get pods --selector component=wps | cut -d " " -n 1)
+POD_NAME=$(kubectl get pods --selector component=wps | cut -d " " -f 1)
 
 echo ${POD_NAME}
 
-ls -la '''
+ls -la 
+
+echo ${PWD}'''
           }
 
         }
