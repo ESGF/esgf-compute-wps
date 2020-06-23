@@ -315,6 +315,10 @@ kubectl exec -it ${POD_NAME} -- python manage.py test_user --api-key "${WPS_API_
 
 cd esgf-compute-wps_${GIT_BRANCH}/
 
+conda info
+
+conda config --set ssl_verify False
+
 make integration-tests WPS_URL="${DEV_SITE}/wps" WPS_TOKEN="${WPS_API_KEY}"'''
           }
 
