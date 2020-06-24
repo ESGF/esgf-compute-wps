@@ -307,24 +307,6 @@ then
 fi'''
           }
 
-          ws(dir: 'workspace') {
-            sh '''#! /bin/bash
-
-kubectl get pods
-
-POD_NAME=$(kubectl get pods --selector component=wps | grep compute-wps | cut -d " " -f 1)
-
-kubectl exec -it ${POD_NAME} -- python manage.py test_user --api-key "${WPS_API_KEY}"
-
-cd esgf-compute-wps_${GIT_BRANCH}/
-
-conda info
-
-conda config --set ssl_verify False
-
-make integration-tests WPS_URL="${DEV_SITE}/wps" WPS_TOKEN="${WPS_API_KEY}"'''
-          }
-
         }
 
       }
