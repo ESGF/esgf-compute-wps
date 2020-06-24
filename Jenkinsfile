@@ -43,7 +43,8 @@ fi
 make provisioner REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG}
+  TAG=${TAG} \\
+  SHELL=/bin/sh
 
 echo -e "provisioner:\\n  imageTag: ${TAG}\\n" > update_provisioner.yaml'''
               stash(name: 'update_provisioner.yaml', includes: 'update_provisioner.yaml')
@@ -95,7 +96,8 @@ make tasks TARGET=testresult \\
   REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG}
+  TAG=${TAG} \\
+  SHELL=/bin/sh
 
 rm -rf ${TEST_DATA_DST}
 
@@ -104,12 +106,14 @@ make tasks TARGET=testdata \\
   REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
   OUTPUT_PATH=/nfs/tasks-test-data \\
-  TAG=${TAG}
+  TAG=${TAG} \\
+  SHELL=/bin/sh
 
 # Push production image
 make tasks REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
-  TAG=${TAG}
+  TAG=${TAG} \\
+  SHELL=/bin/sh
 
 echo -e "celery:\\n  imageTag: ${TAG}\\n" > update_tasks.yaml'''
               sh '''chown -R 10000:10000 output
@@ -198,9 +202,7 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make thredds REGISTRY=${REGISTRY} CACHE_PATH=/nfs/buildkit-cache
-
-TAG="$(cat docker/thredds/VERSION)"
+              sh '''TAG="$(cat docker/thredds/VERSION)"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 REGISTRY="${REGISTRY_PRIVATE}"
 
@@ -214,7 +216,8 @@ fi
 
 make thredds REGISTRY=${REGISTRY} \\
   CACHE_PATH=/nfs/buildkit-cache \\
-  TAG=${TAG}
+  TAG=${TAG} \\
+  SHELL=/bin/sh
 
 echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
               stash(name: 'update_thredds.yaml', includes: 'update_thredds.yaml')
@@ -302,24 +305,6 @@ then
   git commit -m "Updates image tag."
   git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts
 fi'''
-          }
-
-          ws(dir: 'workspace') {
-            sh '''#! /bin/bash
-
-kubectl get pods
-
-POD_NAME=$(kubectl get pods --selector component=wps | grep compute-wps | cut -d " " -f 1)
-
-kubectl exec -it ${POD_NAME} -- python manage.py test_user --api-key "${WPS_API_KEY}"
-
-cd esgf-compute-wps_${GIT_BRANCH}/
-
-conda info
-
-conda config --set ssl_verify False
-
-make integration-tests WPS_URL="${DEV_SITE}/wps" WPS_TOKEN="${WPS_API_KEY}"'''
           }
 
         }
