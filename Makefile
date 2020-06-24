@@ -57,7 +57,7 @@ integration-tests:
 	source $(CONDA)/bin/activate base; \
 		[[ "$(conda env list | grep $(CONDA_TEST_ENV))" ]] || \
 		conda create -n $(CONDA_TEST_ENV) -y -c conda-forge -c cdat \
-		esgf-compute-api pytest nbconvert nbformat xarray netcdf4 jupyter_client ipykernel ; \
+		esgf-compute-api pytest nbconvert nbformat xarray netcdf4 jupyter_client ipykernel dask distributed; \
 		mkdir notebooks/ || exit 0
 
 	source $(CONDA)/bin/activate $(CONDA_TEST_ENV); \
