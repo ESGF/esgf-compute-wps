@@ -281,6 +281,8 @@ then
 
   helm status ${DEV_RELEASE_NAME}
 
+  helm dep up charts/compute
+
   echo "Helm upgrade ${DEV_RELEASE_NAME}"
 
   helm upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m
