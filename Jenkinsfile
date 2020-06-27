@@ -273,6 +273,8 @@ then
 fi'''
             archiveArtifacts(artifacts: 'development.yaml', fingerprint: true, allowEmptyArchive: true)
             sh '''#! /bin/bash
+set -x
+
 if [[ -e "development.yaml" ]]
 then
   git clone https://github.com/esgf-compute/charts
@@ -280,6 +282,8 @@ then
   echo "Helm ${DEV_RELEASE_NAME} status"
 
   helm status ${DEV_RELEASE_NAME}
+
+  helm repo add stable https://kubernetes-charts.storage.googleapis.com/ --ca-file /ssl/llnl.ca.pem
 
   helm dep up charts/compute
 
