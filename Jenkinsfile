@@ -289,7 +289,7 @@ then
 
   echo "Helm upgrade ${DEV_RELEASE_NAME}"
 
-  helm upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 2m
+  helm upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 4m
 fi'''
             sh '''#! /bin/bash
 
