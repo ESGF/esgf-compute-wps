@@ -1,9 +1,7 @@
 pipeline {
-  agent {
-    node {
-      label 'jenkins-helm'
-    }
-
+  agent none
+  environment {
+    REGISTRY = "${env.BRANCH_NAME == "master" ? env.REGISTRY_PUBLIC : env.REGISTRY_PRIVATE}"
   }
   stages {
     stage('Build/Unittest') {
@@ -27,26 +25,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''TAG="$(cat compute/compute_provisioner/VERSION)"
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-REGISTRY="${REGISTRY_PRIVATE}"
-
-if [[ "${BRANCH}" == "master" ]] 
-then 
-  REGISTRY="${REGISTRY_PUBLIC}"
-elif [[ "${BRANCH}" == "devel" ]]
-then
-  TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
-fi
-
-# Build and push production image
-make provisioner REGISTRY=${REGISTRY} \\
-  CACHE_PATH=/nfs/buildkit-cache \\
-  OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG} \\
-  SHELL=/bin/sh
-
-echo -e "provisioner:\\n  imageTag: ${TAG}\\n" > update_provisioner.yaml'''
+              sh 'make provisioner CACHE_PATH=/nfs/buildkit-cache'
               stash(name: 'update_provisioner.yaml', includes: 'update_provisioner.yaml')
             }
 
@@ -72,53 +51,14 @@ echo -e "provisioner:\\n  imageTag: ${TAG}\\n" > update_provisioner.yaml'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''TAG="$(cat compute/compute_tasks/VERSION)"
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-REGISTRY="${REGISTRY_PRIVATE}"
+              sh 'tar c /nfs/tasks-test-data/test_data | (cd ${PWD}/compute/compute_tasks; tar x)'
+              sh 'make tasks TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
+              sh 'rm -rf ${PWD}/compute/compute_tasks/test_data'
+              sh 'make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUPUT_PATH=/nfs/tasks-test-data/test_data'
+              sh 'make tasks CACHE_PATH=/nfs/buildkit-cache'
 
-if [[ "${BRANCH}" == "master" ]] 
-then 
-  REGISTRY="${REGISTRY_PUBLIC}"
-elif [[ "${BRANCH}" == "devel" ]]
-then
-  TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
-fi
+              sh 'chown -R 10000:10000 output; touch output/*'
 
-TEST_DATA_SRC=/nfs/tasks-test-data/test_data
-TEST_DATA_DST=${PWD}/compute/compute_tasks/test_data
-mkdir -p ${TEST_DATA_DST}
-find ${TEST_DATA_SRC} -type f -exec sh -c \'cp ${1} ${TEST_DATA_DST}/${1##*/}\' sh {} \\;
-
-ls -la ${TEST_DATA_DST}
-
-# Run the unit tests and copy results
-make tasks TARGET=testresult \\
-  REGISTRY=${REGISTRY} \\
-  CACHE_PATH=/nfs/buildkit-cache \\
-  OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG} \\
-  SHELL=/bin/sh
-
-rm -rf ${TEST_DATA_DST}
-
-# Update test data cache
-make tasks TARGET=testdata \\
-  REGISTRY=${REGISTRY} \\
-  CACHE_PATH=/nfs/buildkit-cache \\
-  OUTPUT_PATH=/nfs/tasks-test-data \\
-  TAG=${TAG} \\
-  SHELL=/bin/sh
-
-# Push production image
-make tasks REGISTRY=${REGISTRY} \\
-  CACHE_PATH=/nfs/buildkit-cache \\
-  TAG=${TAG} \\
-  SHELL=/bin/sh
-
-echo -e "celery:\\n  imageTag: ${TAG}\\n" > update_tasks.yaml'''
-              sh '''chown -R 10000:10000 output
-
-touch output/*'''
               stash(name: 'update_tasks.yaml', includes: 'update_tasks.yaml')
             }
 
@@ -146,35 +86,10 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''TAG="$(cat compute/compute_wps/VERSION)"
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-REGISTRY="${REGISTRY_PRIVATE}"
+              sh 'make wps TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
+              sh 'make wps CACHE_PATH=/nfs/buildkit-cache'
+              sh 'chown -R 10000:10000 output; touch output/*'
 
-if [[ "${BRANCH}" == "master" ]] 
-then 
-  REGISTRY="${REGISTRY_PUBLIC}"
-elif [[ "${BRANCH}" == "devel" ]]
-then
-  TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
-fi
-
-# Run unit tests and copy output
-make wps TARGET=testresult \\
-  REGISTRY=${REGISTRY} \\
-  CACHE_PATH=/nfs/buildkit-cache \\
-  OUTPUT_PATH=${PWD}/output \\
-  TAG=${TAG} \\
-  SHELL=/bin/sh
-
-make wps REGISTRY=${REGISTRY} \\
-  CACHE_PATH=/nfs/buildkit-cache \\
-  TAG=${TAG} \\
-  SHELL=/bin/sh
-
-echo -e "wps:\\n  imageTag: ${TAG}\\n" > update_wps.yaml'''
-              sh '''chown -R 10000:10000 output
-
-touch output/*'''
               stash(name: 'update_wps.yaml', includes: 'update_wps.yaml')
             }
 
@@ -202,24 +117,8 @@ touch output/*'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''TAG="$(cat docker/thredds/VERSION)"
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-REGISTRY="${REGISTRY_PRIVATE}"
+              sh 'make thredds CACHE_PATH=/nfs/buildkit-cache'
 
-if [[ "${BRANCH}" == "master" ]] 
-then 
-  REGISTRY="${REGISTRY_PUBLIC}"
-elif [[ "${BRANCH}" == "devel" ]]
-then
-  TAG="${TAG}_${BRANCH}_${BUILD_NUMBER}"
-fi
-
-make thredds REGISTRY=${REGISTRY} \\
-  CACHE_PATH=/nfs/buildkit-cache \\
-  TAG=${TAG} \\
-  SHELL=/bin/sh
-
-echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
               stash(name: 'update_thredds.yaml', includes: 'update_thredds.yaml')
             }
 
@@ -241,7 +140,7 @@ echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
-        WPS_API_KEY = credentials('wps-api-key')
+        RELEASE = "${env.WPS_RELEASE_DEV}"
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
@@ -264,40 +163,23 @@ echo -e "thredds:\\n  imageTag: ${TAG}\\n" > update_thredds.yaml'''
               } catch (err) { }
             }
 
-            sh '''#! /bin/bash
-if [[ ! -z "$(find . -type f -iname \'update_*.yaml\')" ]]
-then
-  cat update_*.yaml > development.yaml
+            sh 'cat update_*.yaml > development.yaml || exit 0'
 
-  cat development.yaml
-fi'''
             archiveArtifacts(artifacts: 'development.yaml', fingerprint: true, allowEmptyArchive: true)
-            sh '''#! /bin/bash
-set -x
 
+            sh '''#! /bin/bash
 if [[ -e "development.yaml" ]]
 then
   git clone https://github.com/esgf-compute/charts
 
-  echo "Helm ${DEV_RELEASE_NAME} status"
+  cd charts/
 
-  helm status ${DEV_RELEASE_NAME}
-
-  helm repo add stable https://kubernetes-charts.storage.googleapis.com/ --ca-file /ssl/llnl.ca.pem
-
-  helm dep up charts/compute
-
-  echo "Helm upgrade ${DEV_RELEASE_NAME}"
-
-  helm upgrade ${DEV_RELEASE_NAME} charts/compute --values development.yaml --reuse-values --wait --timeout 4m
+  make upgrade CA_FILE=/ssl/llnl.ca.pem
 fi'''
             sh '''#! /bin/bash
-
 if [[ -e "development.yaml" ]]
 then
-  python charts/scripts/merge.py development.yaml charts/development.yaml
-
-  cd charts/
+  python scripts/merge.py ../development.yaml development.yaml
 
   git status
 
