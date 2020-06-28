@@ -136,7 +136,11 @@ pipeline {
 
       }
       when {
-        branch 'devel'
+        anyOf {
+          branch 'devel'
+          changeset 'docker/thredds/**'
+          changeset 'compute/**'
+        }
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
@@ -208,7 +212,11 @@ fi'''
 
       }
       when {
-        branch 'master'
+        anyOf {
+          branch 'master'
+          changeset 'docker/thredds/**'
+          changeset 'compute/**'
+        }
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
