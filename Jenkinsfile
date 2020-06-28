@@ -1,8 +1,5 @@
 pipeline {
   agent none
-  environment {
-    REGISTRY = "${env.BRANCH_NAME == "master" ? env.REGISTRY_PUBLIC : env.REGISTRY_PRIVATE}"
-  }
   stages {
     stage('Build/Unittest') {
       parallel {
@@ -56,9 +53,7 @@ pipeline {
               sh 'rm -rf ${PWD}/compute/compute_tasks/test_data'
               sh 'make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUPUT_PATH=/nfs/tasks-test-data/test_data'
               sh 'make tasks CACHE_PATH=/nfs/buildkit-cache'
-
               sh 'chown -R 10000:10000 output; touch output/*'
-
               stash(name: 'update_tasks.yaml', includes: 'update_tasks.yaml')
             }
 
@@ -89,7 +84,6 @@ pipeline {
               sh 'make wps TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
               sh 'make wps CACHE_PATH=/nfs/buildkit-cache'
               sh 'chown -R 10000:10000 output; touch output/*'
-
               stash(name: 'update_wps.yaml', includes: 'update_wps.yaml')
             }
 
@@ -118,7 +112,6 @@ pipeline {
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh 'make thredds CACHE_PATH=/nfs/buildkit-cache'
-
               stash(name: 'update_thredds.yaml', includes: 'update_thredds.yaml')
             }
 
@@ -141,6 +134,7 @@ pipeline {
           changeset 'docker/thredds/**'
           changeset 'compute/**'
         }
+
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
@@ -168,9 +162,7 @@ pipeline {
             }
 
             sh 'cat update_*.yaml > development.yaml || exit 0'
-
             archiveArtifacts(artifacts: 'development.yaml', fingerprint: true, allowEmptyArchive: true)
-
             sh '''#! /bin/bash
 if [[ -e "development.yaml" ]]
 then
@@ -178,11 +170,14 @@ then
 
   cd charts/
 
-  make upgrade CA_FILE=/ssl/llnl.ca.pem
+  make upgrade FILES="--values ../development.yaml" CA_FILE=/ssl/llnl.ca.pem
 fi'''
             sh '''#! /bin/bash
 if [[ -e "development.yaml" ]]
 then
+  ls -la
+  echo ${PWD}
+
   python scripts/merge.py ../development.yaml development.yaml
 
   git status
@@ -217,6 +212,7 @@ fi'''
           changeset 'docker/thredds/**'
           changeset 'compute/**'
         }
+
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
@@ -288,6 +284,9 @@ git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
       }
     }
 
+  }
+  environment {
+    REGISTRY = "${env.BRANCH_NAME == "master" ? env.REGISTRY_PUBLIC : env.REGISTRY_PRIVATE}"
   }
   parameters {
     booleanParam(name: 'FORCE_PROVISIONER', defaultValue: false, description: 'Force provisioner build')
