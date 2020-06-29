@@ -170,13 +170,12 @@ then
 
   cd charts/
 
-  make upgrade FILES="--values ../development.yaml" CA_FILE=/ssl/llnl.ca.pem
+  make upgrade FILES="--values ../development.yaml" CA_FILE=/ssl/llnl.ca.pem TIMEOUT=8m
 fi'''
             sh '''#! /bin/bash
 if [[ -e "development.yaml" ]]
 then
-  ls -la
-  echo ${PWD}
+  cd charts/
 
   python scripts/merge.py ../development.yaml development.yaml
 
