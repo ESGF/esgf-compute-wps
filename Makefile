@@ -1,4 +1,4 @@
-.PHONY: provisioner tasks wps thredds build integration-tests
+.PHONY: provisioner tasks wps thredds build integration-tests docker-buildctl prune-cache
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
@@ -23,15 +23,17 @@ CACHE_ARG = --import-cache type=registry,ref=$(IMAGE):cache \
 	--export-cache type=registry,ref=$(IMAGE):cache,mode=max
 endif
 
-# Is buildctl-daemonless.sh available?
-ifeq ($(shell which buildctl-daemonless.sh 2>/dev/null),)
-BUILD := docker run -it --rm \
+DOCKER_BUILDCTL := docker run -it --rm \
 	--privileged \
 	--group-add $(shell id -g) \
 	-v $(PWD):$(PWD) \
 	-w $(PWD) \
 	--entrypoint=/bin/sh \
 	moby/buildkit:master
+
+# Is buildctl-daemonless.sh available?
+ifeq ($(shell which buildctl-daemonless.sh 2>/dev/null),)
+BUILD := $(DOCKER_BUILDCTL)
 else
 BUILD := $(SHELL)
 endif
@@ -50,6 +52,18 @@ endif
 EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
 	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) \
 	--opt build-arg:TEST_DATA_PATH=$(TEST_DATA_PATH)
+
+# Default 2 days
+BUILDCTL_KEEP_DURATION ?= 172800s
+
+docker-buildctl:
+	$(DOCKER_BUILDCTL)
+
+prune-cache:
+	$(BUILD) /usr/bin/buildctl-daemonless.sh du
+
+	$(BUILD) /usr/bin/buildctl-daemonless.sh \
+		prune --all --keep-duration $(BUILDCTL_KEEP_DURATION)
 
 integration-tests: CONDA := $(patsubst %/bin/conda,%,$(shell find /opt/**/bin $(HOME)/**/bin -type f -iname 'conda' 2>/dev/null))
 integration-tests: CONDA_ENV := wps-integration-tests

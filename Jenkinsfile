@@ -22,9 +22,8 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''make provisioner CACHE_PATH=/nfs/buildkit-cache
-
-buildctl-daemonless.sh du'''
+              sh 'make provisioner CACHE_PATH=/nfs/buildkit-cache'
+              sh 'make prune-cache'
               stash(name: 'update_provisioner.yaml', includes: 'update_provisioner.yaml')
             }
 
@@ -58,6 +57,7 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
               sh 'make tasks TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
               sh 'make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=/nfs/tasks-test-data/test_data'
               sh 'make tasks CACHE_PATH=/nfs/buildkit-cache'
+              sh 'make prune-cache'
               sh 'rm -rf ${PWD}/compute/compute_tasks/test_data'
               sh 'chown -R 10000:10000 output; touch output/*'
               stash(name: 'update_tasks.yaml', includes: 'update_tasks.yaml')
@@ -89,6 +89,7 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
             container(name: 'buildkit', shell: '/bin/sh') {
               sh 'make wps TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
               sh 'make wps CACHE_PATH=/nfs/buildkit-cache'
+              sh 'make prune-cache'
               sh 'chown -R 10000:10000 output; touch output/*'
               stash(name: 'update_wps.yaml', includes: 'update_wps.yaml')
             }
@@ -118,6 +119,7 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh 'make thredds CACHE_PATH=/nfs/buildkit-cache'
+              sh 'make prune-cache'
               stash(name: 'update_thredds.yaml', includes: 'update_thredds.yaml')
             }
 
@@ -135,10 +137,12 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
 
       }
       when {
-        anyOf {
+        allOf {
           branch 'devel'
-          changeset 'docker/thredds/**'
-          changeset 'compute/**'
+          anyOf {
+            changeset 'docker/thredds/**'
+            changeset 'compute/**'
+          }
         }
 
       }
@@ -212,10 +216,12 @@ fi'''
 
       }
       when {
-        anyOf {
+        allOf {
           branch 'master'
-          changeset 'docker/thredds/**'
-          changeset 'compute/**'
+          anyOf {
+            changeset 'docker/thredds/**'
+            changeset 'compute/**'
+          }
         }
 
       }
