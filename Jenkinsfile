@@ -227,67 +227,63 @@ fi'''
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
+        RELEASE = "${env.WPS_RELEASE_PROD}"
+        CA_FILE = "/ssl/llnl.ca.pem"
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
           ws(dir: 'work') {
+            script {
+              try {
+                unstash 'update_provisioner.yaml'
+              } catch (err) { }
+
+              try {
+                unstash 'update_tasks.yaml'
+              } catch (err) { }
+
+              try {
+                unstash 'update_wps.yaml'
+              } catch (err) { }
+
+              try {
+                unstash 'update_thredds.yaml'
+              } catch (err) { }
+            }
+
+            sh 'cat update_*.yaml > production.yaml || exit 0'
+            archiveArtifcats(artifcats: 'production.yaml', fingerprint: true, allowEmptyArchive: true)
+    
             sh '''#! /bin/bash
-
-GIT_DIFF="$(git diff --name-only ${GIT_COMMIT} ${GIT_PREVIOUS_COMMIT})"
-HELM_ARGS="--atomic --timeout 2m --reuse-values"
-UPDATE_SCRIPT="charts/scripts/update_config.py"
-VALUES="charts/compute/values.yaml"
-
-git clone https://github.com/esgf-compute/charts
-
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_provisioner/)" ]] || [[ "${FORCE_PROVISIONER}" == "true" ]]
+if [[ -e "production.yaml" ]]
 then
-  TAG="$(cat compute/compute_provisioner/VERSION)"
+  git clone https://github.com/esgf-compute/charts
 
-  python ${UPDATE_SCRIPT} ${VALUES} provisioner ${TAG}
+  cd charts/
 
-  helm upgrade ${PROD_RELEASE_NAME} charts/compute/ --set provisioner.imageTag=${TAG} ${HELM_ARGS}
-fi
+  make upgrade FILES="--values ../production.yaml" TIMEOUT=8m
+fi'''
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_wps/)" ]] || [[ "${FORCE_WPS}" == "true" ]]
+            sh '''#! /bin/bash
+if [[ -e "production.yaml" ]]
 then
-  TAG="$(cat compute/compute_wps/VERSION)"
+  cd charts/
 
-  python ${UPDATE_SCRIPT} ${VALUES} wps ${TAG}
+  python scripts/merge.py ../production.yaml compute/values.yaml
 
-  helm upgrade ${PROD_RELEASE_NAME} charts/compute/ --set wps.imageTag=${TAG} ${HELM_ARGS}
-fi
+  git status
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /compute_tasks/)" ]] || [[ "${FORCE_TASKS}" == "true" ]]
-then
-  TAG="$(cat compute/compute_tasks/VERSION)"
+  git config user.email ${GIT_EMAIL}
+  git config user.name ${GIT_NAME}
 
-  python ${UPDATE_SCRIPT} ${VALUES} celery ${TAG}
+  git add compute/values.yaml
 
-  helm upgrade ${PROD_RELEASE_NAME} charts/compute/ --set celery.imageTag=${TAG} ${HELM_ARGS}
-fi
+  git status
 
-if [[ ! -z "$(echo ${GIT_DIFF} | grep /docker/thredds/)" ]] || [[ "${FORCE_THREDDS}" == "true" ]]
-then
-  TAG="$(cat docker/thredds/VERSION)"
+  git commit -m "Updates default image tags."
 
-  python ${UPDATE_SCRIPT} ${VALUES} thredds ${TAG}
-
-  helm upgrade ${PROD_RELEASE_NAME} charts/compute/ --set thredds.imageTag=${TAG} ${HELM_ARGS}
-fi
-
-helm status ${PROD_RELEASE_NAME}
-
-cd charts/
-
-git status
-
-git config user.email ${GIT_EMAIL}
-git config user.name ${GIT_NAME}
-git add charts/compute/values.yaml
-git status
-git commit -m "Updates image tag."
-git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts'''
+  git push https://${GH_USR}:${GH_PSW}@github.com/esgf-compute/charts
+fi'''
           }
 
         }
