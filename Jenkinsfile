@@ -22,7 +22,9 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'make provisioner CACHE_PATH=/nfs/buildkit-cache'
+              sh '''make provisioner CACHE_PATH=/nfs/buildkit-cache
+
+buildctl-daemonless.sh du'''
               stash(name: 'update_provisioner.yaml', includes: 'update_provisioner.yaml')
             }
 
