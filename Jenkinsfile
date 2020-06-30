@@ -252,7 +252,7 @@ fi'''
             }
 
             sh 'cat update_*.yaml > production.yaml || exit 0'
-            archiveArtifcats(artifcats: 'production.yaml', fingerprint: true, allowEmptyArchive: true)
+            archiveArtifacts(artifcats: 'production.yaml', fingerprint: true, allowEmptyArchive: true)
     
             sh '''#! /bin/bash
 if [[ -e "production.yaml" ]]
