@@ -52,7 +52,7 @@ pipeline {
 
 tar cf - /nfs/tasks-test-data/test_data/*.nc | (mkdir ${PWD}/compute/compute_tasks/test_data; tar xvf - --strip-components=3 -C ${PWD}/compute/compute_tasks/test_data)
 
-ls -la ${PWD}/compute/compute_tasks'''
+ls -la ${PWD}/compute/compute_tasks/test_data'''
               sh 'make tasks TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
               sh 'rm -rf ${PWD}/compute/compute_tasks/test_data'
               sh 'make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUPUT_PATH=/nfs/tasks-test-data/test_data'
