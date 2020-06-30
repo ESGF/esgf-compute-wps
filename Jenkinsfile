@@ -50,7 +50,7 @@ pipeline {
             container(name: 'buildkit', shell: '/bin/sh') {
               sh '''ls -la /nfs/tasks-test-data/test_data
 
-tar cf /nfs/tasks-test-data/test_data/*.nc | (mkdir ${PWD}/compute/compute_tasks/test_data; tar xvf - --strip-components=3 -C ${PWD}/compute/compute_tasks/test_data)
+tar cf - /nfs/tasks-test-data/test_data/*.nc | (mkdir ${PWD}/compute/compute_tasks/test_data; tar xvf - --strip-components=3 -C ${PWD}/compute/compute_tasks/test_data)
 
 ls -la ${PWD}/compute/compute_tasks'''
               sh 'make tasks TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
