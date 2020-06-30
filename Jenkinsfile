@@ -54,9 +54,9 @@ tar cf - /nfs/tasks-test-data/test_data/*.nc | (mkdir ${PWD}/compute/compute_tas
 
 ls -la ${PWD}/compute/compute_tasks/test_data'''
               sh 'make tasks TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
-              sh 'rm -rf ${PWD}/compute/compute_tasks/test_data'
               sh 'make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=/nfs/tasks-test-data/test_data'
               sh 'make tasks CACHE_PATH=/nfs/buildkit-cache'
+              sh 'rm -rf ${PWD}/compute/compute_tasks/test_data'
               sh 'chown -R 10000:10000 output; touch output/*'
               stash(name: 'update_tasks.yaml', includes: 'update_tasks.yaml')
             }
