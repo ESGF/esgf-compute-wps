@@ -48,7 +48,11 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh 'tar c /nfs/tasks-test-data/test_data | (cd ${PWD}/compute/compute_tasks; tar x)'
+              sh '''ls -la /nfs/tasks-tests-data/test_data
+
+tar c /nfs/tasks-test-data/test_data | (cd ${PWD}/compute/compute_tasks; tar x)
+
+ls -la ${PWD}/compute/compute_tasks/test_data'''
               sh 'make tasks TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
               sh 'rm -rf ${PWD}/compute/compute_tasks/test_data'
               sh 'make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUPUT_PATH=/nfs/tasks-test-data/test_data'
