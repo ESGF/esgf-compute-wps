@@ -48,7 +48,7 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              sh '''ls -la /nfs/tasks-tests-data/test_data
+              sh '''ls -la /nfs/tasks-test-data/test_data
 
 tar c /nfs/tasks-test-data/test_data | (cd ${PWD}/compute/compute_tasks; tar x)
 
