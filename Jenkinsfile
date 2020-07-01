@@ -22,13 +22,13 @@ pipeline {
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              lock(resource: 'builtkit-cache-1', label: 'buildkit-cache', quantity: 1) {
+              lock(resource: null, label: 'buildkit-cache', quantity: 1) {
                 sh 'make provisioner CACHE_PATH=/nfs/buildkit-cache'
               }
 
               stash(name: 'update_provisioner.yaml', includes: 'update_provisioner.yaml')
 
-              lock(resource: 'buildkit-cache-1', label: 'buildkit-cache') {
+              lock(resource: null, label: 'buildkit-cache') {
                 sh 'make prune-cache'
               }
             }
@@ -60,7 +60,7 @@ pipeline {
 tar cf - /nfs/tasks-test-data/test_data/*.nc | (mkdir ${PWD}/compute/compute_tasks/test_data; tar xvf - --strip-components=3 -C ${PWD}/compute/compute_tasks/test_data)
 
 ls -la ${PWD}/compute/compute_tasks/test_data'''
-              lock(resource: 'buildkit-cache-2', label: 'buildkit-cache', quantity: 1) {
+              lock(resource: null, label: 'buildkit-cache', quantity: 1) {
                 sh 'make tasks TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
                 sh 'make tasks TARGET=testdata CACHE_PATH=/nfs/buildkit-cache OUTPUT_PATH=/nfs/tasks-test-data/test_data'
                 sh 'make tasks CACHE_PATH=/nfs/buildkit-cache'
@@ -68,7 +68,7 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
 
               stash(name: 'update_tasks.yaml', includes: 'update_tasks.yaml')
 
-              lock(resource: 'buildkit-cache-2', label: 'buildkit-cache') {
+              lock(resource: null, label: 'buildkit-cache') {
                 sh 'make prune-cache'
               }
 
@@ -100,14 +100,14 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              lock(resource: 'buildkit-cache-3', label: 'buildkit-cache', quantity: 1) {
+              lock(resource: null, label: 'buildkit-cache', quantity: 1) {
                 sh 'make wps TARGET=testresult CACHE_PATH=/nfs/buildkit-cache'
                 sh 'make wps CACHE_PATH=/nfs/buildkit-cache'
               }
 
               stash(name: 'update_wps.yaml', includes: 'update_wps.yaml')
 
-              lock(resource: 'buildkit-cache-3', label: 'buildkit-cache') {
+              lock(resource: null, label: 'buildkit-cache') {
                 sh 'make prune-cache'
               }
 
@@ -138,13 +138,13 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
           }
           steps {
             container(name: 'buildkit', shell: '/bin/sh') {
-              lock(resource: 'buildkit-cache-4', label: 'buildkit-cache', quantity: 1) {
+              lock(resource: null, label: 'buildkit-cache', quantity: 1) {
                 sh 'make thredds CACHE_PATH=/nfs/buildkit-cache'
               }
 
               stash(name: 'update_thredds.yaml', includes: 'update_thredds.yaml')
 
-              lock(resource: 'buildkit-cache-4', label: 'buildkit-cache') {
+              lock(resource: null, label: 'buildkit-cache') {
                 sh 'make prune-cache'
               }
             }
