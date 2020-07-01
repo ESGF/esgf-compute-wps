@@ -163,15 +163,7 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
 
       }
       when {
-        allOf {
-          branch 'devel'
-          anyOf {
-            changeset 'docker/thredds/**'
-            changeset 'compute/**'
-          }
-
-        }
-
+        branch 'devel'
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
@@ -246,15 +238,7 @@ fi'''
 
       }
       when {
-        allOf {
-          branch 'master'
-          anyOf {
-            changeset 'docker/thredds/**'
-            changeset 'compute/**'
-          }
-
-        }
-
+        branch 'master'
       }
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')

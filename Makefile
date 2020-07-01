@@ -55,6 +55,7 @@ EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
 
 # Default 2 days
 BUILDCTL_KEEP_DURATION ?= 172800s
+BUILDCTL_KEEP_STORAGE ?= 10240
 
 docker-buildctl:
 	$(DOCKER_BUILDCTL)
@@ -62,8 +63,9 @@ docker-buildctl:
 prune-cache:
 	$(BUILD) /usr/bin/buildctl-daemonless.sh du
 
-	$(BUILD) /usr/bin/buildctl-daemonless.sh \
-		prune --all --keep-duration $(BUILDCTL_KEEP_DURATION)
+	$(BUILD) /usr/bin/buildctl-daemonless.sh prune \
+		--all --keep-storage $(BUILDCTL_KEEP_STORAGE)
+		# --keep-duration $(BUILDCTL_KEEP_DURATION)
 
 integration-tests: CONDA := $(patsubst %/bin/conda,%,$(shell find /opt/**/bin $(HOME)/**/bin -type f -iname 'conda' 2>/dev/null))
 integration-tests: CONDA_ENV := wps-integration-tests
