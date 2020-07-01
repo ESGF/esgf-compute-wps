@@ -168,6 +168,8 @@ ls -la ${PWD}/compute/compute_tasks/test_data'''
       environment {
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
         RELEASE = "${env.WPS_RELEASE_DEV}"
+        CA_FILE = "/ssl/llnl.ca.pem"
+        KUBE_CONTEXT = "development"
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
@@ -199,7 +201,7 @@ then
 
   cd charts/
 
-  make upgrade FILES="--values ../development.yaml" CA_FILE=/ssl/llnl.ca.pem TIMEOUT=8m
+  make upgrade FILES="--values ../development.yaml" TIMEOUT=8m
 fi'''
             lock(resource: 'esgf-compute_charts') {
               sh '''#! /bin/bash
@@ -244,6 +246,7 @@ fi'''
         GH = credentials('ae3dd8dc-817a-409b-90b9-6459fb524afc')
         RELEASE = "${env.WPS_RELEASE_PROD}"
         CA_FILE = '/ssl/llnl.ca.pem'
+        KUBE_CONTEXT = "production"
       }
       steps {
         container(name: 'helm', shell: '/bin/bash') {
