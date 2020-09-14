@@ -81,7 +81,8 @@ integration-tests:
 
 	source $(CONDA)/bin/activate $(CONDA_ENV); \
 		python -m ipykernel install --user --name $(CONDA_ENV); \
-		pytest compute/tests/test_runner.py --wps_kernel $(CONDA_ENV) --wps-url $(WPS_URL) --wps-token $(WPS_TOKEN)
+		cd compute/tests; \
+		pytest test_runner.py --wps_kernel $(CONDA_ENV) --wps-url $(WPS_URL) --wps-token $(WPS_TOKEN)
 
 provisioner: NAME	:= compute-provisioner
 provisioner: DOCKERFILE := compute/compute_provisioner
