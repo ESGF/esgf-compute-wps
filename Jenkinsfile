@@ -20,11 +20,9 @@ pipeline {
             container(name: "buildkit", shell: "/bin/sh") {
               sh "make provisioner IMAGE_PUSH=true TARGET=production"
 
-              sh """
-git clone https://github.com/esgf-compute/charts
+              git "https://github.com/esgf-compute/charts.git"
 
-helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set provisioner.imageTag=`make tag-wps` --wait
-              """
+              sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set provisioner.imageTag=`make tag-wps` --wait"
             }
           }
         }
@@ -68,19 +66,13 @@ chown -R 1000:1000 tasks_output
             }
             stage("Deploy") {
               when {
-                allOf {
-                  branch "devel"
-
-                  environment name: "IMAGE_PUSH", value: "true"
-                }
+                environment name: "IMAGE_PUSH", value: "true"
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
-                  sh """
-git clone https://github.com/esgf-compute/charts
+                  git "https://github.com/esgf-compute/charts.git"
 
-helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set celery.imageTag=`make tag-wps` --wait
-                  """
+                  sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set celery.imageTag=`make tag-wps` --wait"
                 }
               }
             }
@@ -126,18 +118,13 @@ chown -R 1000:1000 wps_output
             }
             stage("Deploy") {
               when {
-                allOf {
-                  branch "devel"
-                  environment name: "IMAGE_PUSH", value: "true"
-                }
+                environment name: "IMAGE_PUSH", value: "true"
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
-                  sh """
-git clone https://github.com/esgf-compute/charts
+                  git "https://github.com/esgf-compute/charts.git"
 
-helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set wps.imageTag=`make tag-wps` --wait
-                  """
+                  sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set wps.imageTag=`make tag-wps` --wait"
                 }
               }
             }
@@ -154,11 +141,9 @@ helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set wps.imageTa
             container(name: "buildkit", shell: "/bin/sh") {
               sh "make thredds IMAGE_PUSH=true TARGET=production"
 
-              sh """
-git clone https://github.com/esgf-compute/charts
+              git "https://github.com/esgf-compute/charts.git"
 
-helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set thredds.imageTag=`make tag-wps` --wait
-              """
+              sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set thredds.imageTag=`make tag-wps` --wait"
             }
           }
         } 
