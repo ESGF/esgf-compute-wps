@@ -12,7 +12,7 @@ COPY meta.yaml meta.yaml
 COPY setup.cfg setup.cfg
 COPY setup.py setup.py
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 . \
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 . && \
       mkdir -p /compute-channel/noarch && \
       cp /opt/conda/pkgs/compute-provisioner*.tar.bz2 /compute-channel/noarch && \
       conda index /compute-channel
