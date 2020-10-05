@@ -1,6 +1,6 @@
-ARG CONDA_VERSION=4.8.2
+ARG BASE_IMAGE
 
-FROM continuumio/miniconda3:${CONDA_VERSION} as builder
+FROM ${BASE_IMAGE} as builder
 
 RUN conda update -n base conda && \
       conda install -c conda-forge -y conda-build conda-forge-pinning
@@ -12,15 +12,18 @@ COPY meta.yaml meta.yaml
 COPY setup.cfg setup.cfg
 COPY setup.py setup.py
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 .
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 . \
+      mkdir -p /compute-channel/noarch && \
+      cp /opt/conda/pkgs/compute-provisioner*.tar.bz2 /compute-channel/noarch && \
+      conda index /compute-channel
 
-FROM continuumio/miniconda3:${CONDA_VERSION} as production
+FROM ${BASE_IMAGE} as production
 
-COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
-COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
+COPY --from=builder /compute-channel /compute-channel
 
-RUN conda install -c conda-forge --use-local compute-provisioner && \
-      conda clean -afy
+RUN conda install -c file:///compute-channel -c conda-forge compute-provisioner && \
+      conda clean -afy && \
+      rm -rf /opt/conda/pkgs
 
 ENV TINI_VERSION v0.18.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini

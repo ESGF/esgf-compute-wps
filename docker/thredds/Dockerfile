@@ -1,4 +1,5 @@
-FROM tomcat:8.5 as builder
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} as builder
 
 WORKDIR /build
 
@@ -18,7 +19,7 @@ RUN curl -fSLk ${TDS_URL} -o thredds.war && \
       echo "${TDS_SHA1} thredds.war" | sha1sum -c --strict && \
       unzip thredds.war -d thredds/
 
-FROM tomcat:8.5 as production
+FROM ${BASE_IMAGE} as production
 
 COPY --from=builder /build/tini /usr/local/bin/tini
 COPY --from=builder /build/thredds ${CATALINA_HOME}/webapps/threddsCWT

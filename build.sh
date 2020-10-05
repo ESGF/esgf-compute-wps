@@ -2,24 +2,11 @@
 
 set -x
 
-DOCKERFILE_PATH="${1}"
-TARGET="${2}"
+WORKING_DIR="${1}"
 shift
-shift
-EXTRA=$*
 
-ls -la test_data/
-
-tar c test_data/ | (cd "${DOCKERFILE_PATH}"; tar x)
-
-cd "${DOCKERFILE_PATH}"
-
-ls -la test_data/
+cd "${WORKING_DIR}"
 
 buildctl-daemonless.sh \
-  build \
-  --frontend dockerfile.v0 \
-  --local context="${PWD}" \
-  --local dockerfile="${PWD}" \
-  --opt target="${TARGET}" \
-  "${EXTRA}"
+  --debug \
+  build ${@}

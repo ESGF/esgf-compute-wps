@@ -1,6 +1,6 @@
-ARG CONDA_VERSION=4.8.2
+ARG BASE_IMAGE
 
-FROM continuumio/miniconda3:${CONDA_VERSION} as builder
+FROM ${BASE_IMAGE} as builder
 
 ARG TEST_DATA=/test_data
 ENV TEST_DATA ${TEST_DATA}
@@ -13,16 +13,19 @@ RUN mkdir -p /tmp/certs && \
 
 WORKDIR /build
 
-COPY test_data /test_data
+# COPY test_data /test_data
 COPY compute_tasks/ compute_tasks/
 COPY conftest.py conftest.py
 COPY meta.yaml meta.yaml
 COPY setup.cfg setup.cfg
 COPY setup.py setup.py
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 .
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 . && \
+      mkdir -p /compute-channel/noarch && \
+      cp /opt/conda/pkgs/compute-tasks*.tar.bz2 /compute-channel/noarch && \
+      conda index /compute-channel
 
-FROM continuumio/miniconda3:${CONDA_VERSION} as production
+FROM ${BASE_IMAGE} as production
 
 RUN mkdir /metrics
 
@@ -31,11 +34,11 @@ RUN apt-get update && \
       rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /tmp/certs /tmp/certs
-COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
-COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
+COPY --from=builder /compute-channel /compute-channel
 
-RUN conda install -c conda-forge -c cdat --use-local compute-tasks && \
-      conda clean -afy
+RUN conda install -c file:///compute-channel -c conda-forge -c cdat compute-tasks && \
+      conda clean -afy && \
+      rm -rf /opt/conda/pkgs
 
 WORKDIR /
 
@@ -62,6 +65,6 @@ FROM scratch as testresult
 COPY --from=builder /output/unittest.xml .
 COPY --from=builder /output/coverage.xml .
 
-FROM scratch as testdata
+# FROM scratch as testdata
 
-COPY --from=builder /test_data/ .
+# COPY --from=builder /test_data/ .

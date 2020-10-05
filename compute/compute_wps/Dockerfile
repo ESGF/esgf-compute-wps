@@ -1,6 +1,6 @@
-ARG CONDA_VERSION=4.8.2
+ARG BASE_IMAGE
 
-FROM continuumio/miniconda3:${CONDA_VERSION} as builder
+FROM ${BASE_IMAGE} as builder
 
 RUN conda update -n base conda && \
       conda install -c conda-forge -y conda-build conda-forge-pinning
@@ -17,16 +17,20 @@ COPY urls.py .
 COPY wsgi.py .
 COPY pytest.ini .
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 .
+RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 . && \
+      mkdir -p /compute-channel/noarch && \
+      cp /opt/conda/pkgs/compute-wps*.tar.bz2 /compute-channel/noarch && \
+      conda index /compute-channel
 
-FROM continuumio/miniconda3:${CONDA_VERSION} as production
+FROM ${BASE_IMAGE} as production
 
-COPY --from=builder /opt/conda/pkgs/ /opt/conda/pkgs/
-COPY --from=builder /opt/conda/conda-bld/noarch/ /opt/conda/conda-bld/noarch/
+COPY --from=builder /compute-channel /compute-channel
 
 WORKDIR /
 
-RUN conda install -c conda-forge -c cdat --use-local compute-wps curl && \
+RUN conda install -c file:///compute-channel -c conda-forge -c cdat compute-wps && \
+      conda clean -afy && \
+      rm -rf /opt/conda/pkgs && \
       django-admin startproject compute 
 
 COPY django.properties /etc/config/

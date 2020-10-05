@@ -1,114 +1,98 @@
-.PHONY: provisioner tasks wps thredds build integration-tests docker-buildctl prune-cache
-
-GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-GIT_COMMIT := $(shell git rev-parse --short HEAD)
-
-IMAGE = $(if $(REGISTRY),$(REGISTRY)/)$(NAME)
-VERSION = $(shell cat $(DOCKERFILE)/VERSION)
-TAG = $(or $(if $(findstring $(GIT_BRANCH),master),$(VERSION)),$(VERSION)_$(GIT_BRANCH)_$(GIT_COMMIT))
-
-CONDA_VERSION ?= 4.8.2
 TARGET ?= production
+
 OUTPUT_PATH ?= $(PWD)/output
-CACHE ?= local
 CACHE_PATH ?= $(PWD)/cache
-TEST_DATA_PATH ?= $(PWD)/test_data
 
-ifeq ($(CACHE),local)
-CACHE_ARG := --import-cache type=local,src=$(CACHE_PATH) \
-	--export-cache type=local,dest=$(CACHE_PATH),mode=max
-else ifeq ($(CACHE),remote)
-# Evaluate when used to populate $(IMAGE)
-CACHE_ARG = --import-cache type=registry,ref=$(IMAGE):cache \
-	--export-cache type=registry,ref=$(IMAGE):cache,mode=max
-endif
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+GIT_BRANCH := $(shell git branch --show-current)
+GIT_TAG := $(shell git describe --tags)
+# returns git branch name or tag 
+GIT_NAME := $(or $(GIT_BRANCH),$(GIT_TAG))
 
-DOCKER_BUILDCTL := docker run -it --rm \
+IMAGE = $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE_NAME)
+# post-fix git revision if not building from tag
+IMAGE_TAG = $(shell cat $(DOCKERFILE)/VERSION)$(if $(filter v%,$(GIT_NAME)),,-$(GIT_COMMIT))
+IMAGE_PUSH ?= true
+
+ifeq ($(shell which buildctl-daemonless.sh 2>/dev/null),)
+BUILD := docker run -it --rm \
 	--privileged \
 	--group-add $(shell id -g) \
+	-v $(HOME)/.docker:/root/.docker \
+	-v $(OUTPUT_PATH):$(OUTPUT_PATH) \
+	-v $(CACHE_PATH):$(CACHE_PATH) \
 	-v $(PWD):$(PWD) \
 	-w $(PWD) \
 	--entrypoint=/bin/sh \
-	moby/buildkit:master
-
-# Is buildctl-daemonless.sh available?
-ifeq ($(shell which buildctl-daemonless.sh 2>/dev/null),)
-BUILD := $(DOCKER_BUILDCTL)
+	moby/buildkit:master \
+	build.sh
 else
-BUILD := $(SHELL)
+BUILD := $(SHELL) \
+	build.sh
 endif
 
-ifneq ($(or $(findstring $(TARGET),testresult),$(findstring $(TARGET),testdata)),)
-OUTPUT_ARG := --output type=local,dest=$(OUTPUT_PATH)
-else
-ifeq ($(shell which buildctl-daemonless.sh 2>/dev/null),)
-OUTPUT_ARG = --output type=docker,name=$(IMAGE):$(TAG),dest=$(OUTPUT_PATH)/image.tar
-POST_BUILD := cat $(OUTPUT_PATH)/image.tar | docker load
-else
-OUTPUT_ARG = --output type=image,name=$(IMAGE):$(TAG),push=true
+BUILD_ARGS = --frontend dockerfile.v0 \
+	--local context=$(PWD)/$(DOCKERFILE) \
+	--local dockerfile=$(PWD)/$(DOCKERFILE) \
+	--opt target=$(TARGET) \
+	--opt build-arg:BASE_IMAGE=$(BASE_IMAGE) \
+	--opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(IMAGE_TAG)
+
+BASE_IMAGE := continuumio/miniconda3:4.8.2
+
+ifeq ($(CACHE_TYPE),local)
+CACHE_ARGS = --export-cache type=local,dest=$(CACHE_PATH) \
+	--import-cache type=local,src=$(CACHE_PATH)
+else ifeq ($(CACHE_TYPE),registry)
+CACHE_ARGS = --export-cache type=registry,ref=$(IMAGE):buildcache \
+	--import-cache type=registry,ref=$(IMAGE):buildcache
 endif
+
+ifeq ($(TARGET),testresult)
+OUTPUT_ARGS = --output type=local,dest=$(OUTPUT_PATH)
+else ifeq ($(OUTPUT_TYPE),local)
+OUTPUT_ARGS = --output type=docker,name=$(IMAGE):$(IMAGE_TAG),dest=$(OUTPUT_PATH)/image.tar
+else ifeq ($(OUTPUT_TYPE),registry)
+OUTPUT_ARGS = --output type=image,name=$(IMAGE):$(IMAGE_TAG),push=$(IMAGE_PUSH)
 endif
 
-EXTRA = --opt build-arg:CONTAINER_IMAGE=$(IMAGE):$(TAG) \
-	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) \
-	--opt build-arg:TEST_DATA_PATH=$(TEST_DATA_PATH)
+ifeq ($(OUTPUT_TYPE),local)
+POST_CMDS += cat $(OUTPUT_PATH)/image.tar | docker load
+endif
 
-# Default 2 days
-BUILDCTL_KEEP_DURATION ?= 172800s
-BUILDCTL_KEEP_STORAGE ?= 10240
+echo-tag:
+	@echo $(IMAGE_TAG)
 
-docker-buildctl:
-	$(DOCKER_BUILDCTL)
+tag-tasks: DOCKERFILE := compute/compute_tasks
+tag-tasks: echo-tag
 
-prune-cache:
-	$(BUILD) /usr/bin/buildctl-daemonless.sh du
+tag-provisioner: DOCKERFILE := compute/compute_provisioner
+tag-provisioner: echo-tag
 
-	$(BUILD) /usr/bin/buildctl-daemonless.sh prune \
-		--all --keep-storage $(BUILDCTL_KEEP_STORAGE)
-		# --keep-duration $(BUILDCTL_KEEP_DURATION)
+tag-wps: DOCKERFILE := compute/compute_wps
+tag-wps: echo-tag
 
-integration-tests: CONDA := $(patsubst %/bin/conda,%,$(shell find /opt/**/bin $(HOME)/**/bin -type f -iname 'conda' 2>/dev/null))
-integration-tests: CONDA_ENV := wps-integration-tests
-integration-tests: CONDA_PKGS := esgf-compute-api pytest nbconvert xarray netcdf4 jupyter_client ipykernel dask distributed
-integration-tests: CONDA_CHANNELS := -c conda-forge -c cdat
-integration-tests: CONDA_ENV_EXISTS := $(shell conda env list | grep $(CONDA_ENV))
-integration-tests:
-	source $(CONDA)/bin/activate base; \
-		conda env remove -n $(CONDA_ENV) || exit 0; \
-		conda create -n $(CONDA_ENV) -y $(CONDA_CHANNELS) $(CONDA_PKGS)
-	
-	mkdir notebooks || exit 0
+tag-thredds: DOCKERFILE := docker/thredds
+tag-thredds: echo-tag
 
-	source $(CONDA)/bin/activate $(CONDA_ENV); \
-		python -m ipykernel install --user --name $(CONDA_ENV); \
-		cd compute/tests; \
-		pytest test_runner.py --wps-kernel $(CONDA_ENV) --wps-url $(WPS_URL) --wps-token $(WPS_TOKEN)
-
-provisioner: NAME	:= compute-provisioner
-provisioner: DOCKERFILE := compute/compute_provisioner
-provisioner: build
-	echo -e "provisioner:\n  imageTag: $(TAG)" > update_provisioner.yaml
-
-tasks: NAME := compute-tasks
+tasks: IMAGE_NAME := compute-tasks
 tasks: DOCKERFILE := compute/compute_tasks
 tasks: build
-	echo -e "celery:\n  imageTag: $(TAG)" > update_tasks.yaml
 
-wps: NAME := compute-wps
+provisioner: IMAGE_NAME := compute-provisioner
+provisioner: DOCKERFILE := compute/compute_provisioner
+provisioner: build
+
+wps: IMAGE_NAME := compute-wps
 wps: DOCKERFILE := compute/compute_wps
 wps: build
-	echo -e "wps:\n  imageTag: $(TAG)" > update_wps.yaml
 
-thredds: NAME := compute-thredds
+thredds: IMAGE_NAME := compute-thredds
+thredds: BASE_IMAGE := tomcat:8.5
 thredds: DOCKERFILE := docker/thredds
 thredds: build
-	echo -e "thredds:\n  imageTag: $(TAG)" > update_thredds.yaml
 
 build:
-	$(SHELL) -c "if [[ ! -e '$(TEST_DATA_PATH)' ]]; then mkdir -p $(TEST_DATA_PATH); fi"
-	$(SHELL) -c "if [[ ! -e '$(CACHE_PATH)' ]]; then mkdir -p $(CACHE_PATH); fi"
-	$(SHELL) -c "if [[ ! -e '$(OUTPUT_PATH)' ]]; then mkdir -p $(OUTPUT_PATH); fi"
+	$(BUILD) $(DOCKERFILE) $(BUILD_ARGS) $(OUTPUT_ARGS) $(CACHE_ARGS)
 
-	$(BUILD) build.sh $(DOCKERFILE) $(TARGET) $(EXTRA) $(CACHE_ARG) $(OUTPUT_ARG)
-	
-	$(POST_BUILD)
+	$(POST_CMDS)

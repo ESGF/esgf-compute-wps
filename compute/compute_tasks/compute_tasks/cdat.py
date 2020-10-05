@@ -969,7 +969,7 @@ def process_aggregate(context, operation, *input, **kwargs):
 
     logger.info(f'{len(isizes)} inputs with shapes {isizes}')
 
-    output = xr.combine_by_coords(input)
+    output = xr.combine_by_coords(input, combine_attrs='override')
 
     osize = output[variable].shape
 
