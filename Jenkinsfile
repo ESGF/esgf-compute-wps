@@ -20,7 +20,12 @@ pipeline {
             container(name: "buildkit", shell: "/bin/sh") {
               sh "make provisioner IMAGE_PUSH=true TARGET=production"
 
+              sh "ls -la"
+
               git "https://github.com/esgf-compute/charts.git"
+
+              sh "ls -la"
+              sh "ls -la ../"
 
               sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set provisioner.imageTag=`make tag-wps` --wait"
             }
