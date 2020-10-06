@@ -27,7 +27,7 @@ pipeline {
               sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
-helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set provisioner.imageTag=`make tag-provisioner` --wait
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set provisioner.imageTag=`make tag-provisioner` --wait --reuse-values
               """
             }
           }
@@ -83,7 +83,7 @@ chown -R 1000:1000 tasks_output
                   sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
-helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set celery.imageTag=`make tag-tasks` --wait
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set celery.imageTag=`make tag-tasks` --wait --reuse-values
                   """
                 }
               }
@@ -141,7 +141,7 @@ chown -R 1000:1000 wps_output
                   sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
-helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag=`make tag-wps` --wait
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag=`make tag-wps` --wait --reuse-values
                   """
                 }
               }
@@ -166,7 +166,7 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag
               sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
-helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set thredds.imageTag=`make tag-wps` --wait
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set thredds.imageTag=`make tag-wps` --wait --reuse-values
               """
             }
           }
