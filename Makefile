@@ -44,8 +44,9 @@ ifeq ($(CACHE_TYPE),local)
 CACHE_ARGS = --export-cache type=local,dest=$(CACHE_PATH) \
 	--import-cache type=local,src=$(CACHE_PATH)
 else ifeq ($(CACHE_TYPE),registry)
-CACHE_ARGS = --export-cache type=registry,ref=$(IMAGE):buildcache \
-	--import-cache type=registry,ref=$(IMAGE):buildcache
+CACHE_IMAGE = $(if $(REGISTRY_CACHE),$(REGISTRY_CACHE)/)$(IMAGE_NAME)
+CACHE_ARGS = --export-cache type=registry,ref=$(CACHE_IMAGE):buildcache \
+	--import-cache type=registry,ref=$(CACHE_IMAGE):buildcache
 endif
 
 ifeq ($(TARGET),testresult)
