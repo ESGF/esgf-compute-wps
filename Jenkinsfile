@@ -3,7 +3,7 @@ pipeline {
   environment {
     REGISTRY = "${env.BRANCH_NAME == "master" ? env.REGISTRY_PUBLIC : env.REGISTRY_PRIVATE}"
     IMAGE_PUSH = "${env.BRANCH_NAME.matches('devel|v.*') ? true : false}"
-    CACHE_TYPE = "registry"
+    CACHE_TYPE = "local"
     CACHE_PATH = "/nfs/buildkit-cache"
   }
   stages {
