@@ -18,7 +18,7 @@ pipeline {
           }
           steps {
             container(name: "buildkit", shell: "/bin/sh") {
-              sh "make provisioner IMAGE_PUSH=true TARGET=production"
+              sh "make provisioner OUTPUT_TYPE=registry IMAGE_PUSH=true TARGET=production"
 
               dir("charts") {
                 git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
@@ -68,7 +68,7 @@ chown -R 1000:1000 tasks_output
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
-                  sh "make tasks IMAGE_PUSH=true TARGET=production"
+                  sh "make tasks OUTPUT_TYPE=registry IMAGE_PUSH=true TARGET=production"
                 }
               }
             }
@@ -128,7 +128,7 @@ chown -R 1000:1000 wps_output
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
-                  sh "make wps IMAGE_PUSH=true TARGET=production"
+                  sh "make wps OUTPUT_TYPE=registry IMAGE_PUSH=true TARGET=production"
                 }
               }
             }
@@ -163,7 +163,7 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag
           }
           steps {
             container(name: "buildkit", shell: "/bin/sh") {
-              sh "make thredds IMAGE_PUSH=true TARGET=production"
+              sh "make thredds OUTPUT_TYPE=registry IMAGE_PUSH=true TARGET=production"
 
               dir("charts") {
                 git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
