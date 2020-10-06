@@ -173,7 +173,7 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag
                 sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
-helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set thredds.imageTag=`make tag-wps` --wait --reuse-values --atomic
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set thredds.imageTag=`make tag-thredds` --wait --reuse-values --atomic
                 """
               }
             }
