@@ -21,12 +21,14 @@ pipeline {
               sh "make provisioner IMAGE_PUSH=true TARGET=production"
 
               dir("charts") {
-                git "https://github.com/esgf-compute/charts.git"
+                git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
               }
 
-              sh "ls -la charts/"
-
-              sh "helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set provisioner.imageTag=`make tag-provisioner` --wait"
+              sh """
+helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
+helm dependency build charts/compute/
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set provisioner.imageTag=`make tag-provisioner` --wait
+              """
             }
           }
         }
@@ -75,10 +77,14 @@ chown -R 1000:1000 tasks_output
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
                   dir("charts") {
-                    git "https://github.com/esgf-compute/charts.git"
+                    git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
                   }
 
-                  sh "helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set celery.imageTag=`make tag-tasks` --wait"
+                  sh """
+helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
+helm dependency build charts/compute/
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set celery.imageTag=`make tag-tasks` --wait
+                  """
                 }
               }
             }
@@ -129,10 +135,14 @@ chown -R 1000:1000 wps_output
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
                   dir("charts") {
-                    git "https://github.com/esgf-compute/charts.git"
+                    git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
                   }
 
-                  sh "helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag=`make tag-wps` --wait"
+                  sh """
+helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
+helm dependency build charts/compute/
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag=`make tag-wps` --wait
+                  """
                 }
               }
             }
@@ -150,10 +160,14 @@ chown -R 1000:1000 wps_output
               sh "make thredds IMAGE_PUSH=true TARGET=production"
 
               dir("charts") {
-                git "https://github.com/esgf-compute/charts.git"
+                git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
               }
 
-              sh "helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set thredds.imageTag=`make tag-wps` --wait"
+              sh """
+helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
+helm dependency build charts/compute/
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set thredds.imageTag=`make tag-wps` --wait
+              """
             }
           }
         } 
