@@ -20,14 +20,15 @@ pipeline {
             container(name: "buildkit", shell: "/bin/sh") {
               sh "make provisioner IMAGE_PUSH=true TARGET=production"
 
-              sh "ls -la"
+              sh "make tag-provisioner > tag.txt"
+
+              stash includes: "tag.txt", name: "tag"
 
               git "https://github.com/esgf-compute/charts.git"
 
-              sh "ls -la"
-              sh "ls -la ../"
+              unstash "tag"
 
-              sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set provisioner.imageTag=`make tag-wps` --wait"
+              sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set provisioner.imageTag=`cat tag.txt` --wait"
             }
           }
         }
@@ -75,9 +76,15 @@ chown -R 1000:1000 tasks_output
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
+                  sh "make tag-tasks > tag.txt"
+
+                  stash includes: "tag.txt", name: "tag"
+
                   git "https://github.com/esgf-compute/charts.git"
 
-                  sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set celery.imageTag=`make tag-wps` --wait"
+                  unstash "tag"
+
+                  sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set celery.imageTag=`cat tag.txt` --wait"
                 }
               }
             }
@@ -127,9 +134,15 @@ chown -R 1000:1000 wps_output
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
+                  sh "make tag-wps > tag.txt"
+
+                  stash includes: "tag.txt", name: "tag"
+
                   git "https://github.com/esgf-compute/charts.git"
 
-                  sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set wps.imageTag=`make tag-wps` --wait"
+                  unstash "tag"
+
+                  sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set wps.imageTag=`cat tag.txt` --wait"
                 }
               }
             }
@@ -146,9 +159,15 @@ chown -R 1000:1000 wps_output
             container(name: "buildkit", shell: "/bin/sh") {
               sh "make thredds IMAGE_PUSH=true TARGET=production"
 
+              sh "make tag-thredds > tag.txt"
+
+              stash includes: "tag.txt", name: "tag"
+
               git "https://github.com/esgf-compute/charts.git"
 
-              sh "helm -n development upgrade $DEV_RELEASE_NAME ./charts/compute --set thredds.imageTag=`make tag-wps` --wait"
+              unstash "tag"
+
+              sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set thredds.imageTag=`cat tag.txt` --wait"
             }
           }
         } 
