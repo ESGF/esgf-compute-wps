@@ -16,19 +16,16 @@ pipeline {
           when {
             environment name: "IMAGE_PUSH", value: "true"
           }
+          environment {
+            TAG = sh(script: "make tag-provisioner", returnStdout: true).trim()
+          }
           steps {
             container(name: "buildkit", shell: "/bin/sh") {
               sh "make provisioner IMAGE_PUSH=true TARGET=production"
 
-              sh "make tag-provisioner > tag.txt"
-
-              stash includes: "tag.txt", name: "tag"
-
               git "https://github.com/esgf-compute/charts.git"
 
-              unstash "tag"
-
-              sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set provisioner.imageTag=`cat tag.txt` --wait"
+              sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set provisioner.imageTag=$TAG --wait"
             }
           }
         }
@@ -74,17 +71,14 @@ chown -R 1000:1000 tasks_output
               when {
                 environment name: "IMAGE_PUSH", value: "true"
               }
+              environment {
+                TAG = sh(script: "make tag-tasks", returnStdout: true).trim()
+              }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
-                  sh "make tag-tasks > tag.txt"
-
-                  stash includes: "tag.txt", name: "tag"
-
                   git "https://github.com/esgf-compute/charts.git"
 
-                  unstash "tag"
-
-                  sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set celery.imageTag=`cat tag.txt` --wait"
+                  sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set celery.imageTag=$TAG --wait"
                 }
               }
             }
@@ -132,17 +126,14 @@ chown -R 1000:1000 wps_output
               when {
                 environment name: "IMAGE_PUSH", value: "true"
               }
+              environment {
+                TAG = sh(script: "make tag-wps", returnStdout: true).trim()
+              }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
-                  sh "make tag-wps > tag.txt"
-
-                  stash includes: "tag.txt", name: "tag"
-
                   git "https://github.com/esgf-compute/charts.git"
 
-                  unstash "tag"
-
-                  sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set wps.imageTag=`cat tag.txt` --wait"
+                  sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set wps.imageTag=$TAG --wait"
                 }
               }
             }
@@ -155,19 +146,16 @@ chown -R 1000:1000 wps_output
           when {
             environment name: "IMAGE_PUSH", value: "true"
           }
+          environment {
+            TAG = sh(script: "make tag-thredds", returnStdout: true).trim()
+          }
           steps {
             container(name: "buildkit", shell: "/bin/sh") {
               sh "make thredds IMAGE_PUSH=true TARGET=production"
 
-              sh "make tag-thredds > tag.txt"
-
-              stash includes: "tag.txt", name: "tag"
-
               git "https://github.com/esgf-compute/charts.git"
 
-              unstash "tag"
-
-              sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set thredds.imageTag=`cat tag.txt` --wait"
+              sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set thredds.imageTag=$TAG --wait"
             }
           }
         } 
