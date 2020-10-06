@@ -24,7 +24,7 @@ pipeline {
                 git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
               }
 
-              lock(label: "development") {
+              lock("development") {
                 sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
@@ -82,7 +82,7 @@ chown -R 1000:1000 tasks_output
                     git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
                   }
 
-                  lock(label: "development") {
+                  lock("development") {
                     sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
@@ -142,7 +142,7 @@ chown -R 1000:1000 wps_output
                     git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
                   }
 
-                  lock(label: "development") {
+                  lock("development") {
                     sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
@@ -169,7 +169,7 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag
                 git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
               }
 
-              lock(label: "development") {
+              lock("development") {
                 sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
