@@ -16,14 +16,15 @@ pipeline {
           when {
             environment name: "IMAGE_PUSH", value: "true"
           }
-          environment {
-            TAG = sh(script: "make tag-provisioner", returnStdout: true).trim()
-          }
           steps {
             container(name: "buildkit", shell: "/bin/sh") {
               sh "make provisioner IMAGE_PUSH=true TARGET=production"
 
-              git "https://github.com/esgf-compute/charts.git"
+              dir("charts") {
+                git "https://github.com/esgf-compute/charts.git"
+              }
+
+              sh "ls -la"
 
               sh "helm -n development upgrade $DEV_RELEASE_NAME compute/ --set provisioner.imageTag=$TAG --wait"
             }
