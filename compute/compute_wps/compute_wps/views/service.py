@@ -264,6 +264,8 @@ def handle_post(data, meta):
 @metrics.WPS_ERRORS.count_exceptions()
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
+    logger.info(f'META {request.META!r}')
+
     if request.method == 'GET':
         return handle_get(request.GET, request.META)
     elif request.method == 'POST':

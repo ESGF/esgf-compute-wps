@@ -2,7 +2,6 @@ pipeline {
   agent none
   environment {
     REGISTRY = "${env.BRANCH_NAME == "master" ? env.REGISTRY_PUBLIC : env.REGISTRY_PRIVATE}"
-    IMAGE_PUSH = "${env.BRANCH_NAME.matches('devel|v.*') ? true : false}"
     CACHE_TYPE = "local"
     CACHE_PATH = "/nfs/buildkit-cache"
   }
@@ -14,11 +13,14 @@ pipeline {
             label "jenkins-buildkit"
           }
           when {
-            environment name: "IMAGE_PUSH", value: "true"
+            anyOf {
+              branch "devel"
+              branch pattern: "provisioner-v.*", comparator: "REGEXP"
+            }
           }
           steps {
             container(name: "buildkit", shell: "/bin/sh") {
-              sh "make provisioner OUTPUT_TYPE=registry IMAGE_PUSH=true TARGET=production"
+              sh "make provisioner OUTPUT_TYPE=registry TARGET=production"
 
               dir("charts") {
                 git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
@@ -64,7 +66,10 @@ chown -R 1000:1000 tasks_output
             }
             stage("Push") {
               when {
-                environment name: "IMAGE_PUSH", value: "true"
+                anyOf {
+                  branch "devel"
+                  branch pattern: "tasks-v.*", comparator: "REGEXP"
+                }
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
@@ -74,7 +79,10 @@ chown -R 1000:1000 tasks_output
             }
             stage("Deploy") {
               when {
-                environment name: "IMAGE_PUSH", value: "true"
+                anyOf {
+                  branch "devel"
+                  branch pattern: "tasks-v.*", comparator: "REGEXP"
+                }
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
@@ -124,7 +132,10 @@ chown -R 1000:1000 wps_output
             }
             stage("Push") {
               when {
-                environment name: "IMAGE_PUSH", value: "true"
+                anyOf {
+                  branch "devel"
+                  branch pattern: "wps-v.*", comparator: "REGEXP"
+                }
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
@@ -134,7 +145,10 @@ chown -R 1000:1000 wps_output
             }
             stage("Deploy") {
               when {
-                environment name: "IMAGE_PUSH", value: "true"
+                anyOf {
+                  branch "devel"
+                  branch pattern: "wps-v.*", comparator: "REGEXP"
+                }
               }
               steps {
                 container(name: "buildkit", shell: "/bin/sh") {
@@ -159,7 +173,10 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag
             label "jenkins-buildkit"
           }
           when {
-            environment name: "IMAGE_PUSH", value: "true"
+            anyOf {
+              branch "devel"
+              branch pattern: "thredds-v.*", comparator: "REGEXP"
+            }
           }
           steps {
             container(name: "buildkit", shell: "/bin/sh") {
