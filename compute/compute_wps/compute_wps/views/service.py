@@ -131,15 +131,29 @@ def handle_execute(meta, identifier, data_inputs):
     if len(data_inputs_keys ^ REQUIRED_DATA_INPUTS) > 0:
         raise WPSError('{}', ', '.join(REQUIRED_DATA_INPUTS-data_inputs_keys), code=wps_response.MissingParameterValue)
 
-    try:
-        api_key = meta['HTTP_COMPUTE_TOKEN']
-    except KeyError:
-        raise WPSError('Missing authorization token, should be passed in HTTP header COMPUTE_TOKEN')
+    if settings.AUTH_TRAEFIK:
+        try:
+            header = meta['X-Forwarded-User']
+        except KeyError:
+            raise WPSError('Missing required header containing authorized user')
 
-    try:
-        user = models.User.objects.filter(auth__api_key=api_key)[0]
-    except IndexError:
-        raise WPSError('Missing API key for WPS execute request')
+        username, _ = re.match('(.*)@(.*)', header).groups()
+
+        user, created = models.User.objects.get_or_create(username=username, email=header)
+
+        if created:
+            user.set_password('')
+            models.Auth.objects.create(openid_url='', user=user)
+    else:
+        try:
+            api_key = meta['HTTP_COMPUTE_TOKEN']
+        except KeyError:
+            raise WPSError('Missing authorization token, should be passed in HTTP header COMPUTE_TOKEN')
+
+        try:
+            user = models.User.objects.filter(auth__api_key=api_key)[0]
+        except IndexError:
+            raise WPSError('Missing API key for WPS execute request')
 
     try:
         process = models.Process.objects.get(identifier=identifier)

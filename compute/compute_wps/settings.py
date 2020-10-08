@@ -108,6 +108,9 @@ INTERNAL_API_URL = INTERNAL_API_URL.format(hostname=socket.gethostname())
 if INTERNAL_API_PORT is not None:
     INTERNAL_API_URL = f'{INTERNAL_API_URL}:{INTERNAL_API_PORT}'
 
+# Auth values
+AUTH_TRAEFIK = config.get_value('auth', 'traefik', False, bool)
+
 # Email values
 EMAIL_HOST = config.get_value('email', 'host')
 EMAIL_PORT = config.get_value('email', 'port')
