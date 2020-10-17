@@ -59,11 +59,11 @@ def token_introspection(access_token):
     logger.debug(f"Introspection status {response.status_code}")
 
     if not response.ok:
-        raise exceptions.WPSError("Could not verify access token")
+        raise exceptions.AuthenticationFailed("Could not verify access token")
 
     data = response.json()
 
-    if "active" in data and not data["active"]:
+    if "active" not in data or not data["active"]:
         raise exceptions.AuthenticationFailed("Access token is no longer valid")
 
     logger.info("Successfully introspected token")
