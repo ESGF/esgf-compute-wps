@@ -33,6 +33,10 @@ WORKDIR /
 COPY --from=builder /tmp/certs /tmp/certs
 COPY --from=builder /build/channel /channel 
 
+RUN apt update && \
+      apt install -y --no-install-recommends dnsutils && \
+      rm -rf /var/lib/apt/lists/*
+
 RUN conda install -c file:///channel -c conda-forge -c cdat compute-tasks && \
       conda clean -afy && \
       rm -rf /opt/conda/pkgs
