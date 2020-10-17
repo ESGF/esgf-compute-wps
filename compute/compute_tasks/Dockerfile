@@ -1,46 +1,41 @@
 ARG BASE_IMAGE
-
 FROM ${BASE_IMAGE} as builder
 
-ARG TEST_DATA=/test_data
-ENV TEST_DATA ${TEST_DATA}
+WORKDIR /build
 
-RUN conda update -n base conda && \
-      conda install -c defaults -c conda-forge -y conda-build conda-forge-pinning curl
+RUN conda update -n base -c defaults conda && \
+      conda install -c conda-forge -y conda-build conda-smithy curl && \
+      conda smithy ci-skeleton compute_tasks
 
 RUN mkdir -p /tmp/certs && \
       curl -sL https://github.com/ESGF/esgf-dist/raw/master/installer/certs/esg_trusted_certificates.tar | tar xvf - -C /tmp/certs --strip 1
 
+WORKDIR /build/recipe
+
+COPY compute_tasks/ compute_tasks/
+COPY conftest.py .
+COPY meta.yaml .
+COPY setup.cfg .
+COPY setup.py .
+
 WORKDIR /build
 
-# COPY test_data /test_data
-COPY compute_tasks/ compute_tasks/
-COPY conftest.py conftest.py
-COPY meta.yaml meta.yaml
-COPY setup.cfg setup.cfg
-COPY setup.py setup.py
-
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 . && \
-      mkdir -p /compute-channel/noarch && \
-      cp /opt/conda/pkgs/compute-tasks*.tar.bz2 /compute-channel/noarch && \
-      conda index /compute-channel
+RUN conda smithy rerender && \
+      conda build -c conda-forge -c cdat -m .ci_support/linux_64_.yaml --output-folder channel/ . && \
+      conda index channel/
 
 FROM ${BASE_IMAGE} as production
 
 RUN mkdir /metrics
 
-RUN apt-get update && \
-      apt-get install -y --no-install-recommends dnsutils && \
-      rm -rf /var/lib/apt/lists/*
+WORKDIR /
 
 COPY --from=builder /tmp/certs /tmp/certs
-COPY --from=builder /compute-channel /compute-channel
+COPY --from=builder /build/channel /channel 
 
-RUN conda install -c file:///compute-channel -c conda-forge -c cdat compute-tasks && \
+RUN conda install -c file:///channel -c conda-forge -c cdat compute-tasks && \
       conda clean -afy && \
       rm -rf /opt/conda/pkgs
-
-WORKDIR /
 
 COPY entrypoint.sh .
 COPY healthcheck.sh .
@@ -64,7 +59,3 @@ FROM scratch as testresult
 
 COPY --from=builder /output/unittest.xml .
 COPY --from=builder /output/coverage.xml .
-
-# FROM scratch as testdata
-
-# COPY --from=builder /test_data/ .

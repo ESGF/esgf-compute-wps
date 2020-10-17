@@ -17,6 +17,9 @@ from . import common
 from compute_wps import helpers
 from compute_wps import metrics
 from compute_wps import models
+from compute_wps.auth import keycloak
+from compute_wps.auth import token
+from compute_wps.auth import traefik
 from compute_wps.exceptions import WPSError
 from compute_wps.util import wps_response
 
@@ -131,29 +134,24 @@ def handle_execute(meta, identifier, data_inputs):
     if len(data_inputs_keys ^ REQUIRED_DATA_INPUTS) > 0:
         raise WPSError('{}', ', '.join(REQUIRED_DATA_INPUTS-data_inputs_keys), code=wps_response.MissingParameterValue)
 
-    if settings.AUTH_TRAEFIK:
-        try:
-            header = meta['X-Forwarded-User']
-        except KeyError:
-            raise WPSError('Missing required header containing authorized user')
+    try:
+        if settings.AUTH_TRAEFIK:
+            logger.info("Using traefik authentication")
 
-        username, _ = re.match('(.*)@(.*)', header).groups()
+            user = traefik.authenticate(meta)
+        elif settings.AUTH_KEYCLOAK:
+            logger.info("Using keycloak authentication")
 
-        user, created = models.User.objects.get_or_create(username=username, email=header)
+            user = keycloak.authenticate(meta)
+        else:
+            logger.info("Using token authentication")
 
-        if created:
-            user.set_password('')
-            models.Auth.objects.create(openid_url='', user=user)
-    else:
-        try:
-            api_key = meta['HTTP_COMPUTE_TOKEN']
-        except KeyError:
-            raise WPSError('Missing authorization token, should be passed in HTTP header COMPUTE_TOKEN')
+            user = token.authenticate(meta)
+    except Exception as e:
+        raise WPSError(str(e))
 
-        try:
-            user = models.User.objects.filter(auth__api_key=api_key)[0]
-        except IndexError:
-            raise WPSError('Missing API key for WPS execute request')
+    if user is None:
+        raise WPSError('Could not authenticate user')
 
     try:
         process = models.Process.objects.get(identifier=identifier)
@@ -278,7 +276,7 @@ def handle_post(data, meta):
 @metrics.WPS_ERRORS.count_exceptions()
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
-    logger.info(f'META {request.META!r}')
+    logger.debug(f'META {request.META!r}')
 
     if request.method == 'GET':
         return handle_get(request.GET, request.META)

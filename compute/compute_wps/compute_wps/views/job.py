@@ -21,7 +21,6 @@ from rest_framework.exceptions import APIException
 # from compute_wps import metrics
 from compute_wps import models
 from compute_wps import serializers
-from compute_wps.auth import token_authentication
 
 logger = logging.getLogger('compute_wps.views.job')
 
@@ -221,8 +220,6 @@ class InternalJobStatusViewSet(mixins.CreateModelMixin,
 class StatusViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = models.Status.objects.all()
     serializer_class = serializers.StatusSerializer
-    authentication_classes = (token_authentication.TokenAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
 
     def get_queryset(self):
         user = self.request.user
@@ -241,8 +238,6 @@ class JobViewSet(mixins.ListModelMixin,
     serializer_class = serializers.JobSerializer
     filter_backends = (filters.OrderingFilter, )
     ordering_fields = ('accepted', )
-    authentication_classes = (token_authentication.TokenAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
 
     @action(detail=False, methods=['delete'])
     def remove_all(self, request):

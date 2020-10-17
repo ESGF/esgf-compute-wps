@@ -12,6 +12,7 @@ class ServerViewsTestCase(test.TestCase):
 
 @pytest.mark.django_db(transaction=True)
 def test_handle_execute_traefik_auth(mocker, settings, django_user_model):
+    settings.AUTH_KEYCLOAK = False
     settings.AUTH_TRAEFIK = True
 
     models.Process.objects.create(identifier='CDAT.subset', version='1.0')
@@ -37,6 +38,7 @@ def test_handle_execute_traefik_auth(mocker, settings, django_user_model):
 
 @pytest.mark.django_db(transaction=True)
 def test_handle_execute(mocker, settings, django_user_model):
+    settings.AUTH_KEYCLOAK = False
     settings.AUTH_TRAEFIK = False
 
     user = django_user_model.objects.create(username='test1')

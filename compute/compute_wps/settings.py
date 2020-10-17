@@ -96,20 +96,16 @@ else:
     ALLOWED_HOSTS = [host]
 
 # Default values
-INTERNAL_API_PROTO = config.get_value('default', 'internal_api.proto', 'http')
-INTERNAL_API_HOST = config.get_value('default', 'internal_api.host', '{hostname}')
-INTERNAL_API_PORT = config.get_value('default', 'internal_api.port', '8000')
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')
 
-INTERNAL_API_URL = f'{INTERNAL_API_PROTO}://{INTERNAL_API_HOST}'
-INTERNAL_API_URL = INTERNAL_API_URL.format(hostname=socket.gethostname())
-
-if INTERNAL_API_PORT is not None:
-    INTERNAL_API_URL = f'{INTERNAL_API_URL}:{INTERNAL_API_PORT}'
-
 # Auth values
 AUTH_TRAEFIK = config.get_value('auth', 'traefik', False, bool)
+AUTH_KEYCLOAK = config.get_value('auth', 'keycloak', False, bool)
+AUTH_KEYCLOAK_URL = config.get_value('auth', 'keycloak.url', '')
+AUTH_KEYCLOAK_REALM = config.get_value('auth', 'keycloak.realm', '')
+AUTH_KEYCLOAK_CLIENT_ID = config.get_value('auth', 'keycloak.client_id', '')
+AUTH_KEYCLOAK_CLIENT_SECRET = config.get_value('auth', 'keycloak.client_secret','')
 
 # Email values
 EMAIL_HOST = config.get_value('email', 'host')
@@ -184,12 +180,22 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',
+        'compute_wps.auth.token.TokenAuthentication',
     ),
-    'DEFAULT_PERMISSION_CLASSES': (),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 50,
 }
+
+if AUTH_TRAEFIK:
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
+        'compute_wps.auth.traefik.TraefikAuthentication')
+
+if AUTH_KEYCLOAK:
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
+        'compute_wps.auth.keycloak.KeyCloakAuthentication')
 
 if DEBUG:
     REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (

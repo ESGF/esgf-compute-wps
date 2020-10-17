@@ -12,3 +12,8 @@ class WpsConfig(AppConfig):
         from compute_wps.exceptions import WPSError # noqa
 
         os.environ['UVCDAT_ANONYMOUS_LOG'] = 'no'
+
+        from compute_wps.auth import keycloak
+        from django.conf import settings
+        if settings.AUTH_KEYCLOAK:
+            keycloak.init(settings)

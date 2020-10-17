@@ -1,27 +1,32 @@
 ARG BASE_IMAGE
-
 FROM ${BASE_IMAGE} as builder
-
-RUN conda update -n base conda && \
-      conda install -c conda-forge -y conda-build conda-forge-pinning
 
 WORKDIR /build
 
-COPY compute_provisioner/ compute_provisioner/
-COPY meta.yaml meta.yaml
-COPY setup.cfg setup.cfg
-COPY setup.py setup.py
+RUN conda update -n base conda && \
+      conda install -c conda-forge -y conda-build conda-smithy && \
+      conda smithy ci-skeleton compute_provisioner
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 . && \
-      mkdir -p /compute-channel/noarch && \
-      cp /opt/conda/pkgs/compute-provisioner*.tar.bz2 /compute-channel/noarch && \
-      conda index /compute-channel
+WORKDIR /build/recipe
+
+COPY compute_provisioner/ compute_provisioner/
+COPY meta.yaml .
+COPY setup.cfg .
+COPY setup.py .
+
+WORKDIR /build
+
+RUN conda smithy rerender && \
+      conda build -c conda-forge -m .ci_support/linux_64_.yaml --output-folder channel/ . && \
+      conda index channel/
 
 FROM ${BASE_IMAGE} as production
 
-COPY --from=builder /compute-channel /compute-channel
+WORKDIR /
 
-RUN conda install -c file:///compute-channel -c conda-forge compute-provisioner && \
+COPY --from=builder /build/channel /channel
+
+RUN conda install -c file:///channel -c conda-forge compute-provisioner && \
       conda clean -afy && \
       rm -rf /opt/conda/pkgs
 

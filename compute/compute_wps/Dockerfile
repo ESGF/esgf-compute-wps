@@ -1,11 +1,13 @@
 ARG BASE_IMAGE
-
-FROM ${BASE_IMAGE} as builder
-
-RUN conda update -n base conda && \
-      conda install -c conda-forge -y conda-build conda-forge-pinning
+FROM $BASE_IMAGE as builder
 
 WORKDIR /build
+
+RUN conda update -n base conda && \
+      conda install -c conda-forge -y conda-build conda-smithy && \
+      conda smithy ci-skeleton compute_wps
+
+WORKDIR /build/recipe
 
 COPY compute_wps/ compute_wps/
 COPY setup.cfg .
@@ -17,18 +19,19 @@ COPY urls.py .
 COPY wsgi.py .
 COPY pytest.ini .
 
-RUN conda build -c conda-forge -c cdat -m /opt/conda/conda_build_config.yaml --python 3.7 . && \
-      mkdir -p /compute-channel/noarch && \
-      cp /opt/conda/pkgs/compute-wps*.tar.bz2 /compute-channel/noarch && \
-      conda index /compute-channel
+WORKDIR /build
 
-FROM ${BASE_IMAGE} as production
+RUN conda smithy rerender && \
+      conda build -c conda-forge -c cdat -m .ci_support/linux_64_.yaml --output-folder channel/ . && \
+      conda index channel
 
-COPY --from=builder /compute-channel /compute-channel
+FROM $BASE_IMAGE as production
 
 WORKDIR /
 
-RUN conda install -c file:///compute-channel -c conda-forge -c cdat compute-wps && \
+COPY --from=builder /build/channel /channel
+
+RUN conda install -c file:///channel -c conda-forge -c cdat compute-wps && \
       conda clean -afy && \
       rm -rf /opt/conda/pkgs && \
       django-admin startproject compute 
