@@ -98,6 +98,7 @@ else:
 # Default values
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')
+INTERNAL_API_URL = 'http://{}:8000'.format(socket.gethostname())
 
 # Auth values
 AUTH_TRAEFIK = config.get_value('auth', 'traefik', False, bool)
