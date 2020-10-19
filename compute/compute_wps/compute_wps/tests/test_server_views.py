@@ -9,7 +9,6 @@ class ServerViewsTestCase(test.TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-
 @pytest.mark.django_db(transaction=True)
 def test_handle_execute_traefik_auth(mocker, settings, django_user_model):
     settings.AUTH_KEYCLOAK = False

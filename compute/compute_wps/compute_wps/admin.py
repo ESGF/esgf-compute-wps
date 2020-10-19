@@ -17,25 +17,6 @@ class UserAdmin(UserAdmin):
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 
-
-@admin.register(Session)
-class SessionAdmin(admin.ModelAdmin):
-    def _session_data(self, obj):
-        return obj.get_decoded()
-
-    pass
-
-
-@admin.register(models.OpenIDNonce)
-class OpenIDNonceAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(models.OpenIDAssociation)
-class OpenIDAssociationAdmin(admin.ModelAdmin):
-    pass
-
-
 @admin.register(models.File)
 class FileAdmin(admin.ModelAdmin):
     pass
