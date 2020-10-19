@@ -4,7 +4,6 @@ import random
 
 from django import test
 
-from . import helpers
 from compute_wps import models
 
 class JobViewsTestCase(test.TestCase):

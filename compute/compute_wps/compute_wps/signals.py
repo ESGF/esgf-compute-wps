@@ -92,15 +92,3 @@ def save_job_handler(sender, instance, **kwargs):
         send_success_email(instance.job)
     elif instance.status == 'ProcessFailed':
         send_failed_email(instance.job, instance.exception)
-
-
-@receiver(post_delete, sender=models.Output)
-def delete_output_handler(sender, instance, **kwargs):
-    logger.info('Removing %r', instance.path)
-
-    try:
-        os.remove(instance.path)
-    except OSError:
-        logger.debug('Error removing file %r', instance.path)
-
-        pass
