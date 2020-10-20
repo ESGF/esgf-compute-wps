@@ -21,26 +21,16 @@ requirements:
 
   run:
     - python
-    - numpy
-    - nomkl
-    - libnetcdf<=4.7.4=nompi_h9f9fd6a_101
-    - cdms2<=3.1.4=py37h34d3450_8
     - django=1.11
     - django-cors-headers
     - django-allow-cidr
     - djangorestframework
-    - django-grappelli
     - esgf-compute-api
     - jinja2
-    - myproxyclient
     - gunicorn
     - psycopg2
-    - python3-openid
     - pyzmq
-    - redis-py
     - requests
-    - requests-oauthlib
-    - celery
     - prometheus_client
     - python-coreapi
     - pyyaml
