@@ -20,10 +20,6 @@ from django.db.models import F
 from django.db.models.query_utils import Q
 from django.utils import timezone
 
-from openid import association
-from openid.store import interface
-from openid.store import nonce
-
 from compute_wps import metrics
 from compute_wps.util import wps_response
 

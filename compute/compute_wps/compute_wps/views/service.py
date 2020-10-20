@@ -198,7 +198,7 @@ def send_request_provisioner(identifier, data_inputs, job, user, process, status
         'data_inputs': data_inputs,
     }
 
-    payload = helpers.encoder(payload).encode()
+    payload = encoder(payload).encode()
 
     try:
         client.send_multipart([b'devel', payload])
