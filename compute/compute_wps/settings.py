@@ -166,7 +166,6 @@ CACHES = {
 INSTALLED_APPS = [
     'compute_wps',
     'rest_framework',
-    'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
