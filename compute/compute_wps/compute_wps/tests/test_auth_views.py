@@ -56,7 +56,9 @@ def test_login(rf, mocker, settings):
     assert "http://keycloak.local/keycloak/auth" in response.url
 
 @pytest.mark.django_db
-def test_get_access_token(rf, mocker):
+def test_get_access_token(rf, mocker, settings):
+    settings.AUTH_KEYCLOAK_KNOWN["token_endpoint"] = "http://keycloak.local/keycloak/token"
+
     request = rf.get("/auth/oauth_callback/", {"code": "abcd1234", "state": "abcd"})
 
     post = mocker.patch("requests.post")
