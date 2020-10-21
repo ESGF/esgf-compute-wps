@@ -33,30 +33,3 @@ def test_handle_execute_traefik_auth(mocker, settings, django_user_model):
     assert result
 
     service.handle_execute(meta, identifier, data_inputs)
-
-
-@pytest.mark.django_db(transaction=True)
-def test_handle_execute(mocker, settings, django_user_model):
-    settings.AUTH_KEYCLOAK = False
-    settings.AUTH_TRAEFIK = False
-
-    user = django_user_model.objects.create(username='test1')
-
-    models.Auth.objects.create(openid_url='', user=user, api_key='abcd')
-    models.Process.objects.create(identifier='CDAT.subset', version='1.0')
-
-    meta = {
-        'HTTP_COMPUTE_TOKEN': 'abcd'
-    }
-    identifier = 'CDAT.subset'
-    data_inputs = {
-        'variable': [],
-        'domain': [],
-        'operation': [],
-    }
-
-    mocker.patch('compute_wps.views.service.send_request_provisioner')
-
-    result = service.handle_execute(meta, identifier, data_inputs)
-
-    assert result

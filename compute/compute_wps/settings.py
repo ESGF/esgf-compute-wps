@@ -139,18 +139,12 @@ OUTPUT_LOCAL_PATH = config.get_value('output', 'local.path')
 EXTERNAL_URL = config.get_value('server', 'external.url')
 EXTERNAL_WPS_URL = '{!s}/wps/'.format(EXTERNAL_URL)
 STATUS_URL = '{!s}/api/status/{{job_id}}/'.format(EXTERNAL_URL)
-OAUTH2_CALLBACK_URL = '{!s}/api/oauth2/callback/'.format(EXTERNAL_URL)
-OPENID_TRUST_ROOT_URL = '{!s}/'.format(EXTERNAL_URL)
-OPENID_RETURN_TO_URL = '{!s}/api/openid/callback/'.format(EXTERNAL_URL)
 ADMIN_EMAIL = config.get_value('server', 'admin.email')
 CA_PATH = '/tmp/certs'
 USER_TEMP_PATH = '/tmp/users'
 
 # External values
 JOBS_URL = config.get_value('external', 'jobs.url')
-LOGIN_URL = config.get_value('external', 'login.url')
-PROFILE_URL = config.get_value('external', 'profile.url')
-OPENID_CALLBACK_SUCCESS_URL = config.get_value('external', 'openid.callback.success.url')
 
 APPEND_SLASH = False
 
@@ -179,9 +173,10 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
     ),
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'compute_wps.auth.token.TokenAuthentication',
-    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
@@ -190,11 +185,11 @@ REST_FRAMEWORK = {
 }
 
 if AUTH_TRAEFIK:
-    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
         'compute_wps.auth.traefik.TraefikAuthentication')
 
 if AUTH_KEYCLOAK:
-    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
         'compute_wps.auth.keycloak.KeyCloakAuthentication')
 
 if DEBUG:
@@ -280,6 +275,10 @@ TEMPLATES = [
             ],
         },
     }
+]
+
+AUTHENTICATION_BACKENDS = [
+    'compute_wps.auth.keycloak.KeyCloakAuthorizationCode',
 ]
 
 # Password validation

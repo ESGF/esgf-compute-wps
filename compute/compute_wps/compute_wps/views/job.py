@@ -28,8 +28,6 @@ logger = logging.getLogger('compute_wps.views.job')
 class InternalFileViewSet(viewsets.GenericViewSet):
     queryset = models.File.objects.all()
     serializer_class = serializers.FileSerializer
-    authentication_classes = (BasicAuthentication, )
-    permission_classes = (DjangoModelPermissions, )
 
     @action(detail=False)
     def distinct_users(self, request):
@@ -44,8 +42,6 @@ class InternalFileViewSet(viewsets.GenericViewSet):
 class InternalStatusViewSet(viewsets.GenericViewSet):
     queryset = models.Status.objects.all()
     serializer_class = serializers.StatusSerializer
-    authentication_classes = (BasicAuthentication, )
-    permission_classes = (DjangoModelPermissions, )
 
     @action(detail=False)
     def unique_count(self, request):
@@ -64,8 +60,6 @@ class InternalUserFileViewSet(mixins.CreateModelMixin,
                               viewsets.GenericViewSet):
     queryset = models.UserFile.objects.all()
     serializer_class = serializers.UserFileSerializer
-    authentication_classes = (BasicAuthentication, )
-    permission_classes = (DjangoModelPermissions, )
 
     def create(self, request, *args, **kwargs):
         try:
@@ -109,8 +103,6 @@ class InternalUserProcessViewSet(mixins.CreateModelMixin,
                                  viewsets.GenericViewSet):
     queryset = models.UserProcess.objects.all()
     serializer_class = serializers.UserProcessSerializer
-    authentication_classes = (BasicAuthentication, )
-    permission_classes = (DjangoModelPermissions, )
 
     def create(self, request, *args, **kwargs):
         try:
@@ -141,16 +133,12 @@ class InternalProcessViewSet(mixins.CreateModelMixin,
                              viewsets.GenericViewSet):
     queryset = models.Process.objects.all()
     serializer_class = serializers.ProcessSerializer
-    authentication_classes = (BasicAuthentication, )
-    permission_classes = (DjangoModelPermissions, )
 
 
 class InternalJobMessageViewSet(mixins.CreateModelMixin,
                                 viewsets.GenericViewSet):
     queryset = models.Message.objects.all()
     serializer_class = serializers.MessageSerializer
-    authentication_classes = (BasicAuthentication, )
-    permission_classes = (DjangoModelPermissions, )
 
     def create(self, request, *args, **kwargs):
         try:
@@ -170,8 +158,6 @@ class InternalJobMessageViewSet(mixins.CreateModelMixin,
 class InternalJobViewSet(viewsets.GenericViewSet):
     queryset = models.Job.objects.all()
     serializer_class = serializers.JobSerializer
-    authentication_classes = (BasicAuthentication, )
-    permission_classes = (DjangoModelPermissions, )
 
     @action(detail=True)
     def set_output(self, request, pk):
@@ -189,8 +175,6 @@ class InternalJobStatusViewSet(mixins.CreateModelMixin,
                                viewsets.GenericViewSet):
     queryset = models.Status.objects.all()
     serializer_class = serializers.StatusSerializer
-    authentication_classes = (BasicAuthentication, )
-    permission_classes = (DjangoModelPermissions, )
 
     def create(self, request, *args, **kwargs):
         try:
@@ -206,13 +190,6 @@ class InternalJobStatusViewSet(mixins.CreateModelMixin,
             status_serializer.save(job=job)
         except db.IntegrityError:
             raise APIException('Status {!r} already exists for job {!r}'.format(request.data['status'], job.id))
-
-        # if request.data['status'] == 'ProcessStarted':
-        #     metrics.WPS_JOBS_STARTED.inc()
-        # elif request.data['status'] == 'ProcessSucceeded':
-        #     metrics.WPS_JOBS_SUCCEEDED.inc()
-        # elif request.data['status'] == 'ProcessFailed':
-        #     metrics.WPS_JOBS_FAILED.inc()
 
         return Response(status_serializer.data, status=201)
 

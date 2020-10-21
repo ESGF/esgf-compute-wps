@@ -17,7 +17,6 @@ from owslib import wps
 from compute_wps import metrics
 from compute_wps import models
 from compute_wps.auth import keycloak
-from compute_wps.auth import token
 from compute_wps.auth import traefik
 from compute_wps.exceptions import WPSError
 from compute_wps.util import wps_response
@@ -238,21 +237,16 @@ def handle_execute(meta, identifier, data_inputs):
     if len(data_inputs_keys ^ REQUIRED_DATA_INPUTS) > 0:
         raise WPSError('{}', ', '.join(REQUIRED_DATA_INPUTS-data_inputs_keys), code=wps_response.MissingParameterValue)
 
-    try:
-        if settings.AUTH_TRAEFIK:
-            logger.info("Using traefik authentication")
+    if settings.AUTH_TRAEFIK:
+        logger.info("Using traefik authentication")
 
-            user = traefik.authenticate(meta)
-        elif settings.AUTH_KEYCLOAK:
-            logger.info("Using keycloak authentication")
+        user = traefik.authenticate(meta)
+    elif settings.AUTH_KEYCLOAK:
+        logger.info("Using keycloak authentication")
 
-            user = keycloak.authenticate(meta)
-        else:
-            logger.info("Using token authentication")
-
-            user = token.authenticate(meta)
-    except Exception as e:
-        raise WPSError(str(e))
+        user = keycloak.authenticate_request(meta)
+    else:
+        raise WPSError("No authentication method has been set")
 
     if user is None:
         raise WPSError('Could not authenticate user')

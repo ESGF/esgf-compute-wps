@@ -31,8 +31,14 @@ ProcessPaused = 'ProcessPaused'
 ProcessSucceeded = 'ProcessSucceeded'
 ProcessFailed = 'ProcessFailed'
 
-OAUTH2_TYPE = 'oauth2'
-MPC_TYPE = 'myproxyclient'
+class Nonce(models.Model):
+    state = models.CharField(max_length=128)
+    redirect_uri = models.CharField(max_length=255)
+    next = models.CharField(max_length=255)
+
+class KeyCloakUserClient(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    access_token = models.CharField(max_length=512)
 
 class File(models.Model):
     name = models.CharField(max_length=256)
@@ -99,66 +105,6 @@ class UserFile(models.Model):
 
     def __str__(self):
         return '{0.file.name}'.format(self)
-
-
-class Auth(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-
-    openid_url = models.CharField(max_length=256)
-    type = models.CharField(max_length=64)
-    cert = models.TextField()
-    api_key = models.CharField(max_length=128)
-    extra = models.TextField()
-
-    def generate_api_key(self):
-        self.api_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(64))
-
-        self.save(update_fields=['api_key'])
-
-    def update(self, type=None, certs=None, api_key=None, **kwargs):
-        update_fields = []
-
-        if type is not None:
-            self.type = type
-
-            update_fields.append('type')
-
-        if certs is not None:
-            self.cert = ''.join([x if isinstance(x, str) else x.decode() for x in certs])
-
-            update_fields.append('cert')
-
-        if api_key is not None:
-            self.api_key = api_key
-
-            update_fields.append('api_key')
-
-        if len(kwargs) > 0:
-            extra = json.loads(self.extra or '{}')
-
-            extra.update(kwargs)
-
-            self.extra = json.dumps(extra)
-
-            update_fields.append('extra')
-
-        self.save(update_fields=update_fields)
-
-        self.refresh_from_db()
-
-    def get(self, *keys):
-        values = []
-
-        data = json.loads(self.extra or '{}')
-
-        for key in keys:
-            values.append(data[key])
-
-        return values
-
-    def __str__(self):
-        return '{0.openid_url} {0.type}'.format(self)
-
 
 class Process(models.Model):
     identifier = models.CharField(max_length=128, blank=False)

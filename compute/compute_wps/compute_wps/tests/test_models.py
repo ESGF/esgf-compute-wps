@@ -59,43 +59,11 @@ class ModelsUserFileTestCase(test.TestCase):
         self.assertEqual(user_file_json['name'], self.name)
         self.assertEqual(user_file_json['host'], self.host)
         self.assertEqual(user_file_json['variable'], self.var_name)
-        self.assertEqual(user_file_json['url'], self.url)        
+        self.assertEqual(user_file_json['url'], self.url)
         self.assertEqual(user_file_json['requested'], 0)
 
     def test_UserFile_str(self):
         self.assertEqual(str(self.user_file), self.name)
-
-class ModelsAuthTestCase(test.TestCase):
-    openid_url = 'http://test.com/openid'
-    type = 'test_auth_type'
-
-    def setUp(self):
-        user = models.User.objects.create_user('test_user1', 'test_email@test.com', 'test_password1')
-        self.auth = models.Auth.objects.create(openid_url=self.openid_url, user=user)
-
-    def test_Auth_generate_api_key(self):
-        self.auth.generate_api_key()
-        self.assertTrue(len(self.auth.api_key) > 0)
-
-    def test_Auth_update(self):
-        certs = ['cert1', 'cert2']
-        api_key = 'updated_api_key'
-
-        self.auth.update(self.type, certs, api_key, some_extra_attr='some_extra_val')
-        self.assertEqual(self.auth.type, self.type)
-        self.assertEqual(self.auth.cert, "".join(certs))
-        self.assertEqual(self.auth.api_key, api_key)
-        self.assertEqual(self.auth.extra, '{"some_extra_attr": "some_extra_val"}')
-        
-    def test_Auth_get(self):        
-        self.auth.update(None, None, None, extra_attr1='extra_val1', extra_attr2='extra_val2')
-        vals = self.auth.get('extra_attr1', 'extra_attr2')
-        self.assertEqual(vals[0], 'extra_val1')
-        self.assertEqual(vals[1], 'extra_val2')
-
-    def test_Auth_str(self):
-        self.auth.update(self.type, None, None)
-        self.assertEqual(str(self.auth), self.openid_url + ' ' + self.type)
 
 class ModelsProcessTestCase(test.TestCase):
 

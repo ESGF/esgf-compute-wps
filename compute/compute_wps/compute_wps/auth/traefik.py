@@ -13,10 +13,7 @@ def authenticate(meta):
 
     username, _ = re.match('(.*)@(.*)', header).groups()
 
-    user, created = models.User.objects.get_or_create(username=username, email=header)
-
-    if created:
-        models.Auth.objects.create(openid_url='', user=user)
+    user, _ = models.User.objects.get_or_create(username=username, email=header)
 
     return user
 

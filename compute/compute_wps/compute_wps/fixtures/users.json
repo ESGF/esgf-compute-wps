@@ -34,29 +34,5 @@
     "groups": [],
     "user_permissions": []
   }
-},
-{
-  "model": "compute_wps.auth",
-  "pk": 65,
-  "fields": {
-    "user": 76,
-    "openid_url": "http://testbad.com/openid/fake_JnyeGoV7vc",
-    "type": "oauth2",
-    "cert": "sdlkjaskldjalksjd",
-    "api_key": "abcd1234",
-    "extra": ""
-  }
-},
-{
-  "model": "compute_wps.auth",
-  "pk": 66,
-  "fields": {
-    "user": 77,
-    "openid_url": "http://testbad.com/openid/fake_DNKncmeWtJ",
-    "type": "myproxyclient",
-    "cert": "aajdalkkk",
-    "api_key": "",
-    "extra": ""
-  }
 }
 ]

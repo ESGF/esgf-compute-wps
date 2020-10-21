@@ -8,6 +8,7 @@ from rest_framework.authentication import BasicAuthentication
 from rest_framework.schemas import get_schema_view
 from rest_framework.routers import SimpleRouter
 
+from compute_wps.views import auth
 from compute_wps.views import job
 from compute_wps.views import metrics
 from compute_wps.views import service
@@ -21,12 +22,28 @@ internal_router.register(r'files', job.InternalFileViewSet, basename='internal')
 internal_router.register(r'status', job.InternalStatusViewSet, basename='internal')
 internal_router.register(r'process', job.InternalProcessViewSet, basename='internal')
 internal_router.register(r'jobs', job.InternalJobViewSet, basename='internal')
-internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status', job.InternalJobStatusViewSet, basename='internal')
-internal_router.register(r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message',
-                         job.InternalJobMessageViewSet, basename='internal')
-internal_router.register(r'user/(?P<user_pk>[^/.]+)/file', job.InternalUserFileViewSet, basename='internal')
-internal_router.register(r'user/(?P<user_pk>[^/.]+)/process/(?P<process_pk>[^/.]+)', job.InternalUserProcessViewSet,
-                         basename='internal')
+internal_router.register(
+    r'jobs/(?P<job_pk>[^/.]+)/status',
+    job.InternalJobStatusViewSet,
+    basename='internal')
+internal_router.register(
+    r'jobs/(?P<job_pk>[^/.]+)/status/(?P<status_pk>[^/.]+)/message',
+    job.InternalJobMessageViewSet,
+    basename='internal')
+internal_router.register(
+    r'user/(?P<user_pk>[^/.]+)/file',
+    job.InternalUserFileViewSet,
+    basename='internal')
+internal_router.register(
+    r'user/(?P<user_pk>[^/.]+)/process/(?P<process_pk>[^/.]+)',
+    job.InternalUserProcessViewSet,
+    basename='internal')
+
+auth_urlpatterns = [
+    url(r'^client_registration/$', auth.client_registration),
+    url(r'^login/$', auth.login),
+    url(r'^oauth_callback/$', auth.login_complete)
+]
 
 api_urlpatterns = [
     url(r'^', include(router.urls)),
@@ -39,7 +56,6 @@ schema = get_schema_view(
         title='Internal API',
         patterns=internal_router.urls,
         url='{!s}/internal_api'.format(settings.INTERNAL_API_URL),
-        authentication_classes=[BasicAuthentication, ],
 )
 
 internal_router_urls = internal_router.urls
@@ -47,6 +63,7 @@ internal_router_urls.append(url('^schema$', schema))
 
 urlpatterns = [
     url(r'^wps/?$', service.wps_entrypoint),
+    url(r'^auth/', include(auth_urlpatterns)),
     url(r'^api/', include(api_urlpatterns)),
     url(r'^internal_api/', include(internal_router_urls)),
 ]

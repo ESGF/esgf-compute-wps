@@ -12,7 +12,6 @@ def test_authenticate(mocker):
     assert user is None
 
     spy_user = mocker.spy(models.User.objects, "get_or_create")
-    spy_auth = mocker.spy(models.Auth.objects, "create")
 
     meta = {"X-Forwarded-User": "user1@domain1.test"}
 
@@ -23,7 +22,6 @@ def test_authenticate(mocker):
     user = traefik.authenticate(meta)
 
     assert spy_user.call_count == 2
-    assert spy_auth.call_count == 1
 
 def test_traefikauthentication(mocker):
     auth = traefik.TraefikAuthentication()
