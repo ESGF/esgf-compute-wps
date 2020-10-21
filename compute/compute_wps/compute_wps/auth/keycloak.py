@@ -58,7 +58,6 @@ def get_user_client(uri, user):
 
 def create_user_client(uri, user):
     access_token = settings.AUTH_KEYCLOAK_REG_ACCESS_TOKEN
-    # access_token = "eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI1NWFjZTdjOC04N2MwLTQ3ZjAtOGQ4My0zNTM3NDU5NTE4YTUifQ.eyJleHAiOjAsImlhdCI6MTYwMzI0MTg0MiwianRpIjoiNjUwMzcwNTMtNGU4OC00ZDdhLWE3ODUtMjgwMWVmMjk2YjEyIiwiaXNzIjoiaHR0cDovLzE5Mi4xNjguODYuMjcva2V5Y2xvYWsvcmVhbG1zL21hc3RlciIsImF1ZCI6Imh0dHA6Ly8xOTIuMTY4Ljg2LjI3L2tleWNsb2FrL3JlYWxtcy9tYXN0ZXIiLCJ0eXAiOiJSZWdpc3RyYXRpb25BY2Nlc3NUb2tlbiIsInJlZ2lzdHJhdGlvbl9hdXRoIjoiYXV0aGVudGljYXRlZCJ9.dMAjL3o4KNHHpEstluR4GpdeV7RLJvZ57rDc7mvyfPg"
 
     headers = {
         "Content-Type": "application/json",
