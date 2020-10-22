@@ -13,6 +13,7 @@ from django.contrib.auth.decorators import login_required
 
 from compute_wps import models
 from compute_wps.auth import keycloak
+from compute_wps import exceptions
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "false"
 
@@ -22,7 +23,7 @@ logger = logging.getLogger("compute_wps.views.auth")
 def client_registration(request):
     try:
         client_id, client_secret = keycloak.client_registration(request.user)
-    except keycloak.AuthError as e:
+    except exceptions.AuthError as e:
         return http.HttpResponseServerError(str(e))
 
     template = f"""

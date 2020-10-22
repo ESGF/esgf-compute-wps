@@ -1,15 +1,15 @@
 import re
 
 from rest_framework import authentication
-from rest_framework import exceptions
 
 from compute_wps import models
+from compute_wps import exceptions
 
 def authenticate(meta):
     try:
         header = meta['X-Forwarded-User']
     except KeyError:
-        return None
+        raise exceptions.AuthError()
 
     username, _ = re.match('(.*)@(.*)', header).groups()
 
@@ -19,9 +19,12 @@ def authenticate(meta):
 
 class TraefikAuthentication(authentication.BaseAuthentication):
     def authenticate(self, request):
-        user = authenticate(request.META)
+        try:
+            user = authenticate(request.META)
+        except exceptions.AuthError:
+            return None
 
         if user is None:
-            return user
+            return None
 
         return (user, None)

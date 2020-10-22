@@ -5,6 +5,7 @@ from django.contrib.sessions import middleware
 from compute_wps import models
 from compute_wps.views import auth
 from compute_wps.auth import keycloak
+from compute_wps import exceptions
 
 
 def test_client_registration(rf, mocker):
@@ -15,7 +16,7 @@ def test_client_registration(rf, mocker):
 
     client_registration = mocker.patch(
         "compute_wps.auth.keycloak.client_registration")
-    client_registration.side_effect = keycloak.AuthError()
+    client_registration.side_effect = exceptions.AuthError()
 
     response = auth.client_registration(request)
 

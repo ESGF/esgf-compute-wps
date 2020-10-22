@@ -5,10 +5,12 @@ import urllib.parse
 import urllib.error
 import re
 import logging
+from functools import wraps
 
 import zmq
 from cwt import utilities
 from django import http
+from django import shortcuts
 from django.conf import settings
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
@@ -18,7 +20,7 @@ from compute_wps import metrics
 from compute_wps import models
 from compute_wps.auth import keycloak
 from compute_wps.auth import traefik
-from compute_wps.exceptions import WPSError
+from compute_wps import exceptions
 from compute_wps.util import wps_response
 
 logger = logging.getLogger('compute_wps.views.service')
@@ -39,7 +41,7 @@ def int_or_float(value):
     try:
         return float(value)
     except ValueError:
-        raise WPSError('Failed to parse "{value}" as a float or int', value=value)
+        raise exceptions.WPSError('Failed to parse "{value}" as a float or int', value=value)
 
 
 def default(obj):
@@ -140,12 +142,12 @@ def get_parameter(params, name, required=True):
     if name.lower() not in temp:
         logger.info('Missing required parameter %s', name)
 
-        raise WPSError(name.lower(), code=wps_response.MissingParameterValue)
+        raise exceptions.WPSError(name.lower(), code=wps_response.MissingParameterValue)
 
     param = temp.get(name.lower())
 
     if required and param is None:
-        raise WPSError('Missing required parameter')
+        raise exceptions.WPSError('Missing required parameter')
 
     return param
 
@@ -154,7 +156,7 @@ def handle_get_capabilities():
     try:
         data = wps_response.get_capabilities(models.Process.objects.all())
     except Exception as e:
-        raise WPSError('{}', e)
+        raise exceptions.WPSError('{}', e)
 
     return data
 
@@ -165,7 +167,7 @@ def handle_describe_process(identifiers):
 
         data = wps_response.describe_process(processes)
     except Exception as e:
-        raise WPSError('{}', e)
+        raise exceptions.WPSError('{}', e)
 
     return data
 
@@ -204,57 +206,56 @@ def send_request_provisioner(identifier, data_inputs, job, user, process, status
     except zmq.Again:
         logger.info('Error sending request to provisioner')
 
-        raise WPSError('Error sending request to provisioner, retry in a few minutes.')
+        raise exceptions.WPSError('Error sending request to provisioner, retry in a few minutes.')
 
     try:
         msg = client.recv_multipart()
     except zmq.Again:
         logger.info('Error receiving acknowledgment from provisioner')
 
-        raise WPSError('Error receiving acknowledgment from provisioner, retry in a few minutes.')
+        raise exceptions.WPSError('Error receiving acknowledgment from provisioner, retry in a few minutes.')
     else:
         if msg[0] == b'ACK':
             logger.info('Accepted job %r', msg)
         elif msg[0] == b'ERR':
             logger.info('Provisioner error %r', msg)
 
-            raise WPSError('Provisioner error, retry in a few minutes.')
+            raise exceptions.WPSError('Provisioner error, retry in a few minutes.')
         else:
             logger.info('Provisioner responded with an unknown response %r', msg)
 
-            raise WPSError('Unknown response from provisioner.')
+            raise exceptions.WPSError('Unknown response from provisioner.')
 
 
 REQUIRED_DATA_INPUTS = set(['variable', 'domain', 'operation'])
 
-
-def handle_execute(meta, identifier, data_inputs):
+def handle_execute(request, identifier, data_inputs):
     data_inputs_keys = set([x.lower() for x in data_inputs.keys()])
 
     logger.info('DataInputs keys %r', data_inputs_keys)
 
     # Check that we have all required inputs
     if len(data_inputs_keys ^ REQUIRED_DATA_INPUTS) > 0:
-        raise WPSError('{}', ', '.join(REQUIRED_DATA_INPUTS-data_inputs_keys), code=wps_response.MissingParameterValue)
+        raise exceptions.WPSError('{}', ', '.join(REQUIRED_DATA_INPUTS-data_inputs_keys), code=wps_response.MissingParameterValue)
 
     if settings.AUTH_TRAEFIK:
         logger.info("Using traefik authentication")
 
-        user = traefik.authenticate(meta)
+        user = traefik.authenticate(request.META)
     elif settings.AUTH_KEYCLOAK:
         logger.info("Using keycloak authentication")
 
-        user = keycloak.authenticate_request(meta)
+        user = keycloak.authenticate_request(request.META)
     else:
-        raise WPSError("No authentication method has been set")
+        raise exceptions.WPSError("Unable to authenticate")
 
     if user is None:
-        raise WPSError('Could not authenticate user')
+        raise exceptions.WPSError("Unable to authenticate")
 
     try:
         process = models.Process.objects.get(identifier=identifier)
     except models.Process.DoesNotExist:
-        raise WPSError('Process "{identifier}" does not exist', identifier=identifier)
+        raise exceptions.WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
     job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
 
@@ -264,41 +265,41 @@ def handle_execute(meta, identifier, data_inputs):
 
     try:
         send_request_provisioner(identifier, data_inputs, job.id, user.id, process.id, status_id)
-    except WPSError as e:
+    except exceptions.WPSError as e:
         job.failed(e)
 
     return job.report
 
 
-def handle_get(params, meta):
+def handle_get(request):
     """ Handle an HTTP GET request. """
-    request = get_parameter(params, 'request', True).lower()
+    param_request = get_parameter(request.GET, 'request', True).lower()
 
-    service = get_parameter(params, 'service', True)
+    param_service = get_parameter(request.GET, 'service', True)
 
-    logger.info('GET request %r, service %r', request, service)
+    logger.info('GET request %r, service %r', param_request, param_service)
 
-    if request == 'getcapabilities':
+    if param_request == 'getcapabilities':
         with metrics.WPS_REQUESTS.labels('GetCapabilities', 'GET').time():
             response = handle_get_capabilities()
-    elif request == 'describeprocess':
-        identifier = get_parameter(params, 'identifier', True).split(',')
+    elif param_request == 'describeprocess':
+        identifier = get_parameter(request.GET, 'identifier', True).split(',')
 
         with metrics.WPS_REQUESTS.labels('DescribeProcess', 'GET').time():
-            response = handle_describe_process(identifier)
-    elif request == 'execute':
-        identifier = get_parameter(params, 'identifier', True)
+            param_response = handle_describe_process(identifier)
+    elif param_request == 'execute':
+        identifier = get_parameter(request.GET, 'identifier', True)
 
         # Cannot use request.GET, django does not parse the parameter
         # correctly in the form of DataInputs=variable=[];domain=[];operation=[]
-        query_string = urllib.parse.unquote(meta['QUERY_STRING'])
+        query_string = urllib.parse.unquote(request.META['QUERY_STRING'])
 
         match = re.match('.*datainputs=([^&]*)&?.*', query_string, re.I)
 
         try:
             split = re.split(';', match.group(1))
         except AttributeError:
-            raise WPSError('Failed to parse DataInputs param')
+            raise exceptions.WPSError('Failed to parse DataInputs param')
 
         logger.info('Split DataInputs to %r', split)
 
@@ -307,42 +308,40 @@ def handle_get(params, meta):
         except ValueError as e:
             logger.info('Failed to parse DataInputs %r', e)
 
-            raise WPSError('Failed to parse DataInputs param')
+            raise exceptions.WPSError('Failed to parse DataInputs param')
 
         for x in data_inputs.keys():
             data_inputs[x] = json.loads(data_inputs[x])
 
         with metrics.WPS_REQUESTS.labels('Execute', 'GET').time():
-            response = handle_execute(meta, identifier, data_inputs)
+            response = handle_execute(request, identifier, data_inputs)
     else:
-        raise WPSError('Operation "{name}" is not supported', name=request)
+        raise exceptions.WPSError('Operation "{name}" is not supported', name=param_request)
 
     return response
 
 
-def handle_post(data, meta):
+def handle_post(request):
     """ Handle an HTTP POST request.
 
     NOTE: we only support execute requests as POST for the moment
     """
     try:
-        doc = wps.etree.fromstring(data)
+        doc = wps.etree.fromstring(request.POST)
     except Exception as e:
-        logger.exception('Parse error %r', e)
-
-        raise WPSError('Parse error {!r}', e)
+        raise exceptions.WPSError('Error parsing WPS document')
 
     if 'GetCapabilities' in doc.tag:
-        raise WPSError('GetCapabilities POST request is not supported')
+        raise exceptions.WPSError('GetCapabilities POST request is not supported')
     elif 'DescribeProcess' in doc.tag:
-        raise WPSError('DescribeProcess POST request is not supported')
+        raise exceptions.WPSError('DescribeProcess POST request is not supported')
     elif 'Execute' in doc.tag:
         wpsns = wps.getNamespace(doc)
 
         try:
             identifier = doc.find(wps.nspath('Identifier')).text
         except AttributeError:
-            raise WPSError('Invalid XML missing Identifier element')
+            raise exceptions.WPSError('Invalid XML missing Identifier element')
 
         inputs = doc.findall(wps.nspath('DataInputs/Input', ns=wpsns))
 
@@ -356,30 +355,29 @@ def handle_post(data, meta):
             try:
                 input_id = input_id_elem.text.lower()
             except AttributeError:
-                raise WPSError('Invalid XML missing Identifier element')
+                raise exceptions.WPSError('Invalid XML missing Identifier element')
 
             try:
                 data_inputs[input_id] = json.loads(data.text)
             except AttributeError:
-                raise WPSError('Invalid XML missing ComplexData element')
+                raise exceptions.WPSError('Invalid XML missing ComplexData element')
 
         with metrics.WPS_REQUESTS.labels('Execute', 'POST').time():
-            response = handle_execute(meta, identifier, data_inputs)
+            response = handle_execute(request, identifier, data_inputs)
     else:
-        raise WPSError('Unknown root document tag {!r}', doc.tag)
+        raise exceptions.WPSError('Unknown root document tag {!r}', doc.tag)
 
     return response
-
 
 @metrics.WPS_ERRORS.count_exceptions()
 def handle_request(request):
     """ Convert HTTP request to intermediate format. """
-    logger.debug(f'META {request.META!r}')
-
     if request.method == 'GET':
-        return handle_get(request.GET, request.META)
+        response = handle_get(request)
     elif request.method == 'POST':
-        return handle_post(request.body, request.META)
+        response = handle_post(request)
+
+    return response
 
 @require_http_methods(['GET', 'POST'])
 @ensure_csrf_cookie
@@ -388,10 +386,16 @@ def wps_entrypoint(request):
 
     try:
         response = handle_request(request)
-    except WPSError as e:
+    except exceptions.WPSError as e:
         logger.exception('WPSError %r %r', request.method, request.path)
 
         response = wps_response.exception_report(e.code, str(e))
+    except exceptions.AuthError as e:
+        logger.exception('WPSError %r %r', request.method, request.path)
+
+        error = "Authentication failed" if str(e) == "" else str(e)
+
+        response = wps_response.exception_report(wps_response.NoApplicableCode, error)
     except Exception as e:
         logger.exception('Some generic exception %r %r', request.method, request.path)
 
@@ -407,7 +411,7 @@ def status(request, job_id):
     try:
         job = models.Job.objects.get(pk=job_id)
     except models.Job.DoesNotExist:
-        raise WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
+        raise exceptions.WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
 
     return http.HttpResponse(job.report, content_type='text/xml')
 

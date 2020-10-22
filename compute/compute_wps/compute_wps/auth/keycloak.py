@@ -4,21 +4,19 @@ import logging
 
 import requests
 from rest_framework import authentication
-from rest_framework import exceptions
+from rest_framework import exceptions as rest_exceptions
 from django.conf import settings
 
 import compute_wps
 from compute_wps import models
+from compute_wps import exceptions
 
 logger = logging.getLogger("compute_wps.auth.keycloak")
 
-class AuthError(Exception):
+class AuthServerResponseError(exceptions.AuthError):
     pass
 
-class AuthServerResponseError(AuthError):
-    pass
-
-class AuthNoUserClientError(AuthError):
+class AuthNoUserClientError(exceptions.AuthError):
     pass
 
 def client_registration_uri():
@@ -116,8 +114,6 @@ def token_introspection(access_token):
         "Host": "192.168.86.27",
     }
 
-    print("TOKEN", access_token)
-
     response = requests.post(
         url,
         data={"token": str(access_token)},
@@ -126,14 +122,14 @@ def token_introspection(access_token):
     logger.debug(f"Introspection status {response.status_code}")
 
     if not response.ok:
-        raise exceptions.AuthenticationFailed("Could not verify access token")
+        raise exceptions.AuthError("Could not verify access token")
 
     data = response.json()
 
     logger.info(data)
 
     if "active" not in data or not data["active"]:
-        raise exceptions.AuthenticationFailed("Access token is no longer valid")
+        raise exceptions.AuthError("Access token is no longer valid")
 
     logger.info("Successfully introspected token")
 
@@ -143,7 +139,7 @@ def authenticate_request(meta):
     try:
         header = meta["HTTP_AUTHORIZATION"]
     except KeyError:
-        raise compute_wps.exceptions.WPSError("Missing authorization header")
+        raise exceptions.AuthError()
 
     _, token = header.split(" ")
 
@@ -179,10 +175,13 @@ class KeyCloakAuthentication(authentication.BaseAuthentication):
 
         _, access_token = header.split(" ")
 
-        user = authenticate(access_token)
+        try:
+            user = authenticate(access_token)
+        except exceptions.AuthError as e:
+            raise rest_exceptions.AuthenticationFailed(str(e))
 
         if user is None:
-            raise exceptions.AuthenticationFailed("Unable to authenticate user")
+            raise rest_exceptions.AuthenticationFailed()
 
         return (user, None)
 

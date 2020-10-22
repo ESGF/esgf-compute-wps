@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from django.conf import settings
+from django.urls import re_path
 from django.conf.urls import url
 from django.conf.urls import include
 from django.contrib import admin
@@ -40,16 +41,16 @@ internal_router.register(
     basename='internal')
 
 auth_urlpatterns = [
-    url(r'^client_registration/$', auth.client_registration),
-    url(r'^login/$', auth.login),
-    url(r'^oauth_callback/$', auth.login_complete)
+    re_path(r'^client_registration/$', auth.client_registration),
+    re_path(r'^login/$', auth.login),
+    re_path(r'^oauth_callback/$', auth.login_complete)
 ]
 
 api_urlpatterns = [
-    url(r'^', include(router.urls)),
-    url(r'^ping/$', service.ping),
-    url(r'^status/(?P<job_id>[0-9]*)/$', service.status),
-    url(r'^metrics/$', metrics.metrics_view),
+    re_path(r'^', include(router.urls)),
+    re_path(r'^ping/$', service.ping),
+    re_path(r'^status/(?P<job_id>[0-9]*)/$', service.status),
+    re_path(r'^metrics/$', metrics.metrics_view),
 ]
 
 schema = get_schema_view(
@@ -59,11 +60,11 @@ schema = get_schema_view(
 )
 
 internal_router_urls = internal_router.urls
-internal_router_urls.append(url('^schema$', schema))
+internal_router_urls.append(re_path('^schema$', schema))
 
 urlpatterns = [
-    url(r'^wps/?$', service.wps_entrypoint),
-    url(r'^auth/', include(auth_urlpatterns)),
-    url(r'^api/', include(api_urlpatterns)),
-    url(r'^internal_api/', include(internal_router_urls)),
+    re_path(r'^wps/?$', service.wps_entrypoint),
+    re_path(r'^auth/', include(auth_urlpatterns)),
+    re_path(r'^api/', include(api_urlpatterns)),
+    re_path(r'^internal_api/', include(internal_router_urls)),
 ]

@@ -38,12 +38,7 @@ test:
   imports:
     - compute_wps
   source_files:
-    - django.properties
-    - settings.py
-    - urls.py
-    - wsgi.py
     - pytest.ini
-    - compute_wps/templates
     - compute_wps/fixtures
     - compute_wps/tests
   requires:
@@ -56,10 +51,6 @@ test:
     - source ./env
     - pip install pytest-pythonpath
     - django-admin startproject compute 
-    - cp settings.py compute/
-    - cp urls.py compute/
-    - cp wsgi.py compute/
-    - export DJANGO_CONFIG_PATH="${PWD}/django.properties"
     - pytest -vvv --junit-xml=/output/unittest.xml --cov=compute_wps --cov-report=xml:/output/coverage.xml compute_wps/tests
 
 about:

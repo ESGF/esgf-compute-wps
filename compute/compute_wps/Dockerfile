@@ -10,14 +10,11 @@ RUN conda update -n base conda && \
 WORKDIR /build/recipe
 
 COPY compute_wps/ compute_wps/
-COPY setup.cfg .
-COPY django.properties .
 COPY setup.py .
-COPY settings.py .
+COPY setup.cfg .
 COPY meta.yaml .
-COPY urls.py .
-COPY wsgi.py .
 COPY pytest.ini .
+COPY env .
 
 WORKDIR /build
 
@@ -40,9 +37,6 @@ COPY django.properties /etc/config/
 
 WORKDIR /compute
 
-COPY settings.py compute/
-COPY urls.py compute/
-COPY wsgi.py compute/
 COPY init.sh .
 COPY entrypoint.sh .
 

@@ -2,14 +2,14 @@ import pytest
 
 from compute_wps import models
 from compute_wps.auth import traefik
+from compute_wps import exceptions
 
 @pytest.mark.django_db
 def test_authenticate(mocker):
     meta = {}
 
-    user = traefik.authenticate(meta)
-
-    assert user is None
+    with pytest.raises(exceptions.AuthError):
+        traefik.authenticate(meta)
 
     spy_user = mocker.spy(models.User.objects, "get_or_create")
 

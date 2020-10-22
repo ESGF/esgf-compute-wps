@@ -1,11 +1,12 @@
 import json
 import pytest
 
-from rest_framework import exceptions
+from rest_framework import exceptions as rest_exceptions
 
 import compute_wps
 from compute_wps import models
 from compute_wps.auth import keycloak
+from compute_wps import exceptions
 
 @pytest.mark.django_db
 def test_client_registration(mocker):
@@ -141,7 +142,7 @@ def test_authenticate_request(mocker):
     assert user.username == "user1"
     assert user_get_or_create.call_count == 1
 
-    with pytest.raises(compute_wps.exceptions.WPSError):
+    with pytest.raises(exceptions.AuthError):
         keycloak.authenticate_request({})
 
 @pytest.mark.django_db
@@ -183,7 +184,7 @@ def test_keycloakauthentication(mocker, settings):
 
     authenticate.return_value = None
 
-    with pytest.raises(exceptions.AuthenticationFailed):
+    with pytest.raises(rest_exceptions.AuthenticationFailed):
         auth.authenticate(Request())
 
     authenticate.return_value = "user1"
@@ -210,17 +211,17 @@ def test_token_introspection(mocker, settings):
 
     post.return_value.json.return_value = {}
 
-    with pytest.raises(exceptions.AuthenticationFailed):
+    with pytest.raises(exceptions.AuthError):
         keycloak.token_introspection("abcd1234")
 
     post.return_value.json.return_value = {"active": False}
 
-    with pytest.raises(exceptions.AuthenticationFailed):
+    with pytest.raises(exceptions.AuthError):
         keycloak.token_introspection("abcd1234")
 
     type(post.return_value).ok = mocker.PropertyMock(return_value=False)
 
-    with pytest.raises(exceptions.AuthenticationFailed):
+    with pytest.raises(exceptions.AuthError):
         keycloak.token_introspection("abcd1234")
 
 def test_init(mocker, settings):

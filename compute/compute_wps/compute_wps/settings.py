@@ -1,9 +1,9 @@
 import configparser
 import logging
 import os
+import pkg_resources
 
 logger = logging.getLogger('settings')
-
 
 class DjangoConfigParser(configparser.ConfigParser):
     def __init__(self, defaults):
@@ -31,38 +31,17 @@ class DjangoConfigParser(configparser.ConfigParser):
                 value = self.get(section, key).split(',')
             else:
                 value = self.get(section, key)
-
-                for replacement in self.defaults.items():
-                    if replacement[0] in value:
-                        value = value.replace(*replacement)
-        # Error with calling NoSectionError
-        except TypeError:
-            if default is None:
-                raise
-
-            value = default
-
-            pass
         except (configparser.NoOptionError, configparser.NoSectionError):
-            if default is None:
-                raise
-
             value = default
-
-            if value_type == str:
-                for replacement in self.defaults.items():
-                    if replacement[0] in value:
-                        value = value.replace(*replacement)
-
-            pass
 
         if conv is not None:
             value = conv(value)
 
         return value
 
+DJANGO_CONFIG_PATH = pkg_resources.resource_filename(__name__, 'django.properties')
 
-DJANGO_CONFIG_PATH = os.environ.get('DJANGO_CONFIG_PATH', '/etc/config/django.properties')
+DJANGO_CONFIG_PATH = os.environ.get('DJANGO_CONFIG_PATH', DJANGO_CONFIG_PATH)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -136,7 +115,7 @@ CACHES = {
 }
 
 INSTALLED_APPS = [
-    'compute_wps',
+    'compute_wps.apps.WpsConfig',
     'rest_framework',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -216,9 +195,9 @@ if DEBUG:
 
     SESSION_COOKIE_DOMAIN = None
 
-ROOT_URLCONF = 'compute.urls'
+ROOT_URLCONF = 'compute_wps.urls'
 
-WSGI_APPLICATION = 'compute.wsgi.application'
+WSGI_APPLICATION = 'compute_wps.wsgi.application'
 
 DATABASES = {}
 

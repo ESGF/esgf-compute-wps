@@ -16,9 +16,6 @@ def test_handle_execute_traefik_auth(mocker, settings, django_user_model):
 
     models.Process.objects.create(identifier='CDAT.subset', version='1.0')
 
-    meta = {
-        'X-Forwarded-User': 'test@site.com'
-    }
     identifier = 'CDAT.subset'
     data_inputs = {
         'variable': [],
@@ -28,8 +25,13 @@ def test_handle_execute_traefik_auth(mocker, settings, django_user_model):
 
     mocker.patch('compute_wps.views.service.send_request_provisioner')
 
-    result = service.handle_execute(meta, identifier, data_inputs)
+    class Request:
+        META = {
+            'X-Forwarded-User': 'test@site.com'
+        }
+
+    result = service.handle_execute(Request(), identifier, data_inputs)
 
     assert result
 
-    service.handle_execute(meta, identifier, data_inputs)
+    service.handle_execute(Request(), identifier, data_inputs)

@@ -30,7 +30,7 @@ def get_capabilities(processes):
 
     template = env.get_template('GetCapabilities_response.xml')
 
-    return template.render(processes=processes, 
+    return template.render(processes=processes,
                            **settings.__dict__['_wrapped'].__dict__)
 
 def describe_process(processes):
