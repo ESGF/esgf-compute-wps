@@ -13,6 +13,9 @@ while [[ $(check_postgres) -ne 0 ]]; do
   echo "Waiting for postgres"
 done
 
+export DJANGO_SETTINGS_MODULE=compute_wps.settings
+export DJANGO_CONFIG_PATH=/etc/config/django.properties
+
 python manage.py migrate
 python manage.py server --host default
 python manage.py create_api_user ${API_USERNAME} ${API_PASSWORD}
