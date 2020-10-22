@@ -64,6 +64,7 @@ AUTH_KEYCLOAK_URL = config.get_value('auth', 'keycloak.url', '')
 AUTH_KEYCLOAK_REALM = config.get_value('auth', 'keycloak.realm', '')
 AUTH_KEYCLOAK_CLIENT_ID = config.get_value('auth', 'keycloak.client_id', '')
 AUTH_KEYCLOAK_CLIENT_SECRET = config.get_value('auth', 'keycloak.client_secret','')
+AUTH_KEYCLOAK_REG_ACCESS_TOKEN = config.get_value('auth', 'keycloak.reg_access_token', '')
 
 # Email values
 EMAIL_HOST = config.get_value('email', 'host')

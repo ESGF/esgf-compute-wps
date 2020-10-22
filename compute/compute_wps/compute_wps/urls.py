@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 from django.conf import settings
 from django.urls import re_path
-from django.conf.urls import url
 from django.conf.urls import include
 from django.contrib import admin
 from rest_framework import renderers

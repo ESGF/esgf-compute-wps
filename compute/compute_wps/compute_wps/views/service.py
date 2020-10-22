@@ -327,7 +327,7 @@ def handle_post(request):
     NOTE: we only support execute requests as POST for the moment
     """
     try:
-        doc = wps.etree.fromstring(request.POST)
+        doc = wps.etree.fromstring(request.body)
     except Exception as e:
         raise exceptions.WPSError('Error parsing WPS document')
 
