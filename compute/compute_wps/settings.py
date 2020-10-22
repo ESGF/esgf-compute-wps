@@ -1,8 +1,6 @@
 import configparser
 import logging
-import netaddr
 import os
-import socket
 
 logger = logging.getLogger('settings')
 
@@ -70,32 +68,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = os.environ['SECRET_KEY']
 
-DEV = 'DEV' in os.environ
-
 DEBUG = 'WPS_DEBUG' in os.environ
-
-TEST = 'WPS_TEST' in os.environ
 
 config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH)
 
-host = config.get_value('default', 'host')
-
-cidr = config.get_value('default', 'allowed.cidr', None, list)
-
-# CWT WPS Settings
-if cidr is not None:
-    ALLOWED_HOSTS = ['*']
-
-    if netaddr.valid_ipv4(host):
-        cidr.append(host)
-
-    cidr = [x for x in cidr if x != '']
-
-    ALLOWED_CIDR_NETS = cidr
-else:
-    ALLOWED_HOSTS = [host]
-
 # Default values
+ALLOWED_HOSTS = config.get_value('default', 'allowed_hosts', ['*'], list)
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
 ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')
 INTERNAL_API_URL = config.get_value('default', 'internal_api_url')
@@ -218,7 +196,6 @@ else:
         ]
 
 MIDDLEWARE = [
-    'allow_cidr.middleware.AllowCIDRMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -245,7 +222,7 @@ WSGI_APPLICATION = 'compute.wsgi.application'
 
 DATABASES = {}
 
-if TEST or DEBUG:
+if DEBUG:
     DATABASES['default'] = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
