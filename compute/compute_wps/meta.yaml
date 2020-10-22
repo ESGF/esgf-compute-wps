@@ -33,11 +33,13 @@ requirements:
     - prometheus_client
     - pyyaml
     - oauthlib
+    - python-coreapi
 
 test:
   imports:
     - compute_wps
   source_files:
+    - env
     - pytest.ini
     - compute_wps/fixtures
     - compute_wps/tests

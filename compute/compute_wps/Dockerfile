@@ -33,8 +33,6 @@ RUN conda install -c file:///channel -c conda-forge -c cdat compute-wps && \
       rm -rf /opt/conda/pkgs && \
       django-admin startproject compute 
 
-COPY django.properties /etc/config/
-
 WORKDIR /compute
 
 COPY init.sh .
