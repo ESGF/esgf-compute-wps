@@ -107,7 +107,6 @@ AUTH_KEYCLOAK_URL = config.get_value('auth', 'keycloak.url', '')
 AUTH_KEYCLOAK_REALM = config.get_value('auth', 'keycloak.realm', '')
 AUTH_KEYCLOAK_CLIENT_ID = config.get_value('auth', 'keycloak.client_id', '')
 AUTH_KEYCLOAK_CLIENT_SECRET = config.get_value('auth', 'keycloak.client_secret','')
-AUTH_KEYCLOAK_REG_ACCESS_TOKEN = config.get_value('auth', 'keycloak.reg_access_token', '')
 
 # Email values
 EMAIL_HOST = config.get_value('email', 'host')
@@ -176,7 +175,7 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+#         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -279,6 +278,7 @@ TEMPLATES = [
 ]
 
 AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
     'compute_wps.auth.keycloak.KeyCloakAuthorizationCode',
 ]
 
