@@ -21,9 +21,8 @@ requirements:
 
   run:
     - python
-    - django=1.11
+    - django
     - django-cors-headers
-    - django-allow-cidr
     - djangorestframework
     - esgf-compute-api
     - jinja2
@@ -32,9 +31,7 @@ requirements:
     - pyzmq
     - requests
     - prometheus_client
-    - python-coreapi
     - pyyaml
-    - netaddr
     - oauthlib
 
 test:
@@ -56,15 +53,7 @@ test:
     - pytest-django
     - mock
   commands:
-    - export SECRET_KEY="abcd"
-    - export WPS_DEBUG=1
-    - export WPS_DEV=1
-    - export WPS_TEST=1
-    - export API_USERNAME="test"
-    - export API_PASSWORD="test"
-    - export OAUTH2_CLIENT_ID=""
-    - export OAUTH2_CLIENT_SECRET=""
-    - export PROVISIONER_FRONTEND=""
+    - source ./env
     - pip install pytest-pythonpath
     - django-admin startproject compute 
     - cp settings.py compute/
