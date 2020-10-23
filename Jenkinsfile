@@ -16,22 +16,47 @@ pipeline {
             anyOf {
               branch "devel"
               branch pattern: "provisioner-v.*", comparator: "REGEXP"
+              changeset "compute/compute_provisioner/**/*"
             }
           }
-          steps {
-            container(name: "buildkit", shell: "/bin/sh") {
-              sh "make provisioner OUTPUT_TYPE=registry TARGET=production"
-
-              dir("charts") {
-                git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
+          stages {
+            stage("Build/Push") {
+              when {
+                allOf {
+                  anyOf {
+                    branch "devel"
+                    branch pattern: "provisioner-v.*", comparator: "REGEXP"
+                  }
+                  changeset "compute/compute_provisioner/**/*"
+                }
               }
+              steps {
+                container(name: "buildkit", shell: "/bin/sh") {
+                  sh "make provisioner OUTPUT_TYPE=registry TARGET=production"
+                }
+              }
+            }
+            stage("Deploy") {
+              when {
+                allOf {
+                  branch "devel"
+                  changeset "compute/compute_provisioner/**/*"
+                }
+              }
+              steps {
+                container(name: "buildkit", shell: "/bin/sh") {
+                  dir("charts") {
+                    git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
+                  }
 
-              lock("development") {
-                sh """
+                  lock("development") {
+                    sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
 helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set provisioner.imageTag=`make tag-provisioner` --wait --reuse-values --atomic
-                """
+                    """
+                  }
+                }
               }
             }
           }
@@ -39,6 +64,13 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set provisioner.
         stage("Tasks") {
           agent {
             label "jenkins-buildkit"
+          }
+          when {
+            anyOf {
+              branch "devel"
+              branch pattern: "tasks-v.*", comparator: "REGEXP"
+              changeset "compute/compute_tasks/**/*"
+            }
           }
           stages {
             stage("Unittest") {
@@ -66,9 +98,12 @@ chown -R 1000:1000 tasks_output
             }
             stage("Push") {
               when {
-                anyOf {
-                  branch "devel"
-                  branch pattern: "tasks-v.*", comparator: "REGEXP"
+                allOf {
+                  anyOf {
+                    branch "devel"
+                    branch pattern: "tasks-v.*", comparator: "REGEXP"
+                  }
+                  changeset "compute/compute_tasks/**/*"
                 }
               }
               steps {
@@ -79,9 +114,9 @@ chown -R 1000:1000 tasks_output
             }
             stage("Deploy") {
               when {
-                anyOf {
+                allOf {
                   branch "devel"
-                  branch pattern: "tasks-v.*", comparator: "REGEXP"
+                  changeset "compute/compute_tasks/**/*"
                 }
               }
               steps {
@@ -105,6 +140,13 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set celery.image
         stage("WPS") {
           agent {
             label "jenkins-buildkit"
+          }
+          when {
+            anyOf {
+              branch "devel"
+              branch pattern: "wps-v.*", comparator: "REGEXP"
+              changeset "compute/compute_wps/**/*"
+            }
           }
           stages {
             stage("Unittest") {
@@ -132,9 +174,12 @@ chown -R 1000:1000 wps_output
             }
             stage("Push") {
               when {
-                anyOf {
-                  branch "devel"
-                  branch pattern: "wps-v.*", comparator: "REGEXP"
+                allOf {
+                  anyOf {
+                    branch "devel"
+                    branch pattern: "wps-v.*", comparator: "REGEXP"
+                  }
+                  changeset "compute/compute_wps/**/*"
                 }
               }
               steps {
@@ -147,7 +192,7 @@ chown -R 1000:1000 wps_output
               when {
                 anyOf {
                   branch "devel"
-                  branch pattern: "wps-v.*", comparator: "REGEXP"
+                  changeset "compute/compute_wps/**/*"
                 }
               }
               steps {
@@ -176,26 +221,51 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag
             anyOf {
               branch "devel"
               branch pattern: "thredds-v.*", comparator: "REGEXP"
+              changeset "compute/compute_thredds/**/*"
             }
           }
-          steps {
-            container(name: "buildkit", shell: "/bin/sh") {
-              sh "make thredds OUTPUT_TYPE=registry IMAGE_PUSH=true TARGET=production"
-
-              dir("charts") {
-                git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
+          stages {
+            stage("Build/Push") {
+              when {
+                allOf {
+                  anyOf {
+                    branch "devel"
+                    branch pattern: "thredds-v.*", comparator: "REGEXP"
+                  }
+                  changeset "docker/thredds/*"
+                }
               }
+              steps {
+                container(name: "buildkit", shell: "/bin/sh") {
+                  sh "make thredds OUTPUT_TYPE=registry TARGET=production"
+                }
+              }
+            }
+            stage("Deploy") {
+              when {
+                allOf {
+                  branch "devel"
+                  changeset "docker/thredds/*"
+                }
+              }
+              steps {
+                container(name: "buildkit", shell: "/bin/sh") {
+                  dir("charts") {
+                    git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
+                  }
 
-              lock("development") {
-                sh """
+                  lock("development") {
+                    sh """
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
 helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set thredds.imageTag=`make tag-thredds` --wait --reuse-values --atomic
-                """
+                    """
+                  }
+                }
               }
             }
           }
-        } 
+        }
       }
     }
   }
