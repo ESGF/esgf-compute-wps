@@ -22,12 +22,12 @@ pipeline {
           stages {
             stage("Build/Push") {
               when {
-                allOf {
-                  anyOf {
+                anyOf {
+                  allOf {
                     branch "devel"
-                    branch pattern: "provisioner-v.*", comparator: "REGEXP"
+                    changeset "compute/compute_provisioner/**/*"
                   }
-                  changeset "compute/compute_provisioner/**/*"
+                  branch pattern: "provisioner-v.*", comparator: "REGEXP"
                 }
               }
               steps {
@@ -98,12 +98,12 @@ chown -R 1000:1000 tasks_output
             }
             stage("Push") {
               when {
-                allOf {
-                  anyOf {
+                anyOf {
+                  allOf {
                     branch "devel"
-                    branch pattern: "tasks-v.*", comparator: "REGEXP"
+                    changeset "compute/compute_tasks/**/*"
                   }
-                  changeset "compute/compute_tasks/**/*"
+                  branch pattern: "tasks-v.*", comparator: "REGEXP"
                 }
               }
               steps {
@@ -174,12 +174,12 @@ chown -R 1000:1000 wps_output
             }
             stage("Push") {
               when {
-                allOf {
-                  anyOf {
+                anyOf {
+                  allOf {
                     branch "devel"
-                    branch pattern: "wps-v.*", comparator: "REGEXP"
+                    changeset "compute/compute_wps/**/*"
                   }
-                  changeset "compute/compute_wps/**/*"
+                  branch pattern: "wps-v.*", comparator: "REGEXP"
                 }
               }
               steps {
@@ -227,12 +227,12 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag
           stages {
             stage("Build/Push") {
               when {
-                allOf {
-                  anyOf {
+                anyOf {
+                  allOf {
                     branch "devel"
-                    branch pattern: "thredds-v.*", comparator: "REGEXP"
+                    changeset "docker/thredds/*"
                   }
-                  changeset "docker/thredds/*"
+                  branch pattern: "thredds-v.*", comparator: "REGEXP"
                 }
               }
               steps {
