@@ -11,7 +11,8 @@ GIT_NAME := $(or $(GIT_BRANCH),$(GIT_TAG))
 
 IMAGE = $(if $(REGISTRY),$(REGISTRY)/)$(IMAGE_NAME)
 # post-fix git revision if not building from tag
-IMAGE_TAG = $(shell cat $(DOCKERFILE)/VERSION)$(if $(filter v%,$(GIT_NAME)),,-$(GIT_COMMIT))
+IMAGE_TAG = $(shell cat $(DOCKERFILE)/VERSION)$(if $(shell echo $(GIT_NAME) | grep -E ".*-v.*"),,-$(GIT_COMMIT))
+# IMAGE_TAG = $(shell cat $(DOCKERFILE)/VERSION)$(if $(filter %-v%,$(GIT_NAME)),,-$(GIT_COMMIT))
 IMAGE_PUSH ?= true
 
 ifeq ($(shell which buildctl-daemonless.sh 2>/dev/null),)
