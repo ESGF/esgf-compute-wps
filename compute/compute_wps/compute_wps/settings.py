@@ -54,7 +54,6 @@ config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH)
 # Default values
 ALLOWED_HOSTS = config.get_value('default', 'allowed_hosts', ['*'], list)
 SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
-ESGF_SEARCH = config.get_value('default', 'esgf.search', 'esgf-node.llnl.gov')
 INTERNAL_API_URL = config.get_value('default', 'internal_api_url')
 
 # Auth values
