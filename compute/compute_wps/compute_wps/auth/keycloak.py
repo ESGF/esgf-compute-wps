@@ -111,7 +111,6 @@ def token_introspection(access_token):
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
         "Authorization": "Basic {}".format(auth),
-        "Host": "192.168.86.27",
     }
 
     response = requests.post(
