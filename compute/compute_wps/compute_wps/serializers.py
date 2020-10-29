@@ -43,19 +43,18 @@ class StatusSerializer(serializers.ModelSerializer):
         model = models.Status
         fields = '__all__'
 
-class JobDetailSerializer(serializers.ModelSerializer):
+class JobSerializer(serializers.ModelSerializer):
     identifier = serializers.SlugRelatedField(
         read_only=True,
         slug_field='identifier',
         source='process')
 
-    class Meta(object):
-        model = models.Job
-        exclude = ('user', 'process')
-
-class JobSerializer(JobDetailSerializer):
     status = serializers.HyperlinkedRelatedField(
         read_only=True,
         many=True,
         view_name='status-detail',
         source='status_set')
+
+    class Meta(object):
+        model = models.Job
+        exclude = ('user', 'process')

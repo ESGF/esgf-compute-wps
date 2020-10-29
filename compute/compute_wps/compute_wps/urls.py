@@ -31,7 +31,8 @@ router_urls.extend(
 
 schema = get_schema_view(
     title='WPS API',
-    patterns=router.urls)
+    patterns=router.urls,
+    url=f'{settings.BASE_URL}/api')
 
 urlpatterns = [
     re_path('^wps/?$', service.wps_entrypoint),

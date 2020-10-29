@@ -52,18 +52,10 @@ class JobViewSet(mixins.ListModelMixin,
     queryset = models.Job.objects.all()
     serializer_class = serializers.JobSerializer
 
-    serializer_classes = {
-        'list': serializers.JobSerializer,
-        'retrieve': serializers.JobDetailSerializer,
-    }
-
     renderer_classes = [
         default_renderers.JSONRenderer,
         renderers.WPSStatusRenderer,
     ]
-
-    def get_serializer_class(self):
-        return self.serializer_classes.get(self.action)
 
     def get_queryset(self):
         user = self.request.user
