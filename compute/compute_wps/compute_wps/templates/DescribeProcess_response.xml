@@ -5,9 +5,6 @@
     <ows:Identifier>{{ process.identifier }}</ows:Identifier>
     <ows:Title>{{ process.title }}</ows:Title>
     <ows:Abstract>{{ process.abstract|escape }}</ows:Abstract>
-    {% for item, value in process.decode_metadata().items() %}
-    <ows:Metadata xlink:title="{{ item }}:{{ value }}" />
-    {% endfor %}
 		<DataInputs>
 			<Input minOccurs="1" maxOccurs="1">
 				<ows:Identifier>variable</ows:Identifier>

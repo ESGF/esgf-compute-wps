@@ -193,7 +193,7 @@ def send_request_provisioner(identifier, data_inputs, job, user, process, status
         'status': status_id,
         'provenance': {
             'wps_identifier': identifier,
-            'wps_server': settings.EXTERNAL_WPS_URL,
+            'wps_server': settings.WPS_URL,
             'wps_document': utilities.data_inputs_to_document(identifier, data_inputs),
         },
         'data_inputs': data_inputs,
@@ -257,18 +257,16 @@ def handle_execute(request, identifier, data_inputs):
     except models.Process.DoesNotExist:
         raise exceptions.WPSError('Process "{identifier}" does not exist', identifier=identifier)
 
-    job = models.Job.objects.create(process=process, user=user, extra=json.dumps(data_inputs))
+    job = models.Job.objects.create(process=process, user=user, datainputs=json.dumps(data_inputs))
 
     status_id = job.accepted()
-
-    metrics.WPS_JOB_STATE.labels(models.ProcessAccepted).inc()
 
     try:
         send_request_provisioner(identifier, data_inputs, job.id, user.id, process.id, status_id)
     except exceptions.WPSError as e:
         job.failed(e)
 
-    return job.report
+    return wps_response.execute(job)
 
 
 def handle_get(request):
@@ -404,17 +402,6 @@ def wps_entrypoint(request):
         response = wps_response.exception_report(wps_response.NoApplicableCode, error)
 
     return http.HttpResponse(response, content_type='text/xml')
-
-
-@require_http_methods(['GET'])
-def status(request, job_id):
-    try:
-        job = models.Job.objects.get(pk=job_id)
-    except models.Job.DoesNotExist:
-        raise exceptions.WPSError('Status for job "{job_id}" does not exist', job_id=job_id)
-
-    return http.HttpResponse(job.report, content_type='text/xml')
-
 
 @require_http_methods(['GET'])
 def ping(request):

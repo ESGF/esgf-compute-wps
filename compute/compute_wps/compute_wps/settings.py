@@ -3,7 +3,7 @@ import logging
 import os
 import pkg_resources
 
-logger = logging.getLogger('settings')
+logger = logging.getLogger('compute_wps.settings')
 
 class DjangoConfigParser(configparser.ConfigParser):
     def __init__(self, defaults):
@@ -14,6 +14,8 @@ class DjangoConfigParser(configparser.ConfigParser):
     @classmethod
     def from_file(cls, file_path, defaults=None):
         config = cls(defaults or {})
+
+        logger.info(f"Loading settings from {file_path}")
 
         config.read([file_path])
 
@@ -52,59 +54,54 @@ DEBUG = 'WPS_DEBUG' in os.environ
 config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH)
 
 # Default values
-ALLOWED_HOSTS = config.get_value('default', 'allowed_hosts', ['*'], list)
-SESSION_COOKIE_NAME = config.get_value('default', 'session.cookie.name', 'wps_sessionid')
-INTERNAL_API_URL = config.get_value('default', 'internal_api_url')
+ALLOWED_HOSTS = config.get_value('server', 'allowed.hosts', '', value_type=list)
 
 # Auth values
 AUTH_TRAEFIK = config.get_value('auth', 'traefik', False, bool)
 AUTH_KEYCLOAK = config.get_value('auth', 'keycloak', False, bool)
-AUTH_KEYCLOAK_URL = config.get_value('auth', 'keycloak.url', '')
-AUTH_KEYCLOAK_REALM = config.get_value('auth', 'keycloak.realm', '')
-AUTH_KEYCLOAK_CLIENT_ID = config.get_value('auth', 'keycloak.client_id', '')
-AUTH_KEYCLOAK_CLIENT_SECRET = config.get_value('auth', 'keycloak.client_secret','')
-AUTH_KEYCLOAK_REG_ACCESS_TOKEN = config.get_value('auth', 'keycloak.reg_access_token', '')
+AUTH_KEYCLOAK_URL = config.get_value('auth', 'keycloak.url')
+AUTH_KEYCLOAK_REALM = config.get_value('auth', 'keycloak.realm')
+AUTH_KEYCLOAK_CLIENT_ID = config.get_value('auth', 'keycloak.client_id')
+AUTH_KEYCLOAK_CLIENT_SECRET = config.get_value('auth', 'keycloak.client_secret')
+AUTH_KEYCLOAK_REG_ACCESS_TOKEN = config.get_value('auth', 'keycloak.reg_access_token')
 
 # Email values
 EMAIL_HOST = config.get_value('email', 'host')
 EMAIL_PORT = config.get_value('email', 'port')
-EMAIL_HOST_PASSWORD = config.get_value('email', 'password', '')
-EMAIL_HOST_USER = config.get_value('email', 'user', '')
+EMAIL_HOST_PASSWORD = config.get_value('email', 'password')
+EMAIL_HOST_USER = config.get_value('email', 'user')
 
 # WPS values
 WPS_TITLE = config.get_value('wps', 'title')
 WPS_ABSTRACT = config.get_value('wps', 'abstract')
-WPS_KEYWORDS = config.get_value('wps', 'keywords', [], list)
-WPS_PROVIDER_NAME = config.get_value('wps', 'provider.name')
-WPS_PROVIDER_SITE = config.get_value('wps', 'provider.site')
-WPS_CONTACT_NAME = config.get_value('wps', 'contact.name')
-WPS_CONTACT_POSITION = config.get_value('wps', 'contact.position')
-WPS_CONTACT_PHONE = config.get_value('wps', 'contact.phone')
-WPS_ADDRESS_DELIVERY = config.get_value('wps', 'address.delivery')
-WPS_ADDRESS_CITY = config.get_value('wps', 'address.city')
-WPS_ADDRESS_AREA = config.get_value('wps', 'address.area')
-WPS_ADDRESS_POSTAL = config.get_value('wps', 'address.postal')
-WPS_ADDRESS_COUNTRY = config.get_value('wps', 'address.country')
-WPS_ADDRESS_EMAIL = config.get_value('wps', 'address.email')
+WPS_KEYWORDS = config.get_value('wps', 'keywords', value_type=list)
+WPS_PROVIDER_NAME = config.get_value('wps', 'provider.name', '')
+WPS_PROVIDER_SITE = config.get_value('wps', 'provider.site', '')
+WPS_CONTACT_NAME = config.get_value('wps', 'contact.name', '')
+WPS_CONTACT_POSITION = config.get_value('wps', 'contact.position', '')
+WPS_CONTACT_PHONE = config.get_value('wps', 'contact.phone', '')
+WPS_ADDRESS_DELIVERY = config.get_value('wps', 'address.delivery', '')
+WPS_ADDRESS_CITY = config.get_value('wps', 'address.city', '')
+WPS_ADDRESS_AREA = config.get_value('wps', 'address.area', '')
+WPS_ADDRESS_POSTAL = config.get_value('wps', 'address.postal', '')
+WPS_ADDRESS_COUNTRY = config.get_value('wps', 'address.country', '')
+WPS_ADDRESS_EMAIL = config.get_value('wps', 'address.email', '')
 
 # Output values
-OUTPUT_FILESERVER_URL = config.get_value('output', 'fileserver.url')
-OUTPUT_DODSC_URL = config.get_value('output', 'dodsc.url')
-OUTPUT_LOCAL_PATH = config.get_value('output', 'local.path')
+OUTPUT_DODSC_URL = config.get_value('output', 'dodsc.url', '').strip('/')
 
 # Server values
-EXTERNAL_URL = config.get_value('server', 'external.url')
-EXTERNAL_WPS_URL = '{!s}/wps/'.format(EXTERNAL_URL)
-STATUS_URL = '{!s}/api/status/{{job_id}}/'.format(EXTERNAL_URL)
-ADMIN_EMAIL = config.get_value('server', 'admin.email')
+BASE_URL = config.get_value('server', 'base.url', '').strip('/')
+
+
+WPS_URL = f'{BASE_URL}/wps'
+JOB_URL = f'{BASE_URL}/api/job'
 CA_PATH = '/tmp/certs'
 USER_TEMP_PATH = '/tmp/users'
 
-# External values
-JOBS_URL = config.get_value('external', 'jobs.url')
-
 APPEND_SLASH = False
 
+SESSION_COOKIE_NAME = 'wps_sessionid'
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
 CACHES = {
@@ -130,16 +127,27 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
     ),
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.BasicAuthentication',
-#         'rest_framework.authentication.SessionAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': (
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-    ),
+    ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 50,
 }
+
+if DEBUG:
+    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer'
+    )
+
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
+        'rest_framework.authentication.BasicAuthentication')
+
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
+        'rest_framework.authentication.SessionAuthentication')
+
+    INSTALLED_APPS.append('corsheaders')
 
 if AUTH_TRAEFIK:
     REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
@@ -148,16 +156,6 @@ if AUTH_TRAEFIK:
 if AUTH_KEYCLOAK:
     REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
         'compute_wps.auth.keycloak.KeyCloakAuthentication')
-
-if DEBUG:
-    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer'
-    )
-
-    INSTALLED_APPS.append('corsheaders')
-
-GRAPPELLI_ADMIN_TITLE = 'ESGF CWT Administration'
 
 try:
     import django_nose  # noqa: F401
@@ -183,9 +181,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-if not DEBUG:
-    MIDDLEWARE.insert(4, 'django.middleware.csrf.CsrfViewMiddleware')
-
 if DEBUG:
     MIDDLEWARE.insert(4, 'corsheaders.middleware.CorsMiddleware')
 
@@ -194,6 +189,8 @@ if DEBUG:
     CORS_ALLOW_CREDENTIALS = True
 
     SESSION_COOKIE_DOMAIN = None
+else:
+    MIDDLEWARE.insert(4, 'django.middleware.csrf.CsrfViewMiddleware')
 
 ROOT_URLCONF = 'compute_wps.urls'
 
@@ -238,24 +235,6 @@ AUTHENTICATION_BACKENDS = [
     'compute_wps.auth.keycloak.KeyCloakAuthorizationCode',
 ]
 
-# Password validation
-# https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
-
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'America/Los_Angeles'
@@ -272,10 +251,6 @@ STATIC_ROOT = '/var/www/static'
 
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'assets'),
-)
-
-FIXTURE_DIRS = (
-    os.path.join(BASE_DIR, 'compute_wps/fixtures'),
 )
 
 LOGGING = {

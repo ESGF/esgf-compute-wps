@@ -14,41 +14,6 @@ from compute_wps.util import wps_response
 
 logger = logging.getLogger('compute_wps.serializers')
 
-class FileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.File
-        fields = '__all__'
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.User
-        fields = '__all__'
-
-class UserFileSerializer(serializers.ModelSerializer):
-    url = serializers.URLField(write_only=True)
-    var_name = serializers.CharField(write_only=True)
-
-    class Meta(object):
-        model = models.UserFile
-        fields = ('id', 'user', 'file', 'requested_date', 'requested', 'url', 'var_name')
-        read_only_fields = ('user', 'file')
-
-    def create(self, validated_data):
-        validated_data.pop('url')
-
-        validated_data.pop('var_name')
-
-        user_file = models.UserFile.objects.create(**validated_data)
-
-        return user_file
-
-
-class UserProcessSerializer(serializers.ModelSerializer):
-    class Meta(object):
-        model = models.UserProcess
-        fields = ('id', 'user', 'process', 'requested_date', 'requested')
-        read_only_fields = ('user', 'process')
-
 
 class ProcessSerializer(serializers.ModelSerializer):
     abstract = serializers.CharField(required=False, default='')
@@ -57,7 +22,7 @@ class ProcessSerializer(serializers.ModelSerializer):
 
     class Meta(object):
         model = models.Process
-        fields = ('id', 'identifier', 'backend', 'abstract', 'metadata', 'version')
+        fields = ('id', 'identifier', 'abstract', 'metadata', 'version')
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -66,101 +31,31 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta(object):
         model = models.Message
-        fields = ('id', 'created_date', 'message', 'percent')
+        fields = '__all__'
 
 
 class StatusSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
-    messages = MessageSerializer(many=True, read_only=True)
-    status = serializers.ChoiceField(choices=['ProcessAccepted', 'ProcessStarted', 'ProcessPaused',
-                                              'ProcessSucceeded', 'ProcessFailed'], required=True)
+    status = serializers.ChoiceField(choices=wps_response.StatusChoices, required=True)
+    message = MessageSerializer(many=True, read_only=True, source='message_set')
 
     class Meta(object):
         model = models.Status
-        fields = ('id', 'status', 'created_date', 'messages', 'output', 'exception')
+        fields = '__all__'
 
-    def convert_local_to_opendap(self, variable, relpath):
-        url = settings.OUTPUT_DODSC_URL.format(filename=relpath)
-
-        logger.info('Converted %r -> %r', variable.uri, url)
-
-        return cwt.Variable(url, variable.var_name, name=variable.name).to_dict()
-
-    def convert_local_to_fileserver(self, variable, relpath):
-        url = settings.OUTPUT_FILESERVER_URL.format(filename=relpath)
-
-        logger.info('Converted %r -> %r', variable.uri, url)
-
-        return cwt.Variable(url, variable.var_name, name=variable.name).to_dict()
-
-    def convert_local_to_remote(self, variable):
-        variable = cwt.Variable.from_dict(variable)
-
-        relpath = os.path.relpath(variable.uri, settings.OUTPUT_LOCAL_PATH)
-
-        if variable.mime_type == 'application/netcdf':
-            return self.convert_local_to_opendap(variable, relpath)
-        else:
-            return self.convert_local_to_fileserver(variable, relpath)
-
-    def create(self, validated_data):
-        logger.info('Validated data %r', validated_data)
-
-        if 'exception' in validated_data:
-            validated_data['exception'] = wps_response.exception_report(wps_response.NoApplicableCode,
-                                                                        validated_data['exception'])
-
-        if 'output' in validated_data:
-            # Need to convert output path to thredds path
-            if 'uri' in validated_data['output']:
-                try:
-                    data = json.loads(validated_data['output'])
-                except json.JSONDecodeError:
-                    logger.info('Failed to decode output')
-
-                    raise serializers.ValidationError('Failed to load output')
-
-                if isinstance(data, (list, tuple)):
-                    validated_data['output'] = json.dumps([self.convert_local_to_remote(x) for x in data])
-                elif isinstance(data, dict):
-                    validated_data['output'] = json.dumps(self.convert_local_to_remote(data))
-                else:
-                    logger.info('Failed to handle output of type {!r}'.format(type(data)))
-
-                    raise serializers.ValidationError('Failed to handle output of type {!r}'.format(type(data)))
-
-        metrics.WPS_JOB_STATE.labels(validated_data['status']).inc()
-
-        return models.Status.objects.create(**validated_data)
-
-
-class StatusHyperlink(serializers.HyperlinkedRelatedField):
-    view_name = 'status-detail'
-    queryset = models.Status.objects.all()
-
-    def get_url(self, obj, view_name, request, format):
-        # Construct the url from the related job pk and the status pk
-        url_kwargs = {
-            'job_pk': obj.job.pk,
-            'pk': obj.pk
-        }
-
-        return reverse(view_name, kwargs=url_kwargs, request=request, format=format)
-
-
-class JobSerializer(serializers.ModelSerializer):
-    server = serializers.SlugRelatedField(read_only=True, slug_field='host')
-
-    process = serializers.SlugRelatedField(read_only=True, slug_field='identifier')
-
-    elapsed = serializers.ReadOnlyField()
-
-    latest_status = serializers.ReadOnlyField()
-
-    accepted_on = serializers.ReadOnlyField()
-
-    status = StatusHyperlink(many=True)
+class JobDetailSerializer(serializers.ModelSerializer):
+    identifier = serializers.SlugRelatedField(
+        read_only=True,
+        slug_field='identifier',
+        source='process')
 
     class Meta(object):
         model = models.Job
-        fields = ('id', 'server', 'process', 'extra', 'elapsed', 'latest_status', 'accepted_on', 'status')
+        exclude = ('user', 'process')
+
+class JobSerializer(JobDetailSerializer):
+    status = serializers.HyperlinkedRelatedField(
+        read_only=True,
+        many=True,
+        view_name='status-detail',
+        source='status_set')
