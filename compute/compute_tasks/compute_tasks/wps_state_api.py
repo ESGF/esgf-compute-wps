@@ -12,17 +12,10 @@ from compute_tasks import utilities
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = 'true'
 
-# CLIENT_ID = os.environ['CLIENT_ID']
-# CLIENT_SECRET = os.environ['CLIENT_SECRET']
-# TOKEN_URL = os.environ['TOKEN_URL']
-# API_SCHEMA_URL = os.environ['API_SCHEMA_URL']
-
-CLIENT_ID = 'wps-backend'
-CLIENT_SECRET = 'd8adbed3-3acb-4b8e-9798-24468f2ed262'
-TOKEN_URL = 'http://192.168.86.27/keycloak/realms/master/protocol/openid-connect/token'
-API_SCHEMA_URL = 'http://192.168.86.27/api/schema/'
-
-logging.basicConfig(level=logging.INFO)
+CLIENT_ID = os.environ['CLIENT_ID']
+CLIENT_SECRET = os.environ['CLIENT_SECRET']
+TOKEN_URL = os.environ['TOKEN_URL']
+API_SCHEMA_URL = os.environ['API_SCHEMA_URL']
 
 logger = logging.getLogger('compute_tasks.wps_state_api')
 

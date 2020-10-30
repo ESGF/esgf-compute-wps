@@ -14,7 +14,6 @@ setuptools.setup(
     url='https://github.com/ESGF/esgf-compute-wps',
     packages=[
         'compute_tasks',
-        'compute_tasks.context',
         'compute_tasks.templates',
         'compute_tasks.tests',
     ],
