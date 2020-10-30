@@ -41,7 +41,6 @@ test:
   source_files:
     - env
     - pytest.ini
-    - compute_wps/fixtures
     - compute_wps/tests
   requires:
     - pytest

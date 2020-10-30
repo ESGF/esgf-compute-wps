@@ -74,7 +74,7 @@ EMAIL_HOST_USER = config.get_value('email', 'user')
 # WPS values
 WPS_TITLE = config.get_value('wps', 'title')
 WPS_ABSTRACT = config.get_value('wps', 'abstract')
-WPS_KEYWORDS = config.get_value('wps', 'keywords', value_type=list)
+WPS_KEYWORDS = config.get_value('wps', 'keywords', [], value_type=list)
 WPS_PROVIDER_NAME = config.get_value('wps', 'provider.name', '')
 WPS_PROVIDER_SITE = config.get_value('wps', 'provider.site', '')
 WPS_CONTACT_NAME = config.get_value('wps', 'contact.name', '')
