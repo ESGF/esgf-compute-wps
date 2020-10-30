@@ -121,8 +121,7 @@ def worker(mocker):
 
     w = WorkerWrapper(b'devel', '127.0.0.1:8787')
 
-    mocker.patch.object(w, 'action')
-    mocker.patch.object(w, 'init_api')
+    mocker.patch.object(w.state, '_action')
 
     w.start()
 
@@ -133,41 +132,3 @@ def worker(mocker):
 
         if w.exc is not None:
             raise w.exc
-
-
-class ESGFDataManager(object):
-    def __init__(self, pytestconfig):
-        self.data = {
-            'tas': {
-                'var': 'tas',
-                'files': [
-                    'http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2-WACCM/historical/r2i1p1f1/day/tas/gn/v20190227/tas_day_CESM2-WACCM_historical_r2i1p1f1_gn_18500101-18591231.nc',  # noqa: E501
-                    'http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2-WACCM/historical/r2i1p1f1/day/tas/gn/v20190227/tas_day_CESM2-WACCM_historical_r2i1p1f1_gn_18600101-18691231.nc',  # noqa: E501
-                ],
-            },
-            'tas-opendap': {
-                'var': 'tas',
-                'files': [
-                    'http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2-WACCM/historical/r2i1p1f1/day/tas/gn/v20190227/tas_day_CESM2-WACCM_historical_r2i1p1f1_gn_18500101-18591231.nc',  # noqa: E501
-                    'http://esgf-data.ucar.edu/thredds/dodsC/esg_dataroot/CMIP6/CMIP/NCAR/CESM2-WACCM/historical/r2i1p1f1/day/tas/gn/v20190227/tas_day_CESM2-WACCM_historical_r2i1p1f1_gn_18600101-18691231.nc',  # noqa: E501
-                ],
-            },
-            'tas-opendap-cmip5': {
-                'var': 'tas',
-                'files': [
-                    'http://aims3.llnl.gov/thredds/dodsC/cmip5_css02_data/cmip5/output1/CMCC/CMCC-CMS/historical/day/atmos/day/r1i1p1/tas/1/tas_day_CMCC-CMS_historical_r1i1p1_18500101-18591231.nc',  # noqa: E501
-                    'http://aims3.llnl.gov/thredds/dodsC/cmip5_css02_data/cmip5/output1/CMCC/CMCC-CMS/historical/day/atmos/day/r1i1p1/tas/1/tas_day_CMCC-CMS_historical_r1i1p1_18600101-18691231.nc',  # noqa: E501
-                ],
-            },
-        }
-
-    def to_cdms2(self, name, file_index=0):
-        return cdms2.open(self.data[name]['files'][file_index])
-
-    def to_xarray(self, name, file_index=0, chunks=None):
-        return xr.open_dataset(self.data[name]['files'][file_index], chunks=chunks)
-
-
-@pytest.fixture(scope='session')
-def esgf_data(pytestconfig):
-    return ESGFDataManager(pytestconfig)

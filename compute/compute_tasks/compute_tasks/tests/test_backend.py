@@ -11,7 +11,7 @@ from compute_tasks import cdat
 from compute_tasks import base
 from compute_tasks import celery_app
 from compute_tasks import WPSError
-from compute_tasks.context import operation
+from compute_tasks import context
 
 logger = logging.getLogger()
 
@@ -71,12 +71,12 @@ def test_validate_workflow_specify_variable_not_found(mocker):
         'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict()],
     }
 
-    context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
+    ctx = context.OperationContext.from_data_inputs('CDAT.sum', data_inputs, user=0, process=0, status=0, job=0)
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
     with pytest.raises(WPSError):
-        base.validate_workflow(context)
+        base.validate_workflow(ctx)
 
 
 def test_validate_workflow_specify_variable(mocker):
@@ -106,11 +106,11 @@ def test_validate_workflow_specify_variable(mocker):
         'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict(), group.to_dict()],
     }
 
-    context = operation.OperationContext.from_data_inputs('CDAT.sum', data_inputs)
+    ctx = context.OperationContext.from_data_inputs('CDAT.sum', data_inputs, user=0, job=0, process=0, status=0)
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
-    base.validate_workflow(context)
+    base.validate_workflow(ctx)
 
 
 def test_validate_workflow_missmatch_input(mocker):
@@ -126,12 +126,12 @@ def test_validate_workflow_missmatch_input(mocker):
         'operation': [agg.to_dict()],
     }
 
-    context = operation.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs)
+    ctx = context.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs, user=0, job=0, process=0, status=0)
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
     with pytest.raises(base.ValidationError):
-        base.validate_workflow(context)
+        base.validate_workflow(ctx)
 
 
 def test_validate_workflow(mocker):
@@ -151,11 +151,11 @@ def test_validate_workflow(mocker):
         'operation': [agg.to_dict(), max.to_dict()],
     }
 
-    context = operation.OperationContext.from_data_inputs('CDAT.max', data_inputs)
+    ctx = context.OperationContext.from_data_inputs('CDAT.max', data_inputs, user=0, job=0, process=0, status=0)
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
-    base.validate_workflow(context)
+    base.validate_workflow(ctx)
 
 
 def test_worker_run(mocker, provisioner, worker):
@@ -182,8 +182,6 @@ def test_worker_run(mocker, provisioner, worker):
 
 def test_worker_missed_heartbeat(mocker, provisioner):
     w = backend.Worker(b'devel', '127.0.0.1:8787')
-
-    mocker.patch.object(w, 'init_api')
 
     w.initialize()
 
@@ -213,8 +211,6 @@ def test_worker_missed_heartbeat(mocker, provisioner):
 def test_worker_send_heartbeat(mocker, provisioner):
     w = backend.Worker(b'devel', '127.0.0.1:8787')
 
-    mocker.patch.object(w, 'init_api')
-
     w.initialize()
 
     w.connect_provisioner()
@@ -235,21 +231,19 @@ def test_worker_send_heartbeat(mocker, provisioner):
 def test_worker_fail_job(mocker):
     w = backend.Worker(b'devel', '127.0.0.1:8787')
 
-    mocker.patch.object(w, 'init_api')
+    mocker.patch.object(w.state, '_action')
 
-    mocker.spy(w, 'failed')
+    mocker.spy(w.state, 'failed')
 
     w.fail_job(10, 'test')
 
-    w.failed.assert_called_with('test')
+    w.state.failed.assert_called_with(10, 'test')
 
     assert w.job is None
 
 
 def test_worker_reconnect_provisioner(mocker, provisioner):
     w = backend.Worker(b'devel', '127.0.0.1:8787')
-
-    mocker.patch.object(w, 'init_api')
 
     w.initialize()
 
@@ -268,8 +262,6 @@ def test_worker_reconnect_provisioner(mocker, provisioner):
 
 def test_worker_connect_provisioner(mocker, provisioner):
     w = backend.Worker(b'devel', '127.0.0.1:8787')
-
-    mocker.patch.object(w, 'init_api')
 
     w.initialize()
 
@@ -290,8 +282,6 @@ def test_worker_stop(worker):
 
 def test_worker_initialize(mocker):
     w = backend.Worker(b'devel', '127.0.0.1:8787')
-
-    mocker.patch.object(w, 'init_api')
 
     w.initialize()
 
@@ -387,7 +377,7 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
 
 def test_build_workflow(mocker):
-    mocker.patch('compute_tasks.context.operation.OperationContext.action')
+    mocker.patch('compute_tasks.wps_state_api.WPSStateAPI._action')
 
     workflow = backend.build_workflow('CDAT.subset', DATA_INPUTS, '0', '0', '0', '0', namespace='default')
 

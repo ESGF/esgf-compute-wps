@@ -29,7 +29,7 @@ from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import metrics
 from compute_tasks import WPSError
-from compute_tasks.context import operation
+from compute_tasks import context
 
 
 MyProxyClient.SSL_METHOD = SSL.TLSv1_2_METHOD
@@ -194,12 +194,12 @@ def test_groupby_bins_invalid_bin(test_data, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
     with pytest.raises(WPSError):
-        base.get_process(identifier)._process_func(context, p, *[v1], variable='pr', bins=['abcd'])
+        base.get_process(identifier)._process_func(ctx, p, *[v1], variable='pr', bins=['abcd'])
 
 
 def test_groupby_bins(test_data, mocker):
@@ -209,11 +209,11 @@ def test_groupby_bins(test_data, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
-    output = base.get_process(identifier)._process_func(context, p, *[v1], variable='pr', bins=np.arange(0.0, 1.0, 0.1))
+    output = base.get_process(identifier)._process_func(ctx, p, *[v1], variable='pr', bins=np.arange(0.0, 1.0, 0.1))
 
     assert len(output) == 9
 
@@ -238,11 +238,11 @@ def test_where(test_data, cond, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
-    result = base.get_process(identifier)._process_func(context, p, *[v1], variable=None, cond=cond, other=None)
+    result = base.get_process(identifier)._process_func(ctx, p, *[v1], variable=None, cond=cond, other=None)
 
     assert 'pr' in result
 
@@ -254,11 +254,11 @@ def test_where_other(test_data, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
-    result = base.get_process(identifier)._process_func(context, p, *[v1], variable=None, cond='pr<0.5', other=1e20)
+    result = base.get_process(identifier)._process_func(ctx, p, *[v1], variable=None, cond='pr<0.5', other=1e20)
 
     assert 'pr' in result
 
@@ -280,12 +280,12 @@ def test_where_error(test_data, cond, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
     with pytest.raises(WPSError):
-        base.get_process(identifier)._process_func(context, p, *[v1], variable=None, cond=cond, other=None)
+        base.get_process(identifier)._process_func(ctx, p, *[v1], variable=None, cond=cond, other=None)
 
 
 def test_merge(test_data, mocker):
@@ -298,11 +298,11 @@ def test_merge(test_data, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
-    result = base.get_process(identifier)._process_func(context, p, *inputs, compat=None)
+    result = base.get_process(identifier)._process_func(ctx, p, *inputs, compat=None)
 
     assert 'pr' in result
     assert 'prw' in result
@@ -369,13 +369,13 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, output_var, e
     if v2 is not None:
         data.append(test_data.generate(**v2))
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
     p = cwt.Process(identifier=identifier)
 
-    result = base.get_process(identifier)._process_func(context, p, *data, **extra)
+    result = base.get_process(identifier)._process_func(ctx, p, *data, **extra)
 
     assert output_var in result
 
@@ -390,18 +390,20 @@ def test_processing(mocker, test_data, identifier, v1, v2, output, output_var, e
 def test_processing_error(mocker, test_data, identifier, v1, v2, output, output_var, extra):
     data = [test_data.generate(**v1)]
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
     p = cwt.Process(identifier=identifier)
 
     with pytest.raises(WPSError):
-        base.get_process(identifier)._process_func(context, p, *data, **extra)
+        base.get_process(identifier)._process_func(ctx, p, *data, **extra)
 
 
 def test_process_aggregate(mocker, test_data):
-    context = mocker.MagicMock()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+
+    mocker.patch.object(ctx.state, '_action')
 
     files = [CMIP6_AGG1, CMIP6_AGG2, CMIP6_AGG3, CMIP6_AGG4]
 
@@ -414,7 +416,7 @@ def test_process_aggregate(mocker, test_data):
 
     process = cwt.Process(identifier='CDAT.aggregate', inputs=[v0, v1, v2, v3])
 
-    output = cdat.process_aggregate(context, process, *data)
+    output = cdat.process_aggregate(ctx, process, *data)
 
     assert output.sizes['time'] == 8400
 
@@ -436,14 +438,14 @@ def test_process_subset(test_data, mocker, domain, decode_times, expected, param
     process.set_domain(domain)
     process.add_parameters(**params)
 
-    context = operation.OperationContext()
-    context.input_var_names[process.name] = ['clt']
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+    ctx.input_var_names[process.name] = ['clt']
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
     ds = test_data.to_xarray(CMIP6_CLT, decode_times=decode_times)
 
-    output = cdat.process_subset(context, process, ds, **params)
+    output = cdat.process_subset(ctx, process, ds, **params)
 
     assert output.clt.shape == expected
 
@@ -550,11 +552,11 @@ def test_chdir_temp(mocker):
     (CMIP6_CLT, (1812, 64, 128)),
 ])
 def test_open_dataset(test_data, mocker, url, expected_size):
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
     url = test_data.local(url)
 
-    ds = cdat.open_dataset(context, url, 'clt', chunks={'time': 100})
+    ds = cdat.open_dataset(ctx, url, 'clt', chunks={'time': 100})
 
     assert ds
     assert ds.clt.shape == expected_size
@@ -598,19 +600,19 @@ def test_clean_output(mocker, test_data):
 
 
 def test_dask_job_tracker(mocker, client):  # noqa: F811
-    context = mocker.MagicMock()
+    ctx = mocker.MagicMock()
 
     data = da.random.random((100, 100), chunks=(10, 10))
 
     fut = client.compute(data)
 
-    cdat.DaskTaskTracker(context, fut)
+    cdat.DaskTaskTracker(ctx, fut)
 
-    assert context.message.call_count > 0
+    assert ctx.message.call_count > 0
 
 
 def test_dask_job_tracker_timeout(mocker, client):  # noqa: F811
-    context = mocker.MagicMock()
+    ctx = mocker.MagicMock()
 
     data = da.random.random((100, 100), chunks=(10, 10))
 
@@ -619,7 +621,7 @@ def test_dask_job_tracker_timeout(mocker, client):  # noqa: F811
     cdat.UPDATE_TIMEOUT = 1
 
     with pytest.raises(cdat.DaskTimeoutError):
-        tracker = cdat.DaskTaskTracker(context, fut)
+        tracker = cdat.DaskTaskTracker(ctx, fut)
 
         tracker._draw_bar()
 
@@ -637,10 +639,10 @@ def test_build_output(test_data, mocker):
 
     p = cwt.Process(identifier='CDAT.subset')
 
-    context = operation.OperationContext()
-    mocker.patch.object(context, 'action')
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+    mocker.patch.object(ctx.state, '_action')
 
-    delayed = cdat.build_output(context, ['pr'], data, p, 'test')
+    delayed = cdat.build_output(ctx, ['pr'], data, p, 'test')
 
     assert delayed is not None
 
@@ -654,13 +656,13 @@ def test_build_split_output(test_data, mocker):
 
     p = cwt.Process(identifier='CDAT.subset')
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
     save_mfdataset = mocker.spy(xr, 'save_mfdataset')
 
-    delayed = cdat.build_split_output(context, ['pr'], data, p, 'test', data.nbytes/8)
+    delayed = cdat.build_split_output(ctx, ['pr'], data, p, 'test', data.nbytes/8)
 
     save_mfdataset.assert_called()
 
@@ -671,7 +673,7 @@ def test_build_split_output(test_data, mocker):
 
     data = test_data.generate('random', periods=1)
 
-    delayed = cdat.build_split_output(context, ['pr'], data, p, 'test', data.nbytes/8)
+    delayed = cdat.build_split_output(ctx, ['pr'], data, p, 'test', data.nbytes/8)
 
     save_mfdataset.assert_called()
 
@@ -685,23 +687,23 @@ def test_gather_workflow_outputs_missing_interm(test_data, mocker):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/data',
     })
-    
+
     subset = cwt.Process(identifier='CDAT.subset')
     subset_delayed = test_data.generate('random')
 
     max = cwt.Process(identifier='CDAT.max')
 
-    context = operation.OperationContext()
-    context.input_var_names[subset.name] = ['pr']
-    context.input_var_names[max.name] = ['pr']
-    mocker.patch.object(context, 'action')
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+    ctx.input_var_names[subset.name] = ['pr']
+    ctx.input_var_names[max.name] = ['pr']
+    mocker.patch.object(ctx.state, '_action')
 
     interm = {
         subset.name: subset_delayed,
     }
 
     with pytest.raises(WPSError):
-        cdat.gather_workflow_outputs(context, interm, [subset, max])
+        cdat.gather_workflow_outputs(ctx, interm, [subset, max])
 
 
 def test_gather_workflow_outputs(test_data, mocker):
@@ -715,17 +717,17 @@ def test_gather_workflow_outputs(test_data, mocker):
     max = cwt.Process(identifier='CDAT.max')
     max_delayed = test_data.generate('random')
 
-    context = operation.OperationContext()
-    context.input_var_names[subset.name] = ['pr']
-    context.input_var_names[max.name] = ['pr']
-    mocker.patch.object(context, 'action')
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+    ctx.input_var_names[subset.name] = ['pr']
+    ctx.input_var_names[max.name] = ['pr']
+    mocker.patch.object(ctx.state, '_action')
 
     interm = {
         subset.name: subset_delayed,
         max.name: max_delayed,
     }
 
-    delayed = cdat.gather_workflow_outputs(context, interm, [subset, max])
+    delayed = cdat.gather_workflow_outputs(ctx, interm, [subset, max])
 
     assert len(delayed) == 2
     assert len(interm) == 0
@@ -742,11 +744,11 @@ def test_gather_inputs(test_data, mocker, identifier, inputs, domain, expected, 
     process.add_inputs(*[cwt.Variable(test_data.local(x), 'tas') for x in inputs])
     process.set_domain(domain)
 
-    context = operation.OperationContext()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    mocker.patch.object(context, 'action')
+    mocker.patch.object(ctx.state, '_action')
 
-    data = cdat.gather_inputs(context, process)
+    data = cdat.gather_inputs(ctx, process)
 
     assert len(data) == expected
     assert isinstance(data[0].time.values[0], expected_type)

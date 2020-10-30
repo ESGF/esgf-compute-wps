@@ -6,7 +6,7 @@ from distributed import LocalCluster
 
 from compute_tasks import base
 from compute_tasks import cdat
-from compute_tasks.context.local_context import LocalContext
+from compute_tasks import context
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,12 @@ def local_execute():
         'output_path': args['output_path'],
     }
 
-    context = LocalContext.from_data_inputs(args['identifier'], json.loads(args['data_inputs']), extra=extra, user=0, job=0)
+    context = context.LocalContext.from_data_inputs(
+        args['identifier'],
+        json.loads(args['data_inputs']),
+        extra=extra,
+        user=0,
+        job=0)
 
     base.validate_workflow(context)
 

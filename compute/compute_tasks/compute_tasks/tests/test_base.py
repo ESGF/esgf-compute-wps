@@ -4,6 +4,7 @@ import pytest
 from compute_tasks import base
 from compute_tasks import tests
 from compute_tasks import WPSError
+from compute_tasks import context
 
 
 def test_validate_parameter():
@@ -89,12 +90,11 @@ def test_build_parameter():
 
 def test_register_process():
     @base.register_process('CDAT.mathstuff45', abstract='abstract data', version='1.0.0', min=10, extra_data='extra_data_content')
-    def test_task(self, context):
-        return context
+    def test_task(self, ctx):
+        return ctx
 
     registry_entry = {
         'identifier': 'CDAT.mathstuff45',
-        'backend': 'CDAT',
         'abstract': 'abstract data',
         'metadata': '{"extra_data": "extra_data_content", "inputs": 10}',
         'version': '1.0.0',
@@ -131,56 +131,66 @@ def test_get_process(mocker):
 
 
 def test_cwt_base_task_failure_error(mocker):
-    context = mocker.MagicMock()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    context.failed.side_effect = WPSError()
+    mocker.patch.object(ctx, 'failed')
+    mocker.patch.object(ctx, 'state')
+
+    ctx.failed.side_effect = WPSError()
 
     base_task = base.CWTBaseTask()
 
     e = Exception('Error')
 
     with pytest.raises(WPSError):
-        base_task.on_failure(e, 0, (context,), {}, None)
+        base_task.on_failure(e, 0, (ctx,), {}, None)
 
-    context.failed.assert_called_with(str(e))
+    ctx.failed.assert_called_with(0, str(e))
 
 
 def test_cwt_base_task_failure(mocker):
-    context = mocker.MagicMock()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+
+    mocker.patch.object(ctx, 'failed')
+    mocker.patch.object(ctx, 'state')
 
     base_task = base.CWTBaseTask()
 
     e = Exception('Error')
 
-    base_task.on_failure(e, 0, (context,), {}, None)
+    base_task.on_failure(e, 0, (ctx,), {}, None)
 
-    context.failed.assert_called_with(str(e))
-
-    context.update_metrics.assert_called()
+    ctx.failed.assert_called_with(0, str(e))
 
 
 def test_cwt_base_task_retry_error(mocker):
-    context = mocker.MagicMock()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
 
-    context.message.side_effect = WPSError()
+    mocker.patch.object(ctx, 'message')
+    mocker.patch.object(ctx, 'state')
+
+    ctx.message.side_effect = WPSError()
 
     base_task = base.CWTBaseTask()
 
     e = Exception('Error')
 
     with pytest.raises(WPSError):
-        base_task.on_retry(e, 0, (context,), {}, None)
+        base_task.on_retry(e, 0, (ctx,), {}, None)
 
-    context.message.assert_called_with('Retrying from error: {!s}', e)
+    ctx.message.assert_called_with(0, 'Retrying from error: Error')
 
 
 def test_cwt_base_task_retry(mocker):
-    context = mocker.MagicMock()
+    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+
+    mocker.patch.object(ctx, 'message')
+    mocker.patch.object(ctx, 'state')
 
     base_task = base.CWTBaseTask()
 
     e = Exception('Error')
 
-    base_task.on_retry(e, 0, (context,), {}, None)
+    base_task.on_retry(e, 0, (ctx,), {}, None)
 
-    context.message.assert_called_with('Retrying from error: {!s}', e)
+    ctx.message.assert_called_with(0, 'Retrying from error: Error')

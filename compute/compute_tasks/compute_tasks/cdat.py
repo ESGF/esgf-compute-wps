@@ -62,7 +62,7 @@ class DaskTaskTracker(ProgressBar):
         """
         self.futures = futures_of(futures)
 
-        context.message('Tracking {!r} futures', len(self.futures))
+        context.mesasge(f'Tracking {len(self.futures)!r} futures')
 
         super(DaskTaskTracker, self).__init__(self.futures, scheduler, interval, complete)
 
@@ -264,7 +264,7 @@ def gather_workflow_outputs(context, interm, operations):
     delayed = []
 
     for output in operations:
-        context.message('Building output for {!r} - {!r}', output.name, output.identifier)
+        context.message(f'Building output for {output.name!r} - {output.identifier!r}')
 
         try:
             interm_ds = interm.pop(output.name)
@@ -778,7 +778,7 @@ def post_processing(context, variable, output, rename=None, fillna=None, **kwarg
         variable = variable[0]
 
     if fillna is not None:
-        context.message('Filling nan with {!r}', fillna)
+        context.message(f'Filling Nan with {fillna!r}')
 
         if variable is None:
             output = output.fillna(fillna)
@@ -788,7 +788,7 @@ def post_processing(context, variable, output, rename=None, fillna=None, **kwarg
     if rename is not None:
         rename_dict = dict(x for x in zip(rename[::2], rename[1::2]))
 
-        context.message('Renaming variables with mapping {!r}', rename_dict)
+        context.message(f'Renaming variables with mapping {rename_dict!r}')
 
         output = output.rename(rename_dict)
 
@@ -895,7 +895,7 @@ def parse_condition(context, cond):
     except TypeError:
         right = None
 
-    context.message('Using condition "{!s} - {!s} - {!s}"', left, comp, right)
+    context.message(f'Using condition {left!r} - {comp!r} - {right!r}')
 
     return left, comp, right
 
@@ -950,7 +950,7 @@ def process_where(context, operation, *input, variable, cond, other, **kwargs):
 
 
 def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
-    context.message('Grouping {!s} into bins {!s}', variable, bins)
+    context.message(f'Grouping {variable} into bins {bins!r}')
 
     try:
         output = input[0].groupby_bins(variable, bins)
@@ -961,7 +961,7 @@ def process_groupby_bins(context, operation, *input, variable, bins, **kwargs):
 
 
 def process_aggregate(context, operation, *input, **kwargs):
-    context.message('Aggregating {!s} files by coords', len(input))
+    context.message(f'Aggregating {len(input)} files by coords')
 
     variable = list(set([x.var_name for x in operation.inputs]))[0]
 
@@ -1065,6 +1065,8 @@ def workflow(self, context):
     Each input represents a unique output. Domain and parameters defined in the workflow process
     will act like defaults for each child process.
     """
+    context.started()
+
     with metrics.TASK_BUILD_WORKFLOW_DURATION.time():
         interm = build_workflow(context)
 
@@ -1080,7 +1082,7 @@ def workflow(self, context):
 
         delayed.extend(gather_workflow_outputs(context, interm, context.output_ops()))
 
-        context.message('Gathered {!s} outputs', len(delayed))
+        context.message(f'Gathered {len(delayed)} outputs')
 
         with metrics.TASK_EXECUTE_WORKFLOW_DURATION.time():
             fut = client.compute(delayed)
@@ -1106,6 +1108,8 @@ def workflow(self, context):
         client.close()
 
     metrics.push(context.job)
+
+    context.state.succeeded(json.dumps([x.to_dict() for x in context.output]))
 
     return context
 

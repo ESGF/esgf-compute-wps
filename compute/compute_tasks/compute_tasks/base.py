@@ -279,11 +279,8 @@ def register_process(identifier, min=1, max=1, abstract=None, version=None, **me
 
         metadata['inputs'] = min
 
-        backend, _ = identifier.split('.')
-
         REGISTRY[identifier] = {
             'identifier': identifier,
-            'backend': backend,
             'abstract': _abstract or None,
             'metadata': json.dumps(metadata),
             'version': version or 'devel',
@@ -300,7 +297,7 @@ class CWTBaseTask(celery.Task):
         logger.info('Retry %r %r %r %r', task_id, args, kwargs, exc)
 
         try:
-            args[0].message('Retrying from error: {!s}', exc)
+            args[0].message(args[0].status, f'Retrying from error: {exc!s}')
         except WPSError:
             raise
 
@@ -310,9 +307,7 @@ class CWTBaseTask(celery.Task):
         from compute_tasks import context
 
         try:
-            args[0].failed(str(exc))
-
-            args[0].update_metrics(context.FAILURE)
+            args[0].failed(args[0].job, str(exc))
         except WPSError:
             raise
 

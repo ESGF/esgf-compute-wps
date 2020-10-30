@@ -20,7 +20,7 @@ def import_modules_handler(*args, **kwargs):
 
 
 def default(obj):
-    from compute_tasks.context import operation
+    from compute_tasks import context
 
     if isinstance(obj, slice):
         data = {
@@ -58,7 +58,7 @@ def default(obj):
             'data': obj.strftime(DATETIME_FMT),
             '__type': 'datetime',
         }
-    elif isinstance(obj, operation.OperationContext):
+    elif isinstance(obj, context.OperationContext):
         data = {
             'data': obj.to_dict(),
             '__type': 'operation_context',
@@ -72,7 +72,7 @@ def default(obj):
 
 
 def object_hook(obj):
-    from compute_tasks.context import operation
+    from compute_tasks import context
 
     obj = byteify(obj)
 
@@ -100,7 +100,7 @@ def object_hook(obj):
     elif obj['__type'] == 'datetime':
         data = datetime.datetime.strptime(obj['data'], DATETIME_FMT)
     elif obj['__type'] == 'operation_context':
-        data = operation.OperationContext.from_dict(obj['data'])
+        data = context.OperationContext(**obj['data'])
 
     return data
 

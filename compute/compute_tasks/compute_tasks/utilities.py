@@ -3,10 +3,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def retry(count, delay, raise_errors=None):
-    if raise_errors is None:
-        raise_errors = ()
+class RetryExceptionWrapper(Exception):
+    def __init__(self, e):
+        self.e = e
 
+def retry(count, delay, filter=None):
     def wrapper(func):
         def wrapped(*args, **kwargs):
             retry_delay = delay
@@ -17,16 +18,16 @@ def retry(count, delay, raise_errors=None):
                 try:
                     data = func(*args, **kwargs)
                 except Exception as e:
-                    logger.info('HELP %r', e)
+                    logger.info(f'Caught exception {type(e)}')
 
-                    if len(raise_errors) > 0 and isinstance(e, raise_errors):
-                        raise e
+                    if filter is not None and filter(e):
+                        raise RetryExceptionWrapper(e)
 
                     last_exc = e
                 else:
                     return data
 
-                logger.debug('Delaying retry by %r seconds', delay)
+                logger.info(f'Retrying after {retry_delay} caught {last_exc}')
 
                 time.sleep(retry_delay)
 

@@ -4,7 +4,7 @@ import cwt
 import pytest
 
 from compute_tasks import celery_app
-from compute_tasks.context import operation
+from compute_tasks import context
 
 
 def test_import_handlers(mocker):
@@ -50,7 +50,7 @@ def test_encoder_decoder():
         'process_data': cwt.Process(identifier='CDAT.subset'),
         'timedelta_data': datetime.timedelta(seconds=60),
         'datetime_data': now,
-        'operation_context_data': operation.OperationContext(),
+        'operation_context_data': context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={}),
     }
 
     encoded = celery_app.encoder(data)
@@ -63,4 +63,4 @@ def test_encoder_decoder():
     assert isinstance(decoded['process_data'], cwt.Process)
     assert isinstance(decoded['timedelta_data'], datetime.timedelta)
     assert isinstance(decoded['datetime_data'], datetime.datetime)
-    assert isinstance(decoded['operation_context_data'], operation.OperationContext)
+    assert isinstance(decoded['operation_context_data'], context.OperationContext)

@@ -9,26 +9,25 @@ import cwt
 from compute_tasks import base
 from compute_tasks import mapper
 from compute_tasks import WPSError
+from compute_tasks import wps_state_api
 
 logger = logging.getLogger(__name__)
 
 class BaseContext:
-    def __init__(self, **kwargs):
-        self._variable = kwargs.pop('variable', {})
-        self._domain = kwargs.pop('domain', {})
-        self._operation = kwargs.pop('operation', {})
+    def __init__(self, variable, domain, operation, extra=None,
+                 gdomain=None, gparameters=None, output=None,
+                 sorted=None, input_var_names=None, **kwargs):
+        BaseContext.resolve_dependencies(variable, domain, operation, gdomain, gparameters)
 
-        self.extra = kwargs.pop('extra', {})
-
-        super().__init__(**kwargs)
-
-        self.output = []
-
-        self.gdomain = None
-        self.gparameters = {}
-
-        self._sorted = []
-        self.input_var_names = {}
+        self._variable = variable
+        self._domain = domain
+        self._operation = operation
+        self.extra = extra or {}
+        self.gdomain = gdomain
+        self.gparameters = gparameters or {}
+        self.output = output or []
+        self._sorted = sorted or []
+        self.input_var_names = input_var_names or {}
 
     def __repr__(self):
         return (f'{self.__class__.__name__}('
@@ -40,6 +39,60 @@ class BaseContext:
                 f'sorted={self._sorted!r}, '
                 f'output={[x.name for x in self.output]!r}, '
                 f'input_var_names={self.input_var_names!r})')
+
+    @classmethod
+    def from_data_inputs(cls, identifier, data_inputs, **kwargs):
+        variable, domain, operation = cls.decode_data_inputs(data_inputs)
+
+        map = mapper.Mapper.from_config('/etc/config/mapping.json')
+
+        logger.info('Loaded mapper')
+
+        # Attempt to find local match
+        for x in list(variable.keys()):
+            try:
+                local_path = map.find_match(variable[x].uri)
+            except mapper.MatchNotFoundError:
+                pass
+            else:
+                variable[x].uri = local_path
+
+        try:
+            root_op = [x for x in operation.values() if x.identifier == identifier][0]
+        except IndexError:
+            raise WPSError('Error finding operation {!r}', identifier)
+
+        gdomain = None
+
+        gparameters = None
+
+        if identifier == 'CDAT.workflow':
+            # Remove workflow operation servers no further purpose
+            operation.pop(root_op.name)
+
+            gdomain = domain.get(root_op.domain, None)
+
+            gparameters = root_op.parameters
+
+        ctx = cls(variable=variable, domain=domain, operation=operation,
+                  gdomain=gdomain, gparameters=gparameters, **kwargs)
+
+        return ctx
+
+    def to_dict(self):
+        data = {
+            'gdomain': self.gdomain,
+            'gparameters': self.gparameters,
+            'variable': self._variable,
+            'domain': self._domain,
+            'operation': self._operation,
+            'output': self.output,
+            'sorted': self._sorted,
+            'input_var_names': self.input_var_names,
+            'extra': self.extra,
+        }
+
+        return data
 
     @staticmethod
     def decode_data_inputs(data_inputs):
@@ -86,96 +139,6 @@ class BaseContext:
 
             if gparameters is not None:
                 item.add_parameters(**gparameters)
-
-    @classmethod
-    def from_data_inputs(cls, identifier, data_inputs, **kwargs):
-        variable, domain, operation = cls.decode_data_inputs(data_inputs)
-
-        map = mapper.Mapper.from_config('/etc/config/mapping.json')
-
-        logger.info('Loaded mapper')
-
-        # Attempt to find local match
-        for x in list(variable.keys()):
-            try:
-                local_path = map.find_match(variable[x].uri)
-            except mapper.MatchNotFoundError:
-                pass
-            else:
-                variable[x].uri = local_path
-
-        try:
-            root_op = [x for x in operation.values() if x.identifier == identifier][0]
-        except IndexError:
-            raise WPSError('Error finding operation {!r}', identifier)
-
-        gdomain = None
-
-        gparameters = None
-
-        if identifier == 'CDAT.workflow':
-            # Remove workflow operation servers no further purpose
-            operation.pop(root_op.name)
-
-            gdomain = domain.get(root_op.domain, None)
-
-            gparameters = root_op.parameters
-
-        cls.resolve_dependencies(variable, domain, operation, gdomain, gparameters)
-
-        ctx = cls(variable=variable, domain=domain, operation=operation, **kwargs)
-
-        ctx.gdomain = gdomain
-
-        ctx.gparameters = gparameters or {}
-
-        return ctx
-
-    @classmethod
-    def from_dict(cls, data):
-        gdomain = data.pop('gdomain')
-
-        gparameters = data.pop('gparameters')
-
-        variable = data.pop('_variable')
-
-        domain = data.pop('_domain')
-
-        operation = data.pop('_operation')
-
-        cls.resolve_dependencies(variable, domain, operation, gdomain, gparameters)
-
-        obj = cls(variable=variable, domain=domain, operation=operation)
-
-        obj.output = data.pop('output')
-
-        obj._sorted = data.pop('_sorted')
-
-        obj.input_var_names = data.pop('input_var_names')
-
-        obj.init_state(data)
-
-        return obj
-
-    def to_dict(self):
-        data = {
-            'gdomain': self.gdomain,
-            'gparameters': self.gparameters,
-            '_variable': self._variable,
-            '_domain': self._domain,
-            '_operation': self._operation,
-            'output': self.output,
-            '_sorted': self._sorted,
-            'input_var_names': self.input_var_names,
-        }
-
-        data.update(self.store_state())
-
-        return data
-
-    # @property
-    # def variable(self):
-    #     return list(set([x.var_name for x in self._variable.values()]))[0]
 
     @property
     def sorted(self):
@@ -274,11 +237,69 @@ class BaseContext:
     def build_output(self, mime_type, filename=None, var_name=None, name=None):
         local_path = self.generate_local_path(filename=filename)
 
-        self.track_output(local_path)
-
         self.output.append(cwt.Variable(local_path, var_name, name=name, mime_type=mime_type))
 
         return local_path
 
     def build_output_variable(self, var_name, name=None):
         return self.build_output('application/netcdf', var_name=var_name, name=name)
+
+class LocalContext(BaseContext):
+    def __init__(self, job, user, process, status, **kwargs):
+        self.job = job
+        self.user = user
+        self.process = process
+        self.status = status
+
+        super().__init__(**kwargs)
+
+    def started(self):
+        logger.info('Process started')
+
+    def succeeded(self, output):
+        logger.info(f'Process succeeded {output}')
+
+    def failed(self, exception):
+        logger.info(f'Process failed {exception}')
+
+    def message(self, message, percent=None):
+        logger.info(f'{message} {percent}')
+
+    def to_dict(self):
+        pass
+
+class OperationContext(BaseContext):
+    def __init__(self, job, user, process, status, **kwargs):
+        self.job = job
+        self.user = user
+        self.process = process
+        self.status = status
+
+        super().__init__(**kwargs)
+
+        self.state = wps_state_api.WPSStateAPI()
+    @classmethod
+    def from_data_inputs(cls, identifier, data_inputs, **kwargs):
+        return super().from_data_inputs(identifier, data_inputs, **kwargs)
+
+    def started(self):
+        self.status = self.state.started(self.job)
+
+    def succeeded(self, output):
+        self.status = self.state.succeeded(self.job, output)
+
+    def failed(self, exception):
+        self.status = self.state.failed(self.job, exception)
+
+    def message(self, message, percent=None):
+        self.state.message(self.status, message, percent)
+
+    def to_dict(self):
+        store = super().to_dict()
+
+        store['job'] = self.job
+        store['user'] = self.user
+        store['process'] = self.process
+        store['status'] = self.status
+
+        return store

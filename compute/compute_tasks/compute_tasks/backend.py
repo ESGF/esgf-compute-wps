@@ -21,10 +21,9 @@ from compute_tasks import mapper
 from compute_tasks import metrics
 from compute_tasks import WPSError
 from compute_tasks.context import OperationContext
-from compute_tasks.context.tracker_api import ProcessExistsError
-from compute_tasks.context.tracker_api import TrackerAPI
 from compute_tasks.job import job_started
 from compute_tasks.job import job_succeeded
+from compute_tasks import wps_state_api
 
 logger = logging.getLogger('compute_tasks.backend')
 
@@ -130,13 +129,9 @@ def queue_from_identifier(identifier):
 
 
 def build_context(identifier, data_inputs, job, user, process, status, namespace, **extra):
-    ctx = OperationContext.from_data_inputs(identifier, data_inputs)
-
     extra.update(DASK_SCHEDULER = f'dask-scheduler-{user!s}.{namespace!s}.svc:8786')
 
-    logger.info(f'Built operation context with extra {extra!r}')
-
-    data = {
+    state_data = {
         'extra': extra,
         'job': job,
         'user': user,
@@ -144,9 +139,9 @@ def build_context(identifier, data_inputs, job, user, process, status, namespace
         'status': status,
     }
 
-    ctx.init_state(data)
+    logger.info(f'Initialized state with {state_data!r}')
 
-    logger.info(f'Initialized state with {data!r}')
+    ctx = OperationContext.from_data_inputs(identifier, data_inputs, **state_data)
 
     return ctx
 
@@ -156,23 +151,15 @@ def build_workflow(identifier, data_inputs, job, user, process, status, **kwargs
 
     base.validate_workflow(ctx)
 
-    started = job_started.s(ctx).set(**DEFAULT_QUEUE)
-
-    logger.info('Created job started task %r', started)
-
     queue = queue_from_identifier(identifier)
 
     logger.info('Using queue %r for process %r', queue, identifier)
 
-    process = base.get_process(identifier)._task.s().set(**queue)
+    process = base.get_process(identifier)._task.s(ctx).set(**queue)
 
     logger.info('Created process task %r', process)
 
-    succeeded = job_succeeded.s().set(**DEFAULT_QUEUE)
-
-    logger.info('Created job succeeded task %r', succeeded)
-
-    return started | process | succeeded
+    return process
 
 
 class State(object):
@@ -281,29 +268,24 @@ class ResourceAckState(State):
         return WaitingState()
 
 
-class Worker(TrackerAPI, threading.Thread):
+class Worker(threading.Thread):
     def __init__(self, version, queue_host):
-        TrackerAPI.__init__(self)
-
         threading.Thread.__init__(self)
 
+        self.state = wps_state_api.WPSStateAPI()
+
         self.version = version
+        self.queue_host = queue_host or os.environ['PROVISIONER_BACKEND']
 
         self.ctx = None
-
         self.worker = None
-
         self.poller = None
-
         self.heartbeat_at = None
 
         self.running = True
 
         self.liveness = HEARTBEAT_LIVENESS
-
         self.interval = INTERVAL_INIT
-
-        self.queue_host = queue_host or os.environ['PROVISIONER_BACKEND']
 
     def initialize(self):
         """ Initializes the worker.
@@ -311,8 +293,6 @@ class Worker(TrackerAPI, threading.Thread):
         self.ctx = zmq.Context(1)
 
         self.poller = zmq.Poller()
-
-        self.init_api()
 
         base.discover_processes()
 
@@ -368,7 +348,7 @@ class Worker(TrackerAPI, threading.Thread):
         try:
             self.job = job
 
-            self.failed(str(e))
+            self.state.failed(job, str(e))
         except Exception:
             pass
         finally:
@@ -458,10 +438,7 @@ def register_processes():
 
     logging.basicConfig(level=args.log_level)
 
-    if not args.dry_run:
-        tracker = TrackerAPI()
-
-        tracker.init_api()
+    state = wps_state_api.WPSStateAPI()
 
     for item in base.discover_processes():
         process = base.get_process(item['identifier'])
@@ -470,13 +447,7 @@ def register_processes():
 
         logger.debug('Abstract %r', item['abstract'])
 
-        if not args.dry_run:
-            try:
-                tracker.register_process(**item)
-            except ProcessExistsError:  # pragma: no cover
-                logger.info('Process %r already exists', item['identifier'])
-
-                pass
+        state.process_create(**item)
 
 
 def template():
