@@ -16,8 +16,10 @@ from compute_wps.views import service
 
 router = routers.SimpleRouter()
 router.register('message', job.MessageViewSet)
-router.register('status', job.StatusViewSet)
 router.register('process', job.ProcessViewSet)
+
+status_router = routers.SimpleRouter()
+status_router.register('status', job.StatusViewSet)
 
 job_router = routers.SimpleRouter()
 job_router.register('job', job.JobViewSet)
@@ -25,9 +27,13 @@ job_router.register('job', job.JobViewSet)
 # Only require the format on job-detail view
 router_urls = router.urls
 router_urls.append(job_router.urls[0])
+router_urls.append(status_router.urls[0])
 router_urls.extend(
     format_suffix_patterns(
         job_router.urls[1:2], allowed=['json', 'wps']))
+router_urls.extend(
+    format_suffix_patterns(
+        status_router.urls[1:2], allowed=['json', 'wps']))
 
 schema = get_schema_view(
     title='WPS API',

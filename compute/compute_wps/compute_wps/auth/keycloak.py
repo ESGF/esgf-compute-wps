@@ -77,6 +77,8 @@ def create_user_client(uri, user):
 
     data = response.json()
 
+    logger.info(f'User client created {data}')
+
     if "error" in data:
         logger.error(f"User client creation failed: {data['error_description']} {response.status_code}")
 
@@ -147,7 +149,11 @@ def authenticate_request(meta):
 def authenticate(access_token):
     data = token_introspection(access_token)
 
-    user, _ = models.User.objects.get_or_create(username=data["username"])
+    try:
+        # Retrieve user by client id in case of client credentials flow.
+        user = models.User.objects.get(username=data["client_id"])
+    except models.User.DoesNotExist:
+        user, _ = models.User.objects.get_or_create(username=data["username"])
 
     return user
 

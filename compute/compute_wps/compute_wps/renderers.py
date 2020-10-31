@@ -3,7 +3,7 @@ from rest_framework import renderers
 from compute_wps import models
 from compute_wps.util import wps_response
 
-class WPSStatusRenderer(renderers.BaseRenderer):
+class WPSRenderer(renderers.BaseRenderer):
     media_type = 'application/xml'
     format = 'wps'
 

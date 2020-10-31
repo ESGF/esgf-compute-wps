@@ -133,6 +133,17 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 50,
 }
 
+REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
+    'rest_framework.renderers.JSONRenderer',
+    'rest_framework.renderers.BrowsableAPIRenderer'
+)
+
+REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
+    'rest_framework.authentication.BasicAuthentication')
+
+REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
+    'rest_framework.authentication.SessionAuthentication')
+
 if DEBUG:
     REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
         'rest_framework.renderers.JSONRenderer',

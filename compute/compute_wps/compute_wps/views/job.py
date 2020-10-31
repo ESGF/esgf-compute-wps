@@ -44,6 +44,11 @@ class StatusViewSet(mixins.RetrieveModelMixin,
     queryset = models.Status.objects.all()
     serializer_class = serializers.StatusSerializer
 
+    renderer_classes = [
+        default_renderers.JSONRenderer,
+        renderers.WPSRenderer,
+    ]
+
 
 class JobViewSet(mixins.ListModelMixin,
                  mixins.RetrieveModelMixin,
@@ -54,7 +59,7 @@ class JobViewSet(mixins.ListModelMixin,
 
     renderer_classes = [
         default_renderers.JSONRenderer,
-        renderers.WPSStatusRenderer,
+        renderers.WPSRenderer,
     ]
 
     def get_queryset(self):
