@@ -145,7 +145,7 @@ def test_cwt_base_task_failure_error(mocker):
     with pytest.raises(WPSError):
         base_task.on_failure(e, 0, (ctx,), {}, None)
 
-    ctx.failed.assert_called_with(0, str(e))
+    ctx.failed.assert_called_with(str(e))
 
 
 def test_cwt_base_task_failure(mocker):
@@ -160,7 +160,7 @@ def test_cwt_base_task_failure(mocker):
 
     base_task.on_failure(e, 0, (ctx,), {}, None)
 
-    ctx.failed.assert_called_with(0, str(e))
+    ctx.failed.assert_called_with(str(e))
 
 
 def test_cwt_base_task_retry_error(mocker):
@@ -178,7 +178,7 @@ def test_cwt_base_task_retry_error(mocker):
     with pytest.raises(WPSError):
         base_task.on_retry(e, 0, (ctx,), {}, None)
 
-    ctx.message.assert_called_with(0, 'Retrying from error: Error')
+    ctx.message.assert_called_with('Retrying from error: Error')
 
 
 def test_cwt_base_task_retry(mocker):
@@ -193,4 +193,4 @@ def test_cwt_base_task_retry(mocker):
 
     base_task.on_retry(e, 0, (ctx,), {}, None)
 
-    ctx.message.assert_called_with(0, 'Retrying from error: Error')
+    ctx.message.assert_called_with('Retrying from error: Error')

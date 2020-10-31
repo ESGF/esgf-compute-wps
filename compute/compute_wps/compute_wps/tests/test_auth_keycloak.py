@@ -117,6 +117,7 @@ def test_authenticate(mocker):
     token_intro = mocker.patch.object(keycloak, "token_introspection")
     token_intro.return_value = {
         "username": "user1",
+        "client_id": "user1-service",
     }
 
     user_get_or_create = mocker.spy(models.User.objects, "get_or_create")
@@ -132,6 +133,7 @@ def test_authenticate_request(mocker):
     token_intro = mocker.patch.object(keycloak, "token_introspection")
     token_intro.return_value = {
         "username": "user1",
+        "client_id": "user1-service",
     }
 
     user_get_or_create = mocker.spy(models.User.objects, "get_or_create")
