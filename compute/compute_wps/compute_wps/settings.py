@@ -53,9 +53,6 @@ DEBUG = 'WPS_DEBUG' in os.environ
 
 config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH)
 
-# Default values
-ALLOWED_HOSTS = config.get_value('server', 'allowed.hosts', '', value_type=list)
-
 # Auth values
 AUTH_TRAEFIK = config.get_value('auth', 'traefik', False, bool)
 AUTH_KEYCLOAK = config.get_value('auth', 'keycloak', False, bool)
@@ -91,8 +88,9 @@ WPS_ADDRESS_EMAIL = config.get_value('wps', 'address.email', '')
 OUTPUT_DODSC_URL = config.get_value('output', 'dodsc.url', '').strip('/')
 
 # Server values
+ALLOWED_HOSTS = config.get_value('server', 'allowed.hosts', '', value_type=list)
 BASE_URL = config.get_value('server', 'base.url', '').strip('/')
-
+PROVISIONER_FRONTEND = config.get_value('server', 'provisioner.frontend', '')
 
 WPS_URL = f'{BASE_URL}/wps'
 JOB_URL = f'{BASE_URL}/api/job'

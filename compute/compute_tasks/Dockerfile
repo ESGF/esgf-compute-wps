@@ -17,6 +17,7 @@ COPY conftest.py .
 COPY meta.yaml .
 COPY setup.cfg .
 COPY setup.py .
+COPY env .
 
 WORKDIR /build
 

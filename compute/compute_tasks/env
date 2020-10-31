@@ -1,0 +1,4 @@
+export CLIENT_ID="abcd"
+export CLIENT_SECRET="1234"
+export TOKEN_URL="http://keycloak.local/token"
+export API_SCHEMA_URL="http://wps.local/api/schema"

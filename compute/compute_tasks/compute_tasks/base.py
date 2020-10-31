@@ -297,7 +297,7 @@ class CWTBaseTask(celery.Task):
         logger.info('Retry %r %r %r %r', task_id, args, kwargs, exc)
 
         try:
-            args[0].message(args[0].status, f'Retrying from error: {exc!s}')
+            args[0].message(f'Retrying from error: {exc!s}')
         except WPSError:
             raise
 
@@ -307,7 +307,7 @@ class CWTBaseTask(celery.Task):
         from compute_tasks import context
 
         try:
-            args[0].failed(args[0].job, str(exc))
+            args[0].failed(str(exc))
         except WPSError:
             raise
 

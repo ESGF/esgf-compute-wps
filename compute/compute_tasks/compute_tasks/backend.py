@@ -21,8 +21,6 @@ from compute_tasks import mapper
 from compute_tasks import metrics
 from compute_tasks import WPSError
 from compute_tasks.context import OperationContext
-from compute_tasks.job import job_started
-from compute_tasks.job import job_succeeded
 from compute_tasks import wps_state_api
 
 logger = logging.getLogger('compute_tasks.backend')

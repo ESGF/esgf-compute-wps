@@ -25,8 +25,6 @@ from compute_wps.util import wps_response
 
 logger = logging.getLogger('compute_wps.views.service')
 
-PROVISIONER_FRONTEND = os.environ['PROVISIONER_FRONTEND']
-
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f'
 
 def int_or_float(value):
@@ -183,7 +181,7 @@ def send_request_provisioner(identifier, data_inputs, job, user, process, status
     client.setsockopt(zmq.SNDTIMEO, SNDTIMEO * 1000)
     client.setsockopt(zmq.RCVTIMEO, RCVTIMEO * 1000)
 
-    client.connect('tcp://{!s}'.format(PROVISIONER_FRONTEND).encode())
+    client.connect('tcp://{!s}'.format(settings.PROVISIONER_FRONTEND).encode())
 
     payload = {
         'identifier': identifier,

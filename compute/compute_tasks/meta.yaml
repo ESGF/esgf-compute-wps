@@ -47,6 +47,7 @@ test:
   imports:
     - compute_tasks
   source_files:
+    - env
     - compute_tasks/tests
     - conftest.py 
   requires:
@@ -55,6 +56,7 @@ test:
     - pytest-mock
     - myproxyclient
   commands:
+    - source ./env
     - pytest -vvv -m "not myproxyclient" --junit-xml=/output/unittest.xml --cov=compute_tasks --cov-report=xml:/output/coverage.xml
 
 about:

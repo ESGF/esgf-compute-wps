@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import json
 import copy
 import math
 import time
@@ -62,7 +63,7 @@ class DaskTaskTracker(ProgressBar):
         """
         self.futures = futures_of(futures)
 
-        context.mesasge(f'Tracking {len(self.futures)!r} futures')
+        context.message(f'Tracking {len(self.futures)!r} futures')
 
         super(DaskTaskTracker, self).__init__(self.futures, scheduler, interval, complete)
 
@@ -803,7 +804,7 @@ def workflow(self, context):
 
     metrics.push(context.job)
 
-    context.state.succeeded(json.dumps([x.to_dict() for x in context.output]))
+    context.succeeded(json.dumps([x.to_dict() for x in context.output]))
 
     return context
 
