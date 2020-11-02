@@ -148,7 +148,7 @@ def test_login_complete(rf, mocker):
     response = auth.login_complete(request)
 
     assert response.status_code == 302
-    assert response.url == "/auth/login/"
+    assert response.url == "/wps/auth/login"
 
     user = models.User.objects.create(username="user1")
 

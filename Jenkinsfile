@@ -61,79 +61,6 @@ helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set provisioner.
             }
           }
         }
-        stage("Tasks") {
-          agent {
-            label "jenkins-buildkit"
-          }
-          when {
-            anyOf {
-              branch "devel"
-              branch pattern: "tasks-v.*", comparator: "REGEXP"
-              changeset "compute/compute_tasks/**/*"
-            }
-          }
-          stages {
-            stage("Unittest") {
-              steps {
-                container(name: "buildkit", shell: "/bin/sh") {
-                  sh """
-make tasks IMAGE_PUSH=false TARGET=testresult
-
-sed -i"" 's/timestamp="[^"]*"//' output/unittest.xml 
-
-mv -f output/ tasks_output/
-
-chmod -R 755 tasks_output
-
-chown -R 1000:1000 tasks_output
-                  """
-                }
-
-                archiveArtifacts artifacts: "tasks_output/*.xml"
-
-                cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: "tasks_output/coverage.xml", conditionalCoverageTargets: "70, 0, 0", failUnhealthy: false, failUnstable: false, lineCoverageTargets: "80, 0, 0", maxNumberOfBuilds: 0, methodCoverageTargets: "80, 0, 0", onlyStable: false, sourceEncoding: "ASCII", zoomCoverageChart: false 
-
-                junit "tasks_output/unittest.xml"
-              }
-            }
-            stage("Push") {
-              when {
-                anyOf {
-                  branch "devel"
-                  branch pattern: "tasks-v.*", comparator: "REGEXP"
-                }
-              }
-              steps {
-                container(name: "buildkit", shell: "/bin/sh") {
-                  sh "make tasks OUTPUT_TYPE=registry IMAGE_PUSH=true TARGET=production"
-                }
-              }
-            }
-            stage("Deploy") {
-              when {
-                allOf {
-                  branch "devel"
-                  changeset "compute/compute_tasks/**/*"
-                }
-              }
-              steps {
-                container(name: "buildkit", shell: "/bin/sh") {
-                  dir("charts") {
-                    git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
-                  }
-
-                  lock("development") {
-                    sh """
-helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
-helm dependency build charts/compute/
-helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set celery.imageTag=`make tag-tasks` --wait --reuse-values --atomic
-                    """
-                  }
-                }
-              }
-            }
-          }
-        }
         stage("WPS") {
           agent {
             label "jenkins-buildkit"
@@ -200,6 +127,79 @@ chown -R 1000:1000 wps_output
 helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
 helm dependency build charts/compute/
 helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set wps.imageTag=`make tag-wps` --wait --reuse-values --atomic
+                    """
+                  }
+                }
+              }
+            }
+          }
+        }
+        stage("Tasks") {
+          agent {
+            label "jenkins-buildkit"
+          }
+          when {
+            anyOf {
+              branch "devel"
+              branch pattern: "tasks-v.*", comparator: "REGEXP"
+              changeset "compute/compute_tasks/**/*"
+            }
+          }
+          stages {
+            stage("Unittest") {
+              steps {
+                container(name: "buildkit", shell: "/bin/sh") {
+                  sh """
+make tasks IMAGE_PUSH=false TARGET=testresult
+
+sed -i"" 's/timestamp="[^"]*"//' output/unittest.xml 
+
+mv -f output/ tasks_output/
+
+chmod -R 755 tasks_output
+
+chown -R 1000:1000 tasks_output
+                  """
+                }
+
+                archiveArtifacts artifacts: "tasks_output/*.xml"
+
+                cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: "tasks_output/coverage.xml", conditionalCoverageTargets: "70, 0, 0", failUnhealthy: false, failUnstable: false, lineCoverageTargets: "80, 0, 0", maxNumberOfBuilds: 0, methodCoverageTargets: "80, 0, 0", onlyStable: false, sourceEncoding: "ASCII", zoomCoverageChart: false 
+
+                junit "tasks_output/unittest.xml"
+              }
+            }
+            stage("Push") {
+              when {
+                anyOf {
+                  branch "devel"
+                  branch pattern: "tasks-v.*", comparator: "REGEXP"
+                }
+              }
+              steps {
+                container(name: "buildkit", shell: "/bin/sh") {
+                  sh "make tasks OUTPUT_TYPE=registry IMAGE_PUSH=true TARGET=production"
+                }
+              }
+            }
+            stage("Deploy") {
+              when {
+                allOf {
+                  branch "devel"
+                  changeset "compute/compute_tasks/**/*"
+                }
+              }
+              steps {
+                container(name: "buildkit", shell: "/bin/sh") {
+                  dir("charts") {
+                    git branch: "devel", url: "https://github.com/esgf-compute/charts.git"
+                  }
+
+                  lock("development") {
+                    sh """
+helm repo add stable https://kubernetes-charts.storage.googleapis.com --ca-file /ssl/cspca.crt
+helm dependency build charts/compute/
+helm -n development upgrade $DEV_RELEASE_NAME charts/compute/ --set celery.imageTag=`make tag-tasks` --wait --reuse-values --atomic
                     """
                   }
                 }
