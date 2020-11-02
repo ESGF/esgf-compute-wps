@@ -99,10 +99,7 @@ chown -R 1000:1000 tasks_output
             stage("Push") {
               when {
                 anyOf {
-                  allOf {
-                    branch "devel"
-                    changeset "compute/compute_tasks/**/*"
-                  }
+                  branch "devel"
                   branch pattern: "tasks-v.*", comparator: "REGEXP"
                 }
               }
@@ -175,10 +172,7 @@ chown -R 1000:1000 wps_output
             stage("Push") {
               when {
                 anyOf {
-                  allOf {
-                    branch "devel"
-                    changeset "compute/compute_wps/**/*"
-                  }
+                  branch "devel"
                   branch pattern: "wps-v.*", comparator: "REGEXP"
                 }
               }
