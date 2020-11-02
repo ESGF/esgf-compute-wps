@@ -19,7 +19,7 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "false"
 
 logger = logging.getLogger("compute_wps.views.auth")
 
-@login_required(login_url="/auth/login/")
+@login_required(login_url=settings.LOGIN_PATH)
 def client_registration(request):
     try:
         client_id, client_secret = keycloak.client_registration(request.user)
@@ -48,7 +48,7 @@ def login(request):
 
     client = oauth2.WebApplicationClient(settings.AUTH_KEYCLOAK_CLIENT_ID)
 
-    completed_redirect = request.build_absolute_uri("/auth/oauth_callback/")
+    completed_redirect = request.build_absolute_uri(settings.OAUTH_CALLBACK_PATH)
 
     nonce = models.Nonce.objects.create(
         state=generate_nonce(),
@@ -116,4 +116,4 @@ def login_complete(request):
 
         return shortcuts.redirect(nonce.next)
 
-    return shortcuts.redirect("/auth/login/")
+    return shortcuts.redirect(settings.LOGIN_PATH)

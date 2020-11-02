@@ -38,17 +38,30 @@ router_urls.extend(
 schema = get_schema_view(
     title='WPS API',
     patterns=router.urls,
-    url=f'{settings.BASE_URL}/api')
+    url=f'{settings.BASE_URL}/wps/api')
+
+
+api_urlpatterns = [
+    re_path('^', include(router_urls)),
+    re_path('^schema/?$', schema),
+    re_path('^ping/?$', service.ping),
+    re_path('^metrics/?$', metrics.metrics_view),
+]
+
+auth_urlpatterns = [
+    re_path('^client_registration/?$', auth.client_registration),
+    re_path('^login/?$', auth.login),
+    re_path('^oauth_callback/?$', auth.login_complete),
+]
+
+wps_urlpatterns = [
+    re_path('^$', service.wps_entrypoint),
+    re_path('^api/', include(api_urlpatterns)),
+    re_path('^auth/', include(auth_urlpatterns)),
+]
 
 urlpatterns = [
-    re_path('^wps/?$', service.wps_entrypoint),
-    re_path('^api/', include(router_urls)),
-    re_path('^api/schema', schema),
-    re_path('^api/ping/$', service.ping),
-    re_path('^api/metrics/$', metrics.metrics_view),
-    re_path('^auth/client_registration/$', auth.client_registration),
-    re_path('^auth/login/$', auth.login),
-    re_path('^auth/oauth_callback/$', auth.login_complete),
+    re_path('^wps/?', include(wps_urlpatterns)),
 ]
 
 if settings.DEBUG:

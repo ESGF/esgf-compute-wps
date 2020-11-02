@@ -93,7 +93,10 @@ BASE_URL = config.get_value('server', 'base.url', '').strip('/')
 PROVISIONER_FRONTEND = config.get_value('server', 'provisioner.frontend', '')
 
 WPS_URL = f'{BASE_URL}/wps'
-JOB_URL = f'{BASE_URL}/api/job'
+JOB_URL = f'{BASE_URL}/wps/api/job'
+LOGIN_PATH = '/wps/auth/login'
+OAUTH_CALLBACK_PATH = '/wps/auth/oauth_callback'
+
 CA_PATH = '/tmp/certs'
 USER_TEMP_PATH = '/tmp/users'
 
