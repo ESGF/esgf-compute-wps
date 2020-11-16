@@ -29,17 +29,6 @@ class BaseContext:
         self._sorted = sorted or []
         self.input_var_names = input_var_names or {}
 
-    def __repr__(self):
-        return (f'{self.__class__.__name__}('
-                f'variable={list(self._variable.keys())!r}, '
-                f'domain={list(self._domain.keys())!r}, '
-                f'operation={list(self._operation.keys())!r}, '
-                f'gdomain={self.gdomain!r}, '
-                f'gparameters={list(self.gparameters.values())!r}, '
-                f'sorted={self._sorted!r}, '
-                f'output={[x.name for x in self.output]!r}, '
-                f'input_var_names={self.input_var_names!r})')
-
     @classmethod
     def from_data_inputs(cls, identifier, data_inputs, **kwargs):
         variable, domain, operation = cls.decode_data_inputs(data_inputs)
@@ -235,14 +224,21 @@ class BaseContext:
         return os.path.join(base_path, filename)
 
     def build_output(self, mime_type, filename=None, var_name=None, name=None):
+        thredds_url = os.environ['THREDDS_URL'].rstrip('/')
+
         local_path = self.generate_local_path(filename=filename)
 
-        self.output.append(cwt.Variable(local_path, var_name, name=name, mime_type=mime_type))
+        common = os.path.commonpath([os.environ['DATA_PATH'], local_path])
+
+        relative_path = local_path.replace(common, '')
+
+        self.output.append(cwt.Variable(
+            f'{thredds_url}{relative_path}',
+            var_name,
+            name=name,
+            mime_type=mime_type))
 
         return local_path
-
-    def build_output_variable(self, var_name, name=None):
-        return self.build_output('application/netcdf', var_name=var_name, name=name)
 
 class LocalContext(BaseContext):
     def __init__(self, job, user, process, status, **kwargs):
@@ -278,6 +274,7 @@ class OperationContext(BaseContext):
         super().__init__(**kwargs)
 
         self.state = wps_state_api.WPSStateAPI()
+
     @classmethod
     def from_data_inputs(cls, identifier, data_inputs, **kwargs):
         return super().from_data_inputs(identifier, data_inputs, **kwargs)

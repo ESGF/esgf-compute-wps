@@ -41,9 +41,6 @@ from compute_tasks import WPSError
 
 logger = get_task_logger('compute_tasks.cdat')
 
-# If percentage doesn't
-UPDATE_TIMEOUT = os.environ.get('UPDATE_TIMEOUT', 120)
-
 
 class DaskTimeoutError(WPSError):
     pass
@@ -104,11 +101,13 @@ class DaskTaskTracker(ProgressBar):
 
             self.context.message('Processing', percent=percent)
         else:
-            # Check how long since last update
-            if time.time() > (self.updated + UPDATE_TIMEOUT):
-                logger.error(f'Job has not progressed in {UPDATE_TIMEOUT} seconds')
+            update_timeout = int(os.environ.get('UPDATE_TIMEOUT', 120))
 
-                raise DaskTimeoutError(f'Job has not progresed in {UPDATE_TIMEOUT} seconds')
+            # Check how long since last update
+            if time.time() > (self.updated + update_timeout):
+                logger.error(f'Job has not progressed in {update_timeout} seconds')
+
+                raise DaskTimeoutError(f'Job has not progresed in {update_timeout} seconds')
 
     def _draw_stop(self, **kwargs):
         pass

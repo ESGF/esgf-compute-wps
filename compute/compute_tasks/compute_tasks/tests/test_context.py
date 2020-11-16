@@ -472,22 +472,10 @@ def test_topo_sort(mocker):
         assert id.name == exp_id
         assert sorted(vars) == sorted(exp_vars)
 
-
-def test_build_output_variable(mocker):
-    state = context.BaseContext(variable={}, domain={}, operation={})
-
-    state.extra = {}
-
-    mocker.patch.object(state, 'build_output')
-
-    state.build_output_variable('tas', name='test_output')
-
-    state.build_output.assert_called_with('application/netcdf', var_name='tas', name='test_output')
-
-
 def test_build_output(mocker):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/tmp',
+        'THREDDS_URL': 'https://data.local/thredds/dodsC/',
     })
 
     state = context.BaseContext(variable={}, domain={}, operation={})
@@ -500,7 +488,9 @@ def test_build_output(mocker):
 
     variable = state.output[0]
 
-    assert variable.uri == '/tmp/0/0/test.nc'
+    expected_path  = 'https://data.local/thredds/dodsC/0/0/test.nc'
+
+    assert variable.uri == expected_path
     assert variable.var_name == 'tas'
     assert variable.name == 'test_output'
     assert variable.mime_type == 'application/netcdf'

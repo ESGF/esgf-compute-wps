@@ -471,13 +471,15 @@ def test_dask_job_tracker(mocker, client):  # noqa: F811
 
 
 def test_dask_job_tracker_timeout(mocker, client):  # noqa: F811
+    mocker.patch.dict(os.environ, {
+        'UPDATE_TIMEOUT': '1',
+    })
+
     ctx = mocker.MagicMock()
 
     data = da.random.random((100, 100), chunks=(10, 10))
 
     fut = client.compute(data)
-
-    cdat.UPDATE_TIMEOUT = 1
 
     with pytest.raises(cdat.DaskTimeoutError):
         tracker = cdat.DaskTaskTracker(ctx, fut)
@@ -492,6 +494,7 @@ def test_dask_job_tracker_timeout(mocker, client):  # noqa: F811
 def test_build_output(test_data, mocker):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/data',
+        'THREDDS_URL': 'https://data.local/thredds/dodsC',
     })
 
     data = test_data.generate('random', periods=100)
@@ -509,6 +512,7 @@ def test_build_output(test_data, mocker):
 def test_build_split_output(test_data, mocker):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/data',
+        'THREDDS_URL': 'https://data.local/thredds/dodsC',
     })
 
     data = test_data.generate('random', periods=100)
@@ -545,6 +549,7 @@ def test_build_split_output(test_data, mocker):
 def test_gather_workflow_outputs_missing_interm(test_data, mocker):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/data',
+        'THREDDS_URL': 'https://data.local/thredds/dodsC',
     })
 
     subset = cwt.Process(identifier='CDAT.subset')
@@ -568,6 +573,7 @@ def test_gather_workflow_outputs_missing_interm(test_data, mocker):
 def test_gather_workflow_outputs(test_data, mocker):
     mocker.patch.dict(os.environ, {
         'DATA_PATH': '/data',
+        'THREDDS_URL': 'https://data.local/thredds/dodsC',
     })
 
     subset = cwt.Process(identifier='CDAT.subset')
