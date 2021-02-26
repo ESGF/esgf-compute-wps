@@ -16,8 +16,6 @@ setuptools.setup(
     entry_points={
         'console_scripts': [
             'compute-provisioner = compute_provisioner.provisioner:main',
-            'compute-resource-monitor = compute_provisioner.kube_cluster:main',
-            'compute-worker-demo = compute_provisioner.worker:demo',
             'compute-create-resource = compute_provisioner.provisioner:create_resources',
             'compute-delete-resource = compute_provisioner.provisioner:delete_resources',
         ]

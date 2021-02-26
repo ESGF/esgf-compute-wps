@@ -8,20 +8,24 @@ import threading
 import time
 from collections import OrderedDict
 from uuid import uuid4
+from functools import partial
 
-import redis
 import yaml
 import zmq
-from jinja2 import DebugUndefined
-from jinja2 import Template
-from kubernetes import client
-from kubernetes import config
 from prometheus_client import start_http_server
 
+from compute_provisioner import allocator
 from compute_provisioner import constants
 from compute_provisioner import metrics
+from compute_provisioner import kube_cluster
 
 logger = logging.getLogger('provisioner')
+
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+LIFETIME = int(os.environ.get('LIFETIME', '120'))
+NAMESPACE = os.environ.get('NAMESPACE', 'default')
+SA_NAME = os.environ.get('SERVICE_ACCOUNT_NAME', 'compute')
+IMAGE_PULL_SECRET = os.environ.get('IMAGE_PULL_SECRET', 'docker-registry')
 
 class ResourceAllocationError(Exception):
     pass
@@ -45,17 +49,6 @@ def json_decoder(x):
 
     return json.loads(x, object_hook=object_hook)
 
-class RedisQueue(object):
-    def queue_job(self, version, frames):
-        self.redis.rpush(version, json_encoder(frames))
-
-        logger.info('Queued job')
-
-    def requeue_job(self, version, frames):
-        self.redis.lpush(version, json_encoder(frames))
-
-        logger.info('Requeued job')
-
 class State(object):
     def on_event(self, **event):
         pass
@@ -66,122 +59,29 @@ class State(object):
     def __str__(self):
         return self.__class__.__name__
 
-class KubernetesAllocator(object):
-    def __init__(self):
-        config.load_incluster_config()
-
-        self.core = client.CoreV1Api()
-
-        self.apps = client.AppsV1Api()
-
-        self.extensions = client.ExtensionsV1beta1Api()
-
-    def create_pod(self, namespace, body, **kwargs):
-        return self.core.create_namespaced_pod(namespace, body, **kwargs)
-
-    def list_pods(self, namespace, label_selector, **kwargs):
-        return self.core.list_namespaced_pod(namespace, label_selector=label_selector, **kwargs)
-
-    def create_deployment(self, namespace, body, **kwargs):
-        return self.apps.create_namespaced_deployment(namespace, body, **kwargs)
-
-    def create_service(self, namespace, body, **kwargs):
-        return self.core.create_namespaced_service(namespace, body, **kwargs)
-
-    def create_ingress(self, namespace, body, **kwargs):
-        return self.extensions.create_namespaced_ingress(namespace, body, **kwargs)
-
-    def create_config_map(self, namespace, body, **kwargs):
-        return self.core.create_namespaced_config_map(namespace, body, **kwargs)
-
-    def delete_resources(self, namespace, label_selector, **kwargs):
-        api_mapping = {
-            'pod': self.core,
-            'deployment': self.apps,
-            'service': self.core,
-            'ingress': self.extensions,
-            'config_map': self.core,
-        }
-
-        for name, api in api_mapping.items():
-            list_name = f'list_namespaced_{name!s}'
-            delete_name = f'delete_namespaced_{name!s}'
-
-            output = getattr(api, list_name)(namespace, label_selector=label_selector, **kwargs)
-
-            logger.info(f'Removing {len(output.items)!r} {name!s}')
-
-            for x in output.items:
-                getattr(api, delete_name)(x.metadata.name, namespace, **kwargs)
-
-    def create_resources(self, request, namespace, labels, service_account_name, image_pull_secret, **kwargs):
-        for item in request:
-            template = Template(item, undefined=DebugUndefined)
-
-            config = {
-                'image_pull_secret': image_pull_secret,
-                'labels': [f'{x}: {y}' for x, y in labels.items()],
-            }
-
-            rendered_item = template.render(**config)
-
-            yaml_data = yaml.safe_load(rendered_item)
-
-            try:
-                yaml_data['metadata']['labels'].update(labels)
-            except KeyError:
-                yaml_data['metadata'].update({
-                    'labels': labels
-                })
-
-            kind = yaml_data['kind']
-
-            logger.info(f'Allocating {kind!r} with labels {yaml_data["metadata"]["labels"]!r}')
-
-            if kind == 'Pod':
-                yaml_data['spec']['serviceAccountName'] = service_account_name
-                yaml_data['spec']['imagePullSecrets'] = [
-                    {'name': image_pull_secret},
-                ]
-
-                self.create_pod(namespace, yaml_data)
-            elif kind == 'Deployment':
-                yaml_data['spec']['template']['spec']['serviceAccountName'] = service_account_name
-                yaml_data['spec']['template']['spec']['imagePullSecrets'] = [
-                    {'name': image_pull_secret},
-                ]
-
-                self.create_deployment(namespace, yaml_data)
-            elif kind == 'Service':
-                self.create_service(namespace, yaml_data)
-            elif kind == 'Ingress':
-                self.create_ingress(namespace, yaml_data)
-            elif kind == 'ConfigMap':
-                self.create_config_map(namespace, yaml_data)
-            else:
-                raise Exception('Requested an unsupported resource')
-
-class WaitingResourceRequestState(State, RedisQueue):
+class WaitingResourceRequestState(State):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
-        self.redis = kwargs['redis']
+        self.queue = kwargs['queue']
+
+        self.resources = kwargs['resources']
 
         self.lifetime = kwargs['lifetime']
 
         self.backend = kwargs['backend']
 
-        self.k8s = KubernetesAllocator()
+        self.k8s = allocator.KubernetesAllocator()
 
     def set_resource_expiry(self, resource_uuid):
         expired = (datetime.datetime.now() + datetime.timedelta(seconds=self.lifetime)).timestamp()
 
-        self.redis.hset('resource', resource_uuid, expired)
+        self.resources[resource_uuid] = expired
 
         logger.info(f'Set resource {resource_uuid!r} to expire in {self.lifetime!r} seconds')
 
     def try_extend_resource_expiry(self, resource_uuid):
-        if self.redis.hexists('resource', resource_uuid):
+        if resource_uuid in self.resources:
             logger.info(f'Extending resource {resource_uuid!r} expiration')
 
             self.set_resource_expiry(resource_uuid)
@@ -202,15 +102,15 @@ class WaitingResourceRequestState(State, RedisQueue):
 
         labels = {'compute.io/resource-group': resource_uuid}
 
-        namespace = os.environ.get('NAMESPACE', 'default')
+        namespace = NAMESPACE
 
         request = json.loads(request_raw)
 
         logger.info(f'Allocating {len(request)!r} resources with uuid {resource_uuid!r}')
 
-        service_account_name = os.environ.get('SERVICE_ACCOUNT_NAME', 'compute')
+        service_account_name = SA_NAME
 
-        image_pull_secret = os.environ.get('IMAGE_PULL_SECRET', 'docker-registry')
+        image_pull_secret = IMAGE_PULL_SECRET
 
         existing = self.try_extend_resource_expiry(resource_uuid)
 
@@ -340,10 +240,11 @@ class WorkerQueue(object):
         return address
 
 
-class Provisioner(threading.Thread, RedisQueue):
-    def __init__(self, frontend_port, backend_port, redis_host, lifetime, **kwargs):
-        super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port, redis_host))
-        self.lifetime = lifetime
+class Provisioner(threading.Thread):
+    def __init__(self, frontend_port, backend_port, lifetime, **kwargs):
+        super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port))
+
+        self.lifetime = lifetime or LIFETIME
 
         self.context = None
 
@@ -357,9 +258,16 @@ class Provisioner(threading.Thread, RedisQueue):
 
         self.running = {}
 
-        self.redis = None
+        kwargs = {
+            'namespace': kwargs['namespace'] or NAMESPACE,
+            'timeout': kwargs['timeout'] or TIMEOUT,
+            'dry_run': kwargs['dry_run'],
+            'ignore_lifetime': kwargs['ignore_lifetime'],
+        }
 
-    def initialize(self, frontend_port, backend_port, redis_host):
+        self.kube_cluster = kube_cluster.KubeCluster(**kwargs)
+
+    def initialize(self, frontend_port, backend_port):
         """ Initializes the load balancer.
 
         We initialize the zmq context, create the frontend/backend sockets and
@@ -407,11 +315,7 @@ class Provisioner(threading.Thread, RedisQueue):
 
         self.poll_both.register(self.backend, zmq.POLLIN)
 
-        self.redis = redis.Redis(host=redis_host, db=1)
-
-        logger.info('Connected to redis db %r', self.redis)
-
-    def handle_frontend_frames(self, frames):
+    def handle_frontend_frames(self, frames, queue):
         logger.info('Handling frontend frames %r', frames)
 
         # Address and blank space
@@ -422,21 +326,14 @@ class Provisioner(threading.Thread, RedisQueue):
         # Frames to be forwarded to the backend
         frames = frames[2:]
 
-        try:
-            self.queue_job(version, frames)
-        except redis.lock.LockError:
-            metrics.PROVISIONER_QUEUE_ERROR.inc()
+        queue.append([version]+frames)
 
-            response = address + [constants.ERR]
+        metrics.PROVISIONER_QUEUE.inc()
+        metrics.PROVISIONER_QUEUED.inc()
 
-            logger.info('Error aquiring redis lock')
-        else:
-            metrics.PROVISIONER_QUEUE.inc()
-            metrics.PROVISIONER_QUEUED.inc()
+        response = address + [constants.ACK]
 
-            response = address + [constants.ACK]
-
-            logger.info('Successfully queued job')
+        logger.info('Successfully queued job')
 
         try:
             self.frontend.send_multipart(response)
@@ -445,7 +342,7 @@ class Provisioner(threading.Thread, RedisQueue):
         else:
             logger.info('Notified client with response %r', response)
 
-    def handle_backend_frames(self, frames):
+    def handle_backend_frames(self, frames, queue, resources):
         address = frames[0]
 
         logger.info('Handling frames from backend %r', frames[:3])
@@ -454,10 +351,11 @@ class Provisioner(threading.Thread, RedisQueue):
             version = frames[2]
 
             kwargs = {
-                'redis': self.redis,
                 'namespace': 'default',
                 'lifetime': self.lifetime,
                 'backend': self.backend,
+                'queue': queue,
+                'resources': resources
             }
 
             self.workers.ready(Worker(address, version, **kwargs))
@@ -471,58 +369,49 @@ class Provisioner(threading.Thread, RedisQueue):
             except ResourceAllocationError:
                 self.running.pop(address)
 
-                self.requeue_job(frames[2], frames[3:])
+                queue.insert(0, [version]+frames[3:])
 
                 logger.info(f'Worker {address!r} failed, requeueing job')
 
-    def dispatch_workers(self):
-        try:
-            with self.redis.lock('job_queue', blocking_timeout=4):
-                for address, worker in list(self.workers.queue.items()):
-                    logger.info('Processing waiting worker %r', address)
+    def dispatch_workers(self, queue):
+        if len(queue) == 0:
+            return
 
-                    try:
-                        raw_frames = self.redis.lpop(worker.version)
-                    except Exception:
-                        # TODO handle edge case of malformed data
-                        logger.info('No work found for version %r', worker.version)
+        for address, worker in list(self.workers.queue.items()):
+            logger.info('Processing waiting worker %r', address)
 
-                        continue
-                    else:
-                        if raw_frames is None:
-                            continue
+            frames = queue.pop(0)
 
-                        frames = json_decoder(raw_frames)
+            version = frames.pop(0)
 
-                    frames.insert(0, address)
+            frames.insert(0, address)
 
-                    frames.insert(1, constants.REQUEST)
+            frames.insert(1, constants.REQUEST)
 
-                    try:
-                        self.backend.send_multipart(frames)
-                    except zmq.Again:
-                        logger.info('Error sending frames to worker %r', address)
+            try:
+                self.backend.send_multipart(frames)
+            except zmq.Again:
+                logger.info('Error sending frames to worker %r', address)
 
-                        self.requeue_job(worker.version, json_enceder(frames[2:]))
-                    else:
-                        metrics.PROVISIONER_QUEUE.dec()
+                queue.insert(0, [version]+frames[2:])
+            else:
+                metrics.PROVISIONER_QUEUE.dec()
 
-                        worker.frames = raw_frames
+                worker.frames = raw_frames
 
-                        self.running[address] = worker
+                self.running[address] = worker
 
-                        self.workers.remove(address)
+                self.workers.remove(address)
 
-                        logger.info(f'Moved worker {address!r} to running')
-        except redis.lock.LockError:
-            # No need to handle anything if we fail to aquire the lock
-            # TODO we should track how often we cannot aquire the lock, as there may be a bigger issue
-            pass
+                logger.info(f'Moved worker {address!r} to running')
 
-    def monitor(self, frontend_port, backend_port, redis_host):
+    def monitor(self, frontend_port, backend_port):
         """ Main loop for the load balancer.
         """
-        self.initialize(frontend_port, backend_port, redis_host)
+        self.initialize(7777, 7778)
+
+        queue = []
+        resources = {}
 
         while True:
             socks = dict(self.poll_both.poll(constants.HEARTBEAT_INTERVAL * 1000))
@@ -536,7 +425,7 @@ class Provisioner(threading.Thread, RedisQueue):
                     if not frames:
                         break
 
-                    self.handle_backend_frames(frames)
+                    self.handle_backend_frames(frames, queue, resources)
 
             if socks.get(self.frontend) == zmq.POLLIN:
                 try:
@@ -547,14 +436,16 @@ class Provisioner(threading.Thread, RedisQueue):
                     if not frames:
                         break
 
-                    self.handle_frontend_frames(frames)
+                    self.handle_frontend_frames(frames, queue)
 
             if self.workers.heartbeat_time:
                 self.workers.heartbeat(self.backend)
 
             self.workers.purge()
 
-            self.dispatch_workers()
+            self.dispatch_workers(queue)
+
+            self.kube_cluster.check_resources(resources)
 
 
 def create_resources():
@@ -576,35 +467,46 @@ def create_resources():
 
     k8s.create_resources(data, 'default', {'compute.io/group-uid': 'test'}, 'compute', 'docker-registry')
 
+
 def delete_resources():
     k8s = KubernetesAllocator()
 
     k8s.delete_resources('default', 'compute.io/group-uid=test')
+
 
 def main():
     import argparse
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--log-level', help='Logging level', choices=logging._nameToLevel.keys(), default='INFO')
+    parser.add_argument('--log-level',
+                        help='Logging level',
+                        choices=logging._nameToLevel.keys())
 
-    parser.add_argument('--redis-host', help='Redis host', required=True)
+    parser.add_argument('--lifetime',
+                        help='Life time of resources in seconds',
+                        type=int)
 
-    parser.add_argument('--frontend-port', help='Frontend port', type=int, default=7777)
+    parser.add_argument('--namespace',
+                        help='Kubernetes namespace to monitor')
 
-    parser.add_argument('--backend-port', help='Backend port', type=int, default=7778)
+    parser.add_argument('--dry-run',
+                        help='Does not actually remove resources',
+                        action='store_true')
 
-    parser.add_argument('--lifetime', help='Life time of resources in seconds', type=int, default=120)
+    parser.add_argument('--ignore-lifetime',
+                        help='Ignores lifetime',
+                        action='store_true')
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=args.log_level)
+    logging.basicConfig(level=args.log_level or LOG_LEVEL)
 
     start_http_server(8888, '0.0.0.0', registry=metrics.registry)
 
     logger.info('Started metrics server')
 
-    provisioner = Provisioner(**vars(args))
+    provisioner = Provisioner(**kwargs)
 
     provisioner.start()
 
@@ -616,4 +518,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
