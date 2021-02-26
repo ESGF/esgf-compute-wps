@@ -2,11 +2,10 @@ import argparse
 import json
 import logging
 
-from distributed import LocalCluster
-
 from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import context
+from distributed import LocalCluster
 
 logger = logging.getLogger(__name__)
 
@@ -37,20 +36,18 @@ def local_execute():
         'output_path': args['output_path'],
     }
 
-    context = context.LocalContext.from_data_inputs(
+    ctx = context.LocalContext.from_data_inputs(
         args['identifier'],
         json.loads(args['data_inputs']),
-        extra=extra,
-        user=0,
-        job=0)
+        extra=extra)
 
-    base.validate_workflow(context)
+    base.validate_workflow(ctx)
 
-    context = cdat.workflow(context)
+    ctx = cdat.workflow(ctx)
 
     cluster.close()
 
-    logger.info(f'Listing {len(context.output)} outputs')
+    logger.info(f'Listing {len(ctx.output)} outputs')
 
-    for output in context.output:
+    for output in ctx.output:
         logger.info(f'Output {output.uri}')

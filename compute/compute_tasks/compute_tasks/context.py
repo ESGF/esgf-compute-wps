@@ -1,15 +1,12 @@
-import hashlib
-import json
 import logging
 import os
 import uuid
 
-import cwt
-
 from compute_tasks import base
 from compute_tasks import mapper
-from compute_tasks import WPSError
 from compute_tasks import wps_state_api
+from compute_tasks import WPSError
+import cwt
 
 logger = logging.getLogger(__name__)
 
@@ -241,11 +238,11 @@ class BaseContext:
         return local_path
 
 class LocalContext(BaseContext):
-    def __init__(self, job, user, process, status, **kwargs):
-        self.job = job
-        self.user = user
-        self.process = process
-        self.status = status
+    def __init__(self, **kwargs):
+        self.job = 0
+        self.user = 0
+        self.process = 0
+        self.status = 0
 
         super().__init__(**kwargs)
 
