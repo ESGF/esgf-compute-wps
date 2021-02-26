@@ -25,12 +25,12 @@ requirements:
   run:
     - python
     - nomkl
-    - libnetcdf<=4.7.4=nompi_h9f9fd6a_101
-    - cdms2<=3.1.4=py37h34d3450_8
-    - numpy<=1.17.5
+    - libnetcdf
+    - cdms2=*=*nompi*
+    - numpy
     - esgf-compute-api
     - pyzmq
-    - redis-py=3.2.0
+    - redis-py
     - requests
     - celery
     - prometheus_client
@@ -39,9 +39,10 @@ requirements:
     - distributed
     - xarray
     - metpy
-    - cftime=1.0.3.4 # Need 1.0.3.4 until next version of xarray
+    - cftime
     - netcdf4
     - python-coreapi
+    - zarr
 
 test:
   imports:
