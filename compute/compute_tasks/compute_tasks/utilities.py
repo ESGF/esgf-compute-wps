@@ -3,6 +3,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def to_bool(x):
+    return x in ('true', 'True')
+
 class RetryExceptionWrapper(Exception):
     def __init__(self, e):
         self.e = e

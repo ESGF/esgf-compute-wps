@@ -7,6 +7,7 @@ from compute_tasks import mapper
 from compute_tasks import wps_state_api
 from compute_tasks import WPSError
 import cwt
+import zarr
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class BaseContext:
         self.output = output or []
         self._sorted = sorted or []
         self.input_var_names = input_var_names or {}
+        self._delayed = []
 
     @classmethod
     def from_data_inputs(cls, identifier, data_inputs, **kwargs):
@@ -130,6 +132,13 @@ class BaseContext:
     def sorted(self):
         for x in self._sorted:
             yield self._operation[x]
+
+    @property
+    def delayed(self):
+        return self._delayed
+
+    def add_delayed(self, delayed):
+        self._delayed.append(delayed)
 
     def set_provenance(self, ds):
         frontend = self.extra.get('provenance', {})
@@ -246,6 +255,8 @@ class LocalContext(BaseContext):
 
         super().__init__(**kwargs)
 
+        self.store = zarr.DirectoryStore('/cache')
+
     def started(self):
         logger.info('Process started')
 
@@ -271,6 +282,8 @@ class OperationContext(BaseContext):
         super().__init__(**kwargs)
 
         self.state = wps_state_api.WPSStateAPI()
+
+        # TODO: redis cache
 
     @classmethod
     def from_data_inputs(cls, identifier, data_inputs, **kwargs):
