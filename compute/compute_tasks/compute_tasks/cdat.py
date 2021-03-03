@@ -6,6 +6,7 @@ import math
 import os
 import re
 import time
+from urllib.parse import urlparse
 import uuid
 
 from celery.utils.log import get_task_logger
@@ -389,109 +390,182 @@ def input_nbytes(input):
     return nbytes
 
 
+def split_intervals(intervals):
+    items = intervals.tolist()
+
+    if len(items) == 0:
+        return []
+
+    split_diff = np.ediff1d(items)
+
+    split_index = np.argwhere(split_diff > 1).squeeze().tolist()
+
+    if not isinstance(split_index, list):
+        split_index = [
+            split_index,
+        ]
+
+    logger.info(
+        f"Splitting {len(intervals)!r} into {len(split_index)!r}" " intervals"
+    )
+
+    if len(split_index) > 1:
+        if split_index[0] != items[0]:
+            split_index.insert(0, int(items[0]))
+
+        if split_index[-1] != items[-1]:
+            split_index.append(int(items[-1]))
+
+        splits = [
+            intervals[x[0] + (1 if i > 0 else 0) : x[1] + 1]
+            for i, x in enumerate(zip(split_index, split_index[1:]))
+        ]
+    else:
+        splits = [
+            intervals,
+        ]
+
+    return splits
+
+
+def find_missing_intervals(stored, requested):
+    diff = requested.difference(stored)
+
+    diff = split_intervals(diff)
+
+    logger.info(f"Missing intervals {diff!r}")
+
+    inter = requested.intersection(stored)
+
+    inter = split_intervals(inter)
+
+    logger.info(f"Intersecting intervals {inter!r}")
+
+    return inter, diff
+
+
 def load_cache(context, ds, subset, key):
-    if not zarr.storage.contains_group(context.store, key):
-        return None
+    index = pd.Float64Index(
+        ds.get_index("time").get_indexer(subset.get_index("time"))
+    )
 
-    logger.info(f"Found cached entry for key {key!r}")
+    logger.info(f"Subset index {index!r}")
 
-    cached = xr.open_zarr(context.store, group=key)
+    if zarr.storage.contains_group(context.store, key):
+        context.message(f"Cache hit {key!r}")
 
-    intervals = celery_app.decoder(cached.attrs['INTERVALS'])
+        cached = xr.open_zarr(context.store, group=key, decode_times=False)
 
-    logger.info(f"Constructing cache index from {len(intervals)} segmensts")
+        attrs_key = f"{key}/.zattrs"
+        attrs = zarr.attrs.Attributes(context.store, attrs_key)
 
-    indexes = [
-        pd.Float64Index(pd.RangeIndex(x.start, x.stop))
-        for x in intervals
+        intervals = celery_app.decoder(attrs["STORED_INTERVALS"])
+
+        indexes = [
+            pd.Float64Index(pd.RangeIndex(x.start, x.stop)) for x in intervals
+        ]
+
+        union = indexes[0]
+
+        for x in indexes[1:]:
+            union = union.union(x)
+
+        found, missing = find_missing_intervals(union, index)
+    else:
+        context.message(f"Cache miss {key!r}")
+
+        found = []
+
+        missing = [
+            index,
+        ]
+
+    found_collection = [
+        (int(x[0]), cached.isel({"time": slice(int(x[0]), int(x[-1] + 1))}))
+        for x in found
     ]
 
-    union = indexes[0]
+    missing_collection = [
+        (int(x[0]), ds.isel({"time": slice(int(x[0]), int(x[-1] + 1))}))
+        for x in missing
+    ]
 
-    for x in indexes[1:]:
-        union = union.union(x)
+    logger.info(
+        f"Cached intervals {len(found_collection)!r}, missing "
+        f"{len(missing_collection)!r} intervals"
+    )
 
-    index = ds.get_index("time").get_indexer(subset.get_index("time"))
-
-    diff = index.difference(union)
-
-    print(union)
-    print(index)
-    print(subset.get_index("time"))
-    print(diff)
-
-    import sys
-    sys.exit(0)
-
-    return None
+    return found_collection, missing_collection
 
 
-def save_cache(context, ds, subset, key):
-    subset_index = subset.get_index("time")
+def save_cache(context, ds, segments, key):
+    if not zarr.storage.contains_group(context.store, key):
+        logger.info(f"Initializing cache entry for key {key!r}")
 
-    start, stop = subset_index[0], subset_index[-1]
+        ds.to_zarr(context.store, group=key, compute=False)
 
-    subset_slice = ds.get_index("time").slice_indexer(start, stop)
-
-    logger.info(f"Subset {subset_slice!r}")
-
-    subset.attrs['INTERVALS'] = celery_app.encoder([subset_slice])
-
-    ds.to_zarr(context.store, group=key, compute=False, consolidated=True)
-
-    logger.info("Creating zarr metadata")
-
-    kwargs = {
-        "compute": False,
-        "region": {
-            "time": subset_slice,
-        },
-    }
-
-    keep_dims = set([
-        x
-        for x, y in ds.variables.items()
-        if "time" in y.dims and x != "time_bnds"
-    ])
+    keep_dims = set(
+        [
+            x
+            for x, y in ds.variables.items()
+            if "time" in y.dims and x != "time_bnds"
+        ]
+    )
 
     all_dims = set(ds.variables.keys())
 
-    to_remove = list(all_dims-keep_dims)
+    to_remove = list(all_dims - keep_dims)
 
-    cleaned = subset.drop_vars(to_remove)
+    logger.info(f"Removing variables {to_remove!r}")
 
-    cache = cleaned.to_zarr(context.store, group=key, **kwargs)
+    delayed_list = []
 
-    logger.info("Creating cache delayed")
+    logger.info(f"Preparing {len(segments)!r} intervals to cache")
 
-    return subset, cache
+    attrs_key = f"{key}/.zattrs"
+    attrs = zarr.attrs.Attributes(context.store, attrs_key)
+
+    intervals = celery_app.decoder(attrs.get("STORED_INTERVALS", "[]"))
+
+    for _, x in segments:
+        start, stop = x.time[0].values.tolist(), x.time[-1].values.tolist()
+
+        segment_slice = ds.get_index("time").slice_indexer(start, stop)
+
+        intervals.append(segment_slice)
+
+        kwargs = {
+            "compute": False,
+            "region": {
+                "time": segment_slice,
+            },
+            "group": key,
+        }
+
+        delayed = x.drop_vars(to_remove).to_zarr(context.store, **kwargs)
+
+        delayed_list.append(delayed)
+
+    intervals = sorted(intervals, key=lambda x: x.start)
+
+    attrs["STORED_INTERVALS"] = celery_app.encoder(intervals)
+
+    return delayed_list
 
 
-def process_subset(context, operation, source, *ignored, **kwargs):
-    """Subsets a Dataset.
+def _process_subset(context, domain, source, key, **kwargs):
+    subset = source
 
-    Subset a ``xarray.Dataset`` using the user-defined ``cwt.Domain``. For
-    each dimension the selector is built and applied using the appropriate
-    method.
-
-    Args:
-        context (context.OperationContext): The current operation context.
-        operation (cwt.Process): The process definition the input is
-            associated with.
-        input (xarray.DataSet): The input DataSet.
-    """
-    subset = ds = xr.open_dataset(source.uri, **XARRAY_OPEN_KWARGS)
-
-    if operation.domain is not None:
-        for name, dim in operation.domain.dimensions.items():
+    if domain is not None:
+        for name, dim in domain.dimensions.items():
             try:
-                before = ds.coords[name].shape
+                before = subset.coords[name].shape
             except KeyError:
                 raise WPSError(f"Dimension {name!r} does not exist in ds")
 
             selector = {name: slice(dim.start, dim.end, dim.step)}
 
-            logger.info(f"Applying selector {selector!r}")
+            logger.info(f"Applying selection {selector!r}")
 
             if dim.crs == cwt.INDICES:
                 subset = subset.isel(selector)
@@ -511,14 +585,39 @@ def process_subset(context, operation, source, *ignored, **kwargs):
                     " dimension"
                 )
 
-    cached = load_cache(context, ds, subset, source.uri)
+    cached, missing = load_cache(context, source, subset, key)
 
-    if cached is None:
-        cached, delayed = save_cache(context, ds, subset, source.uri)
+    if len(missing) > 0:
+        delayed = save_cache(context, source, missing, key)
 
-        context.add_delayed(delayed)
+        for x in delayed:
+            context.add_delayed(x)
 
-    return cached
+    segments = [x[1] for x in sorted(cached + missing, key=lambda x: x[0])]
+
+    return xr.concat(segments, "time")
+
+
+def process_subset(context, operation, source, *ignored, **kwargs):
+    """Subsets a Dataset.
+
+    Subset a ``xarray.Dataset`` using the user-defined ``cwt.Domain``. For
+    each dimension the selector is built and applied using the appropriate
+    method.
+
+    Args:
+        context (context.OperationContext): The current operation context.
+        operation (cwt.Process): The process definition the input is
+            associated with.
+        input (xarray.DataSet): The input DataSet.
+    """
+    ds = xr.open_dataset(source.uri, **XARRAY_OPEN_KWARGS)
+
+    cache_key = urlparse(source.uri).path.split("/")[-1]
+
+    data = _process_subset(context, operation.domain, ds, cache_key)
+
+    return data
 
 
 def post_processing(
