@@ -1,8 +1,8 @@
 import os
+import shutil
 import sys
 import time
 
-import cftime
 import cwt
 import dask.array as da
 from myproxy.client import MyProxyClient
@@ -12,12 +12,10 @@ import pandas as pd
 import pytest
 import requests
 import xarray as xr
-import shutil
 
 from compute_tasks import base
 from compute_tasks import cdat
 from compute_tasks import context
-from compute_tasks import metrics
 from compute_tasks import WPSError
 
 
@@ -195,9 +193,7 @@ def test_groupby_bins_invalid_bin(test_data, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     with pytest.raises(WPSError):
         base.get_process(identifier)._process_func(
@@ -212,9 +208,7 @@ def test_groupby_bins(test_data, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     output = base.get_process(identifier)._process_func(
         ctx, p, *[v1], variable="pr", bins=np.arange(0.0, 1.0, 0.1)
@@ -246,9 +240,7 @@ def test_where(test_data, cond, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     result = base.get_process(identifier)._process_func(
         ctx, p, *[v1], variable=None, cond=cond, other=None
@@ -264,9 +256,7 @@ def test_where_other(test_data, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     result = base.get_process(identifier)._process_func(
         ctx, p, *[v1], variable=None, cond="pr<0.5", other=1e20
@@ -295,9 +285,7 @@ def test_where_error(test_data, cond, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     with pytest.raises(WPSError):
         base.get_process(identifier)._process_func(
@@ -315,9 +303,7 @@ def test_merge(test_data, mocker):
 
     p = cwt.Process(identifier=identifier)
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     result = base.get_process(identifier)._process_func(
         ctx, p, *inputs, compat=None
@@ -614,9 +600,7 @@ def test_processing(
     if v2 is not None:
         data.append(test_data.generate(**v2))
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     p = cwt.Process(identifier=identifier)
 
@@ -642,9 +626,7 @@ def test_processing_error(
 ):
     data = [test_data.generate(**v1)]
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     p = cwt.Process(identifier=identifier)
 
@@ -653,9 +635,7 @@ def test_processing_error(
 
 
 def test_process_aggregate(mocker, test_data):
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     files = [CMIP6_AGG1, CMIP6_AGG2, CMIP6_AGG3, CMIP6_AGG4]
 
@@ -713,19 +693,18 @@ def test_process_subset(
     process = cwt.Process(identifier="CDAT.subset")
     process.set_domain(domain)
     process.add_parameters(**params)
+    process.add_inputs(cwt.Variable(CMIP6_CLT, "clt"))
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
     ctx.input_var_names[process.name] = ["clt"]
 
-    source = cwt.Variable(CMIP6_CLT, "clt")
+    source = xr.open_dataset(CMIP6_CLT, chunks={"time": 10}, decode_times=False)
 
-    shutil.rmtree('/cache', ignore_errors=True)
+    shutil.rmtree("/cache", ignore_errors=True)
 
     output = cdat.process_subset(ctx, process, source, **params)
 
-    shutil.rmtree('/cache', ignore_errors=True)
+    shutil.rmtree("/cache", ignore_errors=True)
 
     assert output.clt.shape == expected
 
@@ -789,9 +768,7 @@ def test_build_output(test_data, mocker):
 
     p = cwt.Process(identifier="CDAT.subset")
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     delayed = cdat.build_output(ctx, ["pr"], data, p, "test")
 
@@ -811,9 +788,7 @@ def test_build_split_output(test_data, mocker):
 
     p = cwt.Process(identifier="CDAT.subset")
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     save_mfdataset = mocker.spy(xr, "save_mfdataset")
 
@@ -856,9 +831,7 @@ def test_gather_workflow_outputs_missing_interm(test_data, mocker):
 
     max = cwt.Process(identifier="CDAT.max")
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
     ctx.input_var_names[subset.name] = ["pr"]
     ctx.input_var_names[max.name] = ["pr"]
 
@@ -885,9 +858,7 @@ def test_gather_workflow_outputs(test_data, mocker):
     max = cwt.Process(identifier="CDAT.max")
     max_delayed = test_data.generate("random")
 
-    ctx = context.LocalContext(
-        variable={}, domain={}, operation={}
-    )
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
     ctx.input_var_names[subset.name] = ["pr"]
     ctx.input_var_names[max.name] = ["pr"]
 

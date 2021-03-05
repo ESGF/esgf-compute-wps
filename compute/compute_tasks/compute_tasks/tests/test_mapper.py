@@ -1,9 +1,9 @@
 import json
 import re
 import tempfile
-import yaml
 
 import pytest
+import yaml
 
 from compute_tasks.mapper import Mapper
 from compute_tasks.mapper import MatchNotFoundError
@@ -43,82 +43,104 @@ kind: ConfigMap
 """
 
 TEST_CONFIG = {
-    'mounts': [
+    "mounts": [
         {
-            'type': 'hostpath',
-            'path': '/data',
+            "type": "hostpath",
+            "path": "/data",
         },
         {
-            'type': 'hostpath',
-            'path': '/exports/data',
+            "type": "hostpath",
+            "path": "/exports/data",
         },
     ],
-    'mapping': {
-        'user_data': '/data/user/data',
-        'public_data': '/exports/data/public_data',
-    }
+    "mapping": {
+        "user_data": "/data/user/data",
+        "public_data": "/exports/data/public_data",
+    },
 }
+
 
 def test_patch_k8s_resource_invalid_type():
     resource = yaml.load(CONFIGMAP)
 
-    map = Mapper(TEST_CONFIG['mounts'], Mapper.convert_mapping(TEST_CONFIG['mapping']))
+    map = Mapper(
+        TEST_CONFIG["mounts"], Mapper.convert_mapping(TEST_CONFIG["mapping"])
+    )
 
     with pytest.raises(Exception):
         map.patch_k8s_resource(resource)
 
-@pytest.mark.parametrize('data,spec_func', [
-    (POD, lambda x: x['spec']),
-    (DEPLOYMENT, lambda x: x['spec']['template']['spec']),
-])
+
+@pytest.mark.parametrize(
+    "data,spec_func",
+    [
+        (POD, lambda x: x["spec"]),
+        (DEPLOYMENT, lambda x: x["spec"]["template"]["spec"]),
+    ],
+)
 def test_patch_k8s_resource(data, spec_func):
     resource = yaml.load(data)
 
-    map = Mapper(TEST_CONFIG['mounts'], Mapper.convert_mapping(TEST_CONFIG['mapping']))
+    map = Mapper(
+        TEST_CONFIG["mounts"], Mapper.convert_mapping(TEST_CONFIG["mapping"])
+    )
 
     patched = map.patch_k8s_resource(resource)
 
     spec = spec_func(patched)
 
-    volumes = spec['volumes']
-    volumeMounts = spec['containers'][0]['volumeMounts']
+    volumes = spec["volumes"]
+    volumeMounts = spec["containers"][0]["volumeMounts"]
 
     assert len(volumes) == 2
     assert len(volumeMounts) == 2
 
-    volumes = sorted(volumes, key=lambda x: x['name'])
-    volumeMounts = sorted(volumeMounts, key=lambda x: x['name'])
+    volumes = sorted(volumes, key=lambda x: x["name"])
+    volumeMounts = sorted(volumeMounts, key=lambda x: x["name"])
 
     for x, y in zip(volumes, volumeMounts):
-        assert x['name'] == y['name']
-        assert x['hostPath']['path'] == y['mountPath']
+        assert x["name"] == y["name"]
+        assert x["hostPath"]["path"] == y["mountPath"]
+
 
 def test_find_match_no_match(mocker):
-    map = Mapper(TEST_CONFIG['mounts'], Mapper.convert_mapping(TEST_CONFIG['mapping']))
+    map = Mapper(
+        TEST_CONFIG["mounts"], Mapper.convert_mapping(TEST_CONFIG["mapping"])
+    )
 
     with pytest.raises(MatchNotFoundError):
-        map.find_match('https://data.io/thredds/cmip5/miroc/3hr/test1.nc')
+        map.find_match("https://data.io/thredds/cmip5/miroc/3hr/test1.nc")
+
 
 def test_find_match_does_not_exist(mocker):
-    map = Mapper(TEST_CONFIG['mounts'], Mapper.convert_mapping(TEST_CONFIG['mapping']))
+    map = Mapper(
+        TEST_CONFIG["mounts"], Mapper.convert_mapping(TEST_CONFIG["mapping"])
+    )
 
     with pytest.raises(MatchNotFoundError):
-        map.find_match('https://data.io/thredds/user_data/miroc/3hr/test1.nc')
+        map.find_match("https://data.io/thredds/user_data/miroc/3hr/test1.nc")
+
 
 def test_find_match(mocker):
-    mocker.patch('os.path.exists', return_value=True)
+    mocker.patch("os.path.exists", return_value=True)
 
-    map = Mapper(TEST_CONFIG['mounts'], Mapper.convert_mapping(TEST_CONFIG['mapping']))
+    map = Mapper(
+        TEST_CONFIG["mounts"], Mapper.convert_mapping(TEST_CONFIG["mapping"])
+    )
 
-    path = map.find_match('https://data.io/thredds/user_data/miroc/3hr/test1.nc')
+    path = map.find_match(
+        "https://data.io/thredds/user_data/miroc/3hr/test1.nc"
+    )
 
-    assert path == '/data/user/data/miroc/3hr/test1.nc'
+    assert path == "/data/user/data/miroc/3hr/test1.nc"
+
 
 def test_covert_mapping():
-    matchers = Mapper.convert_mapping(TEST_CONFIG['mapping'])
+    matchers = Mapper.convert_mapping(TEST_CONFIG["mapping"])
 
     assert all([isinstance(x[0], re.Pattern) for x in matchers])
     assert all([isinstance(x[1], str) for x in matchers])
+
 
 def test_from_config():
     temp = tempfile.TemporaryFile()
