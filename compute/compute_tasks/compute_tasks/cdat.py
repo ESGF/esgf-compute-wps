@@ -615,7 +615,7 @@ def try_cache(context, source, subset, key, domain, **kwargs):
 
         source.drop_vars(drop_vars).to_zarr(context.store, **zarr_kwargs)
 
-        subset = write_cache(context, source, domain, key, drop_vars, attrs, **kwargs)
+        write_cache(context, source, domain, key, drop_vars, attrs, **kwargs)
 
     return subset
 
