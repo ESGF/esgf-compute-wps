@@ -390,212 +390,234 @@ def input_nbytes(input):
     return nbytes
 
 
-def split_intervals(intervals):
-    items = intervals.tolist()
+def subset_dataset(context, domain, source, method=None, ignore_step=False, **kwargs):
+    if domain is None:
+        return source
 
-    if len(items) == 0:
-        return []
+    initial_shapes = dict((x, y.shape) for x, y in source.coords.items())
 
-    split_diff = np.ediff1d(items)
+    for name, dim in domain.dimensions.items():
+        if dim.start == dim.end:
+            selector = {name: dim.start}
+        else:
+            selector = {
+                name: slice(
+                    dim.start,
+                    dim.end,
+                    dim.step if not ignore_step else 1,
+                )
+            }
 
-    split_index = np.argwhere(split_diff > 1).squeeze().tolist()
+        if dim.crs == cwt.INDICES:
+            source = source.isel(selector)
+        elif dim.crs == cwt.VALUES:
+            source = source.sel(selector, method=method)
+        elif dim.crs == cwt.TIMESTAMPS:
+            source = xr.decode_cf(source).sel(selector, method=method)
+        else:
+            raise WPSError(f"Could not handle CRS {str(dim.crs)!r}")
 
-    if not isinstance(split_index, list):
-        split_index = [
-            split_index,
-        ]
+        before = initial_shapes[name]
+        after = source.coords[name].shape
 
-    logger.info(
-        f"Splitting {len(intervals)!r} into {len(split_index)!r}" " intervals"
-    )
+        context.message(f"Subset {name!r} {before!r} -> {after!r}")
 
-    if len(split_index) > 1:
-        if split_index[0] != items[0]:
-            split_index.insert(0, int(items[0]))
+    for name, shape in source.dims.items():
+        if shape == 0:
+            raise WPSError(f"Subset of {name!r} resulted in zero length"
+                           " dimension")
 
-        if split_index[-1] != items[-1]:
-            split_index.append(int(items[-1]))
+    return source
 
-        splits = [
-            intervals[x[0] + (1 if i > 0 else 0) : x[1] + 1]
-            for i, x in enumerate(zip(split_index, split_index[1:]))
-        ]
+
+def get_drop_variables(source):
+    all_vars = set(source.variables.keys())
+
+    keep_vars = set([
+        x
+        for x, y in source.variables.items()
+        if "time" in y.dims and x != "time_bnds"
+    ])
+
+    return list(all_vars-keep_vars)
+
+
+def write_cache(context, source, domain, key, drop_vars, attrs, **kwargs):
+    subset = subset_dataset(context, domain, source, ignore_step=True, **kwargs)
+
+    if "time" not in subset.indexes:
+        return source
+
+    subset_index = subset.get_index("time")
+
+    start, stop = subset_index[0], subset_index[-1]
+
+    if isinstance(subset_index, xr.CFTimeIndex):
+        source_index = xr.decode_cf(source).get_index("time")
+
+        region_slice = source_index.slice_indexer(start, stop)
     else:
-        splits = [
-            intervals,
-        ]
+        region_slice = source.get_index("time").slice_indexer(start, stop)
 
-    return splits
+    cached_slices = celery_app.decoder(attrs.get("INTERVALS", "[]"))
+
+    cached_slices.append(region_slice)
+
+    attrs["INTERVALS"] = celery_app.encoder(cached_slices)
+
+    region = {
+        "time": region_slice,
+    }
+
+    logger.info(f"Writing region {region!r} to cache")
+
+    kwargs = {
+        "group": key,
+        "compute": False,
+        "region": region,
+    }
+
+    delayed = subset.drop_vars(drop_vars).to_zarr(context.store, **kwargs)
+
+    context.add_delayed(delayed)
+
+    return subset
 
 
-def find_missing_intervals(stored, requested):
-    diff = requested.difference(stored)
+def load_cached_index(attrs):
+    interval_slices = celery_app.decoder(attrs["INTERVALS"])
+
+    interval_indexes = [
+        pd.Float64Index(pd.RangeIndex(x.start, x.stop))
+        for x in interval_slices
+    ]
+
+    index = interval_indexes[0]
+
+    if len(interval_indexes) > 1:
+        for x in interval_indexes[1:]:
+            index = index.union(x)
+
+    return index
+
+
+def split_intervals(index):
+    values = index.tolist()
+
+    diff = np.ediff1d(values)
+
+    split_index = np.argwhere(diff>1).squeeze().tolist()
+
+    logger.info(f"Split index {split_index!r}")
+
+    new_indexes = []
+
+    if len(index) > 0:
+        split_index.insert(0, 0)
+
+        split_index.append(len(index))
+
+        for x, y in zip(split_index, split_index[1:]):
+            new_indexes.append(index[x:y])
+
+    return new_indexes
+
+
+def missing_intervals(context, subset_index, cached_index, source, subset, key,
+                      domain, drop_vars, attrs, **kwargs):
+    diff = subset_index.difference(cached_index)
 
     diff = split_intervals(diff)
 
-    logger.info(f"Missing intervals {diff!r}")
+    logger.info(f"Difference {diff!r}")
 
-    inter = requested.intersection(stored)
+    old_time = domain.get_dimension("time")
+    step = 1 if old_time is None else old_time.step
+
+    remote = []
+
+    for x in diff:
+        time = cwt.Dimension("time", int(x[0]), int(x[-1])+1, cwt.INDICES, step)
+
+        domain.dimensions["time"] = time
+
+        interval = write_cache(context, source, domain, key, drop_vars, attrs,
+                    **kwargs)
+
+        remote.append(interval)
+
+    return remote
+
+
+def cached_intervals(context, subset_index, cached_index, key, domain, **kwargs):
+    inter = subset_index.intersection(cached_index)
 
     inter = split_intervals(inter)
 
-    logger.info(f"Intersecting intervals {inter!r}")
+    logger.info(f"Intersection {inter!r}")
 
-    return inter, diff
+    old_time = domain.get_dimension("time")
+    step = 1 if old_time is None else old_time.step
 
+    zarr_kwargs = {
+        "group": key,
+        "decode_times": False,
+    }
 
-def load_cache(context, ds, subset, key):
-    index = pd.Float64Index(
-        ds.get_index("time").get_indexer(subset.get_index("time"))
-    )
+    cached = []
+    cached_data = xr.open_zarr(context.store, **zarr_kwargs)
 
-    logger.info(f"Subset index {index!r}")
+    for x in inter:
+        time = cwt.Dimension("time", int(x[0]), int(x[-1])+1, cwt.INDICES, step)
 
-    if zarr.storage.contains_group(context.store, key):
-        context.message(f"Cache hit {key!r}")
+        domain.dimensions["time"] = time
 
-        cached = xr.open_zarr(context.store, group=key, decode_times=False)
+        interval = subset_dataset(context, domain, cached_data, **kwargs)
 
-        attrs_key = f"{key}/.zattrs"
-        attrs = zarr.attrs.Attributes(context.store, attrs_key)
+        cached.append(interval)
 
-        intervals = celery_app.decoder(attrs["STORED_INTERVALS"])
-
-        indexes = [
-            pd.Float64Index(pd.RangeIndex(x.start, x.stop)) for x in intervals
-        ]
-
-        union = indexes[0]
-
-        for x in indexes[1:]:
-            union = union.union(x)
-
-        found, missing = find_missing_intervals(union, index)
-    else:
-        context.message(f"Cache miss {key!r}")
-
-        found = []
-
-        missing = [
-            index,
-        ]
-
-    found_collection = [
-        (int(x[0]), cached.isel({"time": slice(int(x[0]), int(x[-1] + 1))}))
-        for x in found
-    ]
-
-    missing_collection = [
-        (int(x[0]), ds.isel({"time": slice(int(x[0]), int(x[-1] + 1))}))
-        for x in missing
-    ]
-
-    logger.info(
-        f"Cached intervals {len(found_collection)!r}, missing "
-        f"{len(missing_collection)!r} intervals"
-    )
-
-    return found_collection, missing_collection
+    return cached
 
 
-def save_cache(context, ds, segments, key):
-    if not zarr.storage.contains_group(context.store, key):
-        logger.info(f"Initializing cache entry for key {key!r}")
-
-        ds.to_zarr(context.store, group=key, compute=False)
-
-    keep_dims = set(
-        [
-            x
-            for x, y in ds.variables.items()
-            if "time" in y.dims and x != "time_bnds"
-        ]
-    )
-
-    all_dims = set(ds.variables.keys())
-
-    to_remove = list(all_dims - keep_dims)
-
-    logger.info(f"Removing variables {to_remove!r}")
-
-    delayed_list = []
-
-    logger.info(f"Preparing {len(segments)!r} intervals to cache")
-
+def try_cache(context, source, subset, key, domain, **kwargs):
     attrs_key = f"{key}/.zattrs"
     attrs = zarr.attrs.Attributes(context.store, attrs_key)
 
-    intervals = celery_app.decoder(attrs.get("STORED_INTERVALS", "[]"))
+    drop_vars = get_drop_variables(subset)
 
-    for _, x in segments:
-        start, stop = x.time[0].values.tolist(), x.time[-1].values.tolist()
+    if zarr.storage.contains_group(context.store, key):
+        logger.info(f"Cache hit {key!r}")
 
-        segment_slice = ds.get_index("time").slice_indexer(start, stop)
+        subset_index = pd.Float64Index(
+            source.get_index("time").get_indexer(subset.get_index("time"))
+        )
 
-        intervals.append(segment_slice)
+        cached_index = load_cached_index(attrs)
 
-        kwargs = {
-            "compute": False,
-            "region": {
-                "time": segment_slice,
-            },
+        logger.info(f"Cached index {cached_index!r}")
+
+        remote = missing_intervals(context, subset_index, cached_index, source, subset,
+                                   key, domain, drop_vars, attrs, **kwargs)
+
+        cached = cached_intervals(context, subset_index, cached_index, key, domain,
+                                  **kwargs)
+
+        sorted_data = sorted(remote+cached, key=lambda x: x.time[0])
+
+        subset = xr.concat(sorted_data, "time")
+    else:
+        logger.info(f"Cache miss {key!r}")
+
+        zarr_kwargs = {
             "group": key,
+            "compute": False,
         }
 
-        delayed = x.drop_vars(to_remove).to_zarr(context.store, **kwargs)
+        source.drop_vars(drop_vars).to_zarr(context.store, **zarr_kwargs)
 
-        delayed_list.append(delayed)
+        subset = write_cache(context, source, domain, key, drop_vars, attrs, **kwargs)
 
-    intervals = sorted(intervals, key=lambda x: x.start)
-
-    attrs["STORED_INTERVALS"] = celery_app.encoder(intervals)
-
-    return delayed_list
-
-
-def _process_subset(context, domain, source, key, **kwargs):
-    subset = source
-
-    if domain is not None:
-        for name, dim in domain.dimensions.items():
-            try:
-                before = subset.coords[name].shape
-            except KeyError:
-                raise WPSError(f"Dimension {name!r} does not exist in ds")
-
-            selector = {name: slice(dim.start, dim.end, dim.step)}
-
-            logger.info(f"Applying selection {selector!r}")
-
-            if dim.crs == cwt.INDICES:
-                subset = subset.isel(selector)
-            elif dim.crs == cwt.VALUES:
-                subset = subset.sel(selector)
-            else:
-                subset = xr.decode_cf(subset).sel(selector)
-
-            after = subset.coords[name].shape
-
-            context.message(f"Subset {name!r} {before!r} -> {after!r}")
-
-        for name, size in subset.dims.items():
-            if size == 0:
-                raise WPSError(
-                    f"Applying subset {dim!r} resulted in 0 length"
-                    " dimension"
-                )
-
-    cached, missing = load_cache(context, source, subset, key)
-
-    if len(missing) > 0:
-        delayed = save_cache(context, source, missing, key)
-
-        for x in delayed:
-            context.add_delayed(x)
-
-    segments = [x[1] for x in sorted(cached + missing, key=lambda x: x[0])]
-
-    return xr.concat(segments, "time")
+    return subset
 
 
 def process_subset(context, operation, source, *ignored, **kwargs):
@@ -609,15 +631,22 @@ def process_subset(context, operation, source, *ignored, **kwargs):
         context (context.OperationContext): The current operation context.
         operation (cwt.Process): The process definition the input is
             associated with.
-        input (xarray.DataSet): The input DataSet.
+        source (cwt.Variable): Input to subset.
+        *ignored (List): List of extra inputs that will be ignored.
+        **kwargs (Dict): Extra configuration.
     """
     ds = xr.open_dataset(source.uri, **XARRAY_OPEN_KWARGS)
 
-    cache_key = urlparse(source.uri).path.split("/")[-1]
+    subset = subset_dataset(context, operation.domain, ds, **kwargs)
 
-    data = _process_subset(context, operation.domain, ds, cache_key)
+    key = urlparse(source.uri).path.split("/")[-1]
 
-    return data
+    try:
+        subset = try_cache(context, ds, subset, key, operation.domain, **kwargs)
+    except Exception:
+        context.message(f"Caching error {key!r}")
+
+    return subset
 
 
 def post_processing(
@@ -753,13 +782,9 @@ def parse_condition(context, cond):
     if cond is None:
         raise WPSError('Missing parameter "cond"')
 
-    match = re.match(
-        (
-            r"(?P<left>\w+)\
-         ?(?P<comp>[<>=!]{1,2}|(is|not)null)(?P<right>-?\d+\.?\d?)?"
-        ),
-        cond,
-    )
+    p = r'(?P<left>\w+)\ ?(?P<comp>[<>=!]{1,2}|(is|not)null)(?P<right>-?\d+\.?\d?)?'
+
+    match = re.match(p, cond)
 
     if match is None:
         raise WPSError("Condition is not valid, check abstract for format")
