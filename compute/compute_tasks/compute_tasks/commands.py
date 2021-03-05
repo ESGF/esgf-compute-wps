@@ -47,7 +47,7 @@ def local_execute():
 
     cluster.close()
 
-    logger.info(f'Listing {len(ctx.output)} outputs')
+    logger.info(f'Listing {len(ctx._output)} outputs')
 
-    for output in ctx.output:
-        logger.info(f'Output {output.uri}')
+    for local, output in ctx._output.items():
+        logger.info(f'Output {local!r} -> {output.uri!r}')

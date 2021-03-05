@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+import json
 
 import cwt
 import zarr
@@ -37,7 +38,7 @@ class BaseContext:
         self.extra = extra or {}
         self.gdomain = gdomain
         self.gparameters = gparameters or {}
-        self.output = output or []
+        self._output = output or {}
         self._sorted = sorted or []
         self.input_var_names = input_var_names or {}
         self._delayed = []
@@ -96,7 +97,7 @@ class BaseContext:
             "variable": self._variable,
             "domain": self._domain,
             "operation": self._operation,
-            "output": self.output,
+            "output": self._output,
             "sorted": self._sorted,
             "input_var_names": self.input_var_names,
             "extra": self.extra,
@@ -287,13 +288,11 @@ class BaseContext:
 
         relative_path = local_path.replace(common, "")
 
-        self.output.append(
-            cwt.Variable(
-                f"{thredds_url}{relative_path}",
-                var_name,
-                name=name,
-                mime_type=mime_type,
-            )
+        self._output[local_path] = cwt.Variable(
+            f"{thredds_url}{relative_path}",
+            var_name,
+            name=name,
+            mime_type=mime_type,
         )
 
         return local_path
@@ -313,14 +312,22 @@ class LocalContext(BaseContext):
     def started(self):
         logger.info("Process started")
 
-    def succeeded(self, output):
-        logger.info(f"Process succeeded {output}")
+    def succeeded(self):
+        for x, y in self._output.items():
+            size = os.stat(x).st_size / 1e6
+
+            self.output(x, size)
+
+            logger.info(f"Output {y!r}")
 
     def failed(self, exception):
         logger.info(f"Process failed {exception}")
 
     def message(self, message, percent=None):
         logger.info(f"{message} {percent}")
+
+    def output(self, local, size):
+        logger.info(f"Local file {local!r} size {size!r}")
 
     def to_dict(self):
         pass
@@ -353,14 +360,28 @@ class OperationContext(BaseContext):
     def started(self):
         self.status = self.state.started(self.job)
 
-    def succeeded(self, output):
-        self.status = self.state.succeeded(self.job, output)
+    def succeeded(self):
+        for local, variable in self._output.items():
+            size = os.stat(local).st_size / 1e6
+
+            self.output(local, size)
+
+        self.status = self.state.succeeded(
+            self.job,
+            json.dumps([
+                x.to_dict()
+                for x in self._output.values()
+            ])
+        )
 
     def failed(self, exception):
         self.status = self.state.failed(self.job, exception)
 
     def message(self, message, percent=None):
         self.state.message(self.status, message, percent)
+
+    def output(self, local, size):
+        self.state.output(self.job, local, size)
 
     def to_dict(self):
         store = super().to_dict()

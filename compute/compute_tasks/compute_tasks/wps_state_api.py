@@ -200,3 +200,14 @@ class WPSStateAPI:
             )
         except coreapi.exceptions.ErrorMessage:
             pass
+
+    def output_create(self, job, local, size):
+        params = {
+            "job": job,
+            "local": local,
+            "size": size,
+        }
+
+        response = self._action(["output", "create"], params)
+
+        return response["id"]

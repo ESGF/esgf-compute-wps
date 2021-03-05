@@ -1122,7 +1122,7 @@ def workflow(self, context):
 
     metrics.push(context.job)
 
-    context.succeeded(json.dumps([x.to_dict() for x in context.output]))
+    context.succeeded()
 
     return context
 
