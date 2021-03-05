@@ -131,10 +131,9 @@ def test_get_process(mocker):
 
 
 def test_cwt_base_task_failure_error(mocker):
-    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     mocker.patch.object(ctx, 'failed')
-    mocker.patch.object(ctx, 'state')
 
     ctx.failed.side_effect = WPSError()
 
@@ -149,10 +148,9 @@ def test_cwt_base_task_failure_error(mocker):
 
 
 def test_cwt_base_task_failure(mocker):
-    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     mocker.patch.object(ctx, 'failed')
-    mocker.patch.object(ctx, 'state')
 
     base_task = base.CWTBaseTask()
 
@@ -164,10 +162,9 @@ def test_cwt_base_task_failure(mocker):
 
 
 def test_cwt_base_task_retry_error(mocker):
-    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     mocker.patch.object(ctx, 'message')
-    mocker.patch.object(ctx, 'state')
 
     ctx.message.side_effect = WPSError()
 
@@ -182,10 +179,9 @@ def test_cwt_base_task_retry_error(mocker):
 
 
 def test_cwt_base_task_retry(mocker):
-    ctx = context.OperationContext(0, 0, 0, 0, variable={}, domain={}, operation={})
+    ctx = context.LocalContext(variable={}, domain={}, operation={})
 
     mocker.patch.object(ctx, 'message')
-    mocker.patch.object(ctx, 'state')
 
     base_task = base.CWTBaseTask()
 

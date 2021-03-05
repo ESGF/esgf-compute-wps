@@ -71,9 +71,7 @@ def test_validate_workflow_specify_variable_not_found(mocker):
         'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict()],
     }
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.sum', data_inputs, user=0, process=0, status=0, job=0)
-
-    mocker.patch.object(ctx.state, '_action')
+    ctx = context.LocalContext.from_data_inputs('CDAT.sum', data_inputs, user=0, process=0, status=0, job=0)
 
     with pytest.raises(WPSError):
         base.validate_workflow(ctx)
@@ -106,9 +104,7 @@ def test_validate_workflow_specify_variable(mocker):
         'operation': [sub1.to_dict(), sub2.to_dict(), merge.to_dict(), sum.to_dict(), group.to_dict()],
     }
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.sum', data_inputs, user=0, job=0, process=0, status=0)
-
-    mocker.patch.object(ctx.state, '_action')
+    ctx = context.LocalContext.from_data_inputs('CDAT.sum', data_inputs, user=0, job=0, process=0, status=0)
 
     base.validate_workflow(ctx)
 
@@ -126,9 +122,7 @@ def test_validate_workflow_missmatch_input(mocker):
         'operation': [agg.to_dict()],
     }
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs, user=0, job=0, process=0, status=0)
-
-    mocker.patch.object(ctx.state, '_action')
+    ctx = context.LocalContext.from_data_inputs('CDAT.aggregate', data_inputs, user=0, job=0, process=0, status=0)
 
     with pytest.raises(base.ValidationError):
         base.validate_workflow(ctx)
@@ -151,9 +145,7 @@ def test_validate_workflow(mocker):
         'operation': [agg.to_dict(), max.to_dict()],
     }
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.max', data_inputs, user=0, job=0, process=0, status=0)
-
-    mocker.patch.object(ctx.state, '_action')
+    ctx = context.LocalContext.from_data_inputs('CDAT.max', data_inputs, user=0, job=0, process=0, status=0)
 
     base.validate_workflow(ctx)
 
@@ -378,6 +370,8 @@ def test_waiting_state(mocker, transition, patch_env, expected):
 
 def test_build_workflow(mocker):
     mocker.patch('compute_tasks.wps_state_api.WPSStateAPI._action')
+    mocker.patch('compute_tasks.context.zarr.RedisStore')
+    mocker.patch('compute_tasks.backend.OperationContext')
 
     workflow = backend.build_workflow('CDAT.subset', DATA_INPUTS, '0', '0', '0', '0', namespace='default')
 

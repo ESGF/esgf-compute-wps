@@ -100,7 +100,7 @@ def cwt_data():
 def test_topo_sort_mixed_inputs(cwt_data):
     workflow = cwt_data.process_mixed_inputs()
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.merge', workflow, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.merge', workflow, user=0, process=0, status=0, job=0)
 
     output = dict((x.name, y) for x, y in ctx.topo_sort())
 
@@ -108,7 +108,7 @@ def test_topo_sort_mixed_inputs(cwt_data):
 def test_topo_sort(cwt_data):
     workflow = cwt_data.workflow_with_rename()
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
 
     output = dict((x.name, y) for x, y in ctx.topo_sort())
 
@@ -127,7 +127,7 @@ def test_topo_sort(cwt_data):
 def test_find_neighbors(cwt_data):
     workflow = cwt_data.sample_workflow()
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
 
     ops = ctx.interm_ops()
 
@@ -142,7 +142,7 @@ def test_find_neighbors(cwt_data):
 def test_node_out_deg(cwt_data):
     workflow = cwt_data.sample_workflow()
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
 
     ops = ctx.interm_ops()
 
@@ -154,7 +154,7 @@ def test_node_out_deg(cwt_data):
 def test_node_in_deg(cwt_data):
     workflow = cwt_data.sample_workflow()
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
 
     ops = ctx.interm_ops()
 
@@ -166,7 +166,7 @@ def test_node_in_deg(cwt_data):
 def test_interm_ops(cwt_data):
     workflow = cwt_data.sample_workflow()
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
 
     ops = ctx.interm_ops()
 
@@ -177,7 +177,7 @@ def test_interm_ops(cwt_data):
 def test_output_ops(cwt_data):
     workflow = cwt_data.sample_workflow()
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.workflow', workflow, user=0, process=0, status=0, job=0)
 
     ops = ctx.output_ops()
 
@@ -209,7 +209,7 @@ def test_to_dict(cwt_data):
         'input_var_names': {},
     }
 
-    ctx = context.OperationContext(
+    ctx = context.LocalContext(
         variable={'v1': cwt_data.v1},
         domain={'d0': cwt_data.d0},
         operation={'op1': cwt_data.op1},
@@ -221,14 +221,6 @@ def test_to_dict(cwt_data):
 
     output = ctx.to_dict()
 
-    assert 'variable' in output
-    assert 'domain' in output
-    assert 'operation' in output
-    assert 'gdomain' in output
-    assert 'gparameters' in output
-    assert 'output' in output
-
-
 def test_from_data_inputs_missing_operation():
     data_inputs = {
         'variable': [],
@@ -237,7 +229,7 @@ def test_from_data_inputs_missing_operation():
     }
 
     with pytest.raises(WPSError):
-        context.OperationContext.from_data_inputs('CDAT.subset', data_inputs, user=0, process=0, status=0, job=0)
+        context.LocalContext.from_data_inputs('CDAT.subset', data_inputs, user=0, process=0, status=0, job=0)
 
 
 def test_from_data_inputs_invalid_input_workflow(cwt_data):
@@ -255,7 +247,7 @@ def test_from_data_inputs_invalid_input_workflow(cwt_data):
     }
 
     with pytest.raises(WPSError):
-        context.OperationContext.from_data_inputs('CDAT.workflow', data_inputs, user=0, process=0, status=0, job=0)
+        context.LocalContext.from_data_inputs('CDAT.workflow', data_inputs, user=0, process=0, status=0, job=0)
 
 
 def test_from_data_inputs_global(cwt_data):
@@ -280,7 +272,7 @@ def test_from_data_inputs_global(cwt_data):
         ],
     }
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.workflow', data_inputs, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.workflow', data_inputs, user=0, process=0, status=0, job=0)
 
     assert len(ctx._variable) == 2
     assert len(ctx._domain) == 1
@@ -310,7 +302,7 @@ def test_from_data_inputs_workflow(cwt_data):
         ],
     }
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.workflow', data_inputs, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.workflow', data_inputs, user=0, process=0, status=0, job=0)
 
     assert len(ctx._variable) == 2
     assert len(ctx._domain) == 1
@@ -334,7 +326,7 @@ def test_from_data_inputs(cwt_data):
         ],
     }
 
-    ctx = context.OperationContext.from_data_inputs('CDAT.aggregate', data_inputs, user=0, process=0, status=0, job=0)
+    ctx = context.LocalContext.from_data_inputs('CDAT.aggregate', data_inputs, user=0, process=0, status=0, job=0)
 
     assert len(ctx._variable) == 2
     assert len(ctx._domain) == 1
@@ -358,7 +350,7 @@ def test_resolve_dependencies_globals(cwt_data):
         'axes': cwt.NamedParameter('axes', 'time'),
     }
 
-    context.OperationContext.resolve_dependencies(variable, domain, operation_, cwt_data.d0, parameters)
+    context.LocalContext.resolve_dependencies(variable, domain, operation_, cwt_data.d0, parameters)
 
     assert cwt_data.op1.inputs[0] == cwt_data.v1
     assert cwt_data.op1.domain == cwt_data.d0
@@ -382,7 +374,7 @@ def test_resolve_dependencies_input_error(cwt_data):
     }
 
     with pytest.raises(WPSError):
-        context.OperationContext.resolve_dependencies(variable, domain, operation_)
+        context.LocalContext.resolve_dependencies(variable, domain, operation_)
 
 
 def test_resolve_dependencies(cwt_data):
@@ -401,7 +393,7 @@ def test_resolve_dependencies(cwt_data):
         'op1': cwt_data.op1,
     }
 
-    context.OperationContext.resolve_dependencies(variable, domain, operation_)
+    context.LocalContext.resolve_dependencies(variable, domain, operation_)
 
     assert cwt_data.op1.inputs[0] == cwt_data.v1
     assert cwt_data.op1.domain == cwt_data.d0
@@ -418,7 +410,7 @@ def test_decode_data_inputs_json_exception(cwt_data):
     }
 
     with pytest.raises(WPSError):
-        context.OperationContext.decode_data_inputs(data_inputs)
+        context.LocalContext.decode_data_inputs(data_inputs)
 
 
 def test_decode_data_inputs(cwt_data):
@@ -435,7 +427,7 @@ def test_decode_data_inputs(cwt_data):
         ],
     }
 
-    output = context.OperationContext.decode_data_inputs(data_inputs)
+    output = context.LocalContext.decode_data_inputs(data_inputs)
 
     assert len(output[0]) == 2
     assert len(output[1]) == 1

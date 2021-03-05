@@ -390,7 +390,9 @@ def input_nbytes(input):
     return nbytes
 
 
-def subset_dataset(context, domain, source, method=None, ignore_step=False, **kwargs):
+def subset_dataset(
+    context, domain, source, method=None, ignore_step=False, **kwargs
+):
     if domain is None:
         return source
 
@@ -424,8 +426,9 @@ def subset_dataset(context, domain, source, method=None, ignore_step=False, **kw
 
     for name, shape in source.dims.items():
         if shape == 0:
-            raise WPSError(f"Subset of {name!r} resulted in zero length"
-                           " dimension")
+            raise WPSError(
+                f"Subset of {name!r} resulted in zero length" " dimension"
+            )
 
     return source
 
@@ -433,17 +436,21 @@ def subset_dataset(context, domain, source, method=None, ignore_step=False, **kw
 def get_drop_variables(source):
     all_vars = set(source.variables.keys())
 
-    keep_vars = set([
-        x
-        for x, y in source.variables.items()
-        if "time" in y.dims and x != "time_bnds"
-    ])
+    keep_vars = set(
+        [
+            x
+            for x, y in source.variables.items()
+            if "time" in y.dims and x != "time_bnds"
+        ]
+    )
 
-    return list(all_vars-keep_vars)
+    return list(all_vars - keep_vars)
 
 
 def write_cache(context, source, domain, key, drop_vars, attrs, **kwargs):
-    subset = subset_dataset(context, domain, source, ignore_step=True, **kwargs)
+    subset = subset_dataset(
+        context, domain, source, ignore_step=True, **kwargs
+    )
 
     if "time" not in subset.indexes:
         return source
@@ -506,7 +513,7 @@ def split_intervals(index):
 
     diff = np.ediff1d(values)
 
-    split_index = np.argwhere(diff>1).squeeze().tolist()
+    split_index = np.argwhere(diff > 1).squeeze().tolist()
 
     logger.info(f"Split index {split_index!r}")
 
@@ -523,8 +530,18 @@ def split_intervals(index):
     return new_indexes
 
 
-def missing_intervals(context, subset_index, cached_index, source, subset, key,
-                      domain, drop_vars, attrs, **kwargs):
+def missing_intervals(
+    context,
+    subset_index,
+    cached_index,
+    source,
+    subset,
+    key,
+    domain,
+    drop_vars,
+    attrs,
+    **kwargs,
+):
     diff = subset_index.difference(cached_index)
 
     diff = split_intervals(diff)
@@ -537,19 +554,24 @@ def missing_intervals(context, subset_index, cached_index, source, subset, key,
     remote = []
 
     for x in diff:
-        time = cwt.Dimension("time", int(x[0]), int(x[-1])+1, cwt.INDICES, step)
+        time = cwt.Dimension(
+            "time", int(x[0]), int(x[-1]) + 1, cwt.INDICES, step
+        )
 
         domain.dimensions["time"] = time
 
-        interval = write_cache(context, source, domain, key, drop_vars, attrs,
-                    **kwargs)
+        interval = write_cache(
+            context, source, domain, key, drop_vars, attrs, **kwargs
+        )
 
         remote.append(interval)
 
     return remote
 
 
-def cached_intervals(context, subset_index, cached_index, key, domain, **kwargs):
+def cached_intervals(
+    context, subset_index, cached_index, key, domain, **kwargs
+):
     inter = subset_index.intersection(cached_index)
 
     inter = split_intervals(inter)
@@ -568,7 +590,9 @@ def cached_intervals(context, subset_index, cached_index, key, domain, **kwargs)
     cached_data = xr.open_zarr(context.store, **zarr_kwargs)
 
     for x in inter:
-        time = cwt.Dimension("time", int(x[0]), int(x[-1])+1, cwt.INDICES, step)
+        time = cwt.Dimension(
+            "time", int(x[0]), int(x[-1]) + 1, cwt.INDICES, step
+        )
 
         domain.dimensions["time"] = time
 
@@ -596,13 +620,24 @@ def try_cache(context, source, subset, key, domain, **kwargs):
 
         logger.info(f"Cached index {cached_index!r}")
 
-        remote = missing_intervals(context, subset_index, cached_index, source, subset,
-                                   key, domain, drop_vars, attrs, **kwargs)
+        remote = missing_intervals(
+            context,
+            subset_index,
+            cached_index,
+            source,
+            subset,
+            key,
+            domain,
+            drop_vars,
+            attrs,
+            **kwargs,
+        )
 
-        cached = cached_intervals(context, subset_index, cached_index, key, domain,
-                                  **kwargs)
+        cached = cached_intervals(
+            context, subset_index, cached_index, key, domain, **kwargs
+        )
 
-        sorted_data = sorted(remote+cached, key=lambda x: x.time[0])
+        sorted_data = sorted(remote + cached, key=lambda x: x.time[0])
 
         subset = xr.concat(sorted_data, "time")
     else:
@@ -635,16 +670,16 @@ def process_subset(context, operation, source, *ignored, **kwargs):
         *ignored (List): List of extra inputs that will be ignored.
         **kwargs (Dict): Extra configuration.
     """
-    ds = xr.open_dataset(source.uri, **XARRAY_OPEN_KWARGS)
+    subset = subset_dataset(context, operation.domain, source, **kwargs)
 
-    subset = subset_dataset(context, operation.domain, ds, **kwargs)
-
-    key = urlparse(source.uri).path.split("/")[-1]
+    key = urlparse(operation.inputs[0].uri).path.split("/")[-1]
 
     try:
-        subset = try_cache(context, ds, subset, key, operation.domain, **kwargs)
+        subset = try_cache(
+            context, source, subset, key, operation.domain, **kwargs
+        )
     except Exception:
-        logger.exception()
+        logger.exception(f"Caching error {key!r}")
 
         context.message(f"Caching error {key!r}")
 
@@ -784,7 +819,7 @@ def parse_condition(context, cond):
     if cond is None:
         raise WPSError('Missing parameter "cond"')
 
-    p = r'(?P<left>\w+)\ ?(?P<comp>[<>=!]{1,2}|(is|not)null)(?P<right>-?\d+\.?\d?)?'
+    p = r"(?P<left>\w+)\ ?(?P<comp>[<>=!]{1,2}|(is|not)null)(?P<right>-?\d+\.?\d?)?"  # noqa:
 
     match = re.match(p, cond)
 
@@ -1028,7 +1063,9 @@ def workflow(self, context):
     with metrics.TASK_BUILD_WORKFLOW_DURATION.time():
         for process in context.sorted:
             inputs = [
-                x if isinstance(x, cwt.Variable) else interm[x.name]
+                xr.open_dataset(x.uri, **XARRAY_OPEN_KWARGS)
+                if isinstance(x, cwt.Variable)
+                else interm[x.name]
                 for x in process.inputs
             ]
 
