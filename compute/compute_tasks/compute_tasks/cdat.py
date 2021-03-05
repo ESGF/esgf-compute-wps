@@ -1026,7 +1026,7 @@ def workflow(self, context):
     with metrics.TASK_BUILD_WORKFLOW_DURATION.time():
         for process in context.sorted:
             inputs = [
-                x if isinstance(x, cwt.Variable) else interm[x]
+                x if isinstance(x, cwt.Variable) else interm[x.name]
                 for x in process.inputs
             ]
 
