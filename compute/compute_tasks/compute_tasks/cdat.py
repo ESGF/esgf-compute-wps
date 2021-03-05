@@ -644,6 +644,8 @@ def process_subset(context, operation, source, *ignored, **kwargs):
     try:
         subset = try_cache(context, ds, subset, key, operation.domain, **kwargs)
     except Exception:
+        logger.exception()
+
         context.message(f"Caching error {key!r}")
 
     return subset

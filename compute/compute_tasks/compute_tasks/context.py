@@ -283,7 +283,14 @@ class OperationContext(BaseContext):
 
         self.state = wps_state_api.WPSStateAPI()
 
-        # TODO: redis cache
+        kwargs = {
+            "redis_host": os.environ["REDIS_HOST"],
+            "redis_port": int(os.environ["REDIS_PORT"]),
+            "redis_username": os.environ.get("REDIS_USERNAME", None),
+            "redis_password": os.environ.get("REDIS_PASSWORD", None),
+        }
+
+        self.store = zarr.RedisStore(**kwargs)
 
     @classmethod
     def from_data_inputs(cls, identifier, data_inputs, **kwargs):
