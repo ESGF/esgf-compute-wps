@@ -54,8 +54,9 @@ DEBUG = 'WPS_DEBUG' in os.environ
 config = DjangoConfigParser.from_file(DJANGO_CONFIG_PATH)
 
 # Auth values
-AUTH_TRAEFIK = config.get_value('auth', 'traefik', False, bool)
-AUTH_KEYCLOAK = config.get_value('auth', 'keycloak', False, bool)
+AUTH_TYPE = config.get_value('auth', 'type', 'noauth')
+AUTH_TRAEFIK = AUTH_TYPE == "traefik"
+AUTH_KEYCLOAK = AUTH_TYPE == "keycloak"
 AUTH_KEYCLOAK_URL = config.get_value('auth', 'keycloak.url')
 AUTH_KEYCLOAK_REALM = config.get_value('auth', 'keycloak.realm')
 AUTH_KEYCLOAK_CLIENT_ID = config.get_value('auth', 'keycloak.client_id')
@@ -129,35 +130,32 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ],
+    'DEFAULT_PERMISSION_CLASSES': [],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 50,
 }
 
-REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
-    'rest_framework.renderers.JSONRenderer',
-    'rest_framework.renderers.BrowsableAPIRenderer'
-)
-
-REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
-    'rest_framework.authentication.BasicAuthentication')
-
-REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
-    'rest_framework.authentication.SessionAuthentication')
-
-if DEBUG:
-    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer'
-    )
+if AUTH_TYPE != "noauth":
+    REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"] = [
+        'rest_framework.permissions.IsAuthenticated',
+    ]
 
     REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
         'rest_framework.authentication.BasicAuthentication')
 
     REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
         'rest_framework.authentication.SessionAuthentication')
+
+REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
+    'rest_framework.renderers.JSONRenderer',
+    'rest_framework.renderers.BrowsableAPIRenderer'
+)
+
+if DEBUG:
+    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer'
+    )
 
     INSTALLED_APPS.append('corsheaders')
 
@@ -259,7 +257,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-STATIC_ROOT = '/var/www/static'
+STATIC_ROOT = os.path.join(BASE_DIR, 'assets')
 
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'assets'),
