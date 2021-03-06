@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 from functools import partial
-import json
 import math
 import os
 import re
@@ -30,6 +29,7 @@ from compute_tasks import WPSError
 
 logger = get_task_logger("compute_tasks.cdat")
 
+MAX_STORAGE = int(os.environ.get("MAX_STORAGE", "100"))
 
 XARRAY_OPEN_KWARGS = {
     "engine": "netcdf4",
@@ -329,6 +329,7 @@ def gather_workflow_outputs(context, interm, operations):
         WPSError: If output is not found or there exists and issue creating the
             output netCDF file.
     """
+    total_mb_size = 0
     delayed = []
 
     for output in operations:
@@ -347,6 +348,8 @@ def gather_workflow_outputs(context, interm, operations):
 
         # Limit max filesize to 100MB
         max_size = 1024e5
+
+        total_mb_size += interm_ds.nbytes / 1e6
 
         try:
             if interm_ds.nbytes > max_size:
@@ -376,7 +379,35 @@ def gather_workflow_outputs(context, interm, operations):
 
         delayed.append(_delayed)
 
+    used_storage = get_used_storage(context)
+
+    logger.info(
+        f"Used storage {used_storage!r} MB estimated output"
+        f" {total_mb_size!r} MB max storage {MAX_STORAGE!r} MB"
+    )
+
+    estimated_storage = used_storage + total_mb_size
+
+    if estimated_storage > MAX_STORAGE:
+        to_remove = math.ceil((used_storage - MAX_STORAGE) + total_mb_size)
+
+        raise WPSError(f"Out of storage, remove {to_remove!r} MB")
+
     return delayed
+
+
+def get_used_storage(context):
+    base_path = context.get_base_path()
+
+    total = 0
+
+    for root, dirs, files in os.walk(base_path):
+        for x in files:
+            file_path = os.path.join(root, x)
+
+            total += os.stat(file_path).st_size / 1e6
+
+    return total
 
 
 def input_nbytes(input):

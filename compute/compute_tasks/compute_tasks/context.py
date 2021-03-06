@@ -1,7 +1,7 @@
+import json
 import logging
 import os
 import uuid
-import json
 
 import cwt
 import zarr
@@ -258,10 +258,7 @@ class BaseContext:
                 if in_deg[x] == 0:
                     queue.append(x)
 
-    def generate_local_path(self, filename=None):
-        if filename is None:
-            filename = f"{uuid.uuid4()!s}.nc"
-
+    def get_base_path(self):
         if (
             "output_path" in self.extra
             and self.extra["output_path"] is not None
@@ -271,6 +268,14 @@ class BaseContext:
             base_path = os.path.join(
                 os.environ["DATA_PATH"], str(self.user), str(self.job)
             )
+
+        return base_path
+
+    def generate_local_path(self, filename=None):
+        if filename is None:
+            filename = f"{uuid.uuid4()!s}.nc"
+
+        base_path = self.get_base_path()
 
         if not os.path.exists(base_path):
             os.makedirs(base_path)
@@ -367,11 +372,7 @@ class OperationContext(BaseContext):
             self.output(local, size)
 
         self.status = self.state.succeeded(
-            self.job,
-            json.dumps([
-                x.to_dict()
-                for x in self._output.values()
-            ])
+            self.job, json.dumps([x.to_dict() for x in self._output.values()])
         )
 
     def failed(self, exception):
