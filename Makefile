@@ -1,18 +1,23 @@
+GIT_REV := $(shell git rev-parse --short HEAD)
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+
 REGISTRY := $(if $(REGISTRY),$(REGISTRY)/,nimbus2.llnl.gov/default/)
 VERSION = $(shell cat $(DOCKERFILE)/VERSION)
 
-TAG = $(REGISTRY)$(NAME):$(VERSION)
+TAG = $(REGISTRY)$(NAME):$(VERSION)$(if $(findstring master,$(GIT_BRANCH)),,-$(GIT_REV))
 
 TARGET ?= production
 CONDA_VERSION ?= 4.8.2
 CACHE_PATH ?= $(PWD)/cache
 OUTPUT_PATH ?= $(PWD)/output
+BASE_IMAGE = continuumio/miniconda3:4.9.2
 
 CACHE_ARG = --import-cache type=local,src=$(CACHE_PATH) \
 						--export-cache type=local,dest=$(CACHE_PATH),mode=max
 
 CONFIG_ARG = --opt build-arg:CONTAINER_IMAGE=$(TAG) \
-	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION)
+	--opt build-arg:CONDA_VERSION=$(CONDA_VERSION) \
+	--opt build-arg:BASE_IMAGE=$(BASE_IMAGE)
 
 ifeq ($(TARGET),testresult)
 OUTPUT_ARG = --output type=local,dest=$(OUTPUT_PATH)
