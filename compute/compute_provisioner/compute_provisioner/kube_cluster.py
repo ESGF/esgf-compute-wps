@@ -11,10 +11,8 @@ from compute_provisioner import allocator
 logger = logging.getLogger('provisioner.kube_cluster')
 
 
-class KubeCluster(threading.Thread):
+class KubeCluster:
     def __init__(self, namespace, dry_run, ignore_lifetime, **kwargs):
-        super(KubeCluster, self).__init__(target=self.monitor)
-
         self.namespace = namespace
 
         self.dry_run = dry_run

@@ -1,7 +1,11 @@
+import logging
+
 from jinja2 import DebugUndefined
 from jinja2 import Template
 from kubernetes import client
 from kubernetes import config
+
+logger = logging.getLogger(__name__)
 
 class KubernetesAllocator(object):
     def __init__(self):

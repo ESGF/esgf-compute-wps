@@ -262,7 +262,6 @@ class Provisioner(threading.Thread):
 
         kwargs = {
             'namespace': kwargs['namespace'] or NAMESPACE,
-            'timeout': kwargs['timeout'] or TIMEOUT,
             'dry_run': kwargs['dry_run'],
             'ignore_lifetime': kwargs['ignore_lifetime'],
         }
