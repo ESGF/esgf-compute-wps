@@ -26,6 +26,8 @@ LIFETIME = int(os.environ.get('LIFETIME', '120'))
 NAMESPACE = os.environ.get('NAMESPACE', 'default')
 SA_NAME = os.environ.get('SERVICE_ACCOUNT_NAME', 'compute')
 IMAGE_PULL_SECRET = os.environ.get('IMAGE_PULL_SECRET', 'docker-registry')
+FRONTEND_PORT = 7777
+BACKEND_PORT = 7778
 
 class ResourceAllocationError(Exception):
     pass
@@ -241,8 +243,8 @@ class WorkerQueue(object):
 
 
 class Provisioner(threading.Thread):
-    def __init__(self, frontend_port, backend_port, lifetime, **kwargs):
-        super(Provisioner, self).__init__(target=self.monitor, args=(frontend_port, backend_port))
+    def __init__(self, lifetime, **kwargs):
+        super(Provisioner, self).__init__(target=self.monitor)
 
         self.lifetime = lifetime or LIFETIME
 
@@ -405,10 +407,10 @@ class Provisioner(threading.Thread):
 
                 logger.info(f'Moved worker {address!r} to running')
 
-    def monitor(self, frontend_port, backend_port):
+    def monitor(self):
         """ Main loop for the load balancer.
         """
-        self.initialize(7777, 7778)
+        self.initialize(FRONTEND_PORT, BACKEND_PORT)
 
         queue = []
         resources = {}
@@ -506,7 +508,7 @@ def main():
 
     logger.info('Started metrics server')
 
-    provisioner = Provisioner(**kwargs)
+    provisioner = Provisioner(**vars(args))
 
     provisioner.start()
 
