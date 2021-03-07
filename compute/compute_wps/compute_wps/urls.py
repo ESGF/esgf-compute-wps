@@ -38,8 +38,8 @@ router_urls.extend(
 )
 
 schema = get_schema_view(
+    title="WPS API", patterns=router.urls, url=f"/wps/api"
     # title="WPS API", patterns=router.urls, url=f"{settings.BASE_URL}/wps/api"
-    title="WPS API", patterns=router.urls,
 )
 
 
