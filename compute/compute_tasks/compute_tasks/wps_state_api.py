@@ -1,5 +1,8 @@
 import logging
 import os
+import socket
+import time
+from urllib.parse import urlparse
 
 import coreapi
 from coreapi import document
@@ -84,6 +87,20 @@ class WPSStateAPI:
         self._document = None
 
         self._token = None
+
+    def wait_api(self):
+        parts = urlparse(API_SCHEMA_URL)
+        host = parts.hostname
+
+        while True:
+            try:
+                socket.getaddrinfo(host, 0, 0, 0)
+            except Exception:
+                logger.exception(f"{host} not avaialble")
+            else:
+                break
+
+            time.sleep(2)
 
     def init_client(self):
         if AUTH_ENABLED:
