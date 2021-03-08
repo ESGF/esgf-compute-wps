@@ -38,21 +38,6 @@ requirements:
 test:
   imports:
     - compute_wps
-  source_files:
-    - env
-    - pytest.ini
-    - compute_wps/tests
-  requires:
-    - pytest
-    - pytest-cov
-    - pytest-mock
-    - pytest-django
-    - mock
-  commands:
-    - source ./env
-    - pip install pytest-pythonpath
-    - django-admin startproject compute 
-    - pytest -vvv --junit-xml=/output/unittest.xml --cov=compute_wps --cov-report=xml:/output/coverage.xml compute_wps/tests
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps

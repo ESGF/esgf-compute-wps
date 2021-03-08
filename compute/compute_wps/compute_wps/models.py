@@ -130,7 +130,7 @@ class Output(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
     local = models.CharField(max_length=256)
-    size = models.PositiveIntegerField()
+    size = models.DecimalField(max_digits=14, decimal_places=4)
 
     def __str__(self):
         return f"local {self.local} size {self.size}"
