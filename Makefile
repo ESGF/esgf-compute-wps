@@ -10,7 +10,7 @@ TARGET ?= production
 CONDA_VERSION ?= 4.8.2
 CACHE_PATH ?= $(PWD)/cache
 OUTPUT_PATH ?= $(PWD)/output
-BASE_IMAGE = continuumio/miniconda3:4.9.2
+BASE_IMAGE = nimbus2.llnl.gov/default/compute-base:1.0.0
 
 CACHE_ARG = --import-cache type=local,src=$(CACHE_PATH) \
 						--export-cache type=local,dest=$(CACHE_PATH),mode=max
@@ -52,6 +52,12 @@ else
 BUILD = /bin/sh \
 				$(BUILD_ARG)
 endif
+
+.PHONY: base
+base: NAME := compute-base
+base: DOCKERFILE := compute/base
+base: BASE_IMAGE := condaforge/mambaforge:4.9.2-5
+base: build
 
 .PHONY: provisioner
 provisioner: NAME	:= compute-provisioner
