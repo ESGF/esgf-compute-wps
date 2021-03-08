@@ -1,9 +1,5 @@
 #! /bin/bash
 
-pushd /var/www/webapp/compute
-
-source activate wps
-
 celery inspect ping -A compute -b $CELERY_BROKER_URL
 
 if [[ $? -ne 0 ]]

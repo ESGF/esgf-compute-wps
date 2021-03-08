@@ -20,6 +20,8 @@ import pandas as pd
 from tornado.ioloop import IOLoop
 import xarray as xr
 import zarr
+from dask_gateway import Gateway
+from dask_gateway.auth import BasicAuth
 
 from compute_tasks import base
 from compute_tasks import celery_app
@@ -1079,6 +1081,63 @@ param_other = base.parameter(
 )
 
 
+def execute_on_cluster(context, client, interm):
+    delayed = context.delayed
+
+    delayed.extend(
+        gather_workflow_outputs(context, interm, context.output_ops())
+    )
+
+    context.message(f"Executing {len(delayed)!r} tasks on the cluster")
+
+    with client:
+        with metrics.TASK_EXECUTE_WORKFLOW_DURATION.time():
+            try:
+                task_futures = client.compute(delayed)
+
+                DaskTaskTracker(context, task_futures)
+            except DaskTimeoutError:
+                metrics.TASK_WORKFLOW_FAILURE.inc()
+
+                client.cacnel(delayed)
+
+                raise
+            except (WPSError, Exception) as e:
+                metrics.TASK_WORKFLOW_FAILURE.inc()
+
+                if not isinstance(e, WPSError):
+                    raise WPSError(f"Error executing process: {e!s}")
+
+                raise
+            else:
+                metrics.TASK_WORKFLOW_SUCCESS.inc()
+
+
+@metrics.TASK_BUILD_WORKFLOW_DURATION.time()
+def build_workflow(context):
+    interm = {}
+
+    for process in context.sorted:
+        inputs = [
+            xr.open_dataset(x.uri, **XARRAY_OPEN_KWARGS)
+            if isinstance(x, cwt.Variable)
+            else interm[x.name]
+            for x in process.inputs
+        ]
+
+        process_func = base.get_process(process.identifier)
+
+        params = process_func._get_parameters(process)
+
+        output = process_func._process_func(
+            context, process, *inputs, **params
+        )
+
+        interm[process.name] = output
+
+    return interm
+
+
 @bind_process_func(None)
 @base.register_process("CDAT.workflow", max=float("inf"))
 def workflow(self, context):
@@ -1089,67 +1148,47 @@ def workflow(self, context):
     """
     context.started()
 
-    interm = {}
-
-    with metrics.TASK_BUILD_WORKFLOW_DURATION.time():
-        for process in context.sorted:
-            inputs = [
-                xr.open_dataset(x.uri, **XARRAY_OPEN_KWARGS)
-                if isinstance(x, cwt.Variable)
-                else interm[x.name]
-                for x in process.inputs
-            ]
-
-            process_func = base.get_process(process.identifier)
-
-            params = process_func._get_parameters(process)
-
-            output = process_func._process_func(
-                context, process, *inputs, **params
-            )
-
-            interm[process.name] = output
-
-    context.message("Preparing to execute workflow")
+    interm = build_workflow(context)
 
     if "DASK_SCHEDULER" in context.extra:
         client = utilities.retry(8, 1)(Client)(
             context.extra["DASK_SCHEDULER"]
         )
+
+        execute_on_cluster(context, client, interm)
     else:
-        client = Client()
+        logger.info("Using dask-gateway")
 
-    try:
-        delayed = context.delayed
+        auth = None
+        gateway_pwd = os.environ.get("DASK_GATEWAY_PASSWORD", None)
 
-        delayed.extend(
-            gather_workflow_outputs(context, interm, context.output_ops())
-        )
+        if gateway_pwd is not None:
+            auth = BasicAuth(password=gateway_pwd)
 
-        context.message(f"Gathered {len(delayed)} outputs")
+        gateway_address = os.environ["DASK_GATEWAY_ADDRESS"]
 
-        with metrics.TASK_EXECUTE_WORKFLOW_DURATION.time():
-            fut = client.compute(delayed)
+        gateway = Gateway(gateway_address, auth=auth)
 
-            DaskTaskTracker(context, fut)
-    except DaskTimeoutError:
-        metrics.TASK_WORKFLOW_FAILURE.inc()
+        context.message("Provisioning cluster using dask gateway")
 
-        client.cancel(delayed)
+        logger.info(f"Creating new cluster using gateway {gateway!r}")
 
-        raise
-    except WPSError:
-        metrics.TASK_WORKFLOW_FAILURE.inc()
+        with gateway.new_cluster() as cluster:
+            logger.info("Configuring adaptive scaling")
 
-        raise
-    except Exception as e:
-        metrics.TASK_WORKFLOW_FAILURE.inc()
+            workers = int(os.environ.get("WORKERS", 2))
 
-        raise WPSError("Error executing process: {!r}", e)
-    else:
-        metrics.TASK_WORKFLOW_SUCCESS.inc()
-    finally:
-        client.close()
+            context.message(f"Scaling cluster minimum 1 maximum {workers!r}")
+
+            cluster.adapt(minimum=1, maximum=workers)
+
+            logger.info(f"Getting client for cluster {cluster!r}")
+
+            client = cluster.get_client()
+
+            logger.info(f"Using client {client!r}")
+
+            execute_on_cluster(context, client, interm)
 
     metrics.push(context.job)
 

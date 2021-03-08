@@ -5,6 +5,7 @@ import uuid
 
 import cwt
 import zarr
+from redis.connection import ConnectionPool
 
 from compute_tasks import base
 from compute_tasks import mapper
@@ -339,24 +340,20 @@ class LocalContext(BaseContext):
 
 
 class OperationContext(BaseContext):
-    def __init__(self, job, user, process, status, **kwargs):
+    def __init__(self, job, user, process, status, redis_url=None, **kwargs):
         self.job = job
         self.user = user
         self.process = process
         self.status = status
 
+        self.redis_url = os.environ.get("REDIS_URL", redis_url)
+        pool = ConnectionPool.from_url(self.redis_url)
+
+        self.store = zarr.RedisStore(connection_pool=pool)
+
         super().__init__(**kwargs)
 
         self.state = wps_state_api.WPSStateAPI()
-
-        kwargs = {
-            "host": os.environ["REDIS_HOST"],
-            "port": int(os.environ["REDIS_PORT"]),
-            "username": os.environ.get("REDIS_USERNAME", None),
-            "password": os.environ.get("REDIS_PASSWORD", None),
-        }
-
-        self.store = zarr.RedisStore(**kwargs)
 
     @classmethod
     def from_data_inputs(cls, identifier, data_inputs, **kwargs):
@@ -382,7 +379,22 @@ class OperationContext(BaseContext):
         self.state.message(self.status, message, percent)
 
     def output(self, local, size):
-        self.state.output(self.job, local, size)
+        self.state.output_create(self.job, local, size)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state["store"]
+
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+        self.redis_url = os.environ.get("REDIS_URL", self.redis_url)
+        pool = ConnectionPool.from_url(self.redis_url)
+
+        self.store = zarr.RedisStore(connection_pool=pool)
 
     def to_dict(self):
         store = super().to_dict()
@@ -391,5 +403,6 @@ class OperationContext(BaseContext):
         store["user"] = self.user
         store["process"] = self.process
         store["status"] = self.status
+        store["redis_url"] = self.redis_url
 
         return store

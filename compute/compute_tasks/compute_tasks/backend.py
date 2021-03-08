@@ -145,12 +145,8 @@ def queue_from_identifier(identifier):
 
 
 def build_context(
-    identifier, data_inputs, job, user, process, status, namespace, **extra
+    identifier, data_inputs, job, user, process, status, **extra
 ):
-    extra.update(
-        DASK_SCHEDULER=f"dask-scheduler-{user!s}.{namespace!s}.svc:8786"
-    )
-
     state_data = {
         "extra": extra,
         "job": job,
@@ -241,20 +237,18 @@ class WaitingState(State):
         logger.info(f"Current state {self!s} transition to {transition!s}")
 
         if transition == REQUEST:
-            try:
-                resources = json.dumps(
-                    list(render_templates(user=payload["user"]).values())
-                )
+            logger.info(f"Processing request {payload!r}")
 
-                backend.worker.send_multipart([RESOURCE, resources.encode()])
+            try:
+                workflow = build_workflow(**payload)
+
+                workflow.apply_async(serializer="cwt_json")
             except Exception as e:
                 backend.fail_job(payload["job"], e)
 
-                logger.exception("Failed job, error building resources")
-            else:
-                logger.info("Setting new state to ResourceAckState")
+                logger.exception("Failed job, error building workflow")
 
-                return ResourceAckState(payload)
+            backend.worker.send_multipart([ACK,])
         else:
             logger.info("Transition is invalid resetting to WaitingState")
 
@@ -303,7 +297,7 @@ class Worker(threading.Thread):
     def __init__(self, version, queue_host):
         threading.Thread.__init__(self)
 
-        self.state = wps_state_api.WPSStateAPI()
+        self.api = wps_state_api.WPSStateAPI()
 
         self.version = version
         self.queue_host = queue_host or os.environ["PROVISIONER_BACKEND"]
@@ -380,7 +374,7 @@ class Worker(threading.Thread):
         try:
             self.job = job
 
-            self.state.failed(job, str(e))
+            self.api.failed(job, str(e))
         except Exception:
             pass
         finally:

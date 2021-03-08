@@ -222,7 +222,7 @@ class WPSStateAPI:
         params = {
             "job": job,
             "local": local,
-            "size": size,
+            "size": round(size, 4),
         }
 
         response = self._action(["output", "create"], params)

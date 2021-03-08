@@ -20,6 +20,8 @@ def import_modules_handler(*args, **kwargs):
 
 
 def default(obj):
+    from compute_tasks import context
+
     if isinstance(obj, slice):
         data = {
             "__type": "slice",
@@ -56,6 +58,11 @@ def default(obj):
             "data": obj.strftime(DATETIME_FMT),
             "__type": "datetime",
         }
+    elif isinstance(obj, context.OperationContext):
+        data = {
+            "data": obj.to_dict(),
+            "__type": "operation_context",
+        }
     else:
         raise TypeError(type(obj))
 
@@ -65,6 +72,8 @@ def default(obj):
 
 
 def object_hook(obj):
+    from compute_tasks import context
+
     obj = byteify(obj)
 
     if "__type" not in obj:
@@ -90,6 +99,8 @@ def object_hook(obj):
         data = datetime.timedelta(**kwargs)
     elif obj["__type"] == "datetime":
         data = datetime.datetime.strptime(obj["data"], DATETIME_FMT)
+    elif obj["__type"] == "operation_context":
+        data = context.OperationContext(**obj["data"])
 
     return data
 

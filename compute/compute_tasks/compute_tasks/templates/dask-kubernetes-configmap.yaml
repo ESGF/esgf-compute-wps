@@ -27,12 +27,8 @@ data:
               value: 'no'
             - name: HDF5_USE_FILE_LOCKING
               value: 'FALSE'
-            - name: REDIS_HOST
-              value: {{ redis_host }}
-            - name: REDIS_PORT
-              value: {{ redis_port }}
-            - name: REDIS_DB
-              value: {{ redis_db }}
+            - name: REDIS_URL
+              value: {{ redis_url }}
             args:
               - dask-worker
               - --nthreads
@@ -42,10 +38,6 @@ data:
               - "{{ worker_memory }}"
               - --death-timeout
               - '60'
-            {%- if worker_redis_cache_enabled %}
-              - --worker-class
-              - compute_tasks.dask_worker.CachedWorker
-            {%- endif %}
             resources:
               limits:
                 cpu: {{ worker_cpu }}

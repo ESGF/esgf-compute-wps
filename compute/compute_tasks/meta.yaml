@@ -24,10 +24,6 @@ requirements:
 
   run:
     - python
-    - nomkl
-    - libnetcdf
-    - cdms2=*=*nompi*
-    - numpy
     - esgf-compute-api
     - pyzmq
     - redis-py
@@ -43,22 +39,11 @@ requirements:
     - netcdf4
     - python-coreapi
     - zarr
+    - dask-gateway
 
 test:
   imports:
     - compute_tasks
-  source_files:
-    - env
-    - compute_tasks/tests
-    - conftest.py 
-  requires:
-    - pytest
-    - pytest-cov
-    - pytest-mock
-    - myproxyclient
-  commands:
-    - source ./env
-    - pytest -vvv -m "not myproxyclient" --junit-xml=/output/unittest.xml --cov=compute_tasks --cov-report=xml:/output/coverage.xml
 
 about:
   home: https://github.com/ESGF/esgf-compute-wps
