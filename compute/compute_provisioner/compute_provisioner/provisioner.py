@@ -13,6 +13,7 @@ from functools import partial
 import yaml
 import zmq
 from prometheus_client import start_http_server
+from kubernetes import client
 
 from compute_provisioner import allocator
 from compute_provisioner import constants
@@ -61,6 +62,7 @@ class State(object):
     def __str__(self):
         return self.__class__.__name__
 
+# TODO: Remove state, no longer used
 class WaitingResourceRequestState(State):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -144,9 +146,9 @@ class WaitingResourceRequestState(State):
             try:
                 extra = self.allocate_resources(args[0])
             except Exception as e:
-                new_frames = [address, constants.ERR, str(e).encode()]
+                logger.exception(f'Notifying backend {address} of allocation error')
 
-                logger.info(f'Notifying backend {address} of allocation error')
+                new_frames = [address, constants.ERR, str(e).encode()]
             else:
                 new_frames = [address, constants.ACK, json.dumps(extra).encode()]
 
@@ -162,13 +164,20 @@ class WaitingResourceRequestState(State):
         return self
 
 
+class WaitingAckState(State):
+    def on_event(self, address, transition, *frames):
+        logger.info(f"Received ack from backend {frames!r}")
+
+        return None
+
+
 class Worker(object):
     def __init__(self, address, version, **kwargs):
         self.address = address
         self.version = version
         self.frames = None
         self.expiry = time.time() + constants.HEARTBEAT_INTERVAL * constants.HEARTBEAT_LIVENESS
-        self.state = WaitingResourceRequestState(**kwargs)
+        self.state = WaitingAckState()
 
     def on_event(self, address, *frames):
         old_state = str(self.state)
@@ -375,11 +384,11 @@ class Provisioner(threading.Thread):
                 logger.info(f'Worker {address!r} failed, requeueing job')
 
     def dispatch_workers(self, queue):
-        if len(queue) == 0:
-            return
-
         for address, worker in list(self.workers.queue.items()):
             logger.info('Processing waiting worker %r', address)
+
+            if len(queue) == 0:
+                continue
 
             frames = queue.pop(0)
 
@@ -398,7 +407,7 @@ class Provisioner(threading.Thread):
             else:
                 metrics.PROVISIONER_QUEUE.dec()
 
-                worker.frames = raw_frames
+                worker.frames = frames
 
                 self.running[address] = worker
 

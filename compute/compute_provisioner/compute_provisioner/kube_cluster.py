@@ -22,17 +22,17 @@ class KubeCluster:
         self.k8s = allocator.KubernetesAllocator()
 
     def check_resources(self, resources):
-        for x in iter(resources):
+        for x in resources:
             expire = resources[x]
 
             logger.info(f'Checking resource group {x}')
 
-            label_selector = f'compute.io/resource-group={x.decode()!s}'
+            label_selector = f'compute.io/resource-group={x!s}'
 
             if expire is None:
                 self.k8s.delete_resources(self.namespace, label_selector)
             else:
-                expire = float(expire.decode())
+                expire = float(expire)
 
                 if expire < time.time() or self.ignore_lifetime:
                     self.k8s.delete_resources(self.namespace, label_selector)
@@ -41,7 +41,7 @@ class KubeCluster:
 
         logger.info('Removing rogue resources')
 
-        key_list = ', '.join([x.decode() for x in resources])
+        key_list = ', '.join([x for x in resources])
 
         rogue_selector = f'compute.io/resource-group,compute.io/resource-group notin ({key_list!s})'
 
