@@ -43,9 +43,15 @@ class StatusSerializer(serializers.ModelSerializer):
 
 
 class OutputSerializer(serializers.ModelSerializer):
+    job = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=models.Job.objects,
+    )
+    local = serializers.CharField(write_only=True)
+
     class Meta(object):
         model = models.Output
-        exclude = ("job", "local")
+        fields = "__all__"
 
 
 class JobSerializer(serializers.HyperlinkedModelSerializer):
