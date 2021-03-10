@@ -4,7 +4,7 @@ GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 REGISTRY := $(if $(REGISTRY),$(REGISTRY)/,nimbus2.llnl.gov/default/)
 VERSION = $(shell cat $(DOCKERFILE)/VERSION)
 
-TAG = $(REGISTRY)$(NAME):$(VERSION)$(if $(findstring master,$(GIT_BRANCH)),,-$(GIT_REV))
+TAG = $(REGISTRY)$(NAME):$(VERSION)$(if $(findstring devel,$(GIT_BRANCH)),-$(GIT_REV),)
 
 TARGET ?= production
 CONDA_VERSION ?= 4.8.2
