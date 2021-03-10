@@ -97,6 +97,25 @@ class Job(models.Model):
         except IntegrityError:
             logger.error("Failed status already exists")
 
+    def status(self):
+        latest = self.status_set.latest('created_date')
+
+        return latest.status
+
+    def elapsed(self):
+        try:
+            earliest = self.status_set.earliest('created_date')
+
+            latest = self.status_set.latest('updated_date')
+        except Exception:
+            return None
+
+        return latest.updated_date-earliest.created_date
+
+    def accepted_on(self):
+        status = self.status_set.get(status='ProcessAccepted')
+
+        return status.created_date
 
 class Status(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
@@ -130,15 +149,16 @@ class Output(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
     local = models.CharField(max_length=256)
+    remote = models.CharField(max_length=512)
     size = models.DecimalField(max_digits=14, decimal_places=4)
 
     def __str__(self):
-        return f"local {self.local} size {self.size}"
+        return f"local {self.local} remote {self.remote} size {self.size}"
 
 
 @receiver(post_delete, sender=Output)
-def post_delete_output_callback(sender, output, **kwargs):
-    logger.info(f"Removing {output.local!r}")
+def post_delete_output_callback(sender, instance, **kwargs):
+    logger.info(f"Removing {instance.local!r}")
 
-    if os.path.exists(output.local):
-        os.remove(output.local)
+    if os.path.exists(instance.local):
+        os.remove(instance.local)
