@@ -322,7 +322,7 @@ class LocalContext(BaseContext):
         for x, y in self._output.items():
             size = os.stat(x).st_size / 1e6
 
-            self.output(x, size)
+            self.output(x, y.uri, size)
 
             logger.info(f"Output {y!r}")
 
@@ -332,28 +332,50 @@ class LocalContext(BaseContext):
     def message(self, message, percent=None):
         logger.info(f"{message} {percent}")
 
-    def output(self, local, size):
-        logger.info(f"Local file {local!r} size {size!r}")
+    def output(self, local, remote, size):
+        logger.info(f"Local file {local!r} remote {remote!r} size {size!r}")
 
     def to_dict(self):
         pass
 
 
 class OperationContext(BaseContext):
-    def __init__(self, job, user, process, status, redis_url=None, **kwargs):
+    def __init__(self, job, user, process, status, **kwargs):
         self.job = job
         self.user = user
         self.process = process
         self.status = status
 
-        self.redis_url = os.environ.get("REDIS_URL", redis_url)
-        pool = ConnectionPool.from_url(self.redis_url)
-
-        self.store = zarr.RedisStore(connection_pool=pool)
+        self.store = OperationContext.create_cache_store()
 
         super().__init__(**kwargs)
 
         self.state = wps_state_api.WPSStateAPI()
+
+    @staticmethod
+    def create_cache_store():
+        store = None
+        cache_type = os.environ.get("CACHE_TYPE", None)
+
+        if cache_type == "redis":
+            redis_url = os.environ["REDIS_URL"]
+            pool = ConnectionPool.from_url(redis_url)
+
+            store = zarr.RedisStore(connection_pool=pool)
+        elif cache_type == "directory":
+            store_dir = os.environ["CACHE_DIRECTORY"]
+
+            if not os.path.exists(store_dir):
+                os.makedirs(store_dir)
+
+            store = zarr.DirectoryStore(store_dir)
+
+        if store is not None:
+            cache_size = int(os.environ.get("CACHE_SIZE", "100"))
+
+            store = zarr.LRUStoreCache(store, cache_size*1e6)
+
+        return store
 
     @classmethod
     def from_data_inputs(cls, identifier, data_inputs, **kwargs):
@@ -366,7 +388,7 @@ class OperationContext(BaseContext):
         for local, variable in self._output.items():
             size = os.stat(local).st_size / 1e6
 
-            self.output(local, size)
+            self.output(local, variable.uri, size)
 
         self.status = self.state.succeeded(
             self.job, json.dumps([x.to_dict() for x in self._output.values()])
@@ -378,8 +400,8 @@ class OperationContext(BaseContext):
     def message(self, message, percent=None):
         self.state.message(self.status, message, percent)
 
-    def output(self, local, size):
-        self.state.output_create(self.job, local, size)
+    def output(self, local, remote, size):
+        self.state.output_create(self.job, local, remote, size)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -391,10 +413,7 @@ class OperationContext(BaseContext):
     def __setstate__(self, state):
         self.__dict__.update(state)
 
-        self.redis_url = os.environ.get("REDIS_URL", self.redis_url)
-        pool = ConnectionPool.from_url(self.redis_url)
-
-        self.store = zarr.RedisStore(connection_pool=pool)
+        self.store = OperationContext.create_cache_store()
 
     def to_dict(self):
         store = super().to_dict()
@@ -403,6 +422,5 @@ class OperationContext(BaseContext):
         store["user"] = self.user
         store["process"] = self.process
         store["status"] = self.status
-        store["redis_url"] = self.redis_url
 
         return store

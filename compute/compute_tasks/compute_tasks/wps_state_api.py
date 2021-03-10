@@ -218,10 +218,11 @@ class WPSStateAPI:
         except coreapi.exceptions.ErrorMessage:
             pass
 
-    def output_create(self, job, local, size):
+    def output_create(self, job, local, remote, size):
         params = {
             "job": job,
             "local": local,
+            "remote": remote,
             "size": round(size, 4),
         }
 

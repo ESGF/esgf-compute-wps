@@ -637,6 +637,11 @@ def cached_intervals(
 
 
 def try_cache(context, source, subset, key, domain, **kwargs):
+    if context.store is None:
+        logger.info("Cache is disabled")
+
+        return subset
+
     attrs_key = f"{key}/.zattrs"
     attrs = zarr.attrs.Attributes(context.store, attrs_key)
 
