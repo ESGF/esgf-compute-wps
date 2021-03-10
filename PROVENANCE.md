@@ -11,6 +11,20 @@ Provenance is embedded as global attributes in every output netCDF file. These a
 
 ## Example
 
+### Generating provenance document using CWT End-user API.
+
+Using [CWT End-user API](https://github.com/ESGF/esgf-compute-api) you can create a provenance document that would be stored in the output by ESGF WPS.
+
+```python
+import cwt
+
+v = cwt.Variable('...', 'tas')
+client = cwt.LLNLClient('...')
+subset = client.CDAT.subset(v, domain=cwt.Domain(time=slice(10, 20)))
+
+subset.to_document()
+```
+
 ### Viewing the provenance in a WPS output
 
 This example shows printing the provenance.
