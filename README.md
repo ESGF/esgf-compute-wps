@@ -16,21 +16,14 @@ Table of Contents
 
 These commands will build the production stage of the containers. A buildkit container is used to build the containers unless buildkit is installed locally.
 
-* WPS `make build-wps`
-* Tasks `make build-tasks`
-* Provisioner `make build-provisioner`
-* THREDDS `make build-thredds`
+* WPS `make wps`
+* Tasks `make tasks`
+* Provisioner `make provisioner`
+* THREDDS `make thredds`
 
 # Provenance
 
 Information about provenance can be found [here](PROVENANCE.md)
-
-# Testing
-
-These commands will build the testing stage of the containers. The unittest results and coverage reports will be located in the `/testing` directory.
-
-* WPS `make build-wps TARGET=testing`
-* Tasks `make build-wps TARGET=testing`
 
 # Installation
 
