@@ -25,6 +25,10 @@ These commands will build the production stage of the containers. A buildkit con
 
 Information about provenance can be found [here](PROVENANCE.md)
 
+# Authentication
+
+Information about authentication can be found [here](AUTHENTICATION.md)
+
 # Installation
 
 The deployment instructions and Helm chart can be found at [esgf-compute/charts](https://github.com/esgf-compute/charts).
